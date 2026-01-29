@@ -18,16 +18,7 @@ from console.schematic import CustomSymbol, Schematic
 from console.schematic.symbol_toolbar import SymbolToolbar
 from framework.utils import get_random_name
 
-FAVICON_SVG = os.path.join(
-    os.path.dirname(__file__),
-    "..",
-    "..",
-    "..",
-    "..",
-    "console",
-    "public",
-    "favicon.svg",
-)
+TEST_SYMBOL_SVG = os.path.join(os.path.dirname(__file__), "test_symbol.svg")
 
 
 class CustomSymbols(ConsoleCase):
@@ -117,10 +108,10 @@ class CustomSymbols(ConsoleCase):
         old_name = self.test_group_name
         new_name = f"Renamed Group {self.suffix}"
         toolbar.rename_group(old_name, new_name)
+        toolbar.wait_for_group_hidden(old_name)
         assert toolbar.group_exists(
             new_name
         ), f"Group '{new_name}' should exist after rename"
-        toolbar.wait_for_group_hidden(old_name)
         self.test_group_name = new_name
 
     def test_create_symbol(self, schematic: Schematic, toolbar: SymbolToolbar) -> None:
@@ -129,7 +120,7 @@ class CustomSymbols(ConsoleCase):
         toolbar.select_group(self.test_group_name)
 
         editor = toolbar.create_symbol()
-        editor.upload_svg(FAVICON_SVG)
+        editor.upload_svg(TEST_SYMBOL_SVG)
         editor.set_name(self.test_symbol_name)
         editor.add_handle()
         editor.set_region_stroke_color("#FF0000", region_index=0)
@@ -162,8 +153,10 @@ class CustomSymbols(ConsoleCase):
         """Test renaming a symbol via context menu."""
         self.log("Testing rename symbol via context menu")
         toolbar.select_group(self.test_group_name)
+        old_name = self.test_symbol_name
         new_name = f"Renamed Symbol {self.suffix}"
-        toolbar.rename_symbol(self.test_symbol_name, new_name)
+        toolbar.rename_symbol(old_name, new_name)
+        toolbar.wait_for_symbol_hidden(old_name)
         assert toolbar.symbol_exists(
             new_name
         ), f"Symbol '{new_name}' should exist after rename"
@@ -173,10 +166,12 @@ class CustomSymbols(ConsoleCase):
         """Test renaming a symbol via the symbol editor."""
         self.log("Testing rename symbol via editor")
         toolbar.select_group(self.test_group_name)
+        old_name = self.test_symbol_name
         new_name = f"Editor Renamed {self.suffix}"
-        editor = toolbar.edit_symbol(self.test_symbol_name)
+        editor = toolbar.edit_symbol(old_name)
         editor.set_name(new_name)
         editor.save()
+        toolbar.wait_for_symbol_hidden(old_name)
         assert toolbar.symbol_exists(
             new_name
         ), f"Symbol '{new_name}' should exist after editor rename"

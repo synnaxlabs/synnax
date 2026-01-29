@@ -124,10 +124,10 @@ class SymbolToolbar:
                 return False
             raise RuntimeError(f"Error checking if group '{name}' exists: {e}") from e
 
-    def wait_for_group_hidden(self, name: str, timeout: int = 5000) -> None:
+    def wait_for_group_hidden(self, name: str) -> None:
         """Wait for a symbol group to be hidden/removed."""
         group_btn = self.group_list.locator(".pluto-btn").filter(has_text=name)
-        group_btn.wait_for(state="hidden", timeout=timeout)
+        group_btn.wait_for(state="hidden", timeout=5000)
 
     def create_symbol(self) -> "SymbolEditor":
         """Open the symbol editor to create a new symbol."""
