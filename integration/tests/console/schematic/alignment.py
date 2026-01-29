@@ -42,8 +42,8 @@ ALIGNMENT_EXTRACTORS = {
     "right": box_right,
     "top": box_top,
     "bottom": box_bottom,
-    "horizontal": lambda pos: pos["x"] + pos["width"] / 2,
-    "vertical": lambda pos: pos["y"] + pos["height"] / 2,
+    "horizontal": box_center_x,
+    "vertical": box_center_y,
 }
 
 

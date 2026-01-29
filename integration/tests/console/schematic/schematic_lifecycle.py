@@ -140,10 +140,14 @@ class SchematicLifecycle(ConsoleCase):
         self.log("Testing view writers in control")
 
         schematic.acquire_control()
-        assert schematic.get_control_status() is True, "Control status mismatch! Expected: True"
+        assert (
+            schematic.get_control_status() is True
+        ), "Control status mismatch! Expected: True"
 
         schematic.set_properties(show_control_legend=True)
-        assert schematic.control_legend_visible is True, "Control legend should be visible"
+        assert (
+            schematic.control_legend_visible is True
+        ), "Control legend should be visible"
 
         entries = schematic.get_control_legend_entries()
         assert len(entries) > 0, "Control legend should have at least one entry"
@@ -153,7 +157,9 @@ class SchematicLifecycle(ConsoleCase):
         )
 
         schematic.release_control()
-        assert schematic.get_control_status() is False, "Control status mismatch! Expected: False"
+        assert (
+            schematic.get_control_status() is False
+        ), "Control status mismatch! Expected: False"
 
     def test_copy_link(self, schematic: Schematic) -> None:
         """Test copying a link to the schematic via toolbar button."""
