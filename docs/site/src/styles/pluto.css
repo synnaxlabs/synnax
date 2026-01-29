@@ -37,7 +37,7 @@
 
 /* Tree component */
 .pluto-tree {
-    max-height: calc(100vh - 25rem);
+    max-height: calc(100vh - 20rem);
     overflow-y: auto;
     overflow-x: hidden;
 

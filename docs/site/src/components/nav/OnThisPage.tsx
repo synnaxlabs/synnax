@@ -71,28 +71,43 @@ export const OnThisPage = ({
   useEffect(() => {
     if (menuRef.current == null) return;
 
-    const setCurrent: IntersectionObserverCallback = (entries) => {
-      for (const entry of entries)
-        if (entry.isIntersecting) {
-          const { id } = entry.target;
-          if (id === ON_THIS_PAGE_ID) continue;
-          setCurrentID(entry.target.id);
-          break;
+    const getTopHeading = (): string | null => {
+      const headings = document.querySelectorAll("article :is(h1,h2,h3)");
+      let topHeading: Element | null = null;
+      let topDistance = Infinity;
+
+      for (const heading of headings) {
+        const rect = heading.getBoundingClientRect();
+        const distance = Math.abs(rect.top - 120);
+        if (rect.top <= 150 && rect.top > -rect.height && distance < topDistance) {
+          topDistance = distance;
+          topHeading = heading;
         }
+      }
+
+      if (!topHeading) {
+        for (const heading of headings) {
+          const rect = heading.getBoundingClientRect();
+          if (rect.top < 150) {
+            topHeading = heading;
+          }
+        }
+      }
+
+      return topHeading?.id || null;
     };
 
-    const observerOptions: IntersectionObserverInit = {
-      rootMargin: "-100px 0% -85%",
-      threshold: 0,
+    const handleScroll = () => {
+      const id = getTopHeading();
+      if (id && id !== ON_THIS_PAGE_ID) {
+        setCurrentID(id);
+      }
     };
 
-    const headingsObserver = new IntersectionObserver(setCurrent, observerOptions);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
 
-    document
-      .querySelectorAll("article :is(h1,h2,h3)")
-      .forEach((h) => headingsObserver.observe(h));
-
-    return () => headingsObserver.disconnect();
+    return () => window.removeEventListener("scroll", handleScroll);
   }, [menuRef.current]);
 
   if (headings.length === 0) return null;
