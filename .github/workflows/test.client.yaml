@@ -131,6 +131,7 @@ jobs:
               - x/cpp/**
             py:
               - *shared
+              - .github/actions/test-python/**
               - alamos/py/**
               - codecov.yaml
               - client/py/**

@@ -86,6 +86,7 @@ jobs:
               - x/go/**
             py:
               - *server
+              - .github/actions/test-python/**
               - alamos/py/**
               - codecov.yaml
               - freighter/py/**
