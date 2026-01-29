@@ -62,24 +62,9 @@ type taskImpl struct {
 	task       task.Task
 	cfg        TaskConfig
 	prog       arc.Arc
+	stateCfg   ExtendedStateConfig
 
 	closer io.Closer
-}
-
-func newTask(
-	tsk task.Task,
-	prog arc.Arc,
-	cfg TaskConfig,
-	ctx driver.Context,
-	factoryCfg FactoryConfig,
-) *taskImpl {
-	return &taskImpl{
-		task:       tsk,
-		prog:       prog,
-		cfg:        cfg,
-		ctx:        ctx,
-		factoryCfg: factoryCfg,
-	}
 }
 
 func (t *taskImpl) Exec(ctx context.Context, cmd task.Command) error {
@@ -102,7 +87,6 @@ func (t *taskImpl) start(ctx context.Context) error {
 		return nil
 	}
 	drt := dataRuntime{}
-
 	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel, t.prog.Module)
 	if err != nil {
 		t.setStatus(status.VariantError, false, err.Error())
@@ -346,6 +330,7 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					return nil
 				}
 			}
+			fmt.Println(telem.TimeSpan(r.startTime - telem.Now()))
 			if err := r.next(ctx, res); err != nil {
 				return err
 			}
