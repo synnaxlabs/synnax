@@ -3,6 +3,7 @@ name: Test - Freighter (Python & TypeScript)
 on:
   pull_request:
     paths:
+      - .github/actions/test-typescript/**
       - .github/workflows/test.freighter.yaml
       - alamos/go/**
       - alamos/py/**
@@ -31,6 +32,7 @@ on:
       - main
       - rc
     paths:
+      - .github/actions/test-typescript/**
       - .github/workflows/test.freighter.yaml
       - alamos/go/**
       - alamos/py/**
@@ -167,6 +169,8 @@ jobs:
     needs: [changes, server]
     if: needs.changes.outputs.py == 'true'
     runs-on: ubuntu-latest
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     services:
       integration:
         image: ghcr.io/synnaxlabs/freighter-go-integration:latest
@@ -176,32 +180,16 @@ jobs:
         ports:
           - 8080:8080
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Test Python
+        uses: ./.github/actions/test-python
         with:
-          python-version-file: freighter/py/pyproject.toml
-
-      - name: Check Import Order
-        run: uv run isort -c .
-        working-directory: freighter/py
-
-      - name: Check Formatting
-        run: uv run black --check --diff --color .
-        working-directory: freighter/py
-
-      - name: Check Types
-        run: uv run mypy .
-        working-directory: freighter/py
-
-      - name: Test
-        run: uv run pytest
-        working-directory: freighter/py
+          directory: freighter/py
+          coverage: true
+          coverage_module: freighter
+          coverage_flag: freighter-py
 
   ts:
     name: Test - TypeScript
@@ -211,6 +199,7 @@ jobs:
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     services:
       integration:
         image: ghcr.io/synnaxlabs/freighter-go-integration:latest
@@ -223,26 +212,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - name: Test TypeScript
+        uses: ./.github/actions/test-typescript
         with:
-          node-version-file: package.json
-          cache: pnpm
-
-      - name: Install Dependencies
-        run: pnpm install
-
-      - name: Check Types
-        run: pnpm check-types:freighter
-
-      - name: Check Circular Dependencies
-        run: pnpm madge:freighter
-
-      - name: Lint
-        run: pnpm lint:freighter
-
-      - name: Test
-        run: pnpm test:freighter
+          package: freighter
+          coverage_flag: freighter-ts

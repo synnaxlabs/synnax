@@ -3,6 +3,7 @@ name: Test - Media
 on:
   pull_request:
     paths:
+      - .github/actions/test-typescript/**
       - .github/workflows/test.media.yaml
       - configs/eslint/**
       - configs/ts/**
@@ -17,6 +18,7 @@ on:
       - main
       - rc
     paths:
+      - .github/actions/test-typescript/**
       - .github/workflows/test.media.yaml
       - configs/eslint/**
       - configs/ts/**
@@ -30,7 +32,7 @@ on:
 
 jobs:
   test:
-    name: Test
+    name: Lint
     runs-on: ubuntu-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -39,23 +41,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - name: Lint TypeScript
+        uses: ./.github/actions/test-typescript
         with:
-          node-version-file: package.json
-          cache: pnpm
-
-      - name: Install Dependencies
-        run: pnpm install
-
-      - name: Check Types
-        run: pnpm check-types:media
-
-      - name: Check Circular Dependencies
-        run: pnpm madge:media
-
-      - name: Lint
-        run: pnpm lint:media
+          package: media
+          test: false

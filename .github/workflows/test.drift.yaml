@@ -3,6 +3,7 @@ name: Test - Drift
 on:
   pull_request:
     paths:
+      - .github/actions/test-typescript/**
       - .github/workflows/test.drift.yaml
       - alamos/ts/**
       - configs/eslint/**
@@ -19,6 +20,7 @@ on:
       - main
       - rc
     paths:
+      - .github/actions/test-typescript/**
       - .github/workflows/test.drift.yaml
       - alamos/ts/**
       - configs/eslint/**
@@ -38,6 +40,7 @@ jobs:
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
@@ -57,29 +60,9 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - name: Test TypeScript
+        uses: ./.github/actions/test-typescript
         with:
-          node-version-file: package.json
-          cache: pnpm
-
-      - name: Install Dependencies
-        run: pnpm install
-
-      - name: Check Types
-        if: matrix.lint
-        run: pnpm check-types:drift
-
-      - name: Check Circular Dependencies
-        if: matrix.lint
-        run: pnpm madge:drift
-
-      - name: Lint
-        if: matrix.lint
-        run: pnpm lint:drift
-
-      - name: Test
-        run: pnpm test:drift
+          package: drift
+          coverage_flag: drift
+          lint: ${{ matrix.lint }}
