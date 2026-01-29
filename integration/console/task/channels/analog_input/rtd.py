@@ -63,28 +63,29 @@ class RTD(Analog):
             chan_type="RTD",
             **kwargs,
         )
+        layout = self.layout
 
         # RTD-specific configurations:
         if temperature_units is not None:
-            console.click_btn("Temperature Units")
-            console.select_from_dropdown(temperature_units)
+            layout.click_btn("Temperature Units")
+            layout.select_from_dropdown(temperature_units)
 
         if rtd_type is not None:
-            console.click_btn("RTD Type")
-            console.select_from_dropdown(rtd_type)
+            layout.click_btn("RTD Type")
+            layout.select_from_dropdown(rtd_type)
 
         if resistance_configuration is not None:
-            console.click_btn("Resistance Configuration")
-            console.select_from_dropdown(resistance_configuration)
+            layout.click_btn("Resistance Configuration")
+            layout.select_from_dropdown(resistance_configuration)
 
         if current_excitation_source is not None:
-            console.click_btn("Current Excitation Source")
-            console.select_from_dropdown(current_excitation_source)
+            layout.click_btn("Current Excitation Source")
+            layout.select_from_dropdown(current_excitation_source)
 
         if current_excitation_value is not None:
-            console.fill_input_field(
+            layout.fill_input_field(
                 "Current Excitation Value", str(current_excitation_value)
             )
 
         if r0_resistance is not None:
-            console.fill_input_field("R0 Resistance", str(r0_resistance))
+            layout.fill_input_field("R0 Resistance", str(r0_resistance))

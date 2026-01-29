@@ -18,6 +18,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 if TYPE_CHECKING:
     from console.console import Console
+    from console.layout import LayoutClient
 
 
 class SymbolEditor:
@@ -26,6 +27,7 @@ class SymbolEditor:
     def __init__(self, page: Page, console: "Console"):
         self.page = page
         self.console = console
+        self.layout: "LayoutClient" = console.layout
 
     @property
     def modal(self) -> Locator:
@@ -167,7 +169,7 @@ class SymbolEditor:
         static_btn = self.modal.get_by_text("Static", exact=True)
         static_btn.wait_for(state="visible", timeout=2000)
         static_btn.click()
-        self.console.select_from_dropdown(state, placeholder="variants")
+        self.layout.select_from_dropdown(state, placeholder="variants")
 
     def save(self) -> None:
         """Click Save/Create button to save the symbol."""

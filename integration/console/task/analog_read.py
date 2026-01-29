@@ -134,7 +134,7 @@ class AnalogRead(NITask):
         )
 
         if sample_rate is not None:
-            self.console.fill_input_field("Sample Rate", str(sample_rate))
+            self.layout.fill_input_field("Sample Rate", str(sample_rate))
 
         if stream_rate is not None:
-            self.console.fill_input_field("Stream Rate", str(stream_rate))
+            self.layout.fill_input_field("Stream Rate", str(stream_rate))

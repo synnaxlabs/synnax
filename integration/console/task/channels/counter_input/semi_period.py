@@ -42,13 +42,15 @@ class SemiPeriod(Counter):
             chan_type="Semi Period",
             **kwargs,
         )
+        self.layout = console.layout
+        layout = self.layout
 
         # Scaled Units
         if units is not None:
-            console.click_btn("Scaled Units")
-            console.select_from_dropdown(units)
+            layout.click_btn("Scaled Units")
+            layout.select_from_dropdown(units)
             self.form_values["Scaled Units"] = units
         else:
-            self.form_values["Scaled Units"] = console.get_dropdown_value(
+            self.form_values["Scaled Units"] = layout.get_dropdown_value(
                 "Scaled Units"
             )

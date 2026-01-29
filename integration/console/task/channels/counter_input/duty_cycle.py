@@ -44,21 +44,23 @@ class DutyCycle(Counter):
             chan_type="Duty Cycle",
             **kwargs,
         )
+        self.layout = console.layout
+        layout = self.layout
 
         # Active Edge
         if edge is not None:
-            console.click_btn("Active Edge")
-            console.select_from_dropdown(edge)
+            layout.click_btn("Active Edge")
+            layout.select_from_dropdown(edge)
             self.form_values["Active Edge"] = edge
         else:
-            self.form_values["Active Edge"] = console.get_dropdown_value("Active Edge")
+            self.form_values["Active Edge"] = layout.get_dropdown_value("Active Edge")
 
         # Terminal
         if terminal is not None:
-            console.click_btn("Input Terminal")
-            console.select_from_dropdown(terminal)
+            layout.click_btn("Input Terminal")
+            layout.select_from_dropdown(terminal)
             self.form_values["Input Terminal"] = terminal
         else:
-            self.form_values["Input Terminal"] = console.get_dropdown_value(
+            self.form_values["Input Terminal"] = layout.get_dropdown_value(
                 "Input Terminal"
             )

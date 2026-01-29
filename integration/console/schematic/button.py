@@ -80,7 +80,7 @@ class Button(Symbol):
             applied_properties["channel"] = channel_name
 
         if activation_delay is not None:
-            self.console.fill_input_field("Activation Delay", str(activation_delay))
+            self.layout.fill_input_field("Activation Delay", str(activation_delay))
             self.page.keyboard.press("Enter")
             applied_properties["activation_delay"] = activation_delay
 
@@ -122,7 +122,7 @@ class Button(Symbol):
 
         # Activation Delay
         props["activation_delay"] = float(
-            self.console.get_input_field("Activation Delay")
+            self.layout.get_input_field("Activation Delay")
         )
 
         # Show Control Chip

@@ -53,22 +53,23 @@ class Accelerometer(Analog):
             chan_type="Accelerometer",
             **kwargs,
         )
+        layout = self.layout
 
         # Accelerometer-specific configurations:
         if sensitivity is not None:
-            console.fill_input_field("Sensitivity", str(sensitivity))
+            layout.fill_input_field("Sensitivity", str(sensitivity))
 
         if units is not None:
-            console.page.locator("button.pluto-dialog__trigger:has-text('V/g')").click()
-            console.page.locator(f".pluto-list__item").get_by_text(
+            layout.page.locator("button.pluto-dialog__trigger:has-text('V/g')").click()
+            layout.page.locator(".pluto-list__item").get_by_text(
                 units, exact=True
             ).click()
 
         if excitation_source is not None:
-            console.click_btn("Current Excitation Source")
-            console.select_from_dropdown(excitation_source)
+            layout.click_btn("Current Excitation Source")
+            layout.select_from_dropdown(excitation_source)
 
         if current_excitation_value is not None:
-            console.fill_input_field(
+            layout.fill_input_field(
                 "Current Excitation Value", str(current_excitation_value)
             )

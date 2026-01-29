@@ -763,6 +763,7 @@ class ChannelClient(BaseClientWithNotifications):
         plot = Plot.__new__(Plot)
         plot.client = client
         plot.console = self.console
+        plot.layout = self.layout
         plot.page = self.layout.page
         plot.page_name = page_name
         plot.data = {"Y1": [channel_name], "Y2": [], "Ranges": [], "X1": None}

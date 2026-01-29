@@ -340,7 +340,7 @@ class SchematicLifecycle(ConsoleCase):
         new_name = f"Snapshot Renamed {self.suffix}"
         self.console.layout.rename_tab(old_name=snapshot_name, new_name=new_name)
 
-        self.console.ESCAPE
+        self.console.layout.press_escape()
         self.console.layout.wait_for_tab(new_name)
 
         self.console.layout.show_visualization_toolbar()
@@ -355,7 +355,7 @@ class SchematicLifecycle(ConsoleCase):
         assert self.console.ranges.snapshot_exists_in_overview(
             new_name
         ), f"Snapshot should be renamed to '{new_name}' in Range Details Overview"
-        self.console.close_page(new_name)
+        self.console.workspace.close_page(new_name)
         self.console.workspace.delete_page(original_name)
 
     def test_ctx_delete_operations(self) -> None:

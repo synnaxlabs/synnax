@@ -44,11 +44,11 @@ class Table(ConsolePage):
         """
         self._click_cell(row, col)
         self.layout.show_visualization_toolbar()
-        self.console.click_btn("Variant")
-        self.console.select_from_dropdown("Value")
+        self.layout.click_btn("Variant")
+        self.layout.select_from_dropdown("Value")
         self.page.get_by_text("Telemetry").click()
-        self.console.click_btn("Input Channel")
-        self.console.select_from_dropdown(channel_name)
+        self.layout.click_btn("Input Channel")
+        self.layout.select_from_dropdown(channel_name)
 
     def get_cell_channel(self, row: int = 0, col: int = 0) -> str:
         """Get the channel name displayed in a cell.

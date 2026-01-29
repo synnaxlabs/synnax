@@ -97,40 +97,40 @@ class NITask(ConsolePage):
         Returns:
             The created channel instance
         """
-        console = self.console
+        layout = self.layout
 
         # Add first channel or subsequent channels
         if len(self.channels) == 0:
-            console.click("Add a channel")
+            layout.click("Add a channel")
         else:
-            console.page.locator("header:has-text('Channels') .pluto-icon--add").click()
+            layout.page.locator("header:has-text('Channels') .pluto-icon--add").click()
 
         # Click the channel in the list
         idx = len(self.channels)
-        console.page.locator(".pluto-list__item").nth(idx).click()
+        layout.page.locator(".pluto-list__item").nth(idx).click()
 
         # Configure device
-        console.click_btn("Device")
-        console.select_from_dropdown(device)
+        layout.click_btn("Device")
+        layout.select_from_dropdown(device)
 
         if dev_name is None:
             dev_name = name[:12]
         # Handle device creation modal if it appears
         sy.sleep(0.2)  # Give modal time to appear
-        if console.check_for_modal():
+        if layout.check_for_modal():
             sy.sleep(0.2)
-            console.fill_input_field("Name", dev_name)
-            console.click_btn("Next")
+            layout.fill_input_field("Name", dev_name)
+            layout.click_btn("Next")
             sy.sleep(0.2)
-            console.fill_input_field("Identifier", dev_name)
-            console.click_btn("Save")
+            layout.fill_input_field("Identifier", dev_name)
+            layout.click_btn("Save")
             sy.sleep(0.2)
 
-        if console.check_for_modal():
+        if layout.check_for_modal():
             raise RuntimeError("Blocking modal is still open")
 
         # Create channel using provided class
-        channel = channel_class(console=console, name=name, device=device, **kwargs)
+        channel = channel_class(console=self.console, name=name, device=device, **kwargs)
 
         self.channels.append(channel)
         self.channels_by_name.append(name)
@@ -145,12 +145,12 @@ class NITask(ConsolePage):
 
         Returns: None
         """
-        console = self.console
+        layout = self.layout
         names = [name] if isinstance(name, str) else name
 
         for channel_name in names:
             idx = self.channels_by_name.index(channel_name)
-            console.page.locator(".pluto-list__item").nth(idx).click()
+            layout.page.locator(".pluto-list__item").nth(idx).click()
             channel = self.channels[idx]
             sy.sleep(0.1)
             channel.assert_form()
@@ -170,19 +170,19 @@ class NITask(ConsolePage):
             data_saving: Whether to save data to the core.
             auto_start: Whether to start the task automatically.
         """
-        console = self.console
+        layout = self.layout
 
         if task_name is not None:
-            console.fill_input_field("Name", task_name)
-            console.ENTER
+            layout.fill_input_field("Name", task_name)
+            layout.press_enter()
 
         if data_saving is not None:
-            if data_saving != console.get_toggle("Data Saving"):
-                console.click_checkbox("Data Saving")
+            if data_saving != layout.get_toggle("Data Saving"):
+                layout.click_checkbox("Data Saving")
 
         if auto_start is not None:
-            if auto_start != console.get_toggle("Auto Start"):
-                console.click_checkbox("Auto Start")
+            if auto_start != layout.get_toggle("Auto Start"):
+                layout.click_checkbox("Auto Start")
 
     def configure(self) -> None:
         self.console.page.get_by_role("button", name="Configure", exact=True).click(

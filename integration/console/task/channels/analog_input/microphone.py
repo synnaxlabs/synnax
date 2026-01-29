@@ -57,25 +57,26 @@ class Microphone(Analog):
             chan_type="Microphone",
             **kwargs,
         )
+        layout = self.layout
 
         # Microphone-specific configurations:
         if sound_pressure_units is not None:
-            console.click_btn("Sound Pressure Units")
-            console.select_from_dropdown(sound_pressure_units)
+            layout.click_btn("Sound Pressure Units")
+            layout.select_from_dropdown(sound_pressure_units)
 
         if sensitivity is not None:
-            console.fill_input_field("Microphone Sensitivity", str(sensitivity))
+            layout.fill_input_field("Microphone Sensitivity", str(sensitivity))
 
         if max_sound_pressure_level is not None:
-            console.fill_input_field(
+            layout.fill_input_field(
                 "Max Sound Pressure Level", str(max_sound_pressure_level)
             )
 
         if current_excitation_source is not None:
-            console.click_btn("Current Excitation Source")
-            console.select_from_dropdown(current_excitation_source)
+            layout.click_btn("Current Excitation Source")
+            layout.select_from_dropdown(current_excitation_source)
 
         if current_excitation_value is not None:
-            console.fill_input_field(
+            layout.fill_input_field(
                 "Current Excitation Value", str(current_excitation_value)
             )

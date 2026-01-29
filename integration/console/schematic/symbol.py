@@ -15,6 +15,7 @@ from playwright.sync_api import FloatRect, Locator, Page
 
 if TYPE_CHECKING:
     from ..console import Console
+    from ..layout import LayoutClient
 
 """ Symbol Box helpers """
 
@@ -54,6 +55,7 @@ class Symbol(ABC):
 
     page: Page
     console: "Console"
+    layout: "LayoutClient"
     locator: Locator
     symbol_id: str | None
     label: str
@@ -93,6 +95,7 @@ class Symbol(ABC):
 
         self.page = page
         self.console = console
+        self.layout = console.layout
 
         toolbar = SymbolToolbar(self.page, self.console)
         self.symbol_id = toolbar.add_symbol(self._symbol_type, self._symbol_group)
@@ -134,7 +137,7 @@ class Symbol(ABC):
             sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
         """
 
-        self.console.click(self.locator, sleep=sleep)
+        self.layout.click(self.locator, sleep=sleep)
 
     def meta_click(self, sleep: int = 0) -> None:
         """
@@ -144,12 +147,12 @@ class Symbol(ABC):
             sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
         """
 
-        self.console.meta_click(self.locator, sleep=sleep)
+        self.layout.meta_click(self.locator, sleep=sleep)
 
     def set_label(self, label: str) -> None:
         self.click()
         self.page.get_by_text("Style").click(force=True)
-        self.console.fill_input_field("Label", label)
+        self.layout.fill_input_field("Label", label)
         self.label = label
 
     @abstractmethod
@@ -172,8 +175,8 @@ class Symbol(ABC):
 
     def set_channel(self, *, input_field: str, channel_name: str) -> None:
         if channel_name is not None:
-            self.console.click_btn(input_field)
-            self.console.select_from_dropdown(channel_name, "Search")
+            self.layout.click_btn(input_field)
+            self.layout.select_from_dropdown(channel_name, "Search")
 
     def set_value(self, value: float) -> None:
         """Set the symbol's value if applicable. Default implementation does nothing."""
@@ -218,13 +221,13 @@ class Symbol(ABC):
 
     def delete(self) -> None:
         self.click()
-        self.console.DELETE
+        self.layout.press_delete()
 
     def toggle_absolute_control(self) -> None:
         """Toggle absolute control authority for this symbol by clicking its control chip button."""
         # Locate the control chip button within this specific symbol's container
         control_chip = self.locator.locator(".pluto-control-chip").first
-        self.console.click(control_chip)
+        self.layout.click(control_chip)
 
     def get_properties(self, tab: str = "Symbols") -> dict[str, Any]:
         """

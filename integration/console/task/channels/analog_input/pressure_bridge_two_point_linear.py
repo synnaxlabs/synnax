@@ -69,42 +69,43 @@ class PressureBridgeTwoPointLinear(Analog):
             chan_type="Pressure Bridge Two-Point Linear",
             **kwargs,
         )
+        layout = self.layout
 
         # Pressure Bridge Two-Point Linear-specific configurations:
         if pressure_units is not None:
-            console.click_btn("Pressure Units")
-            console.select_from_dropdown(pressure_units)
+            layout.click_btn("Pressure Units")
+            layout.select_from_dropdown(pressure_units)
 
         if bridge_configuration is not None:
-            console.click_btn("Bridge Configuration")
-            console.select_from_dropdown(bridge_configuration)
+            layout.click_btn("Bridge Configuration")
+            layout.select_from_dropdown(bridge_configuration)
 
         if resistance is not None:
-            console.fill_input_field("Nominal Bridge Resistance", str(resistance))
+            layout.fill_input_field("Nominal Bridge Resistance", str(resistance))
 
         if excitation_source is not None:
-            console.click_btn("Voltage Excitation Source")
-            console.select_from_dropdown(excitation_source)
+            layout.click_btn("Voltage Excitation Source")
+            layout.select_from_dropdown(excitation_source)
 
         if excitation_value is not None:
-            console.fill_input_field("Voltage Excitation Value", str(excitation_value))
+            layout.fill_input_field("Voltage Excitation Value", str(excitation_value))
 
         if physical_units is not None:
-            console.click_btn("Physical Units")
-            console.select_from_dropdown(physical_units)
+            layout.click_btn("Physical Units")
+            layout.select_from_dropdown(physical_units)
 
         if electrical_units is not None:
-            console.click_btn("Electrical Units")
-            console.select_from_dropdown(electrical_units)
+            layout.click_btn("Electrical Units")
+            layout.select_from_dropdown(electrical_units)
 
         if physical_value_one is not None:
-            console.fill_input_field("Physical Value One", str(physical_value_one))
+            layout.fill_input_field("Physical Value One", str(physical_value_one))
 
         if physical_value_two is not None:
-            console.fill_input_field("Physical Value Two", str(physical_value_two))
+            layout.fill_input_field("Physical Value Two", str(physical_value_two))
 
         if electrical_value_one is not None:
-            console.fill_input_field("Electrical Value One", str(electrical_value_one))
+            layout.fill_input_field("Electrical Value One", str(electrical_value_one))
 
         if electrical_value_two is not None:
-            console.fill_input_field("Electrical Value Two", str(electrical_value_two))
+            layout.fill_input_field("Electrical Value Two", str(electrical_value_two))

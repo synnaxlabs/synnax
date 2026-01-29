@@ -57,22 +57,23 @@ class Bridge(Analog):
             chan_type="Bridge",
             **kwargs,
         )
+        layout = self.layout
 
         # Bridge-specific configurations:
         if units is not None:
-            console.click_btn("Electrical Units")
-            console.select_from_dropdown(units)
+            layout.click_btn("Electrical Units")
+            layout.select_from_dropdown(units)
 
         if configuration is not None:
-            console.click_btn("Bridge Configuration")
-            console.select_from_dropdown(configuration)
+            layout.click_btn("Bridge Configuration")
+            layout.select_from_dropdown(configuration)
 
         if resistance is not None:
-            console.fill_input_field("Nominal Bridge Resistance", str(resistance))
+            layout.fill_input_field("Nominal Bridge Resistance", str(resistance))
 
         if excitation_source is not None:
-            console.click_btn("Voltage Excitation Source")
-            console.select_from_dropdown(excitation_source)
+            layout.click_btn("Voltage Excitation Source")
+            layout.select_from_dropdown(excitation_source)
 
         if excitation_value is not None:
-            console.fill_input_field("Voltage Excitation Value", str(excitation_value))
+            layout.fill_input_field("Voltage Excitation Value", str(excitation_value))

@@ -57,30 +57,27 @@ class ForceIEPE(Analog):
             chan_type="Force IEPE",
             **kwargs,
         )
+        layout = self.layout
 
         # Force IEPE-specific configurations:
         if force_units is not None:
-            console.click_btn("Force Units")
-            console.select_from_dropdown(force_units)
+            layout.click_btn("Force Units")
+            layout.select_from_dropdown(force_units)
 
         if sensitivity is not None:
-            console.fill_input_field("Sensitivity", str(sensitivity))
+            layout.fill_input_field("Sensitivity", str(sensitivity))
 
         if sensitivity_units is not None:
-
-            console.page.locator("button.pluto-dialog__trigger:has-text('V/')").click()
-            console.page.locator(f".pluto-list__item").get_by_text(
+            layout.page.locator("button.pluto-dialog__trigger:has-text('V/')").click()
+            layout.page.locator(".pluto-list__item").get_by_text(
                 sensitivity_units, exact=True
             ).click()
 
-            # console.click_btn("Sensitivity")
-            # console.select_from_dropdown(sensitivity_units)
-
         if current_excitation_source is not None:
-            console.click_btn("Current Excitation Source")
-            console.select_from_dropdown(current_excitation_source)
+            layout.click_btn("Current Excitation Source")
+            layout.select_from_dropdown(current_excitation_source)
 
         if current_excitation_value is not None:
-            console.fill_input_field(
+            layout.fill_input_field(
                 "Current Excitation Value", str(current_excitation_value)
             )

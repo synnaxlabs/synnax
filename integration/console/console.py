@@ -7,9 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from collections.abc import Generator
-from contextlib import contextmanager
-
 import synnax as sy
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
@@ -25,16 +22,15 @@ from .layout import LayoutClient
 from .notifications import NotificationsClient
 from .rack import RackClient
 from .ranges import RangesClient
-from .workspace import PageType, WorkspaceClient
+from .workspace import WorkspaceClient
 
 
 class Console:
     """
-    Console UI automation interface.
+    Console UI automation interface - thin orchestration layer.
 
-    Provides utility methods for interacting with the Synnax Console application
-    via Playwright, including page management, keyboard shortcuts, form interactions,
-    and element clicking helpers.
+    Composes specialized clients for interacting with the Synnax Console application.
+    Most UI operations are accessed through self.layout (LayoutClient).
     """
 
     access: AccessClient
@@ -64,64 +60,6 @@ class Console:
         self.ranges = RangesClient(self.layout, self.notifications, self)
         self.workspace = WorkspaceClient(self.layout, self)
 
-    def command_palette(self, command: str, retries: int = 3) -> None:
-        """Execute a command via the command palette."""
-        self.layout.command_palette(command, retries)
-
-    def search_palette(self, query: str, retries: int = 3) -> None:
-        """Search for a resource via the command palette (without > prefix)."""
-        self.layout.search_palette(query, retries)
-
-    @property
-    def ESCAPE(self) -> None:
-        self.layout.press_escape()
-
-    @property
-    def ENTER(self) -> None:
-        self.layout.press_enter()
-
-    @property
-    def META_ENTER(self) -> None:
-        self.layout.press_meta_enter()
-
-    @property
-    def DELETE(self) -> None:
-        self.layout.press_delete()
-
-    def select_all(self) -> None:
-        """Select all text in the focused element."""
-        self.layout.select_all()
-
-    def select_all_and_type(self, text: str) -> None:
-        """Select all text in the focused element and type new text."""
-        self.layout.select_all_and_type(text)
-
-    @property
-    def MODAL_OPEN(self) -> bool:
-        return self.layout.is_modal_open()
-
-    def show_resource_toolbar(self, resource: str) -> None:
-        """Show a resource toolbar by clicking its icon in the sidebar."""
-        self.layout.show_resource_toolbar(resource)
-
-    def close_nav_drawer(self) -> None:
-        """Close any open side nav drawer (left/right, not bottom visualization toolbar)."""
-        self.layout.close_nav_drawer()
-
-    def select_from_dropdown(self, text: str, placeholder: str | None = None) -> None:
-        """Select an item from an open dropdown."""
-        self.layout.select_from_dropdown(text, placeholder)
-
-    def create_page(
-        self, page_type: PageType, page_name: str | None = None
-    ) -> tuple[Locator, str]:
-        """Create a new page via New Page (+) button or command palette (randomly chosen)."""
-        return self.workspace.create_page(page_type, page_name)
-
-    def close_page(self, page_name: str) -> None:
-        """Close a page by name. Ignores unsaved changes."""
-        self.workspace.close_page(page_name)
-
     def check_for_error_screen(self) -> None:
         """Checks for 'Something went wrong' text and clicks 'Try again' if found"""
         sy.sleep(0.3)
@@ -143,56 +81,6 @@ class Console:
             animations="disabled",
             type="png",
         )
-
-    def click_btn(self, button_label: str) -> None:
-        """Click a button by label."""
-        self.layout.click_btn(button_label)
-
-    def get_toggle(self, toggle_label: str) -> bool:
-        """Get the value of a toggle by label."""
-        return self.layout.get_toggle(toggle_label)
-
-    def click_checkbox(self, checkbox_label: str) -> None:
-        """Click a checkbox by label."""
-        self.layout.click_checkbox(checkbox_label)
-
-    def fill_input_field(self, input_label: str, value: str) -> None:
-        """Fill an input field by label."""
-        self.layout.fill_input_field(input_label, value)
-
-    def get_input_field(self, input_label: str) -> str:
-        """Get the value of an input field by label."""
-        return self.layout.get_input_field(input_label)
-
-    def get_dropdown_value(self, dropdown_label: str) -> str:
-        """Get the current value of a dropdown by label."""
-        return self.layout.get_dropdown_value(dropdown_label)
-
-    def get_selected_button(self, button_options: list[str]) -> str:
-        """Get the currently selected button from a button group (no label)."""
-        return self.layout.get_selected_button(button_options)
-
-    def click(
-        self, selector: str | Locator, timeout: int = 500, sleep: int = 100
-    ) -> None:
-        """Click an element by text selector or Locator."""
-        self.layout.click(selector, timeout, sleep)
-
-    def meta_click(
-        self, selector: str | Locator, timeout: int = 500, sleep: int = 100
-    ) -> None:
-        """Click an element with platform-appropriate modifier key held."""
-        self.layout.meta_click(selector, timeout, sleep)
-
-    def check_for_modal(self) -> bool:
-        """Check for a modal."""
-        return self.layout.check_for_modal()
-
-    @contextmanager
-    def bring_to_front(self, element: Locator) -> Generator[Locator, None, None]:
-        """Context manager that temporarily brings an element to the front."""
-        with self.layout.bring_to_front(element) as el:
-            yield el
 
     def reload(self) -> None:
         """Reload the console page."""
@@ -231,7 +119,7 @@ class Console:
         if except_tabs is None:
             except_tabs = ["Get Started"]
 
-        self.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
         tabs_to_close = [
             tab

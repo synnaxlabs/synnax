@@ -15,19 +15,21 @@ from console.task.channels.utils import is_numeric_string
 
 if TYPE_CHECKING:
     from console.console import Console
+    from console.layout import LayoutClient
 
 
 class Analog:
     """Base class for analog channel types in NI tasks."""
 
     name: str
-    console: Console
+    console: "Console"
+    layout: "LayoutClient"
     device: str
     form_values: dict[str, str | bool]
 
     def __init__(
         self,
-        console: Console,
+        console: "Console",
         name: str,
         device: str,
         chan_type: str,
@@ -62,53 +64,55 @@ class Analog:
             custom_scale: "None", "Linear", "Map", "Table"
         """
         self.console = console
+        self.layout = console.layout
+        layout = self.layout
         self.device = device
         self.name = name
 
         values: dict[str, str | bool] = {}
 
         # Configure channel type
-        console.click_btn("Channel Type")
-        console.select_from_dropdown(chan_type)
+        layout.click_btn("Channel Type")
+        layout.select_from_dropdown(chan_type)
         values["Channel Type"] = chan_type
 
         # Get device (set by task.add_channel)
-        values["Device"] = console.get_dropdown_value("Device")
+        values["Device"] = layout.get_dropdown_value("Device")
 
         # Optional configurations
         if port is not None:
-            console.fill_input_field("Port", str(port))
+            layout.fill_input_field("Port", str(port))
             values["Port"] = str(port)
         else:
-            values["Port"] = console.get_input_field("Port")
+            values["Port"] = layout.get_input_field("Port")
 
         if terminal_config is not None:
-            console.click_btn("Terminal Configuration")
-            console.select_from_dropdown(terminal_config)
+            layout.click_btn("Terminal Configuration")
+            layout.select_from_dropdown(terminal_config)
             values["Terminal Configuration"] = terminal_config
         elif self.has_terminal_config():
-            values["Terminal Configuration"] = console.get_dropdown_value(
+            values["Terminal Configuration"] = layout.get_dropdown_value(
                 "Terminal Configuration"
             )
 
         if min_val is not None:
-            console.fill_input_field("Minimum Value", str(min_val))
+            layout.fill_input_field("Minimum Value", str(min_val))
             values["Minimum Value"] = str(min_val)
         elif chan_type != "Microphone":
-            values["Minimum Value"] = console.get_input_field("Minimum Value")
+            values["Minimum Value"] = layout.get_input_field("Minimum Value")
 
         if max_val is not None:
-            console.fill_input_field("Maximum Value", str(max_val))
+            layout.fill_input_field("Maximum Value", str(max_val))
             values["Maximum Value"] = str(max_val)
         elif chan_type != "Microphone":
-            values["Maximum Value"] = console.get_input_field("Maximum Value")
+            values["Maximum Value"] = layout.get_input_field("Maximum Value")
 
         if custom_scale is not None:
-            console.click_btn("Custom Scaling")
-            console.select_from_dropdown(custom_scale)
+            layout.click_btn("Custom Scaling")
+            layout.select_from_dropdown(custom_scale)
             values["Custom Scaling"] = custom_scale
         elif chan_type != "RTD":
-            values["Custom Scaling"] = console.get_dropdown_value("Custom Scaling")
+            values["Custom Scaling"] = layout.get_dropdown_value("Custom Scaling")
 
         self.form_values = values
 
@@ -117,11 +121,11 @@ class Analog:
         for key, expected_value in self.form_values.items():
             actual_value: str | bool
             if isinstance(expected_value, bool):
-                actual_value = self.console.get_toggle(key)
+                actual_value = self.layout.get_toggle(key)
             elif is_numeric_string(expected_value):
-                actual_value = self.console.get_input_field(key)
+                actual_value = self.layout.get_input_field(key)
             else:
-                actual_value = self.console.get_dropdown_value(key)
+                actual_value = self.layout.get_dropdown_value(key)
 
             assert (
                 actual_value == expected_value
@@ -130,7 +134,7 @@ class Analog:
     def has_terminal_config(self) -> bool:
         try:
             count: int = (
-                self.console.page.locator("text=Terminal Configuration")
+                self.layout.page.locator("text=Terminal Configuration")
                 .locator("..")
                 .locator("button")
                 .first.count()

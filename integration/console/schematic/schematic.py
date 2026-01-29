@@ -81,7 +81,7 @@ class Schematic(ConsolePage):
         Returns:
             Schematic instance for the opened schematic.
         """
-        console.search_palette(name)
+        console.layout.search_palette(name)
 
         schematic_pane = console.page.locator(cls.pluto_label)
         schematic_pane.first.wait_for(state="visible", timeout=5000)
@@ -363,8 +363,8 @@ class Schematic(ConsolePage):
                 f"Control Authority must be between 0 and 255, got {authority}"
             )
         self.console.notifications.close_all()
-        self.console.click("Control")
-        self.console.fill_input_field("Control Authority", str(authority))
+        self.layout.click("Control")
+        self.layout.fill_input_field("Control Authority", str(authority))
 
     def set_properties(
         self,
@@ -373,14 +373,14 @@ class Schematic(ConsolePage):
     ) -> None:
         """Set schematic properties."""
         self.console.notifications.close_all()
-        self.console.click("Control")
+        self.layout.click("Control")
 
         if control_authority is not None:
             if control_authority < 0 or control_authority > 255:
                 raise ValueError(
                     f"Control Authority must be between 0 and 255, got {control_authority}"
                 )
-            self.console.fill_input_field("Control Authority", str(control_authority))
+            self.layout.fill_input_field("Control Authority", str(control_authority))
             self.page.keyboard.press("Enter")
 
         if show_control_legend is not None:
@@ -498,12 +498,12 @@ class Schematic(ConsolePage):
             Tuple of (control_authority, show_control_legend)
         """
         self.console.notifications.close_all()
-        self.console.click("Control")
+        self.layout.click("Control")
 
-        control_authority = int(self.console.get_input_field("Control Authority"))
+        control_authority = int(self.layout.get_input_field("Control Authority"))
 
         try:
-            show_control_legend = self.console.get_toggle("Show Control State Legend")
+            show_control_legend = self.layout.get_toggle("Show Control State Legend")
         except PlaywrightTimeoutError:
             show_control_legend = True
 

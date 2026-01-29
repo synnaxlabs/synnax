@@ -71,34 +71,35 @@ class StrainGauge(Analog):
             chan_type="Strain Gauge",
             **kwargs,
         )
+        layout = self.layout
 
         # Strain Gauge-specific configurations:
         if strain_configuration is not None:
-            console.click_btn("Strain Configuration")
-            console.select_from_dropdown(strain_configuration)
+            layout.click_btn("Strain Configuration")
+            layout.select_from_dropdown(strain_configuration)
 
         if excitation_source is not None:
-            console.click_btn("Voltage Excitation Source")
-            console.select_from_dropdown(excitation_source)
+            layout.click_btn("Voltage Excitation Source")
+            layout.select_from_dropdown(excitation_source)
 
         if excitation_value is not None:
-            console.fill_input_field("Voltage Excitation Value", str(excitation_value))
+            layout.fill_input_field("Voltage Excitation Value", str(excitation_value))
 
         if gage_factor is not None:
-            console.fill_input_field("Gage Factor", str(gage_factor))
+            layout.fill_input_field("Gage Factor", str(gage_factor))
 
         if initial_bridge_voltage is not None:
-            console.fill_input_field(
+            layout.fill_input_field(
                 "Initial Bridge Voltage", str(initial_bridge_voltage)
             )
 
         if nominal_gage_resistance is not None:
-            console.fill_input_field(
+            layout.fill_input_field(
                 "Nominal Gage Resistance", str(nominal_gage_resistance)
             )
 
         if poisson_ratio is not None:
-            console.fill_input_field("Poisson's Ratio", str(poisson_ratio))
+            layout.fill_input_field("Poisson's Ratio", str(poisson_ratio))
 
         if lead_wire_resistance is not None:
-            console.fill_input_field("Lead Wire Resistance", str(lead_wire_resistance))
+            layout.fill_input_field("Lead Wire Resistance", str(lead_wire_resistance))

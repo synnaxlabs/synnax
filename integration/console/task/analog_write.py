@@ -97,4 +97,4 @@ class AnalogWrite(NITask):
         )
 
         if state_update_rate is not None:
-            self.console.fill_input_field("State Update Rate", str(state_update_rate))
+            self.layout.fill_input_field("State Update Rate", str(state_update_rate))

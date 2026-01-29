@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from .console import Console
     from .layout import LayoutClient
 
-from .console import PageType
+from .workspace import PageType
 
 
 class ConsolePage:
@@ -85,7 +85,7 @@ class ConsolePage:
 
     def _get_tab(self) -> Locator:
         """Get the tab locator for this page."""
-        return self.console.layout.get_tab(self.page_name)
+        return self.layout.get_tab(self.page_name)
 
     def close(self) -> None:
         """
@@ -105,7 +105,7 @@ class ConsolePage:
     @property
     def is_open(self) -> bool:
         """Check if the page tab is visible."""
-        tab = self.console.layout.get_tab(self.page_name)
+        tab = self.layout.get_tab(self.page_name)
         return tab.count() > 0 and tab.is_visible()
 
     @property
@@ -119,7 +119,7 @@ class ConsolePage:
         Args:
             new_name: The new name for the page
         """
-        self.console.layout.rename_tab(old_name=self.page_name, new_name=new_name)
+        self.layout.rename_tab(old_name=self.page_name, new_name=new_name)
         self.page_name = new_name
 
     def _dblclick_canvas(self) -> None:
@@ -133,7 +133,7 @@ class ConsolePage:
             self.pane_locator.click()
 
     def new(self) -> str:
-        self.tab_locator, self.id = self.console.create_page(
+        self.tab_locator, self.id = self.console.workspace.create_page(
             cast(PageType, self.page_type), self.page_name
         )
         if self.pluto_label:
@@ -253,7 +253,7 @@ class ConsolePage:
         """
         self.console.notifications.close_all()
         self.page.locator("#properties").click(timeout=5000)
-        return self.console.get_input_field("Title")
+        return self.layout.get_input_field("Title")
 
     def get_value(self, channel_name: str) -> float | None:
         """Get the latest data value for any channel using the synnax client"""

@@ -46,33 +46,35 @@ class PulseWidth(Counter):
             chan_type="Pulse Width",
             **kwargs,
         )
+        self.layout = console.layout
+        layout = self.layout
 
         # Starting Edge
         if starting_edge is not None:
-            console.click_btn("Starting Edge")
-            console.select_from_dropdown(starting_edge)
+            layout.click_btn("Starting Edge")
+            layout.select_from_dropdown(starting_edge)
             self.form_values["Starting Edge"] = starting_edge
         else:
-            self.form_values["Starting Edge"] = console.get_dropdown_value(
+            self.form_values["Starting Edge"] = layout.get_dropdown_value(
                 "Starting Edge"
             )
 
         # Scaled Units
         if units is not None:
-            console.click_btn("Scaled Units")
-            console.select_from_dropdown(units)
+            layout.click_btn("Scaled Units")
+            layout.select_from_dropdown(units)
             self.form_values["Scaled Units"] = units
         else:
-            self.form_values["Scaled Units"] = console.get_dropdown_value(
+            self.form_values["Scaled Units"] = layout.get_dropdown_value(
                 "Scaled Units"
             )
 
         # Terminal
         if terminal is not None:
-            console.click_btn("Input Terminal")
-            console.select_from_dropdown(terminal)
+            layout.click_btn("Input Terminal")
+            layout.select_from_dropdown(terminal)
             self.form_values["Input Terminal"] = terminal
         else:
-            self.form_values["Input Terminal"] = console.get_dropdown_value(
+            self.form_values["Input Terminal"] = layout.get_dropdown_value(
                 "Input Terminal"
             )

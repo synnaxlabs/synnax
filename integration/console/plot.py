@@ -37,7 +37,7 @@ class Plot(ConsolePage):
         Returns:
             Plot instance for the opened plot.
         """
-        console.search_palette(name)
+        console.layout.search_palette(name)
 
         plot_pane = console.page.locator(cls.pluto_label)
         plot_pane.first.wait_for(state="visible", timeout=5000)
@@ -91,10 +91,10 @@ class Plot(ConsolePage):
         search_input = self.page.locator("input[placeholder*='Search']")
         for channel in channels:
             search_input.fill(channel)
-            self.console.select_from_dropdown(channel)
+            self.layout.select_from_dropdown(channel)
             self.data[axis].append(channel)
 
-        self.console.ESCAPE
+        self.layout.press_escape()
 
     def add_ranges(
         self,
@@ -111,10 +111,10 @@ class Plot(ConsolePage):
 
         for range_value in ranges:
             if range_value not in self.data["Ranges"]:
-                self.console.select_from_dropdown(range_value)
+                self.layout.select_from_dropdown(range_value)
                 self.data["Ranges"].append(range_value)
 
-        self.console.ESCAPE
+        self.layout.press_escape()
 
     def download_csv(self) -> str:
         """Download the plot data as a CSV file.
@@ -159,7 +159,7 @@ class Plot(ConsolePage):
         for key, value in config.items():
             self._set_axis_property(key, value)
 
-        self.console.ENTER
+        self.layout.press_enter()
 
     def _select_axis_tab(self, axis: Axis) -> None:
         """Select the axis tab in the configuration panel."""
@@ -284,7 +284,7 @@ class Plot(ConsolePage):
             .locator("input[role='textbox']")
         )
         title_input.fill(title, timeout=5000)
-        self.console.ENTER
+        self.layout.press_enter()
         self.page_name = title
 
     def set_line_thickness(self, thickness: int) -> None:
@@ -310,7 +310,7 @@ class Plot(ConsolePage):
 
         stroke_input = line_items.first.locator("input").nth(1)
         stroke_input.fill(str(thickness), timeout=5000)
-        self.console.ENTER
+        self.layout.press_enter()
 
     def set_line_label(self, label: str) -> None:
         """Set the label for the first line via the Lines tab.
@@ -329,7 +329,7 @@ class Plot(ConsolePage):
 
         label_input = line_item.locator("input").first
         label_input.fill(label, timeout=5000)
-        self.console.ENTER
+        self.layout.press_enter()
 
     def get_line_thickness(self) -> int:
         """Get the stroke width for the first line from the Lines tab.

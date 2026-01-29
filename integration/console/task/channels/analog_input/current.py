@@ -49,10 +49,11 @@ class Current(Analog):
             chan_type="Current",
             **kwargs,
         )
+        layout = self.layout
 
         if shunt_resistor is not None:
-            console.click_btn("Shunt Resistor Location")
-            console.select_from_dropdown(shunt_resistor)
+            layout.click_btn("Shunt Resistor Location")
+            layout.select_from_dropdown(shunt_resistor)
 
         if resistance is not None:
-            console.fill_input_field("Shunt Resistance", str(resistance))
+            layout.fill_input_field("Shunt Resistance", str(resistance))

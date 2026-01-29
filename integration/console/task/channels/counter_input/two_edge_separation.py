@@ -46,25 +46,27 @@ class TwoEdgeSeparation(Counter):
             chan_type="Two Edge Separation",
             **kwargs,
         )
+        self.layout = console.layout
+        layout = self.layout
 
         # Scaled Units
         if units is not None:
-            console.click_btn("Scaled Units")
-            console.select_from_dropdown(units)
+            layout.click_btn("Scaled Units")
+            layout.select_from_dropdown(units)
             self.form_values["Scaled Units"] = units
         else:
-            self.form_values["Scaled Units"] = console.get_dropdown_value(
+            self.form_values["Scaled Units"] = layout.get_dropdown_value(
                 "Scaled Units"
             )
 
         # Edge selection helper
         def set_edge(label: str, value: Optional[str]) -> None:
             if value is not None:
-                console.click_btn(label)
-                console.select_from_dropdown(value)
+                layout.click_btn(label)
+                layout.select_from_dropdown(value)
                 self.form_values[label] = value
             else:
-                self.form_values[label] = console.get_dropdown_value(label)
+                self.form_values[label] = layout.get_dropdown_value(label)
 
         set_edge("Edge 1", first_edge)
         set_edge("Edge 2", second_edge)

@@ -21,6 +21,7 @@ from framework.utils import get_results_path
 
 if TYPE_CHECKING:
     from console.console import Console
+    from console.layout import LayoutClient
     from console.schematic.symbol_editor import SymbolEditor
 
 
@@ -30,6 +31,7 @@ class SymbolToolbar:
     def __init__(self, page: Page, console: "Console"):
         self.page = page
         self.console = console
+        self.layout: "LayoutClient" = console.layout
 
     @property
     def toolbar(self) -> Locator:
@@ -279,4 +281,4 @@ class SymbolToolbar:
             "div:has-text('Search Symbols') input[role='textbox']"
         ).first
         search_input.fill(symbol_type)
-        self.console.click(symbol_type)
+        self.layout.click(symbol_type)

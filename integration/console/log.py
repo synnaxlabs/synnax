@@ -33,7 +33,7 @@ class Log(ConsolePage):
         Returns:
             Log instance for the opened log.
         """
-        console.search_palette(name)
+        console.layout.search_palette(name)
 
         log_pane = console.page.locator(cls.pluto_label)
         log_pane.first.wait_for(state="visible", timeout=5000)
@@ -65,8 +65,8 @@ class Log(ConsolePage):
             self.set_channel(channel_name)
 
     def set_channel(self, channel_name: str) -> None:
-        self.console.click_btn("Channel")
-        self.console.select_from_dropdown(channel_name, "Select a Channel")
+        self.layout.click_btn("Channel")
+        self.layout.select_from_dropdown(channel_name, "Select a Channel")
 
     def has_channel(self, channel_name: str) -> bool:
         """Check if a channel is shown in the Log toolbar."""

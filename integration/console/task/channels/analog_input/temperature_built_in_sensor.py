@@ -45,29 +45,31 @@ class TemperatureBuiltInSensor(Analog):
         # Does not call super()
 
         self.console = console
+        self.layout = console.layout
+        layout = self.layout
         self.name = name
         self.device = device
 
         values: dict[str, str | bool] = {}
 
         # Configure channel type
-        console.click_btn("Channel Type")
-        console.select_from_dropdown("Temperature Built-In Sensor")
+        layout.click_btn("Channel Type")
+        layout.select_from_dropdown("Temperature Built-In Sensor")
         values["Channel Type"] = "Temperature Built-In Sensor"
 
         # Get device (set by task.add_channel)
-        values["Device"] = console.get_dropdown_value("Device")
+        values["Device"] = layout.get_dropdown_value("Device")
 
         # Optional configurations
         if port is not None:
-            console.fill_input_field("Port", str(port))
+            layout.fill_input_field("Port", str(port))
             values["Port"] = str(port)
         else:
-            values["Port"] = console.get_input_field("Port")
+            values["Port"] = layout.get_input_field("Port")
 
         # Temperature Built-In Sensor-specific configurations:
         if temperature_units is not None:
-            console.click_btn("Temperature Units")
-            console.select_from_dropdown(temperature_units)
+            layout.click_btn("Temperature Units")
+            layout.select_from_dropdown(temperature_units)
 
         self.form_values = values

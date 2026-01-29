@@ -50,50 +50,52 @@ class AngularVelocity(Counter):
             chan_type="Velocity Angular",
             **kwargs,
         )
+        self.layout = console.layout
+        layout = self.layout
 
         # Units
         if units is not None:
-            console.click_btn("Scaled Units")
-            console.select_from_dropdown(units)
+            layout.click_btn("Scaled Units")
+            layout.select_from_dropdown(units)
             self.form_values["Scaled Units"] = units
         else:
-            self.form_values["Scaled Units"] = console.get_dropdown_value(
+            self.form_values["Scaled Units"] = layout.get_dropdown_value(
                 "Scaled Units"
             )
 
         # Pulses per Revolution
         if pulses_per_rev is not None:
-            console.fill_input_field("Pulses / Rev", str(pulses_per_rev))
+            layout.fill_input_field("Pulses / Rev", str(pulses_per_rev))
             self.form_values["Pulses / Rev"] = str(pulses_per_rev)
         else:
-            self.form_values["Pulses / Rev"] = console.get_input_field("Pulses / Rev")
+            self.form_values["Pulses / Rev"] = layout.get_input_field("Pulses / Rev")
 
         # Decoding Type
         if decoding_type is not None:
-            console.click_btn("Decoding Type")
-            console.select_from_dropdown(decoding_type)
+            layout.click_btn("Decoding Type")
+            layout.select_from_dropdown(decoding_type)
             self.form_values["Decoding Type"] = decoding_type
         else:
-            self.form_values["Decoding Type"] = console.get_dropdown_value(
+            self.form_values["Decoding Type"] = layout.get_dropdown_value(
                 "Decoding Type"
             )
 
         # Input Terminal A
         if terminal_a is not None:
-            console.click_btn("Input Terminal A")
-            console.select_from_dropdown(terminal_a)
+            layout.click_btn("Input Terminal A")
+            layout.select_from_dropdown(terminal_a)
             self.form_values["Input Terminal A"] = terminal_a
         else:
-            self.form_values["Input Terminal A"] = console.get_dropdown_value(
+            self.form_values["Input Terminal A"] = layout.get_dropdown_value(
                 "Input Terminal A"
             )
 
         # Input Terminal B
         if terminal_b is not None:
-            console.click_btn("Input Terminal B")
-            console.select_from_dropdown(terminal_b)
+            layout.click_btn("Input Terminal B")
+            layout.select_from_dropdown(terminal_b)
             self.form_values["Input Terminal B"] = terminal_b
         else:
-            self.form_values["Input Terminal B"] = console.get_dropdown_value(
+            self.form_values["Input Terminal B"] = layout.get_dropdown_value(
                 "Input Terminal B"
             )
