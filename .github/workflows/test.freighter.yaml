@@ -199,6 +199,9 @@ jobs:
         ports:
           - 8080:8080
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
       - name: Test TypeScript
         uses: ./.github/actions/test-typescript
         with:
