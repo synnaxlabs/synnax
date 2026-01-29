@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import json
-import uuid
 from typing import TYPE_CHECKING, Any, Literal
 
 import synnax as sy
@@ -162,56 +161,6 @@ class Schematic(ConsolePage):
         with open(save_path, "r") as f:
             result: dict[str, Any] = json.load(f)
             return result
-
-    @staticmethod
-    def assert_exported_json(exported: dict[str, Any]) -> None:
-        """Assert that the exported JSON has a valid structure.
-
-        Validates:
-        - Root 'key' is a valid UUID format
-        - Version matches SCHEMATIC_VERSION
-        - Required keys exist: nodes, edges, props, viewport
-
-        Args:
-            exported: The exported JSON dictionary to validate.
-        """
-        assert "key" in exported, "Exported JSON should contain 'key'"
-        try:
-            uuid.UUID(exported["key"])
-        except ValueError:
-            raise AssertionError(
-                f"Schematic key should be a valid UUID, got '{exported['key']}'"
-            )
-
-        assert "version" in exported, "Exported JSON should contain 'version'"
-        assert exported["version"] == SCHEMATIC_VERSION, (
-            f"Schematic version should be '{SCHEMATIC_VERSION}', "
-            f"got '{exported['version']}'"
-        )
-
-        required_keys = ["nodes", "edges", "props", "viewport"]
-        for key in required_keys:
-            assert key in exported, f"Exported JSON should contain '{key}'"
-
-    def get_node_count(self) -> int:
-        """Get the number of nodes on the schematic canvas.
-
-        Returns:
-            Number of nodes currently on the canvas.
-        """
-        canvas = self.page.locator(".react-flow__pane")
-        nodes = canvas.locator(".react-flow__node")
-        return nodes.count()
-
-    def wait_for_node(self, timeout: int = 5000) -> None:
-        """Wait for at least one node to appear on the schematic canvas.
-
-        Args:
-            timeout: Maximum time to wait in milliseconds.
-        """
-        canvas = self.page.locator(".react-flow__pane")
-        node = canvas.locator(".react-flow__node").last
-        node.wait_for(state="visible", timeout=timeout)
 
     def get_control_legend_entries(self) -> list[str]:
         """Get list of writer names from the control legend.
