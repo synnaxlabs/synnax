@@ -183,7 +183,7 @@ class Symbol(ABC):
         """
         pass
 
-    def set_channel(self, input_field: str, channel_name: str) -> None:
+    def set_channel(self, *, input_field: str, channel_name: str) -> None:
         if channel_name is not None:
             self.console.click_btn(input_field)
             self.console.select_from_dropdown(channel_name, "Search")
@@ -200,7 +200,7 @@ class Symbol(ABC):
         """
         pass
 
-    def move(self, delta_x: int, delta_y: int) -> None:
+    def move(self, *, delta_x: int, delta_y: int) -> None:
         """Move the symbol by the specified number of pixels using drag"""
         pos = self.position
         start_x = box_center_x(pos)

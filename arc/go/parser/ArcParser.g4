@@ -49,7 +49,11 @@ namedOutput
     ;
 
 configBlock
-    : LBRACE config* RBRACE
+    : LBRACE configList? RBRACE
+    ;
+
+configList
+    : config (COMMA config)* COMMA?
     ;
 
 config
@@ -77,6 +81,12 @@ stageBody
 
 stageItem
     : flowStatement
+    | singleInvocation
+    ;
+
+singleInvocation
+    : function
+    | expression
     ;
 
 // =============================================================================
@@ -154,7 +164,6 @@ statement
     | assignment
     | ifStatement
     | returnStatement
-    | functionCall
     | expression
     ;
 
@@ -202,10 +211,6 @@ elseClause
 
 returnStatement
     : RETURN expression?
-    ;
-
-functionCall
-    : IDENTIFIER LPAREN argumentList? RPAREN
     ;
 
 // =============================================================================

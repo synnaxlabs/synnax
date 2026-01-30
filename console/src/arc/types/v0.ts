@@ -50,7 +50,7 @@ export const stateZ = z.object({
   version: z.literal(VERSION),
   remoteCreated: z.boolean(),
   graph: graphStateZ,
-  text: arc.textZ,
+  text: arc.textZ.default({ raw: "" }),
   mode: arc.modeZ.optional(),
 });
 
@@ -120,15 +120,3 @@ export const ZERO_SLICE_STATE: SliceState = {
   toolbar: { activeTab: "stages" },
   arcs: {},
 };
-
-export const taskConfigZ = z.object({
-  arcKey: z.string(),
-});
-
-export interface TaskConfig extends z.infer<typeof taskConfigZ> {}
-
-export const taskStatusDataZ = z.null().or(z.undefined());
-export type TaskStatusData = z.infer<typeof taskStatusDataZ>;
-const TASK_TYPE = "arc";
-export const taskTypeZ = z.literal(TASK_TYPE);
-export type TaskType = z.infer<typeof taskTypeZ>;

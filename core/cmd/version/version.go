@@ -19,6 +19,6 @@ import (
 
 // FPrint prints the version of Synnax to the given writer.
 func FPrint(w io.Writer) error {
-	_, err := fmt.Fprintf(w, "Synnax %s\n", version.Full())
+	_, err := fmt.Fprintln(w, "Synnax "+version.Full())
 	return err
 }

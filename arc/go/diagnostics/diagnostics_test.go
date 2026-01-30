@@ -10,11 +10,10 @@
 package diagnostics_test
 
 import (
-	"errors"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 )
 
 var _ = Describe("Diagnostics", func() {
@@ -45,9 +44,9 @@ var _ = Describe("Diagnostics", func() {
 		It("Should not add duplicate errors with same location and message", func() {
 			var d diagnostics.Diagnostics
 			err := errors.New("undefined symbol: x")
-			d.AddError(err, nil)
-			d.AddError(err, nil)
-			d.AddError(err, nil)
+			d.Add(diagnostics.Error(err, nil))
+			d.Add(diagnostics.Error(err, nil))
+			d.Add(diagnostics.Error(err, nil))
 			Expect(d).To(HaveLen(1))
 		})
 
@@ -68,25 +67,22 @@ var _ = Describe("Diagnostics", func() {
 
 		It("Should deduplicate warnings", func() {
 			var d diagnostics.Diagnostics
-			err := errors.New("unused variable")
-			d.AddWarning(err, nil)
-			d.AddWarning(err, nil)
+			d.Add(diagnostics.Warningf(nil, "unused variable"))
+			d.Add(diagnostics.Warningf(nil, "unused variable"))
 			Expect(d).To(HaveLen(1))
 		})
 
 		It("Should deduplicate info messages", func() {
 			var d diagnostics.Diagnostics
-			err := errors.New("info message")
-			d.AddInfo(err, nil)
-			d.AddInfo(err, nil)
+			d.Add(diagnostics.Infof(nil, "info message"))
+			d.Add(diagnostics.Infof(nil, "info message"))
 			Expect(d).To(HaveLen(1))
 		})
 
 		It("Should deduplicate hints", func() {
 			var d diagnostics.Diagnostics
-			err := errors.New("hint message")
-			d.AddHint(err, nil)
-			d.AddHint(err, nil)
+			d.Add(diagnostics.Hintf(nil, "hint message"))
+			d.Add(diagnostics.Hintf(nil, "hint message"))
 			Expect(d).To(HaveLen(1))
 		})
 
@@ -196,33 +192,33 @@ var _ = Describe("Diagnostics", func() {
 
 		It("Should return true when only warnings exist", func() {
 			var d diagnostics.Diagnostics
-			d.AddWarning(errors.New("warning"), nil)
+			d.Add(diagnostics.Warningf(nil, "warning"))
 			Expect(d.Ok()).To(BeTrue())
 		})
 
 		It("Should return true when only info exists", func() {
 			var d diagnostics.Diagnostics
-			d.AddInfo(errors.New("info"), nil)
+			d.Add(diagnostics.Infof(nil, "info"))
 			Expect(d.Ok()).To(BeTrue())
 		})
 
 		It("Should return true when only hints exist", func() {
 			var d diagnostics.Diagnostics
-			d.AddHint(errors.New("hint"), nil)
+			d.Add(diagnostics.Hintf(nil, "hint"))
 			Expect(d.Ok()).To(BeTrue())
 		})
 
 		It("Should return false when errors exist", func() {
 			var d diagnostics.Diagnostics
-			d.AddError(errors.New("error"), nil)
+			d.Add(diagnostics.Errorf(nil, "error"))
 			Expect(d.Ok()).To(BeFalse())
 		})
 
 		It("Should return false when errors exist alongside warnings", func() {
 			var d diagnostics.Diagnostics
-			d.AddWarning(errors.New("warning"), nil)
-			d.AddError(errors.New("error"), nil)
-			d.AddHint(errors.New("hint"), nil)
+			d.Add(diagnostics.Warningf(nil, "warning"))
+			d.Add(diagnostics.Errorf(nil, "error"))
+			d.Add(diagnostics.Hintf(nil, "hint"))
 			Expect(d.Ok()).To(BeFalse())
 		})
 	})
@@ -230,17 +226,17 @@ var _ = Describe("Diagnostics", func() {
 	Describe("Errors", func() {
 		It("Should return empty slice when no errors", func() {
 			var d diagnostics.Diagnostics
-			d.AddWarning(errors.New("warning"), nil)
-			d.AddHint(errors.New("hint"), nil)
+			d.Add(diagnostics.Warningf(nil, "warning"))
+			d.Add(diagnostics.Hintf(nil, "hint"))
 			Expect(d.Errors()).To(BeEmpty())
 		})
 
 		It("Should return only error-level diagnostics", func() {
 			var d diagnostics.Diagnostics
-			d.AddError(errors.New("error1"), nil)
-			d.AddWarning(errors.New("warning"), nil)
-			d.AddError(errors.New("error2"), nil)
-			d.AddHint(errors.New("hint"), nil)
+			d.Add(diagnostics.Errorf(nil, "error1"))
+			d.Add(diagnostics.Warningf(nil, "warning"))
+			d.Add(diagnostics.Errorf(nil, "error2"))
+			d.Add(diagnostics.Hintf(nil, "hint"))
 			errs := d.Errors()
 			Expect(errs).To(HaveLen(2))
 			Expect(errs[0].Message).To(Equal("error1"))
@@ -251,17 +247,17 @@ var _ = Describe("Diagnostics", func() {
 	Describe("Warnings", func() {
 		It("Should return empty slice when no warnings", func() {
 			var d diagnostics.Diagnostics
-			d.AddError(errors.New("error"), nil)
-			d.AddHint(errors.New("hint"), nil)
+			d.Add(diagnostics.Errorf(nil, "error"))
+			d.Add(diagnostics.Hintf(nil, "hint"))
 			Expect(d.Warnings()).To(BeEmpty())
 		})
 
 		It("Should return only warning-level diagnostics", func() {
 			var d diagnostics.Diagnostics
-			d.AddWarning(errors.New("warning1"), nil)
-			d.AddError(errors.New("error"), nil)
-			d.AddWarning(errors.New("warning2"), nil)
-			d.AddHint(errors.New("hint"), nil)
+			d.Add(diagnostics.Warningf(nil, "warning1"))
+			d.Add(diagnostics.Errorf(nil, "error"))
+			d.Add(diagnostics.Warningf(nil, "warning2"))
+			d.Add(diagnostics.Hintf(nil, "hint"))
 			warnings := d.Warnings()
 			Expect(warnings).To(HaveLen(2))
 			Expect(warnings[0].Message).To(Equal("warning1"))
@@ -302,43 +298,109 @@ var _ = Describe("Diagnostics", func() {
 		})
 	})
 
-	Describe("Error interface", func() {
-		It("Should implement error interface", func() {
-			var d diagnostics.Diagnostics
-			d.AddError(errors.New("test error"), nil)
-			var err error = d
-			Expect(err.Error()).To(ContainSubstring("test error"))
-		})
-	})
-
 	Describe("Add methods with nil context", func() {
-		It("Should handle nil context for AddError", func() {
+		It("Should handle nil context for Error", func() {
 			var d diagnostics.Diagnostics
-			d.AddError(errors.New("error"), nil)
+			d.Add(diagnostics.Error(errors.New("error"), nil))
 			Expect(d).To(HaveLen(1))
 			Expect(d[0].Start.Line).To(Equal(0))
 			Expect(d[0].Start.Col).To(Equal(0))
 		})
 
-		It("Should handle nil context for AddWarning", func() {
+		It("Should handle nil context for Warningf", func() {
 			var d diagnostics.Diagnostics
-			d.AddWarning(errors.New("warning"), nil)
+			d.Add(diagnostics.Warningf(nil, "warning"))
 			Expect(d).To(HaveLen(1))
 			Expect(d[0].Severity).To(Equal(diagnostics.SeverityWarning))
 		})
 
-		It("Should handle nil context for AddInfo", func() {
+		It("Should handle nil context for Infof", func() {
 			var d diagnostics.Diagnostics
-			d.AddInfo(errors.New("info"), nil)
+			d.Add(diagnostics.Infof(nil, "info"))
 			Expect(d).To(HaveLen(1))
 			Expect(d[0].Severity).To(Equal(diagnostics.SeverityInfo))
 		})
 
-		It("Should handle nil context for AddHint", func() {
+		It("Should handle nil context for Hintf", func() {
 			var d diagnostics.Diagnostics
-			d.AddHint(errors.New("hint"), nil)
+			d.Add(diagnostics.Hintf(nil, "hint"))
 			Expect(d).To(HaveLen(1))
 			Expect(d[0].Severity).To(Equal(diagnostics.SeverityHint))
+		})
+	})
+
+	Describe("Error Codes", func() {
+		It("Should add error with code", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Errorf(nil, "type error").WithCode(diagnostics.ErrorCodeTypeMismatch))
+			Expect(d).To(HaveLen(1))
+			Expect(d[0].Code).To(Equal(diagnostics.ErrorCodeTypeMismatch))
+			Expect(d[0].Message).To(Equal("type error"))
+		})
+
+		It("Should format error code in string output", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Diagnostic{
+				Start:    diagnostics.Position{Line: 1, Col: 5},
+				Severity: diagnostics.SeverityError,
+				Code:     diagnostics.ErrorCodeFuncArgCount,
+				Message:  "wrong arg count",
+			})
+			Expect(d.String()).To(Equal("1:5 error [ARC3001]: wrong arg count"))
+		})
+	})
+
+	Describe("Notes", func() {
+		It("Should add error with note", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Error(errors.New("type mismatch"), nil).WithNote("expected i64"))
+			Expect(d).To(HaveLen(1))
+			Expect(d[0].Notes).To(HaveLen(1))
+			Expect(d[0].Notes[0].Message).To(Equal("expected i64"))
+		})
+
+		It("Should add error with code and note", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Errorf(nil, "wrong type").WithCode(diagnostics.ErrorCodeFuncArgType).WithNote("signature: add(x i64, y i64) i64"))
+			Expect(d).To(HaveLen(1))
+			Expect(d[0].Code).To(Equal(diagnostics.ErrorCodeFuncArgType))
+			Expect(d[0].Notes).To(HaveLen(1))
+			Expect(d[0].Notes[0].Message).To(Equal("signature: add(x i64, y i64) i64"))
+		})
+
+		It("Should format notes in string output", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Diagnostic{
+				Start:    diagnostics.Position{Line: 1, Col: 0},
+				Severity: diagnostics.SeverityError,
+				Message:  "error msg",
+				Notes:    []diagnostics.Note{{Message: "additional context"}},
+			})
+			str := d.String()
+			Expect(str).To(ContainSubstring("error msg"))
+			Expect(str).To(ContainSubstring("note: additional context"))
+		})
+
+		It("Should format note with position", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Diagnostic{
+				Start:    diagnostics.Position{Line: 5, Col: 2},
+				Severity: diagnostics.SeverityError,
+				Message:  "error here",
+				Notes: []diagnostics.Note{{
+					Message: "related to this",
+					Start:   diagnostics.Position{Line: 3, Col: 10},
+				}},
+			})
+			str := d.String()
+			Expect(str).To(ContainSubstring("3:10 note: related to this"))
+		})
+
+		It("Should skip empty note", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Error(errors.New("error"), nil).WithNote(""))
+			Expect(d).To(HaveLen(1))
+			Expect(d[0].Notes).To(BeEmpty())
 		})
 	})
 })

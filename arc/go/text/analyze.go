@@ -17,15 +17,14 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/runtime/stage"
 	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/errors"
 )
 
 type keyGenerator struct {
@@ -125,7 +124,7 @@ func analyzeIdentifierByRole(
 	name := ctx.AST.IDENTIFIER().GetText()
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nodeResult{}, false
 	}
 
@@ -142,6 +141,14 @@ func analyzeIdentifierByRole(
 	}
 }
 
+func newStageTransition(seqName, stageName string, kg *keyGenerator) nodeResult {
+	entryKey := kg.entry(seqName, stageName)
+	return emptyNodeResult(ir.Handle{
+		Node:  entryKey,
+		Param: stage.EntryActivationParam,
+	})
+}
+
 func analyzeSequenceRef(
 	ctx acontext.Context[parser.IIdentifierContext],
 	seqSym *symbol.Scope,
@@ -149,16 +156,14 @@ func analyzeSequenceRef(
 ) (nodeResult, bool) {
 	firstStage, err := seqSym.FirstChildOfKind(symbol.KindStage)
 	if err != nil {
-		ctx.Diagnostics.AddError(errors.Newf("sequence '%s' has no stages", seqSym.Name), ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "sequence '%s' has no stages", seqSym.Name))
 		return nodeResult{}, false
 	}
-	entryKey := kg.entry(seqSym.Name, firstStage.Name)
-	return emptyNodeResult(ir.Handle{Node: entryKey, Param: "activate"}), true
+	return newStageTransition(seqSym.Name, firstStage.Name, kg), true
 }
 
 func analyzeStageRef(stageSym *symbol.Scope, kg *keyGenerator) (nodeResult, bool) {
-	entryKey := kg.entry(stageSym.Parent.Name, stageSym.Name)
-	return emptyNodeResult(ir.Handle{Node: entryKey, Param: "activate"}), true
+	return newStageTransition(stageSym.Parent.Name, stageSym.Name, kg), true
 }
 
 func buildChannelReadNode(name string, sym *symbol.Scope, kg *keyGenerator) (nodeResult, bool) {
@@ -194,14 +199,15 @@ func analyzeNextToken(
 	kg *keyGenerator,
 ) (nodeResult, bool) {
 	if kg.seqName == "" {
-		ctx.Diagnostics.AddError(errors.New("'next' used outside of a sequence"), ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "'next' used outside of a sequence"))
 		return nodeResult{}, false
 	}
 	if kg.nextStageName == "" {
-		ctx.Diagnostics.AddError(
-			errors.Newf("'next' in last stage '%s' has no next stage", kg.stageName),
+		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
-		)
+			"'next' in last stage '%s' has no next stage",
+			kg.stageName,
+		))
 		return nodeResult{}, false
 	}
 	entryKey := kg.entry(kg.seqName, kg.nextStageName)
@@ -216,11 +222,15 @@ func analyzeFunctionNode(
 	key := kg.generate(name, "")
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
-		ctx.Diagnostics.AddError(err, nil)
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nodeResult{}, false
 	}
 	if sym.Type.Kind != types.KindFunction {
-		ctx.Diagnostics.AddError(errors.Newf("expected function type, got %s", sym.Type), nil)
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"expected function type, got %s",
+			sym.Type,
+		))
 		return nodeResult{}, false
 	}
 	n := ir.Node{
@@ -245,16 +255,16 @@ func analyzeExpression(
 ) (nodeResult, bool) {
 	sym, err := ctx.Scope.Root().GetChildByParserRule(ctx.AST)
 	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nodeResult{}, false
 	}
 
 	if sym.Kind == symbol.KindConstant {
 		outputType := ctx.Constraints.ApplySubstitutions(sym.Type.Outputs[0].Type)
-		literalCtx := expression.GetLiteral(ctx.AST)
+		literalCtx := parser.GetLiteral(ctx.AST)
 		parsedValue, err := literal.Parse(literalCtx, outputType)
 		if err != nil {
-			ctx.Diagnostics.AddError(err, ctx.AST)
+			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return nodeResult{}, false
 		}
 		key := kg.generate("const", "")
@@ -362,7 +372,10 @@ type flowChainProcessor struct {
 	lastOpIndex        int
 }
 
-func newFlowChainProcessor(ctx acontext.Context[parser.IFlowStatementContext], kg *keyGenerator) *flowChainProcessor {
+func newFlowChainProcessor(
+	ctx acontext.Context[parser.IFlowStatementContext],
+	kg *keyGenerator,
+) *flowChainProcessor {
 	var total int
 	for _, child := range ctx.AST.GetChildren() {
 		if _, ok := child.(parser.IFlowNodeContext); ok {
@@ -438,7 +451,11 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		return false
 	}
 	if p.prevNode != nil {
-		p.edges = append(p.edges, ir.Edge{Source: p.prevOutput, Target: result.input, Kind: p.edgeKind()})
+		p.edges = append(p.edges, ir.Edge{
+			Source: p.prevOutput,
+			Target: result.input,
+			Kind:   p.edgeKind(),
+		})
 	}
 
 	// Handle additional triggers (for expressions with multiple channel references)
@@ -463,13 +480,18 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 
 func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext) bool {
 	if p.prevNode == nil {
-		p.ctx.Diagnostics.AddError(
-			errors.Newf("input routing tables not yet implemented in text compiler"),
+		p.ctx.Diagnostics.Add(diagnostics.Errorf(
 			p.ctx.AST,
-		)
+			"input routing tables not yet implemented in text compiler",
+		))
 		return false
 	}
-	newNodes, newEdges, ok := analyzeOutputRoutingTable(acontext.Child(p.ctx, rt), *p.prevNode, p.prevOutput, p.kg)
+	newNodes, newEdges, ok := analyzeOutputRoutingTable(
+		acontext.Child(p.ctx, rt),
+		*p.prevNode,
+		p.prevOutput,
+		p.kg,
+	)
 	if !ok {
 		return false
 	}
@@ -479,7 +501,10 @@ func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext)
 	return true
 }
 
-func analyzeFlow(ctx acontext.Context[parser.IFlowStatementContext], kg *keyGenerator) ([]ir.Node, []ir.Edge, bool) {
+func analyzeFlow(
+	ctx acontext.Context[parser.IFlowStatementContext],
+	kg *keyGenerator,
+) ([]ir.Node, []ir.Edge, bool) {
 	p := newFlowChainProcessor(ctx, kg)
 	for i, child := range ctx.AST.GetChildren() {
 		switch c := child.(type) {
@@ -496,7 +521,10 @@ func analyzeFlow(ctx acontext.Context[parser.IFlowStatementContext], kg *keyGene
 		}
 	}
 	if len(p.edges) < 1 {
-		ctx.Diagnostics.AddError(errors.Newf("flow statement requires at least two nodes"), ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"flow statement requires at least two nodes",
+		))
 		return nil, nil, false
 	}
 	return p.nodes, p.edges, true
@@ -511,12 +539,16 @@ func extractConfigValues(
 		return config, true
 	}
 
-	parseConfigExpr := func(expr parser.IExpressionContext, paramType types.Type, paramName string) (any, bool) {
+	parseConfigExpr := func(
+		expr parser.IExpressionContext,
+		paramType types.Type,
+		paramName string,
+	) (any, bool) {
 		if paramType.Kind == types.KindChan {
-			channelName := getExpressionText(expr)
+			channelName := parser.GetExpressionText(expr)
 			sym, err := ctx.Scope.Resolve(ctx, channelName)
 			if err != nil {
-				ctx.Diagnostics.AddError(err, expr)
+				ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 				return nil, false
 			}
 			channelKey := uint32(sym.ID)
@@ -524,18 +556,19 @@ func extractConfigValues(
 			return channelKey, true
 		}
 
-		if !expression.IsLiteral(expr) {
-			ctx.Diagnostics.AddError(
-				fmt.Errorf("config value for '%s' must be a literal", paramName),
+		if !parser.IsLiteral(expr) {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
 				expr,
-			)
+				"config value for '%s' must be a literal",
+				paramName,
+			))
 			return nil, false
 		}
 
-		literalCtx := expression.GetLiteral(expr)
+		literalCtx := parser.GetLiteral(expr)
 		parsedValue, err := literal.Parse(literalCtx, paramType)
 		if err != nil {
-			ctx.Diagnostics.AddError(err, expr)
+			ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 			return nil, false
 		}
 		return parsedValue.Value, true
@@ -580,10 +613,12 @@ func analyzeOutputRoutingTable(
 	for _, entry := range ctx.AST.AllRoutingEntry() {
 		outputName := entry.IDENTIFIER(0).GetText()
 		if !sourceNode.Outputs.Has(outputName) {
-			ctx.Diagnostics.AddError(
-				errors.Newf("node '%s' does not have output '%s'", sourceNode.Key, outputName),
+			ctx.Diagnostics.Add(diagnostics.Errorf(
 				entry,
-			)
+				"node '%s' does not have output '%s'",
+				sourceNode.Key,
+				outputName,
+			))
 			return nil, nil, false
 		}
 
@@ -614,15 +649,21 @@ func analyzeOutputRoutingTable(
 					Kind:   ir.EdgeKindContinuous,
 				})
 			} else {
-				edges = append(edges, ir.Edge{Source: prevOutputHandle, Target: result.input, Kind: ir.EdgeKindContinuous})
+				edges = append(edges, ir.Edge{
+					Source: prevOutputHandle,
+					Target: result.input,
+					Kind:   ir.EdgeKindContinuous,
+				})
 			}
 
 			if isLast && targetParamName != "" {
 				if !result.node.Inputs.Has(targetParamName) {
-					ctx.Diagnostics.AddError(
-						errors.Newf("node '%s' does not have input '%s'", result.node.Key, targetParamName),
+					ctx.Diagnostics.Add(diagnostics.Errorf(
 						entry,
-					)
+						"node '%s' does not have input '%s'",
+						result.node.Key,
+						targetParamName,
+					))
 					return nil, nil, false
 				}
 				edges[len(edges)-1].Target.Param = targetParamName
@@ -638,21 +679,6 @@ func analyzeOutputRoutingTable(
 	return nodes, edges, true
 }
 
-func getExpressionText(expr parser.IExpressionContext) string {
-	if expr == nil {
-		return ""
-	}
-	start := expr.GetStart()
-	stop := expr.GetStop()
-	if start != nil && stop != nil {
-		stream := start.GetTokenSource().GetInputStream()
-		if stream != nil {
-			return stream.GetText(start.GetStart(), stop.GetStop())
-		}
-	}
-	return expr.GetText()
-}
-
 func analyzeSequence(
 	ctx acontext.Context[parser.ISequenceDeclarationContext],
 	kg *keyGenerator,
@@ -662,7 +688,7 @@ func analyzeSequence(
 
 	seqScope, err := ctx.Scope.Resolve(ctx, seqName)
 	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return ir.Sequence{}, nil, nil, false
 	}
 
@@ -699,44 +725,69 @@ func analyzeStage(
 	seqName string,
 	kg *keyGenerator,
 ) (ir.Stage, []ir.Node, []ir.Edge, bool) {
-	stageName := ctx.AST.IDENTIFIER().GetText()
-	stage := ir.Stage{Key: stageName}
+	var (
+		stageName = ctx.AST.IDENTIFIER().GetText()
+		stg       = ir.Stage{Key: stageName}
+		nodes     []ir.Node
+		edges     []ir.Edge
+	)
 
-	var nodes []ir.Node
-	var edges []ir.Edge
-
-	entryKey := kg.entry(seqName, stageName)
 	entryNode := ir.Node{
-		Key:      entryKey,
-		Type:     "stage_entry",
+		Key:      kg.entry(seqName, stageName),
+		Type:     stage.EntryNode.Name,
 		Channels: symbol.NewChannels(),
-		Inputs: types.Params{
-			{Name: "activate", Type: types.U8()},
-		},
+		Inputs:   stage.EntryNode.Type.Inputs,
 	}
 	nodes = append(nodes, entryNode)
 
 	stageBody := ctx.AST.StageBody()
 	if stageBody == nil {
-		return stage, nodes, edges, true
+		return stg, nodes, edges, true
 	}
 
 	for _, item := range stageBody.AllStageItem() {
-		flowStmt := item.FlowStatement()
-		if flowStmt == nil {
-			continue
-		}
-		itemNodes, itemEdges, ok := analyzeFlow(acontext.Child(ctx, flowStmt), kg)
-		if !ok {
-			return ir.Stage{}, nil, nil, false
-		}
-		nodes = append(nodes, itemNodes...)
-		edges = append(edges, itemEdges...)
+		if flowStmt := item.FlowStatement(); flowStmt != nil {
+			itemNodes, itemEdges, ok := analyzeFlow(acontext.Child(ctx, flowStmt), kg)
+			if !ok {
+				return ir.Stage{}, nil, nil, false
+			}
+			nodes = append(nodes, itemNodes...)
+			edges = append(edges, itemEdges...)
 
-		for _, n := range itemNodes {
-			stage.Nodes = append(stage.Nodes, n.Key)
+			for _, n := range itemNodes {
+				stg.Nodes = append(stg.Nodes, n.Key)
+			}
+		}
+		if single := item.SingleInvocation(); single != nil {
+			node, ok := analyzeSingleInvocation(acontext.Child(ctx, single), kg)
+			if !ok {
+				return ir.Stage{}, nil, nil, false
+			}
+			nodes = append(nodes, node)
+			stg.Nodes = append(stg.Nodes, node.Key)
 		}
 	}
 
-	return stage, nodes, edges, true
+	return stg, nodes, edges, true
+}
+
+func analyzeSingleInvocation(
+	ctx acontext.Context[parser.ISingleInvocationContext],
+	kg *keyGenerator,
+) (ir.Node, bool) {
+	if fn := ctx.AST.Function(); fn != nil {
+		result, ok := analyzeFunctionNode(acontext.Child(ctx, fn), kg)
+		if !ok {
+			return ir.Node{}, false
+		}
+		return result.node, true
+	}
+	if expr := ctx.AST.Expression(); expr != nil {
+		result, ok := analyzeExpression(acontext.Child(ctx, expr), kg)
+		if !ok {
+			return ir.Node{}, false
+		}
+		return result.node, true
+	}
+	return ir.Node{}, false
 }

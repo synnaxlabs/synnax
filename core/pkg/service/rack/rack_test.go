@@ -185,6 +185,35 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(svc.NewRetrieve().WhereEmbedded(true).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Embedded).To(BeTrue())
 		})
+		Describe("WhereName", func() {
+			It("Should retrieve a rack by its exact name", func() {
+				r := &rack.Rack{Name: "unique-rack-name"}
+				Expect(writer.Create(ctx, r)).To(Succeed())
+				var res rack.Rack
+				Expect(svc.NewRetrieve().WhereName("unique-rack-name").Entry(&res).Exec(ctx, tx)).To(Succeed())
+				Expect(res.Key).To(Equal(r.Key))
+				Expect(res.Name).To(Equal("unique-rack-name"))
+			})
+			It("Should return not found when name does not match", func() {
+				r := &rack.Rack{Name: "existing-rack"}
+				Expect(writer.Create(ctx, r)).To(Succeed())
+				var res rack.Rack
+				Expect(svc.NewRetrieve().
+					WhereName("nonexistent-rack", gorp.Required()).
+					Entry(&res).
+					Exec(ctx, tx)).Error().To(MatchError(query.ErrNotFound))
+			})
+			It("Should filter among multiple racks correctly", func() {
+				r1 := &rack.Rack{Name: "filter-rack-alpha"}
+				r2 := &rack.Rack{Name: "filter-rack-beta"}
+				Expect(writer.Create(ctx, r1)).To(Succeed())
+				Expect(writer.Create(ctx, r2)).To(Succeed())
+				var res rack.Rack
+				Expect(svc.NewRetrieve().WhereName("filter-rack-beta").Entry(&res).Exec(ctx, tx)).To(Succeed())
+				Expect(res.Key).To(Equal(r2.Key))
+				Expect(res.Name).To(Equal("filter-rack-beta"))
+			})
+		})
 	})
 	Describe("Delete", func() {
 		It("Should delete a rack and its associated status", func() {
@@ -404,21 +433,50 @@ var _ = Describe("Rack", Ordered, func() {
 })
 
 var _ = Describe("Migration", func() {
-	It("Should create unknown statuses for racks missing them", func() {
-		db := gorp.Wrap(memkv.New())
-		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+	var (
+		db       *gorp.DB
+		otg      *ontology.Ontology
+		g        *group.Service
+		labelSvc *label.Service
+		stat     *status.Service
+	)
+	BeforeEach(func() {
+		db = gorp.Wrap(memkv.New())
+		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+		g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 		}))
-		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		stat = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    g,
 			Label:    labelSvc,
 		}))
+		DeferCleanup(func() {
+			Expect(stat.Close()).To(Succeed())
+			Expect(labelSvc.Close()).To(Succeed())
+			Expect(g.Close()).To(Succeed())
+			Expect(otg.Close()).To(Succeed())
+			Expect(db.Close()).To(Succeed())
+		})
+	})
+
+	openService := func() *rack.Service {
+		svc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:           db,
+			Ontology:     otg,
+			Group:        g,
+			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       stat,
+		}))
+		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
+		return svc
+	}
+
+	It("Should create unknown statuses for racks missing them", func() {
 		svc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
@@ -435,13 +493,16 @@ var _ = Describe("Migration", func() {
 			Entry(&deletedStatus).
 			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		Expect(svc.Close()).To(Succeed())
-		svc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+
+		svc2 := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
 		}))
+		DeferCleanup(func() { Expect(svc2.Close()).To(Succeed()) })
+
 		var restoredStatus rack.Status
 		Expect(status.NewRetrieve[rack.StatusDetails](stat).
 			WhereKeys(rack.OntologyID(r.Key).String()).
@@ -450,29 +511,9 @@ var _ = Describe("Migration", func() {
 		Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
 		Expect(restoredStatus.Message).To(Equal("Status unknown"))
 		Expect(restoredStatus.Details.Rack).To(Equal(r.Key))
-		Expect(svc.Close()).To(Succeed())
-		Expect(stat.Close()).To(Succeed())
-		Expect(labelSvc.Close()).To(Succeed())
-		Expect(g.Close()).To(Succeed())
-		Expect(otg.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
 	})
-	It("Should correctly migrate a v1 rack to a v2 rack", func() {
-		db := gorp.Wrap(memkv.New())
-		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-		label := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-		}))
-		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
-			Ontology: otg,
-			DB:       db,
-			Group:    g,
-			Label:    label,
-		}))
 
+	It("Should correctly migrate a v1 rack to a v2 rack", func() {
 		v1EmbeddedRack := rack.Rack{
 			Key:  65538,
 			Name: "sy_node_1_rack",
@@ -481,19 +522,65 @@ var _ = Describe("Migration", func() {
 			Entry(&v1EmbeddedRack).
 			Exec(ctx, db)).To(Succeed())
 
-		svc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			Group:        g,
-			HostProvider: mock.StaticHostKeyProvider(1),
-			Status:       stat,
-		}))
+		svc := openService()
 		Expect(svc.EmbeddedKey).To(Equal(rack.Key(65538)))
-		// Retrieve the embedded rack
 		var embeddedRack rack.Rack
-		Expect(svc.NewRetrieve().WhereKeys(svc.EmbeddedKey).Entry(&embeddedRack).Exec(ctx, db)).To(Succeed())
+		Expect(svc.NewRetrieve().
+			WhereKeys(svc.EmbeddedKey).
+			Entry(&embeddedRack).
+			Exec(ctx, db)).To(Succeed())
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
+		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
+		Expect(count).To(Equal(1))
+	})
+
+	It("Should not match an embedded rack with a mismatched name", func() {
+		mismatchedRack := rack.Rack{
+			Key:      65538,
+			Name:     "Some Other Embedded Rack",
+			Embedded: true,
+		}
+		Expect(gorp.NewCreate[rack.Key, rack.Rack]().
+			Entry(&mismatchedRack).
+			Exec(ctx, db)).To(Succeed())
+
+		svc := openService()
+		Expect(svc.EmbeddedKey).ToNot(Equal(mismatchedRack.Key))
+
+		var embeddedRack rack.Rack
+		Expect(svc.NewRetrieve().
+			WhereKeys(svc.EmbeddedKey).
+			Entry(&embeddedRack).
+			Exec(ctx, db)).To(Succeed())
+		Expect(embeddedRack.Embedded).To(BeTrue())
+		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
+
+		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
+		Expect(count).To(Equal(2))
+	})
+
+	It("Should reuse an existing v2 embedded rack with the correct name", func() {
+		existingRack := rack.Rack{
+			Key:      65538,
+			Name:     "Node 1 Embedded Driver",
+			Embedded: true,
+		}
+		Expect(gorp.NewCreate[rack.Key, rack.Rack]().
+			Entry(&existingRack).
+			Exec(ctx, db)).To(Succeed())
+
+		svc := openService()
+		Expect(svc.EmbeddedKey).To(Equal(existingRack.Key))
+
+		var embeddedRack rack.Rack
+		Expect(svc.NewRetrieve().
+			WhereKeys(svc.EmbeddedKey).
+			Entry(&embeddedRack).
+			Exec(ctx, db)).To(Succeed())
+		Expect(embeddedRack.Embedded).To(BeTrue())
+		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
+
 		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
 		Expect(count).To(Equal(1))
 	})

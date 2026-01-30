@@ -1,0 +1,203 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/*
+ * Pluto Component Overrides
+ *
+ * Customizations to Pluto library components for the docs site.
+ * With CSS layers, these should override Pluto without !important.
+ */
+
+/* Pack component */
+.pluto-pack {
+    --pluto-pack-br: 1rem;
+}
+
+/* Tabs selector */
+.pluto-tabs-selector__btn {
+    padding: 0 3rem;
+
+    .pluto-text-icon {
+        gap: 1.5rem;
+    }
+
+    .pluto-text {
+        margin: 0;
+    }
+}
+
+@media (max-width: 800px) {
+    .pluto-tabs-selector__btn {
+        padding: 0 1rem;
+    }
+}
+
+@media (max-width: 600px) {
+    .pluto-tabs-selector__tabs {
+        justify-content: center;
+    }
+}
+
+/* Tree component */
+.pluto-tree {
+    max-height: calc(100vh - 15rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-top: 5rem;
+    mask-image: linear-gradient(
+        to bottom,
+        transparent 0,
+        black 5rem,
+        black calc(100% - 5rem),
+        transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0,
+        black 5rem,
+        black calc(100% - 5rem),
+        transparent 100%
+    );
+
+    /* Firefox scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: var(--pluto-border-color) transparent;
+
+    .pluto-text {
+        color: var(--pluto-gray-l9);
+        font-size: var(--pluto-small-size);
+        line-height: var(--pluto-small-line-height);
+        font-weight: 400;
+    }
+
+    & > *:last-child {
+        margin-bottom: 10rem;
+    }
+
+    .pluto-tree__expansion-indicator {
+        order: 999;
+        margin-left: auto;
+    }
+
+    .pluto-list__item {
+        padding-top: round(0.875rem, 1px);
+        padding-bottom: round(0.875rem, 1px);
+        border-radius: 0;
+        height: auto;
+        background: none;
+        width: unset;
+
+        &:hover:not(.pluto--selected) {
+            &:not(.pluto--has-children) {
+                box-shadow: inset 2px 0 0 0 var(--pluto-text-color);
+            }
+
+            & .pluto-text {
+                color: var(--pluto-text-color);
+                font-weight: 500;
+            }
+
+            & path:is(:not([fill="none"]), [stroke="#000"]) {
+                fill: var(--pluto-text-color);
+            }
+        }
+
+        &.pluto--selected .pluto-text {
+            color: var(--pluto-text-color);
+            font-weight: 500;
+        }
+
+        &:not(.pluto--has-children):not(.pluto--selected) {
+            box-shadow: inset 1px 0 0 0 var(--pluto-gray-l2);
+        }
+    }
+
+    .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
+        fill: var(--pluto-gray-l5);
+    }
+
+    .page-nav-section-header {
+        margin-top: 2.5rem;
+        cursor: default;
+        box-shadow: none !important;
+
+        &:first-child {
+            margin-top: 0;
+        }
+
+        .pluto-text {
+            color: var(--pluto-gray-l11);
+            font-weight: 500;
+        }
+
+        .pluto-caret,
+        .pluto-tree__expansion-indicator {
+            display: none !important;
+        }
+
+        &:hover .pluto-text {
+            color: var(--pluto-gray-l11);
+            font-weight: 500;
+        }
+    }
+}
+
+/* Note component - override base layer text colors */
+.pluto-note {
+    &.pluto--info {
+        &,
+        & p,
+        & li,
+        & span,
+        & a,
+        & strong,
+        & code {
+            color: var(--pluto-primary-text);
+        }
+    }
+
+    &.pluto--warning {
+        &,
+        & p,
+        & li,
+        & span,
+        & a,
+        & strong,
+        & code {
+            color: var(--pluto-warning-text);
+        }
+    }
+
+    &.pluto--error {
+        &,
+        & p,
+        & li,
+        & span,
+        & a,
+        & strong,
+        & code {
+            color: var(--pluto-error-text);
+        }
+    }
+}
+
+/* Dialog component */
+.pluto-dialog__bg.pluto--visible {
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+@media (max-width: 600px) and (hover: none) {
+    .pluto-dialog__dialog {
+        top: 5rem;
+        transform: none;
+    }
+}

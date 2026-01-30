@@ -23,7 +23,6 @@ on:
       - core/**
       - drift/**
       - driver/**
-      - Earthfile
       - freighter/cpp/**
       - freighter/go/**
       - freighter/ts/**
@@ -35,7 +34,6 @@ on:
       - pluto/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
-      - relic.conf
       - scripts/EnVar.dll
       - turbo.json
       - vendor/**
@@ -95,7 +93,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Get Version
+      - name: Get version
         id: version
         working-directory: core
         run: |
@@ -123,7 +121,7 @@ jobs:
         id: console-version
         working-directory: console
         run: |
-          CONSOLE_VERSION=$(node -p "require('./package.json').version")
+          CONSOLE_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
             echo "VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
           elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
@@ -214,16 +212,11 @@ jobs:
         run: |
           Move-Item -Force scripts/synnax-v${{ needs.setup.outputs.VERSION }}.exe scripts/synnax-server.exe
 
-      - name: Download relic for signing
-        run: |
-          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
+      - name: Update Rust
+        run: rustup update
 
-      - name: Add relic to PATH
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force -Path relic-bin
-          Move-Item -Force relic.exe relic-bin\
-          echo "${{ github.workspace }}\relic-bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Install trusted-signing-cli
+        run: cargo install trusted-signing-cli
 
       - name: Build Windows Installer
         shell: powershell
@@ -239,8 +232,10 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: |
-          relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
+        run:
+          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
+          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core
+          Installer" .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
 
       - name: Upload Windows Installer
         run: |
@@ -293,7 +288,7 @@ jobs:
         id: console-version
         working-directory: console
         run: |
-          CONSOLE_VERSION=$(node -p "require('./package.json').version")
+          CONSOLE_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
           echo "CONSOLE_VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Set up pnpm

@@ -17,6 +17,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -90,8 +91,6 @@ type Scope struct {
 	Parent *Scope
 	// Counter is the ID counter for variable kinds. Functions create new counters.
 	Counter *int
-	// OnResolve is an optional callback invoked when symbols are resolved from this scope.
-	OnResolve func(ctx context.Context, s *Scope) error
 	// Children are nested scopes within this scope.
 	Children []*Scope
 	Symbol
@@ -169,6 +168,9 @@ func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 	if sym.Kind == KindFunction || sym.Kind == KindSequence {
 		child.Counter = new(int)
 	}
+	if sym.Kind == KindFunction {
+		child.Channels = NewChannels()
+	}
 	if sym.Kind == KindVariable ||
 		sym.Kind == KindStatefulVariable ||
 		sym.Kind == KindInput ||
@@ -200,52 +202,39 @@ func (s *Scope) Root() *Scope {
 // Resolve looks up a symbol by name using lexical scoping rules.
 //
 // The search proceeds in order: direct children of this scope, the GlobalResolver
-// (if present), and then the parent scope (recursively). If OnResolve is set, it
-// is invoked with the resolved scope before returning.
+// (if present), and then the parent scope (recursively).
 //
 // Returns an error if the symbol is not found in any scope.
 func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 	if child := s.FindChildByName(name); child != nil {
-		if s.OnResolve != nil {
-			return child, s.OnResolve(ctx, child)
-		}
 		return child, nil
 	}
 	if s.GlobalResolver != nil {
 		if sym, err := s.GlobalResolver.Resolve(ctx, name); err == nil {
-			scope := &Scope{Symbol: sym}
-			if s.OnResolve != nil {
-				return scope, s.OnResolve(ctx, scope)
-			}
-			return scope, nil
+			return &Scope{Symbol: sym}, nil
 		}
 	}
 	if s.Parent != nil {
-		scope, err := s.Parent.Resolve(ctx, name)
-		if err != nil {
-			return nil, err
-		}
-		if s.OnResolve != nil {
-			return scope, s.OnResolve(ctx, scope)
-		}
-		return scope, nil
+		return s.Parent.Resolve(ctx, name)
+	}
+	suggestions := s.SuggestSimilar(ctx, name, 2)
+	if len(suggestions) > 0 {
+		return nil, errors.Newf("undefined symbol: %s (did you mean: %s?)", name, strings.Join(suggestions, ", "))
 	}
 	return nil, errors.Newf("undefined symbol: %s", name)
 }
 
-// ResolvePrefix returns all symbols whose names start with the given prefix.
-// It searches children, GlobalResolver, and parent scope, deduplicating results.
-func (s *Scope) ResolvePrefix(ctx context.Context, prefix string) ([]*Scope, error) {
+func (s *Scope) Search(ctx context.Context, term string) ([]*Scope, error) {
 	seen := make(map[string]bool)
 	var scopes []*Scope
 	for _, child := range s.Children {
-		if strings.HasPrefix(child.Name, prefix) && !seen[child.Name] {
+		if matchesSearch(child.Name, term) && !seen[child.Name] {
 			scopes = append(scopes, child)
 			seen[child.Name] = true
 		}
 	}
 	if s.GlobalResolver != nil {
-		symbols, err := s.GlobalResolver.ResolvePrefix(ctx, prefix)
+		symbols, err := s.GlobalResolver.Search(ctx, term)
 		if err == nil {
 			for _, sym := range symbols {
 				if !seen[sym.Name] {
@@ -256,7 +245,7 @@ func (s *Scope) ResolvePrefix(ctx context.Context, prefix string) ([]*Scope, err
 		}
 	}
 	if s.Parent != nil {
-		parentScopes, err := s.Parent.ResolvePrefix(ctx, prefix)
+		parentScopes, err := s.Parent.Search(ctx, term)
 		if err == nil {
 			for _, scope := range parentScopes {
 				if !seen[scope.Name] {
@@ -267,6 +256,13 @@ func (s *Scope) ResolvePrefix(ctx context.Context, prefix string) ([]*Scope, err
 		}
 	}
 	return scopes, nil
+}
+
+func matchesSearch(name, term string) bool {
+	if strings.HasPrefix(name, term) {
+		return true
+	}
+	return len(term) > 2 && compare.LevenshteinDistance(name, term) <= 2
 }
 
 // String returns a human-readable string representation of the scope tree.
@@ -326,18 +322,4 @@ func (s *Scope) stringWithIndent(indent string) string {
 		}
 	}
 	return builder.String()
-}
-
-// AccumulateReadChannels initializes channel tracking for this scope.
-// It sets up an OnResolve callback that records any channel references
-// in the Channels.Read map. This is used by functions and expressions
-// to track their channel dependencies.
-func (s *Scope) AccumulateReadChannels() {
-	s.Channels = NewChannels()
-	s.OnResolve = func(_ context.Context, resolved *Scope) error {
-		if resolved.Kind == KindChannel || resolved.Type.Kind == types.KindChan {
-			s.Channels.Read[uint32(resolved.ID)] = resolved.Name
-		}
-		return nil
-	}
 }

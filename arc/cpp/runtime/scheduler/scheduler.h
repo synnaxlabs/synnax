@@ -20,9 +20,13 @@
 #include "x/cpp/xerrors/errors.h"
 
 #include "arc/cpp/ir/ir.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/node.h"
 
 namespace arc::runtime::scheduler {
+/// @brief Sentinel value indicating no valid index.
+static constexpr size_t NO_INDEX = ~size_t{0};
+
 /// @brief Reactive scheduler that executes nodes based on stratified dependencies.
 class Scheduler {
     /// @brief State for a single node including its implementation and edges.
@@ -46,7 +50,7 @@ class Scheduler {
         /// @brief Ordered list of stages in this sequence.
         std::vector<Stage> stages;
         /// @brief Index of the currently active stage, or npos if none.
-        size_t active_stage_idx = std::string::npos;
+        size_t active_stage_idx = NO_INDEX;
     };
 
     // Graph structure (immutable after construction)
@@ -61,15 +65,15 @@ class Scheduler {
     std::unordered_map<std::string, std::pair<std::size_t, std::size_t>> transitions;
     /// @brief Maximum iterations for stage convergence loop.
     size_t max_convergence_iterations = 0;
+    /// @brief Tolerance for timing comparisons to handle OS scheduling jitter.
+    telem::TimeSpan tolerance_;
+    /// @brief Error handler for reporting node execution errors.
+    errors::Handler error_handler;
 
     // Execution state (changes during next()) ─────────────────
 
     /// @brief Context passed to nodes during execution.
-    node::Context ctx = node::Context{
-        .mark_changed = std::bind_front(&Scheduler::mark_changed, this),
-        .report_error = std::bind_front(&Scheduler::report_error),
-        .activate_stage = std::bind_front(&Scheduler::transition_stage, this),
-    };
+    node::Context ctx;
     /// @brief Set of node keys that need execution in the current stratum pass.
     std::unordered_set<std::string> changed;
     /// @brief One-shot edges that have fired in global strata (never reset).
@@ -77,16 +81,22 @@ class Scheduler {
     /// @brief Key of the currently executing node.
     std::string curr_node_key;
     /// @brief Index of the currently executing sequence, or npos if global.
-    size_t curr_seq_idx = std::string::npos;
+    size_t curr_seq_idx = NO_INDEX;
     /// @brief Index of the currently executing stage, or npos if none.
-    size_t curr_stage_idx = std::string::npos;
+    size_t curr_stage_idx = NO_INDEX;
 
 public:
     /// @brief Constructs a scheduler from an IR program and node implementations.
     Scheduler(
         const ir::IR &prog,
-        std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls
-    ) {
+        std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls,
+        const telem::TimeSpan tolerance,
+        errors::Handler error_handler = errors::noop_handler
+    ):
+        tolerance_(tolerance), error_handler(std::move(error_handler)) {
+        this->ctx.mark_changed = std::bind_front(&Scheduler::mark_changed, this);
+        this->ctx.report_error = std::bind_front(&Scheduler::report_error, this);
+        this->ctx.activate_stage = std::bind_front(&Scheduler::transition_stage, this);
         for (auto &[key, node]: node_impls)
             this->nodes[key] = Node{
                 .output_edges = prog.edges_from(key),
@@ -115,12 +125,28 @@ public:
     Scheduler(const Scheduler &) = delete;
     Scheduler &operator=(const Scheduler &) = delete;
 
+    /// @brief Resets all execution state for runtime restart.
+    void reset() {
+        this->changed.clear();
+        this->global_fired_one_shots.clear();
+        this->curr_node_key.clear();
+        this->curr_seq_idx = NO_INDEX;
+        this->curr_stage_idx = NO_INDEX;
+        for (auto &seq: this->sequences) {
+            seq.active_stage_idx = NO_INDEX;
+            for (auto &stage: seq.stages)
+                stage.fired_one_shots.clear();
+        }
+        for (auto &[key, node_state]: this->nodes)
+            node_state.node->reset();
+    }
+
     /// @brief Advances the scheduler by executing global and stage strata.
     void next(const telem::TimeSpan elapsed) {
         this->ctx.elapsed = elapsed;
-        // Reset execution context for global strata (no active sequence/stage)
-        this->curr_seq_idx = std::string::npos;
-        this->curr_stage_idx = std::string::npos;
+        this->ctx.tolerance = this->tolerance_;
+        this->curr_seq_idx = NO_INDEX;
+        this->curr_stage_idx = NO_INDEX;
         this->execute_strata(this->global_strata);
         this->exec_stages();
     }
@@ -155,7 +181,7 @@ private:
             for (this->curr_seq_idx = 0; this->curr_seq_idx < this->sequences.size();
                  this->curr_seq_idx++) {
                 auto &seq = this->sequences[this->curr_seq_idx];
-                if (seq.active_stage_idx == std::string::npos) continue;
+                if (seq.active_stage_idx == NO_INDEX) continue;
                 this->curr_stage_idx = seq.active_stage_idx;
                 this->execute_strata(seq.stages[this->curr_stage_idx].strata);
                 if (seq.active_stage_idx != this->curr_stage_idx) stable = false;
@@ -164,9 +190,10 @@ private:
         }
     }
 
-    /// @brief Logs an error reported by a node.
-    static void report_error(const xerrors::Error &e) {
+    /// @brief Reports an error from a node to the error handler.
+    void report_error(const xerrors::Error &e) {
         LOG(ERROR) << "[arc] node encountered error: " << e;
+        this->error_handler(e);
     }
 
     /// @brief Marks downstream nodes as changed based on edge propagation rules.
@@ -176,7 +203,7 @@ private:
                 this->changed.insert(edge.target.node);
             else if (this->curr_node().node->is_output_truthy(param)) {
                 // One-shot edge: fire only once per stage (or once ever in global)
-                auto &fired_set = this->curr_stage_idx == std::string::npos
+                auto &fired_set = this->curr_stage_idx == NO_INDEX
                                     ? this->global_fired_one_shots
                                     : this->curr_stage().fired_one_shots;
                 if (fired_set.insert(edge).second)
@@ -193,8 +220,8 @@ private:
 
     /// @brief Transitions to a new stage, deactivating the current one.
     void transition_stage() {
-        if (this->curr_seq_idx != std::string::npos)
-            this->sequences[this->curr_seq_idx].active_stage_idx = std::string::npos;
+        if (this->curr_seq_idx != NO_INDEX)
+            this->sequences[this->curr_seq_idx].active_stage_idx = NO_INDEX;
         const auto [target_seq_idx, target_stage_idx] = this->transitions
                                                             [this->curr_node_key];
         auto &target = this->sequences[target_seq_idx].stages[target_stage_idx];

@@ -64,7 +64,7 @@ var _ = Describe("Statement", func() {
 				statement.Analyze(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign str to i32"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign str to 'x' (type i32)"))
 			})
 
 			It("should detect duplicate variable declaration", func() {
@@ -137,6 +137,10 @@ var _ = Describe("Statement", func() {
 			Entry("type mismatch in assignment", `{
 				x i32 := 10
 				x = "hello"
+			}`, false, "type mismatch"),
+			Entry("scalar to series type mismatch", `{
+				x := 12
+				x = [1, 2]
 			}`, false, "type mismatch"),
 		)
 	})
@@ -423,6 +427,18 @@ var _ = Describe("Statement", func() {
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 			})
 
+			It("Should reject compound assignments of inferred literal float vs. integer", func() {
+				block := MustSucceed(parser.ParseBlock(`{
+					x := 10
+					y := x + 3.2
+				}`))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				statement.AnalyzeBlock(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
+			})
+
 			It("should reject compound assignment on undefined variable", func() {
 				block := MustSucceed(parser.ParseBlock(`{ undefined_var += 5 }`))
 				ctx := context.CreateRoot(bCtx, block, nil)
@@ -611,7 +627,1094 @@ var _ = Describe("Statement", func() {
 			statement.AnalyzeBlock(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign i32 to f32"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign i32 to 'y' (type f32)"))
+		})
+	})
+
+	Describe("Series Literals", func() {
+		Context("valid series literals with literals only", func() {
+			DescribeTable("should accept",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+				Entry("integer literals", `{ x := [1, 2, 3] }`),
+				Entry("float literals", `{ x := [1.0, 2.0, 3.0] }`),
+				Entry("mixed int and float literals", `{ x := [1, 2.0, 3] }`),
+				Entry("int then float literal", `{ x := [1, 2.0] }`),
+				Entry("float then int literal", `{ x := [1.0, 2] }`),
+				Entry("empty series", `{ x := [] }`),
+				Entry("single element", `{ x := [42] }`),
+				Entry("unary negation", `{ x := [-1, -2, -3] }`),
+			)
+		})
+
+		Context("valid series literals with expressions", func() {
+			DescribeTable("should accept",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+				Entry("additive expressions", `{ x := [1 + 2, 3 + 4] }`),
+				Entry("multiplicative expressions", `{ x := [2 * 3, 4 * 5] }`),
+				Entry("mixed operators", `{ x := [1 + 2, 3 * 4, 10 - 5] }`),
+				Entry("nested parentheses", `{ x := [(1 + 2) * 3, 4 ^ 2] }`),
+				Entry("division", `{ x := [10 / 2, 20 / 4] }`),
+				Entry("modulo", `{ x := [10 % 3, 20 % 7] }`),
+			)
+		})
+
+		Context("valid series literals with variables", func() {
+			DescribeTable("should accept",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+				Entry("inferred type variables", `{
+					a := 1
+					b := 2
+					x := [a, b]
+				}`),
+				Entry("typed i32 variables", `{
+					a i32 := 1
+					b i32 := 2
+					x := [a, b]
+				}`),
+				Entry("typed i64 variables", `{
+					a i64 := 1
+					b i64 := 2
+					x := [a, b]
+				}`),
+				Entry("typed f32 variables", `{
+					a f32 := 1.0
+					b f32 := 2.0
+					x := [a, b]
+				}`),
+				Entry("typed f64 variables", `{
+					a f64 := 1.0
+					b f64 := 2.0
+					x := [a, b]
+				}`),
+				Entry("three variables", `{
+					a := 1
+					b := 2
+					c := 3
+					x := [a, b, c]
+				}`),
+				Entry("variable expressions", `{
+					a := 1
+					b := 2
+					x := [a + b, a - b, a * b]
+				}`),
+			)
+		})
+
+		Context("valid series literals mixing variables and literals", func() {
+			DescribeTable("should accept",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+				Entry("literal first then variable", `{
+					a := 1
+					x := [1, a]
+				}`),
+				Entry("variable first then literal", `{
+					a := 1
+					x := [a, 1]
+				}`),
+				Entry("typed variable then literal", `{
+					a i32 := 1
+					x := [a, 2]
+				}`),
+				Entry("literal then typed variable", `{
+					a i32 := 1
+					x := [2, a]
+				}`),
+				Entry("variable sandwiched by literals", `{
+					a := 10
+					x := [1, a, 100]
+				}`),
+				Entry("literal sandwiched by variables", `{
+					a := 1
+					b := 3
+					x := [a, 2, b]
+				}`),
+				Entry("variable expression with literal", `{
+					a := 10
+					x := [a + 5, 20]
+				}`),
+				Entry("literal with variable expression", `{
+					a := 10
+					x := [5, a * 2]
+				}`),
+				Entry("inferred float variable and int literal", `{
+					a := 12.0
+					x := [a, 5]
+				}`),
+			)
+		})
+
+		Context("series literals with function calls", func() {
+			var funcResolver symbol.MapResolver
+
+			BeforeEach(func() {
+				funcResolver = symbol.MapResolver{
+					"getI32": symbol.Symbol{
+						Name: "getI32",
+						Kind: symbol.KindVariable,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{{Type: types.I32()}},
+						}),
+					},
+					"anotherI32": symbol.Symbol{
+						Name: "anotherI32",
+						Kind: symbol.KindVariable,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{{Type: types.I32()}},
+						}),
+					},
+					"getI64": symbol.Symbol{
+						Name: "getI64",
+						Kind: symbol.KindVariable,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{{Type: types.I64()}},
+						}),
+					},
+					"getF32": symbol.Symbol{
+						Name: "getF32",
+						Kind: symbol.KindVariable,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{{Type: types.F32()}},
+						}),
+					},
+					"getF64": symbol.Symbol{
+						Name: "getF64",
+						Kind: symbol.KindVariable,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{{Type: types.F64()}},
+						}),
+					},
+					"getStr": symbol.Symbol{
+						Name: "getStr",
+						Kind: symbol.KindVariable,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{{Type: types.String()}},
+						}),
+					},
+				}
+			})
+
+			DescribeTable("valid function call combinations",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, funcResolver)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+				Entry("two same-type function calls", `{ x := [getI32(), getI32()] }`),
+				Entry("two different functions same return type", `{ x := [getI32(), anotherI32()] }`),
+				Entry("function call then literal", `{ x := [getI32(), 42] }`),
+				Entry("literal then function call", `{ x := [42, getI32()] }`),
+				Entry("function call then expression", `{ x := [getI32(), 1 + 2] }`),
+				Entry("expression then function call", `{ x := [1 + 2, getI32()] }`),
+				Entry("function call in expression then literal", `{ x := [getI32() + 1, 42] }`),
+				Entry("literal then function call in expression", `{ x := [42, getI32() + 1] }`),
+				Entry("function call plus literal in expression", `{ x := [1 + getI32(), 42] }`),
+				Entry("three function calls", `{ x := [getI32(), getI32(), getI32()] }`),
+				Entry("function call sandwiched by literals", `{ x := [1, getI32(), 2] }`),
+				Entry("literal sandwiched by function calls", `{ x := [getI32(), 1, getI32()] }`),
+			)
+
+			DescribeTable("valid function call with variable combinations",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, funcResolver)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+				Entry("function call then compatible variable", `{
+					v i32 := 10
+					x := [getI32(), v]
+				}`),
+				Entry("compatible variable then function call", `{
+					v i32 := 10
+					x := [v, getI32()]
+				}`),
+				Entry("function call then variable expression", `{
+					v i32 := 10
+					x := [getI32(), v + 1]
+				}`),
+				Entry("variable expression then function call", `{
+					v i32 := 10
+					x := [v + 1, getI32()]
+				}`),
+				Entry("function call in expression with variable", `{
+					v i32 := 10
+					x := [getI32() + v, 42]
+				}`),
+				Entry("variable in expression with function call", `{
+					v i32 := 10
+					x := [v + getI32(), 42]
+				}`),
+				Entry("three elements func var literal", `{
+					v i32 := 10
+					x := [getI32(), v, 42]
+				}`),
+				Entry("three elements var func literal", `{
+					v i32 := 10
+					x := [v, getI32(), 42]
+				}`),
+				Entry("three elements literal func var", `{
+					v i32 := 10
+					x := [42, getI32(), v]
+				}`),
+			)
+
+			DescribeTable("invalid function call combinations",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, funcResolver)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
+				},
+				Entry("i32 then f64 function calls", `{ x := [getI32(), getF64()] }`),
+				Entry("f64 then i32 function calls", `{ x := [getF64(), getI32()] }`),
+				Entry("i32 then i64 function calls", `{ x := [getI32(), getI64()] }`),
+				Entry("i32 then string function calls", `{ x := [getI32(), getStr()] }`),
+				Entry("string then i32 function calls", `{ x := [getStr(), getI32()] }`),
+				Entry("f32 then string function calls", `{ x := [getF32(), getStr()] }`),
+				Entry("f64 then string function calls", `{ x := [getF64(), getStr()] }`),
+				Entry("i32 function then string literal", `{ x := [getI32(), "hello"] }`),
+				Entry("string literal then i32 function", `{ x := ["hello", getI32()] }`),
+				Entry("string function then int literal", `{ x := [getStr(), 42] }`),
+				Entry("int literal then string function", `{ x := [42, getStr()] }`),
+				Entry("f64 function then string literal", `{ x := [getF64(), "hello"] }`),
+				Entry("three functions last mismatched", `{ x := [getI32(), getI32(), getStr()] }`),
+				Entry("three functions first mismatched", `{ x := [getStr(), getI32(), getI32()] }`),
+				Entry("three functions middle mismatched", `{ x := [getI32(), getStr(), getI32()] }`),
+			)
+
+			DescribeTable("invalid function call with variable combinations",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, funcResolver)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
+				},
+				Entry("i32 function then string variable", `{
+					s str := "hello"
+					x := [getI32(), s]
+				}`),
+				Entry("string variable then i32 function", `{
+					s str := "hello"
+					x := [s, getI32()]
+				}`),
+				Entry("f64 function then string variable", `{
+					s str := "hello"
+					x := [getF64(), s]
+				}`),
+				Entry("string function then i32 variable", `{
+					v i32 := 10
+					x := [getStr(), v]
+				}`),
+				Entry("i32 variable then string function", `{
+					v i32 := 10
+					x := [v, getStr()]
+				}`),
+				Entry("i32 function then f64 variable", `{
+					v f64 := 10.0
+					x := [getI32(), v]
+				}`),
+				Entry("f64 variable then i32 function", `{
+					v f64 := 10.0
+					x := [v, getI32()]
+				}`),
+				Entry("three elements func var mismatch", `{
+					s str := "hello"
+					x := [getI32(), 42, s]
+				}`),
+				Entry("three elements var func mismatch", `{
+					s str := "hello"
+					x := [s, getI32(), 42]
+				}`),
+				Entry("function expression then string", `{
+					x := [getI32() + 1, "hello"]
+				}`),
+				Entry("string then function expression", `{
+					x := ["hello", getI32() + 1]
+				}`),
+			)
+		})
+
+		Context("invalid series literals - type mismatches with literals", func() {
+			DescribeTable("should reject",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
+				},
+				Entry("int then string", `{ x := [1, "hello"] }`),
+				Entry("string then int", `{ x := ["hello", 1] }`),
+				Entry("float then string", `{ x := [1.0, "hello"] }`),
+				Entry("string then float", `{ x := ["hello", 1.0] }`),
+				Entry("int int string", `{ x := [1, 2, "hello"] }`),
+				Entry("string int int", `{ x := ["hello", 1, 2] }`),
+				Entry("int string int", `{ x := [1, "hello", 2] }`),
+			)
+		})
+
+		Context("invalid series literals - type mismatches with variables", func() {
+			DescribeTable("should reject two mismatched variables",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
+				},
+				Entry("i32 and str variables", `{
+					a i32 := 1
+					b str := "hello"
+					x := [a, b]
+				}`),
+				Entry("str and i32 variables", `{
+					a str := "hello"
+					b i32 := 1
+					x := [a, b]
+				}`),
+				Entry("f64 and str variables", `{
+					a f64 := 1.0
+					b str := "hello"
+					x := [a, b]
+				}`),
+				Entry("i32 and f64 variables", `{
+					a i32 := 1
+					b f64 := 2.0
+					x := [a, b]
+				}`),
+				Entry("f64 and i32 variables", `{
+					a f64 := 1.0
+					b i32 := 2
+					x := [a, b]
+				}`),
+				Entry("i32 and f32 variables", `{
+					a i32 := 1
+					b f32 := 2.0
+					x := [a, b]
+				}`),
+				Entry("i64 and f64 variables", `{
+					a i64 := 1
+					b f64 := 2.0
+					x := [a, b]
+				}`),
+				// Inferred type variables - these should also be rejected for consistency
+				// with explicit type annotations above
+				Entry("inferred int and inferred float variables", `{
+					a := 5
+					b := 12.0
+					x := [a, b]
+				}`),
+				Entry("inferred float and inferred int variables", `{
+					a := 12.0
+					b := 5
+					x := [a, b]
+				}`),
+				Entry("inferred int variable and non-exact-integer float literal", `{
+					a := 5
+					x := [a, 12.5]
+				}`),
+			)
+		})
+
+		Context("invalid series literals - variable and literal mismatches", func() {
+			DescribeTable("should reject",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
+				},
+				Entry("i32 variable then string literal", `{
+					a i32 := 1
+					x := [a, "hello"]
+				}`),
+				Entry("string literal then i32 variable", `{
+					a i32 := 1
+					x := ["hello", a]
+				}`),
+				Entry("str variable then int literal", `{
+					a str := "hello"
+					x := [a, 1]
+				}`),
+				Entry("int literal then str variable", `{
+					a str := "hello"
+					x := [1, a]
+				}`),
+				Entry("f64 variable then string literal", `{
+					a f64 := 1.0
+					x := [a, "hello"]
+				}`),
+				Entry("string literal then f64 variable", `{
+					a f64 := 1.0
+					x := ["hello", a]
+				}`),
+			)
+		})
+
+		Context("invalid series literals - three or more elements with mismatch", func() {
+			DescribeTable("should reject",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
+				},
+				Entry("two ints then string variable", `{
+					s str := "hello"
+					x := [1, 2, s]
+				}`),
+				Entry("string variable then two ints", `{
+					s str := "hello"
+					x := [s, 1, 2]
+				}`),
+				Entry("int variable string int", `{
+					a i32 := 1
+					x := [a, "hello", 2]
+				}`),
+				Entry("three variables last mismatched", `{
+					a i32 := 1
+					b i32 := 2
+					c str := "hello"
+					x := [a, b, c]
+				}`),
+				Entry("three variables first mismatched", `{
+					a str := "hello"
+					b i32 := 1
+					c i32 := 2
+					x := [a, b, c]
+				}`),
+				Entry("three variables middle mismatched", `{
+					a i32 := 1
+					b str := "hello"
+					c i32 := 2
+					x := [a, b, c]
+				}`),
+			)
+		})
+
+		Context("invalid series literals - expression mismatches", func() {
+			DescribeTable("should reject",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
+				},
+				Entry("int expression then string", `{ x := [1 + 2, "hello"] }`),
+				Entry("string then int expression", `{ x := ["hello", 1 + 2] }`),
+				Entry("variable expression then string", `{
+					a i32 := 1
+					x := [a + 1, "hello"]
+				}`),
+				Entry("string then variable expression", `{
+					a i32 := 1
+					x := ["hello", a + 1]
+				}`),
+			)
+		})
+
+		Context("series assignment compatibility", func() {
+			DescribeTable("should reject structural mismatches",
+				func(code string, errorSubstring string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					setupFunctionContext(ctx)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(errorSubstring))
+				},
+				Entry("series to scalar variable", `{
+					x := 1
+					x = [1, 2, 3]
+				}`, "type mismatch"),
+				Entry("scalar to series variable", `{
+					x := [1, 2, 3]
+					x = 42
+				}`, "type mismatch"),
+				Entry("series literal to typed scalar", `{
+					x i32 := [1, 2, 3]
+				}`, "type mismatch"),
+				Entry("series variable to scalar variable", `{
+					a := [1, 2, 3]
+					b := 1
+					b = a
+				}`, "type mismatch"),
+				Entry("scalar variable to series variable", `{
+					a := 1
+					b := [1, 2, 3]
+					b = a
+				}`, "type mismatch"),
+			)
+		})
+	})
+
+	Describe("Series Literals", func() {
+		Context("valid series literals with literals only", func() {
+			DescribeTable("should accept",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+				Entry("integer literals", `{ x := [1, 2, 3] }`),
+				Entry("float literals", `{ x := [1.0, 2.0, 3.0] }`),
+				Entry("mixed int and float literals", `{ x := [1, 2.0, 3] }`),
+				Entry("int then float literal", `{ x := [1, 2.0] }`),
+				Entry("float then int literal", `{ x := [1.0, 2] }`),
+				Entry("empty series", `{ x := [] }`),
+				Entry("single element", `{ x := [42] }`),
+				Entry("unary negation", `{ x := [-1, -2, -3] }`),
+			)
+		})
+
+		Context("valid series literals with expressions", func() {
+			DescribeTable("should accept",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+				Entry("additive expressions", `{ x := [1 + 2, 3 + 4] }`),
+				Entry("multiplicative expressions", `{ x := [2 * 3, 4 * 5] }`),
+				Entry("mixed operators", `{ x := [1 + 2, 3 * 4, 10 - 5] }`),
+				Entry("nested parentheses", `{ x := [(1 + 2) * 3, 4 ^ 2] }`),
+				Entry("division", `{ x := [10 / 2, 20 / 4] }`),
+				Entry("modulo", `{ x := [10 % 3, 20 % 7] }`),
+			)
+		})
+
+		Context("valid series literals with variables", func() {
+			DescribeTable("should accept",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+				Entry("inferred type variables", `{
+					a := 1
+					b := 2
+					x := [a, b]
+				}`),
+				Entry("typed i32 variables", `{
+					a i32 := 1
+					b i32 := 2
+					x := [a, b]
+				}`),
+				Entry("typed i64 variables", `{
+					a i64 := 1
+					b i64 := 2
+					x := [a, b]
+				}`),
+				Entry("typed f32 variables", `{
+					a f32 := 1.0
+					b f32 := 2.0
+					x := [a, b]
+				}`),
+				Entry("typed f64 variables", `{
+					a f64 := 1.0
+					b f64 := 2.0
+					x := [a, b]
+				}`),
+				Entry("three variables", `{
+					a := 1
+					b := 2
+					c := 3
+					x := [a, b, c]
+				}`),
+				Entry("variable expressions", `{
+					a := 1
+					b := 2
+					x := [a + b, a - b, a * b]
+				}`),
+			)
+		})
+
+		Context("valid series literals mixing variables and literals", func() {
+			DescribeTable("should accept",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+				Entry("literal first then variable", `{
+					a := 1
+					x := [1, a]
+				}`),
+				Entry("variable first then literal", `{
+					a := 1
+					x := [a, 1]
+				}`),
+				Entry("typed variable then literal", `{
+					a i32 := 1
+					x := [a, 2]
+				}`),
+				Entry("literal then typed variable", `{
+					a i32 := 1
+					x := [2, a]
+				}`),
+				Entry("variable sandwiched by literals", `{
+					a := 10
+					x := [1, a, 100]
+				}`),
+				Entry("literal sandwiched by variables", `{
+					a := 1
+					b := 3
+					x := [a, 2, b]
+				}`),
+				Entry("variable expression with literal", `{
+					a := 10
+					x := [a + 5, 20]
+				}`),
+				Entry("literal with variable expression", `{
+					a := 10
+					x := [5, a * 2]
+				}`),
+				// Inferred type variables with literals - int/float literals can coerce
+				Entry("inferred int variable and float literal", `{
+					a := 5
+					x := [a, 12.0]
+				}`),
+				Entry("inferred float variable and int literal", `{
+					a := 12.0
+					x := [a, 5]
+				}`),
+			)
+		})
+
+		Context("series literals with function calls", func() {
+			var funcResolver symbol.MapResolver
+
+			BeforeEach(func() {
+				funcResolver = symbol.MapResolver{
+					"getI32": symbol.Symbol{
+						Name: "getI32",
+						Kind: symbol.KindVariable,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{{Type: types.I32()}},
+						}),
+					},
+					"anotherI32": symbol.Symbol{
+						Name: "anotherI32",
+						Kind: symbol.KindVariable,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{{Type: types.I32()}},
+						}),
+					},
+					"getI64": symbol.Symbol{
+						Name: "getI64",
+						Kind: symbol.KindVariable,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{{Type: types.I64()}},
+						}),
+					},
+					"getF32": symbol.Symbol{
+						Name: "getF32",
+						Kind: symbol.KindVariable,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{{Type: types.F32()}},
+						}),
+					},
+					"getF64": symbol.Symbol{
+						Name: "getF64",
+						Kind: symbol.KindVariable,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{{Type: types.F64()}},
+						}),
+					},
+					"getStr": symbol.Symbol{
+						Name: "getStr",
+						Kind: symbol.KindVariable,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{{Type: types.String()}},
+						}),
+					},
+				}
+			})
+
+			DescribeTable("valid function call combinations",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, funcResolver)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+				Entry("two same-type function calls", `{ x := [getI32(), getI32()] }`),
+				Entry("two different functions same return type", `{ x := [getI32(), anotherI32()] }`),
+				Entry("function call then literal", `{ x := [getI32(), 42] }`),
+				Entry("literal then function call", `{ x := [42, getI32()] }`),
+				Entry("function call then expression", `{ x := [getI32(), 1 + 2] }`),
+				Entry("expression then function call", `{ x := [1 + 2, getI32()] }`),
+				Entry("function call in expression then literal", `{ x := [getI32() + 1, 42] }`),
+				Entry("literal then function call in expression", `{ x := [42, getI32() + 1] }`),
+				Entry("function call plus literal in expression", `{ x := [1 + getI32(), 42] }`),
+				Entry("three function calls", `{ x := [getI32(), getI32(), getI32()] }`),
+				Entry("function call sandwiched by literals", `{ x := [1, getI32(), 2] }`),
+				Entry("literal sandwiched by function calls", `{ x := [getI32(), 1, getI32()] }`),
+			)
+
+			DescribeTable("valid function call with variable combinations",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, funcResolver)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+				Entry("function call then compatible variable", `{
+					v i32 := 10
+					x := [getI32(), v]
+				}`),
+				Entry("compatible variable then function call", `{
+					v i32 := 10
+					x := [v, getI32()]
+				}`),
+				Entry("function call then variable expression", `{
+					v i32 := 10
+					x := [getI32(), v + 1]
+				}`),
+				Entry("variable expression then function call", `{
+					v i32 := 10
+					x := [v + 1, getI32()]
+				}`),
+				Entry("function call in expression with variable", `{
+					v i32 := 10
+					x := [getI32() + v, 42]
+				}`),
+				Entry("variable in expression with function call", `{
+					v i32 := 10
+					x := [v + getI32(), 42]
+				}`),
+				Entry("three elements func var literal", `{
+					v i32 := 10
+					x := [getI32(), v, 42]
+				}`),
+				Entry("three elements var func literal", `{
+					v i32 := 10
+					x := [v, getI32(), 42]
+				}`),
+				Entry("three elements literal func var", `{
+					v i32 := 10
+					x := [42, getI32(), v]
+				}`),
+			)
+
+			DescribeTable("invalid function call combinations",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, funcResolver)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
+				},
+				Entry("i32 then f64 function calls", `{ x := [getI32(), getF64()] }`),
+				Entry("f64 then i32 function calls", `{ x := [getF64(), getI32()] }`),
+				Entry("i32 then i64 function calls", `{ x := [getI32(), getI64()] }`),
+				Entry("i32 then string function calls", `{ x := [getI32(), getStr()] }`),
+				Entry("string then i32 function calls", `{ x := [getStr(), getI32()] }`),
+				Entry("f32 then string function calls", `{ x := [getF32(), getStr()] }`),
+				Entry("f64 then string function calls", `{ x := [getF64(), getStr()] }`),
+				Entry("i32 function then string literal", `{ x := [getI32(), "hello"] }`),
+				Entry("string literal then i32 function", `{ x := ["hello", getI32()] }`),
+				Entry("string function then int literal", `{ x := [getStr(), 42] }`),
+				Entry("int literal then string function", `{ x := [42, getStr()] }`),
+				Entry("f64 function then string literal", `{ x := [getF64(), "hello"] }`),
+				Entry("three functions last mismatched", `{ x := [getI32(), getI32(), getStr()] }`),
+				Entry("three functions first mismatched", `{ x := [getStr(), getI32(), getI32()] }`),
+				Entry("three functions middle mismatched", `{ x := [getI32(), getStr(), getI32()] }`),
+			)
+
+			DescribeTable("invalid function call with variable combinations",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, funcResolver)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
+				},
+				Entry("i32 function then string variable", `{
+					s str := "hello"
+					x := [getI32(), s]
+				}`),
+				Entry("string variable then i32 function", `{
+					s str := "hello"
+					x := [s, getI32()]
+				}`),
+				Entry("f64 function then string variable", `{
+					s str := "hello"
+					x := [getF64(), s]
+				}`),
+				Entry("string function then i32 variable", `{
+					v i32 := 10
+					x := [getStr(), v]
+				}`),
+				Entry("i32 variable then string function", `{
+					v i32 := 10
+					x := [v, getStr()]
+				}`),
+				Entry("i32 function then f64 variable", `{
+					v f64 := 10.0
+					x := [getI32(), v]
+				}`),
+				Entry("f64 variable then i32 function", `{
+					v f64 := 10.0
+					x := [v, getI32()]
+				}`),
+				Entry("three elements func var mismatch", `{
+					s str := "hello"
+					x := [getI32(), 42, s]
+				}`),
+				Entry("three elements var func mismatch", `{
+					s str := "hello"
+					x := [s, getI32(), 42]
+				}`),
+				Entry("function expression then string", `{
+					x := [getI32() + 1, "hello"]
+				}`),
+				Entry("string then function expression", `{
+					x := ["hello", getI32() + 1]
+				}`),
+			)
+		})
+
+		Context("invalid series literals - type mismatches with literals", func() {
+			DescribeTable("should reject",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
+				},
+				Entry("int then string", `{ x := [1, "hello"] }`),
+				Entry("string then int", `{ x := ["hello", 1] }`),
+				Entry("float then string", `{ x := [1.0, "hello"] }`),
+				Entry("string then float", `{ x := ["hello", 1.0] }`),
+				Entry("int int string", `{ x := [1, 2, "hello"] }`),
+				Entry("string int int", `{ x := ["hello", 1, 2] }`),
+				Entry("int string int", `{ x := [1, "hello", 2] }`),
+			)
+		})
+
+		Context("invalid series literals - type mismatches with variables", func() {
+			DescribeTable("should reject two mismatched variables",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
+				},
+				Entry("i32 and str variables", `{
+					a i32 := 1
+					b str := "hello"
+					x := [a, b]
+				}`),
+				Entry("str and i32 variables", `{
+					a str := "hello"
+					b i32 := 1
+					x := [a, b]
+				}`),
+				Entry("f64 and str variables", `{
+					a f64 := 1.0
+					b str := "hello"
+					x := [a, b]
+				}`),
+				Entry("i32 and f64 variables", `{
+					a i32 := 1
+					b f64 := 2.0
+					x := [a, b]
+				}`),
+				Entry("f64 and i32 variables", `{
+					a f64 := 1.0
+					b i32 := 2
+					x := [a, b]
+				}`),
+				Entry("i32 and f32 variables", `{
+					a i32 := 1
+					b f32 := 2.0
+					x := [a, b]
+				}`),
+				Entry("i64 and f64 variables", `{
+					a i64 := 1
+					b f64 := 2.0
+					x := [a, b]
+				}`),
+				// Inferred type variables - these should also be rejected for consistency
+				// with explicit type annotations above
+				Entry("inferred int and inferred float variables", `{
+					a := 5
+					b := 12.0
+					x := [a, b]
+				}`),
+				Entry("inferred float and inferred int variables", `{
+					a := 12.0
+					b := 5
+					x := [a, b]
+				}`),
+			)
+		})
+
+		Context("invalid series literals - variable and literal mismatches", func() {
+			DescribeTable("should reject",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
+				},
+				Entry("i32 variable then string literal", `{
+					a i32 := 1
+					x := [a, "hello"]
+				}`),
+				Entry("string literal then i32 variable", `{
+					a i32 := 1
+					x := ["hello", a]
+				}`),
+				Entry("str variable then int literal", `{
+					a str := "hello"
+					x := [a, 1]
+				}`),
+				Entry("int literal then str variable", `{
+					a str := "hello"
+					x := [1, a]
+				}`),
+				Entry("f64 variable then string literal", `{
+					a f64 := 1.0
+					x := [a, "hello"]
+				}`),
+				Entry("string literal then f64 variable", `{
+					a f64 := 1.0
+					x := ["hello", a]
+				}`),
+			)
+		})
+
+		Context("invalid series literals - three or more elements with mismatch", func() {
+			DescribeTable("should reject",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
+				},
+				Entry("two ints then string variable", `{
+					s str := "hello"
+					x := [1, 2, s]
+				}`),
+				Entry("string variable then two ints", `{
+					s str := "hello"
+					x := [s, 1, 2]
+				}`),
+				Entry("int variable string int", `{
+					a i32 := 1
+					x := [a, "hello", 2]
+				}`),
+				Entry("three variables last mismatched", `{
+					a i32 := 1
+					b i32 := 2
+					c str := "hello"
+					x := [a, b, c]
+				}`),
+				Entry("three variables first mismatched", `{
+					a str := "hello"
+					b i32 := 1
+					c i32 := 2
+					x := [a, b, c]
+				}`),
+				Entry("three variables middle mismatched", `{
+					a i32 := 1
+					b str := "hello"
+					c i32 := 2
+					x := [a, b, c]
+				}`),
+			)
+		})
+
+		Context("invalid series literals - expression mismatches", func() {
+			DescribeTable("should reject",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
+				},
+				Entry("int expression then string", `{ x := [1 + 2, "hello"] }`),
+				Entry("string then int expression", `{ x := ["hello", 1 + 2] }`),
+				Entry("variable expression then string", `{
+					a i32 := 1
+					x := [a + 1, "hello"]
+				}`),
+				Entry("string then variable expression", `{
+					a i32 := 1
+					x := ["hello", a + 1]
+				}`),
+			)
+		})
+
+		Context("series assignment compatibility", func() {
+			DescribeTable("should reject structural mismatches",
+				func(code string, errorSubstring string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					setupFunctionContext(ctx)
+					statement.AnalyzeBlock(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(errorSubstring))
+				},
+				Entry("series to scalar variable", `{
+					x := 1
+					x = [1, 2, 3]
+				}`, "type mismatch"),
+				Entry("scalar to series variable", `{
+					x := [1, 2, 3]
+					x = 42
+				}`, "type mismatch"),
+				Entry("series literal to typed scalar", `{
+					x i32 := [1, 2, 3]
+				}`, "type mismatch"),
+				Entry("series variable to scalar variable", `{
+					a := [1, 2, 3]
+					b := 1
+					b = a
+				}`, "type mismatch"),
+				Entry("scalar variable to series variable", `{
+					a := 1
+					b := [1, 2, 3]
+					b = a
+				}`, "type mismatch"),
+			)
 		})
 	})
 

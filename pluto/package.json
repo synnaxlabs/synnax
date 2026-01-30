@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/pluto",
-  "version": "0.49.0",
+  "version": "0.50.1",
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && vite build",
@@ -37,7 +37,6 @@
     "proxy-memoize": "catalog:",
     "react": "catalog:",
     "react-color": "^2.19.3",
-    "react-error-boundary": "^6.0.0",
     "react-icons": "catalog:",
     "zod": "catalog:"
   },

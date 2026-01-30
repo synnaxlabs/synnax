@@ -120,49 +120,13 @@ func compileReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	return nil
 }
 
-func compileFunctionCall(ctx context.Context[parser.IFunctionCallContext]) (types.Type, error) {
-	funcName := ctx.AST.IDENTIFIER().GetText()
-	scope, err := ctx.Scope.Resolve(ctx, funcName)
+func compileExpressionStatement(ctx context.Context[parser.IExpressionContext]) (types.Type, error) {
+	exprType, err := expression.Compile(ctx)
 	if err != nil {
-		return types.Type{}, errors.Wrapf(err, "undefined function: %s", funcName)
+		return types.Type{}, err
 	}
-	if scope.Kind != symbol.KindFunction {
-		return types.Type{}, errors.Newf("%s is not a function", funcName)
-	}
-
-	funcType := scope.Type
-
-	funcIdx, ok := ctx.FunctionIndices[funcName]
-	if !ok {
-		return types.Type{}, errors.Newf("function %s not found in index map", funcName)
-	}
-
-	if argList := ctx.AST.ArgumentList(); argList != nil {
-		args := argList.AllExpression()
-		if len(args) != len(funcType.Inputs) {
-			return types.Type{}, errors.Newf(
-				"function %s expects %d arguments, got %d",
-				funcName, len(funcType.Inputs), len(args),
-			)
-		}
-		for i, arg := range args {
-			paramType := funcType.Inputs[i].Type
-			argType, err := expression.Compile(context.Child(ctx, arg).WithHint(paramType))
-			if err != nil {
-				return types.Type{}, errors.Wrapf(err, "argument %d", i)
-			}
-			if !types.Equal(argType, paramType) {
-				if err := expression.EmitCast(ctx, argType, paramType); err != nil {
-					return types.Type{}, err
-				}
-			}
-		}
-	}
-
-	ctx.Writer.WriteCall(funcIdx)
-	// Drop return value for statement-level calls
-	defaultOutput, hasDefault := funcType.Outputs.Get(ir.DefaultOutputParam)
-	if hasDefault && defaultOutput.Type.IsValid() {
+	// Drop the result if the expression produced a value (statement-level expressions discard results)
+	if exprType.IsValid() {
 		ctx.Writer.WriteOpcode(wasm.OpDrop)
 	}
 	return types.Type{}, nil

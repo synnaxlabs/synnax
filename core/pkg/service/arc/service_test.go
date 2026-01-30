@@ -15,11 +15,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("AnalyzeCalculation", func() {
@@ -106,5 +109,36 @@ var _ = Describe("CompileModule", func() {
 
 		Expect(svc.CompileModule(ctx, a.Key)).Error().
 			To(MatchError(ContainSubstring("edge target node 'nonexistent' not found")))
+	})
+})
+
+var _ = Describe("NewLSP", func() {
+	It("Should create an LSP server without error", func() {
+		server := MustSucceed(svc.NewLSP())
+		Expect(server).ToNot(BeNil())
+	})
+
+	It("Should create multiple independent LSP servers", func() {
+		server1 := MustSucceed(svc.NewLSP())
+		server2 := MustSucceed(svc.NewLSP())
+		Expect(server1).ToNot(BeIdenticalTo(server2))
+	})
+
+	It("Should republish diagnostics when channels change", func() {
+		server := MustSucceed(svc.NewLSP())
+		client := &testutil.MockClient{}
+		server.SetClient(client)
+
+		uri := protocol.DocumentURI("file:///test.arc")
+		testutil.OpenDocument(server, ctx, uri, "func test() {\n\tx := test_lsp_channel\n}")
+		Expect(client.Diagnostics()).To(HaveLen(1))
+		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol"))
+
+		ch := channel.Channel{Name: "test_lsp_channel", DataType: telem.Float32T, Virtual: true}
+		Expect(dist.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+
+		Eventually(func() int {
+			return len(client.Diagnostics())
+		}).Should(Equal(0))
 	})
 })

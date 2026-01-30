@@ -9,8 +9,8 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { type Platform, PLATFORMS } from "@/components/platform/platform";
-import { Tabs as Base, type TabsProps as BaseProps } from "@/components/Tabs";
+import { type Platform, PLATFORMS } from "@/components/platform/Platform";
+import { Tabs as Base, type TabsProps as BaseProps } from "@/components/tabs/Tabs";
 
 const TABS = PLATFORMS.filter(
   ({ key }) => key === "Linux" || key === "Windows" || key === "macOS",

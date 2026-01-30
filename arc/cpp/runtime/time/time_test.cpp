@@ -12,15 +12,21 @@
 #include "x/cpp/xtest/xtest.h"
 
 #include "arc/cpp/ir/ir.h"
+#include "arc/cpp/runtime/errors/errors.h"
+#include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/time/time.h"
 
 using namespace arc::runtime;
 
 namespace {
-node::Context make_context(const telem::TimeSpan elapsed) {
+node::Context make_context(
+    const telem::TimeSpan elapsed,
+    const telem::TimeSpan tolerance = telem::TimeSpan(0)
+) {
     return node::Context{
         .elapsed = elapsed,
+        .tolerance = tolerance,
         .mark_changed = [](const std::string &) {},
         .report_error = [](const xerrors::Error &) {},
         .activate_stage = [] {},
@@ -33,7 +39,10 @@ struct TestSetup {
 
     TestSetup(const std::string &type, const std::string &param_name, const int64_t ns):
         ir(build_ir(type, param_name, ns)),
-        state(state::Config{.ir = ir, .channels = {}}) {}
+        state(
+            state::Config{.ir = ir, .channels = {}},
+            arc::runtime::errors::noop_handler
+        ) {}
 
     state::Node make_node() { return ASSERT_NIL_P(state.node("timer")); }
 
@@ -74,7 +83,7 @@ TEST(TimeFactoryTest, ReturnsNotFoundForWrongType) {
 
     time::Factory factory;
     ASSERT_OCCURRED_AS_P(
-        factory.create(node::Config(ir_node, setup.make_node())),
+        factory.create(node::Config(setup.ir, ir_node, setup.make_node())),
         xerrors::NOT_FOUND
     );
 }
@@ -84,7 +93,7 @@ TEST(TimeFactoryTest, CreatesIntervalNode) {
     TestSetup setup("interval", "period", telem::SECOND.nanoseconds());
     time::Factory factory;
     const auto node = ASSERT_NIL_P(
-        factory.create(node::Config(setup.ir.nodes[0], setup.make_node()))
+        factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
     );
     ASSERT_NE(node, nullptr);
 }
@@ -94,28 +103,34 @@ TEST(TimeFactoryTest, CreatesWaitNode) {
     TestSetup setup("wait", "duration", telem::SECOND.nanoseconds());
     time::Factory factory;
     const auto node = ASSERT_NIL_P(
-        factory.create(node::Config(setup.ir.nodes[0], setup.make_node()))
+        factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
     );
     ASSERT_NE(node, nullptr);
 }
 
-/// @brief Test that timing_base is set to the first interval when uninitialized.
-TEST(TimeFactoryTest, TimingBaseSetToFirstInterval) {
+/// @brief Test that base_interval is set to the first interval when uninitialized.
+TEST(TimeFactoryTest, BaseIntervalSetToFirstInterval) {
     TestSetup setup("interval", "period", (500 * telem::MILLISECOND).nanoseconds());
     time::Factory factory;
-    ASSERT_NIL_P(factory.create(node::Config(setup.ir.nodes[0], setup.make_node())));
-    EXPECT_EQ(factory.timing_base, 500 * telem::MILLISECOND);
+    ASSERT_NIL_P(
+        factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
+    );
+    EXPECT_EQ(factory.base_interval, 500 * telem::MILLISECOND);
 }
 
-/// @brief Test that timing_base computes GCD across multiple intervals.
-TEST(TimeFactoryTest, TimingBaseComputesGCDAcrossNodes) {
+/// @brief Test that base_interval computes GCD across multiple intervals.
+TEST(TimeFactoryTest, BaseIntervalComputesGCDAcrossNodes) {
     TestSetup setup1("interval", "period", (600 * telem::MILLISECOND).nanoseconds());
     TestSetup setup2("wait", "duration", (400 * telem::MILLISECOND).nanoseconds());
 
     time::Factory factory;
-    ASSERT_NIL_P(factory.create(node::Config(setup1.ir.nodes[0], setup1.make_node())));
-    ASSERT_NIL_P(factory.create(node::Config(setup2.ir.nodes[0], setup2.make_node())));
-    EXPECT_EQ(factory.timing_base, 200 * telem::MILLISECOND);
+    ASSERT_NIL_P(
+        factory.create(node::Config(setup1.ir, setup1.ir.nodes[0], setup1.make_node()))
+    );
+    ASSERT_NIL_P(
+        factory.create(node::Config(setup2.ir, setup2.ir.nodes[0], setup2.make_node()))
+    );
+    EXPECT_EQ(factory.base_interval, 200 * telem::MILLISECOND);
 }
 
 /// @brief Test that Interval does not fire again before next interval elapses.
@@ -235,6 +250,27 @@ TEST(IntervalTest, IsOutputTruthyDelegatesToState) {
     node.next(ctx);
 
     EXPECT_TRUE(node.is_output_truthy("output"));
+}
+
+/// @brief Test that Interval is_output_truthy returns false before firing.
+TEST(IntervalTest, IsOutputTruthyFalseBeforeFiring) {
+    TestSetup setup("interval", "period", telem::SECOND.nanoseconds());
+    const time::IntervalConfig cfg(setup.ir.nodes[0].config);
+    time::Interval node(cfg, setup.make_node());
+
+    EXPECT_FALSE(node.is_output_truthy("output"));
+}
+
+/// @brief Test that Interval is_output_truthy returns false for unknown param.
+TEST(IntervalTest, IsOutputTruthyFalseForUnknownParam) {
+    TestSetup setup("interval", "period", telem::SECOND.nanoseconds());
+    const time::IntervalConfig cfg(setup.ir.nodes[0].config);
+    time::Interval node(cfg, setup.make_node());
+
+    auto ctx = make_context(telem::SECOND);
+    node.next(ctx);
+
+    EXPECT_FALSE(node.is_output_truthy("nonexistent"));
 }
 
 /// @brief Test that Interval reset allows it to fire immediately again.
@@ -457,4 +493,207 @@ TEST(WaitTest, ResetRestartsTimingFromZero) {
     node.next(ctx3);
 
     EXPECT_EQ(output->size(), 1);
+}
+
+/// @brief Test calculate_tolerance for RT_EVENT mode.
+TEST(CalculateToleranceTest, RTEventMode) {
+    const auto tolerance = time::calculate_tolerance(
+        loop::ExecutionMode::RT_EVENT,
+        100 * telem::MILLISECOND
+    );
+    EXPECT_EQ(tolerance, 100 * telem::MICROSECOND);
+}
+
+/// @brief Test calculate_tolerance for BUSY_WAIT mode.
+TEST(CalculateToleranceTest, BusyWaitMode) {
+    const auto tolerance = time::calculate_tolerance(
+        loop::ExecutionMode::BUSY_WAIT,
+        100 * telem::MILLISECOND
+    );
+    EXPECT_EQ(tolerance, 100 * telem::MICROSECOND);
+}
+
+/// @brief Test calculate_tolerance for HIGH_RATE mode.
+TEST(CalculateToleranceTest, HighRateMode) {
+    const auto tolerance = time::calculate_tolerance(
+        loop::ExecutionMode::HIGH_RATE,
+        100 * telem::MILLISECOND
+    );
+    EXPECT_EQ(tolerance, telem::MILLISECOND);
+}
+
+/// @brief Test calculate_tolerance for EVENT_DRIVEN mode.
+TEST(CalculateToleranceTest, EventDrivenMode) {
+    const auto tolerance = time::calculate_tolerance(
+        loop::ExecutionMode::EVENT_DRIVEN,
+        100 * telem::MILLISECOND
+    );
+    EXPECT_EQ(tolerance, 5 * telem::MILLISECOND);
+}
+
+/// @brief Test calculate_tolerance for HYBRID mode.
+TEST(CalculateToleranceTest, HybridMode) {
+    const auto tolerance = time::calculate_tolerance(
+        loop::ExecutionMode::HYBRID,
+        100 * telem::MILLISECOND
+    );
+    EXPECT_EQ(tolerance, 5 * telem::MILLISECOND);
+}
+
+/// @brief Test calculate_tolerance with max interval returns fixed 5ms.
+TEST(CalculateToleranceTest, MaxInterval) {
+    const auto tolerance = time::calculate_tolerance(
+        loop::ExecutionMode::EVENT_DRIVEN,
+        telem::TimeSpan::max()
+    );
+    EXPECT_EQ(tolerance, 5 * telem::MILLISECOND);
+}
+
+/// @brief Test calculate_tolerance respects half-interval minimum.
+TEST(CalculateToleranceTest, HalfIntervalMinimum) {
+    const auto tolerance = time::calculate_tolerance(
+        loop::ExecutionMode::EVENT_DRIVEN,
+        4 * telem::MILLISECOND
+    );
+    EXPECT_EQ(tolerance, 2 * telem::MILLISECOND);
+}
+
+/// @brief Test that Interval fires within tolerance.
+TEST(IntervalToleranceTest, FiresWithinTolerance) {
+    TestSetup setup("interval", "period", telem::SECOND.nanoseconds());
+    const time::IntervalConfig cfg(setup.ir.nodes[0].config);
+    time::Interval node(cfg, setup.make_node());
+
+    auto ctx1 = make_context(telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx1));
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    output->resize(0);
+
+    auto ctx2 = make_context(
+        telem::SECOND * 2 - telem::MILLISECOND * 5,
+        50 * telem::MILLISECOND
+    );
+    ASSERT_NIL(node.next(ctx2));
+    EXPECT_EQ(output->size(), 1);
+}
+
+/// @brief Test that Interval does not fire too early even with tolerance.
+TEST(IntervalToleranceTest, DoesNotFireTooEarly) {
+    TestSetup setup("interval", "period", telem::SECOND.nanoseconds());
+    const time::IntervalConfig cfg(setup.ir.nodes[0].config);
+    time::Interval node(cfg, setup.make_node());
+
+    auto ctx1 = make_context(telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx1));
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    output->resize(0);
+
+    auto ctx2 = make_context(telem::MILLISECOND * 900, 50 * telem::MILLISECOND);
+    ASSERT_NIL(node.next(ctx2));
+    EXPECT_EQ(output->size(), 0);
+}
+
+/// @brief Test that Wait fires within tolerance.
+TEST(WaitToleranceTest, FiresWithinTolerance) {
+    TestSetup setup("wait", "duration", telem::SECOND.nanoseconds());
+    const time::WaitConfig cfg(setup.ir.nodes[0].config);
+    time::Wait node(cfg, setup.make_node());
+
+    auto ctx1 = make_context(telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx1));
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    EXPECT_EQ(output->size(), 0);
+
+    auto ctx2 = make_context(
+        telem::SECOND - telem::MILLISECOND * 5,
+        50 * telem::MILLISECOND
+    );
+    ASSERT_NIL(node.next(ctx2));
+    EXPECT_EQ(output->size(), 1);
+}
+
+/// @brief Test that Wait does not fire too early even with tolerance.
+TEST(WaitToleranceTest, DoesNotFireTooEarly) {
+    TestSetup setup("wait", "duration", telem::SECOND.nanoseconds());
+    const time::WaitConfig cfg(setup.ir.nodes[0].config);
+    time::Wait node(cfg, setup.make_node());
+
+    auto ctx1 = make_context(telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx1));
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    EXPECT_EQ(output->size(), 0);
+
+    auto ctx2 = make_context(telem::MILLISECOND * 900, 50 * telem::MILLISECOND);
+    ASSERT_NIL(node.next(ctx2));
+    EXPECT_EQ(output->size(), 0);
+}
+
+/// @brief Test that Interval fires correctly with zero tolerance (original behavior).
+TEST(IntervalToleranceTest, ZeroToleranceRequiresExactTime) {
+    TestSetup setup("interval", "period", telem::SECOND.nanoseconds());
+    const time::IntervalConfig cfg(setup.ir.nodes[0].config);
+    time::Interval node(cfg, setup.make_node());
+
+    auto ctx1 = make_context(telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx1));
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    output->resize(0);
+
+    auto ctx2 = make_context(telem::SECOND - telem::NANOSECOND, telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx2));
+    EXPECT_EQ(output->size(), 0);
+
+    auto ctx3 = make_context(telem::SECOND, telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx3));
+    EXPECT_EQ(output->size(), 1);
+}
+
+/// @brief Test that Wait fires correctly with zero tolerance (original behavior).
+TEST(WaitToleranceTest, ZeroToleranceRequiresExactTime) {
+    TestSetup setup("wait", "duration", telem::SECOND.nanoseconds());
+    const time::WaitConfig cfg(setup.ir.nodes[0].config);
+    time::Wait node(cfg, setup.make_node());
+
+    auto ctx1 = make_context(telem::TimeSpan(0), telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx1));
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    EXPECT_EQ(output->size(), 0);
+
+    auto ctx2 = make_context(telem::SECOND - telem::NANOSECOND, telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx2));
+    EXPECT_EQ(output->size(), 0);
+
+    auto ctx3 = make_context(telem::SECOND, telem::TimeSpan(0));
+    ASSERT_NIL(node.next(ctx3));
+    EXPECT_EQ(output->size(), 1);
+}
+
+/// @brief Test that tolerance is capped at half the interval for small intervals.
+TEST(CalculateToleranceTest, SmallIntervalCapsAtHalf) {
+    const auto tolerance = time::calculate_tolerance(
+        loop::ExecutionMode::RT_EVENT,
+        100 * telem::MICROSECOND
+    );
+    EXPECT_EQ(tolerance, 50 * telem::MICROSECOND);
+}
+
+/// @brief Test calculate_tolerance for AUTO mode (defaults to EVENT_DRIVEN behavior).
+TEST(CalculateToleranceTest, AutoMode) {
+    const auto tolerance = time::calculate_tolerance(
+        loop::ExecutionMode::AUTO,
+        100 * telem::MILLISECOND
+    );
+    EXPECT_EQ(tolerance, 5 * telem::MILLISECOND);
 }

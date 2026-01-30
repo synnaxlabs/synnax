@@ -5,91 +5,93 @@ import { Flex, Text, Icon } from "@synnaxlabs/pluto";
 ---
 
 <Root frontmatter={{ title: "Docs Home" }}>
-    <Flex.Box className="hero-parent" direction="y" align="center">
-        <Flex.Box className="hero" direction="x" gap={10}>
-            <Flex.Box direction="y" grow gap={6}>
-                <Flex.Box direction="y" align="start" gap="large">
-                    <Text.Text level="h1" className="title">Synnax Docs</Text.Text>
-                    <Text.Text
-                        level="h4"
-                        color={9}
-                        style={{ maxWidth: "500px" }}
-                        weight={350}
-                    >
-                        Guides and references to instrument and operate hardware with
-                        Synnax.
-                    </Text.Text>
-                </Flex.Box>
-                <Flex.Box direction="y" gap={4} grow>
-                    <Flex.Box
-                        className="chip guide"
-                        el="a"
-                        href="/guides/"
-                        direction="y"
-                        grow
-                        bordered
-                        rounded
-                        align="start"
-                        justify="center"
-                    >
-                        <Flex.Box gap="small">
-                            <Text.Text level="h4" size="medium" color={10}>
-                                <Icon.Guide />
-                                Guides</Text.Text
-                            >
-                            <Text.Text level="small" color={8} weight={400}>
-                                Thorough walkthroughs to teach every aspect of the
-                                Synnax platform.
-                            </Text.Text>
-                            <Icon.OpenExternal />
-                        </Flex.Box>
-                    </Flex.Box>
-                    <Flex.Box
-                        grow
-                        el="a"
-                        href="/reference/"
-                        bordered
-                        rounded
-                        align="start"
-                        justify="center"
-                        className="chip reference"
-                    >
-                        <Flex.Box gap="small">
-                            <Text.Text level="h4" color={10} size="medium">
-                                <Icon.Reference />
-                                Reference</Text.Text
-                            >
-                            <Text.Text level="small" color={8} weight={400}>
-                                In-depth documentation on Synnax concepts and
-                                components.
-                            </Text.Text>
-                            <Icon.OpenExternal />
-                        </Flex.Box>
-                    </Flex.Box>
-                </Flex.Box>
-            </Flex.Box>
-            <Flex.Box direction="y" gap={10} grow>
-                <Flex.Box borderColor={3} rounded={1}>
-                    <Flex.Box
-                        direction="y"
-                        className="get"
-                        el="a"
-                        href="/guides/get-started/installation"
-                        align="center"
-                        justify="center"
-                        bordered
-                    >
-                        <Logo variant="icon" color="white" />
-                        <Text.Text level="h3" color={10}>Get Started</Text.Text>
-                        <Text.Text level="h5" color={8}>
-                            Start acquiring data in minutes
+    <section>
+        <Flex.Box className="hero-parent" direction="y" align="center">
+            <Flex.Box className="hero" direction="x" gap={10}>
+                <Flex.Box direction="y" grow gap={6}>
+                    <Flex.Box direction="y" align="start" gap="large">
+                        <Text.Text level="h1" className="title">Synnax Docs</Text.Text>
+                        <Text.Text
+                            level="h4"
+                            color={9}
+                            style={{ maxWidth: "500px" }}
+                            weight={350}
+                        >
+                            Guides and references to instrument and operate hardware
+                            with Synnax.
                         </Text.Text>
-                        <Icon.OpenExternal />
+                    </Flex.Box>
+                    <Flex.Box direction="y" gap={4} grow>
+                        <Flex.Box
+                            className="chip guide"
+                            el="a"
+                            href="/guides/"
+                            direction="y"
+                            grow
+                            bordered
+                            rounded
+                            align="start"
+                            justify="center"
+                        >
+                            <Flex.Box gap="small">
+                                <Text.Text level="h4" size="medium" color={10}>
+                                    <Icon.Guide />
+                                    Guides</Text.Text
+                                >
+                                <Text.Text level="small" color={8} weight={400}>
+                                    Thorough walkthroughs to teach every aspect of the
+                                    Synnax platform.
+                                </Text.Text>
+                                <Icon.OpenExternal />
+                            </Flex.Box>
+                        </Flex.Box>
+                        <Flex.Box
+                            grow
+                            el="a"
+                            href="/reference/"
+                            bordered
+                            rounded
+                            align="start"
+                            justify="center"
+                            className="chip reference"
+                        >
+                            <Flex.Box gap="small">
+                                <Text.Text level="h4" color={10} size="medium">
+                                    <Icon.Reference />
+                                    Reference</Text.Text
+                                >
+                                <Text.Text level="small" color={8} weight={400}>
+                                    In-depth documentation on Synnax concepts and
+                                    components.
+                                </Text.Text>
+                                <Icon.OpenExternal />
+                            </Flex.Box>
+                        </Flex.Box>
+                    </Flex.Box>
+                </Flex.Box>
+                <Flex.Box direction="y" gap={10} grow>
+                    <Flex.Box borderColor={3} rounded={1}>
+                        <Flex.Box
+                            direction="y"
+                            className="get"
+                            el="a"
+                            href="/guides/get-started/installation"
+                            align="center"
+                            justify="center"
+                            bordered
+                        >
+                            <Logo variant="icon" color="white" />
+                            <Text.Text level="h3" color={10}>Get Started</Text.Text>
+                            <Text.Text level="h5" color={8}>
+                                Start acquiring data in minutes
+                            </Text.Text>
+                            <Icon.OpenExternal />
+                        </Flex.Box>
                     </Flex.Box>
                 </Flex.Box>
             </Flex.Box>
         </Flex.Box>
-    </Flex.Box>
+    </section>
 
     <style is:global>
         section {
@@ -97,6 +99,7 @@ import { Flex, Text, Icon } from "@synnaxlabs/pluto";
             --root-border-radius: 1rem;
             border-left: var(--pluto-border);
             border-right: var(--pluto-border);
+            max-width: 1340px;
         }
         .title {
             font-size: 9rem !important;

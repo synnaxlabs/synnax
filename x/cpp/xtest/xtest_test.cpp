@@ -168,3 +168,25 @@ TEST_F(XTestTest, TestEventuallyFalseWithCustomTimeout) {
     );
     t.join();
 }
+
+/// @brief ASSERT_NIL should only evaluate the expression once.
+TEST_F(XTestTest, TestAssertNilSingleEvaluation) {
+    auto nil_with_side_effect = [this]() -> xerrors::Error {
+        inc_counter();
+        return xerrors::NIL;
+    };
+    ASSERT_NIL(nil_with_side_effect());
+    EXPECT_EQ(counter.load(), 1);
+}
+
+/// @brief ASSERT_OCCURRED_AS should only evaluate the expression once.
+TEST_F(XTestTest, TestAssertOccurredAsSingleEvaluation) {
+    const auto expected = xerrors::Error("test error");
+    auto error_with_side_effect = [this, &expected]() -> xerrors::Error {
+        inc_counter();
+        return expected;
+    };
+    ASSERT_OCCURRED_AS(error_with_side_effect(), expected);
+    EXPECT_EQ(counter.load(), 1);
+}
+

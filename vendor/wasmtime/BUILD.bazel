@@ -97,11 +97,25 @@ genrule(
             # Disable profiling (ittapi-sys) and cache (zstd-sys) features that fail on Windows
             # Use cargo rustc to explicitly build as staticlib
             cd crates/c-api
+            # gc-null provides a null GC implementation (required since wasmtime v38+)
             cargo rustc --release --target x86_64-pc-windows-msvc \
                 --no-default-features \
-                --features wat,wasi,async,cranelift,threads \
-                --crate-type staticlib
+                --features wat,wasi,async,cranelift,threads,gc-null \
+                --crate-type staticlib 2>&1
+            CARGO_EXIT_CODE=$$?
+            if [ $$CARGO_EXIT_CODE -ne 0 ]; then
+                echo "ERROR: cargo build failed with exit code $$CARGO_EXIT_CODE"
+                exit 1
+            fi
             cd ../..
+
+            # Verify the library was produced
+            if [ ! -f "target/x86_64-pc-windows-msvc/release/wasmtime_c_api.lib" ]; then
+                echo "ERROR: wasmtime_c_api.lib not produced by cargo build"
+                echo "Contents of release directory:"
+                ls -la target/x86_64-pc-windows-msvc/release/ 2>&1 || echo "Directory does not exist"
+                exit 1
+            fi
 
             # Install headers and library manually
             mkdir -p artifacts/lib artifacts/include artifacts/include/wasmtime
@@ -138,8 +152,14 @@ EOF
             done
 
             # Copy library (Windows uses wasmtime.lib)
-            cp vendor/wasmtime/wasmtime/artifacts/lib/wasmtime.lib "$(location lib/wasmtime.lib)" || \
-                touch "$(location lib/wasmtime.lib)"
+            # Verify wasmtime.lib exists and is not empty before copying
+            if [ ! -s vendor/wasmtime/wasmtime/artifacts/lib/wasmtime.lib ]; then
+                echo "ERROR: wasmtime.lib not found or is empty at vendor/wasmtime/wasmtime/artifacts/lib/"
+                echo "Contents of artifacts/lib directory:"
+                ls -la vendor/wasmtime/wasmtime/artifacts/lib/ 2>&1 || echo "Directory does not exist"
+                exit 1
+            fi
+            cp vendor/wasmtime/wasmtime/artifacts/lib/wasmtime.lib "$(location lib/wasmtime.lib)"
 
             # Copy top-level headers
             cp vendor/wasmtime/wasmtime/artifacts/include/wasm.h "$(location include/wasm.h)"

@@ -83,7 +83,7 @@ class Schematic(ConsolePage):
                 command_channel="press_vlv_cmd"
             )
             configured_valve = schematic.create_symbol(valve)
-            configured_valve.move(-90, -100)
+            configured_valve.move(delta_x=-90, delta_y=-100)
         """
 
         symbol.create(self.page, self.console)

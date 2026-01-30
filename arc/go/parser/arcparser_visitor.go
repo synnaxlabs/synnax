@@ -10,7 +10,6 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
-
 import "github.com/antlr4-go/antlr/v4"
 
 // A complete Visitor for a parse tree produced by ArcParser.
@@ -44,6 +43,9 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#configBlock.
 	VisitConfigBlock(ctx *ConfigBlockContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#configList.
+	VisitConfigList(ctx *ConfigListContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#config.
 	VisitConfig(ctx *ConfigContext) interface{}
 
@@ -58,6 +60,9 @@ type ArcParserVisitor interface {
 
 	// Visit a parse tree produced by ArcParser#stageItem.
 	VisitStageItem(ctx *StageItemContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#singleInvocation.
+	VisitSingleInvocation(ctx *SingleInvocationContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#flowStatement.
 	VisitFlowStatement(ctx *FlowStatementContext) interface{}
@@ -116,6 +121,9 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#assignment.
 	VisitAssignment(ctx *AssignmentContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#compoundOp.
+	VisitCompoundOp(ctx *CompoundOpContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#ifStatement.
 	VisitIfStatement(ctx *IfStatementContext) interface{}
 
@@ -127,9 +135,6 @@ type ArcParserVisitor interface {
 
 	// Visit a parse tree produced by ArcParser#returnStatement.
 	VisitReturnStatement(ctx *ReturnStatementContext) interface{}
-
-	// Visit a parse tree produced by ArcParser#functionCall.
-	VisitFunctionCall(ctx *FunctionCallContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#type.
 	VisitType(ctx *TypeContext) interface{}

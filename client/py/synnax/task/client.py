@@ -245,11 +245,9 @@ class Task:
                     if status.details.cmd is not None and status.details.cmd == key:
                         return status
                 except ValidationError as e:
-                    raise UnexpectedError(
-                        f"""
+                    raise UnexpectedError(f"""
                     Received invalid task state from driver.
-                    """
-                    ) from e
+                    """) from e
 
 
 class TaskProtocol(Protocol):
@@ -327,7 +325,7 @@ class JSONConfigMixin(TaskProtocol):
     def to_payload(self) -> TaskPayload:
         """Implements TaskProtocol protocol"""
         pld = self._internal.to_payload()
-        pld.config = json.dumps(self.config.dict())
+        pld.config = json.dumps(self.config.model_dump())
         return pld
 
     def set_internal(self, task: Task):

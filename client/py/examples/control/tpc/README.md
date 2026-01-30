@@ -11,13 +11,13 @@ This directory contains several files:
 - `common.py`: The names of the valves and sensors on the TPC system.
 - `control_sequence.py`: The main control sequence that runs the pressurization and
   venting process. This sequence also reruns the test with more optimal control bounds.
-- `simulated_daq.py`: A data acquisition computer (DAQ) that simulates how a real
-  pressurization system would respond to the commands issued by the control sequence.
 - `threshold_detection.py`: A script that will automatically create
   [ranges](https://docs.synnaxlabs.com/reference/concepts/ranges) when the fuel tank
   pressure rises above a certain threshold.
 - `schematic.json`: An example schematic that can be imported into Console to visualize
   and control the TPC system.
+
+The simulator for this example is located in `examples/simulators/tpc.py`.
 
 ## Running the Example
 
@@ -39,24 +39,25 @@ If you are using the Console, you can use a combination of
 [Line Plots](https://docs.synnaxlabs.com/reference/console/line-plots) to visualize the
 state of the system over time.
 
-Once you have a Synnax Core running, start the simulated DAQ by running the following
-command:
+Once you have a Synnax Core running, start the TPC simulator in one terminal:
 
 ```bash
-python simulated_daq.py
+cd client/py
+uv run python -m examples.simulators.tpc
 ```
 
-Then, run the control sequence by running the following command:
+Then, run the control sequence in another terminal:
 
 ```bash
-python control_sequence.py
+cd client/py
+uv run python -m examples.control.tpc.control_sequence
 ```
 
-You can also optionally run the threshold detection sequence by running the following
-file:
+You can also optionally run the threshold detection sequence:
 
 ```bash
-python threshold_detection.py
+cd client/py
+uv run python -m examples.control.tpc.threshold_detection
 ```
 
 The control sequence will run and you should see the pressure in the system increase and

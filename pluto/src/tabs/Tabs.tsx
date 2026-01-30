@@ -92,7 +92,7 @@ export const useStatic = ({
       onChange(key);
       if (valueRef.current == null) onSelect?.(key);
     },
-    [value, onSelect],
+    [value, onChange, onSelect],
   );
 
   return {

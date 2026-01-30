@@ -1,0 +1,112 @@
+---
+title: "Version 0.50 Release Notes"
+---
+
+import { Image } from "@/components/media/Media";
+import { Divider, Flex } from "@synnaxlabs/pluto";
+import Release from "@/components/releases/Release.astro";
+import Diagram from "@/components/diagram/Diagram.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+<Release
+    version="0.50.0"
+    date="Jan 26, 2026"
+    title="Arc Automations"
+>
+
+Synnax v0.50 is the first release of the text-based version of our new programming
+language, Arc.
+
+<Image client:only="react" id="releases/0-50-0/thumbnail" themed={false} />
+
+### Arc Sequences
+
+Arc lets you create sequences using a text-based editor in the Synnax Console and deploy
+them directly onto a Synnax Core or Driver. The Console provides built-in documentation,
+syntax highlighting, and error checking to help you write automations quickly and
+correctly.
+
+Arc's sequence system lets you define complex multi-stage automation workflows,
+including pressurization sequences, test procedures, and safety interlocks, that
+automatically transition between stages based on real-time sensor conditions. The
+reactive execution model means your control logic responds to sensor changes without
+writing polling loops; values flow through your automation, and downstream calculations
+update instantly when inputs change.
+
+Arc also handles the complexity of stateful automations for you. Hold timers, counters,
+integrators, and PID controllers all maintain their state across execution cycles
+without manual bookkeeping.
+
+Arc automations run in real-time on supported operating systems such as Ubuntu 24.04 Pro
+and NI Linux RT, enabling precise, accurately timed control algorithms for the most
+demanding tasks.
+
+<Divider.Divider x />
+
+### Views
+
+<Diagram preview style="padding: 0rem 9rem">
+  <Image client:only="react" id="releases/0-50-0/views" themed={false} />
+</Diagram>
+
+Views allow you to save frequently used searches of ranges and statuses. You can create
+views by opening the Status Explorer or Range Explorer, editing the filters for given
+labels or other criteria, and then creating a new view. This view can then be saved and
+loaded later for quick access.
+
+<Divider.Divider x />
+
+### Documentation Refactor
+
+The Synnax documentation site has been refactored by consolidating the Python and
+TypeScript client documentations into a single section, with code snippets for each
+language. This should make it easier to find information by reducing the number of pages
+on the site, and leaving a single place where information is found about ranges, writing
+data, and more.
+
+<Divider.Divider x />
+
+### Windows Service
+
+The Synnax Core can now be installed and run as a Windows service. This allows the Core
+to start automatically when the PC boots, run as a background process, and be managed by
+the Windows Service Manager.
+
+To see how to deploy Synnax as a Windows service, see the
+[Core CLI Reference](/reference/core/cli-reference#service-windows-only).
+
+<Divider.Divider x />
+
+### Minor Improvements and Bug Fixes
+
+#### Console
+
+- Fix the Core login page
+- Fix CSV exporting with large amount of data
+- Improve the CSV exporting UI
+- Fix NI port allocation when duplicating channels on a task
+- Fix task form throwing an error on a channel name path
+- Add error boundaries to mosaic leaves
+
+#### Core
+
+- Remove Lua-based calculated channels
+- Add a downsampling option for iterators
+- Fix the embedded Driver logs truncating task names
+- Add a disk usage metric channel
+- Remove the `sy_calculation_status` channel and replace it with a standard Synnax
+  status channel
+- Group metrics channels into a single Metrics group in the Channel toolbar
+
+#### Driver
+
+- Fix task manager to allow for a task to fail while configuring
+- Fix a bug where devices would not be discovered if the location was changed
+
+#### Python Client
+
+- Fix the `__array__` signatures in the `Series` and `MultiSeries` classes
+
+</Release>

@@ -18,6 +18,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/compiler/bindings"
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/state"
 	runtimebindings "github.com/synnaxlabs/arc/runtime/wasm/bindings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
@@ -1199,7 +1201,7 @@ var _ = Describe("Compiler", func() {
 			// Setup bindings for math operations with actual runtime implementations
 			b := bindings.NewBindings()
 			// Note: Math functions don't require state, so we pass nil
-			arcRuntime := runtimebindings.NewRuntime(nil, nil)
+			arcRuntime := runtimebindings.NewRuntime(state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}}), nil)
 			runtimebindings.BindRuntime(arcRuntime, b)
 			Expect(b.Bind(ctx, r)).To(Succeed())
 		})
@@ -1477,7 +1479,7 @@ var _ = Describe("Compiler", func() {
 		BeforeEach(func() {
 			// Setup bindings for math operations with actual runtime implementations
 			b := bindings.NewBindings()
-			arcRuntime := runtimebindings.NewRuntime(nil, nil)
+			arcRuntime := runtimebindings.NewRuntime(state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}}), nil)
 			runtimebindings.BindRuntime(arcRuntime, b)
 			Expect(b.Bind(ctx, r)).To(Succeed())
 		})
@@ -1595,7 +1597,7 @@ var _ = Describe("Compiler", func() {
 	Describe("Series Operations", func() {
 		BeforeEach(func() {
 			b := bindings.NewBindings()
-			arcRuntime := runtimebindings.NewRuntime(nil, nil)
+			arcRuntime := runtimebindings.NewRuntime(state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}}), nil)
 			runtimebindings.BindRuntime(arcRuntime, b)
 			Expect(b.Bind(ctx, r)).To(Succeed())
 		})
@@ -1929,7 +1931,7 @@ var _ = Describe("Compiler", func() {
 
 		BeforeEach(func() {
 			b := bindings.NewBindings()
-			arcRuntime = runtimebindings.NewRuntime(nil, nil)
+			arcRuntime = runtimebindings.NewRuntime(state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}}), nil)
 			runtimebindings.BindRuntime(arcRuntime, b)
 			Expect(b.Bind(ctx, r)).To(Succeed())
 		})
@@ -2721,7 +2723,7 @@ var _ = Describe("Compiler", func() {
 		BeforeEach(func() {
 			// Setup bindings for string operations with actual runtime implementations
 			b := bindings.NewBindings()
-			arcRuntime = runtimebindings.NewRuntime(nil, nil)
+			arcRuntime = runtimebindings.NewRuntime(state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}}), nil)
 			runtimebindings.BindRuntime(arcRuntime, b)
 			Expect(b.Bind(ctx, r)).To(Succeed())
 		})
@@ -2789,5 +2791,523 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(0))) // false
 		})
+	})
+
+	Describe("Numeric Type Execution", func() {
+		DescribeTable("numeric type literals",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compile(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			// i8 literals
+			Entry("i8 literal", `{
+				x i8 := 127
+				return x
+			}`, int8(127)),
+			Entry("i8 negative", `{
+				x i8 := -100
+				return x
+			}`, int8(-100)),
+			Entry("i8 zero", `{
+				x i8 := 0
+				return x
+			}`, int8(0)),
+
+			// i16 literals
+			Entry("i16 literal", `{
+				x i16 := 32767
+				return x
+			}`, int16(32767)),
+			Entry("i16 negative", `{
+				x i16 := -10000
+				return x
+			}`, int16(-10000)),
+			Entry("i16 zero", `{
+				x i16 := 0
+				return x
+			}`, int16(0)),
+
+			// i32 literals
+			Entry("i32 literal", `{
+				x i32 := 2147483647
+				return x
+			}`, int32(2147483647)),
+			Entry("i32 negative", `{
+				x i32 := -1000000
+				return x
+			}`, int32(-1000000)),
+
+			// i64 literals
+			Entry("i64 literal", `{
+				x i64 := 9223372036854775807
+				return x
+			}`, int64(9223372036854775807)),
+			Entry("i64 negative", `{
+				x i64 := -1000000000000
+				return x
+			}`, int64(-1000000000000)),
+
+			// u8 literals
+			Entry("u8 literal", `{
+				x u8 := 255
+				return x
+			}`, uint8(255)),
+			Entry("u8 zero", `{
+				x u8 := 0
+				return x
+			}`, uint8(0)),
+
+			// u16 literals
+			Entry("u16 literal", `{
+				x u16 := 65535
+				return x
+			}`, uint16(65535)),
+			Entry("u16 zero", `{
+				x u16 := 0
+				return x
+			}`, uint16(0)),
+
+			// u32 literals
+			Entry("u32 literal", `{
+				x u32 := 4294967295
+				return x
+			}`, uint32(4294967295)),
+			Entry("u32 zero", `{
+				x u32 := 0
+				return x
+			}`, uint32(0)),
+
+			// u64 literals
+			Entry("u64 literal", `{
+				x u64 := 10000000000000
+				return x
+			}`, uint64(10000000000000)),
+			Entry("u64 zero", `{
+				x u64 := 0
+				return x
+			}`, uint64(0)),
+
+			// f32 literals
+			Entry("f32 literal", `{
+				x f32 := 3.14
+				return x
+			}`, float32(3.14)),
+			Entry("f32 negative", `{
+				x f32 := -3.14
+				return x
+			}`, float32(-3.14)),
+			Entry("f32 zero", `{
+				x f32 := 0.0
+				return x
+			}`, float32(0.0)),
+
+			// f64 literals
+			Entry("f64 precision", `{
+				x f64 := 3.141592653589793
+				return x
+			}`, 3.141592653589793),
+			Entry("f64 negative", `{
+				x f64 := -3.141592653589793
+				return x
+			}`, -3.141592653589793),
+		)
+
+		DescribeTable("typed arithmetic operations",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compile(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			// i32 arithmetic
+			Entry("i32 add", `{
+				a i32 := 10
+				b i32 := 20
+				return a + b
+			}`, int32(30)),
+			Entry("i32 sub", `{
+				a i32 := 30
+				b i32 := 10
+				return a - b
+			}`, int32(20)),
+			Entry("i32 mul", `{
+				a i32 := 6
+				b i32 := 7
+				return a * b
+			}`, int32(42)),
+			Entry("i32 div", `{
+				a i32 := 42
+				b i32 := 6
+				return a / b
+			}`, int32(7)),
+			Entry("i32 mod", `{
+				a i32 := 17
+				b i32 := 5
+				return a % b
+			}`, int32(2)),
+
+			// i64 arithmetic
+			Entry("i64 add", `{
+				a i64 := 10
+				b i64 := 20
+				return a + b
+			}`, int64(30)),
+			Entry("i64 sub", `{
+				a i64 := 30
+				b i64 := 10
+				return a - b
+			}`, int64(20)),
+			Entry("i64 mul", `{
+				a i64 := 1000000
+				b i64 := 1000000
+				return a * b
+			}`, int64(1000000000000)),
+			Entry("i64 div", `{
+				a i64 := 100
+				b i64 := 4
+				return a / b
+			}`, int64(25)),
+			Entry("i64 mod", `{
+				a i64 := 17
+				b i64 := 5
+				return a % b
+			}`, int64(2)),
+
+			// f32 arithmetic
+			Entry("f32 add", `{
+				a f32 := 1.5
+				b f32 := 2.5
+				return a + b
+			}`, float32(4.0)),
+			Entry("f32 sub", `{
+				a f32 := 5.5
+				b f32 := 2.5
+				return a - b
+			}`, float32(3.0)),
+			Entry("f32 mul", `{
+				a f32 := 2.0
+				b f32 := 3.0
+				return a * b
+			}`, float32(6.0)),
+			Entry("f32 div", `{
+				a f32 := 10.0
+				b f32 := 4.0
+				return a / b
+			}`, float32(2.5)),
+
+			// f64 arithmetic
+			Entry("f64 add", `{
+				a f64 := 1.5
+				b f64 := 2.5
+				return a + b
+			}`, 4.0),
+			Entry("f64 sub", `{
+				a f64 := 5.5
+				b f64 := 2.5
+				return a - b
+			}`, 3.0),
+			Entry("f64 mul", `{
+				a f64 := 2.0
+				b f64 := 3.0
+				return a * b
+			}`, 6.0),
+			Entry("f64 div", `{
+				a f64 := 10.0
+				b f64 := 4.0
+				return a / b
+			}`, 2.5),
+		)
+
+		DescribeTable("comparison operators",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compile(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			// Less than
+			Entry("i32 lt true", `{ return i32(5) < i32(10) }`, uint8(1)),
+			Entry("i32 lt false", `{ return i32(10) < i32(5) }`, uint8(0)),
+			Entry("i32 lt equal", `{ return i32(5) < i32(5) }`, uint8(0)),
+			Entry("f64 lt true", `{ return 1.5 < 2.5 }`, uint8(1)),
+			Entry("f64 lt false", `{ return 2.5 < 1.5 }`, uint8(0)),
+
+			// Less than or equal
+			Entry("i32 le true", `{ return i32(5) <= i32(10) }`, uint8(1)),
+			Entry("i32 le equal", `{ return i32(5) <= i32(5) }`, uint8(1)),
+			Entry("i32 le false", `{ return i32(10) <= i32(5) }`, uint8(0)),
+			Entry("f64 le true", `{ return 1.5 <= 2.5 }`, uint8(1)),
+
+			// Greater than
+			Entry("i32 gt true", `{ return i32(10) > i32(5) }`, uint8(1)),
+			Entry("i32 gt false", `{ return i32(5) > i32(10) }`, uint8(0)),
+			Entry("i32 gt equal", `{ return i32(5) > i32(5) }`, uint8(0)),
+			Entry("f64 gt true", `{ return 2.5 > 1.5 }`, uint8(1)),
+
+			// Greater than or equal
+			Entry("i32 ge true", `{ return i32(10) >= i32(5) }`, uint8(1)),
+			Entry("i32 ge equal", `{ return i32(5) >= i32(5) }`, uint8(1)),
+			Entry("i32 ge false", `{ return i32(5) >= i32(10) }`, uint8(0)),
+
+			// Equality
+			Entry("i32 eq true", `{ return i32(5) == i32(5) }`, uint8(1)),
+			Entry("i32 eq false", `{ return i32(5) == i32(6) }`, uint8(0)),
+			Entry("f64 eq true", `{ return 3.14 == 3.14 }`, uint8(1)),
+			Entry("f64 eq false", `{ return 3.14 == 3.15 }`, uint8(0)),
+
+			// Inequality
+			Entry("i32 ne true", `{ return i32(5) != i32(6) }`, uint8(1)),
+			Entry("i32 ne false", `{ return i32(5) != i32(5) }`, uint8(0)),
+			Entry("f64 ne true", `{ return 3.14 != 3.15 }`, uint8(1)),
+		)
+
+		DescribeTable("logical operators",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compile(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			// AND operations (using comparisons since true/false aren't implemented as keywords)
+			Entry("and true true", `{ return i32(1) == i32(1) and i32(2) == i32(2) }`, uint8(1)),
+			Entry("and true false", `{ return i32(1) == i32(1) and i32(1) == i32(0) }`, uint8(0)),
+			Entry("and false true", `{ return i32(1) == i32(0) and i32(1) == i32(1) }`, uint8(0)),
+			Entry("and false false", `{ return i32(1) == i32(0) and i32(2) == i32(0) }`, uint8(0)),
+
+			// OR operations
+			Entry("or true true", `{ return i32(1) == i32(1) or i32(2) == i32(2) }`, uint8(1)),
+			Entry("or true false", `{ return i32(1) == i32(1) or i32(1) == i32(0) }`, uint8(1)),
+			Entry("or false true", `{ return i32(1) == i32(0) or i32(1) == i32(1) }`, uint8(1)),
+			Entry("or false false", `{ return i32(1) == i32(0) or i32(2) == i32(0) }`, uint8(0)),
+
+			// Chained operations
+			Entry("chained and", `{ return i32(1) == i32(1) and i32(2) == i32(2) and i32(3) == i32(3) }`, uint8(1)),
+			Entry("chained and with false", `{ return i32(1) == i32(1) and i32(2) == i32(2) and i32(1) == i32(0) }`, uint8(0)),
+			Entry("chained or", `{ return i32(1) == i32(0) or i32(2) == i32(0) or i32(1) == i32(1) }`, uint8(1)),
+			Entry("chained or all false", `{ return i32(1) == i32(0) or i32(2) == i32(0) or i32(3) == i32(0) }`, uint8(0)),
+
+			// Mixed and/or with comparisons
+			Entry("comparison and", `{ return i32(5) < i32(10) and i32(10) < i32(20) }`, uint8(1)),
+			Entry("comparison or", `{ return i32(5) > i32(10) or i32(10) < i32(20) }`, uint8(1)),
+		)
+
+		DescribeTable("unary operators",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compile(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			// Numeric negation
+			Entry("negate i32", `{
+				x i32 := 42
+				return -x
+			}`, int32(-42)),
+			Entry("negate negative i32", `{
+				x i32 := -42
+				return -x
+			}`, int32(42)),
+			Entry("negate i64", `{
+				x i64 := 42
+				return -x
+			}`, int64(-42)),
+			Entry("negate f64", `{
+				x f64 := 3.14
+				return -x
+			}`, -3.14),
+			Entry("negate f32", `{
+				x f32 := 2.5
+				return -x
+			}`, float32(-2.5)),
+			Entry("double negate i32", `{
+				x i32 := 42
+				return --x
+			}`, int32(42)),
+			Entry("double negate f64", `{
+				x f64 := 3.14
+				return --x
+			}`, 3.14),
+
+			// Logical not (Arc uses 'not' keyword, using comparisons for true/false)
+			Entry("not true", `{ return not (i32(1) == i32(1)) }`, uint8(0)),
+			Entry("not false", `{ return not (i32(1) == i32(0)) }`, uint8(1)),
+			Entry("double not true", `{ return not not (i32(1) == i32(1)) }`, uint8(1)),
+			Entry("double not false", `{ return not not (i32(1) == i32(0)) }`, uint8(0)),
+			Entry("not comparison", `{ return not (i32(5) < i32(3)) }`, uint8(1)),
+		)
+
+		DescribeTable("control flow",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compile(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			Entry("if true branch", `{
+				if i32(1) == i32(1) { return i32(1) }
+				return i32(0)
+			}`, int32(1)),
+			Entry("if false branch", `{
+				if i32(1) == i32(0) { return i32(1) }
+				return i32(0)
+			}`, int32(0)),
+			Entry("if-else true", `{
+				if i32(1) == i32(1) { return i32(1) } else { return i32(2) }
+			}`, int32(1)),
+			Entry("if-else false", `{
+				if i32(1) == i32(0) { return i32(1) } else { return i32(2) }
+			}`, int32(2)),
+			Entry("if comparison true", `{
+				x i32 := 10
+				if x > i32(5) { return i32(1) } else { return i32(0) }
+			}`, int32(1)),
+			Entry("if comparison false", `{
+				x i32 := 3
+				if x > i32(5) { return i32(1) } else { return i32(0) }
+			}`, int32(0)),
+			Entry("nested if outer true inner true", `{
+				x i32 := 10
+				if x > i32(5) {
+					if x > i32(8) { return i32(2) } else { return i32(1) }
+				}
+				return i32(0)
+			}`, int32(2)),
+			Entry("nested if outer true inner false", `{
+				x i32 := 6
+				if x > i32(5) {
+					if x > i32(8) { return i32(2) } else { return i32(1) }
+				}
+				return i32(0)
+			}`, int32(1)),
+			Entry("if and", `{
+				if i32(1) == i32(1) and i32(2) == i32(2) { return i32(1) }
+				return i32(0)
+			}`, int32(1)),
+			Entry("if or", `{
+				if i32(1) == i32(0) or i32(1) == i32(1) { return i32(1) }
+				return i32(0)
+			}`, int32(1)),
+		)
+
+		DescribeTable("type casting",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compile(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			Entry("i32 to f64", `{
+				x i32 := 42
+				return f64(x)
+			}`, 42.0),
+			Entry("i32 to f32", `{
+				x i32 := 42
+				return f32(x)
+			}`, float32(42.0)),
+			Entry("f64 to i32", `{
+				x f64 := 3.7
+				return i32(x)
+			}`, int32(3)),
+			Entry("f64 to i32 negative", `{
+				x f64 := -3.7
+				return i32(x)
+			}`, int32(-3)),
+			Entry("i64 to i32", `{
+				x i64 := 42
+				return i32(x)
+			}`, int32(42)),
+			Entry("i32 to i64", `{
+				x i32 := 42
+				return i64(x)
+			}`, int64(42)),
+			Entry("u32 to i32", `{
+				x u32 := 42
+				return i32(x)
+			}`, int32(42)),
+			Entry("i32 to u32", `{
+				x i32 := 42
+				return u32(x)
+			}`, uint32(42)),
+			Entry("f32 to f64", `{
+				x f32 := 3.14
+				return f64(x)
+			}`, float64(float32(3.14))),
+			Entry("f64 to f32", `{
+				x f64 := 3.14
+				return f32(x)
+			}`, float32(3.14)),
+		)
+
+		DescribeTable("variable scoping",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compile(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			Entry("outer scope access", `{
+				x i32 := 10
+				if i32(1) == i32(1) { return x }
+				return i32(0)
+			}`, int32(10)),
+			Entry("inner scope modification", `{
+				x i32 := 10
+				if i32(1) == i32(1) { x = i32(20) }
+				return x
+			}`, int32(20)),
+			Entry("inner block return", `{
+				x i32 := 10
+				if i32(1) == i32(1) {
+					y i32 := 20
+					return y
+				}
+				return x
+			}`, int32(20)),
+			Entry("multiple nested scopes", `{
+				a i32 := 1
+				if i32(1) == i32(1) {
+					b i32 := 2
+					if i32(1) == i32(1) {
+						c i32 := 3
+						return a + b + c
+					}
+				}
+				return i32(0)
+			}`, int32(6)),
+		)
 	})
 })

@@ -11,6 +11,7 @@ package time_test
 
 import (
 	"context"
+	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var ctx = context.Background()
@@ -67,13 +69,12 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("interval_1"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
 		It("Should return NotFound for unknown type", func() {
@@ -89,12 +90,12 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("interval_1"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			intervalNode := s.Node("interval_1")
 			*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 			*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -115,12 +116,12 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("interval_1"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			intervalNode := s.Node("interval_1")
 			*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 			*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -151,12 +152,12 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("interval_1"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			intervalNode := s.Node("interval_1")
 			*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 			*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -187,13 +188,13 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(100 * telem.Millisecond)},
+						{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 					},
 				},
 				State: s.Node("interval_1"),
 			}
 			_, _ = factory.Create(ctx, cfg)
-			Expect(factory.TimingBase).To(Equal(100 * telem.Millisecond))
+			Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
 		})
 	})
 	Describe("Wait", func() {
@@ -230,13 +231,12 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "wait",
 					Config: types.Params{
-						{Name: "duration", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("wait_1"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
 		It("Should not fire before duration elapses", func() {
@@ -244,12 +244,12 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "wait",
 					Config: types.Params{
-						{Name: "duration", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("wait_1"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			waitNode := s.Node("wait_1")
 			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -269,12 +269,12 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "wait",
 					Config: types.Params{
-						{Name: "duration", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("wait_1"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			waitNode := s.Node("wait_1")
 			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -305,12 +305,12 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "wait",
 					Config: types.Params{
-						{Name: "duration", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("wait_1"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			waitNode := s.Node("wait_1")
 			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -350,12 +350,12 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "wait",
 					Config: types.Params{
-						{Name: "duration", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("wait_1"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			waitNode := s.Node("wait_1")
 			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -443,27 +443,27 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(100 * telem.Millisecond)},
+						{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 					},
 				},
 				State: s.Node("interval_1"),
 			}
 			_, _ = factory.Create(ctx, cfg1)
-			Expect(factory.TimingBase).To(Equal(100 * telem.Millisecond))
+			Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
 
 			// Create second interval with 150ms period
 			cfg2 := node.Config{
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(150 * telem.Millisecond)},
+						{Name: "period", Type: types.TimeSpan(), Value: 150 * telem.Millisecond},
 					},
 				},
 				State: s.Node("interval_2"),
 			}
 			_, _ = factory.Create(ctx, cfg2)
 			// GCD(100ms, 150ms) = 50ms
-			Expect(factory.TimingBase).To(Equal(50 * telem.Millisecond))
+			Expect(factory.BaseInterval).To(Equal(50 * telem.Millisecond))
 		})
 	})
 	Describe("SymbolResolver", func() {
@@ -476,6 +476,267 @@ var _ = Describe("Time", func() {
 			sym, ok := arctime.SymbolResolver["wait"]
 			Expect(ok).To(BeTrue())
 			Expect(sym.Name).To(Equal("wait"))
+		})
+	})
+	Describe("CalculateTolerance", func() {
+		It("Should return half of base interval for 100ms", func() {
+			tolerance := arctime.CalculateTolerance(100 * telem.Millisecond)
+			Expect(tolerance).To(Equal(50 * telem.Millisecond))
+		})
+		It("Should return MinTolerance when half interval is less than MinTolerance", func() {
+			tolerance := arctime.CalculateTolerance(2 * telem.Millisecond)
+			Expect(tolerance).To(Equal(arctime.MinTolerance))
+		})
+		It("Should return MinTolerance for MaxInt64 base interval", func() {
+			tolerance := arctime.CalculateTolerance(telem.TimeSpan(math.MaxInt64))
+			Expect(tolerance).To(Equal(arctime.MinTolerance))
+		})
+		It("Should return exactly MinTolerance when half equals MinTolerance", func() {
+			tolerance := arctime.CalculateTolerance(2 * arctime.MinTolerance)
+			Expect(tolerance).To(Equal(arctime.MinTolerance))
+		})
+	})
+	Describe("Tolerance Behavior", func() {
+		var factory *arctime.Factory
+		var s *state.State
+		var changedOutputs []string
+		BeforeEach(func() {
+			factory = arctime.NewFactory()
+			changedOutputs = []string{}
+			g := graph.Graph{
+				Nodes: []graph.Node{{
+					Key:  "interval_1",
+					Type: "interval",
+					Config: map[string]any{
+						"period": int64(100 * telem.Millisecond),
+					},
+				}},
+				Functions: []graph.Function{{
+					Key: "interval",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
+					},
+					Config: types.Params{
+						{Name: "period", Type: types.I64()},
+					},
+				}},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, arctime.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s = state.New(state.Config{IR: analyzed})
+		})
+		Describe("Interval with tolerance", func() {
+			It("Should fire on early tick within tolerance", func() {
+				cfg := node.Config{
+					Node: ir.Node{
+						Type: "interval",
+						Config: types.Params{
+							{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
+						},
+					},
+					State: s.Node("interval_1"),
+				}
+				n := MustSucceed(factory.Create(ctx, cfg))
+				intervalNode := s.Node("interval_1")
+				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
+				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+				tolerance := telem.TimeSpan(50 * telem.Millisecond)
+				n.Next(node.Context{
+					Context:   ctx,
+					Elapsed:   0,
+					Tolerance: tolerance,
+					MarkChanged: func(output string) {
+						changedOutputs = append(changedOutputs, output)
+					},
+				})
+				Expect(changedOutputs).To(HaveLen(1))
+
+				changedOutputs = []string{}
+				n.Next(node.Context{
+					Context:   ctx,
+					Elapsed:   telem.TimeSpan(99500 * telem.Microsecond),
+					Tolerance: tolerance,
+					MarkChanged: func(output string) {
+						changedOutputs = append(changedOutputs, output)
+					},
+				})
+				Expect(changedOutputs).To(HaveLen(1))
+			})
+			It("Should not fire too early beyond tolerance", func() {
+				cfg := node.Config{
+					Node: ir.Node{
+						Type: "interval",
+						Config: types.Params{
+							{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
+						},
+					},
+					State: s.Node("interval_1"),
+				}
+				n := MustSucceed(factory.Create(ctx, cfg))
+				intervalNode := s.Node("interval_1")
+				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
+				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+				tolerance := telem.TimeSpan(50 * telem.Millisecond)
+				n.Next(node.Context{
+					Context:   ctx,
+					Elapsed:   0,
+					Tolerance: tolerance,
+					MarkChanged: func(output string) {
+						changedOutputs = append(changedOutputs, output)
+					},
+				})
+				Expect(changedOutputs).To(HaveLen(1))
+
+				changedOutputs = []string{}
+				n.Next(node.Context{
+					Context:   ctx,
+					Elapsed:   40 * telem.Millisecond,
+					Tolerance: tolerance,
+					MarkChanged: func(output string) {
+						changedOutputs = append(changedOutputs, output)
+					},
+				})
+				Expect(changedOutputs).To(BeEmpty())
+			})
+			It("Should handle jitter simulation with correct firings", func() {
+				cfg := node.Config{
+					Node: ir.Node{
+						Type: "interval",
+						Config: types.Params{
+							{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
+						},
+					},
+					State: s.Node("interval_1"),
+				}
+				n := MustSucceed(factory.Create(ctx, cfg))
+				intervalNode := s.Node("interval_1")
+				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
+				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+				tolerance := telem.TimeSpan(50 * telem.Millisecond)
+				fireCount := 0
+				tickTimes := []telem.TimeSpan{
+					0,
+					telem.TimeSpan(99500 * telem.Microsecond),
+					telem.TimeSpan(199800 * telem.Microsecond),
+					telem.TimeSpan(300100 * telem.Microsecond),
+					telem.TimeSpan(399000 * telem.Microsecond),
+				}
+
+				for _, elapsed := range tickTimes {
+					n.Next(node.Context{
+						Context:   ctx,
+						Elapsed:   elapsed,
+						Tolerance: tolerance,
+						MarkChanged: func(output string) {
+							fireCount++
+						},
+					})
+				}
+				Expect(fireCount).To(Equal(5))
+			})
+			It("Should use MinTolerance floor for OS jitter", func() {
+				cfg := node.Config{
+					Node: ir.Node{
+						Type: "interval",
+						Config: types.Params{
+							{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
+						},
+					},
+					State: s.Node("interval_1"),
+				}
+				n := MustSucceed(factory.Create(ctx, cfg))
+				intervalNode := s.Node("interval_1")
+				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
+				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+				tolerance := arctime.MinTolerance
+				n.Next(node.Context{
+					Context:   ctx,
+					Elapsed:   0,
+					Tolerance: tolerance,
+					MarkChanged: func(output string) {
+						changedOutputs = append(changedOutputs, output)
+					},
+				})
+				Expect(changedOutputs).To(HaveLen(1))
+
+				changedOutputs = []string{}
+				n.Next(node.Context{
+					Context:   ctx,
+					Elapsed:   96 * telem.Millisecond,
+					Tolerance: tolerance,
+					MarkChanged: func(output string) {
+						changedOutputs = append(changedOutputs, output)
+					},
+				})
+				Expect(changedOutputs).To(HaveLen(1))
+			})
+		})
+		Describe("Wait with tolerance", func() {
+			It("Should fire early within tolerance", func() {
+				g := graph.Graph{
+					Nodes: []graph.Node{{
+						Key:  "wait_1",
+						Type: "wait",
+						Config: map[string]any{
+							"duration": int64(100 * telem.Millisecond),
+						},
+					}},
+					Functions: []graph.Function{{
+						Key: "wait",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+						Config: types.Params{
+							{Name: "duration", Type: types.I64()},
+						},
+					}},
+				}
+				analyzed, diagnostics := graph.Analyze(ctx, g, arctime.SymbolResolver)
+				Expect(diagnostics.Ok()).To(BeTrue())
+				waitState := state.New(state.Config{IR: analyzed})
+				waitFactory := arctime.NewFactory()
+
+				cfg := node.Config{
+					Node: ir.Node{
+						Type: "wait",
+						Config: types.Params{
+							{Name: "duration", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
+						},
+					},
+					State: waitState.Node("wait_1"),
+				}
+				n := MustSucceed(waitFactory.Create(ctx, cfg))
+				waitNode := waitState.Node("wait_1")
+				*waitNode.Output(0) = telem.NewSeriesV[uint8]()
+				*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+				tolerance := telem.TimeSpan(50 * telem.Millisecond)
+				var waitChangedOutputs []string
+
+				n.Next(node.Context{
+					Context:   ctx,
+					Elapsed:   0,
+					Tolerance: tolerance,
+					MarkChanged: func(output string) {
+						waitChangedOutputs = append(waitChangedOutputs, output)
+					},
+				})
+				Expect(waitChangedOutputs).To(BeEmpty())
+
+				n.Next(node.Context{
+					Context:   ctx,
+					Elapsed:   telem.TimeSpan(99500 * telem.Microsecond),
+					Tolerance: tolerance,
+					MarkChanged: func(output string) {
+						waitChangedOutputs = append(waitChangedOutputs, output)
+					},
+				})
+				Expect(waitChangedOutputs).To(HaveLen(1))
+			})
 		})
 	})
 })

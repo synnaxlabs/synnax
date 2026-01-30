@@ -40,7 +40,7 @@ func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
 	if series := ctx.SeriesType(); series != nil {
 		return inferSeriesType(series)
 	}
-	return types.Type{}, errors.New("unknown type")
+	return types.Type{}, errors.New("could not determine type")
 }
 
 func applyUnitSuffix(t types.Type, ctx parser.IUnitSuffixContext) (types.Type, error) {
@@ -60,7 +60,7 @@ func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (types.Type, error) {
 	if ctx.STR() != nil {
 		return types.String(), nil
 	}
-	return types.Type{}, errors.New("unknown primitive type")
+	return types.Type{}, errors.New("unknown type: expected a primitive (i32, f64, str, etc.)")
 }
 
 func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
@@ -70,7 +70,7 @@ func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
 	if float := ctx.FloatType(); float != nil {
 		return inferFloatType(float)
 	}
-	return types.Type{}, errors.New("unknown numeric type")
+	return types.Type{}, errors.New("unknown type: expected a numeric type (i32, f64, etc.)")
 }
 
 func inferIntegerType(ctx parser.IIntegerTypeContext) (types.Type, error) {
@@ -146,12 +146,13 @@ func inferSeriesType(ctx parser.ISeriesTypeContext) (types.Type, error) {
 		}
 		return types.Series(valueType), nil
 	}
-	return types.Type{}, errors.New("series must have primitive type")
+	return types.Type{}, errors.New("series elements must be a primitive type (i32, f64, str, etc.)")
 }
 
 // Compatible returns true if t1 and t2 have compatible base types after unwrapping
-// one level of channel or series wrapper. This checks type structure only, not units.
-// Unit compatibility is operation-specific and handled separately by units.ValidateBinaryOp.
+// one level of channel or series wrapper. This is used for binary operations where
+// series + scalar broadcasting is allowed. For assignment compatibility (where
+// structural matching is required), use AssignmentCompatible instead.
 func Compatible(t1, t2 types.Type) bool {
 	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
 		return false
@@ -176,6 +177,24 @@ func Compatible(t1, t2 types.Type) bool {
 	return t1.Kind == t2.Kind
 }
 
+// AssignmentCompatible returns true if exprType can be assigned to varType.
+// Unlike Compatible, this requires structural matching - a series cannot be
+// assigned to a scalar variable, even if their element types match.
+func AssignmentCompatible(varType, exprType types.Type) bool {
+	if varType.Kind == types.KindInvalid || exprType.Kind == types.KindInvalid {
+		return false
+	}
+	if !types.StructuralMatch(varType, exprType) {
+		return false
+	}
+	varType = varType.Unwrap()
+	exprType = exprType.Unwrap()
+	if varType.Kind == types.KindVariable || exprType.Kind == types.KindVariable {
+		return true
+	}
+	return varType.Kind == exprType.Kind
+}
+
 // LiteralAssignmentCompatible returns true if a literal of literalType can be assigned
 // to variableType with implicit numeric widening.
 func LiteralAssignmentCompatible(
@@ -184,9 +203,14 @@ func LiteralAssignmentCompatible(
 	if variableType.Kind == types.KindInvalid || literalType.Kind == types.KindInvalid {
 		return false
 	}
-	// Unwrap channels to their value type, just like Compatible does
+	if !types.StructuralMatch(variableType, literalType) {
+		return false
+	}
 	variableType = variableType.Unwrap()
 	literalType = literalType.Unwrap()
+	if literalType.Kind == types.KindVariable {
+		return true
+	}
 	if variableType.String() == literalType.String() {
 		return true
 	}

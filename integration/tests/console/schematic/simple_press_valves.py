@@ -8,16 +8,20 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+from examples.simulators import PressSimDAQ
 
 from console.case import ConsoleCase
 from console.schematic import Button, Valve
 from console.schematic.schematic import Schematic
+from framework.sim_daq_case import SimDaqTestCase
 
 
-class SimplePressValves(ConsoleCase):
+class SimplePressValves(SimDaqTestCase, ConsoleCase):
     """
     Test a basic press control sequence using valves and buttons
     """
+
+    sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
         self.set_manual_timeout(90)
@@ -46,7 +50,7 @@ class SimplePressValves(ConsoleCase):
         end_test_cmd = schematic.create_symbol(
             Button(label=END_CMD, channel_name=END_CMD)
         )
-        end_test_cmd.move(0, -90)
+        end_test_cmd.move(delta_x=0, delta_y=-90)
 
         press_valve = schematic.create_symbol(
             Valve(
@@ -55,7 +59,7 @@ class SimplePressValves(ConsoleCase):
                 command_channel="press_vlv",
             )
         )
-        press_valve.move(-200, 0)
+        press_valve.move(delta_x=-200, delta_y=0)
 
         vent_valve = schematic.create_symbol(
             Valve(
@@ -73,13 +77,15 @@ class SimplePressValves(ConsoleCase):
             self.log(f"Target pressure: {target_Pressure}")
             press_valve.press()
             self.assert_states(press_state=1, vent_state=0)
+            pressure_reached = False
             while self.should_continue:
                 pressure_value = self.get_value(PRESSURE)
                 if pressure_value is not None and pressure_value > target_Pressure:
+                    pressure_reached = True
                     break
-                elif self.should_stop:
-                    self.fail("Exiting on timeout.")
-                    return
+            if not pressure_reached:
+                self.fail("Exiting on timeout.")
+                return
 
             # Configure next cycle
             self.log("Closing press valve")
@@ -105,10 +111,13 @@ class SimplePressValves(ConsoleCase):
         self.fail("Exited without venting")
 
     def assert_states(self, press_state: int, vent_state: int) -> None:
-        sy.sleep(1)
-        press_vlv_state = self.client.read_latest("press_vlv_state")
-        vent_vlv_state = self.client.read_latest("vent_vlv_state")
-        assert (
-            press_vlv_state == press_state
-        ), f"Press valve state should be {press_state}"
-        assert vent_vlv_state == vent_state, f"Vent valve state should be {vent_state}"
+        """Wait for valve states to match expected values."""
+        while self.should_continue:
+            press_vlv_state = self.get_value("press_vlv_state")
+            vent_vlv_state = self.get_value("vent_vlv_state")
+            if press_vlv_state == press_state and vent_vlv_state == vent_state:
+                return
+        self.fail(
+            f"Valve state mismatch: press={press_vlv_state} (expected {press_state}), "
+            f"vent={vent_vlv_state} (expected {vent_state})"
+        )

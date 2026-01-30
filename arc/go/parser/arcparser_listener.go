@@ -43,6 +43,9 @@ type ArcParserListener interface {
 	// EnterConfigBlock is called when entering the configBlock production.
 	EnterConfigBlock(c *ConfigBlockContext)
 
+	// EnterConfigList is called when entering the configList production.
+	EnterConfigList(c *ConfigListContext)
+
 	// EnterConfig is called when entering the config production.
 	EnterConfig(c *ConfigContext)
 
@@ -57,6 +60,9 @@ type ArcParserListener interface {
 
 	// EnterStageItem is called when entering the stageItem production.
 	EnterStageItem(c *StageItemContext)
+
+	// EnterSingleInvocation is called when entering the singleInvocation production.
+	EnterSingleInvocation(c *SingleInvocationContext)
 
 	// EnterFlowStatement is called when entering the flowStatement production.
 	EnterFlowStatement(c *FlowStatementContext)
@@ -129,9 +135,6 @@ type ArcParserListener interface {
 
 	// EnterReturnStatement is called when entering the returnStatement production.
 	EnterReturnStatement(c *ReturnStatementContext)
-
-	// EnterFunctionCall is called when entering the functionCall production.
-	EnterFunctionCall(c *FunctionCallContext)
 
 	// EnterType is called when entering the type production.
 	EnterType(c *TypeContext)
@@ -238,6 +241,9 @@ type ArcParserListener interface {
 	// ExitConfigBlock is called when exiting the configBlock production.
 	ExitConfigBlock(c *ConfigBlockContext)
 
+	// ExitConfigList is called when exiting the configList production.
+	ExitConfigList(c *ConfigListContext)
+
 	// ExitConfig is called when exiting the config production.
 	ExitConfig(c *ConfigContext)
 
@@ -252,6 +258,9 @@ type ArcParserListener interface {
 
 	// ExitStageItem is called when exiting the stageItem production.
 	ExitStageItem(c *StageItemContext)
+
+	// ExitSingleInvocation is called when exiting the singleInvocation production.
+	ExitSingleInvocation(c *SingleInvocationContext)
 
 	// ExitFlowStatement is called when exiting the flowStatement production.
 	ExitFlowStatement(c *FlowStatementContext)
@@ -324,9 +333,6 @@ type ArcParserListener interface {
 
 	// ExitReturnStatement is called when exiting the returnStatement production.
 	ExitReturnStatement(c *ReturnStatementContext)
-
-	// ExitFunctionCall is called when exiting the functionCall production.
-	ExitFunctionCall(c *FunctionCallContext)
 
 	// ExitType is called when exiting the type production.
 	ExitType(c *TypeContext)

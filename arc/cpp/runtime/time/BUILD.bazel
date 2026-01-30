@@ -4,6 +4,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/ir",
+        "//arc/cpp/runtime/loop",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
         "//x/cpp/telem",
@@ -16,6 +17,8 @@ cc_test(
     srcs = ["time_test.cpp"],
     deps = [
         ":time",
+        "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/loop",
         "//arc/cpp/runtime/state",
         "//x/cpp/xtest",
         "@googletest//:gtest_main",

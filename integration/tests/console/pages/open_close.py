@@ -22,21 +22,6 @@ class OpenClose(ConsoleCase):
         """
         console = self.console
 
-        pages: list[PageType] = [
-            "Schematic",
-            "Line Plot",
-            "Log",
-            "Table",
-            "NI Analog Read Task",
-            "NI Analog Write Task",
-            "NI Digital Read Task",
-            "NI Digital Write Task",
-            "LabJack Read Task",
-            "LabJack Write Task",
-            "OPC UA Read Task",
-            "OPC UA Write Task",
-        ]
-
         pages_renamed: list[tuple[PageType, str]] = [
             ("Schematic", "S_Name"),
             ("Line Plot", "L_Name"),
@@ -52,25 +37,13 @@ class OpenClose(ConsoleCase):
             ("OPC UA Write Task", "OPC Write"),
         ]
 
-        self.log("(1/4) Create pages by cmd palette (Default names)")
-        for p in pages:
-            console._create_page_by_command_palette(p)
-        for p in pages:
-            console.close_page(p)
-
-        self.log("(2/4) Create pages by cmd palette (Custom names)")
+        self.log("(1/2) Create pages by cmd palette")
         for page_type, page_name in pages_renamed:
             console._create_page_by_command_palette(page_type, page_name)
         for page_type, page_name in pages_renamed:
             console.close_page(page_name)
 
-        self.log("(3/4) Create pages by (+) button (Default names)")
-        for p in pages:
-            console._create_page_by_new_page_button(p)
-        for p in pages:
-            console.close_page(p)
-
-        self.log("(4/4) Create pages by (+) button (Custom names)")
+        self.log("(2/2) Create pages by (+) button")
         for page_type, page_name in pages_renamed:
             console._create_page_by_new_page_button(page_type, page_name)
         for page_type, page_name in pages_renamed:

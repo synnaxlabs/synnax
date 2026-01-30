@@ -28,8 +28,8 @@ var _ = Describe("Constraint System", func() {
 				constraint = types.NumericConstraint()
 				tv2        = types.Variable("U", &constraint)
 			)
-			system.AddEquality(tv1, types.F32(), nil, "test")
-			system.AddEquality(tv2, types.I32(), nil, "test")
+			Expect(system.AddEquality(tv1, types.F32(), nil, "test")).To(Succeed())
+			Expect(system.AddEquality(tv2, types.I32(), nil, "test")).To(Succeed())
 			Expect(system.TypeVars).To(HaveLen(2))
 			Expect(system.Constraints).To(HaveLen(2))
 		})
@@ -39,7 +39,7 @@ var _ = Describe("Constraint System", func() {
 				tv1 = types.Variable("T", nil)
 				tv2 = types.Variable("U", nil)
 			)
-			system.AddEquality(tv1, tv2, nil, "T = U")
+			Expect(system.AddEquality(tv1, tv2, nil, "T = U")).To(Succeed())
 			Expect(system.TypeVars).To(HaveLen(2))
 			Expect(system.Constraints).To(HaveLen(1))
 		})
@@ -50,7 +50,12 @@ var _ = Describe("Constraint System", func() {
 				tv         = types.Variable("T", &constraint)
 				chanType   = types.Chan(tv)
 			)
-			system.AddEquality(chanType, types.Chan(types.F32()), nil, "channel types")
+			Expect(system.AddEquality(
+				chanType,
+				types.Chan(types.F32()),
+				nil,
+				"channel types",
+			)).To(Succeed())
 			Expect(system.TypeVars).To(HaveLen(1))
 			Expect(system.TypeVars["T"]).NotTo(BeNil())
 		})
@@ -63,7 +68,7 @@ var _ = Describe("Constraint System", func() {
 
 		It("should return true when type variables exist", func() {
 			tv := types.Variable("T", nil)
-			system.AddEquality(tv, types.F32(), nil, "test")
+			Expect(system.AddEquality(tv, types.F32(), nil, "test")).To(Succeed())
 			Expect(system.HasTypeVariables()).To(BeTrue())
 		})
 	})
@@ -104,14 +109,17 @@ var _ = Describe("Constraint System", func() {
 				seriesType = types.Series(tv)
 			)
 			system.Substitutions["T"] = types.I32()
-			Expect(system.ApplySubstitutions(seriesType)).To(Equal(types.Series(types.I32())))
+			Expect(system.ApplySubstitutions(seriesType)).
+				To(Equal(types.Series(types.I32())))
 		})
 
 		It("should apply substitutions to function input types", func() {
 			system.Substitutions["T"] = types.F32()
 			var (
-				tv         = types.Variable("T", nil)
-				props      = types.FunctionProperties{Inputs: types.Params{{Name: "x", Type: tv}}}
+				tv    = types.Variable("T", nil)
+				props = types.FunctionProperties{
+					Inputs: types.Params{{Name: "x", Type: tv}},
+				}
 				fnType     = types.Function(props)
 				result     = system.ApplySubstitutions(fnType)
 				inputParam = MustBeOk(result.Inputs.Get("x"))
@@ -121,8 +129,9 @@ var _ = Describe("Constraint System", func() {
 
 		It("should apply substitutions to function output types", func() {
 			var (
-				tv     = types.Variable("T", nil)
-				props  = types.FunctionProperties{Outputs: types.Params{{Name: "result", Type: tv}}}
+				tv    = types.Variable("T", nil)
+				props = types.FunctionProperties{
+					Outputs: types.Params{{Name: "result", Type: tv}}}
 				fnType = types.Function(props)
 			)
 			system.Substitutions["T"] = types.I64()
@@ -135,8 +144,9 @@ var _ = Describe("Constraint System", func() {
 
 		It("should apply substitutions to function config types", func() {
 			var (
-				tv     = types.Variable("T", nil)
-				props  = types.FunctionProperties{Config: types.Params{{Name: "threshold", Type: tv}}}
+				tv    = types.Variable("T", nil)
+				props = types.FunctionProperties{
+					Config: types.Params{{Name: "threshold", Type: tv}}}
 				fnType = types.Function(props)
 			)
 			system.Substitutions["T"] = types.F64()
@@ -219,8 +229,8 @@ var _ = Describe("Constraint System", func() {
 				tv1        = types.Variable("T1", &constraint)
 				tv2        = types.Variable("T2", nil)
 			)
-			system.AddEquality(tv1, types.F32(), nil, "T1 = f32")
-			system.AddCompatible(tv2, types.I32(), nil, "T2 ~ i32")
+			Expect(system.AddEquality(tv1, types.F32(), nil, "T1 = f32")).To(Succeed())
+			Expect(system.AddCompatible(tv2, types.I32(), nil, "T2 ~ i32")).To(Succeed())
 			system.Substitutions["T1"] = types.F32()
 			str := system.String()
 			Expect(str).To(ContainSubstring("Type Variables"))
@@ -236,8 +246,8 @@ var _ = Describe("Constraint System", func() {
 				tv1        = types.Variable("Resolved", &constraint)
 				tv2        = types.Variable("Unresolved", nil)
 			)
-			system.AddEquality(tv1, types.F32(), nil, "test")
-			system.AddEquality(tv2, tv2, nil, "test")
+			Expect(system.AddEquality(tv1, types.F32(), nil, "test")).To(Succeed())
+			Expect(system.AddEquality(tv2, tv2, nil, "test")).To(Succeed())
 			system.Substitutions["Resolved"] = types.F32()
 			str := system.String()
 			Expect(str).To(ContainSubstring("Resolved"))
@@ -251,20 +261,35 @@ var _ = Describe("Constraint System", func() {
 				tv1 = types.Variable("T1", nil)
 				tv2 = types.Variable("T2", nil)
 			)
-			system.AddEquality(tv1, types.F32(), nil, "equality constraint")
-			system.AddCompatible(tv2, types.I32(), nil, "compatible constraint")
-			str := system.String()
-			Expect(str).To(ContainSubstring("≡"))
-			Expect(str).To(ContainSubstring("~"))
-			Expect(str).To(ContainSubstring("equality constraint"))
-			Expect(str).To(ContainSubstring("compatible constraint"))
+			Expect(system.AddEquality(
+				tv1,
+				types.F32(),
+				nil,
+				"equality constraint",
+			)).To(Succeed())
+			Expect(system.AddCompatible(
+				tv2,
+				types.I32(),
+				nil,
+				"compatible constraint",
+			)).To(Succeed())
+			Expect(system.String()).To(SatisfyAll(
+				ContainSubstring("≡"),
+				ContainSubstring("~"),
+				ContainSubstring("equality constraint"),
+				ContainSubstring("compatible constraint"),
+			))
 		})
 
 		It("should show constraint reasons", func() {
 			tv := types.Variable("T", nil)
-			system.AddEquality(tv, types.F32(), nil, "because we need float precision")
-			str := system.String()
-			Expect(str).To(ContainSubstring("because we need float precision"))
+			Expect(system.AddEquality(
+				tv,
+				types.F32(),
+				nil,
+				"because we need float precision",
+			)).To(Succeed())
+			Expect(system.String()).To(ContainSubstring("because we need float precision"))
 		})
 	})
 })

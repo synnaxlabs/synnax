@@ -9,16 +9,20 @@
 
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <ranges>
 #include <set>
 #include <utility>
+
+#include "glog/logging.h"
 
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/xthread/xthread.h"
 
 #include "arc/cpp/runtime/constant/constant.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
@@ -40,7 +44,12 @@ struct Config {
         retrieve_channels;
     size_t input_queue_capacity = 256;
     size_t output_queue_capacity = 1024;
+    /// @brief Loop configuration. Fields with default values are auto-selected.
+    loop::Config loop;
 };
+
+/// @brief callback invoked when a fatal error occurs in the runtime.
+using ErrorHandler = std::function<void(const xerrors::Error &)>;
 
 class Runtime {
     breaker::Breaker breaker;
@@ -52,7 +61,8 @@ class Runtime {
     std::unique_ptr<loop::Loop> loop;
     queue::SPSC<telem::Frame> inputs;
     queue::SPSC<telem::Frame> outputs;
-    telem::TimeStamp start_time = telem::TimeStamp(0);
+    std::chrono::steady_clock::time_point start_time_steady_;
+    errors::Handler error_handler;
 
 public:
     std::vector<types::ChannelKey> read_channels;
@@ -65,7 +75,8 @@ public:
         std::unique_ptr<scheduler::Scheduler> scheduler,
         std::unique_ptr<loop::Loop> loop,
         const std::vector<types::ChannelKey> &read_channels,
-        std::vector<types::ChannelKey> write_channels
+        std::vector<types::ChannelKey> write_channels,
+        errors::Handler error_handler = errors::noop_handler
     ):
         breaker(cfg.breaker),
         mod(std::move(mod)),
@@ -75,15 +86,19 @@ public:
         loop(std::move(loop)),
         inputs(queue::SPSC<telem::Frame>(cfg.input_queue_capacity)),
         outputs(queue::SPSC<telem::Frame>(cfg.output_queue_capacity)),
+        error_handler(std::move(error_handler)),
         read_channels(read_channels),
         write_channels(std::move(write_channels)) {}
 
     void run() {
-        this->start_time = telem::TimeStamp::now();
+        this->start_time_steady_ = std::chrono::steady_clock::now();
         xthread::set_name("runtime");
         this->loop->start();
-        if (!this->loop->watch(this->inputs.notifier()))
-            LOG(ERROR) << "[runtime] Failed to watch input notifier";
+        if (!this->loop->watch(this->inputs.notifier())) {
+            LOG(ERROR) << "[runtime] failed to watch input notifier";
+            this->error_handler(xerrors::Error("failed to watch input notifier"));
+            return;
+        }
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
             telem::Frame frame;
@@ -91,13 +106,20 @@ public:
             while (this->inputs.try_pop(frame) || first) {
                 first = false;
                 this->state->ingest(frame);
-                const auto elapsed = telem::TimeStamp::now() - this->start_time;
+                const auto now_steady = std::chrono::steady_clock::now();
+                const auto elapsed = telem::TimeSpan(
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        now_steady - this->start_time_steady_
+                    )
+                        .count()
+                );
                 this->scheduler->next(elapsed);
                 if (auto writes = this->state->flush(); !writes.empty()) {
                     telem::Frame out_frame(writes.size());
                     for (auto &[key, series]: writes)
                         out_frame.emplace(key, series->deep_copy());
-                    this->outputs.push(std::move(out_frame));
+                    if (!this->outputs.push(std::move(out_frame)))
+                        this->error_handler(errors::QUEUE_FULL_OUTPUT);
                 }
             }
         }
@@ -105,6 +127,8 @@ public:
 
     bool start() {
         if (this->breaker.running()) return false;
+        this->inputs.reset();
+        this->outputs.reset();
         this->breaker.start();
         this->run_thread = std::thread([this]() { this->run(); });
         return true;
@@ -116,23 +140,29 @@ public:
 
     bool stop() {
         if (!this->breaker.stop()) return false;
-        this->loop->stop();
+        this->loop->wake();
         this->run_thread.join();
         this->inputs.close();
         this->outputs.close();
+        this->state->reset();
+        this->scheduler->reset();
         return true;
     }
 
     xerrors::Error write(telem::Frame frame) {
-        if (!this->inputs.push(std::move(frame)))
-            return xerrors::Error("runtime closed");
+        if (this->inputs.closed()) return xerrors::Error("runtime closed");
+        if (!this->inputs.push(std::move(frame))) {
+            this->error_handler(errors::QUEUE_FULL_INPUT);
+            return errors::QUEUE_FULL_INPUT;
+        }
         return xerrors::NIL;
     }
 
     bool read(telem::Frame &frame) { return this->outputs.pop(frame); }
 };
 
-inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cfg) {
+inline std::pair<std::shared_ptr<Runtime>, xerrors::Error>
+load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     std::set<types::ChannelKey> reads;
     std::set<types::ChannelKey> writes;
     for (const auto &n: cfg.mod.nodes) {
@@ -154,8 +184,12 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
     }
 
     state::Config state_cfg{.ir = (static_cast<ir::IR>(cfg.mod)), .channels = digests};
-    auto state = std::make_shared<state::State>(state_cfg);
-    auto bindings_runtime = std::make_shared<wasm::Bindings>(state, nullptr);
+    auto state = std::make_shared<state::State>(state_cfg, error_handler);
+    auto bindings_runtime = std::make_shared<wasm::Bindings>(
+        state,
+        nullptr,
+        error_handler
+    );
 
     wasm::ModuleConfig module_cfg{
         .module = cfg.mod,
@@ -180,34 +214,29 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
     );
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
-    for (const auto &n: cfg.mod.nodes) {
-        auto [node_state, node_state_err] = state->node(n.key);
+    const ir::IR prog = static_cast<ir::IR>(cfg.mod);
+    for (const auto &mod_node: cfg.mod.nodes) {
+        auto [node_state, node_state_err] = state->node(mod_node.key);
         if (node_state_err) return {nullptr, node_state_err};
-        auto [node, err] = fact.create(node::Config(n, std::move(node_state)));
+        auto [node, err] = fact.create(
+            node::Config(prog, mod_node, std::move(node_state))
+        );
         if (err) return {nullptr, err};
-        nodes[n.key] = std::move(node);
+        nodes[mod_node.key] = std::move(node);
     }
-
-    auto sched = std::make_unique<scheduler::Scheduler>(cfg.mod, nodes);
-
-    auto timing_interval = time_factory->timing_base;
-    const bool has_intervals = timing_interval.nanoseconds() !=
-                               std::numeric_limits<int64_t>::max();
-
-    auto mode = loop::ExecutionMode::EVENT_DRIVEN;
-    if (has_intervals && timing_interval < loop::timing::SOFTWARE_TIMER_THRESHOLD)
-        mode = loop::ExecutionMode::HIGH_RATE;
-
-    auto [loop, err] = loop::create(
-        loop::Config{
-            .mode = mode,
-            .interval = has_intervals ? timing_interval : telem::TimeSpan(0),
-            .rt_priority = 47,
-            .cpu_affinity = -1,
-        }
+    const auto loop_cfg = cfg.loop.apply_defaults(time_factory->base_interval);
+    const auto tolerance = time::calculate_tolerance(
+        loop_cfg.mode,
+        time_factory->base_interval
     );
+    auto sched = std::make_unique<scheduler::Scheduler>(
+        cfg.mod,
+        nodes,
+        tolerance,
+        error_handler
+    );
+    auto [loop, err] = loop::create(loop_cfg);
     if (err) return {nullptr, err};
-
     return {
         std::make_shared<Runtime>(
             cfg,
@@ -217,7 +246,8 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
             std::move(sched),
             std::move(loop),
             std::vector(reads.begin(), reads.end()),
-            std::vector(writes.begin(), writes.end())
+            std::vector(writes.begin(), writes.end()),
+            std::move(error_handler)
         ),
         xerrors::NIL
     };

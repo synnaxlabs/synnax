@@ -48,7 +48,7 @@ class MosaicOperations(ConsoleCase):
 
         # Rename the tab
         new_name = "Renamed Tab"
-        console.layout.rename_tab(original_name, new_name)
+        console.layout.rename_tab(old_name=original_name, new_name=new_name)
 
         # Verify the new name is visible
         new_tab = console.layout.get_tab(new_name)

@@ -464,13 +464,20 @@ auto assert_occurred_as_p(
 }
 
 /// @brief macro asserting that the provided xerrors::Error is NIL.
-#define ASSERT_NIL(expr) ASSERT_FALSE(expr) << expr;
+#define ASSERT_NIL(expr)                                                               \
+    do {                                                                               \
+        const auto _xtest_err = (expr);                                                \
+        ASSERT_FALSE(_xtest_err) << _xtest_err;                                        \
+    } while (0)
 
 /// @brief macro asserting that the provided xerrors::Error is the same as the provided
 /// error.
 #define ASSERT_OCCURRED_AS(expr, err)                                                  \
-    ASSERT_TRUE(expr) << expr;                                                         \
-    ASSERT_MATCHES(expr, err);
+    do {                                                                               \
+        const auto _xtest_err = (expr);                                                \
+        ASSERT_TRUE(_xtest_err) << _xtest_err;                                         \
+        ASSERT_MATCHES(_xtest_err, err);                                               \
+    } while (0)
 
 /// @brief macro asserting that the error return as the second item in the pair is the
 /// same as the provided error and returning the result value
@@ -685,4 +692,5 @@ inline void eventually_true(
         (timeout),                                                                     \
         (interval)                                                                     \
     )
+
 }

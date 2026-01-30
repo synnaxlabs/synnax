@@ -44,7 +44,7 @@ export const ChannelName = ({
     retrieve({ key: channel, rangeKey: range ?? undefined });
   }, [channel, range]);
   const { update } = Channel.useRename();
-  const name = data?.name ?? (primitive.isNonZero(formName) ? formName : defaultName);
+  const name = getName(data, formName, defaultName);
   const handleRename = useCallback(
     (name: string) => {
       if (channel === 0) {
@@ -105,4 +105,17 @@ export const ChannelName = ({
       {text}
     </Tooltip.Dialog>
   );
+};
+
+const getName = (
+  data: channel.Channel | undefined,
+  formName: string | null,
+  defaultName: string,
+) => {
+  if (data != null) {
+    if (primitive.isNonZero(data.alias)) return data.alias;
+    return data.name;
+  }
+  if (primitive.isNonZero(formName)) return formName;
+  return defaultName;
 };

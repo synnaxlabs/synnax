@@ -119,7 +119,13 @@ func (f *Factory) ConfigureTask(
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, true, err
 	}
-	arcTask := newTask(t, prog, cfg, ctx, f.cfg)
+	arcTask := &taskImpl{
+		ctx:        ctx,
+		factoryCfg: f.cfg,
+		task:       t,
+		cfg:        cfg,
+		prog:       prog,
+	}
 	if cfg.AutoStart {
 		if err := arcTask.Exec(ctx, task.Command{Type: "start"}); err != nil {
 			return arcTask, true, err

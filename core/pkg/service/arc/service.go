@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
+	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -28,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -98,6 +100,22 @@ func (s *Service) SymbolResolver() arc.SymbolResolver {
 	return s.symbolResolver
 }
 
+func (s *Service) NewLSP() (*lsp.Server, error) {
+	return lsp.New(lsp.Config{
+		Instrumentation: s.cfg.Child("lsp"),
+		GlobalResolver:  s.SymbolResolver(),
+		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
+			Observable: s.cfg.Channel.NewObservable(),
+			Translate: func(
+				ctx context.Context,
+				r gorp.TxReader[channel.Key, channel.Channel],
+			) (struct{}, bool) {
+				return struct{}{}, true
+			},
+		},
+	})
+}
+
 func (s *Service) Close() error {
 	if s.closer != nil {
 		return s.closer.Close()
@@ -126,14 +144,19 @@ func (s *Service) AnalyzeCalculation(ctx context.Context, expr string) (telem.Da
 // The returned Arc has its Module field populated with the compiled module.
 func (s *Service) CompileModule(ctx context.Context, key uuid.UUID) (Arc, error) {
 	var prog Arc
-	if err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil); err != nil {
-		return Arc{}, err
-	}
-	mod, err := arc.CompileGraph(ctx, prog.Graph, arc.WithResolver(s.symbolResolver))
+	err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil)
 	if err != nil {
 		return Arc{}, err
 	}
-	prog.Module = mod
+	resolverOpt := arc.WithResolver(s.symbolResolver)
+	if prog.Mode == "text" {
+		prog.Module, err = arc.CompileText(ctx, prog.Text, resolverOpt)
+	} else {
+		prog.Module, err = arc.CompileGraph(ctx, prog.Graph, resolverOpt)
+	}
+	if err != nil {
+		return Arc{}, err
+	}
 	return prog, nil
 }
 

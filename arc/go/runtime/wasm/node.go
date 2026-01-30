@@ -19,10 +19,13 @@ import (
 
 type nodeImpl struct {
 	*state.Node
-	ir      ir.Node
-	wasm    *Function
-	inputs  []uint64
-	offsets []int
+	ir          ir.Node
+	wasm        *Function
+	params      []uint64
+	configCount int
+	offsets     []int
+	initialized bool
+	isEntryNode bool
 }
 
 func (n *nodeImpl) Init(node.Context) {}
@@ -33,6 +36,13 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			ctx.ReportError(errors.Newf("WASM trap in node %s: %v", n.ir.Key, r))
 		}
 	}()
+
+	if n.isEntryNode {
+		if n.initialized {
+			return
+		}
+		n.initialized = true
+	}
 
 	if !n.RefreshInputs() {
 		return
@@ -88,9 +98,9 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
 			inputLen := n.Input(j).Len()
-			n.inputs[j] = valueAt(n.Input(j), int(i%inputLen))
+			n.params[n.configCount+j] = valueAt(n.Input(j), int(i%inputLen))
 		}
-		res, err := n.wasm.Call(ctx, n.inputs...)
+		res, err := n.wasm.Call(ctx, n.params...)
 		if err != nil {
 			ctx.ReportError(errors.Wrapf(
 				err,
@@ -122,6 +132,11 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			ctx.MarkChanged(n.ir.Outputs[j].Name)
 		}
 	}
+}
+
+func (n *nodeImpl) Reset() {
+	n.Node.Reset()
+	n.initialized = false
 }
 
 func setValueAt(s telem.Series, i int, v uint64) {
