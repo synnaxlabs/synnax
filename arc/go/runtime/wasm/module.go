@@ -38,12 +38,6 @@ func (m *Module) Close() error {
 	return c.Error()
 }
 
-// OnCycleEnd implements scheduler.CycleCallback to clear temporary series handles.
-// This should be called at the end of each scheduler cycle to prevent memory leaks.
-func (m *Module) OnCycleEnd() {
-	m.arcRuntime.ClearTemporarySeries()
-}
-
 type ModuleConfig struct {
 	State  *state.State
 	Module module.Module

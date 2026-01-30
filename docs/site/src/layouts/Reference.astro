@@ -1,7 +1,7 @@
 ---
 import Article from "@/components/article/Article.astro";
-import OnThisPage from "@/components/OnThisPage/OnThisPage.astro";
-import PageNav from "@/components/PageNav/PageNav.astro";
+import OnThisPage from "@/components/nav/OnThisPage.astro";
+import PageNav from "@/components/nav/Page.astro";
 import Main from "@/layouts/Root.astro";
 const { headings, frontmatter } = Astro.props;
 const {
@@ -20,21 +20,23 @@ const {
 
 <Main frontmatter={frontmatter} headings={headings}>
     <PageNav />
-    <Article
-        url={url}
-        title={heading ?? title}
-        description={description}
-        next={next}
-        prev={prev}
-        nextURL={nextURL}
-        prevURL={prevURL}
-    >
-        <slot /></Article
-    >
-    <OnThisPage
-        headings={headings}
-        url={Astro.url}
-        clients={clients}
-        platforms={platforms}
-    />
+    <section>
+        <Article
+            url={url}
+            title={heading ?? title}
+            description={description}
+            next={next}
+            prev={prev}
+            nextURL={nextURL}
+            prevURL={prevURL}
+        >
+            <slot /></Article
+        >
+        <OnThisPage
+            headings={headings}
+            url={Astro.url}
+            clients={clients}
+            platforms={platforms}
+        />
+    </section>
 </Main>

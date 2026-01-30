@@ -10,7 +10,7 @@ prevURL: "/reference/concepts/ranges"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import { Table } from "@/components/Table";
+import { Table } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -27,7 +27,7 @@ It's important to note that ranges are start **inclusive** and end **exclusive**
 example, if our desired range is from `1677433720970863400` to `1677433721870863400`, we
 would retrieve the following subset from the shown domain:
 
-<Table
+<Table.Data
   client:only="react"
   columns={[
     { key: "time" },

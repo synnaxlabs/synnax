@@ -141,7 +141,7 @@ jobs:
         run: |
           OS_LIST=""
           if [ "${{ inputs.macos }}" = "true" ]; then
-            OS_LIST="\"macos-latest\""
+            OS_LIST="\"macos-build-bot\""
           fi
           if [ "${{ inputs.windows }}" = "true" ]; then
             [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
@@ -299,7 +299,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
           echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
 
-      - name: Sign macOS Driver Binary
+      - name: Sign Driver (macOS)
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-build-bot'
         run: |
           cat > driver-entitlements.plist << 'EOF'
@@ -307,6 +307,10 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
+              <key>com.apple.security.cs.allow-jit</key>
+              <true/>
+              <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+              <true/>
               <key>com.apple.security.cs.disable-library-validation</key>
               <true/>
           </dict>
@@ -334,43 +338,28 @@ jobs:
             --wait
           rm driver-notarize.zip
 
-      - name: Download relic for Windows signing
+      - name: Install trusted-signing-cli
         if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
-        shell: bash
-        run: |
-          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
+        run: cargo install trusted-signing-cli
 
-      - name: Add relic to PATH
-        if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
+      - name: Remove read-only attribute from Driver for signing
+        if: inputs.sign_binaries && inputs.driver && matrix.os == 'windows-build-bot'
         shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force -Path relic-bin
-          Move-Item -Force relic.exe relic-bin\
-          echo "${{ github.workspace }}\relic-bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        run:
+          Set-ItemProperty -Path bazel-bin/driver/driver.exe -Name IsReadOnly -Value
+          $false
 
-      - name: Sign Windows Driver Binary
+      - name: Sign Driver (Windows)
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'windows-build-bot'
         shell: powershell
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: |
-          $bin = "bazel-bin\driver\driver.exe"
-          Start-Sleep -Seconds 2
-          attrib -R -S -H -A $bin
-          takeown /F $bin | Out-Null
-          icacls $bin /grant "*S-1-1-0:(F)" /inheritance:e | Out-Null
-          $max = 5
-          for ($i = 1; $i -le $max; $i++) {
-            try {
-              relic sign --file $bin --key azure --config relic.conf
-              break
-            } catch {
-              if ($i -eq $max) { throw }
-              Start-Sleep -Seconds 3
-            }
-          }
+        run:
+          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
+          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Driver"
+          bazel-bin/driver/driver.exe
 
       - name: Rename Driver Binary
         if: inputs.driver
@@ -378,7 +367,7 @@ jobs:
         run: |
           mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
-      - name: Upload Driver Binary as Artifact
+      - name: Upload Driver as Artifact
         if: inputs.driver
         uses: actions/upload-artifact@v6
         with:
@@ -470,7 +459,7 @@ jobs:
               -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
-      - name: Sign macOS Server Binary
+      - name: Sign macOS Core Binary
         if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-build-bot'
         working-directory: core
         run: |
@@ -479,8 +468,10 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-            <key>com.apple.security.cs.allow-jit</key><true/>
-            <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+              <key>com.apple.security.cs.allow-jit</key>
+              <true/>
+              <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+              <true/>
           </dict>
           </plist>
           EOF
@@ -509,14 +500,16 @@ jobs:
             --wait
           rm server-notarize.zip
 
-      - name: Sign Windows Server Binary
+      - name: Sign Windows Core Binary
         if: inputs.sign_binaries && inputs.core && matrix.os == 'windows-build-bot'
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: |
-          relic sign --file core/synnax-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
+        run:
+          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
+          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core"
+          core/synnax-v${{ needs.setup.outputs.VERSION }}.exe
 
       - name: Upload Core Binary as Artifact
         if: inputs.core
@@ -593,7 +586,6 @@ jobs:
           sbom: ${{ inputs.upload_to_release }}
           provenance: ${{ inputs.upload_to_release && 'mode=max' || 'false' }}
           build-args: |
-            DRIVER_ENABLED=${{ inputs.driver }}
             CONSOLE_ENABLED=${{ inputs.console }}
             VERSION=${{ needs.setup.outputs.VERSION }}
             GIT_COMMIT=${{ github.sha }}
@@ -603,8 +595,6 @@ jobs:
     name: Build Console App
     needs: [setup]
     if: inputs.console_tauri && needs.setup.outputs.console_tauri_matrix != '[]'
-    permissions:
-      contents: write
     env:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -617,7 +607,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Import Apple Developer Certificate
-        if: matrix.os == 'macos-latest' && inputs.sign_binaries
+        if: matrix.os == 'macos-build-bot' && inputs.sign_binaries
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -637,7 +627,7 @@ jobs:
           echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
 
       - name: Verify Apple Developer Certificate
-        if: matrix.os == 'macos-latest' && inputs.sign_binaries
+        if: matrix.os == 'macos-build-bot' && inputs.sign_binaries
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning $KEYCHAIN_NAME | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
@@ -695,7 +685,7 @@ jobs:
         run: pnpm build:console-vite
 
       - name: Pre-sign Embedded lua-language-server
-        if: matrix.os == 'macos-latest' && inputs.sign_binaries
+        if: matrix.os == 'macos-build-bot' && inputs.sign_binaries
         env:
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
         run: |
@@ -708,18 +698,9 @@ jobs:
           codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$EMBEDDED_BIN_REPO"
           codesign --verify --verbose "$EMBEDDED_BIN_REPO"
 
-      - name: Download relic for Windows signing
+      - name: Install trusted-signing-cli
         if: matrix.os == 'windows-latest' && inputs.sign_binaries
-        shell: bash
-        run: |
-          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
-
-      - name: Add relic to PATH
-        if: matrix.os == 'windows-latest' && inputs.sign_binaries
-        run: |
-          mkdir relic-bin
-          mv relic.exe relic-bin\
-          echo "${{ github.workspace }}\relic-bin" >> $env:GITHUB_PATH
+        run: cargo install trusted-signing-cli
 
       - name: Build Console Tauri (Signed)
         if: inputs.sign_binaries
@@ -740,29 +721,26 @@ jobs:
 
       - name: Build Console Tauri (Unsigned)
         if: ${{ !inputs.sign_binaries }}
-        env:
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
         working-directory: console
-        run: pnpm build
+        run: pnpm build --no-sign
 
       - name: Upload Console App as Artifact
         uses: actions/upload-artifact@v6
         with:
           name:
-            ${{ matrix.os == 'macos-latest' && format('synnax-console-v{0}-macos',
+            ${{ matrix.os == 'macos-build-bot' && format('synnax-console-v{0}-macos',
             steps.console-version.outputs.VERSION) ||
             format('synnax-console-v{0}-windows', steps.console-version.outputs.VERSION)
             }}
           path: |
-            ${{ matrix.os == 'macos-latest' && format('console/src-tauri/target/release/bundle/dmg/Synnax_{0}_aarch64.dmg', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
+            ${{ matrix.os == 'macos-build-bot' && format('console/src-tauri/target/release/bundle/dmg/Synnax_{0}_aarch64.dmg', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
             ${{ matrix.os == 'windows-latest' && format('console/src-tauri/target/release/bundle/msi/Synnax_{0}_x64_en-US.msi', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
             ${{ matrix.os == 'windows-latest' && format('console/src-tauri/target/release/bundle/nsis/Synnax_{0}_x64-setup.exe', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
           retention-days: 7
           if-no-files-found: error
 
       - name: Upload macOS Release Assets
-        if: inputs.upload_to_release && matrix.os == 'macos-latest'
+        if: inputs.upload_to_release && matrix.os == 'macos-build-bot'
         run: |
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig

@@ -40,7 +40,9 @@ func (f *Function) Call(ctx context.Context, params ...uint64) ([]result, error)
 		return nil, err
 	}
 	if f.base == 0 {
-		f.outputValues[0] = result{value: results[0], changed: true}
+		if len(f.outputValues) > 0 {
+			f.outputValues[0] = result{value: results[0], changed: true}
+		}
 		return f.outputValues, nil
 	}
 	dirtyFlags := lo.Must(f.mem.ReadUint64Le(f.base))

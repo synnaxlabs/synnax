@@ -3,6 +3,7 @@ name: Test - Client
 on:
   pull_request:
     paths:
+      - .github/actions/test-python/**
       - .bazeliskrc
       - .bazelrc
       - .clang-format
@@ -16,11 +17,11 @@ on:
       - client/cpp/**
       - client/py/**
       - client/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
       - core/**
-      - Earthfile
       - freighter/cpp/**
       - freighter/go/**
       - freighter/py/**
@@ -46,6 +47,7 @@ on:
       - main
       - rc
     paths:
+      - .github/actions/test-python/**
       - .bazeliskrc
       - .bazelrc
       - .clang-format
@@ -59,11 +61,11 @@ on:
       - client/cpp/**
       - client/py/**
       - client/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
       - core/**
-      - Earthfile
       - freighter/cpp/**
       - freighter/go/**
       - freighter/py/**
@@ -110,7 +112,6 @@ jobs:
               - aspen/**
               - cesium/**
               - core/**
-              - Earthfile
               - freighter/go/**
               - go.work
               - go.work.sum
@@ -130,7 +131,9 @@ jobs:
               - x/cpp/**
             py:
               - *shared
+              - .github/actions/test-python/**
               - alamos/py/**
+              - codecov.yaml
               - client/py/**
               - freighter/py/**
               - pyproject.toml
@@ -233,6 +236,8 @@ jobs:
     needs: [changes, server]
     if: needs.changes.outputs.py == 'true'
     runs-on: ubuntu-latest
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     services:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -248,28 +253,17 @@ jobs:
         ports:
           - 9090:9090
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Test Python
+        uses: ./.github/actions/test-python
         with:
-          python-version-file: client/py/pyproject.toml
-
-      - name: Check Import Order
-        run: uv run isort -c .
-        working-directory: client/py
-
-      - name: Check Formatting
-        run: uv run black --check --diff --color .
-        working-directory: client/py
-
-      - name: Test
-        run: uv run pytest
-        working-directory: client/py
+          directory: client/py
+          coverage: true
+          coverage_module: synnax
+          coverage_flag: client-py
+          type_check: false
 
   ts:
     name: Test - TypeScript

@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 
-import { type Client, getFromURL } from "@/components/client/client";
+import { type Client, getFromURL } from "@/components/client/Client";
 
 export interface VarProps {
   py: string;
@@ -20,13 +20,17 @@ export const Var = ({ py, ts }: VarProps) => {
   const [client, setClient] = useState<Client | null>(null);
 
   useEffect(() => {
-    const update = () => {
+    const updateFromURL = () => {
       const c = getFromURL();
       setClient(c);
     };
-    update();
-    const i = setInterval(update, 200);
-    return () => clearInterval(i);
+    updateFromURL();
+    window.addEventListener("popstate", updateFromURL);
+    window.addEventListener("urlchange", updateFromURL);
+    return () => {
+      window.removeEventListener("popstate", updateFromURL);
+      window.removeEventListener("urlchange", updateFromURL);
+    };
   }, []);
 
   const value = client === "typescript" ? ts : py;

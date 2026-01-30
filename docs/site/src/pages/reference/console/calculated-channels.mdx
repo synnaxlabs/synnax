@@ -9,10 +9,10 @@ nextURL: "/reference/console/workspaces"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/Media";
-import Diagram from "@/components/Diagram.astro";
-import Table from "@/components/Table.astro";
-import Code from "@/components/code/Code.astro";
+import { Video, Image } from "@/components/media/Media";
+import Diagram from "@/components/diagram/Diagram.astro";
+import CodeBlock from "@/components/code/Block.astro";
+import { Table } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -46,7 +46,7 @@ Calculated Channel" command.
 When creating a calculated channel, you will be prompted to fill in the following
 fields:
 
-<Table>
+<table>
   <thead>
     <tr>
       <th>Field</th>
@@ -99,7 +99,7 @@ fields:
       }
     </tr>
   </tbody>
-</Table>
+</table>
 
 <Divider.Divider x />
 
@@ -216,13 +216,13 @@ averages.
 
 Operations process the expression result before writing to the output channel:
 
-<Code hideCopyButton>
+<CodeBlock hideCopyButton>
   <code>
     {`Expression Result → Operation → Output Channel
                        ↑
                   Reset Channel`}
   </code>
-</Code>
+</CodeBlock>
 
 The operation maintains internal state across executions, outputting a single aggregated
 value rather than processing individual samples.
@@ -231,7 +231,7 @@ value rather than processing individual samples.
 
 ### Supported Operations
 
-<Table>
+<table>
   <thead>
     <tr>
       <th>Operation</th>
@@ -256,40 +256,40 @@ value rather than processing individual samples.
       <td>Running average. Computes the mean of all values since the last reset.</td>
     </tr>
   </tbody>
-</Table>
+</table>
 
 ### Reset Mechanisms
 
 Operations can reset their state through three mechanisms (any can trigger a reset):
 
-1. **Duration-based (Window)**: Resets after a specified time duration based on input
+1. **Duration-based (Window)** -> Resets after a specified time duration based on input
    timestamps
-2. **Signal-based (Reset Channel)**: Resets when a `uint8` channel receives value `1`
-3. **Never**: Set duration to 0 and omit reset channel for a continuous operation
+2. **Signal-based (Reset Channel)** -> Resets when a `uint8` channel receives value `1`
+3. **Never** -> Set duration to 0 and omit reset channel for a continuous operation
 
 ### Example Configurations
 
 **Running average over 10 seconds:**
 
-- Operation: `avg`
-- Window: `10` seconds
-- Reset Channel: (none)
+- **Operation** -> `avg`
+- **Window** -> `10` seconds
+- **Reset Channel** -> (none)
 
 The average resets every 10 seconds based on data timestamps.
 
 **Maximum until manual reset:**
 
-- Operation: `max`
-- Window: `0` (no duration reset)
-- Reset Channel: `manual_reset_button`
+- **Operation** -> `max`
+- **Window** -> `0` (no duration reset)
+- **Reset Channel** -> `manual_reset_button`
 
 The maximum runs indefinitely until the reset channel triggers.
 
 **Minimum with both reset types:**
 
-- Operation: `min`
-- Window: `60` seconds
-- Reset Channel: `cycle_complete`
+- **Operation** -> `min`
+- **Window** -> `60` seconds
+- **Reset Channel** -> `cycle_complete`
 
 The minimum resets either after 60 seconds OR when the reset channel triggers—whichever
 comes first.
@@ -432,19 +432,19 @@ return compensated
 
 **Running maximum with manual reset:**
 
-- Expression: `return pressure`
-- Operation: `max`
-- Window: `0` (no duration reset)
-- Reset Channel: `reset_button`
+- **Expression** -> `return pressure`
+- **Operation** -> `max`
+- **Window** -> `0` (no duration reset)
+- **Reset Channel** -> `reset_button`
 
 This tracks the maximum pressure value until the reset button is triggered.
 
 **10-second rolling average:**
 
-- Expression: `return temperature`
-- Operation: `avg`
-- Window: `10` seconds
-- Reset Channel: (none)
+- **Expression** -> `return temperature`
+- **Operation** -> `avg`
+- **Window** -> `10` seconds
+- **Reset Channel** -> (none)
 
 This computes the average temperature over 10-second windows.
 
@@ -546,12 +546,12 @@ new `pressure` values; it reuses the most recent one.
 
 ## Channel Naming
 
-**Important**: Arc identifiers can only contain letters, digits, and underscores, and
+**Important** -> Arc identifiers can only contain letters, digits, and underscores, and
 must start with a letter or underscore. Channel names with special characters (like
 dashes, spaces, or dots) **cannot be directly referenced** in Arc expressions.
 
-**Best Practice**: When creating channels that will be used in Arc calculated channels,
-use underscores instead of special characters:
+**Best Practice** -> When creating channels that will be used in Arc calculated
+channels, use underscores instead of special characters:
 
 - ✅ `sensor_1`, `temp_reading`, `channel_a`
 - ❌ `sensor-1`, `temp reading`, `channel.a`
