@@ -49,7 +49,7 @@ type Config struct {
 
 var (
 	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{HeartbeatInterval: 1 * time.Second}
+	defaultConfig                       = Config{HeartbeatInterval: 1 * time.Second}
 )
 
 func (c Config) Override(other Config) Config {

@@ -60,7 +60,7 @@ type commandSink struct {
 // to receive task changes when this function returns. Background goroutines for command
 // streaming are started automatically.
 func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(defaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -115,8 +115,8 @@ func (d *Driver) startHeartbeat() {
 		})
 }
 
-// startCommandStreaming initializes the command channel streamer. This is optional and
-// will log warnings if the command channel doesn't exist or streaming fails.
+// startCommandStreaming initializes the command channel streamer. This is optional
+// and will log warnings if the command channel doesn't exist or streaming fails.
 func (d *Driver) startCommandStreaming(ctx context.Context) error {
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.shutdownCommands = signal.NewGracefulShutdown(sCtx, cancel)
@@ -185,30 +185,25 @@ func (d *Driver) handleTaskChange(ctx context.Context, reader gorp.TxReader[task
 	}
 }
 
-func (d *Driver) configureInitialTasks(ctx context.Context) error {
+func (d *Driver) configureInitialTasks(ctx context.Context) {
 	taskCtx := NewContext(ctx, d.cfg.Status)
 
 	// Ask factory to create any tasks that should exist on startup
 	factoryTasks, err := d.cfg.Factory.ConfigureInitialTasks(taskCtx, d.rack.Key)
 	if err != nil {
-		return err
-	}
-	if len(factoryTasks) > 0 {
-		if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			writer := d.cfg.Task.NewWriter(tx)
-			for _, t := range factoryTasks {
-				if err := writer.Create(ctx, &t); err != nil {
-					return err
-				}
+		d.cfg.L.Error("factory failed to configure initial tasks", zap.Error(err))
+	} else if len(factoryTasks) > 0 {
+		// Persist factory-created tasks (task service handles dedup via key)
+		for _, t := range factoryTasks {
+			if err := d.cfg.Task.NewWriter(nil).Create(ctx, &t); err != nil {
+				d.cfg.L.Error("failed to persist factory task",
+					zap.Stringer("task", t.Key),
+					zap.String("type", t.Type),
+					zap.Error(err),
+				)
 			}
-			return nil
-		}); err != nil {
-			return err
 		}
-		d.cfg.L.Info(
-			"factory created initial tasks",
-			zap.Int("count", len(factoryTasks)),
-		)
+		d.cfg.L.Info("factory created initial tasks", zap.Int("count", len(factoryTasks)))
 	}
 
 	// Now retrieve and configure all tasks for this rack
@@ -218,13 +213,13 @@ func (d *Driver) configureInitialTasks(ctx context.Context) error {
 		WhereSnapshot(false).
 		Entries(&tasks).
 		Exec(ctx, nil); err != nil {
-		return err
+		d.cfg.L.Error("failed to retrieve initial tasks", zap.Error(err))
+		return
 	}
 	d.cfg.L.Info("configuring initial tasks", zap.Int("count", len(tasks)))
 	for _, t := range tasks {
 		d.configure(ctx, t)
 	}
-	return nil
 }
 
 func (d *Driver) configure(ctx context.Context, t task.Task) {
@@ -274,10 +269,8 @@ func (d *Driver) delete(key task.Key) {
 	d.cfg.L.Info("deleted task", zap.Stringer("task", key))
 }
 
-// RackKey returns the key of the rack that the driver is configured to run on.
 func (d *Driver) RackKey() rack.Key { return d.rack.Key }
 
-// Close shuts down the driver and its associated resources.
 func (d *Driver) Close() error {
 	d.mu.Lock()
 	for key, t := range d.mu.tasks {

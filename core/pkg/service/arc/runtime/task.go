@@ -227,6 +227,8 @@ func (t *taskImpl) stop() error {
 
 func (t *taskImpl) Stop() error { return t.stop() }
 
+func (t *taskImpl) Key() task.Key { return t.task.Key }
+
 func (t *taskImpl) setStatus(variant status.Variant, running bool, message string) {
 	stat := task.Status{
 		Key:     task.OntologyID(t.task.Key).String(),
