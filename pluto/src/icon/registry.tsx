@@ -223,6 +223,7 @@ import {
 } from "react-icons/vsc";
 
 import { CSS } from "@/css";
+import { EtherCAT } from "@/icon/EtherCAT";
 import { Fitting } from "@/icon/Fitting";
 import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
 import { LabJack } from "@/icon/LabJack";
@@ -302,6 +303,7 @@ export const Logo = {
   NI,
   OPC,
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
+  EtherCAT,
 };
 export const Arrow = {
   Right: wrapSVGIcon(TbArrowRight, "arrow-right"),

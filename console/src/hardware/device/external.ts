@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TOOLBAR } from "@/hardware/device/Toolbar";
+import { EtherCAT } from "@/hardware/ethercat";
 import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
@@ -26,6 +27,7 @@ export const COMMANDS: Palette.Command[] = [
 ];
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
+  ...EtherCAT.Device.LAYOUTS,
   ...LabJack.Device.LAYOUTS,
   ...Modbus.Device.LAYOUTS,
   ...NI.Device.LAYOUTS,

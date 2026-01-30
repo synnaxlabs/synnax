@@ -1,0 +1,13 @@
+cc_library(
+    name = "master",
+    hdrs = [
+        "domain.h",
+        "master.h",
+        "slave_info.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+    ],
+)

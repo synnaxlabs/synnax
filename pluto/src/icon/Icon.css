@@ -44,3 +44,7 @@
 .pluto--clickable:active .pluto-icon .pluto-sub {
     background: var(--pluto-active-bg);
 }
+
+.pluto-icon--logo-ethercat {
+    transform: scale(1.25);
+}

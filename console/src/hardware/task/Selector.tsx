@@ -10,6 +10,7 @@
 import { task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
+import { EtherCAT } from "@/hardware/ethercat";
 import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
@@ -31,6 +32,7 @@ const withTaskVisibility = (
 };
 
 export const SELECTABLES: BaseSelector.Selectable[] = [
+  ...EtherCAT.Task.SELECTABLES,
   ...LabJack.Task.SELECTABLES,
   ...Modbus.Task.SELECTABLES,
   ...NI.Task.SELECTABLES,

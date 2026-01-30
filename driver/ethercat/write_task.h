@@ -1,0 +1,214 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#pragma once
+
+#include <cstring>
+#include <memory>
+#include <set>
+#include <unordered_map>
+#include <vector>
+
+#include "client/cpp/synnax.h"
+#include "x/cpp/xjson/xjson.h"
+
+#include "driver/ethercat/channels.h"
+#include "driver/ethercat/cyclic_engine.h"
+#include "driver/ethercat/device.h"
+#include "driver/ethercat/errors/errors.h"
+#include "driver/task/common/write_task.h"
+
+namespace ethercat {
+/// Configuration for an EtherCAT write task.
+struct WriteTaskConfig : common::BaseWriteTaskConfig {
+    /// The key of the network device in Synnax.
+    std::string device_key;
+    /// Interface name resolved from network device properties.
+    std::string interface_name;
+    /// Polymorphic output channels.
+    std::vector<std::unique_ptr<channel::Output>> channels;
+    /// State channels for feedback.
+    std::vector<synnax::Channel> state_channels;
+    /// Index keys for state channels.
+    std::set<synnax::ChannelKey> state_indexes;
+    /// State update rate.
+    telem::Rate state_rate;
+
+    WriteTaskConfig(WriteTaskConfig &&other) noexcept:
+        BaseWriteTaskConfig(std::move(other)),
+        device_key(std::move(other.device_key)),
+        interface_name(std::move(other.interface_name)),
+        channels(std::move(other.channels)),
+        state_channels(std::move(other.state_channels)),
+        state_indexes(std::move(other.state_indexes)),
+        state_rate(other.state_rate) {}
+
+    WriteTaskConfig(const WriteTaskConfig &) = delete;
+    const WriteTaskConfig &operator=(const WriteTaskConfig &) = delete;
+
+    explicit WriteTaskConfig(
+        const std::shared_ptr<synnax::Synnax> &client,
+        xjson::Parser &cfg
+    ):
+        BaseWriteTaskConfig(cfg),
+        device_key(cfg.field<std::string>("device")),
+        state_rate(telem::Rate(cfg.field<float>("state_rate", 1.0f))) {
+        auto [dev, net_err] = client->devices.retrieve(this->device_key);
+        if (net_err) {
+            cfg.field_err("device", net_err.message());
+            return;
+        }
+        auto net_parser = xjson::Parser(dev.properties);
+        device::NetworkProperties net_props(net_parser);
+        if (net_parser.error()) {
+            cfg.field_err("device", net_parser.error().message());
+            return;
+        }
+        this->interface_name = net_props.interface;
+        std::unordered_map<std::string, device::SlaveProperties> slave_cache;
+        cfg.iter("channels", [&](xjson::Parser &ch) {
+            auto slave_key = ch.field<std::string>("device");
+            if (ch.error()) return;
+            if (!slave_cache.contains(slave_key)) {
+                auto [slave_dev, slave_err] = client->devices.retrieve(slave_key);
+                if (slave_err) {
+                    ch.field_err("device", slave_err.message());
+                    return;
+                }
+                auto props_parser = xjson::Parser(slave_dev.properties);
+                slave_cache.emplace(slave_key, device::SlaveProperties(props_parser));
+                if (props_parser.error()) {
+                    ch.field_err("device", props_parser.error().message());
+                    return;
+                }
+            }
+
+            const auto &slave = slave_cache.at(slave_key);
+            auto channel_ptr = channel::parse_output(ch, slave);
+            if (channel_ptr && channel_ptr->enabled)
+                this->channels.push_back(std::move(channel_ptr));
+        });
+
+        if (cfg.error()) return;
+
+        channel::sort_by_position(this->channels);
+
+        std::vector<synnax::ChannelKey> state_keys;
+        for (const auto &ch: this->channels)
+            if (ch->state_key != 0) state_keys.push_back(ch->state_key);
+
+        if (!state_keys.empty()) {
+            auto [state_chs, err] = client->channels.retrieve(state_keys);
+            if (err) {
+                cfg.field_err("channels", err.message());
+                return;
+            }
+            this->state_channels = std::move(state_chs);
+            for (const auto &ch: this->state_channels)
+                if (ch.index != 0) this->state_indexes.insert(ch.index);
+        }
+    }
+
+    /// Parses the configuration for the task from its JSON representation.
+    /// @param client The Synnax client to use to retrieve channel information.
+    /// @param task The task to parse.
+    /// @returns A pair containing the parsed configuration and any error that occurred.
+    static std::pair<WriteTaskConfig, xerrors::Error>
+    parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
+        auto parser = xjson::Parser(task.config);
+        WriteTaskConfig cfg(client, parser);
+        return {std::move(cfg), parser.error()};
+    }
+
+    /// Returns the command channel keys.
+    [[nodiscard]] std::vector<synnax::ChannelKey> cmd_keys() const {
+        std::vector<synnax::ChannelKey> keys;
+        keys.reserve(this->channels.size());
+        for (const auto &ch: this->channels)
+            keys.push_back(ch->command_key);
+        return keys;
+    }
+};
+
+/// Implements common::Sink to write to EtherCAT slaves via the CyclicEngine.
+class WriteTaskSink final : public common::Sink {
+    WriteTaskConfig cfg;
+    std::shared_ptr<CyclicEngine> engine;
+    std::vector<PDOHandle> pdo_handles;
+
+public:
+    /// Constructs a WriteTaskSink with the given engine and configuration.
+    /// @param engine The CyclicEngine to use for cyclic PDO exchange.
+    /// @param cfg The task configuration.
+    explicit WriteTaskSink(std::shared_ptr<CyclicEngine> engine, WriteTaskConfig cfg):
+        Sink(
+            cfg.state_rate,
+            cfg.state_indexes,
+            cfg.state_channels,
+            cfg.cmd_keys(),
+            cfg.data_saving
+        ),
+        cfg(std::move(cfg)),
+        engine(std::move(engine)) {}
+
+    xerrors::Error start() override {
+        auto slaves = this->engine->slaves();
+        std::unordered_map<uint32_t, uint16_t> serial_to_position;
+        for (const auto &slave: slaves)
+            serial_to_position[slave.serial] = slave.position;
+
+        this->pdo_handles.clear();
+        this->pdo_handles.reserve(this->cfg.channels.size());
+
+        for (auto &ch: this->cfg.channels) {
+            auto it = serial_to_position.find(ch->slave_serial);
+            if (it == serial_to_position.end())
+                return xerrors::Error(
+                    SLAVE_STATE_ERROR,
+                    "slave with serial " + std::to_string(ch->slave_serial) +
+                        " not found on bus"
+                );
+            ch->slave_position = it->second;
+
+            auto [handle, err] = this->engine->register_output_pdo(
+                ch->to_pdo_entry(false)
+            );
+            if (err) return err;
+            this->pdo_handles.push_back(handle);
+        }
+
+        if (auto err = this->engine->add_task(); err) return err;
+
+        for (size_t i = 0; i < this->cfg.channels.size(); ++i)
+            this->cfg.channels[i]->buffer_offset = this->engine
+                                                       ->get_actual_output_offset(
+                                                           this->pdo_handles[i].index
+                                                       );
+
+        return xerrors::NIL;
+    }
+
+    xerrors::Error stop() override {
+        this->engine->remove_task();
+        return xerrors::NIL;
+    }
+
+    xerrors::Error write(telem::Frame &frame) override {
+        for (const auto &ch: this->cfg.channels) {
+            if (!frame.contains(ch->command_key)) continue;
+            const telem::SampleValue value = frame.at(ch->command_key, 0);
+            const void *data_ptr = telem::cast_to_void_ptr(value);
+            const size_t byte_len = ch->byte_length();
+            this->engine->write_output(ch->buffer_offset, data_ptr, byte_len);
+        }
+        this->set_state(frame);
+        return xerrors::NIL;
+    }
+};
+}

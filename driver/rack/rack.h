@@ -27,6 +27,7 @@
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
+#include "driver/ethercat/ethercat.h"
 #include "driver/ni/ni.h"
 #include "driver/opc/opc.h"
 #include "driver/rack/status/status.h"
@@ -62,6 +63,7 @@ inline std::vector<std::string> default_integrations() {
         sequence::INTEGRATION_NAME,
         labjack::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,
+        ethercat::INTEGRATION_NAME
     };
 #ifndef SYNNAX_NILINUXRT
     integrations.push_back(modbus::INTEGRATION_NAME);

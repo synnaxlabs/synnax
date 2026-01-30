@@ -27,7 +27,7 @@
 #include "driver/task/task.h"
 
 namespace modbus {
-const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task]";
+const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
 /// @brief Configuration for the Modbus scanner.
