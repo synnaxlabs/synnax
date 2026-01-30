@@ -204,7 +204,7 @@ class CalcChannelStress(ConsoleCase):
             )
         self.log("All calculated channels are now visible in console")
 
-        plot = Plot(client, console, f"Calc Stress {self.rate}Hz")
+        plot = Plot(console, f"Calc Stress {self.rate}Hz")
         plot.add_channels("Y1", CALC_CHANNELS)
 
         for ch in CALC_CHANNELS:

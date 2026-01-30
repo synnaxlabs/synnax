@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import synnax as sy
 from synnax.channel.payload import ChannelName
 
 from .console import Console
@@ -23,11 +22,10 @@ class Log(ConsolePage):
     pluto_label: str = ".pluto-log"
 
     @classmethod
-    def open_from_search(cls, client: sy.Synnax, console: Console, name: str) -> Log:
+    def open_from_search(cls, console: Console, name: str) -> Log:
         """Open an existing log by searching its name in the command palette.
 
         Args:
-            client: Synnax client instance.
             console: Console instance.
             name: Name of the log to search for and open.
 
@@ -39,31 +37,28 @@ class Log(ConsolePage):
         log_pane = console.page.locator(cls.pluto_label)
         log_pane.first.wait_for(state="visible", timeout=5000)
 
-        log = cls.__new__(cls)
-        log.client = client
-        log.console = console
-        log.page = console.page
-        log.page_name = name
+        log = cls(console, name, _skip_create=True)
         log.pane_locator = log_pane.first
         return log
 
     def __init__(
         self,
-        client: sy.Synnax,
         console: Console,
         page_name: str,
         channel_name: ChannelName | None = None,
+        *,
+        _skip_create: bool = False,
     ) -> None:
         """
         Initialize a Log page.
 
         Args:
-            client: Synnax client instance
             console: Console instance
             page_name: Name for the page
             channel_name: Optional channel to set for the log page
+            _skip_create: Internal flag to skip page creation (used by factory methods)
         """
-        super().__init__(client, console, page_name)
+        super().__init__(console, page_name, _skip_create=_skip_create)
 
         if channel_name is not None:
             self.set_channel(channel_name)

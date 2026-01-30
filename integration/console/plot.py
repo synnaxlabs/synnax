@@ -12,8 +12,6 @@ from __future__ import annotations
 import json
 from typing import Any, Literal
 
-import synnax as sy
-
 from framework.utils import get_results_path
 
 from .console import Console
@@ -29,11 +27,10 @@ class Plot(ConsolePage):
     pluto_label: str = ".pluto-line-plot"
 
     @classmethod
-    def open_from_search(cls, client: sy.Synnax, console: Console, name: str) -> Plot:
+    def open_from_search(cls, console: Console, name: str) -> Plot:
         """Open an existing plot by searching its name in the command palette.
 
         Args:
-            client: Synnax client instance.
             console: Console instance.
             name: Name of the plot to search for and open.
 
@@ -54,28 +51,24 @@ class Plot(ConsolePage):
             last_tab = tabs.nth(tab_count - 1)
             actual_tab_name = last_tab.inner_text().strip()
 
-        plot = cls.__new__(cls)
-        plot.client = client
-        plot.console = console
-        plot.page = console.page
-        plot.page_name = actual_tab_name
+        plot = cls(console, actual_tab_name, _skip_create=True)
         plot.pane_locator = plot_pane.first
-        plot.data = {"Y1": [], "Y2": [], "Ranges": [], "X1": None}
         return plot
 
     def __init__(
         self,
-        client: sy.Synnax,
         console: Console,
         page_name: str,
+        *,
+        _skip_create: bool = False,
     ) -> None:
         """
         Initialize a Plot page.
 
         Args:
-            client: Synnax client instance
             console: Console instance
             page_name: Name for the page
+            _skip_create: Internal flag to skip page creation (used by factory methods)
         """
         self.data: dict[str, Any] = {
             "Y1": [],
@@ -83,7 +76,7 @@ class Plot(ConsolePage):
             "Ranges": [],
             "X1": None,
         }
-        super().__init__(client, console, page_name)
+        super().__init__(console, page_name, _skip_create=_skip_create)
 
     def add_channels(self, axis: Axis, channels: str | list[str]) -> None:
         channels = [channels] if isinstance(channels, str) else channels

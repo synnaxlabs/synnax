@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from .button import Button
-from .schematic import Schematic
+from .schematic import SCHEMATIC_VERSION, Schematic
 from .setpoint import Setpoint
 from .symbol import Symbol
 from .value import Value
@@ -18,6 +18,7 @@ from .valve_threeway_ball import ValveThreeWayBall
 
 __all__ = [
     "Button",
+    "SCHEMATIC_VERSION",
     "Schematic",
     "Setpoint",
     "Symbol",

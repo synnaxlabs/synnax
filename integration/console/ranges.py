@@ -9,7 +9,7 @@
 
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import Locator, Page, expect
 
 from framework.utils import get_results_path, rgb_to_hex
 
@@ -40,8 +40,9 @@ class RangesClient:
             name: Name of the range to search for and open.
         """
         self.console.search_palette(name)
-        name_input = self.page.locator(f"input[placeholder='Name'][value='{name}']")
+        name_input = self.page.locator("input[placeholder='Name']").first
         name_input.wait_for(state="visible", timeout=5000)
+        expect(name_input).to_have_value(name, timeout=5000)
 
     def show_toolbar(self) -> None:
         """Show the ranges toolbar in the left sidebar (favorites only)."""
@@ -286,8 +287,9 @@ class RangesClient:
             name: The name of the range to wait for.
             timeout: Maximum time to wait in milliseconds.
         """
-        name_input = self.page.locator(f"input[placeholder='Name'][value='{name}']")
+        name_input = self.page.locator("input[placeholder='Name']").first
         name_input.wait_for(state="visible", timeout=timeout)
+        expect(name_input).to_have_value(name, timeout=timeout)
 
     def is_overview_showing(self, name: str) -> bool:
         """Check if the range overview is showing a specific range.
@@ -446,17 +448,16 @@ class RangesClient:
             state="visible", timeout=2000
         )
         item = self.page.locator(".pluto-list__item").filter(has_text=label_name).first
-        item.wait_for(state="visible", timeout=3000)
         try:
+            item.wait_for(state="visible", timeout=5000)
             item.click(timeout=2000)
         except Exception as e:
-            if "Timeout" in type(e).__name__:
-                all_items = self.page.locator(".pluto-list__item").all()
-                available_labels = [
-                    lbl.text_content() for lbl in all_items if lbl.is_visible()
-                ]
+            all_items = self.page.locator(".pluto-list__item").all()
+            available_labels = [
+                lbl.text_content() for lbl in all_items if lbl.is_visible()
+            ]
             raise RuntimeError(
-                f"Error clicking label '{label_name}' in overview dropdown: {e}"
+                f"Label '{label_name}' not found in dropdown. Available: {available_labels}"
             ) from e
         self.page.keyboard.press("Escape")
         item.wait_for(state="hidden", timeout=2000)
@@ -771,3 +772,53 @@ class RangesClient:
                 labels.append(label_text.strip())
 
         return labels
+
+    def get_snapshot_item(self, name: str) -> Locator:
+        """Get a snapshot item locator from the Snapshots section by name.
+
+        Args:
+            name: The name of the snapshot to find.
+
+        Returns:
+            Locator for the snapshot item.
+        """
+        return self.page.locator(".console-snapshots__list-item").filter(has_text=name)
+
+    def snapshot_exists_in_overview(self, name: str, timeout: int = 5000) -> bool:
+        """Check if a snapshot exists in the Snapshots section of the overview.
+
+        Args:
+            name: The name of the snapshot to check for.
+            timeout: Maximum time to wait in milliseconds.
+
+        Returns:
+            True if the snapshot exists, False otherwise.
+        """
+        try:
+            self.get_snapshot_item(name).wait_for(state="visible", timeout=timeout)
+            return True
+        except Exception as e:
+            if "Timeout" in type(e).__name__:
+                return False
+            raise RuntimeError(
+                f"Error checking snapshot '{name}' in overview: {e}"
+            ) from e
+
+    def open_snapshot_from_overview(self, name: str) -> None:
+        """Open a snapshot from the Snapshots section in the range overview.
+
+        Args:
+            name: The name of the snapshot to open.
+        """
+        item = self.get_snapshot_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        item.click()
+
+    def get_snapshot_names_in_overview(self) -> list[str]:
+        """Get all snapshot names in the Snapshots section.
+
+        Returns:
+            List of snapshot names.
+        """
+        items = self.page.locator(".console-snapshots__list-item")
+        return [items.nth(i).inner_text().strip() for i in range(items.count())]

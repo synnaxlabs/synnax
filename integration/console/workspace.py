@@ -11,7 +11,6 @@ import json
 import random
 from typing import TYPE_CHECKING, Any
 
-import synnax as sy
 from playwright.sync_api import Locator, Page
 
 from framework.utils import get_results_path
@@ -20,6 +19,7 @@ if TYPE_CHECKING:
     from .console import Console
     from .log import Log
     from .plot import Plot
+    from .schematic import Schematic
 
 
 class WorkspaceClient:
@@ -87,6 +87,7 @@ class WorkspaceClient:
         if caret.count() > 0:
             return
         workspace_item.click()
+        caret.wait_for(state="visible", timeout=5000)
 
     def get_page(self, name: str) -> Locator:
         """Get a page item locator from the workspace resources toolbar.
@@ -164,7 +165,7 @@ class WorkspaceClient:
         page_item.click(button="right")
         self.page.get_by_text("Rename", exact=True).click(timeout=5000)
         self.console.select_all_and_type(new_name)
-        self.console.ENTER
+        self.console.page.keyboard.press("Enter")
         self.get_page(new_name).wait_for(state="visible", timeout=5000)
         self.wait_for_page_removed(old_name)
         self.console.close_nav_drawer()
@@ -230,7 +231,7 @@ class WorkspaceClient:
             page_item.wait_for(state="visible", timeout=5000)
             page_item.click(modifiers=["ControlOrMeta"])
 
-        last_item = self.get_page(names[-1])
+        last_item = first_item if len(names) == 1 else self.get_page(names[-1])
         last_item.click(button="right")
 
         self.page.get_by_text("Delete", exact=True).click(timeout=5000)
@@ -284,12 +285,13 @@ class WorkspaceClient:
             page_item.wait_for(state="visible", timeout=5000)
             page_item.click(modifiers=["ControlOrMeta"])
 
-        last_item = self.get_page(names[-1])
+        # For single item, reuse first_item; otherwise get the last item
+        last_item = first_item if len(names) == 1 else self.get_page(names[-1])
         last_item.click(button="right")
 
         self.page.get_by_text("Group Selection", exact=True).click(timeout=5000)
         self.console.select_all_and_type(group_name)
-        self.console.ENTER
+        self.console.page.keyboard.press("Enter")
         self.console.close_nav_drawer()
 
     def export_page(self, name: str) -> dict[str, Any]:
@@ -329,6 +331,113 @@ class WorkspaceClient:
         with open(save_path, "r") as f:
             result: dict[str, Any] = json.load(f)
             return result
+
+    def snapshot_page_to_active_range(self, name: str, range_name: str) -> None:
+        """Snapshot a page to the active range via context menu.
+
+        Args:
+            name: Name of the page to snapshot
+            range_name: Name of the active range (for menu text matching)
+        """
+        self.expand_active()
+        page_item = self.get_page(name)
+        page_item.wait_for(state="visible", timeout=5000)
+        page_item.click(button="right")
+
+        snapshot_item = self.page.get_by_text(f"Snapshot to {range_name}", exact=True)
+        snapshot_item.wait_for(state="visible", timeout=5000)
+        snapshot_item.click(timeout=5000)
+        self.console.close_nav_drawer()
+
+    def snapshot_pages_to_active_range(self, names: list[str], range_name: str) -> None:
+        """Snapshot multiple pages to the active range via context menu.
+
+        Args:
+            names: List of page names to snapshot
+            range_name: Name of the active range (for menu text matching)
+        """
+        if not names:
+            return
+
+        self.expand_active()
+
+        first_item = self.get_page(names[0])
+        first_item.wait_for(state="visible", timeout=5000)
+        first_item.click()
+
+        for name in names[1:]:
+            page_item = self.get_page(name)
+            page_item.wait_for(state="visible", timeout=5000)
+            page_item.click(modifiers=["ControlOrMeta"])
+
+        # For single item, reuse first_item; otherwise get the last item
+        last_item = first_item if len(names) == 1 else self.get_page(names[-1])
+        last_item.click(button="right")
+
+        snapshot_item = self.page.get_by_text(f"Snapshot to {range_name}", exact=True)
+        snapshot_item.wait_for(state="visible", timeout=5000)
+        snapshot_item.click(timeout=5000)
+        self.console.close_nav_drawer()
+
+    def copy_page(self, name: str, new_name: str) -> None:
+        """Make a copy of a page via context menu.
+
+        Args:
+            name: Name of the page to copy
+            new_name: Name for the new copy
+        """
+        self.expand_active()
+        page_item = self.get_page(name)
+        page_item.wait_for(state="visible", timeout=5000)
+        page_item.click(button="right")
+
+        copy_item = self.page.get_by_text("Copy", exact=True)
+        copy_item.wait_for(state="visible", timeout=5000)
+        copy_item.click(timeout=5000)
+
+        # After clicking Copy, a rename dialog appears
+        self.console.select_all_and_type(new_name)
+        self.console.page.keyboard.press("Enter")
+        self.get_page(new_name).wait_for(state="visible", timeout=5000)
+        self.console.close_nav_drawer()
+
+    def copy_pages(self, names: list[str]) -> None:
+        """Copy multiple pages via context menu.
+
+        Note: When copying multiple pages, each gets a " (copy)" suffix automatically.
+
+        Args:
+            names: List of page names to copy
+        """
+        if not names:
+            return
+
+        self.expand_active()
+
+        first_item = self.get_page(names[0])
+        first_item.wait_for(state="visible", timeout=5000)
+        first_item.click()
+
+        for name in names[1:]:
+            page_item = self.get_page(name)
+            page_item.wait_for(state="visible", timeout=5000)
+            page_item.click(modifiers=["ControlOrMeta"])
+
+        # For single item, reuse first_item; otherwise get the last item
+        last_item = first_item if len(names) == 1 else self.get_page(names[-1])
+        last_item.click(button="right")
+
+        copy_item = self.page.get_by_text("Copy", exact=True)
+        copy_item.wait_for(state="visible", timeout=5000)
+        copy_item.click(timeout=5000)
+
+        # When copying multiple, each gets renamed automatically with " (copy)" suffix
+        # Wait for the copies to appear
+        for name in names:
+            copy_name = f"{name} (copy)"
+            self.get_page(copy_name).wait_for(state="visible", timeout=5000)
+
+        self.console.close_nav_drawer()
 
     def create(self, name: str) -> bool:
         """Create a workspace via command palette.
@@ -397,7 +506,7 @@ class WorkspaceClient:
         workspace.click(button="right")
         self.page.get_by_text("Rename", exact=True).click(timeout=5000)
         self.console.select_all_and_type(new_name)
-        self.console.ENTER
+        self.console.page.keyboard.press("Enter")
         self.console.close_nav_drawer()
 
     def delete(self, name: str) -> None:
@@ -429,101 +538,86 @@ class WorkspaceClient:
         self.create(name)
         self.select(name)
 
-    def _create_plot_instance(self, client: sy.Synnax, page_name: str) -> "Plot":
-        """Create a Plot instance after a line plot becomes visible.
+    def open_plot(self, name: str) -> "Plot":
+        """Open a plot by double-clicking it in the workspace resources toolbar.
 
         Args:
-            client: Synnax client instance.
-            page_name: The name of the plot page.
+            name: Name of the plot to open.
 
         Returns:
             Plot instance for the opened plot.
         """
         from .plot import Plot
 
-        line_plot = self.page.locator(Plot.pluto_label)
-        line_plot.first.wait_for(state="visible", timeout=5000)
-
-        plot = Plot.__new__(Plot)
-        plot.client = client
-        plot.console = self.console
-        plot.page = self.page
-        plot.page_name = page_name
-        plot.data = {"Y1": [], "Y2": [], "Ranges": [], "X1": None}
-        plot.pane_locator = line_plot.first
-        return plot
-
-    def open_plot(self, client: sy.Synnax, name: str) -> "Plot":
-        """Open a plot by double-clicking it in the workspace resources toolbar.
-
-        Args:
-            client: Synnax client instance.
-            name: Name of the plot to open.
-
-        Returns:
-            Plot instance for the opened plot.
-        """
         self.open_page(name)
-        return self._create_plot_instance(client, name)
+        return Plot.from_open_page(self.console, name)
 
-    def drag_plot_to_mosaic(self, client: sy.Synnax, name: str) -> "Plot":
+    def drag_plot_to_mosaic(self, name: str) -> "Plot":
         """Drag a plot from the workspace resources toolbar onto the mosaic.
 
         Args:
-            client: Synnax client instance.
             name: Name of the plot to drag.
 
         Returns:
             Plot instance for the opened plot.
         """
-        self.drag_page_to_mosaic(name)
-        return self._create_plot_instance(client, name)
+        from .plot import Plot
 
-    def _create_log_instance(self, client: sy.Synnax, page_name: str) -> "Log":
-        """Create a Log instance after a log becomes visible.
+        self.drag_page_to_mosaic(name)
+        return Plot.from_open_page(self.console, name)
+
+    def open_log(self, name: str) -> "Log":
+        """Open a log by double-clicking it in the workspace resources toolbar.
 
         Args:
-            client: Synnax client instance.
-            page_name: The name of the log page.
+            name: Name of the log to open.
 
         Returns:
             Log instance for the opened log.
         """
         from .log import Log
 
-        log_pane = self.page.locator(Log.pluto_label)
-        log_pane.first.wait_for(state="visible", timeout=5000)
-
-        log = Log.__new__(Log)
-        log.client = client
-        log.console = self.console
-        log.page = self.page
-        log.page_name = page_name
-        log.pane_locator = log_pane.first
-        return log
-
-    def open_log(self, client: sy.Synnax, name: str) -> "Log":
-        """Open a log by double-clicking it in the workspace resources toolbar.
-
-        Args:
-            client: Synnax client instance.
-            name: Name of the log to open.
-
-        Returns:
-            Log instance for the opened log.
-        """
         self.open_page(name)
-        return self._create_log_instance(client, name)
+        return Log.from_open_page(self.console, name)
 
-    def drag_log_to_mosaic(self, client: sy.Synnax, name: str) -> "Log":
+    def drag_log_to_mosaic(self, name: str) -> "Log":
         """Drag a log from the workspace resources toolbar onto the mosaic.
 
         Args:
-            client: Synnax client instance.
             name: Name of the log to drag.
 
         Returns:
             Log instance for the opened log.
         """
+        from .log import Log
+
         self.drag_page_to_mosaic(name)
-        return self._create_log_instance(client, name)
+        return Log.from_open_page(self.console, name)
+
+    def open_schematic(self, name: str) -> "Schematic":
+        """Open a schematic by double-clicking it in the workspace resources toolbar.
+
+        Args:
+            name: Name of the schematic to open.
+
+        Returns:
+            Schematic instance for the opened schematic.
+        """
+        from .schematic import Schematic
+
+        self.open_page(name)
+        return Schematic.from_open_page(self.console, name)
+
+    def drag_schematic_to_mosaic(self, name: str) -> "Schematic":
+        """Drag a schematic from the workspace resources toolbar onto the mosaic.
+
+        Args:
+            name: Name of the schematic to drag.
+
+        Returns:
+            Schematic instance for the opened schematic.
+        """
+        from .schematic import Schematic
+
+        self.drag_page_to_mosaic(name)
+        return Schematic.from_open_page(self.console, name)

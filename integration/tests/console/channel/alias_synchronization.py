@@ -71,7 +71,7 @@ class AliasSynchronization(ConsoleCase):
         )
 
         self.log("Setting up Line Plot with channel")
-        plot = Plot(client, console, f"Alias Test Plot {self.suffix}")
+        plot = Plot(console, f"Alias Test Plot {self.suffix}")
         plot.add_channels("Y1", [self.data_name])
 
         self.log("Setting alias for channel")
