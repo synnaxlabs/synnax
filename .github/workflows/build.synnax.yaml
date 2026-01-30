@@ -614,8 +614,8 @@ jobs:
             ${{ inputs.upload_to_release && github.ref == 'refs/heads/main' && 'synnaxlabs/synnax:latest' || '' }}
             ${{ inputs.upload_to_release && github.ref == 'refs/heads/rc' && 'ghcr.io/synnaxlabs/synnax:rc' || '' }}
             ${{ inputs.upload_to_release && github.ref == 'refs/heads/rc' && 'synnaxlabs/synnax:rc' || '' }}
-          cache-from: type=gha,scope=synnax-docker-cache
-          cache-to: type=gha,mode=min,scope=synnax-docker-cache
+          cache-from: type=gha,scope=synnax-docker-${{ inputs.driver && inputs.console && 'full' || inputs.driver && 'driver' || inputs.console && 'console' || 'base' }}
+          cache-to: type=gha,mode=min,scope=synnax-docker-${{ inputs.driver && inputs.console && 'full' || inputs.driver && 'driver' || inputs.console && 'console' || 'base' }}
           sbom: ${{ inputs.upload_to_release }}
           provenance: ${{ inputs.upload_to_release && 'mode=max' || 'false' }}
           build-args: |

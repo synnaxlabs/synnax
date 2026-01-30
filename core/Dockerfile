@@ -55,6 +55,16 @@ RUN if [ "$DRIVER_ENABLED" = "true" ]; then \
       file pkg/driver/assets/driver || ls -la pkg/driver/assets/driver; \
     fi
 
+RUN if [ "$CONSOLE_ENABLED" = "true" ]; then \
+      if [ ! -d "pkg/console/dist" ] || [ -z "$(ls -A pkg/console/dist 2>/dev/null)" ]; then \
+        echo "ERROR: CONSOLE_ENABLED=true but console assets missing or empty"; \
+        ls -la pkg/console/dist/ 2>/dev/null || echo "dist directory does not exist"; \
+        exit 1; \
+      fi; \
+      echo "Console assets found:"; \
+      ls pkg/console/dist/ | head -10; \
+    fi
+
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     TAGS=""; \
