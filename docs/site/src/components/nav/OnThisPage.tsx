@@ -44,7 +44,7 @@ export const OnThisPage = ({
   // Purge headings that aren't visible in the DOM (hidden by tabs, etc.)
   useEffect(() => {
     const purge = () => {
-      const titles = document.querySelectorAll("article :is(h1, h2, h3)");
+      const titles = document.querySelectorAll<HTMLElement>("article :is(h1, h2, h3)");
       const visibleIds = new Set(
         Array.from(titles)
           .filter(
