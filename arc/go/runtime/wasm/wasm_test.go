@@ -945,7 +945,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "write_test")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(100).Series).To(HaveLen(1))
 				Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](42))
@@ -974,7 +974,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "write_indexed")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(100).Series).To(HaveLen(1))
 				Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](99))
@@ -1007,7 +1007,7 @@ var _ = Describe("WASM", func() {
 				h.Execute(ctx, "write_ts")
 				after := telem.Now()
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(201).Series).To(HaveLen(1))
 				ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(201).Series[0])
@@ -1044,7 +1044,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "multi_write")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(10).Series).To(HaveLen(1))
 				Expect(fr.Get(10).Series[0]).To(telem.MatchSeriesDataV[int32](15))
@@ -1083,7 +1083,7 @@ var _ = Describe("WASM", func() {
 				for i := range 3 {
 					n.Reset()
 					n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
-					fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+					fr, changed := h.state.Flush(telem.Frame[uint32]{})
 					Expect(changed).To(BeTrue())
 					ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(301).Series[0])
 					timestamps[i] = ts[0]
@@ -1116,7 +1116,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "i32_write")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(700).Series).To(HaveLen(1))
 				Expect(fr.Get(700).Series[0]).To(telem.MatchSeriesDataV[int32](-50000))
@@ -1144,7 +1144,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "u8_write")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(800).Series).To(HaveLen(1))
 				Expect(fr.Get(800).Series[0]).To(telem.MatchSeriesDataV[uint8](255))
@@ -1174,7 +1174,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "f64_write")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(1100).Series).To(HaveLen(1))
 				Expect(fr.Get(1100).Series[0]).To(telem.MatchSeriesDataV(3.14159))
@@ -1202,7 +1202,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "f32_write")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(1200).Series).To(HaveLen(1))
 				Expect(fr.Get(1200).Series[0]).To(telem.MatchSeriesDataV[float32](2.718))
@@ -1218,7 +1218,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "no_write")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeFalse())
 				Expect(fr.RawKeys()).To(BeEmpty())
 			})
@@ -1244,7 +1244,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "zero_idx")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(900).Series).To(HaveLen(1))
 				Expect(fr.Get(0).Series).To(BeEmpty())
@@ -1273,7 +1273,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "imperative_vs_decl")
 
-				fr, _ := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, _ := h.state.Flush(telem.Frame[uint32]{})
 				dataKeys := make(set.Set[uint32])
 				for _, key := range fr.RawKeys() {
 					dataKeys.Add(key)
@@ -1281,6 +1281,96 @@ var _ = Describe("WASM", func() {
 				Expect(dataKeys.Contains(1000)).To(BeTrue())
 				Expect(dataKeys.Contains(1001)).To(BeTrue())
 			})
+		})
+	})
+
+	Describe("Void Functions (No Outputs)", func() {
+		It("Should execute without panic when function has no outputs", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "void_func",
+						Inputs:  types.Params{{Name: "trigger", Type: types.U8()}},
+						Outputs: types.Params{},
+						Body:    ir.Body{Raw: `{}`},
+					},
+					{
+						Key:     "trigger_source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+						Body:    ir.Body{Raw: `{ return 1 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "trigger_source", Type: "trigger_source"},
+					{Key: "void_func", Type: "void_func"},
+				},
+				Edges: []graph.Edge{
+					{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_func", Param: "trigger"}},
+				},
+			}
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			h.SetInput("trigger_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
+
+			changed := h.Execute(ctx, "void_func")
+			Expect(changed).To(BeEmpty())
+		})
+
+		It("Should execute void function with stateful variables", func() {
+			resolver := symbol.MapResolver{
+				"output_ch": {
+					Name: "output_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I32()),
+					ID:   100,
+				},
+			}
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "void_with_state",
+						Inputs:  types.Params{{Name: "trigger", Type: types.U8()}},
+						Outputs: types.Params{},
+						Body: ir.Body{Raw: `{
+							count i32 $= 0
+							count = count + 1
+							output_ch = count
+						}`},
+					},
+					{
+						Key:     "trigger_source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+						Body:    ir.Body{Raw: `{ return 1 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "trigger_source", Type: "trigger_source"},
+					{Key: "void_with_state", Type: "void_with_state"},
+				},
+				Edges: []graph.Edge{
+					{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_with_state", Param: "trigger"}},
+				},
+			}
+			h := newHarness(ctx, g, resolver, []state.ChannelDigest{{Key: 100, DataType: telem.Int32T}})
+			defer h.Close()
+
+			h.SetInput("trigger_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
+
+			n := h.CreateNode(ctx, "void_with_state")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			n.Reset()
+			n.Next(nCtx)
+			fr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](1))
+
+			h.SetInput("trigger_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(2))
+			n.Next(nCtx)
+			fr, changed = h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](2))
 		})
 	})
 

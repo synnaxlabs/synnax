@@ -42,6 +42,11 @@ type State struct {
 	outputs map[ir.Handle]*value
 	indexes map[uint32]uint32
 	cfg     Config
+
+	series              map[uint32]telem.Series
+	seriesHandleCounter uint32
+	strings             map[uint32]string
+	stringHandleCounter uint32
 }
 
 // ChannelDigest provides metadata about a channel for state initialization.
@@ -61,9 +66,13 @@ type Config struct {
 // It initializes output storage for all node outputs and maps channel keys to their indexes.
 func New(cfg Config) *State {
 	s := &State{
-		cfg:     cfg,
-		outputs: make(map[ir.Handle]*value),
-		indexes: make(map[uint32]uint32),
+		cfg:                 cfg,
+		outputs:             make(map[ir.Handle]*value),
+		indexes:             make(map[uint32]uint32),
+		series:              make(map[uint32]telem.Series),
+		seriesHandleCounter: 1,
+		strings:             make(map[uint32]string),
+		stringHandleCounter: 1,
 	}
 	s.channel.reads = make(map[uint32]telem.MultiSeries)
 	s.channel.writes = make(map[uint32]telem.Series)
@@ -92,9 +101,14 @@ func (s *State) Ingest(fr telem.Frame[uint32]) {
 	}
 }
 
-// FlushWrites extracts buffered channel writes into a frame and clears the write buffer.
+// Flush extracts buffered channel writes into a frame and clears the write buffer.
 // Returns the updated frame and true if any writes were flushed, or the original frame and false otherwise.
-func (s *State) FlushWrites(fr telem.Frame[uint32]) (telem.Frame[uint32], bool) {
+func (s *State) Flush(fr telem.Frame[uint32]) (telem.Frame[uint32], bool) {
+	clear(s.series)
+	s.seriesHandleCounter = 1
+	clear(s.strings)
+	s.stringHandleCounter = 1
+
 	if len(s.channel.writes) == 0 {
 		return fr, false
 	}
@@ -407,4 +421,36 @@ func (s *State) ReadChannelValue(key uint32) (telem.Series, bool) {
 // to both the data channel and its index channel, matching the behavior of writeChannel.
 func (s *State) WriteChannelValue(key uint32, value telem.Series) {
 	s.writeChannel(key, value, telem.NewSeriesV(telem.Now()))
+}
+
+// SeriesStore stores a series and returns a handle for later retrieval.
+// Handles are transient and are cleared on each Flush call.
+func (s *State) SeriesStore(series telem.Series) uint32 {
+	handle := s.seriesHandleCounter
+	s.seriesHandleCounter++
+	s.series[handle] = series
+	return handle
+}
+
+// SeriesGet retrieves a series by its handle.
+// Returns the series and true if found, or an empty series and false if not found.
+func (s *State) SeriesGet(handle uint32) (telem.Series, bool) {
+	series, ok := s.series[handle]
+	return series, ok
+}
+
+// StringCreate stores a string and returns a handle for later retrieval.
+// Handles are transient and are cleared on each Flush call.
+func (s *State) StringCreate(str string) uint32 {
+	handle := s.stringHandleCounter
+	s.stringHandleCounter++
+	s.strings[handle] = str
+	return handle
+}
+
+// StringGet retrieves a string by its handle.
+// Returns the string and true if found, or an empty string and false if not found.
+func (s *State) StringGet(handle uint32) (string, bool) {
+	str, ok := s.strings[handle]
+	return str, ok
 }
