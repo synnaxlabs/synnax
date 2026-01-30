@@ -12,6 +12,7 @@ package driver
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // CompositeFactory combines multiple factories, delegating to each in order.
@@ -20,14 +21,15 @@ type CompositeFactory []Factory
 var _ Factory = CompositeFactory{}
 
 // ConfigureTask delegates to each factory in order until one handles the task type.
-func (c CompositeFactory) ConfigureTask(ctx Context, t task.Task) (Task, bool, error) {
+func (c CompositeFactory) ConfigureTask(ctx Context, t task.Task) (Task, error) {
 	for _, f := range c {
-		tsk, handled, err := f.ConfigureTask(ctx, t)
-		if handled {
-			return tsk, true, err
+		tsk, err := f.ConfigureTask(ctx, t)
+		if errors.Is(err, ErrTaskNotHandled) {
+			continue
 		}
+		return tsk, err
 	}
-	return nil, false, nil
+	return nil, ErrTaskNotHandled
 }
 
 // ConfigureInitialTasks collects initial tasks from all factories.

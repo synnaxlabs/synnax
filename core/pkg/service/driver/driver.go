@@ -235,19 +235,19 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 		delete(d.mu.tasks, t.Key)
 	}
 	taskCtx := NewContext(ctx, d.cfg.Status)
-	newTask, ok, err := d.cfg.Factory.ConfigureTask(taskCtx, t)
+	newTask, err := d.cfg.Factory.ConfigureTask(taskCtx, t)
 	if err != nil {
+		if errors.Is(err, ErrTaskNotHandled) {
+			d.cfg.L.Warn("no factory handled task type",
+				zap.Stringer("task", t.Key),
+				zap.String("type", t.Type),
+			)
+			return
+		}
 		d.cfg.L.Error("factory failed to configure task",
 			zap.Stringer("task", t.Key),
 			zap.String("type", t.Type),
 			zap.Error(err),
-		)
-		return
-	}
-	if !ok {
-		d.cfg.L.Warn("no factory handled task type",
-			zap.Stringer("task", t.Key),
-			zap.String("type", t.Type),
 		)
 		return
 	}

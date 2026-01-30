@@ -121,8 +121,7 @@ var _ = Describe("Task", Ordered, func() {
 			Type:   runtime.TaskType,
 			Config: string(cfgJSON),
 		}
-		t := MustBeOk(MustSucceed2(factory.ConfigureTask(newContext(), svcTask)))
-		return t
+		return MustSucceed(factory.ConfigureTask(newContext(), svcTask))
 	}
 
 	simpleGraph := func(chKey channel.Key) graph.Graph {
@@ -176,9 +175,8 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   "not-arc",
 				Config: "{}",
 			}
-			t, handled := MustSucceed2(factory.ConfigureTask(newContext(), svcTask))
-			Expect(handled).To(BeFalse())
-			Expect(t).To(BeNil())
+			Expect(factory.ConfigureTask(newContext(), svcTask)).Error().
+				To(MatchError(driver.ErrTaskNotHandled))
 		})
 
 		It("Should create Task for arc type", func() {
@@ -200,10 +198,8 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: "invalid json",
 			}
-			task, ok, err := factory.ConfigureTask(newContext(), svcTask)
-			Expect(err).To(MatchError(ContainSubstring("invalid character 'i'")))
-			Expect(ok).To(BeTrue())
-			Expect(task).To(BeNil())
+			Expect(factory.ConfigureTask(newContext(), svcTask)).Error().
+				To(MatchError(ContainSubstring("invalid character 'i'")))
 		})
 
 		It("Should return error when CompileModule fails", func() {
@@ -219,10 +215,8 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: string(cfgJSON),
 			}
-			t, handled, err := factory.ConfigureTask(newContext(), svcTask)
-			Expect(err).To(MatchError(query.ErrNotFound))
-			Expect(handled).To(BeTrue())
-			Expect(t).To(BeNil())
+			Expect(factory.ConfigureTask(newContext(), svcTask)).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should set error status when config JSON is invalid", func() {
@@ -238,8 +232,8 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: "invalid json",
 			}
-			_, _, err := factory.ConfigureTask(newContext(), svcTask)
-			Expect(err).To(HaveOccurred())
+			Expect(factory.ConfigureTask(newContext(), svcTask)).Error().
+				To(HaveOccurred())
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
 				WhereKeys(task.OntologyID(svcTask.Key).String()).
@@ -263,8 +257,8 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: string(cfgJSON),
 			}
-			_, _, err := factory.ConfigureTask(newContext(), svcTask)
-			Expect(err).To(MatchError(query.ErrNotFound))
+			Expect(factory.ConfigureTask(newContext(), svcTask)).Error().
+				To(MatchError(query.ErrNotFound))
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
 				WhereKeys(task.OntologyID(svcTask.Key).String()).
@@ -287,11 +281,10 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: string(MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))),
 			}
-			t, handled := MustSucceed2(
+			t := MustSucceed(
 				newGraphFactory(simpleGraph(ch.Key())).
 					ConfigureTask(newContext(), svcTask),
 			)
-			Expect(handled).To(BeTrue())
 			Expect(t).ToNot(BeNil())
 			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
 			var stat task.Status
@@ -319,11 +312,9 @@ var _ = Describe("Task", Ordered, func() {
 					AutoStart: true,
 				}))),
 			}
-			t, handled := MustSucceed2(newGraphFactory(
+			t := MustSucceed(newGraphFactory(
 				simpleGraph(ch.Key())).
-				ConfigureTask(newContext(), svcTask),
-			)
-			Expect(handled).To(BeTrue())
+				ConfigureTask(newContext(), svcTask))
 			Expect(t).ToNot(BeNil())
 			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
 			var stat task.Status
@@ -402,9 +393,8 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: string(cfgJSON),
 			}
-			_, ok, err := newGraphFactory(badNodeGraph).ConfigureTask(newContext(), svcTask)
-			Expect(ok).To(BeTrue())
-			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
+			Expect(newGraphFactory(badNodeGraph).ConfigureTask(newContext(), svcTask)).
+				Error().To(MatchError(ContainSubstring("undefined symbol")))
 		})
 	})
 
@@ -672,7 +662,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: string(cfgJSON),
 			}
-			t := MustBeOk(MustSucceed2(newTextFactory(prog).ConfigureTask(newContext(), svcTask)))
+			t := MustSucceed(newTextFactory(prog).ConfigureTask(newContext(), svcTask))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() {
 				Expect(t.Stop(false)).To(Succeed())
@@ -720,7 +710,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: string(cfgJSON),
 			}
-			t := MustBeOk(MustSucceed2(newTextFactory(prog).ConfigureTask(newContext(), svcTask)))
+			t := MustSucceed(newTextFactory(prog).ConfigureTask(newContext(), svcTask))
 
 			responses, closeStreamer := openTestStreamer(channel.Keys{outputCh.Key()}, 5)
 			defer closeStreamer()

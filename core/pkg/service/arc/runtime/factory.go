@@ -105,19 +105,19 @@ func NewFactory(cfgs ...FactoryConfig) (*Factory, error) {
 func (f *Factory) ConfigureTask(
 	ctx driver.Context,
 	t task.Task,
-) (driver.Task, bool, error) {
+) (driver.Task, error) {
 	if t.Type != TaskType {
-		return nil, false, nil
+		return nil, driver.ErrTaskNotHandled
 	}
 	var cfg TaskConfig
 	if err := json.Unmarshal([]byte(t.Config), &cfg); err != nil {
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
-		return nil, true, err
+		return nil, err
 	}
 	prog, err := f.cfg.GetModule(ctx, cfg.ArcKey)
 	if err != nil {
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
-		return nil, true, err
+		return nil, err
 	}
 	arcTask := &taskImpl{
 		ctx:        ctx,
@@ -128,12 +128,12 @@ func (f *Factory) ConfigureTask(
 	}
 	if cfg.AutoStart {
 		if err := arcTask.Exec(ctx, task.Command{Type: "start"}); err != nil {
-			return arcTask, true, err
+			return nil, err
 		}
 	} else {
 		f.setConfigStatus(ctx, t, xstatus.VariantSuccess, "Task configured successfully")
 	}
-	return arcTask, true, nil
+	return arcTask, nil
 }
 
 func (f *Factory) setConfigStatus(ctx driver.Context, t task.Task, variant xstatus.Variant, message string) {
