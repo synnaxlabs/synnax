@@ -85,7 +85,7 @@ codes)
 
 ### What to Include
 
-- **Text mode only** for initial docs (Graph mode documented later)
+- **Text mode only** for initial docs (graph mode documented later)
 - **Introduction** separate from **Get Started** (conceptual vs practical entry points)
 - **Effective Arc** page with best practices and common pitfalls
 - **Error codes** documented in Language Reference (current codes, expand over time)

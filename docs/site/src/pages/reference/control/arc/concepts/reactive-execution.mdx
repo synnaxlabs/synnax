@@ -110,11 +110,9 @@ channel updates while the graph is executing, every node sees the same snapshot.
 dependencies. The compiler organizes nodes into "strata" (layers), where each stratum
 only executes after all nodes in the previous stratum have completed.
 
-This is critical for:
-
-- **Safety certification**: Predictable, repeatable behavior
-- **Debugging**: You know exactly what values each node saw
-- **Multi-branch logic**: All branches see consistent data
+Without this guarantee, debugging becomes difficult and safety certification nearly
+impossible. You'd never know if a bug was caused by inconsistent data or actual logic
+errors.
 
 <Divider.Divider x />
 

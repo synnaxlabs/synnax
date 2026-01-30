@@ -135,7 +135,7 @@ Block-based visual programming interface. Best for:
 | **Operators**    | `Add`, `Subtract`, `Multiply`, `Divide`, `Greater Than`, `Less Than`, `Equal`, `Not Equal`, `>=`, `<=`, `And`, `Or`, `Not` |
 | **Flow Control** | `Select` (route by condition), `Stable For` (debounce)                                                                     |
 
-**Current Limitation**: Graph mode does not support sequences, stages, or custom
+**Current Limitation**: graph mode does not support sequences, stages, or custom
 functions. Complex multi-stage control logic requires text mode.
 
 **Note**: Graph and text modes are separate - programs created in one mode stay in that
@@ -401,15 +401,12 @@ WITH stratified execution:
 - Behavior is predictable and certifiable
 ```
 
-This is critical for:
-
-- **Safety certification** - Predictable, repeatable behavior
-- **Debugging** - You know exactly what values each node saw
-- **Multi-branch logic** - All branches see consistent data
+Without this guarantee, debugging becomes difficult and safety certification nearly
+impossible.
 
 ### Channels: Reactive vs Imperative Context
 
-**This is critical to understand.** Channels behave differently depending on context.
+Channels behave differently depending on context.
 
 #### Reactive Context (Flow Statements)
 
@@ -517,9 +514,7 @@ stops (until the stage is re-entered).
 
 ## 6. Sequences (State Machines) - UNIQUE TO ARC
 
-### Key Concept: Concurrency Within Stages
-
-**This is the most important thing to understand about Arc.**
+### Concurrency Within Stages
 
 In traditional programming, code executes line-by-line, top to bottom. In Arc stages,
 **all flows run concurrently**. Every line in a stage is active at the same time.
@@ -822,7 +817,7 @@ ox_pt_1 > 500 -> set_status{statusKey="overpressure", variant="error", message="
 | `variant`   | `"success"`, `"warning"`, `"error"` | Status severity/color     |
 | `message`   | String                              | Notification message text |
 
-This is the primary use case for Graph mode - building visual alarm logic that triggers
+This is the primary use case for graph mode - building visual alarm logic that triggers
 notifications when sensor values exceed thresholds.
 
 ### Constant Node

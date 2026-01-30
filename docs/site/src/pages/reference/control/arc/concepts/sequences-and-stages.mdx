@@ -21,10 +21,8 @@ This is the most common use case for Arc: test sequences, startup routines, shut
 procedures, and any workflow that progresses through distinct phases.
 
 <Note.Note variant="warning">
-  **Everything in a stage runs at the same time.** This is the key concept. When you
-  look at the code, it appears to be listed line-by-line, but Arc executes all flows in
-  a stage concurrently. Don't think of it as "first this line, then the next line."
-  Think of it as "all of these things are being monitored simultaneously."
+  **Everything in a stage runs at the same time.** The code looks sequential, but Arc
+  executes all flows in a stage concurrently.
 </Note.Note>
 
 <Divider.Divider x />
@@ -219,12 +217,9 @@ start_btn => main
 emergency_stop => abort
 ```
 
-Key points:
-
-- Safety conditions are listed before success conditions in each stage
-- The `abort` sequence can be triggered from any stage or from an external button
-- Transitioning to `abort` leaves the `main` sequence entirely
-- The `complete` stage is terminal (no outgoing transitions)
+Notice that safety conditions are listed before success conditions in each stage. The
+`abort` sequence can be triggered from any stage or from the `emergency_stop` button.
+Transitioning to `abort` leaves the `main` sequence entirely.
 
 <Divider.Divider x />
 
