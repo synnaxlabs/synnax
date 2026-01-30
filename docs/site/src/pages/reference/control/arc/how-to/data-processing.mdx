@@ -393,7 +393,7 @@ pressure -> rate{dt_ms=50.0} -> pressure_rate
 ```
 
 The `dt_ms` config parameter is the expected time between samples in milliseconds. The
-output is in units per second (e.g., PSI/second if pressure is in PSI).
+output is in units per second (e.g., psi/second if pressure is in psi).
 
 <Note.Note variant="info">
   The `dt_ms` parameter should match your actual sample rate. If the sensor updates
@@ -408,7 +408,7 @@ Here's a complete pipeline that reads a pressure sensor, converts units, smooths
 signal, computes rate of change, and outputs everything:
 
 ```arc
-// Unit conversion: voltage to PSI
+// Unit conversion: voltage to psi
 func volts_to_psi{v_min f64, v_max f64, p_max f64}(v f64) f64 {
     ratio := (v - v_min) / (v_max - v_min)
     return ratio * p_max
@@ -429,7 +429,7 @@ func rate{dt_ms f64}(value f64) f64 {
     return d / (dt_ms / 1000.0)
 }
 
-// Pipeline: raw voltage -> PSI -> smoothed -> rate
+// Pipeline: raw voltage -> psi -> smoothed -> rate
 pressure_raw -> volts_to_psi{v_min=0.5, v_max=4.5, p_max=1000.0} -> pressure_psi
 pressure_psi -> ema{alpha=0.3} -> pressure_smooth
 pressure_smooth -> rate{dt_ms=50.0} -> pressure_rate
@@ -440,7 +440,7 @@ pressure_smooth > 800 -> pressure_high
 
 Each stage feeds the next. When `pressure_raw` updates:
 
-1. `volts_to_psi` converts to PSI
+1. `volts_to_psi` converts to psi
 2. `ema` smooths the result
 3. `rate` computes how fast the smoothed value is changing
 4. The comparison outputs 1 if pressure exceeds 800

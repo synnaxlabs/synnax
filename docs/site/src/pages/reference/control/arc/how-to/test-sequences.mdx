@@ -85,7 +85,7 @@ sequence main {
 start_cmd => main
 ```
 
-The sequence pressurizes to 500 PSI, holds for 30 seconds, then depressurizes.
+The sequence pressurizes to 500 psi, holds for 30 seconds, then depressurizes.
 
 <Divider.Divider x />
 
@@ -233,7 +233,7 @@ sequence main {
 }
 ```
 
-The rate monitor triggers an abort if pressure rises faster than 100 PSI/second.
+The rate monitor triggers an abort if pressure rises faster than 100 psi/second.
 
 <Divider.Divider x />
 
@@ -391,7 +391,7 @@ emergency_stop => abort
 **List abort conditions first.** Line order determines priority. Safety conditions
 should always win over normal operations.
 
-**Use multiple abort thresholds.** A pressure of 600 PSI might be a warning, but 700 PSI
+**Use multiple abort thresholds.** A pressure of 600 psi might be a warning, but 700 psi
 triggers an immediate abort.
 
 **Add timeouts.** Sequences that wait indefinitely for conditions can hang. Use `wait`

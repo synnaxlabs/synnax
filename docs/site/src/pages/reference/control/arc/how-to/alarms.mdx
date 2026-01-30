@@ -14,7 +14,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 Alarms notify operators when values exceed acceptable limits. A pressure that crosses
-600 PSI should trigger a warning. A temperature that stays above 300°C for more than 5
+600 psi should trigger a warning. A temperature that stays above 300°C for more than 5
 seconds should sound an alarm. Arc makes these patterns straightforward.
 
 <Divider.Divider x />
@@ -55,7 +55,7 @@ tank_level -> low_alarm{limit=10.0} -> tank_level_low
 ## Deadband Alarm
 
 Simple threshold alarms chatter when values oscillate near the limit. If pressure hovers
-around 600 PSI, the alarm toggles on and off rapidly. A deadband prevents this by
+around 600 psi, the alarm toggles on and off rapidly. A deadband prevents this by
 requiring the value to cross back below a lower threshold before the alarm clears:
 
 ```arc
@@ -83,8 +83,8 @@ func deadband_alarm{
 tank_pressure -> deadband_alarm{high=600.0, low=580.0} -> pressure_high
 ```
 
-The alarm activates when pressure exceeds 600 PSI. It only clears when pressure drops
-below 580 PSI. This 20 PSI deadband eliminates chatter.
+The alarm activates when pressure exceeds 600 psi. It only clears when pressure drops
+below 580 psi. This 20 psi deadband eliminates chatter.
 
 <Note.Note variant="info">
   Choose your deadband based on expected noise and process dynamics. Too narrow and you

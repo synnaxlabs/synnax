@@ -23,12 +23,12 @@ tank_pressure -> safety_check{}
 tank_pressure -> controller{}
 ```
 
-In traditional programming, if `tank_pressure` updates to 500 PSI while your code is
-running, `safety_check` might see 500 PSI while `controller` sees the old value (400
-PSI). This inconsistency could cause subtle bugs or safety issues.
+In traditional programming, if `tank_pressure` updates to 500 psi while your code is
+running, `safety_check` might see 500 psi while `controller` sees the old value (400
+psi). This inconsistency could cause subtle bugs or safety issues.
 
-Arc prevents this. Both functions see exactly the same value. Either both see 400 PSI or
-both see 500 PSI, never a mix.
+Arc prevents this. Both functions see exactly the same value. Either both see 400 psi or
+both see 500 psi, never a mix.
 
 This is called **stratified execution**, and it's why Arc programs are predictable and
 safe.
