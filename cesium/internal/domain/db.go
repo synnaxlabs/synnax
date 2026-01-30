@@ -132,6 +132,12 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	var initialSize int64
+	for _, p := range idx.mu.pointers {
+		initialSize += int64(p.size)
+	}
+	idx.totalSize = &atomic.Int64{}
+	idx.totalSize.Store(initialSize)
 	controller, err := openFileController(cfg)
 	if err != nil {
 		return nil, err
@@ -158,16 +164,9 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	return i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr), i.Close()
 }
 
-// Size returns the total size of all data stored in the database by summing the sizes
-// of all pointers in the index.
+// Size returns the total size of all data stored in the database.
 func (db *DB) Size() telem.Size {
-	db.idx.mu.RLock()
-	defer db.idx.mu.RUnlock()
-	var total telem.Size
-	for _, p := range db.idx.mu.pointers {
-		total += telem.Size(p.size)
-	}
-	return total
+	return telem.Size(db.idx.totalSize.Load())
 }
 
 // Close closes the DB. Close should not be called concurrently with any other DB
