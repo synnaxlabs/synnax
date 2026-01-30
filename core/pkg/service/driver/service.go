@@ -60,7 +60,7 @@ type commandSink struct {
 // to receive task changes when this function returns. Background goroutines for command
 // streaming are started automatically.
 func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(defaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func (d *Driver) handleTaskChange(ctx context.Context, reader gorp.TxReader[task
 			if ch.Variant == change.VariantSet {
 				d.configure(ctx, ch.Value)
 			} else {
-				d.delete(ctx, ch.Key)
+				d.delete(ch.Key)
 			}
 		}
 	}
@@ -226,7 +226,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if existing, ok := d.mu.tasks[t.Key]; ok {
-		if err := existing.Stop(true); err != nil {
+		if err := existing.Stop(); err != nil {
 			d.cfg.L.Error("failed to stop existing task for reconfiguration",
 				zap.Stringer("task", t.Key),
 				zap.Error(err),
@@ -235,19 +235,12 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 		delete(d.mu.tasks, t.Key)
 	}
 	taskCtx := NewContext(ctx, d.cfg.Status)
-	newTask, ok, err := d.cfg.Factory.ConfigureTask(taskCtx, t)
+	newTask, err := d.cfg.Factory.ConfigureTask(taskCtx, t)
 	if err != nil {
 		d.cfg.L.Error("factory failed to configure task",
 			zap.Stringer("task", t.Key),
 			zap.String("type", t.Type),
 			zap.Error(err),
-		)
-		return
-	}
-	if !ok {
-		d.cfg.L.Warn("no factory handled task type",
-			zap.Stringer("task", t.Key),
-			zap.String("type", t.Type),
 		)
 		return
 	}
@@ -259,14 +252,14 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 	)
 }
 
-func (d *Driver) delete(ctx context.Context, key task.Key) {
+func (d *Driver) delete(key task.Key) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	t, ok := d.mu.tasks[key]
 	if !ok {
 		return
 	}
-	if err := t.Stop(false); err != nil {
+	if err := t.Stop(); err != nil {
 		d.cfg.L.Error("failed to stop task during deletion",
 			zap.Stringer("task", key),
 			zap.Error(err),
@@ -276,14 +269,12 @@ func (d *Driver) delete(ctx context.Context, key task.Key) {
 	d.cfg.L.Info("deleted task", zap.Stringer("task", key))
 }
 
-func (d *Driver) RackKey() rack.Key {
-	return d.rack.Key
-}
+func (d *Driver) RackKey() rack.Key { return d.rack.Key }
 
 func (d *Driver) Close() error {
 	d.mu.Lock()
 	for key, t := range d.mu.tasks {
-		if err := t.Stop(false); err != nil {
+		if err := t.Stop(); err != nil {
 			d.cfg.L.Error("failed to stop task during shutdown",
 				zap.Stringer("task", key),
 				zap.Error(err),

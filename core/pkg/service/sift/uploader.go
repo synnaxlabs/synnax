@@ -15,8 +15,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/google/uuid"
-	typev1 "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
 	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -367,18 +365,9 @@ func (u *uploaderTask) setStatus(variant xstatus.Variant, message string, runnin
 }
 
 // Stop stops the uploader task.
-func (u *uploaderTask) Stop(_ bool) error {
-	return u.cancel()
-}
+func (u *uploaderTask) Stop() error { return u.cancel() }
 
 // Key returns the task key.
-func (u *uploaderTask) Key() task.Key {
-	return u.task.Key
-}
+func (u *uploaderTask) Key() task.Key { return u.task.Key }
 
-// Ensure uploaderTask implements driver.Task
 var _ driver.Task = (*uploaderTask)(nil)
-
-// Suppress unused variable warning
-var _ = uuid.UUID{}
-var _ = typev1.ChannelDataType(0)

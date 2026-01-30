@@ -56,13 +56,10 @@ func (r Retrieve) WhereTypes(types ...string) Retrieve {
 	return r
 }
 
-func (r Retrieve) Entry(rack *Task) Retrieve {
-	r.gorp = r.gorp.Entry(rack)
-	return r
-}
+func (r Retrieve) Entry(task *Task) Retrieve { r.gorp = r.gorp.Entry(task); return r }
 
-func (r Retrieve) Entries(racks *[]Task) Retrieve {
-	r.gorp = r.gorp.Entries(racks)
+func (r Retrieve) Entries(tasks *[]Task) Retrieve {
+	r.gorp = r.gorp.Entries(tasks)
 	return r
 }
 

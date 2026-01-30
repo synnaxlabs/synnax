@@ -83,8 +83,8 @@ type Factory struct {
 
 var _ driver.Factory = (*Factory)(nil)
 
-// NewFactory creates a new Sift factory.
-func NewFactory(cfgs ...FactoryConfig) (*Factory, error) {
+// OpenFactory creates a new Sift factory.
+func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 	cfg, err := config.New(DefaultFactoryConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -96,28 +96,25 @@ func NewFactory(cfgs ...FactoryConfig) (*Factory, error) {
 }
 
 // ConfigureTask creates a Sift task if this factory handles the task type.
-func (f *Factory) ConfigureTask(
-	ctx driver.Context,
-	t task.Task,
-) (driver.Task, bool, error) {
+func (f *Factory) ConfigureTask(ctx driver.Context, t task.Task) (driver.Task, error) {
 	switch t.Type {
 	case TaskTypeUploader:
 		return f.configureUploader(ctx, t)
 	case TaskTypeWriter:
 		return f.configureWriter(ctx, t)
 	default:
-		return nil, false, nil
+		return nil, driver.ErrNotHandled
 	}
 }
 
 func (f *Factory) configureUploader(
 	ctx driver.Context,
 	t task.Task,
-) (driver.Task, bool, error) {
+) (driver.Task, error) {
 	var cfg UploaderTaskConfig
 	if err := json.Unmarshal([]byte(t.Config), &cfg); err != nil {
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
-		return nil, true, err
+		return nil, err
 	}
 
 	// Retrieve the device to get connection properties
@@ -127,28 +124,28 @@ func (f *Factory) configureUploader(
 		Entry(&dev).
 		Exec(ctx, nil); err != nil {
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
-		return nil, true, err
+		return nil, err
 	}
 
 	props, err := ParseDeviceProperties(dev.Properties)
 	if err != nil {
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
-		return nil, true, err
+		return nil, err
 	}
 
 	uploader := newUploaderTask(t, props, f.cfg, f.pool)
 	f.setConfigStatus(ctx, t, xstatus.VariantSuccess, "Uploader task configured successfully")
-	return uploader, true, nil
+	return uploader, nil
 }
 
 func (f *Factory) configureWriter(
 	ctx driver.Context,
 	t task.Task,
-) (driver.Task, bool, error) {
+) (driver.Task, error) {
 	var cfg WriterTaskConfig
 	if err := json.Unmarshal([]byte(t.Config), &cfg); err != nil {
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
-		return nil, true, err
+		return nil, err
 	}
 
 	// Retrieve the device to get connection properties
@@ -158,30 +155,30 @@ func (f *Factory) configureWriter(
 		Entry(&dev).
 		Exec(ctx, nil); err != nil {
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
-		return nil, true, err
+		return nil, err
 	}
 
 	props, err := ParseDeviceProperties(dev.Properties)
 	if err != nil {
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
-		return nil, true, err
+		return nil, err
 	}
 
 	writer, err := newWriterTask(ctx, t, cfg, props, f.cfg, f.pool)
 	if err != nil {
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
-		return nil, true, err
+		return nil, err
 	}
 
 	if cfg.AutoStart {
 		if err := writer.Exec(ctx, task.Command{Type: "start"}); err != nil {
-			return writer, true, err
+			return writer, err
 		}
 	} else {
 		f.setConfigStatus(ctx, t, xstatus.VariantSuccess, "Writer task configured successfully")
 	}
 
-	return writer, true, nil
+	return writer, nil
 }
 
 // ConfigureInitialTasks creates uploader tasks for each Sift device on the rack.
@@ -257,13 +254,8 @@ func (f *Factory) setConfigStatus(
 	}
 }
 
-// Name returns the factory name.
-func (f *Factory) Name() string { return "Sift" }
-
 // Close closes the connection pool.
-func (f *Factory) Close() error {
-	return f.pool.Close()
-}
+func (f *Factory) Close() error { return f.pool.Close() }
 
 // deviceKeyToLocalKey converts a device key string to a local task key.
 // Uses a simple hash to generate a deterministic uint32.

@@ -38,15 +38,17 @@ import (
 )
 
 type mockFactory struct {
-	configureFunc func(t task.Task) (driver.Task, bool, error)
+	configureFunc func(task.Task) (driver.Task, error)
 	name          string
 }
 
-func (f *mockFactory) ConfigureTask(_ driver.Context, t task.Task) (driver.Task, bool, error) {
+var _ driver.Factory = (*mockFactory)(nil)
+
+func (f *mockFactory) ConfigureTask(_ driver.Context, t task.Task) (driver.Task, error) {
 	if f.configureFunc != nil {
 		return f.configureFunc(t)
 	}
-	return nil, false, nil
+	return nil, nil
 }
 
 func (f *mockFactory) ConfigureInitialTasks(
@@ -56,13 +58,13 @@ func (f *mockFactory) ConfigureInitialTasks(
 	return nil, nil
 }
 
-func (f *mockFactory) Name() string { return f.name }
-
 type mockTask struct {
-	execFunc func(cmd task.Command) error
+	execFunc func(task.Command) error
 	stopFunc func() error
 	key      task.Key
 }
+
+var _ driver.Task = (*mockTask)(nil)
 
 func (t *mockTask) Exec(_ context.Context, cmd task.Command) error {
 	if t.execFunc != nil {
@@ -71,7 +73,7 @@ func (t *mockTask) Exec(_ context.Context, cmd task.Command) error {
 	return nil
 }
 
-func (t *mockTask) Stop(_ bool) error {
+func (t *mockTask) Stop() error {
 	if t.stopFunc != nil {
 		return t.stopFunc()
 	}
@@ -292,10 +294,10 @@ var _ = Describe("Driver", Ordered, func() {
 			var configuredTask atomic.Value
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					mt := &mockTask{key: t.Key}
 					configuredTask.Store(mt)
-					return mt, true, nil
+					return mt, nil
 				},
 			}
 			driver := openDriver(factory)
@@ -315,7 +317,7 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					configCount.Add(1)
 					return &mockTask{
 						key: t.Key,
@@ -325,7 +327,7 @@ var _ = Describe("Driver", Ordered, func() {
 							}
 							return nil
 						},
-					}, true, nil
+					}, nil
 				},
 			}
 			driver := openDriver(factory)
@@ -349,9 +351,9 @@ var _ = Describe("Driver", Ordered, func() {
 			var configuredCount atomic.Int32
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					configuredCount.Add(1)
-					return &mockTask{key: t.Key}, true, nil
+					return &mockTask{key: t.Key}, nil
 				},
 			}
 			openDriver(factory)
@@ -375,12 +377,12 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					readyOnce.Do(func() { close(initialReady) })
 					return &mockTask{
 						key:      t.Key,
 						stopFunc: func() error { stopped.Store(true); return nil },
-					}, true, nil
+					}, nil
 				},
 			}
 			driver := openDriver(factory)
@@ -403,9 +405,9 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					configureCalled.Store(true)
-					return nil, false, nil
+					return nil, nil
 				},
 			}
 			driver := openDriver(factory)
@@ -427,9 +429,9 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					configCalled.Store(true)
-					return nil, true, errors.New("factory configuration failed")
+					return nil, errors.New("factory configuration failed")
 				},
 			}
 			driver := openDriver(factory)
@@ -452,7 +454,7 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					configCount.Add(1)
 					return &mockTask{
 						key: t.Key,
@@ -462,7 +464,7 @@ var _ = Describe("Driver", Ordered, func() {
 							}
 							return errors.New("stop failed")
 						},
-					}, true, nil
+					}, nil
 				},
 			}
 			driver := openDriver(factory)
@@ -486,9 +488,9 @@ var _ = Describe("Driver", Ordered, func() {
 
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					configuredTasks.Store(t.Key, true)
-					return &mockTask{key: t.Key}, true, nil
+					return &mockTask{key: t.Key}, nil
 				},
 			}
 
@@ -560,7 +562,7 @@ var _ = Describe("Driver", Ordered, func() {
 
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					if _, isTestTask := testTaskKeys.Load(t.Key); isTestTask {
 						if configCount.Add(1) == expectedTasks {
 							closeOnce.Do(func() { close(allConfigured) })
@@ -574,7 +576,7 @@ var _ = Describe("Driver", Ordered, func() {
 							}
 							return nil
 						},
-					}, true, nil
+					}, nil
 				},
 			}
 
@@ -610,12 +612,12 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
 					return &mockTask{
 						key:      t.Key,
 						stopFunc: func() error { stopCalled.Store(true); return errors.New("stop failed") },
-					}, true, nil
+					}, nil
 				},
 			}
 
@@ -778,7 +780,7 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
 					return &mockTask{
 						key: t.Key,
@@ -787,7 +789,7 @@ var _ = Describe("Driver", Ordered, func() {
 							receivedCmd.Store(cmd)
 							return nil
 						},
-					}, true, nil
+					}, nil
 				},
 			}
 			driver := openDriver(factory)
@@ -816,11 +818,11 @@ var _ = Describe("Driver", Ordered, func() {
 			var execCalled atomic.Bool
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					return &mockTask{
 						key:      t.Key,
 						execFunc: func(cmd task.Command) error { execCalled.Store(true); return nil },
-					}, true, nil
+					}, nil
 				},
 			}
 			driver := openDriver(factory)
@@ -842,11 +844,11 @@ var _ = Describe("Driver", Ordered, func() {
 			var execCalled atomic.Bool
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					return &mockTask{
 						key:      t.Key,
 						execFunc: func(cmd task.Command) error { execCalled.Store(true); return nil },
-					}, true, nil
+					}, nil
 				},
 			}
 			openDriver(factory)
@@ -874,7 +876,7 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, error) {
 					readyOnce.Do(func() { close(configReady) })
 					return &mockTask{
 						key: t.Key,
@@ -882,7 +884,7 @@ var _ = Describe("Driver", Ordered, func() {
 							execCalled.Store(true)
 							return errors.New("execution failed")
 						},
-					}, true, nil
+					}, nil
 				},
 			}
 			driver := openDriver(factory)

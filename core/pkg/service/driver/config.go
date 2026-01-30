@@ -38,7 +38,7 @@ type Config struct {
 	Task *task.Service
 	// Framer is the framer service for streaming commands.
 	Framer *framer.Service
-	// Channel is the channel service for retrieving command channels.
+	// Channel is the channel service for retrieving the task command channel.
 	Channel *channel.Service
 	// Status is the status service for task status updates.
 	Status *status.Service
@@ -49,7 +49,7 @@ type Config struct {
 
 var (
 	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{HeartbeatInterval: 1 * time.Second}
+	defaultConfig                       = Config{HeartbeatInterval: 1 * time.Second}
 )
 
 func (c Config) Override(other Config) Config {

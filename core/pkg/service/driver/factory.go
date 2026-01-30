@@ -12,20 +12,21 @@ package driver
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Factory is an interface for creating tasks based on their type.
 type Factory interface {
 	// ConfigureTask creates a task instance if this factory handles the task type.
-	// Returns (task, true, nil) if handled successfully.
-	// Returns (nil, false, nil) if this factory does not handle the task type.
-	// Returns (nil, true, err) if the factory handles this type but configuration failed.
-	ConfigureTask(ctx Context, t task.Task) (Task, bool, error)
-	// ConfigureInitialTasks creates tasks that should exist on startup for the given rack.
-	// Called once during driver initialization. The factory should query its own device
-	// service to find relevant devices and create appropriate tasks.
-	// Returns task definitions to be persisted and configured, or an error.
-	ConfigureInitialTasks(ctx Context, rack rack.Key) ([]task.Task, error)
-	// Name returns the factory name for logging.
-	Name() string
+	// Returns the task instance if handled successfully, ErrNotHandled if the factory
+	// does not handle the task type, or another error if the factory handles the task
+	// type but configuration failed.
+	ConfigureTask(Context, task.Task) (Task, error)
+	// ConfigureInitialTasks creates tasks that should exist on startup for the given
+	// rack. Called once during driver initialization. The factory should query its own
+	// device service to find relevant devices and create appropriate tasks. Returns
+	// task definitions to be persisted and configured, or an error.
+	ConfigureInitialTasks(Context, rack.Key) ([]task.Task, error)
 }
+
+var ErrNotHandled = errors.New("task not handled by factory")

@@ -37,10 +37,10 @@ type writerTask struct {
 	factoryCfg FactoryConfig
 	pool       *ConnectionPool
 
-	mu        sync.Mutex
-	running   atomic.Bool
-	cancelFn  context.CancelFunc
-	wg        signal.WaitGroup
+	mu         sync.Mutex
+	running    atomic.Bool
+	cancelFn   context.CancelFunc
+	wg         signal.WaitGroup
 	channelMap map[channel.Key]channel.Channel
 }
 
@@ -363,14 +363,9 @@ func (w *writerTask) setStatus(variant xstatus.Variant, message string, running 
 }
 
 // Stop stops the writer task.
-func (w *writerTask) Stop(_ bool) error {
-	return w.stop()
-}
+func (w *writerTask) Stop() error { return w.stop() }
 
 // Key returns the task key.
-func (w *writerTask) Key() task.Key {
-	return w.task.Key
-}
+func (w *writerTask) Key() task.Key { return w.task.Key }
 
-// Ensure writerTask implements driver.Task
 var _ driver.Task = (*writerTask)(nil)
