@@ -7,10 +7,9 @@ prevURL: "/reference/driver/modbus/read-task"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/Media";
+import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import ChannelTypeDetails from "@/components/details/ChannelTypeDetails.astro";
-import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Details } from "@/components";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -24,7 +23,7 @@ For task lifecycle management, see the
 
 Modbus Write Tasks use **command channels** to send values to the server:
 
-- **Command channels**: Write values here to send commands to the Modbus server
+- **Command channels** -> Write values here to send commands to the Modbus server
 - **Command time channels** (`_cmd_time`): Index channels storing command timestamps
 
 Modbus write tasks do not create separate state channels. To read back the current
@@ -45,7 +44,7 @@ state, configure a [read task](/reference/driver/modbus/read-task) for the same 
 
 ## Register Types Reference
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding Register Output ([`holding_register_output`](https://www.modbustools.com/modbus.html#function06))</Text.Text>
 
 Writes to 16-bit read/write registers (Function Code 06/16). Typically used for
@@ -64,9 +63,9 @@ setpoints, control values, and configuration parameters.
 - `int16`/`uint16`: 1 register (2 bytes)
 - `int32`/`uint32`/`float32`: 2 registers (4 bytes)
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Coil Output ([`coil_output`](https://www.modbustools.com/modbus.html#function05))</Text.Text>
 
 Writes to 1-bit read/write coils (Function Code 05/15). Typically used for binary
@@ -79,19 +78,19 @@ control signals like relay states and valve positions.
 
 **Data Type:** Always boolean (0/1)
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
 <Divider.Divider x />
 
 ## Important Rules
 
-- **Direct write**: Commands are written directly to the Modbus server without state
+- **Direct write** -> Commands are written directly to the Modbus server without state
   feedback channels.
-- **One running task per register**: A register/coil can only be controlled by one task
-  at a time.
-- **Byte/word order**: Ensure swap settings match your server configuration for
+- **One running task per register** -> A register/coil can only be controlled by one
+  task at a time.
+- **Byte/word order** -> Ensure swap settings match your server configuration for
   multi-register data types.
-- **Read-only registers**: Input Registers and Discrete Inputs cannot be written to.
+- **Read-only registers** -> Input Registers and Discrete Inputs cannot be written to.
 
 <Divider.Divider x />
 
@@ -106,7 +105,7 @@ control signals like relay states and valve positions.
   </Fragment>
   <Fragment slot="python">
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -174,9 +173,9 @@ with task.run():
         })
 ```
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -198,12 +197,12 @@ task.config.channels[1].data_type = "uint16"
 client.tasks.configure(task)
 ```
 
-</ExampleDetails>
+</Details.Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -279,9 +278,9 @@ await task.executeCommandSync("stop");
 await writer.close();
 ```
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -310,7 +309,7 @@ await client.tasks.create({
 });
 ```
 
-</ExampleDetails>
+</Details.Details>
 
   </Fragment>
 </Client.Tabs>

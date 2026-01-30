@@ -2,15 +2,14 @@
 title: "Version 0.49 Release Notes"
 ---
 
-import Release from "@/components/releases/Release.astro";
-import { Image } from "@/components/Media";
+import { Image } from "@/components/media/Media";
 import { Divider, Flex } from "@synnaxlabs/pluto";
-import Diagram from "@/components/Diagram.astro";
+import { Diagram, Releases } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-<Release
+<Releases.Release
     version="0.49.0"
     date="Dec 9, 2025"
     title="Role-Based Access Control"
@@ -33,7 +32,7 @@ the [Users](/reference/console/users) page.
 Statuses for all Drivers, devices, and tasks are now displayed in the Status Explorer,
 providing a unified view of your entire system's health.
 
-<Diagram
+<Diagram.Diagram
   preview
   style="height: 300px; width: 600px; padding: 0rem 9rem; margin-left: auto; margin-right: auto"
 >
@@ -50,7 +49,7 @@ providing a unified view of your entire system's health.
     }}
     themed={false}
   />
-</Diagram>
+</Diagram.Diagram>
 
 #### OPC UA and Modbus Status Checking
 
@@ -121,4 +120,4 @@ rotating selected elements.
 
 - Fixed inconsistencies in the Python client writer documentation.
 
-</Release>
+</Releases.Release>

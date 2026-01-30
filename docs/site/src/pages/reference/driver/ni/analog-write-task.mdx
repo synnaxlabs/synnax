@@ -9,10 +9,9 @@ nextURL: "/reference/driver/ni/counter-read-task"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/Media";
+import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import ChannelTypeDetails from "@/components/details/ChannelTypeDetails.astro";
-import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Details } from "@/components";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -49,7 +48,7 @@ channel, providing acknowledgment that the command was executed.
 
 ## Channel Types Reference
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage ([`ao_voltage`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaovoltagechan.html))</Text.Text>
 
 | Parameter       | Type   | Required | Default | Description                |
@@ -62,9 +61,9 @@ channel, providing acknowledgment that the command was executed.
 | `max_val`       | number | No       | `10.0`  | Maximum voltage (Volts)    |
 | `custom_scale`  | object | No       | -       | Custom scaling             |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Current /> Current ([`ao_current`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaocurrentchan.html))</Text.Text>
 
 | Parameter       | Type   | Required | Default | Description                |
@@ -77,15 +76,17 @@ channel, providing acknowledgment that the command was executed.
 | `max_val`       | number | No       | `0.02`  | Maximum current (Amps)     |
 | `custom_scale`  | object | No       | -       | Custom scaling             |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
 <Divider.Divider x />
 
 ## Important Rules
 
-- **Command/State pairs**: Each analog output requires both a command and state channel.
-- **One task per module**: Only one running task can claim a module at a time.
-- **State rate**: Higher state rates provide faster feedback but consume more resources.
+- **Command/State pairs** -> Each analog output requires both a command and state
+  channel.
+- **One task per module** -> Only one running task can claim a module at a time.
+- **State rate** -> Higher state rates provide faster feedback but consume more
+  resources.
 
 <Divider.Divider x />
 
@@ -100,7 +101,7 @@ channel, providing acknowledgment that the command was executed.
   </Fragment>
   <Fragment slot="python">
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -176,9 +177,9 @@ with task.run():
             print(f"State: {frame['current_state']}")
 ```
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -199,12 +200,12 @@ task.config.channels[0].max_val = 0.01
 client.tasks.configure(task)
 ```
 
-</ExampleDetails>
+</Details.Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -288,9 +289,9 @@ await writer.close();
 await streamer.close();
 ```
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -318,7 +319,7 @@ await client.tasks.create({
 });
 ```
 
-</ExampleDetails>
+</Details.Details>
 
   </Fragment>
 </Client.Tabs>

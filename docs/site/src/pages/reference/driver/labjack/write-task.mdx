@@ -7,10 +7,9 @@ prevURL: "/reference/driver/labjack/read-task"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/Media";
+import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import ChannelTypeDetails from "@/components/details/ChannelTypeDetails.astro";
-import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Details } from "@/components";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -47,7 +46,7 @@ channel, providing acknowledgment that the command was executed.
 
 ## Channel Types Reference
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Analog Output ([`AO`](https://support.labjack.com/docs/15-0-dac-t-series-datasheet))</Text.Text>
 
 Writes analog voltage to a specified output terminal (DAC).
@@ -58,9 +57,9 @@ Writes analog voltage to a specified output terminal (DAC).
 | `state_channel` | number | Yes      | -       | Synnax state channel key             |
 | `port`          | string | Yes      | -       | Port location (e.g., `DAC0`, `DAC1`) |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Digital Output ([`DO`](https://support.labjack.com/docs/13-0-digital-i-o-t-series-datasheet))</Text.Text>
 
 Writes digital state (0 or 1) to a specified digital I/O line.
@@ -71,15 +70,16 @@ Writes digital state (0 or 1) to a specified digital I/O line.
 | `state_channel` | number | Yes      | -       | Synnax state channel key             |
 | `port`          | string | Yes      | -       | Port location (e.g., `DIO4`, `FIO5`) |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
 <Divider.Divider x />
 
 ## Important Rules
 
-- **Command/State pairs**: Each output requires both a command and state channel.
-- **State rate**: Higher state rates provide faster feedback but consume more resources.
-- **One running task per channel**: A channel can only send commands to one task at a
+- **Command/State pairs** -> Each output requires both a command and state channel.
+- **State rate** -> Higher state rates provide faster feedback but consume more
+  resources.
+- **One running task per channel** -> A channel can only send commands to one task at a
   time.
 
 <Divider.Divider x />
@@ -95,7 +95,7 @@ Writes digital state (0 or 1) to a specified digital I/O line.
   </Fragment>
   <Fragment slot="python">
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -194,8 +194,8 @@ with task.run():
             print(f"Digital State: {frame['do_4_state'][-1]}")
 ```
 
-</ExampleDetails>
-<ExampleDetails>
+</Details.Details>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -217,12 +217,12 @@ task.config.channels[1].port = "DIO5"
 client.tasks.configure(task)
 ```
 
-</ExampleDetails>
+</Details.Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -333,9 +333,9 @@ await writer.close();
 await streamer.close();
 ```
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -364,7 +364,7 @@ await client.tasks.create({
 });
 ```
 
-</ExampleDetails>
+</Details.Details>
 
   </Fragment>
 </Client.Tabs>

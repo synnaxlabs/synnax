@@ -9,10 +9,9 @@ prevURL: "/reference/driver/ni/configure-device"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/Media";
+import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import ChannelTypeDetails from "@/components/details/ChannelTypeDetails.astro";
-import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Details } from "@/components";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -37,7 +36,8 @@ For task lifecycle management, see the
 
 ## Channel Types Reference
 
-<ChannelTypeDetails>
+<Details.Group>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Acceleration /> Accelerometer ([`ai_accel`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccelchan.html))</Text.Text>
 
 | Parameter              | Type   | Required | Default       | Description                                             |
@@ -55,9 +55,9 @@ For task lifecycle management, see the
 | `current_excit_val`    | number | Yes      | -             | Excitation current (Amps)                               |
 | `custom_scale`         | object | No       | -             | Custom scaling                                          |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Bridge /> Bridge ([`ai_bridge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaibridgechan.html))</Text.Text>
 
 | Parameter                   | Type   | Required | Default       | Description                                 |
@@ -75,9 +75,9 @@ For task lifecycle management, see the
 | `nominal_bridge_resistance` | number | Yes      | -             | Nominal resistance (Ohms), must be &gt; 0   |
 | `custom_scale`              | object | No       | -             | Custom scaling                              |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Current /> Current ([`ai_current`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaicurrentchan.html))</Text.Text>
 
 | Parameter                | Type   | Required | Default       | Description                          |
@@ -93,9 +93,9 @@ For task lifecycle management, see the
 | `ext_shunt_resistor_val` | number | No       | -             | External shunt resistor value (Ohms) |
 | `custom_scale`           | object | No       | -             | Custom scaling                       |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Force /> Force Bridge Table ([`ai_force_bridge_table`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforcebridgetablechan.html))</Text.Text>
 
 | Parameter                   | Type   | Required | Default       | Description                                        |
@@ -117,9 +117,9 @@ For task lifecycle management, see the
 | `physical_units`            | enum   | Yes      | -             | Physical units                                     |
 | `custom_scale`              | object | No       | -             | Custom scaling                                     |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Force /> Force Bridge Two-Point Linear ([`ai_force_bridge_two_point_lin`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforcebridgetwopointlinchan.html))</Text.Text>
 
 | Parameter                   | Type   | Required | Default       | Description                                        |
@@ -143,9 +143,9 @@ For task lifecycle management, see the
 | `physical_units`            | enum   | Yes      | -             | Physical units                                     |
 | `custom_scale`              | object | No       | -             | Custom scaling                                     |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Force /> Force IEPE ([`ai_force_iepe`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforceiepechan.html))</Text.Text>
 
 | Parameter              | Type   | Required | Default       | Description                                        |
@@ -163,9 +163,9 @@ For task lifecycle management, see the
 | `current_excit_val`    | number | Yes      | -             | Excitation current (Amps)                          |
 | `custom_scale`         | object | No       | -             | Custom scaling                                     |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Sound /> Microphone ([`ai_microphone`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaimicrophonechan.html))</Text.Text>
 
 | Parameter              | Type   | Required | Default       | Description                    |
@@ -181,9 +181,9 @@ For task lifecycle management, see the
 | `units`                | enum   | No       | `Pascals`     | `Pascals`                      |
 | `custom_scale`         | object | No       | -             | Custom scaling                 |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Pressure /> Pressure Bridge Table ([`ai_pressure_bridge_table`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgetablechan.html))</Text.Text>
 
 | Parameter                   | Type   | Required | Default       | Description                                 |
@@ -205,9 +205,9 @@ For task lifecycle management, see the
 | `physical_units`            | enum   | Yes      | -             | Physical units                              |
 | `custom_scale`              | object | No       | -             | Custom scaling                              |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Pressure /> Pressure Bridge Two-Point Linear ([`ai_pressure_bridge_two_point_lin`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgetwopointlinchan.html))</Text.Text>
 
 | Parameter                   | Type   | Required | Default       | Description                                 |
@@ -231,9 +231,9 @@ For task lifecycle management, see the
 | `physical_units`            | enum   | Yes      | -             | Physical units                              |
 | `custom_scale`              | object | No       | -             | Custom scaling                              |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Resistance /> Resistance ([`ai_resistance`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateairesistancechan.html))</Text.Text>
 
 | Parameter              | Type   | Required | Default       | Description                    |
@@ -250,9 +250,9 @@ For task lifecycle management, see the
 | `current_excit_val`    | number | Yes      | -             | Excitation current (Amps)      |
 | `custom_scale`         | object | No       | -             | Custom scaling                 |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Temperature /> RTD ([`ai_rtd`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateairtdchan.html))</Text.Text>
 
 | Parameter              | Type   | Required | Default       | Description                                                          |
@@ -271,10 +271,10 @@ For task lifecycle management, see the
 | `r_0`                  | number | No       | -             | Resistance at 0°C (for custom RTD)                                   |
 | `custom_scale`         | object | No       | -             | Custom scaling                                                       |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Units.Strain /> Strain Gauge ([`ai_strain_gauge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaistraingagechan.html))</Text.Text>
+<Details.ChannelType>
+<Text.Text slot="summary"><Icon.Units.Strain /> Strain Gauge ([`ai_strain_gauge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaistraingagechan.html))</Text.Text>
 
 | Parameter                 | Type   | Required | Default       | Description                                                                                                                      |
 | ------------------------- | ------ | -------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -295,9 +295,9 @@ For task lifecycle management, see the
 | `lead_wire_resistance`    | number | Yes      | -             | Lead wire resistance (Ohms)                                                                                                      |
 | `custom_scale`            | object | No       | -             | Custom scaling                                                                                                                   |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Temperature Built-In Sensor ([`ai_temp_builtin`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitempbuiltinsensorchan.html))</Text.Text>
 
 | Parameter | Type   | Required | Default | Description                       |
@@ -307,9 +307,9 @@ For task lifecycle management, see the
 | `port`    | number | Yes      | -       | Physical port                     |
 | `units`   | enum   | No       | `DegC`  | `DegC`, `DegF`, `Kelvins`, `DegR` |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermocouple ([`ai_thermocouple`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaithrmcplchan.html))</Text.Text>
 
 | Parameter           | Type   | Required | Default       | Description                                                       |
@@ -327,9 +327,9 @@ For task lifecycle management, see the
 | `cjc_channel`       | number | No       | -             | Cold junction channel (if `cjc_source` is `Chan`)                 |
 | `custom_scale`      | object | No       | -             | Custom scaling                                                    |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Torque /> Torque Bridge Table ([`ai_torque_bridge_table`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgetablechan.html))</Text.Text>
 
 | Parameter                   | Type   | Required | Default       | Description                                               |
@@ -351,9 +351,9 @@ For task lifecycle management, see the
 | `physical_units`            | enum   | Yes      | -             | Physical units                                            |
 | `custom_scale`              | object | No       | -             | Custom scaling                                            |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Torque /> Torque Bridge Two-Point Linear ([`ai_torque_bridge_two_point_lin`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgetwopointlinchan.html))</Text.Text>
 
 | Parameter                   | Type   | Required | Default       | Description                                               |
@@ -377,9 +377,9 @@ For task lifecycle management, see the
 | `physical_units`            | enum   | Yes      | -             | Physical units                                            |
 | `custom_scale`              | object | No       | -             | Custom scaling                                            |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Velocity /> Velocity IEPE ([`ai_velocity_iepe`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivelocityiepechan.html))</Text.Text>
 
 | Parameter              | Type   | Required | Default       | Description                                                      |
@@ -397,9 +397,9 @@ For task lifecycle management, see the
 | `current_excit_val`    | number | Yes      | -             | Excitation current (Amps)                                        |
 | `custom_scale`         | object | No       | -             | Custom scaling                                                   |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage ([`ai_voltage`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivoltagechan.html))</Text.Text>
 
 | Parameter         | Type   | Required | Default       | Description                                                                 |
@@ -413,17 +413,18 @@ For task lifecycle management, see the
 | `units`           | enum   | No       | `Volts`       | `Volts`                                                                     |
 | `custom_scale`    | object | No       | -             | Custom scaling                                                              |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
+</Details.Group>
 
 <Divider.Divider x />
 
 ## Important Rules
 
-- **Sample rates**: All channels in a task sample at the same rate. Create separate
+- **Sample rates** -> All channels in a task sample at the same rate. Create separate
   tasks for different rates.
-- **One task per module**: Only one running task can claim a module at a time.
-- **Stream rate optimization**: For low-rate tasks (< 50 Hz), set the stream rate to the
-  sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
+- **One task per module** -> Only one running task can claim a module at a time.
+- **Stream rate optimization** -> For low-rate tasks (< 50 Hz), set the stream rate to
+  the sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
   performance.
 
 <Divider.Divider x />
@@ -439,7 +440,7 @@ For task lifecycle management, see the
   </Fragment>
   <Fragment slot="python">
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -523,9 +524,9 @@ with task.run():
 
 ```
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -555,12 +556,12 @@ task.config.channels[2].thermocouple_type = "K"
 client.tasks.configure(task)
 ```
 
-</ExampleDetails>
+</Details.Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -660,9 +661,9 @@ await task.executeCommandSync("stop");
 await streamer.close();
 ```
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -699,7 +700,7 @@ await client.tasks.create({
 });
 ```
 
-</ExampleDetails>
+</Details.Details>
 
   </Fragment>
 </Client.Tabs>

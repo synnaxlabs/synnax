@@ -6,16 +6,12 @@ published: "Oct 15, 2024"
 ---
 
 import { Divider, Note, Text, Flex, Icon } from "@synnaxlabs/pluto";
-import Table from "@/components/Table.astro";
-import Diagram from "@/components/Diagram.astro";
-import { Image } from "@/components/Media";
-import { Tabs } from "@/components/Tabs";
-import StepText from "@/components/StepText.astro";
-import Details from "@/components/details/Details.astro";
+import { Diagram, Text as TextComponent, Table, Tabs, Details } from "@/components";
+import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Diagram style={{ padding: "20rem" }} variant="boxes">
+<Diagram.Diagram style={{ padding: "20rem" }} variant="boxes">
   <svg
     width="592"
     height="100"
@@ -76,7 +72,7 @@ export const components = mdxOverrides;
       </linearGradient>
     </defs>
   </svg>
-</Diagram>
+</Diagram.Diagram>
 
 In this article we'll compare the performance of Synnax to two other leading time-series
 databases: [TimescaleDB](https://www.timescale.com/) and
@@ -187,7 +183,7 @@ We'll be comparing the performance of Synnax, Timescale, and Influx across three
 separate tests that focus on ingestion performance. We'll be running the tests on a
 single machine with the following specifications:
 
-<Table>
+<table>
   <tr>
     <td>
       <b>Processor</b>
@@ -206,7 +202,7 @@ single machine with the following specifications:
     </td>
     <td>2TB Apple SSD</td>
   </tr>
-</Table>
+</table>
 
 We'll pull the latest open source versions of each database, which, at the time of
 writing, are:
@@ -229,13 +225,13 @@ database.
 
 <Divider.Divider x />
 
-## <StepText level="h2" name="Test" step={1}>Varying Batch Size</StepText>
+## <TextComponent.Step level="h2" name="Test" step={1}>Varying Batch Size</TextComponent.Step>
 
 In the first test, we'll keep the number of channels constant at 20, and vary the batch
 size of data we insert into each database. This table shows the configuration of each
 test:
 
-<Table>
+<table>
   <tbody>
     <tr>
       <td>
@@ -333,7 +329,7 @@ test:
       <td>400M</td>
     </tr>
   </tbody>
-</Table>
+</table>
 
 We'll also measure the average memory and CPU usage of each database during the test.
 
@@ -349,10 +345,10 @@ We'll also measure the average memory and CPU usage of each database during the 
   <figcaption>Throughput Comparison: Synnax dramatically outperforms alternatives at large batch sizes.</figcaption>
 </figure>
 
-<Details>
+<Details.Details>
   {/* prettier-ignore */}
   <Text.Text slot="summary" level="small" size="medium" weight={500}><Icon.Table />Tabulated Data - Throughput in Samples/s</Text.Text>
-  <Table>
+  <table>
     <tbody>
       <tr>
         <td>
@@ -415,8 +411,8 @@ We'll also measure the average memory and CPU usage of each database during the 
         <td>2.9M</td>
       </tr>
     </tbody>
-  </Table>
-</Details>
+  </table>
+</Details.Details>
 
 At 10 samples per batch, all three databases perform comparably. As the batch size
 increases, Synnax's performance increases dramatically, outpacing the capabilities of
@@ -433,11 +429,11 @@ the other two databases.
   {/* prettier-ignore */}
   <figcaption>Memory Comparison: Synnax uses more memory than alternatives. Timescale balloons in memory usage at large batch sizes.</figcaption>
 </figure>
-<Details>
+<Details.Details>
 <div slot="summary">
 <Text.Text level="small" size="medium" weight={500}><Icon.Table />Tabulated Data - Memory usage in GB</Text.Text>
 </div>
-<Table>
+<table>
   <tbody>
     <tr>
       <td>
@@ -524,8 +520,8 @@ the other two databases.
     </tr>
 
   </tbody>
-</Table>
-</Details>
+</table>
+</Details.Details>
 
 ### CPU Usage
 
@@ -539,10 +535,10 @@ the other two databases.
   <figcaption>CPU Usage: Synnax uses more CPU at small batch sizes, and comparable CPU at large batch sizes.</figcaption>
 </figure>
 
-<Details>
+<Details.Details>
   {/* prettier-ignore */}
   <Text.Text slot="summary" level="small" size="medium" weight={500}><Icon.Table  />Tabulated Data - CPU Usage</Text.Text>
-  <Table>
+  <table>
     <tbody>
       <tr>
         <td>
@@ -628,17 +624,17 @@ the other two databases.
 
     </tbody>
 
-  </Table>
-</Details>
+  </table>
+</Details.Details>
 
 <Divider.Divider x />
 
-## <StepText level="h2" name="Test" step={2}>Varying Channel Count</StepText>
+## <TextComponent.Step level="h2" name="Test" step={2}>Varying Channel Count</TextComponent.Step>
 
 In the second test, we'll keep the batch size constant at 1,000, and vary the number of
 channels we insert data for.
 
-<Table>
+<table>
   <tbody>
     <tr>
       <td>
@@ -730,7 +726,7 @@ channels we insert data for.
     </tr>
 
   </tbody>
-</Table>
+</table>
 
 ### Throughput
 
@@ -744,11 +740,11 @@ channels we insert data for.
   <figcaption>Throughput: Synnax outperforms alternatives at low channel counts, but starts to lose ground as the channel count increases.</figcaption>
 </figure>
 
-<Details>
+<Details.Details>
   <div slot="summary">
     <Text.Text level="small" size="medium" weight={500}><Icon.Table  />Tabulated Data - Throughput in Samples/s</Text.Text>
   </div>
-<Table>
+<table>
   <tbody>
     <tr>
         <td>
@@ -839,8 +835,8 @@ channels we insert data for.
     </tr>
 
   </tbody>
-</Table>
-</Details>
+</table>
+</Details.Details>
 
 At low channel counts, Synnax outperforms both Timescale and Influx by a wide margin. As
 the counts increase past 1,000, Synnax's performance begins to degrade, while Timescale
@@ -858,11 +854,11 @@ and Influx remain relatively stable.
   <figcaption>Memory Usage: Synnax uses more memory than alternatives.</figcaption>
 </figure>
 
-<Details>
+<Details.Details>
   <div slot="summary">
     <Text.Text level="small" size="medium" weight={500}><Icon.Table  />Tabulated Data - Memory Usage in GB</Text.Text>
   </div>
-<Table>
+<table>
   <tbody>
     <tr>
       <td>
@@ -953,9 +949,9 @@ and Influx remain relatively stable.
     </tr>
 
   </tbody>
-</Table>
+</table>
 
-</Details>
+</Details.Details>
 
 ### CPU Usage
 
@@ -969,10 +965,10 @@ and Influx remain relatively stable.
   <figcaption>CPU Usage: Synnax consistently uses more CPU than alternatives.</figcaption>
 </figure>
 
-<Details>
+<Details.Details>
   {/* prettier-ignore */}
   <Text.Text slot="summary" level="small" size="medium" weight={500}>    <Icon.Table  />    Tabulated Data - CPU Usage  </Text.Text>
-  <Table>
+  <table>
     <tbody>
       <tr>
         <td>
@@ -1035,13 +1031,13 @@ and Influx remain relatively stable.
         </td>
       </tr>
     </tbody>
-  </Table>
-</Details>
+  </table>
+</Details.Details>
 
 <Divider.Divider x />
 
 {/* prettier-ignore */}
-## <StepText level="h2" name="Test" step={3}>  One Billion Row Ingestion</StepText>
+## <TextComponent.Step level="h2" name="Test" step={3}>  One Billion Row Ingestion</TextComponent.Step>
 
 Inspired by the
 [One Billion Row Challenge](https://www.morling.dev/blog/one-billion-row-challenge/),
@@ -1075,7 +1071,7 @@ summarize two of the most important points here. If you're interested in the det
 take a look at our
 [technical RFCs](https://github.com/synnaxlabs/synnax/tree/main/docs/tech/rfc).
 
-### <StepText level="h3" name="Reason" step={1}>Individual Files for Each Channel</StepText>
+### <TextComponent.Step level="h3" name="Reason" step={1}>Individual Files for Each Channel</TextComponent.Step>
 
 Synnax is much closer to an object storage system than a traditional database. Storage
 engines like Timescale (Postgres) rely on a strategy calling _paging_ to organize writes
@@ -1152,7 +1148,7 @@ consequences. Why?
    differences drop dramatically with an increase in the number of parallel, random
    write operations.
 
-### <StepText level="h3" name="Reason" step={2}>Zero Copy Hot Path</StepText>
+### <TextComponent.Step level="h3" name="Reason" step={2}>Zero Copy Hot Path</TextComponent.Step>
 
 The write performance of a database is fundamentally limited by the speed of the drive
 it is connected to (technically this is not true, but it's a fair approximation given

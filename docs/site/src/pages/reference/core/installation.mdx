@@ -11,12 +11,8 @@ platforms: ["Linux", "Windows", "macOS", "Docker"]
 
 import { Flex, Note } from "@synnaxlabs/pluto";
 
-import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
-import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
-import SynnaxVersionOutput from "@/components/deploy/SynnaxVersionOutput.astro";
+import { Deploy, Platform, Core } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import { Platform } from "@/components/platform";
-import WindowsDownloadButton from "@/components/core/WindowsDownloadButton.astro";
 
 export const components = mdxOverrides;
 
@@ -44,12 +40,12 @@ docker pull synnaxlabs/synnax:latest
 To install Synnax on a Linux distribution, run the following command to download the
 latest binary:
 
-<SynnaxDownloadURL os="linux" />
+<Deploy.DownloadURL os="linux" />
 
 We recommend you move the binary into a directory that is in your `PATH`. Most of our
 users use `/usr/local/bin`:
 
-<SynnaxMoveCommand os="linux" />
+<Deploy.MoveCommand os="linux" />
 
 If `usr/local/bin` is not in your `PATH`, you can temporarily add it by running the
 following:
@@ -90,7 +86,7 @@ synnax --version
 
 You should see the following output:
 
-<SynnaxVersionOutput />
+<Deploy.VersionOutput />
 
 </Fragment>
 
@@ -100,12 +96,12 @@ You should see the following output:
 
 To install Synnax on macOS, run the following command to download the latest binary:
 
-<SynnaxDownloadURL os="macos" />
+<Deploy.DownloadURL os="macos" />
 
 We recommend you move the binary into a directory that is in your `PATH`. Most of our
 users use `/usr/local/bin`:
 
-<SynnaxMoveCommand os="macos" />
+<Deploy.MoveCommand os="macos" />
 
 If `usr/local/bin` is not in your `PATH`, you can temporarily add it by running the
 following:
@@ -140,7 +136,7 @@ synnax --version
 
 You should see the following output:
 
-<SynnaxVersionOutput />
+<Deploy.VersionOutput />
 
 </Fragment>
 
@@ -153,7 +149,7 @@ Install the Synnax Core on Windows by downloading and running the latest install
 <br />
 <br />
 <Flex.Box direction="y" justify="center" align="center">
-  <WindowsDownloadButton />
+  <Core.WindowsDownloadButton />
   <small>
     Releases for other operating systems and older versions can be found on the
     <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.
@@ -171,7 +167,7 @@ synnax --version
 
 You should see the following output:
 
-<SynnaxVersionOutput />
+<Deploy.VersionOutput />
 
 </Fragment>
 

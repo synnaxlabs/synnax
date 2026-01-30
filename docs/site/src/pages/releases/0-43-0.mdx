@@ -2,14 +2,14 @@
 title: "Version 0.43 Release Notes"
 ---
 
-import Release from "@/components/releases/Release.astro";
-import { Image, Video } from "@/components/Media";
+import { Image, Video } from "@/components/media/Media";
+import { Releases } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/pluto";
 
 export const components = mdxOverrides;
 
-<Release
+<Releases.Release
     version="0.43.0"
     date="June 13, 2025"
     title="Maintenance & Minor Features"
@@ -33,11 +33,11 @@ improvements to the Synnax Core and Console UI, along with a few minor features.
 Buttons on a schematic now have a new _mode_ property that can be set to one of the
 following values:
 
-- **Fire**: A value of true is written to the channel when the button is pressed. This
+- **Fire** -> A value of true is written to the channel when the button is pressed. This
   is the default behavior, and behaves the same as previous releases.
-- **Momentary**: A value of true is written to the channel when the button is pressed,
+- **Momentary** -> A value of true is written to the channel when the button is pressed,
   and a value of false is written to the channel when the button is released.
-- **Pulse**: A value of true is written to the channel and immediately followed by a
+- **Pulse** -> A value of true is written to the channel and immediately followed by a
   value of false.
 
 <Divider.Divider x />
@@ -62,4 +62,4 @@ edit mode.
 - Fixed the appearance of the OPC UA connect server modal.
 - Allowed for placing labels in the center of tanks.
 
-</Release>
+</Releases.Release>

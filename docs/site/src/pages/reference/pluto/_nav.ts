@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/PageNav/PageNav";
+import { type PageNavNode } from "@/components/nav/Page";
 
 export const PLUTO_NAV: PageNavNode = {
   key: "pluto",
   name: "Pluto Components",
+  icon: "Visualize",
   children: [
     {
       name: "Get Started",

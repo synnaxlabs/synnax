@@ -9,12 +9,9 @@ prev: "Reads"
 prevURL: "/reference/concepts/reads"
 ---
 
-import { Image } from "@/components/Media";
+import { Image } from "@/components/media/Media";
 import { Divider, Note } from "@synnaxlabs/pluto";
-import Table from "@/components/Table.astro";
-import Diagram from "@/components/Diagram.astro";
-import Rule from "@/components/Rule.astro";
-import Code from "@/components/code/Code.astro";
+import { Diagram, Rule, Table } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -46,14 +43,14 @@ different purpose. For example, one writer might be responsible for sending inco
 sensor values from a device. Another writer can send control commands to a device with
 actuators connected to it.
 
-<Diagram>
+<Diagram.Diagram>
   <Image
     client:only="react"
     id="concepts/writes/writer"
     extension="svg"
     themed={false}
   />
-</Diagram>
+</Diagram.Diagram>
 
 Internally, [schematics](/reference/console/schematics) within the Synnax
 [console](/reference/console/get-started) use writers to send commands to actuators when
@@ -75,7 +72,7 @@ releases all write-related resources and the transaction is complete.
 
 To start a new transaction, we need to provide the following information.
 
-<Table>
+<table>
   <thead>
     <tr>
       <th>Argument</th>
@@ -94,7 +91,7 @@ To start a new transaction, we need to provide the following information.
                 sample was recorded.</td>
     </tr>
   </tbody>
-</Table>
+</table>
 
 Synnax will use these arguments to validate two things before opening the writer:
 
@@ -105,7 +102,7 @@ Synnax will use these arguments to validate two things before opening the writer
 
 There are also a few optional arguments we can provide when opening a writer:
 
-<Table>
+<table>
   <thead>
     <tr>
       <th>Argument</th>
@@ -139,7 +136,7 @@ There are also a few optional arguments we can provide when opening a writer:
       <td>true</td>
     </tr>
   </tbody>
-</Table>
+</table>
 
 ### Write Phase
 
@@ -235,9 +232,9 @@ writer.
 
 ### Rule 1
 
-<Rule title="Rule 1">
+<Rule.Rule title="Rule 1">
   Index channels must be written to before or when writing to a data channel.
-</Rule>
+</Rule.Rule>
 
 #### Example 1 - Writing to an Index and Data Channel at the Same Time
 
@@ -343,9 +340,9 @@ associate with the temperature samples.
 
 ### Rule 2
 
-<Rule title="Rule 2">
+<Rule.Rule title="Rule 2">
   Data channels for an index must have the same number of samples.
-</Rule>
+</Rule.Rule>
 
 #### Example 1
 
@@ -424,11 +421,11 @@ Entirely omitting a channel from the frame would also violate Rule 2. This frame
 
 ### Rule 3
 
-<Rule title="Rule 3">
+<Rule.Rule title="Rule 3">
 
 Rules 1 and 2 do not apply to virtual channels.
 
-</Rule>
+</Rule.Rule>
 
 As [virtual channels](/reference/concepts/channels#virtual-channels) do not store data,
 they have far more flexibility in how they can be written to. They do not require
@@ -443,9 +440,9 @@ While these rules are subtle, they have a few important implications.
 
 ### Implication 1
 
-<Rule title="Implication 1">
+<Rule.Rule title="Implication 1">
   All channels that share the same index must be sampled at the same rate.
-</Rule>
+</Rule.Rule>
 
 If you have a temperature and pressure sensor that are recorded by different devices.
 The first device records temperature at 10Hz, while the second records pressure at 25Hz.
@@ -454,11 +451,11 @@ consequence cannot share the same index.
 
 ### Implication 2
 
-<Rule>
+<Rule.Rule>
 
 Command channels almost always require separate indexes.
 
-</Rule>
+</Rule.Rule>
 
 Channels that are used to send commands to actuators are typically used quite
 differently to channels that record from sensors. It's common for a single device to

@@ -17,15 +17,39 @@
     &.pluto--info {
         background: var(--pluto-primary-z-10);
         border-color: var(--pluto-primary-z-50);
+
+        &,
+        & p,
+        & li,
+        & span,
+        & a {
+            color: var(--pluto-primary-text);
+        }
     }
 
     &.pluto--warning {
         background: var(--pluto-warning-z-10);
         border-color: var(--pluto-warning-z-70);
+
+        &,
+        & p,
+        & li,
+        & span,
+        & a {
+            color: var(--pluto-warning-text);
+        }
     }
 
     &.pluto--error {
         background: var(--pluto-error-z-10);
         border-color: var(--pluto-error-z-40);
+
+        &,
+        & p,
+        & li,
+        & span,
+        & a {
+            color: var(--pluto-error-text);
+        }
     }
 }

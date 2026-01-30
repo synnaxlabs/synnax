@@ -12,7 +12,7 @@ clients: ["python", "typescript"]
 import { Divider, Text, Icon } from "@synnaxlabs/pluto";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
-import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Details } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -24,7 +24,7 @@ various tasks.
 
   <Fragment slot="python">
 
-<ExampleDetails open>
+<Details.Details open>
 <Text.Text slot="summary" level="p"><Icon.Play /> Getting Started</Text.Text>
 
 |                                                                                                               |                                                               |
@@ -35,9 +35,9 @@ various tasks.
 | [Read Latest](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/read_latest.py)               | Demonstrates how to read the latest N samples from a channel. |
 | [Series and Frames](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/series_and_frames.py)   | Demonstrates how to work with series and frames.              |
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails open>
+<Details.Details open>
 <Text.Text slot="summary" level="p"><Icon.Visualize /> Streaming Data</Text.Text>
 
 |                                                                                                             |                                                                 |
@@ -46,9 +46,9 @@ various tasks.
 | [Stream Write](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/stream_write.py)           | Shows how to stream simulated sensor data to a set of channels. |
 | [Async Stream Read](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/stream_read_async.py) | Shows how to live stream sensor data asynchronously.            |
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails open>
+<Details.Details open>
 <Text.Text slot="summary" level="p"><Icon.Value /> Data Processing & Export</Text.Text>
 
 |                                                                                                                          |                                                                            |
@@ -58,9 +58,9 @@ various tasks.
 | [Plot](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/plot.py)                                        | Demonstrates how to plot data retrieved from a Synnax cluster.             |
 | [Export to CSV](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/export_to_csv.py)                      | Demonstrates how to export data to a CSV file.                             |
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails open>
+<Details.Details open>
 <Text.Text slot="summary" level="p"><Icon.Control /> Control Sequences</Text.Text>
 
 |                                                                                                           |                                                                           |
@@ -70,9 +70,9 @@ various tasks.
 | [Simulators/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/simulators)               | Reusable SimDAQ base class and hardware simulators (press, thermal, TPC). |
 | [Simulation](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/simulation.py)             | Creates a simulated DAQ that writes large amounts of data to channels.    |
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails open>
+<Details.Details open>
 <Text.Text slot="summary" level="p"><Icon.Device /> Hardware Driver</Text.Text>
 
 |                                                                                                                  |                                                      |
@@ -84,13 +84,13 @@ various tasks.
 | [OPC UA/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/opcua)                               | Server connection, read/write tasks.                 |
 | [Task Management](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/hardware/task_management.py) | Task management walkthrough.                         |
 
-</ExampleDetails>
+</Details.Details>
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-<ExampleDetails open>
+<Details.Details open>
 <Text.Text slot="summary" level="p"><Icon.Play /> Getting Started</Text.Text>
 
 |                                                                                                                  |                                                               |
@@ -101,9 +101,9 @@ various tasks.
 | [Read Latest](https://github.com/synnaxlabs/synnax/tree/main/client/ts/examples/node/readLatest.js)              | Demonstrates how to read the latest N samples from a channel. |
 | [Series and Frames](https://github.com/synnaxlabs/synnax/blob/main/client/ts/examples/node/seriesAndFrames.js)   | Demonstrates how to work with series and frames.              |
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails open>
+<Details.Details open>
 <Text.Text slot="summary" level="p"><Icon.Visualize /> Streaming Data</Text.Text>
 
 |                                                                                                       |                                                                 |
@@ -111,7 +111,7 @@ various tasks.
 | [Stream Read](https://github.com/synnaxlabs/synnax/tree/main/client/ts/examples/node/streamRead.js)   | Shows how to live stream sensor data from a set of channels.    |
 | [Stream Write](https://github.com/synnaxlabs/synnax/tree/main/client/ts/examples/node/streamWrite.js) | Shows how to stream simulated sensor data to a set of channels. |
 
-</ExampleDetails>
+</Details.Details>
 
   </Fragment>
 </Client.Tabs>

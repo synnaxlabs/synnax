@@ -6,8 +6,8 @@ description: "Write a control sequence for pressurizing a tank."
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
-import Details from "@/components/details/Details.astro";
-import { Image, Video } from "@/components/Media";
+import { Details } from "@/components";
+import { Image, Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -178,7 +178,7 @@ This range is now saved and can be referenced later to view this test.
 
 The full file can be viewed below:
 
-<Details>
+<Details.Details>
 <span slot="summary">`control_sequence.py`</span>
 
 ```python
@@ -231,7 +231,7 @@ with client.control.acquire(
     )
 ```
 
-</Details>
+</Details.Details>
 
 <Divider.Divider x />
 

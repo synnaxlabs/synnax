@@ -8,9 +8,9 @@ prev: "Clusters and Nodes"
 prevURL: "/reference/concepts/clusters-and-nodes"
 ---
 
-import { Image } from "@/components/Media";
+import { Image } from "@/components/media/Media";
 import { Divider, Icon, Text } from "@synnaxlabs/pluto";
-import Diagram from "@/components/Diagram.astro";
+import { Diagram } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -37,14 +37,14 @@ live consumption.
 The following diagram shows a sensor writing samples to a channel, which are then stored
 and forwarded to a visualization tool and analysis script.
 
-<Diagram>
+<Diagram.Diagram>
   <Image
     client:only="react"
     id="concepts/channels/channels"
     extension="svg"
     themed={false}
   />
-</Diagram>
+</Diagram.Diagram>
 
 Channels are comparable to **tags** in a time-series database like
 [InfluxDB](https://www.influxdata.com/) or SCADA system like

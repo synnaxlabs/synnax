@@ -2,15 +2,14 @@
 title: "Version 0.50 Release Notes"
 ---
 
-import Release from "@/components/releases/Release.astro";
-import { Image } from "@/components/Media";
+import { Image } from "@/components/media/Media";
 import { Divider, Flex } from "@synnaxlabs/pluto";
-import Diagram from "@/components/Diagram.astro";
+import { Diagram, Releases } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-<Release
+<Releases.Release
     version="0.50.0"
     date="Jan 26, 2026"
     title="Arc Automations"
@@ -47,9 +46,9 @@ demanding tasks.
 
 ### Views
 
-<Diagram preview style="padding: 0rem 9rem">
+<Diagram.Diagram preview style="padding: 0rem 9rem">
   <Image client:only="react" id="releases/0-50-0/views" themed={false} />
-</Diagram>
+</Diagram.Diagram>
 
 Views allow you to save frequently used searches of ranges and statuses. You can create
 views by opening the Status Explorer or Range Explorer, editing the filters for given
@@ -109,4 +108,4 @@ To see how to deploy Synnax as a Windows service, see the
 
 - Fix the `__array__` signatures in the `Series` and `MultiSeries` classes
 
-</Release>
+</Releases.Release>

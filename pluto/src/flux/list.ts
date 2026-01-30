@@ -463,4 +463,5 @@ export const useListItem = <K extends record.Key, E extends record.Keyed<K>>({
   useSyncExternalStore(
     useCallback((callback) => subscribe(callback, key), [subscribe, key]),
     useCallback(() => getItem(key), [getItem, key]),
+    () => undefined,
   );

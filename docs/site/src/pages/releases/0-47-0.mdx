@@ -2,21 +2,20 @@
 title: "Version 0.47 Release Notes"
 ---
 
-import Release from "@/components/releases/Release.astro";
-import { Image } from "@/components/Media";
+import { Image } from "@/components/media/Media";
 import { Divider } from "@synnaxlabs/pluto";
-import Diagram from "@/components/Diagram.astro";
+import { Diagram, Releases } from "@/components";
 
-<Release
+<Releases.Release
     version="0.47.0"
     breakingChanges
     date="Oct 24, 2025"
     title="Arc-Based Calculated Channels"
 >
 
-<Diagram preview style="height: 425px; padding: 0rem 9rem">
+<Diagram.Diagram preview style="height: 425px; padding: 0rem 9rem">
   <Image client:only="react" id="releases/0-47-0/thumbnail" themed={false} />
-</Diagram>
+</Diagram.Diagram>
 
 Our Lua-based calculated channels were a powerful first step towards deriving values in
 real-time from a set of input channels. They also came with several limitations, notably
@@ -118,4 +117,4 @@ system simultaneously.
 - Fixed startup warnings in the embedded driver for cleaner initialization.
 - Enabled auto-commit for Modbus driver to improve data persistence.
 
-</Release>
+</Releases.Release>

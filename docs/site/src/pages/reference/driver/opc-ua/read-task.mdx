@@ -9,10 +9,9 @@ prevURL: "/reference/driver/opc-ua/connect-server"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/Media";
+import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import ChannelTypeDetails from "@/components/details/ChannelTypeDetails.astro";
-import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Details } from "@/components";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -46,7 +45,7 @@ The task's `array_mode` setting determines how all channels are read. When
 `array_mode=false`, channels are read individually at `stream_rate`. When
 `array_mode=true`, all channels read `array_size` samples in bulk.
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Value /> Standard Mode (`array_mode=false`)</Text.Text>
 
 Reads scalar values from an OPC UA node at the specified sample rate. Suitable for most
@@ -64,9 +63,9 @@ applications with standard data rates.
 - GUID: `ns=2;g=12345678-1234-1234-1234-123456789012`
 - Opaque: `ns=2;b=aGVsbG8=`
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Array /> Array Mode (`array_mode=true`)</Text.Text>
 
 Reads array data from an OPC UA node in bulk. Designed for high-frequency data (&gt;500
@@ -91,9 +90,9 @@ Hz) where the server writes samples into arrays.
   reads
 - **Undersampling** occurs when the server writes faster than Synnax reads
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Time /> Server Timestamp Read</Text.Text>
 
 Reads timestamps directly from the OPC UA server for high-precision timing instead of
@@ -104,26 +103,26 @@ using Synnax-generated timestamps.
 | `channel` | number | Yes      | -       | Synnax index channel key (must be `TIMESTAMP` data type) |
 | `node_id` | string | Yes      | -       | OPC UA NodeId containing server timestamps               |
 
-**Note**: If timestamp channels are not added to the task, Synnax automatically
+**Note** -> If timestamp channels are not added to the task, Synnax automatically
 generates timestamps with ~ 100μs precision using software timing.
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
 <Divider.Divider x />
 
 ## Important Rules
 
-- **Sample rates**: All channels in a task sample at the same rate. Create separate
+- **Sample rates** -> All channels in a task sample at the same rate. Create separate
   tasks for different rates.
-- **Software timing**: Synnax uses software timing with ~100μs precision. Under heavy
+- **Software timing** -> Synnax uses software timing with ~100μs precision. Under heavy
   load, timing precision may degrade.
-- **One running task per channel**: A channel can only receive live data from one task
+- **One running task per channel** -> A channel can only receive live data from one task
   at a time.
-- **Stream rate optimization**: For low-rate tasks (< 50 Hz), set the stream rate to the
-  sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
+- **Stream rate optimization** -> For low-rate tasks (< 50 Hz), set the stream rate to
+  the sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
   performance.
-- **Array mode**: Only use array mode for high-rate tasks (> 500 Hz). Requires tuning to
-  avoid undersampling/oversampling.
+- **Array mode** -> Only use array mode for high-rate tasks (> 500 Hz). Requires tuning
+  to avoid undersampling/oversampling.
 
 <Divider.Divider x />
 
@@ -138,7 +137,7 @@ generates timestamps with ~ 100μs precision using software timing.
   </Fragment>
   <Fragment slot="python">
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -202,9 +201,9 @@ with task.run():
             print(frame)
 ```
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -226,12 +225,12 @@ task.config.channels[1].node_id = "ns=2;s=PressureSensor2"
 client.tasks.configure(task)
 ```
 
-</ExampleDetails>
+</Details.Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -303,9 +302,9 @@ await task.executeCommandSync("stop");
 await streamer.close();
 ```
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -334,7 +333,7 @@ await client.tasks.create({
 });
 ```
 
-</ExampleDetails>
+</Details.Details>
 
   </Fragment>
 </Client.Tabs>

@@ -7,10 +7,9 @@ prevURL: "/reference/driver/opc-ua/read-task"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/Media";
+import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import ChannelTypeDetails from "@/components/details/ChannelTypeDetails.astro";
-import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Details } from "@/components";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -24,7 +23,7 @@ For task lifecycle management, see the
 
 OPC UA write tasks use **command channels** to send values to the server:
 
-- **Command channels**: Write values here to send commands to the OPC UA server
+- **Command channels** -> Write values here to send commands to the OPC UA server
 - **Command time channels** (`_cmd_time`): Index channels storing command timestamps
 
 OPC UA write tasks do not create separate state channels. To read back the current
@@ -47,7 +46,7 @@ state, configure a [read task](/reference/driver/opc-ua/read-task) for the same 
 
 [OPC UA Write Service Specification](https://reference.opcfoundation.org/Core/Part4/v104/docs/5.10.4)
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Value /> Scalar Values</Text.Text>
 
 Writes scalar values to an OPC UA node. Suitable for control setpoints, configuration
@@ -66,13 +65,13 @@ parameters, and single-value commands.
 - GUID: `ns=2;g=12345678-1234-1234-1234-123456789012`
 - Opaque: `ns=2;b=aGVsbG8=`
 
-**Note**: Configuring a write task creates only command channels (`_cmd` and
+**Note** -> Configuring a write task creates only command channels (`_cmd` and
 `_cmd_time`). If you need state feedback, configure a corresponding
 [read task](/reference/driver/opc-ua/read-task) to monitor the same nodes.
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Array /> Array Values</Text.Text>
 
 Writes array data to an OPC UA node in bulk. Used for batch control commands or
@@ -84,21 +83,21 @@ multi-value setpoints.
 | `node_id` | string  | Yes      | -       | OPC UA NodeId pointing to an array variable |
 | `enabled` | boolean | No       | `true`  | Enable or disable writing to this node      |
 
-**Note**: The channel data type must match the array element type on the server.
+**Note** -> The channel data type must match the array element type on the server.
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
 <Divider.Divider x />
 
 ## Important Rules
 
-- **Direct write**: Commands are written directly to the OPC UA server without state
+- **Direct write** -> Commands are written directly to the OPC UA server without state
   feedback channels.
-- **One running task per node**: A node can only be controlled by one write task at a
+- **One running task per node** -> A node can only be controlled by one write task at a
   time.
-- **Node permissions**: The OPC UA server must allow write access to the specified
+- **Node permissions** -> The OPC UA server must allow write access to the specified
   nodes.
-- **Data type matching**: Ensure Synnax channel data types match the OPC UA node data
+- **Data type matching** -> Ensure Synnax channel data types match the OPC UA node data
   types.
 
 <Divider.Divider x />
@@ -114,7 +113,7 @@ multi-value setpoints.
   </Fragment>
   <Fragment slot="python">
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -191,9 +190,9 @@ with task.run():
         })
 ```
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -214,12 +213,12 @@ task.config.channels[1].node_id = "ns=2;s=ValveControl2"
 client.tasks.configure(task)
 ```
 
-</ExampleDetails>
+</Details.Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -302,9 +301,9 @@ await task.executeCommandSync("stop");
 await writer.close();
 ```
 
-</ExampleDetails>
+</Details.Details>
 
-<ExampleDetails>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -332,7 +331,7 @@ await client.tasks.create({
 });
 ```
 
-</ExampleDetails>
+</Details.Details>
 
   </Fragment>
 </Client.Tabs>

@@ -50,7 +50,10 @@ const generateStatic = (
   // Read the copyright header from the licenses directory
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  const headerPath = path.resolve(__dirname, "../../../licenses/headers/template.txt");
+  const headerPath = path.resolve(
+    __dirname,
+    "../../../../licenses/headers/template.txt",
+  );
   const headerContent = fs.readFileSync(headerPath, "utf-8").trim();
 
   // Replace template arguments

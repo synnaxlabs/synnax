@@ -103,10 +103,11 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
       gap="medium"
       aria-selected
       href={href}
+      propagateClick
       {...props}
     >
       <Flex.Box direction="y" empty>
-        <Text.Text level="h5" dangerouslySetInnerHTML={{ __html: title }} gap="tiny" />
+        <Text.Text level="h5" dangerouslySetInnerHTML={{ __html: title }} empty />
         <Breadcrumb.Breadcrumb level="small" gap="tiny" highlightVariant="last">
           {icon}
           {path.split("/").map((segment, index) => (

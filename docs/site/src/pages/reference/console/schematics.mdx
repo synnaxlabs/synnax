@@ -10,16 +10,28 @@ nextURL: "/reference/console/tables"
 ---
 
 import { Divider, Note, Icon, Flex } from "@synnaxlabs/pluto";
-import { Image, Video } from "@/components/Media";
-import Table from "@/components/Table.astro";
+import { Image, Video } from "@/components/media/Media";
+import { Table, Diagram } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
+<Diagram.Diagram style="height: 400px" preview>
+  <Image
+    client:only="react"
+    id="console/schematics/example"
+    style={{
+      height: "450px",
+      width: "fit-content",
+      transform: "translate(-23%, -9%)",
+      borderRadius: "1rem",
+      border: "1px solid var(--pluto-gray-l6)",
+    }}
+  />
+</Diagram.Diagram>
+
 A schematic is used to see a diagram of your physical or simulated system. It displays
 live sensor data and can be used to exercise manual control by changing the values of
-channels tied to actuators. We've added a simple example of a schematic below:
-
-<Image client:only="react" id="console/schematics/example" />
+channels tied to actuators.
 
 [Download the example schematic](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/control/tpc/schematic.json)
 to try it out yourself.
@@ -62,7 +74,7 @@ workspace name in the Workspaces Toolbar:
 Schematics have three modes: **view**, **edit**, and **control**. To change modes, use
 the controls in the top-right corner of the schematic.
 
-<Table>
+<table>
   <thead>
     <tr>
       <th style={{ whiteSpace: "nowrap" }}>Mode</th>
@@ -94,7 +106,7 @@ the controls in the top-right corner of the schematic.
       <td>The user can click on symbols such as valves and buttons to control them.</td>
     </tr>
   </tbody>
-</Table>
+</table>
 
 <Divider.Divider x />
 
@@ -121,7 +133,7 @@ symbol.
 The style tab on allows users to edit (<Icon.Edit />) the symbol's label, size,
 orientation, color, and other visual properties.
 
-<Table>
+<table>
   <thead>
     <tr>
       <th>Property</th>
@@ -171,7 +183,7 @@ orientation, color, and other visual properties.
       }
     </tr>
   </tbody>
-</Table>
+</table>
 
 ### Telemetry Tab
 
@@ -181,7 +193,7 @@ display the live data from that channel.
 
 The telemetry tab can have the following properties:
 
-<Table>
+<table>
   <thead>
     <tr>
       <th>Property</th>
@@ -230,7 +242,7 @@ The telemetry tab can have the following properties:
       {<td>The color the element will change to when telemetry is stale.</td>}
     </tr>
   </tbody>
-</Table>
+</table>
 
 <Video client:only="react" id="console/schematics/value" />
 
@@ -239,7 +251,7 @@ The telemetry tab can have the following properties:
 The control tab is available on symbols that can be actuated. Controllable symbols have
 two main properties:
 
-<Table>
+<table>
   <thead>
     <tr>
       <th>Property</th>
@@ -272,7 +284,7 @@ two main properties:
       }
     </tr>
   </tbody>
-</Table>
+</table>
 
 <Divider.Divider x />
 
