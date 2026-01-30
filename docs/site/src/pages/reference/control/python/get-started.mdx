@@ -6,8 +6,8 @@ nextURL: "/reference/control/python/examples"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
-import { Image } from "@/components/Media";
-import Table from "@/components/Table.astro";
+import { Image } from "@/components/media/Media";
+import { Table } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -50,7 +50,7 @@ with client.control.acquire(
 
 The `acquire` method takes a few arguments:
 
-<Table>
+<table>
   <thead>
     <tr>
       <th>Argument</th>
@@ -83,7 +83,7 @@ The `acquire` method takes a few arguments:
       </td>
     </tr>
   </tbody>
-</Table>
+</table>
 
 <Divider.Divider x />
 

@@ -10,7 +10,7 @@
 import { Select } from "@synnaxlabs/pluto";
 import { useEffect, useState } from "react";
 
-import { type Client, CLIENTS, getFromURL, setInURL } from "@/components/client/client";
+import { type Client, CLIENTS, getFromURL, setInURL } from "@/components/client/Client";
 
 const indexMap = new Map<Client, number>();
 CLIENTS.forEach((c, i) => indexMap.set(c.key, i));
@@ -27,11 +27,17 @@ export const SelectButton = ({ clients }: SelectButtonProps) => {
   const data = clients.map((c) => CLIENTS[indexMap.get(c) as number]);
 
   useEffect(() => {
-    const i = setInterval(() => {
+    const updateFromURL = () => {
       const c = getFromURL();
       if (c) setClient(c);
-    }, 200);
-    return () => clearInterval(i);
+    };
+    updateFromURL();
+    window.addEventListener("popstate", updateFromURL);
+    window.addEventListener("urlchange", updateFromURL);
+    return () => {
+      window.removeEventListener("popstate", updateFromURL);
+      window.removeEventListener("urlchange", updateFromURL);
+    };
   }, []);
 
   const handleChange = (c: Client) => {

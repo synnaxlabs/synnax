@@ -91,8 +91,6 @@ type Scope struct {
 	Parent *Scope
 	// Counter is the ID counter for variable kinds. Functions create new counters.
 	Counter *int
-	// OnResolve is an optional callback invoked when symbols are resolved from this scope.
-	OnResolve func(ctx context.Context, s *Scope) error
 	// Children are nested scopes within this scope.
 	Children []*Scope
 	Symbol
@@ -170,6 +168,9 @@ func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 	if sym.Kind == KindFunction || sym.Kind == KindSequence {
 		child.Counter = new(int)
 	}
+	if sym.Kind == KindFunction {
+		child.Channels = NewChannels()
+	}
 	if sym.Kind == KindVariable ||
 		sym.Kind == KindStatefulVariable ||
 		sym.Kind == KindInput ||
@@ -201,35 +202,20 @@ func (s *Scope) Root() *Scope {
 // Resolve looks up a symbol by name using lexical scoping rules.
 //
 // The search proceeds in order: direct children of this scope, the GlobalResolver
-// (if present), and then the parent scope (recursively). If OnResolve is set, it
-// is invoked with the resolved scope before returning.
+// (if present), and then the parent scope (recursively).
 //
 // Returns an error if the symbol is not found in any scope.
 func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 	if child := s.FindChildByName(name); child != nil {
-		if s.OnResolve != nil {
-			return child, s.OnResolve(ctx, child)
-		}
 		return child, nil
 	}
 	if s.GlobalResolver != nil {
 		if sym, err := s.GlobalResolver.Resolve(ctx, name); err == nil {
-			scope := &Scope{Symbol: sym}
-			if s.OnResolve != nil {
-				return scope, s.OnResolve(ctx, scope)
-			}
-			return scope, nil
+			return &Scope{Symbol: sym}, nil
 		}
 	}
 	if s.Parent != nil {
-		scope, err := s.Parent.Resolve(ctx, name)
-		if err != nil {
-			return nil, err
-		}
-		if s.OnResolve != nil {
-			return scope, s.OnResolve(ctx, scope)
-		}
-		return scope, nil
+		return s.Parent.Resolve(ctx, name)
 	}
 	suggestions := s.SuggestSimilar(ctx, name, 2)
 	if len(suggestions) > 0 {
@@ -336,18 +322,4 @@ func (s *Scope) stringWithIndent(indent string) string {
 		}
 	}
 	return builder.String()
-}
-
-// AccumulateReadChannels initializes channel tracking for this scope.
-// It sets up an OnResolve callback that records any channel references
-// in the Channels.Read map. This is used by functions and expressions
-// to track their channel dependencies.
-func (s *Scope) AccumulateReadChannels() {
-	s.Channels = NewChannels()
-	s.OnResolve = func(_ context.Context, resolved *Scope) error {
-		if resolved.Kind == KindChannel || resolved.Type.Kind == types.KindChan {
-			s.Channels.Read[uint32(resolved.ID)] = resolved.Name
-		}
-		return nil
-	}
 }

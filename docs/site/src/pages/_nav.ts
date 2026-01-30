@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/PageNav/PageNav";
+import { type PageNavNode } from "@/components/nav/Page";
 import { ANALYST_NAV } from "@/pages/guides/analyst/_nav";
 import { COMPARISON_NAV } from "@/pages/guides/comparison/_nav";
 import { GET_STARTED_NAV } from "@/pages/guides/get-started/_nav";
@@ -25,10 +25,10 @@ export const REFERENCE_PAGES: PageNavNode[] = [
   { name: "Get Started", key: "/reference/", href: "/reference/" },
   CONCEPTS_NAV,
   CORE_NAV,
-  CLIENT_NAV,
-  CONTROL_NAV,
   CONSOLE_NAV,
   DRIVER_NAV,
+  CLIENT_NAV,
+  CONTROL_NAV,
   PLUTO_NAV,
 ];
 

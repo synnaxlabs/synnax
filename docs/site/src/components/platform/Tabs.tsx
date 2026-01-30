@@ -14,8 +14,8 @@ import {
   type Platform,
   PLATFORMS,
   setInURL,
-} from "@/components/platform/platform";
-import { Tabs as Base, type TabsProps as BaseProps } from "@/components/Tabs";
+} from "@/components/platform/Platform";
+import { Tabs as Base, type TabsProps as BaseProps } from "@/components/tabs/Tabs";
 
 const TABS = PLATFORMS.map(({ key, ...p }) => ({ ...p, tabKey: key }));
 

@@ -9,12 +9,11 @@ prev: "Reads"
 prevURL: "/reference/concepts/reads"
 ---
 
-import { Image } from "@/components/Media";
+import { Image } from "@/components/media/Media";
 import { Divider, Note } from "@synnaxlabs/pluto";
-import Table from "@/components/Table.astro";
-import Diagram from "@/components/Diagram.astro";
-import Rule from "@/components/Rule.astro";
-import Code from "@/components/code/Code.astro";
+import Diagram from "@/components/diagram/Diagram.astro";
+import Rule from "@/components/rule/Rule.astro";
+import { Table } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -75,7 +74,7 @@ releases all write-related resources and the transaction is complete.
 
 To start a new transaction, we need to provide the following information.
 
-<Table>
+<table>
   <thead>
     <tr>
       <th>Argument</th>
@@ -94,7 +93,7 @@ To start a new transaction, we need to provide the following information.
                 sample was recorded.</td>
     </tr>
   </tbody>
-</Table>
+</table>
 
 Synnax will use these arguments to validate two things before opening the writer:
 
@@ -105,7 +104,7 @@ Synnax will use these arguments to validate two things before opening the writer
 
 There are also a few optional arguments we can provide when opening a writer:
 
-<Table>
+<table>
   <thead>
     <tr>
       <th>Argument</th>
@@ -139,7 +138,7 @@ There are also a few optional arguments we can provide when opening a writer:
       <td>true</td>
     </tr>
   </tbody>
-</Table>
+</table>
 
 ### Write Phase
 
