@@ -2,7 +2,7 @@
 const { preview, variant, ...rest } = Astro.props;
 ---
 
-<div class=`diagram ${preview ? 'preview' : ''} ${variant}` {...rest}>
+<div class=`diagram ${preview ? 'preview' : ''} ${variant ?? ''}` {...rest}>
     <div class="internal"></div>
     <slot />
 </div>

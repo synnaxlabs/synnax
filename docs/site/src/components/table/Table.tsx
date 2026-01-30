@@ -33,10 +33,7 @@ export interface TableProps {
 }
 
 export const Table = ({ columns, data, highlights = [] }: TableProps): ReactElement => (
-  <div
-    className="styled-scrollbar"
-    style={{ overflowX: "auto", paddingLeft: "2px", paddingBottom: "0.5rem" }}
-  >
+  <div>
     <table>
       <thead>
         <tr>
@@ -128,11 +125,12 @@ const TableCell = ({
       <div
         style={{
           height: upperColors.length * 2,
-          width: "calc(100% + 2px)",
+          width: "100%",
           background,
           position: "absolute",
           top: -upperColors.length,
-          left: -1,
+          left: 0,
+          zIndex: 1,
         }}
       />,
     );
@@ -153,12 +151,13 @@ const TableCell = ({
     elements.push(
       <div
         style={{
-          height: "calc(100% + 2px)",
+          height: "100%",
           width: leftColors.length * 2,
           background,
           position: "absolute",
-          top: -1,
-          left: -leftColors.length,
+          top: 0,
+          left: 0,
+          zIndex: 1,
         }}
       />,
     );
@@ -179,12 +178,13 @@ const TableCell = ({
     elements.push(
       <div
         style={{
-          height: "calc(100% + 2px)",
+          height: "100%",
           width: rightColors.length * 2,
           background,
           position: "absolute",
-          top: -1,
-          right: -rightColors.length,
+          top: 0,
+          right: 0,
+          zIndex: 1,
         }}
       />,
     );
@@ -196,7 +196,7 @@ const TableCell = ({
     content = <div dangerouslySetInnerHTML={{ __html: content as string }} />;
 
   return (
-    <td>
+    <td style={{ position: "relative" }}>
       {elements}
       {content}
     </td>

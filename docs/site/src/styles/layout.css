@@ -135,6 +135,16 @@ article {
         color: var(--pluto-gray-l11);
     }
 
+    h2:has(+ .pluto-divider),
+    h2.pluto-text:has(+ .pluto-divider) {
+        margin-bottom: 4rem;
+    }
+
+    .pluto-divider + h2,
+    .pluto-divider + h2.pluto-text {
+        margin-top: 4rem;
+    }
+
     .pluto-tabs-selector .pluto-text {
         color: var(--pluto-gray-l10);
     }

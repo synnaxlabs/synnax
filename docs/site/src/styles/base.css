@@ -130,6 +130,7 @@ code:not(.astro-code code) {
     border: var(--pluto-border);
     border-color: var(--pluto-gray-l3);
     border-radius: 0.5rem;
+    overflow: visible;
 }
 
 code:not(:is(h1, h2, h3, h4, h5, h6) code) {
@@ -163,14 +164,11 @@ summary {
 /* Table styles */
 table {
     table-layout: auto;
-    width: calc(100% - 4px);
-    max-width: 100%;
+    width: 100%;
     border-spacing: 0;
     background: transparent;
     border-collapse: collapse;
     border-style: hidden;
-    display: block;
-    overflow-x: auto;
 }
 
 table > :not(caption) > * {

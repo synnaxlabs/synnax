@@ -98,13 +98,20 @@ if (wrap) className += " wrap";
             border-radius: 1rem;
             overflow-x: auto !important;
             overflow-y: visible !important;
+
+            /* Chrome/Safari/Edge */
             &::-webkit-scrollbar {
                 height: 0.75rem;
             }
-
+            &::-webkit-scrollbar-track {
+                background: transparent;
+            }
             &::-webkit-scrollbar-thumb {
-                background-color: var(--pluto-border-color);
-                border-radius: 2px;
+                background-color: var(--pluto-gray-l4);
+                border-radius: 0.5rem;
+            }
+            &::-webkit-scrollbar-thumb:hover {
+                background-color: var(--pluto-gray-l5);
             }
         }
     }
