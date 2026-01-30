@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/PageNav/PageNav";
+import { type PageNavNode } from "@/components/nav/Page";
 
 export const OPERATIONS_NAV: PageNavNode = {
   key: "operations",
   name: "Test and Operations",
+  icon: "Task",
   children: [
     {
       name: "Writing Automated Control Sequences",

@@ -1,0 +1,134 @@
+---
+import { Button, Icon } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+
+const {
+    tabindex,
+    variant,
+    wrap = false,
+    hideCopyButton = false,
+    ...rest
+} = Astro.props;
+let className = "astro-code-wrapper";
+if (variant != null) className += ` ${variant}`;
+if (wrap) className += " wrap";
+---
+
+<div class={className} tabindex={tabindex}>
+    {
+        !hideCopyButton && (
+            <Button.Button variant="outlined" size="medium" square>
+                <Fragment>
+                    <>
+                        <Icon.Copy className="copy" />
+                        <Icon.Check className="check" />
+                    </>
+                </Fragment>
+            </Button.Button>
+        )
+    }
+    <pre {...rest} class="styled-scrollbar"><slot /></pre>
+</div>
+
+<style is:global>
+    .error > .astro-code-wrapper {
+        .astro-code {
+            border: 1px solid var(--pluto-error-z);
+            background-color: var(--pluto-error-z-15) !important;
+        }
+        button {
+            display: none;
+        }
+    }
+    .warning > .astro-code-wrapper {
+        .astro-code {
+            border: 1px solid var(--pluto-warning-z);
+            background-color: var(--pluto-warning-z-15) !important;
+        }
+        button {
+            display: none;
+        }
+    }
+
+    .pluto-pack .astro-code-wrapper {
+        margin: 0;
+        .astro-code {
+            border: none;
+        }
+    }
+
+    .astro-code-wrapper {
+        position: relative;
+
+        &.wrap {
+            /* make sure the code block doesn't overflow the container */
+            overflow-x: hidden;
+        }
+
+        pre {
+            margin: 0;
+        }
+
+        margin: 5rem 1.5rem;
+        button {
+            opacity: 0;
+            position: absolute;
+            right: 2.3rem;
+            top: 2.3rem;
+            transition: opacity 0.2s ease-in-out;
+            z-index: 2;
+            & .pluto-icon {
+                width: 1em !important;
+                height: 1em !important;
+            }
+
+            .check {
+                display: none;
+            }
+        }
+
+        &:hover button {
+            opacity: 1;
+        }
+
+        .astro-code {
+            padding: 3rem;
+            position: relative;
+            border: var(--pluto-border);
+            border-radius: 1rem;
+            overflow-x: auto !important;
+            overflow-y: visible !important;
+
+            /* Chrome/Safari/Edge */
+            &::-webkit-scrollbar {
+                height: 0.75rem;
+            }
+            &::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            &::-webkit-scrollbar-thumb {
+                background-color: var(--pluto-gray-l4);
+                border-radius: 0.5rem;
+            }
+            &::-webkit-scrollbar-thumb:hover {
+                background-color: var(--pluto-gray-l5);
+            }
+        }
+    }
+    table .astro-code-wrapper {
+        margin: 0;
+        .astro-code {
+            padding: 0.5rem 1rem;
+            border-radius: var(--pluto-border-radius);
+        }
+        button {
+            display: none;
+        }
+    }
+
+    @media (max-width: 800px) {
+        .astro-code-wrapper {
+            margin: 5rem 0;
+        }
+    }
+</style>

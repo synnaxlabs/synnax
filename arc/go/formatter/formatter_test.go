@@ -42,7 +42,7 @@ var _ = Describe("Formatter", func() {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
 		Entry("simple function", "func add(x i32,y i32)i32{return x+y}", "func add(x i32, y i32) i32 {\n    return x + y\n}\n"),
-		Entry("function with config block", "func threshold{limit f64}(value f64)u8{return u8(0)}", "func threshold {\n    limit f64,\n} (value f64) u8 {\n    return u8(0)\n}\n"),
+		Entry("function with config block inline", "func threshold{limit f64}(value f64)u8{return u8(0)}", "func threshold{limit f64} (value f64) u8 {\n    return u8(0)\n}\n"),
 		Entry("empty function body", "func noop(){}", "func noop() {}\n"),
 	)
 
@@ -270,19 +270,20 @@ var _ = Describe("Formatter", func() {
 		Entry("multiple config values inline", "wait{duration=2ms,retries=3}", "wait{duration=2ms, retries=3}\n"),
 		Entry("empty config values inline", "wait{}", "wait{}\n"),
 		Entry("config values in flow statements", "sensor -> filter{threshold=10} -> output", "sensor -> filter{threshold=10} -> output\n"),
-		Entry("function declaration config block multi-line", "func threshold{limit f64}(value f64)u8{return u8(0)}", "func threshold {\n    limit f64,\n} (value f64) u8 {\n    return u8(0)\n}\n"),
+		Entry("function declaration config block inline", "func threshold{limit f64}(value f64)u8{return u8(0)}", "func threshold{limit f64} (value f64) u8 {\n    return u8(0)\n}\n"),
 		Entry("nested config values", "x := foo{a=1} + bar{b=2}", "x := foo{a=1} + bar{b=2}\n"),
 	)
 
-	DescribeTable("Config Block Trailing Commas",
+	DescribeTable("Config Block Formatting",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("single param gets trailing comma", "func foo{x i32}(){}", "func foo {\n    x i32,\n} () {}\n"),
-		Entry("multiple params get trailing comma", "func foo{x i32, y f64}(){}", "func foo {\n    x i32,\n    y f64,\n} () {}\n"),
-		Entry("empty config block no trailing comma", "func foo{}(){}", "func foo {} () {}\n"),
-		Entry("already has trailing comma is idempotent", "func foo {\n    x i32,\n} () {}\n", "func foo {\n    x i32,\n} () {}\n"),
-		Entry("multiple params already formatted", "func foo {\n    x i32,\n    y f64,\n} () {}\n", "func foo {\n    x i32,\n    y f64,\n} () {}\n"),
+		Entry("single param inline", "func foo{x i32}(){}", "func foo{x i32} () {}\n"),
+		Entry("multiple params inline", "func foo{x i32, y f64}(){}", "func foo{x i32, y f64} () {}\n"),
+		Entry("empty config block", "func foo{}(){}", "func foo{} () {}\n"),
+		Entry("already inline is idempotent", "func foo{x i32} () {}\n", "func foo{x i32} () {}\n"),
+		Entry("multiple params inline is idempotent", "func foo{x i32, y f64} () {}\n", "func foo{x i32, y f64} () {}\n"),
+		Entry("long config block goes multi-line", "func very_long_function_name_here{very_long_parameter_name_one f64, very_long_parameter_name_two f64}(){}", "func very_long_function_name_here{\n    very_long_parameter_name_one f64,\n    very_long_parameter_name_two f64,\n} () {}\n"),
 	)
 
 	DescribeTable("Stage Body Trailing Commas",

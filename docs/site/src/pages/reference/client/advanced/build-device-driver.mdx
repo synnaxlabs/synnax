@@ -11,11 +11,10 @@ clients: ["python", "typescript"]
 
 import { Divider, Note } from "@synnaxlabs/pluto";
 import { Fragment } from "react";
-import { Image, Video } from "@/components/Media";
+import { Image, Video } from "@/components/media/Media";
 import { Client } from "@/components/client";
-import StepText from "@/components/StepText.astro";
-import Code from "@/components/code/Code.astro";
-import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import Step from "@/components/text/Step.astro";
+import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -61,7 +60,7 @@ This section sets up the Arduino to continuously read from an analog input and s
 value over serial. The driver script captures each incoming value and writes it to a
 [channel](/reference/concepts/channels) in Synnax.
 
-### <StepText step={1} level="h3">Arduino Code</StepText>
+### <Step step={1} level="h3">Arduino Code</Step>
 
 Upload this code to your Arduino.
 
@@ -79,7 +78,7 @@ void loop() {
 }
 ```
 
-### <StepText step={2} level="h3">Serial Connection</StepText>
+### <Step step={2} level="h3">Serial Connection</Step>
 
 Create a driver file. Find your Arduino's port in the Arduino IDE (top-right corner when
 connected via USB).
@@ -120,7 +119,7 @@ port.on("open", () => console.log("Serial connection established"));
 
 </Client.Tabs>
 
-### <StepText step={3} level="h3">Reading from Arduino</StepText>
+### <Step step={3} level="h3">Reading from Arduino</Step>
 
 Read values in a loop.
 
@@ -149,7 +148,7 @@ parser.on("data", (line: string) => {
 
 </Client.Tabs>
 
-### <StepText step={4} level="h3">Setting up Synnax Client</StepText>
+### <Step step={4} level="h3">Setting up Synnax Client</Step>
 
 Create a client and two channels - an **index channel** for timestamps and a **data
 channel** for values.
@@ -216,7 +215,7 @@ const dataChannel = await client.channels.create({
 
 </Client.Tabs>
 
-### <StepText step={5} level="h3">Writing to Synnax</StepText>
+### <Step step={5} level="h3">Writing to Synnax</Step>
 
 Open a writer and stream data.
 
@@ -271,7 +270,7 @@ process.on("SIGINT", async () => {
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
-<ExampleDetails open>
+<Details open>
 <span slot="summary">`driver_read.py`</span>
 
 ```python
@@ -318,11 +317,11 @@ with client.open_writer(
         })
 ```
 
-</ExampleDetails>
+</Details>
   </Fragment>
 
   <Fragment slot="typescript">
-<ExampleDetails open>
+<Details open>
 <span slot="summary">`driver_read.ts`</span>
 
 ```typescript
@@ -380,12 +379,12 @@ process.on("SIGINT", async () => {
 });
 ```
 
-</ExampleDetails>
+</Details>
   </Fragment>
 
 </Client.Tabs>
 
-### <StepText step={6} level="h3">Console Plot</StepText>
+### <Step step={6} level="h3">Console Plot</Step>
 
 With the script running, set up a line plot in the Console:
 
@@ -398,7 +397,7 @@ With the script running, set up a line plot in the Console:
 This section covers receiving commands from Synnax to control digital outputs on the
 Arduino.
 
-### <StepText step={1} level="h3">Arduino Code</StepText>
+### <Step step={1} level="h3">Arduino Code</Step>
 
 Upload this code (uses the built-in LED on pin 13).
 
@@ -425,7 +424,7 @@ void loop() {
 }
 ```
 
-### <StepText step={2} level="h3">Synnax Command Channel</StepText>
+### <Step step={2} level="h3">Synnax Command Channel</Step>
 
 Create a **virtual** command channel. Virtual channels do not store historical values.
 As a consequence, an index channel is not needed.
@@ -460,7 +459,7 @@ const commandChannel = await client.channels.create({
 
 </Client.Tabs>
 
-### <StepText step={3} level="h3">Streaming Commands</StepText>
+### <Step step={3} level="h3">Streaming Commands</Step>
 
 Open a streamer to receive commands and write them to serial.
 
@@ -495,7 +494,7 @@ for await (const frame of streamer) {
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
-<ExampleDetails open>
+<Details open>
 <span slot="summary">`driver_write.py`</span>
 
 ```python
@@ -529,11 +528,11 @@ with client.open_streamer(["arduino_command"]) as streamer:
         ser.write(command.encode("utf-8"))
 ```
 
-</ExampleDetails>
+</Details>
   </Fragment>
 
   <Fragment slot="typescript">
-<ExampleDetails open>
+<Details open>
 <span slot="summary">`driver_write.ts`</span>
 
 ```typescript
@@ -571,12 +570,12 @@ for await (const frame of streamer) {
 }
 ```
 
-</ExampleDetails>
+</Details>
   </Fragment>
 
 </Client.Tabs>
 
-### <StepText step={4} level="h3">Console Control</StepText>
+### <Step step={4} level="h3">Console Control</Step>
 
 Set up a switch on a [schematic](/reference/console/schematics).
 
@@ -594,7 +593,7 @@ The solution is to use **separate channels**: a **command channel** for sending
 commands, and a **state channel** that reflects the actual hardware state. The switch
 only updates when the state channel confirms the change.
 
-### <StepText step={1} level="h3">Arduino Code</StepText>
+### <Step step={1} level="h3">Arduino Code</Step>
 
 This code reads commands, controls the output, and sends back both state and analog
 values.
@@ -627,7 +626,7 @@ void loop() {
 }
 ```
 
-### <StepText step={2} level="h3">Synnax Channels</StepText>
+### <Step step={2} level="h3">Synnax Channels</Step>
 
 Create four channels: command, time, state, and value.
 
@@ -703,7 +702,7 @@ const arduinoValue = await client.channels.create({
 
 </Client.Tabs>
 
-### <StepText step={3} level="h3">Combined Read-Write Loop</StepText>
+### <Step step={3} level="h3">Combined Read-Write Loop</Step>
 
 Stream commands while writing state and values.
 
@@ -779,7 +778,7 @@ process.on("SIGINT", async () => {
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
-<ExampleDetails open>
+<Details open>
 <span slot="summary">`driver.py`</span>
 
 ```python
@@ -848,11 +847,11 @@ with client.open_streamer(["arduino_command"]) as streamer:
                 })
 ```
 
-</ExampleDetails>
+</Details>
   </Fragment>
 
   <Fragment slot="typescript">
-<ExampleDetails open>
+<Details open>
 <span slot="summary">`driver.ts`</span>
 
 ```typescript
@@ -940,12 +939,12 @@ process.on("SIGINT", async () => {
 });
 ```
 
-</ExampleDetails>
+</Details>
   </Fragment>
 
 </Client.Tabs>
 
-### <StepText step={4} level="h3">Console Setup</StepText>
+### <Step step={4} level="h3">Console Setup</Step>
 
 Now configure the switch with separate channels:
 

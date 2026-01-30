@@ -8,9 +8,14 @@ prevURL: "/reference/control/embedded/recipes"
 prev: "Recipes"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
+
+<Note.Note variant="warning">
+  The Lua-based embedded sequence editor is deprecated. For new automations, use
+  [Arc](/reference/control/arc/introduction) instead.
+</Note.Note>
 
 ## Reading Channel Values
 

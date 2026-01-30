@@ -177,6 +177,7 @@ import {
   PiWaveTriangleBold,
 } from "react-icons/pi";
 import {
+  RiDashboardFill,
   RiProgress1Line,
   RiProgress4Line,
   RiProgress8Line,
@@ -471,6 +472,7 @@ export const Reset = wrapSVGIcon(RxReset, "reset");
 export const FillColor = wrapSVGIcon(IoMdColorFill, "fill-color");
 export const StrokeColor = wrapSVGIcon(MdBorderColor, "stroke-color");
 export const Logout = wrapSVGIcon(MdLogout, "logout");
+export const Dashboard = wrapSVGIcon(RiDashboardFill, "dashboard");
 export const Err = wrapSVGIcon(MdError, "error");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
@@ -631,6 +633,7 @@ const icons = {
   Reset,
   Status,
   FillColor,
+  Dashboard,
   StrokeColor,
   Logout,
   Err,

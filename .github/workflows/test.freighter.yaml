@@ -3,6 +3,7 @@ name: Test - Freighter (Python & TypeScript)
 on:
   pull_request:
     paths:
+      - .github/actions/test-python/**
       - .github/actions/test-typescript/**
       - .github/workflows/test.freighter.yaml
       - alamos/go/**
@@ -32,6 +33,7 @@ on:
       - main
       - rc
     paths:
+      - .github/actions/test-python/**
       - .github/actions/test-typescript/**
       - .github/workflows/test.freighter.yaml
       - alamos/go/**
@@ -86,7 +88,9 @@ jobs:
               - x/go/**
             py:
               - *server
+              - .github/actions/test-python/**
               - alamos/py/**
+              - codecov.yaml
               - freighter/py/**
               - pyproject.toml
               - uv.lock
@@ -154,32 +158,16 @@ jobs:
         ports:
           - 8080:8080
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Test Python
+        uses: ./.github/actions/test-python
         with:
-          python-version-file: freighter/py/pyproject.toml
-
-      - name: Check Import Order
-        run: uv run isort -c .
-        working-directory: freighter/py
-
-      - name: Check Formatting
-        run: uv run black --check --diff --color .
-        working-directory: freighter/py
-
-      - name: Check Types
-        run: uv run mypy .
-        working-directory: freighter/py
-
-      - name: Test
-        run: uv run pytest
-        working-directory: freighter/py
+          directory: freighter/py
+          coverage: true
+          coverage_module: freighter
+          coverage_flag: freighter-py
 
   ts:
     name: Test - TypeScript

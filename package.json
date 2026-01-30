@@ -3,6 +3,7 @@
   "scripts": {
     "build": "npx turbo build",
     "build:alamos": "npx turbo build --filter @synnaxlabs/alamos",
+    "build:arc": "npx turbo build --filter @synnaxlabs/arc",
     "build:client": "npx turbo build --filter @synnaxlabs/client",
     "build:console": "npx turbo build --filter @synnaxlabs/console",
     "build:console-vite": "npx turbo build-vite --filter @synnaxlabs/console",
