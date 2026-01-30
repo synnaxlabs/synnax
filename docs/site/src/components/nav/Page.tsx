@@ -174,7 +174,6 @@ const Guides = ({ currentPage }: InternalTreeProps): ReactElement => {
   const treeProps = Tree.use({
     nodes: GUIDES_PAGES,
     initialExpanded: [...parts, ...GUIDES_SECTION_KEYS],
-    sort: (a, b) => a.key.localeCompare(b.key),
     onExpand: ({ action, clicked }) => {
       if (action === "contract" && GUIDES_SECTION_KEYS.includes(clicked))
         treeProps.expand(clicked);
