@@ -179,7 +179,7 @@ func (d *Driver) handleTaskChange(ctx context.Context, reader gorp.TxReader[task
 			if ch.Variant == change.VariantSet {
 				d.configure(ctx, ch.Value)
 			} else {
-				d.delete(ctx, ch.Key)
+				d.delete(ch.Key)
 			}
 		}
 	}
@@ -259,7 +259,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 	)
 }
 
-func (d *Driver) delete(ctx context.Context, key task.Key) {
+func (d *Driver) delete(key task.Key) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	t, ok := d.mu.tasks[key]
