@@ -1,0 +1,67 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
+config_setting(
+    name = "linux",
+    constraint_values = ["@platforms//os:linux"],
+)
+
+# Vendored IgH EtherCAT Master header (ecrt.h)
+# Source: https://gitlab.com/etherlab.org/ethercat (stable-1.6)
+# License: LGPL-2.1
+cc_library(
+    name = "ecrt_official",
+    hdrs = ["ecrt.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "igh",
+    srcs = select({
+        ":linux": ["master.cpp"],
+        "//conditions:default": [],
+    }),
+    hdrs = select({
+        ":linux": ["master.h"],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        ":linux": [
+            "-L/opt/etherlab/lib",
+            "-lethercat",
+        ],
+        "//conditions:default": [],
+    }),
+    visibility = ["//driver/ethercat:__pkg__"],
+    deps = select({
+        ":linux": [
+            ":ecrt_official",
+            "//driver/ethercat/errors",
+            "//driver/ethercat/master",
+            "//x/cpp/xerrors",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_test(
+    name = "igh_test",
+    srcs = select({
+        ":linux": ["master_test.cpp"],
+        "//conditions:default": [],
+    }),
+    tags = [
+        "linux-only",
+        "manual",
+        "requires-hardware",
+        "requires-root",
+    ],
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = select({
+        ":linux": [
+            ":igh",
+            "//x/cpp/xtest",
+            "@googletest//:gtest_main",
+        ],
+        "//conditions:default": [],
+    }),
+)

@@ -10,11 +10,16 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
+#include <map>
+#include <memory>
 #include <string>
 
 #include "client/cpp/synnax.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/xjson/xjson.h"
 
+#include "driver/ethercat/device.h"
 #include "driver/ethercat/master/slave_info.h"
 
 namespace ethercat::channel {
@@ -22,25 +27,20 @@ namespace ethercat::channel {
 struct Channel {
     /// Whether this channel is enabled for data exchange.
     bool enabled;
-
-    /// Position of the slave on the EtherCAT bus (0-based).
+    /// The key of the slave device in Synnax.
+    std::string device_key;
+    /// Serial number of the slave device (for runtime position resolution).
+    uint32_t slave_serial;
+    /// Position of the slave on the EtherCAT bus (resolved at runtime).
     uint16_t slave_position;
-
     /// Index of the PDO object in the CoE object dictionary (e.g., 0x6000).
     uint16_t index;
-
     /// Subindex of the PDO object.
     uint8_t subindex;
-
     /// Size of the data in bits.
     uint8_t bit_length;
-
-    explicit Channel(xjson::Parser &parser):
-        enabled(parser.field<bool>("enabled", true)),
-        slave_position(parser.field<uint16_t>("slave_position")),
-        index(static_cast<uint16_t>(parser.field<int>("index"))),
-        subindex(static_cast<uint8_t>(parser.field<int>("subindex"))),
-        bit_length(static_cast<uint8_t>(parser.field<int>("bit_length"))) {}
+    /// Data type of the PDO.
+    telem::DataType data_type;
 
     virtual ~Channel() = default;
 
@@ -51,56 +51,191 @@ struct Channel {
     [[nodiscard]] PDOEntry to_pdo_entry(const bool is_input) const {
         return PDOEntry(slave_position, index, subindex, bit_length, is_input);
     }
+
+protected:
+    explicit Channel(xjson::Parser &parser, const device::SlaveProperties &slave):
+        enabled(parser.field<bool>("enabled", true)),
+        device_key(parser.field<std::string>("device")),
+        slave_serial(slave.serial),
+        slave_position(slave.position),
+        index(0),
+        subindex(0),
+        bit_length(0),
+        data_type(telem::UNKNOWN_T) {}
 };
 
-/// Input channel configuration (TxPDO, slave→master).
-struct Input final : Channel {
+/// Base input channel (TxPDO, slave->master).
+struct Input : virtual Channel {
     /// The key of the Synnax channel to write data to.
     synnax::ChannelKey synnax_key;
-
     /// The Synnax channel object (populated after remote lookup).
     synnax::Channel ch;
-
     /// Offset into the input buffer where this channel's data resides.
     size_t buffer_offset;
 
-    explicit Input(xjson::Parser &parser):
-        Channel(parser),
-        synnax_key(parser.field<synnax::ChannelKey>("channel")),
-        buffer_offset(0) {}
-
     /// Binds remote channel information retrieved from Synnax.
     void bind_remote_info(const synnax::Channel &remote_ch) { this->ch = remote_ch; }
+
+protected:
+    explicit Input(xjson::Parser &parser, const device::SlaveProperties &slave):
+        Channel(parser, slave),
+        synnax_key(parser.field<synnax::ChannelKey>("channel")),
+        buffer_offset(0) {}
 };
 
-/// Output channel configuration (RxPDO, master→slave).
-struct Output final : Channel {
+/// Automatic input channel - resolves PDO address from slave device properties by name.
+struct AutomaticInput final : Input {
+    /// The name of the PDO to look up in slave device properties.
+    std::string pdo_name;
+
+    explicit AutomaticInput(
+        xjson::Parser &parser,
+        const device::SlaveProperties &slave
+    ):
+        Channel(parser, slave),
+        Input(parser, slave),
+        pdo_name(parser.field<std::string>("pdo")) {
+        auto pdo = slave.find_input_pdo(pdo_name);
+        if (!pdo) {
+            parser.field_err("pdo", "PDO '" + pdo_name + "' not found in slave");
+            return;
+        }
+        index = pdo->index;
+        subindex = pdo->subindex;
+        bit_length = pdo->bit_length;
+        data_type = telem::DataType(pdo->data_type);
+    }
+};
+
+/// Manual input channel - user specifies PDO address inline.
+struct ManualInput final : Input {
+    explicit ManualInput(xjson::Parser &parser, const device::SlaveProperties &slave):
+        Channel(parser, slave), Input(parser, slave) {
+        index = static_cast<uint16_t>(parser.field<int>("index"));
+        subindex = static_cast<uint8_t>(parser.field<int>("subindex"));
+        bit_length = static_cast<uint8_t>(parser.field<int>("bit_length"));
+        data_type = telem::DataType(parser.field<std::string>("data_type"));
+    }
+};
+
+/// Factory function type for creating input channels.
+using InputFactory = std::function<
+    std::unique_ptr<Input>(xjson::Parser &, const device::SlaveProperties &)>;
+
+/// Parses an input channel from JSON configuration.
+/// @param parser The JSON parser positioned at the channel configuration.
+/// @param slave The slave device properties for PDO resolution.
+/// @returns A unique pointer to the parsed input channel, or nullptr on error.
+inline std::unique_ptr<Input>
+parse_input(xjson::Parser &parser, const device::SlaveProperties &slave) {
+    static const std::map<std::string, InputFactory> INPUT_FACTORIES = {
+        {"automatic",
+         [](xjson::Parser &cfg, const device::SlaveProperties &s) {
+             return std::make_unique<AutomaticInput>(cfg, s);
+         }},
+        {"manual", [](xjson::Parser &cfg, const device::SlaveProperties &s) {
+             return std::make_unique<ManualInput>(cfg, s);
+         }}
+    };
+    const auto type = parser.field<std::string>("type");
+    const auto it = INPUT_FACTORIES.find(type);
+    if (it != INPUT_FACTORIES.end()) return it->second(parser, slave);
+    parser.field_err("type", "unknown channel type: " + type);
+    return nullptr;
+}
+
+/// Base output channel (RxPDO, master->slave).
+struct Output : virtual Channel {
     /// The key of the Synnax channel to receive commands from.
     synnax::ChannelKey command_key;
-
     /// The key of the Synnax channel to write state feedback to.
     synnax::ChannelKey state_key;
-
     /// The Synnax state channel object (populated after remote lookup).
     synnax::Channel state_ch;
-
     /// Offset into the output buffer where this channel's data resides.
     size_t buffer_offset;
 
-    explicit Output(xjson::Parser &parser):
-        Channel(parser),
+    void bind_remote_info(const synnax::Channel &state_channel) {
+        this->state_ch = state_channel;
+    }
+
+protected:
+    explicit Output(xjson::Parser &parser, const device::SlaveProperties &slave):
+        Channel(parser, slave),
         command_key(parser.field<synnax::ChannelKey>("channel")),
         state_key(parser.field<synnax::ChannelKey>("state_channel", 0)),
         buffer_offset(0) {}
 };
 
-/// Sorts a vector of channels in place by slave position, then by index.
-template<typename ChannelType>
-void sort_by_position(std::vector<ChannelType> &channels) {
+/// Automatic output channel - resolves PDO address from slave device properties by
+/// name.
+struct AutomaticOutput final : Output {
+    /// The name of the PDO to look up in slave device properties.
+    std::string pdo_name;
+
+    explicit AutomaticOutput(
+        xjson::Parser &parser,
+        const device::SlaveProperties &slave
+    ):
+        Channel(parser, slave),
+        Output(parser, slave),
+        pdo_name(parser.field<std::string>("pdo")) {
+        auto pdo = slave.find_output_pdo(pdo_name);
+        if (!pdo) {
+            parser.field_err("pdo", "PDO '" + pdo_name + "' not found in slave");
+            return;
+        }
+        index = pdo->index;
+        subindex = pdo->subindex;
+        bit_length = pdo->bit_length;
+        data_type = telem::DataType(pdo->data_type);
+    }
+};
+
+/// Manual output channel - user specifies PDO address inline.
+struct ManualOutput final : Output {
+    explicit ManualOutput(xjson::Parser &parser, const device::SlaveProperties &slave):
+        Channel(parser, slave), Output(parser, slave) {
+        index = static_cast<uint16_t>(parser.field<int>("index"));
+        subindex = static_cast<uint8_t>(parser.field<int>("subindex"));
+        bit_length = static_cast<uint8_t>(parser.field<int>("bit_length"));
+        data_type = telem::DataType(parser.field<std::string>("data_type"));
+    }
+};
+
+/// Factory function type for creating output channels.
+using OutputFactory = std::function<
+    std::unique_ptr<Output>(xjson::Parser &, const device::SlaveProperties &)>;
+
+/// Parses an output channel from JSON configuration.
+/// @param parser The JSON parser positioned at the channel configuration.
+/// @param slave The slave device properties for PDO resolution.
+/// @returns A unique pointer to the parsed output channel, or nullptr on error.
+inline std::unique_ptr<Output>
+parse_output(xjson::Parser &parser, const device::SlaveProperties &slave) {
+    static const std::map<std::string, OutputFactory> OUTPUT_FACTORIES = {
+        {"automatic",
+         [](xjson::Parser &cfg, const device::SlaveProperties &s) {
+             return std::make_unique<AutomaticOutput>(cfg, s);
+         }},
+        {"manual", [](xjson::Parser &cfg, const device::SlaveProperties &s) {
+             return std::make_unique<ManualOutput>(cfg, s);
+         }}
+    };
+    const auto type = parser.field<std::string>("type");
+    const auto it = OUTPUT_FACTORIES.find(type);
+    if (it != OUTPUT_FACTORIES.end()) return it->second(parser, slave);
+    parser.field_err("type", "unknown channel type: " + type);
+    return nullptr;
+}
+
+/// Sorts a vector of channel pointers in place by slave position, then by index.
+template<typename ChannelPtr>
+void sort_by_position(std::vector<ChannelPtr> &channels) {
     std::sort(channels.begin(), channels.end(), [](const auto &a, const auto &b) {
-        if (a.slave_position != b.slave_position)
-            return a.slave_position < b.slave_position;
-        return a.index < b.index;
+        if (a->slave_position != b->slave_position)
+            return a->slave_position < b->slave_position;
+        return a->index < b->index;
     });
 }
 }

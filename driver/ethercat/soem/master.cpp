@@ -7,73 +7,69 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/ethercat/soem/master.h"
-
 #include <algorithm>
+
+#include "glog/logging.h"
+
+#include "driver/ethercat/pdo_types.h"
+#include "driver/ethercat/soem/master.h"
 
 namespace ethercat::soem {
 
 ////////////////////////////////////////////////////////////////////////////////
-// SOEMDomain Implementation
+// Domain Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-SOEMDomain::SOEMDomain(const size_t iomap_size)
-    : iomap_(iomap_size, 0),
-      input_offset_(0),
-      output_offset_(0),
-      input_size_(0),
-      output_size_(0) {
-}
+Domain::Domain(const size_t iomap_size):
+    iomap(iomap_size, 0),
+    input_offset(0),
+    output_offset(0),
+    input_sz(0),
+    output_sz(0) {}
 
-std::pair<size_t, xerrors::Error> SOEMDomain::register_pdo(const PDOEntry &entry) {
-    // Calculate offset based on direction.
-    // In SOEM, the actual offsets are determined during ecx_config_map_group(),
-    // but we track expected offsets for user-level access.
+std::pair<size_t, xerrors::Error> Domain::register_pdo(const PDOEntry &entry) {
     size_t offset;
     const size_t byte_size = (entry.bit_length + 7) / 8;
 
     if (entry.is_input) {
-        // Input PDOs (TxPDO, slave → master) start after output area
-        offset = output_size_ + input_offset_;
-        input_offset_ += byte_size;
+        offset = this->output_sz + this->input_offset;
+        this->input_offset += byte_size;
     } else {
-        // Output PDOs (RxPDO, master → slave) at beginning
-        offset = output_offset_;
-        output_offset_ += byte_size;
+        offset = this->output_offset;
+        this->output_offset += byte_size;
     }
 
-    // Check bounds
-    if (offset + byte_size > iomap_.size()) {
+    if (offset + byte_size > this->iomap.size()) {
         return {0, xerrors::Error(PDO_MAPPING_ERROR, "IOmap buffer overflow")};
     }
 
-    registered_pdos_.emplace_back(entry, offset);
+    this->registered_pdos.emplace_back(entry, offset);
     return {offset, xerrors::NIL};
 }
 
-uint8_t *SOEMDomain::data() {
-    return iomap_.data();
+uint8_t *Domain::data() {
+    return this->iomap.data();
 }
 
-size_t SOEMDomain::size() const {
-    return iomap_.size();
+size_t Domain::size() const {
+    return this->iomap.size();
 }
 
-size_t SOEMDomain::input_size() const {
-    return input_size_;
+size_t Domain::input_size() const {
+    return this->input_sz;
 }
 
-size_t SOEMDomain::output_size() const {
-    return output_size_;
+size_t Domain::output_size() const {
+    return this->output_sz;
 }
 
-void SOEMDomain::set_sizes(const size_t input_size, const size_t output_size) {
-    input_size_ = input_size;
-    output_size_ = output_size;
+void Domain::set_sizes(const size_t input_size, const size_t output_size) {
+    this->input_sz = input_size;
+    this->output_sz = output_size;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// SOEMMaster Implementation
+// Master Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
 /// Default timeout for state transitions (2 seconds in microseconds).
@@ -82,190 +78,149 @@ constexpr int STATE_CHANGE_TIMEOUT = 2000000;
 /// Default timeout for process data receive (1 millisecond in microseconds).
 constexpr int PROCESSDATA_TIMEOUT = 1000;
 
-SOEMMaster::SOEMMaster(std::string interface_name)
-    : interface_name_(std::move(interface_name)),
-      context_{},
-      initialized_(false),
-      activated_(false),
-      domain_(nullptr),
-      expected_wkc_(0) {
-    // Zero-initialize the SOEM context
-    std::memset(&context_, 0, sizeof(context_));
+Master::Master(std::string interface_name):
+    iface_name(std::move(interface_name)),
+    context{},
+    initialized(false),
+    activated(false),
+    dom(nullptr),
+    expected_wkc(0) {
+    std::memset(&this->context, 0, sizeof(this->context));
 }
 
-SOEMMaster::~SOEMMaster() {
-    if (activated_) {
-        deactivate();
-    }
-    if (initialized_) {
-        ecx_close(&context_);
-    }
+Master::~Master() {
+    if (this->activated || this->initialized) this->deactivate();
 }
 
-xerrors::Error SOEMMaster::initialize() {
-    if (initialized_) {
-        // Already initialized - idempotent success
-        return xerrors::NIL;
-    }
+xerrors::Error Master::initialize() {
+    if (this->initialized) return xerrors::NIL;
 
-    // Initialize the SOEM port on the specified interface
-    if (ecx_init(&context_, interface_name_.c_str()) <= 0) {
+    if (ecx_init(&this->context, this->iface_name.c_str()) <= 0) {
         return xerrors::Error(
             MASTER_INIT_ERROR,
-            "failed to initialize EtherCAT on interface: " + interface_name_
+            "failed to initialize EtherCAT on interface: " + this->iface_name
         );
     }
 
-    // Scan for slaves on the network
-    if (ecx_config_init(&context_) <= 0) {
-        ecx_close(&context_);
+    if (ecx_config_init(&this->context) <= 0) {
+        ecx_close(&this->context);
         return xerrors::Error(MASTER_INIT_ERROR, "no EtherCAT slaves found on network");
     }
 
-    // Populate the cached slave list
-    populate_slaves();
-
-    initialized_ = true;
+    this->populate_slaves();
+    this->initialized = true;
     return xerrors::NIL;
 }
 
-std::unique_ptr<Domain> SOEMMaster::create_domain() {
-    return std::make_unique<SOEMDomain>();
+std::unique_ptr<ethercat::Domain> Master::create_domain() {
+    return std::make_unique<Domain>();
 }
 
-xerrors::Error SOEMMaster::activate() {
-    if (!initialized_) {
+xerrors::Error Master::activate() {
+    if (!this->initialized) {
         return xerrors::Error(ACTIVATION_ERROR, "master not initialized");
     }
-    if (activated_) {
+    if (this->activated) {
         return xerrors::Error(ACTIVATION_ERROR, "master already activated");
     }
 
-    // Separate problematic slaves into group 1 before PDO mapping.
-    // Some slave types (like DEWESoft 6xSTG strain gauge modules, product 0xFC)
-    // have SM configuration issues that prevent them from reaching SAFE_OP.
-    // By putting them in a separate group, we can still operate the working slaves.
     int excluded_count = 0;
-    for (int i = 1; i <= context_.slavecount; ++i) {
-        // DEWESoft 6xSTG has known SM OUT configuration issues (AL code 38)
-        if (context_.slavelist[i].eep_id == 0x000000FC) {
-            context_.slavelist[i].group = 1;  // Exclude from group 0
+    for (int i = 1; i <= this->context.slavecount; ++i) {
+        if (this->context.slavelist[i].eep_id == 0x000000FC) {
+            this->context.slavelist[i].group = 1;
             excluded_count++;
         } else {
-            context_.slavelist[i].group = 0;  // Include in group 0
+            this->context.slavelist[i].group = 0;
         }
     }
 
-    // Map the process data using SOEM's auto-configuration
-    // This configures all slaves' PDO mappings based on their EEPROM/CoE settings
-    // We use group 0 which includes only the working slaves
-    auto domain = std::make_unique<SOEMDomain>();
-    const int iomap_size = ecx_config_map_group(&context_, domain->iomap_ptr(), 0);
+    auto domain = std::make_unique<Domain>();
+    const int iomap_size = ecx_config_map_group(&this->context, domain->iomap_ptr(), 0);
 
-    if (iomap_size <= 0 && excluded_count < context_.slavecount) {
+    if (iomap_size <= 0 && excluded_count < this->context.slavecount) {
         return xerrors::Error(ACTIVATION_ERROR, "failed to configure PDO mapping");
     }
 
-    // Calculate total input/output sizes from group 0
-    const auto &group = context_.grouplist[0];
+    const auto &group = this->context.grouplist[0];
     domain->set_sizes(group.Ibytes, group.Obytes);
+    this->dom = domain.release();
+    this->expected_wkc = (this->context.grouplist[0].outputsWKC * 2) +
+                         this->context.grouplist[0].inputsWKC;
 
-    // Store domain pointer for cyclic operations
-    domain_ = domain.release();
-
-    // Calculate expected working counter
-    // WKC = (outputs + inputs) for LRW command
-    expected_wkc_ = (context_.grouplist[0].outputsWKC * 2) +
-                    context_.grouplist[0].inputsWKC;
-
-    // Transition all slaves to Safe-Op
-    auto err = request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
+    auto err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
     if (err) {
-        delete domain_;
-        domain_ = nullptr;
+        delete this->dom;
+        this->dom = nullptr;
         return err;
     }
 
-    // Transition all slaves to Operational
-    // First, start sending process data (required before OP transition)
-    ecx_send_processdata(&context_);
-    ecx_receive_processdata(&context_, PROCESSDATA_TIMEOUT);
+    ecx_send_processdata(&this->context);
+    ecx_receive_processdata(&this->context, PROCESSDATA_TIMEOUT);
 
-    err = request_state(EC_STATE_OPERATIONAL, STATE_CHANGE_TIMEOUT);
+    err = this->request_state(EC_STATE_OPERATIONAL, STATE_CHANGE_TIMEOUT);
     if (err) {
-        // Try to return to Safe-Op on failure
-        request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
-        delete domain_;
-        domain_ = nullptr;
+        this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
+        delete this->dom;
+        this->dom = nullptr;
         return err;
     }
 
-    activated_ = true;
+    this->activated = true;
     return xerrors::NIL;
 }
 
-void SOEMMaster::deactivate() {
-    if (!activated_) return;
+void Master::deactivate() {
+    if (this->activated) {
+        this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
+        delete this->dom;
+        this->dom = nullptr;
+        this->activated = false;
+        this->expected_wkc = 0;
+    }
 
-    // Transition slaves back to Init state
-    request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
-
-    // Clean up domain
-    delete domain_;
-    domain_ = nullptr;
-    activated_ = false;
-    expected_wkc_ = 0;
+    if (this->initialized) {
+        ecx_close(&this->context);
+        this->initialized = false;
+        this->slave_list.clear();
+    }
 }
 
-xerrors::Error SOEMMaster::receive() {
-    if (!activated_) {
+xerrors::Error Master::receive() {
+    if (!this->activated) {
         return xerrors::Error(CYCLIC_ERROR, "master not activated");
     }
 
-    // Receive process data from slaves
-    // This updates the input portion of the IOmap
-    const int wkc = ecx_receive_processdata(&context_, PROCESSDATA_TIMEOUT);
+    const int wkc = ecx_receive_processdata(&this->context, PROCESSDATA_TIMEOUT);
 
-    if (wkc < 0) {
-        return xerrors::Error(CYCLIC_ERROR, "process data receive failed");
-    }
+    if (wkc < 0) { return xerrors::Error(CYCLIC_ERROR, "process data receive failed"); }
 
-    // Check working counter
-    if (wkc != expected_wkc_) {
-        // Working counter mismatch indicates communication issues
-        // This could be a slave dropping out or communication error
+    if (wkc != this->expected_wkc) {
         return xerrors::Error(
             WORKING_COUNTER_ERROR,
-            "working counter mismatch: expected " +
-            std::to_string(expected_wkc_) + ", got " + std::to_string(wkc)
+            "working counter mismatch: expected " + std::to_string(this->expected_wkc) +
+                ", got " + std::to_string(wkc)
         );
     }
 
     return xerrors::NIL;
 }
 
-xerrors::Error SOEMMaster::process(Domain &domain) {
-    // In SOEM, process data is directly in the IOmap buffer
-    // This method is a no-op as data is already available after receive()
-    (void)domain;
+xerrors::Error Master::process(ethercat::Domain &domain) {
+    (void) domain;
     return xerrors::NIL;
 }
 
-xerrors::Error SOEMMaster::queue(Domain &domain) {
-    // In SOEM, output data is written directly to the IOmap buffer
-    // This method is a no-op as the buffer is already prepared for send()
-    (void)domain;
+xerrors::Error Master::queue(ethercat::Domain &domain) {
+    (void) domain;
     return xerrors::NIL;
 }
 
-xerrors::Error SOEMMaster::send() {
-    if (!activated_) {
+xerrors::Error Master::send() {
+    if (!this->activated) {
         return xerrors::Error(CYCLIC_ERROR, "master not activated");
     }
 
-    // Send process data to slaves
-    // This transmits the output portion of the IOmap
-    const int result = ecx_send_processdata(&context_);
+    const int result = ecx_send_processdata(&this->context);
 
     if (result <= 0) {
         return xerrors::Error(CYCLIC_ERROR, "process data send failed");
@@ -274,68 +229,61 @@ xerrors::Error SOEMMaster::send() {
     return xerrors::NIL;
 }
 
-std::vector<SlaveInfo> SOEMMaster::slaves() const {
-    std::lock_guard lock(mutex_);
-    return slaves_;
+std::vector<SlaveInfo> Master::slaves() const {
+    std::lock_guard lock(this->mu);
+    return this->slave_list;
 }
 
-SlaveState SOEMMaster::slave_state(const uint16_t position) const {
-    std::lock_guard lock(mutex_);
+SlaveState Master::slave_state(const uint16_t position) const {
+    std::lock_guard lock(this->mu);
 
-    if (position == 0 || position > static_cast<uint16_t>(context_.slavecount)) {
+    if (position == 0 || position > static_cast<uint16_t>(this->context.slavecount)) {
         return SlaveState::UNKNOWN;
     }
 
-    // Read current state from SOEM's slave list
-    // Note: SOEM uses 1-based indexing for slaves
-    return convert_state(context_.slavelist[position].state);
+    return convert_state(this->context.slavelist[position].state);
 }
 
-bool SOEMMaster::all_slaves_operational() const {
-    std::lock_guard lock(mutex_);
+bool Master::all_slaves_operational() const {
+    std::lock_guard lock(this->mu);
 
-    if (!activated_) return false;
+    if (!this->activated) return false;
 
-    for (int i = 1; i <= context_.slavecount; ++i) {
-        if ((context_.slavelist[i].state & EC_STATE_OPERATIONAL) == 0) {
+    for (int i = 1; i <= this->context.slavecount; ++i) {
+        if ((this->context.slavelist[i].state & EC_STATE_OPERATIONAL) == 0) {
             return false;
         }
     }
     return true;
 }
 
-std::string SOEMMaster::interface_name() const {
-    return interface_name_;
+std::string Master::interface_name() const {
+    return this->iface_name;
 }
 
-Domain *SOEMMaster::active_domain() const {
-    return domain_;
+ethercat::Domain *Master::active_domain() const {
+    return this->dom;
 }
 
-SlaveDataOffsets SOEMMaster::slave_data_offsets(const uint16_t position) const {
-    std::lock_guard lock(mutex_);
+SlaveDataOffsets Master::slave_data_offsets(const uint16_t position) const {
+    std::lock_guard lock(this->mu);
 
-    if (!activated_ || position == 0 ||
-        position > static_cast<uint16_t>(context_.slavecount)) {
+    if (!this->activated || position == 0 ||
+        position > static_cast<uint16_t>(this->context.slavecount)) {
         return SlaveDataOffsets{};
     }
 
-    // Only return offsets for slaves in group 0 (the active group)
-    if (context_.slavelist[position].group != 0) {
-        return SlaveDataOffsets{};
-    }
+    if (this->context.slavelist[position].group != 0) { return SlaveDataOffsets{}; }
 
-    const auto &slave = context_.slavelist[position];
+    const auto &slave = this->context.slavelist[position];
 
-    // SOEM stores pointers to the slave's data within the IOmap.
-    // We calculate the offset by subtracting the IOmap base address.
-    const auto *iomap_base = domain_->data();
+    const auto *iomap_base = this->dom->data();
     const size_t output_offset = slave.outputs != nullptr
-                                     ? static_cast<size_t>(slave.outputs - iomap_base)
-                                     : 0;
+                                   ? static_cast<size_t>(slave.outputs - iomap_base)
+                                   : 0;
     const size_t input_offset = slave.inputs != nullptr
-                                    ? static_cast<size_t>(slave.inputs - iomap_base)
-                                    : 0;
+                                  ? static_cast<size_t>(slave.inputs - iomap_base)
+                                  : 0;
 
     return SlaveDataOffsets{
         input_offset,
@@ -345,28 +293,31 @@ SlaveDataOffsets SOEMMaster::slave_data_offsets(const uint16_t position) const {
     };
 }
 
-SlaveState SOEMMaster::convert_state(const uint16_t soem_state) {
-    // SOEM state values match ETG.1000 spec (which our enum follows)
-    // but we need to handle the error/ack flag
+SlaveState Master::convert_state(const uint16_t soem_state) {
     const uint16_t state = soem_state & 0x0F;
 
     switch (state) {
-        case EC_STATE_INIT: return SlaveState::INIT;
-        case EC_STATE_PRE_OP: return SlaveState::PRE_OP;
-        case EC_STATE_BOOT: return SlaveState::BOOT;
-        case EC_STATE_SAFE_OP: return SlaveState::SAFE_OP;
-        case EC_STATE_OPERATIONAL: return SlaveState::OP;
-        default: return SlaveState::UNKNOWN;
+        case EC_STATE_INIT:
+            return SlaveState::INIT;
+        case EC_STATE_PRE_OP:
+            return SlaveState::PRE_OP;
+        case EC_STATE_BOOT:
+            return SlaveState::BOOT;
+        case EC_STATE_SAFE_OP:
+            return SlaveState::SAFE_OP;
+        case EC_STATE_OPERATIONAL:
+            return SlaveState::OP;
+        default:
+            return SlaveState::UNKNOWN;
     }
 }
 
-void SOEMMaster::populate_slaves() {
-    slaves_.clear();
-    slaves_.reserve(context_.slavecount);
+void Master::populate_slaves() {
+    this->slave_list.clear();
+    this->slave_list.reserve(this->context.slavecount);
 
-    // SOEM uses 1-based indexing for slaves (index 0 is the master)
-    for (int i = 1; i <= context_.slavecount; ++i) {
-        const auto &slave = context_.slavelist[i];
+    for (int i = 1; i <= this->context.slavecount; ++i) {
+        const auto &slave = this->context.slavelist[i];
         SlaveInfo info{};
         info.position = static_cast<uint16_t>(i);
         info.vendor_id = slave.eep_man;
@@ -374,26 +325,226 @@ void SOEMMaster::populate_slaves() {
         info.revision = slave.eep_rev;
         info.serial = slave.eep_ser;
         info.name = slave.name;
-        slaves_.push_back(info);
+        info.state = convert_state(slave.state);
+        this->discover_slave_pdos(info);
+        this->slave_list.push_back(info);
     }
 }
 
-xerrors::Error SOEMMaster::request_state(const uint16_t state, const int timeout) {
-    // Transition only group 0 slaves (problematic slaves are in group 1)
-    // We do this per-slave to avoid affecting excluded slaves
+constexpr int SDO_TIMEOUT = 700000;
+constexpr int MAX_SDO_FAILURES = 3;
+
+void Master::discover_slave_pdos(SlaveInfo &slave) {
+    if (!this->discover_pdos_coe(slave)) this->discover_pdos_sii(slave);
+}
+
+bool Master::discover_pdos_coe(SlaveInfo &slave) {
+    const auto &soem_slave = this->context.slavelist[slave.position];
+    if ((soem_slave.mbx_proto & ECT_MBXPROT_COE) == 0) {
+        VLOG(2) << "Slave " << slave.position << " does not support CoE";
+        return false;
+    }
+
+    auto err = this->read_pdo_assign(slave.position, ECT_SDO_TXPDOASSIGN, true, slave);
+    if (err) {
+        VLOG(2) << "Failed to read TxPDO assignment for slave " << slave.position
+                << ": " << err.message();
+        slave.pdo_discovery_error = err.message();
+        return false;
+    }
+
+    err = this->read_pdo_assign(slave.position, ECT_SDO_RXPDOASSIGN, false, slave);
+    if (err) {
+        VLOG(2) << "Failed to read RxPDO assignment for slave " << slave.position
+                << ": " << err.message();
+        if (slave.pdo_discovery_error.empty())
+            slave.pdo_discovery_error = err.message();
+    }
+
+    slave.pdos_discovered = true;
+    VLOG(1) << "Slave " << slave.position
+            << " PDOs discovered via CoE: " << slave.input_pdos.size() << " inputs, "
+            << slave.output_pdos.size() << " outputs";
+    return true;
+}
+
+void Master::discover_pdos_sii(SlaveInfo &slave) {
+    VLOG(2) << "Using SII fallback for slave " << slave.position;
+    slave.pdos_discovered = true;
+    slave.pdo_discovery_error = "CoE not supported, limited PDO info from SII";
+}
+
+xerrors::Error Master::read_pdo_assign(
+    const uint16_t slave_pos,
+    const uint16_t assign_index,
+    const bool is_input,
+    SlaveInfo &slave
+) {
+    uint8_t num_pdos = 0;
+    int size = sizeof(num_pdos);
+    int result = ecx_SDOread(
+        &this->context,
+        slave_pos,
+        assign_index,
+        0,
+        FALSE,
+        &size,
+        &num_pdos,
+        SDO_TIMEOUT
+    );
+    if (result <= 0)
+        return xerrors::Error(SDO_READ_ERROR, "failed to read PDO assignment count");
+
+    int consecutive_failures = 0;
+    for (uint8_t i = 1; i <= num_pdos; ++i) {
+        uint16_t pdo_index = 0;
+        size = sizeof(pdo_index);
+        result = ecx_SDOread(
+            &this->context,
+            slave_pos,
+            assign_index,
+            i,
+            FALSE,
+            &size,
+            &pdo_index,
+            SDO_TIMEOUT
+        );
+        if (result <= 0) {
+            consecutive_failures++;
+            if (consecutive_failures >= MAX_SDO_FAILURES) {
+                return xerrors::Error(
+                    SDO_READ_ERROR,
+                    "too many consecutive SDO failures"
+                );
+            }
+            continue;
+        }
+        consecutive_failures = 0;
+
+        if (pdo_index == 0) continue;
+
+        auto err = this->read_pdo_mapping(slave_pos, pdo_index, is_input, slave);
+        if (err) {
+            VLOG(2) << "Failed to read PDO mapping 0x" << std::hex << pdo_index
+                    << " for slave " << std::dec << slave_pos << ": " << err.message();
+        }
+    }
+
+    return xerrors::NIL;
+}
+
+xerrors::Error Master::read_pdo_mapping(
+    const uint16_t slave_pos,
+    const uint16_t pdo_index,
+    const bool is_input,
+    SlaveInfo &slave
+) {
+    uint8_t num_entries = 0;
+    int size = sizeof(num_entries);
+    int result = ecx_SDOread(
+        &this->context,
+        slave_pos,
+        pdo_index,
+        0,
+        FALSE,
+        &size,
+        &num_entries,
+        SDO_TIMEOUT
+    );
+    if (result <= 0)
+        return xerrors::Error(SDO_READ_ERROR, "failed to read PDO mapping count");
+
+    int consecutive_failures = 0;
+    for (uint8_t i = 1; i <= num_entries; ++i) {
+        uint32_t mapping = 0;
+        size = sizeof(mapping);
+        result = ecx_SDOread(
+            &this->context,
+            slave_pos,
+            pdo_index,
+            i,
+            FALSE,
+            &size,
+            &mapping,
+            SDO_TIMEOUT
+        );
+        if (result <= 0) {
+            consecutive_failures++;
+            if (consecutive_failures >= MAX_SDO_FAILURES)
+                return xerrors::Error(
+                    SDO_READ_ERROR,
+                    "too many consecutive SDO failures"
+                );
+            continue;
+        }
+        consecutive_failures = 0;
+
+        if (mapping == 0) continue;
+
+        const uint16_t index = static_cast<uint16_t>((mapping >> 16) & 0xFFFF);
+        const uint8_t subindex = static_cast<uint8_t>((mapping >> 8) & 0xFF);
+        const uint8_t bit_length = static_cast<uint8_t>(mapping & 0xFF);
+
+        if (index == 0 && subindex == 0) continue;
+
+        const std::string coe_name = this->read_pdo_entry_name(
+            slave_pos,
+            index,
+            subindex
+        );
+        const telem::DataType data_type = infer_type_from_bit_length(bit_length);
+        const std::string name = generate_pdo_entry_name(
+            coe_name,
+            index,
+            subindex,
+            is_input,
+            data_type
+        );
+
+        PDOEntryInfo
+            entry(pdo_index, index, subindex, bit_length, is_input, name, data_type);
+
+        if (is_input)
+            slave.input_pdos.push_back(entry);
+        else
+            slave.output_pdos.push_back(entry);
+    }
+
+    return xerrors::NIL;
+}
+
+std::string Master::read_pdo_entry_name(
+    const uint16_t slave_pos,
+    const uint16_t index,
+    const uint8_t subindex
+) {
+    ec_ODlistt od_list{};
+    od_list.Slave = slave_pos;
+    od_list.Index[0] = index;
+    od_list.Entries = 1;
+
+    ec_OElistt oe_list{};
+    if (ecx_readOEsingle(&this->context, 0, subindex, &od_list, &oe_list) > 0) {
+        if (oe_list.Entries > 0 && oe_list.Name[0][0] != '\0')
+            return std::string(oe_list.Name[0]);
+    }
+
+    return "";
+}
+
+xerrors::Error Master::request_state(const uint16_t state, const int timeout) {
     int success_count = 0;
     int group0_count = 0;
     std::string error_msg;
 
-    for (int i = 1; i <= context_.slavecount; ++i) {
-        // Only transition slaves in group 0
-        if (context_.slavelist[i].group != 0) continue;
+    for (int i = 1; i <= this->context.slavecount; ++i) {
+        if (this->context.slavelist[i].group != 0) continue;
         group0_count++;
 
-        context_.slavelist[i].state = state;
-        ecx_writestate(&context_, i);
+        this->context.slavelist[i].state = state;
+        ecx_writestate(&this->context, i);
 
-        const uint16_t result = ecx_statecheck(&context_, i, state, timeout);
+        const uint16_t result = ecx_statecheck(&this->context, i, state, timeout);
 
         if ((result & 0x0F) == (state & 0x0F)) {
             success_count++;
@@ -403,7 +554,8 @@ xerrors::Error SOEMMaster::request_state(const uint16_t state, const int timeout
                          std::to_string(result);
             if (result & EC_STATE_ERROR) {
                 error_msg += " (ERROR flag set, AL status code: " +
-                             std::to_string(context_.slavelist[i].ALstatuscode) + ")";
+                             std::to_string(this->context.slavelist[i].ALstatuscode) +
+                             ")";
             }
         }
     }
@@ -412,8 +564,8 @@ xerrors::Error SOEMMaster::request_state(const uint16_t state, const int timeout
         return xerrors::Error(
             STATE_CHANGE_ERROR,
             "state transition failed: " + std::to_string(success_count) + "/" +
-            std::to_string(group0_count) + " slaves reached state " +
-            std::to_string(state) + "; " + error_msg
+                std::to_string(group0_count) + " slaves reached state " +
+                std::to_string(state) + "; " + error_msg
         );
     }
 

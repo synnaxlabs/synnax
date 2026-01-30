@@ -19,6 +19,7 @@ export interface SelectProps {
   emptyContent?: string | JSX.Element;
   label?: string;
   make: string;
+  model?: string;
   path?: string;
   icon?: Icon.ReactElement;
 }
@@ -28,6 +29,7 @@ export const Select = ({
   emptyContent = "No devices connected.",
   label = "Device",
   make,
+  model,
   path = "config.device",
   icon,
 }: SelectProps) => {

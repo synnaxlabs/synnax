@@ -29,7 +29,8 @@ namespace ethercat {
 /// 3. create_domain(): Create domain(s) for PDO exchange
 /// 4. Register PDOs with domain(s)
 /// 5. activate(): Transition slaves to OPERATIONAL, start cyclic operation
-/// 6. Cyclic loop: receive() → process() → [read inputs, write outputs] → queue() → send()
+/// 6. Cyclic loop: receive() → process() → [read inputs, write outputs] → queue() →
+/// send()
 /// 7. deactivate(): Stop cyclic operation, transition slaves to INIT
 ///
 /// Thread safety: The cyclic methods (receive/process/queue/send) must be called
@@ -146,7 +147,8 @@ public:
     ///
     /// @param position The bus position of the slave (1-based for SOEM compatibility).
     /// @returns SlaveDataOffsets containing the actual offsets and sizes.
-    [[nodiscard]] virtual SlaveDataOffsets slave_data_offsets(uint16_t position) const = 0;
+    [[nodiscard]] virtual SlaveDataOffsets
+    slave_data_offsets(uint16_t position) const = 0;
 
     /// Returns the active domain after activation.
     ///

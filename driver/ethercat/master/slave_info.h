@@ -11,6 +11,9 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
+
+#include "x/cpp/telem/telem.h"
 
 namespace ethercat {
 /// EtherCAT slave application layer states as defined in ETG.1000.
@@ -54,6 +57,59 @@ inline std::string slave_state_to_string(const SlaveState state) {
     }
 }
 
+/// Information about a single PDO entry discovered during slave enumeration.
+/// This represents one data point that can be exchanged cyclically.
+struct PDOEntryInfo {
+    /// Parent PDO index (e.g., 0x1A00 for TxPDO, 0x1600 for RxPDO).
+    uint16_t pdo_index;
+
+    /// Object dictionary index of this entry.
+    uint16_t index;
+
+    /// Object dictionary subindex of this entry.
+    uint8_t subindex;
+
+    /// Size of the data in bits.
+    uint8_t bit_length;
+
+    /// True for input (TxPDO, slave→master), false for output (RxPDO, master→slave).
+    bool is_input;
+
+    /// Human-readable name from CoE object dictionary, or generated fallback.
+    std::string name;
+
+    /// Synnax data type for seamless channel creation.
+    telem::DataType data_type;
+
+    PDOEntryInfo():
+        pdo_index(0),
+        index(0),
+        subindex(0),
+        bit_length(0),
+        is_input(true),
+        data_type(telem::UINT8_T) {}
+
+    PDOEntryInfo(
+        const uint16_t pdo_index,
+        const uint16_t index,
+        const uint8_t subindex,
+        const uint8_t bit_length,
+        const bool is_input,
+        std::string name,
+        const telem::DataType data_type
+    ):
+        pdo_index(pdo_index),
+        index(index),
+        subindex(subindex),
+        bit_length(bit_length),
+        is_input(is_input),
+        name(std::move(name)),
+        data_type(data_type) {}
+
+    /// Returns the size of this PDO entry in bytes (rounded up from bits).
+    [[nodiscard]] size_t byte_length() const { return (bit_length + 7) / 8; }
+};
+
 /// Information about an EtherCAT slave device discovered on the network.
 struct SlaveInfo {
     /// Position of the slave on the EtherCAT bus (0-based index).
@@ -77,13 +133,26 @@ struct SlaveInfo {
     /// Current application layer state of the slave.
     SlaveState state;
 
+    /// Discovered input PDOs (TxPDO, slave→master).
+    std::vector<PDOEntryInfo> input_pdos;
+
+    /// Discovered output PDOs (RxPDO, master→slave).
+    std::vector<PDOEntryInfo> output_pdos;
+
+    /// True if PDO discovery completed (even if partially).
+    bool pdos_discovered;
+
+    /// Error message if PDO discovery failed (empty on success).
+    std::string pdo_discovery_error;
+
     SlaveInfo():
         position(0),
         vendor_id(0),
         product_code(0),
         revision(0),
         serial(0),
-        state(SlaveState::UNKNOWN) {}
+        state(SlaveState::UNKNOWN),
+        pdos_discovered(false) {}
 
     SlaveInfo(
         const uint16_t position,
@@ -100,7 +169,13 @@ struct SlaveInfo {
         revision(revision),
         serial(serial),
         name(std::move(name)),
-        state(state) {}
+        state(state),
+        pdos_discovered(false) {}
+
+    /// Returns the total number of discovered PDO entries.
+    [[nodiscard]] size_t pdo_count() const {
+        return input_pdos.size() + output_pdos.size();
+    }
 };
 
 /// Data offset information for a slave's process data in the IOmap.
@@ -151,11 +226,7 @@ struct PDOEntry {
     bool is_input;
 
     PDOEntry():
-        slave_position(0),
-        index(0),
-        subindex(0),
-        bit_length(0),
-        is_input(true) {}
+        slave_position(0), index(0), subindex(0), bit_length(0), is_input(true) {}
 
     PDOEntry(
         const uint16_t slave_position,

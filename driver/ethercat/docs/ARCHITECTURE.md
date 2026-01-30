@@ -15,6 +15,7 @@ Unlike Modbus or OPC UA which use request/response patterns, EtherCAT is **cycli
 - All I/O updates happen synchronously in each cycle
 
 This means:
+
 - **One master per network interface** - shared by all tasks
 - **No per-device connections** - all slaves share the cyclic frame
 - **Deterministic timing** - data updates at predictable intervals
@@ -42,6 +43,7 @@ PDOs are the cyclic data exchanged each cycle:
 - **RxPDO** (Receive): Master → Slave (outputs from Synnax's perspective)
 
 PDOs are identified by:
+
 - Slave position on the bus
 - Index (e.g., 0x6000 for inputs, 0x7000 for outputs)
 - Subindex (specific data item within the index)
@@ -55,27 +57,30 @@ PDOs are identified by:
 
 **Reality**: The EtherCAT master library (SOEM) determines the actual IOmap layout
 during `ecx_config_map_group()`. The layout depends on:
+
 - Which slaves are present on the bus
 - Their physical order
 - Their group assignments
 - Their individual PDO configurations
 
 **Example from IOLITE R8**:
+
 ```
 Our calculated offsets:    Inputs @ 0, 4, 8, 12
 Actual SOEM layout:        Inputs @ 122, 152, 182, 212
                           (after 18 bytes of outputs + 104 bytes from other slaves)
 ```
 
-**Implication**: Cannot pre-calculate offsets. Must query actual slave data
-locations after master activation.
+**Implication**: Cannot pre-calculate offsets. Must query actual slave data locations
+after master activation.
 
 ### Lesson 2: Device-Specific Quirks Are Common
 
-**Problem**: DEWESoft 6xSTG strain gauge modules failed to reach SAFE_OP with
-AL status code 38 (Invalid SM OUT configuration).
+**Problem**: DEWESoft 6xSTG strain gauge modules failed to reach SAFE_OP with AL status
+code 38 (Invalid SM OUT configuration).
 
 **Likely causes**:
+
 - Default PDO mapping doesn't match device expectations
 - May need CoE SDO configuration before state transition
 - Firmware version differences
@@ -83,32 +88,36 @@ AL status code 38 (Invalid SM OUT configuration).
 **Workaround**: Exclude problematic slaves by assigning them to a different group.
 
 **Implication**: Need mechanisms for:
+
 - Device-specific configuration profiles
 - Slave exclusion/filtering
 - Graceful degradation when some slaves fail
 
 ### Lesson 3: Input Data Structure Varies by Device
 
-**Problem**: We assumed digital output modules would have input data that mirrors
-their output state.
+**Problem**: We assumed digital output modules would have input data that mirrors their
+output state.
 
 **Reality**: The 32xDO modules have:
+
 - 4 bytes of output data (the 32 digital outputs)
 - 30 bytes of input data (status, diagnostics, supply voltage, etc.)
 
 The input structure is device-specific and documented in ESI files or device manuals.
 
-**Implication**: Channel configuration must explicitly specify which PDO to
-read/write. Cannot assume input/output symmetry.
+**Implication**: Channel configuration must explicitly specify which PDO to read/write.
+Cannot assume input/output symmetry.
 
 ### Lesson 4: Working Counter Validates Communication
 
 The Working Counter (WKC) indicates how many slaves processed the frame:
+
 - Each slave increments WKC when it successfully reads/writes its data
 - Expected WKC = (output slaves × 2) + input slaves
 - WKC mismatch indicates communication failure or slave dropout
 
 This is useful for detecting:
+
 - Cable disconnections
 - Slave failures
 - Configuration mismatches
@@ -195,8 +204,8 @@ class CyclicEngine {
 ```
 
 **Critical insight**: The offsets returned by `register_*_pdo()` are for tracking
-purposes only. After `add_task()` activates the master, the engine must resolve
-PDO entries to actual IOmap offsets using `master->slave_data()`.
+purposes only. After `add_task()` activates the master, the engine must resolve PDO
+entries to actual IOmap offsets using `master->slave_data()`.
 
 ### Channel Configuration
 
@@ -218,6 +227,7 @@ Channels reference PDOs by address, not offset:
 ```
 
 At activation time, the driver:
+
 1. Looks up the slave at the specified position
 2. Finds the PDO in the slave's mapped data
 3. Calculates the actual byte offset in the IOmap
@@ -232,12 +242,8 @@ Allow configuration to handle problematic slaves:
   "interface": "eth0",
   "cycle_time_ms": 10,
   "slaves": {
-    "exclude": [
-      {"vendor": "0xDEBE50F7", "product": "0x000000FC"}
-    ],
-    "optional": [
-      {"position": 1}
-    ]
+    "exclude": [{ "vendor": "0xDEBE50F7", "product": "0x000000FC" }],
+    "optional": [{ "position": 1 }]
   }
 }
 ```
@@ -247,28 +253,30 @@ Allow configuration to handle problematic slaves:
 
 ## Implementation Status
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Master interface | ✅ Complete | Abstract interface defined |
-| SOEMMaster | ⚠️ Partial | Works, needs offset exposure |
-| MockMaster | ✅ Complete | For unit testing |
-| CyclicEngine | ⚠️ Partial | Needs actual offset resolution |
-| ScanTask | 🔲 Not started | Return slave info for config |
-| ReadTask | 🔲 Not started | Needs channel→offset mapping |
-| WriteTask | 🔲 Not started | Needs channel→offset mapping |
-| Factory | 🔲 Not started | Task creation and routing |
+| Component        | Status         | Notes                          |
+| ---------------- | -------------- | ------------------------------ |
+| Master interface | ✅ Complete    | Abstract interface defined     |
+| SOEMMaster       | ⚠️ Partial     | Works, needs offset exposure   |
+| MockMaster       | ✅ Complete    | For unit testing               |
+| CyclicEngine     | ⚠️ Partial     | Needs actual offset resolution |
+| ScanTask         | 🔲 Not started | Return slave info for config   |
+| ReadTask         | 🔲 Not started | Needs channel→offset mapping   |
+| WriteTask        | 🔲 Not started | Needs channel→offset mapping   |
+| Factory          | 🔲 Not started | Task creation and routing      |
 
 ## Future Considerations
 
 ### ESI File Support
 
 EtherCAT Slave Information (ESI) files are XML documents describing:
+
 - Supported PDOs and their structure
 - CoE object dictionary
 - State machine requirements
 - Timing parameters
 
 Parsing ESI files would enable:
+
 - Auto-discovery of available PDOs
 - Validation of channel configurations
 - Better error messages
@@ -276,6 +284,7 @@ Parsing ESI files would enable:
 ### IgH EtherCAT Master
 
 SOEM is suitable for most applications, but IgH EtherCAT Master offers:
+
 - Kernel-space operation for lower latency
 - Better real-time performance on Linux
 - Distributed clocks support
@@ -285,6 +294,7 @@ The Master interface is designed to support both backends.
 ### Hot-Plug Support
 
 Currently assumes static slave configuration. Future work:
+
 - Detect slave connect/disconnect
 - Graceful degradation when slaves drop out
 - Re-initialization when slaves return
@@ -292,6 +302,7 @@ Currently assumes static slave configuration. Future work:
 ### Distributed Clocks
 
 EtherCAT supports synchronized clocks across all slaves for:
+
 - Coordinated motion control
 - Synchronized sampling
 - Sub-microsecond timing accuracy
@@ -303,6 +314,7 @@ Not currently implemented but the architecture allows for it.
 ### Hardware Testing
 
 Tested with DEWESoft IOLITE R8:
+
 - 7 slaves: 1 gateway, 2 strain gauge modules, 4 digital output modules
 - Successfully reached OPERATIONAL with 5/7 slaves
 - Cyclic exchange at 10ms (100 Hz) verified
@@ -311,6 +323,7 @@ Tested with DEWESoft IOLITE R8:
 ### Unit Testing
 
 MockMaster enables testing without hardware:
+
 - CyclicEngine lifecycle tests
 - PDO registration tests
 - Thread safety tests

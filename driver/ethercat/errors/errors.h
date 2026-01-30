@@ -53,4 +53,13 @@ const xerrors::Error CYCLE_OVERRUN = BASE_ERROR.sub("cycle_overrun");
 
 /// Error returned when a state machine transition fails.
 const xerrors::Error STATE_CHANGE_ERROR = BASE_ERROR.sub("state_change");
+
+/// Error returned when the cyclic engine is restarting for reconfiguration.
+const xerrors::Error ENGINE_RESTARTING = BASE_ERROR.sub("engine_restarting");
+
+/// Error returned when PDO discovery fails for a slave.
+const xerrors::Error PDO_DISCOVERY_ERROR = BASE_ERROR.sub("pdo_discovery");
+
+/// Error returned when an SDO read operation fails.
+const xerrors::Error SDO_READ_ERROR = BASE_ERROR.sub("sdo_read");
 }

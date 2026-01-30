@@ -10,12 +10,27 @@
 #pragma once
 
 #include <memory>
+#include <string>
+#include <vector>
 
+#include "driver/ethercat/master/slave_info.h"
 #include "driver/task/task.h"
 
 namespace ethercat {
 /// Integration name used for configuration and logging.
 const std::string INTEGRATION_NAME = "ethercat";
+
+/// Device make for EtherCAT network devices.
+const std::string NETWORK_DEVICE_MAKE = "ethercat_network";
+
+/// Device model for EtherCAT network devices.
+const std::string NETWORK_DEVICE_MODEL = "network";
+
+/// Device make for EtherCAT slave devices.
+const std::string SLAVE_DEVICE_MAKE = "ethercat_slave";
+
+/// Device model for EtherCAT slave devices.
+const std::string SLAVE_DEVICE_MODEL = "slave";
 
 /// Read task type identifier.
 const std::string READ_TASK_TYPE = "ethercat_read";
@@ -33,7 +48,7 @@ const std::string SCAN_TASK_TYPE = "ethercat_scan";
 /// EtherCAT master for cyclic PDO exchange.
 class Factory final : public task::Factory {
     struct Impl;
-    std::unique_ptr<Impl> impl_;
+    std::unique_ptr<Impl> impl;
 
 public:
     Factory();
@@ -41,6 +56,9 @@ public:
 
     Factory(const Factory &) = delete;
     Factory &operator=(const Factory &) = delete;
+
+    /// Returns the integration name for logging.
+    std::string name() override { return INTEGRATION_NAME; }
 
     /// Creates a task based on the task configuration.
     /// @param ctx Task context providing access to Synnax client and state.
@@ -62,5 +80,15 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
     ) override;
+
+    /// Checks if a CyclicEngine is running on the given interface.
+    /// @param interface The network interface name (e.g., "eth0").
+    /// @returns true if cyclic I/O is active on the interface.
+    bool is_interface_active(const std::string &interface) const;
+
+    /// Gets cached slave information from an active CyclicEngine.
+    /// @param interface The network interface name.
+    /// @returns Vector of SlaveInfo from the engine, or empty if not active.
+    std::vector<SlaveInfo> get_cached_slaves(const std::string &interface) const;
 };
 }

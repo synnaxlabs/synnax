@@ -1,10 +1,27 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
+config_setting(
+    name = "linux",
+    constraint_values = ["@platforms//os:linux"],
+)
+
+cc_library(
+    name = "pdo_types",
+    hdrs = ["pdo_types.h"],
+    visibility = ["//driver/ethercat:__subpackages__"],
+    deps = ["//x/cpp/telem"],
+)
+
 cc_library(
     name = "ethercat",
     srcs = [
         "channels.h",
         "cyclic_engine.cpp",
+        "device.h",
         "factory.cpp",
         "read_task.h",
+        "scan_task.cpp",
+        "scan_task.h",
         "write_task.h",
     ],
     hdrs = [
@@ -27,14 +44,19 @@ cc_library(
         "//x/cpp/xerrors",
         "//x/cpp/xjson",
         "@glog",
-    ],
+    ] + select({
+        ":linux": ["//driver/ethercat/igh"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_test(
     name = "ethercat_test",
     srcs = [
         "cyclic_engine_test.cpp",
+        "master_test.cpp",
         "read_task_test.cpp",
+        "scan_task_test.cpp",
         "write_task_test.cpp",
     ],
     visibility = ["//visibility:public"],
@@ -43,6 +65,24 @@ cc_test(
         "//driver/ethercat",
         "//driver/ethercat/mock",
         "//driver/pipeline/mock",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "ethercat_hardware_test",
+    srcs = ["hardware_test.cpp"],
+    tags = [
+        "manual",
+        "requires-hardware",
+        "requires-root",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/ethercat",
+        "//driver/ethercat/soem",
+        "//x/cpp/telem",
         "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],

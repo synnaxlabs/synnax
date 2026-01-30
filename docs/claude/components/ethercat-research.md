@@ -1,8 +1,7 @@
 # EtherCAT Integration Research
 
-> **Status**: Research Phase
-> **Last Updated**: 2026-01-27
-> **Target**: Multi-backend EtherCAT support (IgH + SOEM)
+> **Status**: Research Phase **Last Updated**: 2026-01-27 **Target**: Multi-backend
+> EtherCAT support (IgH + SOEM)
 
 ## Executive Summary
 
@@ -65,33 +64,33 @@ std::unique_ptr<Master> create_master(uint32_t index, const std::string& backend
 
 ### Trade-offs
 
-| Aspect        | IgH                  | SOEM                 |
-| ------------- | -------------------- | -------------------- |
-| Platform      | Linux only           | Linux, Windows, macOS|
-| Performance   | Best (kernel space)  | Good (userspace)     |
-| Installation  | Complex (DKMS)       | Simple (vendored)    |
-| Real-time     | Excellent            | Good with RT patches |
-| DC Support    | Full                 | Partial              |
-| Maintenance   | User installs        | We vendor            |
+| Aspect       | IgH                 | SOEM                  |
+| ------------ | ------------------- | --------------------- |
+| Platform     | Linux only          | Linux, Windows, macOS |
+| Performance  | Best (kernel space) | Good (userspace)      |
+| Installation | Complex (DKMS)      | Simple (vendored)     |
+| Real-time    | Excellent           | Good with RT patches  |
+| DC Support   | Full                | Partial               |
+| Maintenance  | User installs       | We vendor             |
 
 ## LOC Estimates
 
 Based on existing integrations (with abstraction layer):
 
-| Component                   | Estimated LOC | Notes                                     |
-| --------------------------- | ------------- | ----------------------------------------- |
-| Abstract Interfaces         | 200-300       | master.h, domain.h, slave_config.h        |
-| CyclicEngine                | 300-400       | Cycle coordination, thread, sync          |
-| Read/Write Tasks            | 400-500       | Source/Sink with PDO mapping              |
-| IgH Backend                 | 400-500       | ecrt.h wrapper implementation             |
-| SOEM Backend                | 400-500       | SOEM wrapper implementation               |
-| Factory + Backend Selection | 150-200       | Task routing + create_master()            |
-| Channel Types               | 150-200       | PDO entry mappings                        |
-| Error Handling              | 200-300       | EtherCAT-specific error codes             |
-| Mock Backend                | 150-200       | For testing                               |
-| **Subtotal**                | **2,350-3,100** | Core implementation                     |
-| Tests                       | 1,000-1,400   | ~40-50% of implementation                 |
-| **Total**                   | **3,350-4,500** | Complete integration                    |
+| Component                   | Estimated LOC   | Notes                              |
+| --------------------------- | --------------- | ---------------------------------- |
+| Abstract Interfaces         | 200-300         | master.h, domain.h, slave_config.h |
+| CyclicEngine                | 300-400         | Cycle coordination, thread, sync   |
+| Read/Write Tasks            | 400-500         | Source/Sink with PDO mapping       |
+| IgH Backend                 | 400-500         | ecrt.h wrapper implementation      |
+| SOEM Backend                | 400-500         | SOEM wrapper implementation        |
+| Factory + Backend Selection | 150-200         | Task routing + create_master()     |
+| Channel Types               | 150-200         | PDO entry mappings                 |
+| Error Handling              | 200-300         | EtherCAT-specific error codes      |
+| Mock Backend                | 150-200         | For testing                        |
+| **Subtotal**                | **2,350-3,100** | Core implementation                |
+| Tests                       | 1,000-1,400     | ~40-50% of implementation          |
+| **Total**                   | **3,350-4,500** | Complete integration               |
 
 For comparison:
 
@@ -150,19 +149,19 @@ while (running) {
 
 ### Key API Functions
 
-| Function                             | Purpose                            |
-| ------------------------------------ | ---------------------------------- |
-| `ecrt_request_master()`              | Request master by index            |
-| `ecrt_master_create_domain()`        | Create process data domain         |
-| `ecrt_master_slave_config()`         | Configure a slave device           |
-| `ecrt_slave_config_reg_pdo_entry()`  | Register PDO entry in domain       |
-| `ecrt_master_activate()`             | Transition to operational state    |
-| `ecrt_domain_data()`                 | Get pointer to process data        |
-| `ecrt_master_receive()`              | Receive datagrams                  |
-| `ecrt_domain_process()`              | Process received data              |
-| `ecrt_domain_queue()`                | Queue domain for sending           |
-| `ecrt_master_send()`                 | Send queued datagrams              |
-| `ecrt_domain_state()`                | Check domain/process data state    |
+| Function                            | Purpose                         |
+| ----------------------------------- | ------------------------------- |
+| `ecrt_request_master()`             | Request master by index         |
+| `ecrt_master_create_domain()`       | Create process data domain      |
+| `ecrt_master_slave_config()`        | Configure a slave device        |
+| `ecrt_slave_config_reg_pdo_entry()` | Register PDO entry in domain    |
+| `ecrt_master_activate()`            | Transition to operational state |
+| `ecrt_domain_data()`                | Get pointer to process data     |
+| `ecrt_master_receive()`             | Receive datagrams               |
+| `ecrt_domain_process()`             | Process received data           |
+| `ecrt_domain_queue()`               | Queue domain for sending        |
+| `ecrt_master_send()`                | Send queued datagrams           |
+| `ecrt_domain_state()`               | Check domain/process data state |
 
 ## Challenges & Issues
 
@@ -209,12 +208,12 @@ chrt -f -p 10 $(pgrep ksoftirqd/1)
 
 IgH supports specific NIC drivers:
 
-| Driver             | Status         |
-| ------------------ | -------------- |
-| `e1000e` (Intel)   | Native support |
-| `r8169` (Realtek)  | Native support |
-| `igb` (Intel)      | Native support |
-| `generic`          | Works but slower |
+| Driver            | Status           |
+| ----------------- | ---------------- |
+| `e1000e` (Intel)  | Native support   |
+| `r8169` (Realtek) | Native support   |
+| `igb` (Intel)     | Native support   |
+| `generic`         | Works but slower |
 
 **Issues:**
 
@@ -240,8 +239,8 @@ cc_library(
 
 ### 5. Single Master Per NIC
 
-Each network interface can only have **one master**. Unlike Modbus/OPC UA where
-multiple connections are possible, EtherCAT is a dedicated network.
+Each network interface can only have **one master**. Unlike Modbus/OPC UA where multiple
+connections are possible, EtherCAT is a dedicated network.
 
 **Impact:**
 
@@ -579,22 +578,22 @@ offset: 0      2        4        5        7        9
 
 ### Design Rationale
 
-| Pattern | Why |
-| ------- | --- |
+| Pattern             | Why                                                    |
+| ------------------- | ------------------------------------------------------ |
 | Shared CyclicEngine | One EtherCAT master per network, multiple Synnax tasks |
-| Snapshot for inputs | Decouple tight cycle timing from Synnax pipeline |
-| Condition variables | Coordinate read/write tasks with cycle thread |
-| Offset-based access | EtherCAT process data is flat memory buffer |
+| Snapshot for inputs | Decouple tight cycle timing from Synnax pipeline       |
+| Condition variables | Coordinate read/write tasks with cycle thread          |
+| Offset-based access | EtherCAT process data is flat memory buffer            |
 
 ### Comparison to Modbus
 
-| Aspect | Modbus | EtherCAT |
-| ------ | ------ | -------- |
-| Timing | On-demand request | Fixed cycle |
+| Aspect      | Modbus                    | EtherCAT           |
+| ----------- | ------------------------- | ------------------ |
+| Timing      | On-demand request         | Fixed cycle        |
 | Data access | Read registers by address | Memory-mapped PDOs |
-| Connection | Per-task | Shared engine |
-| Sync | None needed | Cycle coordination |
-| Multi-slave | Separate connections | Single domain |
+| Connection  | Per-task                  | Shared engine      |
+| Sync        | None needed               | Cycle coordination |
+| Multi-slave | Separate connections      | Single domain      |
 
 ## API Alignment Review
 
@@ -649,45 +648,45 @@ class Sink : public pipeline::Sink, public pipeline::Source {
 
 ### IgH EtherCAT API
 
-| Function | Signature | Purpose |
-| -------- | --------- | ------- |
-| `ecrt_request_master` | `ec_master_t* (unsigned int index)` | Request master access |
-| `ecrt_release_master` | `void (ec_master_t*)` | Release master |
-| `ecrt_master_create_domain` | `ec_domain_t* (ec_master_t*)` | Create process data domain |
-| `ecrt_master_slave_config` | `ec_slave_config_t* (master, alias, pos, vendor, product)` | Configure slave |
-| `ecrt_slave_config_reg_pdo_entry` | `int (sc, index, subindex, domain, &bit_pos)` | Register PDO, get offset |
-| `ecrt_master_activate` | `int (ec_master_t*)` | Start cyclic operation |
-| `ecrt_master_deactivate` | `int (ec_master_t*)` | Stop cyclic operation |
-| `ecrt_domain_data` | `uint8_t* (ec_domain_t*)` | Get process data pointer |
-| `ecrt_master_receive` | `int (ec_master_t*)` | Receive datagrams |
-| `ecrt_domain_process` | `int (ec_domain_t*)` | Process received data |
-| `ecrt_domain_queue` | `int (ec_domain_t*)` | Queue for sending |
-| `ecrt_master_send` | `int (ec_master_t*)` | Send datagrams |
+| Function                          | Signature                                                  | Purpose                    |
+| --------------------------------- | ---------------------------------------------------------- | -------------------------- |
+| `ecrt_request_master`             | `ec_master_t* (unsigned int index)`                        | Request master access      |
+| `ecrt_release_master`             | `void (ec_master_t*)`                                      | Release master             |
+| `ecrt_master_create_domain`       | `ec_domain_t* (ec_master_t*)`                              | Create process data domain |
+| `ecrt_master_slave_config`        | `ec_slave_config_t* (master, alias, pos, vendor, product)` | Configure slave            |
+| `ecrt_slave_config_reg_pdo_entry` | `int (sc, index, subindex, domain, &bit_pos)`              | Register PDO, get offset   |
+| `ecrt_master_activate`            | `int (ec_master_t*)`                                       | Start cyclic operation     |
+| `ecrt_master_deactivate`          | `int (ec_master_t*)`                                       | Stop cyclic operation      |
+| `ecrt_domain_data`                | `uint8_t* (ec_domain_t*)`                                  | Get process data pointer   |
+| `ecrt_master_receive`             | `int (ec_master_t*)`                                       | Receive datagrams          |
+| `ecrt_domain_process`             | `int (ec_domain_t*)`                                       | Process received data      |
+| `ecrt_domain_queue`               | `int (ec_domain_t*)`                                       | Queue for sending          |
+| `ecrt_master_send`                | `int (ec_master_t*)`                                       | Send datagrams             |
 
 ### SOEM API
 
-| Function | Purpose |
-| -------- | ------- |
-| `ec_init(ifname)` | Initialize, bind to NIC |
-| `ec_close()` | Cleanup |
-| `ec_config_init(FALSE)` | Discover and configure slaves |
-| `ec_config_map(&IOmap)` | Map I/O to memory buffer |
-| `ec_configdc()` | Configure distributed clocks |
-| `ec_statecheck(slave, state, timeout)` | Wait for state transition |
-| `ec_send_processdata()` | Send process data frame |
-| `ec_receive_processdata(timeout)` | Receive and return WKC |
-| `ec_slave[n].inputs` | Pointer to slave input data |
-| `ec_slave[n].outputs` | Pointer to slave output data |
+| Function                               | Purpose                       |
+| -------------------------------------- | ----------------------------- |
+| `ec_init(ifname)`                      | Initialize, bind to NIC       |
+| `ec_close()`                           | Cleanup                       |
+| `ec_config_init(FALSE)`                | Discover and configure slaves |
+| `ec_config_map(&IOmap)`                | Map I/O to memory buffer      |
+| `ec_configdc()`                        | Configure distributed clocks  |
+| `ec_statecheck(slave, state, timeout)` | Wait for state transition     |
+| `ec_send_processdata()`                | Send process data frame       |
+| `ec_receive_processdata(timeout)`      | Receive and return WKC        |
+| `ec_slave[n].inputs`                   | Pointer to slave input data   |
+| `ec_slave[n].outputs`                  | Pointer to slave output data  |
 
 ### API Differences Requiring Abstraction
 
-| Aspect | IgH | SOEM |
-| ------ | --- | ---- |
-| Master handle | Explicit `ec_master_t*` | Global state |
-| Domain | Explicit `ec_domain_t*` | Implicit `IOmap[]` |
-| Slave config | `ec_slave_config_t*` | `ec_slave[]` array |
-| PDO offset | From `reg_pdo_entry()` | Calculate from `Obytes/Ibytes` |
-| Process data | `ecrt_domain_data()` | `ec_slave[n].inputs/outputs` |
+| Aspect        | IgH                     | SOEM                           |
+| ------------- | ----------------------- | ------------------------------ |
+| Master handle | Explicit `ec_master_t*` | Global state                   |
+| Domain        | Explicit `ec_domain_t*` | Implicit `IOmap[]`             |
+| Slave config  | `ec_slave_config_t*`    | `ec_slave[]` array             |
+| PDO offset    | From `reg_pdo_entry()`  | Calculate from `Obytes/Ibytes` |
+| Process data  | `ecrt_domain_data()`    | `ec_slave[n].inputs/outputs`   |
 
 ### Corrected ReadTaskSource
 
@@ -921,14 +920,14 @@ cc_library(
 
 ## Risk Assessment
 
-| Risk                         | Severity | Mitigation                                  |
-| ---------------------------- | -------- | ------------------------------------------- |
-| Kernel module compatibility  | High     | DKMS package auto-rebuilds on kernel update |
-| Real-time performance        | Medium   | Provide tuning guide, optional RT kernel    |
-| NIC driver issues            | Medium   | Document supported NICs, test with generic  |
-| Build complexity             | Medium   | Apt package for IgH, vendored SOEM          |
-| Platform limitation          | Low      | SOEM provides Windows/macOS fallback        |
-| Maintenance burden           | Medium   | IgH is mature, stable API                   |
+| Risk                        | Severity | Mitigation                                  |
+| --------------------------- | -------- | ------------------------------------------- |
+| Kernel module compatibility | High     | DKMS package auto-rebuilds on kernel update |
+| Real-time performance       | Medium   | Provide tuning guide, optional RT kernel    |
+| NIC driver issues           | Medium   | Document supported NICs, test with generic  |
+| Build complexity            | Medium   | Apt package for IgH, vendored SOEM          |
+| Platform limitation         | Low      | SOEM provides Windows/macOS fallback        |
+| Maintenance burden          | Medium   | IgH is mature, stable API                   |
 
 ## Distribution Strategy
 
@@ -956,8 +955,8 @@ We can automate IgH installation using DKMS (Dynamic Kernel Module Support):
 ```bash
 # One-time: add Synnax apt repository
 curl -fsSL https://apt.synnaxlabs.com/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/synnax.gpg
-echo "deb [signed-by=/etc/apt/keyrings/synnax.gpg] https://apt.synnaxlabs.com stable main" | \
-    sudo tee /etc/apt/sources.list.d/synnax.list
+echo "deb [signed-by=/etc/apt/keyrings/synnax.gpg] https://apt.synnaxlabs.com stable main" \
+  | sudo tee /etc/apt/sources.list.d/synnax.list
 
 # Install EtherCAT support (builds kernel module via DKMS)
 sudo apt update
@@ -994,13 +993,13 @@ synnax-ethercat-dkms/
 
 ### Infrastructure Required
 
-| Component        | Effort    | Notes                              |
-| ---------------- | --------- | ---------------------------------- |
-| DKMS package     | 2-3 days  | Package IgH source with dkms.conf  |
-| Systemd service  | 1 day     | Module loading, config parsing     |
-| Apt repository   | 1-2 days  | Host on apt.synnaxlabs.com         |
-| CI/CD pipeline   | 2-3 days  | Auto-build on IgH version updates  |
-| **Total**        | **~1-2 weeks** | One-time infrastructure       |
+| Component       | Effort         | Notes                             |
+| --------------- | -------------- | --------------------------------- |
+| DKMS package    | 2-3 days       | Package IgH source with dkms.conf |
+| Systemd service | 1 day          | Module loading, config parsing    |
+| Apt repository  | 1-2 days       | Host on apt.synnaxlabs.com        |
+| CI/CD pipeline  | 2-3 days       | Auto-build on IgH version updates |
+| **Total**       | **~1-2 weeks** | One-time infrastructure           |
 
 ### SOEM: No Installation Required
 
@@ -1024,13 +1023,13 @@ installation steps.
 
 ## Alternatives Considered
 
-| Feature      | IgH EtherCAT | SOEM       | TwinCAT    |
-| ------------ | ------------ | ---------- | ---------- |
-| License      | GPL v2       | GPL v2     | Commercial |
-| Platform     | Linux        | Linux/Win  | Windows    |
-| Real-time    | Kernel module| Userspace  | Windows RT |
-| Complexity   | Higher       | Lower      | Medium     |
-| Performance  | Best         | Good       | Best       |
+| Feature     | IgH EtherCAT  | SOEM      | TwinCAT    |
+| ----------- | ------------- | --------- | ---------- |
+| License     | GPL v2        | GPL v2    | Commercial |
+| Platform    | Linux         | Linux/Win | Windows    |
+| Real-time   | Kernel module | Userspace | Windows RT |
+| Complexity  | Higher        | Lower     | Medium     |
+| Performance | Best          | Good      | Best       |
 
 **SOEM (Simple Open EtherCAT Master)** is an alternative - userspace-only and
 cross-platform, but has slightly worse real-time performance.
@@ -1188,15 +1187,15 @@ TEST_F(WriteTaskTest, WritesOutputsCorrectly) {
 
 ### Test Coverage
 
-| Category          | What It Verifies                                    |
-| ----------------- | --------------------------------------------------- |
-| PDO Registration  | Correct index/subindex/size passed to domain        |
-| Cyclic Order      | receive → process → queue → send sequence           |
-| Data Parsing      | Bytes correctly extracted from process data         |
-| Data Writing      | Values correctly written to output offsets          |
-| State Machine     | Proper handling of Init/PreOp/SafeOp/Op states      |
-| Error Handling    | Graceful handling of failures and disconnects       |
-| Configuration     | Parsing of JSON config, channel mapping             |
+| Category         | What It Verifies                               |
+| ---------------- | ---------------------------------------------- |
+| PDO Registration | Correct index/subindex/size passed to domain   |
+| Cyclic Order     | receive → process → queue → send sequence      |
+| Data Parsing     | Bytes correctly extracted from process data    |
+| Data Writing     | Values correctly written to output offsets     |
+| State Machine    | Proper handling of Init/PreOp/SafeOp/Op states |
+| Error Handling   | Graceful handling of failures and disconnects  |
+| Configuration    | Parsing of JSON config, channel mapping        |
 
 ### What Unit Tests Don't Cover
 
@@ -1211,22 +1210,24 @@ These require integration tests with real hardware or an EtherCAT software simul
 
 Options for hardware-level testing:
 
-| Approach               | Pros                        | Cons                         |
-| ---------------------- | --------------------------- | ---------------------------- |
-| Real hardware in CI    | Most accurate               | Expensive, complex setup     |
-| EtherCAT simulator     | No hardware needed          | May not catch all edge cases |
-| Manual test suite      | Flexible                    | Not automated                |
+| Approach            | Pros               | Cons                         |
+| ------------------- | ------------------ | ---------------------------- |
+| Real hardware in CI | Most accurate      | Expensive, complex setup     |
+| EtherCAT simulator  | No hardware needed | May not catch all edge cases |
+| Manual test suite   | Flexible           | Not automated                |
 
 Potential simulators:
+
 - **EtherCAT Slave Stack Code (SSC)** - Beckhoff's slave simulator
 - **SOEM simple_test** - Basic loopback testing
 - **Virtual EtherCAT** - Software-only network simulation
 
 ## Key Implementation Notes
 
-1. **WriteTask is bidirectional**: The `common::Sink` class extends both `pipeline::Sink`
-   (receive commands) AND `pipeline::Source` (send state feedback). This means write
-   tasks have TWO pipelines: Control (commands in) and Acquisition (state out).
+1. **WriteTask is bidirectional**: The `common::Sink` class extends both
+   `pipeline::Sink` (receive commands) AND `pipeline::Source` (send state feedback).
+   This means write tasks have TWO pipelines: Control (commands in) and Acquisition
+   (state out).
 
 2. **ReadResult has warnings**: Don't just return errors - use the `warning` field for
    non-fatal issues like "slave not operational" that shouldn't stop the task.
@@ -1276,6 +1277,7 @@ Phase 4: Polish
 ### Step 1: Abstract Interface + Mock Backend
 
 **Files:**
+
 ```
 driver/ethercat/
 ├── master.h          # Abstract Master interface
@@ -1285,6 +1287,7 @@ driver/ethercat/
 ```
 
 **Validation tests:**
+
 ```cpp
 TEST(MockMaster, InitializesSuccessfully) {
     auto master = ethercat::mock::create_master();
@@ -1315,6 +1318,7 @@ TEST(MockMaster, CycleUpdatesInputData) {
 ### Step 2: ReadTaskSource with Mock
 
 **Files:**
+
 ```
 driver/ethercat/
 ├── cyclic_engine.h
@@ -1325,6 +1329,7 @@ driver/ethercat/
 ```
 
 **Validation tests:**
+
 ```cpp
 TEST_F(ReadTaskTest, ImplementsSourceInterface) {
     auto source = make_read_source(mock_engine_, test_config_);
@@ -1371,6 +1376,7 @@ TEST_F(ReadTaskTest, SetsWarningWhenSlaveNotOperational) {
 ### Step 3: WriteTaskSink with Mock
 
 **Files:**
+
 ```
 driver/ethercat/
 ├── write_task.h
@@ -1378,6 +1384,7 @@ driver/ethercat/
 ```
 
 **Validation tests:**
+
 ```cpp
 TEST_F(WriteTaskTest, ImplementsSinkInterface) {
     auto sink = make_write_sink(mock_engine_, test_config_);
@@ -1413,6 +1420,7 @@ TEST_F(WriteTaskTest, UpdatesStateAfterWrite) {
 ### Step 4: SOEM Master Implementation
 
 **Files:**
+
 ```
 vendor/soem/              # Vendored SOEM library
 driver/ethercat/soem/
@@ -1420,6 +1428,7 @@ driver/ethercat/soem/
 ```
 
 **Validation (requires hardware):**
+
 ```cpp
 TEST(SOEMMaster, DiscoversSlaves) {
     auto master = ethercat::soem::create_master("eth1");
@@ -1441,6 +1450,7 @@ TEST(SOEMMaster, TransitionsToOperational) {
 ### Step 5: Integration Test with Real Slave
 
 **Validation (with e.g., Beckhoff EL3002):**
+
 ```cpp
 TEST(Integration, ReadsAnalogInput) {
     auto master = ethercat::soem::create_master("eth1");
@@ -1466,6 +1476,7 @@ TEST(Integration, ReadsAnalogInput) {
 ### Step 6: Full Read/Write Validation
 
 **Validation:**
+
 ```cpp
 TEST(Integration, FullReadWriteCycle) {
     auto engine = std::make_shared<CyclicEngine>(
@@ -1494,6 +1505,7 @@ TEST(Integration, FullReadWriteCycle) {
 ### Step 7-9: IgH Backend
 
 Same validation pattern with IgH:
+
 ```cpp
 auto master = ethercat::igh::create_master(0);
 ```
@@ -1503,6 +1515,7 @@ Additional: Compare jitter/latency between SOEM and IgH backends.
 ### Step 10: ScanTask for Discovery
 
 **Validation:**
+
 ```cpp
 TEST(ScanTask, DiscoversSlaves) {
     mock_engine_->add_mock_slave(0x2, 0x0bba3052, "EL3002");
@@ -1518,6 +1531,7 @@ TEST(ScanTask, DiscoversSlaves) {
 ### Step 11: Factory + Registration
 
 **Validation:**
+
 ```cpp
 TEST(Factory, ConfiguresReadTask) {
     auto factory = ethercat::Factory(mock_engine_);
@@ -1534,6 +1548,7 @@ TEST(Factory, ConfiguresReadTask) {
 ```
 
 **Manual validation:**
+
 ```bash
 ./synnax-driver --integrations ethercat
 # Device appears in Console, tasks can be created
@@ -1542,6 +1557,7 @@ TEST(Factory, ConfiguresReadTask) {
 ### Step 12: Distribution (DKMS)
 
 **Validation:**
+
 ```bash
 sudo dpkg -i synnax-ethercat-dkms_1.0.0_all.deb
 lsmod | grep ec_master
@@ -1551,22 +1567,23 @@ lsmod | grep ec_master
 
 ### Validation Summary
 
-| Step | Method | Hardware |
-| ---- | ------ | -------- |
-| 1 | Unit tests | No |
-| 2 | Unit tests | No |
-| 3 | Unit tests | No |
-| 4 | Manual test | Yes |
-| 5 | Manual test | Yes |
-| 6 | Manual test | Yes |
-| 7-9 | Manual test | Yes (Linux) |
-| 10 | Unit tests | No |
-| 11 | Unit + manual | Yes |
-| 12 | Manual | Yes (Linux) |
+| Step | Method        | Hardware    |
+| ---- | ------------- | ----------- |
+| 1    | Unit tests    | No          |
+| 2    | Unit tests    | No          |
+| 3    | Unit tests    | No          |
+| 4    | Manual test   | Yes         |
+| 5    | Manual test   | Yes         |
+| 6    | Manual test   | Yes         |
+| 7-9  | Manual test   | Yes (Linux) |
+| 10   | Unit tests    | No          |
+| 11   | Unit + manual | Yes         |
+| 12   | Manual        | Yes (Linux) |
 
 ### Checklist
 
 **Phase 1: Foundation**
+
 - [ ] Abstract Master interface
 - [ ] Mock backend
 - [ ] CyclicEngine
@@ -1575,17 +1592,20 @@ lsmod | grep ec_master
 - [ ] All unit tests passing
 
 **Phase 2: SOEM Backend**
+
 - [ ] Vendor SOEM in `/vendor/soem/`
 - [ ] SOEM Master implementation
 - [ ] Hardware integration tests
 - [ ] Full read/write cycle working
 
 **Phase 3: IgH Backend**
+
 - [ ] IgH Master implementation
 - [ ] Backend auto-detection
 - [ ] Performance comparison
 
 **Phase 4: Polish**
+
 - [ ] ScanTask
 - [ ] Factory registration
 - [ ] DKMS package

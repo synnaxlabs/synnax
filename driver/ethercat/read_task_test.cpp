@@ -21,10 +21,13 @@ class EtherCATReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<ethercat::mock::MockMaster> mock_master;
+    std::shared_ptr<ethercat::mock::Master> mock_master;
     std::shared_ptr<ethercat::CyclicEngine> engine;
     synnax::Channel index_channel;
     synnax::Rack rack;
+    synnax::Device network_device;
+    synnax::Device slave_device;
+    const uint32_t SLAVE_SERIAL = 12345;
 
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -41,9 +44,25 @@ protected:
 
         ctx = std::make_shared<task::MockContext>(client);
 
-        mock_master = std::make_shared<ethercat::mock::MockMaster>("eth0");
+        network_device = create_network_device("eth0");
+        slave_device = create_slave_device(
+            SLAVE_SERIAL,
+            {{{"name", "status_word"},
+              {"index", 0x6000},
+              {"subindex", 1},
+              {"bit_length", 16},
+              {"data_type", "int16"}},
+             {{"name", "sensor_value"},
+              {"index", 0x6000},
+              {"subindex", 2},
+              {"bit_length", 32},
+              {"data_type", "int32"}}},
+            json::array()
+        );
+
+        mock_master = std::make_shared<ethercat::mock::Master>("eth0");
         mock_master->add_slave(
-            ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Test Slave")
+            ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, SLAVE_SERIAL, "Test Slave")
         );
         engine = std::make_shared<ethercat::CyclicEngine>(
             mock_master,
@@ -51,36 +70,94 @@ protected:
         );
     }
 
+    synnax::Device create_network_device(const std::string &interface) {
+        json props = {{"interface", interface}, {"cycle_time_us", 10000}};
+        synnax::Device dev(
+            "ecat_network_" + interface,
+            "Test Network",
+            rack.key,
+            interface,
+            "EtherCAT",
+            "Network",
+            props.dump()
+        );
+        auto err = client->devices.create(dev);
+        EXPECT_TRUE(!err) << err.message();
+        return dev;
+    }
+
+    synnax::Device create_slave_device(
+        uint32_t serial,
+        const json &input_pdos,
+        const json &output_pdos
+    ) {
+        json props = {
+            {"serial", serial},
+            {"vendor_id", 0x1},
+            {"product_code", 0x2},
+            {"revision", 1},
+            {"name", "Test Slave"},
+            {"position", 0},
+            {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
+        };
+        synnax::Device dev(
+            "ecat_slave_" + std::to_string(serial),
+            "Test Slave SN:" + std::to_string(serial),
+            rack.key,
+            std::to_string(serial),
+            "DEWESoft",
+            "TestModule",
+            props.dump()
+        );
+        auto err = client->devices.create(dev);
+        EXPECT_TRUE(!err) << err.message();
+        return dev;
+    }
+
     json create_base_config() {
         return {
             {"data_saving", false},
             {"sample_rate", 100},
             {"stream_rate", 10},
-            {"device", "eth0"},
+            {"device", network_device.key},
             {"channels", json::array()}
         };
     }
 
-    json create_input_channel_config(
+    json create_automatic_input_channel_config(
         const synnax::Channel &channel,
-        uint16_t slave_position,
-        uint16_t index,
-        uint8_t subindex,
-        uint8_t bit_length
+        const std::string &pdo_name
     ) {
         return {
-            {"type", "input"},
-            {"enabled", true},
+            {"type", "automatic"},
+            {"device", slave_device.key},
+            {"pdo", pdo_name},
             {"channel", channel.key},
-            {"slave_position", slave_position},
+            {"enabled", true}
+        };
+    }
+
+    json create_manual_input_channel_config(
+        const synnax::Channel &channel,
+        uint16_t index,
+        uint8_t subindex,
+        uint8_t bit_length,
+        const std::string &data_type
+    ) {
+        return {
+            {"type", "manual"},
+            {"device", slave_device.key},
             {"index", index},
             {"subindex", subindex},
-            {"bit_length", bit_length}
+            {"bit_length", bit_length},
+            {"data_type", data_type},
+            {"channel", channel.key},
+            {"enabled", true}
         };
     }
 };
 
-TEST_F(EtherCATReadTest, ParseConfigWithValidChannel) {
+TEST_F(EtherCATReadTest, ParseConfigWithAutomaticChannel) {
     auto data_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("analog"),
         telem::INT16_T,
@@ -90,14 +167,39 @@ TEST_F(EtherCATReadTest, ParseConfigWithValidChannel) {
 
     auto cfg = create_base_config();
     cfg["channels"].push_back(
-        create_input_channel_config(data_ch, 0, 0x6000, 1, 16)
+        create_automatic_input_channel_config(data_ch, "status_word")
     );
 
     auto parser = xjson::Parser(cfg);
     ethercat::ReadTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
     EXPECT_EQ(task_cfg.channels.size(), 1);
-    EXPECT_EQ(task_cfg.device_key, "eth0");
+    EXPECT_EQ(task_cfg.interface_name, "eth0");
+    EXPECT_EQ(task_cfg.channels[0]->index, 0x6000);
+    EXPECT_EQ(task_cfg.channels[0]->subindex, 1);
+    EXPECT_EQ(task_cfg.channels[0]->bit_length, 16);
+}
+
+TEST_F(EtherCATReadTest, ParseConfigWithManualChannel) {
+    auto data_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("analog"),
+        telem::INT32_T,
+        index_channel.key,
+        false
+    ));
+
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(
+        create_manual_input_channel_config(data_ch, 0x6000, 2, 32, "int32")
+    );
+
+    auto parser = xjson::Parser(cfg);
+    ethercat::ReadTaskConfig task_cfg(client, parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(task_cfg.channels.size(), 1);
+    EXPECT_EQ(task_cfg.channels[0]->index, 0x6000);
+    EXPECT_EQ(task_cfg.channels[0]->subindex, 2);
+    EXPECT_EQ(task_cfg.channels[0]->bit_length, 32);
 }
 
 TEST_F(EtherCATReadTest, ParseConfigWithMultipleChannels) {
@@ -115,8 +217,12 @@ TEST_F(EtherCATReadTest, ParseConfigWithMultipleChannels) {
     ));
 
     auto cfg = create_base_config();
-    cfg["channels"].push_back(create_input_channel_config(ch1, 0, 0x6000, 1, 16));
-    cfg["channels"].push_back(create_input_channel_config(ch2, 0, 0x6000, 2, 32));
+    cfg["channels"].push_back(
+        create_automatic_input_channel_config(ch1, "status_word")
+    );
+    cfg["channels"].push_back(
+        create_automatic_input_channel_config(ch2, "sensor_value")
+    );
 
     auto parser = xjson::Parser(cfg);
     ethercat::ReadTaskConfig task_cfg(client, parser);
@@ -129,12 +235,62 @@ TEST_F(EtherCATReadTest, ParseConfigWithInvalidChannel) {
     synnax::Channel invalid_ch;
     invalid_ch.key = 99999;
     cfg["channels"].push_back(
-        create_input_channel_config(invalid_ch, 0, 0x6000, 1, 16)
+        create_automatic_input_channel_config(invalid_ch, "status_word")
     );
 
     auto parser = xjson::Parser(cfg);
     ethercat::ReadTaskConfig task_cfg(client, parser);
     ASSERT_OCCURRED_AS(parser.error(), xerrors::VALIDATION);
+}
+
+TEST_F(EtherCATReadTest, ParseConfigWithInvalidPDOName) {
+    auto data_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("analog"),
+        telem::INT16_T,
+        index_channel.key,
+        false
+    ));
+
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(
+        create_automatic_input_channel_config(data_ch, "nonexistent_pdo")
+    );
+
+    auto parser = xjson::Parser(cfg);
+    ethercat::ReadTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), xerrors::VALIDATION);
+}
+
+TEST_F(EtherCATReadTest, ParseConfigWithMixedChannelTypes) {
+    auto auto_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("auto_ch"),
+        telem::INT16_T,
+        index_channel.key,
+        false
+    ));
+    auto manual_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("manual_ch"),
+        telem::INT32_T,
+        index_channel.key,
+        false
+    ));
+
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(
+        create_automatic_input_channel_config(auto_ch, "status_word")
+    );
+    cfg["channels"].push_back(
+        create_manual_input_channel_config(manual_ch, 0x6000, 3, 32, "int32")
+    );
+
+    auto parser = xjson::Parser(cfg);
+    ethercat::ReadTaskConfig task_cfg(client, parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(task_cfg.channels.size(), 2);
+    EXPECT_EQ(task_cfg.channels[0]->index, 0x6000);
+    EXPECT_EQ(task_cfg.channels[0]->subindex, 1);
+    EXPECT_EQ(task_cfg.channels[1]->index, 0x6000);
+    EXPECT_EQ(task_cfg.channels[1]->subindex, 3);
 }
 
 TEST_F(EtherCATReadTest, WriterConfigIncludesAllChannels) {
@@ -146,7 +302,9 @@ TEST_F(EtherCATReadTest, WriterConfigIncludesAllChannels) {
     ));
 
     auto cfg = create_base_config();
-    cfg["channels"].push_back(create_input_channel_config(ch1, 0, 0x6000, 1, 16));
+    cfg["channels"].push_back(
+        create_automatic_input_channel_config(ch1, "status_word")
+    );
 
     auto parser = xjson::Parser(cfg);
     ethercat::ReadTaskConfig task_cfg(client, parser);
@@ -166,7 +324,7 @@ TEST_F(EtherCATReadTest, SourceStartRegistersWithEngine) {
 
     auto cfg = create_base_config();
     cfg["channels"].push_back(
-        create_input_channel_config(data_ch, 0, 0x6000, 1, 16)
+        create_automatic_input_channel_config(data_ch, "status_word")
     );
 
     auto parser = xjson::Parser(cfg);
@@ -175,6 +333,55 @@ TEST_F(EtherCATReadTest, SourceStartRegistersWithEngine) {
 
     auto source = ethercat::ReadTaskSource(engine, std::move(task_cfg));
     ASSERT_NIL(source.start());
-    EXPECT_TRUE(engine->running());
+    EXPECT_TRUE(engine->is_running());
     ASSERT_NIL(source.stop());
+}
+
+TEST_F(EtherCATReadTest, SourceStartFailsWithUnknownSerial) {
+    auto unknown_slave = create_slave_device(
+        99999,
+        {{{"name", "test"},
+          {"index", 0x6000},
+          {"subindex", 1},
+          {"bit_length", 16},
+          {"data_type", "int16"}}},
+        json::array()
+    );
+
+    auto data_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("analog"),
+        telem::INT16_T,
+        index_channel.key,
+        false
+    ));
+
+    json cfg = create_base_config();
+    cfg["channels"].push_back(
+        {{"type", "automatic"},
+         {"device", unknown_slave.key},
+         {"pdo", "test"},
+         {"channel", data_ch.key},
+         {"enabled", true}}
+    );
+
+    auto parser = xjson::Parser(cfg);
+    ethercat::ReadTaskConfig task_cfg(client, parser);
+    ASSERT_NIL(parser.error());
+
+    auto source = ethercat::ReadTaskSource(engine, std::move(task_cfg));
+    ASSERT_OCCURRED_AS(source.start(), ethercat::SLAVE_STATE_ERROR);
+}
+
+TEST_F(EtherCATReadTest, InvalidNetworkDevice) {
+    json cfg = {
+        {"data_saving", false},
+        {"sample_rate", 100},
+        {"stream_rate", 10},
+        {"device", "nonexistent_device_key"},
+        {"channels", json::array()}
+    };
+
+    auto parser = xjson::Parser(cfg);
+    ethercat::ReadTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), xerrors::VALIDATION);
 }
