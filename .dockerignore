@@ -49,42 +49,16 @@ Thumbs.db
 **/.turbo
 
 # Exclude everything not needed for core Go build
+/console
 /pluto
 /docs
 /scripts
 /integration
 /deploy
 /drift
+/driver
 /client
 /synnax-logs
-
-# Console: exclude source, keep dist (copied by CI)
-/console/src
-/console/src-tauri
-/console/public
-/console/*.ts
-/console/*.json
-/console/*.html
-
-# Driver: exclude source, keep assets (copied by CI)
-/driver/BUILD.bazel
-/driver/MODULE.bazel
-/driver/**/*.cpp
-/driver/**/*.h
-/driver/vendor
-/driver/cmd
-/driver/labjack
-/driver/ni
-/driver/opc
-/driver/modbus
-/driver/pipeline
-/driver/rack
-/driver/task
-/driver/meminfo
-/driver/heartbeat
-/driver/testutil
-/driver/scripts
-/driver/errors
 
 # Config files not needed in build
 *.yaml
