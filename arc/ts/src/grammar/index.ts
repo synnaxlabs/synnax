@@ -7,18 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// TextMate grammar definition for Arc language syntax highlighting
-import arcGrammar from "../../../go/lsp/extensions/vscode/syntaxes/arc.tmLanguage.json" with { type: "json" };
+// Raw JSON string for Monaco/VSCode extension registration
+import arcGrammarRaw from "../../../go/lsp/extensions/vscode/syntaxes/arc.tmLanguage.json?raw";
 
 /**
  * TextMate grammar for the Arc language.
- * Compatible with Shiki syntax highlighter and other TextMate-based tools.
+ * This interface satisfies Shiki's LanguageRegistration requirements.
+ *
+ * The type uses index signatures for nested objects to avoid TypeScript's strict
+ * type inference from JSON imports, which creates union types with optional undefined
+ * values that are incompatible with Shiki's IRawCapturesMap type.
  */
 export interface Grammar {
   name: string;
   scopeName: string;
-  patterns: unknown[];
-  repository: Record<string, unknown>;
+  patterns: Array<Record<string, unknown>>;
+  repository: Record<string, Record<string, unknown>>;
   [key: string]: unknown;
 }
 
@@ -40,10 +44,24 @@ export interface Grammar {
  * });
  * ```
  */
-export const grammar = {
-  ...arcGrammar,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+export const grammar: Grammar = {
+  ...JSON.parse(arcGrammarRaw),
   name: "arc",
   scopeName: "source.arc",
 };
+
+/**
+ * Raw JSON string of the Arc grammar.
+ * Use for Monaco/VSCode extension registration that requires string input.
+ *
+ * @example
+ * ```typescript
+ * import { grammarRaw } from '@synnaxlabs/arc';
+ *
+ * const dataUrl = `data:application/json;base64,${btoa(grammarRaw)}`;
+ * ```
+ */
+export const grammarRaw: string = arcGrammarRaw;
 
 export default grammar;

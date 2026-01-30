@@ -10,8 +10,6 @@
 let timeOut: NodeJS.Timeout;
 
 export const addCodeButtonListeners = (): void => {
-  const listeners: { button: Element; listener: () => void }[] = [];
-
   const handleCopy = (button: Element) => {
     const code = button.parentElement?.querySelector("code");
     if (code == null) return;
@@ -32,15 +30,9 @@ export const addCodeButtonListeners = (): void => {
       .catch(console.error);
   };
 
-  setInterval(() => {
-    const buttons = document.querySelectorAll(".astro-code-wrapper button");
-    listeners.forEach(({ button, listener }) =>
-      button.removeEventListener("click", listener),
-    );
-    buttons.forEach((button) => {
-      const listener = () => handleCopy(button);
-      button.addEventListener("click", listener);
-      listeners.push({ button, listener });
-    });
-  }, 1000);
+  // Use event delegation - one listener handles all code buttons
+  document.addEventListener("click", (e) => {
+    const button = (e.target as Element).closest(".astro-code-wrapper button");
+    if (button) handleCopy(button);
+  });
 };

@@ -1,0 +1,241 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Operators"
+description:
+  "Arc operator reference for arithmetic, comparison, logical, assignment, and flow
+  operators"
+prev: "Types"
+prevURL: "/reference/control/arc/reference/types"
+next: "Functions"
+nextURL: "/reference/control/arc/reference/functions"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+## Arithmetic Operators
+
+| Operator | Name           | Example  | Result                              |
+| -------- | -------------- | -------- | ----------------------------------- |
+| `+`      | Addition       | `3 + 2`  | `5`                                 |
+| `-`      | Subtraction    | `5 - 2`  | `3`                                 |
+| `*`      | Multiplication | `3 * 4`  | `12`                                |
+| `/`      | Division       | `10 / 3` | `3` (integer) or `3.333...` (float) |
+| `%`      | Modulo         | `10 % 3` | `1`                                 |
+| `^`      | Exponentiation | `2 ^ 8`  | `256`                               |
+
+<Note.Note variant="warning">
+  `^` is exponentiation, not XOR. Arc has no bitwise operators.
+</Note.Note>
+
+### Division Behavior
+
+Integer division truncates toward zero:
+
+```arc
+result := 10 / 3       // 3 (not 3.333)
+result := -10 / 3      // -3
+```
+
+Float division produces a float:
+
+```arc
+result := 10.0 / 3.0   // 3.333...
+```
+
+### Exponentiation
+
+```arc
+power := 2 ^ 8         // 256
+square := 5 ^ 2        // 25
+cube := 2.0 ^ 3        // 8.0
+```
+
+Exponentiation is right-associative:
+
+```arc
+result := 2 ^ 3 ^ 2    // 2 ^ (3 ^ 2) = 2 ^ 9 = 512
+```
+
+<Divider.Divider x />
+
+## Comparison Operators
+
+All comparisons return `u8` (0 for false, 1 for true).
+
+| Operator | Name                  | Example  | Result |
+| -------- | --------------------- | -------- | ------ |
+| `==`     | Equal                 | `5 == 5` | `1`    |
+| `!=`     | Not equal             | `5 != 3` | `1`    |
+| `<`      | Less than             | `3 < 5`  | `1`    |
+| `>`      | Greater than          | `5 > 3`  | `1`    |
+| `<=`     | Less than or equal    | `3 <= 3` | `1`    |
+| `>=`     | Greater than or equal | `5 >= 5` | `1`    |
+
+```arc
+in_range := pressure >= 100 and pressure <= 500
+```
+
+<Divider.Divider x />
+
+## Logical Operators
+
+Logical operators use short-circuit evaluation and return `u8` (0 or 1).
+
+| Operator | Name        | Example   | Result |
+| -------- | ----------- | --------- | ------ |
+| `and`    | Logical AND | `1 and 1` | `1`    |
+| `or`     | Logical OR  | `0 or 1`  | `1`    |
+| `not`    | Logical NOT | `not 1`   | `0`    |
+
+### Short-Circuit Evaluation
+
+- `and`: If left operand is false (0), right operand is not evaluated
+- `or`: If left operand is true (non-zero), right operand is not evaluated
+
+```arc
+// Safe: division only happens if b != 0
+safe := b != 0 and (a / b) > 10
+```
+
+### Truthiness
+
+Any non-zero value is truthy:
+
+```arc
+result := 5 and 3      // 1 (both truthy)
+result := 0 or 7       // 1 (7 is truthy)
+negated := not 42      // 0
+```
+
+<Divider.Divider x />
+
+## Unary Operators
+
+| Operator | Name        | Example | Result |
+| -------- | ----------- | ------- | ------ |
+| `-`      | Negation    | `-5`    | `-5`   |
+| `not`    | Logical NOT | `not 1` | `0`    |
+
+Unary minus applies to numeric values:
+
+```arc
+x := 5
+y := -x        // -5
+```
+
+<Divider.Divider x />
+
+## Assignment Operators
+
+| Operator | Name                | Example  | Equivalent  |
+| -------- | ------------------- | -------- | ----------- |
+| `=`      | Assignment          | `x = 5`  |             |
+| `+=`     | Add and assign      | `x += 5` | `x = x + 5` |
+| `-=`     | Subtract and assign | `x -= 5` | `x = x - 5` |
+| `*=`     | Multiply and assign | `x *= 2` | `x = x * 2` |
+| `/=`     | Divide and assign   | `x /= 2` | `x = x / 2` |
+| `%=`     | Modulo and assign   | `x %= 3` | `x = x % 3` |
+
+### Variable Declaration Operators
+
+| Operator | Name                          | Example      |
+| -------- | ----------------------------- | ------------ |
+| `:=`     | Local variable declaration    | `x := 5`     |
+| `$=`     | Stateful variable declaration | `count $= 0` |
+
+<Divider.Divider x />
+
+## Flow Operators
+
+Flow operators connect nodes in the reactive scope.
+
+| Operator | Name            | Behavior                               |
+| -------- | --------------- | -------------------------------------- |
+| `->`     | Continuous flow | Executes every cycle                   |
+| `=>`     | One-shot flow   | Fires once when condition becomes true |
+
+### Continuous Flow (`->`)
+
+Reactive flow that runs while the stage is active:
+
+```arc
+sensor -> filter{} -> output
+```
+
+### One-Shot Flow (`=>`)
+
+Fires once when condition becomes true, then stops until reset (e.g., stage re-entry):
+
+```arc
+pressure > 500 => next
+abort_btn => abort
+```
+
+<Divider.Divider x />
+
+## Precedence Table
+
+Operators listed from highest to lowest precedence.
+
+| Precedence  | Operators                        | Associativity |
+| ----------- | -------------------------------- | ------------- |
+| 1 (highest) | `^`                              | Right         |
+| 2           | `-` (unary), `not`               | Right         |
+| 3           | `*`, `/`, `%`                    | Left          |
+| 4           | `+`, `-`                         | Left          |
+| 5           | `<`, `>`, `<=`, `>=`, `==`, `!=` | Left          |
+| 6 (lowest)  | `and`, `or`                      | Left          |
+
+### Precedence Examples
+
+```arc
+// Exponentiation binds tighter than unary minus
+-2 ^ 2           // -(2 ^ 2) = -4
+
+// Multiplication before addition
+2 + 3 * 4        // 2 + (3 * 4) = 14
+
+// Comparison before logical
+a > 5 and b < 10 // (a > 5) and (b < 10)
+
+// Use parentheses for clarity
+(a + b) * c
+```
+
+<Divider.Divider x />
+
+## Series Operators
+
+Arithmetic and comparison operators work element-wise on series:
+
+```arc
+data := [1.0, 2.0, 3.0]
+
+// Series with scalar
+scaled := data * 2.0         // [2.0, 4.0, 6.0]
+
+// Series with series (must be equal length)
+sum := data + [4.0, 5.0, 6.0]    // [5.0, 7.0, 9.0]
+
+// Comparison returns series u8
+mask := data > 2.0           // [0, 0, 1]
+```
+
+<Divider.Divider x />
+
+## String Operators
+
+| Operator | Operation     | Example              |
+| -------- | ------------- | -------------------- |
+| `+`      | Concatenation | `"Hello" + " World"` |
+| `==`     | Equality      | `name == "test"`     |
+| `!=`     | Inequality    | `name != ""`         |
+
+```arc
+msg := "Hello"
+greeting := msg + " World"   // "Hello World"
+is_empty := msg == ""        // 0 (false)
+```

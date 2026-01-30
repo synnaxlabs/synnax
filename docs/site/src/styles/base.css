@@ -1,0 +1,250 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/*
+ * Base Styles
+ *
+ * Resets, typography, CSS variable overrides.
+ * With CSS layers, these override Pluto's defaults.
+ */
+
+html {
+    background: var(--pluto-gray-l0);
+}
+
+:root {
+    /* Layout variables */
+    --nav-height: 5rem;
+    --max-width: 1400px;
+
+    /* Breakpoints (for reference - CSS can't use vars in media queries) */
+    /* Mobile: 800px, Small mobile: 600px, Tablet: 1100px */
+
+    /* Docs body text - softer than l10 */
+    --docs-body-color: #3f4140;
+
+    /* Astro code block styling */
+    --astro-code-color-text: var(--pluto-text-color);
+    --astro-code-background: var(--pluto-gray-l1);
+    --astro-code-foreground: var(--pluto-text-color);
+    --astro-code-token-comment: var(--pluto-gray-l7);
+    --astro-code-token-string-expression: var(--pluto-secondary-m1);
+    --astro-code-token-function: #556bf8;
+    --astro-code-token-punctuation: var(--pluto-text-color);
+    --astro-code-token-keyword: #cc255f;
+    --astro-code-token-constant: var(--pluto-text-color);
+
+    /* Pluto typography overrides */
+    --pluto-schematic-element-stroke-width: 2px;
+    --pluto-font-family: "Inter Variable", sans-serif;
+    --pluto-h1-size: 8rem;
+    --pluto-h1-weight: 500;
+    --pluto-h1-line-height: 120%;
+    --pluto-h1-letter-spacing: -0.02em;
+    --pluto-h2-size: 5.5rem;
+    --pluto-h2-weight: 500;
+    --pluto-h2-line-height: 125%;
+    --pluto-h2-letter-spacing: -0.01em;
+    --pluto-h3-size: 4rem;
+    --pluto-h3-weight: 400;
+    --pluto-h3-line-height: 135%;
+    --pluto-h4-size: 3rem;
+    --pluto-h4-weight: 450;
+    --pluto-h4-line-height: 140%;
+    --pluto-h5-size: round(2.666rem, 1px);
+    --pluto-h5-weight: 450;
+    --pluto-h5-line-height: 150%;
+    --pluto-h5-text-transform: none;
+    --pluto-p-size: round(2.666rem, 1px);
+    --pluto-p-weight: 400;
+    --pluto-p-line-height: 175%;
+    --pluto-small-size: round(2.333rem, 1px);
+    --pluto-small-weight: 350;
+    --pluto-small-line-height: 150%;
+    --pluto-tiny-size: round(2.166rem, 1px);
+    --pluto-tiny-weight: 350;
+    --pluto-tiny-line-height: 150%;
+    --pluto-height-large: 5.75rem;
+    --pluto-height-medium: 5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --docs-body-color: #9fa1a0;
+    }
+}
+
+/* Responsive typography */
+@media (max-width: 800px) {
+    :root {
+        --pluto-h1-size: 5rem;
+        --pluto-h2-size: 4rem;
+        --pluto-h3-size: 3.25rem;
+        --pluto-h4-size: 2.75rem;
+        --pluto-h5-size: 2.5rem;
+        --pluto-p-size: 2.3333rem;
+        --pluto-p-weight: 400;
+    }
+}
+
+/* Box model reset */
+* {
+    scroll-margin: 20rem;
+    box-sizing: border-box;
+}
+
+body {
+    height: fit-content;
+    margin: 0;
+}
+
+/* Link styles - exclude Pluto buttons which have their own styling */
+a:not(.pluto-btn) {
+    color: var(--pluto-primary-p1);
+    text-decoration: none;
+}
+
+a:hover:not(.pluto-btn) {
+    text-decoration: underline;
+}
+
+/* List styles */
+li {
+    margin: 1rem 0;
+    font-size: var(--pluto-p-size);
+    color: var(--docs-body-color);
+}
+
+/* Code styles (inline code outside of code blocks) */
+code:not(.astro-code code) {
+    padding: 0.25rem 0.75rem;
+    background: var(--pluto-gray-l2);
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l3);
+    border-radius: 0.5rem;
+    overflow: visible;
+}
+
+code:not(:is(h1, h2, h3, h4, h5, h6) code) {
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+}
+
+code {
+    font-size: inherit;
+    line-height: inherit;
+    font-family: "Geist Mono";
+    font-feature-settings:
+        "liga" 0,
+        "calt" 0;
+    color: var(--pluto-text-color);
+    border-radius: var(--pluto-border-radius);
+}
+
+/* Summary/details */
+summary {
+    width: max-content;
+
+    &::marker {
+        color: var(--pluto-text-color);
+        font-family: var(--pluto-font-family);
+        font-size: var(--pluto-p-size);
+    }
+
+    &:hover {
+        cursor: pointer;
+    }
+}
+
+/* Table styles */
+table {
+    table-layout: auto;
+    width: 100%;
+    border-spacing: 0;
+    background: transparent;
+    border-collapse: collapse;
+    border-style: hidden;
+}
+
+table > :not(caption) > * {
+    border-width: 1px 0;
+    border-color: var(--pluto-gray-l3);
+    border-style: solid;
+}
+
+table > :not(caption) > * > * {
+    position: relative;
+    border-width: 0 1px;
+    padding: 1.25rem 1.5rem;
+}
+
+table td {
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+    vertical-align: baseline;
+    color: var(--docs-body-color);
+}
+
+table tr {
+    border-bottom: var(--pluto-border);
+    border-color: var(--pluto-gray-l3);
+}
+
+table thead th {
+    padding: 1.5rem 1.5rem;
+    font-weight: 600;
+}
+
+table thead tr {
+    border: none;
+    border-width: 2px;
+}
+
+table th {
+    border-bottom: var(--pluto-border);
+    text-align: start;
+}
+
+/* Strong text */
+strong {
+    font-weight: 550;
+    color: var(--pluto-gray-l10);
+}
+
+/* Blockquote */
+blockquote {
+    border-left: 2px solid var(--pluto-primary-z-30);
+    padding-left: 2rem;
+    margin-left: 3rem;
+}
+
+/* Scrollbar styling utility */
+.styled-scrollbar {
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: var(--pluto-gray-l4) transparent;
+
+    /* Chrome/Safari/Edge */
+    &::-webkit-scrollbar {
+        width: 0.75rem;
+        height: 0.75rem;
+    }
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+        background-color: var(--pluto-gray-l4);
+        border-radius: 0.5rem;
+    }
+    &::-webkit-scrollbar-thumb:hover {
+        background-color: var(--pluto-gray-l5);
+    }
+}
