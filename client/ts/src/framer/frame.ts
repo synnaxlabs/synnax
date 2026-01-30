@@ -282,7 +282,7 @@ export class Frame {
    */
   get(keys: channel.KeysOrNames): Frame;
 
-  get(key: channel.KeyOrName | channel.KeysOrNames): MultiSeries | Frame {
+  get(key: channel.PrimitiveParams): MultiSeries | Frame {
     if (Array.isArray(key))
       return this.filter((k) => (key as channel.Keys).includes(k as channel.Key));
     return new MultiSeries(this.series.filter((_, i) => this.columns[i] === key));
