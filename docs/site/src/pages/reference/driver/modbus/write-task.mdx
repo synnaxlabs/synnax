@@ -11,6 +11,7 @@ import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import ChannelType from "@/components/details/ChannelType.astro";
+import DetailsGroup from "@/components/details/Group.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -44,6 +45,8 @@ state, configure a [read task](/reference/driver/modbus/read-task) for the same 
 <Divider.Divider x />
 
 ## Register Types Reference
+
+<DetailsGroup>
 
 <ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding Register Output ([`holding_register_output`](https://www.modbustools.com/modbus.html#function06))</Text.Text>
@@ -80,6 +83,8 @@ control signals like relay states and valve positions.
 **Data Type:** Always boolean (0/1)
 
 </ChannelType>
+
+</DetailsGroup>
 
 <Divider.Divider x />
 

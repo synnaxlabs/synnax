@@ -11,6 +11,7 @@ import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import ChannelType from "@/components/details/ChannelType.astro";
+import DetailsGroup from "@/components/details/Group.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -46,6 +47,8 @@ state, configure a [read task](/reference/driver/opc-ua/read-task) for the same 
 ## Channel Configuration Reference
 
 [OPC UA Write Service Specification](https://reference.opcfoundation.org/Core/Part4/v104/docs/5.10.4)
+
+<DetailsGroup>
 
 <ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Value /> Scalar Values</Text.Text>
@@ -87,6 +90,8 @@ multi-value setpoints.
 **Note** -> The channel data type must match the array element type on the server.
 
 </ChannelType>
+
+</DetailsGroup>
 
 <Divider.Divider x />
 

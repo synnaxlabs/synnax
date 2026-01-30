@@ -13,6 +13,7 @@ import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import ChannelType from "@/components/details/ChannelType.astro";
+import DetailsGroup from "@/components/details/Group.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -36,6 +37,8 @@ For task lifecycle management, see the
 <Divider.Divider x />
 
 ## Channel Types Reference
+
+<DetailsGroup>
 
 <ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Frequency ([`ci_frequency`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecifreqchan.html))</Text.Text>
@@ -260,6 +263,8 @@ Measures the duty cycle of a periodic signal.
 | `custom_scale` | object | No       | -        | Custom scaling                  |
 
 </ChannelType>
+
+</DetailsGroup>
 
 <Divider.Divider x />
 

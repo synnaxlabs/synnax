@@ -13,6 +13,7 @@ import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import ChannelType from "@/components/details/ChannelType.astro";
+import DetailsGroup from "@/components/details/Group.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -45,6 +46,8 @@ For task lifecycle management, see the
 The task's `array_mode` setting determines how all channels are read. When
 `array_mode=false`, channels are read individually at `stream_rate`. When
 `array_mode=true`, all channels read `array_size` samples in bulk.
+
+<DetailsGroup>
 
 <ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Value /> Standard Mode (`array_mode=false`)</Text.Text>
@@ -108,6 +111,8 @@ using Synnax-generated timestamps.
 generates timestamps with ~ 100μs precision using software timing.
 
 </ChannelType>
+
+</DetailsGroup>
 
 <Divider.Divider x />
 

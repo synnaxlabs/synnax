@@ -20,7 +20,7 @@ const { open = false } = Astro.props;
 
 <style is:global>
     details {
-        margin: 2rem 0;
+        margin: 3rem 0;
         border: var(--pluto-border);
         border-radius: 1rem;
         overflow: hidden;
@@ -37,7 +37,7 @@ const { open = false } = Astro.props;
             summary {
                 border-bottom: var(--pluto-border);
                 & .indicator {
-                    transform: rotate(-90deg);
+                    transform: rotate(90deg);
                 }
             }
         }
@@ -88,6 +88,7 @@ const { open = false } = Astro.props;
                 transition: transform 0.2s;
                 height: 2.5rem;
                 width: 2.5rem;
+                transform: rotate(180deg);
             }
 
             width: 100%;

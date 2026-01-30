@@ -88,6 +88,10 @@ const {
             font-weight: 350;
             margin-top: 2rem;
             margin-bottom: 6rem;
+
+            & + :is(h2, h2.pluto-text) {
+                margin-top: 4rem;
+            }
         }
 
         .pluto-tabs-selector {
@@ -108,7 +112,15 @@ const {
 
         .pluto-divider {
             border-top: var(--pluto-border);
-            margin: 5% 0;
+            margin: 5rem 0;
+
+            & + :is(h2, h2.pluto-text) {
+                margin-top: 4rem;
+            }
+
+            & + :is(h3, h3.pluto-text) {
+                margin-top: 3rem;
+            }
         }
 
         .pluto-tabs-selector {
@@ -119,19 +131,15 @@ const {
             }
         }
 
-        /* Makes icons appear centered in the toolbar */
         p .pluto-icon {
-            transform: translateY(2px);
-        }
-
-        h3 .pluto-icon {
-            transform: translateY(3px);
+            vertical-align: middle;
         }
 
         .pluto-note {
             display: block;
             margin: 4rem 0;
-            padding: var(--note-padding-block, 0.5rem) var(--note-padding-inline, 3rem);
+            padding: var(--note-padding-block, 0.5rem)
+                var(--note-padding-inline, 3.5rem);
             & > * {
                 font-size: var(--pluto-small-size);
                 font-family: var(--pluto-font-family);
@@ -142,7 +150,7 @@ const {
 
         .pluto-note.compact {
             --note-padding-block: 0.5rem;
-            --note-padding-inline: 1.5rem;
+            --note-padding-inline: 2rem;
         }
 
         table {

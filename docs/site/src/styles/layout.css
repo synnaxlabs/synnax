@@ -120,7 +120,6 @@ nav {
 
 /* Article content */
 article {
-    /* Heading hierarchy - more space above major sections */
     h1,
     h1.pluto-text {
         margin-top: 5rem;
@@ -130,7 +129,7 @@ article {
 
     h2,
     h2.pluto-text {
-        margin-top: 10rem;
+        margin-top: 8rem;
         margin-bottom: 3rem;
         letter-spacing: -0.01em;
         color: var(--pluto-gray-l11);
@@ -146,23 +145,42 @@ article {
 
     h3,
     h3.pluto-text {
-        margin-top: 6rem;
+        margin-top: 5rem;
         margin-bottom: 2.5rem;
         color: var(--pluto-gray-l11);
     }
 
     h4,
     h4.pluto-text {
-        margin-top: 5rem;
+        margin-top: 4rem;
         margin-bottom: 2rem;
         color: var(--pluto-gray-l11);
     }
 
     h5,
-    h6,
-    table {
+    h6 {
         margin-top: 4rem;
         margin-bottom: 2rem;
+    }
+
+    table {
+        margin: 4rem 0;
+    }
+
+    :is(h2, h2.pluto-text) + :is(h3, h3.pluto-text) {
+        margin-top: 3rem;
+    }
+
+    :is(h3, h3.pluto-text) + :is(h4, h4.pluto-text) {
+        margin-top: 2rem;
+    }
+
+    :is(h2, h2.pluto-text, h3, h3.pluto-text, h4, h4.pluto-text) + table {
+        margin-top: 2rem;
+    }
+
+    :is(h2, h2.pluto-text, h3, h3.pluto-text, h4, h4.pluto-text) + .astro-code-wrapper {
+        margin-top: 3rem;
     }
 
     .pluto-btn .pluto-text {
@@ -191,22 +209,23 @@ article {
         border: var(--pluto-border);
     }
 
-    /* Heading anchor links */
-    :is(h1, h2, h3).pluto-text {
-        display: inline-flex;
+    :is(h1, h2, h3, h4).pluto-text {
+        display: flex;
         align-items: center;
+        gap: 1.5rem;
+        width: fit-content;
 
-        & a {
+        & a.heading-anchor {
             display: inline-flex;
             align-items: center;
             color: var(--pluto-gray-l7);
             opacity: 0;
-            margin-left: 2rem;
+            margin-left: 0.5rem;
             transition: all 0.2s;
         }
 
         &:hover {
-            & a {
+            & a.heading-anchor {
                 opacity: 1;
 
                 &:hover {
