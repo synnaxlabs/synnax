@@ -41,16 +41,30 @@ export const OnThisPage = ({
     () => new Set(headings.map(({ slug }) => slug)),
   );
 
-  // Purge headings that don't exist in the DOM (hidden by tabs, etc.)
+  // Purge headings that aren't visible in the DOM (hidden by tabs, etc.)
   useEffect(() => {
     const purge = () => {
       const titles = document.querySelectorAll("article :is(h1, h2, h3)");
-      const visibleIds = new Set(Array.from(titles).map((t) => t.id));
+      const visibleIds = new Set(
+        Array.from(titles)
+          .filter(
+            (t) => t.offsetParent !== null || getComputedStyle(t).display !== "none",
+          )
+          .map((t) => t.id),
+      );
       setVisibleHeadings(visibleIds);
     };
     purge();
     window.addEventListener("urlchange", purge);
-    return () => window.removeEventListener("urlchange", purge);
+    // Also listen for tab changes which may not trigger urlchange
+    const observer = new MutationObserver(purge);
+    const article = document.querySelector("article");
+    if (article)
+      observer.observe(article, { childList: true, subtree: true, attributes: true });
+    return () => {
+      window.removeEventListener("urlchange", purge);
+      observer.disconnect();
+    };
   }, []);
 
   // Update indicator position when currentID changes

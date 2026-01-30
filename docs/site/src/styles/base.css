@@ -118,7 +118,7 @@ a:hover:not(.pluto-btn) {
 
 /* List styles */
 li {
-    margin: 1.5rem 0;
+    margin: 1rem 0;
     font-size: var(--pluto-p-size);
     color: var(--docs-body-color);
 }
