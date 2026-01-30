@@ -77,6 +77,7 @@
     "madge:alamos": "npx turbo madge --filter @synnaxlabs/alamos",
     "madge:client": "npx turbo madge --filter @synnaxlabs/client",
     "madge:console": "npx turbo madge --filter @synnaxlabs/console",
+    "madge:docs": "npx turbo madge --filter @synnaxlabs/docs",
     "madge:drift": "npx turbo madge --filter @synnaxlabs/drift",
     "madge:freighter": "npx turbo madge --filter @synnaxlabs/freighter",
     "madge:media": "npx turbo madge --filter @synnaxlabs/media",

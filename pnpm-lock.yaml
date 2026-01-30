@@ -571,6 +571,9 @@ importers:
       html-escaper:
         specifier: ^3.0.3
         version: 3.0.3
+      madge:
+        specifier: 'catalog:'
+        version: 8.0.0(typescript@5.9.3)
       prettier:
         specifier: 'catalog:'
         version: 3.7.4
