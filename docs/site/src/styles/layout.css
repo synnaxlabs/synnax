@@ -193,18 +193,16 @@ article {
 
     /* Heading anchor links */
     :is(h1, h2, h3).pluto-text {
+        display: inline-flex;
+        align-items: center;
+
         & a {
+            display: inline-flex;
+            align-items: center;
             color: var(--pluto-gray-l7);
             opacity: 0;
             margin-left: 2rem;
-            position: relative;
             transition: all 0.2s;
-
-            & svg {
-                position: absolute;
-                top: 50%;
-                transform: translateY(-50%);
-            }
         }
 
         &:hover {
