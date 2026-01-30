@@ -53,10 +53,7 @@ class RackClient(BaseClient):
             timeout: Maximum time in milliseconds to wait
         """
         self._show_devices_panel()
-        rack_item = self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
-            has_text=name
-        )
-        rack_item.first.wait_for(state="hidden", timeout=timeout)
+        self._wait_for_item_removed(self.ITEM_PREFIX, name, timeout)
 
     def get_status(self, name: str) -> dict[str, str]:
         """Get the status of a rack by hovering over its status indicator."""
@@ -80,8 +77,7 @@ class RackClient(BaseClient):
         """Rename a rack via context menu."""
         self._show_devices_panel()
         rack_item = self.get_item(old_name)
-        self._right_click(rack_item)
-        self.layout.page.get_by_text("Rename", exact=True).click(timeout=2000)
+        self._context_menu_action(rack_item, "Rename")
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
         new_item = self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
@@ -94,11 +90,7 @@ class RackClient(BaseClient):
         """Delete a rack via context menu."""
         self._show_devices_panel()
         rack_item = self.get_item(name)
-        self._right_click(rack_item)
-        self.layout.page.get_by_text("Delete", exact=True).click(timeout=2000)
-        delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
-        delete_btn.wait_for(state="visible", timeout=3000)
-        delete_btn.click()
+        self._delete_with_confirmation(rack_item)
         self.wait_for_rack_removed(name)
 
     def copy_key(self, name: str) -> str:
@@ -107,6 +99,5 @@ class RackClient(BaseClient):
         rack_item = self.get_item(name)
         element_id = rack_item.get_attribute("id")
         rack_key = element_id.split(":")[1] if element_id else ""
-        self._right_click(rack_item)
-        self.layout.page.get_by_text("Copy properties", exact=True).click(timeout=2000)
+        self._context_menu_action(rack_item, "Copy properties")
         return rack_key

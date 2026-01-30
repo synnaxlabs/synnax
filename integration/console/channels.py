@@ -535,11 +535,7 @@ class ChannelClient(BaseClientWithNotifications):
         :param timeout: Maximum time in milliseconds to wait.
         """
         self.show_channels()
-        channel_name_str = str(name)
-        channel_item = self.layout.page.locator(
-            f"div[id^='{self.ITEM_PREFIX}']"
-        ).filter(has=self.layout.page.get_by_text(channel_name_str, exact=True))
-        channel_item.first.wait_for(state="hidden", timeout=timeout)
+        self._wait_for_item_removed(self.ITEM_PREFIX, str(name), timeout, exact=True)
         self.hide_channels()
 
     def wait_for_channels(
@@ -648,17 +644,12 @@ class ChannelClient(BaseClientWithNotifications):
             name: The name of the channel to delete.
             timeout: Maximum time in milliseconds to wait for deletion.
         """
-        self._right_click_channel(name)
+        self.show_channels()
+        item = self._find_channel_item(name)
+        if item is None:
+            raise ValueError(f"Channel {name} not found")
 
-        delete_option = self.layout.page.get_by_text("Delete", exact=True).first
-        delete_option.wait_for(state="visible", timeout=5000)
-        delete_option.click()
-
-        modal = self.layout.page.locator(self.MODAL_SELECTOR)
-        modal.wait_for(state="visible", timeout=2000)
-        modal_delete_btn = modal.get_by_role("button", name="Delete", exact=True)
-        modal_delete_btn.click()
-        modal.wait_for(state="hidden", timeout=timeout)
+        self._delete_with_confirmation(item, timeout)
 
         for i, notification in enumerate(self.notifications.check()):
             message = notification.get("message", "")
@@ -667,11 +658,7 @@ class ChannelClient(BaseClientWithNotifications):
                 self.notifications.close(i)
                 raise RuntimeError(f"{message} {name}, {description}")
 
-        channel_item = self.layout.page.locator(
-            f"div[id^='{self.ITEM_PREFIX}']"
-        ).filter(has=self.layout.page.get_by_text(name, exact=True))
-        channel_item.first.wait_for(state="hidden", timeout=timeout)
-
+        self._wait_for_item_removed(self.ITEM_PREFIX, name, timeout, exact=True)
         self.hide_channels()
 
     def list_all(self) -> list[ChannelName]:

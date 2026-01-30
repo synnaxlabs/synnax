@@ -148,6 +148,59 @@ class BaseClient:
             )
         return item
 
+    def _wait_for_item_removed(
+        self, item_prefix: str, name: str, timeout: int = 5000, *, exact: bool = False
+    ) -> None:
+        """Wait for an item to be removed from a toolbar/panel.
+
+        Args:
+            item_prefix: The ID prefix of items (e.g., "rack:", "channel:").
+            name: The name of the item to wait for removal.
+            timeout: Maximum time in milliseconds to wait.
+            exact: If True, use exact text matching (important for items with similar names).
+        """
+        if exact:
+            item = self.layout.page.locator(f"div[id^='{item_prefix}']").filter(
+                has=self.layout.page.get_by_text(name, exact=True)
+            )
+        else:
+            item = self.layout.page.locator(f"div[id^='{item_prefix}']").filter(
+                has_text=name
+            )
+        item.first.wait_for(state="hidden", timeout=timeout)
+
+    def _delete_with_confirmation(self, item: Locator, timeout: int = 5000) -> None:
+        """Delete an item via context menu with confirmation modal.
+
+        Args:
+            item: The Locator for the item to delete.
+            timeout: Maximum time in milliseconds to wait for deletion.
+        """
+        self._right_click(item)
+        self.layout.page.get_by_text("Delete", exact=True).first.click()
+        modal = self.layout.page.locator(self.MODAL_SELECTOR)
+        modal.wait_for(state="visible", timeout=2000)
+        modal.get_by_role("button", name="Delete", exact=True).click()
+        modal.wait_for(state="hidden", timeout=timeout)
+
+    def _select_multiple_items(
+        self, items: list[Locator], then_right_click_last: bool = True
+    ) -> None:
+        """Select multiple items using Ctrl+Click.
+
+        Args:
+            items: List of Locator objects to select.
+            then_right_click_last: If True, right-clicks the last item to open context menu.
+        """
+        for i, item in enumerate(items):
+            if i == 0:
+                item.click()
+            else:
+                item.click(modifiers=["ControlOrMeta"])
+
+        if then_right_click_last and items:
+            self._right_click(items[-1])
+
     def _open_modal(self, command: str, selector: str) -> None:
         """Open a modal via command palette.
 
