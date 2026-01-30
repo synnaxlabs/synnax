@@ -1,0 +1,341 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Alarms"
+description: "Trigger warnings and notifications when sensor values exceed limits"
+prev: "Data Processing"
+prevURL: "/reference/control/arc/how-to/data-processing"
+next: "Bang-Bang Control"
+nextURL: "/reference/control/arc/how-to/bang-bang-control"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+Alarms notify operators when values exceed acceptable limits. A pressure that crosses
+600 psi should trigger a warning. A temperature that stays above 300°C for more than 5
+seconds should sound an alarm. Arc makes these patterns straightforward.
+
+<Divider.Divider x />
+
+## Basic Threshold Alarm
+
+The simplest alarm compares a value to a threshold:
+
+```arc
+func threshold_alarm{limit f64} (value f64) u8 {
+    if value > limit {
+        return 1
+    }
+    return 0
+}
+
+tank_pressure -> threshold_alarm{limit=600.0} -> pressure_high
+```
+
+When `tank_pressure` exceeds 600, `pressure_high` outputs 1. Wire this to a warning
+indicator in your Console schematic.
+
+For low alarms, flip the comparison:
+
+```arc
+func low_alarm{limit f64} (value f64) u8 {
+    if value < limit {
+        return 1
+    }
+    return 0
+}
+
+tank_level -> low_alarm{limit=10.0} -> tank_level_low
+```
+
+<Divider.Divider x />
+
+## Deadband Alarm
+
+Simple threshold alarms chatter when values oscillate near the limit. If pressure hovers
+around 600 psi, the alarm toggles on and off rapidly. A deadband prevents this by
+requiring the value to cross back below a lower threshold before the alarm clears:
+
+```arc
+func deadband_alarm{
+    high f64,      // alarm activates above this
+    low f64        // alarm clears below this
+} (value f64) u8 {
+    state $= 0
+
+    if state == 0 {
+        // Alarm is off, check if we should activate
+        if value > high {
+            state = 1
+        }
+    } else {
+        // Alarm is on, check if we should clear
+        if value < low {
+            state = 0
+        }
+    }
+
+    return state
+}
+
+tank_pressure -> deadband_alarm{high=600.0, low=580.0} -> pressure_high
+```
+
+The alarm activates when pressure exceeds 600 psi. It only clears when pressure drops
+below 580 psi. This 20 psi deadband eliminates chatter.
+
+<Note.Note variant="info">
+  Choose your deadband based on expected noise and process dynamics. Too narrow and you
+  still get chatter. Too wide and the alarm takes too long to clear.
+</Note.Note>
+
+<Divider.Divider x />
+
+## High and Low Alarm with Deadband
+
+Many sensors need both high and low alarms. Create separate functions for each:
+
+```arc
+func low_deadband_alarm{
+    low f64,       // alarm activates below this
+    clear f64      // alarm clears above this
+} (value f64) u8 {
+    state $= 0
+
+    if state == 0 {
+        if value < low {
+            state = 1
+        }
+    } else {
+        if value > clear {
+            state = 0
+        }
+    }
+
+    return state
+}
+
+// Use separate flows for high and low alarms
+tank_pressure -> deadband_alarm{high=600.0, low=580.0} -> pressure_high
+tank_pressure -> low_deadband_alarm{low=100.0, clear=120.0} -> pressure_low
+```
+
+<Divider.Divider x />
+
+## Multi-Condition Alarms
+
+Some alarms require multiple conditions. An abort alarm might trigger when both inlet
+and outlet pressures are elevated (potential runaway), or when any single pressure
+exceeds a critical limit:
+
+```arc
+func combined_alarm{
+    inlet chan f64,
+    outlet chan f64,
+    inlet_crit f64,
+    outlet_crit f64,
+    combined_inlet f64,
+    combined_outlet f64
+} () u8 {
+    p1 := inlet
+    p2 := outlet
+
+    // Critical: either exceeds maximum
+    if p1 > inlet_crit {
+        return 1
+    }
+    if p2 > outlet_crit {
+        return 1
+    }
+
+    // Combined: both elevated (potential runaway)
+    if p1 > combined_inlet and p2 > combined_outlet {
+        return 1
+    }
+
+    return 0
+}
+
+interval{period=50ms} -> combined_alarm{
+    inlet=inlet_pressure,
+    outlet=outlet_pressure,
+    inlet_crit=800.0,
+    outlet_crit=600.0,
+    combined_inlet=500.0,
+    combined_outlet=400.0
+} -> abort_trigger
+```
+
+<Divider.Divider x />
+
+## Time-Delayed Alarm
+
+A brief spike might be acceptable, but a sustained high value indicates a real problem.
+Use a counter to require the condition to persist:
+
+```arc
+func sustained_alarm{
+    limit f64,
+    samples i64    // number of consecutive samples above limit
+} (value f64) u8 {
+    count $= 0
+
+    if value > limit {
+        count = count + 1
+    } else {
+        count = 0
+    }
+
+    if count >= samples {
+        return 1
+    }
+    return 0
+}
+
+// At 50ms intervals, 20 samples = 1 second
+tank_pressure -> sustained_alarm{limit=600.0, samples=20} -> sustained_high
+```
+
+For time-based delays, use the sample rate to calculate the count. At 50ms intervals, 20
+samples equals 1 second of sustained high readings.
+
+<Divider.Divider x />
+
+## Latching Alarm
+
+Some alarms should stay active until manually acknowledged, even if the condition
+clears:
+
+```arc
+func latching_alarm{
+    limit f64,
+    ack chan u8    // acknowledgment channel (write 1 to clear)
+} (value f64) u8 {
+    latched $= 0
+
+    // Check for acknowledgment
+    ack_signal := ack
+    if ack_signal {
+        latched = 0
+    }
+
+    // Activate on threshold
+    if value > limit {
+        latched = 1
+    }
+
+    return latched
+}
+
+tank_pressure -> latching_alarm{limit=600.0, ack=alarm_ack} -> latched_alarm
+```
+
+Wire `alarm_ack` to a button in your Console schematic. The alarm stays active until the
+operator acknowledges it by clicking the button.
+
+<Divider.Divider x />
+
+## Alarm Priority Levels
+
+Different conditions warrant different responses:
+
+```arc
+func priority_alarm{
+    warning f64,
+    alarm f64,
+    critical f64
+} (value f64) (level i64, warning u8, alarm u8, critical u8) {
+    // Priority levels: 0=normal, 1=warning, 2=alarm, 3=critical
+    level = 0
+    warning = 0
+    alarm = 0
+    critical = 0
+
+    if value > critical {
+        level = 3
+        critical = 1
+        alarm = 1
+        warning = 1
+    } else if value > alarm {
+        level = 2
+        alarm = 1
+        warning = 1
+    } else if value > warning {
+        level = 1
+        warning = 1
+    }
+}
+
+// Use separate functions for each priority level
+func warning_check{limit f64}(value f64) u8 {
+    if value > limit { return 1 }
+    return 0
+}
+
+func alarm_check{limit f64}(value f64) u8 {
+    if value > limit { return 1 }
+    return 0
+}
+
+func critical_check{limit f64}(value f64) u8 {
+    if value > limit { return 1 }
+    return 0
+}
+
+tank_pressure -> warning_check{limit=500.0} -> pressure_warning
+tank_pressure -> alarm_check{limit=600.0} -> pressure_alarm
+tank_pressure -> critical_check{limit=700.0} -> pressure_critical
+```
+
+Higher priority alarms include all lower levels. A critical condition is also an alarm
+and a warning.
+
+<Divider.Divider x />
+
+## Alarms in Sequences
+
+Alarms are often used to trigger sequence transitions:
+
+```arc
+sequence main {
+    stage pressurize {
+        1 -> valve_cmd,
+
+        // Safety abort conditions (listed first for priority)
+        tank_pressure > 700 => abort,
+        outlet_pressure > 500 => abort,
+        abort_btn => abort,
+
+        // Normal completion
+        tank_pressure > 500 => next
+    }
+
+    stage hold {
+        // Maintain pressure, watch for problems
+        tank_pressure -> deadband_alarm{high=600.0, low=580.0} -> pressure_high,
+        pressure_high => abort,
+
+        wait{duration=30s} => next
+    }
+
+    stage complete {
+        0 -> valve_cmd
+    }
+}
+
+sequence abort {
+    stage safed {
+        0 -> valve_cmd,
+        0 -> vent_valve
+    }
+}
+
+start_cmd => main
+```
+
+<Note.Note variant="warning">
+Always list safety-critical abort conditions first in a stage. When multiple
+one-shot transitions (`=>`) are true simultaneously, the first one wins.
+</Note.Note>

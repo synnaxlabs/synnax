@@ -138,6 +138,7 @@ export const useItem = <
       [key, subscribe],
     ),
     useCallback(() => getItem?.(key), [getItem, key]),
+    () => undefined as E | undefined,
   );
 };
 

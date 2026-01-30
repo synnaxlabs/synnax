@@ -11,6 +11,7 @@ import {
   ExtensionHostKind,
   registerExtension,
 } from "@codingame/monaco-vscode-api/extensions";
+import { grammarRaw as arcGrammarRaw } from "@synnaxlabs/arc";
 import { type arc, type Synnax } from "@synnaxlabs/client";
 import { type Stream } from "@synnaxlabs/freighter";
 import { type destructor } from "@synnaxlabs/x";
@@ -18,7 +19,6 @@ import { MonacoLanguageClient } from "monaco-languageclient";
 import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
 import { CloseAction, ErrorAction } from "vscode-languageclient/browser";
 
-import arcGrammarRaw from "@/code/arc/arc.tmLanguage.json?raw";
 import arcLanguageConfigurationRaw from "@/code/arc/language-configuration.json?raw";
 import { type Extension } from "@/code/init/initialize";
 

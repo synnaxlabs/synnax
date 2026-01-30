@@ -13,7 +13,9 @@ import fs from "fs";
 import matter from "gray-matter";
 import path from "path";
 import process from "process";
-import removeMd from "remove-markdown";
+import { remark } from "remark";
+import remarkGfm from "remark-gfm";
+import stripMarkdown from "strip-markdown";
 
 dotenv.config();
 
@@ -24,47 +26,47 @@ const client = algoliasearch(
 
 // 1. Build a dataset
 
-const purgeImports = (content: string) => {
-  // find the second --- in the file
-  const secondDash = content.indexOf("---", 3);
-  // get the content after the second ---
-  const nc = content.slice(secondDash + 2);
-  // find the first markdown header in the file
-  const firstHeader = nc.indexOf("#");
-  // find the first 'import' statement in the file
-  const firstImport = nc.indexOf("import");
-  // find the index of the first newline after the first import statement
-  if (firstImport > firstHeader || firstImport === -1) return nc;
-  // find the index of the last import statement before the first markdown header
-  const lastImport = nc.slice(0, firstHeader).lastIndexOf("import");
-  const lastNewline = nc.slice(lastImport + 1).indexOf("\n");
-  // return the content with the imports removed
-  return nc.slice(lastImport + lastNewline + 2);
+const purgeImports = (content: string): string =>
+  content
+    // Remove import statements
+    .replace(/^import\s+.*?;\s*$/gm, "")
+    // Remove export statements
+    .replace(/^export\s+.*?;\s*$/gm, "")
+    // Remove JSX components (self-closing and with children)
+    .replace(/<[A-Z][\w.]*[^>]*\/>/g, "")
+    .replace(/<[A-Z][\w.]*[^>]*>[\s\S]*?<\/[A-Z][\w.]*>/g, "")
+    .trim();
+
+const toPlainText = async (content: string): Promise<string> => {
+  const result = await remark().use(remarkGfm).use(stripMarkdown).process(content);
+  return String(result).replace(/\s+/g, " ").trim();
 };
 
 const filenames = fs.readdirSync(path.join("./src/pages"), {
   recursive: true,
 }) as string[];
-const data = filenames
-  .filter((f) => f.endsWith("mdx"))
-  .map((filename) => {
-    const markdownWithMeta = fs.readFileSync(`./src/pages/${filename}`);
-    const { data: frontmatter, content } = matter(markdownWithMeta);
-    let href = `/${filename.replace(".mdx", "").replace("index", "")}`;
-    if (filename.includes("releases") && !filename.includes("index"))
-      href = `/releases/#${filename
-        .replace(".mdx", "")
-        .replaceAll("-", "")
-        .slice(0, -1)
-        .replace("releases/", "")}`;
-    return {
-      objectID: filename,
-      href,
-      title: frontmatter.heading ?? frontmatter.title,
-      description: frontmatter.description,
-      content: removeMd(purgeImports(content)).replace(/\n/g, " "),
-    };
-  });
+const data = await Promise.all(
+  filenames
+    .filter((f) => f.endsWith("mdx"))
+    .map(async (filename) => {
+      const markdownWithMeta = fs.readFileSync(`./src/pages/${filename}`);
+      const { data: frontmatter, content } = matter(markdownWithMeta);
+      let href = `/${filename.replace(".mdx", "").replace("index", "")}`;
+      if (filename.includes("releases") && !filename.includes("index"))
+        href = `/releases/#${filename
+          .replace(".mdx", "")
+          .replaceAll("-", "")
+          .slice(0, -1)
+          .replace("releases/", "")}`;
+      return {
+        objectID: filename,
+        href,
+        title: frontmatter.heading ?? frontmatter.title,
+        description: frontmatter.description,
+        content: await toPlainText(purgeImports(content)),
+      };
+    }),
+);
 
 const idx = client.initIndex("docs_site");
 

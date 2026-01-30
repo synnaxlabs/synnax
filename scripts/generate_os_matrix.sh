@@ -13,7 +13,7 @@ fi
 
 if [ "$BUILD_MACOS" = "true" ]; then
     [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
-    OS_LIST="${OS_LIST}{\"os\":\"macos-latest\",\"os-name\":\"macos\",\"executable\":\"\"}"
+    OS_LIST="${OS_LIST}{\"os\":\"macos-build-bot\",\"os-name\":\"macos\",\"executable\":\"\"}"
 fi
 
 if [ "$BUILD_UBUNTU" = "true" ]; then

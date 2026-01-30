@@ -9,8 +9,8 @@
 
 import { useLayoutEffect } from "react";
 
-import { type Client, CLIENTS, getFromURL, setInURL } from "@/components/client/client";
-import { Tabs as Base, type TabsProps as BaseProps } from "@/components/Tabs";
+import { type Client, CLIENTS, getFromURL, setInURL } from "@/components/client/Client";
+import { Tabs as Base, type TabsProps as BaseProps } from "@/components/tabs/Tabs";
 
 const TABS = CLIENTS.map(({ key, ...c }) => ({ ...c, tabKey: key }));
 

@@ -14,6 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/runtime/wasm/bindings"
 )
 
@@ -304,7 +306,8 @@ var _ = Describe("Runtime Series Operations", func() {
 	var ctx context.Context
 
 	BeforeEach(func() {
-		rt = bindings.NewRuntime(nil, nil)
+		st := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+		rt = bindings.NewRuntime(st, nil)
 		ctx = context.Background()
 	})
 

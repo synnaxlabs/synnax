@@ -60,34 +60,49 @@ import { Search as S } from "@/components/search/Search";
         height: 400px;
         min-width: 200px;
 
-        & .search-result {
-            padding: 2rem;
-            &:hover {
-                background: var(--pluto-gray-l3);
-            }
-
-            & b {
-                background: var(--pluto-primary-z-15);
-            }
-
-            & .pluto-breadcrumb {
-                gap: 0.25rem !important;
-                margin-left: 0.25rem;
-                * {
-                    font-size: 2.1rem;
-                    line-height: 150%;
-                }
-                .pluto-icon {
-                    transform: scale(0.8) translateY(0px) !important;
-                }
-            }
-
-            & small {
-                color: var(--pluto-gray-l8);
-            }
-        }
         & a:hover {
             text-decoration: none !important;
+        }
+    }
+
+    .search-results__content .pluto-list__item {
+        padding: 2rem;
+
+        &:hover {
+            background: var(--pluto-gray-l3);
+        }
+
+        b {
+            background: var(--pluto-primary-z-30);
+            font-weight: inherit;
+            border-radius: 0.25rem;
+        }
+
+        .pluto-text--h5 {
+            color: var(--pluto-gray-l10) !important;
+            display: block !important;
+        }
+
+        .pluto-breadcrumb {
+            gap: 0.25rem !important;
+            margin-left: 0.25rem;
+
+            * {
+                font-size: 2.3rem;
+                line-height: 150%;
+                color: var(--pluto-gray-l8) !important;
+            }
+
+            .pluto-icon {
+                transform: scale(0.8) translateY(0px) !important;
+            }
+        }
+
+        .pluto-text--small:not(.pluto-breadcrumb) {
+            color: var(--pluto-gray-l7) !important;
+            display: block !important;
+            white-space: normal !important;
+            word-wrap: break-word;
         }
     }
 </style>

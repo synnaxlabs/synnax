@@ -1,0 +1,344 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Effective Arc"
+description: "Best practices and common pitfalls when writing Arc automations"
+prev: "Test Sequences"
+prevURL: "/reference/control/arc/how-to/test-sequences"
+next: "Syntax"
+nextURL: "/reference/control/arc/reference/syntax"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+This page covers what works well in Arc and what to avoid. These patterns come from
+building real control systems.
+
+<Divider.Divider x />
+
+## Best Practices
+
+### Safety Conditions First
+
+Line order determines priority for one-shot transitions (`=>`). Always list abort
+conditions before normal operations:
+
+```arc
+stage pressurize {
+    // SAFETY FIRST
+    ox_pt_1 > 700 => abort,
+    fuel_pt_1 > 500 => abort,
+    abort_btn => abort,
+
+    // Then normal operations
+    1 -> press_vlv_cmd,
+    ox_pt_1 > 500 => next
+}
+```
+
+If multiple transitions are true simultaneously, the first one wins.
+
+### Use `->` for Streaming, `=>` for Transitions
+
+Continuous edges (`->`) run every cycle. One-shot edges (`=>`) fire once and stop until
+the stage is re-entered.
+
+```arc
+// Streaming: continuously process sensor data
+sensor -> filter{} -> output
+
+// Transition: fire once when condition becomes true
+pressure > 500 => next
+```
+
+Common mistake: using `->` for a transition and wondering why it keeps firing.
+
+### Keep Stages Focused
+
+Each stage should do one thing. Split complex operations:
+
+```arc
+// Good: clear purpose for each stage
+stage verify_sensors { /* check sensors */ }
+stage pressurize { /* bring to pressure */ }
+stage hold { /* maintain pressure */ }
+
+// Avoid: one stage trying to do everything
+stage do_everything {
+    // 50 lines of mixed logic
+}
+```
+
+### Initialize Stateful Variables Appropriately
+
+Stateful variables (`$=`) persist across invocations. Consider whether your initial
+value makes sense:
+
+```arc
+func rate(value f64) f64 {
+    prev $= 0.0    // First call returns full value as "rate"
+    d := value - prev
+    prev = value
+    return d
+}
+```
+
+The first execution computes `value - 0`, which may be misleading. Options:
+
+```arc
+// Option 1: Use a "first run" flag
+func rate(value f64) f64 {
+    prev $= 0.0
+    first $= 1
+    if first {
+        prev = value
+        first = 0
+        return 0.0
+    }
+    d := value - prev
+    prev = value
+    return d
+}
+
+// Option 2: Accept that first sample is special
+// Document this behavior and handle it downstream
+```
+
+### Name Channels Clearly
+
+Use descriptive snake_case names that indicate what the channel represents:
+
+```arc
+// Good: clear what each channel is
+ox_pt_1          // oxidizer pressure transducer 1
+fuel_tc_2        // fuel thermocouple 2
+press_vlv_cmd    // pressurization valve command
+
+// Avoid: ambiguous names
+p1, t2, cmd
+```
+
+<Divider.Divider x />
+
+## Common Pitfalls
+
+### Using `->` When `=>` Is Needed
+
+```arc
+// Wrong: fires every cycle, not just once
+pressure > 500 -> next    // Syntax error anyway, but shows intent
+
+// Right: fires once when condition becomes true
+pressure > 500 => next
+```
+
+### Forgetting That `=>` Resets on Stage Re-Entry
+
+One-shot transitions reset when you re-enter a stage. If you loop back:
+
+```arc
+stage retry {
+    attempt_operation{},
+    operation_failed => retry,     // Goes back to this stage
+    operation_succeeded => next    // This resets when re-entering
+}
+```
+
+Each time the stage is entered, all `=>` transitions can fire again.
+
+### Expecting Loops
+
+Arc has no loops. Use stateful variables with reactive execution:
+
+```arc
+// Wrong: trying to loop
+// for i := 0; i < 10; i++ { ... }
+
+// Right: stateful counter triggered by interval
+func counter() i64 {
+    count $= 0
+    count = count + 1
+    return count
+}
+
+interval{period=100ms} -> counter{} -> count_output
+```
+
+### Multiple Writes to Same Channel
+
+When multiple flows write to the same channel, last write wins:
+
+```arc
+stage example {
+    0 -> valve_cmd,    // Writes 0
+    1 -> valve_cmd     // Writes 1 (overwrites 0)
+}
+// Result: valve_cmd receives 1
+```
+
+This is usually a mistake. Use conditional logic instead:
+
+```arc
+func valve_control(condition u8) u8 {
+    if condition {
+        return 1
+    }
+    return 0
+}
+
+condition -> valve_control{} -> valve_cmd
+```
+
+### Type Mismatches
+
+Arc requires explicit type casting. No implicit conversions:
+
+```arc
+// Wrong
+x i32 := 42
+y f64 := x + 1.0    // Type error: i32 + f64
+
+// Right
+x i32 := 42
+y f64 := f64(x) + 1.0
+```
+
+### Division by Zero in Rates
+
+Rate calculations divide by time. Protect against zero:
+
+```arc
+func rate{dt_ms f64} (value f64) f64 {
+    prev $= 0.0
+    d := value - prev
+    prev = value
+
+    dt_s := dt_ms / 1000.0
+    if dt_s <= 0 {
+        return 0.0    // Avoid division by zero
+    }
+    return d / dt_s
+}
+```
+
+### Unhandled Transitions
+
+Sequences can get stuck if no transition fires:
+
+```arc
+stage wait_forever {
+    some_condition => next    // What if this never becomes true?
+}
+```
+
+Add timeouts:
+
+```arc
+stage wait_with_timeout {
+    some_condition => next,
+    wait{duration=30s} => timeout_stage
+}
+```
+
+<Divider.Divider x />
+
+## Performance Guidelines
+
+### Control Loop Rates
+
+The C++ driver runtime supports control loops up to 1kHz. For timing-critical
+applications:
+
+- Use `interval{period=...}` for consistent timing
+- Keep flow chains short
+- Avoid complex calculations in hot paths
+
+```arc
+// 1kHz control loop
+interval{period=1ms} -> fast_controller{}
+```
+
+### Minimize Work Per Cycle
+
+Each function executes on every trigger. Avoid unnecessary computation:
+
+```arc
+// Less efficient: recalculates constants
+func process(value f64) f64 {
+    scale := 2.0 * 3.14159 * 0.5    // Computed every call
+    return value * scale
+}
+
+// More efficient: use config parameter
+func process{scale f64} (value f64) f64 {
+    return value * scale
+}
+
+sensor -> process{scale=3.14159} -> output
+```
+
+### Flow Chain Length
+
+Long chains add latency. If timing matters, consider combining operations:
+
+```arc
+// Multiple nodes, multiple cycles of latency
+sensor -> filter1{} -> filter2{} -> filter3{} -> output
+
+// Single node, one cycle
+sensor -> combined_filter{} -> output
+```
+
+<Divider.Divider x />
+
+## Debugging
+
+### Check Task Status
+
+When an Arc automation doesn't behave as expected, check its status in Console. Runtime
+errors (division by zero, out-of-bounds access) stop the task and report the error.
+
+### Use Channel Outputs for Visibility
+
+Write intermediate values to channels for debugging:
+
+```arc
+func debug_controller(value f64) f64 {
+    error := value - setpoint
+    debug_error = error    // Write to channel for visibility
+    return error * gain
+}
+```
+
+Monitor these channels in Console to trace data flow.
+
+### Start Simple
+
+Build sequences incrementally:
+
+1. Test each stage in isolation
+2. Add transitions one at a time
+3. Test abort paths explicitly
+4. Run the complete sequence
+
+### Common Error Messages
+
+| Message               | Meaning                                     |
+| --------------------- | ------------------------------------------- |
+| `undefined symbol: X` | `X` is not declared (typo, missing channel) |
+| `type mismatch`       | Incompatible types in operation             |
+| `X is not a channel`  | Using non-channel where channel expected    |
+| `X is not a function` | Using non-function with `{}` syntax         |
+
+<Divider.Divider x />
+
+## Summary
+
+- Put safety conditions first (line order = priority)
+- Use `->` for streaming data, `=>` for state transitions
+- Keep stages focused on one purpose
+- Protect against edge cases (division by zero, first sample)
+- Add timeouts to prevent sequences from hanging
+- Test abort paths thoroughly

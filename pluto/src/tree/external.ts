@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/tree/base";
+export { useContext } from "@/tree/Context";
 export * from "@/tree/Item";
 export * from "@/tree/Tree";

@@ -118,7 +118,7 @@ func Open(
 		nodes[irNode.Key] = n
 	}
 
-	sched := scheduler.New(cfg.Module.IR, nodes)
+	sched := scheduler.New(cfg.Module.IR, nodes, 0)
 	return &Calculator{
 		cfg:       cfg,
 		scheduler: sched,
@@ -174,7 +174,7 @@ func (c *Calculator) Next(
 	)
 	for {
 		c.scheduler.Next(ctx, telem.Since(c.start))
-		ofr, currChanged = c.state.FlushWrites(ofr)
+		ofr, currChanged = c.state.Flush(ofr)
 		if !currChanged {
 			break
 		}
