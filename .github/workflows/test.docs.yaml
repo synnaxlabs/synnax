@@ -64,13 +64,10 @@ jobs:
         run: pnpm install
 
       - name: Check Types
-        working-directory: docs/site
-        run: pnpm check-types
+        run: pnpm check-types:docs
 
       - name: Lint
-        working-directory: docs/site
-        run: pnpm lint
+        run: pnpm lint:docs
 
       - name: Build
-        working-directory: docs/site
-        run: pnpm build
+        run: pnpm build:docs
