@@ -36,7 +36,7 @@ export const CALCULATED_LAYOUT: CalculatedLayout = {
 
 export interface CreateCalculatedLayoutArgs {
   key: channel.Key;
-  name: channel.Name;
+  name: string;
 }
 
 export const createCalculatedLayout = ({
