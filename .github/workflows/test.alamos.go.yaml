@@ -4,7 +4,10 @@ on:
   pull_request:
     paths:
       - .github/workflows/test.alamos.go.yaml
+      - .github/workflows/test.go.yaml
+      - .golangci.yaml
       - alamos/go/**
+      - codecov.yaml
       - go.work
       - go.work.sum
       - scripts/check_gofmt.sh
@@ -15,7 +18,10 @@ on:
       - rc
     paths:
       - .github/workflows/test.alamos.go.yaml
+      - .github/workflows/test.go.yaml
+      - .golangci.yaml
       - alamos/go/**
+      - codecov.yaml
       - go.work
       - go.work.sum
       - scripts/check_gofmt.sh
@@ -24,47 +30,9 @@ on:
 
 jobs:
   test:
-    name: Test (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            lint: true
-        exclude:
-          - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'macos-latest' }}
-          - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'windows-latest' }}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.work
-          cache-dependency-path: |
-            go.work.sum
-            **/go.sum
-
-      - name: Check Formatting
-        if: matrix.lint
-        run: scripts/check_gofmt.sh alamos/go
-
-      - name: Lint
-        if: matrix.lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          working-directory: alamos/go
-
-      - name: Test
-        run:
-          go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
-          --randomize-suites --fail-on-pending --fail-on-empty --keep-going --race
-          --trace --github-output
-        working-directory: alamos/go
+    uses: ./.github/workflows/test.go.yaml
+    secrets: inherit
+    with:
+      directory: alamos/go
+      ginkgo_flags: -p --randomize-all --fail-on-empty --race
+      coverage_flag: alamos-go

@@ -81,33 +81,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-python:
-    name: Lint - Python
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: integration/pyproject.toml
-
-      - name: Check Import Order
-        run: uv run isort -c .
-        working-directory: integration
-
-      - name: Check Formatting (Black)
-        run: uv run black --check --diff --color .
-        working-directory: integration
-
-      - name: Type Check (mypy)
-        run: uv run mypy .
-        working-directory: integration
-
   setup:
     runs-on: ubuntu-latest
     outputs:

@@ -27,6 +27,7 @@
     "@codingame/monaco-vscode-theme-service-override": "^14.0.6",
     "@fontsource/inter": "catalog:",
     "@reduxjs/toolkit": "catalog:",
+    "@synnaxlabs/arc": "workspace:^",
     "@synnaxlabs/client": "workspace:^",
     "@synnaxlabs/drift": "workspace:^",
     "@synnaxlabs/freighter": "workspace:^",

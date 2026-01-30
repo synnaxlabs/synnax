@@ -48,6 +48,7 @@ type printer struct {
 	braceContextStack  []braceContext
 	parenContextStack  []parenContext
 	inlineConfigValues bool
+	inlineConfigBlock  bool
 	multilineParens    map[int]bool // tracks which paren depth levels are multiline
 }
 
@@ -272,6 +273,45 @@ func (p *printer) shouldInlineConfigValues(idx int, tokens []antlr.Token) bool {
 	return length <= maxLineLength
 }
 
+func (p *printer) shouldInlineConfigBlock(idx int, tokens []antlr.Token) bool {
+	length := p.calculateConfigBlockLength(idx, tokens)
+	return length <= maxLineLength
+}
+
+func (p *printer) calculateConfigBlockLength(idx int, tokens []antlr.Token) int {
+	length := p.linePos
+	braceDepth := 1
+	length++ // opening brace
+	needsSpace := false
+	for i := idx + 1; i < len(tokens); i++ {
+		tok := tokens[i]
+		tokType := tok.GetTokenType()
+		switch tokType {
+		case parser.ArcLexerLBRACE:
+			braceDepth++
+			length++
+		case parser.ArcLexerRBRACE:
+			braceDepth--
+			length++
+			if braceDepth == 0 {
+				return length
+			}
+		case parser.ArcLexerCOMMA:
+			length += 2 // comma + space
+			needsSpace = false
+		case parser.ArcLexerWS:
+			continue
+		default:
+			if needsSpace {
+				length++
+			}
+			length += len(tok.GetText())
+			needsSpace = p.isWordToken(tokType)
+		}
+	}
+	return length
+}
+
 func (p *printer) calculateConfigValuesLength(idx int, tokens []antlr.Token) int {
 	length := p.linePos
 	braceDepth := 1
@@ -316,6 +356,13 @@ func (p *printer) inConfigValuesContext() bool {
 	return p.braceContextStack[len(p.braceContextStack)-1] == braceContextConfigValues
 }
 
+func (p *printer) inConfigBlockContext() bool {
+	if len(p.braceContextStack) == 0 {
+		return false
+	}
+	return p.braceContextStack[len(p.braceContextStack)-1] == braceContextConfigBlock
+}
+
 func (p *printer) handleOpenBrace(idx int, tokens []antlr.Token) {
 	ctx := p.detectBraceContext(idx, tokens)
 	p.braceContextStack = append(p.braceContextStack, ctx)
@@ -330,7 +377,17 @@ func (p *printer) handleOpenBrace(idx int, tokens []antlr.Token) {
 		p.inlineConfigValues = false
 	}
 
-	if ctx != braceContextConfigValues {
+	if ctx == braceContextConfigBlock {
+		if p.shouldInlineConfigBlock(idx, tokens) {
+			p.inlineConfigBlock = true
+			p.emitChar("{")
+			return
+		}
+		p.inlineConfigBlock = false
+	}
+
+	// Add space before brace for non-config contexts (blocks, stage bodies)
+	if ctx != braceContextConfigValues && ctx != braceContextConfigBlock {
 		p.writeSpace()
 	}
 	p.emitChar("{")
@@ -348,6 +405,12 @@ func (p *printer) handleCloseBrace(idx int, tokens []antlr.Token) {
 	if ctx == braceContextConfigValues && p.inlineConfigValues {
 		p.emitChar("}")
 		p.inlineConfigValues = false
+		return
+	}
+
+	if ctx == braceContextConfigBlock && p.inlineConfigBlock {
+		p.emitChar("}")
+		p.inlineConfigBlock = false
 		return
 	}
 
@@ -816,6 +879,9 @@ func (p *printer) shouldBreakAfterComma() bool {
 		return false
 	}
 	if p.inConfigValuesContext() && p.inlineConfigValues {
+		return false
+	}
+	if p.inConfigBlockContext() && p.inlineConfigBlock {
 		return false
 	}
 	// Break after comma in multiline paren lists

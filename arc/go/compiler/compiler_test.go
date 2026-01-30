@@ -18,6 +18,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/compiler/bindings"
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/state"
 	runtimebindings "github.com/synnaxlabs/arc/runtime/wasm/bindings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
@@ -1199,7 +1201,7 @@ var _ = Describe("Compiler", func() {
 			// Setup bindings for math operations with actual runtime implementations
 			b := bindings.NewBindings()
 			// Note: Math functions don't require state, so we pass nil
-			arcRuntime := runtimebindings.NewRuntime(nil, nil)
+			arcRuntime := runtimebindings.NewRuntime(state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}}), nil)
 			runtimebindings.BindRuntime(arcRuntime, b)
 			Expect(b.Bind(ctx, r)).To(Succeed())
 		})
@@ -1477,7 +1479,7 @@ var _ = Describe("Compiler", func() {
 		BeforeEach(func() {
 			// Setup bindings for math operations with actual runtime implementations
 			b := bindings.NewBindings()
-			arcRuntime := runtimebindings.NewRuntime(nil, nil)
+			arcRuntime := runtimebindings.NewRuntime(state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}}), nil)
 			runtimebindings.BindRuntime(arcRuntime, b)
 			Expect(b.Bind(ctx, r)).To(Succeed())
 		})
@@ -1595,7 +1597,7 @@ var _ = Describe("Compiler", func() {
 	Describe("Series Operations", func() {
 		BeforeEach(func() {
 			b := bindings.NewBindings()
-			arcRuntime := runtimebindings.NewRuntime(nil, nil)
+			arcRuntime := runtimebindings.NewRuntime(state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}}), nil)
 			runtimebindings.BindRuntime(arcRuntime, b)
 			Expect(b.Bind(ctx, r)).To(Succeed())
 		})
@@ -1929,7 +1931,7 @@ var _ = Describe("Compiler", func() {
 
 		BeforeEach(func() {
 			b := bindings.NewBindings()
-			arcRuntime = runtimebindings.NewRuntime(nil, nil)
+			arcRuntime = runtimebindings.NewRuntime(state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}}), nil)
 			runtimebindings.BindRuntime(arcRuntime, b)
 			Expect(b.Bind(ctx, r)).To(Succeed())
 		})
@@ -2721,7 +2723,7 @@ var _ = Describe("Compiler", func() {
 		BeforeEach(func() {
 			// Setup bindings for string operations with actual runtime implementations
 			b := bindings.NewBindings()
-			arcRuntime = runtimebindings.NewRuntime(nil, nil)
+			arcRuntime = runtimebindings.NewRuntime(state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}}), nil)
 			runtimebindings.BindRuntime(arcRuntime, b)
 			Expect(b.Bind(ctx, r)).To(Succeed())
 		})

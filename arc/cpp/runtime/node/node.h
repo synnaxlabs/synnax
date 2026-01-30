@@ -18,6 +18,7 @@
 namespace arc::runtime::node {
 struct Context {
     telem::TimeSpan elapsed;
+    telem::TimeSpan tolerance;
     std::function<void(const std::string &output_param)> mark_changed;
     std::function<void(const xerrors::Error &)> report_error;
     std::function<void()> activate_stage;

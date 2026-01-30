@@ -26,6 +26,30 @@ type ExtendedStateConfig struct {
 	State  state.Config
 }
 
+func retrieveChannels(
+	ctx context.Context,
+	channelSvc *channel.Service,
+	keys []channel.Key,
+) ([]channel.Channel, error) {
+	channels := make([]channel.Channel, 0, len(keys))
+	if err := channelSvc.NewRetrieve().
+		WhereKeys(keys...).
+		Entries(&channels).
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	indexes := lo.FilterMap(channels, func(item channel.Channel, index int) (channel.Key, bool) {
+		return item.Index(), !item.Virtual
+	})
+	indexChannels := make([]channel.Channel, 0, len(indexes))
+	if err := channelSvc.NewRetrieve().
+		WhereKeys(indexes...).
+		Entries(&indexChannels).Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	return slices.Concat(channels, indexChannels), nil
+}
+
 func NewStateConfig(
 	ctx context.Context,
 	channelSvc *channel.Service,

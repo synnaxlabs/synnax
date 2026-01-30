@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import pre from "@/components/code/Code.astro";
+import pre from "@/components/code/Block.astro";
 import Details from "@/components/details/Details.astro";
-import table from "@/components/Table.astro";
-import { textFactory } from "@/components/Text";
+import table from "@/components/table/Table.astro";
+import { textFactory } from "@/components/text/Text";
 
 export const mdxOverrides = {
   pre,
