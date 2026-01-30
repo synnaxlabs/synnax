@@ -343,7 +343,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 	// Create sift factory for Sift integration
-	siftFactory, err := sift.OpenFactory(sift.FactoryConfig{
+	siftFactory, err := sift.NewFactory(sift.FactoryConfig{
 		Device:          l.Device,
 		Ranger:          l.Ranger,
 		Framer:          l.Framer,
@@ -351,7 +351,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Status:          l.Status,
 		Instrumentation: cfg.Child("sift"),
 	})
-	if !ok(err, siftFactory) {
+	if !ok(err, nil) {
 		return nil, err
 	}
 	// Use composite factory to combine Arc and Sift factories

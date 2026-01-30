@@ -63,8 +63,6 @@ type taskImpl struct {
 	closer io.Closer
 }
 
-var _ driver.Task = (*taskImpl)(nil)
-
 func (t *taskImpl) Exec(ctx context.Context, cmd task.Command) error {
 	switch cmd.Type {
 	case "start":
@@ -225,7 +223,9 @@ func (t *taskImpl) stop() error {
 	return nil
 }
 
-func (t *taskImpl) Stop() error { return t.stop() }
+func (t *taskImpl) Stop(bool) error {
+	return t.stop()
+}
 
 func (t *taskImpl) Key() task.Key { return t.task.Key }
 

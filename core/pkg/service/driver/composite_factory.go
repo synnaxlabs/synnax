@@ -12,7 +12,6 @@ package driver
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/errors"
 )
 
 // CompositeFactory combines multiple factories, delegating to each in order.
@@ -21,23 +20,24 @@ type CompositeFactory []Factory
 var _ Factory = CompositeFactory{}
 
 // ConfigureTask delegates to each factory in order until one handles the task type.
-func (c CompositeFactory) ConfigureTask(ctx Context, t task.Task) (Task, error) {
+func (c CompositeFactory) ConfigureTask(ctx Context, t task.Task) (Task, bool, error) {
 	for _, f := range c {
-		if tsk, err := f.ConfigureTask(ctx, t); !errors.Is(err, ErrNotHandled) {
-			return tsk, err
+		tsk, handled, err := f.ConfigureTask(ctx, t)
+		if handled {
+			return tsk, true, err
 		}
 	}
-	return nil, ErrNotHandled
+	return nil, false, nil
 }
 
 // ConfigureInitialTasks collects initial tasks from all factories.
 func (c CompositeFactory) ConfigureInitialTasks(
 	ctx Context,
-	rack rack.Key,
+	rackKey rack.Key,
 ) ([]task.Task, error) {
 	var allTasks []task.Task
 	for _, f := range c {
-		tasks, err := f.ConfigureInitialTasks(ctx, rack)
+		tasks, err := f.ConfigureInitialTasks(ctx, rackKey)
 		if err != nil {
 			return nil, err
 		}
@@ -45,3 +45,6 @@ func (c CompositeFactory) ConfigureInitialTasks(
 	}
 	return allTasks, nil
 }
+
+// Name returns "Composite" as the factory name.
+func (c CompositeFactory) Name() string { return "Composite" }
