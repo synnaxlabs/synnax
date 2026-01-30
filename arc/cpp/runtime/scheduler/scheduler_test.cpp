@@ -17,26 +17,27 @@
 
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
+#include "x/cpp/xtest/xtest.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/ir/testutil/testutil.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
+#include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/runtime/time/time.h"
 
 namespace arc::runtime::scheduler {
 /// @brief Configurable mock node for testing scheduler behavior.
 struct MockNode final : public node::Node {
-    // ─── Tracking State ───────────────────────────────────────────────────────
     int next_called = 0;
     int reset_called = 0;
     std::vector<telem::TimeSpan> elapsed_values;
 
-    // ─── Configurable Behavior ────────────────────────────────────────────────
     std::unordered_map<std::string, bool> param_truthy;
     std::function<void(node::Context &)> on_next;
     xerrors::Error next_error = xerrors::NIL;
 
-    // ─── Interface Implementation ─────────────────────────────────────────────
     xerrors::Error next(node::Context &ctx) override {
         next_called++;
         elapsed_values.push_back(ctx.elapsed);
@@ -50,8 +51,6 @@ struct MockNode final : public node::Node {
         const auto it = param_truthy.find(param);
         return it != param_truthy.end() && it->second;
     }
-
-    // ─── Test Helpers ─────────────────────────────────────────────────────────
 
     /// @brief Configure node to mark a parameter as changed when next() is called.
     void mark_on_next(const std::string &param) {
@@ -83,7 +82,7 @@ protected:
     }
 
     std::unique_ptr<Scheduler> build(ir::IR ir) {
-        return std::make_unique<Scheduler>(ir, nodes_);
+        return std::make_unique<Scheduler>(ir, nodes_, telem::TimeSpan(0));
     }
 };
 
@@ -1341,6 +1340,180 @@ TEST_F(SchedulerTest, testResetClearsFiredOneShots) {
 
     scheduler->next(telem::MILLISECOND);
     ASSERT_EQ(nodeB.next_called, 2);
+}
+
+/// @brief Helper to create IR with interval node that has proper params
+ir::IR build_interval_ir(const std::string &key, const int64_t period_ns) {
+    ir::Param output_param;
+    output_param.name = "output";
+    output_param.type = arc::types::Type(arc::types::Kind::U8);
+
+    ir::Param cfg_param;
+    cfg_param.name = "period";
+    cfg_param.type = arc::types::Type(arc::types::Kind::I64);
+    cfg_param.value = period_ns;
+
+    ir::Node ir_node;
+    ir_node.key = key;
+    ir_node.type = "interval";
+    ir_node.outputs.params.push_back(output_param);
+    ir_node.config.params.push_back(cfg_param);
+
+    ir::Function fn;
+    fn.key = "test";
+
+    ir::IR ir;
+    ir.nodes.push_back(ir_node);
+    ir.functions.push_back(fn);
+    return ir;
+}
+
+/// @brief Merge multiple IRs together (for building complex test scenarios)
+ir::IR merge_irs(const std::vector<ir::IR> &irs) {
+    ir::IR merged;
+    for (const auto &ir: irs) {
+        for (const auto &node: ir.nodes)
+            merged.nodes.push_back(node);
+        for (const auto &fn: ir.functions)
+            merged.functions.push_back(fn);
+    }
+    return merged;
+}
+
+/// @brief Test with real Interval node and one-shot edge
+TEST(RealNodeSchedulerTest, IntervalOneShotEdgeFires) {
+    // Build IR with interval node
+    auto interval_ir = build_interval_ir("interval_0", telem::SECOND.nanoseconds());
+
+    // Add a mock target node to the IR
+    ir::Param target_input;
+    target_input.name = "input";
+    target_input.type = arc::types::Type(arc::types::Kind::U8);
+
+    ir::Node target_node;
+    target_node.key = "target_0";
+    target_node.type = "target";
+    target_node.inputs.params.push_back(target_input);
+    interval_ir.nodes.push_back(target_node);
+
+    // Add one-shot edge: interval => target
+    interval_ir.edges.emplace_back(
+        ir::Handle{"interval_0", "output"},
+        ir::Handle{"target_0", "input"},
+        ir::EdgeKind::OneShot
+    );
+
+    // Set strata
+    interval_ir.strata = ir::Strata({{"interval_0"}, {"target_0"}});
+
+    // Create state for interval node
+    state::State state(
+        state::Config{.ir = interval_ir, .channels = {}},
+        errors::noop_handler
+    );
+
+    // Create real Interval node using Factory
+    time::Factory factory;
+    auto [interval_node, err] = factory.create(
+        node::Config(
+            interval_ir,
+            interval_ir.nodes[0],
+            ASSERT_NIL_P(state.node("interval_0"))
+        )
+    );
+    ASSERT_NIL(err);
+    ASSERT_NE(interval_node, nullptr);
+
+    // Create mock target node
+    auto target = std::make_unique<MockNode>();
+    auto *target_ptr = target.get();
+
+    // Build nodes map
+    std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
+    nodes["interval_0"] = std::move(interval_node);
+    nodes["target_0"] = std::move(target);
+
+    auto scheduler = std::make_unique<Scheduler>(
+        std::move(interval_ir),
+        nodes,
+        telem::TimeSpan(0)
+    );
+
+    // First tick at t=1s - Interval should fire (since it starts at -period)
+    scheduler->next(telem::SECOND);
+
+    // Target should have been called exactly once (one-shot fired)
+    EXPECT_EQ(target_ptr->next_called, 1);
+
+    // Second tick at t=2s - Interval fires again but one-shot already fired
+    scheduler->next(telem::SECOND * 2);
+
+    // Target should still be 1 (one-shot only fires once)
+    EXPECT_EQ(target_ptr->next_called, 1);
+}
+
+/// @brief Test that Interval is_output_truthy is used by scheduler
+TEST(RealNodeSchedulerTest, IntervalTruthyCheckBeforeFiring) {
+    // Build IR with interval node
+    auto interval_ir = build_interval_ir("interval_0", telem::SECOND.nanoseconds());
+
+    // Add a mock target node to the IR
+    ir::Param target_input;
+    target_input.name = "input";
+    target_input.type = arc::types::Type(arc::types::Kind::U8);
+
+    ir::Node target_node;
+    target_node.key = "target_0";
+    target_node.type = "target";
+    target_node.inputs.params.push_back(target_input);
+    interval_ir.nodes.push_back(target_node);
+
+    // Add one-shot edge
+    interval_ir.edges.emplace_back(
+        ir::Handle{"interval_0", "output"},
+        ir::Handle{"target_0", "input"},
+        ir::EdgeKind::OneShot
+    );
+
+    interval_ir.strata = ir::Strata({{"interval_0"}, {"target_0"}});
+
+    state::State state(
+        state::Config{.ir = interval_ir, .channels = {}},
+        errors::noop_handler
+    );
+
+    time::Factory factory;
+    auto [interval_node, err] = factory.create(
+        node::Config(
+            interval_ir,
+            interval_ir.nodes[0],
+            ASSERT_NIL_P(state.node("interval_0"))
+        )
+    );
+    ASSERT_NIL(err);
+
+    auto target = std::make_unique<MockNode>();
+    auto *target_ptr = target.get();
+
+    std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
+    nodes["interval_0"] = std::move(interval_node);
+    nodes["target_0"] = std::move(target);
+
+    auto scheduler = std::make_unique<Scheduler>(
+        std::move(interval_ir),
+        nodes,
+        telem::TimeSpan(0)
+    );
+
+    // First tick at t=0 - interval hasn't fired yet
+    scheduler->next(telem::TimeSpan(0));
+    // Tick at t=500ms (before first period completes after initial fire)
+    scheduler->next(telem::MILLISECOND * 500);
+    // Target should have been called once from t=0 fire
+    EXPECT_EQ(target_ptr->next_called, 1);
+    // Tick at t=1s - Interval fires again but one-shot already fired
+    scheduler->next(telem::SECOND);
+    EXPECT_EQ(target_ptr->next_called, 1);
 }
 
 }

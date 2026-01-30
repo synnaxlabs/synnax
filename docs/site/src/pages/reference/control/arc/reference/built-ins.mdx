@@ -139,7 +139,7 @@ sensor -> avg{count=100} -> avg_display
 Computes a running minimum with optional reset.
 
 ```arc
-sensor -> min{duration=1m} -> min_display
+sensor -> min{duration=1min} -> min_display
 sensor -> min{count=50} -> min_display
 ```
 
@@ -155,7 +155,7 @@ sensor -> min{count=50} -> min_display
 Computes a running maximum with optional reset.
 
 ```arc
-sensor -> max{duration=1m} -> max_display
+sensor -> max{duration=1min} -> max_display
 sensor -> max{count=50} -> max_display
 ```
 

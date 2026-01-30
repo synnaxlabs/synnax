@@ -41,9 +41,7 @@ Assume the reader is capable and just wants to get something working.
 
 - Headings should be short and functional, not full sentences
 - Examples should look like real production usage, not abstract placeholders
-- NEVER USE EM-DASHES (—) OR DOUBLE HYPHENS (--). This is a hallmark of AI-generated
-  text. Use periods, commas, colons, or parentheses instead. Rewrite the sentence if
-  needed.
+- Do not use double dashes (--) or em-dashes (—); use commas, periods, or restructure
 
 ---
 

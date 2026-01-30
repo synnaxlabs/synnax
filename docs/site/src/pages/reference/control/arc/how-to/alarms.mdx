@@ -2,8 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "Alarms"
 description: "Trigger warnings and notifications when sensor values exceed limits"
-prev: "Sensor Validation"
-prevURL: "/reference/control/arc/how-to/sensor-validation"
+prev: "Data Processing"
+prevURL: "/reference/control/arc/how-to/data-processing"
 next: "Bang-Bang Control"
 nextURL: "/reference/control/arc/how-to/bang-bang-control"
 ---
@@ -13,10 +13,9 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-Alarms notify operators when values exceed acceptable limits. A pressure that
-crosses 600 PSI should trigger a warning. A temperature that stays above 300°C
-for more than 5 seconds should sound an alarm. Arc makes these patterns
-straightforward.
+Alarms notify operators when values exceed acceptable limits. A pressure that crosses
+600 psi should trigger a warning. A temperature that stays above 300°C for more than 5
+seconds should sound an alarm. Arc makes these patterns straightforward.
 
 <Divider.Divider x />
 
@@ -55,10 +54,9 @@ tank_level -> low_alarm{limit=10.0} -> tank_level_low
 
 ## Deadband Alarm
 
-Simple threshold alarms chatter when values oscillate near the limit. If
-pressure hovers around 600 PSI, the alarm toggles on and off rapidly.
-A deadband prevents this by requiring the value to cross back below a lower
-threshold before the alarm clears:
+Simple threshold alarms chatter when values oscillate near the limit. If pressure hovers
+around 600 psi, the alarm toggles on and off rapidly. A deadband prevents this by
+requiring the value to cross back below a lower threshold before the alarm clears:
 
 ```arc
 func deadband_alarm{
@@ -85,12 +83,12 @@ func deadband_alarm{
 tank_pressure -> deadband_alarm{high=600.0, low=580.0} -> pressure_high
 ```
 
-The alarm activates when pressure exceeds 600 PSI. It only clears when pressure
-drops below 580 PSI. This 20 PSI deadband eliminates chatter.
+The alarm activates when pressure exceeds 600 psi. It only clears when pressure drops
+below 580 psi. This 20 psi deadband eliminates chatter.
 
 <Note.Note variant="info">
-Choose your deadband based on expected noise and process dynamics. Too narrow
-and you still get chatter. Too wide and the alarm takes too long to clear.
+  Choose your deadband based on expected noise and process dynamics. Too narrow and you
+  still get chatter. Too wide and the alarm takes too long to clear.
 </Note.Note>
 
 <Divider.Divider x />
@@ -128,9 +126,9 @@ tank_pressure -> low_deadband_alarm{low=100.0, clear=120.0} -> pressure_low
 
 ## Multi-Condition Alarms
 
-Some alarms require multiple conditions. An abort alarm might trigger when
-both inlet and outlet pressures are elevated (potential runaway), or when any
-single pressure exceeds a critical limit:
+Some alarms require multiple conditions. An abort alarm might trigger when both inlet
+and outlet pressures are elevated (potential runaway), or when any single pressure
+exceeds a critical limit:
 
 ```arc
 func combined_alarm{
@@ -174,8 +172,8 @@ interval{period=50ms} -> combined_alarm{
 
 ## Time-Delayed Alarm
 
-A brief spike might be acceptable, but a sustained high value indicates a real
-problem. Use a counter to require the condition to persist:
+A brief spike might be acceptable, but a sustained high value indicates a real problem.
+Use a counter to require the condition to persist:
 
 ```arc
 func sustained_alarm{
@@ -200,15 +198,15 @@ func sustained_alarm{
 tank_pressure -> sustained_alarm{limit=600.0, samples=20} -> sustained_high
 ```
 
-For time-based delays, use the sample rate to calculate the count. At 50ms
-intervals, 20 samples equals 1 second of sustained high readings.
+For time-based delays, use the sample rate to calculate the count. At 50ms intervals, 20
+samples equals 1 second of sustained high readings.
 
 <Divider.Divider x />
 
 ## Latching Alarm
 
-Some alarms should stay active until manually acknowledged, even if the
-condition clears:
+Some alarms should stay active until manually acknowledged, even if the condition
+clears:
 
 ```arc
 func latching_alarm{
@@ -234,8 +232,8 @@ func latching_alarm{
 tank_pressure -> latching_alarm{limit=600.0, ack=alarm_ack} -> latched_alarm
 ```
 
-Wire `alarm_ack` to a button in your Console schematic. The alarm stays
-active until the operator acknowledges it by clicking the button.
+Wire `alarm_ack` to a button in your Console schematic. The alarm stays active until the
+operator acknowledges it by clicking the button.
 
 <Divider.Divider x />
 
@@ -291,8 +289,8 @@ tank_pressure -> alarm_check{limit=600.0} -> pressure_alarm
 tank_pressure -> critical_check{limit=700.0} -> pressure_critical
 ```
 
-Higher priority alarms include all lower levels. A critical condition is also
-an alarm and a warning.
+Higher priority alarms include all lower levels. A critical condition is also an alarm
+and a warning.
 
 <Divider.Divider x />
 

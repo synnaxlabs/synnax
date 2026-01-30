@@ -68,7 +68,6 @@ func Analyze(
 			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
 			return ir.IR{}, aCtx.Diagnostics
 		}
-		funcScope.AccumulateReadChannels()
 		if fn.Body.Raw != "" {
 			blockCtx, ok := fn.Body.AST.(parser.IBlockContext)
 			if !ok {

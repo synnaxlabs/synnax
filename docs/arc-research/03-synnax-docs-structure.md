@@ -1,19 +1,25 @@
-# Adding Arc to Synnax Docs - Technical Reference
+# Synnax Documentation Structure
+
+Research on where Synnax documentation is written, how it's structured, and where Arc
+documentation should fit.
 
 ---
 
 ## 1. Documentation Location and Framework
 
+### Location
+
 **Path**: `/docs/site/`
 
-**Framework**:
+### Framework
 
-- Astro 5.16.5 with MDX support
-- React 19 for interactive components
-- Shiki syntax highlighting with Arc grammar
-- Vercel deployment (automatic on merge)
+- **Astro 5.16.5** with MDX support
+- **@astrojs/mdx** for Markdown + React components
+- **React 19** for interactive components
+- **Vercel** deployment via `@astrojs/vercel` adapter
+- **Shiki** syntax highlighting with custom Arc grammar already integrated
 
-**Build Commands**:
+### Build Commands
 
 ```bash
 cd docs/site
@@ -22,7 +28,10 @@ pnpm build       # Production build
 pnpm check-types # Type checking
 ```
 
-**Live Site**: docs.synnaxlabs.com
+### Hosting
+
+- **URL**: docs.synnaxlabs.com
+- **Search**: Algolia integration
 
 ---
 
@@ -33,22 +42,25 @@ pnpm check-types # Type checking
 ├── pages/
 │   ├── reference/              # Main documentation
 │   │   ├── _nav.ts            # Navigation config
+│   │   ├── index.mdx          # Landing page
 │   │   ├── concepts/          # Core concepts
 │   │   ├── core/              # Server docs
 │   │   ├── client/            # Client libraries
 │   │   ├── control/           # Control sequences ← ARC GOES HERE
+│   │   │   ├── _nav.ts
+│   │   │   ├── index.astro
+│   │   │   ├── python/        # Python sequences
+│   │   │   └── embedded/      # Lua sequences
 │   │   ├── console/           # Console app
 │   │   ├── driver/            # Hardware driver
 │   │   └── pluto/             # Visualization
-│   ├── guides/                # User guides
-│   └── releases/              # Release notes
+│   ├── guides/                # User guides by role
+│   ├── releases/              # Release notes
+│   └── _nav.ts               # Root navigation
 ├── layouts/
 │   └── Reference.astro        # Reference page layout
 ├── components/
-│   ├── Media/                 # Image, Video components
-│   ├── PageNav/               # Navigation components
-│   ├── Table.astro            # Table component
-│   └── mdxOverrides.ts        # MDX component overrides
+│   └── ...                    # Reusable UI components
 └── util/
 ```
 
@@ -56,55 +68,211 @@ pnpm check-types # Type checking
 
 ## 3. Existing Reference Sections
 
-| Section  | Path                   |
-| -------- | ---------------------- |
-| Concepts | `/reference/concepts/` |
-| Core     | `/reference/core/`     |
-| Client   | `/reference/client/`   |
-| Control  | `/reference/control/`  |
-| Console  | `/reference/console/`  |
-| Driver   | `/reference/driver/`   |
-| Pluto    | `/reference/pluto/`    |
+Defined in `/docs/site/src/pages/_nav.ts`:
+
+| Section     | Path                   | Description                      |
+| ----------- | ---------------------- | -------------------------------- |
+| Get Started | `/reference/`          | Introduction and setup           |
+| Concepts    | `/reference/concepts/` | Overview, Channels, Ranges, etc. |
+| Core        | `/reference/core/`     | Server installation              |
+| Client      | `/reference/client/`   | Python & TypeScript clients      |
+| **Control** | `/reference/control/`  | **Control sequences**            |
+| Console     | `/reference/console/`  | Desktop application              |
+| Driver      | `/reference/driver/`   | Hardware integration             |
+| Pluto       | `/reference/pluto/`    | Visualization components         |
 
 ---
 
-## 4. Control Section Structure
+## 4. Control Section (Where Arc Fits)
 
-Arc lives in `/reference/control/` alongside Python and Embedded sequences:
+The Control section currently has:
 
 ```
 /reference/control/
-├── _nav.ts                # Main control navigation
-├── get-started.mdx
-├── control-authority.mdx
-├── python/                # Python sequences
+├── _nav.ts                # Navigation
+├── index.astro           # Redirect to Python
+├── python/               # Python Sequences
 │   ├── _nav.ts
-│   └── *.mdx
-├── embedded/              # Lua sequences
-│   ├── _nav.ts
-│   └── *.mdx
-└── arc/                   # Arc documentation ← NEW
+│   ├── index.astro
+│   ├── get-started.mdx
+│   ├── set-and-read-channels.mdx
+│   ├── add-commands-and-control-logic.mdx
+│   └── ...
+└── embedded/             # Embedded Sequences (Lua)
     ├── _nav.ts
-    └── *.mdx
+    ├── index.astro
+    ├── get-started.mdx
+    ├── language-basics.mdx
+    └── ...
 ```
+
+### Why Arc Fits in Control
+
+1. **Same purpose** - Control sequences for hardware automation
+2. **Parallel structure** - Python and Lua sequences already here
+3. **User expectation** - Control engineers look here for automation tools
+4. **Natural hierarchy** - Arc is another control language option
 
 ---
 
-## 5. Navigation Configuration
+## 5. Page Format
 
-### Navigation File Format
+### Directory Pattern
+
+```
+reference/[section]/
+├── _nav.ts              # Navigation definition
+├── index.astro          # Index page (often redirects)
+├── get-started.mdx      # First page
+├── [topic].mdx          # Topic pages
+└── [subsection]/
+    ├── _nav.ts
+    └── [topic].mdx
+```
+
+### Navigation Definition (`_nav.ts`)
 
 ```typescript
-// Copyright 2025 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
+import type { PageNavNode } from "@/components/PageNav";
 
-import { type PageNavNode } from "@/components/PageNav/PageNav";
+export const SECTION_NAV: PageNavNode = {
+  key: "section-key",
+  name: "Display Name",
+  children: [
+    {
+      key: "/reference/section/page",
+      href: "/reference/section/page",
+      name: "Page Title",
+    },
+    {
+      key: "subsection",
+      name: "Subsection Name",
+      children: [
+        // nested pages
+      ],
+    },
+  ],
+};
+```
+
+### MDX Page Format
+
+```mdx
+---
+layout: "@/layouts/Reference.astro"
+title: "Page Title"
+description: "Brief description"
+next: "Next Page Title"
+nextURL: "/reference/section/next-page"
+prev: "Previous Page Title"
+prevURL: "/reference/section/prev-page"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Image, Video } from "@/components/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+# Page Title
+
+Content here...
+
+<Divider.Divider x />
+
+## Section Heading
+
+More content...
+
+<Note.Note variant="info">Helpful tip or callout.</Note.Note>
+```
+
+### Available Components
+
+- **Pluto**: `Divider`, `Note`, `Button`, etc.
+- **Custom**: `Image`, `Video`, `Diagram`, `Table`, `Tabs`, `PackageManagerTabs`
+- **Standard**: Markdown, code blocks, lists, tables
+
+---
+
+## 6. Arc Syntax Highlighting (Already Configured)
+
+Arc syntax highlighting is already set up in `/docs/site/astro.config.ts`:
+
+```typescript
+import { grammar as arcGrammar } from "@synnaxlabs/arc";
+
+export default defineConfig({
+  markdown: {
+    shikiConfig: {
+      langs: [arcGrammar], // Arc syntax highlighting ready
+    },
+  },
+});
+```
+
+Code blocks use triple backticks with `arc`:
+
+````markdown
+```arc
+func add(x f64, y f64) f64 {
+    return x + y
+}
+```
+````
+
+---
+
+## 7. Proposed Arc Documentation Structure
+
+### Location
+
+**Path**: `/docs/site/src/pages/reference/control/arc/`
+
+### Directory Structure
+
+```
+reference/control/arc/
+├── _nav.ts                    # Navigation
+├── index.astro               # Redirect to get-started
+├── get-started.mdx           # Introduction & first program
+├── tutorials/
+│   ├── _nav.ts
+│   ├── basic-calculations.mdx
+│   ├── stateful-programs.mdx
+│   ├── control-sequences.mdx
+│   └── multi-stage-automation.mdx
+├── concepts/
+│   ├── _nav.ts
+│   ├── reactive-execution.mdx
+│   ├── channels-and-series.mdx
+│   ├── sequences-and-stages.mdx
+│   └── types-and-units.mdx
+├── language-reference/
+│   ├── _nav.ts
+│   ├── syntax.mdx
+│   ├── types.mdx
+│   ├── operators.mdx
+│   ├── functions.mdx
+│   ├── sequences.mdx
+│   └── built-ins.mdx
+├── how-to/
+│   ├── _nav.ts
+│   ├── create-alarms.mdx
+│   ├── conditional-routing.mdx
+│   ├── error-handling.mdx
+│   └── debugging.mdx
+└── examples/
+    ├── _nav.ts
+    ├── calculations.mdx
+    ├── data-filtering.mdx
+    ├── test-sequences.mdx
+    └── full-automations.mdx
+```
+
+### Navigation (`_nav.ts`)
+
+```typescript
+import type { PageNavNode } from "@/components/PageNav";
 
 export const ARC_NAV: PageNavNode = {
   key: "arc",
@@ -116,318 +284,180 @@ export const ARC_NAV: PageNavNode = {
       name: "Get Started",
     },
     {
-      key: "/reference/control/arc/concepts",
-      href: "/reference/control/arc/concepts",
+      key: "tutorials",
+      name: "Tutorials",
+      children: [
+        {
+          key: "/reference/control/arc/tutorials/basic-calculations",
+          href: "/reference/control/arc/tutorials/basic-calculations",
+          name: "Basic Calculations",
+        },
+        // ... more tutorials
+      ],
+    },
+    {
+      key: "concepts",
       name: "Concepts",
+      children: [
+        // ... concept pages
+      ],
+    },
+    {
+      key: "language-reference",
+      name: "Language Reference",
+      children: [
+        // ... reference pages
+      ],
+    },
+    {
+      key: "how-to",
+      name: "How-To Guides",
+      children: [
+        // ... how-to pages
+      ],
+    },
+    {
+      key: "examples",
+      name: "Examples",
+      children: [
+        // ... example pages
+      ],
     },
   ],
 };
 ```
 
-### Nested Navigation
+---
+
+## 8. Files to Update When Adding Arc Docs
+
+### 1. Control Navigation
+
+**File**: `/docs/site/src/pages/reference/control/_nav.ts`
+
+Add Arc to control children:
 
 ```typescript
-{
-  key: "concepts",
-  name: "Concepts",
-  children: [
-    {
-      key: "/reference/control/arc/concepts/reactive-execution",
-      href: "/reference/control/arc/concepts/reactive-execution",
-      name: "Reactive Execution",
-    },
-  ],
-}
-```
-
-### Importing Child Navigation
-
-```typescript
-import { ARC_NAV } from "@/pages/reference/control/arc/_nav";
+import { ARC_NAV } from "./arc/_nav";
 
 export const CONTROL_NAV: PageNavNode = {
   key: "control",
   name: "Control",
   children: [
-    // ... existing children
-    ARC_NAV,
+    // existing Python nav
+    // existing Embedded nav
+    ARC_NAV, // Add Arc
   ],
 };
 ```
 
+### 2. Reference Index (Optional)
+
+**File**: `/docs/site/src/pages/reference/index.mdx`
+
+Add Arc to the components table if there's a feature matrix.
+
+### 3. No Root Nav Changes Needed
+
+The root `_nav.ts` already includes Control, so Arc will appear automatically as a
+child.
+
 ---
 
-## 6. MDX Format Reference
+## 9. Content Migration Notes
 
-### Frontmatter
+### From Spec to Docs
 
-```yaml
+The existing `/arc/docs/spec.md` (753 lines) is a technical specification. It should be:
+
+- **Adapted** for user-facing documentation (less formal)
+- **Split** across multiple pages (concepts, reference, etc.)
+- **Enhanced** with examples, tutorials, and how-to guides
+
+### Console Integration
+
+The Console UI documentation for Arc should cross-reference:
+
+- Graph editor usage → link to Arc concepts
+- Text editor features → link to language reference
+- Deployment process → link to how-to guides
+
 ---
-layout: "@/layouts/Reference.astro"
-title: "Page Title"
-description: "Brief description for SEO"
-next: "Next Page Title"
-nextURL: "/reference/control/arc/next-page"
-prev: "Previous Page Title"
-prevURL: "/reference/control/arc/prev-page"
----
-```
 
-| Field         | Required | Purpose                                       |
-| ------------- | -------- | --------------------------------------------- |
-| `layout`      | Yes      | Always `@/layouts/Reference.astro`            |
-| `title`       | Yes      | Browser tab and nav display                   |
-| `description` | Yes      | SEO meta description                          |
-| `heading`     | No       | Larger page heading (if different from title) |
-| `next`        | No       | Next page title for navigation                |
-| `nextURL`     | No       | Next page URL                                 |
-| `prev`        | No       | Previous page title for navigation            |
-| `prevURL`     | No       | Previous page URL                             |
+## 10. Documentation Conventions
 
-### Standard Imports
+### Existing Patterns to Follow
 
-```typescript
-import { Divider, Note } from "@synnaxlabs/pluto";
-import { Image, Video } from "@/components/Media";
-import { mdxOverrides } from "@/components/mdxOverrides";
+1. **Start with "Get Started"** - Basic concepts, minimal setup
+2. **Use `<Divider.Divider x />`** - Separate major sections
+3. **Include `next`/`prev` links** - Navigation flow in frontmatter
+4. **Use `Note.Note variant="info"`** - Tips and callouts
+5. **Prefer examples over prose** - Show, don't just tell
+6. **Consistent heading hierarchy** - h1 for title, h2+ for sections
 
-export const components = mdxOverrides;
-```
+### Code Examples
 
-The `mdxOverrides` export is required - it provides styled headings with anchor links,
-code blocks with copy buttons, and styled tables.
-
-### Heading Hierarchy
-
-- **Never use H1** - Generated from frontmatter `title`
-- **H2 (`##`)** - Major sections
-- **H3 (`###`)** - Subsections
-- **H4 (`####`)** - Sub-subsections (use sparingly)
-
-All headings get anchor links automatically (e.g., `#section-name`).
-
-### Dividers
-
-```jsx
-<Divider.Divider x />
-```
-
-Use between major sections.
-
-### Notes (Callouts)
-
-```jsx
-<Note.Note variant="info">
-  Helpful information or tips.
-</Note.Note>
-
-<Note.Note variant="warning">
-  Important caution or gotcha.
-</Note.Note>
-
-<Note.Note variant="error">
-  Critical warning or breaking change.
-</Note.Note>
-```
-
-### Code Blocks
+Arc code blocks are automatically syntax-highlighted:
 
 ````markdown
 ```arc
-func add(x f64, y f64) f64 {
-    return x + y
+func threshold(value f64) (above f64, below f64) {
+    if value > 50.0 {
+        above = value
+    } else {
+        below = value
+    }
 }
 ```
 ````
 
-Supported: `arc`, `python`, `typescript`, `go`, `lua`, `bash`, `json`, `yaml`
+### Cross-References
 
-### Images
-
-```jsx
-<Image client:only="react" id="control/arc/image-name" />
-```
-
-CDN path format: `control/arc/<page-name>/<image-description>`
-
-### Videos
-
-```jsx
-<Video client:only="react" id="control/arc/video-name" />
-```
-
-CDN path format: `control/arc/<page-name>/<action-description>`
-
-Videos auto-play, loop, and are muted. Both images and videos support light/dark
-variants automatically.
-
-### Media Placeholders
-
-When writing docs, add placeholder stubs for media that needs to be recorded:
-
-```jsx
-{
-  /* TODO: Video - control/arc/get-started/create-new-automation */
-}
-<Video client:only="react" id="control/arc/get-started/create-new-automation" />;
-
-{
-  /* TODO: Image - control/arc/concepts/dataflow-diagram */
-}
-<Image client:only="react" id="control/arc/concepts/dataflow-diagram" />;
-```
-
-### Tables
-
-Standard markdown:
+Use relative markdown links:
 
 ```markdown
-| Column 1 | Column 2 |
-| -------- | -------- |
-| Value 1  | Value 2  |
+See [Channels and Series](/reference/control/arc/concepts/channels-and-series) for more
+details.
 ```
-
-### Collapsible Sections
-
-```jsx
-<details>
-  <summary>Click to expand</summary>
-  Hidden content here.
-</details>
-```
-
-### Links
-
-Internal:
-
-```markdown
-See [Reactive Execution](/reference/control/arc/concepts/reactive-execution).
-```
-
-External:
-
-```markdown
-See the [Synnax website](https://synnaxlabs.com).
-```
-
-### Complete Page Example
-
-````mdx
----
-layout: "@/layouts/Reference.astro"
-title: "Get Started"
-description: "Create your first Arc automation"
-next: "Reactive Execution"
-nextURL: "/reference/control/arc/concepts/reactive-execution"
----
-
-import { Divider, Note } from "@synnaxlabs/pluto";
-import { Video } from "@/components/Media";
-import { mdxOverrides } from "@/components/mdxOverrides";
-
-export const components = mdxOverrides;
-
-Arc is a domain-specific language for reactive automation and control systems.
-
-<Note.Note variant="info">
-  Arc is currently in beta. Language features may change before the stable release.
-</Note.Note>
-
-<Divider.Divider x />
-
-## Creating Your First Automation
-
-Open Console and navigate to the Arc section.
-
-{/* TODO: Video - control/arc/get-started/create-automation */}
-
-<Video client:only="react" id="control/arc/get-started/create-automation" />
-
-## Writing Arc Code
-
-```arc
-func double(value f64) f64 {
-    return value * 2
-}
-
-sensor -> double{} -> output
-```
-````
-
-<Divider.Divider x />
-
-## Next Steps
-
-See [Reactive Execution](/reference/control/arc/concepts/reactive-execution) to
-understand how Arc programs execute.
-
-````
 
 ---
 
-## 7. Arc Syntax Highlighting
+## 11. Comparison with Existing Control Docs
 
-Arc syntax highlighting is configured in `/docs/site/astro.config.ts`:
+### Python Sequences Structure
 
-```typescript
-import { grammar as arcGrammar } from "@synnaxlabs/arc";
+```
+get-started.mdx           - First steps
+set-and-read-channels.mdx - Channel operations
+add-commands-and-control-logic.mdx - Logic building
+```
 
-export default defineConfig({
-  markdown: {
-    shikiConfig: {
-      theme: "css-variables",
-      langs: [arcGrammar],
-    },
-  },
-});
-````
+### Embedded (Lua) Sequences Structure
 
-### Keeping Syntax Highlighting in Sync
+```
+get-started.mdx           - First steps
+language-basics.mdx       - Syntax and types
+```
 
-The Arc grammar is defined in `/arc/ts/src/arc.tmLanguage.json`. This grammar is used by
-both:
+### Arc Should Mirror and Extend
 
-- **Docs site** - Shiki highlighting (via astro.config.ts)
-- **Console** - Monaco editor highlighting
+Arc is more complex than Embedded Lua, so it needs:
 
-When Arc syntax changes, update the grammar file. Both environments pick up changes
-after rebuild. Verify highlighting matches between docs and Console.
+- More tutorial depth (like Python)
+- Full language reference (beyond Lua basics)
+- Concepts section (unique reactive model)
+- Examples section (real-world patterns)
 
 ---
 
-## 8. Implementation Checklist
+## 12. Summary
 
-### Create Arc Directory
-
-- [ ] Create `/docs/site/src/pages/reference/control/arc/`
-- [ ] Create `_nav.ts` with navigation structure
-- [ ] Create `index.astro` (redirect to first page)
-
-### Create MDX Pages
-
-- [ ] Create pages per structure in `02-documentation-best-practices.md`
-- [ ] Add frontmatter (layout, title, description)
-- [ ] Add next/prev navigation links
-- [ ] Include standard imports (`mdxOverrides`, `Divider`, `Note`)
-- [ ] Add media placeholders with CDN paths for videos/images
-
-### Update Parent Navigation
-
-- [ ] Edit `/docs/site/src/pages/reference/control/_nav.ts`
-- [ ] Import `ARC_NAV` from `./arc/_nav`
-- [ ] Add `ARC_NAV` to children array
-
-### Verify Build
-
-- [ ] Run `pnpm build` - no errors
-- [ ] Run `pnpm dev` - navigate to Arc pages
-- [ ] Verify Arc syntax highlighting works
-- [ ] Verify navigation links work
-- [ ] Verify next/prev navigation works
-
-### Final Checks
-
-- [ ] All pages have descriptions
-- [ ] Code examples are accurate
-- [ ] No broken internal links
-- [ ] Media placeholders have correct CDN paths
+| Aspect         | Details                                              |
+| -------------- | ---------------------------------------------------- |
+| **Location**   | `/docs/site/src/pages/reference/control/arc/`        |
+| **Framework**  | Astro 5.16 + MDX + React 19                          |
+| **Syntax**     | Arc grammar already configured in Shiki              |
+| **Layout**     | Use `@/layouts/Reference.astro`                      |
+| **Components** | Pluto (`Divider`, `Note`), custom (`Image`, `Video`) |
+| **Navigation** | Add to `/reference/control/_nav.ts`                  |
+| **Deployment** | Auto-deploys to docs.synnaxlabs.com via Vercel       |

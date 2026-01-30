@@ -85,7 +85,7 @@ codes)
 
 ### What to Include
 
-- **Text mode only** for initial docs (Graph mode documented later)
+- **Text mode only** for initial docs (graph mode documented later)
 - **Introduction** separate from **Get Started** (conceptual vs practical entry points)
 - **Effective Arc** page with best practices and common pitfalls
 - **Error codes** documented in Language Reference (current codes, expand over time)
@@ -227,7 +227,7 @@ Use these terms consistently throughout all documentation.
 | Term        | Definition                                   |
 | ----------- | -------------------------------------------- |
 | **Deploy**  | Upload and activate an automation            |
-| **Driver**  | The process where automation executes        |
+| **Rack**    | The driver/location where automation executes |
 | **Toolbar** | UI controls for the automation               |
 
 ### Terms to AVOID

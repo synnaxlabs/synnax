@@ -16,7 +16,7 @@ acquire data and control hardware manually through schematics, Arc lets you auto
 those procedures.
 
 Think of it as writing down the steps you would perform manually: open this valve when
-pressure reaches 500 PSI, close it when temperature exceeds 300 degrees, then wait 30
+pressure reaches 500 psi, close it when temperature exceeds 300 degrees, then wait 30
 seconds and move to the next step. Arc executes these procedures automatically while you
 monitor from the Console.
 
@@ -27,11 +27,11 @@ monitor from the Console.
 Arc is designed for **test engineers and control system operators** who understand what
 they want to accomplish but need a way to express it in code. If you're coming from:
 
-- **LabVIEW or visual programming tools** -> Arc's syntax is more concise than block
+- **LabVIEW or visual programming tools**: Arc's syntax is more concise than block
   diagrams, and you don't need deep programming experience to use it
-- **PLC configuration (Rockwell, Siemens)** -> Arc handles automation logic similar to
+- **PLC configuration (Rockwell, Siemens)**: Arc handles automation logic similar to
   function blocks, but integrated directly with Synnax telemetry
-- **Manual control through Synnax schematics** -> Arc automates the button clicks and
+- **Manual control through Synnax schematics**: Arc automates the button clicks and
   valve toggles you've been doing by hand
 
 You don't need to be a software developer. If you understand valves, pressure
@@ -62,12 +62,12 @@ A code editor where you write Arc syntax directly. Good for:
 - Reusable functions across automations
 - Users comfortable with text-based configuration
 
-**Which should you use?** Start with Graph mode for simple automations. Move to Text
+**Which should you use?** Start with graph mode for simple automations. Move to text
 mode when you need sequences, stateful logic, or want more control over the automation
 structure.
 
 <Note.Note variant="info">
-  This documentation focuses on Text mode. Graph mode documentation is coming soon.
+  This documentation focuses on text mode. Graph mode documentation is coming soon.
 </Note.Note>
 
 <Divider.Divider x />
@@ -78,21 +78,21 @@ Unlike traditional programming where you write loops to poll sensors, Arc is
 **reactive**. You declare what should happen when data changes, and Arc handles the
 rest.
 
-Instead of:
+Instead of a traditional, Python-based approach:
 
 ```python
-# Traditional approach
-while True:
-    pressure = read_sensor("tank_pressure")
-    scaled = pressure * 2.0
-    write_channel("pressure_display", scaled)
-    sleep(0.1)
+with synnax.open_streamer(["tank_pressure"]) as streamer:
+  with synnax.open_writer(["pressure_display"]) as writer:
+    while True:
+        frame = streamer.read()
+        pressure = frame.channels["tank_pressure"]
+        scaled = pressure * 2.0
+        writer.write({"pressure_display": scaled})
 ```
 
 You write:
 
 ```arc
-// Arc approach
 tank_pressure * 2.0 -> pressure_display
 ```
 
@@ -107,19 +107,71 @@ This reactive model is particularly useful for:
 
 <Divider.Divider x />
 
+## Sequences
+
+Most Arc programs are **sequences**: multi-step procedures that progress through stages
+based on conditions. Pressurization tests, startup routines, calibration procedures all
+follow this pattern.
+
+```arc
+sequence main {
+    stage pressurize {
+        1 -> valve_cmd,
+        tank_pressure > 500 => next,
+        abort_btn => abort
+    }
+
+    stage hold {
+        1 -> valve_cmd,
+        wait{duration=30s} => next
+    }
+
+    stage vent {
+        0 -> valve_cmd,
+        tank_pressure < 50 => complete
+    }
+
+    stage complete {
+        0 -> valve_cmd
+    }
+}
+
+sequence abort {
+    stage safed {
+        0 -> valve_cmd
+    }
+}
+
+start_btn => main
+```
+
+Everything in a stage runs at the same time. In `pressurize`, Arc simultaneously keeps
+the valve open, monitors for target pressure, and watches for an abort. You don't write
+loops or manage threads. You list what should happen, and Arc handles concurrency.
+
+This matches how test procedures actually work. When pressurizing a tank, you hold a
+valve open _while_ monitoring pressure _while_ watching for abort conditions. Arc
+captures that parallelism directly.
+
+Line order matters when multiple transitions could fire at once. Put safety conditions
+first so they take priority.
+
+For the full guide, see
+[Sequences and Stages](/reference/control/arc/concepts/sequences-and-stages).
+
+<Divider.Divider x />
+
 ## Before You Start
 
 Arc builds on Synnax concepts you likely already know:
 
-- **Channels** -> Arc reads from and writes to Synnax channels
-- **Drivers** -> Arc automations run on a driver process
-- **Schematics** -> Buttons in schematics can trigger Arc sequences
+- [Channels](/reference/concepts/channels) -> Arc reads from and writes to Synnax
+  channels.
+- [Drivers](/reference/driver/get-started) -> Arc automations run on a driver process.
+- [Schematics](/reference/console/schematics) -> Buttons in schematics can trigger Arc
+  sequences.
 
-If you're not familiar with these, see:
-
-- [Channels](/reference/concepts/channels) for creating and naming channels
-- [Drivers](/reference/driver/get-started) for setting up hardware connections
-- [Schematics](/reference/console/schematics) for building control interfaces
+If you're unfamiliar with these concepts, revisit the above pages before continuing.
 
 <Divider.Divider x />
 

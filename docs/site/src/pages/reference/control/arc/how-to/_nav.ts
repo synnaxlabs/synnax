@@ -14,29 +14,9 @@ export const HOW_TO_NAV: PageNavNode = {
   name: "How-To Guides",
   children: [
     {
-      key: "/reference/control/arc/how-to/unit-conversions",
-      href: "/reference/control/arc/how-to/unit-conversions",
-      name: "Unit Conversions",
-    },
-    {
-      key: "/reference/control/arc/how-to/sensor-averaging",
-      href: "/reference/control/arc/how-to/sensor-averaging",
-      name: "Sensor Averaging",
-    },
-    {
-      key: "/reference/control/arc/how-to/derived-calculations",
-      href: "/reference/control/arc/how-to/derived-calculations",
-      name: "Derived Calculations",
-    },
-    {
-      key: "/reference/control/arc/how-to/rate-of-change",
-      href: "/reference/control/arc/how-to/rate-of-change",
-      name: "Rate of Change",
-    },
-    {
-      key: "/reference/control/arc/how-to/sensor-validation",
-      href: "/reference/control/arc/how-to/sensor-validation",
-      name: "Sensor Validation",
+      key: "/reference/control/arc/how-to/data-processing",
+      href: "/reference/control/arc/how-to/data-processing",
+      name: "Data Processing",
     },
     {
       key: "/reference/control/arc/how-to/alarms",

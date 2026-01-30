@@ -135,7 +135,7 @@ Block-based visual programming interface. Best for:
 | **Operators**    | `Add`, `Subtract`, `Multiply`, `Divide`, `Greater Than`, `Less Than`, `Equal`, `Not Equal`, `>=`, `<=`, `And`, `Or`, `Not` |
 | **Flow Control** | `Select` (route by condition), `Stable For` (debounce)                                                                     |
 
-**Current Limitation**: Graph mode does not support sequences, stages, or custom
+**Current Limitation**: graph mode does not support sequences, stages, or custom
 functions. Complex multi-stage control logic requires text mode.
 
 **Note**: Graph and text modes are separate - programs created in one mode stay in that
@@ -184,6 +184,23 @@ total f64 $= 0.0        // explicit type
 // Assignment
 count = count + 1
 ```
+
+**Stateful variable initialization**: The `$=` operator sets the initial value on the
+first execution only. On subsequent executions, the persisted value is used instead.
+Crucially, you can initialize a stateful variable from an input parameter:
+
+```arc
+func delta(value f64) f64 {
+    prev $= value        // initialized to first input on first call
+    d := value - prev
+    prev = value
+    return d
+}
+```
+
+On the first call, `prev` is set to `value`. On subsequent calls, `prev` retains its
+value from the previous execution. This eliminates the need for "first run" flag
+patterns when tracking previous values.
 
 ### Operators
 
@@ -301,7 +318,7 @@ distance f64 m := 50.0
 wait_time := 100ms      // i64 with time units
 frequency := 10hz       // converts to period
 
-// Temporal units: ns, us, ms, s, m (minute), h
+// Temporal units: ns, us, ms, s, min, h
 // Frequency units: hz, khz, mhz
 
 // Dimensional compatibility (compiler enforces)
@@ -384,15 +401,12 @@ WITH stratified execution:
 - Behavior is predictable and certifiable
 ```
 
-This is critical for:
-
-- **Safety certification** - Predictable, repeatable behavior
-- **Debugging** - You know exactly what values each node saw
-- **Multi-branch logic** - All branches see consistent data
+Without this guarantee, debugging becomes difficult and safety certification nearly
+impossible.
 
 ### Channels: Reactive vs Imperative Context
 
-**This is critical to understand.** Channels behave differently depending on context.
+Channels behave differently depending on context.
 
 #### Reactive Context (Flow Statements)
 
@@ -500,9 +514,7 @@ stops (until the stage is re-entered).
 
 ## 6. Sequences (State Machines) - UNIQUE TO ARC
 
-### Key Concept: Concurrency Within Stages
-
-**This is the most important thing to understand about Arc.**
+### Concurrency Within Stages
 
 In traditional programming, code executes line-by-line, top to bottom. In Arc stages,
 **all flows run concurrently**. Every line in a stage is active at the same time.
@@ -742,7 +754,7 @@ sensor -> avg{duration=10s} -> avg_display     // reset every 10s
 sensor -> avg{count=100} -> avg_display        // reset every 100 samples
 
 // min/max - running min/max with same reset options
-sensor -> min{duration=1m} -> min_display
+sensor -> min{duration=1min} -> min_display
 sensor -> max{count=50} -> max_display
 ```
 
@@ -805,7 +817,7 @@ ox_pt_1 > 500 -> set_status{statusKey="overpressure", variant="error", message="
 | `variant`   | `"success"`, `"warning"`, `"error"` | Status severity/color     |
 | `message`   | String                              | Notification message text |
 
-This is the primary use case for Graph mode - building visual alarm logic that triggers
+This is the primary use case for graph mode - building visual alarm logic that triggers
 notifications when sensor values exceed thresholds.
 
 ### Constant Node
@@ -851,13 +863,13 @@ depending on deployment target.
 
 ### Deployment Model
 
-When users deploy an Arc program, they select a **driver** (the process managing
-hardware on a specific machine). This determines where the code runs:
+When users deploy an Arc program, they select a **rack** (a logical group of hardware
+managed by a driver instance). This determines where the code runs:
 
 ```
-Console: User creates Arc, selects driver
+Console: User creates Arc, selects rack
               ↓
-Synnax Server: Routes task to appropriate driver
+Synnax Server: Routes task to appropriate rack
               ↓
 ┌─────────────────────────────────────────────────────┐
 │  Option A: Go Runtime (Server)                      │
@@ -949,7 +961,7 @@ WASM Module Contains:
 ### Entry Points for Users
 
 1. **Navigation Drawer**: Click "+" button in Arc toolbar (keyboard: "A")
-2. **Driver Context Menu**: Right-click driver → "Create Arc automation"
+2. **Hardware Rack Context Menu**: Right-click rack → "Create Arc automation"
 3. **Command Palette**: Search "Create an Arc automation"
 4. **Arc Explorer**: Click "Create an Arc" in empty state
 
@@ -973,7 +985,7 @@ WASM Module Contains:
 ### Deployment Process
 
 1. Edit Arc in graph or text mode
-2. Select target driver from dropdown
+2. Select target hardware rack from dropdown
 3. Click "Configure" to save to Synnax server
 4. Click "Play" to start execution
 5. Monitor status (Running/Stopped/Error)
@@ -1087,7 +1099,7 @@ The compiler catches these before deployment:
 
 ### Runtime Errors
 
-These errors stop the Arc task and report status (they do NOT crash the driver):
+These errors stop the Arc task and report status (they do NOT crash the rack or driver):
 
 - Division/modulo by zero
 - Out-of-bounds array/string access

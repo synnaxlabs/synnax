@@ -7,4 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { grammar, grammarRaw, type Grammar } from "@/grammar";
+/// <reference types="vite/client" />
+
+declare module "*.json?raw" {
+  const content: string;
+  export default content;
+}
