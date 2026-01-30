@@ -3,13 +3,14 @@ title: "Version 0.46 Release Notes"
 ---
 
 import { Flex, Divider } from "@synnaxlabs/pluto";
-import { Diagram, Releases } from "@/components";
+import Diagram from "@/components/diagram/Diagram.astro";
+import Release from "@/components/releases/Release.astro";
 import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-<Releases.Release
+<Release
     version="0.46.0"
     date="Sep 29, 2025"
     title="Arc Beta"
@@ -76,4 +77,4 @@ the value of a gauge. To use it, simply drag and drop it into a schematic.
 - Significantly improved Core storage engine performance by increasing meta-data cache
   sizes.
 
-</Releases.Release>
+</Release>

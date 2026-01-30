@@ -9,7 +9,8 @@ prevURL: "/reference/driver/labjack/read-task"
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import { Details } from "@/components";
+import Details from "@/components/details/Details.astro";
+import ChannelType from "@/components/details/ChannelType.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -46,7 +47,7 @@ channel, providing acknowledgment that the command was executed.
 
 ## Channel Types Reference
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Analog Output ([`AO`](https://support.labjack.com/docs/15-0-dac-t-series-datasheet))</Text.Text>
 
 Writes analog voltage to a specified output terminal (DAC).
@@ -57,9 +58,9 @@ Writes analog voltage to a specified output terminal (DAC).
 | `state_channel` | number | Yes      | -       | Synnax state channel key             |
 | `port`          | string | Yes      | -       | Port location (e.g., `DAC0`, `DAC1`) |
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Digital Output ([`DO`](https://support.labjack.com/docs/13-0-digital-i-o-t-series-datasheet))</Text.Text>
 
 Writes digital state (0 or 1) to a specified digital I/O line.
@@ -70,7 +71,7 @@ Writes digital state (0 or 1) to a specified digital I/O line.
 | `state_channel` | number | Yes      | -       | Synnax state channel key             |
 | `port`          | string | Yes      | -       | Port location (e.g., `DIO4`, `FIO5`) |
 
-</Details.ChannelType>
+</ChannelType>
 
 <Divider.Divider x />
 
@@ -95,7 +96,7 @@ Writes digital state (0 or 1) to a specified digital I/O line.
   </Fragment>
   <Fragment slot="python">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -194,8 +195,8 @@ with task.run():
             print(f"Digital State: {frame['do_4_state'][-1]}")
 ```
 
-</Details.Details>
-<Details.Details>
+</Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -217,12 +218,12 @@ task.config.channels[1].port = "DIO5"
 client.tasks.configure(task)
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -333,9 +334,9 @@ await writer.close();
 await streamer.close();
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -364,7 +365,7 @@ await client.tasks.create({
 });
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
 </Client.Tabs>

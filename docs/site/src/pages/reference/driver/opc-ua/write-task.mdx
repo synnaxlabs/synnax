@@ -9,7 +9,8 @@ prevURL: "/reference/driver/opc-ua/read-task"
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import { Details } from "@/components";
+import Details from "@/components/details/Details.astro";
+import ChannelType from "@/components/details/ChannelType.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -46,7 +47,7 @@ state, configure a [read task](/reference/driver/opc-ua/read-task) for the same 
 
 [OPC UA Write Service Specification](https://reference.opcfoundation.org/Core/Part4/v104/docs/5.10.4)
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Value /> Scalar Values</Text.Text>
 
 Writes scalar values to an OPC UA node. Suitable for control setpoints, configuration
@@ -69,9 +70,9 @@ parameters, and single-value commands.
 `_cmd_time`). If you need state feedback, configure a corresponding
 [read task](/reference/driver/opc-ua/read-task) to monitor the same nodes.
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Array /> Array Values</Text.Text>
 
 Writes array data to an OPC UA node in bulk. Used for batch control commands or
@@ -85,7 +86,7 @@ multi-value setpoints.
 
 **Note** -> The channel data type must match the array element type on the server.
 
-</Details.ChannelType>
+</ChannelType>
 
 <Divider.Divider x />
 
@@ -113,7 +114,7 @@ multi-value setpoints.
   </Fragment>
   <Fragment slot="python">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -190,9 +191,9 @@ with task.run():
         })
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -213,12 +214,12 @@ task.config.channels[1].node_id = "ns=2;s=ValveControl2"
 client.tasks.configure(task)
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -301,9 +302,9 @@ await task.executeCommandSync("stop");
 await writer.close();
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -331,7 +332,7 @@ await client.tasks.create({
 });
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
 </Client.Tabs>

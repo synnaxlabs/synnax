@@ -3,12 +3,12 @@ title: "Version 0.37 Release Notes"
 ---
 
 import { Image, Video } from "@/components/media/Media";
-import { Releases } from "@/components";
+import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import Thumbnail from "@/pages/releases/Thumbnail0370.astro";
 export const components = mdxOverrides;
 
-<Releases.Release
+<Release
     version="0.37.0"
     date="Dec 31, 2024"
     title="Goodbye 2024 - Touch Ups"
@@ -61,4 +61,4 @@ meters, flame arresters, new valves, pumps, heat exchangers, strainers, and a th
 - Fixed an issue where a deleted table would continue to render its values over an
   existing visualization.
 
-</Releases.Release>
+</Release>

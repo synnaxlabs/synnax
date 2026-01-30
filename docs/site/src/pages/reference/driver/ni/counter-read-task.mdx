@@ -11,7 +11,8 @@ prevURL: "/reference/driver/ni/analog-write-task"
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import { Details } from "@/components";
+import Details from "@/components/details/Details.astro";
+import ChannelType from "@/components/details/ChannelType.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -36,7 +37,7 @@ For task lifecycle management, see the
 
 ## Channel Types Reference
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Frequency ([`ci_frequency`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecifreqchan.html))</Text.Text>
 
 Measures the frequency of digital pulses.
@@ -56,9 +57,9 @@ Measures the frequency of digital pulses.
 | `terminal`     | string | No       | -          | PFI terminal for signal routing                      |
 | `custom_scale` | object | No       | -          | Custom scaling                                       |
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Value /> Edge Count ([`ci_edge_count`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedgeschan.html))</Text.Text>
 
 Counts rising or falling edges on a digital signal.
@@ -73,9 +74,9 @@ Counts rising or falling edges on a digital signal.
 | `initial_count`   | number | No       | `0`       | Starting count value                           |
 | `terminal`        | string | No       | -         | PFI terminal for signal routing                |
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Time /> Period ([`ci_period`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodchan.html))</Text.Text>
 
 Measures the time between edges of a periodic signal.
@@ -95,9 +96,9 @@ Measures the time between edges of a periodic signal.
 | `terminal`      | string | No       | -          | PFI terminal for signal routing                      |
 | `custom_scale`  | object | No       | -          | Custom scaling                                       |
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.AutoFitWidth /> Pulse Width ([`ci_pulse_width`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecipulsewidthchan.html))</Text.Text>
 
 Measures the width of pulses in a digital signal.
@@ -114,9 +115,9 @@ Measures the width of pulses in a digital signal.
 | `terminal`      | string | No       | -          | PFI terminal for signal routing |
 | `custom_scale`  | object | No       | -          | Custom scaling                  |
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Range /> Semi Period ([`ci_semi_period`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecisemiperiodchan.html))</Text.Text>
 
 Measures the half-period of a periodic signal.
@@ -131,9 +132,9 @@ Measures the half-period of a periodic signal.
 | `units`        | enum   | No       | `Seconds`  | `Seconds`, `Ticks`       |
 | `custom_scale` | object | No       | -          | Custom scaling           |
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.AutoFitWidth /> Two Edge Separation ([`ci_two_edge_sep`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoedgesepchan.html))</Text.Text>
 
 Measures the time between two different edges of a signal.
@@ -150,9 +151,9 @@ Measures the time between two different edges of a signal.
 | `second_edge`  | enum   | No       | `Falling`  | `Rising`, `Falling`      |
 | `custom_scale` | object | No       | -          | Custom scaling           |
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Linear /> Velocity Linear ([`ci_velocity_linear`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinvelocitychan.html))</Text.Text>
 
 Measures linear velocity using a quadrature encoder.
@@ -171,9 +172,9 @@ Measures linear velocity using a quadrature encoder.
 | `terminal_b`     | string | No       | -       | PFI terminal for encoder B signal   |
 | `custom_scale`   | object | No       | -       | Custom scaling                      |
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Rotate /> Velocity Angular ([`ci_velocity_angular`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangvelocitychan.html))</Text.Text>
 
 Measures angular velocity (rotational speed) using a quadrature encoder.
@@ -192,9 +193,9 @@ Measures angular velocity (rotational speed) using a quadrature encoder.
 | `terminal_b`     | string | No       | -       | PFI terminal for encoder B signal       |
 | `custom_scale`   | object | No       | -       | Custom scaling                          |
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Linear /> Position Linear ([`ci_position_linear`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinencoderchan.html))</Text.Text>
 
 Tracks linear position using a quadrature encoder.
@@ -216,9 +217,9 @@ Tracks linear position using a quadrature encoder.
 | `terminal_z`     | string  | No       | -            | PFI terminal for Z-index signal                    |
 | `custom_scale`   | object  | No       | -            | Custom scaling                                     |
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Rotate /> Position Angular ([`ci_position_angular`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangencoderchan.html))</Text.Text>
 
 Tracks angular position (rotation angle) using a quadrature encoder.
@@ -240,9 +241,9 @@ Tracks angular position (rotation angle) using a quadrature encoder.
 | `terminal_z`     | string  | No       | -            | PFI terminal for Z-index signal                    |
 | `custom_scale`   | object  | No       | -            | Custom scaling                                     |
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Duty Cycle ([`ci_duty_cycle`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecidutycyclechan.html))</Text.Text>
 
 Measures the duty cycle of a periodic signal.
@@ -258,7 +259,7 @@ Measures the duty cycle of a periodic signal.
 | `terminal`     | string | No       | -        | PFI terminal for signal routing |
 | `custom_scale` | object | No       | -        | Custom scaling                  |
 
-</Details.ChannelType>
+</ChannelType>
 
 <Divider.Divider x />
 
@@ -285,7 +286,7 @@ Measures the duty cycle of a periodic signal.
   </Fragment>
   <Fragment slot="python">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -373,9 +374,9 @@ with task.run():
             print(frame)
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -410,12 +411,12 @@ task.config.channels[2].terminalZ = "PFI9"
 client.tasks.configure(task)
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -519,9 +520,9 @@ await task.executeCommandSync("stop");
 await streamer.close();
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -563,7 +564,7 @@ await client.tasks.create({
 });
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
 </Client.Tabs>

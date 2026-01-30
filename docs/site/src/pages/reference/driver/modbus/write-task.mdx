@@ -9,7 +9,8 @@ prevURL: "/reference/driver/modbus/read-task"
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import { Details } from "@/components";
+import Details from "@/components/details/Details.astro";
+import ChannelType from "@/components/details/ChannelType.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -44,7 +45,7 @@ state, configure a [read task](/reference/driver/modbus/read-task) for the same 
 
 ## Register Types Reference
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding Register Output ([`holding_register_output`](https://www.modbustools.com/modbus.html#function06))</Text.Text>
 
 Writes to 16-bit read/write registers (Function Code 06/16). Typically used for
@@ -63,9 +64,9 @@ setpoints, control values, and configuration parameters.
 - `int16`/`uint16`: 1 register (2 bytes)
 - `int32`/`uint32`/`float32`: 2 registers (4 bytes)
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Coil Output ([`coil_output`](https://www.modbustools.com/modbus.html#function05))</Text.Text>
 
 Writes to 1-bit read/write coils (Function Code 05/15). Typically used for binary
@@ -78,7 +79,7 @@ control signals like relay states and valve positions.
 
 **Data Type:** Always boolean (0/1)
 
-</Details.ChannelType>
+</ChannelType>
 
 <Divider.Divider x />
 
@@ -105,7 +106,7 @@ control signals like relay states and valve positions.
   </Fragment>
   <Fragment slot="python">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -173,9 +174,9 @@ with task.run():
         })
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -197,12 +198,12 @@ task.config.channels[1].data_type = "uint16"
 client.tasks.configure(task)
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -278,9 +279,9 @@ await task.executeCommandSync("stop");
 await writer.close();
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -309,7 +310,7 @@ await client.tasks.create({
 });
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
 </Client.Tabs>

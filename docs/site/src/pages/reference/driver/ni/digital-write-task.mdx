@@ -9,7 +9,7 @@ prevURL: "/reference/driver/ni/digital-read-task"
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import { Details } from "@/components";
+import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -78,7 +78,7 @@ channel, providing acknowledgment that the command was executed.
   </Fragment>
   <Fragment slot="python">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -199,9 +199,9 @@ with task.run():
             print(f"Port 1 Line 0: {frame['do_1_0_state']}")
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -229,12 +229,12 @@ task.config.channels[2].line = 1
 client.tasks.configure(task)
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -373,9 +373,9 @@ await writer.close();
 await streamer.close();
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -410,7 +410,7 @@ await client.tasks.create({
 });
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
 </Client.Tabs>

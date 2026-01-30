@@ -11,11 +11,12 @@ nextURL: "/reference/console/tables"
 
 import { Divider, Note, Icon, Flex } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/media/Media";
-import { Table, Diagram } from "@/components";
+import { Table } from "@/components";
+import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Diagram.Diagram style="height: 400px" preview>
+<Diagram style="height: 400px" preview>
   <Image
     client:only="react"
     id="console/schematics/example"
@@ -27,7 +28,7 @@ export const components = mdxOverrides;
       border: "1px solid var(--pluto-gray-l6)",
     }}
   />
-</Diagram.Diagram>
+</Diagram>
 
 A schematic is used to see a diagram of your physical or simulated system. It displays
 live sensor data and can be used to exercise manual control by changing the values of

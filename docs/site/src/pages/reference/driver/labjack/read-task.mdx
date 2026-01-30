@@ -11,7 +11,8 @@ nextURL: "/reference/driver/labjack/write-task"
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import { Details } from "@/components";
+import Details from "@/components/details/Details.astro";
+import ChannelType from "@/components/details/ChannelType.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -36,7 +37,7 @@ For task lifecycle management, see the
 
 ## Channel Types Reference
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Analog Input ([`AI`](https://support.labjack.com/docs/14-0-analog-inputs-t-series-datasheet))</Text.Text>
 
 Reads analog voltage from a specified input terminal. Supports single-ended and
@@ -50,9 +51,9 @@ differential configurations.
 | `neg_chan` | number | No       | `199`   | Negative channel for differential measurements (199 = single-ended/GND) |
 | `pos_chan` | number | No       | `0`     | Positive channel number (e.g., 0 for AIN0)                              |
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermocouple ([`TC`](https://support.labjack.com/docs/14-1-1-thermocouple-t7-t8-t-series-datasheet))</Text.Text>
 
 Reads temperature from a thermocouple with cold junction compensation (CJC).
@@ -82,9 +83,9 @@ Reads temperature from a thermocouple with cold junction compensation (CJC).
   `cjc_offset=0.0`
 - **LM34 sensor** -> `cjc_source="AIN1"`, `cjc_slope=55.56`, `cjc_offset=255.37`
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Digital Input ([`DI`](https://support.labjack.com/docs/13-0-digital-i-o-t-series-datasheet))</Text.Text>
 
 Reads digital state (0 or 1) from a specified digital I/O line.
@@ -94,7 +95,7 @@ Reads digital state (0 or 1) from a specified digital I/O line.
 | `channel` | number | Yes      | -       | Synnax channel key                   |
 | `port`    | string | Yes      | -       | Port location (e.g., `DIO4`, `FIO5`) |
 
-</Details.ChannelType>
+</ChannelType>
 
 <Divider.Divider x />
 
@@ -123,7 +124,7 @@ Reads digital state (0 or 1) from a specified digital I/O line.
   </Fragment>
   <Fragment slot="python">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -202,8 +203,8 @@ with task.run():
             print(frame)
 ```
 
-</Details.Details>
-<Details.Details>
+</Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -230,12 +231,12 @@ task.config.channels[2].port = "DIO5"
 client.tasks.configure(task)
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -326,9 +327,9 @@ await task.executeCommandSync("stop");
 await streamer.close();
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -362,7 +363,7 @@ await client.tasks.create({
 });
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
 </Client.Tabs>

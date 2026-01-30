@@ -3,11 +3,12 @@ title: "Version 0.32 Release Notes"
 ---
 
 import { Image } from "@/components/media/Media";
-import { Diagram, Releases } from "@/components";
+import Diagram from "@/components/diagram/Diagram.astro";
+import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Releases.Release
+<Release
 version="0.32.0"
 date="Oct 9, 2024"
 title="Multi-Device NI Analog Read Tasks"
@@ -35,4 +36,4 @@ device for each channel.
 This release does **not** introduce any breaking changes. Previous NI analog read tasks
 will be migrated to the new format automatically.
 
-</Releases.Release>
+</Release>

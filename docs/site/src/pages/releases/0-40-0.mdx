@@ -3,13 +3,14 @@ title: "Version 0.40 Release Notes"
 ---
 
 import { Image, Video } from "@/components/media/Media";
-import { Diagram, Releases } from "@/components";
+import Diagram from "@/components/diagram/Diagram.astro";
+import Release from "@/components/releases/Release.astro";
 import LabJack from "@/pages/releases/LabJack.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Note } from "@synnaxlabs/pluto";
 export const components = mdxOverrides;
 
-<Releases.Release
+<Release
     version="0.40.0"
     date="April 1, 2025"
     title="Driver and Embedded Control Sequence Improvements"
@@ -58,4 +59,4 @@ on new Drivers.
 - Added the [`set_authority`](/reference/control/embedded/reference#control-authority)
   method to the embedded control sequence editor code completion.
 
-</Releases.Release>
+</Release>

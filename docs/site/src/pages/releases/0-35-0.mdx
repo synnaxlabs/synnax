@@ -3,19 +3,20 @@ title: "Version 0.35 Release Notes"
 ---
 
 import { Image, Video } from "@/components/media/Media";
-import { Diagram, Releases } from "@/components";
+import Release from "@/components/releases/Release.astro";
+import Diagram from "@/components/diagram/Diagram.astro";
 import LabJack from "@/pages/releases/LabJack.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Releases.Release
+<Release
     version="0.35.0"
     date="Nov 25, 2024"
     title="Table Component"
     breakingChanges
 >
 
-<Diagram.Diagram style="height: 300px" preview>
+<Diagram style="height: 300px" preview>
   <Image
     client:only="react"
     id="console/tables/thumbnail"
@@ -29,7 +30,7 @@ export const components = mdxOverrides;
       boxShadow: "-1rem -1rem 1rem 3px var(--pluto-gray-l1-10)",
     }}
   />
-</Diagram.Diagram>
+</Diagram>
 
 Synnax version 0.35.0 introduces a new table component, fixes a few issues with the
 recently released LabJack driver, makes several improvements to schematic editing, and
@@ -121,4 +122,4 @@ your schematic.
 While this release does **not** introduce any backwards incompatible changes, the
 updated label alignment system may cause the edges of existing schematics to shift.
 
-</Releases.Release>
+</Release>

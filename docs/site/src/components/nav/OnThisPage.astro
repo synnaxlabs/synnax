@@ -33,9 +33,11 @@ const props = Astro.props;
         top: 22rem;
         width: 235px;
         align-self: flex-start;
+        max-height: calc(100vh - 26rem);
 
         .on-this-page__content {
-            max-height: calc(100vh - 28rem);
+            flex: 1;
+            min-height: 0;
             overflow-x: hidden;
             overflow-y: auto;
         }

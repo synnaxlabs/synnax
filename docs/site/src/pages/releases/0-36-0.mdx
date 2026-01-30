@@ -3,12 +3,13 @@ title: "Version 0.36 Release Notes"
 ---
 
 import { Image, Video } from "@/components/media/Media";
-import { Diagram, Releases } from "@/components";
+import Diagram from "@/components/diagram/Diagram.astro";
+import Release from "@/components/releases/Release.astro";
 import LabJack from "@/pages/releases/LabJack.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Releases.Release
+<Release
     version="0.36.0"
     date="Dec 16, 2024"
     title="Line Plot Annotation Tool"
@@ -80,4 +81,4 @@ Bug Fixes:
 - Close windows on empty workspace.
 - Fix error when creating a channel that doesn't exist.
 
-</Releases.Release>
+</Release>

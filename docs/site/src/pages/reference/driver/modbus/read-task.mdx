@@ -11,7 +11,8 @@ prevURL: "/reference/driver/modbus/connect-server"
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import { Details } from "@/components";
+import Details from "@/components/details/Details.astro";
+import ChannelType from "@/components/details/ChannelType.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -37,7 +38,7 @@ For task lifecycle management, see the
 
 ## Register Types Reference
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding Register Input ([`holding_register_input`](https://www.modbustools.com/modbus.html#function03))</Text.Text>
 
 Reads from 16-bit read/write registers (Function Code 03). Typically used for
@@ -56,9 +57,9 @@ configuration parameters and analog outputs that can also be read back.
 - `int16`/`uint16`: 1 register (2 bytes)
 - `int32`/`uint32`/`float32`: 2 registers (4 bytes)
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Input Register ([`register_input`](https://www.modbustools.com/modbus.html#function04))</Text.Text>
 
 Reads from 16-bit read-only registers (Function Code 04). Typically used for analog
@@ -77,9 +78,9 @@ sensor values like temperature, pressure, or flow.
 - `int16`/`uint16`: 1 register (2 bytes)
 - `int32`/`uint32`/`float32`: 2 registers (4 bytes)
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Coil Input ([`coil_input`](https://www.modbustools.com/modbus.html#function01))</Text.Text>
 
 Reads from 1-bit read/write coils (Function Code 01). Typically used for discrete output
@@ -92,9 +93,9 @@ states that can be read back (e.g., relay states, valve positions).
 
 **Data Type:** Always boolean (0/1)
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Discrete Input ([`discrete_input`](https://www.modbustools.com/modbus.html#function02))</Text.Text>
 
 Reads from 1-bit read-only discrete inputs (Function Code 02). Typically used for binary
@@ -107,7 +108,7 @@ sensor inputs (e.g., limit switches, proximity sensors).
 
 **Data Type:** Always boolean (0/1)
 
-</Details.ChannelType>
+</ChannelType>
 
 <Divider.Divider x />
 
@@ -138,7 +139,7 @@ sensor inputs (e.g., limit switches, proximity sensors).
   </Fragment>
   <Fragment slot="python">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -204,9 +205,9 @@ with task.run():
             print(frame)
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -230,12 +231,12 @@ task.config.channels[1].data_type = "uint16"
 client.tasks.configure(task)
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -310,9 +311,9 @@ await task.executeCommandSync("stop");
 await streamer.close();
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -343,7 +344,7 @@ await client.tasks.create({
 });
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
 </Client.Tabs>

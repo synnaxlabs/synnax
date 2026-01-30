@@ -10,7 +10,8 @@ import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video } from "@/components/media/Media";
 import { Tabs } from "@/components/tabs/Tabs";
 import { Fragment } from "react";
-import { Client, Details } from "@/components";
+import { Client } from "@/components";
+import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -119,7 +120,7 @@ executing, but the configuration will remain saved.
   </Fragment>
   <Fragment slot="python">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Running a task</Text.Text>
 
 ```python
@@ -148,9 +149,9 @@ task.start()
 # task.stop()
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Details /> List all tasks and retrieve by name</Text.Text>
 
 ```python
@@ -182,9 +183,9 @@ analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
 
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Copy and edit a task</Text.Text>
 
 ```python
@@ -214,9 +215,9 @@ client.tasks.configure(copied_task)
 
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Close /> Stop and delete task</Text.Text>
 
 ```python
@@ -234,12 +235,12 @@ task.stop()
 client.tasks.delete(task.key)
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Running a task</Text.Text>
 
 ```typescript
@@ -274,9 +275,9 @@ await task.start();
 // await task.stop();
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Details /> List all tasks and retrieve by name</Text.Text>
 
 ```typescript
@@ -308,9 +309,9 @@ const analogReadTasks = allTasks.filter((t) => t.type === "ni_analog_read");
 //   opc_read, opc_write,
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Copy and edit a task</Text.Text>
 
 ```typescript
@@ -341,9 +342,9 @@ await client.tasks.create({
 });
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Close /> Stop and delete task</Text.Text>
 
 ```typescript
@@ -361,7 +362,7 @@ await task.stop();
 await client.tasks.delete(task.key);
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
 </Client.Tabs>

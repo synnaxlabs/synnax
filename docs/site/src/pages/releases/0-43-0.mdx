@@ -3,13 +3,13 @@ title: "Version 0.43 Release Notes"
 ---
 
 import { Image, Video } from "@/components/media/Media";
-import { Releases } from "@/components";
+import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/pluto";
 
 export const components = mdxOverrides;
 
-<Releases.Release
+<Release
     version="0.43.0"
     date="June 13, 2025"
     title="Maintenance & Minor Features"
@@ -62,4 +62,4 @@ edit mode.
 - Fixed the appearance of the OPC UA connect server modal.
 - Allowed for placing labels in the center of tanks.
 
-</Releases.Release>
+</Release>

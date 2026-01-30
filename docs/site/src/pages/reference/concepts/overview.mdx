@@ -8,7 +8,7 @@ nextURL: "/reference/concepts/clusters-and-nodes"
 
 import { Image } from "@/components/media/Media";
 import { Divider, Note } from "@synnaxlabs/pluto";
-import { Diagram } from "@/components";
+import Diagram from "@/components/diagram/Diagram.astro";
 
 Synnax is a streaming time-series database designed to acquire, store, and transmit
 real-time data from hardware systems. It scales horizontally, and can be deployed on
@@ -55,14 +55,14 @@ hardware, samples are most commonly numeric sensor readings, such as temperature
 pressure. Samples can also be actuator commands, status codes, or any other strongly
 typed value.
 
-<Diagram.Diagram>
+<Diagram>
   <Image
     client:only="react"
     id="concepts/overview/sample"
     extension="svg"
     themed={false}
   />
-</Diagram.Diagram>
+</Diagram>
 
 ### Channels
 
@@ -80,14 +80,14 @@ control.
 Combined data storage and streaming is a key feature of Synnax, enabling many powerful
 workflows that would otherwise require multiple systems to implement.
 
-<Diagram.Diagram>
+<Diagram>
   <Image
     client:only="react"
     id="concepts/overview/channel"
     extension="svg"
     themed={false}
   />
-</Diagram.Diagram>
+</Diagram>
 
 <Note.Note variant="info">
   Channels are comparable to tags in a time-series database like
@@ -109,14 +109,14 @@ information like calibration data, test parameters, and procedures. In manufactu
 monitoring, ranges can be used to label anomalies, identify maintenance periods, or
 annotate automated control actions.
 
-<Diagram.Diagram>
+<Diagram>
   <Image
     client:only="react"
     id="concepts/overview/range"
     extension="svg"
     themed={false}
   />
-</Diagram.Diagram>
+</Diagram>
 
 ### Series
 
@@ -125,14 +125,14 @@ storing and transmitting actual samples. A series is comparable to a list or arr
 other programming languages. When reading or writing data to Synnax, you'll frequently
 work with channel data as a collection of one or more series.
 
-<Diagram.Diagram>
+<Diagram>
   <Image
     client:only="react"
     id="concepts/overview/series"
     extension="svg"
     themed={false}
   />
-</Diagram.Diagram>
+</Diagram>
 
 ### Frames
 
@@ -142,14 +142,14 @@ identified by a channel, holding one or more series for that channel. Frames are
 fundamental unit of data transfer within Synnax, and are very useful for effectively
 working with data from multiple channels at once.
 
-<Diagram.Diagram>
+<Diagram>
   <Image
     client:only="react"
     id="concepts/overview/frame"
     extension="svg"
     themed={false}
   />
-</Diagram.Diagram>
+</Diagram>
 
 <Divider.Divider x />
 

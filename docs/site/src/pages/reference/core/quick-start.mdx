@@ -10,7 +10,10 @@ platforms: ["Linux", "Windows", "macOS", "Docker"]
 
 import { Flex, Button, Note, Icon } from "@synnaxlabs/pluto";
 
-import { Deploy, Platform, Core } from "@/components";
+import { Platform } from "@/components";
+import DownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
+import MoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
+import WindowsDownloadButton from "@/components/core/WindowsDownloadButton.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -72,11 +75,11 @@ To stop the Core, simply press `Ctrl+C` in the terminal.
 
 To start a Core on Linux, first download the latest Synnax binary by running:
 
-<Deploy.DownloadURL os="linux" />
+<DownloadURL os="linux" />
 
 Then, move the binary to `/usr/local/bin`:
 
-<Deploy.MoveCommand os="linux" />
+<MoveCommand os="linux" />
 
 Next, give execution permissions to the binary:
 
@@ -133,11 +136,11 @@ To stop the Core, simply press `Ctrl+C` in the terminal.
 
 To start a Core on macOS, first download the latest Synnax binary by running:
 
-<Deploy.DownloadURL os="macos" />
+<DownloadURL os="macos" />
 
 Next, move the binary to `usr/local/bin`:
 
-<Deploy.MoveCommand os="macos" />
+<MoveCommand os="macos" />
 
 Then, give execution permissions to the binary:
 
@@ -195,7 +198,7 @@ To stop the Core, simply press `Ctrl+C` in the terminal.
 <br />
 <br />
 <Flex.Box direction="y" justify="center" align="center">
-  <Core.WindowsDownloadButton />
+  <WindowsDownloadButton />
   <small>
     Releases for other operating systems and older versions can be found on the
     <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.

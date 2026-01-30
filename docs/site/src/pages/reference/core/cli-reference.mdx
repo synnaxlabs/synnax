@@ -9,7 +9,8 @@ prevURL: "/reference/core/requirements"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import { Deploy, Table, Tabs } from "@/components";
+import { Table, Tabs } from "@/components";
+import VersionOutput from "@/components/deploy/SynnaxVersionOutput.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -403,7 +404,7 @@ synnax version
 
 You'll see output similar to the following:
 
-<Deploy.VersionOutput />
+<VersionOutput />
 
 ### Flags
 

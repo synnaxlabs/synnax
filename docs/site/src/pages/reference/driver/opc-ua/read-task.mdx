@@ -11,7 +11,8 @@ prevURL: "/reference/driver/opc-ua/connect-server"
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import { Details } from "@/components";
+import Details from "@/components/details/Details.astro";
+import ChannelType from "@/components/details/ChannelType.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -45,7 +46,7 @@ The task's `array_mode` setting determines how all channels are read. When
 `array_mode=false`, channels are read individually at `stream_rate`. When
 `array_mode=true`, all channels read `array_size` samples in bulk.
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Value /> Standard Mode (`array_mode=false`)</Text.Text>
 
 Reads scalar values from an OPC UA node at the specified sample rate. Suitable for most
@@ -63,9 +64,9 @@ applications with standard data rates.
 - GUID: `ns=2;g=12345678-1234-1234-1234-123456789012`
 - Opaque: `ns=2;b=aGVsbG8=`
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Array /> Array Mode (`array_mode=true`)</Text.Text>
 
 Reads array data from an OPC UA node in bulk. Designed for high-frequency data (&gt;500
@@ -90,9 +91,9 @@ Hz) where the server writes samples into arrays.
   reads
 - **Undersampling** occurs when the server writes faster than Synnax reads
 
-</Details.ChannelType>
+</ChannelType>
 
-<Details.ChannelType>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Time /> Server Timestamp Read</Text.Text>
 
 Reads timestamps directly from the OPC UA server for high-precision timing instead of
@@ -106,7 +107,7 @@ using Synnax-generated timestamps.
 **Note** -> If timestamp channels are not added to the task, Synnax automatically
 generates timestamps with ~ 100μs precision using software timing.
 
-</Details.ChannelType>
+</ChannelType>
 
 <Divider.Divider x />
 
@@ -137,7 +138,7 @@ generates timestamps with ~ 100μs precision using software timing.
   </Fragment>
   <Fragment slot="python">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -201,9 +202,9 @@ with task.run():
             print(frame)
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -225,12 +226,12 @@ task.config.channels[1].node_id = "ns=2;s=PressureSensor2"
 client.tasks.configure(task)
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -302,9 +303,9 @@ await task.executeCommandSync("stop");
 await streamer.close();
 ```
 
-</Details.Details>
+</Details>
 
-<Details.Details>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -333,7 +334,7 @@ await client.tasks.create({
 });
 ```
 
-</Details.Details>
+</Details>
 
   </Fragment>
 </Client.Tabs>

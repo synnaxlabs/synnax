@@ -3,12 +3,13 @@ title: "Version 0.34 Release Notes"
 ---
 
 import { Image } from "@/components/media/Media";
-import { Diagram, Releases } from "@/components";
+import Diagram from "@/components/diagram/Diagram.astro";
+import Release from "@/components/releases/Release.astro";
 import LabJack from "@/pages/releases/LabJack.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Releases.Release
+<Release
     version="0.34.0"
     date="Nov 13, 2024"
     title="LabJack Support"
@@ -45,4 +46,4 @@ feature allows you to zero out the current value of a read task.
 
 This release does **not** introduce any breaking changes.
 
-</Releases.Release>
+</Release>

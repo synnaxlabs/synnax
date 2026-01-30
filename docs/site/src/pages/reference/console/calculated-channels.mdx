@@ -10,7 +10,9 @@ nextURL: "/reference/console/workspaces"
 
 import { Divider, Note } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/media/Media";
-import { Diagram, Code, Table } from "@/components";
+import Diagram from "@/components/diagram/Diagram.astro";
+import CodeBlock from "@/components/code/Block.astro";
+import { Table } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -214,13 +216,13 @@ averages.
 
 Operations process the expression result before writing to the output channel:
 
-<Code.Block hideCopyButton>
+<CodeBlock hideCopyButton>
   <code>
     {`Expression Result → Operation → Output Channel
                        ↑
                   Reset Channel`}
   </code>
-</Code.Block>
+</CodeBlock>
 
 The operation maintains internal state across executions, outputting a single aggregated
 value rather than processing individual samples.

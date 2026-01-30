@@ -3,13 +3,13 @@ title: "Version 0.44 Release Notes"
 ---
 
 import { Image, Video } from "@/components/media/Media";
-import { Releases } from "@/components";
+import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider, Flex } from "@synnaxlabs/pluto";
 
 export const components = mdxOverrides;
 
-<Releases.Release
+<Release
     version="0.44.0"
     date="Aug 11, 2025"
     title="Embedded Console"
@@ -126,4 +126,4 @@ console.log(await client.readLatest(["daq_time", "ox_pt_1"], 1));
   modes when closed and re-opened.
 - Added drag and drop importing and exporting of tasks.
 
-</Releases.Release>
+</Release>

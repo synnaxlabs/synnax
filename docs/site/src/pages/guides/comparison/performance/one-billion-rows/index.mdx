@@ -6,12 +6,14 @@ published: "Oct 15, 2024"
 ---
 
 import { Divider, Note, Text, Flex, Icon } from "@synnaxlabs/pluto";
-import { Diagram, Text as TextComponent, Table, Tabs, Details } from "@/components";
+import { Text as TextComponent, Table, Tabs } from "@/components";
+import Details from "@/components/details/Details.astro";
+import Diagram from "@/components/diagram/Diagram.astro";
 import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Diagram.Diagram style={{ padding: "20rem" }} variant="boxes">
+<Diagram style={{ padding: "20rem" }} variant="boxes">
   <svg
     width="592"
     height="100"
@@ -72,7 +74,7 @@ export const components = mdxOverrides;
       </linearGradient>
     </defs>
   </svg>
-</Diagram.Diagram>
+</Diagram>
 
 In this article we'll compare the performance of Synnax to two other leading time-series
 databases: [TimescaleDB](https://www.timescale.com/) and
@@ -345,7 +347,7 @@ We'll also measure the average memory and CPU usage of each database during the 
   <figcaption>Throughput Comparison: Synnax dramatically outperforms alternatives at large batch sizes.</figcaption>
 </figure>
 
-<Details.Details>
+<Details>
   {/* prettier-ignore */}
   <Text.Text slot="summary" level="small" size="medium" weight={500}><Icon.Table />Tabulated Data - Throughput in Samples/s</Text.Text>
   <table>
@@ -412,7 +414,7 @@ We'll also measure the average memory and CPU usage of each database during the 
       </tr>
     </tbody>
   </table>
-</Details.Details>
+</Details>
 
 At 10 samples per batch, all three databases perform comparably. As the batch size
 increases, Synnax's performance increases dramatically, outpacing the capabilities of
@@ -429,7 +431,7 @@ the other two databases.
   {/* prettier-ignore */}
   <figcaption>Memory Comparison: Synnax uses more memory than alternatives. Timescale balloons in memory usage at large batch sizes.</figcaption>
 </figure>
-<Details.Details>
+<Details>
 <div slot="summary">
 <Text.Text level="small" size="medium" weight={500}><Icon.Table />Tabulated Data - Memory usage in GB</Text.Text>
 </div>
@@ -521,7 +523,7 @@ the other two databases.
 
   </tbody>
 </table>
-</Details.Details>
+</Details>
 
 ### CPU Usage
 
@@ -535,7 +537,7 @@ the other two databases.
   <figcaption>CPU Usage: Synnax uses more CPU at small batch sizes, and comparable CPU at large batch sizes.</figcaption>
 </figure>
 
-<Details.Details>
+<Details>
   {/* prettier-ignore */}
   <Text.Text slot="summary" level="small" size="medium" weight={500}><Icon.Table  />Tabulated Data - CPU Usage</Text.Text>
   <table>
@@ -625,7 +627,7 @@ the other two databases.
     </tbody>
 
   </table>
-</Details.Details>
+</Details>
 
 <Divider.Divider x />
 
@@ -740,7 +742,7 @@ channels we insert data for.
   <figcaption>Throughput: Synnax outperforms alternatives at low channel counts, but starts to lose ground as the channel count increases.</figcaption>
 </figure>
 
-<Details.Details>
+<Details>
   <div slot="summary">
     <Text.Text level="small" size="medium" weight={500}><Icon.Table  />Tabulated Data - Throughput in Samples/s</Text.Text>
   </div>
@@ -836,7 +838,7 @@ channels we insert data for.
 
   </tbody>
 </table>
-</Details.Details>
+</Details>
 
 At low channel counts, Synnax outperforms both Timescale and Influx by a wide margin. As
 the counts increase past 1,000, Synnax's performance begins to degrade, while Timescale
@@ -854,7 +856,7 @@ and Influx remain relatively stable.
   <figcaption>Memory Usage: Synnax uses more memory than alternatives.</figcaption>
 </figure>
 
-<Details.Details>
+<Details>
   <div slot="summary">
     <Text.Text level="small" size="medium" weight={500}><Icon.Table  />Tabulated Data - Memory Usage in GB</Text.Text>
   </div>
@@ -951,7 +953,7 @@ and Influx remain relatively stable.
   </tbody>
 </table>
 
-</Details.Details>
+</Details>
 
 ### CPU Usage
 
@@ -965,7 +967,7 @@ and Influx remain relatively stable.
   <figcaption>CPU Usage: Synnax consistently uses more CPU than alternatives.</figcaption>
 </figure>
 
-<Details.Details>
+<Details>
   {/* prettier-ignore */}
   <Text.Text slot="summary" level="small" size="medium" weight={500}>    <Icon.Table  />    Tabulated Data - CPU Usage  </Text.Text>
   <table>
@@ -1032,7 +1034,7 @@ and Influx remain relatively stable.
       </tr>
     </tbody>
   </table>
-</Details.Details>
+</Details>
 
 <Divider.Divider x />
 

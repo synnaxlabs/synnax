@@ -3,25 +3,26 @@ title: "Version 0.39 Release Notes"
 ---
 
 import { Image, Video } from "@/components/media/Media";
-import { Diagram, Releases } from "@/components";
+import Release from "@/components/releases/Release.astro";
+import Diagram from "@/components/diagram/Diagram.astro";
 import LabJack from "@/pages/releases/LabJack.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Note } from "@synnaxlabs/pluto";
 export const components = mdxOverrides;
 
-<Releases.Release
+<Release
     version="0.39.0"
     date="Mar 18, 2025"
     title="Embedded Control Sequences"
     breakingChanges
 >
-<Diagram.Diagram style="height: 300px" preview>
+<Diagram style="height: 300px" preview>
   <Image
     client:only="react"
     id="control/embedded/thumbnail"
     themed={false}
   />
-</Diagram.Diagram>
+</Diagram>
 
 Synnax v0.39.0 introduces embedded control sequences. Write and deploy tightly timed
 control loops directly within the Synnax Console. We've done major refactoring work on
@@ -82,4 +83,4 @@ to make them easier to use.
 - Fixed an issue where the theme would not change automatically when the system theme
   changes.
 
-</Releases.Release>
+</Release>

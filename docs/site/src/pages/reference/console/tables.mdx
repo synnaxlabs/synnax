@@ -11,11 +11,11 @@ nextURL: "/reference/console/users"
 import { Divider, Note } from "@synnaxlabs/pluto";
 
 import { Video, Image } from "@/components/media/Media";
-import { Diagram } from "@/components";
+import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Diagram.Diagram style="height: 300px" preview>
+<Diagram style="height: 300px" preview>
   <Image
     client:only="react"
     id="console/tables/thumbnail"
@@ -29,7 +29,7 @@ export const components = mdxOverrides;
       boxShadow: "-1rem -1rem 1rem 3px var(--pluto-gray-l1-15)",
     }}
   />
-</Diagram.Diagram>
+</Diagram>
 
 Tables are used to view live telemetry in a tabular format. They can be used for
 creating dashboards, viewing data from many different channels, and conditionally

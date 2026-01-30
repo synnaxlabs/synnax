@@ -4,23 +4,24 @@ title: "Version 0.38 Release Notes"
 
 import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import { Diagram, Releases } from "@/components";
+import Release from "@/components/releases/Release.astro";
+import Diagram from "@/components/diagram/Diagram.astro";
 
 export const components = mdxOverrides;
 
-<Releases.Release
+<Release
     version="0.38.0"
     date="Jan 31, 2025"
     title="Calculated Channels"
 >
 
-<Diagram.Diagram style="height: 300px" preview>
+<Diagram style="height: 300px" preview>
   <Image
     client:only="react"
     id="console/calculated-channels/thumbnail"
     themed={false}
   />
-</Diagram.Diagram>
+</Diagram>
 
 Synnax v0.38.0 is our first release of 2025, and contains a large number of new features
 including beta calculated channels, workspace importing, and more.
@@ -83,4 +84,4 @@ sy login
 - Fixed an issue where the python client examples were not working.
 - Fixed an issue where deep linking was not working on Windows.
 
-</Releases.Release>
+</Release>

@@ -11,13 +11,13 @@ nextURL: "/reference/console/line-plots"
 
 import { Text, Divider, Triggers, Icon } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/media/Media";
-import { Diagram } from "@/components";
+import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Diagram.Diagram preview>
+<Diagram preview>
   <Image client:only="react" id="console/ranges/range-3" themed={false} />
-</Diagram.Diagram>
+</Diagram>
 
 [Ranges](/reference/concepts/ranges) are the primary means for organizing and accessing
 the data stored in a Synnax Core. They identify and name a specific time interval, and
