@@ -8,9 +8,9 @@ prev: "Clusters and Nodes"
 prevURL: "/reference/concepts/clusters-and-nodes"
 ---
 
-import { Image } from "@/components/Media";
+import { Image } from "@/components/media/Media";
 import { Divider, Icon, Text } from "@synnaxlabs/pluto";
-import Diagram from "@/components/Diagram.astro";
+import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -104,19 +104,19 @@ All channel types have a common set of fields. There may be slight variations in
 naming conventions between the various Synnax client libraries, but the core concepts
 remain the same.
 
-### Key
+#### Key
 
 A channel's key is a single, 32-bit number that is automatically assigned by Synnax when
 the channel is created. This key uniquely identifies the channel within the database,
 and cannot be edited.
 
-### Name
+#### Name
 
 A human-readable name for the channel. This is the most common way to search for and
 reference a channel. Synnax does not prevent duplicate names, although it is highly
 recommended that you keep them unique.
 
-### Data Type
+#### Data Type
 
 All channel's must have a consistent data type. Index channels must always have a data
 type of `timestamp`, while data channels can have any of the following types:
@@ -145,25 +145,25 @@ length data types:
 | `json`    | JSON object                                                                   |
 | `uuid`    | [Universally Unique IDentifiers](https://www.rfc-editor.org/rfc/rfc9562.html) |
 
-### Is Index
+#### Is Index
 
 A boolean field indicating whether the channel should be treated as an index channel.
 This field defaults to `false`, and should only be set to `true` for index channels. All
 index channels have a data type of `timestamp`.
 
-### Virtual
+#### Virtual
 
 A boolean field indicating whether the channel is virtual. Virtual channels cannot be
 indexes. This field defaults to `false`, and should only be set to `true` for virtual
 channels.
 
-### Index
+#### Index
 
 This field is only used for data channels, and specifies the key of the index channel
 associated with the data channel. This field will be ignored for index and virtual
 channels.
 
-### Expression
+#### Expression
 
 The expression field is only used for
 [calculated channels](/reference/console/calculated-channels). This expression is an Arc

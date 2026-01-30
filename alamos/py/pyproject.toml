@@ -11,7 +11,13 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["black>=26.1.0,<27", "isort>=7.0.0,<8", "mypy>=1.19.1,<2", "pytest>=9.0.2,<10"]
+dev = [
+    "black>=26.1.0,<27",
+    "isort>=7.0.0,<8",
+    "mypy>=1.19.1,<2",
+    "pytest>=9.0.2,<10",
+    "pytest-cov>=7.0.0,<8",
+]
 
 [tool.isort]
 profile = "black"

@@ -1,5 +1,5 @@
 ---
-import CodeI from "@/components/code/CodeI.astro";
+import Inline from "@/components/code/Inline.astro";
 import { fetchVersion } from "@/util/fetchVersion";
 const { os } = Astro.props;
 
@@ -15,7 +15,7 @@ if (os === "windows")
     cmd = `Invoke-WebRequest -Uri "https://${url}" -OutFile "synnax-driver.exe"`;
 ---
 
-<CodeI
+<Inline
     lang={os === "windows" ? "powershell" : "bash"}
     theme="css-variables"
     code={cmd}
