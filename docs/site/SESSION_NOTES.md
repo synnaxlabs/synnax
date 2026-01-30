@@ -183,7 +183,8 @@ This was a pre-existing bug, not something we broke during refactoring.
 
 #### Phase 4 - Namespace Pattern Applied
 
-1. **Created namespace pattern** (`index.ts` + `external.ts`) for folders with TypeScript exports:
+1. **Created namespace pattern** (`index.ts` + `external.ts`) for folders with
+   TypeScript exports:
    - `article/` - Breadcrumb component
    - `client/` - Already had pattern, verified
    - `code/` - codeUtil exports
@@ -220,6 +221,7 @@ This was a pre-existing bug, not something we broke during refactoring.
 ### Folders WITHOUT namespace files (Astro-only, imported directly):
 
 These folders only contain Astro components and don't benefit from namespace pattern:
+
 - `core/` - WindowsDownloadButton.astro
 - `deploy/` - Synnax download/version Astro components
 - `details/` - Details, ExampleDetails, ChannelTypeDetails Astro components
@@ -321,8 +323,8 @@ components/
 
 ### Issues encountered:
 
-1. **Empty external.ts files** - Initially created empty external.ts files for Astro-only
-   folders with `export {}`. This was useless - removed them entirely.
+1. **Empty external.ts files** - Initially created empty external.ts files for
+   Astro-only folders with `export {}`. This was useless - removed them entirely.
 
 2. **Astro components can't be re-exported from TS** - Even with `astro check`, you
    can't `export * from "Component.astro"`. Astro components must be imported directly.
@@ -332,8 +334,8 @@ components/
 1. **Namespace pattern only for TS exports** - Don't create index.ts/external.ts for
    folders that only contain Astro components. They provide no value.
 
-2. **Consolidate related components** - Merging PageNav + OnThisPage into `nav/` was
-   the right call. Both are navigation-related.
+2. **Consolidate related components** - Merging PageNav + OnThisPage into `nav/` was the
+   right call. Both are navigation-related.
 
 3. **Rename during move** - When moving files to new folders, good time to rename
    (PageNav → Page, PageNavMobile → PageMobile).
@@ -387,38 +389,40 @@ components/
    - `Table` - `Table.Table` (Astro component)
    - `Text` - `Text.Step`
    - `Driver` - `Driver.DownloadURL`
-   - `Releases` - `Releases.Release`, `Releases.List`, `Releases.Tile`, `Releases.PolkaDot`
+   - `Releases` - `Releases.Release`, `Releases.List`, `Releases.Tile`,
+     `Releases.PolkaDot`
    - `Pluto` - `Pluto.ComponentFrame`
 
 #### Phase 6 - MDX Standardization
 
 1. **Converted ALL direct Astro imports to namespace pattern** across 70+ MDX files
 
-2. **Import patterns converted:**
-   | Before | After |
-   |--------|-------|
-   | `import Table from "@/components/table/Table.astro"` | `import { Table } from "@/components"` |
-   | `import Diagram from "@/components/Diagram.astro"` | `import { Diagram } from "@/components"` |
-   | `import Rule from "@/components/Rule.astro"` | `import { Rule } from "@/components"` |
-   | `import StepText from "@/components/StepText.astro"` | `import { Text } from "@/components"` |
-   | `import Release from "@/components/releases/Release.astro"` | `import { Releases } from "@/components"` |
-   | `import SynnaxDownloadURL from "@/components/deploy/..."` | `import { Deploy } from "@/components"` |
-   | `import WindowsDownloadButton from "@/components/core/..."` | `import { Core } from "@/components"` |
-   | `import Details from "@/components/details/Details.astro"` | `import { Details } from "@/components"` |
-   | `import ExampleDetails from "@/components/details/..."` | `import { Details } from "@/components"` |
-   | `import ComponentFrame from "@/components/pluto/..."` | `import { Pluto } from "@/components"` |
+2. **Import patterns converted:** | Before | After | |--------|-------| |
+   `import Table from "@/components/table/Table.astro"` |
+   `import { Table } from "@/components"` | |
+   `import Diagram from "@/components/Diagram.astro"` |
+   `import { Diagram } from "@/components"` | |
+   `import Rule from "@/components/Rule.astro"` | `import { Rule } from "@/components"`
+   | | `import StepText from "@/components/StepText.astro"` |
+   `import { Text } from "@/components"` | |
+   `import Release from "@/components/releases/Release.astro"` |
+   `import { Releases } from "@/components"` | |
+   `import SynnaxDownloadURL from "@/components/deploy/..."` |
+   `import { Deploy } from "@/components"` | |
+   `import WindowsDownloadButton from "@/components/core/..."` |
+   `import { Core } from "@/components"` | |
+   `import Details from "@/components/details/Details.astro"` |
+   `import { Details } from "@/components"` | |
+   `import ExampleDetails from "@/components/details/..."` |
+   `import { Details } from "@/components"` | |
+   `import ComponentFrame from "@/components/pluto/..."` |
+   `import { Pluto } from "@/components"` |
 
-3. **Usage patterns converted:**
-   | Before | After |
-   |--------|-------|
-   | `<Table>` | `<Table.Table>` |
-   | `<Diagram>` | `<Diagram.Diagram>` |
-   | `<Rule>` | `<Rule.Rule>` |
-   | `<StepText>` | `<Text.Step>` |
-   | `<Release>` | `<Releases.Release>` |
-   | `<SynnaxDownloadURL>` | `<Deploy.DownloadURL>` |
-   | `<ExampleDetails>` | `<Details.Example>` |
-   | `<ChannelTypeDetails>` | `<Details.ChannelType>` |
+3. **Usage patterns converted:** | Before | After | |--------|-------| | `<Table>` |
+   `<Table.Table>` | | `<Diagram>` | `<Diagram.Diagram>` | | `<Rule>` | `<Rule.Rule>` |
+   | `<StepText>` | `<Text.Step>` | | `<Release>` | `<Releases.Release>` | |
+   `<SynnaxDownloadURL>` | `<Deploy.DownloadURL>` | | `<ExampleDetails>` |
+   `<Details.Example>` | | `<ChannelTypeDetails>` | `<Details.ChannelType>` |
 
 ### Final component structure:
 
@@ -468,20 +472,25 @@ components/
 
 ### Key achievement:
 
-**Zero direct `.astro` imports in MDX files** - All components now use the unified namespace pattern:
+**Zero direct `.astro` imports in MDX files** - All components now use the unified
+namespace pattern:
+
 ```typescript
 import { Table, Diagram, Rule, Text, Deploy, Details } from "@/components";
 ```
 
 ### Learnings:
 
-1. **Astro components CAN be re-exported from TS** using `export { default as Name } from "...astro"`
+1. **Astro components CAN be re-exported from TS** using
+   `export { default as Name } from "...astro"`
 
-2. **Namespace.Namespace is acceptable** for main components (e.g., `Diagram.Diagram`, `Rule.Rule`)
+2. **Namespace.Namespace is acceptable** for main components (e.g., `Diagram.Diagram`,
+   `Rule.Rule`)
 
 3. **Avoid redundant naming** - `Details.Example` not `Details.ExampleDetails`
 
-4. **Single import source** - `@/components` is now the single source for all component imports
+4. **Single import source** - `@/components` is now the single source for all component
+   imports
 
 ---
 

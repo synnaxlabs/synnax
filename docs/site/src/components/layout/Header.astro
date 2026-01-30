@@ -20,10 +20,7 @@ const url = Astro.url.pathname;
             <Flex.Box direction="x" align="center" justify="center">
                 <Flex.Box direction="x" gap="small">
                     <Search />
-                    <PageMobile
-                        client:only="react"
-                        currentPage={Astro.url.pathname}
-                    />
+                    <PageMobile client:only="react" currentPage={Astro.url.pathname} />
                 </Flex.Box>
                 <Button.Button
                     className="version-button"

@@ -18,7 +18,7 @@ html {
     /* Mobile: 800px, Small mobile: 600px, Tablet: 1100px */
 
     /* Docs body text - softer than l10 */
-    --docs-body-color: #3F4140;
+    --docs-body-color: #3f4140;
 
     /* Astro code block styling */
     --astro-code-color-text: var(--pluto-text-color);
@@ -67,7 +67,7 @@ html {
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --docs-body-color: #9FA1A0;
+        --docs-body-color: #9fa1a0;
     }
 }
 
@@ -236,4 +236,3 @@ blockquote {
         background-color: var(--pluto-gray-l5);
     }
 }
-

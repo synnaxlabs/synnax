@@ -33,7 +33,10 @@ export interface TableProps {
 }
 
 export const Table = ({ columns, data, highlights = [] }: TableProps): ReactElement => (
-  <div className="styled-scrollbar" style={{ overflowX: "auto", paddingLeft: "2px", paddingBottom: "0.5rem" }}>
+  <div
+    className="styled-scrollbar"
+    style={{ overflowX: "auto", paddingLeft: "2px", paddingBottom: "0.5rem" }}
+  >
     <table>
       <thead>
         <tr>

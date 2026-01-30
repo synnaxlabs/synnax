@@ -16,17 +16,24 @@ const { headings } = Astro.props;
                             Latest updates and improvements to Synnax.
                         </Text.Text>
                         <Flex.Box direction="x" align="center" wrap>
-                            <Text.Text href="https://www.linkedin.com/company/synnaxlabs/">
+                            <Text.Text
+                                href="https://www.linkedin.com/company/synnaxlabs/"
+                            >
                                 Follow us on LinkedIn
                             </Text.Text>
                             <Icon.Circle style={{ color: "var(--pluto-gray-l6)" }} />
-                            <Text.Text href="https://github.com/synnaxlabs/synnax/releases"
+                            <Text.Text
+                                href="https://github.com/synnaxlabs/synnax/releases"
                                 >View releases on GitHub</Text.Text
                             >
                         </Flex.Box>
                     </Flex.Box>
                 </Flex.Box>
-                <Text.Text level="h1" className="latest version full" transition:persist />
+                <Text.Text
+                    level="h1"
+                    className="latest version full"
+                    transition:persist
+                />
             </Flex.Box>
             <slot />
         </Flex.Box>

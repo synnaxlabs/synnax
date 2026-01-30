@@ -106,5 +106,13 @@ export const Image = ({
   let url = `${CDN_ROOT}/${id}`;
   if (themed) url += `-${theme}`;
   url += `.${extension}`;
-  return <img src={url} className={className} loading={loading} decoding={decoding} {...rest} />;
+  return (
+    <img
+      src={url}
+      className={className}
+      loading={loading}
+      decoding={decoding}
+      {...rest}
+    />
+  );
 };

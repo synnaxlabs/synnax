@@ -184,7 +184,11 @@ export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn =
 
 export const useSelection = <K extends record.Key>(): K[] => {
   const { getState, subscribe } = useContext<K>();
-  const res = useSyncExternalStore(subscribe, () => getState().value, () => null);
+  const res = useSyncExternalStore(
+    subscribe,
+    () => getState().value,
+    () => null,
+  );
   return useMemo((): K[] => {
     if (res == null) return [];
     return array.toArray(res);

@@ -58,9 +58,10 @@ const props = Astro.props;
             right: 0;
             width: 2px;
             background: var(--pluto-primary-z);
-            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-                        height 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-                        opacity 0.15s ease;
+            transition:
+                transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                height 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.15s ease;
             pointer-events: none;
         }
 
@@ -73,7 +74,9 @@ const props = Astro.props;
             text-decoration: none;
             font-weight: 400;
             box-shadow: inset -1px 0 0 0 var(--pluto-border-color);
-            transition: color 0.15s ease, font-weight 0.15s ease;
+            transition:
+                color 0.15s ease,
+                font-weight 0.15s ease;
 
             &.depth-3 {
                 padding-left: 4rem;

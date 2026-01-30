@@ -47,7 +47,8 @@ export interface TOCProps {
 
 const useCurrentPage = (initialPage?: string): string => {
   const [currentPage, setCurrentPage] = useState(
-    () => initialPage ?? (typeof window !== "undefined" ? window.location.pathname : "/"),
+    () =>
+      initialPage ?? (typeof window !== "undefined" ? window.location.pathname : "/"),
   );
 
   useEffect(() => {
@@ -62,7 +63,6 @@ const useCurrentPage = (initialPage?: string): string => {
 
   return currentPage;
 };
-
 
 const Item = ({ translate: _, ...props }: Tree.ItemRenderProps<string>) => {
   const { itemKey, index } = props;
@@ -100,12 +100,14 @@ const Item = ({ translate: _, ...props }: Tree.ItemRenderProps<string>) => {
   return (
     <Tree.Item<string, "a">
       {...props}
-      style={{
-        textDecoration: "none",
-        paddingLeft: "2.5rem",
-        paddingRight: "0.5rem",
-        "--pluto-tree-item-offset": `${offset}rem`,
-      } as CSSProperties}
+      style={
+        {
+          textDecoration: "none",
+          paddingLeft: "2.5rem",
+          paddingRight: "0.5rem",
+          "--pluto-tree-item-offset": `${offset}rem`,
+        } as CSSProperties
+      }
       el="a"
       href={item.href}
       useMargin
