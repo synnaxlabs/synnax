@@ -32,10 +32,10 @@ export const List = ({
   // Update indicator position when currentID changes
   useEffect(() => {
     if (!menuRef.current || !currentID) return;
-    const activeItem = menuRef.current.querySelector(
+    const activeItem = menuRef.current.querySelector<HTMLElement>(
       `[data-item-key="${currentID}"]`,
-    ) as HTMLElement | null;
-    if (activeItem) {
+    );
+    if (activeItem != null) {
       setIndicator({
         top: activeItem.offsetTop,
         height: activeItem.offsetHeight,

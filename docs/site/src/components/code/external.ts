@@ -8,5 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export { default as Block } from "@/components/code/Block.astro";
-export { default as Inline } from "@/components/code/Inline.astro";
 export * from "@/components/code/codeUtil";
+export { default as Inline } from "@/components/code/Inline.astro";

@@ -56,10 +56,10 @@ export const OnThisPage = ({
   // Update indicator position when currentID changes
   useEffect(() => {
     if (!menuRef.current || !currentID) return;
-    const activeItem = menuRef.current.querySelector(
+    const activeItem = menuRef.current.querySelector<HTMLElement>(
       `[data-item-key="${currentID}"]`,
-    ) as HTMLElement | null;
-    if (activeItem) {
+    );
+    if (activeItem != null) {
       setIndicator({
         top: activeItem.offsetTop,
         height: activeItem.offsetHeight,
@@ -85,23 +85,18 @@ export const OnThisPage = ({
         }
       }
 
-      if (!topHeading) {
+      if (!topHeading)
         for (const heading of headings) {
           const rect = heading.getBoundingClientRect();
-          if (rect.top < 150) {
-            topHeading = heading;
-          }
+          if (rect.top < 150) topHeading = heading;
         }
-      }
 
       return topHeading?.id || null;
     };
 
     const handleScroll = () => {
       const id = getTopHeading();
-      if (id && id !== ON_THIS_PAGE_ID) {
-        setCurrentID(id);
-      }
+      if (id && id !== ON_THIS_PAGE_ID) setCurrentID(id);
     };
 
     handleScroll();

@@ -7,5 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export type { TableColumn, TableHighlight, TableProps } from "@/components/table/Table";
 export { Table as Data } from "@/components/table/Table";
-export type { TableProps, TableColumn, TableHighlight } from "@/components/table/Table";

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { default as Release } from "@/components/releases/Release.astro";
-export { default as List } from "@/components/releases/List.astro";
-export { default as Tile } from "@/components/releases/Tile.astro";
-export { default as PolkaDot } from "@/components/releases/PolkaDot.astro";
 export * from "@/components/releases/List";
+export { default as List } from "@/components/releases/List.astro";
+export { default as PolkaDot } from "@/components/releases/PolkaDot.astro";
+export { default as Release } from "@/components/releases/Release.astro";
+export { default as Tile } from "@/components/releases/Tile.astro";
