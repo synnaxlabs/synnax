@@ -57,7 +57,11 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
     auto state = std::make_shared<state::State>(state_cfg);
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> node_impls;
-    auto scheduler = std::make_unique<scheduler::Scheduler>(arc::ir::IR{}, node_impls);
+    auto scheduler = std::make_unique<scheduler::Scheduler>(
+        arc::ir::IR{},
+        node_impls,
+        telem::TimeSpan(0)
+    );
 
     Config cfg{
         .mod = {},
