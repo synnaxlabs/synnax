@@ -3,6 +3,7 @@ name: Test - Docs
 on:
   pull_request:
     paths:
+      - .github/actions/test-typescript/**
       - .github/workflows/test.docs.yaml
       - alamos/ts/**
       - client/ts/**
@@ -23,6 +24,7 @@ on:
       - main
       - rc
     paths:
+      - .github/actions/test-typescript/**
       - .github/workflows/test.docs.yaml
       - alamos/ts/**
       - client/ts/**
@@ -51,23 +53,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - name: Test TypeScript
+        uses: ./.github/actions/test-typescript
         with:
-          node-version-file: package.json
-          cache: pnpm
-
-      - name: Install Dependencies
-        run: pnpm install
-
-      - name: Check Types
-        run: pnpm check-types:docs
-
-      - name: Lint
-        run: pnpm lint:docs
+          package: docs
+          test: false
 
       - name: Build
         run: pnpm build:docs
