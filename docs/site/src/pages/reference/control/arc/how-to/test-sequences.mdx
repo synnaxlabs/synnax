@@ -13,9 +13,9 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-Test sequences are ordered procedures that step through stages: pressurize,
-hold, fire, shutdown. Arc sequences handle this naturally with stages,
-transitions, and concurrent monitoring for abort conditions.
+Test sequences are ordered procedures that step through stages: pressurize, hold, fire,
+shutdown. Arc sequences handle this naturally with stages, transitions, and concurrent
+monitoring for abort conditions.
 
 <Divider.Divider x />
 
@@ -43,9 +43,9 @@ sequence main {
 start_cmd => main
 ```
 
-Wire `start_cmd` to a button in Console. When clicked, the sequence moves
-from `idle` to `active`, opens the valve, waits for pressure to reach 500,
-then closes the valve and stops.
+Wire `start_cmd` to a button in Console. When clicked, the sequence moves from `idle` to
+`active`, opens the valve, waits for pressure to reach 500, then closes the valve and
+stops.
 
 <Note.Note variant="info">
 The entry point `start_cmd => main` triggers the sequence when the channel
@@ -91,8 +91,8 @@ The sequence pressurizes to 500 PSI, holds for 30 seconds, then depressurizes.
 
 ## Abort Handling
 
-Real test sequences need abort capability. List abort conditions first in
-each stage (line order determines priority):
+Real test sequences need abort capability. List abort conditions first in each stage
+(line order determines priority):
 
 ```arc
 sequence main {
@@ -138,8 +138,8 @@ start_cmd => main
 emergency_stop => abort
 ```
 
-The `abort` sequence closes all valves and disables actuators. Both the
-automated conditions and the `emergency_stop` channel can trigger it.
+The `abort` sequence closes all valves and disables actuators. Both the automated
+conditions and the `emergency_stop` channel can trigger it.
 
 <Note.Note variant="warning">
 Always put abort conditions before normal operation flows in each stage.
@@ -182,9 +182,8 @@ sequence main {
 }
 ```
 
-The verify stage waits until both pressure readings are in range. If they
-don't reach the required values within 10 seconds, the sequence moves to
-a timeout stage instead.
+The verify stage waits until both pressure readings are in range. If they don't reach
+the required values within 10 seconds, the sequence moves to a timeout stage instead.
 
 <Divider.Divider x />
 
@@ -389,21 +388,20 @@ emergency_stop => abort
 
 ## Sequence Design Tips
 
-**List abort conditions first.** Line order determines priority. Safety
-conditions should always win over normal operations.
+**List abort conditions first.** Line order determines priority. Safety conditions
+should always win over normal operations.
 
-**Use multiple abort thresholds.** A pressure of 600 PSI might be a warning,
-but 700 PSI triggers an immediate abort.
+**Use multiple abort thresholds.** A pressure of 600 PSI might be a warning, but 700 PSI
+triggers an immediate abort.
 
-**Add timeouts.** Sequences that wait indefinitely for conditions can hang.
-Use `wait` to set maximum durations and transition to error stages.
+**Add timeouts.** Sequences that wait indefinitely for conditions can hang. Use `wait`
+to set maximum durations and transition to error stages.
 
-**Keep stages focused.** Each stage should have one primary purpose. Split
-complex operations into multiple stages for clarity and easier debugging.
+**Keep stages focused.** Each stage should have one primary purpose. Split complex
+operations into multiple stages for clarity and easier debugging.
 
-**Monitor continuously.** While waiting for one condition, continue checking
-abort conditions. All flows in a stage run concurrently.
+**Monitor continuously.** While waiting for one condition, continue checking abort
+conditions. All flows in a stage run concurrently.
 
-**Test abort paths.** Simulate abort conditions during development to verify
-the system reaches a safe state. The abort sequence is the most important
-part of your automation.
+**Test abort paths.** Simulate abort conditions during development to verify the system
+reaches a safe state. The abort sequence is the most important part of your automation.

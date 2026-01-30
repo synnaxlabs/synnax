@@ -14,17 +14,17 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 Sequences are Arc's way of building multi-step procedures. A sequence contains ordered
-stages, with only one stage active at a time. When you enter a stage, its flows
-execute; when you leave, they stop.
+stages, with only one stage active at a time. When you enter a stage, its flows execute;
+when you leave, they stop.
 
 This is the most common use case for Arc: test sequences, startup routines, shutdown
 procedures, and any workflow that progresses through distinct phases.
 
 <Note.Note variant="warning">
-**Everything in a stage runs at the same time.** This is the key concept. When you
-look at the code, it appears to be listed line-by-line, but Arc executes all flows in
-a stage concurrently. Don't think of it as "first this line, then the next line."
-Think of it as "all of these things are being monitored simultaneously."
+  **Everything in a stage runs at the same time.** This is the key concept. When you
+  look at the code, it appears to be listed line-by-line, but Arc executes all flows in
+  a stage concurrently. Don't think of it as "first this line, then the next line."
+  Think of it as "all of these things are being monitored simultaneously."
 </Note.Note>
 
 <Divider.Divider x />
@@ -72,8 +72,8 @@ a truthy value (non-zero), the sequence starts.
 
 ## Concurrency Within Stages
 
-All flows in a stage run simultaneously. This is different from traditional
-line-by-line code execution.
+All flows in a stage run simultaneously. This is different from traditional line-by-line
+code execution.
 
 ```arc
 stage pressurize {
@@ -115,10 +115,10 @@ stage running {
 
 ### Transition Targets
 
-| Syntax | Behavior |
-|--------|----------|
-| `=> next` | Go to the next stage in definition order |
-| `=> stage_name` | Jump to any stage in the same sequence |
+| Syntax             | Behavior                                                 |
+| ------------------ | -------------------------------------------------------- |
+| `=> next`          | Go to the next stage in definition order                 |
+| `=> stage_name`    | Jump to any stage in the same sequence                   |
 | `=> sequence_name` | Jump to a different sequence (starts at its first stage) |
 
 Using `next` on the last stage is a compile error.
@@ -242,5 +242,5 @@ stage pressurize {
 }
 ```
 
-Direct assignments behave like constant flows. They continuously set the value while
-the stage is active. Use whichever is clearer for your use case.
+Direct assignments behave like constant flows. They continuously set the value while the
+stage is active. Use whichever is clearer for your use case.

@@ -10,12 +10,12 @@ content to include, and style guidelines to follow.
 Arc docs follow the **Diátaxis framework** as a guide, with flexibility to blend
 categories where it makes sense:
 
-| Type              | Purpose              | Arc Application                      |
-| ----------------- | -------------------- | ------------------------------------ |
-| **Tutorials**     | Learning-oriented    | Get Started, progressive How-To's    |
-| **How-To Guides** | Problem-oriented     | Task-focused guides                  |
-| **Explanations**  | Understanding-oriented | Concepts section                   |
-| **Reference**     | Information-oriented | Language Reference                   |
+| Type              | Purpose                | Arc Application                   |
+| ----------------- | ---------------------- | --------------------------------- |
+| **Tutorials**     | Learning-oriented      | Get Started, progressive How-To's |
+| **How-To Guides** | Problem-oriented       | Task-focused guides               |
+| **Explanations**  | Understanding-oriented | Concepts section                  |
+| **Reference**     | Information-oriented   | Language Reference                |
 
 **Key principle**: Denser pages with related concepts grouped together, not one concept
 per page. Fewer pages, more substance on each.
@@ -66,21 +66,18 @@ Arc Documentation
 ### Writing Order
 
 **Phase 1: Get people running**
+
 1. Introduction (what is Arc, beta notice)
 2. Get Started (Console workflow → first program → deploy)
 
-**Phase 2: Core understanding**
-3. Reactive Execution Model
-4. Channels and Series
-5. Stateful Variables
-6. Sequences and Stages
+**Phase 2: Core understanding** 3. Reactive Execution Model 4. Channels and Series 5.
+Stateful Variables 6. Sequences and Stages
 
-**Phase 3: Practical application**
-7. How-To Guides (starting with simpler ones)
-8. Effective Arc (best practices)
+**Phase 3: Practical application** 7. How-To Guides (starting with simpler ones) 8.
+Effective Arc (best practices)
 
-**Phase 4: Reference**
-9. Language Reference (syntax, types, operators, built-ins, error codes)
+**Phase 4: Reference** 9. Language Reference (syntax, types, operators, built-ins, error
+codes)
 
 ---
 
@@ -112,7 +109,8 @@ Arc Documentation
 
 ### Tone
 
-- **"You"-focused** with descriptive concept introductions (matches existing Synnax docs)
+- **"You"-focused** with descriptive concept introductions (matches existing Synnax
+  docs)
 - Occasional "we" where natural
 - No heavy use of "let's" or first-person plural
 - Conversational but precise
@@ -140,7 +138,7 @@ Arc Documentation
 
 Mix of expanded entries and grouped categories:
 
-```markdown
+````markdown
 ## Statistical Functions
 
 These functions operate on series data.
@@ -152,9 +150,9 @@ Returns the average of a series.
 ```arc
 readings -> avg() -> avg_reading
 ```
+````
 
-**Parameters:** `series` (any numeric series)
-**Returns:** `f64`
+**Parameters:** `series` (any numeric series) **Returns:** `f64`
 
 ### min, max
 
@@ -164,6 +162,7 @@ Return the minimum or maximum value in a series.
 readings -> min() -> min_reading
 readings -> max() -> max_reading
 ```
+
 ```
 
 ---
@@ -413,3 +412,4 @@ A single, tight page with best practices and common pitfalls.
 - Framework: Astro 5.16 + MDX + React 19
 - Arc location: `/docs/site/src/pages/reference/control/arc/`
 - Arc syntax highlighting: Already configured in Astro
+```

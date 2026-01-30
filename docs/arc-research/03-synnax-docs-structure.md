@@ -23,9 +23,9 @@ documentation should fit.
 
 ```bash
 cd docs/site
-pnpm dev           # Development server
-pnpm build         # Production build
-pnpm check-types   # Type checking
+pnpm dev         # Development server
+pnpm build       # Production build
+pnpm check-types # Type checking
 ```
 
 ### Hosting
@@ -70,16 +70,16 @@ pnpm check-types   # Type checking
 
 Defined in `/docs/site/src/pages/_nav.ts`:
 
-| Section       | Path                    | Description                    |
-| ------------- | ----------------------- | ------------------------------ |
-| Get Started   | `/reference/`           | Introduction and setup         |
-| Concepts      | `/reference/concepts/`  | Overview, Channels, Ranges, etc. |
-| Core          | `/reference/core/`      | Server installation            |
-| Client        | `/reference/client/`    | Python & TypeScript clients    |
-| **Control**   | `/reference/control/`   | **Control sequences**          |
-| Console       | `/reference/console/`   | Desktop application            |
-| Driver        | `/reference/driver/`    | Hardware integration           |
-| Pluto         | `/reference/pluto/`     | Visualization components       |
+| Section     | Path                   | Description                      |
+| ----------- | ---------------------- | -------------------------------- |
+| Get Started | `/reference/`          | Introduction and setup           |
+| Concepts    | `/reference/concepts/` | Overview, Channels, Ranges, etc. |
+| Core        | `/reference/core/`     | Server installation              |
+| Client      | `/reference/client/`   | Python & TypeScript clients      |
+| **Control** | `/reference/control/`  | **Control sequences**            |
+| Console     | `/reference/console/`  | Desktop application              |
+| Driver      | `/reference/driver/`   | Hardware integration             |
+| Pluto       | `/reference/pluto/`    | Visualization components         |
 
 ---
 
@@ -183,9 +183,7 @@ Content here...
 
 More content...
 
-<Note.Note variant="info">
-Helpful tip or callout.
-</Note.Note>
+<Note.Note variant="info">Helpful tip or callout.</Note.Note>
 ```
 
 ### Available Components
@@ -361,7 +359,8 @@ Add Arc to the components table if there's a feature matrix.
 
 ### 3. No Root Nav Changes Needed
 
-The root `_nav.ts` already includes Control, so Arc will appear automatically as a child.
+The root `_nav.ts` already includes Control, so Arc will appear automatically as a
+child.
 
 ---
 
@@ -453,12 +452,12 @@ Arc is more complex than Embedded Lua, so it needs:
 
 ## 12. Summary
 
-| Aspect          | Details                                              |
-| --------------- | ---------------------------------------------------- |
-| **Location**    | `/docs/site/src/pages/reference/control/arc/`        |
-| **Framework**   | Astro 5.16 + MDX + React 19                          |
-| **Syntax**      | Arc grammar already configured in Shiki              |
-| **Layout**      | Use `@/layouts/Reference.astro`                      |
-| **Components**  | Pluto (`Divider`, `Note`), custom (`Image`, `Video`) |
-| **Navigation**  | Add to `/reference/control/_nav.ts`                  |
-| **Deployment**  | Auto-deploys to docs.synnaxlabs.com via Vercel       |
+| Aspect         | Details                                              |
+| -------------- | ---------------------------------------------------- |
+| **Location**   | `/docs/site/src/pages/reference/control/arc/`        |
+| **Framework**  | Astro 5.16 + MDX + React 19                          |
+| **Syntax**     | Arc grammar already configured in Shiki              |
+| **Layout**     | Use `@/layouts/Reference.astro`                      |
+| **Components** | Pluto (`Divider`, `Note`), custom (`Image`, `Video`) |
+| **Navigation** | Add to `/reference/control/_nav.ts`                  |
+| **Deployment** | Auto-deploys to docs.synnaxlabs.com via Vercel       |

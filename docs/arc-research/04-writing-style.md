@@ -1,14 +1,14 @@
 # Arc Documentation Writing Style
 
-This document defines the writing style for Arc documentation. Include this context at the
-start of each documentation session.
+This document defines the writing style for Arc documentation. Include this context at
+the start of each documentation session.
 
 ---
 
 ## Core Principles
 
-Avoid sounding like AI-generated documentation; prefer blunt, practical explanations over
-polished completeness.
+Avoid sounding like AI-generated documentation; prefer blunt, practical explanations
+over polished completeness.
 
 Write in a clear, confident, and conversational tone.
 
@@ -20,8 +20,8 @@ Assume the reader is capable and just wants to get something working.
 
 - Avoid help-center or FAQ phrasing
 - Do not use "this article", "this guide", or "in this section"
-- Light conversational cues are okay (e.g., "If you're just getting started…",
-  "In practice…")
+- Light conversational cues are okay (e.g., "If you're just getting started…", "In
+  practice…")
 - No jokes or emojis
 - When there is a recommended approach, state it directly
 

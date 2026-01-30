@@ -1,7 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Reactive Execution"
-description: "How Arc executes programs using reactive dataflow and stratified scheduling"
+description:
+  "How Arc executes programs using reactive dataflow and stratified scheduling"
 prev: "Sequences and Stages"
 prevURL: "/reference/control/arc/concepts/sequences-and-stages"
 next: "Channels and Series"
@@ -26,19 +27,19 @@ In traditional programming, if `tank_pressure` updates to 500 PSI while your cod
 running, `safety_check` might see 500 PSI while `controller` sees the old value (400
 PSI). This inconsistency could cause subtle bugs or safety issues.
 
-Arc prevents this. Both functions see exactly the same value. Either both see 400 PSI
-or both see 500 PSI, never a mix.
+Arc prevents this. Both functions see exactly the same value. Either both see 400 PSI or
+both see 500 PSI, never a mix.
 
-This is called **stratified execution**, and it's why Arc programs are predictable
-and safe.
+This is called **stratified execution**, and it's why Arc programs are predictable and
+safe.
 
 <Divider.Divider x />
 
 ## The Reactive Model
 
 Arc programs don't execute line-by-line like traditional code. Instead, they use a
-**reactive dataflow model** where computations run automatically in response to new
-data arriving on channels.
+**reactive dataflow model** where computations run automatically in response to new data
+arriving on channels.
 
 You declare how data flows through your system, and Arc handles the scheduling:
 

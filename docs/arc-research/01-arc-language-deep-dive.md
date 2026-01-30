@@ -6,8 +6,8 @@ Arc is a **domain-specific programming language for reactive automation and cont
 systems** in the Synnax platform. It specializes in hardware telemetry, control
 sequences, and state machine logic.
 
-> **Beta Status**: Arc is currently in beta. A stable release is targeted for the end
-> of February 2026. Language features and syntax may change before the stable release.
+> **Beta Status**: Arc is currently in beta. A stable release is targeted for the end of
+> February 2026. Language features and syntax may change before the stable release.
 
 ---
 
@@ -40,11 +40,13 @@ programming constructs like explicit loops or thread management. It provides:
 Arc targets two audiences equally with different entry points:
 
 **Control/Test Engineers** (limited programming experience):
+
 - Entry point: Graph mode for visual programming
 - Use case: Simple alarms and monitoring logic
 - Progression: Text mode with intuitive sequence syntax
 
 **Software Engineers** (traditional programming background):
+
 - Entry point: Text mode with familiar imperative constructs
 - Use case: Complex control sequences with full language power
 - Strength: Imperative programming within function blocks
@@ -82,17 +84,17 @@ Output Package (IR + WASM + Memory Maps)
 
 ### Core Components
 
-| Component   | Location                 | Purpose                                       |
-| ----------- | ------------------------ | --------------------------------------------- |
-| Parser      | `/arc/go/parser/`        | ANTLR4-based lexer/parser, produces AST       |
-| Analyzer    | `/arc/go/analyzer/`      | 3-pass type checking and validation           |
-| Stratifier  | `/arc/go/stratifier/`    | Computes glitch-free execution order          |
-| Compiler    | `/arc/go/compiler/`      | Generates WebAssembly bytecode                |
-| IR          | `/arc/go/ir/`            | Intermediate representation (nodes, edges)    |
-| Symbol      | `/arc/go/symbol/`        | Hierarchical scope and symbol management      |
-| Types       | `/arc/go/types/`         | Type system with units and polymorphism       |
-| Runtime     | `/arc/go/runtime/`       | WASM execution environment and host functions |
-| LSP         | `/arc/go/lsp/`           | Language Server Protocol for IDE support      |
+| Component  | Location              | Purpose                                       |
+| ---------- | --------------------- | --------------------------------------------- |
+| Parser     | `/arc/go/parser/`     | ANTLR4-based lexer/parser, produces AST       |
+| Analyzer   | `/arc/go/analyzer/`   | 3-pass type checking and validation           |
+| Stratifier | `/arc/go/stratifier/` | Computes glitch-free execution order          |
+| Compiler   | `/arc/go/compiler/`   | Generates WebAssembly bytecode                |
+| IR         | `/arc/go/ir/`         | Intermediate representation (nodes, edges)    |
+| Symbol     | `/arc/go/symbol/`     | Hierarchical scope and symbol management      |
+| Types      | `/arc/go/types/`      | Type system with units and polymorphism       |
+| Runtime    | `/arc/go/runtime/`    | WASM execution environment and host functions |
+| LSP        | `/arc/go/lsp/`        | Language Server Protocol for IDE support      |
 
 ### Key Files
 
@@ -126,12 +128,12 @@ Block-based visual programming interface. Best for:
 
 **Available Blocks in Graph Mode:**
 
-| Group          | Blocks                                                    |
-| -------------- | --------------------------------------------------------- |
-| **Basic**      | `Constant`, `Change Status` (notifications/alarms)        |
-| **Telemetry**  | `Telemetry Source` (read channel), `Telemetry Sink` (write channel) |
-| **Operators**  | `Add`, `Subtract`, `Multiply`, `Divide`, `Greater Than`, `Less Than`, `Equal`, `Not Equal`, `>=`, `<=`, `And`, `Or`, `Not` |
-| **Flow Control** | `Select` (route by condition), `Stable For` (debounce) |
+| Group            | Blocks                                                                                                                     |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Basic**        | `Constant`, `Change Status` (notifications/alarms)                                                                         |
+| **Telemetry**    | `Telemetry Source` (read channel), `Telemetry Sink` (write channel)                                                        |
+| **Operators**    | `Add`, `Subtract`, `Multiply`, `Divide`, `Greater Than`, `Less Than`, `Equal`, `Not Equal`, `>=`, `<=`, `And`, `Or`, `Not` |
+| **Flow Control** | `Select` (route by condition), `Stable For` (debounce)                                                                     |
 
 **Current Limitation**: Graph mode does not support sequences, stages, or custom
 functions. Complex multi-stage control logic requires text mode.
@@ -182,6 +184,23 @@ total f64 $= 0.0        // explicit type
 // Assignment
 count = count + 1
 ```
+
+**Stateful variable initialization**: The `$=` operator sets the initial value on the
+first execution only. On subsequent executions, the persisted value is used instead.
+Crucially, you can initialize a stateful variable from an input parameter:
+
+```arc
+func delta(value f64) f64 {
+    prev $= value        // initialized to first input on first call
+    d := value - prev
+    prev = value
+    return d
+}
+```
+
+On the first call, `prev` is set to `value`. On subsequent calls, `prev` retains its
+value from the previous execution. This eliminates the need for "first run" flag
+patterns when tracking previous values.
 
 ### Operators
 
@@ -299,7 +318,7 @@ distance f64 m := 50.0
 wait_time := 100ms      // i64 with time units
 frequency := 10hz       // converts to period
 
-// Temporal units: ns, us, ms, s, m (minute), h
+// Temporal units: ns, us, ms, s, min, h
 // Frequency units: hz, khz, mhz
 
 // Dimensional compatibility (compiler enforces)
@@ -327,8 +346,8 @@ mask := data > 2.0               // [0, 0, 1] (series u8)
 
 ### Channels
 
-Channels connect Arc programs to Synnax telemetry data. Channel names reference
-channels that exist in your Synnax cluster.
+Channels connect Arc programs to Synnax telemetry data. Channel names reference channels
+that exist in your Synnax cluster.
 
 ```arc
 // Read from channel (non-blocking, returns zero if empty)
@@ -339,8 +358,8 @@ ox_pt_cmd = value
 ```
 
 **Channel Discovery**: The text editor provides LSP-powered autocomplete, hover
-information, and suggestions for available channels in your cluster. You can also
-browse channels using the Console's channel explorer before writing Arc code.
+information, and suggestions for available channels in your cluster. You can also browse
+channels using the Console's channel explorer before writing Arc code.
 
 **Channel Naming**: Channel names must start with a letter or underscore, and can only
 contain letters, digits, and underscores (snake_case). Examples: `ox_pt_1`, `fuel_tc_2`,
@@ -383,6 +402,7 @@ WITH stratified execution:
 ```
 
 This is critical for:
+
 - **Safety certification** - Predictable, repeatable behavior
 - **Debugging** - You know exactly what values each node saw
 - **Multi-branch logic** - All branches see consistent data
@@ -429,16 +449,16 @@ func controller{
 
 #### Key Differences
 
-| Aspect              | Reactive (`->`)                | Imperative (function body)     |
-| ------------------- | ------------------------------ | ------------------------------ |
-| **Trigger**         | New data arrival               | Function invocation            |
-| **Data form**       | Time-series (arrays)           | Single scalar value            |
-| **Empty channel**   | Skips execution                | Returns zero value             |
-| **Use case**        | Main data pipelines            | Side-channel reads, setpoints  |
+| Aspect            | Reactive (`->`)      | Imperative (function body)    |
+| ----------------- | -------------------- | ----------------------------- |
+| **Trigger**       | New data arrival     | Function invocation           |
+| **Data form**     | Time-series (arrays) | Single scalar value           |
+| **Empty channel** | Skips execution      | Returns zero value            |
+| **Use case**      | Main data pipelines  | Side-channel reads, setpoints |
 
-**Best practice**: Use reactive flows (`->`) for your main data pipelines. Use imperative
-channel reads inside functions for auxiliary inputs like setpoints or configuration
-values that may change during execution.
+**Best practice**: Use reactive flows (`->`) for your main data pipelines. Use
+imperative channel reads inside functions for auxiliary inputs like setpoints or
+configuration values that may change during execution.
 
 ### Flow Statements (Dataflow)
 
@@ -455,9 +475,9 @@ temperature > 100 -> alarm{}
 
 ### Two Flow Operators
 
-| Operator | Name       | Behavior                                      |
-| -------- | ---------- | --------------------------------------------- |
-| `->`     | Continuous | Reactive flow executes every cycle            |
+| Operator | Name       | Behavior                                                         |
+| -------- | ---------- | ---------------------------------------------------------------- |
+| `->`     | Continuous | Reactive flow executes every cycle                               |
 | `=>`     | One-Shot   | Fires once when condition becomes true, resets on stage re-entry |
 
 #### Continuous Flow (`->`) - Real-World Examples
@@ -490,8 +510,8 @@ ox_pt_1 < 20 => log_message{}
 pressure > 500 => next
 ```
 
-The key distinction: `->` keeps flowing data continuously, while `=>` triggers once
-and stops (until the stage is re-entered).
+The key distinction: `->` keeps flowing data continuously, while `=>` triggers once and
+stops (until the stage is re-entered).
 
 ---
 
@@ -519,13 +539,14 @@ stage pressurize {
 ```
 
 **What this means:**
+
 - You don't write loops to "keep checking" conditions - they're always being checked
 - You don't need threads or async code - concurrency is automatic
 - All abort conditions are monitored simultaneously while control logic runs
 
 **Line Order Matters for Transition Conflicts:** When multiple one-shot transitions
-(`=>`) are true simultaneously, **the one listed first wins**. This means you should
-put safety-critical conditions first:
+(`=>`) are true simultaneously, **the one listed first wins**. This means you should put
+safety-critical conditions first:
 
 ```arc
 stage pressurize {
@@ -596,8 +617,8 @@ emergency_stop => abort     // multiple entries allowed
 
 ### Triggering Sequences
 
-Entry points like `start_cmd` are **u8 virtual channels** that you create in Synnax.
-To start a sequence:
+Entry points like `start_cmd` are **u8 virtual channels** that you create in Synnax. To
+start a sequence:
 
 1. Create a u8 virtual channel (e.g., `start_cmd`)
 2. Wire that channel to a button on a Console schematic
@@ -611,8 +632,8 @@ Console Schematic          Synnax Channel          Arc Program
 └─────────────┘            └─────────────┘         └─────────────┘
 ```
 
-Triggers can also come from other sources: another Arc program, external systems
-writing to the channel, or sensor values exceeding thresholds.
+Triggers can also come from other sources: another Arc program, external systems writing
+to the channel, or sensor values exceeding thresholds.
 
 ### Transition Targets
 
@@ -626,7 +647,6 @@ writing to the channel, or sensor values exceeding thresholds.
 - On stage entry: one-shot states reset, stateful nodes reset
 - Reactive flows start fresh
 - Stages are stateless between entries
-
 
 ---
 
@@ -674,11 +694,13 @@ interval{period=100ms} -> log_all_sensors{}
 ```
 
 **Timing precision:**
+
 - Precision depends on the runtime's scheduler tick frequency
 - The C++ driver with RT_EVENT mode can achieve sub-millisecond precision
 - Intervals are **elapsed-time based**, making execution deterministic and repeatable
 
 **Overrun handling:**
+
 - If processing takes longer than the interval period, the next interval fires on the
   next eligible tick
 - Missed intervals are skipped (not queued up)
@@ -705,14 +727,15 @@ sequence test {
 4. **Resets when the stage is re-entered** (allows re-use in loops)
 
 **Use cases:**
+
 - Timed holds in test sequences ("pressurize for 30 seconds")
 - Delays before stage transitions
 - Timeout conditions
 
-| Node       | Config              | Output | Behavior                         |
-| ---------- | ------------------- | ------ | -------------------------------- |
-| `interval` | `period: TimeSpan`  | u8     | Fires repeatedly at period       |
-| `wait`     | `duration: TimeSpan`| u8     | Fires once after duration        |
+| Node       | Config               | Output | Behavior                   |
+| ---------- | -------------------- | ------ | -------------------------- |
+| `interval` | `period: TimeSpan`   | u8     | Fires repeatedly at period |
+| `wait`     | `duration: TimeSpan` | u8     | Fires once after duration  |
 
 #### Timing and Real-Time Performance
 
@@ -723,6 +746,7 @@ Arc's timing model is **elapsed-time based**, not wall-clock based. This means:
 - **Portable**: Works the same on Go runtime (server) and C++ runtime (driver)
 
 For real-time hardware control, deploy to the **C++ driver runtime** which provides:
+
 - Sub-millisecond timing precision with RT_EVENT mode
 - SCHED_FIFO thread priority for consistent scheduling
 - Support for control loops up to 1kHz
@@ -735,15 +759,15 @@ sensor -> avg{duration=10s} -> avg_display     // reset every 10s
 sensor -> avg{count=100} -> avg_display        // reset every 100 samples
 
 // min/max - running min/max with same reset options
-sensor -> min{duration=1m} -> min_display
+sensor -> min{duration=1min} -> min_display
 sensor -> max{count=50} -> max_display
 ```
 
-| Function | Config                      | Purpose                    |
-| -------- | --------------------------- | -------------------------- |
-| `avg`    | `duration?`, `count?`       | Running average            |
-| `min`    | `duration?`, `count?`       | Running minimum            |
-| `max`    | `duration?`, `count?`       | Running maximum            |
+| Function | Config                | Purpose         |
+| -------- | --------------------- | --------------- |
+| `avg`    | `duration?`, `count?` | Running average |
+| `min`    | `duration?`, `count?` | Running minimum |
+| `max`    | `duration?`, `count?` | Running maximum |
 
 All statistical functions support a `reset` input signal (u8) for manual reset.
 
@@ -757,10 +781,10 @@ on{channel=ox_pt_1} -> processor{}
 processor{} -> write{channel=ox_pt_cmd}
 ```
 
-| Node    | Config              | Purpose                    |
-| ------- | ------------------- | -------------------------- |
-| `on`    | `channel: u32`      | Read from Synnax channel   |
-| `write` | `channel: u32`      | Write to Synnax channel    |
+| Node    | Config         | Purpose                  |
+| ------- | -------------- | ------------------------ |
+| `on`    | `channel: u32` | Read from Synnax channel |
+| `write` | `channel: u32` | Write to Synnax channel  |
 
 ### Signal Processing Nodes
 
@@ -772,16 +796,17 @@ condition -> select{} -> { true: handler_a{}, false: handler_b{} }
 noisy_sensor -> stable_for{duration=100ms} -> stable_output
 ```
 
-| Node         | Config              | Purpose                          |
-| ------------ | ------------------- | -------------------------------- |
-| `select`     | -                   | Route by condition (true/false)  |
-| `stable_for` | `duration: TimeSpan`| Debounce/filter noisy signals    |
+| Node         | Config               | Purpose                         |
+| ------------ | -------------------- | ------------------------------- |
+| `select`     | -                    | Route by condition (true/false) |
+| `stable_for` | `duration: TimeSpan` | Debounce/filter noisy signals   |
 
 ### Status/Notification Node
 
 Arc can update statuses that trigger notifications in the Console.
 
 **Workflow:**
+
 1. Create a status in Synnax Console (appears in status toolbar)
 2. Reference that status in Arc using `set_status`
 3. When Arc updates the status, it sends a notification and updates the toolbar
@@ -791,11 +816,11 @@ Arc can update statuses that trigger notifications in the Console.
 ox_pt_1 > 500 -> set_status{statusKey="overpressure", variant="error", message="Pressure exceeded limit"}
 ```
 
-| Config      | Options                              | Purpose                    |
-| ----------- | ------------------------------------ | -------------------------- |
-| `statusKey` | String (status name)                 | Which status to update     |
-| `variant`   | `"success"`, `"warning"`, `"error"`  | Status severity/color      |
-| `message`   | String                               | Notification message text  |
+| Config      | Options                             | Purpose                   |
+| ----------- | ----------------------------------- | ------------------------- |
+| `statusKey` | String (status name)                | Which status to update    |
+| `variant`   | `"success"`, `"warning"`, `"error"` | Status severity/color     |
+| `message`   | String                              | Notification message text |
 
 This is the primary use case for Graph mode - building visual alarm logic that triggers
 notifications when sensor values exceed thresholds.
@@ -879,17 +904,18 @@ Synnax Server: Routes task to appropriate rack
 
 **Use case**: Real-time hardware control loops with timing guarantees
 
-The C++ runtime provides **configurable execution modes** supporting control loops up
-to **1kHz**:
+The C++ runtime provides **configurable execution modes** supporting control loops up to
+**1kHz**:
 
-| Mode           | Latency   | CPU Usage | Use Case                    |
-| -------------- | --------- | --------- | --------------------------- |
-| `RT_EVENT`     | <1ms      | Low       | Real-time with SCHED_FIFO   |
-| `HIGH_RATE`    | Sub-ms    | High      | Software timing, <1ms       |
-| `HYBRID`       | 1-5ms     | Medium    | Balanced spin + block       |
-| `EVENT_DRIVEN` | >5ms      | Lowest    | Slow intervals or triggered |
+| Mode           | Latency | CPU Usage | Use Case                    |
+| -------------- | ------- | --------- | --------------------------- |
+| `RT_EVENT`     | <1ms    | Low       | Real-time with SCHED_FIFO   |
+| `HIGH_RATE`    | Sub-ms  | High      | Software timing, <1ms       |
+| `HYBRID`       | 1-5ms   | Medium    | Balanced spin + block       |
+| `EVENT_DRIVEN` | >5ms    | Lowest    | Slow intervals or triggered |
 
 **Real-time features** (RT_EVENT mode on Linux):
+
 - `SCHED_FIFO` thread priority (default: 47/99)
 - Optional CPU affinity pinning
 - Memory locking (`mlock()`) to prevent page faults
@@ -897,13 +923,13 @@ to **1kHz**:
 
 ### Why Two Runtimes?
 
-| Aspect          | Go Runtime           | C++ Runtime              |
-| --------------- | -------------------- | ------------------------ |
-| **Location**    | Synnax server        | Driver process           |
-| **Real-Time**   | No (Go scheduler)    | Yes (SCHED_FIFO)         |
-| **Latency**     | Variable (GC pauses) | Deterministic (<1ms)     |
-| **Isolation**   | Shared with server   | Separate process         |
-| **Use Case**    | Meta-level logic     | Hardware control loops   |
+| Aspect        | Go Runtime           | C++ Runtime            |
+| ------------- | -------------------- | ---------------------- |
+| **Location**  | Synnax server        | Driver process         |
+| **Real-Time** | No (Go scheduler)    | Yes (SCHED_FIFO)       |
+| **Latency**   | Variable (GC pauses) | Deterministic (<1ms)   |
+| **Isolation** | Shared with server   | Separate process       |
+| **Use Case**  | Meta-level logic     | Hardware control loops |
 
 Both runtimes use the **same reactive execution model** - identical semantics regardless
 of deployment target.
@@ -1038,16 +1064,16 @@ emergency_stop => abort
 
 ## 11. Unique Features Summary
 
-| Feature                      | Description                                     | Other Languages |
-| ---------------------------- | ----------------------------------------------- | --------------- |
-| `^` Exponentiation           | `2 ^ 8 = 256` (not XOR)                         | Python `**`     |
-| `$=` Stateful Variables      | Persists across invocations                     | None            |
-| `=>` One-Shot Transition     | Fires once, resets on stage re-entry            | None            |
-| `->` Continuous Flow         | Reactive dataflow operator                      | None            |
-| Series Elementwise Ops       | `[1,2,3] * 2 = [2,4,6]`                         | NumPy           |
-| Unit Types                   | `f64 m/s` - dimensional analysis built-in       | F#, Frink       |
-| Config Parameters `{}`       | Compile-time constants                          | None            |
-| Reactive Iteration           | Use stateful variables + reactive triggers      | Event-driven    |
+| Feature                  | Description                                | Other Languages |
+| ------------------------ | ------------------------------------------ | --------------- |
+| `^` Exponentiation       | `2 ^ 8 = 256` (not XOR)                    | Python `**`     |
+| `$=` Stateful Variables  | Persists across invocations                | None            |
+| `=>` One-Shot Transition | Fires once, resets on stage re-entry       | None            |
+| `->` Continuous Flow     | Reactive dataflow operator                 | None            |
+| Series Elementwise Ops   | `[1,2,3] * 2 = [2,4,6]`                    | NumPy           |
+| Unit Types               | `f64 m/s` - dimensional analysis built-in  | F#, Frink       |
+| Config Parameters `{}`   | Compile-time constants                     | None            |
+| Reactive Iteration       | Use stateful variables + reactive triggers | Event-driven    |
 
 ---
 
@@ -1099,16 +1125,16 @@ Console where users can see what went wrong.
 
 ## 14. Key Source Locations
 
-| Purpose          | Path                             |
-| ---------------- | -------------------------------- |
-| Language Spec    | `/arc/docs/spec.md`              |
-| Grammar          | `/arc/go/parser/ArcParser.g4`    |
-| Lexer            | `/arc/go/parser/ArcLexer.g4`     |
-| Analyzer         | `/arc/go/analyzer/analyzer.go`   |
-| Compiler         | `/arc/go/compiler/compiler.go`   |
-| IR               | `/arc/go/ir/ir.go`               |
-| Runtime          | `/arc/go/runtime/`               |
-| LSP              | `/arc/go/lsp/`                   |
+| Purpose          | Path                                |
+| ---------------- | ----------------------------------- |
+| Language Spec    | `/arc/docs/spec.md`                 |
+| Grammar          | `/arc/go/parser/ArcParser.g4`       |
+| Lexer            | `/arc/go/parser/ArcLexer.g4`        |
+| Analyzer         | `/arc/go/analyzer/analyzer.go`      |
+| Compiler         | `/arc/go/compiler/compiler.go`      |
+| IR               | `/arc/go/ir/ir.go`                  |
+| Runtime          | `/arc/go/runtime/`                  |
+| LSP              | `/arc/go/lsp/`                      |
 | Tests            | `/arc/go/compiler/compiler_test.go` |
-| Console Editor   | `/console/src/arc/`              |
-| Syntax Highlight | `/arc/ts/src/arc.tmLanguage.json` |
+| Console Editor   | `/console/src/arc/`                 |
+| Syntax Highlight | `/arc/ts/src/arc.tmLanguage.json`   |
