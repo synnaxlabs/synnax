@@ -118,11 +118,11 @@ generates timestamps with ~ 100μs precision using software timing.
   load, timing precision may degrade.
 - **One running task per channel** -> A channel can only receive live data from one task
   at a time.
-- **Stream rate optimization** -> For low-rate tasks (< 50 Hz), set the stream rate to the
-  sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
+- **Stream rate optimization** -> For low-rate tasks (< 50 Hz), set the stream rate to
+  the sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
   performance.
-- **Array mode** -> Only use array mode for high-rate tasks (> 500 Hz). Requires tuning to
-  avoid undersampling/oversampling.
+- **Array mode** -> Only use array mode for high-rate tasks (> 500 Hz). Requires tuning
+  to avoid undersampling/oversampling.
 
 <Divider.Divider x />
 

@@ -28,9 +28,9 @@ Disabling auto-commit may be beneficial in the following scenarios:
 - **Chunk-based file ingestion** -> When loading historical data from files, committing
   data in logical chunks (e.g., after processing each file) ensures atomic visibility of
   complete datasets.
-- **Batch processing** -> When ingesting large volumes of historical data where real-time
-  visibility is not required and performance optimization by reducing commit overhead is
-  desired.
+- **Batch processing** -> When ingesting large volumes of historical data where
+  real-time visibility is not required and performance optimization by reducing commit
+  overhead is desired.
 - **Atomic transactions** -> When multiple writes need to appear together atomically to
   maintain data consistency across channels.
 
