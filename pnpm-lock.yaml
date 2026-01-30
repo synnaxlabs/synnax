@@ -320,6 +320,9 @@ importers:
       '@reduxjs/toolkit':
         specifier: 'catalog:'
         version: 2.11.1(react-redux@9.2.0(@types/react@19.2.7)(react@19.2.3)(redux@5.0.1))(react@19.2.3)
+      '@synnaxlabs/arc':
+        specifier: workspace:^
+        version: link:../arc/ts
       '@synnaxlabs/client':
         specifier: workspace:^
         version: link:../client/ts
