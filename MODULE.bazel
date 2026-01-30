@@ -15,4 +15,4 @@ bazel_dep(name = "lua", version = "5.4.6")
 
 bazel_dep(name = "apple_support", version = "1.24.5", dev_dependency = True)
 
-bazel_dep(name = "rules_cc", version = "0.2.14")
+bazel_dep(name = "rules_cc", version = "0.2.16")
