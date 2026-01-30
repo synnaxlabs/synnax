@@ -82,7 +82,7 @@ protected:
     }
 
     std::unique_ptr<Scheduler> build(ir::IR ir) {
-        return std::make_unique<Scheduler>(ir, nodes_);
+        return std::make_unique<Scheduler>(ir, nodes_, telem::TimeSpan(0));
     }
 };
 
@@ -1433,8 +1433,11 @@ TEST(RealNodeSchedulerTest, IntervalOneShotEdgeFires) {
     nodes["interval_0"] = std::move(interval_node);
     nodes["target_0"] = std::move(target);
 
-    // Create scheduler
-    auto scheduler = std::make_unique<Scheduler>(std::move(interval_ir), nodes);
+    auto scheduler = std::make_unique<Scheduler>(
+        std::move(interval_ir),
+        nodes,
+        telem::TimeSpan(0)
+    );
 
     // First tick at t=1s - Interval should fire (since it starts at -period)
     scheduler->next(telem::SECOND);
@@ -1496,7 +1499,11 @@ TEST(RealNodeSchedulerTest, IntervalTruthyCheckBeforeFiring) {
     nodes["interval_0"] = std::move(interval_node);
     nodes["target_0"] = std::move(target);
 
-    auto scheduler = std::make_unique<Scheduler>(std::move(interval_ir), nodes);
+    auto scheduler = std::make_unique<Scheduler>(
+        std::move(interval_ir),
+        nodes,
+        telem::TimeSpan(0)
+    );
 
     // First tick at t=0 - interval hasn't fired yet
     scheduler->next(telem::TimeSpan(0));
