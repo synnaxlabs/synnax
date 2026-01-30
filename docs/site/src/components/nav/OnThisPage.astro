@@ -5,12 +5,14 @@ import { Icon, Divider, Text, Flex } from "@synnaxlabs/pluto";
 const props = Astro.props;
 ---
 
-<Flex.Box el="nav" className="on-this-page" gap={4}>
-    <Flex.Box direction="y" gap={2} className="on-this-page__content styled-scrollbar">
+<Flex.Box el="nav" className="on-this-page" gap="medium">
+    <Flex.Box direction="y" gap={2} className="on-this-page__header">
         <Text.Text level="h5">
             <Icon.Log style={{ transform: "scale(0.8)" }} />
             On this page
         </Text.Text>
+    </Flex.Box>
+    <Flex.Box direction="y" gap={2} className="on-this-page__content styled-scrollbar">
         <OTP
             client:only="react"
             headings={props.headings}
@@ -35,11 +37,35 @@ const props = Astro.props;
         align-self: flex-start;
         max-height: calc(100vh - 26rem);
 
+        .on-this-page__header {
+            flex-shrink: 0;
+
+            & h5 {
+                font-weight: 500;
+            }
+        }
+
         .on-this-page__content {
             flex: 1;
             min-height: 0;
             overflow-x: hidden;
             overflow-y: auto;
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            mask-image: linear-gradient(
+                to bottom,
+                transparent 0,
+                black 2rem,
+                black calc(100% - 2rem),
+                transparent 100%
+            );
+            -webkit-mask-image: linear-gradient(
+                to bottom,
+                transparent 0,
+                black 2rem,
+                black calc(100% - 2rem),
+                transparent 100%
+            );
         }
 
         .pluto-dialog {
@@ -47,9 +73,6 @@ const props = Astro.props;
         }
 
         flex-shrink: 0;
-        & h5 {
-            font-weight: 500;
-        }
 
         .on-this-page-menu {
             position: relative;

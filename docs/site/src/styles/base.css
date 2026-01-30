@@ -142,6 +142,9 @@ code {
     font-size: inherit;
     line-height: inherit;
     font-family: "Geist Mono";
+    font-feature-settings:
+        "liga" 0,
+        "calt" 0;
     color: var(--pluto-text-color);
     border-radius: var(--pluto-border-radius);
 }
