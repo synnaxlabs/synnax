@@ -537,7 +537,9 @@ jobs:
   docker:
     name: Build Docker Image
     needs: [setup, build]
-    if: inputs.docker && (needs.build.result == 'success' || needs.build.result == 'skipped')
+    if:
+      inputs.docker && (needs.build.result == 'success' || needs.build.result ==
+      'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -553,7 +555,9 @@ jobs:
         if: inputs.driver
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.use_simple_artifact_names && 'synnax-driver-linux' || format('synnax-driver-v{0}-linux', needs.setup.outputs.VERSION) }}
+          name:
+            ${{ inputs.use_simple_artifact_names && 'synnax-driver-linux' ||
+            format('synnax-driver-v{0}-linux', needs.setup.outputs.VERSION) }}
           path: ./driver-artifact/
 
       - name: Prepare Driver Binary
@@ -573,7 +577,9 @@ jobs:
         if: inputs.console
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.use_simple_artifact_names && 'synnax-console-assets-linux' || format('synnax-console-assets-v{0}-linux', needs.setup.outputs.VERSION) }}
+          name:
+            ${{ inputs.use_simple_artifact_names && 'synnax-console-assets-linux' ||
+            format('synnax-console-assets-v{0}-linux', needs.setup.outputs.VERSION) }}
           path: core/pkg/console/dist/
 
       - name: Set up Docker Buildx
