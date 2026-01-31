@@ -22,9 +22,9 @@
 
 #include "driver/ethercat/channel/channel.h"
 #include "driver/ethercat/device/device.h"
-#include "driver/ethercat/errors/errors.h"
-#include "driver/ethercat/loop/loop.h"
+#include "driver/ethercat/engine/engine.h"
 #include "driver/task/common/read_task.h"
+#include "driver/task/common/sample_clock.h"
 
 namespace ethercat {
 struct ReadTaskConfig : common::BaseReadTaskConfig {
@@ -149,14 +149,12 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
 class ReadTaskSource final : public common::Source {
     ReadTaskConfig config;
-    std::shared_ptr<Loop> loop;
-    std::optional<Loop::Reader> reader;
-    std::vector<uint8_t> input_buffer;
-    std::atomic<bool> stopped;
+    std::shared_ptr<engine::Engine> engine;
+    std::unique_ptr<engine::Engine::Reader> reader;
 
 public:
-    explicit ReadTaskSource(std::shared_ptr<Loop> loop, ReadTaskConfig cfg):
-        config(std::move(cfg)), loop(std::move(loop)), stopped(false) {}
+    explicit ReadTaskSource(std::shared_ptr<engine::Engine> eng, ReadTaskConfig cfg):
+        config(std::move(cfg)), engine(std::move(eng)) {}
 
     xerrors::Error start() override {
         std::vector<PDOEntry> entries;
@@ -164,68 +162,44 @@ public:
         for (const auto &ch: this->config.channels)
             entries.push_back(ch->to_pdo_entry(true));
 
-        auto [rdr, err] = this->loop->open_reader(std::move(entries));
+        auto [rdr, err] = this->engine->open_reader(std::move(entries));
         if (err) return err;
-
-        this->reader.emplace(std::move(rdr));
+        this->reader = std::move(rdr);
         return xerrors::NIL;
     }
 
     xerrors::Error stop() override {
-        stopped = true;
-        reader.reset();
+        this->reader.reset();
         return xerrors::NIL;
     }
 
     common::ReadResult read(breaker::Breaker &breaker, telem::Frame &fr) override {
         common::ReadResult res;
-        const size_t n_channels = config.channels.size();
-        const size_t n_samples = config.samples_per_chan;
-        const size_t total_count = n_channels + config.indexes.size();
+        const size_t n_channels = this->config.channels.size();
+        const size_t n_samples = this->config.samples_per_chan;
 
-        if (fr.size() != total_count) {
-            fr.reserve(total_count);
-            for (const auto &ch: config.channels)
-                fr.emplace(ch->ch.key, telem::Series(ch->ch.data_type, n_samples));
-            for (const auto &idx: config.indexes)
-                fr.emplace(idx, telem::Series(telem::TIMESTAMP_T, n_samples));
-        }
-
+        common::initialize_frame(
+            fr,
+            this->config.channels,
+            this->config.indexes,
+            n_samples
+        );
         for (auto &ser: *fr.series)
             ser.clear();
-
+        const auto start = telem::TimeStamp::now();
         for (size_t i = 0; i < n_samples; ++i) {
-            const auto start = telem::TimeStamp::now();
-
-            while (breaker.running()) {
-                res.error = reader->read(input_buffer, stopped);
-                if (res.error.matches(ENGINE_RESTARTING)) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                    continue;
-                }
-                break;
-            }
+            res.error = this->reader->read(breaker, fr);
             if (res.error) return res;
-
-            const auto end = telem::TimeStamp::now();
-            const auto midpoint = telem::TimeStamp::midpoint(start, end);
-
-            // PDO data is laid out contiguously in registration order
-            size_t series_idx = 0;
-            size_t offset = 0;
-            for (const auto &ch: config.channels) {
-                auto &s = fr.series->at(series_idx++);
-                const size_t len = ch->byte_length();
-                if (offset + len <= input_buffer.size()) {
-                    s.write_casted(input_buffer.data() + offset, 1, ch->ch.data_type);
-                }
-                offset += len;
-            }
-
-            for (size_t j = 0; j < config.indexes.size(); ++j)
-                fr.series->at(series_idx++).write(midpoint);
         }
-
+        const auto end = telem::TimeStamp::now();
+        common::generate_index_data(
+            fr,
+            this->config.indexes,
+            start,
+            end,
+            n_samples,
+            n_channels
+        );
         return res;
     }
 

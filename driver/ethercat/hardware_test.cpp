@@ -27,7 +27,7 @@
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/soem/master.h"
-#include "loop/loop.h"
+#include "engine/engine.h"
 
 namespace ethercat {
 

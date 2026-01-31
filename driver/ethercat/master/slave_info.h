@@ -200,31 +200,15 @@ struct SlaveDataOffsets {
 /// Describes a single PDO entry (object) to be exchanged cyclically.
 struct PDOEntry {
     /// Position of the slave on the EtherCAT bus.
-    uint16_t slave_position;
+    uint16_t slave_position = 0;
     /// Index of the PDO object in the CoE object dictionary (e.g., 0x6000).
-    uint16_t index;
+    uint16_t index = 0;
     /// Subindex of the PDO object.
-    uint8_t subindex;
+    uint8_t subindex = 0;
     /// Size of the data in bits.
-    uint8_t bit_length;
+    uint8_t bit_length = 0;
     /// True for input (TxPDO, slave→master), false for output (RxPDO, master→slave).
-    bool is_input;
-
-    PDOEntry():
-        slave_position(0), index(0), subindex(0), bit_length(0), is_input(true) {}
-
-    PDOEntry(
-        const uint16_t slave_position,
-        const uint16_t index,
-        const uint8_t subindex,
-        const uint8_t bit_length,
-        const bool is_input
-    ):
-        slave_position(slave_position),
-        index(index),
-        subindex(subindex),
-        bit_length(bit_length),
-        is_input(is_input) {}
+    bool is_input = true;
 
     /// Returns the size of this PDO entry in bytes (rounded up from bits).
     [[nodiscard]] size_t byte_length() const { return (bit_length + 7) / 8; }

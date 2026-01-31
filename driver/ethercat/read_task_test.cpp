@@ -15,14 +15,14 @@
 #include "driver/ethercat/mock/master.h"
 #include "driver/ethercat/read_task.h"
 #include "driver/pipeline/mock/pipeline.h"
-#include "loop/loop.h"
+#include "engine/engine.h"
 
 class EtherCATReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<ethercat::mock::Master> mock_master;
-    std::shared_ptr<ethercat::Loop> engine;
+    std::shared_ptr<ethercat::engine::Engine> engine;
     synnax::Channel index_channel;
     synnax::Rack rack;
     synnax::Device network_device;
@@ -64,9 +64,9 @@ protected:
         mock_master->add_slave(
             ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, SLAVE_SERIAL, "Test Slave")
         );
-        engine = std::make_shared<ethercat::Loop>(
+        engine = std::make_shared<ethercat::engine::Engine>(
             mock_master,
-            ethercat::LoopConfig(telem::MILLISECOND * 10)
+            ethercat::engine::Config(telem::MILLISECOND * 10)
         );
     }
 

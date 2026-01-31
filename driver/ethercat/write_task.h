@@ -11,7 +11,6 @@
 
 #include <cstring>
 #include <memory>
-#include <optional>
 #include <set>
 #include <vector>
 
@@ -20,7 +19,7 @@
 
 #include "driver/ethercat/channel/channel.h"
 #include "driver/ethercat/device/device.h"
-#include "driver/ethercat/loop/loop.h"
+#include "driver/ethercat/engine/engine.h"
 #include "driver/task/common/write_task.h"
 
 namespace ethercat {
@@ -125,11 +124,11 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
 
 class WriteTaskSink final : public common::Sink {
     WriteTaskConfig cfg;
-    std::shared_ptr<Loop> loop;
-    std::optional<Loop::Writer> writer;
+    std::shared_ptr<engine::Engine> engine;
+    std::unique_ptr<engine::Engine::Writer> writer;
 
 public:
-    explicit WriteTaskSink(std::shared_ptr<Loop> loop, WriteTaskConfig cfg):
+    explicit WriteTaskSink(std::shared_ptr<engine::Engine> eng, WriteTaskConfig cfg):
         Sink(
             cfg.state_rate,
             cfg.state_indexes,
@@ -138,21 +137,21 @@ public:
             cfg.data_saving
         ),
         cfg(std::move(cfg)),
-        loop(std::move(loop)) {}
+        engine(std::move(eng)) {}
 
     xerrors::Error start() override {
         std::vector<PDOEntry> entries;
         entries.reserve(this->cfg.channels.size());
         for (const auto &ch: this->cfg.channels)
             entries.push_back(ch->to_pdo_entry(false));
-        auto [wtr, err] = this->loop->open_writer(std::move(entries));
+        auto [wtr, err] = this->engine->open_writer(std::move(entries));
         if (err) return err;
-        this->writer.emplace(std::move(wtr));
+        this->writer = std::move(wtr);
         return xerrors::NIL;
     }
 
     xerrors::Error stop() override {
-        writer.reset();
+        this->writer.reset();
         return xerrors::NIL;
     }
 
