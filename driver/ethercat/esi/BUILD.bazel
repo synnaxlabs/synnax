@@ -1,0 +1,12 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "esi",
+    srcs = ["known_devices.cpp"],
+    hdrs = ["known_devices.h"],
+    visibility = ["//driver/ethercat:__subpackages__"],
+    deps = [
+        "//driver/ethercat/master",
+        "//x/cpp/telem",
+    ],
+)

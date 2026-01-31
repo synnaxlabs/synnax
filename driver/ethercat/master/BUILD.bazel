@@ -1,7 +1,6 @@
 cc_library(
     name = "master",
     hdrs = [
-        "domain.h",
         "master.h",
         "slave_info.h",
     ],

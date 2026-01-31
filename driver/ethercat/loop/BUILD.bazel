@@ -1,0 +1,27 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
+cc_library(
+    name = "loop",
+    srcs = ["loop.cpp"],
+    hdrs = ["loop.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/ethercat/errors",
+        "//driver/ethercat/master",
+        "//x/cpp/breaker",
+        "//x/cpp/loop",
+        "//x/cpp/xthread",
+    ],
+)
+
+cc_test(
+    name = "loop_test",
+    srcs = ["loop_test.cpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/ethercat/loop",
+        "//driver/ethercat/mock",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

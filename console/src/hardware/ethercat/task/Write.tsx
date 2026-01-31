@@ -9,7 +9,7 @@
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon, Telem } from "@synnaxlabs/pluto";
-import { deep, primitive } from "@synnaxlabs/x";
+import { caseconv, deep, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
@@ -32,6 +32,12 @@ import {
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/ethercat/task/types";
 import { Selector } from "@/selector";
+
+const getChannelByMapKey = (
+  channels: Record<string, number>,
+  mapKey: string,
+): number =>
+  channels[mapKey] ?? channels[caseconv.snakeToCamel(mapKey)] ?? 0;
 
 export const WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -234,8 +240,8 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
 
     for (const ch of config.channels) {
       const mapKey = writeMapKey(ch);
-      const existing = network.properties.write.channels[mapKey];
-      if (existing == null) {
+      const existing = getChannelByMapKey(network.properties.write.channels, mapKey);
+      if (existing === 0) {
         toCreate.push(ch);
         continue;
       }
@@ -262,15 +268,18 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
       const cmdIndexes = await client.channels.create(
         toCreate.map((ch) => {
           const slave = slaveCache.get(ch.device);
-          const slaveName = slave?.properties?.name ?? "slave";
-          const channelLabel =
+          const slaveName = channel.escapeInvalidName(
+            slave?.properties?.name ?? "slave",
+          );
+          const pdoName = channel.escapeInvalidName(
             ch.type === AUTOMATIC_TYPE
               ? ch.pdo
-              : `0x${ch.index.toString(16)}_${ch.subindex}`;
+              : `_0x${ch.index.toString(16)}_${ch.subindex}`,
+          );
           return {
             name: primitive.isNonZero(ch.name)
               ? `${ch.name}_cmd_time`
-              : `${safeName}_${slaveName}_${channelLabel}_cmd_time`,
+              : `${safeName}_${slaveName}_${pdoName}_cmd_time`,
             dataType: "timestamp",
             isIndex: true,
           };
@@ -284,15 +293,18 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
             ch.type === AUTOMATIC_TYPE
               ? resolvePDODataType(slave, ch.pdo)
               : ch.dataType;
-          const slaveName = slave?.properties?.name ?? "slave";
-          const channelLabel =
+          const slaveName = channel.escapeInvalidName(
+            slave?.properties?.name ?? "slave",
+          );
+          const pdoName = channel.escapeInvalidName(
             ch.type === AUTOMATIC_TYPE
               ? ch.pdo
-              : `0x${ch.index.toString(16)}_${ch.subindex}`;
+              : `_0x${ch.index.toString(16)}_${ch.subindex}`,
+          );
           return {
             name: primitive.isNonZero(ch.name)
               ? `${ch.name}_cmd`
-              : `${safeName}_${slaveName}_${channelLabel}_cmd`,
+              : `${safeName}_${slaveName}_${pdoName}_cmd`,
             dataType,
             index: cmdIndexes[i].key,
           };
@@ -306,15 +318,18 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
             ch.type === AUTOMATIC_TYPE
               ? resolvePDODataType(slave, ch.pdo)
               : ch.dataType;
-          const slaveName = slave?.properties?.name ?? "slave";
-          const channelLabel =
+          const slaveName = channel.escapeInvalidName(
+            slave?.properties?.name ?? "slave",
+          );
+          const pdoName = channel.escapeInvalidName(
             ch.type === AUTOMATIC_TYPE
               ? ch.pdo
-              : `0x${ch.index.toString(16)}_${ch.subindex}`;
+              : `_0x${ch.index.toString(16)}_${ch.subindex}`,
+          );
           return {
             name: primitive.isNonZero(ch.name)
               ? `${ch.name}_state`
-              : `${safeName}_${slaveName}_${channelLabel}_state`,
+              : `${safeName}_${slaveName}_${pdoName}_state`,
             dataType,
             index: network.properties.write.stateIndex,
           };
@@ -333,8 +348,11 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
 
   config.channels.forEach((ch) => {
     const mapKey = writeMapKey(ch);
-    ch.cmdChannel = network.properties.write.channels[mapKey];
-    ch.stateChannel = network.properties.write.channels[`${mapKey}_state`];
+    ch.cmdChannel = getChannelByMapKey(network.properties.write.channels, mapKey);
+    ch.stateChannel = getChannelByMapKey(
+      network.properties.write.channels,
+      `${mapKey}_state`,
+    );
   });
 
   return [config, network.rack];

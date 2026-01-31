@@ -11,33 +11,25 @@
 
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <set>
-#include <unordered_map>
 #include <vector>
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/xjson/xjson.h"
 
-#include "driver/ethercat/channels.h"
-#include "driver/ethercat/cyclic_engine.h"
-#include "driver/ethercat/device.h"
-#include "driver/ethercat/errors/errors.h"
+#include "driver/ethercat/channel/channel.h"
+#include "driver/ethercat/device/device.h"
+#include "driver/ethercat/loop/loop.h"
 #include "driver/task/common/write_task.h"
 
 namespace ethercat {
-/// Configuration for an EtherCAT write task.
 struct WriteTaskConfig : common::BaseWriteTaskConfig {
-    /// The key of the network device in Synnax.
     std::string device_key;
-    /// Interface name resolved from network device properties.
     std::string interface_name;
-    /// Polymorphic output channels.
     std::vector<std::unique_ptr<channel::Output>> channels;
-    /// State channels for feedback.
     std::vector<synnax::Channel> state_channels;
-    /// Index keys for state channels.
     std::set<synnax::ChannelKey> state_indexes;
-    /// State update rate.
     telem::Rate state_rate;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
@@ -59,7 +51,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         BaseWriteTaskConfig(cfg),
         device_key(cfg.field<std::string>("device")),
         state_rate(telem::Rate(cfg.field<float>("state_rate", 1.0f))) {
-        auto [dev, net_err] = client->devices.retrieve(this->device_key);
+        auto [dev, net_err] = client->devices.retrieve(device_key);
         if (net_err) {
             cfg.field_err("device", net_err.message());
             return;
@@ -70,7 +62,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             cfg.field_err("device", net_parser.error().message());
             return;
         }
-        this->interface_name = net_props.interface;
+        interface_name = net_props.interface;
         std::unordered_map<std::string, device::SlaveProperties> slave_cache;
         cfg.iter("channels", [&](xjson::Parser &ch) {
             auto slave_key = ch.field<std::string>("device");
@@ -92,15 +84,15 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             const auto &slave = slave_cache.at(slave_key);
             auto channel_ptr = channel::parse_output(ch, slave);
             if (channel_ptr && channel_ptr->enabled)
-                this->channels.push_back(std::move(channel_ptr));
+                channels.push_back(std::move(channel_ptr));
         });
 
         if (cfg.error()) return;
 
-        channel::sort_by_position(this->channels);
+        channel::sort_by_position(channels);
 
         std::vector<synnax::ChannelKey> state_keys;
-        for (const auto &ch: this->channels)
+        for (const auto &ch: channels)
             if (ch->state_key != 0) state_keys.push_back(ch->state_key);
 
         if (!state_keys.empty()) {
@@ -109,16 +101,12 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
                 cfg.field_err("channels", err.message());
                 return;
             }
-            this->state_channels = std::move(state_chs);
-            for (const auto &ch: this->state_channels)
-                if (ch.index != 0) this->state_indexes.insert(ch.index);
+            state_channels = std::move(state_chs);
+            for (const auto &ch: state_channels)
+                if (ch.index != 0) state_indexes.insert(ch.index);
         }
     }
 
-    /// Parses the configuration for the task from its JSON representation.
-    /// @param client The Synnax client to use to retrieve channel information.
-    /// @param task The task to parse.
-    /// @returns A pair containing the parsed configuration and any error that occurred.
     static std::pair<WriteTaskConfig, xerrors::Error>
     parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
         auto parser = xjson::Parser(task.config);
@@ -126,27 +114,22 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         return {std::move(cfg), parser.error()};
     }
 
-    /// Returns the command channel keys.
     [[nodiscard]] std::vector<synnax::ChannelKey> cmd_keys() const {
         std::vector<synnax::ChannelKey> keys;
-        keys.reserve(this->channels.size());
-        for (const auto &ch: this->channels)
+        keys.reserve(channels.size());
+        for (const auto &ch: channels)
             keys.push_back(ch->command_key);
         return keys;
     }
 };
 
-/// Implements common::Sink to write to EtherCAT slaves via the CyclicEngine.
 class WriteTaskSink final : public common::Sink {
     WriteTaskConfig cfg;
-    std::shared_ptr<CyclicEngine> engine;
-    std::vector<PDOHandle> pdo_handles;
+    std::shared_ptr<Loop> loop;
+    std::optional<Loop::Writer> writer;
 
 public:
-    /// Constructs a WriteTaskSink with the given engine and configuration.
-    /// @param engine The CyclicEngine to use for cyclic PDO exchange.
-    /// @param cfg The task configuration.
-    explicit WriteTaskSink(std::shared_ptr<CyclicEngine> engine, WriteTaskConfig cfg):
+    explicit WriteTaskSink(std::shared_ptr<Loop> loop, WriteTaskConfig cfg):
         Sink(
             cfg.state_rate,
             cfg.state_indexes,
@@ -155,59 +138,34 @@ public:
             cfg.data_saving
         ),
         cfg(std::move(cfg)),
-        engine(std::move(engine)) {}
+        loop(std::move(loop)) {}
 
     xerrors::Error start() override {
-        auto slaves = this->engine->slaves();
-        std::unordered_map<uint32_t, uint16_t> serial_to_position;
-        for (const auto &slave: slaves)
-            serial_to_position[slave.serial] = slave.position;
-
-        this->pdo_handles.clear();
-        this->pdo_handles.reserve(this->cfg.channels.size());
-
-        for (auto &ch: this->cfg.channels) {
-            auto it = serial_to_position.find(ch->slave_serial);
-            if (it == serial_to_position.end())
-                return xerrors::Error(
-                    SLAVE_STATE_ERROR,
-                    "slave with serial " + std::to_string(ch->slave_serial) +
-                        " not found on bus"
-                );
-            ch->slave_position = it->second;
-
-            auto [handle, err] = this->engine->register_output_pdo(
-                ch->to_pdo_entry(false)
-            );
-            if (err) return err;
-            this->pdo_handles.push_back(handle);
-        }
-
-        if (auto err = this->engine->add_task(); err) return err;
-
-        for (size_t i = 0; i < this->cfg.channels.size(); ++i)
-            this->cfg.channels[i]->buffer_offset = this->engine
-                                                       ->get_actual_output_offset(
-                                                           this->pdo_handles[i].index
-                                                       );
-
+        std::vector<PDOEntry> entries;
+        entries.reserve(this->cfg.channels.size());
+        for (const auto &ch: this->cfg.channels)
+            entries.push_back(ch->to_pdo_entry(false));
+        auto [wtr, err] = this->loop->open_writer(std::move(entries));
+        if (err) return err;
+        this->writer.emplace(std::move(wtr));
         return xerrors::NIL;
     }
 
     xerrors::Error stop() override {
-        this->engine->remove_task();
+        writer.reset();
         return xerrors::NIL;
     }
 
     xerrors::Error write(telem::Frame &frame) override {
-        for (const auto &ch: this->cfg.channels) {
+        for (size_t i = 0; i < cfg.channels.size(); ++i) {
+            const auto &ch = cfg.channels[i];
             if (!frame.contains(ch->command_key)) continue;
             const telem::SampleValue value = frame.at(ch->command_key, 0);
             const void *data_ptr = telem::cast_to_void_ptr(value);
             const size_t byte_len = ch->byte_length();
-            this->engine->write_output(ch->buffer_offset, data_ptr, byte_len);
+            writer->write(i, data_ptr, byte_len);
         }
-        this->set_state(frame);
+        set_state(frame);
         return xerrors::NIL;
     }
 };

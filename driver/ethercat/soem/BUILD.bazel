@@ -5,8 +5,9 @@ cc_library(
     visibility = ["//driver/ethercat:__pkg__"],
     deps = [
         "//driver/ethercat/errors",
+        "//driver/ethercat/esi",
         "//driver/ethercat/master",
-        "//driver/ethercat:pdo_types",
+        "//driver/ethercat/telem",
         "//vendor/soem",
         "//x/cpp/xerrors",
         "@glog",

@@ -15,7 +15,6 @@
 
 #include "x/cpp/breaker/breaker.h"
 
-#include "driver/ethercat/cyclic_engine.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/read_task.h"
 #include "driver/ethercat/scan_task.h"
@@ -25,6 +24,7 @@
 #include "driver/task/common/read_task.h"
 #include "driver/task/common/scan_task.h"
 #include "driver/task/common/write_task.h"
+#include "loop/loop.h"
 
 #ifdef __linux__
 #include "driver/ethercat/igh/master.h"
@@ -49,10 +49,10 @@ std::shared_ptr<Master> create_master(
 }
 
 struct Factory::Impl {
-    std::unordered_map<std::string, std::shared_ptr<CyclicEngine>> engines;
+    std::unordered_map<std::string, std::shared_ptr<Loop>> engines;
     mutable std::mutex engines_mutex;
 
-    std::shared_ptr<CyclicEngine> get_or_create_engine(
+    std::shared_ptr<Loop> get_or_create_engine(
         const std::string &interface_name,
         const std::string &backend = "auto",
         unsigned int master_index = 0
@@ -64,7 +64,7 @@ struct Factory::Impl {
         if (it != engines.end()) return it->second;
 
         auto master = create_master(interface_name, backend, master_index);
-        auto engine = std::make_shared<CyclicEngine>(std::move(master));
+        auto engine = std::make_shared<Loop>(std::move(master));
         engines[key] = engine;
         return engine;
     }
@@ -138,7 +138,7 @@ struct Factory::Impl {
     std::vector<SlaveInfo> get_cached_slaves(const std::string &interface) const {
         std::lock_guard lock(engines_mutex);
         auto it = engines.find(interface);
-        if (it != engines.end()) return it->second->slaves();
+        if (it != engines.end()) return it->second->master->slaves();
         return {};
     }
 };

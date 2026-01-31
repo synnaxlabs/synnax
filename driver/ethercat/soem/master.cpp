@@ -11,79 +11,23 @@
 
 #include "glog/logging.h"
 
-#include "driver/ethercat/pdo_types.h"
+#include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/soem/master.h"
+#include "driver/ethercat/telem/telem.h"
 
 namespace ethercat::soem {
-
-////////////////////////////////////////////////////////////////////////////////
-// Domain Implementation
-////////////////////////////////////////////////////////////////////////////////
-
-Domain::Domain(const size_t iomap_size):
-    iomap(iomap_size, 0),
-    input_offset(0),
-    output_offset(0),
-    input_sz(0),
-    output_sz(0) {}
-
-std::pair<size_t, xerrors::Error> Domain::register_pdo(const PDOEntry &entry) {
-    size_t offset;
-    const size_t byte_size = (entry.bit_length + 7) / 8;
-
-    if (entry.is_input) {
-        offset = this->output_sz + this->input_offset;
-        this->input_offset += byte_size;
-    } else {
-        offset = this->output_offset;
-        this->output_offset += byte_size;
-    }
-
-    if (offset + byte_size > this->iomap.size()) {
-        return {0, xerrors::Error(PDO_MAPPING_ERROR, "IOmap buffer overflow")};
-    }
-
-    this->registered_pdos.emplace_back(entry, offset);
-    return {offset, xerrors::NIL};
-}
-
-uint8_t *Domain::data() {
-    return this->iomap.data();
-}
-
-size_t Domain::size() const {
-    return this->iomap.size();
-}
-
-size_t Domain::input_size() const {
-    return this->input_sz;
-}
-
-size_t Domain::output_size() const {
-    return this->output_sz;
-}
-
-void Domain::set_sizes(const size_t input_size, const size_t output_size) {
-    this->input_sz = input_size;
-    this->output_sz = output_size;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Master Implementation
-////////////////////////////////////////////////////////////////////////////////
-
-/// Default timeout for state transitions (2 seconds in microseconds).
 constexpr int STATE_CHANGE_TIMEOUT = 2000000;
-
-/// Default timeout for process data receive (1 millisecond in microseconds).
 constexpr int PROCESSDATA_TIMEOUT = 1000;
+constexpr size_t DEFAULT_IOMAP_SIZE = 4096;
 
 Master::Master(std::string interface_name):
     iface_name(std::move(interface_name)),
     context{},
+    iomap(DEFAULT_IOMAP_SIZE, 0),
+    input_sz(0),
+    output_sz(0),
     initialized(false),
     activated(false),
-    dom(nullptr),
     expected_wkc(0) {
     std::memset(&this->context, 0, sizeof(this->context));
 }
@@ -95,12 +39,11 @@ Master::~Master() {
 xerrors::Error Master::initialize() {
     if (this->initialized) return xerrors::NIL;
 
-    if (ecx_init(&this->context, this->iface_name.c_str()) <= 0) {
+    if (ecx_init(&this->context, this->iface_name.c_str()) <= 0)
         return xerrors::Error(
             MASTER_INIT_ERROR,
             "failed to initialize EtherCAT on interface: " + this->iface_name
         );
-    }
 
     if (ecx_config_init(&this->context) <= 0) {
         ecx_close(&this->context);
@@ -112,17 +55,11 @@ xerrors::Error Master::initialize() {
     return xerrors::NIL;
 }
 
-std::unique_ptr<ethercat::Domain> Master::create_domain() {
-    return std::make_unique<Domain>();
-}
-
 xerrors::Error Master::activate() {
-    if (!this->initialized) {
+    if (!this->initialized)
         return xerrors::Error(ACTIVATION_ERROR, "master not initialized");
-    }
-    if (this->activated) {
+    if (this->activated)
         return xerrors::Error(ACTIVATION_ERROR, "master already activated");
-    }
 
     int excluded_count = 0;
     for (int i = 1; i <= this->context.slavecount; ++i) {
@@ -134,25 +71,20 @@ xerrors::Error Master::activate() {
         }
     }
 
-    auto domain = std::make_unique<Domain>();
-    const int iomap_size = ecx_config_map_group(&this->context, domain->iomap_ptr(), 0);
+    const int iomap_size = ecx_config_map_group(&this->context, this->iomap.data(), 0);
 
-    if (iomap_size <= 0 && excluded_count < this->context.slavecount) {
+    if (iomap_size <= 0 && excluded_count < this->context.slavecount)
         return xerrors::Error(ACTIVATION_ERROR, "failed to configure PDO mapping");
-    }
 
     const auto &group = this->context.grouplist[0];
-    domain->set_sizes(group.Ibytes, group.Obytes);
-    this->dom = domain.release();
+    this->input_sz = group.Ibytes;
+    this->output_sz = group.Obytes;
+
     this->expected_wkc = (this->context.grouplist[0].outputsWKC * 2) +
                          this->context.grouplist[0].inputsWKC;
 
     auto err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
-    if (err) {
-        delete this->dom;
-        this->dom = nullptr;
-        return err;
-    }
+    if (err) return err;
 
     ecx_send_processdata(&this->context);
     ecx_receive_processdata(&this->context, PROCESSDATA_TIMEOUT);
@@ -160,11 +92,10 @@ xerrors::Error Master::activate() {
     err = this->request_state(EC_STATE_OPERATIONAL, STATE_CHANGE_TIMEOUT);
     if (err) {
         this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
-        delete this->dom;
-        this->dom = nullptr;
         return err;
     }
 
+    this->cache_pdo_offsets();
     this->activated = true;
     return xerrors::NIL;
 }
@@ -172,10 +103,11 @@ xerrors::Error Master::activate() {
 void Master::deactivate() {
     if (this->activated) {
         this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
-        delete this->dom;
-        this->dom = nullptr;
         this->activated = false;
         this->expected_wkc = 0;
+        this->input_sz = 0;
+        this->output_sz = 0;
+        this->pdo_offset_cache.clear();
     }
 
     if (this->initialized) {
@@ -186,47 +118,56 @@ void Master::deactivate() {
 }
 
 xerrors::Error Master::receive() {
-    if (!this->activated) {
-        return xerrors::Error(CYCLIC_ERROR, "master not activated");
-    }
+    if (!this->activated) return xerrors::Error(CYCLIC_ERROR, "master not activated");
 
     const int wkc = ecx_receive_processdata(&this->context, PROCESSDATA_TIMEOUT);
 
-    if (wkc < 0) { return xerrors::Error(CYCLIC_ERROR, "process data receive failed"); }
+    if (wkc < 0) return xerrors::Error(CYCLIC_ERROR, "process data receive failed");
 
-    if (wkc != this->expected_wkc) {
+    if (wkc != this->expected_wkc)
         return xerrors::Error(
             WORKING_COUNTER_ERROR,
             "working counter mismatch: expected " + std::to_string(this->expected_wkc) +
                 ", got " + std::to_string(wkc)
         );
-    }
 
-    return xerrors::NIL;
-}
-
-xerrors::Error Master::process(ethercat::Domain &domain) {
-    (void) domain;
-    return xerrors::NIL;
-}
-
-xerrors::Error Master::queue(ethercat::Domain &domain) {
-    (void) domain;
     return xerrors::NIL;
 }
 
 xerrors::Error Master::send() {
-    if (!this->activated) {
-        return xerrors::Error(CYCLIC_ERROR, "master not activated");
-    }
+    if (!this->activated) return xerrors::Error(CYCLIC_ERROR, "master not activated");
 
     const int result = ecx_send_processdata(&this->context);
 
-    if (result <= 0) {
-        return xerrors::Error(CYCLIC_ERROR, "process data send failed");
-    }
+    if (result <= 0) return xerrors::Error(CYCLIC_ERROR, "process data send failed");
 
     return xerrors::NIL;
+}
+
+uint8_t *Master::input_data() {
+    if (!this->activated) return nullptr;
+    return this->iomap.data() + this->output_sz;
+}
+
+size_t Master::input_size() const {
+    return this->input_sz;
+}
+
+uint8_t *Master::output_data() {
+    if (!this->activated) return nullptr;
+    return this->iomap.data();
+}
+
+size_t Master::output_size() const {
+    return this->output_sz;
+}
+
+size_t Master::pdo_offset(const PDOEntry &entry) const {
+    std::lock_guard lock(this->mu);
+    PDOEntryKey key{entry.slave_position, entry.index, entry.subindex, entry.is_input};
+    auto it = this->pdo_offset_cache.find(key);
+    if (it != this->pdo_offset_cache.end()) return it->second;
+    return 0;
 }
 
 std::vector<SlaveInfo> Master::slaves() const {
@@ -237,9 +178,8 @@ std::vector<SlaveInfo> Master::slaves() const {
 SlaveState Master::slave_state(const uint16_t position) const {
     std::lock_guard lock(this->mu);
 
-    if (position == 0 || position > static_cast<uint16_t>(this->context.slavecount)) {
+    if (position == 0 || position > static_cast<uint16_t>(this->context.slavecount))
         return SlaveState::UNKNOWN;
-    }
 
     return convert_state(this->context.slavelist[position].state);
 }
@@ -249,48 +189,14 @@ bool Master::all_slaves_operational() const {
 
     if (!this->activated) return false;
 
-    for (int i = 1; i <= this->context.slavecount; ++i) {
-        if ((this->context.slavelist[i].state & EC_STATE_OPERATIONAL) == 0) {
+    for (int i = 1; i <= this->context.slavecount; ++i)
+        if ((this->context.slavelist[i].state & EC_STATE_OPERATIONAL) == 0)
             return false;
-        }
-    }
     return true;
 }
 
 std::string Master::interface_name() const {
     return this->iface_name;
-}
-
-ethercat::Domain *Master::active_domain() const {
-    return this->dom;
-}
-
-SlaveDataOffsets Master::slave_data_offsets(const uint16_t position) const {
-    std::lock_guard lock(this->mu);
-
-    if (!this->activated || position == 0 ||
-        position > static_cast<uint16_t>(this->context.slavecount)) {
-        return SlaveDataOffsets{};
-    }
-
-    if (this->context.slavelist[position].group != 0) { return SlaveDataOffsets{}; }
-
-    const auto &slave = this->context.slavelist[position];
-
-    const auto *iomap_base = this->dom->data();
-    const size_t output_offset = slave.outputs != nullptr
-                                   ? static_cast<size_t>(slave.outputs - iomap_base)
-                                   : 0;
-    const size_t input_offset = slave.inputs != nullptr
-                                  ? static_cast<size_t>(slave.inputs - iomap_base)
-                                  : 0;
-
-    return SlaveDataOffsets{
-        input_offset,
-        static_cast<size_t>(slave.Ibytes),
-        output_offset,
-        static_cast<size_t>(slave.Obytes)
-    };
 }
 
 SlaveState Master::convert_state(const uint16_t soem_state) {
@@ -317,17 +223,62 @@ void Master::populate_slaves() {
     this->slave_list.reserve(this->context.slavecount);
 
     for (int i = 1; i <= this->context.slavecount; ++i) {
-        const auto &slave = this->context.slavelist[i];
+        const auto &soem_slave = this->context.slavelist[i];
         SlaveInfo info{};
         info.position = static_cast<uint16_t>(i);
-        info.vendor_id = slave.eep_man;
-        info.product_code = slave.eep_id;
-        info.revision = slave.eep_rev;
-        info.serial = slave.eep_ser;
-        info.name = slave.name;
-        info.state = convert_state(slave.state);
+        info.vendor_id = soem_slave.eep_man;
+        info.product_code = soem_slave.eep_id;
+        info.revision = soem_slave.eep_rev;
+        info.serial = soem_slave.eep_ser;
+        info.name = soem_slave.name;
+        info.state = convert_state(soem_slave.state);
+        info.input_bits = soem_slave.Ibits;
+        info.output_bits = soem_slave.Obits;
         this->discover_slave_pdos(info);
         this->slave_list.push_back(info);
+    }
+}
+
+void Master::cache_pdo_offsets() {
+    std::lock_guard lock(this->mu);
+    this->pdo_offset_cache.clear();
+
+    for (const auto &slave: this->slave_list) {
+        if (slave.position == 0 ||
+            slave.position > static_cast<uint16_t>(this->context.slavecount))
+            continue;
+
+        if (this->context.slavelist[slave.position].group != 0) continue;
+
+        const auto &soem_slave = this->context.slavelist[slave.position];
+        const auto *iomap_base = this->iomap.data();
+
+        const size_t slave_output_offset = soem_slave.outputs != nullptr
+                                             ? static_cast<size_t>(
+                                                   soem_slave.outputs - iomap_base
+                                               )
+                                             : 0;
+        const size_t slave_input_offset = soem_slave.inputs != nullptr
+                                            ? static_cast<size_t>(
+                                                  soem_slave.inputs - iomap_base
+                                              )
+                                            : 0;
+
+        size_t input_bit_offset = 0;
+        for (const auto &pdo: slave.input_pdos) {
+            const size_t byte_offset = input_bit_offset / 8;
+            PDOEntryKey key{slave.position, pdo.index, pdo.subindex, true};
+            this->pdo_offset_cache[key] = slave_input_offset + byte_offset;
+            input_bit_offset += pdo.bit_length;
+        }
+
+        size_t output_bit_offset = 0;
+        for (const auto &pdo: slave.output_pdos) {
+            const size_t byte_offset = output_bit_offset / 8;
+            PDOEntryKey key{slave.position, pdo.index, pdo.subindex, false};
+            this->pdo_offset_cache[key] = slave_output_offset + byte_offset;
+            output_bit_offset += pdo.bit_length;
+        }
     }
 }
 
@@ -336,29 +287,77 @@ constexpr int MAX_SDO_FAILURES = 3;
 
 void Master::discover_slave_pdos(SlaveInfo &slave) {
     if (!this->discover_pdos_coe(slave)) this->discover_pdos_sii(slave);
+
+    if (slave.input_pdos.empty() && slave.output_pdos.empty()) {
+        if (esi::lookup_device_pdos(
+                slave.vendor_id,
+                slave.product_code,
+                slave.revision,
+                slave
+            )) {
+            VLOG(1) << "Slave " << slave.position
+                    << " PDOs discovered via ESI lookup: " << slave.input_pdos.size()
+                    << " inputs, " << slave.output_pdos.size() << " outputs";
+            slave.pdo_discovery_error.clear();
+        }
+    }
 }
 
 bool Master::discover_pdos_coe(SlaveInfo &slave) {
     const auto &soem_slave = this->context.slavelist[slave.position];
+    VLOG(2) << "Slave " << slave.position << " mbx_proto: 0x" << std::hex
+            << static_cast<int>(soem_slave.mbx_proto) << std::dec;
     if ((soem_slave.mbx_proto & ECT_MBXPROT_COE) == 0) {
-        VLOG(2) << "Slave " << slave.position << " does not support CoE";
+        VLOG(1) << "Slave " << slave.position << " (" << slave.name
+                << ") does not support CoE, falling back to SII";
         return false;
     }
+
+    VLOG(2) << "Slave " << slave.position << " supports CoE, reading PDO assignments";
+
+    bool tx_success = false;
+    bool rx_success = false;
 
     auto err = this->read_pdo_assign(slave.position, ECT_SDO_TXPDOASSIGN, true, slave);
     if (err) {
         VLOG(2) << "Failed to read TxPDO assignment for slave " << slave.position
-                << ": " << err.message();
-        slave.pdo_discovery_error = err.message();
-        return false;
+                << ": " << err.message() << " - trying direct PDO read";
+        err = this->read_pdo_mapping(slave.position, 0x1A00, true, slave);
+        if (err)
+            VLOG(2) << "Failed to read TxPDO mapping 0x1A00 for slave "
+                    << slave.position << ": " << err.message();
+        else
+            tx_success = true;
+    } else {
+        tx_success = true;
     }
 
     err = this->read_pdo_assign(slave.position, ECT_SDO_RXPDOASSIGN, false, slave);
     if (err) {
         VLOG(2) << "Failed to read RxPDO assignment for slave " << slave.position
-                << ": " << err.message();
-        if (slave.pdo_discovery_error.empty())
-            slave.pdo_discovery_error = err.message();
+                << ": " << err.message() << " - trying direct PDO read";
+        err = this->read_pdo_mapping(slave.position, 0x1600, false, slave);
+        if (err)
+            VLOG(2) << "Failed to read RxPDO mapping 0x1600 for slave "
+                    << slave.position << ": " << err.message();
+        else
+            rx_success = true;
+    } else {
+        rx_success = true;
+    }
+
+    if (!tx_success && !rx_success) {
+        VLOG(2) << "Standard PDO discovery failed for slave " << slave.position
+                << ", scanning object dictionary";
+        if (this->scan_object_dictionary_for_pdos(slave.position, slave)) {
+            tx_success = !slave.input_pdos.empty();
+            rx_success = !slave.output_pdos.empty();
+        }
+    }
+
+    if (!tx_success && !rx_success) {
+        slave.pdo_discovery_error = "no PDO objects found in object dictionary";
+        return false;
     }
 
     slave.pdos_discovered = true;
@@ -369,9 +368,143 @@ bool Master::discover_pdos_coe(SlaveInfo &slave) {
 }
 
 void Master::discover_pdos_sii(SlaveInfo &slave) {
-    VLOG(2) << "Using SII fallback for slave " << slave.position;
+    VLOG(1) << "Using SII fallback for slave " << slave.position;
+
+    for (uint8_t t = 0; t <= 1; ++t) {
+        const bool is_input = (t == 0);
+        const uint16_t startpos = ecx_siifind(
+            &this->context,
+            slave.position,
+            ECT_SII_PDO + t
+        );
+        VLOG(2) << "Slave " << slave.position << " SII category " << (ECT_SII_PDO + t)
+                << " (" << (is_input ? "TxPDO" : "RxPDO") << ") startpos: " << startpos;
+        if (startpos == 0) continue;
+
+        uint16_t a = startpos;
+        uint16_t length = ecx_siigetbyte(&this->context, slave.position, a++);
+        length += (ecx_siigetbyte(&this->context, slave.position, a++) << 8);
+
+        VLOG(2) << "Slave " << slave.position << " " << (is_input ? "TxPDO" : "RxPDO")
+                << " length: " << length;
+
+        uint16_t c = 1;
+        while (c < length) {
+            uint16_t pdo_index = ecx_siigetbyte(&this->context, slave.position, a++);
+            pdo_index += (ecx_siigetbyte(&this->context, slave.position, a++) << 8);
+            c++;
+
+            const uint8_t num_entries = ecx_siigetbyte(
+                &this->context,
+                slave.position,
+                a++
+            );
+            const uint8_t sync_manager = ecx_siigetbyte(
+                &this->context,
+                slave.position,
+                a++
+            );
+            a++;
+            const uint8_t pdo_name_idx = ecx_siigetbyte(
+                &this->context,
+                slave.position,
+                a++
+            );
+            a += 2;
+            c += 2;
+
+            (void) pdo_name_idx;
+
+            if (sync_manager >= EC_MAXSM) {
+                c += 4 * num_entries;
+                a += 8 * num_entries;
+                c++;
+                continue;
+            }
+
+            for (uint8_t er = 0; er < num_entries; ++er) {
+                c += 4;
+                uint16_t obj_idx = ecx_siigetbyte(&this->context, slave.position, a++);
+                obj_idx += (ecx_siigetbyte(&this->context, slave.position, a++) << 8);
+                const uint8_t obj_subidx = ecx_siigetbyte(
+                    &this->context,
+                    slave.position,
+                    a++
+                );
+                const uint8_t obj_name_idx = ecx_siigetbyte(
+                    &this->context,
+                    slave.position,
+                    a++
+                );
+                a++;
+                const uint8_t bitlen = ecx_siigetbyte(
+                    &this->context,
+                    slave.position,
+                    a++
+                );
+                a += 2;
+
+                if (obj_idx == 0 && obj_subidx == 0) continue;
+
+                std::string entry_name;
+                if (obj_name_idx > 0) {
+                    char name_buf[EC_MAXNAME + 1] = {0};
+                    ecx_siistring(
+                        &this->context,
+                        name_buf,
+                        slave.position,
+                        obj_name_idx
+                    );
+                    entry_name = name_buf;
+                }
+
+                const telem::DataType data_type = infer_type_from_bit_length(bitlen);
+                const std::string name = generate_pdo_entry_name(
+                    entry_name,
+                    obj_idx,
+                    obj_subidx,
+                    is_input,
+                    data_type
+                );
+
+                PDOEntryInfo entry(
+                    pdo_index,
+                    obj_idx,
+                    obj_subidx,
+                    bitlen,
+                    is_input,
+                    name,
+                    data_type
+                );
+
+                if (is_input)
+                    slave.input_pdos.push_back(entry);
+                else
+                    slave.output_pdos.push_back(entry);
+            }
+            c++;
+        }
+    }
+
+    if (slave.input_pdos.empty() && slave.output_pdos.empty()) {
+        const auto &soem_slave = this->context.slavelist[slave.position];
+        if (soem_slave.Ibits > 0 || soem_slave.Obits > 0) {
+            VLOG(2) << "Slave " << slave.position << " has Ibits=" << soem_slave.Ibits
+                    << " Obits=" << soem_slave.Obits << " but no SII PDO info";
+            slave.pdo_discovery_error = "PDO details not available (I/O size: " +
+                                        std::to_string(soem_slave.Ibits) +
+                                        " input bits, " +
+                                        std::to_string(soem_slave.Obits) +
+                                        " output bits)";
+        } else {
+            slave.pdo_discovery_error = "no PDOs found";
+        }
+    }
+
     slave.pdos_discovered = true;
-    slave.pdo_discovery_error = "CoE not supported, limited PDO info from SII";
+    VLOG(1) << "Slave " << slave.position
+            << " PDOs discovered via SII: " << slave.input_pdos.size() << " inputs, "
+            << slave.output_pdos.size() << " outputs";
 }
 
 xerrors::Error Master::read_pdo_assign(
@@ -392,8 +525,14 @@ xerrors::Error Master::read_pdo_assign(
         &num_pdos,
         SDO_TIMEOUT
     );
-    if (result <= 0)
+    if (result <= 0) {
+        VLOG(2) << "Slave " << slave_pos << " SDO read 0x" << std::hex << assign_index
+                << ":0 failed, result=" << std::dec << result
+                << " ecx_err=" << this->context.slavelist[slave_pos].ALstatuscode;
         return xerrors::Error(SDO_READ_ERROR, "failed to read PDO assignment count");
+    }
+    VLOG(2) << "Slave " << slave_pos << " PDO assign 0x" << std::hex << assign_index
+            << " has " << std::dec << static_cast<int>(num_pdos) << " PDOs";
 
     int consecutive_failures = 0;
     for (uint8_t i = 1; i <= num_pdos; ++i) {
@@ -411,12 +550,11 @@ xerrors::Error Master::read_pdo_assign(
         );
         if (result <= 0) {
             consecutive_failures++;
-            if (consecutive_failures >= MAX_SDO_FAILURES) {
+            if (consecutive_failures >= MAX_SDO_FAILURES)
                 return xerrors::Error(
                     SDO_READ_ERROR,
                     "too many consecutive SDO failures"
                 );
-            }
             continue;
         }
         consecutive_failures = 0;
@@ -424,10 +562,9 @@ xerrors::Error Master::read_pdo_assign(
         if (pdo_index == 0) continue;
 
         auto err = this->read_pdo_mapping(slave_pos, pdo_index, is_input, slave);
-        if (err) {
+        if (err)
             VLOG(2) << "Failed to read PDO mapping 0x" << std::hex << pdo_index
                     << " for slave " << std::dec << slave_pos << ": " << err.message();
-        }
     }
 
     return xerrors::NIL;
@@ -451,8 +588,13 @@ xerrors::Error Master::read_pdo_mapping(
         &num_entries,
         SDO_TIMEOUT
     );
-    if (result <= 0)
+    if (result <= 0) {
+        VLOG(2) << "Slave " << slave_pos << " SDO read 0x" << std::hex << pdo_index
+                << ":0 failed, result=" << std::dec << result;
         return xerrors::Error(SDO_READ_ERROR, "failed to read PDO mapping count");
+    }
+    VLOG(2) << "Slave " << slave_pos << " PDO 0x" << std::hex << pdo_index << " has "
+            << std::dec << static_cast<int>(num_entries) << " entries";
 
     int consecutive_failures = 0;
     for (uint8_t i = 1; i <= num_entries; ++i) {
@@ -524,12 +666,61 @@ std::string Master::read_pdo_entry_name(
     od_list.Entries = 1;
 
     ec_OElistt oe_list{};
-    if (ecx_readOEsingle(&this->context, 0, subindex, &od_list, &oe_list) > 0) {
+    if (ecx_readOEsingle(&this->context, 0, subindex, &od_list, &oe_list) > 0)
         if (oe_list.Entries > 0 && oe_list.Name[0][0] != '\0')
             return std::string(oe_list.Name[0]);
-    }
 
     return "";
+}
+
+bool Master::scan_object_dictionary_for_pdos(
+    const uint16_t slave_pos,
+    SlaveInfo &slave
+) {
+    ec_ODlistt od_list{};
+    std::memset(&od_list, 0, sizeof(od_list));
+    od_list.Slave = slave_pos;
+
+    if (ecx_readODlist(&this->context, slave_pos, &od_list) <= 0) {
+        VLOG(2) << "Slave " << slave_pos << " failed to read object dictionary list";
+        return false;
+    }
+
+    VLOG(2) << "Slave " << slave_pos << " object dictionary has " << od_list.Entries
+            << " entries";
+
+    std::vector<uint16_t> txpdo_indices;
+    std::vector<uint16_t> rxpdo_indices;
+
+    for (uint16_t i = 0; i < od_list.Entries; ++i) {
+        const uint16_t index = od_list.Index[i];
+        if (index >= 0x1A00 && index <= 0x1BFF) {
+            txpdo_indices.push_back(index);
+            VLOG(2) << "Slave " << slave_pos << " found TxPDO object 0x" << std::hex
+                    << index << std::dec;
+        } else if (index >= 0x1600 && index <= 0x17FF) {
+            rxpdo_indices.push_back(index);
+            VLOG(2) << "Slave " << slave_pos << " found RxPDO object 0x" << std::hex
+                    << index << std::dec;
+        }
+    }
+
+    bool found_any = false;
+
+    for (const auto pdo_index: txpdo_indices) {
+        auto err = this->read_pdo_mapping(slave_pos, pdo_index, true, slave);
+        if (!err) found_any = true;
+    }
+
+    for (const auto pdo_index: rxpdo_indices) {
+        auto err = this->read_pdo_mapping(slave_pos, pdo_index, false, slave);
+        if (!err) found_any = true;
+    }
+
+    VLOG(2) << "Slave " << slave_pos << " OD scan found " << txpdo_indices.size()
+            << " TxPDO objects, " << rxpdo_indices.size() << " RxPDO objects";
+
+    return found_any;
 }
 
 xerrors::Error Master::request_state(const uint16_t state, const int timeout) {
@@ -560,16 +751,14 @@ xerrors::Error Master::request_state(const uint16_t state, const int timeout) {
         }
     }
 
-    if (success_count < group0_count) {
+    if (success_count < group0_count)
         return xerrors::Error(
             STATE_CHANGE_ERROR,
             "state transition failed: " + std::to_string(success_count) + "/" +
                 std::to_string(group0_count) + " slaves reached state " +
                 std::to_string(state) + "; " + error_msg
         );
-    }
 
     return xerrors::NIL;
 }
-
-} // namespace ethercat::soem
+}

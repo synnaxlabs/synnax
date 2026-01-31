@@ -9,14 +9,15 @@
 
 import { Common } from "@/hardware/common";
 import { CONFIGURE_LAYOUT } from "@/hardware/ethercat/device/Configure";
-import { NETWORK_MAKE } from "@/hardware/ethercat/device/types";
+import { MAKE, NETWORK_MODEL } from "@/hardware/ethercat/device/types";
 
 export const Select = () => (
   <Common.Device.Select
     configureLayout={CONFIGURE_LAYOUT}
     emptyContent="No EtherCAT networks discovered."
     label="EtherCAT Network"
-    make={NETWORK_MAKE}
+    make={MAKE}
+    model={NETWORK_MODEL}
   />
 );
 
@@ -29,7 +30,8 @@ export const SelectNetwork = ({ path = "config.device" }: SelectNetworkProps) =>
     configureLayout={CONFIGURE_LAYOUT}
     emptyContent="No EtherCAT networks discovered."
     label="EtherCAT Network"
-    make={NETWORK_MAKE}
+    make={MAKE}
+    model={NETWORK_MODEL}
     path={path}
   />
 );

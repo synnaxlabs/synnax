@@ -1,12 +1,28 @@
 cc_library(
     name = "xthread",
-    hdrs = ["xthread.h"],
+    srcs = select({
+        "@platforms//os:linux": ["rt_linux.cpp"],
+        "@platforms//os:macos": ["rt_darwin.cpp"],
+        "@platforms//os:windows": ["rt_windows.cpp"],
+        "//conditions:default": ["rt_default.cpp"],
+    }),
+    hdrs = [
+        "rt.h",
+        "xthread.h",
+    ],
     visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/xerrors",
+        "@glog",
+    ],
 )
 
 cc_test(
     name = "xthread_test",
-    srcs = ["xthread_test.cpp"],
+    srcs = [
+        "rt_test.cpp",
+        "xthread_test.cpp",
+    ],
     deps = [
         "//x/cpp/xthread",
         "@googletest//:gtest_main",

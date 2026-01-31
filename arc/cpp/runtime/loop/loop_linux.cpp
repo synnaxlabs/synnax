@@ -11,33 +11,18 @@
 #include <thread>
 
 #include "glog/logging.h"
-#include <sched.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
-#include <sys/mman.h>
 #include <sys/timerfd.h>
 #include <unistd.h>
 
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/xthread/rt.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 
 namespace arc::runtime::loop {
-
-bool has_rt_scheduling() {
-    struct sched_param param;
-    param.sched_priority = 1;
-    const int orig_policy = sched_getscheduler(0);
-    struct sched_param orig_param;
-    sched_getparam(0, &orig_param);
-
-    if (sched_setscheduler(0, SCHED_FIFO, &param) == 0) {
-        sched_setscheduler(0, orig_policy, &orig_param);
-        return true;
-    }
-    return false;
-}
 
 class LinuxLoop final : public Loop {
 public:
@@ -142,23 +127,13 @@ public:
             }
         }
 
-        if (this->config_.rt_priority > 0) {
-            if (auto err = this->set_rt_priority(this->config_.rt_priority); err) {
-                LOG(WARNING) << "[loop] Failed to set RT priority: " << err.message();
-            }
-        }
-
-        if (this->config_.cpu_affinity >= 0) {
-            if (auto err = this->set_cpu_affinity(this->config_.cpu_affinity); err) {
-                LOG(WARNING) << "[loop] Failed to set CPU affinity: " << err.message();
-            }
-        }
-
-        if (this->config_.lock_memory) {
-            if (auto err = this->lock_memory(); err) {
-                LOG(WARNING) << "[loop] Failed to lock memory: " << err.message();
-            }
-        }
+        xthread::RTConfig rt_cfg;
+        rt_cfg.enabled = this->config_.rt_priority > 0;
+        rt_cfg.priority = this->config_.rt_priority;
+        rt_cfg.cpu_affinity = this->config_.cpu_affinity;
+        rt_cfg.lock_memory = this->config_.lock_memory;
+        if (auto err = xthread::apply_rt_config(rt_cfg); err)
+            LOG(WARNING) << "[loop] Failed to apply RT config: " << err.message();
 
         return xerrors::NIL;
     }
@@ -304,45 +279,6 @@ private:
                 sizeof(val)
             );
         }
-    }
-
-    xerrors::Error set_rt_priority(const int priority) {
-        struct sched_param param;
-        param.sched_priority = priority;
-
-        if (sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
-            return xerrors::Error(
-                "Failed to set SCHED_FIFO priority (requires CAP_SYS_NICE): " +
-                std::string(strerror(errno))
-            );
-        }
-
-        return xerrors::NIL;
-    }
-
-    xerrors::Error set_cpu_affinity(int cpu) {
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(cpu, &cpuset);
-
-        if (sched_setaffinity(0, sizeof(cpuset), &cpuset) == -1) {
-            return xerrors::Error(
-                "Failed to set CPU affinity: " + std::string(strerror(errno))
-            );
-        }
-
-        return xerrors::NIL;
-    }
-
-    xerrors::Error lock_memory() {
-        if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1) {
-            return xerrors::Error(
-                "Failed to lock memory (requires CAP_IPC_LOCK): " +
-                std::string(strerror(errno))
-            );
-        }
-
-        return xerrors::NIL;
     }
 
     Config config_;

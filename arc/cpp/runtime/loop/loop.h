@@ -20,6 +20,7 @@
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xlog/xlog.h"
+#include "x/cpp/xthread/rt.h"
 
 namespace arc::runtime::loop {
 
@@ -107,8 +108,8 @@ inline std::ostream &operator<<(std::ostream &os, ExecutionMode mode) {
 }
 
 /// @brief Returns true if the platform supports real-time scheduling.
-/// Platform-specific implementation in loop_*.cpp files.
-bool has_rt_scheduling();
+/// Delegates to xthread::has_rt_support().
+inline bool has_rt_scheduling() { return xthread::has_rt_support(); }
 
 /// @brief Auto-selects execution mode based on timing requirements and platform.
 /// Never returns BUSY_WAIT or AUTO.

@@ -6,18 +6,8 @@ config_setting(
 )
 
 cc_library(
-    name = "pdo_types",
-    hdrs = ["pdo_types.h"],
-    visibility = ["//driver/ethercat:__subpackages__"],
-    deps = ["//x/cpp/telem"],
-)
-
-cc_library(
     name = "ethercat",
     srcs = [
-        "channels.h",
-        "cyclic_engine.cpp",
-        "device.h",
         "factory.cpp",
         "read_task.h",
         "scan_task.cpp",
@@ -25,14 +15,16 @@ cc_library(
         "write_task.h",
     ],
     hdrs = [
-        "cyclic_engine.h",
         "ethercat.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
         "//driver/errors",
+        "//driver/ethercat/channel",
+        "//driver/ethercat/device",
         "//driver/ethercat/errors",
+        "//driver/ethercat/loop",
         "//driver/ethercat/master",
         "//driver/ethercat/mock",
         "//driver/ethercat/soem",
@@ -53,7 +45,6 @@ cc_library(
 cc_test(
     name = "ethercat_test",
     srcs = [
-        "cyclic_engine_test.cpp",
         "master_test.cpp",
         "read_task_test.cpp",
         "scan_task_test.cpp",

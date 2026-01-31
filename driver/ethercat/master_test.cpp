@@ -103,76 +103,75 @@ TEST_F(MasterTest, SlaveStateQueryUnknownPosition) {
     EXPECT_EQ(master->slave_state(99), SlaveState::UNKNOWN);
 }
 
-TEST_F(MasterTest, DomainCreation) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    ASSERT_NIL(master->initialize());
-
-    auto domain = master->create_domain();
-    ASSERT_NE(domain, nullptr);
-    EXPECT_TRUE(master->was_called("create_domain"));
-}
-
-TEST_F(MasterTest, DomainPDORegistration) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    ASSERT_NIL(master->initialize());
-
-    auto domain = master->create_domain();
-    ASSERT_NE(domain, nullptr);
-
-    PDOEntry input_entry(0, 0x6000, 1, 16, true);
-    size_t offset1 = ASSERT_NIL_P(domain->register_pdo(input_entry));
-    EXPECT_EQ(offset1, 0);
-
-    PDOEntry output_entry(0, 0x7000, 1, 16, false);
-    size_t offset2 = ASSERT_NIL_P(domain->register_pdo(output_entry));
-    EXPECT_EQ(offset2, 0);
-
-    EXPECT_EQ(domain->input_size(), 2);
-    EXPECT_EQ(domain->output_size(), 2);
-}
-
-TEST_F(MasterTest, DomainDataAccess) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    ASSERT_NIL(master->initialize());
-
-    auto domain = master->create_domain();
-    ASSERT_NE(domain, nullptr);
-
-    PDOEntry entry(0, 0x6000, 1, 32, true);
-    ASSERT_NIL_P(domain->register_pdo(entry));
-
-    EXPECT_NE(domain->data(), nullptr);
-    EXPECT_EQ(domain->size(), 4);
-}
-
-TEST_F(MasterTest, SlaveDataOffsetsAfterActivation) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    master->add_slave(mock::MockSlaveConfig(1, 0x1, 0x3, "Slave2"));
+TEST_F(MasterTest, PDOOffsetLookup) {
+    auto cfg = mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1")
+                   .with_input_pdos({
+                       PDOEntryInfo(
+                           0x1600,
+                           0x6000,
+                           1,
+                           16,
+                           true,
+                           "Input1",
+                           telem::INT16_T
+                       ),
+                       PDOEntryInfo(
+                           0x1600,
+                           0x6000,
+                           2,
+                           32,
+                           true,
+                           "Input2",
+                           telem::INT32_T
+                       ),
+                   })
+                   .with_output_pdos({
+                       PDOEntryInfo(
+                           0x1A00,
+                           0x7000,
+                           1,
+                           16,
+                           false,
+                           "Output1",
+                           telem::INT16_T
+                       ),
+                   });
+    master->add_slave(cfg);
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
 
-    auto offsets0 = master->slave_data_offsets(0);
-    EXPECT_EQ(offsets0.input_offset, 0);
-    EXPECT_EQ(offsets0.input_size, 4);
-    EXPECT_EQ(offsets0.output_offset, 0);
-    EXPECT_EQ(offsets0.output_size, 4);
+    PDOEntry input1(0, 0x6000, 1, 16, true);
+    PDOEntry input2(0, 0x6000, 2, 32, true);
+    PDOEntry output1(0, 0x7000, 1, 16, false);
 
-    auto offsets1 = master->slave_data_offsets(1);
-    EXPECT_EQ(offsets1.input_offset, 4);
-    EXPECT_EQ(offsets1.input_size, 4);
-    EXPECT_EQ(offsets1.output_offset, 4);
-    EXPECT_EQ(offsets1.output_size, 4);
+    size_t offset1 = master->pdo_offset(input1);
+    size_t offset2 = master->pdo_offset(input2);
+    size_t offset3 = master->pdo_offset(output1);
+
+    EXPECT_EQ(offset1, 0);
+    EXPECT_EQ(offset2, 2);
+    EXPECT_EQ(offset3, 0);
 }
 
-TEST_F(MasterTest, SlaveDataOffsetsBeforeActivation) {
+TEST_F(MasterTest, BufferAccessAfterActivation) {
+    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    ASSERT_NIL(master->initialize());
+    ASSERT_NIL(master->activate());
+
+    EXPECT_NE(master->input_data(), nullptr);
+    EXPECT_NE(master->output_data(), nullptr);
+    EXPECT_GT(master->input_size(), 0);
+    EXPECT_GT(master->output_size(), 0);
+}
+
+TEST_F(MasterTest, BufferAccessBeforeActivation) {
     master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
     ASSERT_NIL(master->initialize());
 
-    auto offsets = master->slave_data_offsets(0);
-    EXPECT_EQ(offsets.input_offset, 0);
-    EXPECT_EQ(offsets.input_size, 0);
-    EXPECT_EQ(offsets.output_offset, 0);
-    EXPECT_EQ(offsets.output_size, 0);
+    EXPECT_EQ(master->input_data(), nullptr);
+    EXPECT_EQ(master->output_data(), nullptr);
+    EXPECT_EQ(master->input_size(), 0);
+    EXPECT_EQ(master->output_size(), 0);
 }
 
 TEST_F(MasterTest, StateTransitionsOnActivation) {
@@ -223,18 +222,6 @@ TEST_F(MasterTest, InterfaceNameAccessor) {
     EXPECT_EQ(master->interface_name(), "mock0");
 }
 
-TEST_F(MasterTest, ActiveDomainBeforeActivation) {
-    EXPECT_EQ(master->active_domain(), nullptr);
-}
-
-TEST_F(MasterTest, ActiveDomainAfterActivation) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    ASSERT_NIL(master->initialize());
-    ASSERT_NIL(master->activate());
-
-    EXPECT_NE(master->active_domain(), nullptr);
-}
-
 TEST_F(MasterTest, ReceiveErrorInjection) {
     master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
     ASSERT_NIL(master->initialize());
@@ -255,39 +242,11 @@ TEST_F(MasterTest, SendErrorInjection) {
     ASSERT_OCCURRED_AS(err, CYCLIC_ERROR);
 }
 
-TEST_F(MasterTest, ProcessErrorInjection) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    ASSERT_NIL(master->initialize());
-    ASSERT_NIL(master->activate());
-
-    auto *domain = master->active_domain();
-    ASSERT_NE(domain, nullptr);
-
-    master->inject_process_error(xerrors::Error(WORKING_COUNTER_ERROR, "wkc mismatch"));
-    auto err = master->process(*domain);
-    ASSERT_OCCURRED_AS(err, WORKING_COUNTER_ERROR);
-}
-
-TEST_F(MasterTest, QueueErrorInjection) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    ASSERT_NIL(master->initialize());
-    ASSERT_NIL(master->activate());
-
-    auto *domain = master->active_domain();
-    ASSERT_NE(domain, nullptr);
-
-    master->inject_queue_error(xerrors::Error(CYCLIC_ERROR, "queue failed"));
-    auto err = master->queue(*domain);
-    ASSERT_OCCURRED_AS(err, CYCLIC_ERROR);
-}
-
 TEST_F(MasterTest, ClearInjectedErrors) {
     master->inject_init_error(xerrors::Error(MASTER_INIT_ERROR, "error"));
     master->inject_activate_error(xerrors::Error(ACTIVATION_ERROR, "error"));
     master->inject_receive_error(xerrors::Error(CYCLIC_ERROR, "error"));
     master->inject_send_error(xerrors::Error(CYCLIC_ERROR, "error"));
-    master->inject_process_error(xerrors::Error(CYCLIC_ERROR, "error"));
-    master->inject_queue_error(xerrors::Error(CYCLIC_ERROR, "error"));
 
     master->clear_injected_errors();
     master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
@@ -296,10 +255,6 @@ TEST_F(MasterTest, ClearInjectedErrors) {
     ASSERT_NIL(master->activate());
     ASSERT_NIL(master->receive());
     ASSERT_NIL(master->send());
-
-    auto *domain = master->active_domain();
-    ASSERT_NIL(master->process(*domain));
-    ASSERT_NIL(master->queue(*domain));
 }
 
 TEST_F(MasterTest, CallLogTracking) {
@@ -369,108 +324,21 @@ TEST_F(MasterTest, HasSlaveInState) {
     EXPECT_TRUE(master->has_slave_in_state(SlaveState::OP));
 }
 
-class MockDomainTest : public ::testing::Test {
-protected:
-    mock::Domain domain;
-};
+TEST_F(MasterTest, InputOutputDataReadWrite) {
+    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    ASSERT_NIL(master->initialize());
+    ASSERT_NIL(master->activate());
 
-TEST_F(MockDomainTest, SetAndGetInput) {
-    PDOEntry entry(0, 0x6000, 1, 32, true);
-    auto [offset, err] = domain.register_pdo(entry);
-    ASSERT_NIL(err);
+    uint32_t test_value = 0xDEADBEEF;
+    master->set_input(0, test_value);
 
-    uint32_t input_value = 0xDEADBEEF;
-    domain.set_input(offset, input_value);
-
-    auto data = domain.data();
     uint32_t read_value;
-    std::memcpy(&read_value, data + offset, sizeof(read_value));
+    std::memcpy(&read_value, master->input_data(), sizeof(read_value));
     EXPECT_EQ(read_value, 0xDEADBEEF);
-}
-
-TEST_F(MockDomainTest, SetAndGetOutput) {
-    PDOEntry entry(0, 0x7000, 1, 16, false);
-    auto [offset, err] = domain.register_pdo(entry);
-    ASSERT_NIL(err);
 
     uint16_t output_value = 0x1234;
-    auto *data = domain.data();
-    std::memcpy(
-        data + domain.input_size() + offset,
-        &output_value,
-        sizeof(output_value)
-    );
-
-    uint16_t read_value = domain.get_output<uint16_t>(offset);
-    EXPECT_EQ(read_value, 0x1234);
+    std::memcpy(master->output_data(), &output_value, sizeof(output_value));
+    EXPECT_EQ(master->get_output<uint16_t>(0), 0x1234);
 }
 
-TEST_F(MockDomainTest, SetInputData) {
-    PDOEntry entry(0, 0x6000, 1, 64, true);
-    domain.register_pdo(entry);
-
-    std::vector<uint8_t> data = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
-    domain.set_input_data(0, data.data(), data.size());
-
-    for (size_t i = 0; i < data.size(); i++)
-        EXPECT_EQ(domain.data()[i], data[i]);
 }
-
-TEST_F(MockDomainTest, GetOutputData) {
-    PDOEntry entry(0, 0x7000, 1, 32, false);
-    domain.register_pdo(entry);
-
-    uint32_t value = 0xCAFEBABE;
-    std::memcpy(domain.data() + domain.input_size(), &value, sizeof(value));
-
-    auto output = domain.get_output_data();
-    ASSERT_EQ(output.size(), 4);
-
-    uint32_t read_value;
-    std::memcpy(&read_value, output.data(), sizeof(read_value));
-    EXPECT_EQ(read_value, 0xCAFEBABE);
-}
-
-TEST_F(MockDomainTest, ClearData) {
-    PDOEntry entry(0, 0x6000, 1, 32, true);
-    domain.register_pdo(entry);
-
-    uint32_t value = 0xFFFFFFFF;
-    domain.set_input(0, value);
-
-    domain.clear_data();
-
-    for (size_t i = 0; i < domain.size(); i++)
-        EXPECT_EQ(domain.data()[i], 0);
-}
-
-TEST_F(MockDomainTest, RegisteredPDOsList) {
-    PDOEntry entry1(0, 0x6000, 1, 16, true);
-    PDOEntry entry2(0, 0x6000, 2, 32, true);
-    domain.register_pdo(entry1);
-    domain.register_pdo(entry2);
-
-    auto pdos = domain.registered_pdos();
-    ASSERT_EQ(pdos.size(), 2);
-    EXPECT_EQ(pdos[0].first.index, 0x6000);
-    EXPECT_EQ(pdos[0].first.subindex, 1);
-    EXPECT_EQ(pdos[0].second, 0);
-    EXPECT_EQ(pdos[1].first.subindex, 2);
-    EXPECT_EQ(pdos[1].second, 2);
-}
-
-TEST_F(MockDomainTest, MixedInputOutputRegistration) {
-    PDOEntry input1(0, 0x6000, 1, 16, true);
-    PDOEntry input2(0, 0x6000, 2, 16, true);
-    PDOEntry output1(0, 0x7000, 1, 32, false);
-
-    domain.register_pdo(input1);
-    domain.register_pdo(input2);
-    domain.register_pdo(output1);
-
-    EXPECT_EQ(domain.input_size(), 4);
-    EXPECT_EQ(domain.output_size(), 4);
-    EXPECT_EQ(domain.size(), 8);
-}
-
-} // namespace ethercat

@@ -9,7 +9,7 @@
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon, Telem } from "@synnaxlabs/pluto";
-import { deep, primitive } from "@synnaxlabs/x";
+import { caseconv, deep, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
@@ -32,6 +32,12 @@ import {
   ZERO_READ_PAYLOAD,
 } from "@/hardware/ethercat/task/types";
 import { Selector } from "@/selector";
+
+const getChannelByMapKey = (
+  channels: Record<string, number>,
+  mapKey: string,
+): number =>
+  channels[mapKey] ?? channels[caseconv.snakeToCamel(mapKey)] ?? 0;
 
 export const READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -241,8 +247,8 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
 
     for (const ch of config.channels) {
       const mapKey = readMapKey(ch);
-      const existing = network.properties.read.channels[mapKey];
-      if (existing == null) {
+      const existing = getChannelByMapKey(network.properties.read.channels, mapKey);
+      if (existing === 0) {
         toCreate.push(ch);
         continue;
       }
@@ -273,15 +279,19 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
             ch.type === AUTOMATIC_TYPE
               ? resolvePDODataType(slave, ch.pdo)
               : ch.dataType;
-          const slaveName = slave?.properties?.name ?? "slave";
-          const channelLabel =
+          const slavePosition = slave?.properties?.position ?? 0;
+          const slaveName = channel.escapeInvalidName(
+            slave?.properties?.name ?? "slave",
+          );
+          const pdoName = channel.escapeInvalidName(
             ch.type === AUTOMATIC_TYPE
               ? ch.pdo
-              : `0x${ch.index.toString(16)}_${ch.subindex}`;
+              : `_0x${ch.index.toString(16)}_${ch.subindex}`,
+          );
           return {
             name: primitive.isNonZero(ch.name)
               ? ch.name
-              : `${safeName}_${slaveName}_${channelLabel}`,
+              : `${safeName}_s${slavePosition}_${slaveName}_${pdoName}`,
             dataType,
             index: network.properties.read.index,
           };
@@ -297,7 +307,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   }
 
   config.channels.forEach((ch) => {
-    ch.channel = network.properties.read.channels[readMapKey(ch)];
+    ch.channel = getChannelByMapKey(network.properties.read.channels, readMapKey(ch));
   });
 
   return [config, network.rack];

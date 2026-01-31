@@ -9,13 +9,11 @@
 
 #pragma once
 
-#include <memory>
 #include <string>
 #include <vector>
 
 #include "x/cpp/xerrors/errors.h"
 
-#include "driver/ethercat/master/domain.h"
 #include "driver/ethercat/master/slave_info.h"
 
 namespace ethercat {
@@ -26,15 +24,12 @@ namespace ethercat {
 ///
 /// 1. Construction: Create master for a network interface
 /// 2. initialize(): Scan bus, enumerate slaves, configure network
-/// 3. create_domain(): Create domain(s) for PDO exchange
-/// 4. Register PDOs with domain(s)
-/// 5. activate(): Transition slaves to OPERATIONAL, start cyclic operation
-/// 6. Cyclic loop: receive() → process() → [read inputs, write outputs] → queue() →
-/// send()
-/// 7. deactivate(): Stop cyclic operation, transition slaves to INIT
+/// 3. activate(): Transition slaves to OPERATIONAL, start cyclic operation
+/// 4. Cyclic loop: receive() → [read inputs] → [write outputs] → send()
+/// 5. deactivate(): Stop cyclic operation, transition slaves to INIT
 ///
-/// Thread safety: The cyclic methods (receive/process/queue/send) must be called
-/// from a single thread. Slave queries (slaves(), slave_state()) are thread-safe.
+/// Thread safety: The cyclic methods (receive/send) must be called from a single
+/// thread. Slave queries (slaves(), slave_state()) are thread-safe.
 class Master {
 public:
     virtual ~Master() = default;
@@ -42,7 +37,7 @@ public:
     /// Initializes the master and scans the EtherCAT network.
     ///
     /// This method opens the network interface, scans for slaves, and prepares
-    /// the master for domain creation. After successful initialization, slaves()
+    /// the master for activation. After successful initialization, slaves()
     /// will return information about discovered slaves.
     ///
     /// @returns xerrors::NIL on success, or one of:
@@ -51,20 +46,10 @@ public:
     ///          - SLAVE_CONFIG_ERROR if slave configuration fails
     [[nodiscard]] virtual xerrors::Error initialize() = 0;
 
-    /// Creates a new process data domain for PDO exchange.
-    ///
-    /// Must be called after initialize() and before activate(). Multiple domains
-    /// can be created for different update rates or isolation, though most
-    /// applications use a single domain.
-    ///
-    /// @returns A unique pointer to the created domain, or nullptr if creation fails.
-    [[nodiscard]] virtual std::unique_ptr<Domain> create_domain() = 0;
-
     /// Activates the master and transitions slaves to OPERATIONAL state.
     ///
-    /// After activation, cyclic communication can begin. All PDO registrations
-    /// must be complete before calling this method. The master will attempt to
-    /// transition all configured slaves through PRE-OP → SAFE-OP → OP.
+    /// After activation, cyclic communication can begin. The master will attempt
+    /// to transition all configured slaves through PRE-OP → SAFE-OP → OP.
     ///
     /// @returns xerrors::NIL on success, or one of:
     ///          - ACTIVATION_ERROR if master activation fails
@@ -77,45 +62,56 @@ public:
     /// deactivation, the master can be re-initialized or destroyed.
     virtual void deactivate() = 0;
 
-    /// Receives process data from the EtherCAT network.
+    /// Receives and processes input data from the EtherCAT network.
     ///
-    /// This is the first step in the cyclic exchange. It receives datagrams
-    /// from the network interface. Must be followed by process() to update
-    /// domain data.
+    /// This method receives datagrams from the network and processes them to
+    /// update the input buffer. After this call, input PDO values accessible
+    /// via input_data() are valid for the current cycle.
     ///
     /// @returns xerrors::NIL on success, or:
     ///          - CYCLIC_ERROR if receive fails
+    ///          - WORKING_COUNTER_ERROR if the working counter is incorrect
     [[nodiscard]] virtual xerrors::Error receive() = 0;
 
-    /// Processes received datagrams and updates domain input data.
+    /// Queues output data and sends to the EtherCAT network.
     ///
-    /// Called after receive() to decode the received process data and update
-    /// the domain's input buffer. After this call, input PDO values are valid.
-    ///
-    /// @param domain The domain whose process data should be updated.
-    /// @returns xerrors::NIL on success, or:
-    ///          - WORKING_COUNTER_ERROR if the working counter is incorrect
-    ///          - CYCLIC_ERROR if processing fails
-    [[nodiscard]] virtual xerrors::Error process(Domain &domain) = 0;
-
-    /// Queues output data from the domain for transmission.
-    ///
-    /// Called after updating output PDO values in the domain buffer. This
-    /// prepares the datagrams for transmission.
-    ///
-    /// @param domain The domain whose output data should be queued.
-    /// @returns xerrors::NIL on success, or:
-    ///          - CYCLIC_ERROR if queuing fails
-    [[nodiscard]] virtual xerrors::Error queue(Domain &domain) = 0;
-
-    /// Sends queued process data to the EtherCAT network.
-    ///
-    /// This is the final step in the cyclic exchange. It transmits the
-    /// prepared datagrams to the slaves.
+    /// This method takes the current output buffer contents and transmits them
+    /// to the slaves. Call this after writing output PDO values to output_data().
     ///
     /// @returns xerrors::NIL on success, or:
     ///          - CYCLIC_ERROR if send fails
     [[nodiscard]] virtual xerrors::Error send() = 0;
+
+    /// Returns a pointer to the input data buffer.
+    ///
+    /// The buffer contains input PDO data (TxPDO, slave→master) and is valid
+    /// after receive() completes. Use pdo_offset() to find specific PDO locations.
+    ///
+    /// @returns Pointer to input buffer, or nullptr if not activated.
+    [[nodiscard]] virtual uint8_t *input_data() = 0;
+
+    /// Returns the size of the input data buffer in bytes.
+    [[nodiscard]] virtual size_t input_size() const = 0;
+
+    /// Returns a pointer to the output data buffer.
+    ///
+    /// Write output PDO data (RxPDO, master→slave) to this buffer before calling
+    /// send(). Use pdo_offset() to find specific PDO locations.
+    ///
+    /// @returns Pointer to output buffer, or nullptr if not activated.
+    [[nodiscard]] virtual uint8_t *output_data() = 0;
+
+    /// Returns the size of the output data buffer in bytes.
+    [[nodiscard]] virtual size_t output_size() const = 0;
+
+    /// Returns the byte offset for a PDO entry in the appropriate buffer.
+    ///
+    /// For input PDOs (is_input=true), returns offset into input_data().
+    /// For output PDOs (is_input=false), returns offset into output_data().
+    ///
+    /// @param entry The PDO entry to look up.
+    /// @returns Byte offset, or 0 if entry not found.
+    [[nodiscard]] virtual size_t pdo_offset(const PDOEntry &entry) const = 0;
 
     /// Returns information about all slaves discovered during initialization.
     ///
@@ -127,7 +123,8 @@ public:
 
     /// Returns the current state of a specific slave.
     ///
-    /// @param position The bus position of the slave (0-based index).
+    /// @param position The bus position of the slave (0-based for IgH, 1-based for
+    /// SOEM).
     /// @returns The slave's current application layer state.
     [[nodiscard]] virtual SlaveState slave_state(uint16_t position) const = 0;
 
@@ -138,25 +135,5 @@ public:
 
     /// Returns the name of the network interface this master is bound to.
     [[nodiscard]] virtual std::string interface_name() const = 0;
-
-    /// Returns the data offsets for a specific slave after activation.
-    ///
-    /// This method returns the actual byte offsets in the IOmap where the slave's
-    /// input and output data is located. Must only be called after activate()
-    /// succeeds.
-    ///
-    /// @param position The bus position of the slave (1-based for SOEM compatibility).
-    /// @returns SlaveDataOffsets containing the actual offsets and sizes.
-    [[nodiscard]] virtual SlaveDataOffsets
-    slave_data_offsets(uint16_t position) const = 0;
-
-    /// Returns the active domain after activation.
-    ///
-    /// This returns the domain that contains the actual process data IOmap.
-    /// Must only be called after activate() succeeds. The returned pointer
-    /// is valid until deactivate() is called.
-    ///
-    /// @returns Pointer to the active domain, or nullptr if not activated.
-    [[nodiscard]] virtual Domain *active_domain() const = 0;
 };
 }

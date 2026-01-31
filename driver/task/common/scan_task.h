@@ -449,13 +449,17 @@ public:
                     needs_update = true;
                 }
 
-                if (needs_update) {
-                    // Preserve user-configured properties
-                    scanned_dev.properties = remote_dev.properties;
-                    scanned_dev.name = remote_dev.name;
-                    scanned_dev.configured = remote_dev.configured;
-                    to_create.push_back(scanned_dev);
+                if (scanned_dev.properties != remote_dev.properties) {
+                    VLOG(1) << this->log_prefix << "device properties changed for "
+                            << scanned_dev.key;
+                    needs_update = true;
                 }
+
+                scanned_dev.name = remote_dev.name;
+                scanned_dev.configured = remote_dev.configured;
+
+                if (needs_update) to_create.push_back(scanned_dev);
+
                 scanned_dev.status.time = last_available;
                 this->dev_states[scanned_dev.key] = scanned_dev;
             }
@@ -467,7 +471,7 @@ public:
             }
 
             statuses.reserve(this->dev_states.size());
-            for (auto &[key, info]: this->dev_states)
+            for (auto &info: this->dev_states | std::views::values)
                 statuses.push_back(info.status);
         }
 

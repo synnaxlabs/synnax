@@ -10,8 +10,8 @@
 #pragma once
 
 #include <cstring>
-#include <memory>
 #include <mutex>
+#include <unordered_map>
 #include <vector>
 
 extern "C" {
@@ -22,54 +22,29 @@ extern "C" {
 #include "driver/ethercat/master/master.h"
 
 namespace ethercat::soem {
-/// SOEM-based implementation of the ethercat::Domain interface.
-///
-/// Domain manages the IOmap buffer that SOEM uses for PDO exchange.
-/// PDO registration is implicit in SOEM - it's handled during ecx_config_map_group().
-/// This class provides offset tracking for user-level PDO access.
-class Domain final : public ethercat::Domain {
-    /// The IOmap buffer used by SOEM for process data exchange.
-    std::vector<uint8_t> iomap;
+/// Key for PDO offset cache lookup.
+struct PDOEntryKey {
+    uint16_t slave_position;
+    uint16_t index;
+    uint8_t subindex;
+    bool is_input;
 
-    /// Current offset for input PDOs (TxPDO, slave→master).
-    size_t input_offset;
+    bool operator==(const PDOEntryKey &other) const {
+        return slave_position == other.slave_position && index == other.index &&
+               subindex == other.subindex && is_input == other.is_input;
+    }
+};
 
-    /// Current offset for output PDOs (RxPDO, master→slave).
-    size_t output_offset;
-
-    /// Total input size after configuration.
-    size_t input_sz;
-
-    /// Total output size after configuration.
-    size_t output_sz;
-
-    /// Registered PDO entries with their offsets.
-    std::vector<std::pair<PDOEntry, size_t>> registered_pdos;
-
-public:
-    /// Constructs a domain with the specified IOmap size.
-    /// @param iomap_size Size of the IOmap buffer (default 4096 bytes).
-    explicit Domain(size_t iomap_size = 4096);
-
-    std::pair<size_t, xerrors::Error> register_pdo(const PDOEntry &entry) override;
-
-    uint8_t *data() override;
-
-    size_t size() const override;
-
-    size_t input_size() const override;
-
-    size_t output_size() const override;
-
-    /// Returns a pointer to the raw IOmap buffer for SOEM configuration.
-    /// Called internally by Master during activation.
-    uint8_t *iomap_ptr() { return this->iomap.data(); }
-
-    /// Sets the actual input/output sizes after SOEM configuration.
-    /// Called internally by Master after ecx_config_map_group().
-    /// @param input_size Total input bytes from all slaves.
-    /// @param output_size Total output bytes from all slaves.
-    void set_sizes(size_t input_size, size_t output_size);
+/// Hash function for PDOEntryKey.
+struct PDOEntryKeyHash {
+    size_t operator()(const PDOEntryKey &key) const {
+        return std::hash<uint64_t>()(
+            (static_cast<uint64_t>(key.slave_position) << 32) |
+            (static_cast<uint64_t>(key.index) << 16) |
+            (static_cast<uint64_t>(key.subindex) << 8) |
+            static_cast<uint64_t>(key.is_input)
+        );
+    }
 };
 
 /// SOEM-based implementation of the ethercat::Master interface.
@@ -77,14 +52,26 @@ public:
 /// Master wraps the SOEM library to provide EtherCAT master functionality.
 /// It manages the ecx_contextt and handles the lifecycle of the EtherCAT network.
 ///
-/// Thread safety: The cyclic methods (receive/process/queue/send) must be called
-/// from a single thread. Initialization and slave queries are thread-safe.
+/// Thread safety: The cyclic methods (receive/send) must be called from a single
+/// thread. Initialization and slave queries are thread-safe.
 class Master final : public ethercat::Master {
     /// The network interface name (e.g., "eth0", "enp3s0").
     std::string iface_name;
 
     /// The SOEM context containing all network state.
     ecx_contextt context;
+
+    /// IOmap buffer for PDO exchange.
+    std::vector<uint8_t> iomap;
+
+    /// Input size in bytes (TxPDO, slave→master).
+    size_t input_sz;
+
+    /// Output size in bytes (RxPDO, master→slave).
+    size_t output_sz;
+
+    /// Cached PDO offsets computed at activation time.
+    std::unordered_map<PDOEntryKey, size_t, PDOEntryKeyHash> pdo_offset_cache;
 
     /// Cached slave information populated during initialization.
     std::vector<SlaveInfo> slave_list;
@@ -97,9 +84,6 @@ class Master final : public ethercat::Master {
 
     /// Whether the master has been activated.
     bool activated;
-
-    /// Pointer to the domain (borrowed during activate).
-    Domain *dom;
 
     /// Expected working counter value for cyclic exchange.
     int expected_wkc;
@@ -116,19 +100,23 @@ public:
 
     xerrors::Error initialize() override;
 
-    std::unique_ptr<ethercat::Domain> create_domain() override;
-
     xerrors::Error activate() override;
 
     void deactivate() override;
 
     xerrors::Error receive() override;
 
-    xerrors::Error process(ethercat::Domain &domain) override;
-
-    xerrors::Error queue(ethercat::Domain &domain) override;
-
     xerrors::Error send() override;
+
+    uint8_t *input_data() override;
+
+    size_t input_size() const override;
+
+    uint8_t *output_data() override;
+
+    size_t output_size() const override;
+
+    size_t pdo_offset(const PDOEntry &entry) const override;
 
     std::vector<SlaveInfo> slaves() const override;
 
@@ -138,16 +126,15 @@ public:
 
     std::string interface_name() const override;
 
-    SlaveDataOffsets slave_data_offsets(uint16_t position) const override;
-
-    ethercat::Domain *active_domain() const override;
-
 private:
     /// Converts SOEM slave state to our SlaveState enum.
     static SlaveState convert_state(uint16_t soem_state);
 
     /// Populates the cached slave list from SOEM's slavelist.
     void populate_slaves();
+
+    /// Computes and caches PDO offsets for all slaves after activation.
+    void cache_pdo_offsets();
 
     /// Discovers PDO entries for a slave and populates its PDO lists.
     /// @param slave The SlaveInfo to populate with discovered PDOs.
@@ -195,6 +182,14 @@ private:
     /// @returns The entry name, or empty string on failure.
     std::string
     read_pdo_entry_name(uint16_t slave_pos, uint16_t index, uint8_t subindex);
+
+    /// Scans the CoE object dictionary to find PDO mapping indices.
+    /// Used as fallback when standard PDO assignment objects (0x1C12/0x1C13) don't
+    /// exist.
+    /// @param slave_pos The 1-based slave position.
+    /// @param slave The SlaveInfo to populate with discovered PDOs.
+    /// @returns true if any PDOs were discovered.
+    bool scan_object_dictionary_for_pdos(uint16_t slave_pos, SlaveInfo &slave);
 
     /// Transitions all slaves to the specified state.
     /// @param state Target EtherCAT state (EC_STATE_*).

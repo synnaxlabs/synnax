@@ -19,7 +19,7 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xjson/xjson.h"
 
-#include "driver/ethercat/device.h"
+#include "driver/ethercat/device/device.h"
 #include "driver/ethercat/master/slave_info.h"
 
 namespace ethercat::channel {
@@ -29,9 +29,7 @@ struct Channel {
     bool enabled;
     /// The key of the slave device in Synnax.
     std::string device_key;
-    /// Serial number of the slave device (for runtime position resolution).
-    uint32_t slave_serial;
-    /// Position of the slave on the EtherCAT bus (resolved at runtime).
+    /// Position of the slave on the EtherCAT bus.
     uint16_t slave_position;
     /// Index of the PDO object in the CoE object dictionary (e.g., 0x6000).
     uint16_t index;
@@ -56,7 +54,6 @@ protected:
     explicit Channel(xjson::Parser &parser, const device::SlaveProperties &slave):
         enabled(parser.field<bool>("enabled", true)),
         device_key(parser.field<std::string>("device")),
-        slave_serial(slave.serial),
         slave_position(slave.position),
         index(0),
         subindex(0),
@@ -70,8 +67,6 @@ struct Input : virtual Channel {
     synnax::ChannelKey synnax_key;
     /// The Synnax channel object (populated after remote lookup).
     synnax::Channel ch;
-    /// Offset into the input buffer where this channel's data resides.
-    size_t buffer_offset;
 
     /// Binds remote channel information retrieved from Synnax.
     void bind_remote_info(const synnax::Channel &remote_ch) { this->ch = remote_ch; }
@@ -79,8 +74,7 @@ struct Input : virtual Channel {
 protected:
     explicit Input(xjson::Parser &parser, const device::SlaveProperties &slave):
         Channel(parser, slave),
-        synnax_key(parser.field<synnax::ChannelKey>("channel")),
-        buffer_offset(0) {}
+        synnax_key(parser.field<synnax::ChannelKey>("channel")) {}
 };
 
 /// Automatic input channel - resolves PDO address from slave device properties by name.
@@ -152,8 +146,6 @@ struct Output : virtual Channel {
     synnax::ChannelKey state_key;
     /// The Synnax state channel object (populated after remote lookup).
     synnax::Channel state_ch;
-    /// Offset into the output buffer where this channel's data resides.
-    size_t buffer_offset;
 
     void bind_remote_info(const synnax::Channel &state_channel) {
         this->state_ch = state_channel;
@@ -163,8 +155,7 @@ protected:
     explicit Output(xjson::Parser &parser, const device::SlaveProperties &slave):
         Channel(parser, slave),
         command_key(parser.field<synnax::ChannelKey>("channel")),
-        state_key(parser.field<synnax::ChannelKey>("state_channel", 0)),
-        buffer_offset(0) {}
+        state_key(parser.field<synnax::ChannelKey>("state_channel", 0)) {}
 };
 
 /// Automatic output channel - resolves PDO address from slave device properties by

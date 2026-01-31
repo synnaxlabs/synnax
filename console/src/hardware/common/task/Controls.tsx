@@ -56,6 +56,7 @@ export const Controls = ({
       `Failed to ${command} task`,
     );
   }, [taskStatus]);
+  console.log(taskStatus.message ?? "No description");
   return (
     <Flex.Box
       className={CSS.B("task-controls")}

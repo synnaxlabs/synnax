@@ -11,7 +11,7 @@ import { type device } from "@synnaxlabs/client";
 import { Device, Form } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { SLAVE_MAKE, SLAVE_MODEL } from "@/hardware/ethercat/device/types";
+import { MAKE, SLAVE_MODEL } from "@/hardware/ethercat/device/types";
 
 export interface SelectSlaveProps {
   /** Path to the slave device field in the form. */
@@ -31,9 +31,9 @@ export const SelectSlave = ({
         <Device.SelectSingle
           value={value}
           onChange={onChange}
-          initialQuery={{ makes: [SLAVE_MAKE] }}
+          initialQuery={{ makes: [MAKE] }}
           filter={(d) =>
-            d.make === SLAVE_MAKE &&
+            d.make === MAKE &&
             d.model === SLAVE_MODEL &&
             (networkDevice === "" || networkDevice.endsWith(d.location))
           }

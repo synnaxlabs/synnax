@@ -12,17 +12,17 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/xtest/xtest.h"
 
-#include "driver/ethercat/cyclic_engine.h"
 #include "driver/ethercat/mock/master.h"
 #include "driver/ethercat/read_task.h"
 #include "driver/pipeline/mock/pipeline.h"
+#include "loop/loop.h"
 
 class EtherCATReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<ethercat::mock::Master> mock_master;
-    std::shared_ptr<ethercat::CyclicEngine> engine;
+    std::shared_ptr<ethercat::Loop> engine;
     synnax::Channel index_channel;
     synnax::Rack rack;
     synnax::Device network_device;
@@ -64,9 +64,9 @@ protected:
         mock_master->add_slave(
             ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, SLAVE_SERIAL, "Test Slave")
         );
-        engine = std::make_shared<ethercat::CyclicEngine>(
+        engine = std::make_shared<ethercat::Loop>(
             mock_master,
-            ethercat::CyclicEngineConfig(telem::MILLISECOND * 10)
+            ethercat::LoopConfig(telem::MILLISECOND * 10)
         );
     }
 
@@ -335,41 +335,6 @@ TEST_F(EtherCATReadTest, SourceStartRegistersWithEngine) {
     ASSERT_NIL(source.start());
     EXPECT_TRUE(engine->is_running());
     ASSERT_NIL(source.stop());
-}
-
-TEST_F(EtherCATReadTest, SourceStartFailsWithUnknownSerial) {
-    auto unknown_slave = create_slave_device(
-        99999,
-        {{{"name", "test"},
-          {"index", 0x6000},
-          {"subindex", 1},
-          {"bit_length", 16},
-          {"data_type", "int16"}}},
-        json::array()
-    );
-
-    auto data_ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("analog"),
-        telem::INT16_T,
-        index_channel.key,
-        false
-    ));
-
-    json cfg = create_base_config();
-    cfg["channels"].push_back(
-        {{"type", "automatic"},
-         {"device", unknown_slave.key},
-         {"pdo", "test"},
-         {"channel", data_ch.key},
-         {"enabled", true}}
-    );
-
-    auto parser = xjson::Parser(cfg);
-    ethercat::ReadTaskConfig task_cfg(client, parser);
-    ASSERT_NIL(parser.error());
-
-    auto source = ethercat::ReadTaskSource(engine, std::move(task_cfg));
-    ASSERT_OCCURRED_AS(source.start(), ethercat::SLAVE_STATE_ERROR);
 }
 
 TEST_F(EtherCATReadTest, InvalidNetworkDevice) {

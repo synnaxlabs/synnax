@@ -19,106 +19,28 @@
 #include "driver/ethercat/master/master.h"
 
 namespace ethercat::mock {
-/// Mock implementation of Domain for testing without real EtherCAT hardware.
-///
-/// Provides a simulated process data buffer that can be pre-populated with
-/// test values or inspected after write operations.
-class Domain final : public ethercat::Domain {
-    std::vector<uint8_t> domain_data;
-    size_t input_sz;
-    size_t output_sz;
-    std::vector<std::pair<PDOEntry, size_t>> registered_pdo_entries;
+/// Key for PDO offset cache lookup.
+struct PDOEntryKey {
+    uint16_t slave_position;
+    uint16_t index;
+    uint8_t subindex;
+    bool is_input;
 
-public:
-    Domain(): input_sz(0), output_sz(0) {}
-
-    std::pair<size_t, xerrors::Error> register_pdo(const PDOEntry &entry) override {
-        const size_t byte_len = entry.byte_length();
-        size_t offset;
-        if (entry.is_input) {
-            offset = this->input_sz;
-            this->input_sz += byte_len;
-        } else {
-            offset = this->output_sz;
-            this->output_sz += byte_len;
-        }
-        this->registered_pdo_entries.emplace_back(entry, offset);
-        this->domain_data.resize(this->input_sz + this->output_sz, 0);
-        return {offset, xerrors::NIL};
+    bool operator==(const PDOEntryKey &other) const {
+        return slave_position == other.slave_position && index == other.index &&
+               subindex == other.subindex && is_input == other.is_input;
     }
+};
 
-    uint8_t *data() override { return this->domain_data.data(); }
-
-    size_t size() const override { return this->domain_data.size(); }
-
-    size_t input_size() const override { return this->input_sz; }
-
-    size_t output_size() const override { return this->output_sz; }
-
-    /// Sets a value in the input region of the domain buffer for testing.
-    /// @tparam T The type of value to set.
-    /// @param offset Byte offset into the input region.
-    /// @param value The value to write.
-    template<typename T>
-    void set_input(const size_t offset, const T value) {
-        if (offset + sizeof(T) <= this->input_sz)
-            std::memcpy(this->domain_data.data() + offset, &value, sizeof(T));
-    }
-
-    /// Gets a value from the output region of the domain buffer for verification.
-    /// @tparam T The type of value to get.
-    /// @param offset Byte offset into the output region.
-    /// @returns The value at the specified offset.
-    template<typename T>
-    T get_output(const size_t offset) const {
-        T value{};
-        if (offset + sizeof(T) <= this->output_sz)
-            std::memcpy(
-                &value,
-                this->domain_data.data() + this->input_sz + offset,
-                sizeof(T)
-            );
-        return value;
-    }
-
-    /// Returns the list of registered PDO entries with their offsets.
-    const std::vector<std::pair<PDOEntry, size_t>> &registered_pdos() const {
-        return this->registered_pdo_entries;
-    }
-
-    /// Sets raw data at a specific offset in the input region.
-    /// @param offset Byte offset into the input region.
-    /// @param src_data Pointer to the source data.
-    /// @param length Number of bytes to copy.
-    void
-    set_input_data(const size_t offset, const void *src_data, const size_t length) {
-        if (offset + length <= this->input_sz)
-            std::memcpy(this->domain_data.data() + offset, src_data, length);
-    }
-
-    /// Gets raw data from a specific offset in the output region.
-    /// @returns Vector containing the output data.
-    std::vector<uint8_t> get_output_data() const {
-        return std::vector<uint8_t>(
-            this->domain_data.begin() + static_cast<std::ptrdiff_t>(this->input_sz),
-            this->domain_data.end()
+/// Hash function for PDOEntryKey.
+struct PDOEntryKeyHash {
+    size_t operator()(const PDOEntryKey &key) const {
+        return std::hash<uint64_t>()(
+            (static_cast<uint64_t>(key.slave_position) << 32) |
+            (static_cast<uint64_t>(key.index) << 16) |
+            (static_cast<uint64_t>(key.subindex) << 8) |
+            static_cast<uint64_t>(key.is_input)
         );
-    }
-
-    /// Gets raw data from the entire domain buffer.
-    /// @returns Vector containing all domain data.
-    std::vector<uint8_t> get_all_data() const { return this->domain_data; }
-
-    /// Clears all domain data to zero.
-    void clear_data() {
-        std::fill(this->domain_data.begin(), this->domain_data.end(), 0);
-    }
-
-    /// Sets the domain sizes directly for testing.
-    void set_sizes(size_t input_size, size_t output_size) {
-        this->input_sz = input_size;
-        this->output_sz = output_size;
-        this->domain_data.resize(this->input_sz + this->output_sz, 0);
     }
 };
 
@@ -130,6 +52,10 @@ struct MockSlaveConfig {
     uint32_t revision;
     uint32_t serial;
     std::string name;
+    std::vector<PDOEntryInfo> input_pdos;
+    std::vector<PDOEntryInfo> output_pdos;
+    bool pdos_discovered;
+    std::string pdo_discovery_error;
 
     MockSlaveConfig(
         const uint16_t position,
@@ -142,7 +68,8 @@ struct MockSlaveConfig {
         product_code(product_code),
         revision(0),
         serial(0),
-        name(std::move(name)) {}
+        name(std::move(name)),
+        pdos_discovered(false) {}
 
     MockSlaveConfig(
         const uint16_t position,
@@ -156,7 +83,25 @@ struct MockSlaveConfig {
         product_code(product_code),
         revision(0),
         serial(serial),
-        name(std::move(name)) {}
+        name(std::move(name)),
+        pdos_discovered(false) {}
+
+    MockSlaveConfig &with_input_pdos(std::vector<PDOEntryInfo> pdos) {
+        this->input_pdos = std::move(pdos);
+        this->pdos_discovered = true;
+        return *this;
+    }
+
+    MockSlaveConfig &with_output_pdos(std::vector<PDOEntryInfo> pdos) {
+        this->output_pdos = std::move(pdos);
+        this->pdos_discovered = true;
+        return *this;
+    }
+
+    MockSlaveConfig &with_pdo_discovery_error(std::string error) {
+        this->pdo_discovery_error = std::move(error);
+        return *this;
+    }
 };
 
 /// Mock implementation of Master for testing without real EtherCAT hardware.
@@ -167,6 +112,7 @@ class Master final : public ethercat::Master {
     std::string iface_name;
     std::vector<SlaveInfo> slave_list;
     std::unordered_map<uint16_t, SlaveState> slave_states;
+    std::unordered_map<PDOEntryKey, size_t, PDOEntryKeyHash> pdo_offset_cache;
     bool initialized;
     bool activated;
     mutable std::mutex mu;
@@ -175,15 +121,13 @@ class Master final : public ethercat::Master {
     xerrors::Error inject_activate_err;
     xerrors::Error inject_receive_err;
     xerrors::Error inject_send_err;
-    xerrors::Error inject_process_err;
-    xerrors::Error inject_queue_err;
 
     std::unordered_map<uint16_t, SlaveState> state_transition_failures;
 
-    std::unique_ptr<Domain> active_dom;
+    std::vector<uint8_t> iomap;
+    size_t input_sz;
+    size_t output_sz;
     std::vector<std::string> calls;
-
-    /// Counter for initialize() calls to verify restart behavior.
     size_t init_calls;
 
 public:
@@ -191,12 +135,14 @@ public:
         iface_name(std::move(interface_name)),
         initialized(false),
         activated(false),
+        input_sz(0),
+        output_sz(0),
         init_calls(0) {}
 
     /// Adds a simulated slave to the mock master.
     /// Must be called before initialize().
     void add_slave(const MockSlaveConfig &config) {
-        this->slave_list.emplace_back(
+        SlaveInfo slave(
             config.position,
             config.vendor_id,
             config.product_code,
@@ -205,6 +151,11 @@ public:
             config.name,
             SlaveState::INIT
         );
+        slave.input_pdos = config.input_pdos;
+        slave.output_pdos = config.output_pdos;
+        slave.pdos_discovered = config.pdos_discovered;
+        slave.pdo_discovery_error = config.pdo_discovery_error;
+        this->slave_list.push_back(std::move(slave));
         this->slave_states[config.position] = SlaveState::INIT;
     }
 
@@ -224,35 +175,21 @@ public:
     /// Injects an error to be returned by send().
     void inject_send_error(const xerrors::Error &err) { this->inject_send_err = err; }
 
-    /// Injects an error to be returned by process().
-    void inject_process_error(const xerrors::Error &err) {
-        this->inject_process_err = err;
-    }
-
-    /// Injects an error to be returned by queue().
-    void inject_queue_error(const xerrors::Error &err) { this->inject_queue_err = err; }
-
     /// Clears all injected errors.
     void clear_injected_errors() {
         this->inject_init_err = xerrors::NIL;
         this->inject_activate_err = xerrors::NIL;
         this->inject_receive_err = xerrors::NIL;
         this->inject_send_err = xerrors::NIL;
-        this->inject_process_err = xerrors::NIL;
-        this->inject_queue_err = xerrors::NIL;
     }
 
     /// Sets a slave to fail state transition to the given target state.
-    /// @param position The slave position.
-    /// @param target The target state that should fail to reach.
     void
     set_slave_transition_failure(const uint16_t position, const SlaveState target) {
         this->state_transition_failures[position] = target;
     }
 
     /// Directly sets the state of a specific slave.
-    /// @param position The slave position.
-    /// @param state The new state to set.
     void set_slave_state(const uint16_t position, const SlaveState state) {
         std::lock_guard lock(this->mu);
         this->slave_states[position] = state;
@@ -281,12 +218,6 @@ public:
         return xerrors::NIL;
     }
 
-    std::unique_ptr<ethercat::Domain> create_domain() override {
-        std::lock_guard lock(this->mu);
-        this->calls.push_back("create_domain");
-        return std::make_unique<Domain>();
-    }
-
     xerrors::Error activate() override {
         std::lock_guard lock(this->mu);
         this->calls.push_back("activate");
@@ -294,11 +225,10 @@ public:
         if (!this->initialized)
             return xerrors::Error(ACTIVATION_ERROR, "master not initialized");
         this->activated = true;
-        this->active_dom = std::make_unique<Domain>();
-        this->active_dom->set_sizes(
-            this->slave_list.size() * 4,
-            this->slave_list.size() * 4
-        );
+        this->input_sz = this->slave_list.size() * 4;
+        this->output_sz = this->slave_list.size() * 4;
+        this->iomap.resize(this->input_sz + this->output_sz, 0);
+        this->cache_pdo_offsets();
         for (auto &[pos, state]: this->slave_states) {
             auto it = this->state_transition_failures.find(pos);
             if (it != this->state_transition_failures.end() &&
@@ -323,6 +253,9 @@ public:
         this->calls.push_back("deactivate");
         this->activated = false;
         this->initialized = false;
+        this->pdo_offset_cache.clear();
+        this->input_sz = 0;
+        this->output_sz = 0;
         for (auto &[pos, state]: this->slave_states)
             state = SlaveState::INIT;
         for (auto &slave: this->slave_list)
@@ -336,25 +269,38 @@ public:
         return xerrors::NIL;
     }
 
-    xerrors::Error process(ethercat::Domain &) override {
-        std::lock_guard lock(this->mu);
-        this->calls.push_back("process");
-        if (this->inject_process_err) return this->inject_process_err;
-        return xerrors::NIL;
-    }
-
-    xerrors::Error queue(ethercat::Domain &) override {
-        std::lock_guard lock(this->mu);
-        this->calls.push_back("queue");
-        if (this->inject_queue_err) return this->inject_queue_err;
-        return xerrors::NIL;
-    }
-
     xerrors::Error send() override {
         std::lock_guard lock(this->mu);
         this->calls.push_back("send");
         if (this->inject_send_err) return this->inject_send_err;
         return xerrors::NIL;
+    }
+
+    uint8_t *input_data() override {
+        if (!this->activated) return nullptr;
+        return this->iomap.data() + this->output_sz;
+    }
+
+    size_t input_size() const override { return this->input_sz; }
+
+    uint8_t *output_data() override {
+        if (!this->activated) return nullptr;
+        return this->iomap.data();
+    }
+
+    size_t output_size() const override { return this->output_sz; }
+
+    size_t pdo_offset(const PDOEntry &entry) const override {
+        std::lock_guard lock(this->mu);
+        PDOEntryKey key{
+            entry.slave_position,
+            entry.index,
+            entry.subindex,
+            entry.is_input
+        };
+        auto it = this->pdo_offset_cache.find(key);
+        if (it != this->pdo_offset_cache.end()) return it->second;
+        return 0;
     }
 
     std::vector<SlaveInfo> slaves() const override {
@@ -378,36 +324,6 @@ public:
 
     std::string interface_name() const override { return this->iface_name; }
 
-    SlaveDataOffsets slave_data_offsets(const uint16_t position) const override {
-        std::lock_guard lock(this->mu);
-        if (!this->activated) return SlaveDataOffsets{};
-
-        // For mock, calculate offsets based on slave position order.
-        // Inputs come first in our mock layout, then outputs.
-        size_t input_offset = 0;
-        size_t output_offset = 0;
-
-        // Find cumulative offsets for slaves before this position
-        for (const auto &slave: this->slave_list) {
-            if (slave.position == position) {
-                // For mock, each slave has a default 4 bytes input + 4 bytes output
-                const size_t slave_input_size = 4;
-                const size_t slave_output_size = 4;
-                return SlaveDataOffsets{
-                    input_offset,
-                    slave_input_size,
-                    output_offset,
-                    slave_output_size
-                };
-            }
-            input_offset += 4; // Default 4 bytes per slave input
-            output_offset += 4; // Default 4 bytes per slave output
-        }
-        return SlaveDataOffsets{};
-    }
-
-    ethercat::Domain *active_domain() const override { return this->active_dom.get(); }
-
     /// Returns whether the master has been initialized.
     bool is_initialized() const {
         std::lock_guard lock(this->mu);
@@ -419,9 +335,6 @@ public:
         std::lock_guard lock(this->mu);
         return this->activated;
     }
-
-    /// Returns the active mock domain for direct manipulation in tests.
-    Domain *mock_domain() const { return this->active_dom.get(); }
 
     /// Returns the number of slaves configured.
     size_t slave_count() const {
@@ -456,6 +369,45 @@ public:
     void reset_init_call_count() {
         std::lock_guard lock(this->mu);
         this->init_calls = 0;
+    }
+
+    /// Sets a value in the input region of the IOmap for testing.
+    template<typename T>
+    void set_input(const size_t offset, const T value) {
+        if (offset + sizeof(T) <= this->input_sz)
+            std::memcpy(
+                this->iomap.data() + this->output_sz + offset,
+                &value,
+                sizeof(T)
+            );
+    }
+
+    /// Gets a value from the output region of the IOmap for verification.
+    template<typename T>
+    T get_output(const size_t offset) const {
+        T value{};
+        if (offset + sizeof(T) <= this->output_sz)
+            std::memcpy(&value, this->iomap.data() + offset, sizeof(T));
+        return value;
+    }
+
+private:
+    void cache_pdo_offsets() {
+        this->pdo_offset_cache.clear();
+        size_t input_offset = 0;
+        size_t output_offset = 0;
+        for (const auto &slave: this->slave_list) {
+            for (const auto &pdo: slave.input_pdos) {
+                PDOEntryKey key{slave.position, pdo.index, pdo.subindex, true};
+                this->pdo_offset_cache[key] = input_offset;
+                input_offset += pdo.byte_length();
+            }
+            for (const auto &pdo: slave.output_pdos) {
+                PDOEntryKey key{slave.position, pdo.index, pdo.subindex, false};
+                this->pdo_offset_cache[key] = output_offset;
+                output_offset += pdo.byte_length();
+            }
+        }
     }
 };
 }

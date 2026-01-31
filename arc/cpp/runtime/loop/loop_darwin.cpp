@@ -11,8 +11,6 @@
 #include <thread>
 
 #include "glog/logging.h"
-#include <mach/mach.h>
-#include <mach/thread_policy.h>
 #include <sys/event.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -21,14 +19,11 @@
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
+#include "x/cpp/xthread/rt.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 
 namespace arc::runtime::loop {
-
-bool has_rt_scheduling() {
-    return false;
-}
 
 static constexpr uintptr_t USER_EVENT_IDENT = 1;
 static constexpr uintptr_t TIMER_EVENT_IDENT = 2;
@@ -112,7 +107,13 @@ public:
             }
         }
 
-        this->apply_thread_config();
+        xthread::RTConfig rt_cfg;
+        rt_cfg.enabled = this->config_.rt_priority > 0;
+        rt_cfg.priority = this->config_.rt_priority;
+        rt_cfg.cpu_affinity = this->config_.cpu_affinity;
+        rt_cfg.lock_memory = this->config_.lock_memory;
+        if (auto err = xthread::apply_rt_config(rt_cfg); err)
+            LOG(WARNING) << "[loop] Failed to apply RT config: " << err.message();
 
         return xerrors::NIL;
     }
@@ -175,48 +176,6 @@ private:
 
         this->kqueue_timer_enabled_ = true;
         return xerrors::NIL;
-    }
-
-    void apply_thread_config() const {
-        const mach_port_t thread_port = pthread_mach_thread_np(pthread_self());
-        if (this->config_.rt_priority > 0) {
-            thread_precedence_policy_data_t precedence;
-            precedence.importance = this->config_.rt_priority;
-            const kern_return_t result = thread_policy_set(
-                thread_port,
-                THREAD_PRECEDENCE_POLICY,
-                reinterpret_cast<thread_policy_t>(&precedence),
-                THREAD_PRECEDENCE_POLICY_COUNT
-            );
-
-            if (result != KERN_SUCCESS)
-                LOG(WARNING) << "[loop] Failed to set thread precedence: "
-                             << mach_error_string(result);
-            else
-                LOG(INFO) << "[loop] Set thread precedence to "
-                          << this->config_.rt_priority;
-        }
-
-        if (this->config_.cpu_affinity >= 0) {
-            thread_affinity_policy_data_t affinity_policy;
-            affinity_policy.affinity_tag = this->config_.cpu_affinity;
-
-            const kern_return_t result = thread_policy_set(
-                thread_port,
-                THREAD_AFFINITY_POLICY,
-                reinterpret_cast<thread_policy_t>(&affinity_policy),
-                THREAD_AFFINITY_POLICY_COUNT
-            );
-
-            if (result != KERN_SUCCESS) {
-                LOG(WARNING) << "[loop] Failed to set CPU affinity to "
-                             << this->config_.cpu_affinity << ": "
-                             << mach_error_string(result);
-            } else {
-                LOG(INFO) << "[loop] Set thread affinity tag to "
-                          << this->config_.cpu_affinity;
-            }
-        }
     }
 
     /// @brief BUSY_WAIT: Non-blocking kqueue poll in tight loop.

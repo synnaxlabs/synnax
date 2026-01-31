@@ -11,120 +11,21 @@
 #include <sys/stat.h>
 
 #include "driver/ethercat/igh/master.h"
-#include "driver/ethercat/pdo_types.h"
+#include "driver/ethercat/telem/telem.h"
 
 namespace ethercat::igh {
-
 bool igh_available() {
     struct stat st;
     return stat("/dev/EtherCAT0", &st) == 0;
 }
 
-Domain::Domain(ec_domain_t *domain, Master *master):
-    domain(domain),
-    master(master),
-    domain_data(nullptr),
-    input_sz(0),
-    output_sz(0),
-    activated(false) {}
-
-std::pair<size_t, xerrors::Error> Domain::register_pdo(const PDOEntry &entry) {
-    if (this->activated)
-        return {
-            0,
-            xerrors::Error(PDO_MAPPING_ERROR, "cannot register PDO after activation")
-        };
-
-    ec_slave_config_t *sc = this->master->get_or_create_slave_config(
-        entry.slave_position
-    );
-    if (!sc)
-        return {
-            0,
-            xerrors::Error(PDO_MAPPING_ERROR, "failed to get slave configuration")
-        };
-
-    unsigned int offset = 0;
-    int result = ecrt_slave_config_reg_pdo_entry(
-        sc,
-        entry.index,
-        entry.subindex,
-        this->domain,
-        nullptr
-    );
-
-    if (result < 0)
-        return {
-            0,
-            xerrors::Error(PDO_MAPPING_ERROR, "ecrt_slave_config_reg_pdo_entry failed")
-        };
-
-    offset = static_cast<unsigned int>(result);
-    this->pdo_offsets.push_back(offset);
-    this->registered_entries.push_back(entry);
-
-    const size_t byte_size = entry.byte_length();
-    if (entry.is_input)
-        this->input_sz += byte_size;
-    else
-        this->output_sz += byte_size;
-
-    return {offset, xerrors::NIL};
-}
-
-uint8_t *Domain::data() {
-    return this->domain_data;
-}
-
-size_t Domain::size() const {
-    return this->input_sz + this->output_sz;
-}
-
-size_t Domain::input_size() const {
-    return this->input_sz;
-}
-
-size_t Domain::output_size() const {
-    return this->output_sz;
-}
-
-void Domain::set_activated(uint8_t *data_ptr) {
-    this->domain_data = data_ptr;
-    this->activated = true;
-}
-
-SlaveDataOffsets Domain::get_slave_offsets(const uint16_t position) const {
-    SlaveDataOffsets offsets;
-    bool found_input = false;
-    bool found_output = false;
-
-    for (size_t i = 0; i < this->registered_entries.size(); ++i) {
-        const auto &entry = this->registered_entries[i];
-        if (entry.slave_position != position) continue;
-
-        if (entry.is_input && !found_input) {
-            offsets.input_offset = this->pdo_offsets[i];
-            offsets.input_size = entry.byte_length();
-            found_input = true;
-        } else if (entry.is_input) {
-            offsets.input_size += entry.byte_length();
-        }
-
-        if (!entry.is_input && !found_output) {
-            offsets.output_offset = this->pdo_offsets[i];
-            offsets.output_size = entry.byte_length();
-            found_output = true;
-        } else if (!entry.is_input) {
-            offsets.output_size += entry.byte_length();
-        }
-    }
-
-    return offsets;
-}
-
 Master::Master(const unsigned int master_index):
     master_index(master_index),
     ec_master(nullptr),
+    domain(nullptr),
+    domain_data(nullptr),
+    input_sz(0),
+    output_sz(0),
     initialized(false),
     activated(false),
     domain_state{} {}
@@ -171,18 +72,15 @@ xerrors::Error Master::initialize() {
         }
     }
 
+    this->domain = ecrt_master_create_domain(this->ec_master);
+    if (!this->domain) {
+        ecrt_release_master(this->ec_master);
+        this->ec_master = nullptr;
+        return xerrors::Error(MASTER_INIT_ERROR, "failed to create domain");
+    }
+
     this->initialized = true;
     return xerrors::NIL;
-}
-
-std::unique_ptr<ethercat::Domain> Master::create_domain() {
-    if (!this->initialized || this->activated) return nullptr;
-
-    ec_domain_t *dom = ecrt_master_create_domain(this->ec_master);
-    if (!dom) return nullptr;
-
-    this->domain = std::make_unique<Domain>(dom, this);
-    return nullptr;
 }
 
 xerrors::Error Master::activate() {
@@ -193,13 +91,12 @@ xerrors::Error Master::activate() {
     if (ecrt_master_activate(this->ec_master) < 0)
         return xerrors::Error(ACTIVATION_ERROR, "ecrt_master_activate failed");
 
-    uint8_t *data_ptr = ecrt_domain_data(this->domain->native_handle());
-    if (!data_ptr) {
+    this->domain_data = ecrt_domain_data(this->domain);
+    if (!this->domain_data) {
         ecrt_master_deactivate(this->ec_master);
         return xerrors::Error(ACTIVATION_ERROR, "failed to get domain data pointer");
     }
 
-    this->domain->set_activated(data_ptr);
     this->activated = true;
     return xerrors::NIL;
 }
@@ -210,46 +107,60 @@ void Master::deactivate() {
     ecrt_master_deactivate(this->ec_master);
     this->activated = false;
     this->slave_configs.clear();
+    this->pdo_offset_cache.clear();
+    this->input_sz = 0;
+    this->output_sz = 0;
+    this->domain_data = nullptr;
 }
 
 xerrors::Error Master::receive() {
     if (!this->activated) return xerrors::Error(CYCLIC_ERROR, "not activated");
     ecrt_master_receive(this->ec_master);
-    return xerrors::NIL;
-}
-
-xerrors::Error Master::process(ethercat::Domain &d) {
-    auto *igh_domain = dynamic_cast<Domain *>(&d);
-    if (!igh_domain) return xerrors::Error(CYCLIC_ERROR, "invalid domain type");
-
-    ecrt_domain_process(igh_domain->native_handle());
-
-    ecrt_domain_state(igh_domain->native_handle(), &this->domain_state);
-
-    return xerrors::NIL;
-}
-
-xerrors::Error Master::queue(ethercat::Domain &d) {
-    auto *igh_domain = dynamic_cast<Domain *>(&d);
-    if (!igh_domain) return xerrors::Error(CYCLIC_ERROR, "invalid domain type");
-
-    ecrt_domain_queue(igh_domain->native_handle());
+    ecrt_domain_process(this->domain);
+    ecrt_domain_state(this->domain, &this->domain_state);
     return xerrors::NIL;
 }
 
 xerrors::Error Master::send() {
     if (!this->activated) return xerrors::Error(CYCLIC_ERROR, "not activated");
+    ecrt_domain_queue(this->domain);
     ecrt_master_send(this->ec_master);
     return xerrors::NIL;
 }
 
+uint8_t *Master::input_data() {
+    if (!this->activated) return nullptr;
+    return this->domain_data + this->output_sz;
+}
+
+size_t Master::input_size() const {
+    return this->input_sz;
+}
+
+uint8_t *Master::output_data() {
+    if (!this->activated) return nullptr;
+    return this->domain_data;
+}
+
+size_t Master::output_size() const {
+    return this->output_sz;
+}
+
+size_t Master::pdo_offset(const PDOEntry &entry) const {
+    std::lock_guard lock(this->mu);
+    PDOEntryKey key{entry.slave_position, entry.index, entry.subindex, entry.is_input};
+    auto it = this->pdo_offset_cache.find(key);
+    if (it != this->pdo_offset_cache.end()) return it->second;
+    return 0;
+}
+
 std::vector<SlaveInfo> Master::slaves() const {
-    std::lock_guard lock(this->mutex);
+    std::lock_guard lock(this->mu);
     return this->cached_slaves;
 }
 
 SlaveState Master::slave_state(const uint16_t position) const {
-    std::lock_guard lock(this->mutex);
+    std::lock_guard lock(this->mu);
 
     if (position >= this->cached_slaves.size()) return SlaveState::UNKNOWN;
 
@@ -262,7 +173,7 @@ SlaveState Master::slave_state(const uint16_t position) const {
 }
 
 bool Master::all_slaves_operational() const {
-    std::lock_guard lock(this->mutex);
+    std::lock_guard lock(this->mu);
 
     if (!this->activated) return false;
 
@@ -278,17 +189,8 @@ std::string Master::interface_name() const {
     return "igh:" + std::to_string(this->master_index);
 }
 
-SlaveDataOffsets Master::slave_data_offsets(const uint16_t position) const {
-    if (!this->activated || !this->domain) return SlaveDataOffsets{};
-    return this->domain->get_slave_offsets(position);
-}
-
-ethercat::Domain *Master::active_domain() const {
-    return this->activated ? this->domain.get() : nullptr;
-}
-
 ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
-    std::lock_guard lock(this->mutex);
+    std::lock_guard lock(this->mu);
 
     auto it = this->slave_configs.find(position);
     if (it != this->slave_configs.end()) return it->second;
@@ -306,6 +208,56 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
 
     if (sc) this->slave_configs[position] = sc;
     return sc;
+}
+
+std::pair<size_t, xerrors::Error> Master::register_pdo(const PDOEntry &entry) {
+    if (this->activated)
+        return {
+            0,
+            xerrors::Error(PDO_MAPPING_ERROR, "cannot register PDO after activation")
+        };
+
+    ec_slave_config_t *sc = this->get_or_create_slave_config(entry.slave_position);
+    if (!sc)
+        return {
+            0,
+            xerrors::Error(PDO_MAPPING_ERROR, "failed to get slave configuration")
+        };
+
+    int result = ecrt_slave_config_reg_pdo_entry(
+        sc,
+        entry.index,
+        entry.subindex,
+        this->domain,
+        nullptr
+    );
+
+    if (result < 0)
+        return {
+            0,
+            xerrors::Error(PDO_MAPPING_ERROR, "ecrt_slave_config_reg_pdo_entry failed")
+        };
+
+    const size_t offset = static_cast<size_t>(result);
+
+    {
+        std::lock_guard lock(this->mu);
+        PDOEntryKey key{
+            entry.slave_position,
+            entry.index,
+            entry.subindex,
+            entry.is_input
+        };
+        this->pdo_offset_cache[key] = offset;
+    }
+
+    const size_t byte_size = entry.byte_length();
+    if (entry.is_input)
+        this->input_sz += byte_size;
+    else
+        this->output_sz += byte_size;
+
+    return {offset, xerrors::NIL};
 }
 
 SlaveState Master::convert_state(const uint8_t igh_state) {
@@ -370,8 +322,9 @@ void Master::discover_slave_pdos(SlaveInfo &slave) {
 
                 if (entry_info.index == 0 && entry_info.subindex == 0) continue;
 
-                const telem::DataType data_type =
-                    infer_type_from_bit_length(entry_info.bit_length);
+                const telem::DataType data_type = infer_type_from_bit_length(
+                    entry_info.bit_length
+                );
                 const std::string name = generate_pdo_entry_name(
                     "",
                     entry_info.index,
@@ -403,5 +356,4 @@ void Master::discover_slave_pdos(SlaveInfo &slave) {
             << " PDOs discovered via IgH: " << slave.input_pdos.size() << " inputs, "
             << slave.output_pdos.size() << " outputs";
 }
-
 }

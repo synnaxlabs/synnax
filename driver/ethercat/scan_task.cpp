@@ -148,7 +148,7 @@ synnax::Device Scanner::create_network_device(
     synnax::Device dev;
     dev.key = key;
     dev.name = "EtherCAT Network " + iface.name;
-    dev.make = NETWORK_DEVICE_MAKE;
+    dev.make = DEVICE_MAKE;
     dev.model = NETWORK_DEVICE_MODEL;
     dev.location = iface.name;
     dev.rack = rack_key;
@@ -180,19 +180,58 @@ synnax::Device Scanner::create_slave_device(
     props["name"] = slave.name;
     props["network"] = network_interface;
     props["position"] = slave.position;
-    props["pdos"] = {
-        {"inputs", nlohmann::json::array()},
-        {"outputs", nlohmann::json::array()}
-    };
+    props["input_bits"] = slave.input_bits;
+    props["output_bits"] = slave.output_bits;
 
-    std::string status_msg = "Discovered";
-    std::string status_variant = status::variant::SUCCESS;
+    nlohmann::json input_pdos = nlohmann::json::array();
+    for (const auto &pdo: slave.input_pdos) {
+        input_pdos.push_back(
+            {{"name", pdo.name},
+             {"pdo_index", pdo.pdo_index},
+             {"index", pdo.index},
+             {"subindex", pdo.subindex},
+             {"bit_length", pdo.bit_length},
+             {"data_type", pdo.data_type.name()}}
+        );
+    }
+
+    nlohmann::json output_pdos = nlohmann::json::array();
+    for (const auto &pdo: slave.output_pdos) {
+        output_pdos.push_back(
+            {{"name", pdo.name},
+             {"pdo_index", pdo.pdo_index},
+             {"index", pdo.index},
+             {"subindex", pdo.subindex},
+             {"bit_length", pdo.bit_length},
+             {"data_type", pdo.data_type.name()}}
+        );
+    }
+
+    props["pdos"] = {{"inputs", input_pdos}, {"outputs", output_pdos}};
+
+    std::string status_msg;
+    std::string status_variant;
+    if (slave.pdos_discovered) {
+        if (slave.pdo_discovery_error.empty()) {
+            status_msg = "Discovered (" + std::to_string(slave.input_pdos.size()) +
+                         " inputs, " + std::to_string(slave.output_pdos.size()) +
+                         " outputs)";
+            status_variant = status::variant::SUCCESS;
+        } else {
+            status_msg = "Discovered (PDO enumeration: " + slave.pdo_discovery_error +
+                         ")";
+            status_variant = status::variant::WARNING;
+        }
+    } else {
+        status_msg = "Discovered (no PDOs found)";
+        status_variant = status::variant::WARNING;
+    }
 
     synnax::Device dev;
     dev.key = key;
     dev.name = slave.name.empty() ? "EtherCAT Slave " + std::to_string(slave.position)
                                   : slave.name;
-    dev.make = SLAVE_DEVICE_MAKE;
+    dev.make = DEVICE_MAKE;
     dev.model = SLAVE_DEVICE_MODEL;
     dev.location = network_interface;
     dev.rack = rack_key;

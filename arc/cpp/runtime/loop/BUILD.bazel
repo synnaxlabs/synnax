@@ -14,32 +14,13 @@ config_setting(
 
 cc_library(
     name = "loop",
-    hdrs = ["loop.h"],
     srcs = select({
         "@platforms//os:linux": ["loop_linux.cpp"],
         "@platforms//os:macos": ["loop_darwin.cpp"],
         "@platforms//os:windows": ["loop_windows.cpp"],
         "//conditions:default": ["loop_polling.cpp"],
     }),
-    defines = select({
-        ":nilinuxrt": ["SYNNAX_NILINUXRT"],
-        "//conditions:default": [],
-    }),
-    deps = [
-        "//x/cpp/breaker",
-        "//x/cpp/loop",
-        "//x/cpp/notify",
-        "//x/cpp/telem",
-        "//x/cpp/xerrors",
-        "//x/cpp/xjson",
-        "//x/cpp/xlog",
-        "@glog",
-    ],
-    linkopts = select({
-        "@platforms//os:linux": ["-lpthread"],
-        "@platforms//os:windows": [],
-        "//conditions:default": [],
-    }),
+    hdrs = ["loop.h"],
     copts = select({
         "@platforms//os:windows": [
             "/D_WIN32_WINNT=0x0601",
@@ -48,7 +29,27 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
+    defines = select({
+        ":nilinuxrt": ["SYNNAX_NILINUXRT"],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "@platforms//os:linux": ["-lpthread"],
+        "@platforms//os:windows": [],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/breaker",
+        "//x/cpp/loop",
+        "//x/cpp/notify",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+        "//x/cpp/xjson",
+        "//x/cpp/xlog",
+        "//x/cpp/xthread",
+        "@glog",
+    ],
 )
 
 cc_test(

@@ -20,14 +20,11 @@ namespace ethercat {
 /// Integration name used for configuration and logging.
 const std::string INTEGRATION_NAME = "ethercat";
 
-/// Device make for EtherCAT network devices.
-const std::string NETWORK_DEVICE_MAKE = "ethercat_network";
+/// Device make for all EtherCAT devices.
+const std::string DEVICE_MAKE = INTEGRATION_NAME;
 
 /// Device model for EtherCAT network devices.
 const std::string NETWORK_DEVICE_MODEL = "network";
-
-/// Device make for EtherCAT slave devices.
-const std::string SLAVE_DEVICE_MAKE = "ethercat_slave";
 
 /// Device model for EtherCAT slave devices.
 const std::string SLAVE_DEVICE_MODEL = "slave";

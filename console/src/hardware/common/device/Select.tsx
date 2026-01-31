@@ -61,7 +61,7 @@ export const Select = ({
           value={value}
           onChange={onChange}
           initialQuery={{ makes: [make] }}
-          filter={(p) => p.make === make}
+          filter={(p) => p.make === make && (model == null || p.model === model)}
           emptyContent={emptyContent}
           grow
           icon={icon}

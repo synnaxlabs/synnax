@@ -12,13 +12,12 @@ import { z } from "zod/v4";
 
 export const PREFIX = "ethercat";
 
-export const NETWORK_MAKE = "ethercat_network";
-export type NetworkMake = typeof NETWORK_MAKE;
+export const MAKE = PREFIX;
+export type Make = typeof MAKE;
+
 export const NETWORK_MODEL = "network";
 export type NetworkModel = typeof NETWORK_MODEL;
 
-export const SLAVE_MAKE = "ethercat_slave";
-export type SlaveMake = typeof SLAVE_MAKE;
 export const SLAVE_MODEL = "slave";
 export type SlaveModel = typeof SLAVE_MODEL;
 
@@ -68,7 +67,7 @@ export const ZERO_NETWORK_PROPERTIES: NetworkProperties = {
 
 export interface NetworkDevice extends device.Device<
   NetworkProperties,
-  NetworkMake,
+  Make,
   NetworkModel
 > {}
 
@@ -96,6 +95,6 @@ export const ZERO_SLAVE_PROPERTIES: SlaveProperties = {
 
 export interface SlaveDevice extends device.Device<
   SlaveProperties,
-  SlaveMake,
+  Make,
   SlaveModel
 > {}
