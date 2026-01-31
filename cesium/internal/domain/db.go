@@ -188,8 +188,8 @@ func (db *DB) Close() error {
 		db.closed.Store(false)
 		return err
 	}
-	var w errors.Catcher
-	w.Exec(db.fc.close)
-	w.Exec(db.idx.close)
-	return w.Error()
+	var a errors.Accumulator
+	a.Exec(db.fc.close)
+	a.Exec(db.idx.close)
+	return a.Error()
 }

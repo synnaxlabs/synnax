@@ -235,13 +235,13 @@ func (s *Service) migrateStatusesForExistingRacks(ctx context.Context) error {
 }
 
 func (s *Service) Close() error {
-	var c errors.Catcher
-	c.Exec(s.monitor.Close)
+	var a errors.Accumulator
+	a.Exec(s.monitor.Close)
 	if s.shutdownSignals == nil {
 		return nil
 	}
-	c.Exec(s.shutdownSignals.Close)
-	return c.Error()
+	a.Exec(s.shutdownSignals.Close)
+	return a.Error()
 }
 
 func (s *Service) RetrieveStatus(ctx context.Context, key Key) (Status, error) {

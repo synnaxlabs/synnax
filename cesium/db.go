@@ -147,20 +147,20 @@ func (db *DB) Close() error {
 		return nil
 	}
 
-	var c errors.Catcher
+	var a errors.Accumulator
 	// Crucial to close control digests here before closing the signal context so writes
 	// can still use the signal context to send frames to relay.
 	//
 	// This function acquires the mutex lock internally, so there's no need to lock it
 	// here.
-	c.Exec(db.closeControlDigests)
+	a.Exec(db.closeControlDigests)
 	// Shut down without locking mutex to allow existing goroutines (e.g. GC) that
 	// require a mutex lock to exit.
-	c.Exec(db.shutdown.Close)
+	a.Exec(db.shutdown.Close)
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	for _, u := range db.mu.unaryDBs {
-		c.Exec(u.Close)
+		a.Exec(u.Close)
 	}
-	return c.Error()
+	return a.Error()
 }

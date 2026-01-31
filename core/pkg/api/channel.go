@@ -302,10 +302,10 @@ func (s *ChannelService) Delete(
 	req ChannelDeleteRequest,
 ) (types.Nil, error) {
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		var c errors.Catcher
+		var a errors.Accumulator
 		w := s.internal.NewWriter(tx)
 		if len(req.Keys) > 0 {
-			c.Exec(func() error {
+			a.Exec(func() error {
 				if err := s.access.Enforce(ctx, access.Request{
 					Subject: getSubject(ctx),
 					Action:  access.ActionDelete,
@@ -317,7 +317,7 @@ func (s *ChannelService) Delete(
 			})
 		}
 		if len(req.Names) > 0 {
-			c.Exec(func() error {
+			a.Exec(func() error {
 				res := make([]channel.Channel, 0, len(req.Names))
 				err := s.internal.NewRetrieve().WhereNames(req.Names...).Entries(&res).Exec(ctx, tx)
 				if err != nil {
@@ -333,7 +333,7 @@ func (s *ChannelService) Delete(
 				return w.DeleteManyByNames(ctx, req.Names, false)
 			})
 		}
-		return c.Error()
+		return a.Error()
 	})
 }
 

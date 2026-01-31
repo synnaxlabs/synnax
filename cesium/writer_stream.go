@@ -278,10 +278,10 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *streamWriter) close(ctx context.Context) error {
-	var c errors.Catcher
+	var a errors.Accumulator
 	parentUpdate := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, idx := range w.internal {
-		c.Exec(func() error {
+		a.Exec(func() error {
 			u, err := idx.Close()
 			if err != nil {
 				return err
@@ -291,7 +291,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 		})
 	}
 	if w.virtual.internal != nil {
-		c.Exec(func() error {
+		a.Exec(func() error {
 			u, err := w.virtual.Close()
 			if err != nil {
 				return err
@@ -312,7 +312,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 		}
 	}
 
-	return c.Error()
+	return a.Error()
 }
 
 type unaryWriterState struct {
@@ -404,7 +404,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
-	var c errors.Catcher
+	var c errors.Accumulator
 	for _, chW := range w.internal {
 		c.Exec(func() error { return chW.CommitWithEnd(ctx, end.Lower) })
 	}
@@ -412,7 +412,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *idxWriter) Close() (ControlUpdate, error) {
-	var c errors.Catcher
+	var c errors.Accumulator
 	update := ControlUpdate{
 		Transfers: make([]control.Transfer, 0, len(w.internal)),
 	}
@@ -615,7 +615,7 @@ func (w virtualWriter) write(filterUnauthorized *[]ChannelKey, fr Frame) (Frame,
 }
 
 func (w virtualWriter) Close() (ControlUpdate, error) {
-	var c errors.Catcher
+	var c errors.Accumulator
 	update := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, chW := range w.internal {
 		// We do not want to clean up the digest channel since we want to use it to send

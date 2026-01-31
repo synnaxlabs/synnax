@@ -321,11 +321,11 @@ func (s *Service) Close() error {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	var c errors.Catcher
+	var a errors.Accumulator
 	for _, g := range s.mu.groups {
-		c.Exec(g.Close)
+		a.Exec(g.Close)
 	}
-	return c.Error()
+	return a.Error()
 }
 
 // Request requests that the Service starts calculation the channel with the provided

@@ -1,0 +1,67 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package errors_test
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
+)
+
+var _ = Describe("Accumulator", func() {
+	Context("No error encountered", func() {
+		var (
+			counter     int
+			accumulator errors.Accumulator
+		)
+		BeforeEach(func() {
+			counter = 1
+			accumulator = errors.Accumulator{}
+			for range 4 {
+				accumulator.Exec(func() error { counter++; return nil })
+			}
+		})
+		It("Should continue to execute functions", func() {
+			Expect(counter).To(Equal(5))
+		})
+		It("Should contain a nil error", func() {
+			Expect(accumulator.Error()).To(BeNil())
+		})
+	})
+	Context("Errors encountered", func() {
+		It("Should accumulate errors and continue execution", func() {
+			counter := 1
+			accumulator := errors.Accumulator{}
+			for i := range 4 {
+				accumulator.Exec(func() error {
+					if i == 2 {
+						return errors.Newf("encountered unknown error")
+					}
+					counter++
+					return nil
+				})
+			}
+			Expect(counter).To(Equal(4))
+			Expect(accumulator.Error()).ToNot(BeNil())
+		})
+		It("Should accumulate multiple errors", func() {
+			counter := 1
+			accumulator := errors.Accumulator{}
+			for range 4 {
+				accumulator.Exec(func() error {
+					counter++
+					return errors.Newf("error encountered")
+				})
+			}
+			Expect(counter).To(Equal(5))
+			Expect(accumulator.Error()).ToNot(BeNil())
+		})
+	})
+})

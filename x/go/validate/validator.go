@@ -20,7 +20,7 @@ import (
 
 type Validator struct {
 	scope string
-	errors.Catcher
+	errors.Accumulator
 }
 
 func New(scope string) *Validator { return &Validator{scope: scope} }
