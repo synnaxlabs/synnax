@@ -35,11 +35,13 @@ This allows modules to reference each other without publishing.
 
 ## Development Commands
 
-### Building
+### Verifying Code
+
+Use `go vet` to verify code compiles correctly (including test files):
 
 ```bash
-cd core && go build ./...
-cd cesium && go build ./...
+cd core && go vet ./...
+cd cesium && go vet ./...
 ```
 
 ### Testing
