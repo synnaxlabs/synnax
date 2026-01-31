@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type Synnax } from "@synnaxlabs/client";
+import { type Synnax } from "@synnaxlabs/client";
 import {
   array,
   type destructor,
@@ -269,7 +269,7 @@ export interface ChannelListener<
   Z extends z.ZodType = z.ZodType,
 > {
   /** The name of the Synnax channel to listen to */
-  channel: channel.Name;
+  channel: string;
   /** Zod schema for parsing and validating channel data */
   schema: Z;
   /** Callback function invoked when the channel data changes */

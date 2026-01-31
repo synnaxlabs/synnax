@@ -536,8 +536,10 @@ jobs:
 
   docker:
     name: Build Docker Image
-    needs: setup
-    if: inputs.docker
+    needs: [setup, build]
+    if:
+      inputs.docker && (needs.build.result == 'success' || needs.build.result ==
+      'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -548,6 +550,37 @@ jobs:
 
       - name: Update Submodules
         run: git submodule update --init --recursive
+
+      - name: Download Linux Driver Artifact
+        if: inputs.driver
+        uses: actions/download-artifact@v4
+        with:
+          name:
+            ${{ inputs.use_simple_artifact_names && 'synnax-driver-linux' ||
+            format('synnax-driver-v{0}-linux', needs.setup.outputs.VERSION) }}
+          path: ./driver-artifact/
+
+      - name: Prepare Driver Binary
+        if: inputs.driver
+        run: |
+          mkdir -p core/pkg/driver/assets
+          DRIVER_FILE=$(ls ./driver-artifact/synnax-driver-* 2>/dev/null | head -1)
+          if [ -n "$DRIVER_FILE" ]; then
+            mv "$DRIVER_FILE" core/pkg/driver/assets/driver
+          else
+            mv ./driver-artifact/* core/pkg/driver/assets/driver
+          fi
+          chmod +x core/pkg/driver/assets/driver
+          file core/pkg/driver/assets/driver
+
+      - name: Download Console Assets
+        if: inputs.console
+        uses: actions/download-artifact@v4
+        with:
+          name:
+            ${{ inputs.use_simple_artifact_names && 'synnax-console-assets-linux' ||
+            format('synnax-console-assets-v{0}-linux', needs.setup.outputs.VERSION) }}
+          path: core/pkg/console/dist/
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -581,11 +614,17 @@ jobs:
             ${{ inputs.upload_to_release && github.ref == 'refs/heads/main' && 'synnaxlabs/synnax:latest' || '' }}
             ${{ inputs.upload_to_release && github.ref == 'refs/heads/rc' && 'ghcr.io/synnaxlabs/synnax:rc' || '' }}
             ${{ inputs.upload_to_release && github.ref == 'refs/heads/rc' && 'synnaxlabs/synnax:rc' || '' }}
-          cache-from: type=gha,scope=synnax-docker-cache
-          cache-to: type=gha,mode=min,scope=synnax-docker-cache
+          cache-from:
+            type=gha,scope=synnax-docker-${{ inputs.driver && inputs.console && 'full'
+            || inputs.driver && 'driver' || inputs.console && 'console' || 'base' }}
+          cache-to:
+            type=gha,mode=min,scope=synnax-docker-${{ inputs.driver && inputs.console &&
+            'full' || inputs.driver && 'driver' || inputs.console && 'console' || 'base'
+            }}
           sbom: ${{ inputs.upload_to_release }}
           provenance: ${{ inputs.upload_to_release && 'mode=max' || 'false' }}
           build-args: |
+            DRIVER_ENABLED=${{ inputs.driver }}
             CONSOLE_ENABLED=${{ inputs.console }}
             VERSION=${{ needs.setup.outputs.VERSION }}
             GIT_COMMIT=${{ github.sha }}

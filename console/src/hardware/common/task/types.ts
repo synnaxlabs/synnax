@@ -36,7 +36,7 @@ export const validateChannels = ({
   });
 };
 
-export const nameZ = channel.nameZ.or(z.literal("")).default("");
+export const nameZ = z.string().default("");
 
 export const readChannelZ = channelZ.extend({ channel: channel.keyZ, name: nameZ });
 export interface ReadChannel extends z.infer<typeof readChannelZ> {}
