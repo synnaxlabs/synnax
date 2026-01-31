@@ -61,8 +61,13 @@ class CustomSymbols(ConsoleCase):
 
     def teardown(self) -> None:
         if self.console.workspace.page_exists(self.schematic_name):
-            schematic = Schematic.from_open_page(self.console, self.schematic_name)
-            toolbar = SymbolToolbar(self.page, self.console)
+            schematic = Schematic.from_open_page(
+                self.console.layout,
+                self.console.client,
+                self.console.notifications,
+                self.schematic_name,
+            )
+            toolbar = SymbolToolbar(self.console.layout, self.console.notifications)
             toolbar.show()
 
             if toolbar.group_exists(self.test_group_name):
@@ -75,8 +80,8 @@ class CustomSymbols(ConsoleCase):
 
     def run(self) -> None:
         """Run all custom symbol tests."""
-        schematic = Schematic(self.console, self.schematic_name)
-        toolbar = SymbolToolbar(self.page, self.console)
+        schematic = self.console.workspace.create_schematic(self.schematic_name)
+        toolbar = SymbolToolbar(self.console.layout, self.console.notifications)
         toolbar.show()
         self.console.notifications.close_all()
 

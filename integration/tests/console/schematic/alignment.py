@@ -377,7 +377,7 @@ class Alignment(ConsoleCase):
         console = self.console
         client = self.client
 
-        schematic = Schematic(console, "set_output_schematic")
+        schematic = console.workspace.create_schematic("set_output_schematic")
 
         # Set up Symbols
         valve_threeway = schematic.create_symbol(

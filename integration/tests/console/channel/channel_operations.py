@@ -184,7 +184,9 @@ class ChannelOperations(ConsoleCase):
         """Test opening a channel plot by double-clicking."""
         self.log("Testing open channel plot by double-click")
 
-        plot = self.console.channels.open_plot_from_click(self.client, self.shared_data)
+        plot = self.console.workspace.open_plot_from_click(
+            self.shared_data, self.console.channels
+        )
 
         line_plot = self.page.locator(".pluto-line-plot")
         line_plot.first.wait_for(state="visible", timeout=5000)
@@ -434,7 +436,7 @@ class ChannelOperations(ConsoleCase):
         """Test opening a channel plot by searching its name in the command palette."""
         self.log("Testing open channel plot by name via command palette")
 
-        plot = Plot.open_from_search(self.console, self.shared_data)
+        plot = self.console.workspace.open_from_search(Plot, self.shared_data)
         plot.close()
 
     def test_open_create_channel_modal(self) -> None:
@@ -459,7 +461,7 @@ class ChannelOperations(ConsoleCase):
 
         client = self.client
 
-        plot = Plot(self.console, f"Nested Calc Plot {self.suffix}")
+        plot = self.console.workspace.create_plot(f"Nested Calc Plot {self.suffix}")
         plot.add_channels("Y1", [SRC_CH, self.calc_x2, self.calc_x6])
         csv_content = plot.download_csv()
 

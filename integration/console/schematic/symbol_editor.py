@@ -9,25 +9,18 @@
 
 """Symbol Editor modal client for creating and editing custom symbols."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-if TYPE_CHECKING:
-    from console.console import Console
-    from console.layout import LayoutClient
+from ..layout import LayoutClient
 
 
 class SymbolEditor:
     """Client for interacting with the Symbol Editor modal."""
 
-    def __init__(self, page: Page, console: "Console"):
-        self.page = page
-        self.console = console
-        self.layout: "LayoutClient" = console.layout
+    def __init__(self, layout: LayoutClient):
+        self.page = layout.page
+        self.layout = layout
 
     @property
     def modal(self) -> Locator:

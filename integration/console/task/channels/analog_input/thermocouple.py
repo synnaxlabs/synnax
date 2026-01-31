@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
+from console.layout import LayoutClient
 from console.task.channels.analog import Analog
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 
 class Thermocouple(Analog):
@@ -36,7 +34,7 @@ class Thermocouple(Analog):
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         port: int | None = None,
@@ -54,8 +52,7 @@ class Thermocouple(Analog):
 
         # Does not call super()
 
-        self.console = console
-        self.layout = console.layout
+        self.layout = layout
         layout = self.layout
         self.device = device
         self.name = name

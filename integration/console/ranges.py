@@ -7,23 +7,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING
-
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import expect
 
 from framework.utils import get_results_path, rgb_to_hex
 
-from .base import BaseClientWithNotifications
-
-if TYPE_CHECKING:
-    from .console import Console
-    from .layout import LayoutClient
-    from .notifications import NotificationsClient
+from .base import BaseClient
+from .layout import LayoutClient
+from .notifications import NotificationsClient
 
 
-class RangesClient(BaseClientWithNotifications):
+class RangesClient(BaseClient):
     """Console ranges client for managing ranges via the UI.
 
     The ranges toolbar shows only favorited ranges.
@@ -39,12 +34,10 @@ class RangesClient(BaseClientWithNotifications):
 
     def __init__(
         self,
-        layout: "LayoutClient",
-        notifications: "NotificationsClient",
-        console: "Console",
+        layout: LayoutClient,
+        notifications: NotificationsClient,
     ):
         super().__init__(layout, notifications)
-        self.console = console
 
     def open_from_search(self, name: str) -> None:
         """Open a range overview by searching its name in the command palette.

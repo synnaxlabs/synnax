@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
+from console.layout import LayoutClient
 from console.task.channels.analog import Analog
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 
 class RTD(Analog):
@@ -37,7 +35,7 @@ class RTD(Analog):
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         temperature_units: (
@@ -57,7 +55,7 @@ class RTD(Analog):
 
         # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
-            console=console,
+            layout=layout,
             name=name,
             device=device,
             chan_type="RTD",

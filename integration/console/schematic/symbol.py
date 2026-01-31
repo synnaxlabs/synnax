@@ -8,14 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import synnax as sy
 from playwright.sync_api import FloatRect, Locator, Page
 
-if TYPE_CHECKING:
-    from ..console import Console
-    from ..layout import LayoutClient
+from ..layout import LayoutClient
+from ..notifications import NotificationsClient
 
 """ Symbol Box helpers """
 
@@ -54,8 +53,8 @@ class Symbol(ABC):
     """Base class for all schematic symbols"""
 
     page: Page
-    console: "Console"
-    layout: "LayoutClient"
+    layout: LayoutClient
+    notifications: NotificationsClient
     locator: Locator
     symbol_id: str | None
     label: str
@@ -82,22 +81,22 @@ class Symbol(ABC):
         self.rotatable = rotatable
         self.symbol_id = None
 
-    def create(self, page: Page, console: "Console") -> None:
+    def create(self, layout: LayoutClient, notifications: NotificationsClient) -> None:
         """Attach this symbol to a schematic (called by Schematic.create_symbol).
 
         This method adds the symbol to the schematic UI using the SymbolToolbar factory.
 
         Args:
-            page: Playwright Page instance
-            console: Console instance for UI interactions
+            layout: LayoutClient for UI interactions
+            notifications: NotificationsClient for closing notifications
         """
         from .symbol_toolbar import SymbolToolbar
 
-        self.page = page
-        self.console = console
-        self.layout = console.layout
+        self.page = layout.page
+        self.layout = layout
+        self.notifications = notifications
 
-        toolbar = SymbolToolbar(self.page, self.console)
+        toolbar = SymbolToolbar(self.layout, self.notifications)
         self.symbol_id = toolbar.add_symbol(self._symbol_type, self._symbol_group)
         self.locator = self.page.get_by_test_id(self.symbol_id)
         self.set_label(self.label)
@@ -112,13 +111,13 @@ class Symbol(ABC):
         pass
 
     def _disable_edit_mode(self) -> None:
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         edit_off_icon = self.page.get_by_label("pluto-icon--edit-off")
         if edit_off_icon.count() > 0:
             edit_off_icon.click()
 
     def _enable_edit_mode(self) -> None:
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         enable_editing_link = self.page.get_by_text("enable editing", exact=False)
         if enable_editing_link.count() > 0:
             enable_editing_link.click()

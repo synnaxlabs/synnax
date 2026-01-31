@@ -21,27 +21,23 @@ NOT implemented in Console UI (no helpers for these):
 - Create/edit/view policies (hidden from UI)
 """
 
-from typing import TYPE_CHECKING
-
 import synnax as sy
 from playwright.sync_api import Locator
 
-from .base import BaseClientWithNotifications
+from .base import BaseClient
+from .layout import LayoutClient
+from .notifications import NotificationsClient
 from .tree import Tree
 
-if TYPE_CHECKING:
-    from .layout import LayoutClient
-    from .notifications import NotificationsClient
 
-
-class AccessClient(BaseClientWithNotifications):
+class AccessClient(BaseClient):
     """Console RBAC client for existing role/user UI functionality."""
 
     SHORTCUT_KEY = "u"
     ROLE_ITEM_PREFIX = "role:"
     USER_ITEM_PREFIX = "user:"
 
-    def __init__(self, layout: "LayoutClient", notifications: "NotificationsClient"):
+    def __init__(self, layout: LayoutClient, notifications: NotificationsClient):
         super().__init__(layout, notifications)
         self.tree = Tree(layout.page)
 

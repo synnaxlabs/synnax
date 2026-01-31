@@ -7,7 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .console import Console
+import synnax as sy
+from playwright.sync_api import Locator
+
+from .layout import LayoutClient
+from .notifications import NotificationsClient
 from .page import ConsolePage
 
 
@@ -19,20 +23,17 @@ class Table(ConsolePage):
 
     def __init__(
         self,
-        console: Console,
+        layout: LayoutClient,
+        client: sy.Synnax,
+        notifications: NotificationsClient,
         page_name: str,
         *,
-        _skip_create: bool = False,
+        pane_locator: Locator,
     ) -> None:
-        """
-        Initialize a Table page.
-
-        Args:
-            console: Console instance
-            page_name: Name for the page
-            _skip_create: Internal flag to skip page creation (used by factory methods)
-        """
-        super().__init__(console, page_name, _skip_create=_skip_create)
+        """Initialize a Table page wrapper (see ConsolePage.__init__ for details)."""
+        super().__init__(
+            layout, client, notifications, page_name, pane_locator=pane_locator
+        )
 
     def set_cell_channel(self, channel_name: str, row: int = 0, col: int = 0) -> None:
         """Set a cell to display a channel's telemetry value.

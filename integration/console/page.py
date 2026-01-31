@@ -7,24 +7,36 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from __future__ import annotations
-
 import json
 import os
 import re
 import time
-from typing import TYPE_CHECKING, Any, Literal, Self, cast
+from typing import Any, Literal, Self, cast
 
 import synnax as sy
 from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 
 from framework.utils import get_results_path
 
-if TYPE_CHECKING:
-    from .console import Console
-    from .layout import LayoutClient
+from .layout import LayoutClient
+from .notifications import NotificationsClient
 
-from .workspace import PageType
+PageType = Literal[
+    "Control Sequence",
+    "Line Plot",
+    "Schematic",
+    "Log",
+    "Table",
+    "NI Analog Read Task",
+    "NI Analog Write Task",
+    "NI Counter Read Task",
+    "NI Digital Read Task",
+    "NI Digital Write Task",
+    "LabJack Read Task",
+    "LabJack Write Task",
+    "OPC UA Read Task",
+    "OPC UA Write Task",
+]
 
 
 class ConsolePage:
@@ -32,8 +44,8 @@ class ConsolePage:
 
     client: sy.Synnax
     page: Page
-    console: "Console"
-    layout: "LayoutClient"
+    layout: LayoutClient
+    notifications: NotificationsClient
     page_name: str
     page_type: str
     pluto_label: str
@@ -42,49 +54,70 @@ class ConsolePage:
     id: str | None = None
 
     @classmethod
-    def from_open_page(cls, console: "Console", name: str) -> Self:
+    def from_open_page(
+        cls,
+        layout: LayoutClient,
+        client: sy.Synnax,
+        notifications: NotificationsClient,
+        name: str,
+    ) -> Self:
         """Create instance from an already-opened page.
 
         Use this factory method when a page has already been opened (e.g., via
         drag_page_to_mosaic or open_page) and you need to create a typed wrapper.
 
         Args:
-            console: Console instance
+            layout: LayoutClient instance
+            client: Synnax client instance
+            notifications: NotificationsClient instance
             name: Name of the page
 
         Returns:
             Instance of the page class
         """
-        pane = console.page.locator(cls.pluto_label)
+        pane = layout.page.locator(cls.pluto_label)
         pane.first.wait_for(state="visible", timeout=5000)
 
-        instance = cls(console, name, _skip_create=True)
-        instance.pane_locator = pane.first
-        return instance
+        return cls(layout, client, notifications, name, pane_locator=pane.first)
 
     def __init__(
         self,
-        console: Console,
+        layout: LayoutClient,
+        client: sy.Synnax,
+        notifications: NotificationsClient,
         page_name: str,
         *,
-        _skip_create: bool = False,
+        pane_locator: Locator,
     ) -> None:
-        """
-        Initialize a ConsolePage.
+        """Initialize a page wrapper around an existing UI page.
+
+        IMPORTANT: This constructor wraps an existing page that has already been created
+        in the Console UI via Playwright automation. It does NOT create a new page.
+
+        The separation exists because:
+        - UI page creation: Handled by workspace.create_page() which clicks buttons
+          and interacts with the Console UI via Playwright
+        - Python wrapper creation: This constructor creates a Python object that
+          provides programmatic access to the already-existing UI page
+
+        Think of this as "wrapping" or "binding" to an existing UI element, similar to
+        how Playwright locators bind to DOM elements.
 
         Args:
-            console: Console instance
-            page_name: Name for the page
-            _skip_create: Internal flag to skip page creation (used by factory methods)
+            layout: LayoutClient for UI operations
+            client: Synnax client instance
+            notifications: NotificationsClient for closing notifications
+            page_name: Name of the existing page to wrap
+            pane_locator: Playwright locator for the page's pane element.
+                This locator identifies which UI page this Python object represents.
+                Must be provided when creating the wrapper.
         """
-        self.client = console.client
-        self.page = console.page
-        self.console = console
-        self.layout = console.layout
+        self.client = client
+        self.page = layout.page
+        self.layout = layout
+        self.notifications = notifications
         self.page_name = page_name
-
-        if not _skip_create:
-            self.new()
+        self.pane_locator = pane_locator
 
     def _get_tab(self) -> Locator:
         """Get the tab locator for this page."""
@@ -135,14 +168,16 @@ class ConsolePage:
         if self.pane_locator and self.pane_locator.count() > 0:
             self.pane_locator.click()
 
-    def new(self) -> str:
-        self.tab_locator, self.id = self.console.workspace.create_page(
-            cast(PageType, self.page_type), self.page_name
-        )
+    def _initialize_from_workspace(self, tab_locator: Locator, page_id: str) -> None:
+        """Initialize page after workspace creates it.
+
+        This is called by workspace after create_page() to set up the page instance.
+        """
+        self.tab_locator = tab_locator
+        self.id = page_id
         if self.pluto_label:
             self.pane_locator = self.page.locator(self.pluto_label)
         self._dblclick_canvas()
-        return self.id or ""
 
     def screenshot(self, path: str | None = None) -> None:
         """Save a screenshot of the pane area with margin."""
@@ -254,7 +289,6 @@ class ConsolePage:
         Returns:
             The current page title
         """
-        self.console.notifications.close_all()
         self.page.locator("#properties").click(timeout=5000)
         return self.layout.get_input_field("Title")
 
@@ -264,7 +298,6 @@ class ConsolePage:
         Returns:
             The copied link from clipboard (empty string if clipboard access fails).
         """
-        self.console.notifications.close_all()
         self.layout.show_visualization_toolbar()
         link_button = self.page.locator(".pluto-icon--link").locator("..")
         link_button.click(timeout=5000)

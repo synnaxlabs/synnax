@@ -59,7 +59,7 @@ class EditProps(ConsoleCase):
             retrieve_if_name_exists=True,
         )
 
-        schematic = Schematic(self.console, "edit_symbol_props")
+        schematic = self.console.workspace.create_schematic("edit_symbol_props")
         self.test_schematic_props(schematic)
         self.test_value_props(schematic)
         self.test_button_props(schematic)

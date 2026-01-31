@@ -7,29 +7,21 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
+from console.layout import LayoutClient
 from console.task.channels.utils import is_numeric_string
-
-if TYPE_CHECKING:
-    from console.console import Console
-    from console.layout import LayoutClient
 
 
 class Counter:
     """Base class for counter read channel types in NI tasks."""
 
     name: str
-    console: "Console"
-    layout: "LayoutClient"
+    layout: LayoutClient
     device: str
     form_values: dict[str, str | bool]
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         chan_type: str,
@@ -41,7 +33,7 @@ class Counter:
         Initialize counter read channel with common configuration.
 
         Args:
-            console: Console automation interface
+            layout: LayoutClient for UI operations
             name: Channel name
             device: Device identifier
             chan_type: Channel type (e.g., "Edge Count", "Frequency")
@@ -49,9 +41,7 @@ class Counter:
             min_val: Minimum value
             max_val: Maximum value
         """
-        self.console = console
-        self.layout = console.layout
-        layout = self.layout
+        self.layout = layout
         self.device = device
         self.name = name
 

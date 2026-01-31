@@ -9,7 +9,7 @@
 
 import json
 import random
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal, overload
 
 import synnax as sy
 from playwright.sync_api import Locator
@@ -17,30 +17,20 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from framework.utils import get_results_path
 
-if TYPE_CHECKING:
-    from .console import Console
-    from .layout import LayoutClient
-    from .log import Log
-    from .plot import Plot
-    from .schematic import Schematic
+from .channels import ChannelClient
+from .layout import LayoutClient
+from .log import Log
+from .notifications import NotificationsClient
+from .page import ConsolePage, PageType
+from .plot import Plot
+from .schematic import Schematic
+from .table import Table
+from .task.analog_read import AnalogRead
+from .task.analog_write import AnalogWrite
+from .task.counter_read import CounterRead
+from .task_page import TaskPage
 
-
-PageType = Literal[
-    "Control Sequence",
-    "Line Plot",
-    "Schematic",
-    "Log",
-    "Table",
-    "NI Analog Read Task",
-    "NI Analog Write Task",
-    "NI Counter Read Task",
-    "NI Digital Read Task",
-    "NI Digital Write Task",
-    "LabJack Read Task",
-    "LabJack Write Task",
-    "OPC UA Read Task",
-    "OPC UA Write Task",
-]
+__all__ = ["WorkspaceClient", "PageType"]
 
 
 class WorkspaceClient:
@@ -48,9 +38,15 @@ class WorkspaceClient:
 
     ITEM_PREFIX = "workspace:"
 
-    def __init__(self, layout: "LayoutClient", console: "Console"):
+    def __init__(
+        self,
+        layout: LayoutClient,
+        client: sy.Synnax,
+        notifications: NotificationsClient,
+    ):
         self.layout = layout
-        self.console = console
+        self.client = client
+        self.notifications = notifications
 
     def create_page(
         self, page_type: PageType, page_name: str | None = None
@@ -642,7 +638,7 @@ class WorkspaceClient:
         self.create(name)
         self.select(name)
 
-    def open_plot(self, name: str) -> "Plot":
+    def open_plot(self, name: str) -> Plot:
         """Open a plot by double-clicking it in the workspace resources toolbar.
 
         Args:
@@ -651,12 +647,10 @@ class WorkspaceClient:
         Returns:
             Plot instance for the opened plot.
         """
-        from .plot import Plot
-
         self.open_page(name)
-        return Plot.from_open_page(self.console, name)
+        return Plot.from_open_page(self.layout, self.client, self.notifications, name)
 
-    def drag_plot_to_mosaic(self, name: str) -> "Plot":
+    def drag_plot_to_mosaic(self, name: str) -> Plot:
         """Drag a plot from the workspace resources toolbar onto the mosaic.
 
         Args:
@@ -665,12 +659,140 @@ class WorkspaceClient:
         Returns:
             Plot instance for the opened plot.
         """
-        from .plot import Plot
-
         self.drag_page_to_mosaic(name)
-        return Plot.from_open_page(self.console, name)
+        return Plot.from_open_page(self.layout, self.client, self.notifications, name)
 
-    def open_log(self, name: str) -> "Log":
+    def open_from_search(self, page_class: type[ConsolePage], name: str) -> ConsolePage:
+        """Open an existing page by searching its name in the command palette.
+
+        Args:
+            page_class: The page class to instantiate (Plot, Log, Table, Schematic, etc.)
+            name: Name of the page to search for
+
+        Returns:
+            Instance of the specified page class
+        """
+        self.layout.search_palette(name)
+
+        pane = self.layout.page.locator(page_class.pluto_label)
+        pane.first.wait_for(state="visible", timeout=5000)
+
+        return page_class(
+            self.layout, self.client, self.notifications, name, pane_locator=pane.first
+        )
+
+    def create_plot(self, name: str) -> Plot:
+        """Create a new plot page in the UI and return a wrapper.
+
+        This method:
+        1. Creates the page in the Console UI via Playwright (create_page)
+        2. Returns a Python Plot object that wraps the UI page
+
+        Args:
+            name: Name for the new plot
+
+        Returns:
+            Plot instance wrapping the created UI page
+        """
+        pane, actual_name = self.create_page("Line Plot", name)
+        return Plot(
+            self.layout, self.client, self.notifications, actual_name, pane_locator=pane
+        )
+
+    def create_log(self, name: str) -> Log:
+        """Create a new log page in the UI and return a wrapper.
+
+        This method:
+        1. Creates the page in the Console UI via Playwright (create_page)
+        2. Returns a Python Log object that wraps the UI page
+
+        Args:
+            name: Name for the new log
+
+        Returns:
+            Log instance wrapping the created UI page
+        """
+        pane, actual_name = self.create_page("Log", name)
+        return Log(
+            self.layout, self.client, self.notifications, actual_name, pane_locator=pane
+        )
+
+    def create_schematic(self, name: str) -> Schematic:
+        """Create a new schematic page in the UI and return a wrapper.
+
+        This method:
+        1. Creates the page in the Console UI via Playwright (create_page)
+        2. Returns a Python Schematic object that wraps the UI page
+
+        Args:
+            name: Name for the new schematic
+
+        Returns:
+            Schematic instance wrapping the created UI page
+        """
+        pane, actual_name = self.create_page("Schematic", name)
+        return Schematic(
+            self.layout, self.client, self.notifications, actual_name, pane_locator=pane
+        )
+
+    def create_table(self, name: str) -> Table:
+        """Create a new table page in the UI and return a wrapper.
+
+        This method:
+        1. Creates the page in the Console UI via Playwright (create_page)
+        2. Returns a Python Table object that wraps the UI page
+
+        Args:
+            name: Name for the new table
+
+        Returns:
+            Table instance wrapping the created UI page
+        """
+        pane, actual_name = self.create_page("Table", name)
+        return Table(
+            self.layout, self.client, self.notifications, actual_name, pane_locator=pane
+        )
+
+    def open_plot_from_click(self, channel_name: str, channels: ChannelClient) -> Plot:
+        """Open a plot by double-clicking a channel in the channels sidebar.
+
+        Args:
+            channel_name: Name of the channel to double-click
+            channels: ChannelClient for showing/hiding channels sidebar
+
+        Returns:
+            Plot instance for the opened plot
+        """
+        channels.show_channels()
+
+        channel_item = (
+            self.layout.page.locator(f"div[id^='channel:']")
+            .filter(has_text=channel_name)
+            .first
+        )
+        channel_item.wait_for(state="visible", timeout=5000)
+        channel_item.dblclick()
+
+        plot_pane = self.layout.page.locator(".pluto-line-plot")
+        plot_pane.first.wait_for(state="visible", timeout=5000)
+
+        tabs = self.layout.page.locator(".pluto-tabs-selector div").filter(
+            has=self.layout.page.locator("[aria-label='pluto-tabs__close']")
+        )
+        tab_count = tabs.count()
+        actual_tab_name = "Line Plot"
+        if tab_count > 0:
+            last_tab = tabs.nth(tab_count - 1)
+            actual_tab_name = last_tab.inner_text().strip()
+
+        plot = Plot.from_open_page(
+            self.layout, self.client, self.notifications, actual_tab_name
+        )
+
+        channels.hide_channels()
+        return plot
+
+    def open_log(self, name: str) -> Log:
         """Open a log by double-clicking it in the workspace resources toolbar.
 
         Args:
@@ -679,12 +801,10 @@ class WorkspaceClient:
         Returns:
             Log instance for the opened log.
         """
-        from .log import Log
-
         self.open_page(name)
-        return Log.from_open_page(self.console, name)
+        return Log.from_open_page(self.layout, self.client, self.notifications, name)
 
-    def drag_log_to_mosaic(self, name: str) -> "Log":
+    def drag_log_to_mosaic(self, name: str) -> Log:
         """Drag a log from the workspace resources toolbar onto the mosaic.
 
         Args:
@@ -693,12 +813,10 @@ class WorkspaceClient:
         Returns:
             Log instance for the opened log.
         """
-        from .log import Log
-
         self.drag_page_to_mosaic(name)
-        return Log.from_open_page(self.console, name)
+        return Log.from_open_page(self.layout, self.client, self.notifications, name)
 
-    def open_schematic(self, name: str) -> "Schematic":
+    def open_schematic(self, name: str) -> Schematic:
         """Open a schematic by double-clicking it in the workspace resources toolbar.
 
         Args:
@@ -707,12 +825,12 @@ class WorkspaceClient:
         Returns:
             Schematic instance for the opened schematic.
         """
-        from .schematic import Schematic
-
         self.open_page(name)
-        return Schematic.from_open_page(self.console, name)
+        return Schematic.from_open_page(
+            self.layout, self.client, self.notifications, name
+        )
 
-    def drag_schematic_to_mosaic(self, name: str) -> "Schematic":
+    def drag_schematic_to_mosaic(self, name: str) -> Schematic:
         """Drag a schematic from the workspace resources toolbar onto the mosaic.
 
         Args:
@@ -721,7 +839,83 @@ class WorkspaceClient:
         Returns:
             Schematic instance for the opened schematic.
         """
-        from .schematic import Schematic
-
         self.drag_page_to_mosaic(name)
-        return Schematic.from_open_page(self.console, name)
+        return Schematic.from_open_page(
+            self.layout, self.client, self.notifications, name
+        )
+
+    @overload
+    def create_task(
+        self, task_type: Literal["NI Analog Read Task"], name: str
+    ) -> AnalogRead: ...
+
+    @overload
+    def create_task(
+        self, task_type: Literal["NI Analog Write Task"], name: str
+    ) -> AnalogWrite: ...
+
+    @overload
+    def create_task(
+        self, task_type: Literal["NI Counter Read Task"], name: str
+    ) -> CounterRead: ...
+
+    @overload
+    def create_task(self, task_type: PageType, name: str) -> TaskPage: ...
+
+    def create_task(self, task_type: PageType, name: str) -> TaskPage:
+        """Create a new task page in the UI and return a wrapper.
+
+        This method:
+        1. Creates the task page in the Console UI via Playwright (create_page)
+        2. Returns a Python TaskPage subclass instance that wraps the UI page
+
+        Currently supports NI tasks:
+        - NI Analog Read Task
+        - NI Analog Write Task
+        - NI Counter Read Task
+
+        Designed to be extensible for future task types:
+        - NI Digital Read Task
+        - NI Digital Write Task
+        - LabJack Read Task
+        - LabJack Write Task
+        - OPC UA Read Task
+        - OPC UA Write Task
+        - Modbus Read Task
+        - Modbus Write Task
+
+        Args:
+            task_type: Type of task to create (must match PageType)
+            name: Name for the new task
+
+        Returns:
+            TaskPage subclass instance wrapping the created UI page
+
+        Raises:
+            ValueError: If task_type is not supported
+        """
+        # Map task types to their corresponding classes
+        task_class_map: dict[str, type[TaskPage]] = {
+            "NI Analog Read Task": AnalogRead,
+            "NI Analog Write Task": AnalogWrite,
+            "NI Counter Read Task": CounterRead,
+            # Future task types will be added here:
+            # "NI Digital Read Task": DigitalRead,
+            # "NI Digital Write Task": DigitalWrite,
+            # "LabJack Read Task": LabJackRead,
+            # "LabJack Write Task": LabJackWrite,
+            # "OPC UA Read Task": OPCUARead,
+            # "OPC UA Write Task": OPCUAWrite,
+        }
+
+        if task_type not in task_class_map:
+            raise ValueError(
+                f"Unsupported task type: {task_type}. "
+                f"Supported types: {list(task_class_map.keys())}"
+            )
+
+        task_class = task_class_map[task_type]
+        pane, actual_name = self.create_page(task_type, name)
+        return task_class(
+            self.layout, self.client, self.notifications, actual_name, pane_locator=pane
+        )

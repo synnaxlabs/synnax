@@ -9,29 +9,26 @@
 
 """Symbol Toolbar client for managing symbol groups and symbols."""
 
-from __future__ import annotations
-
 import json
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from framework.utils import get_results_path
 
-if TYPE_CHECKING:
-    from console.console import Console
-    from console.layout import LayoutClient
-    from console.schematic.symbol_editor import SymbolEditor
+from ..layout import LayoutClient
+from ..notifications import NotificationsClient
+from .symbol_editor import SymbolEditor
 
 
 class SymbolToolbar:
     """Client for interacting with the Schematic Symbols toolbar."""
 
-    def __init__(self, page: Page, console: "Console"):
-        self.page = page
-        self.console = console
-        self.layout: "LayoutClient" = console.layout
+    def __init__(self, layout: LayoutClient, notifications: NotificationsClient):
+        self.page = layout.page
+        self.layout = layout
+        self.notifications = notifications
 
     @property
     def toolbar(self) -> Locator:
@@ -64,7 +61,7 @@ class SymbolToolbar:
             .filter(has=self.page.locator("[aria-label*='group']"))
             .first
         )
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         create_group_btn.click()
 
         name_input = self.page.locator("input[placeholder='Group Name']")
@@ -130,10 +127,8 @@ class SymbolToolbar:
         group_btn = self.group_list.locator(".pluto-btn").filter(has_text=name)
         group_btn.wait_for(state="hidden", timeout=5000)
 
-    def create_symbol(self) -> "SymbolEditor":
+    def create_symbol(self) -> SymbolEditor:
         """Open the symbol editor to create a new symbol."""
-        from console.schematic.symbol_editor import SymbolEditor
-
         create_symbol_btn = (
             self.toolbar.locator("button[class*='outlined']")
             .filter(has=self.page.locator("[aria-label*='schematic']"))
@@ -141,7 +136,7 @@ class SymbolToolbar:
         )
         create_symbol_btn.click()
 
-        editor = SymbolEditor(self.page, self.console)
+        editor = SymbolEditor(self.layout)
         editor.wait_for_open()
         return editor
 
@@ -182,10 +177,8 @@ class SymbolToolbar:
         save_btn.click()
         name_input.wait_for(state="hidden", timeout=5000)
 
-    def edit_symbol(self, name: str) -> "SymbolEditor":
+    def edit_symbol(self, name: str) -> SymbolEditor:
         """Open the symbol editor for an existing symbol via context menu."""
-        from console.schematic.symbol_editor import SymbolEditor
-
         symbol = self.get_symbol(name)
         symbol.click(button="right")
 
@@ -193,7 +186,7 @@ class SymbolToolbar:
         menu.wait_for(state="visible", timeout=2000)
         menu.get_by_text("Edit", exact=True).click()
 
-        editor = SymbolEditor(self.page, self.console)
+        editor = SymbolEditor(self.layout)
         editor.wait_for_open()
         return editor
 
@@ -253,7 +246,7 @@ class SymbolToolbar:
         Returns:
             The data-testid of the newly created symbol node (e.g., "rf__node-{uuid}")
         """
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         self.show()
         initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())
 

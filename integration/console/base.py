@@ -12,14 +12,11 @@
 Provides shared patterns and helpers that all console clients can inherit from.
 """
 
-from typing import TYPE_CHECKING
-
 import synnax as sy
 from playwright.sync_api import Locator
 
-if TYPE_CHECKING:
-    from .layout import LayoutClient
-    from .notifications import NotificationsClient
+from .layout import LayoutClient
+from .notifications import NotificationsClient
 
 
 class BaseClient:
@@ -31,15 +28,18 @@ class BaseClient:
 
     MODAL_SELECTOR = "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
 
-    layout: "LayoutClient"
+    layout: LayoutClient
+    notifications: NotificationsClient
 
-    def __init__(self, layout: "LayoutClient"):
+    def __init__(self, layout: LayoutClient, notifications: NotificationsClient):
         """Initialize the base client.
 
         Args:
             layout: The LayoutClient for UI operations.
+            notifications: The NotificationsClient for checking/closing notifications.
         """
         self.layout = layout
+        self.notifications = notifications
 
     def _right_click(self, item: Locator) -> None:
         """Right-click on an item to open context menu.
@@ -222,26 +222,6 @@ class BaseClient:
         ).first
         close_btn.click()
         self.layout.page.locator(selector).wait_for(state="hidden", timeout=5000)
-
-
-class BaseClientWithNotifications(BaseClient):
-    """Base class for clients that need notification checking.
-
-    Extends BaseClient with notification-related helpers for clients
-    that need to check for error notifications.
-    """
-
-    notifications: "NotificationsClient"
-
-    def __init__(self, layout: "LayoutClient", notifications: "NotificationsClient"):
-        """Initialize the client with layout and notifications.
-
-        Args:
-            layout: The LayoutClient for UI operations.
-            notifications: The NotificationsClient for checking/closing notifications.
-        """
-        super().__init__(layout)
-        self.notifications = notifications
 
     def _check_for_errors(self) -> bool:
         """Check notifications for errors.

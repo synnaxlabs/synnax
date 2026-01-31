@@ -44,7 +44,7 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
         PRESSURE = "press_pt"
 
         self.log("Creating schematic symbols")
-        schematic = Schematic(self.console, "simple_press_valves")
+        schematic = self.console.workspace.create_schematic("simple_press_valves")
         schematic.move("left")
 
         end_test_cmd = schematic.create_symbol(

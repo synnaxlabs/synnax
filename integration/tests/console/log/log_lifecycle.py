@@ -51,7 +51,7 @@ class LogLifecycle(ConsoleCase):
         """Run all log lifecycle tests."""
         self.setup_channels()
 
-        log = Log(self.console, f"Log Test {self.suffix}")
+        log = self.console.workspace.create_log(f"Log Test {self.suffix}")
 
         self.test_no_channel_configured(log)
         self.test_no_data_received(log)
@@ -231,7 +231,7 @@ class LogLifecycle(ConsoleCase):
         """Test opening a log by searching its name in the command palette."""
         self.log("Testing open log from search palette")
 
-        log = Log.open_from_search(self.console, log_name)
+        log = self.console.workspace.open_from_search(Log, log_name)
 
         assert log.pane_locator is not None, "Log pane should be visible"
         assert log.pane_locator.is_visible(), "Log pane should be visible"
@@ -250,7 +250,7 @@ class LogLifecycle(ConsoleCase):
         self.console.layout.close_nav_drawer()
 
         suffix = get_random_name()
-        log = Log(self.console, f"Rename Test {suffix}")
+        log = self.console.workspace.create_log(f"Rename Test {suffix}")
         original_name = log.page_name
         log.close()
         assert not log.is_open, "Log should be closed after close()"
@@ -271,7 +271,7 @@ class LogLifecycle(ConsoleCase):
         self.console.layout.close_nav_drawer()
 
         suffix = get_random_name()
-        log = Log(self.console, f"Delete Test {suffix}")
+        log = self.console.workspace.create_log(f"Delete Test {suffix}")
         log_name = log.page_name
         log.close()
         assert not log.is_open, "Log should be closed after close()"
@@ -291,7 +291,7 @@ class LogLifecycle(ConsoleCase):
         log_names = []
 
         for i in range(3):
-            log = Log(self.console, f"Multi Delete {suffix} {i}")
+            log = self.console.workspace.create_log(f"Multi Delete {suffix} {i}")
             log_names.append(log.page_name)
             log.close()
             assert not log.is_open, f"Log {i} should be closed after close()"
@@ -312,7 +312,7 @@ class LogLifecycle(ConsoleCase):
         log_names = []
 
         for i in range(2):
-            log = Log(self.console, f"Group Test {suffix} {i}")
+            log = self.console.workspace.create_log(f"Group Test {suffix} {i}")
             log_names.append(log.page_name)
             log.close()
             assert not log.is_open, f"Log {i} should be closed after close()"
@@ -333,7 +333,7 @@ class LogLifecycle(ConsoleCase):
         self.console.layout.close_nav_drawer()
 
         suffix = get_random_name()
-        log = Log(self.console, f"Export Test {suffix}")
+        log = self.console.workspace.create_log(f"Export Test {suffix}")
         log_name = log.page_name
         log.close()
         assert not log.is_open, "Log should be closed after close()"
@@ -351,7 +351,7 @@ class LogLifecycle(ConsoleCase):
         self.console.layout.close_nav_drawer()
 
         suffix = get_random_name()
-        log = Log(self.console, f"Copy Link Test {suffix}")
+        log = self.console.workspace.create_log(f"Copy Link Test {suffix}")
         log_name = log.page_name
         expected_link = log.copy_link()
         log.close()

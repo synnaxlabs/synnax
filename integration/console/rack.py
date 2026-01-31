@@ -7,14 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING
-
 from playwright.sync_api import Locator
 
 from .base import BaseClient
-
-if TYPE_CHECKING:
-    from .layout import LayoutClient
+from .layout import LayoutClient
+from .notifications import NotificationsClient
 
 
 class RackClient(BaseClient):
@@ -23,8 +20,8 @@ class RackClient(BaseClient):
     ITEM_PREFIX = "rack:"
     SHORTCUT_KEY = "d"
 
-    def __init__(self, layout: "LayoutClient"):
-        super().__init__(layout)
+    def __init__(self, layout: LayoutClient, notifications: NotificationsClient):
+        super().__init__(layout, notifications)
 
     def _show_devices_panel(self) -> None:
         """Show the devices panel in the navigation drawer."""

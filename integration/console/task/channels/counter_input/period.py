@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import Any, Literal, Optional
 
+from console.layout import LayoutClient
 from console.task.channels.counter import Counter
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 
 class Period(Counter):
@@ -31,7 +29,7 @@ class Period(Counter):
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         starting_edge: Optional[Literal["Rising", "Falling"]] = None,
@@ -49,13 +47,12 @@ class Period(Counter):
     ) -> None:
         """Initialize period channel with configuration."""
         super().__init__(
-            console=console,
+            layout=layout,
             name=name,
             device=device,
             chan_type="Period",
             **kwargs,
         )
-        self.layout = console.layout
         layout = self.layout
 
         # Starting Edge

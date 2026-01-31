@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
+from console.layout import LayoutClient
 from console.task.channels.counter import Counter
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 
 class LinearVelocity(Counter):
@@ -32,7 +30,7 @@ class LinearVelocity(Counter):
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         units: Literal["m/s", "in/s"] | None = None,
@@ -44,13 +42,12 @@ class LinearVelocity(Counter):
     ) -> None:
         """Initialize linear velocity channel with configuration."""
         super().__init__(
-            console=console,
+            layout=layout,
             name=name,
             device=device,
             chan_type="Velocity Linear",
             **kwargs,
         )
-        self.layout = console.layout
         layout = self.layout
 
         # Units

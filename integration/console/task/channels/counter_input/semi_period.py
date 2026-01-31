@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import Any, Literal, Optional
 
+from console.layout import LayoutClient
 from console.task.channels.counter import Counter
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 
 class SemiPeriod(Counter):
@@ -28,7 +26,7 @@ class SemiPeriod(Counter):
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         units: Optional[Literal["Seconds", "Ticks", "Custom"]] = None,
@@ -36,13 +34,12 @@ class SemiPeriod(Counter):
     ) -> None:
         """Initialize semi period channel with configuration."""
         super().__init__(
-            console=console,
+            layout=layout,
             name=name,
             device=device,
             chan_type="Semi Period",
             **kwargs,
         )
-        self.layout = console.layout
         layout = self.layout
 
         # Scaled Units

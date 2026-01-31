@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import re
-from typing import TYPE_CHECKING
 
 import synnax as sy
 from playwright.sync_api import Locator
@@ -24,16 +23,12 @@ from synnax.telem import (
     DataType,
 )
 
-from .base import BaseClientWithNotifications
-
-if TYPE_CHECKING:
-    from .console import Console
-    from .layout import LayoutClient
-    from .notifications import NotificationsClient
-    from .plot import Plot
+from .base import BaseClient
+from .layout import LayoutClient
+from .notifications import NotificationsClient
 
 
-class ChannelClient(BaseClientWithNotifications):
+class ChannelClient(BaseClient):
     """Console channel client for managing channels via the UI.
 
     Provides methods for creating, renaming, deleting, and organizing channels
@@ -45,12 +40,12 @@ class ChannelClient(BaseClientWithNotifications):
 
     def __init__(
         self,
-        layout: "LayoutClient",
-        notifications: "NotificationsClient",
-        console: "Console",
+        layout: LayoutClient,
+        notifications: NotificationsClient,
+        client: sy.Synnax,
     ):
         super().__init__(layout, notifications)
-        self.console = console
+        self.client = client
 
     def _get_channels_button(self) -> Locator:
         """Get the channels button in the sidebar."""
@@ -720,44 +715,3 @@ class ChannelClient(BaseClientWithNotifications):
 
         editor = self.layout.page.locator(".monaco-editor")
         editor.wait_for(state="visible", timeout=2000)
-
-    def _create_plot_instance(self, client: sy.Synnax, channel_name: str) -> "Plot":
-        """Create a Plot instance after a line plot becomes visible.
-
-        :param client: Synnax client instance.
-        :param channel_name: The name of the channel displayed in the plot.
-        :returns: Plot instance for the opened plot.
-        """
-        from .plot import Plot
-
-        line_plot = self.layout.page.locator(Plot.pluto_label)
-        line_plot.first.wait_for(state="visible", timeout=5000)
-
-        self.console.layout.show_visualization_toolbar()
-        page_name = self.console.layout.get_visualization_toolbar_title()
-
-        plot = Plot.__new__(Plot)
-        plot.client = client
-        plot.console = self.console
-        plot.layout = self.layout
-        plot.page = self.layout.page
-        plot.page_name = page_name
-        plot.data = {"Y1": [channel_name], "Y2": [], "Ranges": [], "X1": None}
-        plot.pane_locator = line_plot.first
-        return plot
-
-    def open_plot_from_click(self, client: sy.Synnax, channel_name: str) -> "Plot":
-        """Open a channel's plot by double-clicking it in the sidebar.
-
-        :param client: Synnax client instance.
-        :param channel_name: The name of the channel to open.
-        :returns: Plot instance for the opened plot.
-        """
-        self.show_channels()
-        item = self._find_channel_item(channel_name)
-        if item is None:
-            raise ValueError(f"Channel {channel_name} not found")
-        item.dblclick()
-        plot = self._create_plot_instance(client, channel_name)
-        self.hide_channels()
-        return plot

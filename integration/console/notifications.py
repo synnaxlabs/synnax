@@ -8,19 +8,18 @@
 #  included in the file licenses/APL.txt.
 
 import time
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import synnax as sy
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-if TYPE_CHECKING:
-    from .layout import LayoutClient
+from .layout import LayoutClient
 
 
 class NotificationsClient:
     """Notifications management for Console UI automation."""
 
-    def __init__(self, layout: "LayoutClient"):
+    def __init__(self, layout: LayoutClient):
         self.layout = layout
 
     def check(self, timeout: sy.CrudeTimeSpan = 0.2) -> list[dict[str, Any]]:

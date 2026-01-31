@@ -11,19 +11,21 @@ from abc import abstractmethod
 from typing import Any, TypeVar, cast
 
 import synnax as sy
+from playwright.sync_api import Locator
 
-from console.console import Console
 from console.task.channels.analog import Analog
 from console.task.channels.counter import Counter
 
-from ..page import ConsolePage
+from ..layout import LayoutClient
+from ..notifications import NotificationsClient
+from ..task_page import TaskPage
 
 # Union type for all NI channel types
 NIChannel = Analog | Counter
 NIChannelT = TypeVar("NIChannelT", bound=NIChannel)
 
 
-class NITask(ConsolePage):
+class NITask(TaskPage):
     """NI Task automation interface for managing channels."""
 
     channels: list[NIChannel]
@@ -32,20 +34,17 @@ class NITask(ConsolePage):
 
     def __init__(
         self,
-        console: Console,
+        layout: LayoutClient,
+        client: sy.Synnax,
+        notifications: NotificationsClient,
         page_name: str,
         *,
-        _skip_create: bool = False,
+        pane_locator: Locator,
     ) -> None:
-        """
-        Initialize an NITask page.
-
-        Args:
-            console: Console instance
-            page_name: Name for the page
-            _skip_create: Internal flag to skip page creation (used by factory methods)
-        """
-        super().__init__(console, page_name, _skip_create=_skip_create)
+        """Initialize an NITask page wrapper (see ConsolePage.__init__ for details)."""
+        super().__init__(
+            layout, client, notifications, page_name, pane_locator=pane_locator
+        )
         self.channels: list[NIChannel] = []
         self.channels_by_name: list[str] = []
 
@@ -130,9 +129,7 @@ class NITask(ConsolePage):
             raise RuntimeError("Blocking modal is still open")
 
         # Create channel using provided class
-        channel = channel_class(
-            console=self.console, name=name, device=device, **kwargs
-        )
+        channel = channel_class(layout=self.layout, name=name, device=device, **kwargs)
 
         self.channels.append(channel)
         self.channels_by_name.append(name)
@@ -156,77 +153,3 @@ class NITask(ConsolePage):
             channel = self.channels[idx]
             sy.sleep(0.1)
             channel.assert_form()
-
-    def set_parameters(
-        self,
-        task_name: str | None = None,
-        data_saving: bool | None = None,
-        auto_start: bool | None = None,
-    ) -> None:
-        """
-        Set the parameters for the task.
-
-        Args:
-            sample_rate: The sample rate for the task.
-            stream_rate: The stream rate for the task.
-            data_saving: Whether to save data to the core.
-            auto_start: Whether to start the task automatically.
-        """
-        layout = self.layout
-
-        if task_name is not None:
-            layout.fill_input_field("Name", task_name)
-            layout.press_enter()
-
-        if data_saving is not None:
-            if data_saving != layout.get_toggle("Data Saving"):
-                layout.click_checkbox("Data Saving")
-
-        if auto_start is not None:
-            if auto_start != layout.get_toggle("Auto Start"):
-                layout.click_checkbox("Auto Start")
-
-    def configure(self) -> None:
-        self.console.page.get_by_role("button", name="Configure", exact=True).click(
-            force=True
-        )
-
-    def run(self) -> None:
-        sy.sleep(0.2)
-        play_button = self.console.page.locator("button .pluto-icon--play").locator(
-            ".."
-        )
-        play_button.wait_for(state="visible", timeout=3000)
-        play_button.click(timeout=1000)
-        sy.sleep(0.2)
-
-    def status(self) -> dict[str, str]:
-        """
-        Get the current status information from the task status box.
-
-        Returns:
-            Dictionary containing:
-                - text: The status message (e.g., "Task has not been configured")
-                - level: The alert level (e.g., "disabled", "info", "success", "error")
-                - name: Status field name
-                - time: Timestamp if available
-        """
-        sy.sleep(0.2)
-        status_element = self.console.page.locator(
-            ".console-task-state p.pluto-status__text, .console-task-state p.pluto-text"
-        ).first
-
-        # status
-        class_attr = status_element.get_attribute("class") or ""
-        level = "unknown"
-        for cls in class_attr.split():
-            if cls.startswith("pluto--status-"):
-                level = cls.replace("pluto--status-", "")
-                break
-
-        msg = status_element.inner_text()
-
-        return {
-            "msg": msg,
-            "level": level,
-        }

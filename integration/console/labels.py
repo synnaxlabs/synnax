@@ -9,17 +9,14 @@
 
 import time
 from re import search as re_search
-from typing import TYPE_CHECKING
 
 from playwright.sync_api import Locator
 
 from framework.utils import rgb_to_hex
 
 from .base import BaseClient
-
-if TYPE_CHECKING:
-    from .layout import LayoutClient
-
+from .layout import LayoutClient
+from .notifications import NotificationsClient
 
 _MODAL_SELECTOR = ".console-label__edit"
 _LABEL_ITEM_SELECTOR = ".console-label__list-item"
@@ -28,8 +25,8 @@ _LABEL_ITEM_SELECTOR = ".console-label__list-item"
 class LabelClient(BaseClient):
     """Console label client for managing labels via the UI."""
 
-    def __init__(self, layout: "LayoutClient"):
-        super().__init__(layout)
+    def __init__(self, layout: LayoutClient, notifications: NotificationsClient):
+        super().__init__(layout, notifications)
 
     def create(self, name: str, *, color: str | None = None) -> None:
         """Create a new label.

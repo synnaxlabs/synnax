@@ -51,14 +51,14 @@ class Console:
         self.client = client
         self.layout = LayoutClient(page)
         self.notifications = NotificationsClient(self.layout)
-        self.docs = DocsClient(self.layout)
-        self.labels = LabelClient(self.layout)
-        self.rack = RackClient(self.layout)
+        self.docs = DocsClient(self.layout, self.notifications)
+        self.labels = LabelClient(self.layout, self.notifications)
+        self.rack = RackClient(self.layout, self.notifications)
         self.arc = ArcClient(self.layout, self.notifications)
         self.access = AccessClient(self.layout, self.notifications)
-        self.channels = ChannelClient(self.layout, self.notifications, self)
-        self.ranges = RangesClient(self.layout, self.notifications, self)
-        self.workspace = WorkspaceClient(self.layout, self)
+        self.channels = ChannelClient(self.layout, self.notifications, self.client)
+        self.ranges = RangesClient(self.layout, self.notifications)
+        self.workspace = WorkspaceClient(self.layout, self.client, self.notifications)
 
     def check_for_error_screen(self) -> None:
         """Checks for 'Something went wrong' text and clicks 'Try again' if found"""

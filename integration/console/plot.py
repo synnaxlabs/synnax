@@ -7,13 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from __future__ import annotations
-
 from typing import Any, Literal
+
+import synnax as sy
+from playwright.sync_api import Locator
 
 from framework.utils import get_results_path
 
-from .console import Console
+from .channels import ChannelClient  # For dragging channels onto the plot
+from .layout import LayoutClient
+from .notifications import NotificationsClient
 from .page import ConsolePage
 
 Axis = Literal["Y1", "Y2", "X1"]
@@ -25,57 +28,25 @@ class Plot(ConsolePage):
     page_type: str = "Line Plot"
     pluto_label: str = ".pluto-line-plot"
 
-    @classmethod
-    def open_from_search(cls, console: Console, name: str) -> Plot:
-        """Open an existing plot by searching its name in the command palette.
-
-        Args:
-            console: Console instance.
-            name: Name of the plot to search for and open.
-
-        Returns:
-            Plot instance for the opened plot.
-        """
-        console.layout.search_palette(name)
-
-        plot_pane = console.page.locator(cls.pluto_label)
-        plot_pane.first.wait_for(state="visible", timeout=5000)
-
-        tabs = console.page.locator(".pluto-tabs-selector div").filter(
-            has=console.page.locator("[aria-label='pluto-tabs__close']")
-        )
-        tab_count = tabs.count()
-        actual_tab_name = "Line Plot"
-        if tab_count > 0:
-            last_tab = tabs.nth(tab_count - 1)
-            actual_tab_name = last_tab.inner_text().strip()
-
-        plot = cls(console, actual_tab_name, _skip_create=True)
-        plot.pane_locator = plot_pane.first
-        return plot
-
     def __init__(
         self,
-        console: Console,
+        layout: LayoutClient,
+        client: sy.Synnax,
+        notifications: NotificationsClient,
         page_name: str,
         *,
-        _skip_create: bool = False,
+        pane_locator: Locator,
     ) -> None:
-        """
-        Initialize a Plot page.
-
-        Args:
-            console: Console instance
-            page_name: Name for the page
-            _skip_create: Internal flag to skip page creation (used by factory methods)
-        """
+        """Initialize a Plot page wrapper (see ConsolePage.__init__ for details)."""
         self.data: dict[str, Any] = {
             "Y1": [],
             "Y2": [],
             "Ranges": [],
             "X1": None,
         }
-        super().__init__(console, page_name, _skip_create=_skip_create)
+        super().__init__(
+            layout, client, notifications, page_name, pane_locator=pane_locator
+        )
 
     def add_channels(self, axis: Axis, channels: str | list[str]) -> None:
         channels = [channels] if isinstance(channels, str) else channels
@@ -123,7 +94,7 @@ class Plot(ConsolePage):
         Returns:
             The CSV file contents as a string.
         """
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         csv_button = self.page.locator(".pluto-icon--csv").locator("..")
         csv_button.click()
 
@@ -149,7 +120,7 @@ class Plot(ConsolePage):
 
     def set_axis(self, axis: Axis, config: dict[str, Any]) -> None:
         """Set axis configuration with the given parameters."""
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         self.page.get_by_text("Axes").click(timeout=5000)
         self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=5000)
 
@@ -236,7 +207,7 @@ class Plot(ConsolePage):
         Args:
             title: The new title for the plot
         """
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         self.page.locator("#properties").click(timeout=5000)
 
         title_input = (
@@ -254,7 +225,7 @@ class Plot(ConsolePage):
         Args:
             thickness: Stroke width (1-10)
         """
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         self.page.locator("#lines").click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
@@ -279,7 +250,7 @@ class Plot(ConsolePage):
         Args:
             label: New label for the line
         """
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         self.page.locator("#lines").click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
@@ -298,7 +269,7 @@ class Plot(ConsolePage):
         Returns:
             The current stroke width
         """
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         self.page.locator("#lines").click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
@@ -312,7 +283,7 @@ class Plot(ConsolePage):
         Returns:
             The current line label
         """
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         self.page.locator("#lines").click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
@@ -320,13 +291,16 @@ class Plot(ConsolePage):
         label_input = line_item.locator("input").first
         return label_input.input_value()
 
-    def drag_channel_to_canvas(self, channel_name: str) -> None:
+    def drag_channel_to_canvas(
+        self, channel_name: str, channels: ChannelClient
+    ) -> None:
         """Drag a channel from the sidebar onto the plot canvas.
 
         Args:
             channel_name: Name of the channel to drag
+            channels: ChannelClient for showing/hiding channels sidebar
         """
-        self.console.channels.show_channels()
+        channels.show_channels()
 
         channel_item = (
             self.page.locator("div[id^='channel:']").filter(has_text=channel_name).first
@@ -337,18 +311,21 @@ class Plot(ConsolePage):
             raise RuntimeError("Plot pane locator not available")
 
         channel_item.drag_to(self.pane_locator)
-        self.console.channels.hide_channels()
+        channels.hide_channels()
 
         self.data["Y1"].append(channel_name)
 
-    def drag_channel_to_toolbar(self, channel_name: str, axis: Axis = "Y1") -> None:
+    def drag_channel_to_toolbar(
+        self, channel_name: str, channels: ChannelClient, axis: Axis = "Y1"
+    ) -> None:
         """Drag a channel from the sidebar onto the toolbar data section.
 
         Args:
             channel_name: Name of the channel to drag
+            channels: ChannelClient for showing/hiding channels sidebar
             axis: Target axis (Y1, Y2, or X1)
         """
-        self.console.channels.show_channels()
+        channels.show_channels()
 
         channel_item = (
             self.page.locator("div[id^='channel:']").filter(has_text=channel_name).first
@@ -361,7 +338,7 @@ class Plot(ConsolePage):
         axis_section.wait_for(state="visible", timeout=5000)
 
         channel_item.drag_to(axis_section)
-        self.console.channels.hide_channels()
+        channels.hide_channels()
 
         self.data[axis].append(channel_name)
 

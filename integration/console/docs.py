@@ -7,22 +7,19 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING
-
 from playwright.sync_api import FrameLocator, Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from .base import BaseClient
-
-if TYPE_CHECKING:
-    from .layout import LayoutClient
+from .layout import LayoutClient
+from .notifications import NotificationsClient
 
 
 class DocsClient(BaseClient):
     """Documentation client for Console UI automation."""
 
-    def __init__(self, layout: "LayoutClient"):
-        super().__init__(layout)
+    def __init__(self, layout: LayoutClient, notifications: NotificationsClient):
+        super().__init__(layout, notifications)
 
     def open_via_command_palette(self) -> None:
         """Open the documentation page via the command palette."""

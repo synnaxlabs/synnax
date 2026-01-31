@@ -7,18 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING
-
 from playwright.sync_api import Locator
 
-from .base import BaseClientWithNotifications
-
-if TYPE_CHECKING:
-    from .layout import LayoutClient
-    from .notifications import NotificationsClient
+from .base import BaseClient
+from .layout import LayoutClient
+from .notifications import NotificationsClient
 
 
-class ArcClient(BaseClientWithNotifications):
+class ArcClient(BaseClient):
     """Arc automation management for Console UI automation."""
 
     ICON_NAME = "arc"
@@ -26,7 +22,7 @@ class ArcClient(BaseClientWithNotifications):
     CONTROLS_CLASS = ".console-arc-editor__controls"
     LIST_ITEM_CLASS = ".pluto-list__item"
 
-    def __init__(self, layout: "LayoutClient", notifications: "NotificationsClient"):
+    def __init__(self, layout: LayoutClient, notifications: NotificationsClient):
         super().__init__(layout, notifications)
 
     def _show_arc_panel(self) -> None:

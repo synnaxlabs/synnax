@@ -7,17 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 import synnax as sy
+from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from ..layout import LayoutClient
+from ..notifications import NotificationsClient
 from ..page import ConsolePage
-
-if TYPE_CHECKING:
-    from console.console import Console
 from .symbol import (
     Symbol,
     box_bottom,
@@ -67,35 +65,19 @@ class Schematic(ConsolePage):
     page_type: str = "Schematic"
     pluto_label: str = ".react-flow__pane"
 
-    @classmethod
-    def open_from_search(cls, console: "Console", name: str) -> "Schematic":
-        """Open an existing schematic by searching its name in the command palette.
-
-        Args:
-            console: Console instance.
-            name: Name of the schematic to search for and open.
-
-        Returns:
-            Schematic instance for the opened schematic.
-        """
-        console.layout.search_palette(name)
-
-        schematic_pane = console.page.locator(cls.pluto_label)
-        schematic_pane.first.wait_for(state="visible", timeout=5000)
-
-        schematic = cls(console, name, _skip_create=True)
-        schematic.pane_locator = schematic_pane.first
-        return schematic
-
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
+        client: sy.Synnax,
+        notifications: NotificationsClient,
         page_name: str,
         *,
-        _skip_create: bool = False,
+        pane_locator: Locator,
     ):
-        """Initialize a Schematic page."""
-        super().__init__(console, page_name, _skip_create=_skip_create)
+        """Initialize a Schematic page wrapper (see ConsolePage.__init__ for details)."""
+        super().__init__(
+            layout, client, notifications, page_name, pane_locator=pane_locator
+        )
 
     def create_symbol(self, symbol: Symbol) -> Symbol:
         """Add a symbol to the schematic and configure it.
@@ -115,8 +97,7 @@ class Schematic(ConsolePage):
             configured_valve = schematic.create_symbol(valve)
             configured_valve.move(delta_x=-90, delta_y=-100)
         """
-
-        symbol.create(self.page, self.console)
+        symbol.create(self.layout, self.notifications)
         return symbol
 
     def get_control_legend_entries(self) -> list[str]:
@@ -320,7 +301,7 @@ class Schematic(ConsolePage):
             raise ValueError(
                 f"Control Authority must be between 0 and 255, got {authority}"
             )
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         self.layout.click("Control")
         self.layout.fill_input_field("Control Authority", str(authority))
 
@@ -330,7 +311,7 @@ class Schematic(ConsolePage):
         show_control_legend: bool | None = None,
     ) -> None:
         """Set schematic properties."""
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         self.layout.click("Control")
 
         if control_authority is not None:
@@ -455,7 +436,7 @@ class Schematic(ConsolePage):
         Returns:
             Tuple of (control_authority, show_control_legend)
         """
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         self.layout.click("Control")
 
         control_authority = int(self.layout.get_input_field("Control Authority"))
