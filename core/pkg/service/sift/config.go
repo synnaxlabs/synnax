@@ -49,21 +49,6 @@ type UploaderTaskConfig struct {
 	DeviceKey string `json:"device_key"`
 }
 
-// WriterTaskConfig is the configuration for a Sift writer task.
-// Writer tasks are manually created and specify which channels to stream.
-type WriterTaskConfig struct {
-	// DeviceKey references the Sift device containing connection config.
-	DeviceKey string `json:"device_key"`
-	// Channels are the Synnax channel keys to stream to Sift.
-	Channels []channel.Key `json:"channels"`
-	// FlowName is the Sift flow name for this stream.
-	FlowName string `json:"flow_name"`
-	// AutoStart sets whether the task should start automatically when configured.
-	AutoStart bool `json:"auto_start"`
-	// RunName is an optional Sift run name.
-	RunName string `json:"run_name,omitempty"`
-}
-
 // UploadCommand is the command sent to trigger a historical data upload.
 type UploadCommand struct {
 	// RangeKey is the Synnax range to upload.
