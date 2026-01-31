@@ -63,20 +63,20 @@ type taskImpl struct {
 	closer io.Closer
 }
 
+var _ driver.Task = (*taskImpl)(nil)
+
 func (t *taskImpl) Exec(ctx context.Context, cmd task.Command) error {
 	switch cmd.Type {
 	case "start":
 		return t.start(ctx)
 	case "stop":
-		return t.stop()
+		return t.Stop(false)
 	default:
-		return errors.Newf("invalid command %s received for arc task", cmd)
+		return errors.Newf("invalid command %s received for Arc task", cmd)
 	}
 }
 
-func (t *taskImpl) isRunning() bool {
-	return t.closer != nil
-}
+func (t *taskImpl) isRunning() bool { return t.closer != nil }
 
 func (t *taskImpl) start(ctx context.Context) error {
 	if t.isRunning() {
@@ -209,7 +209,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 	return nil
 }
 
-func (t *taskImpl) stop() error {
+func (t *taskImpl) Stop(bool) error {
 	if !t.isRunning() {
 		return nil
 	}
@@ -221,10 +221,6 @@ func (t *taskImpl) stop() error {
 	}
 	t.setStatus(status.VariantSuccess, false, "Task stopped successfully")
 	return nil
-}
-
-func (t *taskImpl) Stop(bool) error {
-	return t.stop()
 }
 
 func (t *taskImpl) Key() task.Key { return t.task.Key }

@@ -43,20 +43,24 @@ type TaskConfig struct {
 }
 
 // GetModuleFunc retrieves an Arc with its compiled Module by key.
-type GetModuleFunc func(ctx context.Context, key uuid.UUID) (arc.Arc, error)
+type GetModuleFunc func(context.Context, uuid.UUID) (arc.Arc, error)
 
 // FactoryConfig is the configuration for creating an Arc factory.
 type FactoryConfig struct {
 	// Channel is used for retrieving channel information.
+	//
 	// [REQUIRED]
 	Channel *channel.Service
 	// Framer is used for reading/writing telemetry.
+	//
 	// [REQUIRED]
 	Framer *framer.Service
 	// Status is used for Arc graph nodes (set_status) to update statuses.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// GetModule retrieves an Arc with its compiled Module by key.
+	//
 	// [REQUIRED]
 	GetModule GetModuleFunc
 	alamos.Instrumentation
@@ -85,24 +89,20 @@ func (c FactoryConfig) Validate() error {
 	return v.Error()
 }
 
-// Factory creates Arc tasks from taskImpl definitions.
-type Factory struct {
-	cfg FactoryConfig
-}
+type factory struct{ cfg FactoryConfig }
 
-var _ driver.Factory = (*Factory)(nil)
+var _ driver.Factory = (*factory)(nil)
 
 // NewFactory creates a new Arc factory.
-func NewFactory(cfgs ...FactoryConfig) (*Factory, error) {
+func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 	cfg, err := config.New(DefaultFactoryConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return &Factory{cfg: cfg}, nil
+	return &factory{cfg: cfg}, nil
 }
 
-// ConfigureTask creates an Arc taskImpl if this factory handles the taskImpl type.
-func (f *Factory) ConfigureTask(
+func (f *factory) ConfigureTask(
 	ctx driver.Context,
 	t task.Task,
 ) (driver.Task, error) {
@@ -131,12 +131,19 @@ func (f *Factory) ConfigureTask(
 			return nil, err
 		}
 	} else {
-		f.setConfigStatus(ctx, t, xstatus.VariantSuccess, "Task configured successfully")
+		f.setConfigStatus(
+			ctx, t, xstatus.VariantSuccess, "Task configured successfully",
+		)
 	}
 	return arcTask, nil
 }
 
-func (f *Factory) setConfigStatus(ctx driver.Context, t task.Task, variant xstatus.Variant, message string) {
+func (f *factory) setConfigStatus(
+	ctx driver.Context,
+	t task.Task,
+	variant xstatus.Variant,
+	message string,
+) {
 	stat := task.Status{
 		Key:     task.OntologyID(t.Key).String(),
 		Name:    t.Name,
@@ -158,13 +165,8 @@ func (f *Factory) setConfigStatus(ctx driver.Context, t task.Task, variant xstat
 	}
 }
 
-// ConfigureInitialTasks returns no initial tasks for Arc (Arc tasks are user-created).
-func (f *Factory) ConfigureInitialTasks(
-	_ driver.Context,
-	_ rack.Key,
-) ([]task.Task, error) {
+func (f *factory) ConfigureInitialTasks(driver.Context, rack.Key) ([]task.Task, error) {
 	return nil, nil
 }
 
-// Name returns the factory name.
-func (f *Factory) Name() string { return "Arc" }
+func (f *factory) Name() string { return "Arc" }

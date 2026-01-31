@@ -82,7 +82,7 @@ var _ = Describe("Task", Ordered, func() {
 		return driver.NewContext(ctx, statusSvc)
 	}
 
-	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) *runtime.Factory {
+	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
 		return MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 			Channel:   dist.Channel,
 			Framer:    dist.Framer,
@@ -91,7 +91,7 @@ var _ = Describe("Task", Ordered, func() {
 		}))
 	}
 
-	newGraphFactory := func(g graph.Graph) *runtime.Factory {
+	newGraphFactory := func(g graph.Graph) driver.Factory {
 		return newFactoryWith(func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
 			resolver := symbol.CreateResolver(dist.Channel)
 			module, err := arc.CompileGraph(ctx, g, arc.WithResolver(resolver))
@@ -102,7 +102,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	}
 
-	newTextFactory := func(prof arc.Text) *runtime.Factory {
+	newTextFactory := func(prof arc.Text) driver.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
 			resolver := symbol.CreateResolver(dist.Channel)
 			module, err := arc.CompileText(ctx, prof, arc.WithResolver(resolver))
@@ -113,7 +113,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	}
 
-	newTask := func(factory *runtime.Factory) driver.Task {
+	newTask := func(factory driver.Factory) driver.Task {
 		cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 		svcTask := task.Task{
 			Key:    task.NewKey(rack.NewKey(1, 1), 1),
