@@ -20,12 +20,10 @@ import (
 
 type Validator struct {
 	scope string
-	errors.Catcher
+	errors.Accumulator
 }
 
-func New(scope string) *Validator {
-	return &Validator{scope: scope, Catcher: *errors.NewCatcher()}
-}
+func New(scope string) *Validator { return &Validator{scope: scope} }
 
 // Ternary adds the error with the given message to the validator if the condition is
 // true.

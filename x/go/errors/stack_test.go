@@ -53,8 +53,7 @@ var _ = Describe("Stack", func() {
 
 		It("Should preserve error message", func() {
 			baseErr := errors.New("base error")
-			err := errors.WithStack(baseErr)
-			Expect(err.Error()).To(Equal("base error"))
+			Expect(errors.WithStack(baseErr).Error()).To(Equal("base error"))
 		})
 	})
 

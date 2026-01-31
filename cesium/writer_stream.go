@@ -278,10 +278,10 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *streamWriter) close(ctx context.Context) error {
-	c := errors.NewCatcher(errors.WithAggregation())
+	var a errors.Accumulator
 	parentUpdate := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, idx := range w.internal {
-		c.Exec(func() error {
+		a.Exec(func() error {
 			u, err := idx.Close()
 			if err != nil {
 				return err
@@ -291,7 +291,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 		})
 	}
 	if w.virtual.internal != nil {
-		c.Exec(func() error {
+		a.Exec(func() error {
 			u, err := w.virtual.Close()
 			if err != nil {
 				return err
@@ -312,7 +312,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 		}
 	}
 
-	return c.Error()
+	return a.Error()
 }
 
 type unaryWriterState struct {
@@ -404,20 +404,20 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
-	c := errors.NewCatcher(errors.WithAggregation())
+	var a errors.Accumulator
 	for _, chW := range w.internal {
-		c.Exec(func() error { return chW.CommitWithEnd(ctx, end.Lower) })
+		a.Exec(func() error { return chW.CommitWithEnd(ctx, end.Lower) })
 	}
-	return end.Lower, c.Error()
+	return end.Lower, a.Error()
 }
 
 func (w *idxWriter) Close() (ControlUpdate, error) {
-	c := errors.NewCatcher(errors.WithAggregation())
+	var a errors.Accumulator
 	update := ControlUpdate{
 		Transfers: make([]control.Transfer, 0, len(w.internal)),
 	}
 	for _, unaryWriter := range w.internal {
-		c.Exec(func() error {
+		a.Exec(func() error {
 			transfer, err := unaryWriter.Close()
 			if err != nil || !transfer.Occurred() {
 				return err
@@ -426,7 +426,7 @@ func (w *idxWriter) Close() (ControlUpdate, error) {
 			return nil
 		})
 	}
-	return update, c.Error()
+	return update, a.Error()
 }
 
 func invalidDataTypeError(expectedCh Channel, received telem.DataType) error {
@@ -615,13 +615,13 @@ func (w virtualWriter) write(filterUnauthorized *[]ChannelKey, fr Frame) (Frame,
 }
 
 func (w virtualWriter) Close() (ControlUpdate, error) {
-	c := errors.NewCatcher(errors.WithAggregation())
+	var a errors.Accumulator
 	update := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, chW := range w.internal {
 		// We do not want to clean up the digest channel since we want to use it to send
 		// updates for closures.
 		if chW.Channel.Key != w.digestKey {
-			c.Exec(func() error {
+			a.Exec(func() error {
 				transfer, err := chW.Close()
 				if err != nil || !transfer.Occurred() {
 					return err
@@ -631,5 +631,5 @@ func (w virtualWriter) Close() (ControlUpdate, error) {
 			})
 		}
 	}
-	return update, c.Error()
+	return update, a.Error()
 }

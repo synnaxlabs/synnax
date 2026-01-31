@@ -108,10 +108,8 @@ var _ = Describe("Closer", func() {
 
 			err := multi.Close()
 			Expect(err).To(HaveOccurred())
-			// The implementation uses errors.NewCatcher with aggregation which returns
-			// only the first error from Error() method but collects all errors
-			// internally
-			Expect(err).To(Equal(err2)) // Since closers are closed in reverse order, err2 is encountered first
+			Expect(errors.Is(err, err1)).To(BeTrue())
+			Expect(errors.Is(err, err2)).To(BeTrue())
 		})
 
 		It("should handle empty MultiCloser", func() {

@@ -12,23 +12,21 @@ package kv
 import (
 	"bytes"
 	"encoding/binary"
-
-	"github.com/synnaxlabs/x/errors"
 )
 
 func CompositeKey(elems ...any) ([]byte, error) {
 	b := new(bytes.Buffer)
-	c := errors.NewCatcher()
 	for _, e := range elems {
 		switch e := e.(type) {
 		case string:
-			c.Exec(func() error {
-				_, err := b.WriteString(e)
-				return err
-			})
+			if _, err := b.WriteString(e); err != nil {
+				return nil, err
+			}
 		default:
-			c.Exec(func() error { return binary.Write(b, binary.LittleEndian, e) })
+			if err := binary.Write(b, binary.LittleEndian, e); err != nil {
+				return nil, err
+			}
 		}
 	}
-	return b.Bytes(), c.Error()
+	return b.Bytes(), nil
 }
