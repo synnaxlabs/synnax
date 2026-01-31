@@ -484,6 +484,26 @@ class LayoutClient:
 
         sy.sleep(sleep / 1000)
 
+    def right_click(
+        self, selector: str | Locator, timeout: int = 500, sleep: int = 100
+    ) -> None:
+        """
+        Right-click an element by text selector or Locator.
+
+        Args:
+            selector: Either a text string to search for, or a Playwright Locator
+            timeout: Maximum time in milliseconds to wait for actionability.
+            sleep: Time in milliseconds to wait after clicking.
+        """
+        if isinstance(selector, str):
+            element = self.page.get_by_text(selector, exact=True).first
+            element.click(button="right", timeout=timeout)
+        else:
+            with self.bring_to_front(selector) as el:
+                el.click(button="right", timeout=timeout)
+
+        sy.sleep(sleep / 1000)
+
     @contextmanager
     def bring_to_front(self, element: Locator) -> Generator[Locator, None, None]:
         """

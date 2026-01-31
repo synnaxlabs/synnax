@@ -93,6 +93,7 @@ class Schematic(ConsolePage):
             configured_valve = schematic.create_symbol(valve)
             configured_valve.move(delta_x=-90, delta_y=-100)
         """
+        self.enable_edit()
         symbol.create(self.layout)
         return symbol
 
@@ -433,6 +434,7 @@ class Schematic(ConsolePage):
             Tuple of (control_authority, show_control_legend)
         """
         self.layout.notifications.close_all()
+        self.layout.show_visualization_toolbar()
         self.layout.click("Control")
 
         control_authority = int(self.layout.get_input_field("Control Authority"))

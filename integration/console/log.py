@@ -38,6 +38,7 @@ class Log(ConsolePage):
             self.set_channel(channel_name)
 
     def set_channel(self, channel_name: str) -> None:
+        self.layout.show_visualization_toolbar()
         self.layout.click_btn("Channel")
         self.layout.select_from_dropdown(channel_name, "Select a Channel")
 

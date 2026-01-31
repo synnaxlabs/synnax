@@ -133,7 +133,7 @@ class CustomSymbols(ConsoleCase):
         editor.save()
 
         assert toolbar.symbol_exists(
-            self.test_symbol_name
+            self.test_symbol_name, select_group=self.test_group_name
         ), f"Symbol '{self.test_symbol_name}' should exist after creation"
 
         custom_symbol_config = CustomSymbol(

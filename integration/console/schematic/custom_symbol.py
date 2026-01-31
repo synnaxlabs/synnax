@@ -77,6 +77,7 @@ class CustomSymbol(Symbol):
         self.page.locator(".react-flow__node.selected").wait_for(
             state="visible", timeout=2000
         )
+        self.layout.show_visualization_toolbar()
 
         self.page.get_by_text("Properties").click()
         control_tab = self.page.locator("#control").nth(1)

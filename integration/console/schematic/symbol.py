@@ -146,7 +146,10 @@ class Symbol(ABC):
 
     def set_label(self, label: str) -> None:
         self.click()
-        self.page.get_by_text("Style").click(force=True)
+        selected_node = self.page.locator(".react-flow__node.selected")
+        selected_node.wait_for(state="visible", timeout=5000)
+        self.layout.show_visualization_toolbar()
+        self.layout.click("Style")
         self.layout.fill_input_field("Label", label)
         self.label = label
 

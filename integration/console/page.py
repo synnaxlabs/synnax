@@ -291,6 +291,7 @@ class ConsolePage:
         Returns:
             The copied link from clipboard (empty string if clipboard access fails).
         """
+        self.layout.notifications.close_all()
         self.layout.show_visualization_toolbar()
         link_button = self.page.locator(".pluto-icon--link").locator("..")
         link_button.click(timeout=5000)

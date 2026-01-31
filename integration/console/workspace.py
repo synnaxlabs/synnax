@@ -9,7 +9,7 @@
 
 import json
 import random
-from typing import Any, Literal, overload
+from typing import Any, Literal, TypeVar, overload
 
 import synnax as sy
 from playwright.sync_api import Locator
@@ -31,6 +31,8 @@ from .task_page import TaskPage
 
 __all__ = ["WorkspaceClient", "PageType"]
 
+T = TypeVar("T", bound="ConsolePage")
+
 
 class WorkspaceClient:
     """Workspace management for Console UI automation."""
@@ -47,8 +49,12 @@ class WorkspaceClient:
 
     def create_page(
         self, page_type: PageType, page_name: str | None = None
-    ) -> tuple[Locator, str]:
-        """Create a new page via New Page (+) button or command palette (randomly chosen)."""
+    ) -> tuple[Locator, Locator, str]:
+        """Create a new page via New Page (+) button or command palette (randomly chosen).
+
+        Returns:
+            Tuple of (pane_locator, tab_locator, page_id)
+        """
         self.layout.close_nav_drawer()
         if random.random() < 0:
             return self._create_page_by_new_page_button(page_type, page_name)
@@ -56,8 +62,12 @@ class WorkspaceClient:
 
     def _create_page_by_new_page_button(
         self, page_type: PageType, page_name: str | None = None
-    ) -> tuple[Locator, str]:
-        """Create a new page via the New Page (+) button."""
+    ) -> tuple[Locator, Locator, str]:
+        """Create a new page via the New Page (+) button.
+
+        Returns:
+            Tuple of (pane_locator, tab_locator, page_id)
+        """
         self.layout.close_nav_drawer()
         add_btn = self.layout.page.locator(
             ".console-mosaic > .pluto-tabs-selector .pluto-tabs-selector__actions button:has(.pluto-icon--add)"
@@ -74,8 +84,12 @@ class WorkspaceClient:
 
     def _create_page_by_command_palette(
         self, page_type: PageType, page_name: str | None = None
-    ) -> tuple[Locator, str]:
-        """Create a new page via command palette."""
+    ) -> tuple[Locator, Locator, str]:
+        """Create a new page via command palette.
+
+        Returns:
+            Tuple of (pane_locator, tab_locator, page_id)
+        """
         self.layout.close_nav_drawer()
 
         vowels = ["A", "E", "I", "O", "U"]
@@ -89,9 +103,12 @@ class WorkspaceClient:
 
     def _handle_new_page(
         self, page_type: PageType, page_name: str | None = None
-    ) -> tuple[Locator, str]:
-        """Handle the new page creation after clicking create button."""
-        sy.sleep(0.2)
+    ) -> tuple[Locator, Locator, str]:
+        """Handle the new page creation after clicking create button.
+
+        Returns:
+            Tuple of (pane_locator, tab_locator, page_id)
+        """
         modal_was_open = self.layout.is_modal_open()
         tab_name: str = page_type
 
@@ -110,7 +127,38 @@ class WorkspaceClient:
             page_id = page_name
             page_tab = self.layout.get_tab(page_name)
 
-        return page_tab, page_id
+        pluto_labels = {
+            "Log": ".pluto-log",
+            "Line Plot": ".pluto-line-plot",
+            "Schematic": ".pluto-schematic",
+            "Table": ".pluto-table",
+        }
+        pluto_label = pluto_labels.get(page_type, "")
+        if pluto_label:
+            pane = self.layout.page.locator(pluto_label).first
+            pane.wait_for(state="visible", timeout=5000)
+        else:
+            pane = page_tab
+
+        return pane, page_tab, page_id
+
+    def _create_and_initialize_page(
+        self, page_type: PageType, page_name: str | None, page_class: type[T]
+    ) -> T:
+        """Helper to create a page and initialize it with proper locators.
+
+        Args:
+            page_type: Type of page to create
+            page_name: Optional name for the page
+            page_class: The page class to instantiate (Plot, Log, Schematic, etc.)
+
+        Returns:
+            Initialized page instance
+        """
+        pane, tab, actual_name = self.create_page(page_type, page_name)
+        page = page_class(self.layout, self.client, actual_name, pane_locator=pane)
+        page._initialize_from_workspace(tab, actual_name)
+        return page
 
     def close_page(self, page_name: str) -> None:
         """Close a page by name. Ignores unsaved changes."""
@@ -664,7 +712,7 @@ class WorkspaceClient:
 
         Args:
             page_class: The page class to instantiate (Plot, Log, Table, Schematic, etc.)
-            name: Name of the page to search for
+            name: Name of the page to search for (could be page name or channel name)
 
         Returns:
             Instance of the specified page class
@@ -674,7 +722,17 @@ class WorkspaceClient:
         pane = self.layout.page.locator(page_class.pluto_label)
         pane.first.wait_for(state="visible", timeout=5000)
 
-        return page_class(self.layout, self.client, name, pane_locator=pane.first)
+        active_tab = (
+            self.layout.page.locator(".pluto-tabs-selector")
+            .locator("div")
+            .filter(has=self.layout.page.locator("[aria-label='pluto-tabs__close']"))
+            .last
+        )
+        actual_name = active_tab.inner_text().strip()
+
+        return page_class(
+            self.layout, self.client, actual_name, pane_locator=pane.first
+        )
 
     def create_plot(self, name: str) -> Plot:
         """Create a new plot page in the UI and return a wrapper.
@@ -689,8 +747,7 @@ class WorkspaceClient:
         Returns:
             Plot instance wrapping the created UI page
         """
-        pane, actual_name = self.create_page("Line Plot", name)
-        return Plot(self.layout, self.client, actual_name, pane_locator=pane)
+        return self._create_and_initialize_page("Line Plot", name, Plot)
 
     def create_log(self, name: str) -> Log:
         """Create a new log page in the UI and return a wrapper.
@@ -705,8 +762,7 @@ class WorkspaceClient:
         Returns:
             Log instance wrapping the created UI page
         """
-        pane, actual_name = self.create_page("Log", name)
-        return Log(self.layout, self.client, actual_name, pane_locator=pane)
+        return self._create_and_initialize_page("Log", name, Log)
 
     def create_schematic(self, name: str) -> Schematic:
         """Create a new schematic page in the UI and return a wrapper.
@@ -721,8 +777,7 @@ class WorkspaceClient:
         Returns:
             Schematic instance wrapping the created UI page
         """
-        pane, actual_name = self.create_page("Schematic", name)
-        return Schematic(self.layout, self.client, actual_name, pane_locator=pane)
+        return self._create_and_initialize_page("Schematic", name, Schematic)
 
     def create_table(self, name: str) -> Table:
         """Create a new table page in the UI and return a wrapper.
@@ -737,8 +792,7 @@ class WorkspaceClient:
         Returns:
             Table instance wrapping the created UI page
         """
-        pane, actual_name = self.create_page("Table", name)
-        return Table(self.layout, self.client, actual_name, pane_locator=pane)
+        return self._create_and_initialize_page("Table", name, Table)
 
     def open_plot_from_click(self, channel_name: str, channels: ChannelClient) -> Plot:
         """Open a plot by double-clicking a channel in the channels sidebar.
@@ -880,7 +934,6 @@ class WorkspaceClient:
             "NI Analog Read Task": AnalogRead,
             "NI Analog Write Task": AnalogWrite,
             "NI Counter Read Task": CounterRead,
-            # Future task types will be added here:
             # "NI Digital Read Task": DigitalRead,
             # "NI Digital Write Task": DigitalWrite,
             # "LabJack Read Task": LabJackRead,
@@ -896,5 +949,4 @@ class WorkspaceClient:
             )
 
         task_class = task_class_map[task_type]
-        pane, actual_name = self.create_page(task_type, name)
-        return task_class(self.layout, self.client, actual_name, pane_locator=pane)
+        return self._create_and_initialize_page(task_type, name, task_class)

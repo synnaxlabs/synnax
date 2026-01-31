@@ -47,10 +47,11 @@ class Plot(ConsolePage):
     def add_channels(self, axis: Axis, channels: str | list[str]) -> None:
         channels = [channels] if isinstance(channels, str) else channels
 
-        self.page.locator("#data").click(timeout=5000)
-        self.page.wait_for_timeout(300)
+        data_tab = self.page.locator("#data")
+        data_tab.click(timeout=5000)
 
         axis_label = self.page.locator("label").filter(has_text=axis)
+        axis_label.wait_for(state="visible", timeout=5000)
         trigger = axis_label.locator("..").locator(".pluto-dialog__trigger")
         trigger.click(timeout=5000)
 
@@ -91,6 +92,7 @@ class Plot(ConsolePage):
             The CSV file contents as a string.
         """
         self.layout.notifications.close_all()
+        self.layout.show_visualization_toolbar()
         csv_button = self.page.locator(".pluto-icon--csv").locator("..")
         csv_button.click()
 
@@ -321,6 +323,7 @@ class Plot(ConsolePage):
             channels: ChannelClient for showing/hiding channels sidebar
             axis: Target axis (Y1, Y2, or X1)
         """
+        self.layout.notifications.close_all()
         channels.show_channels()
 
         channel_item = (
@@ -328,7 +331,9 @@ class Plot(ConsolePage):
         )
         channel_item.wait_for(state="visible", timeout=5000)
 
-        self.page.locator("#data").click(timeout=5000)
+        self.layout.show_visualization_toolbar()
+        data_tab = self.page.locator("#data")
+        data_tab.click(timeout=5000)
 
         axis_section = self.page.locator(f"label:has-text('{axis}')").locator("..")
         axis_section.wait_for(state="visible", timeout=5000)
