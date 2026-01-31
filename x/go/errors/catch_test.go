@@ -26,14 +26,10 @@ var _ = Describe("Catcher", func() {
 				counter = 1
 				catcher = errors.NewCatcher()
 				for range 4 {
-					catcher.Exec(func() error {
-						counter++
-						return nil
-					})
+					catcher.Exec(func() error { counter++; return nil })
 				}
 			})
 			It("Should continue to execute functions", func() {
-
 				Expect(counter).To(Equal(5))
 			})
 			It("Should contain a nil error", func() {
@@ -41,13 +37,9 @@ var _ = Describe("Catcher", func() {
 			})
 		})
 		Context("Errors encountered", func() {
-			var (
-				counter int
-				catcher *errors.Catcher
-			)
-			BeforeEach(func() {
-				counter = 1
-				catcher = errors.NewCatcher()
+			It("Should aggregate errors and continue execution", func() {
+				counter := 1
+				catcher := errors.NewCatcher()
 				for i := range 4 {
 					catcher.Exec(func() error {
 						if i == 2 {
@@ -57,18 +49,13 @@ var _ = Describe("Catcher", func() {
 						return nil
 					})
 				}
-			})
-			It("Should stop execution", func() {
-				Expect(counter).To(Equal(3))
-			})
-			It("Should contain a non-nil error", func() {
+				Expect(counter).To(Equal(4))
 				Expect(catcher.Error()).ToNot(BeNil())
+				Expect(catcher.Errors()).To(HaveLen(1))
 			})
-		})
-		Context("Aggregation", func() {
-			var catcher = errors.NewCatcher(errors.WithAggregation())
-			It("Should aggregate the errors", func() {
+			It("Should aggregate multiple errors", func() {
 				counter := 1
+				catcher := errors.NewCatcher()
 				for range 4 {
 					catcher.Exec(func() error {
 						counter++

@@ -321,7 +321,7 @@ func (s *Service) Close() error {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	c := errors.NewCatcher(errors.WithAggregation())
+	c := errors.NewCatcher()
 	for _, g := range s.mu.groups {
 		c.Exec(g.Close)
 	}

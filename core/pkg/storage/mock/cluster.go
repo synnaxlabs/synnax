@@ -54,7 +54,7 @@ func (b *Cluster) Provision(ctx context.Context) (store *storage.Layer) {
 // Close closes all stores provisioned by the Cluster. Close is not safe to call
 // concurrently with any other Cluster or provisioned storage.Layer methods.
 func (b *Cluster) Close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
+	c := errors.NewCatcher()
 	for _, store := range b.Stores {
 		c.Exec(store.Close)
 	}

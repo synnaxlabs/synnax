@@ -71,7 +71,7 @@ func (g Group) Next(
 }
 
 func (g Group) Close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
+	c := errors.NewCatcher()
 	for _, calc := range g {
 		c.Exec(calc.Close)
 	}

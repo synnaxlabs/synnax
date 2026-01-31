@@ -235,7 +235,7 @@ func (s *Service) migrateStatusesForExistingRacks(ctx context.Context) error {
 }
 
 func (s *Service) Close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
+	c := errors.NewCatcher()
 	c.Exec(s.monitor.Close)
 	if s.shutdownSignals == nil {
 		return nil

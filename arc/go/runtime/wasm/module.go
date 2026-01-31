@@ -32,7 +32,7 @@ func (m *Module) Close() error {
 	// don't use. Creating the context here means we can maintain the io.Closer interface
 	// for the module, which means a simpler shutdown callstack.
 	ctx := context.TODO()
-	c := errors.NewCatcher(errors.WithAggregation())
+	c := errors.NewCatcher()
 	c.Exec(func() error { return m.wasmModule.Close(ctx) })
 	c.Exec(func() error { return m.wasmRuntime.Close(ctx) })
 	return c.Error()

@@ -125,7 +125,7 @@ func (c *Cluster) WaitForTopologyToStabilize() {
 }
 
 func (b *Cluster) Close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
+	c := errors.NewCatcher()
 	for _, node := range b.Nodes {
 		c.Exec(node.Close)
 	}

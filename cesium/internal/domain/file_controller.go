@@ -437,7 +437,7 @@ func (fc *fileController) close() error {
 		fc.readers.RUnlock()
 		fc.writers.RUnlock()
 	}()
-	c := errors.NewCatcher(errors.WithAggregation())
+	c := errors.NewCatcher()
 	for _, w := range fc.writers.open {
 		c.Exec(func() error {
 			if !w.tryAcquire() {

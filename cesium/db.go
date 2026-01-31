@@ -147,7 +147,7 @@ func (db *DB) Close() error {
 		return nil
 	}
 
-	c := errors.NewCatcher(errors.WithAggregation())
+	c := errors.NewCatcher()
 	// Crucial to close control digests here before closing the signal context so writes
 	// can still use the signal context to send frames to relay.
 	//
