@@ -12,9 +12,7 @@
     "algolia": "node src/util/algoliasearch.ts",
     "lint": "eslint",
     "fix": "eslint --fix",
-    "madge": "madge --circular src",
-    "format": "prettier --write .",
-    "format-check": "prettier --check ."
+    "madge": "madge --circular src"
   },
   "dependencies": {
     "@astrojs/mdx": "^4.3.13",
@@ -51,7 +49,6 @@
     "madge": "catalog:",
     "gray-matter": "^4.0.3",
     "html-escaper": "^3.0.3",
-    "prettier": "catalog:",
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "strip-markdown": "^6.0.0",

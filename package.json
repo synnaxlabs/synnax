@@ -99,12 +99,12 @@
   },
   "devDependencies": {
     "@prettier/plugin-xml": "^3.4.2",
-    "knip": "^5.70.0",
-    "prettier": "catalog:",
+    "knip": "^5.82.1",
+    "prettier": "^3.8.1",
     "prettier-plugin-astro": "^0.14.1",
     "prettier-plugin-sh": "^0.18.0",
     "prettier-plugin-toml": "^2.0.6",
-    "turbo": "^2.6.0"
+    "turbo": "^2.8.1"
   },
   "engines": {
     "node": "^24.13.0"
