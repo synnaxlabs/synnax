@@ -188,22 +188,40 @@ func (d *Driver) handleTaskChange(ctx context.Context, reader gorp.TxReader[task
 func (d *Driver) configureInitialTasks(ctx context.Context) {
 	taskCtx := NewContext(ctx, d.cfg.Status)
 
-	// Ask factory to create any tasks that should exist on startup
-	factoryTasks, err := d.cfg.Factory.ConfigureInitialTasks(taskCtx, d.rack.Key)
-	if err != nil {
-		d.cfg.L.Error("factory failed to configure initial tasks", zap.Error(err))
-	} else if len(factoryTasks) > 0 {
-		// Persist factory-created tasks (task service handles dedup via key)
-		for _, t := range factoryTasks {
-			if err := d.cfg.Task.NewWriter(nil).Create(ctx, &t); err != nil {
-				d.cfg.L.Error("failed to persist factory task",
-					zap.Stringer("task", t.Key),
-					zap.String("type", t.Type),
-					zap.Error(err),
-				)
-			}
+	for _, factory := range d.cfg.Factories {
+		factoryTasks, err := factory.ConfigureInitialTasks(taskCtx, d.rack.Key)
+		if err != nil {
+			d.cfg.L.Error(
+				"failed to configure initial tasks",
+				zap.String("factory", factory.Name()),
+				zap.Error(err),
+			)
+			continue
 		}
-		d.cfg.L.Info("factory created initial tasks", zap.Int("count", len(factoryTasks)))
+		if len(factoryTasks) == 0 {
+			continue
+		}
+		if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			w := d.cfg.Task.NewWriter(tx)
+			for _, t := range factoryTasks {
+				if err := w.Create(ctx, &t); err != nil {
+					return errors.Wrapf(err, "failed to persist %s", t)
+				}
+			}
+			return nil
+		}); err != nil {
+			d.cfg.L.Error(
+				"failed to persist initial tasks",
+				zap.String("factory", factory.Name()),
+				zap.Error(err),
+			)
+			continue
+		}
+		d.cfg.L.Info(
+			"configured initial tasks",
+			zap.String("factory", factory.Name()),
+			zap.Int("count", len(factoryTasks)),
+		)
 	}
 
 	// Now retrieve and configure all tasks for this rack
@@ -228,34 +246,36 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 	if existing, ok := d.mu.tasks[t.Key]; ok {
 		if err := existing.Stop(true); err != nil {
 			d.cfg.L.Error("failed to stop existing task for reconfiguration",
-				zap.Stringer("task", t.Key),
+				zap.Stringer("task", t),
 				zap.Error(err),
 			)
 		}
 		delete(d.mu.tasks, t.Key)
 	}
 	taskCtx := NewContext(ctx, d.cfg.Status)
-	newTask, err := d.cfg.Factory.ConfigureTask(taskCtx, t)
-	if err != nil {
+
+	for _, factory := range d.cfg.Factories {
+		newTask, err := factory.ConfigureTask(taskCtx, t)
 		if errors.Is(err, ErrTaskNotHandled) {
-			d.cfg.L.Warn("no factory handled task type",
-				zap.Stringer("task", t.Key),
-				zap.String("type", t.Type),
+			continue
+		}
+		if err != nil {
+			d.cfg.L.Error(
+				"failed to configure task",
+				zap.String("factory", factory.Name()),
+				zap.Stringer("task", t),
+				zap.Error(err),
 			)
 			return
 		}
-		d.cfg.L.Error("factory failed to configure task",
-			zap.Stringer("task", t.Key),
-			zap.String("type", t.Type),
-			zap.Error(err),
+		d.mu.tasks[t.Key] = newTask
+		d.cfg.L.Info("configured task",
+			zap.Stringer("task", t),
 		)
 		return
 	}
-	d.mu.tasks[t.Key] = newTask
-	d.cfg.L.Info("configured task",
-		zap.Stringer("task", t.Key),
-		zap.String("type", t.Type),
-		zap.String("name", t.Name),
+	d.cfg.L.Warn("no factory handled task",
+		zap.Stringer("task", t),
 	)
 }
 

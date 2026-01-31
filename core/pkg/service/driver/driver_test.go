@@ -125,36 +125,36 @@ var _ = Describe("Config", Ordered, func() {
 	Describe("Validate", func() {
 		It("should fail when DB is nil", func() {
 			cfg := driver.Config{
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}
 			Expect(cfg.Validate()).To(HaveOccurred())
 		})
 
 		It("should fail when Rack is nil", func() {
 			cfg := driver.Config{
-				DB:      db,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        db,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}
 			Expect(cfg.Validate()).To(HaveOccurred())
 		})
 
 		It("should fail when Task is nil", func() {
 			cfg := driver.Config{
-				DB:      db,
-				Rack:    rackService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        db,
+				Rack:      rackService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}
 			Expect(cfg.Validate()).To(HaveOccurred())
 		})
@@ -173,12 +173,12 @@ var _ = Describe("Config", Ordered, func() {
 
 		It("should fail when Host is zero", func() {
 			cfg := driver.Config{
-				DB:      db,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Factory: factory,
+				DB:        db,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Factories: []driver.Factory{factory},
 			}
 			Expect(cfg.Validate()).To(HaveOccurred())
 		})
@@ -198,14 +198,14 @@ var _ = Describe("Driver", Ordered, func() {
 
 	openDriver := func(factory driver.Factory) *driver.Driver {
 		driver := MustSucceed(driver.Open(ctx, driver.Config{
-			DB:      dist.DB,
-			Rack:    rackService,
-			Task:    taskService,
-			Framer:  framerSvc,
-			Channel: channelSvc,
-			Status:  statusSvc,
-			Factory: factory,
-			Host:    hostProvider,
+			DB:        dist.DB,
+			Rack:      rackService,
+			Task:      taskService,
+			Framer:    framerSvc,
+			Channel:   channelSvc,
+			Status:    statusSvc,
+			Factories: []driver.Factory{factory},
+			Host:      hostProvider,
 		}))
 		DeferCleanup(func() { Expect(driver.Close()).To(Succeed()) })
 		return driver
@@ -493,14 +493,14 @@ var _ = Describe("Driver", Ordered, func() {
 			}
 
 			d1 := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:      dist.DB,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Status:  statusSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}))
 			rackKey := d1.RackKey()
 
@@ -527,14 +527,14 @@ var _ = Describe("Driver", Ordered, func() {
 			configuredTasks = sync.Map{}
 
 			d2 := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:      dist.DB,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Status:  statusSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}))
 			DeferCleanup(func() { Expect(d2.Close()).To(Succeed()) })
 
@@ -579,14 +579,14 @@ var _ = Describe("Driver", Ordered, func() {
 			}
 
 			driver := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:      dist.DB,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Status:  statusSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}))
 
 			for range expectedTasks {
@@ -620,14 +620,14 @@ var _ = Describe("Driver", Ordered, func() {
 			}
 
 			driver := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:      dist.DB,
-				Rack:    rackService,
-				Task:    taskService,
-				Framer:  framerSvc,
-				Channel: channelSvc,
-				Status:  statusSvc,
-				Factory: factory,
-				Host:    hostProvider,
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
 			}))
 
 			t := newTask(driver.RackKey())
@@ -655,7 +655,7 @@ var _ = Describe("Driver", Ordered, func() {
 				Framer:            framerSvc,
 				Channel:           channelSvc,
 				Status:            statusSvc,
-				Factory:           &mockFactory{name: "test"},
+				Factories:         []driver.Factory{&mockFactory{name: "test"}},
 				Host:              hostProvider,
 				HeartbeatInterval: 50 * time.Millisecond,
 			}))
@@ -681,7 +681,7 @@ var _ = Describe("Driver", Ordered, func() {
 				Framer:            framerSvc,
 				Channel:           channelSvc,
 				Status:            statusSvc,
-				Factory:           &mockFactory{name: "test"},
+				Factories:         []driver.Factory{&mockFactory{name: "test"}},
 				Host:              hostProvider,
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))
@@ -718,7 +718,7 @@ var _ = Describe("Driver", Ordered, func() {
 				Framer:            framerSvc,
 				Channel:           channelSvc,
 				Status:            statusSvc,
-				Factory:           &mockFactory{name: "test"},
+				Factories:         []driver.Factory{&mockFactory{name: "test"}},
 				Host:              hostProvider,
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))

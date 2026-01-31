@@ -354,8 +354,6 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if !ok(err, nil) {
 		return nil, err
 	}
-	// Use composite factory to combine Arc and Sift factories
-	compositeFactory := driver.CompositeFactory{arcFactory, siftFactory}
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
@@ -364,7 +362,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Framer:          cfg.Distribution.Framer,
 		Channel:         cfg.Distribution.Channel,
 		Status:          l.Status,
-		Factory:         compositeFactory,
+		Factories:       []driver.Factory{arcFactory, siftFactory},
 		Host:            cfg.Distribution.Cluster,
 	}); !ok(err, l.Driver) {
 		return nil, err
