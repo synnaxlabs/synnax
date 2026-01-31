@@ -118,7 +118,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	// deleted on FS.
 	defer func() {
 		db.mu.Unlock()
-		c := errors.NewCatcher()
+		var c errors.Catcher
 		for _, name := range directoriesToRemove {
 			c.Exec(func() error { return db.fs.Remove(name) })
 		}

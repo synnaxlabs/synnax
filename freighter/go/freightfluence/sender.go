@@ -111,7 +111,7 @@ func (s MapTargetedSender[M]) Send(_ context.Context, target address.Address, ms
 }
 
 func (s MapTargetedSender[M]) Close() error {
-	c := errors.NewCatcher()
+	var c errors.Catcher
 	for _, s := range s {
 		c.Exec(s.CloseSend)
 	}
@@ -226,7 +226,7 @@ o:
 }
 
 func (m *MultiTransformSender[I, M]) closeSenders() error {
-	c := errors.NewCatcher()
+	var c errors.Catcher
 	for _, s := range m.Senders {
 		c.Exec(s.CloseSend)
 	}

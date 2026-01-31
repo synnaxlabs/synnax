@@ -11,25 +11,10 @@ package errors
 
 // Catcher can be used to catch errors from a series of function calls and aggregate
 // them into a single error list.
-type Catcher struct{ errors []error }
-
-// NewCatcher instantiates a Catcher.
-func NewCatcher() *Catcher { return &Catcher{} }
+type Catcher struct{ err error }
 
 // Exec runs a CatchAction and catches any error that it may return.
-func (c *Catcher) Exec(ca func() error) {
-	if err := ca(); err != nil {
-		c.errors = append(c.errors, err)
-	}
-}
+func (c *Catcher) Exec(ca func() error) { c.err = Join(c.err, ca()) }
 
-// Error returns the first error caught.
-func (c *Catcher) Error() error {
-	if len(c.Errors()) == 0 {
-		return nil
-	}
-	return c.Errors()[0]
-}
-
-// Errors returns all errors caught.
-func (c *Catcher) Errors() []error { return c.errors }
+// Error returns the error aggregated by the Catcher.
+func (c *Catcher) Error() error { return c.err }

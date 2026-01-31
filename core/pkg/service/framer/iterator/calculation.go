@@ -42,7 +42,7 @@ func newCalculationTransform(
 }
 
 func (t *calculationTransform) close() error {
-	c := errors.NewCatcher()
+	var c errors.Catcher
 	for _, calc := range t.calculators {
 		c.Exec(calc.Close)
 	}

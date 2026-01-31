@@ -15,16 +15,23 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+var errMap = map[int]error{
+	0: errors.New("error 0"),
+	1: errors.New("error 1"),
+	2: errors.New("error 2"),
+	3: errors.New("error 3"),
+}
+
 var _ = Describe("Catcher", func() {
 	Describe("Catcher", func() {
 		Context("No error encountered", func() {
 			var (
 				counter int
-				catcher *errors.Catcher
+				catcher errors.Catcher
 			)
 			BeforeEach(func() {
 				counter = 1
-				catcher = errors.NewCatcher()
+				catcher = errors.Catcher{}
 				for range 4 {
 					catcher.Exec(func() error { counter++; return nil })
 				}
@@ -39,7 +46,7 @@ var _ = Describe("Catcher", func() {
 		Context("Errors encountered", func() {
 			It("Should aggregate errors and continue execution", func() {
 				counter := 1
-				catcher := errors.NewCatcher()
+				catcher := errors.Catcher{}
 				for i := range 4 {
 					catcher.Exec(func() error {
 						if i == 2 {
@@ -51,11 +58,10 @@ var _ = Describe("Catcher", func() {
 				}
 				Expect(counter).To(Equal(4))
 				Expect(catcher.Error()).ToNot(BeNil())
-				Expect(catcher.Errors()).To(HaveLen(1))
 			})
 			It("Should aggregate multiple errors", func() {
 				counter := 1
-				catcher := errors.NewCatcher()
+				catcher := errors.Catcher{}
 				for range 4 {
 					catcher.Exec(func() error {
 						counter++
@@ -63,7 +69,7 @@ var _ = Describe("Catcher", func() {
 					})
 				}
 				Expect(counter).To(Equal(5))
-				Expect(catcher.Errors()).To(HaveLen(4))
+				Expect(catcher.Error()).ToNot(BeNil())
 			})
 		})
 	})

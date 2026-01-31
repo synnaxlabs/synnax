@@ -23,9 +23,7 @@ type Validator struct {
 	errors.Catcher
 }
 
-func New(scope string) *Validator {
-	return &Validator{scope: scope, Catcher: *errors.NewCatcher()}
-}
+func New(scope string) *Validator { return &Validator{scope: scope} }
 
 // Ternary adds the error with the given message to the validator if the condition is
 // true.

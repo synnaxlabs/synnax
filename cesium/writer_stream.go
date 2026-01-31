@@ -278,7 +278,7 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *streamWriter) close(ctx context.Context) error {
-	c := errors.NewCatcher()
+	var c errors.Catcher
 	parentUpdate := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, idx := range w.internal {
 		c.Exec(func() error {
@@ -404,7 +404,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
-	c := errors.NewCatcher()
+	var c errors.Catcher
 	for _, chW := range w.internal {
 		c.Exec(func() error { return chW.CommitWithEnd(ctx, end.Lower) })
 	}
@@ -412,7 +412,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *idxWriter) Close() (ControlUpdate, error) {
-	c := errors.NewCatcher()
+	var c errors.Catcher
 	update := ControlUpdate{
 		Transfers: make([]control.Transfer, 0, len(w.internal)),
 	}
@@ -615,7 +615,7 @@ func (w virtualWriter) write(filterUnauthorized *[]ChannelKey, fr Frame) (Frame,
 }
 
 func (w virtualWriter) Close() (ControlUpdate, error) {
-	c := errors.NewCatcher()
+	var c errors.Catcher
 	update := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, chW := range w.internal {
 		// We do not want to clean up the digest channel since we want to use it to send

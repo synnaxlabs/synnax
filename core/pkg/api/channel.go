@@ -302,7 +302,7 @@ func (s *ChannelService) Delete(
 	req ChannelDeleteRequest,
 ) (types.Nil, error) {
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		c := errors.NewCatcher()
+		var c errors.Catcher
 		w := s.internal.NewWriter(tx)
 		if len(req.Keys) > 0 {
 			c.Exec(func() error {

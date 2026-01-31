@@ -88,7 +88,7 @@ func (s *FrameService) FrameDelete(
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		c := errors.NewCatcher()
+		var c errors.Catcher
 		w := s.Internal.NewDeleter()
 		if len(req.Keys) > 0 {
 			c.Exec(func() error {

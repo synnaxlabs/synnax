@@ -188,7 +188,7 @@ func (db *DB) Close() error {
 		db.closed.Store(false)
 		return err
 	}
-	w := errors.NewCatcher()
+	var w errors.Catcher
 	w.Exec(db.fc.close)
 	w.Exec(db.idx.close)
 	return w.Error()

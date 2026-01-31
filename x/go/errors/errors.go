@@ -65,9 +65,7 @@ func Wrapf(err error, format string, args ...any) error {
 // discarded. Join returns nil if errs contains no non-nil values. The error formats as
 // the concatenation of the strings obtained by calling the Error method of each element
 // of errs, with a newline between each string. A stack trace is also retained.
-func Join(errs ...error) error {
-	return errors.Join(errs...)
-}
+func Join(errs ...error) error { return errors.Join(errs...) }
 
 // Combine returns:
 //  1. err if otherErr is nil.

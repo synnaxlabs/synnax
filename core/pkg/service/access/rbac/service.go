@@ -63,7 +63,7 @@ type Service struct {
 }
 
 func (s *Service) Close() error {
-	c := errors.NewCatcher()
+	var c errors.Catcher
 	c.Exec(s.Policy.Close)
 	c.Exec(s.Role.Close)
 	return c.Error()
