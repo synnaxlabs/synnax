@@ -11,14 +11,12 @@ package sift
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -52,6 +50,10 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// Task is used for deleting tasks after upload completion.
+	//
+	// [REQUIRED]
+	Task *task.Service
 	alamos.Instrumentation
 }
 
@@ -67,6 +69,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Task = override.Nil(c.Task, other.Task)
 	return c
 }
 
@@ -77,6 +80,7 @@ func (c FactoryConfig) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "status", c.Status)
+	validate.NotNil(v, "task", c.Task)
 	return v.Error()
 }
 
@@ -147,52 +151,6 @@ func (f *Factory) configureUploader(
 	return uploader, nil
 }
 
-// ConfigureInitialTasks creates uploader tasks for each Sift device on the rack.
-func (f *Factory) ConfigureInitialTasks(
-	ctx driver.Context,
-	rackKey rack.Key,
-) ([]task.Task, error) {
-	// Query all Sift devices on this rack
-	var devices []device.Device
-	if err := f.cfg.Device.NewRetrieve().
-		WhereRacks(rackKey).
-		Entries(&devices).
-		Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-
-	var tasks []task.Task
-	for _, dev := range devices {
-		if dev.Make != DeviceMake {
-			continue // Skip non-Sift devices
-		}
-
-		// Create uploader task config
-		cfg := UploaderTaskConfig{DeviceKey: dev.Key}
-		cfgJSON, err := json.Marshal(cfg)
-		if err != nil {
-			f.cfg.L.Error("failed to marshal uploader config",
-				zap.String("device", dev.Key),
-				zap.Error(err),
-			)
-			continue
-		}
-
-		// Generate a deterministic task key for this device
-		taskKey := task.NewKey(rackKey, deviceKeyToLocalKey(dev.Key))
-
-		tasks = append(tasks, task.Task{
-			Key:      taskKey,
-			Name:     fmt.Sprintf("Sift Uploader - %s", dev.Name),
-			Type:     TaskTypeUploader,
-			Config:   string(cfgJSON),
-			Internal: true,
-		})
-	}
-
-	return tasks, nil
-}
-
 func (f *Factory) setConfigStatus(
 	ctx driver.Context,
 	t task.Task,
@@ -225,19 +183,3 @@ func (f *Factory) Name() string { return "Sift" }
 
 // Close closes the connection pool.
 func (f *Factory) Close() error { return f.pool.Close() }
-
-// deviceKeyToLocalKey converts a device key string to a local task key. Uses a simple
-// hash to generate a deterministic uint32.
-func deviceKeyToLocalKey(deviceKey string) uint32 {
-	// FNV-1a hash for deterministic key generation
-	var hash uint32 = 2166136261
-	for i := 0; i < len(deviceKey); i++ {
-		hash ^= uint32(deviceKey[i])
-		hash *= 16777619
-	}
-	// Ensure non-zero (task keys must have non-zero local key)
-	if hash == 0 {
-		hash = 1
-	}
-	return hash
-}

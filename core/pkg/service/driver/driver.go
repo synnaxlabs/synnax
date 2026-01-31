@@ -84,7 +84,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	cfg.L.Info("created Core driver rack", zap.Stringer("key", d.rack.Key))
 
 	d.startHeartbeat()
-	d.configureInitialTasks(ctx)
+	d.configureExistingTasks(ctx)
 	taskObs := gorp.Observe[task.Key, task.Task](cfg.DB)
 	d.disconnectObserver = taskObs.OnChange(d.handleTaskChange)
 	if err = d.startCommandStreaming(ctx); err != nil {
@@ -193,52 +193,14 @@ func (d *Driver) handleTaskChange(
 	}
 }
 
-func (d *Driver) configureInitialTasks(ctx context.Context) {
-	taskCtx := NewContext(ctx, d.cfg.Status)
-
-	for _, factory := range d.cfg.Factories {
-		tasks, err := factory.ConfigureInitialTasks(taskCtx, d.rack.Key)
-		if err != nil {
-			d.cfg.L.Error(
-				"failed to configure initial tasks",
-				zap.String("factory", factory.Name()),
-				zap.Error(err),
-			)
-			continue
-		}
-		if len(tasks) == 0 {
-			continue
-		}
-		if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			w := d.cfg.Task.NewWriter(tx)
-			for _, t := range tasks {
-				if err := w.Create(ctx, &t); err != nil {
-					return errors.Wrapf(err, "failed to persist %s", t)
-				}
-			}
-			return nil
-		}); err != nil {
-			d.cfg.L.Error(
-				"failed to persist initial tasks",
-				zap.String("factory", factory.Name()),
-				zap.Error(err),
-			)
-			continue
-		}
-		d.cfg.L.Info(
-			"configured initial tasks",
-			zap.String("factory", factory.Name()),
-			zap.Int("count", len(tasks)),
-		)
-	}
-
+func (d *Driver) configureExistingTasks(ctx context.Context) {
 	var tasks []task.Task
 	if err := d.cfg.Task.NewRetrieve().
 		WhereRacks(d.rack.Key).
 		WhereSnapshot(false).
 		Entries(&tasks).
 		Exec(ctx, nil); err != nil {
-		d.cfg.L.Error("failed to retrieve initial tasks", zap.Error(err))
+		d.cfg.L.Error("failed to retrieve existing tasks", zap.Error(err))
 		return
 	}
 	d.cfg.L.Info("configuring existing tasks", zap.Int("count", len(tasks)))

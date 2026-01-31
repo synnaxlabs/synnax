@@ -100,6 +100,7 @@ func (u *uploaderTask) cancel() error {
 
 func (u *uploaderTask) doUpload(ctx context.Context, cmd UploadCommand) {
 	defer u.uploading.Store(false)
+	defer u.deleteTask()
 
 	// Set status to running
 	u.setStatus(xstatus.VariantInfo, "Upload starting", true)
@@ -414,6 +415,19 @@ func (u *uploaderTask) setStatus(
 }
 
 func (u *uploaderTask) Stop() error { return u.cancel() }
+
+func (u *uploaderTask) deleteTask() {
+	if err := u.factoryCfg.Task.NewWriter(nil).Delete(
+		context.Background(),
+		u.task.Key,
+		false,
+	); err != nil {
+		u.factoryCfg.L.Error("failed to delete upload task",
+			zap.Uint64("task", uint64(u.task.Key)),
+			zap.Error(err),
+		)
+	}
+}
 
 // Ensure uploaderTask implements driver.Task
 var _ driver.Task = (*uploaderTask)(nil)
