@@ -88,8 +88,8 @@ catalogs:
       specifier: ^3.2.4
       version: 3.2.4
     zod:
-      specifier: 4.1.13
-      version: 4.1.13
+      specifier: ^4.3.6
+      version: 4.3.6
 
 importers:
 
@@ -185,7 +185,7 @@ importers:
         version: 0.5.0
       zod:
         specifier: 'catalog:'
-        version: 4.1.13
+        version: 4.3.6
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
@@ -412,7 +412,7 @@ importers:
         version: 3.5.0
       zod:
         specifier: 'catalog:'
-        version: 4.1.13
+        version: 4.3.6
     devDependencies:
       '@codingame/esbuild-import-meta-url-plugin':
         specifier: ^1.0.3
@@ -527,7 +527,7 @@ importers:
         version: 1.29.2
       zod:
         specifier: 'catalog:'
-        version: 4.1.13
+        version: 4.3.6
     devDependencies:
       '@astrojs/check':
         specifier: ^0.9.6
@@ -609,7 +609,7 @@ importers:
         version: 9.2.0(@types/react@19.2.10)(react@19.2.4)(redux@5.0.1)
       zod:
         specifier: 'catalog:'
-        version: 4.1.13
+        version: 4.3.6
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
@@ -658,7 +658,7 @@ importers:
         version: link:../../x/ts
       zod:
         specifier: 'catalog:'
-        version: 4.1.13
+        version: 4.3.6
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
@@ -761,7 +761,7 @@ importers:
         version: 5.5.0(react@19.2.4)
       zod:
         specifier: 'catalog:'
-        version: 4.1.13
+        version: 4.3.6
     devDependencies:
       '@juggle/resize-observer':
         specifier: ^3.4.0
@@ -892,7 +892,7 @@ importers:
         version: 13.0.0
       zod:
         specifier: 'catalog:'
-        version: 4.1.13
+        version: 4.3.6
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: workspace:^
@@ -7084,9 +7084,6 @@ packages:
 
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
-
-  zod@4.1.13:
-    resolution: {integrity: sha512-AvvthqfqrAhNH9dnfmrfKzX5upOdjUVJYFqNSlkmGf64gRaTzlPwz99IHYnVs28qYAybvAlBV+H7pn0saFY4Ig==}
 
   zod@4.3.6:
     resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
@@ -14787,8 +14784,6 @@ snapshots:
       zod: 3.25.76
 
   zod@3.25.76: {}
-
-  zod@4.1.13: {}
 
   zod@4.3.6: {}
 
