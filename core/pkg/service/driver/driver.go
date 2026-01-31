@@ -56,8 +56,8 @@ type commandSink struct {
 	driver *Driver
 }
 
-// Open creates and starts a new Go driver. The driver is fully initialized and ready
-// to receive task changes when this function returns. Background goroutines for command
+// Open creates and starts a new Go driver. The driver is fully initialized and ready to
+// receive task changes when this function returns. Background goroutines for command
 // streaming are started automatically.
 func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
@@ -115,8 +115,8 @@ func (d *Driver) startHeartbeat() {
 		})
 }
 
-// startCommandStreaming initializes the command channel streamer. This is optional
-// and will log warnings if the command channel doesn't exist or streaming fails.
+// startCommandStreaming initializes the command channel streamer. This is optional and
+// will log warnings if the command channel doesn't exist or streaming fails.
 func (d *Driver) startCommandStreaming(ctx context.Context) error {
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.shutdownCommands = signal.NewGracefulShutdown(sCtx, cancel)
@@ -127,7 +127,9 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 		return err
 	}
 	p := plumber.New()
-	plumber.SetSegment[framer.StreamerRequest, framer.StreamerResponse](p, "streamer", streamer)
+	plumber.SetSegment[framer.StreamerRequest, framer.StreamerResponse](
+		p, "streamer", streamer,
+	)
 	sink := &commandSink{driver: d}
 	sink.Sink = sink.process
 	plumber.SetSink[framer.StreamerResponse](p, "driver", sink)
@@ -159,7 +161,10 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 			t, ok := d.mu.tasks[cmd.Task]
 			d.mu.RUnlock()
 			if !ok {
-				d.cfg.L.Warn("received command for unknown task", zap.Stringer("task", cmd.Task))
+				d.cfg.L.Warn(
+					"received command for unknown task",
+					zap.Stringer("task", cmd.Task),
+				)
 				continue
 			}
 			if err := t.Exec(ctx, cmd); err != nil {
@@ -173,7 +178,10 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 	}
 }
 
-func (d *Driver) handleTaskChange(ctx context.Context, reader gorp.TxReader[task.Key, task.Task]) {
+func (d *Driver) handleTaskChange(
+	ctx context.Context,
+	reader gorp.TxReader[task.Key, task.Task],
+) {
 	for ch := range reader {
 		if ch.Key.Rack() == d.rack.Key {
 			if ch.Variant == change.VariantSet {
@@ -296,9 +304,7 @@ func (d *Driver) delete(key task.Key) {
 	d.cfg.L.Info("deleted task", zap.Stringer("task", key))
 }
 
-func (d *Driver) RackKey() rack.Key {
-	return d.rack.Key
-}
+func (d *Driver) RackKey() rack.Key { return d.rack.Key }
 
 func (d *Driver) Close() error {
 	d.mu.Lock()
