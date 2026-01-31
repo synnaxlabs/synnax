@@ -33,18 +33,23 @@ import (
 // FactoryConfig is the configuration for creating a Sift factory.
 type FactoryConfig struct {
 	// Device is used for retrieving Sift device information.
+	//
 	// [REQUIRED]
 	Device *device.Service
 	// Ranger is used for retrieving range information for uploads.
+	//
 	// [REQUIRED]
 	Ranger *ranger.Service
 	// Framer is used for reading/writing telemetry.
+	//
 	// [REQUIRED]
 	Framer *framer.Service
 	// Channel is used for retrieving channel metadata.
+	//
 	// [REQUIRED]
 	Channel *channel.Service
 	// Status is used for task status updates.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	alamos.Instrumentation
@@ -135,7 +140,10 @@ func (f *Factory) configureUploader(
 	}
 
 	uploader := newUploaderTask(t, props, f.cfg, f.pool)
-	f.setConfigStatus(ctx, t, xstatus.VariantSuccess, "Uploader task configured successfully")
+	f.setConfigStatus(
+		ctx, t, xstatus.VariantSuccess,
+		"Uploader task configured successfully",
+	)
 	return uploader, nil
 }
 
@@ -216,12 +224,10 @@ func (f *Factory) setConfigStatus(
 func (f *Factory) Name() string { return "Sift" }
 
 // Close closes the connection pool.
-func (f *Factory) Close() error {
-	return f.pool.Close()
-}
+func (f *Factory) Close() error { return f.pool.Close() }
 
-// deviceKeyToLocalKey converts a device key string to a local task key.
-// Uses a simple hash to generate a deterministic uint32.
+// deviceKeyToLocalKey converts a device key string to a local task key. Uses a simple
+// hash to generate a deterministic uint32.
 func deviceKeyToLocalKey(deviceKey string) uint32 {
 	// FNV-1a hash for deterministic key generation
 	var hash uint32 = 2166136261

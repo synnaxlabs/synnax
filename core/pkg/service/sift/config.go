@@ -18,7 +18,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// DeviceProperties contains the Sift connection configuration stored in device.Properties.
+// DeviceProperties contains the Sift connection configuration stored in
+// device.Properties.
 type DeviceProperties struct {
 	// URI is the Sift API endpoint (e.g., "api.siftstack.com:443").
 	URI string `json:"uri"`
@@ -41,9 +42,9 @@ func ParseDeviceProperties(s string) (DeviceProperties, error) {
 	return p, nil
 }
 
-// UploaderTaskConfig is the configuration for a Sift uploader task.
-// The uploader task is auto-created on boot for each Sift device.
-// Channels come from upload commands, not from the task config.
+// UploaderTaskConfig is the configuration for a Sift uploader task. The uploader task
+// is auto-created on boot for each Sift device. Channels come from upload commands, not
+// from the task config.
 type UploaderTaskConfig struct {
 	// DeviceKey references the Sift device containing connection config.
 	DeviceKey string `json:"device_key"`

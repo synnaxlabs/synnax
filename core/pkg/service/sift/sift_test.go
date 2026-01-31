@@ -15,112 +15,89 @@ import (
 	typev1 "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Sift", func() {
 	Describe("MapDataType", func() {
 		It("Should map Float64 correctly", func() {
-			dt, err := sift.MapDataType(telem.Float64T)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(dt).To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_DOUBLE))
+			Expect(sift.MapDataType(telem.Float64T)).
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_DOUBLE))
 		})
 
 		It("Should map Float32 correctly", func() {
-			dt, err := sift.MapDataType(telem.Float32T)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(dt).To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_FLOAT))
+			Expect(sift.MapDataType(telem.Float32T)).
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_FLOAT))
 		})
 
 		It("Should map Int64 correctly", func() {
-			dt, err := sift.MapDataType(telem.Int64T)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(dt).To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_64))
+			Expect(sift.MapDataType(telem.Int64T)).
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_64))
 		})
 
 		It("Should map Int32 correctly", func() {
-			dt, err := sift.MapDataType(telem.Int32T)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(dt).To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_32))
+			Expect(sift.MapDataType(telem.Int32T)).
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_32))
 		})
 
 		It("Should map Uint64 correctly", func() {
-			dt, err := sift.MapDataType(telem.Uint64T)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(dt).To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_64))
+			Expect(sift.MapDataType(telem.Uint64T)).
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_64))
 		})
 
 		It("Should map Uint32 correctly", func() {
-			dt, err := sift.MapDataType(telem.Uint32T)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(dt).To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32))
+			Expect(sift.MapDataType(telem.Uint32T)).
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32))
 		})
 
 		It("Should map String correctly", func() {
-			dt, err := sift.MapDataType(telem.StringT)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(dt).To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_STRING))
+			Expect(sift.MapDataType(telem.StringT)).
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_STRING))
 		})
 
 		It("Should map TimeStamp correctly", func() {
-			dt, err := sift.MapDataType(telem.TimeStampT)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(dt).To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_64))
+			Expect(sift.MapDataType(telem.TimeStampT)).
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_64))
 		})
 
 		It("Should map Int8 to Int32", func() {
-			dt, err := sift.MapDataType(telem.Int8T)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(dt).To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_32))
+			Expect(sift.MapDataType(telem.Int8T)).
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_32))
 		})
 
 		It("Should map Int16 to Int32", func() {
-			dt, err := sift.MapDataType(telem.Int16T)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(dt).To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_32))
+			Expect(sift.MapDataType(telem.Int16T)).
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_32))
 		})
 
 		It("Should map Uint8 to Uint32", func() {
-			dt, err := sift.MapDataType(telem.Uint8T)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(dt).To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32))
+			Expect(sift.MapDataType(telem.Uint8T)).
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32))
 		})
 
 		It("Should map Uint16 to Uint32", func() {
-			dt, err := sift.MapDataType(telem.Uint16T)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(dt).To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32))
+			Expect(sift.MapDataType(telem.Uint16T)).
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32))
 		})
 	})
 
 	Describe("ConvertSeriesToValues", func() {
 		It("Should convert Float64 series correctly", func() {
-			series := telem.NewSeriesV[float64](1.5, 2.5, 3.5)
-			values, err := sift.ConvertSeriesToValues(series)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(values).To(HaveLen(3))
-			Expect(values[0]).To(Equal(1.5))
-			Expect(values[1]).To(Equal(2.5))
-			Expect(values[2]).To(Equal(3.5))
+			series := telem.NewSeriesV(1.5, 2.5, 3.5)
+			Expect(sift.ConvertSeriesToValues(series)).
+				To(Equal([]any{1.5, 2.5, 3.5}))
 		})
 
 		It("Should convert Int64 series correctly", func() {
 			series := telem.NewSeriesV[int64](1, 2, 3)
-			values, err := sift.ConvertSeriesToValues(series)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(values).To(HaveLen(3))
-			Expect(values[0]).To(Equal(int64(1)))
-			Expect(values[1]).To(Equal(int64(2)))
-			Expect(values[2]).To(Equal(int64(3)))
+			Expect(sift.ConvertSeriesToValues(series)).
+				To(Equal([]any{int64(1), int64(2), int64(3)}))
 		})
 
 		It("Should convert Int8 to Int32", func() {
 			series := telem.NewSeriesV[int8](1, 2, 3)
-			values, err := sift.ConvertSeriesToValues(series)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(values).To(HaveLen(3))
-			Expect(values[0]).To(Equal(int32(1)))
-			Expect(values[1]).To(Equal(int32(2)))
-			Expect(values[2]).To(Equal(int32(3)))
+			Expect(sift.ConvertSeriesToValues(series)).
+				To(Equal([]any{int32(1), int32(2), int32(3)}))
 		})
 	})
 
@@ -132,12 +109,13 @@ var _ = Describe("Sift", func() {
 				"asset_name": "test-asset",
 				"client_key": "synnax-test"
 			}`
-			props, err := sift.ParseDeviceProperties(jsonStr)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(props.URI).To(Equal("api.siftstack.com:443"))
-			Expect(props.APIKey).To(Equal("sk-test-key"))
-			Expect(props.AssetName).To(Equal("test-asset"))
-			Expect(props.ClientKey).To(Equal("synnax-test"))
+			Expect(sift.ParseDeviceProperties(jsonStr)).To(Equal(sift.DeviceProperties{
+				URI:            "api.siftstack.com:443",
+				APIKey:         "sk-test-key",
+				AssetName:      "test-asset",
+				ClientKey:      "synnax-test",
+				OrganizationID: "",
+			}))
 		})
 
 		It("Should parse properties with optional organization_id", func() {
@@ -148,14 +126,12 @@ var _ = Describe("Sift", func() {
 				"client_key": "synnax-test",
 				"organization_id": "org-123"
 			}`
-			props, err := sift.ParseDeviceProperties(jsonStr)
-			Expect(err).ToNot(HaveOccurred())
+			props := MustSucceed(sift.ParseDeviceProperties(jsonStr))
 			Expect(props.OrganizationID).To(Equal("org-123"))
 		})
 
 		It("Should return error for invalid JSON", func() {
-			_, err := sift.ParseDeviceProperties("invalid json")
-			Expect(err).To(HaveOccurred())
+			Expect(sift.ParseDeviceProperties("invalid json")).To(HaveOccurred())
 		})
 	})
 })

@@ -80,9 +80,11 @@ func (c *Client) GetOrCreateIngestionConfig(
 	flows []FlowConfig,
 ) (*ingestionconfigsv1.IngestionConfig, error) {
 	// First try to find existing config by client key
-	listRes, err := c.ingestionSvc.ListIngestionConfigs(ctx, &ingestionconfigsv1.ListIngestionConfigsRequest{
-		Filter: fmt.Sprintf("client_key == '%s'", c.props.ClientKey),
-	})
+	listRes, err := c.ingestionSvc.ListIngestionConfigs(
+		ctx,
+		&ingestionconfigsv1.ListIngestionConfigsRequest{
+			Filter: fmt.Sprintf("client_key == '%s'", c.props.ClientKey),
+		})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list ingestion configs")
 	}
@@ -110,11 +112,13 @@ func (c *Client) GetOrCreateIngestionConfig(
 	}
 
 	// Create new ingestion config
-	createRes, err := c.ingestionSvc.CreateIngestionConfig(ctx, &ingestionconfigsv1.CreateIngestionConfigRequest{
-		AssetName: c.props.AssetName,
-		ClientKey: c.props.ClientKey,
-		Flows:     protoFlows,
-	})
+	createRes, err := c.ingestionSvc.CreateIngestionConfig(
+		ctx,
+		&ingestionconfigsv1.CreateIngestionConfigRequest{
+			AssetName: c.props.AssetName,
+			ClientKey: c.props.ClientKey,
+			Flows:     protoFlows,
+		})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create ingestion config")
 	}
@@ -142,7 +146,10 @@ type IngestStream struct {
 }
 
 // OpenIngestStream opens a new ingestion stream.
-func (c *Client) OpenIngestStream(ctx context.Context, ingestionConfigID string) (*IngestStream, error) {
+func (c *Client) OpenIngestStream(
+	ctx context.Context,
+	ingestionConfigID string,
+) (*IngestStream, error) {
 	stream, err := c.ingestSvc.IngestWithConfigDataStream(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open ingest stream")
@@ -177,9 +184,7 @@ type ConnectionPool struct {
 
 // NewConnectionPool creates a new connection pool.
 func NewConnectionPool() *ConnectionPool {
-	return &ConnectionPool{
-		clients: make(map[string]*Client),
-	}
+	return &ConnectionPool{clients: make(map[string]*Client)}
 }
 
 // Get retrieves or creates a client for the given device properties.

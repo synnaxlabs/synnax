@@ -46,12 +46,12 @@ func MapDataType(dt telem.DataType) (typev1.ChannelDataType, error) {
 	case telem.BytesT:
 		return typev1.ChannelDataType_CHANNEL_DATA_TYPE_BYTES, nil
 	default:
-		return typev1.ChannelDataType_CHANNEL_DATA_TYPE_UNSPECIFIED,
-			errors.Newf("unsupported data type for Sift: %s", dt)
+		return 0, errors.Newf("unsupported data type for Sift: %s", dt)
 	}
 }
 
-// ConvertSeriesToValues converts a Synnax series to a slice of values for Sift ingestion.
+// ConvertSeriesToValues converts a Synnax series to a slice of values for Sift
+// ingestion.
 func ConvertSeriesToValues(series telem.Series) ([]any, error) {
 	switch series.DataType {
 	case telem.Float64T:
@@ -132,6 +132,7 @@ func ConvertSeriesToValues(series telem.Series) ([]any, error) {
 		}
 		return result, nil
 	default:
-		return nil, errors.Newf("unsupported data type for conversion: %s", series.DataType)
+		return nil,
+			errors.Newf("unsupported data type for conversion: %s", series.DataType)
 	}
 }

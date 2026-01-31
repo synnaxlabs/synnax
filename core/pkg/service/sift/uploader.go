@@ -15,8 +15,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/google/uuid"
-	typev1 "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
 	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -37,10 +35,9 @@ type uploaderTask struct {
 	props      DeviceProperties
 	factoryCfg FactoryConfig
 	pool       *ConnectionPool
-
-	mu        sync.Mutex
-	uploading atomic.Bool
-	cancelFn  context.CancelFunc
+	mu         sync.Mutex
+	uploading  atomic.Bool
+	cancelFn   context.CancelFunc
 }
 
 func newUploaderTask(
@@ -113,7 +110,11 @@ func (u *uploaderTask) doUpload(ctx context.Context, cmd UploadCommand) {
 		WhereKeys(cmd.RangeKey).
 		Entry(&rng).
 		Exec(ctx, nil); err != nil {
-		u.setStatus(xstatus.VariantError, errors.Wrap(err, "failed to retrieve range").Error(), false)
+		u.setStatus(
+			xstatus.VariantError,
+			errors.Wrap(err, "failed to retrieve range").Error(),
+			false,
+		)
 		return
 	}
 
@@ -129,7 +130,11 @@ func (u *uploaderTask) doUpload(ctx context.Context, cmd UploadCommand) {
 		WhereKeys(cmd.Channels...).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
-		u.setStatus(xstatus.VariantError, errors.Wrap(err, "failed to retrieve channels").Error(), false)
+		u.setStatus(
+			xstatus.VariantError,
+			errors.Wrap(err, "failed to retrieve channels").Error(),
+			false,
+		)
 		return
 	}
 
@@ -142,7 +147,11 @@ func (u *uploaderTask) doUpload(ctx context.Context, cmd UploadCommand) {
 	// Get or create Sift client
 	client, err := u.pool.Get(ctx, u.props)
 	if err != nil {
-		u.setStatus(xstatus.VariantError, errors.Wrap(err, "failed to connect to Sift").Error(), false)
+		u.setStatus(
+			xstatus.VariantError,
+			errors.Wrap(err, "failed to connect to Sift").Error(),
+			false,
+		)
 		return
 	}
 
@@ -156,7 +165,11 @@ func (u *uploaderTask) doUpload(ctx context.Context, cmd UploadCommand) {
 	// Get or create ingestion config
 	ingestionConfig, err := client.GetOrCreateIngestionConfig(ctx, flows)
 	if err != nil {
-		u.setStatus(xstatus.VariantError, errors.Wrap(err, "failed to create ingestion config").Error(), false)
+		u.setStatus(
+			xstatus.VariantError,
+			errors.Wrap(err, "failed to create ingestion config").Error(),
+			false,
+		)
 		return
 	}
 
@@ -177,7 +190,11 @@ func (u *uploaderTask) doUpload(ctx context.Context, cmd UploadCommand) {
 	// Open ingest stream
 	stream, err := client.OpenIngestStream(ctx, ingestionConfig.IngestionConfigId)
 	if err != nil {
-		u.setStatus(xstatus.VariantError, errors.Wrap(err, "failed to open ingest stream").Error(), false)
+		u.setStatus(
+			xstatus.VariantError,
+			errors.Wrap(err, "failed to open ingest stream").Error(),
+			false,
+		)
 		return
 	}
 	defer stream.Close()
@@ -188,7 +205,11 @@ func (u *uploaderTask) doUpload(ctx context.Context, cmd UploadCommand) {
 		Bounds: bounds,
 	})
 	if err != nil {
-		u.setStatus(xstatus.VariantError, errors.Wrap(err, "failed to open iterator").Error(), false)
+		u.setStatus(
+			xstatus.VariantError,
+			errors.Wrap(err, "failed to open iterator").Error(),
+			false,
+		)
 		return
 	}
 	defer iter.Close()
@@ -249,7 +270,11 @@ func (u *uploaderTask) doUpload(ctx context.Context, cmd UploadCommand) {
 				}
 
 				if err := stream.Send(req); err != nil {
-					u.setStatus(xstatus.VariantError, errors.Wrap(err, "failed to send data").Error(), false)
+					u.setStatus(
+						xstatus.VariantError,
+						errors.Wrap(err, "failed to send data").Error(),
+						false,
+					)
 					return
 				}
 				sampleCount++
@@ -263,14 +288,21 @@ func (u *uploaderTask) doUpload(ctx context.Context, cmd UploadCommand) {
 	}
 
 	if err := iter.Error(); err != nil {
-		u.setStatus(xstatus.VariantError, errors.Wrap(err, "iterator error").Error(), false)
+		u.setStatus(
+			xstatus.VariantError,
+			errors.Wrap(err, "iterator error").Error(),
+			false,
+		)
 		return
 	}
 
 	u.setStatus(xstatus.VariantSuccess, "Upload completed", false)
 }
 
-func (u *uploaderTask) buildFlowConfig(flowName string, channels []channel.Channel) ([]FlowConfig, error) {
+func (u *uploaderTask) buildFlowConfig(
+	flowName string,
+	channels []channel.Channel,
+) ([]FlowConfig, error) {
 	channelConfigs := make([]ChannelConfig, 0, len(channels))
 
 	for _, ch := range channels {
@@ -280,7 +312,8 @@ func (u *uploaderTask) buildFlowConfig(flowName string, channels []channel.Chann
 
 		siftType, err := MapDataType(ch.DataType)
 		if err != nil {
-			return nil, errors.Wrapf(err, "unsupported data type for channel %s", ch.Name)
+			return nil,
+				errors.Wrapf(err, "unsupported data type for channel %s", ch.Name)
 		}
 
 		channelConfigs = append(channelConfigs, ChannelConfig{
@@ -298,7 +331,9 @@ func (u *uploaderTask) buildFlowConfig(flowName string, channels []channel.Chann
 	}}, nil
 }
 
-func (u *uploaderTask) convertSeriesToChannelValues(series telem.Series) ([]*ingestv1.IngestWithConfigDataChannelValue, error) {
+func (u *uploaderTask) convertSeriesToChannelValues(
+	series telem.Series,
+) ([]*ingestv1.IngestWithConfigDataChannelValue, error) {
 	values, err := ConvertSeriesToValues(series)
 	if err != nil {
 		return nil, err
@@ -311,11 +346,16 @@ func (u *uploaderTask) convertSeriesToChannelValues(series telem.Series) ([]*ing
 	return result, nil
 }
 
-func (u *uploaderTask) toChannelValue(v any, dt telem.DataType) *ingestv1.IngestWithConfigDataChannelValue {
+func (u *uploaderTask) toChannelValue(
+	v any,
+	dt telem.DataType,
+) *ingestv1.IngestWithConfigDataChannelValue {
 	switch dt {
 	case telem.Float64T:
 		return &ingestv1.IngestWithConfigDataChannelValue{
-			Type: &ingestv1.IngestWithConfigDataChannelValue_Double{Double: v.(float64)},
+			Type: &ingestv1.IngestWithConfigDataChannelValue_Double{
+				Double: v.(float64),
+			},
 		}
 	case telem.Float32T:
 		return &ingestv1.IngestWithConfigDataChannelValue{
@@ -345,7 +385,11 @@ func (u *uploaderTask) toChannelValue(v any, dt telem.DataType) *ingestv1.Ingest
 	}
 }
 
-func (u *uploaderTask) setStatus(variant xstatus.Variant, message string, running bool) {
+func (u *uploaderTask) setStatus(
+	variant xstatus.Variant,
+	message string,
+	running bool,
+) {
 	stat := task.Status{
 		Key:     task.OntologyID(u.task.Key).String(),
 		Name:    u.task.Name,
@@ -357,8 +401,11 @@ func (u *uploaderTask) setStatus(variant xstatus.Variant, message string, runnin
 			Running: running,
 		},
 	}
-	// Use a background context for status updates since the task context may be cancelled
-	if err := status.NewWriter[task.StatusDetails](u.factoryCfg.Status, nil).Set(context.Background(), &stat); err != nil {
+	// Use a background context for status updates since the task context may be
+	// cancelled
+	if err := status.NewWriter[task.StatusDetails](
+		u.factoryCfg.Status, nil,
+	).Set(context.Background(), &stat); err != nil {
 		u.factoryCfg.L.Error("failed to set status",
 			zap.Uint64("task", uint64(u.task.Key)),
 			zap.Error(err),
@@ -370,7 +417,3 @@ func (u *uploaderTask) Stop() error { return u.cancel() }
 
 // Ensure uploaderTask implements driver.Task
 var _ driver.Task = (*uploaderTask)(nil)
-
-// Suppress unused variable warning
-var _ = uuid.UUID{}
-var _ = typev1.ChannelDataType(0)
