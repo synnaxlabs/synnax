@@ -371,11 +371,6 @@ func (u *uploaderTask) Stop(_ bool) error {
 	return u.cancel()
 }
 
-// Key returns the task key.
-func (u *uploaderTask) Key() task.Key {
-	return u.task.Key
-}
-
 // Ensure uploaderTask implements driver.Task
 var _ driver.Task = (*uploaderTask)(nil)
 

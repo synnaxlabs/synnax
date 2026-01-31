@@ -375,10 +375,6 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(arcTask.Exec(ctx, task.Command{Type: "unknown"})).
 				Error().To(MatchError(ContainSubstring("invalid command")))
 		})
-
-		It("Should return correct task key", func() {
-			Expect(arcTask.Key()).ToNot(Equal(task.Key(0)))
-		})
 	})
 
 	Describe("ConfigureTask Error Paths", func() {

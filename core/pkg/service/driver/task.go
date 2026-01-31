@@ -21,6 +21,4 @@ type Task interface {
 	Exec(context.Context, task.Command) error
 	// Stop gracefully shuts down the task.
 	Stop(willReconfigure bool) error
-	// Key returns the task key.
-	Key() task.Key
 }
