@@ -38,11 +38,15 @@ import (
 )
 
 type mockFactory struct {
-	configureFunc func(t task.Task) (driver.Task, error)
-	name          string
+	configureFunc        func(task.Task) (driver.Task, error)
+	configureInitialFunc func(rack.Key) ([]task.Task, error)
+	name                 string
 }
 
-func (f *mockFactory) ConfigureTask(_ driver.Context, t task.Task) (driver.Task, error) {
+func (f *mockFactory) ConfigureTask(
+	_ driver.Context,
+	t task.Task,
+) (driver.Task, error) {
 	if f.configureFunc != nil {
 		return f.configureFunc(t)
 	}
@@ -51,8 +55,11 @@ func (f *mockFactory) ConfigureTask(_ driver.Context, t task.Task) (driver.Task,
 
 func (f *mockFactory) ConfigureInitialTasks(
 	_ driver.Context,
-	_ rack.Key,
+	rackKey rack.Key,
 ) ([]task.Task, error) {
+	if f.configureInitialFunc != nil {
+		return f.configureInitialFunc(rackKey)
+	}
 	return nil, nil
 }
 
@@ -544,6 +551,144 @@ var _ = Describe("Driver", Ordered, func() {
 				_, ok2 := configuredTasks.Load(t2.Key)
 				return ok1 && ok2
 			}).Should(BeTrue())
+		})
+	})
+
+	Describe("ConfigureInitialTasks", func() {
+		It("Should persist and configure tasks returned by factory", func() {
+			var task1Configured, task2Configured atomic.Bool
+			factory := &mockFactory{
+				name: "test",
+				configureInitialFunc: func(rackKey rack.Key) ([]task.Task, error) {
+					return []task.Task{
+						{
+							Key:  task.NewKey(rackKey, taskCounter.Add(1)),
+							Name: "Initial Task 1",
+							Type: "test",
+						},
+						{
+							Key:  task.NewKey(rackKey, taskCounter.Add(1)),
+							Name: "Initial Task 2",
+							Type: "test",
+						},
+					}, nil
+				},
+				configureFunc: func(t task.Task) (driver.Task, error) {
+					if t.Name == "Initial Task 1" {
+						task1Configured.Store(true)
+					}
+					if t.Name == "Initial Task 2" {
+						task2Configured.Store(true)
+					}
+					return &mockTask{key: t.Key}, nil
+				},
+			}
+
+			d := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
+			}))
+			DeferCleanup(func() { Expect(d.Close()).To(Succeed()) })
+
+			Eventually(func() bool {
+				return task1Configured.Load() && task2Configured.Load()
+			}).Should(BeTrue())
+
+			var persistedTasks []task.Task
+			Expect(taskService.NewRetrieve().
+				WhereRacks(d.RackKey()).
+				Entries(&persistedTasks).
+				Exec(ctx, nil)).To(Succeed())
+
+			names := make([]string, len(persistedTasks))
+			for i, t := range persistedTasks {
+				names[i] = t.Name
+			}
+			Expect(names).To(ContainElements("Initial Task 1", "Initial Task 2"))
+		})
+
+		It("Should continue when factory returns error", func() {
+			var successTaskConfigured atomic.Bool
+			errorFactory := &mockFactory{
+				name: "error-factory",
+				configureInitialFunc: func(rack.Key) ([]task.Task, error) {
+					return nil, errors.New("factory error")
+				},
+			}
+			successFactory := &mockFactory{
+				name: "success-factory",
+				configureInitialFunc: func(rackKey rack.Key) ([]task.Task, error) {
+					return []task.Task{{
+						Key:  task.NewKey(rackKey, taskCounter.Add(1)),
+						Name: "Success Task From Initial",
+						Type: "test",
+					}}, nil
+				},
+				configureFunc: func(t task.Task) (driver.Task, error) {
+					if t.Name == "Success Task From Initial" {
+						successTaskConfigured.Store(true)
+					}
+					return &mockTask{key: t.Key}, nil
+				},
+			}
+
+			d := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{errorFactory, successFactory},
+				Host:      hostProvider,
+			}))
+			DeferCleanup(func() { Expect(d.Close()).To(Succeed()) })
+
+			Eventually(func() bool { return successTaskConfigured.Load() }).
+				Should(BeTrue())
+		})
+
+		It("Should not persist when factory returns empty list", func() {
+			var taskCountBefore int
+			var existingTasks []task.Task
+			Expect(taskService.NewRetrieve().
+				Entries(&existingTasks).
+				Exec(ctx, nil)).To(Succeed())
+			taskCountBefore = len(existingTasks)
+
+			factory := &mockFactory{
+				name: "empty-factory",
+				configureInitialFunc: func(rack.Key) ([]task.Task, error) {
+					return []task.Task{}, nil
+				},
+				configureFunc: func(t task.Task) (driver.Task, error) {
+					return &mockTask{key: t.Key}, nil
+				},
+			}
+
+			d := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:        dist.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
+			}))
+			DeferCleanup(func() { Expect(d.Close()).To(Succeed()) })
+
+			var tasksAfter []task.Task
+			Expect(taskService.NewRetrieve().
+				Entries(&tasksAfter).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(len(tasksAfter)).To(Equal(taskCountBefore))
 		})
 	})
 
