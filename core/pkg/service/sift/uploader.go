@@ -15,7 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
+	ingest "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -262,10 +262,10 @@ func (u *uploaderTask) doUpload(ctx context.Context, cmd UploadCommand) {
 			for i, val := range values {
 				ts := series.TimeRange.Start.Add(telem.TimeSpan(i) * sampleSpan)
 
-				req := &ingestv1.IngestWithConfigDataStreamRequest{
+				req := &ingest.IngestWithConfigDataStreamRequest{
 					Flow:          cmd.FlowName,
 					Timestamp:     timestamppb.New(ts.Time()),
-					ChannelValues: []*ingestv1.IngestWithConfigDataChannelValue{val},
+					ChannelValues: []*ingest.IngestWithConfigDataChannelValue{val},
 					RunId:         runID,
 				}
 
@@ -333,13 +333,13 @@ func (u *uploaderTask) buildFlowConfig(
 
 func (u *uploaderTask) convertSeriesToChannelValues(
 	series telem.Series,
-) ([]*ingestv1.IngestWithConfigDataChannelValue, error) {
+) ([]*ingest.IngestWithConfigDataChannelValue, error) {
 	values, err := ConvertSeriesToValues(series)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]*ingestv1.IngestWithConfigDataChannelValue, len(values))
+	result := make([]*ingest.IngestWithConfigDataChannelValue, len(values))
 	for i, v := range values {
 		result[i] = u.toChannelValue(v, series.DataType)
 	}
@@ -349,38 +349,38 @@ func (u *uploaderTask) convertSeriesToChannelValues(
 func (u *uploaderTask) toChannelValue(
 	v any,
 	dt telem.DataType,
-) *ingestv1.IngestWithConfigDataChannelValue {
+) *ingest.IngestWithConfigDataChannelValue {
 	switch dt {
 	case telem.Float64T:
-		return &ingestv1.IngestWithConfigDataChannelValue{
-			Type: &ingestv1.IngestWithConfigDataChannelValue_Double{
+		return &ingest.IngestWithConfigDataChannelValue{
+			Type: &ingest.IngestWithConfigDataChannelValue_Double{
 				Double: v.(float64),
 			},
 		}
 	case telem.Float32T:
-		return &ingestv1.IngestWithConfigDataChannelValue{
-			Type: &ingestv1.IngestWithConfigDataChannelValue_Float{Float: v.(float32)},
+		return &ingest.IngestWithConfigDataChannelValue{
+			Type: &ingest.IngestWithConfigDataChannelValue_Float{Float: v.(float32)},
 		}
 	case telem.Int64T, telem.TimeStampT:
-		return &ingestv1.IngestWithConfigDataChannelValue{
-			Type: &ingestv1.IngestWithConfigDataChannelValue_Int64{Int64: v.(int64)},
+		return &ingest.IngestWithConfigDataChannelValue{
+			Type: &ingest.IngestWithConfigDataChannelValue_Int64{Int64: v.(int64)},
 		}
 	case telem.Int32T, telem.Int16T, telem.Int8T:
-		return &ingestv1.IngestWithConfigDataChannelValue{
-			Type: &ingestv1.IngestWithConfigDataChannelValue_Int32{Int32: v.(int32)},
+		return &ingest.IngestWithConfigDataChannelValue{
+			Type: &ingest.IngestWithConfigDataChannelValue_Int32{Int32: v.(int32)},
 		}
 	case telem.Uint64T:
-		return &ingestv1.IngestWithConfigDataChannelValue{
-			Type: &ingestv1.IngestWithConfigDataChannelValue_Uint64{Uint64: v.(uint64)},
+		return &ingest.IngestWithConfigDataChannelValue{
+			Type: &ingest.IngestWithConfigDataChannelValue_Uint64{Uint64: v.(uint64)},
 		}
 	case telem.Uint32T, telem.Uint16T, telem.Uint8T:
-		return &ingestv1.IngestWithConfigDataChannelValue{
-			Type: &ingestv1.IngestWithConfigDataChannelValue_Uint32{Uint32: v.(uint32)},
+		return &ingest.IngestWithConfigDataChannelValue{
+			Type: &ingest.IngestWithConfigDataChannelValue_Uint32{Uint32: v.(uint32)},
 		}
 	default:
 		// Fall back to double for unknown types
-		return &ingestv1.IngestWithConfigDataChannelValue{
-			Type: &ingestv1.IngestWithConfigDataChannelValue_Double{Double: 0},
+		return &ingest.IngestWithConfigDataChannelValue{
+			Type: &ingest.IngestWithConfigDataChannelValue_Double{Double: 0},
 		}
 	}
 }

@@ -10,41 +10,41 @@
 package sift
 
 import (
-	typev1 "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
+	sifttype "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // MapDataType converts a Synnax data type to a Sift channel data type.
-func MapDataType(dt telem.DataType) (typev1.ChannelDataType, error) {
+func MapDataType(dt telem.DataType) (sifttype.ChannelDataType, error) {
 	switch dt {
 	case telem.Float64T:
-		return typev1.ChannelDataType_CHANNEL_DATA_TYPE_DOUBLE, nil
+		return sifttype.ChannelDataType_CHANNEL_DATA_TYPE_DOUBLE, nil
 	case telem.Float32T:
-		return typev1.ChannelDataType_CHANNEL_DATA_TYPE_FLOAT, nil
+		return sifttype.ChannelDataType_CHANNEL_DATA_TYPE_FLOAT, nil
 	case telem.Int64T:
-		return typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_64, nil
+		return sifttype.ChannelDataType_CHANNEL_DATA_TYPE_INT_64, nil
 	case telem.Int32T:
-		return typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_32, nil
+		return sifttype.ChannelDataType_CHANNEL_DATA_TYPE_INT_32, nil
 	case telem.Uint64T:
-		return typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_64, nil
+		return sifttype.ChannelDataType_CHANNEL_DATA_TYPE_UINT_64, nil
 	case telem.Uint32T:
-		return typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32, nil
+		return sifttype.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32, nil
 	case telem.StringT:
-		return typev1.ChannelDataType_CHANNEL_DATA_TYPE_STRING, nil
+		return sifttype.ChannelDataType_CHANNEL_DATA_TYPE_STRING, nil
 	case telem.TimeStampT:
 		// Timestamps are sent as int64 nanoseconds
-		return typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_64, nil
+		return sifttype.ChannelDataType_CHANNEL_DATA_TYPE_INT_64, nil
 	case telem.Int8T:
-		return typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_32, nil
+		return sifttype.ChannelDataType_CHANNEL_DATA_TYPE_INT_32, nil
 	case telem.Int16T:
-		return typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_32, nil
+		return sifttype.ChannelDataType_CHANNEL_DATA_TYPE_INT_32, nil
 	case telem.Uint8T:
-		return typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32, nil
+		return sifttype.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32, nil
 	case telem.Uint16T:
-		return typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32, nil
+		return sifttype.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32, nil
 	case telem.BytesT:
-		return typev1.ChannelDataType_CHANNEL_DATA_TYPE_BYTES, nil
+		return sifttype.ChannelDataType_CHANNEL_DATA_TYPE_BYTES, nil
 	default:
 		return 0, errors.Newf("unsupported data type for Sift: %s", dt)
 	}
