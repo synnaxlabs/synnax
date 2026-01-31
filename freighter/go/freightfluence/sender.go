@@ -226,9 +226,9 @@ o:
 }
 
 func (m *MultiTransformSender[I, M]) closeSenders() error {
-	var c errors.Accumulator
+	var a errors.Accumulator
 	for _, s := range m.Senders {
-		c.Exec(s.CloseSend)
+		a.Exec(s.CloseSend)
 	}
-	return c.Error()
+	return a.Error()
 }

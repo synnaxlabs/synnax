@@ -16,7 +16,7 @@ import (
 )
 
 var _ = Describe("Accumulator", func() {
-	Context("No error encountered", func() {
+	Describe("No error encountered", func() {
 		It("Should execute function and without errors", func() {
 			var (
 				counter     int
@@ -30,7 +30,7 @@ var _ = Describe("Accumulator", func() {
 			Expect(accumulator.Error()).To(BeNil())
 		})
 	})
-	Context("Errors encountered", func() {
+	Describe("Errors encountered", func() {
 		It("Should accumulate errors and continue execution", func() {
 			var (
 				counter     int
