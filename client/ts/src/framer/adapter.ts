@@ -15,7 +15,7 @@ import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
 
 export class ReadAdapter {
-  private adapter: Map<channel.Key, channel.Name> | null;
+  private adapter: Map<channel.Key, string> | null;
   retriever: channel.Retriever;
   keys: Set<channel.Key>;
   codec: Codec;
@@ -54,7 +54,7 @@ export class ReadAdapter {
       this.keys = new Set(normalized as channel.Key[]);
       return true;
     }
-    const a = new Map<channel.Key, channel.Name>();
+    const a = new Map<channel.Key, string>();
     this.adapter = a;
     normalized.forEach((name) => {
       const channel = fetched.find((channel) => channel.name === name);
@@ -87,7 +87,7 @@ export class ReadAdapter {
 }
 
 export class WriteAdapter {
-  private adapter: Map<channel.Name, channel.Key> | null;
+  private adapter: Map<string, channel.Key> | null;
   retriever: channel.Retriever;
   keys: channel.Key[];
   codec: Codec;
@@ -125,9 +125,7 @@ export class WriteAdapter {
     const hasRemovedKeys = !previousKeySet.isSubsetOf(newKeySet);
     const hasChanged = hasAddedKeys || hasRemovedKeys;
     if (!hasChanged) return false;
-    this.adapter = new Map<channel.Name, channel.Key>(
-      results.map((c) => [c.name, c.key]),
-    );
+    this.adapter = new Map<string, channel.Key>(results.map((c) => [c.name, c.key]));
     this.keys = newKeys;
     this.codec.update(
       this.keys,
@@ -137,7 +135,7 @@ export class WriteAdapter {
   }
 
   private async fetchChannel(
-    ch: channel.Key | channel.Name | channel.Payload,
+    ch: channel.KeyOrName | channel.Payload,
   ): Promise<channel.Payload> {
     const res = await this.retriever.retrieve(ch);
     if (res.length === 0) throw new Error(`Channel ${JSON.stringify(ch)} not found`);
