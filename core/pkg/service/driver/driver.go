@@ -241,11 +241,10 @@ func (d *Driver) configureInitialTasks(ctx context.Context) {
 		d.cfg.L.Error("failed to retrieve initial tasks", zap.Error(err))
 		return
 	}
-	d.cfg.L.Info("configuring initial tasks", zap.Int("count", len(tasks)))
+	d.cfg.L.Info("configuring existing tasks", zap.Int("count", len(tasks)))
 	for _, t := range tasks {
 		d.configure(ctx, t)
 	}
-	d.cfg.L.Info("configured initial tasks", zap.Int("count", len(tasks)))
 }
 
 func (d *Driver) configure(ctx context.Context, t task.Task) {
