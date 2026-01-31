@@ -154,6 +154,12 @@ func (db *DB) Delete(
 		return span.Error(err)
 	}
 
+	// Calculate size of removed pointers.
+	var removedSize int64
+	for i := startDomain; i <= endDomain; i++ {
+		removedSize += int64(db.idx.mu.pointers[i].size)
+	}
+
 	// Remove old pointers.
 	db.idx.mu.pointers = append(db.idx.mu.pointers[:startDomain], db.idx.mu.pointers[endDomain+1:]...)
 
@@ -174,6 +180,13 @@ func (db *DB) Delete(
 			size:      uint32(endOffset), // size from tr.End to end.End
 		})
 	}
+
+	// Calculate size of new partial pointers and update totalSize.
+	var addedSize int64
+	for _, p := range newPointers {
+		addedSize += int64(p.size)
+	}
+	db.idx.totalSize.Add(addedSize - removedSize)
 
 	if len(newPointers) != 0 {
 		db.idx.mu.pointers = append(

@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 	"sync"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
@@ -28,6 +29,7 @@ type index struct {
 	}
 	persistHead int
 	deleteLock  sync.RWMutex
+	totalSize   *atomic.Int64
 }
 
 // insert adds a new pointer to the index.
@@ -65,6 +67,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		idx.mu.pointers = slices.Insert(idx.mu.pointers, insertAt, p)
 	}
 
+	idx.totalSize.Add(int64(p.size))
 	idx.persistHead = min(idx.persistHead, insertAt)
 
 	idx.mu.Unlock()
@@ -131,7 +134,9 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		idx.mu.Unlock()
 		return span.Error(NewRangeWriteConflictError(p.TimeRange, ptrs[updateAt+1].TimeRange))
 	} else {
+		sizeDelta := int64(p.size) - int64(oldP.size)
 		idx.mu.pointers[updateAt] = p
+		idx.totalSize.Add(sizeDelta)
 	}
 
 	idx.persistHead = min(idx.persistHead, updateAt)
