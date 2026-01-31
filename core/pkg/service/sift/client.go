@@ -14,27 +14,27 @@ import (
 	"fmt"
 	"sync"
 
-	sifttype "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
-	ingest "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
-	ingestionconfigs "github.com/sift-stack/sift/go/gen/sift/ingestion_configs/v1"
-	runs "github.com/sift-stack/sift/go/gen/sift/runs/v2"
-	siftgrpc "github.com/sift-stack/sift/go/grpc"
+	typev1 "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
+	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
+	ingestion_configsv1 "github.com/sift-stack/sift/go/gen/sift/ingestion_configs/v1"
+	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
+	"github.com/sift-stack/sift/go/grpc"
 	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Client wraps the Sift gRPC client for connection management.
 type Client struct {
-	conn         siftgrpc.SiftChannel
+	conn         grpc.SiftChannel
 	props        DeviceProperties
-	ingestionSvc ingestionconfigs.IngestionConfigServiceClient
-	ingestSvc    ingest.IngestServiceClient
-	runSvc       runs.RunServiceClient
+	ingestionSvc ingestion_configsv1.IngestionConfigServiceClient
+	ingestSvc    ingestv1.IngestServiceClient
+	runSvc       runsv2.RunServiceClient
 }
 
 // NewClient creates a new Sift client from device properties.
 func NewClient(ctx context.Context, props DeviceProperties) (*Client, error) {
-	conn, err := siftgrpc.UseSiftChannel(ctx, siftgrpc.SiftChannelConfig{
+	conn, err := grpc.UseSiftChannel(ctx, grpc.SiftChannelConfig{
 		Uri:            props.URI,
 		Apikey:         props.APIKey,
 		UseSystemCerts: true,
@@ -45,9 +45,9 @@ func NewClient(ctx context.Context, props DeviceProperties) (*Client, error) {
 	return &Client{
 		conn:         conn,
 		props:        props,
-		ingestionSvc: ingestionconfigs.NewIngestionConfigServiceClient(conn),
-		ingestSvc:    ingest.NewIngestServiceClient(conn),
-		runSvc:       runs.NewRunServiceClient(conn),
+		ingestionSvc: ingestion_configsv1.NewIngestionConfigServiceClient(conn),
+		ingestSvc:    ingestv1.NewIngestServiceClient(conn),
+		runSvc:       runsv2.NewRunServiceClient(conn),
 	}, nil
 }
 
@@ -65,7 +65,7 @@ type ChannelConfig struct {
 	Component   string
 	Unit        string
 	Description string
-	DataType    sifttype.ChannelDataType
+	DataType    typev1.ChannelDataType
 }
 
 // FlowConfig represents a flow configuration for an ingestion config.
@@ -78,11 +78,11 @@ type FlowConfig struct {
 func (c *Client) GetOrCreateIngestionConfig(
 	ctx context.Context,
 	flows []FlowConfig,
-) (*ingestionconfigs.IngestionConfig, error) {
+) (*ingestion_configsv1.IngestionConfig, error) {
 	// First try to find existing config by client key
 	listRes, err := c.ingestionSvc.ListIngestionConfigs(
 		ctx,
-		&ingestionconfigs.ListIngestionConfigsRequest{
+		&ingestion_configsv1.ListIngestionConfigsRequest{
 			Filter: fmt.Sprintf("client_key == '%s'", c.props.ClientKey),
 		})
 	if err != nil {
@@ -93,11 +93,11 @@ func (c *Client) GetOrCreateIngestionConfig(
 	}
 
 	// Convert flow configs to Sift proto format
-	protoFlows := make([]*ingestionconfigs.FlowConfig, len(flows))
+	protoFlows := make([]*ingestion_configsv1.FlowConfig, len(flows))
 	for i, flow := range flows {
-		channels := make([]*ingestionconfigs.ChannelConfig, len(flow.Channels))
+		channels := make([]*ingestion_configsv1.ChannelConfig, len(flow.Channels))
 		for j, ch := range flow.Channels {
-			channels[j] = &ingestionconfigs.ChannelConfig{
+			channels[j] = &ingestion_configsv1.ChannelConfig{
 				Name:        ch.Name,
 				Component:   ch.Component,
 				Unit:        ch.Unit,
@@ -105,7 +105,7 @@ func (c *Client) GetOrCreateIngestionConfig(
 				DataType:    ch.DataType,
 			}
 		}
-		protoFlows[i] = &ingestionconfigs.FlowConfig{
+		protoFlows[i] = &ingestion_configsv1.FlowConfig{
 			Name:     flow.Name,
 			Channels: channels,
 		}
@@ -114,7 +114,7 @@ func (c *Client) GetOrCreateIngestionConfig(
 	// Create new ingestion config
 	createRes, err := c.ingestionSvc.CreateIngestionConfig(
 		ctx,
-		&ingestionconfigs.CreateIngestionConfigRequest{
+		&ingestion_configsv1.CreateIngestionConfigRequest{
 			AssetName: c.props.AssetName,
 			ClientKey: c.props.ClientKey,
 			Flows:     protoFlows,
@@ -126,9 +126,9 @@ func (c *Client) GetOrCreateIngestionConfig(
 }
 
 // CreateRun creates a new run for grouping ingested data.
-func (c *Client) CreateRun(ctx context.Context, name string) (*runs.Run, error) {
+func (c *Client) CreateRun(ctx context.Context, name string) (*runsv2.Run, error) {
 	ts := timestamppb.Now()
-	createRes, err := c.runSvc.CreateRun(ctx, &runs.CreateRunRequest{
+	createRes, err := c.runSvc.CreateRun(ctx, &runsv2.CreateRunRequest{
 		Name:      name,
 		StartTime: ts,
 	})
@@ -140,7 +140,7 @@ func (c *Client) CreateRun(ctx context.Context, name string) (*runs.Run, error) 
 
 // IngestStream represents an open ingestion stream.
 type IngestStream struct {
-	stream   ingest.IngestService_IngestWithConfigDataStreamClient
+	stream   ingestv1.IngestService_IngestWithConfigDataStreamClient
 	configID string
 	orgID    string
 }
@@ -162,7 +162,7 @@ func (c *Client) OpenIngestStream(
 }
 
 // Send sends data to the ingestion stream.
-func (s *IngestStream) Send(req *ingest.IngestWithConfigDataStreamRequest) error {
+func (s *IngestStream) Send(req *ingestv1.IngestWithConfigDataStreamRequest) error {
 	req.IngestionConfigId = s.configID
 	if s.orgID != "" {
 		req.OrganizationId = s.orgID

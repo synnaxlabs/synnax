@@ -12,7 +12,7 @@ package sift_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	sifttype "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
+	typev1 "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -22,62 +22,62 @@ var _ = Describe("Sift", func() {
 	Describe("MapDataType", func() {
 		It("Should map Float64 correctly", func() {
 			Expect(sift.MapDataType(telem.Float64T)).
-				To(Equal(sifttype.ChannelDataType_CHANNEL_DATA_TYPE_DOUBLE))
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_DOUBLE))
 		})
 
 		It("Should map Float32 correctly", func() {
 			Expect(sift.MapDataType(telem.Float32T)).
-				To(Equal(sifttype.ChannelDataType_CHANNEL_DATA_TYPE_FLOAT))
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_FLOAT))
 		})
 
 		It("Should map Int64 correctly", func() {
 			Expect(sift.MapDataType(telem.Int64T)).
-				To(Equal(sifttype.ChannelDataType_CHANNEL_DATA_TYPE_INT_64))
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_64))
 		})
 
 		It("Should map Int32 correctly", func() {
 			Expect(sift.MapDataType(telem.Int32T)).
-				To(Equal(sifttype.ChannelDataType_CHANNEL_DATA_TYPE_INT_32))
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_32))
 		})
 
 		It("Should map Uint64 correctly", func() {
 			Expect(sift.MapDataType(telem.Uint64T)).
-				To(Equal(sifttype.ChannelDataType_CHANNEL_DATA_TYPE_UINT_64))
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_64))
 		})
 
 		It("Should map Uint32 correctly", func() {
 			Expect(sift.MapDataType(telem.Uint32T)).
-				To(Equal(sifttype.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32))
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32))
 		})
 
 		It("Should map String correctly", func() {
 			Expect(sift.MapDataType(telem.StringT)).
-				To(Equal(sifttype.ChannelDataType_CHANNEL_DATA_TYPE_STRING))
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_STRING))
 		})
 
 		It("Should map TimeStamp correctly", func() {
 			Expect(sift.MapDataType(telem.TimeStampT)).
-				To(Equal(sifttype.ChannelDataType_CHANNEL_DATA_TYPE_INT_64))
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_64))
 		})
 
 		It("Should map Int8 to Int32", func() {
 			Expect(sift.MapDataType(telem.Int8T)).
-				To(Equal(sifttype.ChannelDataType_CHANNEL_DATA_TYPE_INT_32))
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_32))
 		})
 
 		It("Should map Int16 to Int32", func() {
 			Expect(sift.MapDataType(telem.Int16T)).
-				To(Equal(sifttype.ChannelDataType_CHANNEL_DATA_TYPE_INT_32))
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_INT_32))
 		})
 
 		It("Should map Uint8 to Uint32", func() {
 			Expect(sift.MapDataType(telem.Uint8T)).
-				To(Equal(sifttype.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32))
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32))
 		})
 
 		It("Should map Uint16 to Uint32", func() {
 			Expect(sift.MapDataType(telem.Uint16T)).
-				To(Equal(sifttype.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32))
+				To(Equal(typev1.ChannelDataType_CHANNEL_DATA_TYPE_UINT_32))
 		})
 	})
 

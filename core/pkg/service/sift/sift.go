@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package sift provides integration with Sift for uploading historical data and
-// streaming real-time telemetry.
+// Package sift provides integration with Sift for uploading historical data.
 package sift
 
 const (
-	// TaskTypeUploader is the task type for historical data upload.
+	// TaskTypeUploader is the task type for historical data upload to Sift.
 	TaskTypeUploader = "sift_upload"
 	// DeviceMake is the device make identifier for Sift devices.
 	DeviceMake = "Sift"
