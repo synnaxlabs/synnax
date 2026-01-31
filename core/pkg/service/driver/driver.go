@@ -252,7 +252,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if existing, ok := d.mu.tasks[t.Key]; ok {
-		if err := existing.Stop(true); err != nil {
+		if err := existing.Stop(); err != nil {
 			d.cfg.L.Error("failed to stop existing task for reconfiguration",
 				zap.Stringer("task", t),
 				zap.Error(err),
@@ -294,7 +294,7 @@ func (d *Driver) delete(key task.Key) {
 	if !ok {
 		return
 	}
-	if err := t.Stop(false); err != nil {
+	if err := t.Stop(); err != nil {
 		d.cfg.L.Error("failed to stop task during deletion",
 			zap.Stringer("task", key),
 			zap.Error(err),
@@ -309,7 +309,7 @@ func (d *Driver) RackKey() rack.Key { return d.rack.Key }
 func (d *Driver) Close() error {
 	d.mu.Lock()
 	for key, t := range d.mu.tasks {
-		if err := t.Stop(false); err != nil {
+		if err := t.Stop(); err != nil {
 			d.cfg.L.Error("failed to stop task during shutdown",
 				zap.Stringer("task", key),
 				zap.Error(err),

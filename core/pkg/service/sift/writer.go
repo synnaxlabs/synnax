@@ -362,10 +362,7 @@ func (w *writerTask) setStatus(variant xstatus.Variant, message string, running 
 	}
 }
 
-// Stop stops the writer task.
-func (w *writerTask) Stop(_ bool) error {
-	return w.stop()
-}
+func (w *writerTask) Stop() error { return w.stop() }
 
 // Ensure writerTask implements driver.Task
 var _ driver.Task = (*writerTask)(nil)

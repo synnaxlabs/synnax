@@ -71,7 +71,7 @@ func (t *mockTask) Exec(_ context.Context, cmd task.Command) error {
 	return nil
 }
 
-func (t *mockTask) Stop(_ bool) error {
+func (t *mockTask) Stop() error {
 	if t.stopFunc != nil {
 		return t.stopFunc()
 	}

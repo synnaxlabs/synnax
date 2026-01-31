@@ -286,7 +286,7 @@ var _ = Describe("Task", Ordered, func() {
 					ConfigureTask(newContext(), svcTask),
 			)
 			Expect(t).ToNot(BeNil())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
 				WhereKeys(task.OntologyID(svcTask.Key).String()).
@@ -316,7 +316,7 @@ var _ = Describe("Task", Ordered, func() {
 				simpleGraph(ch.Key())).
 				ConfigureTask(newContext(), svcTask))
 			Expect(t).ToNot(BeNil())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
 				WhereKeys(task.OntologyID(svcTask.Key).String()).
@@ -342,7 +342,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		AfterEach(func() {
 			if arcTask != nil {
-				Expect(arcTask.Stop(false)).To(Succeed())
+				Expect(arcTask.Stop()).To(Succeed())
 			}
 		})
 
@@ -361,8 +361,8 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should be idempotent on stop", func() {
-			Expect(arcTask.Stop(false)).To(Succeed())
-			Expect(arcTask.Stop(false)).To(Succeed())
+			Expect(arcTask.Stop()).To(Succeed())
+			Expect(arcTask.Stop()).To(Succeed())
 		})
 
 		It("Should support restart after stop", func() {
@@ -443,7 +443,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newGraphFactory(alarmGraph))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			time.Sleep(20 * time.Millisecond)
 
@@ -494,7 +494,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -534,7 +534,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -566,7 +566,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -599,7 +599,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			var (
 				fr     framer.StreamerResponse
@@ -633,7 +633,7 @@ var _ = Describe("Task", Ordered, func() {
 			t := newTask(newTextFactory(prog))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			time.Sleep(50 * time.Millisecond)
-			Expect(t.Stop(false)).To(Succeed())
+			Expect(t.Stop()).To(Succeed())
 		})
 	})
 
@@ -661,7 +661,7 @@ var _ = Describe("Task", Ordered, func() {
 			t := MustSucceed(newTextFactory(prog).ConfigureTask(newContext(), svcTask))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() {
-				Expect(t.Stop(false)).To(Succeed())
+				Expect(t.Stop()).To(Succeed())
 			}()
 
 			time.Sleep(20 * time.Millisecond)
@@ -712,7 +712,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer closeStreamer()
 
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			time.Sleep(20 * time.Millisecond)
 

@@ -366,10 +366,7 @@ func (u *uploaderTask) setStatus(variant xstatus.Variant, message string, runnin
 	}
 }
 
-// Stop stops the uploader task.
-func (u *uploaderTask) Stop(_ bool) error {
-	return u.cancel()
-}
+func (u *uploaderTask) Stop() error { return u.cancel() }
 
 // Ensure uploaderTask implements driver.Task
 var _ driver.Task = (*uploaderTask)(nil)

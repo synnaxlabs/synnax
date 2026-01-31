@@ -20,5 +20,5 @@ type Task interface {
 	// Exec handles commands (start, stop, etc.)
 	Exec(context.Context, task.Command) error
 	// Stop gracefully shuts down the task.
-	Stop(willReconfigure bool) error
+	Stop() error
 }

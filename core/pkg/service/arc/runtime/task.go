@@ -70,7 +70,7 @@ func (t *taskImpl) Exec(ctx context.Context, cmd task.Command) error {
 	case "start":
 		return t.start(ctx)
 	case "stop":
-		return t.Stop(false)
+		return t.Stop()
 	default:
 		return errors.Newf("invalid command %s received for Arc task", cmd)
 	}
@@ -209,7 +209,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 	return nil
 }
 
-func (t *taskImpl) Stop(bool) error {
+func (t *taskImpl) Stop() error {
 	if !t.isRunning() {
 		return nil
 	}
