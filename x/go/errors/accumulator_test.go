@@ -17,51 +17,52 @@ import (
 
 var _ = Describe("Accumulator", func() {
 	Context("No error encountered", func() {
-		var (
-			counter     int
-			accumulator errors.Accumulator
-		)
-		BeforeEach(func() {
-			counter = 1
-			accumulator = errors.Accumulator{}
-			for range 4 {
+		It("Should execute function and without errors", func() {
+			var (
+				counter     int
+				accumulator errors.Accumulator
+			)
+			const count = 3
+			for range count {
 				accumulator.Exec(func() error { counter++; return nil })
 			}
-		})
-		It("Should continue to execute functions", func() {
-			Expect(counter).To(Equal(5))
-		})
-		It("Should contain a nil error", func() {
+			Expect(counter).To(Equal(count))
 			Expect(accumulator.Error()).To(BeNil())
 		})
 	})
 	Context("Errors encountered", func() {
 		It("Should accumulate errors and continue execution", func() {
-			counter := 1
-			accumulator := errors.Accumulator{}
-			for i := range 4 {
+			var (
+				counter     int
+				accumulator errors.Accumulator
+				testErr     = errors.New("test error")
+			)
+			const count = 3
+			for i := range count {
 				accumulator.Exec(func() error {
-					if i == 2 {
-						return errors.Newf("encountered unknown error")
-					}
 					counter++
+					if i == 2 {
+						return testErr
+					}
 					return nil
 				})
 			}
-			Expect(counter).To(Equal(4))
-			Expect(accumulator.Error()).ToNot(BeNil())
+			Expect(counter).To(Equal(count))
+			Expect(accumulator.Error()).To(MatchError(testErr))
 		})
 		It("Should accumulate multiple errors", func() {
-			counter := 1
-			accumulator := errors.Accumulator{}
-			for range 4 {
-				accumulator.Exec(func() error {
-					counter++
-					return errors.Newf("error encountered")
-				})
+			errMap := map[int]error{
+				0: errors.New("error 0"),
+				1: errors.New("error 1"),
+				2: errors.New("error 2"),
 			}
-			Expect(counter).To(Equal(5))
-			Expect(accumulator.Error()).ToNot(BeNil())
+			var accumulator errors.Accumulator
+			for i := range len(errMap) {
+				accumulator.Exec(func() error { return errMap[i] })
+			}
+			for i := range len(errMap) {
+				Expect(accumulator.Error()).To(MatchError(errMap[i]))
+			}
 		})
 	})
 })
