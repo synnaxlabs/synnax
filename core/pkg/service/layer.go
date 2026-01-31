@@ -342,8 +342,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if !ok(err, nil) {
 		return nil, err
 	}
-	// Create sift factory for Sift integration
-	siftFactory, err := sift.NewFactory(sift.FactoryConfig{
+	siftFactory, err := sift.OpenFactory(sift.FactoryConfig{
 		Device:          l.Device,
 		Ranger:          l.Ranger,
 		Framer:          l.Framer,
@@ -351,7 +350,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Status:          l.Status,
 		Instrumentation: cfg.Child("sift"),
 	})
-	if !ok(err, nil) {
+	if !ok(err, siftFactory) {
 		return nil, err
 	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{

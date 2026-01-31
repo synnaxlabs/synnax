@@ -83,8 +83,8 @@ type Factory struct {
 
 var _ driver.Factory = (*Factory)(nil)
 
-// NewFactory creates a new Sift factory.
-func NewFactory(cfgs ...FactoryConfig) (*Factory, error) {
+// OpenFactory creates a new Sift factory.
+func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 	cfg, err := config.New(DefaultFactoryConfig, cfgs...)
 	if err != nil {
 		return nil, err
