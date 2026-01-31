@@ -131,7 +131,8 @@ var _ = Describe("Sift", func() {
 		})
 
 		It("Should return error for invalid JSON", func() {
-			Expect(sift.ParseDeviceProperties("invalid json")).To(HaveOccurred())
+			Expect(sift.ParseDeviceProperties("invalid json")).Error().
+				To(HaveOccurred())
 		})
 	})
 })
