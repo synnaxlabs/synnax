@@ -81,7 +81,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	} else if err != nil {
 		return nil, err
 	}
-	cfg.L.Info("created go driver rack", zap.Stringer("key", d.rack.Key))
+	cfg.L.Info("created Core driver rack", zap.Stringer("key", d.rack.Key))
 
 	d.startHeartbeat()
 	d.configureInitialTasks(ctx)
@@ -197,7 +197,7 @@ func (d *Driver) configureInitialTasks(ctx context.Context) {
 	taskCtx := NewContext(ctx, d.cfg.Status)
 
 	for _, factory := range d.cfg.Factories {
-		factoryTasks, err := factory.ConfigureInitialTasks(taskCtx, d.rack.Key)
+		tasks, err := factory.ConfigureInitialTasks(taskCtx, d.rack.Key)
 		if err != nil {
 			d.cfg.L.Error(
 				"failed to configure initial tasks",
@@ -206,12 +206,12 @@ func (d *Driver) configureInitialTasks(ctx context.Context) {
 			)
 			continue
 		}
-		if len(factoryTasks) == 0 {
+		if len(tasks) == 0 {
 			continue
 		}
 		if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			w := d.cfg.Task.NewWriter(tx)
-			for _, t := range factoryTasks {
+			for _, t := range tasks {
 				if err := w.Create(ctx, &t); err != nil {
 					return errors.Wrapf(err, "failed to persist %s", t)
 				}
@@ -228,11 +228,10 @@ func (d *Driver) configureInitialTasks(ctx context.Context) {
 		d.cfg.L.Info(
 			"configured initial tasks",
 			zap.String("factory", factory.Name()),
-			zap.Int("count", len(factoryTasks)),
+			zap.Int("count", len(tasks)),
 		)
 	}
 
-	// Now retrieve and configure all tasks for this rack
 	var tasks []task.Task
 	if err := d.cfg.Task.NewRetrieve().
 		WhereRacks(d.rack.Key).
@@ -246,6 +245,7 @@ func (d *Driver) configureInitialTasks(ctx context.Context) {
 	for _, t := range tasks {
 		d.configure(ctx, t)
 	}
+	d.cfg.L.Info("configured initial tasks", zap.Int("count", len(tasks)))
 }
 
 func (d *Driver) configure(ctx context.Context, t task.Task) {
@@ -277,14 +277,10 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 			return
 		}
 		d.mu.tasks[t.Key] = newTask
-		d.cfg.L.Info("configured task",
-			zap.Stringer("task", t),
-		)
+		d.cfg.L.Info("configured task", zap.Stringer("task", t))
 		return
 	}
-	d.cfg.L.Warn("no factory handled task",
-		zap.Stringer("task", t),
-	)
+	d.cfg.L.Warn("no factory handled task", zap.Stringer("task", t))
 }
 
 func (d *Driver) delete(key task.Key) {
@@ -316,12 +312,11 @@ func (d *Driver) Close() error {
 			)
 		}
 	}
-	d.mu.tasks = nil
+	clear(d.mu.tasks)
 	d.mu.Unlock()
 	d.disconnectObserver()
 	if d.streamerRequests != nil {
 		d.streamerRequests.Close()
 	}
-	heartbeatErr := d.shutdownHeartbeat.Close()
-	return errors.Combine(d.shutdownCommands.Close(), heartbeatErr)
+	return errors.Combine(d.shutdownCommands.Close(), d.shutdownHeartbeat.Close())
 }
