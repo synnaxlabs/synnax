@@ -94,17 +94,6 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	)
 }
 
-// CreateMany creates multiple tasks within the DB. If any of the tasks already exist,
-// they will be updated.
-func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
-	for _, t := range *tasks {
-		if err := w.Create(ctx, &t); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Delete deletes the task with the given key and its associated status.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 	if err := gorp.NewDelete[Key, Task]().
