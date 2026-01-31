@@ -19,7 +19,6 @@ from .channels import ChannelClient
 from .docs import DocsClient
 from .labels import LabelClient
 from .layout import LayoutClient
-from .notifications import NotificationsClient
 from .rack import RackClient
 from .ranges import RangesClient
 from .workspace import WorkspaceClient
@@ -31,6 +30,7 @@ class Console:
 
     Composes specialized clients for interacting with the Synnax Console application.
     Most UI operations are accessed through self.layout (LayoutClient).
+    Notifications are accessed via self.layout.notifications.
     """
 
     access: AccessClient
@@ -40,7 +40,6 @@ class Console:
     docs: DocsClient
     labels: LabelClient
     layout: LayoutClient
-    notifications: NotificationsClient
     rack: RackClient
     ranges: RangesClient
     workspace: WorkspaceClient
@@ -50,15 +49,14 @@ class Console:
         self.page = page
         self.client = client
         self.layout = LayoutClient(page)
-        self.notifications = NotificationsClient(self.layout)
-        self.docs = DocsClient(self.layout, self.notifications)
-        self.labels = LabelClient(self.layout, self.notifications)
-        self.rack = RackClient(self.layout, self.notifications)
-        self.arc = ArcClient(self.layout, self.notifications)
-        self.access = AccessClient(self.layout, self.notifications)
-        self.channels = ChannelClient(self.layout, self.notifications, self.client)
-        self.ranges = RangesClient(self.layout, self.notifications)
-        self.workspace = WorkspaceClient(self.layout, self.client, self.notifications)
+        self.docs = DocsClient(self.layout)
+        self.labels = LabelClient(self.layout)
+        self.rack = RackClient(self.layout)
+        self.arc = ArcClient(self.layout)
+        self.access = AccessClient(self.layout)
+        self.channels = ChannelClient(self.layout, self.client)
+        self.ranges = RangesClient(self.layout)
+        self.workspace = WorkspaceClient(self.layout, self.client)
 
     def check_for_error_screen(self) -> None:
         """Checks for 'Something went wrong' text and clicks 'Try again' if found"""

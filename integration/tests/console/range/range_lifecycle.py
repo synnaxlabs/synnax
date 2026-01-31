@@ -339,12 +339,12 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.wait_for_overview(self.labeled_range_name)
 
         self.console.ranges.copy_python_code_from_overview()
-        notifications = self.console.notifications.check(timeout=2)
+        notifications = self.console.layout.notifications.check(timeout=2)
         messages = [n.get("message", "") for n in notifications]
         assert any(
             "Python code to retrieve" in msg for msg in messages
         ), "Should show Python code copied notification"
-        self.console.notifications.close_all()
+        self.console.layout.notifications.close_all()
 
     def test_copy_typescript_code(self) -> None:
         """Test copying TypeScript code from the range overview."""
@@ -355,12 +355,12 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.wait_for_overview(self.labeled_range_name)
 
         self.console.ranges.copy_typescript_code_from_overview()
-        notifications = self.console.notifications.check(timeout=2)
+        notifications = self.console.layout.notifications.check(timeout=2)
         messages = [n.get("message", "") for n in notifications]
         assert any(
             "TypeScript code to retrieve" in msg for msg in messages
         ), "Should show TypeScript code copied notification"
-        self.console.notifications.close_all()
+        self.console.layout.notifications.close_all()
 
     def test_copy_link(self) -> None:
         """Test copying link from the range overview."""
@@ -371,12 +371,12 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.wait_for_overview(self.labeled_range_name)
 
         self.console.ranges.copy_link_from_overview()
-        notifications = self.console.notifications.check(timeout=2)
+        notifications = self.console.layout.notifications.check(timeout=2)
         messages = [n.get("message", "") for n in notifications]
         assert any(
             "link to" in msg.lower() for msg in messages
         ), "Should show link copied notification"
-        self.console.notifications.close_all()
+        self.console.layout.notifications.close_all()
 
     def test_download_csv(self) -> None:
         """Test downloading CSV data from the range overview."""

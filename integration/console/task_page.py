@@ -11,7 +11,6 @@ import synnax as sy
 from playwright.sync_api import Locator
 
 from .layout import LayoutClient
-from .notifications import NotificationsClient
 from .page import ConsolePage
 
 
@@ -31,15 +30,12 @@ class TaskPage(ConsolePage):
         self,
         layout: LayoutClient,
         client: sy.Synnax,
-        notifications: NotificationsClient,
         page_name: str,
         *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a TaskPage wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(
-            layout, client, notifications, page_name, pane_locator=pane_locator
-        )
+        super().__init__(layout, client, page_name, pane_locator=pane_locator)
 
     def configure(self) -> None:
         """Configure the task by clicking the Configure button."""

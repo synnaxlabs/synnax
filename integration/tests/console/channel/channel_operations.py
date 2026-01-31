@@ -494,7 +494,7 @@ class ChannelOperations(ConsoleCase):
     def test_erroneous_calculated_channel(self) -> None:
         """Test that erroneous calculated channel expressions are handled gracefully."""
         console = self.console
-        console.notifications.close_all()
+        console.layout.notifications.close_all()
 
         self.log("Testing erroneous calculated channel (nonexistent channel)")
         calc_name = f"calc_err_{self.suffix}"

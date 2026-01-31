@@ -17,6 +17,8 @@ import synnax as sy
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from .notifications import NotificationsClient
+
 AriaRole = Literal[
     "alert",
     "alertdialog",
@@ -115,6 +117,7 @@ class LayoutClient:
 
     def __init__(self, page: Page):
         self.page = page
+        self.notifications = NotificationsClient(self.page)
 
     def command_palette(self, command: str, retries: int = 3) -> None:
         """Execute a command via the command palette."""

@@ -16,7 +16,6 @@ import synnax as sy
 from playwright.sync_api import Locator
 
 from .layout import LayoutClient
-from .notifications import NotificationsClient
 
 
 class BaseClient:
@@ -29,17 +28,14 @@ class BaseClient:
     MODAL_SELECTOR = "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
 
     layout: LayoutClient
-    notifications: NotificationsClient
 
-    def __init__(self, layout: LayoutClient, notifications: NotificationsClient):
+    def __init__(self, layout: LayoutClient):
         """Initialize the base client.
 
         Args:
-            layout: The LayoutClient for UI operations.
-            notifications: The NotificationsClient for checking/closing notifications.
+            layout: The LayoutClient for UI operations (includes notifications).
         """
         self.layout = layout
-        self.notifications = notifications
 
     def _right_click(self, item: Locator) -> None:
         """Right-click on an item to open context menu.
@@ -229,9 +225,9 @@ class BaseClient:
         Returns:
             True if errors were found, False otherwise.
         """
-        for notification in self.notifications.check():
+        for notification in self.layout.notifications.check():
             message = notification.get("message", "")
             if "Failed" in message or "Error" in message:
-                self.notifications.close(0)
+                self.layout.notifications.close(0)
                 return True
         return False

@@ -54,7 +54,7 @@ class Setpoint(Symbol):
 
     def set_value(self, value: float) -> None:
         self._disable_edit_mode()
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         self.click()
 
         # Fill the input and set the value

@@ -11,7 +11,6 @@ from playwright.sync_api import Locator
 
 from .base import BaseClient
 from .layout import LayoutClient
-from .notifications import NotificationsClient
 
 
 class ArcClient(BaseClient):
@@ -22,8 +21,8 @@ class ArcClient(BaseClient):
     CONTROLS_CLASS = ".console-arc-editor__controls"
     LIST_ITEM_CLASS = ".pluto-list__item"
 
-    def __init__(self, layout: LayoutClient, notifications: NotificationsClient):
-        super().__init__(layout, notifications)
+    def __init__(self, layout: LayoutClient):
+        super().__init__(layout)
 
     def _show_arc_panel(self) -> None:
         """Show the Arc panel in the navigation drawer.
@@ -144,7 +143,7 @@ class ArcClient(BaseClient):
         controls = self._get_controls()
         rack_dropdown = controls.locator("button").first
         rack_dropdown.wait_for(state="visible", timeout=5000)
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         rack_dropdown.click()
         self.layout.select_from_dropdown(rack_name, placeholder="Search")
 
@@ -156,7 +155,7 @@ class ArcClient(BaseClient):
         controls = self._get_controls()
         configure_btn = controls.locator("button:has-text('Configure')")
         configure_btn.wait_for(state="visible", timeout=5000)
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         configure_btn.click()
         controls.locator("text=Task configured successfully").wait_for(
             state="visible", timeout=15000
@@ -170,7 +169,7 @@ class ArcClient(BaseClient):
         controls = self._get_controls()
         play_btn = controls.locator("button:has(.pluto-icon--play)")
         play_btn.wait_for(state="visible", timeout=5000)
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         play_btn.click()
         controls.locator("text=Task started successfully").wait_for(
             state="visible", timeout=15000
@@ -185,7 +184,7 @@ class ArcClient(BaseClient):
         controls = self._get_controls()
         pause_btn = controls.locator("button:has(.pluto-icon--pause)")
         pause_btn.wait_for(state="visible", timeout=5000)
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         pause_btn.click()
         controls.locator("text=Task stopped successfully").wait_for(
             state="visible", timeout=15000

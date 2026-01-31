@@ -15,7 +15,6 @@ from framework.utils import get_results_path, rgb_to_hex
 
 from .base import BaseClient
 from .layout import LayoutClient
-from .notifications import NotificationsClient
 
 
 class RangesClient(BaseClient):
@@ -35,9 +34,8 @@ class RangesClient(BaseClient):
     def __init__(
         self,
         layout: LayoutClient,
-        notifications: NotificationsClient,
     ):
-        super().__init__(layout, notifications)
+        super().__init__(layout)
 
     def open_from_search(self, name: str) -> None:
         """Open a range overview by searching its name in the command palette.
@@ -580,7 +578,7 @@ class RangesClient(BaseClient):
         Returns:
             The CSV file contents as a string.
         """
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         self.open_csv_download_modal()
 
         channels_dropdown = self.layout.page.get_by_text("Select channels to download")

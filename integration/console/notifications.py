@@ -11,16 +11,15 @@ import time
 from typing import Any
 
 import synnax as sy
+from playwright.sync_api import Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-
-from .layout import LayoutClient
 
 
 class NotificationsClient:
     """Notifications management for Console UI automation."""
 
-    def __init__(self, layout: LayoutClient):
-        self.layout = layout
+    def __init__(self, page: Page):
+        self.page = page
 
     def check(self, timeout: sy.CrudeTimeSpan = 0.2) -> list[dict[str, Any]]:
         """Check for notifications in the bottom right corner.
@@ -38,9 +37,7 @@ class NotificationsClient:
 
         while time.time() - start_time < timeout:
             notifications = []
-            notification_elements = self.layout.page.locator(
-                ".pluto-notification"
-            ).all()
+            notification_elements = self.page.locator(".pluto-notification").all()
 
             if len(notification_elements) > 0:
                 for notification in notification_elements:
@@ -98,9 +95,7 @@ class NotificationsClient:
             True if notification was closed, False if not found
         """
         try:
-            notification_elements = self.layout.page.locator(
-                ".pluto-notification"
-            ).all()
+            notification_elements = self.page.locator(".pluto-notification").all()
             if notification_index >= len(notification_elements):
                 return False
 
@@ -127,9 +122,7 @@ class NotificationsClient:
         max_attempts = 10
 
         for _ in range(max_attempts):
-            notification_elements = self.layout.page.locator(
-                ".pluto-notification"
-            ).all()
+            notification_elements = self.page.locator(".pluto-notification").all()
             if len(notification_elements) == 0:
                 break
 
@@ -149,9 +142,7 @@ class NotificationsClient:
         Returns:
             True if notification was found and close was triggered, False otherwise.
         """
-        notification = self.layout.page.locator(
-            ".pluto-notification:has-text('Connected to')"
-        )
+        notification = self.page.locator(".pluto-notification:has-text('Connected to')")
         if notification.count() == 0:
             return False
 
@@ -171,9 +162,7 @@ class NotificationsClient:
         Returns:
             True if notification was found, False if timeout.
         """
-        notification = self.layout.page.locator(
-            f".pluto-notification:has-text('{text}')"
-        )
+        notification = self.page.locator(f".pluto-notification:has-text('{text}')")
         try:
             notification.wait_for(state="visible", timeout=5000)
             return True

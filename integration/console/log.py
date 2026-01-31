@@ -13,7 +13,6 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from synnax.channel.payload import ChannelName
 
 from .layout import LayoutClient
-from .notifications import NotificationsClient
 from .page import ConsolePage
 
 
@@ -27,16 +26,13 @@ class Log(ConsolePage):
         self,
         layout: LayoutClient,
         client: sy.Synnax,
-        notifications: NotificationsClient,
         page_name: str,
         channel_name: ChannelName | None = None,
         *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a Log page wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(
-            layout, client, notifications, page_name, pane_locator=pane_locator
-        )
+        super().__init__(layout, client, page_name, pane_locator=pane_locator)
 
         if channel_name is not None:
             self.set_channel(channel_name)

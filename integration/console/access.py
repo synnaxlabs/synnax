@@ -26,7 +26,6 @@ from playwright.sync_api import Locator
 
 from .base import BaseClient
 from .layout import LayoutClient
-from .notifications import NotificationsClient
 from .tree import Tree
 
 
@@ -37,8 +36,8 @@ class AccessClient(BaseClient):
     ROLE_ITEM_PREFIX = "role:"
     USER_ITEM_PREFIX = "user:"
 
-    def __init__(self, layout: LayoutClient, notifications: NotificationsClient):
-        super().__init__(layout, notifications)
+    def __init__(self, layout: LayoutClient):
+        super().__init__(layout)
         self.tree = Tree(layout.page)
 
     # -------------------------------------------------------------------------
@@ -162,7 +161,7 @@ class AccessClient(BaseClient):
         :returns: True if the user was created successfully.
         """
         # Clear any existing notifications to avoid false positives
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
 
         # Open command palette and register user
         self.layout.command_palette("Register a User")

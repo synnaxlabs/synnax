@@ -11,7 +11,6 @@ import synnax as sy
 from playwright.sync_api import Locator
 
 from .layout import LayoutClient
-from .notifications import NotificationsClient
 from .page import ConsolePage
 
 
@@ -25,15 +24,12 @@ class Table(ConsolePage):
         self,
         layout: LayoutClient,
         client: sy.Synnax,
-        notifications: NotificationsClient,
         page_name: str,
         *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a Table page wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(
-            layout, client, notifications, page_name, pane_locator=pane_locator
-        )
+        super().__init__(layout, client, page_name, pane_locator=pane_locator)
 
     def set_cell_channel(self, channel_name: str, row: int = 0, col: int = 0) -> None:
         """Set a cell to display a channel's telemetry value.

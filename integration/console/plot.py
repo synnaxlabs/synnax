@@ -16,7 +16,6 @@ from framework.utils import get_results_path
 
 from .channels import ChannelClient  # For dragging channels onto the plot
 from .layout import LayoutClient
-from .notifications import NotificationsClient
 from .page import ConsolePage
 
 Axis = Literal["Y1", "Y2", "X1"]
@@ -32,7 +31,6 @@ class Plot(ConsolePage):
         self,
         layout: LayoutClient,
         client: sy.Synnax,
-        notifications: NotificationsClient,
         page_name: str,
         *,
         pane_locator: Locator,
@@ -44,9 +42,7 @@ class Plot(ConsolePage):
             "Ranges": [],
             "X1": None,
         }
-        super().__init__(
-            layout, client, notifications, page_name, pane_locator=pane_locator
-        )
+        super().__init__(layout, client, page_name, pane_locator=pane_locator)
 
     def add_channels(self, axis: Axis, channels: str | list[str]) -> None:
         channels = [channels] if isinstance(channels, str) else channels
@@ -94,7 +90,7 @@ class Plot(ConsolePage):
         Returns:
             The CSV file contents as a string.
         """
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         csv_button = self.page.locator(".pluto-icon--csv").locator("..")
         csv_button.click()
 
@@ -120,7 +116,7 @@ class Plot(ConsolePage):
 
     def set_axis(self, axis: Axis, config: dict[str, Any]) -> None:
         """Set axis configuration with the given parameters."""
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         self.page.get_by_text("Axes").click(timeout=5000)
         self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=5000)
 
@@ -207,7 +203,7 @@ class Plot(ConsolePage):
         Args:
             title: The new title for the plot
         """
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         self.page.locator("#properties").click(timeout=5000)
 
         title_input = (
@@ -225,7 +221,7 @@ class Plot(ConsolePage):
         Args:
             thickness: Stroke width (1-10)
         """
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         self.page.locator("#lines").click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
@@ -250,7 +246,7 @@ class Plot(ConsolePage):
         Args:
             label: New label for the line
         """
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         self.page.locator("#lines").click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
@@ -269,7 +265,7 @@ class Plot(ConsolePage):
         Returns:
             The current stroke width
         """
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         self.page.locator("#lines").click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
@@ -283,7 +279,7 @@ class Plot(ConsolePage):
         Returns:
             The current line label
         """
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         self.page.locator("#lines").click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")

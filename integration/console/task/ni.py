@@ -17,7 +17,6 @@ from console.task.channels.analog import Analog
 from console.task.channels.counter import Counter
 
 from ..layout import LayoutClient
-from ..notifications import NotificationsClient
 from ..task_page import TaskPage
 
 # Union type for all NI channel types
@@ -36,15 +35,12 @@ class NITask(TaskPage):
         self,
         layout: LayoutClient,
         client: sy.Synnax,
-        notifications: NotificationsClient,
         page_name: str,
         *,
         pane_locator: Locator,
     ) -> None:
         """Initialize an NITask page wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(
-            layout, client, notifications, page_name, pane_locator=pane_locator
-        )
+        super().__init__(layout, client, page_name, pane_locator=pane_locator)
         self.channels: list[NIChannel] = []
         self.channels_by_name: list[str] = []
 

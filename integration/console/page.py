@@ -19,7 +19,6 @@ from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 from framework.utils import get_results_path
 
 from .layout import LayoutClient
-from .notifications import NotificationsClient
 
 PageType = Literal[
     "Control Sequence",
@@ -45,7 +44,6 @@ class ConsolePage:
     client: sy.Synnax
     page: Page
     layout: LayoutClient
-    notifications: NotificationsClient
     page_name: str
     page_type: str
     pluto_label: str
@@ -58,7 +56,6 @@ class ConsolePage:
         cls,
         layout: LayoutClient,
         client: sy.Synnax,
-        notifications: NotificationsClient,
         name: str,
     ) -> Self:
         """Create instance from an already-opened page.
@@ -69,7 +66,6 @@ class ConsolePage:
         Args:
             layout: LayoutClient instance
             client: Synnax client instance
-            notifications: NotificationsClient instance
             name: Name of the page
 
         Returns:
@@ -78,13 +74,12 @@ class ConsolePage:
         pane = layout.page.locator(cls.pluto_label)
         pane.first.wait_for(state="visible", timeout=5000)
 
-        return cls(layout, client, notifications, name, pane_locator=pane.first)
+        return cls(layout, client, name, pane_locator=pane.first)
 
     def __init__(
         self,
         layout: LayoutClient,
         client: sy.Synnax,
-        notifications: NotificationsClient,
         page_name: str,
         *,
         pane_locator: Locator,
@@ -104,9 +99,8 @@ class ConsolePage:
         how Playwright locators bind to DOM elements.
 
         Args:
-            layout: LayoutClient for UI operations
+            layout: LayoutClient for UI operations (includes notifications)
             client: Synnax client instance
-            notifications: NotificationsClient for closing notifications
             page_name: Name of the existing page to wrap
             pane_locator: Playwright locator for the page's pane element.
                 This locator identifies which UI page this Python object represents.
@@ -115,7 +109,6 @@ class ConsolePage:
         self.client = client
         self.page = layout.page
         self.layout = layout
-        self.notifications = notifications
         self.page_name = page_name
         self.pane_locator = pane_locator
 

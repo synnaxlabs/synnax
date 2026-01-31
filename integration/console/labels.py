@@ -16,7 +16,6 @@ from framework.utils import rgb_to_hex
 
 from .base import BaseClient
 from .layout import LayoutClient
-from .notifications import NotificationsClient
 
 _MODAL_SELECTOR = ".console-label__edit"
 _LABEL_ITEM_SELECTOR = ".console-label__list-item"
@@ -25,8 +24,8 @@ _LABEL_ITEM_SELECTOR = ".console-label__list-item"
 class LabelClient(BaseClient):
     """Console label client for managing labels via the UI."""
 
-    def __init__(self, layout: LayoutClient, notifications: NotificationsClient):
-        super().__init__(layout, notifications)
+    def __init__(self, layout: LayoutClient):
+        super().__init__(layout)
 
     def create(self, name: str, *, color: str | None = None) -> None:
         """Create a new label.

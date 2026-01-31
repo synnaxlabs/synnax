@@ -14,7 +14,6 @@ import synnax as sy
 from playwright.sync_api import FloatRect, Locator, Page
 
 from ..layout import LayoutClient
-from ..notifications import NotificationsClient
 
 """ Symbol Box helpers """
 
@@ -54,7 +53,6 @@ class Symbol(ABC):
 
     page: Page
     layout: LayoutClient
-    notifications: NotificationsClient
     locator: Locator
     symbol_id: str | None
     label: str
@@ -81,22 +79,20 @@ class Symbol(ABC):
         self.rotatable = rotatable
         self.symbol_id = None
 
-    def create(self, layout: LayoutClient, notifications: NotificationsClient) -> None:
+    def create(self, layout: LayoutClient) -> None:
         """Attach this symbol to a schematic (called by Schematic.create_symbol).
 
         This method adds the symbol to the schematic UI using the SymbolToolbar factory.
 
         Args:
-            layout: LayoutClient for UI interactions
-            notifications: NotificationsClient for closing notifications
+            layout: LayoutClient for UI interactions (includes notifications)
         """
         from .symbol_toolbar import SymbolToolbar
 
         self.page = layout.page
         self.layout = layout
-        self.notifications = notifications
 
-        toolbar = SymbolToolbar(self.layout, self.notifications)
+        toolbar = SymbolToolbar(self.layout)
         self.symbol_id = toolbar.add_symbol(self._symbol_type, self._symbol_group)
         self.locator = self.page.get_by_test_id(self.symbol_id)
         self.set_label(self.label)
@@ -111,13 +107,13 @@ class Symbol(ABC):
         pass
 
     def _disable_edit_mode(self) -> None:
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         edit_off_icon = self.page.get_by_label("pluto-icon--edit-off")
         if edit_off_icon.count() > 0:
             edit_off_icon.click()
 
     def _enable_edit_mode(self) -> None:
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         enable_editing_link = self.page.get_by_text("enable editing", exact=False)
         if enable_editing_link.count() > 0:
             enable_editing_link.click()

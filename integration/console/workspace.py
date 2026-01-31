@@ -20,7 +20,6 @@ from framework.utils import get_results_path
 from .channels import ChannelClient
 from .layout import LayoutClient
 from .log import Log
-from .notifications import NotificationsClient
 from .page import ConsolePage, PageType
 from .plot import Plot
 from .schematic import Schematic
@@ -42,11 +41,9 @@ class WorkspaceClient:
         self,
         layout: LayoutClient,
         client: sy.Synnax,
-        notifications: NotificationsClient,
     ):
         self.layout = layout
         self.client = client
-        self.notifications = notifications
 
     def create_page(
         self, page_type: PageType, page_name: str | None = None
@@ -648,7 +645,7 @@ class WorkspaceClient:
             Plot instance for the opened plot.
         """
         self.open_page(name)
-        return Plot.from_open_page(self.layout, self.client, self.notifications, name)
+        return Plot.from_open_page(self.layout, self.client, name)
 
     def drag_plot_to_mosaic(self, name: str) -> Plot:
         """Drag a plot from the workspace resources toolbar onto the mosaic.
@@ -660,7 +657,7 @@ class WorkspaceClient:
             Plot instance for the opened plot.
         """
         self.drag_page_to_mosaic(name)
-        return Plot.from_open_page(self.layout, self.client, self.notifications, name)
+        return Plot.from_open_page(self.layout, self.client, name)
 
     def open_from_search(self, page_class: type[ConsolePage], name: str) -> ConsolePage:
         """Open an existing page by searching its name in the command palette.
@@ -677,9 +674,7 @@ class WorkspaceClient:
         pane = self.layout.page.locator(page_class.pluto_label)
         pane.first.wait_for(state="visible", timeout=5000)
 
-        return page_class(
-            self.layout, self.client, self.notifications, name, pane_locator=pane.first
-        )
+        return page_class(self.layout, self.client, name, pane_locator=pane.first)
 
     def create_plot(self, name: str) -> Plot:
         """Create a new plot page in the UI and return a wrapper.
@@ -695,9 +690,7 @@ class WorkspaceClient:
             Plot instance wrapping the created UI page
         """
         pane, actual_name = self.create_page("Line Plot", name)
-        return Plot(
-            self.layout, self.client, self.notifications, actual_name, pane_locator=pane
-        )
+        return Plot(self.layout, self.client, actual_name, pane_locator=pane)
 
     def create_log(self, name: str) -> Log:
         """Create a new log page in the UI and return a wrapper.
@@ -713,9 +706,7 @@ class WorkspaceClient:
             Log instance wrapping the created UI page
         """
         pane, actual_name = self.create_page("Log", name)
-        return Log(
-            self.layout, self.client, self.notifications, actual_name, pane_locator=pane
-        )
+        return Log(self.layout, self.client, actual_name, pane_locator=pane)
 
     def create_schematic(self, name: str) -> Schematic:
         """Create a new schematic page in the UI and return a wrapper.
@@ -731,9 +722,7 @@ class WorkspaceClient:
             Schematic instance wrapping the created UI page
         """
         pane, actual_name = self.create_page("Schematic", name)
-        return Schematic(
-            self.layout, self.client, self.notifications, actual_name, pane_locator=pane
-        )
+        return Schematic(self.layout, self.client, actual_name, pane_locator=pane)
 
     def create_table(self, name: str) -> Table:
         """Create a new table page in the UI and return a wrapper.
@@ -749,9 +738,7 @@ class WorkspaceClient:
             Table instance wrapping the created UI page
         """
         pane, actual_name = self.create_page("Table", name)
-        return Table(
-            self.layout, self.client, self.notifications, actual_name, pane_locator=pane
-        )
+        return Table(self.layout, self.client, actual_name, pane_locator=pane)
 
     def open_plot_from_click(self, channel_name: str, channels: ChannelClient) -> Plot:
         """Open a plot by double-clicking a channel in the channels sidebar.
@@ -785,9 +772,7 @@ class WorkspaceClient:
             last_tab = tabs.nth(tab_count - 1)
             actual_tab_name = last_tab.inner_text().strip()
 
-        plot = Plot.from_open_page(
-            self.layout, self.client, self.notifications, actual_tab_name
-        )
+        plot = Plot.from_open_page(self.layout, self.client, actual_tab_name)
 
         channels.hide_channels()
         return plot
@@ -802,7 +787,7 @@ class WorkspaceClient:
             Log instance for the opened log.
         """
         self.open_page(name)
-        return Log.from_open_page(self.layout, self.client, self.notifications, name)
+        return Log.from_open_page(self.layout, self.client, name)
 
     def drag_log_to_mosaic(self, name: str) -> Log:
         """Drag a log from the workspace resources toolbar onto the mosaic.
@@ -814,7 +799,7 @@ class WorkspaceClient:
             Log instance for the opened log.
         """
         self.drag_page_to_mosaic(name)
-        return Log.from_open_page(self.layout, self.client, self.notifications, name)
+        return Log.from_open_page(self.layout, self.client, name)
 
     def open_schematic(self, name: str) -> Schematic:
         """Open a schematic by double-clicking it in the workspace resources toolbar.
@@ -826,9 +811,7 @@ class WorkspaceClient:
             Schematic instance for the opened schematic.
         """
         self.open_page(name)
-        return Schematic.from_open_page(
-            self.layout, self.client, self.notifications, name
-        )
+        return Schematic.from_open_page(self.layout, self.client, name)
 
     def drag_schematic_to_mosaic(self, name: str) -> Schematic:
         """Drag a schematic from the workspace resources toolbar onto the mosaic.
@@ -840,9 +823,7 @@ class WorkspaceClient:
             Schematic instance for the opened schematic.
         """
         self.drag_page_to_mosaic(name)
-        return Schematic.from_open_page(
-            self.layout, self.client, self.notifications, name
-        )
+        return Schematic.from_open_page(self.layout, self.client, name)
 
     @overload
     def create_task(
@@ -916,6 +897,4 @@ class WorkspaceClient:
 
         task_class = task_class_map[task_type]
         pane, actual_name = self.create_page(task_type, name)
-        return task_class(
-            self.layout, self.client, self.notifications, actual_name, pane_locator=pane
-        )
+        return task_class(self.layout, self.client, actual_name, pane_locator=pane)

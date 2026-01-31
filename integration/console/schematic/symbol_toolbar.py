@@ -18,17 +18,15 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from framework.utils import get_results_path
 
 from ..layout import LayoutClient
-from ..notifications import NotificationsClient
 from .symbol_editor import SymbolEditor
 
 
 class SymbolToolbar:
     """Client for interacting with the Schematic Symbols toolbar."""
 
-    def __init__(self, layout: LayoutClient, notifications: NotificationsClient):
+    def __init__(self, layout: LayoutClient):
         self.page = layout.page
         self.layout = layout
-        self.notifications = notifications
 
     @property
     def toolbar(self) -> Locator:
@@ -61,7 +59,7 @@ class SymbolToolbar:
             .filter(has=self.page.locator("[aria-label*='group']"))
             .first
         )
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         create_group_btn.click()
 
         name_input = self.page.locator("input[placeholder='Group Name']")
@@ -246,7 +244,7 @@ class SymbolToolbar:
         Returns:
             The data-testid of the newly created symbol node (e.g., "rf__node-{uuid}")
         """
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         self.show()
         initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())
 

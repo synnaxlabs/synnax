@@ -14,7 +14,6 @@ from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from ..layout import LayoutClient
-from ..notifications import NotificationsClient
 from ..page import ConsolePage
 from .symbol import (
     Symbol,
@@ -69,15 +68,12 @@ class Schematic(ConsolePage):
         self,
         layout: LayoutClient,
         client: sy.Synnax,
-        notifications: NotificationsClient,
         page_name: str,
         *,
         pane_locator: Locator,
     ):
         """Initialize a Schematic page wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(
-            layout, client, notifications, page_name, pane_locator=pane_locator
-        )
+        super().__init__(layout, client, page_name, pane_locator=pane_locator)
 
     def create_symbol(self, symbol: Symbol) -> Symbol:
         """Add a symbol to the schematic and configure it.
@@ -97,7 +93,7 @@ class Schematic(ConsolePage):
             configured_valve = schematic.create_symbol(valve)
             configured_valve.move(delta_x=-90, delta_y=-100)
         """
-        symbol.create(self.layout, self.notifications)
+        symbol.create(self.layout)
         return symbol
 
     def get_control_legend_entries(self) -> list[str]:
@@ -301,7 +297,7 @@ class Schematic(ConsolePage):
             raise ValueError(
                 f"Control Authority must be between 0 and 255, got {authority}"
             )
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         self.layout.click("Control")
         self.layout.fill_input_field("Control Authority", str(authority))
 
@@ -311,7 +307,7 @@ class Schematic(ConsolePage):
         show_control_legend: bool | None = None,
     ) -> None:
         """Set schematic properties."""
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         self.layout.click("Control")
 
         if control_authority is not None:
@@ -436,7 +432,7 @@ class Schematic(ConsolePage):
         Returns:
             Tuple of (control_authority, show_control_legend)
         """
-        self.notifications.close_all()
+        self.layout.notifications.close_all()
         self.layout.click("Control")
 
         control_authority = int(self.layout.get_input_field("Control Authority"))

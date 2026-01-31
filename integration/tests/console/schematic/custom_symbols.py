@@ -64,10 +64,9 @@ class CustomSymbols(ConsoleCase):
             schematic = Schematic.from_open_page(
                 self.console.layout,
                 self.console.client,
-                self.console.notifications,
                 self.schematic_name,
             )
-            toolbar = SymbolToolbar(self.console.layout, self.console.notifications)
+            toolbar = SymbolToolbar(self.console.layout)
             toolbar.show()
 
             if toolbar.group_exists(self.test_group_name):
@@ -81,9 +80,9 @@ class CustomSymbols(ConsoleCase):
     def run(self) -> None:
         """Run all custom symbol tests."""
         schematic = self.console.workspace.create_schematic(self.schematic_name)
-        toolbar = SymbolToolbar(self.console.layout, self.console.notifications)
+        toolbar = SymbolToolbar(self.console.layout)
         toolbar.show()
-        self.console.notifications.close_all()
+        self.console.layout.notifications.close_all()
 
         self.test_create_symbol_group(toolbar)
         self.test_rename_symbol_group(toolbar)

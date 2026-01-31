@@ -12,14 +12,13 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from .base import BaseClient
 from .layout import LayoutClient
-from .notifications import NotificationsClient
 
 
 class DocsClient(BaseClient):
     """Documentation client for Console UI automation."""
 
-    def __init__(self, layout: LayoutClient, notifications: NotificationsClient):
-        super().__init__(layout, notifications)
+    def __init__(self, layout: LayoutClient):
+        super().__init__(layout)
 
     def open_via_command_palette(self) -> None:
         """Open the documentation page via the command palette."""

@@ -25,7 +25,6 @@ from synnax.telem import (
 
 from .base import BaseClient
 from .layout import LayoutClient
-from .notifications import NotificationsClient
 
 
 class ChannelClient(BaseClient):
@@ -41,10 +40,9 @@ class ChannelClient(BaseClient):
     def __init__(
         self,
         layout: LayoutClient,
-        notifications: NotificationsClient,
         client: sy.Synnax,
     ):
-        super().__init__(layout, notifications)
+        super().__init__(layout)
         self.client = client
 
     def _get_channels_button(self) -> Locator:
@@ -646,11 +644,11 @@ class ChannelClient(BaseClient):
 
         self._delete_with_confirmation(item, timeout)
 
-        for i, notification in enumerate(self.notifications.check()):
+        for i, notification in enumerate(self.layout.notifications.check()):
             message = notification.get("message", "")
             description = notification.get("description", "")
             if message == "Failed to delete Channel" and name in description:
-                self.notifications.close(i)
+                self.layout.notifications.close(i)
                 raise RuntimeError(f"{message} {name}, {description}")
 
         self._wait_for_item_removed(self.ITEM_PREFIX, name, timeout, exact=True)
