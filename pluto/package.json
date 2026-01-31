@@ -59,7 +59,7 @@
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "eslint-config-synnaxlabs": "workspace:^",
-    "jsdom": "^27.3.0",
+    "jsdom": "^27.4.0",
     "madge": "catalog:",
     "react-dom": "catalog:",
     "stylelint-config-synnaxlabs": "workspace:^",
