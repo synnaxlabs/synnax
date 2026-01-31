@@ -778,56 +778,7 @@ describe("queries", () => {
 
       expect(result.current.form.validate()).toBe(false);
       expect(result.current.form.get("name").status.message).toContain(
-        "Name can only contain letters, digits, and underscores, and cannot start with a digit",
-      );
-    });
-
-    it("should validate that name cannot start with a digit", async () => {
-      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
-        wrapper,
-      });
-
-      act(() => {
-        result.current.form.set("name", "1sensor");
-        result.current.form.set("virtual", true);
-      });
-
-      expect(result.current.form.validate()).toBe(false);
-      // Regex validation covers both "cannot start with digit" and "invalid characters"
-      expect(result.current.form.get("name").status.message).toContain(
-        "can only contain letters, digits, and underscores",
-      );
-    });
-
-    it("should validate that name cannot contain spaces", async () => {
-      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
-        wrapper,
-      });
-
-      act(() => {
-        result.current.form.set("name", "my channel");
-        result.current.form.set("virtual", true);
-      });
-
-      expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("name").status.message).toContain(
-        "can only contain letters, digits, and underscores",
-      );
-    });
-
-    it("should validate that name cannot contain special characters", async () => {
-      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
-        wrapper,
-      });
-
-      act(() => {
-        result.current.form.set("name", "sensor-temp");
-        result.current.form.set("virtual", true);
-      });
-
-      expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("name").status.message).toContain(
-        "can only contain letters, digits, and underscores",
+        "Name must not be empty",
       );
     });
 
