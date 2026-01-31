@@ -327,6 +327,18 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 
+	Describe("Factory.ConfigureInitialTasks", func() {
+		It("Should return empty list with no error", func() {
+			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
+				Channel:   dist.Channel,
+				Framer:    dist.Framer,
+				Status:    statusSvc,
+				GetModule: moduleNotFoundGetter,
+			}))
+			Expect(factory.ConfigureInitialTasks(newContext(), rack.NewKey(1, 1))).To(BeEmpty())
+		})
+	})
+
 	Describe("Task Lifecycle", func() {
 		var arcTask driver.Task
 
