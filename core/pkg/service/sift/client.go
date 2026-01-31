@@ -23,7 +23,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// Client wraps the Sift gRPC client for connection management.
+// Client wraps the Sift gRPC client.
 type Client struct {
 	conn         grpc.SiftChannel
 	props        DeviceProperties
@@ -32,7 +32,7 @@ type Client struct {
 	runSvc       runsv2.RunServiceClient
 }
 
-// NewClient creates a new Sift client from device properties.
+// NewClient creates a new Sift client.
 func NewClient(ctx context.Context, props DeviceProperties) (*Client, error) {
 	conn, err := grpc.UseSiftChannel(ctx, grpc.SiftChannelConfig{
 		Uri:            props.URI,
@@ -59,16 +59,13 @@ func (c *Client) Close() error {
 	return nil
 }
 
-// ChannelConfig represents a channel configuration for an ingestion config.
+// ChannelConfig represents a channel in a Sift flow.
 type ChannelConfig struct {
-	Name        string
-	Component   string
-	Unit        string
-	Description string
-	DataType    typev1.ChannelDataType
+	Name     string
+	DataType typev1.ChannelDataType
 }
 
-// FlowConfig represents a flow configuration for an ingestion config.
+// FlowConfig represents a Sift flow with its channels.
 type FlowConfig struct {
 	Name     string
 	Channels []ChannelConfig
@@ -79,11 +76,13 @@ func (c *Client) GetOrCreateIngestionConfig(
 	ctx context.Context,
 	flows []FlowConfig,
 ) (*ingestion_configsv1.IngestionConfig, error) {
-	// First try to find existing config by client key
+	clientKey := c.props.clientKey()
+
+	// Try to find existing config
 	listRes, err := c.ingestionSvc.ListIngestionConfigs(
 		ctx,
 		&ingestion_configsv1.ListIngestionConfigsRequest{
-			Filter: fmt.Sprintf("client_key == '%s'", c.props.ClientKey),
+			Filter: fmt.Sprintf("client_key == '%s'", clientKey),
 		})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list ingestion configs")
@@ -92,17 +91,14 @@ func (c *Client) GetOrCreateIngestionConfig(
 		return listRes.IngestionConfigs[0], nil
 	}
 
-	// Convert flow configs to Sift proto format
+	// Create new config
 	protoFlows := make([]*ingestion_configsv1.FlowConfig, len(flows))
 	for i, flow := range flows {
 		channels := make([]*ingestion_configsv1.ChannelConfig, len(flow.Channels))
 		for j, ch := range flow.Channels {
 			channels[j] = &ingestion_configsv1.ChannelConfig{
-				Name:        ch.Name,
-				Component:   ch.Component,
-				Unit:        ch.Unit,
-				Description: ch.Description,
-				DataType:    ch.DataType,
+				Name:     ch.Name,
+				DataType: ch.DataType,
 			}
 		}
 		protoFlows[i] = &ingestion_configsv1.FlowConfig{
@@ -111,12 +107,11 @@ func (c *Client) GetOrCreateIngestionConfig(
 		}
 	}
 
-	// Create new ingestion config
 	createRes, err := c.ingestionSvc.CreateIngestionConfig(
 		ctx,
 		&ingestion_configsv1.CreateIngestionConfigRequest{
 			AssetName: c.props.AssetName,
-			ClientKey: c.props.ClientKey,
+			ClientKey: clientKey,
 			Flows:     protoFlows,
 		})
 	if err != nil {
@@ -125,12 +120,11 @@ func (c *Client) GetOrCreateIngestionConfig(
 	return createRes.IngestionConfig, nil
 }
 
-// CreateRun creates a new run for grouping ingested data.
+// CreateRun creates a new Sift run.
 func (c *Client) CreateRun(ctx context.Context, name string) (*runsv2.Run, error) {
-	ts := timestamppb.Now()
 	createRes, err := c.runSvc.CreateRun(ctx, &runsv2.CreateRunRequest{
 		Name:      name,
-		StartTime: ts,
+		StartTime: timestamppb.Now(),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create run")
@@ -142,7 +136,6 @@ func (c *Client) CreateRun(ctx context.Context, name string) (*runsv2.Run, error
 type IngestStream struct {
 	stream   ingestv1.IngestService_IngestWithConfigDataStreamClient
 	configID string
-	orgID    string
 }
 
 // OpenIngestStream opens a new ingestion stream.
@@ -154,43 +147,38 @@ func (c *Client) OpenIngestStream(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open ingest stream")
 	}
-	return &IngestStream{
-		stream:   stream,
-		configID: ingestionConfigID,
-		orgID:    c.props.OrganizationID,
-	}, nil
+	return &IngestStream{stream: stream, configID: ingestionConfigID}, nil
 }
 
 // Send sends data to the ingestion stream.
 func (s *IngestStream) Send(req *ingestv1.IngestWithConfigDataStreamRequest) error {
 	req.IngestionConfigId = s.configID
-	if s.orgID != "" {
-		req.OrganizationId = s.orgID
-	}
 	return s.stream.Send(req)
 }
 
-// Close closes the ingestion stream and returns any error.
+// Close closes the ingestion stream.
 func (s *IngestStream) Close() error {
 	_, err := s.stream.CloseAndRecv()
 	return err
 }
 
-// ConnectionPool manages shared Sift connections keyed by device.
-type ConnectionPool struct {
+// ClientPool manages shared Sift connections.
+type ClientPool struct {
 	mu      sync.RWMutex
 	clients map[string]*Client
 }
 
-// NewConnectionPool creates a new connection pool.
-func NewConnectionPool() *ConnectionPool {
-	return &ConnectionPool{clients: make(map[string]*Client)}
+// NewClientPool creates a new client pool.
+func NewClientPool() *ClientPool {
+	return &ClientPool{clients: make(map[string]*Client)}
 }
 
 // Get retrieves or creates a client for the given device properties.
-func (p *ConnectionPool) Get(ctx context.Context, props DeviceProperties) (*Client, error) {
+func (p *ClientPool) Get(ctx context.Context, props DeviceProperties) (*Client, error) {
+	key := props.URI + ":" + props.AssetName
+
 	p.mu.RLock()
-	if client, ok := p.clients[props.ClientKey]; ok {
+	if client, ok := p.clients[key]; ok {
 		p.mu.RUnlock()
 		return client, nil
 	}
@@ -199,8 +187,8 @@ func (p *ConnectionPool) Get(ctx context.Context, props DeviceProperties) (*Clie
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// Double-check after acquiring write lock
-	if client, ok := p.clients[props.ClientKey]; ok {
+	// Double-check after write lock
+	if client, ok := p.clients[key]; ok {
 		return client, nil
 	}
 
@@ -208,21 +196,23 @@ func (p *ConnectionPool) Get(ctx context.Context, props DeviceProperties) (*Clie
 	if err != nil {
 		return nil, err
 	}
-	p.clients[props.ClientKey] = client
+	p.clients[key] = client
 	return client, nil
 }
 
-// Close closes all connections in the pool.
-func (p *ConnectionPool) Close() error {
+// Close closes all connections.
+func (p *ClientPool) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	var combinedErr error
+	errors.NewCatcher(errors.WithAggregation())
+
+	var errs error
 	for _, client := range p.clients {
 		if err := client.Close(); err != nil {
-			combinedErr = errors.Combine(combinedErr, err)
+			errs = errors.Combine(errs, err)
 		}
 	}
-	p.clients = make(map[string]*Client)
-	return combinedErr
+	clear(p.clients)
+	return errs
 }

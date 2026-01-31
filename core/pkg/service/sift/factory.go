@@ -84,10 +84,10 @@ func (c FactoryConfig) Validate() error {
 	return v.Error()
 }
 
-// Factory creates Sift tasks from task definitions.
+// Factory creates Sift upload tasks.
 type Factory struct {
 	cfg  FactoryConfig
-	pool *ConnectionPool
+	pool *ClientPool
 }
 
 var _ driver.Factory = (*Factory)(nil)
@@ -98,83 +98,53 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Factory{
-		cfg:  cfg,
-		pool: NewConnectionPool(),
-	}, nil
+	return &Factory{cfg: cfg, pool: NewClientPool()}, nil
 }
 
-// ConfigureTask creates a Sift task if this factory handles the task type.
-func (f *Factory) ConfigureTask(
-	ctx driver.Context,
-	t task.Task,
-) (driver.Task, error) {
-	switch t.Type {
-	case TaskTypeUploader:
-		return f.configureUploader(ctx, t)
-	default:
+// ConfigureTask creates a Sift upload task.
+func (f *Factory) ConfigureTask(ctx driver.Context, t task.Task) (driver.Task, error) {
+	if t.Type != TaskType {
 		return nil, driver.ErrTaskNotHandled
 	}
-}
 
-func (f *Factory) configureUploader(
-	ctx driver.Context,
-	t task.Task,
-) (driver.Task, error) {
-	var cfg UploaderTaskConfig
+	var cfg TaskConfig
 	if err := json.Unmarshal([]byte(t.Config), &cfg); err != nil {
-		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
+		f.setStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, err
 	}
 
-	// Retrieve the device to get connection properties
+	// Retrieve device for connection properties
 	var dev device.Device
 	if err := f.cfg.Device.NewRetrieve().
 		WhereKeys(cfg.DeviceKey).
 		Entry(&dev).
 		Exec(ctx, nil); err != nil {
-		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
+		f.setStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, err
 	}
 
 	props, err := ParseDeviceProperties(dev.Properties)
 	if err != nil {
-		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
+		f.setStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, err
 	}
 
-	uploader := newUploaderTask(t, props, f.cfg, f.pool)
-	f.setConfigStatus(
-		ctx, t, xstatus.VariantSuccess,
-		"Uploader task configured successfully",
-	)
-	return uploader, nil
+	task := newUploadTask(t, cfg, props, f.cfg, f.pool)
+	f.setStatus(ctx, t, xstatus.VariantSuccess, "Task configured")
+	return task, nil
 }
 
-func (f *Factory) setConfigStatus(
-	ctx driver.Context,
-	t task.Task,
-	variant xstatus.Variant,
-	message string,
-) {
+func (f *Factory) setStatus(ctx driver.Context, t task.Task, variant xstatus.Variant, message string) {
 	stat := task.Status{
 		Key:     task.OntologyID(t.Key).String(),
 		Name:    t.Name,
 		Variant: variant,
 		Message: message,
 		Time:    telem.Now(),
-		Details: task.StatusDetails{
-			Task:    t.Key,
-			Running: false,
-		},
+		Details: task.StatusDetails{Task: t.Key, Running: false},
 	}
 	if err := ctx.SetStatus(stat); err != nil {
-		f.cfg.L.Error(
-			"failed to set configuration status for task",
-			zap.Uint64("key", uint64(t.Key)),
-			zap.String("name", t.Name),
-			zap.Error(err),
-		)
+		f.cfg.L.Error("failed to set status", zap.Uint64("key", uint64(t.Key)), zap.Error(err))
 	}
 }
 

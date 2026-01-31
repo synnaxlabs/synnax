@@ -15,7 +15,6 @@ import (
 	typev1 "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/x/telem"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Sift", func() {
@@ -106,28 +105,13 @@ var _ = Describe("Sift", func() {
 			jsonStr := `{
 				"uri": "api.siftstack.com:443",
 				"api_key": "sk-test-key",
-				"asset_name": "test-asset",
-				"client_key": "synnax-test"
+				"asset_name": "test-asset"
 			}`
 			Expect(sift.ParseDeviceProperties(jsonStr)).To(Equal(sift.DeviceProperties{
-				URI:            "api.siftstack.com:443",
-				APIKey:         "sk-test-key",
-				AssetName:      "test-asset",
-				ClientKey:      "synnax-test",
-				OrganizationID: "",
+				URI:       "api.siftstack.com:443",
+				APIKey:    "sk-test-key",
+				AssetName: "test-asset",
 			}))
-		})
-
-		It("Should parse properties with optional organization_id", func() {
-			jsonStr := `{
-				"uri": "api.siftstack.com:443",
-				"api_key": "sk-test-key",
-				"asset_name": "test-asset",
-				"client_key": "synnax-test",
-				"organization_id": "org-123"
-			}`
-			props := MustSucceed(sift.ParseDeviceProperties(jsonStr))
-			Expect(props.OrganizationID).To(Equal("org-123"))
 		})
 
 		It("Should return error for invalid JSON", func() {

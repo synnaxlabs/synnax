@@ -11,10 +11,10 @@
 package sift
 
 const (
-	// TaskTypeUploader is the task type for historical data upload to Sift.
-	TaskTypeUploader = "sift_upload"
+	// TaskType is the task type for Sift uploads.
+	TaskType = "sift_upload"
 	// DeviceMake is the device make identifier for Sift devices.
 	DeviceMake = "Sift"
-	// DeviceModel is the device model identifier for Sift devices.
+	// DeviceModel is the device model identifier.
 	DeviceModel = "Cloud"
 )

@@ -11,8 +11,6 @@ package sift
 
 import (
 	"context"
-	"encoding/json"
-	"sync"
 	"sync/atomic"
 
 	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
@@ -29,198 +27,139 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// uploaderTask handles historical data uploads to Sift.
-type uploaderTask struct {
+// uploadTask handles a single historical data upload to Sift. It is an ephemeral task
+// that deletes itself upon completion.
+type uploadTask struct {
 	task       task.Task
+	cfg        TaskConfig
 	props      DeviceProperties
 	factoryCfg FactoryConfig
-	pool       *ConnectionPool
-	mu         sync.Mutex
-	uploading  atomic.Bool
-	cancelFn   context.CancelFunc
+	pool       *ClientPool
+	running    atomic.Bool
 }
 
-func newUploaderTask(
+func newUploadTask(
 	t task.Task,
+	cfg TaskConfig,
 	props DeviceProperties,
 	factoryCfg FactoryConfig,
-	pool *ConnectionPool,
-) *uploaderTask {
-	return &uploaderTask{
+	pool *ClientPool,
+) *uploadTask {
+	return &uploadTask{
 		task:       t,
+		cfg:        cfg,
 		props:      props,
 		factoryCfg: factoryCfg,
 		pool:       pool,
 	}
 }
 
-// Exec handles commands for the uploader task.
-func (u *uploaderTask) Exec(ctx context.Context, cmd task.Command) error {
+// Exec handles task commands.
+func (u *uploadTask) Exec(ctx context.Context, cmd task.Command) error {
 	switch cmd.Type {
-	case "upload":
-		return u.startUpload(ctx, cmd)
-	case "cancel":
-		return u.cancel()
+	case "start":
+		return u.start(ctx)
 	default:
-		return errors.Newf("unknown command type: %s", cmd.Type)
+		return errors.Newf("unknown command: %s", cmd.Type)
 	}
 }
 
-func (u *uploaderTask) startUpload(ctx context.Context, cmd task.Command) error {
-	if u.uploading.Load() {
+func (u *uploadTask) start(ctx context.Context) error {
+	if u.running.Load() {
 		return errors.New("upload already in progress")
 	}
-
-	var uploadCmd UploadCommand
-	if err := json.Unmarshal(cmd.Args, &uploadCmd); err != nil {
-		return errors.Wrap(err, "failed to parse upload command")
-	}
-
-	u.mu.Lock()
-	uploadCtx, cancel := context.WithCancel(ctx)
-	u.cancelFn = cancel
-	u.mu.Unlock()
-
-	u.uploading.Store(true)
-	go u.doUpload(uploadCtx, uploadCmd)
-
+	u.running.Store(true)
+	go u.run(ctx)
 	return nil
 }
 
-func (u *uploaderTask) cancel() error {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-
-	if u.cancelFn != nil {
-		u.cancelFn()
-		u.cancelFn = nil
-	}
-	return nil
-}
-
-func (u *uploaderTask) doUpload(ctx context.Context, cmd UploadCommand) {
-	defer u.uploading.Store(false)
+func (u *uploadTask) run(ctx context.Context) {
+	defer u.running.Store(false)
 	defer u.deleteTask()
 
-	// Set status to running
-	u.setStatus(xstatus.VariantInfo, "Upload starting", true)
+	u.setStatus(xstatus.VariantInfo, "Starting upload", true)
 
 	// Retrieve the range
 	var rng ranger.Range
 	if err := u.factoryCfg.Ranger.NewRetrieve().
-		WhereKeys(cmd.RangeKey).
+		WhereKeys(u.cfg.RangeKey).
 		Entry(&rng).
 		Exec(ctx, nil); err != nil {
-		u.setStatus(
-			xstatus.VariantError,
-			errors.Wrap(err, "failed to retrieve range").Error(),
-			false,
-		)
+		u.setStatus(xstatus.VariantError, errors.Wrap(err, "failed to retrieve range").Error(), false)
 		return
 	}
 
-	// Use range time bounds or override
+	// Determine time bounds
 	bounds := rng.TimeRange
-	if cmd.TimeRange != nil {
-		bounds = *cmd.TimeRange
+	if u.cfg.TimeRange != nil {
+		bounds = *u.cfg.TimeRange
 	}
 
-	// Retrieve channel metadata
+	// Retrieve channels
 	var channels []channel.Channel
 	if err := u.factoryCfg.Channel.NewRetrieve().
-		WhereKeys(cmd.Channels...).
+		WhereKeys(u.cfg.Channels...).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
-		u.setStatus(
-			xstatus.VariantError,
-			errors.Wrap(err, "failed to retrieve channels").Error(),
-			false,
-		)
+		u.setStatus(xstatus.VariantError, errors.Wrap(err, "failed to retrieve channels").Error(), false)
 		return
 	}
 
-	// Build channel map for lookup
+	// Build channel lookup map
 	channelMap := make(map[channel.Key]channel.Channel)
 	for _, ch := range channels {
 		channelMap[ch.Key()] = ch
 	}
 
-	// Get or create Sift client
+	// Get Sift client
 	client, err := u.pool.Get(ctx, u.props)
 	if err != nil {
-		u.setStatus(
-			xstatus.VariantError,
-			errors.Wrap(err, "failed to connect to Sift").Error(),
-			false,
-		)
+		u.setStatus(xstatus.VariantError, errors.Wrap(err, "failed to connect to Sift").Error(), false)
 		return
 	}
 
-	// Build flow config from channels
-	flows, err := u.buildFlowConfig(cmd.FlowName, channels)
-	if err != nil {
-		u.setStatus(xstatus.VariantError, err.Error(), false)
-		return
-	}
+	// Build flow config
+	flow := u.buildFlowConfig(channels)
 
 	// Get or create ingestion config
-	ingestionConfig, err := client.GetOrCreateIngestionConfig(ctx, flows)
+	ingestionCfg, err := client.GetOrCreateIngestionConfig(ctx, []FlowConfig{flow})
 	if err != nil {
-		u.setStatus(
-			xstatus.VariantError,
-			errors.Wrap(err, "failed to create ingestion config").Error(),
-			false,
-		)
+		u.setStatus(xstatus.VariantError, errors.Wrap(err, "failed to create ingestion config").Error(), false)
 		return
 	}
 
-	// Create run if name provided
+	// Create run if requested
 	var runID string
-	if cmd.RunName != "" {
-		run, err := client.CreateRun(ctx, cmd.RunName)
+	if u.cfg.RunName != "" {
+		run, err := client.CreateRun(ctx, u.cfg.RunName)
 		if err != nil {
-			u.factoryCfg.L.Warn("failed to create run, continuing without run",
-				zap.String("run_name", cmd.RunName),
-				zap.Error(err),
-			)
+			u.factoryCfg.L.Warn("failed to create run", zap.Error(err))
 		} else {
 			runID = run.RunId
 		}
 	}
 
 	// Open ingest stream
-	stream, err := client.OpenIngestStream(ctx, ingestionConfig.IngestionConfigId)
+	stream, err := client.OpenIngestStream(ctx, ingestionCfg.IngestionConfigId)
 	if err != nil {
-		u.setStatus(
-			xstatus.VariantError,
-			errors.Wrap(err, "failed to open ingest stream").Error(),
-			false,
-		)
+		u.setStatus(xstatus.VariantError, errors.Wrap(err, "failed to open ingest stream").Error(), false)
 		return
 	}
 	defer stream.Close()
 
-	// Open iterator for the range
+	// Open data iterator
 	iter, err := u.factoryCfg.Framer.OpenIterator(ctx, framer.IteratorConfig{
-		Keys:   cmd.Channels,
+		Keys:   u.cfg.Channels,
 		Bounds: bounds,
 	})
 	if err != nil {
-		u.setStatus(
-			xstatus.VariantError,
-			errors.Wrap(err, "failed to open iterator").Error(),
-			false,
-		)
+		u.setStatus(xstatus.VariantError, errors.Wrap(err, "failed to open iterator").Error(), false)
 		return
 	}
 	defer iter.Close()
 
-	// Iterate and send data
-	var (
-		sampleCount int64
-		frameCount  int64
-	)
-
+	// Stream data to Sift
+	var frameCount int64
 	for iter.SeekFirst(); iter.Valid(); iter.Next(telem.Second) {
 		select {
 		case <-ctx.Done():
@@ -233,130 +172,89 @@ func (u *uploaderTask) doUpload(ctx context.Context, cmd UploadCommand) {
 		if frame.Empty() {
 			continue
 		}
-
 		frameCount++
 
-		// Send each sample in the frame
-		for key, series := range frame.Entries() {
-			ch, ok := channelMap[key]
-			if !ok {
-				continue
-			}
-
-			values, err := u.convertSeriesToChannelValues(series)
-			if err != nil {
-				u.factoryCfg.L.Warn("failed to convert series",
-					zap.String("channel", ch.Name),
-					zap.Error(err),
-				)
-				continue
-			}
-
-			// Calculate sample spacing based on time range and sample count
-			seriesLen := series.Len()
-			timeSpan := series.TimeRange.Span()
-			var sampleSpan telem.TimeSpan
-			if seriesLen > 1 {
-				sampleSpan = telem.TimeSpan(int64(timeSpan) / (seriesLen - 1))
-			}
-
-			for i, val := range values {
-				ts := series.TimeRange.Start.Add(telem.TimeSpan(i) * sampleSpan)
-
-				req := &ingestv1.IngestWithConfigDataStreamRequest{
-					Flow:          cmd.FlowName,
-					Timestamp:     timestamppb.New(ts.Time()),
-					ChannelValues: []*ingestv1.IngestWithConfigDataChannelValue{val},
-					RunId:         runID,
-				}
-
-				if err := stream.Send(req); err != nil {
-					u.setStatus(
-						xstatus.VariantError,
-						errors.Wrap(err, "failed to send data").Error(),
-						false,
-					)
-					return
-				}
-				sampleCount++
-			}
+		if err := u.sendFrame(stream, frame, channelMap, runID); err != nil {
+			u.setStatus(xstatus.VariantError, errors.Wrap(err, "failed to send data").Error(), false)
+			return
 		}
 
-		// Update progress periodically
 		if frameCount%100 == 0 {
-			u.setStatus(xstatus.VariantInfo, "Upload in progress", true)
+			u.setStatus(xstatus.VariantInfo, "Uploading", true)
 		}
 	}
 
 	if err := iter.Error(); err != nil {
-		u.setStatus(
-			xstatus.VariantError,
-			errors.Wrap(err, "iterator error").Error(),
-			false,
-		)
+		u.setStatus(xstatus.VariantError, errors.Wrap(err, "iterator error").Error(), false)
 		return
 	}
 
 	u.setStatus(xstatus.VariantSuccess, "Upload completed", false)
 }
 
-func (u *uploaderTask) buildFlowConfig(
-	flowName string,
-	channels []channel.Channel,
-) ([]FlowConfig, error) {
-	channelConfigs := make([]ChannelConfig, 0, len(channels))
-
+func (u *uploadTask) buildFlowConfig(channels []channel.Channel) FlowConfig {
+	cfgs := make([]ChannelConfig, 0, len(channels))
 	for _, ch := range channels {
 		if ch.IsIndex {
-			continue // Skip index channels
+			continue
 		}
-
-		siftType, err := MapDataType(ch.DataType)
+		dt, err := MapDataType(ch.DataType)
 		if err != nil {
-			return nil,
-				errors.Wrapf(err, "unsupported data type for channel %s", ch.Name)
+			u.factoryCfg.L.Warn("skipping channel with unsupported type",
+				zap.String("channel", ch.Name),
+				zap.Error(err))
+			continue
+		}
+		cfgs = append(cfgs, ChannelConfig{Name: ch.Name, DataType: dt})
+	}
+	return FlowConfig{Name: u.cfg.FlowName, Channels: cfgs}
+}
+
+func (u *uploadTask) sendFrame(
+	stream *IngestStream,
+	frame framer.Frame,
+	channelMap map[channel.Key]channel.Channel,
+	runID string,
+) error {
+	for key, series := range frame.Entries() {
+		ch, ok := channelMap[key]
+		if !ok || ch.IsIndex {
+			continue
 		}
 
-		channelConfigs = append(channelConfigs, ChannelConfig{
-			Name:        ch.Name,
-			Component:   "",
-			Unit:        "",
-			Description: "",
-			DataType:    siftType,
-		})
-	}
+		values, err := ConvertSeriesToValues(series)
+		if err != nil {
+			continue
+		}
 
-	return []FlowConfig{{
-		Name:     flowName,
-		Channels: channelConfigs,
-	}}, nil
+		// Calculate sample timestamps
+		seriesLen := series.Len()
+		var sampleSpan telem.TimeSpan
+		if seriesLen > 1 {
+			sampleSpan = telem.TimeSpan(int64(series.TimeRange.Span()) / int64(seriesLen-1))
+		}
+
+		for i, val := range values {
+			ts := series.TimeRange.Start.Add(telem.TimeSpan(i) * sampleSpan)
+			req := &ingestv1.IngestWithConfigDataStreamRequest{
+				Flow:          u.cfg.FlowName,
+				Timestamp:     timestamppb.New(ts.Time()),
+				ChannelValues: []*ingestv1.IngestWithConfigDataChannelValue{u.toChannelValue(val, series.DataType)},
+				RunId:         runID,
+			}
+			if err := stream.Send(req); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
-func (u *uploaderTask) convertSeriesToChannelValues(
-	series telem.Series,
-) ([]*ingestv1.IngestWithConfigDataChannelValue, error) {
-	values, err := ConvertSeriesToValues(series)
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]*ingestv1.IngestWithConfigDataChannelValue, len(values))
-	for i, v := range values {
-		result[i] = u.toChannelValue(v, series.DataType)
-	}
-	return result, nil
-}
-
-func (u *uploaderTask) toChannelValue(
-	v any,
-	dt telem.DataType,
-) *ingestv1.IngestWithConfigDataChannelValue {
+func (u *uploadTask) toChannelValue(v any, dt telem.DataType) *ingestv1.IngestWithConfigDataChannelValue {
 	switch dt {
 	case telem.Float64T:
 		return &ingestv1.IngestWithConfigDataChannelValue{
-			Type: &ingestv1.IngestWithConfigDataChannelValue_Double{
-				Double: v.(float64),
-			},
+			Type: &ingestv1.IngestWithConfigDataChannelValue_Double{Double: v.(float64)},
 		}
 	case telem.Float32T:
 		return &ingestv1.IngestWithConfigDataChannelValue{
@@ -379,55 +277,38 @@ func (u *uploaderTask) toChannelValue(
 			Type: &ingestv1.IngestWithConfigDataChannelValue_Uint32{Uint32: v.(uint32)},
 		}
 	default:
-		// Fall back to double for unknown types
 		return &ingestv1.IngestWithConfigDataChannelValue{
 			Type: &ingestv1.IngestWithConfigDataChannelValue_Double{Double: 0},
 		}
 	}
 }
 
-func (u *uploaderTask) setStatus(
-	variant xstatus.Variant,
-	message string,
-	running bool,
-) {
+func (u *uploadTask) setStatus(variant xstatus.Variant, message string, running bool) {
 	stat := task.Status{
 		Key:     task.OntologyID(u.task.Key).String(),
 		Name:    u.task.Name,
 		Variant: variant,
 		Message: message,
 		Time:    telem.Now(),
-		Details: task.StatusDetails{
-			Task:    u.task.Key,
-			Running: running,
-		},
+		Details: task.StatusDetails{Task: u.task.Key, Running: running},
 	}
-	// Use a background context for status updates since the task context may be
-	// cancelled
 	if err := status.NewWriter[task.StatusDetails](
 		u.factoryCfg.Status, nil,
 	).Set(context.Background(), &stat); err != nil {
-		u.factoryCfg.L.Error("failed to set status",
-			zap.Uint64("task", uint64(u.task.Key)),
-			zap.Error(err),
-		)
+		u.factoryCfg.L.Error("failed to set status", zap.Error(err))
 	}
 }
 
-func (u *uploaderTask) Stop() error { return u.cancel() }
-
-func (u *uploaderTask) deleteTask() {
+func (u *uploadTask) deleteTask() {
 	if err := u.factoryCfg.Task.NewWriter(nil).Delete(
-		context.Background(),
-		u.task.Key,
-		false,
+		context.Background(), u.task.Key, false,
 	); err != nil {
-		u.factoryCfg.L.Error("failed to delete upload task",
-			zap.Uint64("task", uint64(u.task.Key)),
-			zap.Error(err),
-		)
+		u.factoryCfg.L.Error("failed to delete task", zap.Uint64("task", uint64(u.task.Key)), zap.Error(err))
 	}
 }
 
-// Ensure uploaderTask implements driver.Task
-var _ driver.Task = (*uploaderTask)(nil)
+// Stop cancels the upload. Since the upload runs in a goroutine with context, this is
+// a no-op - the context cancellation handles stopping.
+func (u *uploadTask) Stop() error { return nil }
+
+var _ driver.Task = (*uploadTask)(nil)

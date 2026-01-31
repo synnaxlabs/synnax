@@ -27,10 +27,6 @@ type DeviceProperties struct {
 	APIKey string `json:"api_key"`
 	// AssetName is the Sift asset name to associate data with.
 	AssetName string `json:"asset_name"`
-	// ClientKey is a unique identifier for ingestion config deduplication.
-	ClientKey string `json:"client_key"`
-	// OrganizationID is an optional organization identifier.
-	OrganizationID string `json:"organization_id,omitempty"`
 }
 
 // ParseDeviceProperties parses DeviceProperties from a JSON string.
@@ -42,26 +38,31 @@ func ParseDeviceProperties(s string) (DeviceProperties, error) {
 	return p, nil
 }
 
-// UploaderTaskConfig is the configuration for a Sift uploader task. The uploader task
-// is auto-created on boot for each Sift device. Channels come from upload commands, not
-// from the task config.
-type UploaderTaskConfig struct {
-	// DeviceKey references the Sift device containing connection config.
-	DeviceKey string `json:"device_key"`
+// clientKey generates a deterministic client key for ingestion config deduplication.
+func (p DeviceProperties) clientKey() string {
+	// FNV-1a hash for deterministic key generation
+	var hash uint64 = 14695981039346656037
+	s := p.URI + ":" + p.AssetName
+	for i := 0; i < len(s); i++ {
+		hash ^= uint64(s[i])
+		hash *= 1099511628211
+	}
+	return "synnax-" + string(rune(hash))
 }
 
-// UploadCommand is the command sent to trigger a historical data upload.
-type UploadCommand struct {
+// TaskConfig contains all parameters for a Sift upload task. Each task represents a
+// single upload operation and is deleted upon completion.
+type TaskConfig struct {
+	// DeviceKey references the Sift device containing connection config.
+	DeviceKey string `json:"device_key"`
 	// RangeKey is the Synnax range to upload.
 	RangeKey uuid.UUID `json:"range_key"`
 	// Channels are the Synnax channel keys to upload.
 	Channels []channel.Key `json:"channels"`
 	// FlowName is the Sift flow name for this upload.
 	FlowName string `json:"flow_name"`
-	// RunName is an optional Sift run name.
+	// RunName is an optional Sift run name. If provided, a run will be created.
 	RunName string `json:"run_name,omitempty"`
-	// TimeRange is an optional time range override (uses range bounds if not set).
+	// TimeRange optionally overrides the range time bounds.
 	TimeRange *telem.TimeRange `json:"time_range,omitempty"`
-	// ChunkSize is an optional chunk size for uploads.
-	ChunkSize int64 `json:"chunk_size,omitempty"`
 }
