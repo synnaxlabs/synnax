@@ -148,6 +148,18 @@ var _ = Describe("Feature Behavior", func() {
 - Context-based test organization for different scenarios
 - Helper functions for database/service setup in suite files
 - Goroutine leak detection: `ShouldNotLeakGoroutines()`
+- **Inline assertions for multi-return functions**: Prefer `Expect(fn()).To(matcher)`
+  over capturing return values separately when the error is expected to be nil
+
+```go
+// Preferred - inline assertion
+Expect(factory.ConfigureInitialTasks(ctx, key)).To(BeEmpty())
+
+// Avoid - unnecessary variable capture
+tasks, err := factory.ConfigureInitialTasks(ctx, key)
+Expect(err).ToNot(HaveOccurred())
+Expect(tasks).To(BeEmpty())
+```
 
 ### Helpful Utilities
 
