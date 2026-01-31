@@ -18,7 +18,7 @@ import (
 // Task is the interface that all executable tasks must implement.
 type Task interface {
 	// Exec handles commands (start, stop, etc.)
-	Exec(ctx context.Context, cmd task.Command) error
+	Exec(context.Context, task.Command) error
 	// Stop gracefully shuts down the task.
 	Stop(willReconfigure bool) error
 	// Key returns the task key.
