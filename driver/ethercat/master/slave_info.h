@@ -13,6 +13,8 @@
 #include <string>
 #include <vector>
 
+#include "nlohmann/json.hpp"
+
 #include "x/cpp/telem/telem.h"
 
 namespace ethercat {
@@ -96,7 +98,19 @@ struct PDOEntryInfo {
         data_type(data_type) {}
 
     /// Returns the size of this PDO entry in bytes (rounded up from bits).
-    [[nodiscard]] size_t byte_length() const { return (bit_length + 7) / 8; }
+    [[nodiscard]] size_t byte_length() const { return (this->bit_length + 7) / 8; }
+
+    /// Serializes this PDO entry to JSON for storage in Synnax device properties.
+    [[nodiscard]] nlohmann::json to_json() const {
+        return {
+            {"name", this->name},
+            {"pdo_index", this->pdo_index},
+            {"index", this->index},
+            {"subindex", this->subindex},
+            {"bit_length", this->bit_length},
+            {"data_type", this->data_type.name()}
+        };
+    }
 };
 
 /// Information about an EtherCAT slave device discovered on the network.
@@ -167,7 +181,35 @@ struct SlaveInfo {
 
     /// Returns the total number of discovered PDO entries.
     [[nodiscard]] size_t pdo_count() const {
-        return input_pdos.size() + output_pdos.size();
+        return this->input_pdos.size() + this->output_pdos.size();
+    }
+
+    /// Serializes this slave's properties to JSON for storage in Synnax device
+    /// properties.
+    /// @param network The network interface name this slave is connected to.
+    [[nodiscard]] nlohmann::json
+    to_device_properties(const std::string &network) const {
+        nlohmann::json props;
+        props["vendor_id"] = this->vendor_id;
+        props["product_code"] = this->product_code;
+        props["revision"] = this->revision;
+        props["serial"] = this->serial;
+        props["name"] = this->name;
+        props["network"] = network;
+        props["position"] = this->position;
+        props["input_bits"] = this->input_bits;
+        props["output_bits"] = this->output_bits;
+
+        nlohmann::json inputs = nlohmann::json::array();
+        for (const auto &pdo: this->input_pdos)
+            inputs.push_back(pdo.to_json());
+
+        nlohmann::json outputs = nlohmann::json::array();
+        for (const auto &pdo: this->output_pdos)
+            outputs.push_back(pdo.to_json());
+
+        props["pdos"] = {{"inputs", inputs}, {"outputs", outputs}};
+        return props;
     }
 };
 

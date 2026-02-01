@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/ethercat/esi/known_devices.h"
-
 #include <cstring>
 
 #include "x/cpp/telem/telem.h"
+
+#include "driver/ethercat/esi/known_devices.h"
 
 namespace ethercat::esi {
 
@@ -62,34 +62,36 @@ struct BlobPDO {
     uint32_t name_offset;
 };
 
-inline const BlobHeader* header() {
-    return reinterpret_cast<const BlobHeader*>(REGISTRY_BLOB);
+inline const BlobHeader *header() {
+    return reinterpret_cast<const BlobHeader *>(REGISTRY_BLOB);
 }
 
-inline const char* string_at(uint32_t offset) {
-    return reinterpret_cast<const char*>(REGISTRY_BLOB + header()->string_table_offset + offset);
+inline const char *string_at(uint32_t offset) {
+    return reinterpret_cast<const char *>(
+        REGISTRY_BLOB + header()->string_table_offset + offset
+    );
 }
 
-inline const BlobVendor* vendors() {
-    return reinterpret_cast<const BlobVendor*>(REGISTRY_BLOB + sizeof(BlobHeader));
+inline const BlobVendor *vendors() {
+    return reinterpret_cast<const BlobVendor *>(REGISTRY_BLOB + sizeof(BlobHeader));
 }
 
-inline const BlobDeviceIndex* device_index() {
-    return reinterpret_cast<const BlobDeviceIndex*>(
+inline const BlobDeviceIndex *device_index() {
+    return reinterpret_cast<const BlobDeviceIndex *>(
         REGISTRY_BLOB + sizeof(BlobHeader) + header()->vendor_count * sizeof(BlobVendor)
     );
 }
 
-inline const BlobDevice* devices() {
-    return reinterpret_cast<const BlobDevice*>(
+inline const BlobDevice *devices() {
+    return reinterpret_cast<const BlobDevice *>(
         REGISTRY_BLOB + sizeof(BlobHeader) +
         header()->vendor_count * sizeof(BlobVendor) +
         header()->device_index_count * sizeof(BlobDeviceIndex)
     );
 }
 
-inline const BlobPDO* pdos() {
-    return reinterpret_cast<const BlobPDO*>(
+inline const BlobPDO *pdos() {
+    return reinterpret_cast<const BlobPDO *>(
         REGISTRY_BLOB + sizeof(BlobHeader) +
         header()->vendor_count * sizeof(BlobVendor) +
         header()->device_index_count * sizeof(BlobDeviceIndex) +
@@ -99,17 +101,28 @@ inline const BlobPDO* pdos() {
 
 telem::DataType id_to_data_type(uint8_t id) {
     switch (id) {
-        case 1: return telem::UINT8_T;
-        case 2: return telem::INT8_T;
-        case 3: return telem::INT16_T;
-        case 4: return telem::UINT16_T;
-        case 5: return telem::INT32_T;
-        case 6: return telem::UINT32_T;
-        case 7: return telem::INT64_T;
-        case 8: return telem::UINT64_T;
-        case 9: return telem::FLOAT32_T;
-        case 10: return telem::FLOAT64_T;
-        default: return telem::UINT8_T;
+        case 1:
+            return telem::UINT8_T;
+        case 2:
+            return telem::INT8_T;
+        case 3:
+            return telem::INT16_T;
+        case 4:
+            return telem::UINT16_T;
+        case 5:
+            return telem::INT32_T;
+        case 6:
+            return telem::UINT32_T;
+        case 7:
+            return telem::INT64_T;
+        case 8:
+            return telem::UINT64_T;
+        case 9:
+            return telem::FLOAT32_T;
+        case 10:
+            return telem::FLOAT64_T;
+        default:
+            return telem::UINT8_T;
     }
 }
 
@@ -121,14 +134,14 @@ bool lookup_device_pdos(
     const uint32_t revision,
     SlaveInfo &slave
 ) {
-    const auto* idx = device_index();
+    const auto *idx = device_index();
     const uint32_t idx_count = header()->device_index_count;
 
     // Binary search for (vendor_id, product_code)
     size_t lo = 0, hi = idx_count;
     while (lo < hi) {
         const size_t mid = lo + (hi - lo) / 2;
-        const auto& entry = idx[mid];
+        const auto &entry = idx[mid];
         if (entry.vendor_id < vendor_id ||
             (entry.vendor_id == vendor_id && entry.product_code < product_code)) {
             lo = mid + 1;
@@ -138,14 +151,15 @@ bool lookup_device_pdos(
     }
 
     if (lo >= idx_count) return false;
-    const auto& entry = idx[lo];
-    if (entry.vendor_id != vendor_id || entry.product_code != product_code) return false;
+    const auto &entry = idx[lo];
+    if (entry.vendor_id != vendor_id || entry.product_code != product_code)
+        return false;
 
     // Search for exact revision match, fallback to first
-    const auto* devs = devices();
-    const BlobDevice* match = nullptr;
+    const auto *devs = devices();
+    const BlobDevice *match = nullptr;
     for (uint32_t i = 0; i < entry.device_count; ++i) {
-        const auto& dev = devs[entry.first_device + i];
+        const auto &dev = devs[entry.first_device + i];
         if (dev.revision == revision) {
             match = &dev;
             break;
@@ -155,25 +169,35 @@ bool lookup_device_pdos(
 
     if (match == nullptr) return false;
 
-    const auto* pdo_table = pdos();
+    const auto *pdo_table = pdos();
 
     slave.input_pdos.clear();
     slave.input_pdos.reserve(match->input_count);
     for (uint16_t i = 0; i < match->input_count; ++i) {
-        const auto& p = pdo_table[match->pdo_offset + i];
+        const auto &p = pdo_table[match->pdo_offset + i];
         slave.input_pdos.emplace_back(
-            p.pdo_index, p.index, p.subindex, p.bit_length,
-            true, string_at(p.name_offset), id_to_data_type(p.data_type)
+            p.pdo_index,
+            p.index,
+            p.subindex,
+            p.bit_length,
+            true,
+            string_at(p.name_offset),
+            id_to_data_type(p.data_type)
         );
     }
 
     slave.output_pdos.clear();
     slave.output_pdos.reserve(match->output_count);
     for (uint16_t i = 0; i < match->output_count; ++i) {
-        const auto& p = pdo_table[match->pdo_offset + match->input_count + i];
+        const auto &p = pdo_table[match->pdo_offset + match->input_count + i];
         slave.output_pdos.emplace_back(
-            p.pdo_index, p.index, p.subindex, p.bit_length,
-            false, string_at(p.name_offset), id_to_data_type(p.data_type)
+            p.pdo_index,
+            p.index,
+            p.subindex,
+            p.bit_length,
+            false,
+            string_at(p.name_offset),
+            id_to_data_type(p.data_type)
         );
     }
 
@@ -182,7 +206,7 @@ bool lookup_device_pdos(
 }
 
 std::optional<std::string_view> vendor_name(const uint32_t vendor_id) {
-    const auto* vends = vendors();
+    const auto *vends = vendors();
     const uint32_t count = header()->vendor_count;
 
     // Binary search for vendor
@@ -200,14 +224,14 @@ std::optional<std::string_view> vendor_name(const uint32_t vendor_id) {
 }
 
 bool is_device_known(const uint32_t vendor_id, const uint32_t product_code) {
-    const auto* idx = device_index();
+    const auto *idx = device_index();
     const uint32_t idx_count = header()->device_index_count;
 
     // Binary search for (vendor_id, product_code)
     size_t lo = 0, hi = idx_count;
     while (lo < hi) {
         const size_t mid = lo + (hi - lo) / 2;
-        const auto& entry = idx[mid];
+        const auto &entry = idx[mid];
         if (entry.vendor_id < vendor_id ||
             (entry.vendor_id == vendor_id && entry.product_code < product_code)) {
             lo = mid + 1;
@@ -216,7 +240,7 @@ bool is_device_known(const uint32_t vendor_id, const uint32_t product_code) {
         }
     }
     if (lo >= idx_count) return false;
-    const auto& entry = idx[lo];
+    const auto &entry = idx[lo];
     return entry.vendor_id == vendor_id && entry.product_code == product_code;
 }
 

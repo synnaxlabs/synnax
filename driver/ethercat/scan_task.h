@@ -59,6 +59,28 @@ struct TestInterfaceArgs {
         interface(parser.field<std::string>("interface")) {}
 };
 
+/// Properties for an EtherCAT network device (stored in Synnax device properties).
+struct NetworkDeviceProperties {
+    /// Network interface name (e.g., "eth0", "enp3s0").
+    std::string interface;
+    /// Number of slaves discovered on this network.
+    size_t slave_count;
+    /// Cycle rate in Hz.
+    double rate;
+
+    NetworkDeviceProperties(std::string iface, size_t count, double r = 1000.0):
+        interface(std::move(iface)), slave_count(count), rate(r) {}
+
+    /// Serializes to JSON for storage in Synnax device properties.
+    [[nodiscard]] nlohmann::json to_json() const {
+        return {
+            {"interface", this->interface},
+            {"slave_count", this->slave_count},
+            {"rate", this->rate}
+        };
+    }
+};
+
 /// Scanner implementation for EtherCAT device discovery.
 ///
 /// The scanner discovers EtherCAT networks and slaves, creating Synnax devices

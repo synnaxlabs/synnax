@@ -21,7 +21,8 @@ namespace ethercat::esi {
 /// Uses binary search with revision fallback.
 /// @param vendor_id EtherCAT vendor ID.
 /// @param product_code Device product code.
-/// @param revision Device revision (falls back to any revision if exact match not found).
+/// @param revision Device revision (falls back to any revision if exact match not
+/// found).
 /// @param slave Output parameter populated with PDO information.
 /// @returns true if device was found, false otherwise.
 bool lookup_device_pdos(

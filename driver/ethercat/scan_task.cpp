@@ -150,9 +150,9 @@ synnax::Device Scanner::create_network_device(
     const std::string key = this->generate_network_key(iface.name);
 
     nlohmann::json props = get_existing_properties(key, scan_ctx);
-    props["interface"] = iface.name;
-    props["slave_count"] = slaves.size();
-    props["rate"] = 1000.0;
+    NetworkDeviceProperties net_props(iface.name, slaves.size());
+    for (auto &[k, v]: net_props.to_json().items())
+        props[k] = v;
 
     const std::string status_msg = "Discovered " + std::to_string(slaves.size()) +
                                    " slaves";
@@ -187,41 +187,9 @@ synnax::Device Scanner::create_slave_device(
     const std::string key = this->generate_slave_key(slave, network_interface);
 
     nlohmann::json props = get_existing_properties(key, scan_ctx);
-    props["vendor_id"] = slave.vendor_id;
-    props["product_code"] = slave.product_code;
-    props["revision"] = slave.revision;
-    props["serial"] = slave.serial;
-    props["name"] = slave.name;
-    props["network"] = network_interface;
-    props["position"] = slave.position;
-    props["input_bits"] = slave.input_bits;
-    props["output_bits"] = slave.output_bits;
-
-    nlohmann::json input_pdos = nlohmann::json::array();
-    for (const auto &pdo: slave.input_pdos) {
-        input_pdos.push_back(
-            {{"name", pdo.name},
-             {"pdo_index", pdo.pdo_index},
-             {"index", pdo.index},
-             {"subindex", pdo.subindex},
-             {"bit_length", pdo.bit_length},
-             {"data_type", pdo.data_type.name()}}
-        );
-    }
-
-    nlohmann::json output_pdos = nlohmann::json::array();
-    for (const auto &pdo: slave.output_pdos) {
-        output_pdos.push_back(
-            {{"name", pdo.name},
-             {"pdo_index", pdo.pdo_index},
-             {"index", pdo.index},
-             {"subindex", pdo.subindex},
-             {"bit_length", pdo.bit_length},
-             {"data_type", pdo.data_type.name()}}
-        );
-    }
-
-    props["pdos"] = {{"inputs", input_pdos}, {"outputs", output_pdos}};
+    auto slave_props = slave.to_device_properties(network_interface);
+    for (auto &[k, v]: slave_props.items())
+        props[k] = v;
 
     std::string status_msg;
     std::string status_variant;
