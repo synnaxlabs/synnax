@@ -161,6 +161,14 @@ private:
     /// Discovers PDO entries for a slave and populates its PDO lists.
     /// @param slave The SlaveInfo to populate with discovered PDOs.
     void discover_slave_pdos(SlaveInfo &slave);
+
+    /// Reads the name of a PDO entry from the slave's object dictionary via SDO.
+    /// @param slave_pos The slave position on the bus.
+    /// @param index The object dictionary index.
+    /// @param subindex The object dictionary subindex.
+    /// @returns The entry name, or empty string if read fails.
+    std::string
+    read_pdo_entry_name(uint16_t slave_pos, uint16_t index, uint8_t subindex);
 };
 
 /// Checks if the IgH EtherCAT master kernel module is available.

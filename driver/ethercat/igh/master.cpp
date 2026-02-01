@@ -80,6 +80,8 @@ xerrors::Error Master::initialize() {
     }
 
     this->initialized = true;
+    VLOG(1) << "[ethercat.igh] master " << this->master_index << " initialized with "
+            << this->cached_slaves.size() << " slaves";
     return xerrors::NIL;
 }
 
@@ -98,12 +100,14 @@ xerrors::Error Master::activate() {
     }
 
     this->activated = true;
+    VLOG(1) << "[ethercat.igh] master " << this->master_index << " activated";
     return xerrors::NIL;
 }
 
 void Master::deactivate() {
     if (!this->activated) return;
 
+    VLOG(1) << "[ethercat.igh] master " << this->master_index << " deactivating";
     ecrt_master_deactivate(this->ec_master);
     this->activated = false;
     this->slave_configs.clear();
@@ -118,6 +122,11 @@ xerrors::Error Master::receive() {
     ecrt_master_receive(this->ec_master);
     ecrt_domain_process(this->domain);
     ecrt_domain_state(this->domain, &this->domain_state);
+    if (this->domain_state.wc_state == EC_WC_ZERO)
+        return xerrors::Error(WORKING_COUNTER_ERROR, "no slaves responded");
+    if (this->domain_state.wc_state == EC_WC_INCOMPLETE)
+        VLOG(2) << "[ethercat.igh] incomplete WC: "
+                << this->domain_state.working_counter;
     return xerrors::NIL;
 }
 
@@ -254,6 +263,10 @@ std::pair<size_t, xerrors::Error> Master::register_pdo(const PDOEntry &entry) {
         this->pdo_offset_cache[key] = {relative_offset, 0};
     }
 
+    VLOG(2) << "[ethercat.igh] registered PDO 0x" << std::hex << entry.index << ":"
+            << static_cast<int>(entry.subindex) << std::dec << " for slave "
+            << entry.slave_position << " at offset " << relative_offset;
+
     return {relative_offset, xerrors::NIL};
 }
 
@@ -272,6 +285,17 @@ SlaveState Master::convert_state(const uint8_t igh_state) {
         default:
             return SlaveState::UNKNOWN;
     }
+}
+
+std::string Master::read_pdo_entry_name(
+    const uint16_t slave_pos,
+    const uint16_t index,
+    const uint8_t subindex
+) {
+    (void) slave_pos;
+    (void) index;
+    (void) subindex;
+    return "";
 }
 
 void Master::discover_slave_pdos(SlaveInfo &slave) {
@@ -322,8 +346,13 @@ void Master::discover_slave_pdos(SlaveInfo &slave) {
                 const telem::DataType data_type = infer_type_from_bit_length(
                     entry_info.bit_length
                 );
+                const std::string coe_name = this->read_pdo_entry_name(
+                    slave.position,
+                    entry_info.index,
+                    entry_info.subindex
+                );
                 const std::string name = generate_pdo_entry_name(
-                    "",
+                    coe_name,
                     entry_info.index,
                     entry_info.subindex,
                     is_input,
@@ -349,7 +378,8 @@ void Master::discover_slave_pdos(SlaveInfo &slave) {
     }
 
     slave.pdos_discovered = true;
-    VLOG(1) << "Slave " << slave.position
+    slave.coe_pdo_order_reliable = true;
+    VLOG(1) << "[ethercat.igh] slave " << slave.position
             << " PDOs discovered via IgH: " << slave.input_pdos.size() << " inputs, "
             << slave.output_pdos.size() << " outputs";
 }

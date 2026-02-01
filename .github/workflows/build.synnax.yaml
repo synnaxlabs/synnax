@@ -216,7 +216,8 @@ jobs:
         if: matrix.os == 'windows-build-bot'
         run: |
           choco install git-lfs -y
-          cd vendor/esi/esi && git lfs pull
+          cd vendor/esi/esi
+          git lfs pull
 
       - name: Install Deps On Ubuntu
         # Dependencies should already be installed on the machine.

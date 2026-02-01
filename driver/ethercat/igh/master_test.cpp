@@ -41,26 +41,11 @@ TEST_F(MasterTest, DetectsSlaves) {
     }
 }
 
-TEST_F(MasterTest, CreatesDomain) {
-    Master master(0);
-    ASSERT_NIL(master.initialize());
-
-    auto domain = master.create_domain();
-    ASSERT_NE(master.active_domain(), nullptr);
-}
-
 TEST_F(MasterTest, ActivatesAndDeactivates) {
     Master master(0);
     ASSERT_NIL(master.initialize());
-
-    auto domain = master.create_domain();
-    ASSERT_NE(master.active_domain(), nullptr);
-
     ASSERT_NIL(master.activate());
-    EXPECT_NE(master.active_domain()->data(), nullptr);
-
     master.deactivate();
-    EXPECT_EQ(master.active_domain(), nullptr);
 }
 
 TEST_F(MasterTest, CyclicExchange) {
@@ -70,19 +55,10 @@ TEST_F(MasterTest, CyclicExchange) {
     auto slaves = master.slaves();
     if (slaves.empty()) GTEST_SKIP() << "No slaves for cyclic test";
 
-    auto domain = master.create_domain();
-    ASSERT_NE(master.active_domain(), nullptr);
-
     ASSERT_NIL(master.activate());
-
-    auto *active = master.active_domain();
-    ASSERT_NE(active, nullptr);
-    ASSERT_NE(active->data(), nullptr);
 
     for (int i = 0; i < 100; ++i) {
         ASSERT_NIL(master.receive());
-        ASSERT_NIL(master.process(*active));
-        ASSERT_NIL(master.queue(*active));
         ASSERT_NIL(master.send());
     }
 
