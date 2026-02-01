@@ -8,3 +8,7 @@
 **/nisyscfg.h
 **/nidaqmx.h
 vendor/**
+
+# IgH EtherCAT Headers
+
+**/ecrt.h
