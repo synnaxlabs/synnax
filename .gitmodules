@@ -14,3 +14,6 @@
 [submodule "vendor/soem/SOEM"]
 	path = vendor/soem/SOEM
 	url = https://github.com/OpenEtherCATsociety/SOEM.git
+[submodule "vendor/esi/esi"]
+	path = vendor/esi/esi
+	url = https://github.com/synnaxlabs/esi.git

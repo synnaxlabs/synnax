@@ -8,22 +8,37 @@
 // included in the file licenses/APL.txt.
 
 #include "driver/ethercat/engine/pool.h"
+#include "driver/ethercat/errors/errors.h"
 
 namespace ethercat::engine {
 Pool::Pool(master::Factory factory): factory(std::move(factory)) {}
 
-std::shared_ptr<Engine> Pool::acquire(
+std::pair<std::shared_ptr<Engine>, xerrors::Error> Pool::acquire(
     const std::string &interface_name,
+    telem::Rate rate,
     const std::string &backend
 ) {
     std::lock_guard lock(this->mu);
     const std::string key = backend == "igh" ? "igh" : interface_name;
     const auto it = this->engines.find(key);
-    if (it != this->engines.end()) return it->second;
+    if (it != this->engines.end()) {
+        if (it->second->cfg().cycle_time != rate.period())
+            return {
+                nullptr,
+                xerrors::Error(
+                    RATE_MISMATCH,
+                    "engine already exists with different rate"
+                )
+            };
+        return {it->second, xerrors::NIL};
+    }
     auto master = this->factory(interface_name, backend);
-    auto eng = std::make_shared<Engine>(std::move(master));
+    auto eng = std::make_shared<Engine>(
+        std::move(master),
+        engine::Config(rate.period())
+    );
     this->engines[key] = eng;
-    return eng;
+    return {eng, xerrors::NIL};
 }
 
 bool Pool::is_active(const std::string &interface) const {

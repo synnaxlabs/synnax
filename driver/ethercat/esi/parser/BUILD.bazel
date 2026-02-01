@@ -1,0 +1,47 @@
+# Pre-built ESI parser binaries for different platforms
+# To rebuild: cd parser && GOWORK=off GOOS=<os> GOARCH=<arch> go build -o bin/esi_parser_<os>_<arch> main.go
+
+config_setting(
+    name = "darwin_arm64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:arm64",
+    ],
+)
+
+config_setting(
+    name = "darwin_amd64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+config_setting(
+    name = "linux_amd64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+filegroup(
+    name = "parser_binary",
+    srcs = select({
+        ":darwin_arm64": ["bin/esi_parser_darwin_arm64"],
+        ":darwin_amd64": ["bin/esi_parser_darwin_amd64"],
+        ":linux_amd64": ["bin/esi_parser_linux_amd64"],
+    }),
+    visibility = ["//driver/ethercat/esi:__pkg__"],
+)
+
+# Source files for cache invalidation (rebuild if parser source changes)
+filegroup(
+    name = "parser_srcs",
+    srcs = [
+        "main.go",
+        "go.mod",
+        "go.sum",
+    ],
+    visibility = ["//driver/ethercat/esi:__pkg__"],
+)

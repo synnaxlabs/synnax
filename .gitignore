@@ -264,3 +264,4 @@ core/synnax
 .bazelrc.user
 
 .claude
+vendor/

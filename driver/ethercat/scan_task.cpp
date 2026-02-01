@@ -15,6 +15,8 @@ extern "C" {
 #include "soem/soem.h"
 }
 
+#include "x/cpp/telem/telem.h"
+
 #include "driver/ethercat/scan_task.h"
 
 namespace ethercat {
@@ -76,11 +78,11 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 
         if (slaves.empty()) continue;
 
-        auto network_dev = this->create_network_device(iface, slaves);
+        auto network_dev = this->create_network_device(iface, slaves, scan_ctx);
         devices.push_back(std::move(network_dev));
 
         for (const auto &slave: slaves) {
-            auto slave_dev = this->create_slave_device(slave, iface.name);
+            auto slave_dev = this->create_slave_device(slave, iface.name, scan_ctx);
             devices.push_back(std::move(slave_dev));
         }
     }
@@ -119,21 +121,38 @@ std::vector<InterfaceInfo> Scanner::enumerate_interfaces() {
 
 std::pair<std::vector<SlaveInfo>, xerrors::Error>
 Scanner::probe_interface(const std::string &interface) const {
-    auto engine = this->pool->acquire(interface, this->cfg.backend);
-    if (auto err = engine->master->initialize()) return {{}, err};
+    auto [engine, err] = this->pool
+                             ->acquire(interface, telem::Rate(1000), this->cfg.backend);
+    if (err) return {{}, err};
+    if (auto init_err = engine->master->initialize()) return {{}, init_err};
     return {engine->master->slaves(), xerrors::NIL};
+}
+
+nlohmann::json Scanner::get_existing_properties(
+    const std::string &key,
+    const common::ScannerContext &scan_ctx
+) {
+    if (scan_ctx.devices == nullptr) return nlohmann::json::object();
+    const auto it = scan_ctx.devices->find(key);
+    if (it == scan_ctx.devices->end()) return nlohmann::json::object();
+    if (it->second.properties.empty()) return nlohmann::json::object();
+    try {
+        return nlohmann::json::parse(it->second.properties);
+    } catch (const nlohmann::json::parse_error &) { return nlohmann::json::object(); }
 }
 
 synnax::Device Scanner::create_network_device(
     const InterfaceInfo &iface,
-    const std::vector<SlaveInfo> &slaves
+    const std::vector<SlaveInfo> &slaves,
+    const common::ScannerContext &scan_ctx
 ) {
     const auto rack_key = synnax::rack_key_from_task_key(this->task.key);
     const std::string key = this->generate_network_key(iface.name);
 
-    nlohmann::json props;
+    nlohmann::json props = get_existing_properties(key, scan_ctx);
     props["interface"] = iface.name;
     props["slave_count"] = slaves.size();
+    props["rate"] = 1000.0;
 
     const std::string status_msg = "Discovered " + std::to_string(slaves.size()) +
                                    " slaves";
@@ -161,12 +180,13 @@ synnax::Device Scanner::create_network_device(
 
 synnax::Device Scanner::create_slave_device(
     const SlaveInfo &slave,
-    const std::string &network_interface
+    const std::string &network_interface,
+    const common::ScannerContext &scan_ctx
 ) {
     const auto rack_key = synnax::rack_key_from_task_key(this->task.key);
     const std::string key = this->generate_slave_key(slave, network_interface);
 
-    nlohmann::json props;
+    nlohmann::json props = get_existing_properties(key, scan_ctx);
     props["vendor_id"] = slave.vendor_id;
     props["product_code"] = slave.product_code;
     props["revision"] = slave.revision;

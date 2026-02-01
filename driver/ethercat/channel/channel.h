@@ -47,7 +47,14 @@ struct Channel {
 
     /// Converts this channel configuration to a PDOEntry.
     [[nodiscard]] PDOEntry to_pdo_entry(const bool is_input) const {
-        return PDOEntry(slave_position, index, subindex, bit_length, is_input);
+        return {
+            this->slave_position,
+            this->index,
+            this->subindex,
+            this->bit_length,
+            is_input,
+            this->data_type
+        };
     }
 
 protected:
@@ -154,7 +161,7 @@ struct Output : virtual Channel {
 protected:
     explicit Output(xjson::Parser &parser, const device::SlaveProperties &slave):
         Channel(parser, slave),
-        command_key(parser.field<synnax::ChannelKey>("channel")),
+        command_key(parser.field<synnax::ChannelKey>("cmd_channel")),
         state_key(parser.field<synnax::ChannelKey>("state_channel", 0)) {}
 };
 

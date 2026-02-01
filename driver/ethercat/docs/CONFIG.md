@@ -26,14 +26,14 @@ timing and connectivity for child devices.
 ```json
 {
   "interface": "eth0",
-  "cycle_time_us": 10000
+  "rate": 1000
 }
 ```
 
-| Property        | Type   | Required | Description                                         |
-| --------------- | ------ | -------- | --------------------------------------------------- |
-| `interface`     | string | Yes      | Network interface name (e.g., "eth0", "enp2s0")     |
-| `cycle_time_us` | uint32 | Yes      | Cycle period in microseconds (e.g., 10000 = 100 Hz) |
+| Property    | Type   | Required | Description                                             |
+| ----------- | ------ | -------- | ------------------------------------------------------- |
+| `interface` | string | Yes      | Network interface name (e.g., "eth0", "enp2s0")         |
+| `rate`      | float  | Yes      | Network cycle rate in Hz (e.g., 1000 = 1kHz, 100 = 10ms)|
 
 **Relationships:**
 
@@ -336,22 +336,25 @@ Example:
 
 ## Timing Model
 
-### Network Cycle Time
+### Network Cycle Rate
 
-The `cycle_time_us` on the Network device defines how often EtherCAT frames traverse the
-network. All slaves on the network share this cycle time.
+The `rate` on the Network device defines how often EtherCAT frames traverse the
+network in Hz. All slaves on the network share this cycle rate.
 
 ### Task Sample Rate
 
 The `sample_rate` on Read tasks defines how many samples per second are captured. Must
-satisfy: `sample_rate ≤ (1,000,000 / cycle_time_us)`
+satisfy:
+- `sample_rate ≤ rate` (cannot sample faster than network cycles)
+- `rate % sample_rate == 0` (clean decimation factor)
+- `sample_rate % stream_rate == 0` (integer samples per batch)
 
 Example:
 
-- Network cycle_time_us: 10000 (100 Hz)
-- Task sample_rate: 50 → reads every 2nd cycle
-- Task sample_rate: 100 → reads every cycle
-- Task sample_rate: 200 → ERROR (exceeds cycle rate)
+- Network rate: 100 Hz
+- Task sample_rate: 50 → reads every 2nd cycle (decimation factor = 2)
+- Task sample_rate: 100 → reads every cycle (decimation factor = 1)
+- Task sample_rate: 200 → ERROR (exceeds network rate)
 
 ### Timestamps
 
@@ -418,7 +421,7 @@ If a slave fails during deep scan (e.g., can't transition to PRE-OP):
   "model": "Network",
   "properties": {
     "interface": "eth0",
-    "cycle_time_us": 10000
+    "rate": 1000
   }
 }
 ```

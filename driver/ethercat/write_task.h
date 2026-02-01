@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <cstring>
 #include <memory>
 #include <set>
 #include <vector>
@@ -30,6 +29,8 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     std::vector<synnax::Channel> state_channels;
     std::set<synnax::ChannelKey> state_indexes;
     telem::Rate state_rate;
+    /// Network cycle rate from the EtherCAT network device.
+    telem::Rate network_rate;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
         BaseWriteTaskConfig(std::move(other)),
@@ -38,7 +39,8 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         channels(std::move(other.channels)),
         state_channels(std::move(other.state_channels)),
         state_indexes(std::move(other.state_indexes)),
-        state_rate(other.state_rate) {}
+        state_rate(other.state_rate),
+        network_rate(other.network_rate) {}
 
     WriteTaskConfig(const WriteTaskConfig &) = delete;
     const WriteTaskConfig &operator=(const WriteTaskConfig &) = delete;
@@ -49,7 +51,8 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     ):
         BaseWriteTaskConfig(cfg),
         device_key(cfg.field<std::string>("device")),
-        state_rate(telem::Rate(cfg.field<float>("state_rate", 1.0f))) {
+        state_rate(telem::Rate(cfg.field<float>("state_rate", 1.0f))),
+        network_rate(0) {
         auto [dev, net_err] = client->devices.retrieve(device_key);
         if (net_err) {
             cfg.field_err("device", net_err.message());
@@ -62,6 +65,12 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             return;
         }
         interface_name = net_props.interface;
+        network_rate = net_props.rate;
+
+        if (state_rate > network_rate) {
+            cfg.field_err("state_rate", "cannot exceed network rate");
+            return;
+        }
         std::unordered_map<std::string, device::SlaveProperties> slave_cache;
         cfg.iter("channels", [&](xjson::Parser &ch) {
             auto slave_key = ch.field<std::string>("device");
@@ -156,16 +165,13 @@ public:
     }
 
     xerrors::Error write(telem::Frame &frame) override {
-        const auto batch = writer->open_tx();
+        const auto batch = this->writer->open_tx();
         for (size_t i = 0; i < this->cfg.channels.size(); ++i) {
             const auto &ch = this->cfg.channels[i];
             if (!frame.contains(ch->command_key)) continue;
-            const telem::SampleValue value = frame.at(ch->command_key, 0);
-            const void *data_ptr = telem::cast_to_void_ptr(value);
-            const size_t byte_len = ch->byte_length();
-            batch.write(i, data_ptr, byte_len);
+            batch.write(i, frame.at(ch->command_key, 0));
         }
-        set_state(frame);
+        this->set_state(frame);
         return xerrors::NIL;
     }
 };

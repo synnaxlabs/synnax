@@ -42,9 +42,10 @@ std::pair<common::ConfigureResult, xerrors::Error> Factory::configure_read(
     const synnax::Task &task
 ) const {
     common::ConfigureResult result;
-    auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task);
-    if (err) return {std::move(result), err};
-    auto eng = this->pool->acquire(cfg.interface_name);
+    auto [cfg, cfg_err] = ReadTaskConfig::parse(ctx->client, task);
+    if (cfg_err) return {std::move(result), cfg_err};
+    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name, cfg.network_rate);
+    if (eng_err) return {std::move(result), eng_err};
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::ReadTask>(
         task,
@@ -60,9 +61,10 @@ std::pair<common::ConfigureResult, xerrors::Error> Factory::configure_write(
     const synnax::Task &task
 ) const {
     common::ConfigureResult result;
-    auto [cfg, err] = WriteTaskConfig::parse(ctx->client, task);
-    if (err) return {std::move(result), err};
-    auto eng = this->pool->acquire(cfg.interface_name);
+    auto [cfg, cfg_err] = WriteTaskConfig::parse(ctx->client, task);
+    if (cfg_err) return {std::move(result), cfg_err};
+    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name, cfg.network_rate);
+    if (eng_err) return {std::move(result), eng_err};
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(
         task,

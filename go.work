@@ -6,6 +6,7 @@ use (
 	./aspen
 	./cesium
 	./core
+	./driver/ethercat/esi/parser
 	./freighter/go
 	./freighter/integration
 	./x/go

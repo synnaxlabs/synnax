@@ -125,6 +125,8 @@ struct SlaveInfo {
     std::vector<PDOEntryInfo> output_pdos;
     /// True if PDO discovery completed (even if partially).
     bool pdos_discovered;
+    /// True if PDOs were discovered via CoE assignment objects, ensuring correct order.
+    bool coe_pdo_order_reliable;
     /// Error message if PDO discovery failed (empty on success).
     std::string pdo_discovery_error;
 
@@ -137,7 +139,8 @@ struct SlaveInfo {
         state(SlaveState::UNKNOWN),
         input_bits(0),
         output_bits(0),
-        pdos_discovered(false) {}
+        pdos_discovered(false),
+        coe_pdo_order_reliable(false) {}
 
     SlaveInfo(
         const uint16_t position,
@@ -159,42 +162,13 @@ struct SlaveInfo {
         state(state),
         input_bits(input_bits),
         output_bits(output_bits),
-        pdos_discovered(false) {}
+        pdos_discovered(false),
+        coe_pdo_order_reliable(false) {}
 
     /// Returns the total number of discovered PDO entries.
     [[nodiscard]] size_t pdo_count() const {
         return input_pdos.size() + output_pdos.size();
     }
-};
-
-/// Data offset information for a slave's process data in the IOmap.
-/// Used to calculate actual byte offsets after master activation.
-struct SlaveDataOffsets {
-    /// Byte offset in the IOmap where this slave's input data starts.
-    size_t input_offset;
-
-    /// Size of this slave's input data in bytes.
-    size_t input_size;
-
-    /// Byte offset in the IOmap where this slave's output data starts.
-    size_t output_offset;
-
-    /// Size of this slave's output data in bytes.
-    size_t output_size;
-
-    SlaveDataOffsets():
-        input_offset(0), input_size(0), output_offset(0), output_size(0) {}
-
-    SlaveDataOffsets(
-        const size_t input_offset,
-        const size_t input_size,
-        const size_t output_offset,
-        const size_t output_size
-    ):
-        input_offset(input_offset),
-        input_size(input_size),
-        output_offset(output_offset),
-        output_size(output_size) {}
 };
 
 /// Describes a single PDO entry (object) to be exchanged cyclically.
@@ -209,6 +183,8 @@ struct PDOEntry {
     uint8_t bit_length = 0;
     /// True for input (TxPDO, slave→master), false for output (RxPDO, master→slave).
     bool is_input = true;
+    /// Actual hardware data type from the PDO (e.g., INT16, UINT24).
+    telem::DataType data_type = telem::UNKNOWN_T;
 
     /// Returns the size of this PDO entry in bytes (rounded up from bits).
     [[nodiscard]] size_t byte_length() const { return (bit_length + 7) / 8; }

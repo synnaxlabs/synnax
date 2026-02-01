@@ -111,12 +111,22 @@ private:
     /// Creates a network device for the given interface and slaves.
     synnax::Device create_network_device(
         const InterfaceInfo &iface,
-        const std::vector<SlaveInfo> &slaves
+        const std::vector<SlaveInfo> &slaves,
+        const common::ScannerContext &scan_ctx
     );
 
     /// Creates a slave device for the given slave.
-    synnax::Device
-    create_slave_device(const SlaveInfo &slave, const std::string &network_interface);
+    synnax::Device create_slave_device(
+        const SlaveInfo &slave,
+        const std::string &network_interface,
+        const common::ScannerContext &scan_ctx
+    );
+
+    /// Gets base properties from existing device or returns empty JSON object.
+    static nlohmann::json get_existing_properties(
+        const std::string &key,
+        const common::ScannerContext &scan_ctx
+    );
 
     /// Generates a device key for a network.
     std::string generate_network_key(const std::string &interface);

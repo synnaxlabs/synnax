@@ -154,12 +154,12 @@ std::span<uint8_t> Master::output_data() {
     return {this->iomap.data(), this->output_sz};
 }
 
-size_t Master::pdo_offset(const PDOEntry &entry) const {
+master::PDOOffset Master::pdo_offset(const PDOEntry &entry) const {
     std::lock_guard lock(this->mu);
     PDOEntryKey key{entry.slave_position, entry.index, entry.subindex, entry.is_input};
     auto it = this->pdo_offset_cache.find(key);
     if (it != this->pdo_offset_cache.end()) return it->second;
-    return 0;
+    return {};
 }
 
 std::vector<SlaveInfo> Master::slaves() const {
@@ -250,25 +250,36 @@ void Master::cache_pdo_offsets() {
                                                    soem_slave.outputs - iomap_base
                                                )
                                              : 0;
-        const size_t slave_input_offset = soem_slave.inputs != nullptr
-                                            ? static_cast<size_t>(
-                                                  soem_slave.inputs - iomap_base
-                                              )
-                                            : 0;
+
+        const size_t slave_input_abs_offset = soem_slave.inputs != nullptr
+                                                ? static_cast<size_t>(
+                                                      soem_slave.inputs - iomap_base
+                                                  )
+                                                : this->output_sz;
+        const size_t slave_input_offset = slave_input_abs_offset - this->output_sz;
+
+        if (!slave.coe_pdo_order_reliable) {
+            LOG(WARNING) << "Slave " << slave.position
+                         << " PDO offsets may be incorrect (fallback discovery used)";
+        }
 
         size_t input_bit_offset = 0;
         for (const auto &pdo: slave.input_pdos) {
-            const size_t byte_offset = input_bit_offset / 8;
             PDOEntryKey key{slave.position, pdo.index, pdo.subindex, true};
-            this->pdo_offset_cache[key] = slave_input_offset + byte_offset;
+            this->pdo_offset_cache[key] = {
+                slave_input_offset + input_bit_offset / 8,
+                static_cast<uint8_t>(input_bit_offset % 8)
+            };
             input_bit_offset += pdo.bit_length;
         }
 
         size_t output_bit_offset = 0;
         for (const auto &pdo: slave.output_pdos) {
-            const size_t byte_offset = output_bit_offset / 8;
             PDOEntryKey key{slave.position, pdo.index, pdo.subindex, false};
-            this->pdo_offset_cache[key] = slave_output_offset + byte_offset;
+            this->pdo_offset_cache[key] = {
+                slave_output_offset + output_bit_offset / 8,
+                static_cast<uint8_t>(output_bit_offset % 8)
+            };
             output_bit_offset += pdo.bit_length;
         }
     }
@@ -310,6 +321,9 @@ bool Master::discover_pdos_coe(SlaveInfo &slave) {
     bool tx_success = false;
     bool rx_success = false;
 
+    bool tx_order_reliable = false;
+    bool rx_order_reliable = false;
+
     auto err = this->read_pdo_assign(slave.position, ECT_SDO_TXPDOASSIGN, true, slave);
     if (err) {
         VLOG(2) << "Failed to read TxPDO assignment for slave " << slave.position
@@ -322,6 +336,7 @@ bool Master::discover_pdos_coe(SlaveInfo &slave) {
             tx_success = true;
     } else {
         tx_success = true;
+        tx_order_reliable = true;
     }
 
     err = this->read_pdo_assign(slave.position, ECT_SDO_RXPDOASSIGN, false, slave);
@@ -336,6 +351,7 @@ bool Master::discover_pdos_coe(SlaveInfo &slave) {
             rx_success = true;
     } else {
         rx_success = true;
+        rx_order_reliable = true;
     }
 
     if (!tx_success && !rx_success) {
@@ -353,6 +369,7 @@ bool Master::discover_pdos_coe(SlaveInfo &slave) {
     }
 
     slave.pdos_discovered = true;
+    slave.coe_pdo_order_reliable = tx_order_reliable && rx_order_reliable;
     VLOG(1) << "Slave " << slave.position
             << " PDOs discovered via CoE: " << slave.input_pdos.size() << " inputs, "
             << slave.output_pdos.size() << " outputs";

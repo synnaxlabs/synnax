@@ -32,6 +32,12 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     std::string interface_name;
     std::set<synnax::ChannelKey> indexes;
     std::vector<std::unique_ptr<channel::Input>> channels;
+    /// Network cycle rate from the EtherCAT network device.
+    telem::Rate network_rate;
+    /// Decimation factor: network_rate / sample_rate.
+    size_t decimation_factor;
+    /// Number of epochs per batch: samples_per_chan * decimation_factor.
+    size_t epochs_per_batch;
     size_t samples_per_chan;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
@@ -40,6 +46,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         interface_name(std::move(other.interface_name)),
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)),
+        network_rate(other.network_rate),
+        decimation_factor(other.decimation_factor),
+        epochs_per_batch(other.epochs_per_batch),
         samples_per_chan(other.samples_per_chan) {}
 
     ReadTaskConfig(const ReadTaskConfig &) = delete;
@@ -51,6 +60,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     ):
         BaseReadTaskConfig(cfg),
         device_key(cfg.field<std::string>("device")),
+        network_rate(0),
+        decimation_factor(1),
+        epochs_per_batch(0),
         samples_per_chan(sample_rate / stream_rate) {
         auto [network_dev, net_err] = client->devices.retrieve(device_key);
         if (net_err) {
@@ -65,6 +77,32 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
         interface_name = net_props.interface;
+        network_rate = net_props.rate;
+
+        if (sample_rate > network_rate) {
+            cfg.field_err("sample_rate", "cannot exceed network rate");
+            return;
+        }
+        const auto net_rate_int = static_cast<size_t>(network_rate.hz());
+        const auto sample_rate_int = static_cast<size_t>(sample_rate.hz());
+        const auto stream_rate_int = static_cast<size_t>(stream_rate.hz());
+        if (net_rate_int % sample_rate_int != 0) {
+            cfg.field_err(
+                "sample_rate",
+                "network rate must be divisible by sample_rate"
+            );
+            return;
+        }
+        if (sample_rate_int % stream_rate_int != 0) {
+            cfg.field_err(
+                "stream_rate",
+                "sample_rate must be divisible by stream_rate"
+            );
+            return;
+        }
+
+        decimation_factor = net_rate_int / sample_rate_int;
+        epochs_per_batch = samples_per_chan * decimation_factor;
 
         std::unordered_map<std::string, device::SlaveProperties> slave_cache;
 
@@ -181,8 +219,18 @@ public:
         for (auto &ser: *fr.series)
             ser.clear();
         const auto start = telem::TimeStamp::now();
-        for (size_t i = 0; i < n_samples; ++i)
-            if (res.error = this->reader->read(breaker, fr); res.error) return res;
+        for (size_t epoch = 0; epoch < this->cfg.epochs_per_batch; ++epoch) {
+            if (epoch % this->cfg.decimation_factor == 0) {
+                if (res.error = this->reader->read(breaker, fr); res.error) return res;
+            } else {
+                if (res.error = this->reader->wait(breaker); res.error) return res;
+            }
+            // User commanded stop - clear frame and return early
+            if (!breaker.running()) {
+                fr.clear();
+                return res;
+            }
+        }
         const auto end = telem::TimeStamp::now();
         common::generate_index_data(
             fr,

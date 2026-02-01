@@ -138,12 +138,12 @@ std::span<uint8_t> Master::output_data() {
     return {this->domain_data, this->output_sz};
 }
 
-size_t Master::pdo_offset(const PDOEntry &entry) const {
+master::PDOOffset Master::pdo_offset(const PDOEntry &entry) const {
     std::lock_guard lock(this->mu);
     PDOEntryKey key{entry.slave_position, entry.index, entry.subindex, entry.is_input};
     auto it = this->pdo_offset_cache.find(key);
     if (it != this->pdo_offset_cache.end()) return it->second;
-    return 0;
+    return {};
 }
 
 std::vector<SlaveInfo> Master::slaves() const {
@@ -230,7 +230,18 @@ std::pair<size_t, xerrors::Error> Master::register_pdo(const PDOEntry &entry) {
             xerrors::Error(PDO_MAPPING_ERROR, "ecrt_slave_config_reg_pdo_entry failed")
         };
 
-    const size_t offset = static_cast<size_t>(result);
+    const size_t abs_offset = static_cast<size_t>(result);
+    const size_t byte_size = entry.byte_length();
+
+    size_t relative_offset;
+    if (entry.is_input) {
+        relative_offset = abs_offset >= this->output_sz ? abs_offset - this->output_sz
+                                                        : abs_offset;
+        this->input_sz += byte_size;
+    } else {
+        relative_offset = abs_offset;
+        this->output_sz += byte_size;
+    }
 
     {
         std::lock_guard lock(this->mu);
@@ -240,16 +251,10 @@ std::pair<size_t, xerrors::Error> Master::register_pdo(const PDOEntry &entry) {
             entry.subindex,
             entry.is_input
         };
-        this->pdo_offset_cache[key] = offset;
+        this->pdo_offset_cache[key] = {relative_offset, 0};
     }
 
-    const size_t byte_size = entry.byte_length();
-    if (entry.is_input)
-        this->input_sz += byte_size;
-    else
-        this->output_sz += byte_size;
-
-    return {offset, xerrors::NIL};
+    return {relative_offset, xerrors::NIL};
 }
 
 SlaveState Master::convert_state(const uint8_t igh_state) {

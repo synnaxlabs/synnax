@@ -172,15 +172,13 @@ Engine::Reader::Reader(
     Engine &eng,
     const size_t id,
     const size_t total_size,
-    std::vector<size_t> offsets,
-    std::vector<size_t> lengths,
+    std::vector<ResolvedPDO> pdos,
     const size_t input_frame_size
 ):
     engine(eng),
     id(id),
     total_size(total_size),
-    offsets(std::move(offsets)),
-    lengths(std::move(lengths)),
+    pdos(std::move(pdos)),
     private_buffer(input_frame_size),
     last_seen_epoch(0) {}
 
@@ -212,8 +210,10 @@ Engine::Reader::read(const breaker::Breaker &brk, const telem::Frame &frame) con
 
     if (this->engine.restarting.load(std::memory_order_acquire))
         return xerrors::Error(ENGINE_RESTARTING, "engine restarting");
-    if (!this->engine.breaker.running() || !brk.running())
-        return xerrors::Error(CYCLIC_ERROR, "engine stopped");
+    // User commanded stop - not an error
+    if (!brk.running()) return xerrors::NIL;
+    if (!this->engine.breaker.running())
+        return xerrors::Error(CYCLIC_ERROR, "engine stopped unexpectedly");
 
     this->last_seen_epoch = observed_epoch;
 
@@ -230,29 +230,91 @@ Engine::Reader::read(const breaker::Breaker &brk, const telem::Frame &frame) con
         s1 = this->engine.read_seq.seq.load(std::memory_order_acquire);
     } while (s0 != s1);
 
-    for (size_t i = 0; i < this->offsets.size(); ++i) {
-        const size_t src_offset = this->offsets[i];
-        const size_t len = this->lengths[i];
-        if (src_offset + len <= this->private_buffer.size()) {
-            auto &series = frame.series->at(i);
-            series.write_casted(
-                this->private_buffer.data() + src_offset,
-                1,
-                series.data_type()
+    if (frame.series->size() < this->pdos.size())
+        return xerrors::Error(
+            CYCLIC_ERROR,
+            "frame has fewer series than registered PDO entries"
+        );
+
+    for (size_t i = 0; i < this->pdos.size(); ++i) {
+        const auto &pdo = this->pdos[i];
+        const size_t byte_len = (pdo.bit_length + 7) / 8;
+
+        if (pdo.offset.byte + byte_len > this->private_buffer.size())
+            return xerrors::Error(
+                CYCLIC_ERROR,
+                "PDO offset out of bounds in input buffer"
             );
+
+        auto &series = frame.series->at(i);
+        const uint8_t *src = this->private_buffer.data() + pdo.offset.byte;
+
+        if (pdo.bit_length < 8) {
+            // Handle sub-byte values that may span byte boundaries
+            uint16_t two_bytes = static_cast<uint16_t>(src[0]);
+            if (pdo.offset.bit + pdo.bit_length > 8)
+                two_bytes |= static_cast<uint16_t>(src[1]) << 8;
+            const uint8_t mask = static_cast<uint8_t>((1u << pdo.bit_length) - 1);
+            const uint8_t extracted = static_cast<uint8_t>(
+                (two_bytes >> pdo.offset.bit) & mask
+            );
+            series.write_casted(&extracted, 1, telem::UINT8_T);
+        } else if (pdo.bit_length == 24) {
+            // Handle 24-bit values with potential bit offset
+            uint32_t raw = static_cast<uint32_t>(src[0]) |
+                           (static_cast<uint32_t>(src[1]) << 8) |
+                           (static_cast<uint32_t>(src[2]) << 16);
+            if (pdo.offset.bit > 0)
+                raw = (raw >> pdo.offset.bit) |
+                      (static_cast<uint32_t>(src[3]) << (24 - pdo.offset.bit));
+            uint32_t val = raw & 0x00FFFFFF;
+            if (pdo.data_type == telem::INT32_T || pdo.data_type == telem::INT64_T)
+                if (val & 0x800000) val |= 0xFF000000;
+            series.write_casted(&val, 1, pdo.data_type);
+        } else {
+            telem::DataType source_type = pdo.data_type;
+            if (source_type == telem::UNKNOWN_T) source_type = series.data_type();
+            series.write_casted(src, 1, source_type);
         }
     }
 
     return xerrors::NIL;
 }
 
-Engine::Writer::Writer(
-    Engine &eng,
-    const size_t id,
-    std::vector<size_t> offsets,
-    std::vector<size_t> lengths
-):
-    engine(eng), id(id), offsets(std::move(offsets)), lengths(std::move(lengths)) {}
+xerrors::Error Engine::Reader::wait(const breaker::Breaker &brk) const {
+    uint64_t observed_epoch = 0;
+    {
+        std::unique_lock lock(this->engine.notify_mu);
+        const auto timeout = telem::MILLISECOND * 200;
+        const bool notified = this->engine.read_cv.wait_for(
+            lock,
+            timeout.chrono(),
+            [&] {
+                observed_epoch = this->engine.read_epoch.epoch.load(
+                    std::memory_order_acquire
+                );
+                return !this->engine.breaker.running() || !brk.running() ||
+                       this->engine.restarting.load(std::memory_order_acquire) ||
+                       observed_epoch > this->last_seen_epoch;
+            }
+        );
+        if (!notified)
+            return xerrors::Error(CYCLE_OVERRUN, "timeout waiting for inputs");
+    }
+
+    if (this->engine.restarting.load(std::memory_order_acquire))
+        return xerrors::Error(ENGINE_RESTARTING, "engine restarting");
+    // User commanded stop - not an error
+    if (!brk.running()) return xerrors::NIL;
+    if (!this->engine.breaker.running())
+        return xerrors::Error(CYCLIC_ERROR, "engine stopped unexpectedly");
+
+    this->last_seen_epoch = observed_epoch;
+    return xerrors::NIL;
+}
+
+Engine::Writer::Writer(Engine &eng, const size_t id, std::vector<ResolvedPDO> pdos):
+    engine(eng), id(id), pdos(std::move(pdos)) {}
 
 Engine::Writer::~Writer() {
     this->engine.unregister_writer(this->id);
@@ -260,31 +322,89 @@ Engine::Writer::~Writer() {
 
 Engine::Writer::Transaction::Transaction(
     Engine &eng,
-    const std::vector<size_t> &offsets
+    const std::vector<ResolvedPDO> &pdos
 ):
-    engine(eng), offsets(offsets), lock(eng.write_mu) {}
+    engine(eng), pdos(pdos), lock(eng.write_mu) {}
 
 void Engine::Writer::Transaction::write(
     const size_t pdo_index,
-    const void *data,
-    const size_t length
+    const telem::SampleValue &value
 ) const {
-    if (pdo_index >= this->offsets.size()) return;
-    const size_t offset = this->offsets[pdo_index];
-    if (offset + length <= this->engine.write_staging.size())
-        std::memcpy(this->engine.write_staging.data() + offset, data, length);
+    if (pdo_index >= this->pdos.size()) return;
+    const auto &pdo = this->pdos[pdo_index];
+    const size_t byte_len = (pdo.bit_length + 7) / 8;
+
+    size_t required_bytes = byte_len;
+    if (pdo.bit_length == 24 && pdo.offset.bit > 0)
+        required_bytes = 4;
+    else if (pdo.bit_length < 8 && pdo.offset.bit + pdo.bit_length > 8)
+        required_bytes = 2;
+
+    if (pdo.offset.byte + required_bytes > this->engine.write_staging.size()) return;
+
+    const auto casted = pdo.data_type == telem::UNKNOWN_T ? value
+                                                          : pdo.data_type.cast(value);
+    uint8_t *dest = this->engine.write_staging.data() + pdo.offset.byte;
+
+    if (pdo.bit_length < 8) {
+        const auto src_val = telem::cast<uint8_t>(casted);
+        const uint16_t mask = static_cast<uint16_t>((1u << pdo.bit_length) - 1);
+
+        if (pdo.offset.bit + pdo.bit_length > 8) {
+            uint16_t two_bytes = static_cast<uint16_t>(dest[0]) |
+                                 (static_cast<uint16_t>(dest[1]) << 8);
+            const uint16_t shifted_mask = static_cast<uint16_t>(mask << pdo.offset.bit);
+            const uint16_t shifted_val = static_cast<uint16_t>(
+                (src_val & mask) << pdo.offset.bit
+            );
+            two_bytes = static_cast<uint16_t>(
+                (two_bytes & ~shifted_mask) | shifted_val
+            );
+            dest[0] = static_cast<uint8_t>(two_bytes & 0xFF);
+            dest[1] = static_cast<uint8_t>((two_bytes >> 8) & 0xFF);
+        } else {
+            const uint8_t shifted_mask = static_cast<uint8_t>(mask << pdo.offset.bit);
+            const uint8_t shifted_val = static_cast<uint8_t>(
+                (src_val & mask) << pdo.offset.bit
+            );
+            dest[0] = static_cast<uint8_t>((dest[0] & ~shifted_mask) | shifted_val);
+        }
+    } else if (pdo.bit_length == 24) {
+        const uint32_t src_val = telem::cast<uint32_t>(casted);
+        const uint32_t masked_val = src_val & 0x00FFFFFF;
+
+        if (pdo.offset.bit > 0) {
+            uint32_t four_bytes = static_cast<uint32_t>(dest[0]) |
+                                  (static_cast<uint32_t>(dest[1]) << 8) |
+                                  (static_cast<uint32_t>(dest[2]) << 16) |
+                                  (static_cast<uint32_t>(dest[3]) << 24);
+            const uint32_t write_mask = 0x00FFFFFFu << pdo.offset.bit;
+            const uint32_t shifted_val = masked_val << pdo.offset.bit;
+            four_bytes = (four_bytes & ~write_mask) | shifted_val;
+            dest[0] = static_cast<uint8_t>(four_bytes & 0xFF);
+            dest[1] = static_cast<uint8_t>((four_bytes >> 8) & 0xFF);
+            dest[2] = static_cast<uint8_t>((four_bytes >> 16) & 0xFF);
+            dest[3] = static_cast<uint8_t>((four_bytes >> 24) & 0xFF);
+        } else {
+            dest[0] = static_cast<uint8_t>(masked_val & 0xFF);
+            dest[1] = static_cast<uint8_t>((masked_val >> 8) & 0xFF);
+            dest[2] = static_cast<uint8_t>((masked_val >> 16) & 0xFF);
+        }
+    } else {
+        const void *data = telem::cast_to_void_ptr(casted);
+        std::memcpy(dest, data, byte_len);
+    }
 }
 
 Engine::Writer::Transaction Engine::Writer::open_tx() const {
-    return Transaction(this->engine, this->offsets);
+    return Transaction(this->engine, this->pdos);
 }
 
 void Engine::Writer::write(
     const size_t pdo_index,
-    const void *data,
-    const size_t length
+    const telem::SampleValue &value
 ) const {
-    this->open_tx().write(pdo_index, data, length);
+    this->open_tx().write(pdo_index, value);
 }
 
 Engine::Engine(std::shared_ptr<master::Master> master, const Config &config):
@@ -306,13 +426,9 @@ Engine::~Engine() {
 
 std::pair<std::unique_ptr<Engine::Reader>, xerrors::Error>
 Engine::open_reader(const std::vector<PDOEntry> &entries) {
-    std::vector<size_t> entry_lengths;
-    entry_lengths.reserve(entries.size());
     size_t total_size = 0;
-    for (const auto &e: entries) {
-        entry_lengths.push_back(e.byte_length());
+    for (const auto &e: entries)
         total_size += e.byte_length();
-    }
 
     const size_t reg_id = this->next_id.fetch_add(1, std::memory_order_relaxed);
     {
@@ -326,14 +442,20 @@ Engine::open_reader(const std::vector<PDOEntry> &entries) {
         return {nullptr, err};
     }
 
-    std::vector<size_t> resolved_offsets;
+    std::vector<ResolvedPDO> resolved_pdos;
     size_t input_frame_size;
     {
         std::lock_guard lock(this->registration_mu);
         input_frame_size = this->shared_input_buffer.size();
         for (const auto &reg: this->read_registrations) {
             if (reg.id == reg_id) {
-                resolved_offsets = reg.offsets;
+                resolved_pdos.reserve(reg.entries.size());
+                for (size_t i = 0; i < reg.entries.size(); ++i)
+                    resolved_pdos.push_back(
+                        {reg.offsets[i],
+                         reg.entries[i].data_type,
+                         reg.entries[i].bit_length}
+                    );
                 break;
             }
         }
@@ -344,8 +466,7 @@ Engine::open_reader(const std::vector<PDOEntry> &entries) {
             *this,
             reg_id,
             total_size,
-            std::move(resolved_offsets),
-            std::move(entry_lengths),
+            std::move(resolved_pdos),
             input_frame_size
         ),
         xerrors::NIL
@@ -354,10 +475,6 @@ Engine::open_reader(const std::vector<PDOEntry> &entries) {
 
 std::pair<std::unique_ptr<Engine::Writer>, xerrors::Error>
 Engine::open_writer(const std::vector<PDOEntry> &entries) {
-    std::vector<size_t> entry_lengths;
-    for (const auto &e: entries)
-        entry_lengths.push_back(e.byte_length());
-
     const size_t reg_id = this->next_id.fetch_add(1, std::memory_order_relaxed);
     {
         std::lock_guard lock(this->write_mu);
@@ -370,24 +487,25 @@ Engine::open_writer(const std::vector<PDOEntry> &entries) {
         return {nullptr, err};
     }
 
-    std::vector<size_t> resolved_offsets;
+    std::vector<ResolvedPDO> resolved_pdos;
     {
         std::lock_guard lock(this->write_mu);
         for (const auto &reg: this->write_registrations) {
             if (reg.id == reg_id) {
-                resolved_offsets = reg.offsets;
+                resolved_pdos.reserve(reg.entries.size());
+                for (size_t i = 0; i < reg.entries.size(); ++i)
+                    resolved_pdos.push_back(
+                        {reg.offsets[i],
+                         reg.entries[i].data_type,
+                         reg.entries[i].bit_length}
+                    );
                 break;
             }
         }
     }
 
     return {
-        std::make_unique<Writer>(
-            *this,
-            reg_id,
-            std::move(resolved_offsets),
-            std::move(entry_lengths)
-        ),
+        std::make_unique<Writer>(*this, reg_id, std::move(resolved_pdos)),
         xerrors::NIL
     };
 }

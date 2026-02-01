@@ -71,7 +71,7 @@ protected:
     }
 
     synnax::Device create_network_device(const std::string &interface) {
-        json props = {{"interface", interface}, {"cycle_time_us", 10000}};
+        json props = {{"interface", interface}, {"rate", 100.0}};
         synnax::Device dev(
             "ecat_network_" + interface,
             "Test Network",

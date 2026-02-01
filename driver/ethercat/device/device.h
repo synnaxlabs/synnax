@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/xjson/xjson.h"
 
 namespace ethercat::device {
@@ -100,11 +101,11 @@ struct SlaveProperties {
 struct NetworkProperties {
     /// Network interface name (e.g., "eth0", "enp2s0").
     std::string interface;
-    /// Cycle period in microseconds.
-    uint32_t cycle_time_us;
+    /// Network cycle rate in Hz.
+    telem::Rate rate;
 
     explicit NetworkProperties(xjson::Parser &parser):
         interface(parser.field<std::string>("interface")),
-        cycle_time_us(parser.field<uint32_t>("cycle_time_us")) {}
+        rate(parser.field<double>("rate")) {}
 };
 }

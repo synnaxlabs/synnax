@@ -1,0 +1,24 @@
+{
+  "device_count": 3374,
+  "vendor_count": 2,
+  "pdo_entry_count": 581443,
+  "input_pdo_count": 535124,
+  "output_pdo_count": 46319,
+  "data_types": {
+    "telem::FLOAT32_T": 104555,
+    "telem::INT16_T": 181598,
+    "telem::INT32_T": 162104,
+    "telem::INT64_T": 1606,
+    "telem::INT8_T": 134,
+    "telem::UINT16_T": 12706,
+    "telem::UINT32_T": 9998,
+    "telem::UINT64_T": 1869,
+    "telem::UINT8_T": 106873
+  },
+  "vendor_devices": {
+    "Beckhoff Automation GmbH \u0026 Co. KG": 3271,
+    "Dewesoft": 103
+  },
+  "duplicates_found": 103,
+  "validation_errors": 0
+}

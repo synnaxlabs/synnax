@@ -56,11 +56,10 @@ class Engine {
     struct Registration {
         size_t id;
         std::vector<PDOEntry> entries;
-        std::vector<size_t> offsets;
+        std::vector<master::PDOOffset> offsets;
     };
 
     std::atomic<size_t> next_id = 0;
-    ;
 
     struct alignas(64) {
         std::atomic<uint64_t> seq = 0;
@@ -105,12 +104,17 @@ public:
     /// Each Reader receives its registered PDO data laid out contiguously in
     /// registration order. Multiple Readers can exist simultaneously. The Reader is
     /// automatically unregistered when destroyed.
+    struct ResolvedPDO {
+        master::PDOOffset offset;
+        telem::DataType data_type;
+        uint8_t bit_length;
+    };
+
     class Reader {
         Engine &engine;
         size_t id;
         size_t total_size;
-        std::vector<size_t> offsets;
-        std::vector<size_t> lengths;
+        std::vector<ResolvedPDO> pdos;
         mutable std::vector<uint8_t> private_buffer;
         mutable uint64_t last_seen_epoch = 0;
 
@@ -119,8 +123,7 @@ public:
             Engine &eng,
             size_t id,
             size_t total_size,
-            std::vector<size_t> offsets,
-            std::vector<size_t> lengths,
+            std::vector<ResolvedPDO> pdos,
             size_t input_frame_size
         );
 
@@ -139,6 +142,13 @@ public:
         [[nodiscard]] xerrors::Error
         read(const breaker::Breaker &brk, const telem::Frame &frame) const;
 
+        /// @brief Blocks until the next PDO exchange epoch without extracting data.
+        /// Use this for decimation when you want to wait for cycles but not sample.
+        /// @param brk Breaker for cancellation.
+        /// @return xerrors::NIL on success, or error if stopped or engine is not
+        /// running.
+        [[nodiscard]] xerrors::Error wait(const breaker::Breaker &brk) const;
+
         /// @brief Returns the total size in bytes of all registered PDO entries.
         [[nodiscard]] size_t size() const { return this->total_size; }
     };
@@ -151,8 +161,7 @@ public:
     class Writer {
         Engine &engine;
         size_t id;
-        std::vector<size_t> offsets;
-        std::vector<size_t> lengths;
+        std::vector<ResolvedPDO> pdos;
 
     public:
         /// @brief RAII batch writer that holds the write lock for multiple writes.
@@ -161,32 +170,26 @@ public:
         /// The lock is released when the Batch is destroyed.
         class Transaction {
             Engine &engine;
-            const std::vector<size_t> &offsets;
+            const std::vector<ResolvedPDO> &pdos;
             std::unique_lock<std::mutex> lock;
 
         public:
-            Transaction(Engine &eng, const std::vector<size_t> &offsets);
+            Transaction(Engine &eng, const std::vector<ResolvedPDO> &pdos);
             Transaction(const Transaction &) = delete;
             Transaction &operator=(const Transaction &) = delete;
             Transaction(Transaction &&) = delete;
             Transaction &operator=(Transaction &&) = delete;
 
-            /// @brief Writes data to a specific PDO entry by index.
+            /// @brief Writes a value to a specific PDO entry by index, with type
+            /// conversion.
             /// @param pdo_index Index into the PDO entries registered with this Writer.
-            /// @param data Pointer to the data to write.
-            /// @param length Number of bytes to write.
-            void write(size_t pdo_index, const void *data, size_t length) const;
+            /// @param value The value to write. Will be cast to the PDO's data type.
+            void write(size_t pdo_index, const telem::SampleValue &value) const;
         };
 
-        Writer(
-            Engine &eng,
-            size_t id,
-            std::vector<size_t> offsets,
-            std::vector<size_t> lengths
-        );
+        Writer(Engine &eng, size_t id, std::vector<ResolvedPDO> pdos);
         ~Writer();
 
-        /// Prevent copies - would cause double-unregister on close().
         Writer(const Writer &) = delete;
         Writer &operator=(const Writer &) = delete;
 
@@ -194,11 +197,11 @@ public:
         /// @return A Batch object that holds the write lock until destroyed.
         [[nodiscard]] Transaction open_tx() const;
 
-        /// @brief Writes data to a specific PDO entry by index.
+        /// @brief Writes a value to a specific PDO entry by index, with type
+        /// conversion.
         /// @param pdo_index Index into the PDO entries registered with this Writer.
-        /// @param data Pointer to the data to write.
-        /// @param length Number of bytes to write.
-        void write(size_t pdo_index, const void *data, size_t length) const;
+        /// @param value The value to write. Will be cast to the PDO's data type.
+        void write(size_t pdo_index, const telem::SampleValue &value) const;
     };
 
     const std::shared_ptr<master::Master> master;
@@ -225,5 +228,8 @@ public:
     open_writer(const std::vector<PDOEntry> &entries);
 
     bool running() const { return this->breaker.running(); }
+
+    /// @brief Returns the engine configuration.
+    [[nodiscard]] const Config &cfg() const { return this->config; }
 };
 }

@@ -113,7 +113,8 @@ class Master final : public ethercat::master::Master {
     std::string iface_name;
     std::vector<SlaveInfo> slave_list;
     std::unordered_map<uint16_t, SlaveState> slave_states;
-    std::unordered_map<PDOEntryKey, size_t, PDOEntryKeyHash> pdo_offset_cache;
+    std::unordered_map<PDOEntryKey, master::PDOOffset, PDOEntryKeyHash>
+        pdo_offset_cache;
     bool initialized;
     bool activated;
     mutable std::mutex mu;
@@ -287,7 +288,7 @@ public:
         return {this->iomap.data(), this->output_sz};
     }
 
-    size_t pdo_offset(const PDOEntry &entry) const override {
+    master::PDOOffset pdo_offset(const PDOEntry &entry) const override {
         std::lock_guard lock(this->mu);
         PDOEntryKey key{
             entry.slave_position,
@@ -297,7 +298,7 @@ public:
         };
         auto it = this->pdo_offset_cache.find(key);
         if (it != this->pdo_offset_cache.end()) return it->second;
-        return 0;
+        return {};
     }
 
     std::vector<SlaveInfo> slaves() const override {
@@ -391,18 +392,18 @@ public:
 private:
     void cache_pdo_offsets() {
         this->pdo_offset_cache.clear();
-        size_t input_offset = 0;
-        size_t output_offset = 0;
+        size_t input_byte_offset = 0;
+        size_t output_byte_offset = 0;
         for (const auto &slave: this->slave_list) {
             for (const auto &pdo: slave.input_pdos) {
                 PDOEntryKey key{slave.position, pdo.index, pdo.subindex, true};
-                this->pdo_offset_cache[key] = input_offset;
-                input_offset += pdo.byte_length();
+                this->pdo_offset_cache[key] = master::PDOOffset{input_byte_offset, 0};
+                input_byte_offset += pdo.byte_length();
             }
             for (const auto &pdo: slave.output_pdos) {
                 PDOEntryKey key{slave.position, pdo.index, pdo.subindex, false};
-                this->pdo_offset_cache[key] = output_offset;
-                output_offset += pdo.byte_length();
+                this->pdo_offset_cache[key] = master::PDOOffset{output_byte_offset, 0};
+                output_byte_offset += pdo.byte_length();
             }
         }
     }

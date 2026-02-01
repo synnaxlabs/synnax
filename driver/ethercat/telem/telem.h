@@ -62,14 +62,16 @@ enum class ECDataType : uint16_t {
 
 /// Infers a Synnax data type from the bit length when the CoE type is unknown.
 /// @param bit_length The size of the data in bits.
+/// @param is_signed If true, returns signed types; otherwise unsigned (default).
 /// @returns The most appropriate Synnax data type for the given size.
-inline telem::DataType infer_type_from_bit_length(const uint8_t bit_length) {
-    if (bit_length == 0) return telem::UINT8_T;
-    if (bit_length == 1) return telem::UINT8_T;
-    if (bit_length <= 8) return telem::UINT8_T;
-    if (bit_length <= 16) return telem::UINT16_T;
-    if (bit_length <= 32) return telem::UINT32_T;
-    return telem::UINT64_T;
+inline telem::DataType
+infer_type_from_bit_length(const uint8_t bit_length, const bool is_signed = false) {
+    if (bit_length == 0) return is_signed ? telem::INT8_T : telem::UINT8_T;
+    if (bit_length == 1) return telem::UINT8_T; // Boolean, always unsigned
+    if (bit_length <= 8) return is_signed ? telem::INT8_T : telem::UINT8_T;
+    if (bit_length <= 16) return is_signed ? telem::INT16_T : telem::UINT16_T;
+    if (bit_length <= 32) return is_signed ? telem::INT32_T : telem::UINT32_T;
+    return is_signed ? telem::INT64_T : telem::UINT64_T;
 }
 
 /// Maps an EtherCAT CoE data type to a Synnax telem::DataType.

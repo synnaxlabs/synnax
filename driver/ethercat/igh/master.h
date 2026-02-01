@@ -80,7 +80,8 @@ class Master final : public ethercat::master::Master {
     size_t output_sz;
 
     /// Cached PDO offsets computed during activation.
-    std::unordered_map<PDOEntryKey, size_t, PDOEntryKeyHash> pdo_offset_cache;
+    std::unordered_map<PDOEntryKey, master::PDOOffset, PDOEntryKeyHash>
+        pdo_offset_cache;
 
     /// Cached slave information populated during initialization.
     std::vector<SlaveInfo> cached_slaves;
@@ -124,7 +125,7 @@ public:
 
     std::span<uint8_t> output_data() override;
 
-    size_t pdo_offset(const PDOEntry &entry) const override;
+    master::PDOOffset pdo_offset(const PDOEntry &entry) const override;
 
     std::vector<SlaveInfo> slaves() const override;
 

@@ -20,6 +20,13 @@
 #include "driver/ethercat/master/slave_info.h"
 
 namespace ethercat::master {
+/// Byte and bit offset for a PDO entry in the process data buffer.
+struct PDOOffset {
+    /// Byte offset into the appropriate buffer (input_data or output_data).
+    size_t byte = 0;
+    /// Bit offset within the byte for sub-byte entries (0-7).
+    uint8_t bit = 0;
+};
 
 /// Abstract interface for an EtherCAT master.
 ///
@@ -102,14 +109,14 @@ public:
     /// @returns Mutable span of output buffer, or empty span if not activated.
     [[nodiscard]] virtual std::span<uint8_t> output_data() = 0;
 
-    /// Returns the byte offset for a PDO entry in the appropriate buffer.
+    /// Returns the byte and bit offset for a PDO entry in the appropriate buffer.
     ///
     /// For input PDOs (is_input=true), returns offset into input_data().
     /// For output PDOs (is_input=false), returns offset into output_data().
     ///
     /// @param entry The PDO entry to look up.
-    /// @returns Byte offset, or 0 if entry not found.
-    [[nodiscard]] virtual size_t pdo_offset(const PDOEntry &entry) const = 0;
+    /// @returns PDOOffset with byte and bit offsets, or {0, 0} if entry not found.
+    [[nodiscard]] virtual PDOOffset pdo_offset(const PDOEntry &entry) const = 0;
 
     /// Returns information about all slaves discovered during initialization.
     ///
