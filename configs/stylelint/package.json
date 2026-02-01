@@ -2,13 +2,15 @@
   "name": "stylelint-config-synnaxlabs",
   "version": "0.50.0",
   "description": "Synnax Style Lint Configuration",
-  "main": "index.js",
+  "main": "index.ts",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/configs/stylelint",
   "author": "emilbon99@gmail.com",
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "stylelint": "^16.26.1",
-    "stylelint-config-standard": "^39.0.1"
+    "stylelint-config-standard": "^40.0.0"
+  },
+  "devDependencies": {
+    "stylelint": "catalog:"
   }
 }

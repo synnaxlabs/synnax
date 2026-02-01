@@ -12,7 +12,8 @@
     "algolia": "node src/util/algoliasearch.ts",
     "lint": "eslint",
     "fix": "eslint --fix",
-    "madge": "madge --circular src"
+    "madge": "madge --circular src",
+    "stylelint": "stylelint \"src/**/*.css\""
   },
   "dependencies": {
     "@astrojs/mdx": "^4.3.13",
@@ -51,6 +52,8 @@
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "strip-markdown": "^6.0.0",
+    "stylelint": "catalog:",
+    "stylelint-config-synnaxlabs": "workspace:^",
     "typescript": "catalog:"
   }
 }
