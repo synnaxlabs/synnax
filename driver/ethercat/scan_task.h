@@ -70,7 +70,7 @@ public:
         std::shared_ptr<task::Context> ctx,
         synnax::Task task,
         ScanTaskConfig cfg,
-        Factory *factory
+        std::shared_ptr<engine::Pool> pool
     );
 
     /// Returns scanner configuration for common::ScanTask.
@@ -97,7 +97,7 @@ private:
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
     ScanTaskConfig cfg;
-    Factory *factory;
+    std::shared_ptr<engine::Pool> pool;
     /// Tracks slave count per interface to avoid repetitive logging.
     std::unordered_map<std::string, size_t> last_slave_counts;
 

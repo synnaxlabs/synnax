@@ -25,11 +25,16 @@ void Engine::run() {
     while (this->breaker.running()) {
         if (auto err = this->master->receive(); err)
             VLOG(2) << "EtherCAT receive error: " << err.message();
-        this->publish_inputs(this->master->input_data(), this->master->input_size());
+        this->publish_inputs(this->master->input_data());
         size_t output_len = 0;
         const uint8_t *output_data = this->consume_outputs(output_len);
-        if (this->master->output_data() != nullptr && output_len > 0)
-            std::memcpy(this->master->output_data(), output_data, output_len);
+        auto outputs = this->master->output_data();
+        if (!outputs.empty() && output_len > 0)
+            std::memcpy(
+                outputs.data(),
+                output_data,
+                std::min(output_len, outputs.size())
+            );
         if (auto err = this->master->send(); err)
             VLOG(2) << "EtherCAT send error: " << err.message();
         auto [elapsed, on_time] = timer.wait();
@@ -37,20 +42,6 @@ void Engine::run() {
             VLOG(2) << "EtherCAT cycle overrun: " << elapsed;
     }
     LOG(INFO) << "EtherCAT engine stopped";
-}
-
-xerrors::Error Engine::start() {
-    if (this->breaker.running()) return xerrors::NIL;
-    if (auto err = this->master->initialize(); err) return err;
-    if (auto err = this->master->activate(); err) {
-        this->master->deactivate();
-        return err;
-    }
-    this->update_read_offsets();
-    this->update_write_offsets(this->master->output_size());
-    this->breaker.start();
-    this->run_thread = std::thread(&Engine::run, this);
-    return xerrors::NIL;
 }
 
 void Engine::stop() {
@@ -62,12 +53,14 @@ void Engine::stop() {
 }
 
 xerrors::Error Engine::reconfigure() {
-    LOG(INFO) << "EtherCAT engine restarting for reconfiguration";
-    this->restarting = true;
-    this->read_cv.notify_all();
-    this->breaker.stop();
-    if (this->run_thread.joinable()) this->run_thread.join();
-    this->master->deactivate();
+    if (this->breaker.running()) {
+        LOG(INFO) << "EtherCAT engine restarting for reconfiguration";
+        this->restarting = true;
+        this->read_cv.notify_all();
+        this->breaker.stop();
+        if (this->run_thread.joinable()) this->run_thread.join();
+        this->master->deactivate();
+    }
     this->breaker.start();
     while (this->breaker.running()) {
         if (auto err = this->master->initialize(); err) {
@@ -91,7 +84,7 @@ xerrors::Error Engine::reconfigure() {
     }
     this->breaker.reset();
     this->update_read_offsets();
-    this->update_write_offsets(this->master->output_size());
+    this->update_write_offsets(this->master->output_data().size());
     this->restarting = false;
     this->breaker.start();
     this->run_thread = std::thread(&Engine::run, this);
@@ -99,16 +92,17 @@ xerrors::Error Engine::reconfigure() {
 }
 
 bool Engine::should_be_running() const {
-    return this->reader_count() > 0 || this->writer_count() > 0;
+    std::scoped_lock lk(this->registration_mu, this->write_mu);
+    return !this->read_registrations.empty() || !this->write_registrations.empty();
 }
 
-void Engine::publish_inputs(const uint8_t *src, const size_t len) {
-    {
-        std::lock_guard lock(this->read_mu);
-        if (this->read_data.size() != len) this->read_data.resize(len);
-        std::memcpy(this->read_data.data(), src, len);
-    }
-    this->read_epoch.fetch_add(1, std::memory_order_release);
+void Engine::publish_inputs(std::span<const uint8_t> src) {
+    DCHECK_EQ(src.size(), this->shared_input_buffer.size());
+    const size_t n = std::min(src.size(), this->shared_input_buffer.size());
+    this->read_seq.seq.fetch_add(1, std::memory_order_release);
+    std::memcpy(this->shared_input_buffer.data(), src.data(), n);
+    this->read_seq.seq.fetch_add(1, std::memory_order_release);
+    this->read_epoch.epoch.fetch_add(1, std::memory_order_release);
     this->read_cv.notify_all();
 }
 
@@ -126,7 +120,10 @@ const uint8_t *Engine::consume_outputs(size_t &out_len) {
 }
 
 void Engine::update_read_offsets() {
-    std::lock_guard lock(this->read_mu);
+    std::lock_guard lock(this->registration_mu);
+    const size_t input_size = this->master->input_data().size();
+    if (this->shared_input_buffer.size() != input_size)
+        this->shared_input_buffer.resize(input_size);
     for (auto &reg: this->read_registrations) {
         reg.offsets.clear();
         for (const auto &entry: reg.entries)
@@ -153,7 +150,7 @@ void Engine::update_write_offsets(const size_t total_size) {
 
 void Engine::unregister_reader(const size_t id) {
     {
-        std::lock_guard lock(this->read_mu);
+        std::lock_guard lock(this->registration_mu);
         std::erase_if(this->read_registrations, [id](const Registration &r) {
             return r.id == id;
         });
@@ -171,38 +168,21 @@ void Engine::unregister_writer(const size_t id) {
     if (!this->should_be_running()) this->stop();
 }
 
-size_t Engine::reader_count() const {
-    std::lock_guard lock(this->read_mu);
-    return this->read_registrations.size();
-}
-
-size_t Engine::writer_count() const {
-    std::lock_guard lock(this->write_mu);
-    return this->write_registrations.size();
-}
-
-xerrors::Error Engine::request_read_reconfiguration() {
-    if (this->is_running()) return this->reconfigure();
-    return this->start();
-}
-
-xerrors::Error Engine::request_write_reconfiguration() {
-    if (this->is_running()) return this->reconfigure();
-    return this->start();
-}
-
 Engine::Reader::Reader(
     Engine &eng,
     const size_t id,
     const size_t total_size,
     std::vector<size_t> offsets,
-    std::vector<size_t> lengths
+    std::vector<size_t> lengths,
+    const size_t input_frame_size
 ):
     engine(eng),
     id(id),
     total_size(total_size),
     offsets(std::move(offsets)),
-    lengths(std::move(lengths)) {}
+    lengths(std::move(lengths)),
+    private_buffer(input_frame_size),
+    last_seen_epoch(0) {}
 
 Engine::Reader::~Reader() {
     this->engine.unregister_reader(this->id);
@@ -210,30 +190,53 @@ Engine::Reader::~Reader() {
 
 xerrors::Error
 Engine::Reader::read(const breaker::Breaker &brk, const telem::Frame &frame) const {
-    std::unique_lock lock(this->engine.read_mu);
-    const uint64_t last_seen = this->engine.read_epoch.load(std::memory_order_acquire);
-    const auto timeout = telem::MILLISECOND * 100;
+    uint64_t observed_epoch = 0;
+    {
+        std::unique_lock lock(this->engine.notify_mu);
+        const auto timeout = telem::MILLISECOND * 200;
+        const bool notified = this->engine.read_cv.wait_for(
+            lock,
+            timeout.chrono(),
+            [&] {
+                observed_epoch = this->engine.read_epoch.epoch.load(
+                    std::memory_order_acquire
+                );
+                return !this->engine.breaker.running() || !brk.running() ||
+                       this->engine.restarting.load(std::memory_order_acquire) ||
+                       observed_epoch > this->last_seen_epoch;
+            }
+        );
+        if (!notified)
+            return xerrors::Error(CYCLE_OVERRUN, "timeout waiting for inputs");
+    }
 
-    const bool notified = this->engine.read_cv.wait_for(lock, timeout.chrono(), [&] {
-        return !this->engine.breaker.running() || !brk.running() ||
-               this->engine.restarting ||
-               this->engine.read_epoch.load(std::memory_order_acquire) > last_seen;
-    });
-
-    if (this->engine.restarting)
+    if (this->engine.restarting.load(std::memory_order_acquire))
         return xerrors::Error(ENGINE_RESTARTING, "engine restarting");
     if (!this->engine.breaker.running() || !brk.running())
         return xerrors::Error(CYCLIC_ERROR, "engine stopped");
-    if (!notified) return xerrors::Error(CYCLE_OVERRUN, "timeout waiting for inputs");
 
-    // Write one sample to each series in registration order
+    this->last_seen_epoch = observed_epoch;
+
+    uint64_t s0 = 0, s1 = 0;
+    do {
+        s0 = this->engine.read_seq.seq.load(std::memory_order_acquire);
+        if (s0 & 1) continue;
+        std::memcpy(
+            this->private_buffer.data(),
+            this->engine.shared_input_buffer.data(),
+            this->engine.shared_input_buffer.size()
+        );
+        std::atomic_thread_fence(std::memory_order_acquire);
+        s1 = this->engine.read_seq.seq.load(std::memory_order_acquire);
+    } while (s0 != s1);
+
     for (size_t i = 0; i < this->offsets.size(); ++i) {
         const size_t src_offset = this->offsets[i];
         const size_t len = this->lengths[i];
-        if (src_offset + len <= this->engine.read_data.size()) {
+        if (src_offset + len <= this->private_buffer.size()) {
             auto &series = frame.series->at(i);
             series.write_casted(
-                this->engine.read_data.data() + src_offset,
+                this->private_buffer.data() + src_offset,
                 1,
                 series.data_type()
             );
@@ -255,19 +258,36 @@ Engine::Writer::~Writer() {
     this->engine.unregister_writer(this->id);
 }
 
-void Engine::Writer::write(
+Engine::Writer::Transaction::Transaction(
+    Engine &eng,
+    const std::vector<size_t> &offsets
+):
+    engine(eng), offsets(offsets), lock(eng.write_mu) {}
+
+void Engine::Writer::Transaction::write(
     const size_t pdo_index,
     const void *data,
     const size_t length
 ) const {
     if (pdo_index >= this->offsets.size()) return;
     const size_t offset = this->offsets[pdo_index];
-    std::lock_guard lock(this->engine.write_mu);
     if (offset + length <= this->engine.write_staging.size())
         std::memcpy(this->engine.write_staging.data() + offset, data, length);
 }
 
-Engine::Engine(std::shared_ptr<Master> master, const Config &config):
+Engine::Writer::Transaction Engine::Writer::open_tx() const {
+    return Transaction(this->engine, this->offsets);
+}
+
+void Engine::Writer::write(
+    const size_t pdo_index,
+    const void *data,
+    const size_t length
+) const {
+    this->open_tx().write(pdo_index, data, length);
+}
+
+Engine::Engine(std::shared_ptr<master::Master> master, const Config &config):
     config(config),
     breaker(
         breaker::Config{
@@ -294,26 +314,23 @@ Engine::open_reader(const std::vector<PDOEntry> &entries) {
         total_size += e.byte_length();
     }
 
-    size_t reg_id;
+    const size_t reg_id = this->next_id.fetch_add(1, std::memory_order_relaxed);
     {
-        std::lock_guard lock(this->read_mu);
-        reg_id = this->read_next_id++;
+        std::lock_guard lock(this->registration_mu);
         this->read_registrations.push_back({reg_id, entries, {}});
     }
 
-    if (auto err = this->request_read_reconfiguration(); err) {
-        std::lock_guard lock(this->read_mu);
+    if (auto err = this->reconfigure(); err) {
+        std::lock_guard lock(this->registration_mu);
         this->read_registrations.pop_back();
-        return {
-            std::make_unique<
-                Reader>(*this, 0, 0, std::vector<size_t>{}, std::vector<size_t>{}),
-            err
-        };
+        return {nullptr, err};
     }
 
     std::vector<size_t> resolved_offsets;
+    size_t input_frame_size;
     {
-        std::lock_guard lock(this->read_mu);
+        std::lock_guard lock(this->registration_mu);
+        input_frame_size = this->shared_input_buffer.size();
         for (const auto &reg: this->read_registrations) {
             if (reg.id == reg_id) {
                 resolved_offsets = reg.offsets;
@@ -328,7 +345,8 @@ Engine::open_reader(const std::vector<PDOEntry> &entries) {
             reg_id,
             total_size,
             std::move(resolved_offsets),
-            std::move(entry_lengths)
+            std::move(entry_lengths),
+            input_frame_size
         ),
         xerrors::NIL
     };
@@ -340,25 +358,16 @@ Engine::open_writer(const std::vector<PDOEntry> &entries) {
     for (const auto &e: entries)
         entry_lengths.push_back(e.byte_length());
 
-    size_t reg_id;
+    const size_t reg_id = this->next_id.fetch_add(1, std::memory_order_relaxed);
     {
         std::lock_guard lock(this->write_mu);
-        reg_id = this->write_next_id++;
         this->write_registrations.push_back({reg_id, entries, {}});
     }
 
-    if (auto err = this->request_write_reconfiguration(); err) {
+    if (auto err = this->reconfigure(); err) {
         std::lock_guard lock(this->write_mu);
         this->write_registrations.pop_back();
-        return {
-            std::make_unique<Writer>(
-                *this,
-                0,
-                std::vector<size_t>{},
-                std::vector<size_t>{}
-            ),
-            err
-        };
+        return {nullptr, err};
     }
 
     std::vector<size_t> resolved_offsets;

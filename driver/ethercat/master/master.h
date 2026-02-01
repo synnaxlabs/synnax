@@ -9,6 +9,9 @@
 
 #pragma once
 
+#include <functional>
+#include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -16,7 +19,8 @@
 
 #include "driver/ethercat/master/slave_info.h"
 
-namespace ethercat {
+namespace ethercat::master {
+
 /// Abstract interface for an EtherCAT master.
 ///
 /// The master manages the EtherCAT network and coordinates cyclic process data
@@ -82,27 +86,21 @@ public:
     ///          - CYCLIC_ERROR if send fails
     [[nodiscard]] virtual xerrors::Error send() = 0;
 
-    /// Returns a pointer to the input data buffer.
+    /// Returns the input data buffer.
     ///
     /// The buffer contains input PDO data (TxPDO, slave→master) and is valid
     /// after receive() completes. Use pdo_offset() to find specific PDO locations.
     ///
-    /// @returns Pointer to input buffer, or nullptr if not activated.
-    [[nodiscard]] virtual uint8_t *input_data() = 0;
+    /// @returns Read-only span of input buffer, or empty span if not activated.
+    [[nodiscard]] virtual std::span<const uint8_t> input_data() = 0;
 
-    /// Returns the size of the input data buffer in bytes.
-    [[nodiscard]] virtual size_t input_size() const = 0;
-
-    /// Returns a pointer to the output data buffer.
+    /// Returns the output data buffer.
     ///
     /// Write output PDO data (RxPDO, master→slave) to this buffer before calling
     /// send(). Use pdo_offset() to find specific PDO locations.
     ///
-    /// @returns Pointer to output buffer, or nullptr if not activated.
-    [[nodiscard]] virtual uint8_t *output_data() = 0;
-
-    /// Returns the size of the output data buffer in bytes.
-    [[nodiscard]] virtual size_t output_size() const = 0;
+    /// @returns Mutable span of output buffer, or empty span if not activated.
+    [[nodiscard]] virtual std::span<uint8_t> output_data() = 0;
 
     /// Returns the byte offset for a PDO entry in the appropriate buffer.
     ///
@@ -136,4 +134,11 @@ public:
     /// Returns the name of the network interface this master is bound to.
     [[nodiscard]] virtual std::string interface_name() const = 0;
 };
+
+/// Factory function type for creating Master instances.
+/// @param interface_name Network interface name (e.g., "eth0") - used by SOEM.
+/// @param backend Backend type: "soem", "igh", or "auto".
+/// @return Shared pointer to the created Master.
+using Factory = std::function<std::shared_ptr<
+    Master>(const std::string &interface_name, const std::string &backend)>;
 }

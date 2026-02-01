@@ -333,7 +333,7 @@ TEST_F(EtherCATReadTest, SourceStartRegistersWithEngine) {
 
     auto source = ethercat::ReadTaskSource(engine, std::move(task_cfg));
     ASSERT_NIL(source.start());
-    EXPECT_TRUE(engine->is_running());
+    EXPECT_TRUE(engine->running());
     ASSERT_NIL(source.stop());
 }
 

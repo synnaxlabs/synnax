@@ -11,28 +11,23 @@
 
 #include "glog/logging.h"
 
-#include "driver/ethercat/scan_task.h"
-
 extern "C" {
 #include "soem/soem.h"
 }
 
-#include "driver/ethercat/master/master.h"
+#include "driver/ethercat/scan_task.h"
 
 namespace ethercat {
-
-std::shared_ptr<Master> create_master(
-    const std::string &interface_name,
-    const std::string &backend,
-    unsigned int master_index
-);
 Scanner::Scanner(
     std::shared_ptr<task::Context> ctx,
     synnax::Task task,
     ScanTaskConfig cfg,
-    Factory *factory
+    std::shared_ptr<engine::Pool> pool
 ):
-    ctx(std::move(ctx)), task(std::move(task)), cfg(std::move(cfg)), factory(factory) {}
+    ctx(std::move(ctx)),
+    task(std::move(task)),
+    cfg(std::move(cfg)),
+    pool(std::move(pool)) {}
 
 common::ScannerConfig Scanner::config() const {
     return common::ScannerConfig{
@@ -59,12 +54,11 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 
     for (const auto &iface: interfaces) {
         std::vector<SlaveInfo> slaves;
-        const bool is_active = this->factory != nullptr &&
-                               this->factory->is_interface_active(iface.name);
+        const bool is_active = this->pool->is_active(iface.name);
 
         if (is_active) {
             VLOG(2) << SCAN_LOG_PREFIX << "using cached slaves for " << iface.name;
-            slaves = this->factory->get_cached_slaves(iface.name);
+            slaves = this->pool->get_slaves(iface.name);
         } else {
             VLOG(2) << SCAN_LOG_PREFIX << "probing " << iface.name;
             auto [probed_slaves, err] = this->probe_interface(iface.name);
@@ -125,9 +119,9 @@ std::vector<InterfaceInfo> Scanner::enumerate_interfaces() {
 
 std::pair<std::vector<SlaveInfo>, xerrors::Error>
 Scanner::probe_interface(const std::string &interface) const {
-    const auto master = create_master(interface, this->cfg.backend, 0);
-    if (auto err = master->initialize()) return {{}, err};
-    return {master->slaves(), xerrors::NIL};
+    auto engine = this->pool->acquire(interface, this->cfg.backend);
+    if (auto err = engine->master->initialize()) return {{}, err};
+    return {engine->master->slaves(), xerrors::NIL};
 }
 
 synnax::Device Scanner::create_network_device(

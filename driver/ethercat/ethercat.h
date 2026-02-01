@@ -13,79 +13,59 @@
 #include <string>
 #include <vector>
 
-#include "driver/ethercat/master/slave_info.h"
+#include "driver/ethercat/engine/pool.h"
+#include "driver/task/common/common.h"
 #include "driver/task/task.h"
 
 namespace ethercat {
-/// Integration name used for configuration and logging.
 const std::string INTEGRATION_NAME = "ethercat";
-
-/// Device make for all EtherCAT devices.
 const std::string DEVICE_MAKE = INTEGRATION_NAME;
-
-/// Device model for EtherCAT network devices.
 const std::string NETWORK_DEVICE_MODEL = "network";
-
-/// Device model for EtherCAT slave devices.
 const std::string SLAVE_DEVICE_MODEL = "slave";
-
-/// Read task type identifier.
 const std::string READ_TASK_TYPE = "ethercat_read";
-
-/// Write task type identifier.
 const std::string WRITE_TASK_TYPE = "ethercat_write";
-
-/// Scan task type identifier for device discovery.
 const std::string SCAN_TASK_TYPE = "ethercat_scan";
 
-/// Factory for creating EtherCAT tasks.
-///
-/// The factory manages CyclicEngine instances per network interface. Tasks share
-/// the engine for their interface, allowing multiple tasks to use the same
-/// EtherCAT master for cyclic PDO exchange.
+master::Factory default_master_factory();
+
 class Factory final : public task::Factory {
-    struct Impl;
-    std::unique_ptr<Impl> impl;
+    std::shared_ptr<engine::Pool> pool;
+
+    std::pair<common::ConfigureResult, xerrors::Error> configure_read(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
+    ) const;
+
+    std::pair<common::ConfigureResult, xerrors::Error> configure_write(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
+    ) const;
+
+    std::pair<common::ConfigureResult, xerrors::Error>
+    configure_scan(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
 
 public:
-    Factory();
-    ~Factory() override;
+    explicit Factory(master::Factory master_factory);
+    ~Factory() override = default;
 
     Factory(const Factory &) = delete;
     Factory &operator=(const Factory &) = delete;
 
-    /// Returns the integration name for logging.
     std::string name() override { return INTEGRATION_NAME; }
 
-    /// Creates a task based on the task configuration.
-    /// @param ctx Task context providing access to Synnax client and state.
-    /// @param task The Synnax task to configure.
-    /// @returns A pair containing:
-    ///          - unique_ptr<task::Task>: The created task, or nullptr if not matched.
-    ///          - bool: True if this factory handled the task type.
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) override;
 
-    /// Creates initial tasks when the driver starts (e.g., scan tasks).
-    /// @param ctx Task context.
-    /// @param rack_key The key of the rack this driver belongs to.
-    /// @returns Vector of task pairs (task configuration, task instance).
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
     ) override;
 
-    /// Checks if a CyclicEngine is running on the given interface.
-    /// @param interface The network interface name (e.g., "eth0").
-    /// @returns true if cyclic I/O is active on the interface.
     bool is_interface_active(const std::string &interface) const;
 
-    /// Gets cached slave information from an active CyclicEngine.
-    /// @param interface The network interface name.
-    /// @returns Vector of SlaveInfo from the engine, or empty if not active.
     std::vector<SlaveInfo> get_cached_slaves(const std::string &interface) const;
 };
 }

@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cstring>
 #include <mutex>
+#include <span>
 #include <unordered_map>
 #include <vector>
 
@@ -108,7 +109,7 @@ struct MockSlaveConfig {
 ///
 /// Simulates the EtherCAT master lifecycle and cyclic operations. Can be configured
 /// with virtual slaves and inject errors for testing error handling paths.
-class Master final : public ethercat::Master {
+class Master final : public ethercat::master::Master {
     std::string iface_name;
     std::vector<SlaveInfo> slave_list;
     std::unordered_map<uint16_t, SlaveState> slave_states;
@@ -276,19 +277,15 @@ public:
         return xerrors::NIL;
     }
 
-    uint8_t *input_data() override {
-        if (!this->activated) return nullptr;
-        return this->iomap.data() + this->output_sz;
+    std::span<const uint8_t> input_data() override {
+        if (!this->activated) return {};
+        return {this->iomap.data() + this->output_sz, this->input_sz};
     }
 
-    size_t input_size() const override { return this->input_sz; }
-
-    uint8_t *output_data() override {
-        if (!this->activated) return nullptr;
-        return this->iomap.data();
+    std::span<uint8_t> output_data() override {
+        if (!this->activated) return {};
+        return {this->iomap.data(), this->output_sz};
     }
-
-    size_t output_size() const override { return this->output_sz; }
 
     size_t pdo_offset(const PDOEntry &entry) const override {
         std::lock_guard lock(this->mu);

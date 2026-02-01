@@ -148,18 +148,18 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 };
 
 class ReadTaskSource final : public common::Source {
-    ReadTaskConfig config;
+    ReadTaskConfig cfg;
     std::shared_ptr<engine::Engine> engine;
     std::unique_ptr<engine::Engine::Reader> reader;
 
 public:
     explicit ReadTaskSource(std::shared_ptr<engine::Engine> eng, ReadTaskConfig cfg):
-        config(std::move(cfg)), engine(std::move(eng)) {}
+        cfg(std::move(cfg)), engine(std::move(eng)) {}
 
     xerrors::Error start() override {
         std::vector<PDOEntry> entries;
-        entries.reserve(this->config.channels.size());
-        for (const auto &ch: this->config.channels)
+        entries.reserve(this->cfg.channels.size());
+        for (const auto &ch: this->cfg.channels)
             entries.push_back(ch->to_pdo_entry(true));
 
         auto [rdr, err] = this->engine->open_reader(std::move(entries));
@@ -175,26 +175,18 @@ public:
 
     common::ReadResult read(breaker::Breaker &breaker, telem::Frame &fr) override {
         common::ReadResult res;
-        const size_t n_channels = this->config.channels.size();
-        const size_t n_samples = this->config.samples_per_chan;
-
-        common::initialize_frame(
-            fr,
-            this->config.channels,
-            this->config.indexes,
-            n_samples
-        );
+        const size_t n_channels = this->cfg.channels.size();
+        const size_t n_samples = this->cfg.samples_per_chan;
+        common::initialize_frame(fr, this->cfg.channels, this->cfg.indexes, n_samples);
         for (auto &ser: *fr.series)
             ser.clear();
         const auto start = telem::TimeStamp::now();
-        for (size_t i = 0; i < n_samples; ++i) {
-            res.error = this->reader->read(breaker, fr);
-            if (res.error) return res;
-        }
+        for (size_t i = 0; i < n_samples; ++i)
+            if (res.error = this->reader->read(breaker, fr); res.error) return res;
         const auto end = telem::TimeStamp::now();
         common::generate_index_data(
             fr,
-            this->config.indexes,
+            this->cfg.indexes,
             start,
             end,
             n_samples,
@@ -204,11 +196,11 @@ public:
     }
 
     [[nodiscard]] synnax::WriterConfig writer_config() const override {
-        return config.writer_config();
+        return cfg.writer_config();
     }
 
     [[nodiscard]] std::vector<synnax::Channel> channels() const override {
-        return config.data_channels();
+        return cfg.data_channels();
     }
 };
 }

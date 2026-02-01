@@ -156,13 +156,14 @@ public:
     }
 
     xerrors::Error write(telem::Frame &frame) override {
-        for (size_t i = 0; i < cfg.channels.size(); ++i) {
-            const auto &ch = cfg.channels[i];
+        const auto batch = writer->open_tx();
+        for (size_t i = 0; i < this->cfg.channels.size(); ++i) {
+            const auto &ch = this->cfg.channels[i];
             if (!frame.contains(ch->command_key)) continue;
             const telem::SampleValue value = frame.at(ch->command_key, 0);
             const void *data_ptr = telem::cast_to_void_ptr(value);
             const size_t byte_len = ch->byte_length();
-            writer->write(i, data_ptr, byte_len);
+            batch.write(i, data_ptr, byte_len);
         }
         set_state(frame);
         return xerrors::NIL;

@@ -330,7 +330,7 @@ TEST_F(EtherCATWriteTest, SinkStartRegistersWithEngine) {
 
     auto sink = ethercat::WriteTaskSink(engine, std::move(task_cfg));
     ASSERT_NIL(sink.start());
-    EXPECT_TRUE(engine->is_running());
+    EXPECT_TRUE(engine->running());
     ASSERT_NIL(sink.stop());
 }
 

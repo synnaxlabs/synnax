@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <mutex>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -59,7 +60,7 @@ struct PDOEntryKeyHash {
 ///
 /// Thread safety: The cyclic methods (receive/send) must be called from a single
 /// thread. Initialization and slave queries are thread-safe.
-class Master final : public ethercat::Master {
+class Master final : public ethercat::master::Master {
     /// IgH master index (typically 0, configured in /etc/ethercat.conf).
     unsigned int master_index;
 
@@ -119,13 +120,9 @@ public:
 
     xerrors::Error send() override;
 
-    uint8_t *input_data() override;
+    std::span<const uint8_t> input_data() override;
 
-    size_t input_size() const override;
-
-    uint8_t *output_data() override;
-
-    size_t output_size() const override;
+    std::span<uint8_t> output_data() override;
 
     size_t pdo_offset(const PDOEntry &entry) const override;
 

@@ -11,6 +11,7 @@
 
 #include <cstring>
 #include <mutex>
+#include <span>
 #include <unordered_map>
 #include <vector>
 
@@ -47,14 +48,14 @@ struct PDOEntryKeyHash {
     }
 };
 
-/// SOEM-based implementation of the ethercat::Master interface.
+/// SOEM-based implementation of the ethercat::master::Master interface.
 ///
 /// Master wraps the SOEM library to provide EtherCAT master functionality.
 /// It manages the ecx_contextt and handles the lifecycle of the EtherCAT network.
 ///
 /// Thread safety: The cyclic methods (receive/send) must be called from a single
 /// thread. Initialization and slave queries are thread-safe.
-class Master final : public ethercat::Master {
+class Master final : public master::Master {
     /// The network interface name (e.g., "eth0", "enp3s0").
     std::string iface_name;
 
@@ -108,13 +109,9 @@ public:
 
     xerrors::Error send() override;
 
-    uint8_t *input_data() override;
+    std::span<const uint8_t> input_data() override;
 
-    size_t input_size() const override;
-
-    uint8_t *output_data() override;
-
-    size_t output_size() const override;
+    std::span<uint8_t> output_data() override;
 
     size_t pdo_offset(const PDOEntry &entry) const override;
 

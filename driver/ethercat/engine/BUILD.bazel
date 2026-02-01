@@ -2,14 +2,21 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 cc_library(
     name = "engine",
-    srcs = ["engine.cpp"],
-    hdrs = ["engine.h"],
+    srcs = [
+        "engine.cpp",
+        "pool.cpp",
+    ],
+    hdrs = [
+        "engine.h",
+        "pool.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
         "//x/cpp/breaker",
         "//x/cpp/loop",
+        "//x/cpp/telem",
         "//x/cpp/xthread",
     ],
 )

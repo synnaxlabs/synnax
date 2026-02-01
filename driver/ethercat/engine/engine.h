@@ -11,14 +11,14 @@
 
 #include <atomic>
 #include <condition_variable>
-#include <functional>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <thread>
 #include <vector>
 
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/telem/telem.h"
+#include "x/cpp/telem/frame.h"
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xthread/rt.h"
 
@@ -59,40 +59,45 @@ class Engine {
         std::vector<size_t> offsets;
     };
 
-    mutable std::mutex read_mu;
+    std::atomic<size_t> next_id = 0;
+    ;
+
+    struct alignas(64) {
+        std::atomic<uint64_t> seq = 0;
+    } read_seq;
+
+    struct alignas(64) {
+        std::atomic<uint64_t> epoch = 0;
+    } read_epoch;
+
+    alignas(64) std::vector<uint8_t> shared_input_buffer;
+
+    mutable std::mutex notify_mu;
     std::condition_variable read_cv;
-    std::vector<uint8_t> read_data;
-    std::atomic<uint64_t> read_epoch{0};
-    std::atomic<bool> restarting{false};
+
+    mutable std::mutex registration_mu;
     std::vector<Registration> read_registrations;
-    size_t read_next_id{0};
 
     mutable std::mutex write_mu;
     std::vector<uint8_t> write_staging;
     std::vector<uint8_t> write_active;
     std::vector<Registration> write_registrations;
-    size_t write_next_id{0};
 
     std::thread run_thread;
+    std::atomic<bool> restarting{false};
     breaker::Breaker breaker;
 
-public:
     void run();
-    [[nodiscard]] xerrors::Error start();
     void stop();
     [[nodiscard]] xerrors::Error reconfigure();
     [[nodiscard]] bool should_be_running() const;
 
-    void publish_inputs(const uint8_t *src, size_t len);
+    void publish_inputs(std::span<const uint8_t> src);
     const uint8_t *consume_outputs(size_t &out_len);
     void update_read_offsets();
     void update_write_offsets(size_t total_size);
     void unregister_reader(size_t id);
     void unregister_writer(size_t id);
-    [[nodiscard]] size_t reader_count() const;
-    [[nodiscard]] size_t writer_count() const;
-    [[nodiscard]] xerrors::Error request_read_reconfiguration();
-    [[nodiscard]] xerrors::Error request_write_reconfiguration();
 
 public:
     /// @brief Proxy for reading input data from the EtherCAT cycle engine.
@@ -106,6 +111,8 @@ public:
         size_t total_size;
         std::vector<size_t> offsets;
         std::vector<size_t> lengths;
+        mutable std::vector<uint8_t> private_buffer;
+        mutable uint64_t last_seen_epoch = 0;
 
     public:
         Reader(
@@ -113,7 +120,8 @@ public:
             size_t id,
             size_t total_size,
             std::vector<size_t> offsets,
-            std::vector<size_t> lengths
+            std::vector<size_t> lengths,
+            size_t input_frame_size
         );
 
         Reader(const Reader &) = delete;
@@ -147,6 +155,29 @@ public:
         std::vector<size_t> lengths;
 
     public:
+        /// @brief RAII batch writer that holds the write lock for multiple writes.
+        ///
+        /// Use start_batch() to create a Batch, then call write() multiple times.
+        /// The lock is released when the Batch is destroyed.
+        class Transaction {
+            Engine &engine;
+            const std::vector<size_t> &offsets;
+            std::unique_lock<std::mutex> lock;
+
+        public:
+            Transaction(Engine &eng, const std::vector<size_t> &offsets);
+            Transaction(const Transaction &) = delete;
+            Transaction &operator=(const Transaction &) = delete;
+            Transaction(Transaction &&) = delete;
+            Transaction &operator=(Transaction &&) = delete;
+
+            /// @brief Writes data to a specific PDO entry by index.
+            /// @param pdo_index Index into the PDO entries registered with this Writer.
+            /// @param data Pointer to the data to write.
+            /// @param length Number of bytes to write.
+            void write(size_t pdo_index, const void *data, size_t length) const;
+        };
+
         Writer(
             Engine &eng,
             size_t id,
@@ -159,6 +190,10 @@ public:
         Writer(const Writer &) = delete;
         Writer &operator=(const Writer &) = delete;
 
+        /// @brief Creates a batch for writing multiple PDO entries under a single lock.
+        /// @return A Batch object that holds the write lock until destroyed.
+        [[nodiscard]] Transaction open_tx() const;
+
         /// @brief Writes data to a specific PDO entry by index.
         /// @param pdo_index Index into the PDO entries registered with this Writer.
         /// @param data Pointer to the data to write.
@@ -166,12 +201,15 @@ public:
         void write(size_t pdo_index, const void *data, size_t length) const;
     };
 
-    const std::shared_ptr<Master> master;
+    const std::shared_ptr<master::Master> master;
 
     /// @brief Constructs an Engine with the given master and configuration.
     /// @param master The EtherCAT master for cyclic exchange.
     /// @param config Configuration for cycle timing and RT thread setup.
-    explicit Engine(std::shared_ptr<Master> master, const Config &config = Config());
+    explicit Engine(
+        std::shared_ptr<master::Master> master,
+        const Config &config = Config()
+    );
 
     ~Engine();
 
@@ -186,7 +224,6 @@ public:
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, xerrors::Error>
     open_writer(const std::vector<PDOEntry> &entries);
 
-    /// @brief Returns whether the engine is currently running.
-    [[nodiscard]] bool is_running() const { return this->breaker.running(); }
+    bool running() const { return this->breaker.running(); }
 };
 }

@@ -128,22 +128,14 @@ xerrors::Error Master::send() {
     return xerrors::NIL;
 }
 
-uint8_t *Master::input_data() {
-    if (!this->activated) return nullptr;
-    return this->domain_data + this->output_sz;
+std::span<const uint8_t> Master::input_data() {
+    if (!this->activated || !this->domain_data) return {};
+    return {this->domain_data + this->output_sz, this->input_sz};
 }
 
-size_t Master::input_size() const {
-    return this->input_sz;
-}
-
-uint8_t *Master::output_data() {
-    if (!this->activated) return nullptr;
-    return this->domain_data;
-}
-
-size_t Master::output_size() const {
-    return this->output_sz;
+std::span<uint8_t> Master::output_data() {
+    if (!this->activated || !this->domain_data) return {};
+    return {this->domain_data, this->output_sz};
 }
 
 size_t Master::pdo_offset(const PDOEntry &entry) const {
