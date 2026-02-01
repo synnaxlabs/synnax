@@ -76,6 +76,7 @@ export const ZERO_READ_CHANNELS: Record<ReadChannelType, ReadChannel> = {
 };
 
 export const readConfigZ = Common.Task.baseReadConfigZ
+  .omit({ device: true })
   .extend({
     sampleRate: z.number().positive(),
     streamRate: z.number().positive(),
@@ -85,7 +86,8 @@ export const readConfigZ = Common.Task.baseReadConfigZ
 interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
 const ZERO_READ_CONFIG: ReadConfig = {
-  ...Common.Task.ZERO_BASE_READ_CONFIG,
+  autoStart: false,
+  dataSaving: true,
   sampleRate: 1000,
   streamRate: 25,
   channels: [],
@@ -175,7 +177,7 @@ export const ZERO_WRITE_CHANNELS: Record<WriteChannelType, WriteChannel> = {
   [MANUAL_TYPE]: ZERO_MANUAL_WRITE_CHANNEL,
 };
 
-export const writeConfigZ = Common.Task.baseConfigZ.extend({
+export const writeConfigZ = Common.Task.baseConfigZ.omit({ device: true }).extend({
   stateRate: z.number().positive(),
   executionRate: z.number().positive(),
   channels: z.array(writeChannelZ),
@@ -183,7 +185,7 @@ export const writeConfigZ = Common.Task.baseConfigZ.extend({
 interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 const ZERO_WRITE_CONFIG: WriteConfig = {
-  ...Common.Task.ZERO_BASE_CONFIG,
+  autoStart: false,
   stateRate: 25,
   executionRate: 1000,
   channels: [],
