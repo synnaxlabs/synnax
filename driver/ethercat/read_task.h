@@ -24,27 +24,16 @@
 
 namespace ethercat {
 struct ReadTaskConfig : common::BaseReadTaskConfig {
-    std::string device_key;
     std::string interface_name;
     std::set<synnax::ChannelKey> indexes;
     std::vector<std::unique_ptr<channel::Input>> channels;
-    /// Network cycle rate from the EtherCAT network device.
-    telem::Rate network_rate;
-    /// Decimation factor: network_rate / sample_rate.
-    size_t decimation_factor;
-    /// Number of epochs per batch: samples_per_chan * decimation_factor.
-    size_t epochs_per_batch;
     size_t samples_per_chan;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         BaseReadTaskConfig(std::move(other)),
-        device_key(std::move(other.device_key)),
         interface_name(std::move(other.interface_name)),
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)),
-        network_rate(other.network_rate),
-        decimation_factor(other.decimation_factor),
-        epochs_per_batch(other.epochs_per_batch),
         samples_per_chan(other.samples_per_chan) {}
 
     ReadTaskConfig(const ReadTaskConfig &) = delete;
@@ -54,41 +43,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &cfg
     ):
-        BaseReadTaskConfig(cfg),
-        device_key(cfg.field<std::string>("device")),
-        network_rate(0),
-        decimation_factor(1),
-        epochs_per_batch(0),
-        samples_per_chan(sample_rate / stream_rate) {
-        auto [network_dev, net_err] = client->devices.retrieve(device_key);
-        if (net_err) {
-            cfg.field_err("device", net_err.message());
-            return;
-        }
-
-        auto net_parser = xjson::Parser(network_dev.properties);
-        device::NetworkProperties net_props(net_parser);
-        if (net_parser.error()) {
-            cfg.field_err("device", net_parser.error().message());
-            return;
-        }
-        interface_name = net_props.interface;
-        network_rate = net_props.rate;
-
-        if (sample_rate > network_rate) {
-            cfg.field_err("sample_rate", "cannot exceed network rate");
-            return;
-        }
-        const auto net_rate_int = static_cast<size_t>(network_rate.hz());
+        BaseReadTaskConfig(cfg), samples_per_chan(sample_rate / stream_rate) {
         const auto sample_rate_int = static_cast<size_t>(sample_rate.hz());
         const auto stream_rate_int = static_cast<size_t>(stream_rate.hz());
-        if (net_rate_int % sample_rate_int != 0) {
-            cfg.field_err(
-                "sample_rate",
-                "network rate must be divisible by sample_rate"
-            );
-            return;
-        }
         if (sample_rate_int % stream_rate_int != 0) {
             cfg.field_err(
                 "stream_rate",
@@ -97,10 +54,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
 
-        decimation_factor = net_rate_int / sample_rate_int;
-        epochs_per_batch = samples_per_chan * decimation_factor;
-
         std::unordered_map<std::string, device::SlaveProperties> slave_cache;
+        std::string first_network;
 
         cfg.iter("channels", [&](xjson::Parser &ch) {
             auto slave_key = ch.field<std::string>("device");
@@ -117,25 +72,34 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                     ch.field_err("device", props_parser.error().message());
                     return;
                 }
+                const auto &slave = slave_cache.at(slave_key);
+                if (first_network.empty())
+                    first_network = slave.network;
+                else if (slave.network != first_network) {
+                    ch.field_err("device", "all slaves must be on the same network");
+                    return;
+                }
             }
             const auto &slave = slave_cache.at(slave_key);
             auto channel_ptr = channel::parse_input(ch, slave);
             if (channel_ptr && channel_ptr->enabled)
-                channels.push_back(std::move(channel_ptr));
+                this->channels.push_back(std::move(channel_ptr));
         });
 
         if (cfg.error()) return;
 
-        if (channels.empty()) {
+        if (this->channels.empty()) {
             cfg.field_err("channels", "task must have at least one enabled channel");
             return;
         }
 
-        channel::sort_by_position(channels);
+        this->interface_name = first_network;
+
+        channel::sort_by_position(this->channels);
 
         std::vector<synnax::ChannelKey> keys;
-        keys.reserve(channels.size());
-        for (const auto &ch: channels)
+        keys.reserve(this->channels.size());
+        for (const auto &ch: this->channels)
             keys.push_back(ch->synnax_key);
 
         auto [synnax_channels, ch_err] = client->channels.retrieve(keys);
@@ -144,9 +108,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
 
-        for (size_t i = 0; i < channels.size(); i++) {
-            channels[i]->bind_remote_info(synnax_channels[i]);
-            if (synnax_channels[i].index != 0) indexes.insert(synnax_channels[i].index);
+        for (size_t i = 0; i < this->channels.size(); i++) {
+            this->channels[i]->bind_remote_info(synnax_channels[i]);
+            if (synnax_channels[i].index != 0)
+                this->indexes.insert(synnax_channels[i].index);
         }
     }
 
@@ -194,7 +159,10 @@ public:
         for (const auto &ch: this->cfg.channels)
             entries.push_back(ch->to_pdo_entry(true));
 
-        auto [rdr, err] = this->engine->open_reader(std::move(entries));
+        auto [rdr, err] = this->engine->open_reader(
+            std::move(entries),
+            this->cfg.sample_rate
+        );
         if (err) return err;
         this->reader = std::move(rdr);
         return xerrors::NIL;
@@ -212,13 +180,19 @@ public:
         common::initialize_frame(fr, this->cfg.channels, this->cfg.indexes, n_samples);
         for (auto &ser: *fr.series)
             ser.clear();
+
+        const auto engine_rate = this->engine->cycle_rate();
+        const size_t decimation = static_cast<size_t>(
+            engine_rate / this->cfg.sample_rate
+        );
+        const size_t epochs_per_batch = n_samples * decimation;
+
         const auto start = telem::TimeStamp::now();
-        for (size_t epoch = 0; epoch < this->cfg.epochs_per_batch; ++epoch) {
-            if (epoch % this->cfg.decimation_factor == 0) {
+        for (size_t epoch = 0; epoch < epochs_per_batch; ++epoch) {
+            if (epoch % decimation == 0) {
                 if (res.error = this->reader->read(breaker, fr); res.error) return res;
             } else if (res.error = this->reader->wait(breaker); res.error)
                 return res;
-            // User commanded stop - clear frame and return early
             if (!breaker.running()) {
                 fr.clear();
                 return res;

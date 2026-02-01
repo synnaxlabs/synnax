@@ -27,15 +27,12 @@ struct RTConfig {
     /// Whether to enable real-time scheduling (SCHED_FIFO on Linux).
     /// Requires CAP_SYS_NICE capability or root privileges.
     bool enabled = false;
-
     /// Real-time thread priority (1-99 on Linux, higher = more priority).
     /// Only used when enabled is true.
     int priority = DEFAULT_RT_PRIORITY;
-
     /// CPU core to pin the thread to. Use CPU_AFFINITY_AUTO for automatic
     /// selection (last core) or CPU_AFFINITY_NONE to disable pinning.
     int cpu_affinity = CPU_AFFINITY_NONE;
-
     /// Whether to lock all current and future memory pages to prevent
     /// page faults during real-time execution. Requires CAP_IPC_LOCK.
     bool lock_memory = false;

@@ -8,16 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Rate } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 export const PREFIX = "ethercat";
 
 export const MAKE = PREFIX;
 export type Make = typeof MAKE;
-
-export const NETWORK_MODEL = "network";
-export type NetworkModel = typeof NETWORK_MODEL;
 
 export const SLAVE_MODEL = "slave";
 export type SlaveModel = typeof SLAVE_MODEL;
@@ -44,24 +40,6 @@ export const ZERO_PDOS: PDOs = {
   outputs: [],
 };
 
-/** Network device properties schema. */
-export const networkPropertiesZ = z.object({
-  interface: z.string(),
-  rate: Rate.z,
-});
-export interface NetworkProperties extends z.infer<typeof networkPropertiesZ> {}
-
-export const ZERO_NETWORK_PROPERTIES: NetworkProperties = {
-  interface: "",
-  rate: Rate.hz(1000),
-};
-
-export interface NetworkDevice extends device.Device<
-  NetworkProperties,
-  Make,
-  NetworkModel
-> {}
-
 /** Slave device properties schema. */
 export const slavePropertiesZ = z.object({
   serial: z.number(),
@@ -69,6 +47,7 @@ export const slavePropertiesZ = z.object({
   productCode: z.number(),
   revision: z.number(),
   name: z.string(),
+  network: z.string(),
   position: z.number(),
   pdos: pdosZ,
   readIndex: z.number(),
@@ -88,6 +67,7 @@ export const ZERO_SLAVE_PROPERTIES: SlaveProperties = {
   productCode: 0,
   revision: 0,
   name: "",
+  network: "",
   position: 0,
   pdos: ZERO_PDOS,
   readIndex: 0,

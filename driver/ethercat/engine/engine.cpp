@@ -21,7 +21,10 @@ namespace ethercat::engine {
 void Engine::run() {
     LOG(INFO) << "[ethercat] engine started on " << this->master->interface_name();
     xthread::apply_rt_config(this->config.rt);
-    loop::Timer timer(this->config.cycle_time);
+    const auto cycle_time = telem::TimeSpan(
+        this->cycle_time_ns.load(std::memory_order_acquire)
+    );
+    loop::Timer timer(cycle_time);
     while (this->breaker.running()) {
         if (auto err = this->master->receive(); err)
             VLOG(2) << "[ethercat] receive error: " << err.message();
@@ -38,7 +41,7 @@ void Engine::run() {
         if (auto err = this->master->send(); err)
             VLOG(2) << "[ethercat] send error: " << err.message();
         auto [elapsed, on_time] = timer.wait();
-        if (!on_time && this->config.max_overrun > 0)
+        if (!on_time && this->config.max_overrun.nanoseconds() > 0)
             VLOG(2) << "[ethercat] cycle overrun: " << elapsed;
     }
     LOG(INFO) << "[ethercat] engine stopped";
@@ -95,6 +98,30 @@ xerrors::Error Engine::reconfigure() {
 bool Engine::should_be_running() const {
     std::scoped_lock lk(this->registration_mu, this->write_mu);
     return !this->read_registrations.empty() || !this->write_registrations.empty();
+}
+
+void Engine::update_cycle_time() {
+    telem::Rate max_rate(0);
+    {
+        std::lock_guard lock(this->registration_mu);
+        for (const auto &reg: this->read_registrations)
+            if (reg.rate > max_rate) max_rate = reg.rate;
+    }
+    {
+        std::lock_guard lock(this->write_mu);
+        for (const auto &reg: this->write_registrations)
+            if (reg.rate > max_rate) max_rate = reg.rate;
+    }
+    if (max_rate.hz() > 0)
+        this->cycle_time_ns.store(
+            max_rate.period().nanoseconds(),
+            std::memory_order_release
+        );
+}
+
+telem::Rate Engine::cycle_rate() const {
+    const auto ns = this->cycle_time_ns.load(std::memory_order_acquire);
+    return telem::Rate(1e9 / static_cast<double>(ns));
 }
 
 void Engine::publish_inputs(const std::span<const uint8_t> src) {
@@ -156,6 +183,7 @@ void Engine::unregister_reader(const size_t id) {
             return r.id == id;
         });
     }
+    this->update_cycle_time();
     if (!this->should_be_running()) this->stop();
 }
 
@@ -166,6 +194,7 @@ void Engine::unregister_writer(const size_t id) {
             return r.id == id;
         });
     }
+    this->update_cycle_time();
     if (!this->should_be_running()) this->stop();
 }
 
@@ -420,12 +449,17 @@ Engine::Engine(std::shared_ptr<master::Master> master, const Config &config):
     ),
     master(std::move(master)) {}
 
+Engine::Engine(std::shared_ptr<master::Master> master):
+    Engine(std::move(master), Config{}) {}
+
 Engine::~Engine() {
     this->stop();
 }
 
-std::pair<std::unique_ptr<Engine::Reader>, xerrors::Error>
-Engine::open_reader(const std::vector<PDOEntry> &entries) {
+std::pair<std::unique_ptr<Engine::Reader>, xerrors::Error> Engine::open_reader(
+    const std::vector<PDOEntry> &entries,
+    const telem::Rate sample_rate
+) {
     size_t total_size = 0;
     for (const auto &e: entries)
         total_size += e.byte_length();
@@ -433,8 +467,9 @@ Engine::open_reader(const std::vector<PDOEntry> &entries) {
     const size_t reg_id = this->next_id.fetch_add(1, std::memory_order_relaxed);
     {
         std::lock_guard lock(this->registration_mu);
-        this->read_registrations.push_back({reg_id, entries, {}});
+        this->read_registrations.push_back({reg_id, entries, {}, sample_rate});
     }
+    this->update_cycle_time();
 
     if (auto err = this->reconfigure(); err) {
         std::lock_guard lock(this->registration_mu);
@@ -473,13 +508,16 @@ Engine::open_reader(const std::vector<PDOEntry> &entries) {
     };
 }
 
-std::pair<std::unique_ptr<Engine::Writer>, xerrors::Error>
-Engine::open_writer(const std::vector<PDOEntry> &entries) {
+std::pair<std::unique_ptr<Engine::Writer>, xerrors::Error> Engine::open_writer(
+    const std::vector<PDOEntry> &entries,
+    const telem::Rate execution_rate
+) {
     const size_t reg_id = this->next_id.fetch_add(1, std::memory_order_relaxed);
     {
         std::lock_guard lock(this->write_mu);
-        this->write_registrations.push_back({reg_id, entries, {}});
+        this->write_registrations.push_back({reg_id, entries, {}, execution_rate});
     }
+    this->update_cycle_time();
 
     if (auto err = this->reconfigure(); err) {
         std::lock_guard lock(this->write_mu);

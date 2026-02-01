@@ -51,6 +51,8 @@ struct SlaveProperties {
     uint32_t revision;
     /// Human-readable device name.
     std::string name;
+    /// Network interface name this slave is connected to.
+    std::string network;
     /// Current position on bus (may change).
     uint16_t position;
     /// Input PDOs (TxPDO, slave->master).
@@ -64,14 +66,15 @@ struct SlaveProperties {
         product_code(parser.field<uint32_t>("product_code")),
         revision(parser.field<uint32_t>("revision")),
         name(parser.field<std::string>("name")),
+        network(parser.field<std::string>("network", "")),
         position(static_cast<uint16_t>(parser.field<int>("position"))) {
         auto pdos_parser = parser.child("pdos");
         if (!pdos_parser.error()) {
             pdos_parser.iter("inputs", [this](xjson::Parser &pdo) {
-                input_pdos.emplace_back(pdo);
+                this->input_pdos.emplace_back(pdo);
             });
             pdos_parser.iter("outputs", [this](xjson::Parser &pdo) {
-                output_pdos.emplace_back(pdo);
+                this->output_pdos.emplace_back(pdo);
             });
         }
     }
@@ -97,15 +100,4 @@ struct SlaveProperties {
     }
 };
 
-/// Properties of an EtherCAT network device parsed from Synnax device properties.
-struct NetworkProperties {
-    /// Network interface name (e.g., "eth0", "enp2s0").
-    std::string interface;
-    /// Network cycle rate in Hz.
-    telem::Rate rate;
-
-    explicit NetworkProperties(xjson::Parser &parser):
-        interface(parser.field<std::string>("interface")),
-        rate(parser.field<double>("rate")) {}
-};
 }

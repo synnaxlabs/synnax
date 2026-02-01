@@ -78,9 +78,6 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 
         if (slaves.empty()) continue;
 
-        auto network_dev = this->create_network_device(iface, slaves, scan_ctx);
-        devices.push_back(std::move(network_dev));
-
         for (const auto &slave: slaves) {
             auto slave_dev = this->create_slave_device(slave, iface.name, scan_ctx);
             devices.push_back(std::move(slave_dev));
@@ -121,46 +118,10 @@ std::vector<InterfaceInfo> Scanner::enumerate_interfaces() {
 
 std::pair<std::vector<SlaveInfo>, xerrors::Error>
 Scanner::probe_interface(const std::string &interface) const {
-    auto [engine, err] = this->pool
-                             ->acquire(interface, telem::Rate(1000), this->cfg.backend);
+    auto [engine, err] = this->pool->acquire(interface, this->cfg.backend);
     if (err) return {{}, err};
     if (auto init_err = engine->master->initialize()) return {{}, init_err};
     return {engine->master->slaves(), xerrors::NIL};
-}
-
-synnax::Device Scanner::create_network_device(
-    const InterfaceInfo &iface,
-    const std::vector<SlaveInfo> &slaves,
-    const common::ScannerContext &scan_ctx
-) {
-    const auto rack_key = synnax::rack_key_from_task_key(this->task.key);
-    const std::string key = this->generate_network_key(iface.name);
-
-    nlohmann::json props = get_existing_properties(key, scan_ctx);
-    const NetworkDeviceProperties net_props(iface.name, slaves.size());
-    for (auto &[k, v]: net_props.to_json().items())
-        props[k] = v;
-    const std::string status_msg = "Discovered " + std::to_string(slaves.size()) +
-                                   " slaves";
-    const std::string status_variant = status::variant::SUCCESS;
-    synnax::Device dev;
-    dev.key = key;
-    dev.name = "EtherCAT Network " + iface.name;
-    dev.make = DEVICE_MAKE;
-    dev.model = NETWORK_DEVICE_MODEL;
-    dev.location = iface.name;
-    dev.rack = rack_key;
-    dev.properties = props.dump();
-    dev.status = synnax::DeviceStatus{
-        .key = dev.status_key(),
-        .name = dev.name,
-        .variant = status_variant,
-        .message = status_msg,
-        .time = telem::TimeStamp::now(),
-        .details = {.rack = rack_key, .device = dev.key},
-    };
-
-    return dev;
 }
 
 synnax::Device Scanner::create_slave_device(
@@ -200,7 +161,7 @@ synnax::Device Scanner::create_slave_device(
                                   : slave.name;
     dev.make = DEVICE_MAKE;
     dev.model = SLAVE_DEVICE_MODEL;
-    dev.location = network_interface;
+    dev.location = network_interface + ".Slot " + std::to_string(slave.position);
     dev.rack = rack_key;
     dev.properties = props.dump();
     dev.status = synnax::DeviceStatus{
@@ -226,10 +187,6 @@ nlohmann::json Scanner::get_existing_properties(
     try {
         return nlohmann::json::parse(it->second.properties);
     } catch (const nlohmann::json::parse_error &) { return nlohmann::json::object(); }
-}
-
-std::string Scanner::generate_network_key(const std::string &interface) {
-    return "ethercat_" + interface;
 }
 
 std::string

@@ -44,7 +44,7 @@ std::pair<common::ConfigureResult, xerrors::Error> Factory::configure_read(
     common::ConfigureResult result;
     auto [cfg, cfg_err] = ReadTaskConfig::parse(ctx->client, task);
     if (cfg_err) return {std::move(result), cfg_err};
-    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name, cfg.network_rate);
+    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name);
     if (eng_err) return {std::move(result), eng_err};
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::ReadTask>(
@@ -63,7 +63,7 @@ std::pair<common::ConfigureResult, xerrors::Error> Factory::configure_write(
     common::ConfigureResult result;
     auto [cfg, cfg_err] = WriteTaskConfig::parse(ctx->client, task);
     if (cfg_err) return {std::move(result), cfg_err};
-    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name, cfg.network_rate);
+    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name);
     if (eng_err) return {std::move(result), eng_err};
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(

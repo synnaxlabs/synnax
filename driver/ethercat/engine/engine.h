@@ -27,17 +27,12 @@
 namespace ethercat::engine {
 /// @brief Configuration for the Loop.
 struct Config {
-    /// Cycle time for PDO exchange. Defaults to 1ms (1kHz).
-    telem::TimeSpan cycle_time = telem::MILLISECOND;
     /// Maximum allowed cycle overrun before logging a warning.
     telem::TimeSpan max_overrun = telem::TimeSpan(0);
     /// Real-time thread configuration for the cycle thread.
     xthread::RTConfig rt;
 
     Config() = default;
-
-    explicit Config(const telem::TimeSpan cycle_time):
-        cycle_time(cycle_time), max_overrun(cycle_time * 0.1) {}
 };
 
 /// @brief Coordinates cyclic PDO exchange between EtherCAT master and tasks.
@@ -57,9 +52,12 @@ class Engine {
         size_t id;
         std::vector<PDOEntry> entries;
         std::vector<master::PDOOffset> offsets;
+        telem::Rate rate;
     };
 
     std::atomic<size_t> next_id = 0;
+
+    std::atomic<int64_t> cycle_time_ns{telem::MILLISECOND.nanoseconds()};
 
     struct alignas(64) {
         std::atomic<uint64_t> seq = 0;
@@ -90,6 +88,7 @@ class Engine {
     void stop();
     [[nodiscard]] xerrors::Error reconfigure();
     [[nodiscard]] bool should_be_running() const;
+    void update_cycle_time();
 
     void publish_inputs(std::span<const uint8_t> src);
     const uint8_t *consume_outputs(size_t &out_len);
@@ -208,11 +207,12 @@ public:
 
     /// @brief Constructs an Engine with the given master and configuration.
     /// @param master The EtherCAT master for cyclic exchange.
-    /// @param config Configuration for cycle timing and RT thread setup.
-    explicit Engine(
-        std::shared_ptr<master::Master> master,
-        const Config &config = Config()
-    );
+    /// @param config Configuration for RT thread setup.
+    explicit Engine(std::shared_ptr<master::Master> master, const Config &config);
+
+    /// @brief Constructs an Engine with the given master using default configuration.
+    /// @param master The EtherCAT master for cyclic exchange.
+    explicit Engine(std::shared_ptr<master::Master> master);
 
     ~Engine();
 
@@ -220,16 +220,23 @@ public:
     Engine &operator=(const Engine &) = delete;
 
     /// @brief Opens a new Reader for the specified PDO entries.
+    /// @param entries PDO entries to register for reading.
+    /// @param sample_rate Desired sample rate for this reader.
     [[nodiscard]] std::pair<std::unique_ptr<Reader>, xerrors::Error>
-    open_reader(const std::vector<PDOEntry> &entries);
+    open_reader(const std::vector<PDOEntry> &entries, telem::Rate sample_rate);
 
     /// @brief Opens a new Writer for the specified PDO entries.
+    /// @param entries PDO entries to register for writing.
+    /// @param execution_rate Desired execution rate for this writer.
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, xerrors::Error>
-    open_writer(const std::vector<PDOEntry> &entries);
+    open_writer(const std::vector<PDOEntry> &entries, telem::Rate execution_rate);
 
     bool running() const { return this->breaker.running(); }
 
     /// @brief Returns the engine configuration.
     [[nodiscard]] const Config &cfg() const { return this->config; }
+
+    /// @brief Returns the current engine cycle rate (thread-safe).
+    [[nodiscard]] telem::Rate cycle_rate() const;
 };
 }

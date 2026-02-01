@@ -25,9 +25,9 @@ protected:
     std::shared_ptr<ethercat::engine::Engine> engine;
     synnax::Channel index_channel;
     synnax::Rack rack;
-    synnax::Device network_device;
     synnax::Device slave_device;
     const uint32_t SLAVE_SERIAL = 12345;
+    const std::string NETWORK_INTERFACE = "eth0";
 
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -44,7 +44,6 @@ protected:
 
         ctx = std::make_shared<task::MockContext>(client);
 
-        network_device = create_network_device("eth0");
         slave_device = create_slave_device(
             SLAVE_SERIAL,
             {{{"name", "status_word"},
@@ -60,7 +59,7 @@ protected:
             json::array()
         );
 
-        mock_master = std::make_shared<ethercat::mock::Master>("eth0");
+        mock_master = std::make_shared<ethercat::mock::Master>(NETWORK_INTERFACE);
 
         ethercat::PDOEntryInfo status_pdo;
         status_pdo.pdo_index = 0x1A00;
@@ -84,26 +83,7 @@ protected:
             ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, SLAVE_SERIAL, "Test Slave")
                 .with_input_pdos({status_pdo, sensor_pdo})
         );
-        engine = std::make_shared<ethercat::engine::Engine>(
-            mock_master,
-            ethercat::engine::Config(telem::MILLISECOND * 10)
-        );
-    }
-
-    synnax::Device create_network_device(const std::string &interface) {
-        json props = {{"interface", interface}, {"rate", 100.0}};
-        synnax::Device dev(
-            "ecat_network_" + interface,
-            "Test Network",
-            rack.key,
-            interface,
-            "EtherCAT",
-            "Network",
-            props.dump()
-        );
-        auto err = client->devices.create(dev);
-        EXPECT_TRUE(!err) << err.message();
-        return dev;
+        engine = std::make_shared<ethercat::engine::Engine>(mock_master);
     }
 
     synnax::Device create_slave_device(
@@ -117,6 +97,7 @@ protected:
             {"product_code", 0x2},
             {"revision", 1},
             {"name", "Test Slave"},
+            {"network", NETWORK_INTERFACE},
             {"position", 0},
             {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
         };
@@ -124,7 +105,7 @@ protected:
             "ecat_slave_" + std::to_string(serial),
             "Test Slave SN:" + std::to_string(serial),
             rack.key,
-            std::to_string(serial),
+            NETWORK_INTERFACE + ".Slot 0",
             "DEWESoft",
             "TestModule",
             props.dump()
@@ -139,7 +120,6 @@ protected:
             {"data_saving", false},
             {"sample_rate", 100},
             {"stream_rate", 10},
-            {"device", network_device.key},
             {"channels", json::array()}
         };
     }
@@ -357,13 +337,24 @@ TEST_F(EtherCATReadTest, SourceStartRegistersWithEngine) {
     ASSERT_NIL(source.stop());
 }
 
-TEST_F(EtherCATReadTest, InvalidNetworkDevice) {
+TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
     json cfg = {
         {"data_saving", false},
         {"sample_rate", 100},
         {"stream_rate", 10},
-        {"device", "nonexistent_device_key"},
-        {"channels", json::array()}
+        {"channels",
+         {{{"type", "automatic"},
+           {"device", "nonexistent_device_key"},
+           {"pdo", "status_word"},
+           {"channel", data_ch.key},
+           {"enabled", true}}}}
     };
 
     auto parser = xjson::Parser(cfg);
@@ -432,17 +423,16 @@ TEST_F(EtherCATReadTest, SourceReadsCorrectValueFromEngine) {
     breaker::Breaker brk;
     brk.start();
 
-    telem::Frame frame;
-    source.read(brk, frame);
-    frame = telem::Frame();
-    auto result = source.read(brk, frame);
-    ASSERT_NIL(result.error);
-    ASSERT_FALSE(frame.empty());
-
-    ASSERT_GE(frame.series->size(), 2);
-    auto &data_series = frame.series->at(1);
-    ASSERT_GE(data_series.size(), 1);
-    EXPECT_EQ(data_series.at<int16_t>(0), static_cast<int16_t>(0x5678));
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            telem::Frame frame;
+            source.read(brk, frame);
+            if (frame.empty() || frame.series->size() < 1)
+                return static_cast<int16_t>(0);
+            return frame.series->at(0).at<int16_t>(0);
+        }(),
+        static_cast<int16_t>(0x5678)
+    );
 
     brk.stop();
     ASSERT_NIL(source.stop());
@@ -485,18 +475,22 @@ TEST_F(EtherCATReadTest, SourceReadsMultipleChannelValues) {
     breaker::Breaker brk;
     brk.start();
 
-    telem::Frame frame;
-    auto result = source.read(brk, frame);
-    ASSERT_NIL(result.error);
-    ASSERT_FALSE(frame.empty());
-
-    ASSERT_GE(frame.series->size(), 3);
-    auto &status_series = frame.series->at(1);
-    auto &sensor_series = frame.series->at(2);
-    ASSERT_GE(status_series.size(), 1);
-    ASSERT_GE(sensor_series.size(), 1);
-    EXPECT_EQ(status_series.at<int16_t>(0), static_cast<int16_t>(0xABCD));
-    EXPECT_EQ(sensor_series.at<int32_t>(0), static_cast<int32_t>(0x12345678));
+    int16_t status_value = 0;
+    int32_t sensor_value = 0;
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            telem::Frame frame;
+            source.read(brk, frame);
+            if (frame.empty() || frame.series->size() < 2) return 0;
+            status_value = frame.series->at(0).at<int16_t>(0);
+            sensor_value = frame.series->at(1).at<int32_t>(0);
+            if (status_value == static_cast<int16_t>(0xABCD) &&
+                sensor_value == static_cast<int32_t>(0x12345678))
+                return 1;
+            return 0;
+        }(),
+        1
+    );
 
     brk.stop();
     ASSERT_NIL(source.stop());

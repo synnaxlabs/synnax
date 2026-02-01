@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Common } from "@/hardware/common";
-import { ZERO_NETWORK_PROPERTIES } from "@/hardware/ethercat/device/types";
+import { ZERO_SLAVE_PROPERTIES } from "@/hardware/ethercat/device/types";
 import { type Layout } from "@/layout";
 
 export const CONFIGURE_LAYOUT_TYPE = "configure_EtherCAT";
@@ -22,5 +22,5 @@ export const CONFIGURE_LAYOUT: Layout.BaseState = {
 };
 
 export const Configure: Layout.Renderer = (props) => (
-  <Common.Device.Configure {...props} initialProperties={ZERO_NETWORK_PROPERTIES} />
+  <Common.Device.Configure {...props} initialProperties={ZERO_SLAVE_PROPERTIES} />
 );

@@ -7,24 +7,40 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
 import { Device, Form } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
-import { MAKE, SLAVE_MODEL } from "@/hardware/ethercat/device/types";
+import {
+  MAKE,
+  SLAVE_MODEL,
+  type SlaveProperties,
+} from "@/hardware/ethercat/device/types";
 
 export interface SelectSlaveProps {
   /** Path to the slave device field in the form. */
   path: string;
-  /** Path to the network device field to filter slaves by. */
-  networkPath?: string;
+  /** Path to the channels array to get already-selected slaves. */
+  channelsPath?: string;
 }
 
 export const SelectSlave = ({
   path,
-  networkPath = "config.device",
+  channelsPath = "config.channels",
 }: SelectSlaveProps): ReactElement => {
-  const networkDevice = Form.useFieldValue<device.Key>(networkPath);
+  const channels = Form.useFieldValue<Array<{ device: string }>>(channelsPath) ?? [];
+
+  const firstDeviceKey = useMemo(() => {
+    const keys = channels.map((ch) => ch.device).filter(Boolean);
+    return keys.length > 0 ? keys[0] : "";
+  }, [channels]);
+
+  const { data: firstDevice } = Device.useRetrieve({ key: firstDeviceKey });
+
+  const selectedNetwork = useMemo(() => {
+    if (!firstDevice) return "";
+    return (firstDevice.properties as SlaveProperties | undefined)?.network ?? "";
+  }, [firstDevice]);
+
   return (
     <Form.Field<string> path={path} label="Slave Device" grow>
       {({ value, onChange, variant }) => (
@@ -35,7 +51,9 @@ export const SelectSlave = ({
           filter={(d) =>
             d.make === MAKE &&
             d.model === SLAVE_MODEL &&
-            (networkDevice === "" || networkDevice.endsWith(d.location))
+            (selectedNetwork === "" ||
+              (d.properties as SlaveProperties | undefined)?.network ===
+                selectedNetwork)
           }
           emptyContent="No EtherCAT slaves discovered."
           grow

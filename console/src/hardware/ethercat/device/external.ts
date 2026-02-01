@@ -11,7 +11,6 @@ import { Configure, CONFIGURE_LAYOUT_TYPE } from "@/hardware/ethercat/device/Con
 import { type Layout } from "@/layout";
 
 export * from "@/hardware/ethercat/device/Configure";
-export * from "@/hardware/ethercat/device/Select";
 export * from "@/hardware/ethercat/device/SelectSlave";
 export * from "@/hardware/ethercat/device/types";
 

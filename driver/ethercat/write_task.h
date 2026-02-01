@@ -23,23 +23,21 @@
 
 namespace ethercat {
 struct WriteTaskConfig : common::BaseWriteTaskConfig {
-    std::string device_key;
     std::string interface_name;
     std::vector<std::unique_ptr<channel::Output>> channels;
     std::vector<synnax::Channel> state_channels;
     std::set<synnax::ChannelKey> state_indexes;
     telem::Rate state_rate;
-    telem::Rate network_rate;
+    telem::Rate execution_rate;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
         BaseWriteTaskConfig(std::move(other)),
-        device_key(std::move(other.device_key)),
         interface_name(std::move(other.interface_name)),
         channels(std::move(other.channels)),
         state_channels(std::move(other.state_channels)),
         state_indexes(std::move(other.state_indexes)),
         state_rate(other.state_rate),
-        network_rate(other.network_rate) {}
+        execution_rate(other.execution_rate) {}
 
     WriteTaskConfig(const WriteTaskConfig &) = delete;
     const WriteTaskConfig &operator=(const WriteTaskConfig &) = delete;
@@ -49,28 +47,11 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         xjson::Parser &cfg
     ):
         BaseWriteTaskConfig(cfg),
-        device_key(cfg.field<std::string>("device")),
         state_rate(telem::Rate(cfg.field<float>("state_rate", 1.0f))),
-        network_rate(0) {
-        auto [dev, net_err] = client->devices.retrieve(device_key);
-        if (net_err) {
-            cfg.field_err("device", net_err.message());
-            return;
-        }
-        auto net_parser = xjson::Parser(dev.properties);
-        device::NetworkProperties net_props(net_parser);
-        if (net_parser.error()) {
-            cfg.field_err("device", net_parser.error().message());
-            return;
-        }
-        this->interface_name = net_props.interface;
-        this->network_rate = net_props.rate;
-
-        if (this->state_rate > this->network_rate) {
-            cfg.field_err("state_rate", "cannot exceed network rate");
-            return;
-        }
+        execution_rate(telem::Rate(cfg.field<float>("execution_rate", 1000.0f))) {
         std::unordered_map<std::string, device::SlaveProperties> slave_cache;
+        std::string first_network;
+
         cfg.iter("channels", [&](xjson::Parser &ch) {
             auto slave_key = ch.field<std::string>("device");
             if (ch.error()) return;
@@ -86,6 +67,13 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
                     ch.field_err("device", props_parser.error().message());
                     return;
                 }
+                const auto &slave = slave_cache.at(slave_key);
+                if (first_network.empty())
+                    first_network = slave.network;
+                else if (slave.network != first_network) {
+                    ch.field_err("device", "all slaves must be on the same network");
+                    return;
+                }
             }
 
             const auto &slave = slave_cache.at(slave_key);
@@ -95,6 +83,8 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         });
 
         if (cfg.error()) return;
+
+        this->interface_name = first_network;
 
         channel::sort_by_position(this->channels);
         std::vector<synnax::ChannelKey> state_keys;
@@ -151,7 +141,10 @@ public:
         entries.reserve(this->cfg.channels.size());
         for (const auto &ch: this->cfg.channels)
             entries.push_back(ch->to_pdo_entry(false));
-        auto [wtr, err] = this->engine->open_writer(std::move(entries));
+        auto [wtr, err] = this->engine->open_writer(
+            std::move(entries),
+            this->cfg.execution_rate
+        );
         if (err) return err;
         this->writer = std::move(wtr);
         return xerrors::NIL;

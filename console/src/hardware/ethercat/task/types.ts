@@ -77,7 +77,6 @@ export const ZERO_READ_CHANNELS: Record<ReadChannelType, ReadChannel> = {
 
 export const readConfigZ = Common.Task.baseReadConfigZ
   .extend({
-    device: z.string(),
     sampleRate: z.number().positive(),
     streamRate: z.number().positive(),
     channels: z.array(readChannelZ),
@@ -87,7 +86,6 @@ interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
 const ZERO_READ_CONFIG: ReadConfig = {
   ...Common.Task.ZERO_BASE_READ_CONFIG,
-  device: "",
   sampleRate: 1000,
   streamRate: 25,
   channels: [],
@@ -178,16 +176,16 @@ export const ZERO_WRITE_CHANNELS: Record<WriteChannelType, WriteChannel> = {
 };
 
 export const writeConfigZ = Common.Task.baseConfigZ.extend({
-  device: z.string(),
   stateRate: z.number().positive(),
+  executionRate: z.number().positive(),
   channels: z.array(writeChannelZ),
 });
 interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 const ZERO_WRITE_CONFIG: WriteConfig = {
   ...Common.Task.ZERO_BASE_CONFIG,
-  device: "",
   stateRate: 25,
+  executionRate: 1000,
   channels: [],
 };
 

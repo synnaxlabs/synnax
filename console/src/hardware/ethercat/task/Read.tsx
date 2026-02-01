@@ -13,7 +13,7 @@ import { caseconv, deep, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/ethercat/device";
+import { type Device } from "@/hardware/ethercat/device";
 import { SelectSlave } from "@/hardware/ethercat/device/SelectSlave";
 import { SelectChannelModeField } from "@/hardware/ethercat/task/SelectChannelModeField";
 import { SelectPDOField } from "@/hardware/ethercat/task/SelectPDOField";
@@ -50,15 +50,12 @@ export const ReadSelectable = Selector.createSimpleItem({
 });
 
 const Properties = () => (
-  <>
-    <Device.Select />
-    <Flex.Box x grow>
-      <Common.Task.Fields.SampleRate />
-      <Common.Task.Fields.StreamRate />
-      <Common.Task.Fields.DataSaving />
-      <Common.Task.Fields.AutoStart />
-    </Flex.Box>
-  </>
+  <Flex.Box x grow>
+    <Common.Task.Fields.SampleRate />
+    <Common.Task.Fields.StreamRate />
+    <Common.Task.Fields.DataSaving />
+    <Common.Task.Fields.AutoStart />
+  </Flex.Box>
 );
 
 const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
@@ -173,19 +170,13 @@ const getInitialValues: Common.Task.GetInitialValues<
   typeof readTypeZ,
   typeof readConfigZ,
   typeof readStatusDataZ
-> = ({ deviceKey, config }) => {
+> = ({ config }) => {
   if (config != null)
     return {
       ...ZERO_READ_PAYLOAD,
       config: readConfigZ.parse(config),
     };
-  return {
-    ...ZERO_READ_PAYLOAD,
-    config: {
-      ...ZERO_READ_PAYLOAD.config,
-      device: deviceKey ?? ZERO_READ_PAYLOAD.config.device,
-    },
-  };
+  return { ...ZERO_READ_PAYLOAD };
 };
 
 const resolvePDODataType = (slave: Device.SlaveDevice, pdo: string): string => {
@@ -225,21 +216,26 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   client,
   config,
 ) => {
-  const network = await client.devices.retrieve<
-    Device.NetworkProperties,
+  const slaveKeys = [...new Set(config.channels.map((ch) => ch.device))];
+  if (slaveKeys.length === 0) throw new Error("No channels configured");
+
+  const slaves = await client.devices.retrieve<
+    Device.SlaveProperties,
     Device.Make,
-    Device.NetworkModel
-  >({ key: config.device });
+    Device.SlaveModel
+  >({ keys: slaveKeys });
 
-  Common.Device.checkConfigured(network);
-
-  const maxSampleRate = network.properties.rate.valueOf();
-  if (config.sampleRate > maxSampleRate)
+  const networks = [...new Set(slaves.map((s) => s.properties.network))];
+  if (networks.length > 1)
     throw new Error(
-      `Sample rate (${config.sampleRate} Hz) exceeds maximum allowed by network rate (${maxSampleRate} Hz)`,
+      `All slaves must be on the same network. Found: ${networks.join(", ")}`,
     );
+  if (networks.length === 0 || !networks[0])
+    throw new Error("No valid network found for selected slaves");
 
-  const networkSafeName = channel.escapeInvalidName(network.name);
+  const network = networks[0];
+  const networkSafeName = channel.escapeInvalidName(network);
+  const rack = slaves[0].rack;
 
   const channelsBySlaveKey = new Map<string, ReadChannel[]>();
   for (const ch of config.channels) {
@@ -248,12 +244,8 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     channelsBySlaveKey.set(ch.device, existing);
   }
 
-  for (const [slaveKey, channels] of channelsBySlaveKey) {
-    const slave = await client.devices.retrieve<
-      Device.SlaveProperties,
-      Device.Make,
-      Device.SlaveModel
-    >({ key: slaveKey });
+  for (const slave of slaves) {
+    const channels = channelsBySlaveKey.get(slave.key) ?? [];
 
     let modified = await checkOrCreateIndex(client, slave, networkSafeName);
 
@@ -309,7 +301,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     });
   }
 
-  return [config, network.rack];
+  return [config, rack];
 };
 
 export const Read = Common.Task.wrapForm({

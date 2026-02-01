@@ -20,7 +20,6 @@
 namespace ethercat {
 const std::string INTEGRATION_NAME = "ethercat";
 const std::string DEVICE_MAKE = INTEGRATION_NAME;
-const std::string NETWORK_DEVICE_MODEL = "network";
 const std::string SLAVE_DEVICE_MODEL = "slave";
 const std::string READ_TASK_TYPE = "ethercat_read";
 const std::string WRITE_TASK_TYPE = "ethercat_write";

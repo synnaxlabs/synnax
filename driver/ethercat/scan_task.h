@@ -59,28 +59,6 @@ struct TestInterfaceArgs {
         interface(parser.field<std::string>("interface")) {}
 };
 
-/// Properties for an EtherCAT network device (stored in Synnax device properties).
-struct NetworkDeviceProperties {
-    /// Network interface name (e.g., "eth0", "enp3s0").
-    std::string interface;
-    /// Number of slaves discovered on this network.
-    size_t slave_count;
-    /// Cycle rate in Hz.
-    double rate;
-
-    NetworkDeviceProperties(std::string iface, size_t count, double r = 1000.0):
-        interface(std::move(iface)), slave_count(count), rate(r) {}
-
-    /// Serializes to JSON for storage in Synnax device properties.
-    [[nodiscard]] nlohmann::json to_json() const {
-        return {
-            {"interface", this->interface},
-            {"slave_count", this->slave_count},
-            {"rate", this->rate}
-        };
-    }
-};
-
 /// Scanner implementation for EtherCAT device discovery.
 ///
 /// The scanner discovers EtherCAT networks and slaves, creating Synnax devices
@@ -130,13 +108,6 @@ private:
     std::pair<std::vector<SlaveInfo>, xerrors::Error>
     probe_interface(const std::string &interface) const;
 
-    /// Creates a network device for the given interface and slaves.
-    synnax::Device create_network_device(
-        const InterfaceInfo &iface,
-        const std::vector<SlaveInfo> &slaves,
-        const common::ScannerContext &scan_ctx
-    );
-
     /// Creates a slave device for the given slave.
     synnax::Device create_slave_device(
         const SlaveInfo &slave,
@@ -149,9 +120,6 @@ private:
         const std::string &key,
         const common::ScannerContext &scan_ctx
     );
-
-    /// Generates a device key for a network.
-    static std::string generate_network_key(const std::string &interface);
 
     /// Generates a device key for a slave.
     static std::string

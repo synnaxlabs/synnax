@@ -28,6 +28,7 @@ protected:
     synnax::Device network_device;
     synnax::Device slave_device;
     const uint32_t SLAVE_SERIAL = 12345;
+    const std::string NETWORK_INTERFACE = "eth0";
 
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -44,7 +45,7 @@ protected:
 
         ctx = std::make_shared<task::MockContext>(client);
 
-        network_device = create_network_device("eth0");
+        network_device = create_network_device(NETWORK_INTERFACE);
         slave_device = create_slave_device(
             SLAVE_SERIAL,
             json::array(),
@@ -60,14 +61,11 @@ protected:
               {"data_type", "int32"}}}
         );
 
-        mock_master = std::make_shared<ethercat::mock::Master>("eth0");
+        mock_master = std::make_shared<ethercat::mock::Master>(NETWORK_INTERFACE);
         mock_master->add_slave(
             ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, SLAVE_SERIAL, "Test Slave")
         );
-        engine = std::make_shared<ethercat::engine::Engine>(
-            mock_master,
-            ethercat::engine::Config(telem::MILLISECOND * 10)
-        );
+        engine = std::make_shared<ethercat::engine::Engine>(mock_master);
     }
 
     synnax::Device create_network_device(const std::string &interface) {
@@ -97,6 +95,7 @@ protected:
             {"product_code", 0x2},
             {"revision", 1},
             {"name", "Test Slave"},
+            {"network", NETWORK_INTERFACE},
             {"position", 0},
             {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
         };
@@ -334,16 +333,30 @@ TEST_F(EtherCATWriteTest, SinkStartRegistersWithEngine) {
     ASSERT_NIL(sink.stop());
 }
 
-TEST_F(EtherCATWriteTest, InvalidNetworkDevice) {
+TEST_F(EtherCATWriteTest, InvalidSlaveDevice) {
+    auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("cmd"),
+        telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
     json cfg = {
         {"data_saving", false},
-        {"device", "nonexistent_device_key"},
         {"state_rate", 10.0},
-        {"channels", json::array()}
+        {"channels",
+         {{{"type", "manual"},
+           {"device", "nonexistent_slave_key"},
+           {"index", 0x7000},
+           {"subindex", 1},
+           {"bit_length", 16},
+           {"data_type", "int16"},
+           {"cmd_channel", cmd_ch.key},
+           {"enabled", true}}}}
     };
 
     auto parser = xjson::Parser(cfg);
-    ethercat::WriteTaskConfig task_cfg(client, parser);
+    ethercat::WriteTaskConfig task_cfg(this->client, parser);
     ASSERT_OCCURRED_AS(parser.error(), xerrors::VALIDATION);
 }
 

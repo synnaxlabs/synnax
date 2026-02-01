@@ -13,7 +13,7 @@ import { caseconv, deep, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/ethercat/device";
+import { type Device } from "@/hardware/ethercat/device";
 import { SelectSlave } from "@/hardware/ethercat/device/SelectSlave";
 import { SelectChannelModeField } from "@/hardware/ethercat/task/SelectChannelModeField";
 import { SelectPDOField } from "@/hardware/ethercat/task/SelectPDOField";
@@ -50,13 +50,15 @@ export const WriteSelectable = Selector.createSimpleItem({
 });
 
 const Properties = () => (
-  <>
-    <Device.Select />
-    <Flex.Box x grow>
-      <Common.Task.Fields.StateUpdateRate />
-      <Common.Task.Fields.AutoStart />
-    </Flex.Box>
-  </>
+  <Flex.Box x grow>
+    <PForm.NumericField
+      path="config.executionRate"
+      label="Execution Rate"
+      inputProps={{ endContent: "Hz" }}
+    />
+    <Common.Task.Fields.StateUpdateRate />
+    <Common.Task.Fields.AutoStart />
+  </Flex.Box>
 );
 
 const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
@@ -172,19 +174,13 @@ const getInitialValues: Common.Task.GetInitialValues<
   typeof writeTypeZ,
   typeof writeConfigZ,
   typeof writeStatusDataZ
-> = ({ deviceKey, config }) => {
+> = ({ config }) => {
   if (config != null)
     return {
       ...ZERO_WRITE_PAYLOAD,
       config: writeConfigZ.parse(config),
     };
-  return {
-    ...ZERO_WRITE_PAYLOAD,
-    config: {
-      ...ZERO_WRITE_PAYLOAD.config,
-      device: deviceKey ?? ZERO_WRITE_PAYLOAD.config.device,
-    },
-  };
+  return { ...ZERO_WRITE_PAYLOAD };
 };
 
 const resolvePDODataType = (slave: Device.SlaveDevice, pdo: string): string => {
@@ -224,15 +220,26 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   client,
   config,
 ) => {
-  const network = await client.devices.retrieve<
-    Device.NetworkProperties,
+  const slaveKeys = [...new Set(config.channels.map((ch) => ch.device))];
+  if (slaveKeys.length === 0) throw new Error("No channels configured");
+
+  const slaves = await client.devices.retrieve<
+    Device.SlaveProperties,
     Device.Make,
-    Device.NetworkModel
-  >({ key: config.device });
+    Device.SlaveModel
+  >({ keys: slaveKeys });
 
-  Common.Device.checkConfigured(network);
+  const networks = [...new Set(slaves.map((s) => s.properties.network))];
+  if (networks.length > 1)
+    throw new Error(
+      `All slaves must be on the same network. Found: ${networks.join(", ")}`,
+    );
+  if (networks.length === 0 || !networks[0])
+    throw new Error("No valid network found for selected slaves");
 
-  const networkSafeName = channel.escapeInvalidName(network.name);
+  const network = networks[0];
+  const networkSafeName = channel.escapeInvalidName(network);
+  const rack = slaves[0].rack;
 
   const channelsBySlaveKey = new Map<string, WriteChannel[]>();
   for (const ch of config.channels) {
@@ -241,12 +248,8 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
     channelsBySlaveKey.set(ch.device, existing);
   }
 
-  for (const [slaveKey, channels] of channelsBySlaveKey) {
-    const slave = await client.devices.retrieve<
-      Device.SlaveProperties,
-      Device.Make,
-      Device.SlaveModel
-    >({ key: slaveKey });
+  for (const slave of slaves) {
+    const channels = channelsBySlaveKey.get(slave.key) ?? [];
 
     let modified = await checkOrCreateStateIndex(client, slave, networkSafeName);
 
@@ -348,7 +351,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
     });
   }
 
-  return [config, network.rack];
+  return [config, rack];
 };
 
 export const Write = Common.Task.wrapForm({

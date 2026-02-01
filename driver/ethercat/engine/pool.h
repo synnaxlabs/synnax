@@ -13,7 +13,6 @@
 #include <string>
 #include <unordered_map>
 
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 
 #include "driver/ethercat/engine/engine.h"
@@ -35,16 +34,10 @@ public:
 
     /// Acquires or creates an engine for the specified interface/backend.
     /// @param interface_name Network interface name (used by SOEM).
-    /// @param rate Network cycle rate in Hz.
     /// @param backend Backend type: "soem", "igh", or "auto".
-    /// @return Pair of shared pointer to the engine and error. If an engine already
-    ///         exists for this interface with a different rate, returns a rate
-    ///         mismatch error.
-    std::pair<std::shared_ptr<Engine>, xerrors::Error> acquire(
-        const std::string &interface_name,
-        telem::Rate rate,
-        const std::string &backend = "auto"
-    );
+    /// @return Pair of shared pointer to the engine and error.
+    std::pair<std::shared_ptr<Engine>, xerrors::Error>
+    acquire(const std::string &interface_name, const std::string &backend = "auto");
 
     /// Checks if an interface has an active (running) engine.
     bool is_active(const std::string &interface) const;
