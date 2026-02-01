@@ -10,7 +10,16 @@
   "dependencies": {
     "stylelint-config-standard": "^40.0.0"
   },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "eslint",
+    "fix": "eslint --fix"
+  },
   "devDependencies": {
-    "stylelint": "catalog:"
+    "@synnaxlabs/tsconfig": "workspace:^",
+    "eslint": "catalog:",
+    "eslint-config-synnaxlabs": "workspace:^",
+    "stylelint": "catalog:",
+    "typescript": "catalog:"
   }
 }

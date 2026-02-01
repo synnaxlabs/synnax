@@ -7,14 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Config } from "stylelint";
+import synnaxConfig from "eslint-config-synnaxlabs";
 
-const config: Config = {
-  extends: ["stylelint-config-standard"],
-  rules: {
-    "selector-class-pattern":
-      "^.[a-z]([a-z0-9-]+)?(__([a-z0-9]+-?)+)?(--([a-z0-9]+-?)+){0,2}$",
-  },
-};
-
-export default config;
+export default synnaxConfig;

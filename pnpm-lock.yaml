@@ -264,9 +264,21 @@ importers:
         specifier: ^40.0.0
         version: 40.0.0(stylelint@17.1.0(typescript@5.9.3))
     devDependencies:
+      '@synnaxlabs/tsconfig':
+        specifier: workspace:^
+        version: link:../ts
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.2(jiti@2.6.1)
+      eslint-config-synnaxlabs:
+        specifier: workspace:^
+        version: link:../eslint
       stylelint:
         specifier: 'catalog:'
         version: 17.1.0(typescript@5.9.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
 
   configs/ts:
     devDependencies:
