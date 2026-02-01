@@ -348,33 +348,136 @@ TEST_F(EtherCATWriteTest, InvalidNetworkDevice) {
 }
 
 TEST_F(EtherCATWriteTest, ParseConfigWithMixedChannelTypes) {
-    auto auto_ch = ASSERT_NIL_P(client->channels.create(
+    auto auto_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("auto_ch"),
         telem::INT16_T,
-        index_channel.key,
+        this->index_channel.key,
         false
     ));
-    auto manual_ch = ASSERT_NIL_P(client->channels.create(
+    auto manual_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("manual_ch"),
         telem::INT32_T,
-        index_channel.key,
+        this->index_channel.key,
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
-        create_automatic_output_channel_config(auto_ch.key, "control_word")
+        this->create_automatic_output_channel_config(auto_ch.key, "control_word")
     );
     cfg["channels"].push_back(
-        create_manual_output_channel_config(manual_ch.key, 0x7000, 3, 32, "int32")
+        this->create_manual_output_channel_config(manual_ch.key, 0x7000, 3, 32, "int32")
     );
 
     auto parser = xjson::Parser(cfg);
-    ethercat::WriteTaskConfig task_cfg(client, parser);
+    ethercat::WriteTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
     EXPECT_EQ(task_cfg.channels.size(), 2);
     EXPECT_EQ(task_cfg.channels[0]->index, 0x7000);
     EXPECT_EQ(task_cfg.channels[0]->subindex, 1);
     EXPECT_EQ(task_cfg.channels[1]->index, 0x7000);
     EXPECT_EQ(task_cfg.channels[1]->subindex, 3);
+}
+
+TEST_F(EtherCATWriteTest, SinkWritesDataToEngine) {
+    auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("cmd"),
+        telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_automatic_output_channel_config(cmd_ch.key, "control_word")
+    );
+
+    auto parser = xjson::Parser(cfg);
+    ethercat::WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+
+    auto sink = ethercat::WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start());
+
+    telem::Series series(telem::INT16_T, 1);
+    series.write(static_cast<int16_t>(0x5678));
+    telem::Frame frame(cmd_ch.key, std::move(series));
+
+    ASSERT_NIL(sink.write(frame));
+
+    ASSERT_EVENTUALLY_EQ(
+        this->mock_master->get_output<int16_t>(0),
+        static_cast<int16_t>(0x5678)
+    );
+
+    ASSERT_NIL(sink.stop());
+}
+
+TEST_F(EtherCATWriteTest, SinkWritesMultipleChannels) {
+    auto ch1 = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("ch1"),
+        telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+    auto ch2 = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("ch2"),
+        telem::INT32_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_automatic_output_channel_config(ch1.key, "control_word")
+    );
+    cfg["channels"].push_back(
+        this->create_automatic_output_channel_config(ch2.key, "setpoint")
+    );
+
+    auto parser = xjson::Parser(cfg);
+    ethercat::WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+
+    auto sink = ethercat::WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start());
+
+    telem::Series series1(telem::INT16_T, 1);
+    series1.write(static_cast<int16_t>(0x1234));
+    telem::Series series2(telem::INT32_T, 1);
+    series2.write(static_cast<int32_t>(0xDEADBEEF));
+
+    telem::Frame frame(2);
+    frame.emplace(ch1.key, std::move(series1));
+    frame.emplace(ch2.key, std::move(series2));
+
+    ASSERT_NIL(sink.write(frame));
+
+    ASSERT_NIL(sink.stop());
+}
+
+TEST_F(EtherCATWriteTest, SinkIgnoresMissingChannelInFrame) {
+    auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("cmd"),
+        telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_automatic_output_channel_config(cmd_ch.key, "control_word")
+    );
+
+    auto parser = xjson::Parser(cfg);
+    ethercat::WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+
+    auto sink = ethercat::WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start());
+
+    telem::Frame empty_frame(0);
+    ASSERT_NIL(sink.write(empty_frame));
+
+    ASSERT_NIL(sink.stop());
 }

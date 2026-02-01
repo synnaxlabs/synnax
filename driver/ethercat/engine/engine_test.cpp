@@ -235,3 +235,231 @@ TEST_F(EngineTest, Write24BitSignedNegative) {
     EXPECT_EQ(this->mock_master->get_output<uint8_t>(1), static_cast<uint8_t>(0xFF));
     EXPECT_EQ(this->mock_master->get_output<uint8_t>(2), static_cast<uint8_t>(0xFF));
 }
+
+class EngineReadValueTest : public ::testing::Test {
+protected:
+    std::shared_ptr<ethercat::mock::Master> mock_master;
+    std::shared_ptr<ethercat::engine::Engine> engine;
+
+    void SetUp() override {
+        mock_master = std::make_shared<ethercat::mock::Master>("eth0");
+    }
+
+    void create_engine() {
+        engine = std::make_shared<ethercat::engine::Engine>(
+            mock_master,
+            ethercat::engine::Config(telem::MILLISECOND * 10)
+        );
+    }
+};
+
+TEST_F(EngineReadValueTest, ReadValueInt16) {
+    ethercat::PDOEntryInfo pdo_info;
+    pdo_info.pdo_index = 0x1A00;
+    pdo_info.index = 0x6000;
+    pdo_info.subindex = 1;
+    pdo_info.bit_length = 16;
+    pdo_info.is_input = true;
+    pdo_info.name = "status_word";
+    pdo_info.data_type = telem::INT16_T;
+
+    this->mock_master->add_slave(
+        ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1")
+            .with_input_pdos({pdo_info})
+    );
+    this->create_engine();
+
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {ethercat::PDOEntry(0, 0x6000, 1, 16, true, telem::INT16_T)}
+    ));
+
+    this->mock_master->set_input<int16_t>(0, 0x1234);
+
+    breaker::Breaker brk;
+    brk.start();
+    telem::Frame frame(1, telem::Series(telem::INT16_T, 1));
+    ASSERT_NIL(reader->read(brk, frame));
+    brk.stop();
+
+    ASSERT_EQ(frame.series->at(0).size(), 1);
+    EXPECT_EQ(frame.series->at(0).at<int16_t>(0), static_cast<int16_t>(0x1234));
+}
+
+TEST_F(EngineReadValueTest, ReadValueInt32) {
+    ethercat::PDOEntryInfo pdo_info;
+    pdo_info.pdo_index = 0x1A00;
+    pdo_info.index = 0x6000;
+    pdo_info.subindex = 1;
+    pdo_info.bit_length = 32;
+    pdo_info.is_input = true;
+    pdo_info.name = "position";
+    pdo_info.data_type = telem::INT32_T;
+
+    this->mock_master->add_slave(
+        ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1")
+            .with_input_pdos({pdo_info})
+    );
+    this->create_engine();
+
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {ethercat::PDOEntry(0, 0x6000, 1, 32, true, telem::INT32_T)}
+    ));
+
+    this->mock_master->set_input<int32_t>(0, 0x12345678);
+
+    breaker::Breaker brk;
+    brk.start();
+    telem::Frame frame(1, telem::Series(telem::INT32_T, 1));
+    ASSERT_NIL(reader->read(brk, frame));
+    brk.stop();
+
+    ASSERT_EQ(frame.series->at(0).size(), 1);
+    EXPECT_EQ(frame.series->at(0).at<int32_t>(0), static_cast<int32_t>(0x12345678));
+}
+
+TEST_F(EngineReadValueTest, ReadValueMultiplePDOs) {
+    ethercat::PDOEntryInfo pdo1;
+    pdo1.pdo_index = 0x1A00;
+    pdo1.index = 0x6000;
+    pdo1.subindex = 1;
+    pdo1.bit_length = 16;
+    pdo1.is_input = true;
+    pdo1.name = "status_word";
+    pdo1.data_type = telem::INT16_T;
+
+    ethercat::PDOEntryInfo pdo2;
+    pdo2.pdo_index = 0x1A00;
+    pdo2.index = 0x6000;
+    pdo2.subindex = 2;
+    pdo2.bit_length = 32;
+    pdo2.is_input = true;
+    pdo2.name = "position";
+    pdo2.data_type = telem::INT32_T;
+
+    this->mock_master->add_slave(
+        ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1")
+            .with_input_pdos({pdo1, pdo2})
+    );
+    this->create_engine();
+
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {ethercat::PDOEntry(0, 0x6000, 1, 16, true, telem::INT16_T),
+         ethercat::PDOEntry(0, 0x6000, 2, 32, true, telem::INT32_T)}
+    ));
+
+    this->mock_master->set_input<int16_t>(0, 0x1234);
+    this->mock_master->set_input<int32_t>(2, 0xDEADBEEF);
+
+    breaker::Breaker brk;
+    brk.start();
+    telem::Frame frame(2);
+    frame.series->push_back(telem::Series(telem::INT16_T, 1));
+    frame.series->push_back(telem::Series(telem::INT32_T, 1));
+    ASSERT_NIL(reader->read(brk, frame));
+    brk.stop();
+
+    ASSERT_EQ(frame.series->at(0).size(), 1);
+    ASSERT_EQ(frame.series->at(1).size(), 1);
+    EXPECT_EQ(frame.series->at(0).at<int16_t>(0), static_cast<int16_t>(0x1234));
+    EXPECT_EQ(frame.series->at(1).at<int32_t>(0), static_cast<int32_t>(0xDEADBEEF));
+}
+
+TEST_F(EngineReadValueTest, ReadValue24BitPositive) {
+    ethercat::PDOEntryInfo pdo_info;
+    pdo_info.pdo_index = 0x1A00;
+    pdo_info.index = 0x6000;
+    pdo_info.subindex = 1;
+    pdo_info.bit_length = 24;
+    pdo_info.is_input = true;
+    pdo_info.name = "position_24bit";
+    pdo_info.data_type = telem::INT32_T;
+
+    this->mock_master->add_slave(
+        ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1")
+            .with_input_pdos({pdo_info})
+    );
+    this->create_engine();
+
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {ethercat::PDOEntry(0, 0x6000, 1, 24, true, telem::INT32_T)}
+    ));
+
+    this->mock_master->set_input<uint8_t>(0, 0x56);
+    this->mock_master->set_input<uint8_t>(1, 0x34);
+    this->mock_master->set_input<uint8_t>(2, 0x12);
+
+    breaker::Breaker brk;
+    brk.start();
+    telem::Frame frame(1, telem::Series(telem::INT32_T, 1));
+    ASSERT_NIL(reader->read(brk, frame));
+    brk.stop();
+
+    ASSERT_EQ(frame.series->at(0).size(), 1);
+    EXPECT_EQ(frame.series->at(0).at<int32_t>(0), static_cast<int32_t>(0x123456));
+}
+
+TEST_F(EngineReadValueTest, ReadValue24BitNegative) {
+    ethercat::PDOEntryInfo pdo_info;
+    pdo_info.pdo_index = 0x1A00;
+    pdo_info.index = 0x6000;
+    pdo_info.subindex = 1;
+    pdo_info.bit_length = 24;
+    pdo_info.is_input = true;
+    pdo_info.name = "position_24bit";
+    pdo_info.data_type = telem::INT32_T;
+
+    this->mock_master->add_slave(
+        ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1")
+            .with_input_pdos({pdo_info})
+    );
+    this->create_engine();
+
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {ethercat::PDOEntry(0, 0x6000, 1, 24, true, telem::INT32_T)}
+    ));
+
+    this->mock_master->set_input<uint8_t>(0, 0xFF);
+    this->mock_master->set_input<uint8_t>(1, 0xFF);
+    this->mock_master->set_input<uint8_t>(2, 0xFF);
+
+    breaker::Breaker brk;
+    brk.start();
+    telem::Frame frame(1, telem::Series(telem::INT32_T, 1));
+    ASSERT_NIL(reader->read(brk, frame));
+    brk.stop();
+
+    ASSERT_EQ(frame.series->at(0).size(), 1);
+    EXPECT_EQ(frame.series->at(0).at<int32_t>(0), static_cast<int32_t>(-1));
+}
+
+TEST_F(EngineReadValueTest, ReadValueSubByte4Bit) {
+    ethercat::PDOEntryInfo pdo_info;
+    pdo_info.pdo_index = 0x1A00;
+    pdo_info.index = 0x6000;
+    pdo_info.subindex = 1;
+    pdo_info.bit_length = 4;
+    pdo_info.is_input = true;
+    pdo_info.name = "nibble";
+    pdo_info.data_type = telem::UINT8_T;
+
+    this->mock_master->add_slave(
+        ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1")
+            .with_input_pdos({pdo_info})
+    );
+    this->create_engine();
+
+    auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {ethercat::PDOEntry(0, 0x6000, 1, 4, true, telem::UINT8_T)}
+    ));
+
+    this->mock_master->set_input<uint8_t>(0, 0xAF);
+
+    breaker::Breaker brk;
+    brk.start();
+    telem::Frame frame(1, telem::Series(telem::UINT8_T, 1));
+    ASSERT_NIL(reader->read(brk, frame));
+    brk.stop();
+
+    ASSERT_EQ(frame.series->at(0).size(), 1);
+    EXPECT_EQ(frame.series->at(0).at<uint8_t>(0), static_cast<uint8_t>(0x0F));
+}

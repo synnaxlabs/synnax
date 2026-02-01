@@ -19,12 +19,12 @@
 
 namespace ethercat::engine {
 void Engine::run() {
-    LOG(INFO) << "EtherCAT engine started on " << this->master->interface_name();
+    LOG(INFO) << "[ethercat] engine started on " << this->master->interface_name();
     xthread::apply_rt_config(this->config.rt);
     loop::Timer timer(this->config.cycle_time);
     while (this->breaker.running()) {
         if (auto err = this->master->receive(); err)
-            VLOG(2) << "EtherCAT receive error: " << err.message();
+            VLOG(2) << "[ethercat] receive error: " << err.message();
         this->publish_inputs(this->master->input_data());
         size_t output_len = 0;
         const uint8_t *output_data = this->consume_outputs(output_len);
@@ -36,12 +36,12 @@ void Engine::run() {
                 std::min(output_len, outputs.size())
             );
         if (auto err = this->master->send(); err)
-            VLOG(2) << "EtherCAT send error: " << err.message();
+            VLOG(2) << "[ethercat] send error: " << err.message();
         auto [elapsed, on_time] = timer.wait();
-        if (!on_time && this->config.max_overrun.nanoseconds() > 0)
-            VLOG(2) << "EtherCAT cycle overrun: " << elapsed;
+        if (!on_time && this->config.max_overrun > 0)
+            VLOG(2) << "[ethercat] cycle overrun: " << elapsed;
     }
-    LOG(INFO) << "EtherCAT engine stopped";
+    LOG(INFO) << "[ethercat] engine stopped";
 }
 
 void Engine::stop() {
@@ -54,7 +54,8 @@ void Engine::stop() {
 
 xerrors::Error Engine::reconfigure() {
     if (this->breaker.running()) {
-        LOG(INFO) << "EtherCAT engine restarting for reconfiguration";
+        LOG(INFO) << "[ethercat] restarting engine " + this->master->interface_name() +
+                         " for reconfiguration";
         this->restarting = true;
         this->read_cv.notify_all();
         this->breaker.stop();
@@ -96,7 +97,7 @@ bool Engine::should_be_running() const {
     return !this->read_registrations.empty() || !this->write_registrations.empty();
 }
 
-void Engine::publish_inputs(std::span<const uint8_t> src) {
+void Engine::publish_inputs(const std::span<const uint8_t> src) {
     DCHECK_EQ(src.size(), this->shared_input_buffer.size());
     const size_t n = std::min(src.size(), this->shared_input_buffer.size());
     this->read_seq.seq.fetch_add(1, std::memory_order_release);
@@ -179,8 +180,7 @@ Engine::Reader::Reader(
     id(id),
     total_size(total_size),
     pdos(std::move(pdos)),
-    private_buffer(input_frame_size),
-    last_seen_epoch(0) {}
+    private_buffer(input_frame_size) {}
 
 Engine::Reader::~Reader() {
     this->engine.unregister_reader(this->id);
@@ -251,7 +251,7 @@ Engine::Reader::read(const breaker::Breaker &brk, const telem::Frame &frame) con
 
         if (pdo.bit_length < 8) {
             // Handle sub-byte values that may span byte boundaries
-            uint16_t two_bytes = static_cast<uint16_t>(src[0]);
+            uint16_t two_bytes = src[0];
             if (pdo.offset.bit + pdo.bit_length > 8)
                 two_bytes |= static_cast<uint16_t>(src[1]) << 8;
             const uint8_t mask = static_cast<uint8_t>((1u << pdo.bit_length) - 1);

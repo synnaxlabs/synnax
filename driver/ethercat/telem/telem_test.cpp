@@ -181,7 +181,7 @@ TEST(MapEthercatToSynnax, DomainFallsBackToBitLength) {
 }
 
 TEST(GeneratePdoEntryName, UsesCoENameWhenAvailable) {
-    std::string result = ethercat::generate_pdo_entry_name(
+    const std::string result = ethercat::generate_pdo_entry_name(
         "Status Word",
         0x6041,
         0x00,
@@ -192,7 +192,7 @@ TEST(GeneratePdoEntryName, UsesCoENameWhenAvailable) {
 }
 
 TEST(GeneratePdoEntryName, GeneratesInputNameWhenCoEEmpty) {
-    std::string result = ethercat::generate_pdo_entry_name(
+    const std::string result = ethercat::generate_pdo_entry_name(
         "",
         0x6000,
         0x01,
@@ -203,7 +203,7 @@ TEST(GeneratePdoEntryName, GeneratesInputNameWhenCoEEmpty) {
 }
 
 TEST(GeneratePdoEntryName, GeneratesOutputNameWhenCoEEmpty) {
-    std::string result = ethercat::generate_pdo_entry_name(
+    const std::string result = ethercat::generate_pdo_entry_name(
         "",
         0x7000,
         0x02,
@@ -214,7 +214,7 @@ TEST(GeneratePdoEntryName, GeneratesOutputNameWhenCoEEmpty) {
 }
 
 TEST(GeneratePdoEntryName, FormatsHighSubindex) {
-    std::string result = ethercat::generate_pdo_entry_name(
+    const std::string result = ethercat::generate_pdo_entry_name(
         "",
         0x1A00,
         0xFF,

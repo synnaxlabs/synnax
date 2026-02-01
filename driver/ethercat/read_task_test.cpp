@@ -61,8 +61,28 @@ protected:
         );
 
         mock_master = std::make_shared<ethercat::mock::Master>("eth0");
+
+        ethercat::PDOEntryInfo status_pdo;
+        status_pdo.pdo_index = 0x1A00;
+        status_pdo.index = 0x6000;
+        status_pdo.subindex = 1;
+        status_pdo.bit_length = 16;
+        status_pdo.is_input = true;
+        status_pdo.name = "status_word";
+        status_pdo.data_type = telem::INT16_T;
+
+        ethercat::PDOEntryInfo sensor_pdo;
+        sensor_pdo.pdo_index = 0x1A00;
+        sensor_pdo.index = 0x6000;
+        sensor_pdo.subindex = 2;
+        sensor_pdo.bit_length = 32;
+        sensor_pdo.is_input = true;
+        sensor_pdo.name = "sensor_value";
+        sensor_pdo.data_type = telem::INT32_T;
+
         mock_master->add_slave(
             ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, SLAVE_SERIAL, "Test Slave")
+                .with_input_pdos({status_pdo, sensor_pdo})
         );
         engine = std::make_shared<ethercat::engine::Engine>(
             mock_master,
@@ -347,6 +367,167 @@ TEST_F(EtherCATReadTest, InvalidNetworkDevice) {
     };
 
     auto parser = xjson::Parser(cfg);
-    ethercat::ReadTaskConfig task_cfg(client, parser);
+    ethercat::ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_OCCURRED_AS(parser.error(), xerrors::VALIDATION);
+}
+
+TEST_F(EtherCATReadTest, SourceReadsDataFromEngine) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+
+    auto parser = xjson::Parser(cfg);
+    ethercat::ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+
+    auto source = ethercat::ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+
+    this->mock_master->set_input<int16_t>(0, 0x1234);
+
+    breaker::Breaker brk;
+    brk.start();
+
+    telem::Frame frame;
+    auto result = source.read(brk, frame);
+    ASSERT_NIL(result.error);
+    EXPECT_FALSE(frame.empty());
+
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
+TEST_F(EtherCATReadTest, SourceReadsCorrectValueFromEngine) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["sample_rate"] = 10;
+    cfg["stream_rate"] = 10;
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+
+    auto parser = xjson::Parser(cfg);
+    ethercat::ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+
+    auto source = ethercat::ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+
+    this->mock_master->set_input<int16_t>(0, 0x5678);
+
+    breaker::Breaker brk;
+    brk.start();
+
+    telem::Frame frame;
+    source.read(brk, frame);
+    frame = telem::Frame();
+    auto result = source.read(brk, frame);
+    ASSERT_NIL(result.error);
+    ASSERT_FALSE(frame.empty());
+
+    ASSERT_GE(frame.series->size(), 2);
+    auto &data_series = frame.series->at(1);
+    ASSERT_GE(data_series.size(), 1);
+    EXPECT_EQ(data_series.at<int16_t>(0), static_cast<int16_t>(0x5678));
+
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
+TEST_F(EtherCATReadTest, SourceReadsMultipleChannelValues) {
+    auto ch1 = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("status"),
+        telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+    auto ch2 = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("sensor"),
+        telem::INT32_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["sample_rate"] = 10;
+    cfg["stream_rate"] = 10;
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(ch1, "status_word")
+    );
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(ch2, "sensor_value")
+    );
+
+    auto parser = xjson::Parser(cfg);
+    ethercat::ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+
+    auto source = ethercat::ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+
+    this->mock_master->set_input<int16_t>(0, 0xABCD);
+    this->mock_master->set_input<int32_t>(2, 0x12345678);
+
+    breaker::Breaker brk;
+    brk.start();
+
+    telem::Frame frame;
+    auto result = source.read(brk, frame);
+    ASSERT_NIL(result.error);
+    ASSERT_FALSE(frame.empty());
+
+    ASSERT_GE(frame.series->size(), 3);
+    auto &status_series = frame.series->at(1);
+    auto &sensor_series = frame.series->at(2);
+    ASSERT_GE(status_series.size(), 1);
+    ASSERT_GE(sensor_series.size(), 1);
+    EXPECT_EQ(status_series.at<int16_t>(0), static_cast<int16_t>(0xABCD));
+    EXPECT_EQ(sensor_series.at<int32_t>(0), static_cast<int32_t>(0x12345678));
+
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
+TEST_F(EtherCATReadTest, SourceReturnsEmptyFrameWhenBreakerStopped) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+
+    auto parser = xjson::Parser(cfg);
+    ethercat::ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+
+    auto source = ethercat::ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+
+    breaker::Breaker brk;
+
+    telem::Frame frame;
+    auto result = source.read(brk, frame);
+    ASSERT_NIL(result.error);
+    EXPECT_TRUE(frame.empty());
+
+    ASSERT_NIL(source.stop());
 }

@@ -227,8 +227,16 @@ public:
         if (!this->initialized)
             return xerrors::Error(ACTIVATION_ERROR, "master not initialized");
         this->activated = true;
-        this->input_sz = this->slave_list.size() * 4;
-        this->output_sz = this->slave_list.size() * 4;
+        this->input_sz = 0;
+        this->output_sz = 0;
+        for (const auto &slave: this->slave_list) {
+            for (const auto &pdo: slave.input_pdos)
+                this->input_sz += pdo.byte_length();
+            for (const auto &pdo: slave.output_pdos)
+                this->output_sz += pdo.byte_length();
+        }
+        if (this->input_sz == 0) this->input_sz = this->slave_list.size() * 4;
+        if (this->output_sz == 0) this->output_sz = this->slave_list.size() * 4;
         this->iomap.resize(this->input_sz + this->output_sz, 0);
         this->cache_pdo_offsets();
         for (auto &[pos, state]: this->slave_states) {
