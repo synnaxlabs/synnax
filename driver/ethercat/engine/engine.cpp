@@ -113,10 +113,12 @@ xerrors::Error Engine::reconfigure() {
     std::vector<PDOEntry> all_entries;
     {
         std::scoped_lock lk(this->registration_mu, this->write_mu);
-        for (const auto &reg : this->read_registrations)
-            all_entries.insert(all_entries.end(), reg.entries.begin(), reg.entries.end());
-        for (const auto &reg : this->write_registrations)
-            all_entries.insert(all_entries.end(), reg.entries.begin(), reg.entries.end());
+        for (const auto &reg: this->read_registrations)
+            all_entries
+                .insert(all_entries.end(), reg.entries.begin(), reg.entries.end());
+        for (const auto &reg: this->write_registrations)
+            all_entries
+                .insert(all_entries.end(), reg.entries.begin(), reg.entries.end());
     }
     this->breaker.start();
     while (this->breaker.running()) {

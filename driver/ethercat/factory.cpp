@@ -28,14 +28,12 @@ namespace ethercat {
 std::unique_ptr<master::Manager> default_manager() {
 #ifdef __linux__
     auto igh_mgr = std::make_unique<igh::Manager>();
-    if (!igh_mgr->enumerate().empty())
-        return igh_mgr;
+    if (!igh_mgr->enumerate().empty()) return igh_mgr;
 #endif
     return std::make_unique<soem::Manager>();
 }
 
-Factory::Factory():
-    pool(std::make_shared<engine::Pool>(default_manager())) {}
+Factory::Factory(): pool(std::make_shared<engine::Pool>(default_manager())) {}
 
 Factory::Factory(std::unique_ptr<master::Manager> manager):
     pool(std::make_shared<engine::Pool>(std::move(manager))) {}

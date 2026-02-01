@@ -11,15 +11,15 @@
 
 namespace ethercat::engine {
 
-Pool::Pool(std::unique_ptr<master::Manager> manager):
-    manager(std::move(manager)) {}
+Pool::Pool(std::unique_ptr<master::Manager> manager): manager(std::move(manager)) {}
 
 std::vector<master::Info> Pool::enumerate() const {
     if (this->manager == nullptr) return {};
     return this->manager->enumerate();
 }
 
-std::pair<std::shared_ptr<Engine>, xerrors::Error> Pool::acquire(const std::string &key) {
+std::pair<std::shared_ptr<Engine>, xerrors::Error>
+Pool::acquire(const std::string &key) {
     std::lock_guard lock(this->mu);
     const auto it = this->engines.find(key);
     if (it != this->engines.end()) return {it->second, xerrors::NIL};

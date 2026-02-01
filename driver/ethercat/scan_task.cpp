@@ -54,7 +54,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
-    for (const auto &master_info : masters) {
+    for (const auto &master_info: masters) {
         std::vector<SlaveInfo> slaves;
         const bool is_active = this->pool->is_active(master_info.key);
 
@@ -78,8 +78,10 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 
         if (slaves.empty()) continue;
 
-        for (const auto &slave : slaves)
-            devices.push_back(this->create_slave_device(slave, master_info.key, scan_ctx));
+        for (const auto &slave: slaves)
+            devices.push_back(
+                this->create_slave_device(slave, master_info.key, scan_ctx)
+            );
     }
 
     return {devices, xerrors::NIL};
@@ -115,7 +117,7 @@ synnax::Device Scanner::create_slave_device(
 
     nlohmann::json props = get_existing_properties(key, scan_ctx);
     auto slave_props = slave.to_device_properties(master_key);
-    for (auto &[k, v] : slave_props.items())
+    for (auto &[k, v]: slave_props.items())
         props[k] = v;
 
     std::string status_msg;
@@ -167,9 +169,7 @@ nlohmann::json Scanner::get_existing_properties(
     if (it->second.properties.empty()) return nlohmann::json::object();
     try {
         return nlohmann::json::parse(it->second.properties);
-    } catch (const nlohmann::json::parse_error &) {
-        return nlohmann::json::object();
-    }
+    } catch (const nlohmann::json::parse_error &) { return nlohmann::json::object(); }
 }
 
 std::string

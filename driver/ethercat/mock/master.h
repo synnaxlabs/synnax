@@ -126,7 +126,8 @@ class Master final : public ethercat::master::Master {
 
     std::unordered_map<uint16_t, SlaveState> state_transition_failures;
 
-    std::vector<uint8_t> iomap;
+    std::vector<uint8_t> input_iomap;
+    std::vector<uint8_t> output_iomap;
     size_t input_sz;
     size_t output_sz;
     std::vector<std::string> calls;
@@ -238,25 +239,26 @@ public:
         this->input_sz = 0;
         this->output_sz = 0;
         if (!this->registered_pdos.empty()) {
-            for (const auto &pdo : this->registered_pdos) {
+            for (const auto &pdo: this->registered_pdos) {
                 if (pdo.is_input)
                     this->input_sz += pdo.byte_length();
                 else
                     this->output_sz += pdo.byte_length();
             }
         } else {
-            for (const auto &slave : this->slave_list) {
-                for (const auto &pdo : slave.input_pdos)
+            for (const auto &slave: this->slave_list) {
+                for (const auto &pdo: slave.input_pdos)
                     this->input_sz += pdo.byte_length();
-                for (const auto &pdo : slave.output_pdos)
+                for (const auto &pdo: slave.output_pdos)
                     this->output_sz += pdo.byte_length();
             }
         }
         if (this->input_sz == 0) this->input_sz = this->slave_list.size() * 4;
         if (this->output_sz == 0) this->output_sz = this->slave_list.size() * 4;
-        this->iomap.resize(this->input_sz + this->output_sz, 0);
+        this->input_iomap.resize(this->input_sz, 0);
+        this->output_iomap.resize(this->output_sz, 0);
         this->cache_pdo_offsets();
-        for (auto &[pos, state] : this->slave_states) {
+        for (auto &[pos, state]: this->slave_states) {
             auto it = this->state_transition_failures.find(pos);
             if (it != this->state_transition_failures.end() &&
                 it->second == SlaveState::OP)
@@ -264,7 +266,7 @@ public:
             else
                 state = SlaveState::OP;
         }
-        for (auto &slave : this->slave_list) {
+        for (auto &slave: this->slave_list) {
             auto it = this->state_transition_failures.find(slave.position);
             if (it != this->state_transition_failures.end() &&
                 it->second == SlaveState::OP)
@@ -284,9 +286,9 @@ public:
         this->registered_pdos.clear();
         this->input_sz = 0;
         this->output_sz = 0;
-        for (auto &[pos, state] : this->slave_states)
+        for (auto &[pos, state]: this->slave_states)
             state = SlaveState::INIT;
-        for (auto &slave : this->slave_list)
+        for (auto &slave: this->slave_list)
             slave.state = SlaveState::INIT;
     }
 
@@ -306,12 +308,12 @@ public:
 
     std::span<const uint8_t> input_data() override {
         if (!this->activated) return {};
-        return {this->iomap.data() + this->output_sz, this->input_sz};
+        return {this->input_iomap.data(), this->input_sz};
     }
 
     std::span<uint8_t> output_data() override {
         if (!this->activated) return {};
-        return {this->iomap.data(), this->output_sz};
+        return {this->output_iomap.data(), this->output_sz};
     }
 
     master::PDOOffset pdo_offset(const PDOEntry &entry) const override {
@@ -395,23 +397,19 @@ public:
         this->init_calls = 0;
     }
 
-    /// Sets a value in the input region of the IOmap for testing.
+    /// Sets a value in the input region for testing.
     template<typename T>
     void set_input(const size_t offset, const T value) {
         if (offset + sizeof(T) <= this->input_sz)
-            std::memcpy(
-                this->iomap.data() + this->output_sz + offset,
-                &value,
-                sizeof(T)
-            );
+            std::memcpy(this->input_iomap.data() + offset, &value, sizeof(T));
     }
 
-    /// Gets a value from the output region of the IOmap for verification.
+    /// Gets a value from the output region for verification.
     template<typename T>
     T get_output(const size_t offset) const {
         T value{};
         if (offset + sizeof(T) <= this->output_sz)
-            std::memcpy(&value, this->iomap.data() + offset, sizeof(T));
+            std::memcpy(&value, this->output_iomap.data() + offset, sizeof(T));
         return value;
     }
 
@@ -421,26 +419,43 @@ private:
         size_t input_byte_offset = 0;
         size_t output_byte_offset = 0;
         if (!this->registered_pdos.empty()) {
-            for (const auto &pdo : this->registered_pdos) {
-                PDOEntryKey key{pdo.slave_position, pdo.index, pdo.subindex, pdo.is_input};
+            for (const auto &pdo: this->registered_pdos) {
+                PDOEntryKey key{
+                    pdo.slave_position,
+                    pdo.index,
+                    pdo.subindex,
+                    pdo.is_input
+                };
                 if (pdo.is_input) {
-                    this->pdo_offset_cache[key] = master::PDOOffset{input_byte_offset, 0};
+                    this->pdo_offset_cache[key] = master::PDOOffset{
+                        input_byte_offset,
+                        0
+                    };
                     input_byte_offset += pdo.byte_length();
                 } else {
-                    this->pdo_offset_cache[key] = master::PDOOffset{output_byte_offset, 0};
+                    this->pdo_offset_cache[key] = master::PDOOffset{
+                        output_byte_offset,
+                        0
+                    };
                     output_byte_offset += pdo.byte_length();
                 }
             }
         } else {
-            for (const auto &slave : this->slave_list) {
-                for (const auto &pdo : slave.input_pdos) {
+            for (const auto &slave: this->slave_list) {
+                for (const auto &pdo: slave.input_pdos) {
                     PDOEntryKey key{slave.position, pdo.index, pdo.subindex, true};
-                    this->pdo_offset_cache[key] = master::PDOOffset{input_byte_offset, 0};
+                    this->pdo_offset_cache[key] = master::PDOOffset{
+                        input_byte_offset,
+                        0
+                    };
                     input_byte_offset += pdo.byte_length();
                 }
-                for (const auto &pdo : slave.output_pdos) {
+                for (const auto &pdo: slave.output_pdos) {
                     PDOEntryKey key{slave.position, pdo.index, pdo.subindex, false};
-                    this->pdo_offset_cache[key] = master::PDOOffset{output_byte_offset, 0};
+                    this->pdo_offset_cache[key] = master::PDOOffset{
+                        output_byte_offset,
+                        0
+                    };
                     output_byte_offset += pdo.byte_length();
                 }
             }
@@ -463,18 +478,19 @@ public:
         this->masters[key] = std::move(m);
     }
 
-    [[nodiscard]] std::vector<master::Info> enumerate() override {
-        return this->infos;
-    }
+    [[nodiscard]] std::vector<master::Info> enumerate() override { return this->infos; }
 
     [[nodiscard]] std::pair<std::shared_ptr<master::Master>, xerrors::Error>
     create(const std::string &key) override {
         auto it = this->masters.find(key);
         if (it != this->masters.end()) return {it->second, xerrors::NIL};
-        return {nullptr, xerrors::Error(
-            MASTER_INIT_ERROR,
-            "no mock master configured for key: " + key
-        )};
+        return {
+            nullptr,
+            xerrors::Error(
+                MASTER_INIT_ERROR,
+                "no mock master configured for key: " + key
+            )
+        };
     }
 };
 

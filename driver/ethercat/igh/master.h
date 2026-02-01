@@ -11,12 +11,13 @@
 
 #include <cstdint>
 #include <cstring>
-#include <dirent.h>
 #include <mutex>
 #include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include <dirent.h>
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/igh/ecrt.h"
@@ -66,14 +67,24 @@ class Master final : public ethercat::master::Master {
     /// IgH master index (typically 0, configured in /etc/ethercat.conf).
     unsigned int master_index;
 
+    // The following pointers are non-owning references to resources managed by the
+    // IgH kernel module. They are cleaned up via ecrt_release_master() in deactivate(),
+    // not via delete/free. Smart pointers are intentionally not used.
+
     /// IgH master handle from ecrt_request_master().
     ec_master_t *ec_master;
 
-    /// IgH domain handle from ecrt_master_create_domain().
-    ec_domain_t *domain;
+    /// IgH input domain handle (LRD datagram, TxPDO data).
+    ec_domain_t *input_domain;
 
-    /// Process data pointer (valid only after activation).
-    uint8_t *domain_data;
+    /// IgH output domain handle (LWR datagram, RxPDO data).
+    ec_domain_t *output_domain;
+
+    /// Input domain process data pointer (valid only after activation).
+    uint8_t *input_domain_data;
+
+    /// Output domain process data pointer (valid only after activation).
+    uint8_t *output_domain_data;
 
     /// Input size in bytes (TxPDO, slave→master).
     size_t input_sz;
@@ -100,8 +111,11 @@ class Master final : public ethercat::master::Master {
     /// Whether the master has been activated.
     bool activated;
 
-    /// Domain state for WKC checking.
-    ec_domain_state_t domain_state;
+    /// Input domain state for WKC checking.
+    ec_domain_state_t input_domain_state;
+
+    /// Output domain state for WKC checking.
+    ec_domain_state_t output_domain_state;
 
 public:
     /// Constructs an IgH master for the specified master index.
@@ -219,18 +233,24 @@ public:
     [[nodiscard]] std::pair<std::shared_ptr<master::Master>, xerrors::Error>
     create(const std::string &key) override {
         if (key.size() < 5 || key.substr(0, 4) != "igh:")
-            return {nullptr, xerrors::Error(
-                MASTER_INIT_ERROR,
-                "invalid IgH master key '" + key + "': expected format 'igh:N'"
-            )};
+            return {
+                nullptr,
+                xerrors::Error(
+                    MASTER_INIT_ERROR,
+                    "invalid IgH master key '" + key + "': expected format 'igh:N'"
+                )
+            };
         try {
             const int index = std::stoi(key.substr(4));
             return {std::make_shared<Master>(index), xerrors::NIL};
         } catch (const std::exception &) {
-            return {nullptr, xerrors::Error(
-                MASTER_INIT_ERROR,
-                "invalid IgH master key '" + key + "': could not parse index"
-            )};
+            return {
+                nullptr,
+                xerrors::Error(
+                    MASTER_INIT_ERROR,
+                    "invalid IgH master key '" + key + "': could not parse index"
+                )
+            };
         }
     }
 };

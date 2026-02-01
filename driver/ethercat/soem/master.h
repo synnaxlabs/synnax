@@ -227,10 +227,13 @@ public:
         if (key.empty())
             return {nullptr, xerrors::Error(MASTER_INIT_ERROR, "empty interface name")};
         if (key.size() >= 4 && key.substr(0, 4) == "igh:")
-            return {nullptr, xerrors::Error(
-                MASTER_INIT_ERROR,
-                "invalid SOEM interface '" + key + "': IgH-style keys not supported"
-            )};
+            return {
+                nullptr,
+                xerrors::Error(
+                    MASTER_INIT_ERROR,
+                    "invalid SOEM interface '" + key + "': IgH-style keys not supported"
+                )
+            };
         return {std::make_shared<Master>(key), xerrors::NIL};
     }
 
