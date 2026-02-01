@@ -168,9 +168,16 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 				continue
 			}
 			if err := t.Exec(ctx, cmd); err != nil {
+				if errors.Is(err, ErrUnsupportedCommand) {
+					d.cfg.L.Warn(
+						"unsupported command",
+						zap.Stringer("command", cmd),
+						zap.Stringer("task", cmd.Task),
+					)
+					continue
+				}
 				d.cfg.L.Error("failed to execute command",
-					zap.Stringer("task", cmd.Task),
-					zap.String("type", cmd.Type),
+					zap.Stringer("command", cmd),
 					zap.Error(err),
 				)
 			}

@@ -60,7 +60,7 @@ func (u *uploadTask) Exec(ctx context.Context, cmd task.Command) error {
 	case "start":
 		return u.start(ctx)
 	default:
-		return errors.Newf("unknown command: %s", cmd.Type)
+		return driver.ErrUnsupportedCommand
 	}
 }
 

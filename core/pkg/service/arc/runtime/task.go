@@ -38,7 +38,6 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/status"
@@ -72,7 +71,7 @@ func (t *taskImpl) Exec(ctx context.Context, cmd task.Command) error {
 	case "stop":
 		return t.Stop()
 	default:
-		return errors.Newf("invalid command %s received for Arc task", cmd)
+		return driver.ErrUnsupportedCommand
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Task is the interface that all executable tasks must implement.
@@ -22,3 +23,6 @@ type Task interface {
 	// Stop gracefully shuts down the task.
 	Stop() error
 }
+
+// ErrUnsupportedCommand is returned when a command is not supported by a task.
+var ErrUnsupportedCommand = errors.New("unsupported command")
