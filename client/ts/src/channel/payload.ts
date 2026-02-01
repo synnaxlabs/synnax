@@ -30,19 +30,10 @@ export const keyZ = z.uint32().or(
 );
 export type Key = z.infer<typeof keyZ>;
 export type Keys = Key[];
-const VALID_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-export const nameZ = z
-  .string()
-  .min(1, "Name must not be empty")
-  .regex(
-    VALID_NAME_PATTERN,
-    "Name can only contain letters, digits, and underscores, and cannot start with a digit",
-  );
-export type Name = z.infer<typeof nameZ>;
-export type Names = Name[];
-export type KeyOrName = Key | Name;
-export type KeysOrNames = Keys | Names;
-export type PrimitiveParams = Key | Name | Keys | Names;
+export const nameZ = z.string().min(1, "Name must not be empty");
+export type KeyOrName = Key | string;
+export type KeysOrNames = Keys | string[];
+export type PrimitiveParams = KeyOrName | KeysOrNames;
 
 export const OPERATION_TYPES = ["min", "max", "avg", "none"] as const;
 export const operationType = z.enum(OPERATION_TYPES);
@@ -105,12 +96,14 @@ export const paramsZ = z.union([
   zod.toArray(nameZ),
   zod.toArray(payloadZ).transform((p) => p.map((c) => c.key)),
 ]);
-export type Params = Key | Name | Keys | Names | Payload | Payload[];
+export type Params = PrimitiveParams | Payload | Payload[];
 
 export const ontologyID = ontology.createIDFactory<Key>("channel");
 export const TYPE_ONTOLOGY_ID = ontologyID(0);
 
 const CHAR_REGEX = /[a-zA-Z0-9_]/;
+
+const VALID_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false) => {
   if (name === "") return changeEmptyToUnderscore ? "_" : "";
