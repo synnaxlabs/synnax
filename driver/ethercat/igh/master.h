@@ -10,6 +10,8 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
+#include <dirent.h>
 #include <mutex>
 #include <span>
 #include <string>
@@ -113,6 +115,8 @@ public:
 
     xerrors::Error initialize() override;
 
+    xerrors::Error register_pdos(const std::vector<PDOEntry> &entries) override;
+
     xerrors::Error activate() override;
 
     void deactivate() override;
@@ -162,6 +166,11 @@ private:
     /// @param slave The SlaveInfo to populate with discovered PDOs.
     void discover_slave_pdos(SlaveInfo &slave);
 
+    /// Configures the PDO mapping for a slave based on discovered PDOs.
+    /// @param sc The slave configuration handle.
+    /// @param slave The SlaveInfo containing discovered PDOs.
+    void configure_slave_pdos(ec_slave_config_t *sc, const SlaveInfo &slave);
+
     /// Reads the name of a PDO entry from the slave's object dictionary via SDO.
     /// @param slave_pos The slave position on the bus.
     /// @param index The object dictionary index.
@@ -174,4 +183,56 @@ private:
 /// Checks if the IgH EtherCAT master kernel module is available.
 /// @returns true if /dev/EtherCAT0 exists, false otherwise.
 bool igh_available();
+
+/// Sysfs path where IgH EtherCAT masters are exposed.
+const std::string SYSFS_ETHERCAT_PATH = "/sys/class/EtherCAT";
+
+/// IgH-based implementation of master::Manager.
+///
+/// Reads /sys/class/EtherCAT/ to enumerate configured IgH EtherCAT masters
+/// and creates igh::Master instances for each.
+class Manager final : public master::Manager {
+public:
+    [[nodiscard]] std::vector<master::Info> enumerate() override {
+        std::vector<master::Info> masters;
+        DIR *dir = opendir(SYSFS_ETHERCAT_PATH.c_str());
+        if (dir == nullptr) return masters;
+
+        while (dirent *entry = readdir(dir)) {
+            if (std::strncmp(entry->d_name, "EtherCAT", 8) != 0) continue;
+
+            const char *index_str = entry->d_name + 8;
+            char *end = nullptr;
+            const long index = std::strtol(index_str, &end, 10);
+            if (end == index_str || *end != '\0') continue;
+
+            master::Info info;
+            info.key = "igh:" + std::to_string(index);
+            info.description = "IgH EtherCAT Master " + std::to_string(index);
+            masters.push_back(std::move(info));
+        }
+
+        closedir(dir);
+        return masters;
+    }
+
+    [[nodiscard]] std::pair<std::shared_ptr<master::Master>, xerrors::Error>
+    create(const std::string &key) override {
+        if (key.size() < 5 || key.substr(0, 4) != "igh:")
+            return {nullptr, xerrors::Error(
+                MASTER_INIT_ERROR,
+                "invalid IgH master key '" + key + "': expected format 'igh:N'"
+            )};
+        try {
+            const int index = std::stoi(key.substr(4));
+            return {std::make_shared<Master>(index), xerrors::NIL};
+        } catch (const std::exception &) {
+            return {nullptr, xerrors::Error(
+                MASTER_INIT_ERROR,
+                "invalid IgH master key '" + key + "': could not parse index"
+            )};
+        }
+    }
+};
+
 }

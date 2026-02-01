@@ -24,35 +24,23 @@
 #include "driver/task/task.h"
 
 namespace ethercat {
+
 /// Log prefix for scan task messages.
 const std::string SCAN_LOG_PREFIX = "[ethercat.scan_task] ";
 
-/// Command type for testing an interface.
+/// Command type for testing a master.
 const std::string TEST_INTERFACE_CMD_TYPE = "test_interface";
-
-/// Network interface information from adapter enumeration.
-struct InterfaceInfo {
-    /// Interface name (e.g., "eth0", "enp3s0").
-    std::string name;
-    /// Human-readable description.
-    std::string description;
-};
 
 /// Configuration for the EtherCAT scan task.
 struct ScanTaskConfig : common::ScanTaskConfig {
-    /// Backend to use: "auto", "soem", or "igh".
-    std::string backend = "auto";
-
     ScanTaskConfig() = default;
 
-    explicit ScanTaskConfig(xjson::Parser &cfg):
-        common::ScanTaskConfig(cfg),
-        backend(cfg.field<std::string>("backend", "auto")) {}
+    explicit ScanTaskConfig(xjson::Parser &cfg): common::ScanTaskConfig(cfg) {}
 };
 
 /// Arguments for the test_interface command.
 struct TestInterfaceArgs {
-    /// Network interface to test.
+    /// Master key to test (e.g., "igh:0" or "eth0").
     std::string interface;
 
     explicit TestInterfaceArgs(xjson::Parser &parser):
@@ -62,8 +50,8 @@ struct TestInterfaceArgs {
 /// Scanner implementation for EtherCAT device discovery.
 ///
 /// The scanner discovers EtherCAT networks and slaves, creating Synnax devices
-/// that represent them. It coordinates with the Factory to use cached slave
-/// information from active CyclicEngines when available.
+/// that represent them. It uses the Pool to discover available masters and
+/// caches slave information from active engines.
 class Scanner final : public common::Scanner {
 public:
     Scanner(
@@ -98,20 +86,17 @@ private:
     synnax::Task task;
     ScanTaskConfig cfg;
     std::shared_ptr<engine::Pool> pool;
-    /// Tracks slave count per interface to avoid repetitive logging.
+    /// Tracks slave count per master to avoid repetitive logging.
     std::unordered_map<std::string, size_t> last_slave_counts;
 
-    /// Enumerates all network interfaces that could have EtherCAT slaves.
-    std::vector<InterfaceInfo> enumerate_interfaces();
-
-    /// Probes an interface for EtherCAT slaves.
+    /// Probes a master for EtherCAT slaves.
     std::pair<std::vector<SlaveInfo>, xerrors::Error>
-    probe_interface(const std::string &interface) const;
+    probe_master(const std::string &key) const;
 
     /// Creates a slave device for the given slave.
     synnax::Device create_slave_device(
         const SlaveInfo &slave,
-        const std::string &network_interface,
+        const std::string &master_key,
         const common::ScannerContext &scan_ctx
     );
 
@@ -123,9 +108,10 @@ private:
 
     /// Generates a device key for a slave.
     static std::string
-    generate_slave_key(const SlaveInfo &slave, const std::string &interface);
+    generate_slave_key(const SlaveInfo &slave, const std::string &master_key);
 
     /// Handles the test_interface command.
     void test_interface(const task::Command &cmd) const;
 };
+
 }

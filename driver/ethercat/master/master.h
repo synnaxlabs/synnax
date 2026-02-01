@@ -9,10 +9,10 @@
 
 #pragma once
 
-#include <functional>
 #include <memory>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "x/cpp/xerrors/errors.h"
@@ -20,6 +20,17 @@
 #include "driver/ethercat/master/slave_info.h"
 
 namespace ethercat::master {
+
+/// Information about an available EtherCAT master or network.
+struct Info {
+    /// Unique identifier for this master.
+    /// For IgH: "igh:0", "igh:1", etc.
+    /// For SOEM: the network interface name (e.g., "eth0", "enp3s0").
+    std::string key;
+    /// Human-readable description.
+    std::string description;
+};
+
 /// Byte and bit offset for a PDO entry in the process data buffer.
 struct PDOOffset {
     /// Byte offset into the appropriate buffer (input_data or output_data).
@@ -56,6 +67,19 @@ public:
     ///          - MASTER_INIT_ERROR if master initialization fails
     ///          - SLAVE_CONFIG_ERROR if slave configuration fails
     [[nodiscard]] virtual xerrors::Error initialize() = 0;
+
+    /// Registers PDO entries for process data exchange.
+    ///
+    /// This method must be called after initialize() and before activate().
+    /// For IgH, this registers each entry with the domain via
+    /// ecrt_slave_config_reg_pdo_entry(). For SOEM, this is a no-op since
+    /// PDOs are automatically mapped during activation.
+    ///
+    /// @param entries The PDO entries to register for cyclic exchange.
+    /// @returns xerrors::NIL on success, or:
+    ///          - PDO_MAPPING_ERROR if registration fails
+    [[nodiscard]] virtual xerrors::Error
+    register_pdos(const std::vector<PDOEntry> &entries) = 0;
 
     /// Activates the master and transitions slaves to OPERATIONAL state.
     ///
@@ -142,10 +166,27 @@ public:
     [[nodiscard]] virtual std::string interface_name() const = 0;
 };
 
-/// Factory function type for creating Master instances.
-/// @param interface_name Network interface name (e.g., "eth0") - used by SOEM.
-/// @param backend Backend type: "soem", "igh", or "auto".
-/// @return Shared pointer to the created Master.
-using Factory = std::function<std::shared_ptr<
-    Master>(const std::string &interface_name, const std::string &backend)>;
+/// Abstract interface for discovering and creating EtherCAT masters.
+///
+/// Different backends (IgH, SOEM) have different mechanisms for discovering
+/// available masters and creating them. This interface abstracts both so the
+/// Pool and scan task don't need backend-specific code.
+class Manager {
+public:
+    virtual ~Manager() = default;
+
+    /// Returns all available EtherCAT masters.
+    ///
+    /// For IgH, returns configured kernel masters from /sys/class/EtherCAT/.
+    /// For SOEM, returns network interfaces that could have slaves.
+    [[nodiscard]] virtual std::vector<Info> enumerate() = 0;
+
+    /// Creates a master for the given key.
+    ///
+    /// @param key The master key from Info (e.g., "igh:0" or "eth0").
+    /// @returns Pair of shared pointer to the created Master and error.
+    [[nodiscard]] virtual std::pair<std::shared_ptr<Master>, xerrors::Error>
+    create(const std::string &key) = 0;
+};
+
 }

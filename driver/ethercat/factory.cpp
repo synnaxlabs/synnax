@@ -24,18 +24,21 @@
 #include "x/cpp/breaker/breaker.h"
 
 namespace ethercat {
-master::Factory default_master_factory() {
-    return [](const std::string &interface_name,
-              const std::string &backend) -> std::shared_ptr<master::Master> {
+
+std::unique_ptr<master::Manager> default_manager() {
 #ifdef __linux__
-        if (backend == "igh" || (backend == "auto" && igh::igh_available()))
-            return std::make_shared<igh::Master>();
+    auto igh_mgr = std::make_unique<igh::Manager>();
+    if (!igh_mgr->enumerate().empty())
+        return igh_mgr;
 #endif
-        return std::make_shared<soem::Master>(interface_name);
-    };
+    return std::make_unique<soem::Manager>();
 }
-Factory::Factory(master::Factory master_factory):
-    pool(std::make_shared<engine::Pool>(std::move(master_factory))) {}
+
+Factory::Factory():
+    pool(std::make_shared<engine::Pool>(default_manager())) {}
+
+Factory::Factory(std::unique_ptr<master::Manager> manager):
+    pool(std::make_shared<engine::Pool>(std::move(manager))) {}
 
 std::pair<common::ConfigureResult, xerrors::Error> Factory::configure_read(
     const std::shared_ptr<task::Context> &ctx,
@@ -127,11 +130,12 @@ Factory::configure_initial_tasks(
     );
 }
 
-bool Factory::is_interface_active(const std::string &interface) const {
-    return this->pool->is_active(interface);
+bool Factory::is_interface_active(const std::string &key) const {
+    return this->pool->is_active(key);
 }
 
-std::vector<SlaveInfo> Factory::get_cached_slaves(const std::string &interface) const {
-    return this->pool->get_slaves(interface);
+std::vector<SlaveInfo> Factory::get_cached_slaves(const std::string &key) const {
+    return this->pool->get_slaves(key);
 }
+
 }

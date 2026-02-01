@@ -78,7 +78,7 @@ void configure_arc(const rack::Config &config, FactoryList &factories) {
 
 void configure_ethercat(const rack::Config &config, FactoryList &factories) {
     configure_integration(config, factories, ethercat::INTEGRATION_NAME, []() {
-        return std::make_unique<ethercat::Factory>(ethercat::default_master_factory());
+        return std::make_unique<ethercat::Factory>();
     });
 }
 

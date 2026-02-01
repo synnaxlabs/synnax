@@ -101,6 +101,8 @@ public:
 
     xerrors::Error initialize() override;
 
+    xerrors::Error register_pdos(const std::vector<PDOEntry> &entries) override;
+
     xerrors::Error activate() override;
 
     void deactivate() override;
@@ -194,4 +196,56 @@ private:
     /// @returns xerrors::NIL on success.
     xerrors::Error request_state(uint16_t state, int timeout);
 };
+
+/// SOEM-based implementation of master::Manager.
+///
+/// Uses SOEM's ec_find_adapters() to enumerate network interfaces and creates
+/// soem::Master instances for each.
+class Manager final : public master::Manager {
+public:
+    [[nodiscard]] std::vector<master::Info> enumerate() override {
+        std::vector<master::Info> masters;
+        ec_adaptert *adapter = ec_find_adapters();
+        ec_adaptert *current = adapter;
+
+        while (current != nullptr) {
+            if (is_physical_interface(current->name)) {
+                master::Info info;
+                info.key = current->name;
+                info.description = current->desc;
+                masters.push_back(std::move(info));
+            }
+            current = current->next;
+        }
+
+        ec_free_adapters(adapter);
+        return masters;
+    }
+
+    [[nodiscard]] std::pair<std::shared_ptr<master::Master>, xerrors::Error>
+    create(const std::string &key) override {
+        if (key.empty())
+            return {nullptr, xerrors::Error(MASTER_INIT_ERROR, "empty interface name")};
+        if (key.size() >= 4 && key.substr(0, 4) == "igh:")
+            return {nullptr, xerrors::Error(
+                MASTER_INIT_ERROR,
+                "invalid SOEM interface '" + key + "': IgH-style keys not supported"
+            )};
+        return {std::make_shared<Master>(key), xerrors::NIL};
+    }
+
+private:
+    static bool is_physical_interface(const std::string &name) {
+        if (name == "lo" || name == "localhost") return false;
+        if (name.find("tailscale") != std::string::npos) return false;
+        if (name.find("tun") == 0) return false;
+        if (name.find("tap") == 0) return false;
+        if (name.find("veth") == 0) return false;
+        if (name.find("docker") != std::string::npos) return false;
+        if (name.find("br-") == 0) return false;
+        if (name.find("virbr") == 0) return false;
+        return true;
+    }
+};
+
 }

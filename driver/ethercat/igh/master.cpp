@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 #include "glog/logging.h"
+#include <map>
 #include <sys/stat.h>
 
+#include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/igh/master.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -31,8 +33,7 @@ Master::Master(const unsigned int master_index):
     domain_state{} {}
 
 Master::~Master() {
-    if (this->activated) this->deactivate();
-    if (this->ec_master) ecrt_release_master(this->ec_master);
+    this->deactivate();
 }
 
 xerrors::Error Master::initialize() {
@@ -85,10 +86,33 @@ xerrors::Error Master::initialize() {
     return xerrors::NIL;
 }
 
+xerrors::Error Master::register_pdos(const std::vector<PDOEntry> &entries) {
+    for (const auto &entry : entries) {
+        auto [offset, err] = this->register_pdo(entry);
+        if (err) return err;
+    }
+    return xerrors::NIL;
+}
+
 xerrors::Error Master::activate() {
     if (!this->initialized) return xerrors::Error(ACTIVATION_ERROR, "not initialized");
     if (this->activated) return xerrors::NIL;
     if (!this->domain) return xerrors::Error(ACTIVATION_ERROR, "no domain created");
+
+    // Get the actual domain size from IgH before activation
+    const size_t actual_domain_size = ecrt_domain_size(this->domain);
+
+    VLOG(1) << "[ethercat.igh] activating master " << this->master_index
+            << " with " << this->slave_configs.size() << " configured slaves"
+            << ", calculated: input_sz=" << this->input_sz << ", output_sz=" << this->output_sz
+            << ", actual domain_size=" << actual_domain_size;
+
+    if (actual_domain_size != this->input_sz + this->output_sz) {
+        VLOG(1) << "[ethercat.igh] domain size differs from calculated "
+                << "(expected when some PDOs failed registration): actual="
+                << actual_domain_size << ", calculated="
+                << (this->input_sz + this->output_sz);
+    }
 
     if (ecrt_master_activate(this->ec_master) < 0)
         return xerrors::Error(ACTIVATION_ERROR, "ecrt_master_activate failed");
@@ -100,21 +124,41 @@ xerrors::Error Master::activate() {
     }
 
     this->activated = true;
-    VLOG(1) << "[ethercat.igh] master " << this->master_index << " activated";
+    LOG(INFO) << "[ethercat.igh] master " << this->master_index << " activated successfully";
+    VLOG(1) << "[ethercat.igh] domain_data=" << static_cast<void*>(this->domain_data)
+            << ", total_size=" << (this->input_sz + this->output_sz);
+
+    for (const auto &[pos, sc] : this->slave_configs) {
+        ec_slave_config_state_t state;
+        ecrt_slave_config_state(sc, &state);
+        VLOG(1) << "[ethercat.igh] slave " << pos << " state after activation: "
+                << "al_state=0x" << std::hex << static_cast<int>(state.al_state) << std::dec
+                << " (" << slave_state_to_string(convert_state(state.al_state)) << ")"
+                << ", online=" << state.online
+                << ", operational=" << state.operational;
+    }
+
     return xerrors::NIL;
 }
 
 void Master::deactivate() {
-    if (!this->activated) return;
+    if (!this->initialized) return;
 
     VLOG(1) << "[ethercat.igh] master " << this->master_index << " deactivating";
-    ecrt_master_deactivate(this->ec_master);
+    if (this->activated) ecrt_master_deactivate(this->ec_master);
+    if (this->ec_master) {
+        ecrt_release_master(this->ec_master);
+        this->ec_master = nullptr;
+    }
+    this->domain = nullptr;
+    this->domain_data = nullptr;
     this->activated = false;
+    this->initialized = false;
     this->slave_configs.clear();
     this->pdo_offset_cache.clear();
+    this->cached_slaves.clear();
     this->input_sz = 0;
     this->output_sz = 0;
-    this->domain_data = nullptr;
 }
 
 xerrors::Error Master::receive() {
@@ -207,8 +251,123 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
         slave.product_code
     );
 
-    if (sc) this->slave_configs[position] = sc;
+    if (!sc) {
+        LOG(ERROR) << "[ethercat.igh] failed to get slave config for position "
+                   << position << " (vendor=0x" << std::hex << slave.vendor_id
+                   << ", product=0x" << slave.product_code << std::dec << ")";
+        return nullptr;
+    }
+
+    // Configure the slave's PDO mapping so it can transition to OP
+    this->configure_slave_pdos(sc, slave);
+
+    // Register ALL PDOs for this slave into the domain.
+    // This is required for the slave to transition to OP - the domain must
+    // contain all PDOs that were configured in the Sync Managers.
+    size_t registered_outputs = 0;
+    size_t registered_inputs = 0;
+
+    for (const auto &pdo : slave.output_pdos) {
+        int result = ecrt_slave_config_reg_pdo_entry(
+            sc, pdo.index, pdo.subindex, this->domain, nullptr
+        );
+        if (result >= 0) {
+            const size_t abs_offset = static_cast<size_t>(result);
+            const size_t byte_size = (pdo.bit_length + 7) / 8;
+            PDOEntryKey key{position, pdo.index, pdo.subindex, false};
+            this->pdo_offset_cache[key] = {abs_offset, 0};
+            if (abs_offset + byte_size > this->output_sz)
+                this->output_sz = abs_offset + byte_size;
+            registered_outputs++;
+        } else {
+            VLOG(2) << "[ethercat.igh] skipped sub-byte output PDO 0x"
+                    << std::hex << pdo.index << ":"
+                    << static_cast<int>(pdo.subindex) << std::dec
+                    << " (" << static_cast<int>(pdo.bit_length) << " bits)"
+                    << " for slave " << position;
+        }
+    }
+
+    for (const auto &pdo : slave.input_pdos) {
+        int result = ecrt_slave_config_reg_pdo_entry(
+            sc, pdo.index, pdo.subindex, this->domain, nullptr
+        );
+        if (result >= 0) {
+            const size_t abs_offset = static_cast<size_t>(result);
+            const size_t byte_size = (pdo.bit_length + 7) / 8;
+            // Input offsets are relative to the start of input data (after outputs)
+            const size_t relative_offset = abs_offset >= this->output_sz
+                                             ? abs_offset - this->output_sz
+                                             : abs_offset;
+            PDOEntryKey key{position, pdo.index, pdo.subindex, true};
+            this->pdo_offset_cache[key] = {relative_offset, 0};
+            const size_t end = relative_offset + byte_size;
+            if (end > this->input_sz) this->input_sz = end;
+            registered_inputs++;
+        } else {
+            VLOG(2) << "[ethercat.igh] skipped sub-byte input PDO 0x"
+                    << std::hex << pdo.index << ":"
+                    << static_cast<int>(pdo.subindex) << std::dec
+                    << " (" << static_cast<int>(pdo.bit_length) << " bits)"
+                    << " for slave " << position;
+        }
+    }
+
+    VLOG(1) << "[ethercat.igh] slave " << position << " (" << slave.name
+            << "): registered " << registered_outputs << " output PDOs and "
+            << registered_inputs << " input PDOs"
+            << " (output_sz=" << this->output_sz
+            << ", input_sz=" << this->input_sz << ")";
+
+    this->slave_configs[position] = sc;
     return sc;
+}
+
+void Master::configure_slave_pdos(ec_slave_config_t *sc, const SlaveInfo &slave) {
+    std::map<uint16_t, std::vector<ec_pdo_entry_info_t>> output_pdo_entries;
+    std::map<uint16_t, std::vector<ec_pdo_entry_info_t>> input_pdo_entries;
+
+    for (const auto &pdo : slave.output_pdos)
+        output_pdo_entries[pdo.pdo_index].push_back(
+            {pdo.index, pdo.subindex, pdo.bit_length}
+        );
+    for (const auto &pdo : slave.input_pdos)
+        input_pdo_entries[pdo.pdo_index].push_back(
+            {pdo.index, pdo.subindex, pdo.bit_length}
+        );
+
+    std::vector<ec_pdo_info_t> output_pdos;
+    std::vector<ec_pdo_info_t> input_pdos;
+    output_pdos.reserve(output_pdo_entries.size());
+    input_pdos.reserve(input_pdo_entries.size());
+
+    for (auto &[pdo_index, entries] : output_pdo_entries)
+        output_pdos.push_back(
+            {pdo_index, static_cast<unsigned int>(entries.size()), entries.data()}
+        );
+    for (auto &[pdo_index, entries] : input_pdo_entries)
+        input_pdos.push_back(
+            {pdo_index, static_cast<unsigned int>(entries.size()), entries.data()}
+        );
+
+    ec_sync_info_t syncs[5] = {
+        {0, EC_DIR_OUTPUT, 0, nullptr, EC_WD_DISABLE},
+        {1, EC_DIR_INPUT, 0, nullptr, EC_WD_DISABLE},
+        {2, EC_DIR_OUTPUT, static_cast<unsigned int>(output_pdos.size()),
+         output_pdos.empty() ? nullptr : output_pdos.data(), EC_WD_ENABLE},
+        {3, EC_DIR_INPUT, static_cast<unsigned int>(input_pdos.size()),
+         input_pdos.empty() ? nullptr : input_pdos.data(), EC_WD_DISABLE},
+        {0xff, EC_DIR_INPUT, 0, nullptr, EC_WD_DISABLE}
+    };
+
+    if (ecrt_slave_config_pdos(sc, 4, syncs) < 0) {
+        LOG(WARNING) << "[ethercat.igh] failed to configure PDOs for slave "
+                     << slave.position;
+    } else {
+        VLOG(2) << "[ethercat.igh] configured " << output_pdos.size()
+                << " output PDOs and " << input_pdos.size()
+                << " input PDOs for slave " << slave.position;
+    }
 }
 
 std::pair<size_t, xerrors::Error> Master::register_pdo(const PDOEntry &entry) {
@@ -218,6 +377,8 @@ std::pair<size_t, xerrors::Error> Master::register_pdo(const PDOEntry &entry) {
             xerrors::Error(PDO_MAPPING_ERROR, "cannot register PDO after activation")
         };
 
+    // get_or_create_slave_config() now registers ALL PDOs for the slave,
+    // so we just need to ensure the slave is configured and look up the offset.
     ec_slave_config_t *sc = this->get_or_create_slave_config(entry.slave_position);
     if (!sc)
         return {
@@ -225,49 +386,29 @@ std::pair<size_t, xerrors::Error> Master::register_pdo(const PDOEntry &entry) {
             xerrors::Error(PDO_MAPPING_ERROR, "failed to get slave configuration")
         };
 
-    int result = ecrt_slave_config_reg_pdo_entry(
-        sc,
-        entry.index,
-        entry.subindex,
-        this->domain,
-        nullptr
-    );
-
-    if (result < 0)
+    // Look up the cached offset (already registered by get_or_create_slave_config)
+    std::lock_guard lock(this->mu);
+    PDOEntryKey key{entry.slave_position, entry.index, entry.subindex, entry.is_input};
+    auto it = this->pdo_offset_cache.find(key);
+    if (it == this->pdo_offset_cache.end()) {
+        LOG(ERROR) << "[ethercat.igh] PDO 0x" << std::hex << entry.index << ":"
+                   << static_cast<int>(entry.subindex) << std::dec
+                   << " not found in cache for slave " << entry.slave_position
+                   << " (is_input=" << entry.is_input << ")";
         return {
             0,
-            xerrors::Error(PDO_MAPPING_ERROR, "ecrt_slave_config_reg_pdo_entry failed")
+            xerrors::Error(
+                PDO_MAPPING_ERROR,
+                "PDO not found - may not exist in slave's PDO mapping"
+            )
         };
-
-    const size_t abs_offset = static_cast<size_t>(result);
-    const size_t byte_size = entry.byte_length();
-
-    size_t relative_offset;
-    if (entry.is_input) {
-        relative_offset = abs_offset >= this->output_sz ? abs_offset - this->output_sz
-                                                        : abs_offset;
-        this->input_sz += byte_size;
-    } else {
-        relative_offset = abs_offset;
-        this->output_sz += byte_size;
     }
 
-    {
-        std::lock_guard lock(this->mu);
-        PDOEntryKey key{
-            entry.slave_position,
-            entry.index,
-            entry.subindex,
-            entry.is_input
-        };
-        this->pdo_offset_cache[key] = {relative_offset, 0};
-    }
-
-    VLOG(2) << "[ethercat.igh] registered PDO 0x" << std::hex << entry.index << ":"
+    VLOG(1) << "[ethercat.igh] PDO 0x" << std::hex << entry.index << ":"
             << static_cast<int>(entry.subindex) << std::dec << " for slave "
-            << entry.slave_position << " at offset " << relative_offset;
+            << entry.slave_position << " found at offset=" << it->second.byte;
 
-    return {relative_offset, xerrors::NIL};
+    return {it->second.byte, xerrors::NIL};
 }
 
 SlaveState Master::convert_state(const uint8_t igh_state) {
@@ -299,6 +440,18 @@ std::string Master::read_pdo_entry_name(
 }
 
 void Master::discover_slave_pdos(SlaveInfo &slave) {
+    if (esi::lookup_device_pdos(
+            slave.vendor_id,
+            slave.product_code,
+            slave.revision,
+            slave
+        )) {
+        VLOG(1) << "[ethercat.igh] slave " << slave.position
+                << " PDOs discovered via ESI: " << slave.input_pdos.size()
+                << " inputs, " << slave.output_pdos.size() << " outputs";
+        return;
+    }
+
     ec_slave_info_t slave_info;
     if (ecrt_master_get_slave(this->ec_master, slave.position, &slave_info) != 0) {
         slave.pdo_discovery_error = "failed to get slave info";

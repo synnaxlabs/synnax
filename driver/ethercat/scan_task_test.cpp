@@ -112,9 +112,9 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
         ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, 12345, "Test Slave")
     );
 
-    ethercat::master::Factory factory =
-        [mock_master](const std::string &, const std::string &) { return mock_master; };
-    auto pool = std::make_shared<ethercat::engine::Pool>(factory);
+    auto manager = std::make_unique<ethercat::mock::Manager>();
+    manager->configure("eth0", mock_master);
+    auto pool = std::make_shared<ethercat::engine::Pool>(std::move(manager));
 
     synnax::Task
         task(this->rack.key, "EtherCAT Scanner", ethercat::SCAN_TASK_TYPE, "", true);
@@ -145,9 +145,9 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
         ethercat::mock::MockSlaveConfig(2, 0x1, 0x4, 33333, "Slave 3")
     );
 
-    ethercat::master::Factory factory =
-        [mock_master](const std::string &, const std::string &) { return mock_master; };
-    auto pool = std::make_shared<ethercat::engine::Pool>(factory);
+    auto manager = std::make_unique<ethercat::mock::Manager>();
+    manager->configure("enp3s0", mock_master);
+    auto pool = std::make_shared<ethercat::engine::Pool>(std::move(manager));
 
     synnax::Task
         task(this->rack.key, "EtherCAT Scanner", ethercat::SCAN_TASK_TYPE, "", true);
@@ -172,9 +172,9 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
         xerrors::Error(ethercat::MASTER_INIT_ERROR, "no interface")
     );
 
-    ethercat::master::Factory factory =
-        [mock_master](const std::string &, const std::string &) { return mock_master; };
-    auto pool = std::make_shared<ethercat::engine::Pool>(factory);
+    auto manager = std::make_unique<ethercat::mock::Manager>();
+    manager->configure("eth0", mock_master);
+    auto pool = std::make_shared<ethercat::engine::Pool>(std::move(manager));
 
     synnax::Task
         task(this->rack.key, "EtherCAT Scanner", ethercat::SCAN_TASK_TYPE, "", true);

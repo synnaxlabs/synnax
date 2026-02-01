@@ -10,30 +10,37 @@
 #include "driver/ethercat/engine/pool.h"
 
 namespace ethercat::engine {
-Pool::Pool(master::Factory factory): factory(std::move(factory)) {}
 
-std::pair<std::shared_ptr<Engine>, xerrors::Error>
-Pool::acquire(const std::string &interface_name, const std::string &backend) {
+Pool::Pool(std::unique_ptr<master::Manager> manager):
+    manager(std::move(manager)) {}
+
+std::vector<master::Info> Pool::enumerate() const {
+    if (this->manager == nullptr) return {};
+    return this->manager->enumerate();
+}
+
+std::pair<std::shared_ptr<Engine>, xerrors::Error> Pool::acquire(const std::string &key) {
     std::lock_guard lock(this->mu);
-    const std::string key = backend == "igh" ? "igh" : interface_name;
     const auto it = this->engines.find(key);
     if (it != this->engines.end()) return {it->second, xerrors::NIL};
-    auto master = this->factory(interface_name, backend);
-    auto eng = std::make_shared<Engine>(std::move(master));
+    auto [m, err] = this->manager->create(key);
+    if (err) return {nullptr, err};
+    auto eng = std::make_shared<Engine>(std::move(m));
     this->engines[key] = eng;
     return {eng, xerrors::NIL};
 }
 
-bool Pool::is_active(const std::string &interface) const {
+bool Pool::is_active(const std::string &key) const {
     std::lock_guard lock(this->mu);
-    const auto it = this->engines.find(interface);
+    const auto it = this->engines.find(key);
     return it != this->engines.end() && it->second->running();
 }
 
-std::vector<SlaveInfo> Pool::get_slaves(const std::string &interface) const {
+std::vector<SlaveInfo> Pool::get_slaves(const std::string &key) const {
     std::lock_guard lock(this->mu);
-    const auto it = this->engines.find(interface);
+    const auto it = this->engines.find(key);
     if (it != this->engines.end()) return it->second->master->slaves();
     return {};
 }
+
 }

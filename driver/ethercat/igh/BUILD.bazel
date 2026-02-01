@@ -35,9 +35,10 @@ cc_library(
     deps = select({
         ":linux": [
             ":ecrt_official",
-            "//driver/ethercat/telem",
             "//driver/ethercat/errors",
+            "//driver/ethercat/esi",
             "//driver/ethercat/master",
+            "//driver/ethercat/telem",
             "//x/cpp/xerrors",
             "@glog",
         ],

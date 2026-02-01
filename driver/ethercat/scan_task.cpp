@@ -7,19 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <utility>
 
 #include "glog/logging.h"
-
-extern "C" {
-#include "soem/soem.h"
-}
 
 #include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/scan_task.h"
 
 namespace ethercat {
+
 Scanner::Scanner(
     std::shared_ptr<task::Context> ctx,
     synnax::Task task,
@@ -51,37 +49,37 @@ xerrors::Error Scanner::stop() {
 std::pair<std::vector<synnax::Device>, xerrors::Error>
 Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::Device> devices;
-    const auto interfaces = this->enumerate_interfaces();
-    VLOG(1) << SCAN_LOG_PREFIX << "scanning " << interfaces.size() << " interfaces";
+    if (this->pool == nullptr) return {devices, xerrors::NIL};
 
-    for (const auto &iface: interfaces) {
+    const auto masters = this->pool->enumerate();
+    VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
+
+    for (const auto &master_info : masters) {
         std::vector<SlaveInfo> slaves;
-        const bool is_active = this->pool->is_active(iface.name);
+        const bool is_active = this->pool->is_active(master_info.key);
 
         if (is_active) {
-            VLOG(2) << SCAN_LOG_PREFIX << "using cached slaves for " << iface.name;
-            slaves = this->pool->get_slaves(iface.name);
+            VLOG(2) << SCAN_LOG_PREFIX << "using cached slaves for " << master_info.key;
+            slaves = this->pool->get_slaves(master_info.key);
         } else {
-            VLOG(2) << SCAN_LOG_PREFIX << "probing " << iface.name;
-            auto [probed_slaves, err] = this->probe_interface(iface.name);
+            VLOG(2) << SCAN_LOG_PREFIX << "probing " << master_info.key;
+            auto [probed_slaves, err] = this->probe_master(master_info.key);
             if (err) {
-                VLOG(2) << SCAN_LOG_PREFIX << "probe failed for " << iface.name << ": "
-                        << err.message();
+                VLOG(2) << SCAN_LOG_PREFIX << "probe failed for " << master_info.key
+                        << ": " << err.message();
                 continue;
             }
             slaves = std::move(probed_slaves);
             if (!slaves.empty()) {
                 LOG(INFO) << SCAN_LOG_PREFIX << "discovered " << slaves.size()
-                          << " slaves on " << iface.name;
+                          << " slaves on " << master_info.key;
             }
         }
 
         if (slaves.empty()) continue;
 
-        for (const auto &slave: slaves) {
-            auto slave_dev = this->create_slave_device(slave, iface.name, scan_ctx);
-            devices.push_back(std::move(slave_dev));
-        }
+        for (const auto &slave : slaves)
+            devices.push_back(this->create_slave_device(slave, master_info.key, scan_ctx));
     }
 
     return {devices, xerrors::NIL};
@@ -99,26 +97,9 @@ bool Scanner::exec(
     return false;
 }
 
-std::vector<InterfaceInfo> Scanner::enumerate_interfaces() {
-    std::vector<InterfaceInfo> interfaces;
-    ec_adaptert *adapter = ec_find_adapters();
-    ec_adaptert *current = adapter;
-
-    while (current != nullptr) {
-        InterfaceInfo info;
-        info.name = current->name;
-        info.description = current->desc;
-        interfaces.push_back(std::move(info));
-        current = current->next;
-    }
-
-    ec_free_adapters(adapter);
-    return interfaces;
-}
-
 std::pair<std::vector<SlaveInfo>, xerrors::Error>
-Scanner::probe_interface(const std::string &interface) const {
-    auto [engine, err] = this->pool->acquire(interface, this->cfg.backend);
+Scanner::probe_master(const std::string &key) const {
+    auto [engine, err] = this->pool->acquire(key);
     if (err) return {{}, err};
     if (auto init_err = engine->master->initialize()) return {{}, init_err};
     return {engine->master->slaves(), xerrors::NIL};
@@ -126,15 +107,15 @@ Scanner::probe_interface(const std::string &interface) const {
 
 synnax::Device Scanner::create_slave_device(
     const SlaveInfo &slave,
-    const std::string &network_interface,
+    const std::string &master_key,
     const common::ScannerContext &scan_ctx
 ) {
     const auto rack_key = synnax::rack_key_from_task_key(this->task.key);
-    const std::string key = this->generate_slave_key(slave, network_interface);
+    const std::string key = this->generate_slave_key(slave, master_key);
 
     nlohmann::json props = get_existing_properties(key, scan_ctx);
-    auto slave_props = slave.to_device_properties(network_interface);
-    for (auto &[k, v]: slave_props.items())
+    auto slave_props = slave.to_device_properties(master_key);
+    for (auto &[k, v] : slave_props.items())
         props[k] = v;
 
     std::string status_msg;
@@ -161,7 +142,7 @@ synnax::Device Scanner::create_slave_device(
                                   : slave.name;
     dev.make = DEVICE_MAKE;
     dev.model = SLAVE_DEVICE_MODEL;
-    dev.location = network_interface + ".Slot " + std::to_string(slave.position);
+    dev.location = master_key + ".Slot " + std::to_string(slave.position);
     dev.rack = rack_key;
     dev.properties = props.dump();
     dev.status = synnax::DeviceStatus{
@@ -186,15 +167,19 @@ nlohmann::json Scanner::get_existing_properties(
     if (it->second.properties.empty()) return nlohmann::json::object();
     try {
         return nlohmann::json::parse(it->second.properties);
-    } catch (const nlohmann::json::parse_error &) { return nlohmann::json::object(); }
+    } catch (const nlohmann::json::parse_error &) {
+        return nlohmann::json::object();
+    }
 }
 
 std::string
-Scanner::generate_slave_key(const SlaveInfo &slave, const std::string &interface) {
+Scanner::generate_slave_key(const SlaveInfo &slave, const std::string &master_key) {
     if (slave.serial != 0)
         return "ethercat_" + std::to_string(slave.vendor_id) + "_" +
                std::to_string(slave.product_code) + "_" + std::to_string(slave.serial);
-    return "ethercat_" + interface + "_" + std::to_string(slave.vendor_id) + "_" +
+    std::string safe_key = master_key;
+    std::replace(safe_key.begin(), safe_key.end(), ':', '_');
+    return "ethercat_" + safe_key + "_" + std::to_string(slave.vendor_id) + "_" +
            std::to_string(slave.product_code) + "_" + std::to_string(slave.position);
 }
 
@@ -222,7 +207,7 @@ void Scanner::test_interface(const task::Command &cmd) const {
     }
 
     VLOG(1) << SCAN_LOG_PREFIX << "testing interface " << args.interface;
-    auto [slaves, err] = this->probe_interface(args.interface);
+    auto [slaves, err] = this->probe_master(args.interface);
     if (err) {
         VLOG(1) << SCAN_LOG_PREFIX << "test_interface failed for "
                 << args.interface << ": " << err.message();
@@ -238,4 +223,5 @@ void Scanner::test_interface(const task::Command &cmd) const {
                           args.interface;
     this->ctx->set_status(task_status);
 }
+
 }

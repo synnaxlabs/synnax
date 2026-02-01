@@ -32,9 +32,27 @@ void Engine::run() {
     }
     xthread::apply_rt_config(rt_cfg);
     loop::Timer timer(cycle_time);
+
+    // Track error state to avoid log spam - only log on state transitions
+    bool had_receive_error = false;
+    bool had_send_error = false;
+    uint64_t receive_error_count = 0;
+    uint64_t send_error_count = 0;
+
     while (this->breaker.running()) {
-        if (auto err = this->master->receive(); err)
-            VLOG(2) << "[ethercat] receive error: " << err.message();
+        if (auto err = this->master->receive(); err) {
+            receive_error_count++;
+            if (!had_receive_error) {
+                LOG(WARNING) << "[ethercat] receive error: " << err.message();
+                had_receive_error = true;
+            }
+        } else if (had_receive_error) {
+            LOG(INFO) << "[ethercat] receive recovered after " << receive_error_count
+                      << " errors";
+            had_receive_error = false;
+            receive_error_count = 0;
+        }
+
         this->publish_inputs(this->master->input_data());
         size_t output_len = 0;
         const uint8_t *output_data = this->consume_outputs(output_len);
@@ -45,12 +63,32 @@ void Engine::run() {
                 output_data,
                 std::min(output_len, outputs.size())
             );
-        if (auto err = this->master->send(); err)
-            VLOG(2) << "[ethercat] send error: " << err.message();
+
+        if (auto err = this->master->send(); err) {
+            send_error_count++;
+            if (!had_send_error) {
+                LOG(WARNING) << "[ethercat] send error: " << err.message();
+                had_send_error = true;
+            }
+        } else if (had_send_error) {
+            LOG(INFO) << "[ethercat] send recovered after " << send_error_count
+                      << " errors";
+            had_send_error = false;
+            send_error_count = 0;
+        }
+
         auto [elapsed, on_time] = timer.wait();
         if (!on_time && this->config.max_overrun.nanoseconds() > 0)
             VLOG(2) << "[ethercat] cycle overrun: " << elapsed;
     }
+
+    if (had_receive_error)
+        LOG(WARNING) << "[ethercat] engine stopped with " << receive_error_count
+                     << " consecutive receive errors";
+    if (had_send_error)
+        LOG(WARNING) << "[ethercat] engine stopped with " << send_error_count
+                     << " consecutive send errors";
+
     LOG(INFO) << "[ethercat] engine stopped";
 }
 
@@ -72,9 +110,26 @@ xerrors::Error Engine::reconfigure() {
         if (this->run_thread.joinable()) this->run_thread.join();
         this->master->deactivate();
     }
+    std::vector<PDOEntry> all_entries;
+    {
+        std::scoped_lock lk(this->registration_mu, this->write_mu);
+        for (const auto &reg : this->read_registrations)
+            all_entries.insert(all_entries.end(), reg.entries.begin(), reg.entries.end());
+        for (const auto &reg : this->write_registrations)
+            all_entries.insert(all_entries.end(), reg.entries.begin(), reg.entries.end());
+    }
     this->breaker.start();
     while (this->breaker.running()) {
         if (auto err = this->master->initialize(); err) {
+            if (!this->breaker.wait(err)) {
+                this->restarting = false;
+                this->breaker.reset();
+                return err;
+            }
+            continue;
+        }
+        if (auto err = this->master->register_pdos(all_entries); err) {
+            this->master->deactivate();
             if (!this->breaker.wait(err)) {
                 this->restarting = false;
                 this->breaker.reset();

@@ -18,31 +18,32 @@
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/engine/pool.h"
 #include "driver/ethercat/errors/errors.h"
+#include "driver/ethercat/master/master.h"
 #include "driver/ethercat/mock/master.h"
 
 namespace ethercat::mock {
+
 /// Mock implementation of engine::Pool for testing.
 ///
-/// Allows pre-configuring mock masters for specific interfaces before tests run.
+/// Allows pre-configuring mock masters for specific keys before tests run.
 /// When acquire() is called, the pool creates engines using the configured mock
 /// masters.
 class Pool {
     mutable std::mutex mu;
     std::unordered_map<std::string, std::shared_ptr<Master>> masters;
     std::unordered_map<std::string, std::shared_ptr<engine::Engine>> engines;
+    std::vector<master::Info> master_infos;
     xerrors::Error inject_acquire_err;
 
 public:
     Pool() = default;
 
-    /// Configures a mock master for the given interface.
-    /// Must be called before acquire() for that interface.
-    void configure_interface(
-        const std::string &interface_name,
-        std::shared_ptr<Master> master
-    ) {
+    /// Configures a mock master for the given key.
+    /// Must be called before acquire() for that key.
+    void configure_master(const std::string &key, std::shared_ptr<Master> master) {
         std::lock_guard lock(this->mu);
-        this->masters[interface_name] = std::move(master);
+        this->masters[key] = std::move(master);
+        this->master_infos.push_back({key, ""});
     }
 
     /// Injects an error to be returned by acquire().
@@ -53,77 +54,67 @@ public:
     /// Clears any injected acquire error.
     void clear_injected_errors() { this->inject_acquire_err = xerrors::NIL; }
 
-    /// Acquires or creates an engine for the specified interface.
-    std::pair<std::shared_ptr<engine::Engine>, xerrors::Error> acquire(
-        const std::string &interface_name,
-        telem::Rate rate,
-        const std::string &backend = "auto"
-    ) {
+    /// Returns configured master infos.
+    [[nodiscard]] std::vector<master::Info> enumerate() const {
+        std::lock_guard lock(this->mu);
+        return this->master_infos;
+    }
+
+    /// Acquires or creates an engine for the specified master.
+    std::pair<std::shared_ptr<engine::Engine>, xerrors::Error>
+    acquire(const std::string &key) {
         std::lock_guard lock(this->mu);
         if (this->inject_acquire_err) return {nullptr, this->inject_acquire_err};
 
-        const std::string key = backend == "igh" ? "igh" : interface_name;
-
         auto eng_it = this->engines.find(key);
-        if (eng_it != this->engines.end()) {
-            if (eng_it->second->cfg().cycle_time != rate.period())
-                return {
-                    nullptr,
-                    xerrors::Error(
-                        RATE_MISMATCH,
-                        "engine already exists with different rate"
-                    )
-                };
-            return {eng_it->second, xerrors::NIL};
-        }
+        if (eng_it != this->engines.end()) return {eng_it->second, xerrors::NIL};
 
-        auto master_it = this->masters.find(interface_name);
+        auto master_it = this->masters.find(key);
         if (master_it == this->masters.end())
             return {
                 nullptr,
                 xerrors::Error(
                     MASTER_INIT_ERROR,
-                    "no mock master configured for interface"
+                    "no mock master configured for key: " + key
                 )
             };
 
-        auto eng = std::make_shared<engine::Engine>(
-            master_it->second,
-            engine::Config(rate.period())
-        );
+        auto eng = std::make_shared<engine::Engine>(master_it->second);
         this->engines[key] = eng;
         return {eng, xerrors::NIL};
     }
 
-    /// Checks if an interface has an active (running) engine.
-    bool is_active(const std::string &interface) const {
+    /// Checks if a key has an active (running) engine.
+    [[nodiscard]] bool is_active(const std::string &key) const {
         std::lock_guard lock(this->mu);
-        auto it = this->engines.find(interface);
+        auto it = this->engines.find(key);
         return it != this->engines.end() && it->second->running();
     }
 
-    /// Returns cached slave information from an interface's mock master.
-    std::vector<SlaveInfo> get_slaves(const std::string &interface) const {
+    /// Returns cached slave information from a key's mock master.
+    [[nodiscard]] std::vector<SlaveInfo> get_slaves(const std::string &key) const {
         std::lock_guard lock(this->mu);
-        auto it = this->masters.find(interface);
+        auto it = this->masters.find(key);
         if (it != this->masters.end()) return it->second->slaves();
         return {};
     }
 
-    /// Returns the mock master for an interface (for test verification).
-    std::shared_ptr<Master> get_master(const std::string &interface) const {
+    /// Returns the mock master for a key (for test verification).
+    [[nodiscard]] std::shared_ptr<Master> get_master(const std::string &key) const {
         std::lock_guard lock(this->mu);
-        auto it = this->masters.find(interface);
+        auto it = this->masters.find(key);
         if (it != this->masters.end()) return it->second;
         return nullptr;
     }
 
-    /// Returns the engine for an interface (for test verification).
-    std::shared_ptr<engine::Engine> get_engine(const std::string &interface) const {
+    /// Returns the engine for a key (for test verification).
+    [[nodiscard]] std::shared_ptr<engine::Engine>
+    get_engine(const std::string &key) const {
         std::lock_guard lock(this->mu);
-        auto it = this->engines.find(interface);
+        auto it = this->engines.find(key);
         if (it != this->engines.end()) return it->second;
         return nullptr;
     }
 };
+
 }

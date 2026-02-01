@@ -37,7 +37,9 @@ cc_library(
         "//x/cpp/xjson",
         "@glog",
     ] + select({
-        ":linux": ["//driver/ethercat/igh"],
+        ":linux": [
+            "//driver/ethercat/igh",
+        ],
         "//conditions:default": [],
     }),
 )

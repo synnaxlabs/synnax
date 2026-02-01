@@ -131,6 +131,7 @@ class Master final : public ethercat::master::Master {
     size_t output_sz;
     std::vector<std::string> calls;
     size_t init_calls;
+    std::vector<PDOEntry> registered_pdos;
 
 public:
     explicit Master(std::string interface_name = "mock0"):
@@ -220,6 +221,13 @@ public:
         return xerrors::NIL;
     }
 
+    xerrors::Error register_pdos(const std::vector<PDOEntry> &entries) override {
+        std::lock_guard lock(this->mu);
+        this->calls.push_back("register_pdos");
+        this->registered_pdos = entries;
+        return xerrors::NIL;
+    }
+
     xerrors::Error activate() override {
         std::lock_guard lock(this->mu);
         this->calls.push_back("activate");
@@ -229,17 +237,26 @@ public:
         this->activated = true;
         this->input_sz = 0;
         this->output_sz = 0;
-        for (const auto &slave: this->slave_list) {
-            for (const auto &pdo: slave.input_pdos)
-                this->input_sz += pdo.byte_length();
-            for (const auto &pdo: slave.output_pdos)
-                this->output_sz += pdo.byte_length();
+        if (!this->registered_pdos.empty()) {
+            for (const auto &pdo : this->registered_pdos) {
+                if (pdo.is_input)
+                    this->input_sz += pdo.byte_length();
+                else
+                    this->output_sz += pdo.byte_length();
+            }
+        } else {
+            for (const auto &slave : this->slave_list) {
+                for (const auto &pdo : slave.input_pdos)
+                    this->input_sz += pdo.byte_length();
+                for (const auto &pdo : slave.output_pdos)
+                    this->output_sz += pdo.byte_length();
+            }
         }
         if (this->input_sz == 0) this->input_sz = this->slave_list.size() * 4;
         if (this->output_sz == 0) this->output_sz = this->slave_list.size() * 4;
         this->iomap.resize(this->input_sz + this->output_sz, 0);
         this->cache_pdo_offsets();
-        for (auto &[pos, state]: this->slave_states) {
+        for (auto &[pos, state] : this->slave_states) {
             auto it = this->state_transition_failures.find(pos);
             if (it != this->state_transition_failures.end() &&
                 it->second == SlaveState::OP)
@@ -247,7 +264,7 @@ public:
             else
                 state = SlaveState::OP;
         }
-        for (auto &slave: this->slave_list) {
+        for (auto &slave : this->slave_list) {
             auto it = this->state_transition_failures.find(slave.position);
             if (it != this->state_transition_failures.end() &&
                 it->second == SlaveState::OP)
@@ -264,11 +281,12 @@ public:
         this->activated = false;
         this->initialized = false;
         this->pdo_offset_cache.clear();
+        this->registered_pdos.clear();
         this->input_sz = 0;
         this->output_sz = 0;
-        for (auto &[pos, state]: this->slave_states)
+        for (auto &[pos, state] : this->slave_states)
             state = SlaveState::INIT;
-        for (auto &slave: this->slave_list)
+        for (auto &slave : this->slave_list)
             slave.state = SlaveState::INIT;
     }
 
@@ -402,18 +420,62 @@ private:
         this->pdo_offset_cache.clear();
         size_t input_byte_offset = 0;
         size_t output_byte_offset = 0;
-        for (const auto &slave: this->slave_list) {
-            for (const auto &pdo: slave.input_pdos) {
-                PDOEntryKey key{slave.position, pdo.index, pdo.subindex, true};
-                this->pdo_offset_cache[key] = master::PDOOffset{input_byte_offset, 0};
-                input_byte_offset += pdo.byte_length();
+        if (!this->registered_pdos.empty()) {
+            for (const auto &pdo : this->registered_pdos) {
+                PDOEntryKey key{pdo.slave_position, pdo.index, pdo.subindex, pdo.is_input};
+                if (pdo.is_input) {
+                    this->pdo_offset_cache[key] = master::PDOOffset{input_byte_offset, 0};
+                    input_byte_offset += pdo.byte_length();
+                } else {
+                    this->pdo_offset_cache[key] = master::PDOOffset{output_byte_offset, 0};
+                    output_byte_offset += pdo.byte_length();
+                }
             }
-            for (const auto &pdo: slave.output_pdos) {
-                PDOEntryKey key{slave.position, pdo.index, pdo.subindex, false};
-                this->pdo_offset_cache[key] = master::PDOOffset{output_byte_offset, 0};
-                output_byte_offset += pdo.byte_length();
+        } else {
+            for (const auto &slave : this->slave_list) {
+                for (const auto &pdo : slave.input_pdos) {
+                    PDOEntryKey key{slave.position, pdo.index, pdo.subindex, true};
+                    this->pdo_offset_cache[key] = master::PDOOffset{input_byte_offset, 0};
+                    input_byte_offset += pdo.byte_length();
+                }
+                for (const auto &pdo : slave.output_pdos) {
+                    PDOEntryKey key{slave.position, pdo.index, pdo.subindex, false};
+                    this->pdo_offset_cache[key] = master::PDOOffset{output_byte_offset, 0};
+                    output_byte_offset += pdo.byte_length();
+                }
             }
         }
     }
 };
+
+/// Mock implementation of master::Manager for testing.
+///
+/// Returns pre-configured masters. Use configure() to set up what enumerate()
+/// returns and what create() produces.
+class Manager final : public master::Manager {
+    std::vector<master::Info> infos;
+    std::unordered_map<std::string, std::shared_ptr<Master>> masters;
+
+public:
+    /// Configures a master to be returned by enumerate() and create().
+    void configure(const std::string &key, std::shared_ptr<Master> m) {
+        this->infos.push_back({key, "Mock " + key});
+        this->masters[key] = std::move(m);
+    }
+
+    [[nodiscard]] std::vector<master::Info> enumerate() override {
+        return this->infos;
+    }
+
+    [[nodiscard]] std::pair<std::shared_ptr<master::Master>, xerrors::Error>
+    create(const std::string &key) override {
+        auto it = this->masters.find(key);
+        if (it != this->masters.end()) return {it->second, xerrors::NIL};
+        return {nullptr, xerrors::Error(
+            MASTER_INIT_ERROR,
+            "no mock master configured for key: " + key
+        )};
+    }
+};
+
 }

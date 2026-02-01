@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -21,28 +22,33 @@ namespace ethercat::engine {
 
 /// Manages a pool of EtherCAT engines.
 ///
-/// Each engine is associated with a unique key based on interface name or backend type.
-/// Engines are created lazily on first request and reused for subsequent tasks.
+/// Each engine is associated with a unique key from master::Info. Engines are created
+/// lazily on first request and reused for subsequent tasks. The Pool owns a Manager
+/// that discovers available masters and creates them.
 class Pool {
-    master::Factory factory;
+    std::unique_ptr<master::Manager> manager;
     mutable std::mutex mu;
     std::unordered_map<std::string, std::shared_ptr<Engine>> engines;
 
 public:
-    /// Constructs a pool with the given master factory function.
-    explicit Pool(master::Factory factory);
+    /// Constructs a pool with the given manager.
+    explicit Pool(std::unique_ptr<master::Manager> manager);
 
-    /// Acquires or creates an engine for the specified interface/backend.
-    /// @param interface_name Network interface name (used by SOEM).
-    /// @param backend Backend type: "soem", "igh", or "auto".
+    /// Returns all available EtherCAT masters discovered by the manager.
+    [[nodiscard]] std::vector<master::Info> enumerate() const;
+
+    /// Acquires or creates an engine for the specified master key.
+    /// @param key The master key (e.g., "igh:0" or "eth0").
     /// @return Pair of shared pointer to the engine and error.
-    std::pair<std::shared_ptr<Engine>, xerrors::Error>
-    acquire(const std::string &interface_name, const std::string &backend = "auto");
+    std::pair<std::shared_ptr<Engine>, xerrors::Error> acquire(const std::string &key);
 
-    /// Checks if an interface has an active (running) engine.
-    bool is_active(const std::string &interface) const;
+    /// Checks if a master has an active (running) engine.
+    /// @param key The master key.
+    [[nodiscard]] bool is_active(const std::string &key) const;
 
-    /// Returns cached slave information from an interface's engine.
-    std::vector<SlaveInfo> get_slaves(const std::string &interface) const;
+    /// Returns cached slave information from a master's engine.
+    /// @param key The master key.
+    [[nodiscard]] std::vector<SlaveInfo> get_slaves(const std::string &key) const;
 };
+
 }

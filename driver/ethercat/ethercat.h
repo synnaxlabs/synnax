@@ -18,6 +18,7 @@
 #include "driver/task/task.h"
 
 namespace ethercat {
+
 const std::string INTEGRATION_NAME = "ethercat";
 const std::string DEVICE_MAKE = INTEGRATION_NAME;
 const std::string SLAVE_DEVICE_MODEL = "slave";
@@ -25,7 +26,9 @@ const std::string READ_TASK_TYPE = "ethercat_read";
 const std::string WRITE_TASK_TYPE = "ethercat_write";
 const std::string SCAN_TASK_TYPE = "ethercat_scan";
 
-master::Factory default_master_factory();
+/// Creates the default manager for the current platform.
+/// Returns IgH manager if IgH masters are configured, otherwise SOEM.
+std::unique_ptr<master::Manager> default_manager();
 
 class Factory final : public task::Factory {
     std::shared_ptr<engine::Pool> pool;
@@ -44,7 +47,12 @@ class Factory final : public task::Factory {
     configure_scan(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
 
 public:
-    explicit Factory(master::Factory master_factory);
+    /// Constructs a Factory with default manager.
+    Factory();
+
+    /// Constructs a Factory with custom manager.
+    explicit Factory(std::unique_ptr<master::Manager> manager);
+
     ~Factory() override = default;
 
     Factory(const Factory &) = delete;
@@ -63,8 +71,13 @@ public:
         const synnax::Rack &rack
     ) override;
 
-    bool is_interface_active(const std::string &interface) const;
+    /// Checks if a master has an active engine.
+    /// @param key The master key (e.g., "igh:0" or "eth0").
+    bool is_interface_active(const std::string &key) const;
 
-    std::vector<SlaveInfo> get_cached_slaves(const std::string &interface) const;
+    /// Returns cached slaves for a master.
+    /// @param key The master key.
+    std::vector<SlaveInfo> get_cached_slaves(const std::string &key) const;
 };
+
 }

@@ -55,6 +55,10 @@ xerrors::Error Master::initialize() {
     return xerrors::NIL;
 }
 
+xerrors::Error Master::register_pdos(const std::vector<PDOEntry> &) {
+    return xerrors::NIL;
+}
+
 xerrors::Error Master::activate() {
     if (!this->initialized)
         return xerrors::Error(ACTIVATION_ERROR, "master not initialized");
@@ -289,21 +293,19 @@ constexpr int SDO_TIMEOUT = 700000;
 constexpr int MAX_SDO_FAILURES = 3;
 
 void Master::discover_slave_pdos(SlaveInfo &slave) {
-    if (!this->discover_pdos_coe(slave)) this->discover_pdos_sii(slave);
-
-    if (slave.input_pdos.empty() && slave.output_pdos.empty()) {
-        if (esi::lookup_device_pdos(
-                slave.vendor_id,
-                slave.product_code,
-                slave.revision,
-                slave
-            )) {
-            VLOG(1) << "Slave " << slave.position
-                    << " PDOs discovered via ESI lookup: " << slave.input_pdos.size()
-                    << " inputs, " << slave.output_pdos.size() << " outputs";
-            slave.pdo_discovery_error.clear();
-        }
+    if (esi::lookup_device_pdos(
+            slave.vendor_id,
+            slave.product_code,
+            slave.revision,
+            slave
+        )) {
+        VLOG(1) << "Slave " << slave.position
+                << " PDOs discovered via ESI: " << slave.input_pdos.size()
+                << " inputs, " << slave.output_pdos.size() << " outputs";
+        return;
     }
+
+    if (!this->discover_pdos_coe(slave)) this->discover_pdos_sii(slave);
 }
 
 bool Master::discover_pdos_coe(SlaveInfo &slave) {
