@@ -20,10 +20,17 @@
 namespace ethercat::engine {
 void Engine::run() {
     LOG(INFO) << "[ethercat] engine started on " << this->master->interface_name();
-    xthread::apply_rt_config(this->config.rt);
     const auto cycle_time = telem::TimeSpan(
         this->cycle_time_ns.load(std::memory_order_acquire)
     );
+    xthread::RTConfig rt_cfg = this->config.rt;
+    if (rt_cfg.enabled && !rt_cfg.has_timing()) {
+        rt_cfg.period = cycle_time;
+        rt_cfg.computation = cycle_time * 0.2;
+        rt_cfg.deadline = cycle_time * 0.8;
+        rt_cfg.prefer_deadline_scheduler = true;
+    }
+    xthread::apply_rt_config(rt_cfg);
     loop::Timer timer(cycle_time);
     while (this->breaker.running()) {
         if (auto err = this->master->receive(); err)

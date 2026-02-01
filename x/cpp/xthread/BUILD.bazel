@@ -12,7 +12,9 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/telem",
         "//x/cpp/xerrors",
+        "//x/cpp/xlog",
         "@glog",
     ],
 )
@@ -24,6 +26,8 @@ cc_test(
         "xthread_test.cpp",
     ],
     deps = [
+        "//x/cpp/telem",
+        "//x/cpp/xtest",
         "//x/cpp/xthread",
         "@googletest//:gtest_main",
     ],

@@ -12,11 +12,24 @@
 #include "x/cpp/xthread/rt.h"
 
 namespace xthread {
-bool has_rt_support() { return false; }
+RTCapabilities get_rt_capabilities() {
+    return {};
+}
+
+std::string RTCapabilities::permissions_guidance() const {
+    return "Real-time scheduling is not supported on this platform.";
+}
+
+bool has_rt_support() {
+    return false;
+}
 
 xerrors::Error apply_rt_config(const RTConfig &cfg) {
     if (cfg.enabled)
         LOG(WARNING) << "[xthread] Real-time scheduling not supported on this platform";
+    if (cfg.has_timing())
+        LOG(WARNING) << "[xthread] Timing-aware scheduling not supported on this "
+                        "platform";
     if (cfg.cpu_affinity >= 0)
         LOG(WARNING) << "[xthread] CPU affinity not supported on this platform";
     if (cfg.lock_memory)
