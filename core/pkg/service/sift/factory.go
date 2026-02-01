@@ -103,7 +103,7 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 
 // ConfigureTask creates a Sift upload task.
 func (f *Factory) ConfigureTask(ctx driver.Context, t task.Task) (driver.Task, error) {
-	if t.Type != TaskType {
+	if t.Type != UploadTaskType {
 		return nil, driver.ErrTaskNotHandled
 	}
 
