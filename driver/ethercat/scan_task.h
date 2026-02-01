@@ -151,10 +151,10 @@ private:
     );
 
     /// Generates a device key for a network.
-    std::string generate_network_key(const std::string &interface);
+    static std::string generate_network_key(const std::string &interface);
 
     /// Generates a device key for a slave.
-    std::string
+    static std::string
     generate_slave_key(const SlaveInfo &slave, const std::string &interface);
 
     /// Handles the test_interface command.

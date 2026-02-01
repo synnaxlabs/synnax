@@ -9,12 +9,8 @@
 
 #pragma once
 
-#include <atomic>
-#include <chrono>
 #include <memory>
-#include <optional>
 #include <set>
-#include <thread>
 #include <vector>
 
 #include "client/cpp/synnax.h"
@@ -109,8 +105,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         cfg.iter("channels", [&](xjson::Parser &ch) {
             auto slave_key = ch.field<std::string>("device");
             if (ch.error()) return;
-
-            if (slave_cache.find(slave_key) == slave_cache.end()) {
+            if (!slave_cache.contains(slave_key)) {
                 auto [slave_dev, slave_err] = client->devices.retrieve(slave_key);
                 if (slave_err) {
                     ch.field_err("device", slave_err.message());
@@ -123,7 +118,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                     return;
                 }
             }
-
             const auto &slave = slave_cache.at(slave_key);
             auto channel_ptr = channel::parse_input(ch, slave);
             if (channel_ptr && channel_ptr->enabled)
@@ -222,9 +216,8 @@ public:
         for (size_t epoch = 0; epoch < this->cfg.epochs_per_batch; ++epoch) {
             if (epoch % this->cfg.decimation_factor == 0) {
                 if (res.error = this->reader->read(breaker, fr); res.error) return res;
-            } else {
-                if (res.error = this->reader->wait(breaker); res.error) return res;
-            }
+            } else if (res.error = this->reader->wait(breaker); res.error)
+                return res;
             // User commanded stop - clear frame and return early
             if (!breaker.running()) {
                 fr.clear();

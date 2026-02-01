@@ -128,19 +128,6 @@ Scanner::probe_interface(const std::string &interface) const {
     return {engine->master->slaves(), xerrors::NIL};
 }
 
-nlohmann::json Scanner::get_existing_properties(
-    const std::string &key,
-    const common::ScannerContext &scan_ctx
-) {
-    if (scan_ctx.devices == nullptr) return nlohmann::json::object();
-    const auto it = scan_ctx.devices->find(key);
-    if (it == scan_ctx.devices->end()) return nlohmann::json::object();
-    if (it->second.properties.empty()) return nlohmann::json::object();
-    try {
-        return nlohmann::json::parse(it->second.properties);
-    } catch (const nlohmann::json::parse_error &) { return nlohmann::json::object(); }
-}
-
 synnax::Device Scanner::create_network_device(
     const InterfaceInfo &iface,
     const std::vector<SlaveInfo> &slaves,
@@ -150,14 +137,12 @@ synnax::Device Scanner::create_network_device(
     const std::string key = this->generate_network_key(iface.name);
 
     nlohmann::json props = get_existing_properties(key, scan_ctx);
-    NetworkDeviceProperties net_props(iface.name, slaves.size());
+    const NetworkDeviceProperties net_props(iface.name, slaves.size());
     for (auto &[k, v]: net_props.to_json().items())
         props[k] = v;
-
     const std::string status_msg = "Discovered " + std::to_string(slaves.size()) +
                                    " slaves";
     const std::string status_variant = status::variant::SUCCESS;
-
     synnax::Device dev;
     dev.key = key;
     dev.name = "EtherCAT Network " + iface.name;
@@ -230,16 +215,28 @@ synnax::Device Scanner::create_slave_device(
     return dev;
 }
 
+nlohmann::json Scanner::get_existing_properties(
+    const std::string &key,
+    const common::ScannerContext &scan_ctx
+) {
+    if (scan_ctx.devices == nullptr) return nlohmann::json::object();
+    const auto it = scan_ctx.devices->find(key);
+    if (it == scan_ctx.devices->end()) return nlohmann::json::object();
+    if (it->second.properties.empty()) return nlohmann::json::object();
+    try {
+        return nlohmann::json::parse(it->second.properties);
+    } catch (const nlohmann::json::parse_error &) { return nlohmann::json::object(); }
+}
+
 std::string Scanner::generate_network_key(const std::string &interface) {
     return "ethercat_" + interface;
 }
 
 std::string
 Scanner::generate_slave_key(const SlaveInfo &slave, const std::string &interface) {
-    if (slave.serial != 0) {
+    if (slave.serial != 0)
         return "ethercat_" + std::to_string(slave.vendor_id) + "_" +
                std::to_string(slave.product_code) + "_" + std::to_string(slave.serial);
-    }
     return "ethercat_" + interface + "_" + std::to_string(slave.vendor_id) + "_" +
            std::to_string(slave.product_code) + "_" + std::to_string(slave.position);
 }
