@@ -28,41 +28,11 @@ protected:
     synnax::Rack rack;
 };
 
-TEST_F(EtherCATScanTest, GenerateNetworkKey) {
+TEST_F(EtherCATScanTest, ScannerCreation) {
     synnax::Task task(rack.key, "EtherCAT Scanner", ethercat::SCAN_TASK_TYPE, "", true);
     ethercat::ScanTaskConfig cfg;
     ethercat::Scanner scanner(ctx, task, cfg, nullptr);
-
-    ethercat::InterfaceInfo iface{"eth0", "Ethernet Adapter"};
-    std::vector<ethercat::SlaveInfo> slaves;
-    slaves.emplace_back(1, 0x1, 0x2, 0, 12345, "Test Slave", ethercat::SlaveState::OP);
-
-    auto dev = scanner.scan({}).first;
-}
-
-TEST_F(EtherCATScanTest, GenerateSlaveKeyWithSerial) {
-    ethercat::SlaveInfo
-        slave(1, 1000, 2000, 1, 12345, "EL3004", ethercat::SlaveState::OP);
-    std::string expected = "ethercat_1000_2000_12345";
-
-    synnax::Task task(rack.key, "EtherCAT Scanner", ethercat::SCAN_TASK_TYPE, "", true);
-    ethercat::ScanTaskConfig cfg;
-    ethercat::Scanner scanner(ctx, task, cfg, nullptr);
-
-    auto [devices, err] = scanner.scan({});
-    ASSERT_NIL(err);
-}
-
-TEST_F(EtherCATScanTest, GenerateSlaveKeyWithoutSerial) {
-    ethercat::SlaveInfo slave(3, 1000, 2000, 1, 0, "EL3004", ethercat::SlaveState::OP);
-    std::string expected = "ethercat_eth0_1000_2000_3";
-
-    synnax::Task task(rack.key, "EtherCAT Scanner", ethercat::SCAN_TASK_TYPE, "", true);
-    ethercat::ScanTaskConfig cfg;
-    ethercat::Scanner scanner(ctx, task, cfg, nullptr);
-
-    auto [devices, err] = scanner.scan({});
-    ASSERT_NIL(err);
+    EXPECT_EQ(scanner.config().make, ethercat::INTEGRATION_NAME);
 }
 
 TEST_F(EtherCATScanTest, ScanConfigParsesCorrectly) {

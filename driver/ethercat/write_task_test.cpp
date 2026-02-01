@@ -132,7 +132,7 @@ protected:
             {"type", "automatic"},
             {"device", slave_device.key},
             {"pdo", pdo_name},
-            {"channel", command_key},
+            {"cmd_channel", command_key},
             {"enabled", true}
         };
         if (state_key != 0) cfg["state_channel"] = state_key;
@@ -154,7 +154,7 @@ protected:
             {"subindex", subindex},
             {"bit_length", bit_length},
             {"data_type", data_type},
-            {"channel", command_key},
+            {"cmd_channel", command_key},
             {"enabled", true}
         };
         if (state_key != 0) cfg["state_channel"] = state_key;

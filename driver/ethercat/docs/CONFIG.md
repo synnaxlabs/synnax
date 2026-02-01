@@ -30,10 +30,10 @@ timing and connectivity for child devices.
 }
 ```
 
-| Property    | Type   | Required | Description                                             |
-| ----------- | ------ | -------- | ------------------------------------------------------- |
-| `interface` | string | Yes      | Network interface name (e.g., "eth0", "enp2s0")         |
-| `rate`      | float  | Yes      | Network cycle rate in Hz (e.g., 1000 = 1kHz, 100 = 10ms)|
+| Property    | Type   | Required | Description                                              |
+| ----------- | ------ | -------- | -------------------------------------------------------- |
+| `interface` | string | Yes      | Network interface name (e.g., "eth0", "enp2s0")          |
+| `rate`      | float  | Yes      | Network cycle rate in Hz (e.g., 1000 = 1kHz, 100 = 10ms) |
 
 **Relationships:**
 
@@ -338,13 +338,14 @@ Example:
 
 ### Network Cycle Rate
 
-The `rate` on the Network device defines how often EtherCAT frames traverse the
-network in Hz. All slaves on the network share this cycle rate.
+The `rate` on the Network device defines how often EtherCAT frames traverse the network
+in Hz. All slaves on the network share this cycle rate.
 
 ### Task Sample Rate
 
 The `sample_rate` on Read tasks defines how many samples per second are captured. Must
 satisfy:
+
 - `sample_rate ≤ rate` (cannot sample faster than network cycles)
 - `rate % sample_rate == 0` (clean decimation factor)
 - `sample_rate % stream_rate == 0` (integer samples per batch)

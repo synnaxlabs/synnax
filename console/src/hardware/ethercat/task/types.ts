@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task } from "@synnaxlabs/client";
-import { caseconv, id } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";
@@ -238,18 +238,16 @@ export const SCAN_SCHEMAS: task.Schemas<
   statusDataSchema: scanStatusDataZ,
 };
 
-/** Generates a unique map key for a read channel configuration. */
+/** Generates a unique map key for a read channel configuration within a slave. */
 export const readMapKey = (ch: ReadChannel): string => {
-  const device = caseconv.camelToSnake(ch.device);
-  if (ch.type === AUTOMATIC_TYPE) return `${device}_auto_${ch.pdo}`;
-  return `${device}_manual_${ch.index}_${ch.subindex}`;
+  if (ch.type === AUTOMATIC_TYPE) return `auto_${ch.pdo}`;
+  return `manual_${ch.index}_${ch.subindex}`;
 };
 
-/** Generates a unique map key for a write channel configuration. */
+/** Generates a unique map key for a write channel configuration within a slave. */
 export const writeMapKey = (ch: WriteChannel): string => {
-  const device = caseconv.camelToSnake(ch.device);
-  if (ch.type === AUTOMATIC_TYPE) return `${device}_auto_${ch.pdo}`;
-  return `${device}_manual_${ch.index}_${ch.subindex}`;
+  if (ch.type === AUTOMATIC_TYPE) return `auto_${ch.pdo}`;
+  return `manual_${ch.index}_${ch.subindex}`;
 };
 
 /** Creates a new read channel, copying from the last channel if available. */

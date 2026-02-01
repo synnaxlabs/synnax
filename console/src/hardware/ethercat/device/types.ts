@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
+import { Rate } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 export const PREFIX = "ethercat";
@@ -46,23 +47,13 @@ export const ZERO_PDOS: PDOs = {
 /** Network device properties schema. */
 export const networkPropertiesZ = z.object({
   interface: z.string(),
-  cycleTimeUs: z.number(),
-  read: z.object({
-    index: z.number(),
-    channels: z.record(z.string(), z.number()),
-  }),
-  write: z.object({
-    stateIndex: z.number(),
-    channels: z.record(z.string(), z.number()),
-  }),
+  rate: Rate.z,
 });
 export interface NetworkProperties extends z.infer<typeof networkPropertiesZ> {}
 
 export const ZERO_NETWORK_PROPERTIES: NetworkProperties = {
   interface: "",
-  cycleTimeUs: 1000,
-  read: { index: 0, channels: {} },
-  write: { stateIndex: 0, channels: {} },
+  rate: Rate.hz(1000),
 };
 
 export interface NetworkDevice extends device.Device<
@@ -80,6 +71,14 @@ export const slavePropertiesZ = z.object({
   name: z.string(),
   position: z.number(),
   pdos: pdosZ,
+  readIndex: z.number(),
+  writeStateIndex: z.number(),
+  read: z.object({
+    channels: z.record(z.string(), z.number()),
+  }),
+  write: z.object({
+    channels: z.record(z.string(), z.number()),
+  }),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
 
@@ -91,10 +90,10 @@ export const ZERO_SLAVE_PROPERTIES: SlaveProperties = {
   name: "",
   position: 0,
   pdos: ZERO_PDOS,
+  readIndex: 0,
+  writeStateIndex: 0,
+  read: { channels: {} },
+  write: { channels: {} },
 };
 
-export interface SlaveDevice extends device.Device<
-  SlaveProperties,
-  Make,
-  SlaveModel
-> {}
+export interface SlaveDevice extends device.Device<SlaveProperties, Make, SlaveModel> {}

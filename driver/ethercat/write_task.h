@@ -29,7 +29,6 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     std::vector<synnax::Channel> state_channels;
     std::set<synnax::ChannelKey> state_indexes;
     telem::Rate state_rate;
-    /// Network cycle rate from the EtherCAT network device.
     telem::Rate network_rate;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
@@ -64,10 +63,10 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             cfg.field_err("device", net_parser.error().message());
             return;
         }
-        interface_name = net_props.interface;
-        network_rate = net_props.rate;
+        this->interface_name = net_props.interface;
+        this->network_rate = net_props.rate;
 
-        if (state_rate > network_rate) {
+        if (this->state_rate > this->network_rate) {
             cfg.field_err("state_rate", "cannot exceed network rate");
             return;
         }
@@ -92,15 +91,14 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             const auto &slave = slave_cache.at(slave_key);
             auto channel_ptr = channel::parse_output(ch, slave);
             if (channel_ptr && channel_ptr->enabled)
-                channels.push_back(std::move(channel_ptr));
+                this->channels.push_back(std::move(channel_ptr));
         });
 
         if (cfg.error()) return;
 
-        channel::sort_by_position(channels);
-
+        channel::sort_by_position(this->channels);
         std::vector<synnax::ChannelKey> state_keys;
-        for (const auto &ch: channels)
+        for (const auto &ch: this->channels)
             if (ch->state_key != 0) state_keys.push_back(ch->state_key);
 
         if (!state_keys.empty()) {
@@ -109,9 +107,9 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
                 cfg.field_err("channels", err.message());
                 return;
             }
-            state_channels = std::move(state_chs);
-            for (const auto &ch: state_channels)
-                if (ch.index != 0) state_indexes.insert(ch.index);
+            this->state_channels = std::move(state_chs);
+            for (const auto &ch: this->state_channels)
+                if (ch.index != 0) this->state_indexes.insert(ch.index);
         }
     }
 
@@ -124,8 +122,8 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
 
     [[nodiscard]] std::vector<synnax::ChannelKey> cmd_keys() const {
         std::vector<synnax::ChannelKey> keys;
-        keys.reserve(channels.size());
-        for (const auto &ch: channels)
+        keys.reserve(this->channels.size());
+        for (const auto &ch: this->channels)
             keys.push_back(ch->command_key);
         return keys;
     }
@@ -165,11 +163,11 @@ public:
     }
 
     xerrors::Error write(telem::Frame &frame) override {
-        const auto batch = this->writer->open_tx();
+        const auto tx = this->writer->open_tx();
         for (size_t i = 0; i < this->cfg.channels.size(); ++i) {
             const auto &ch = this->cfg.channels[i];
             if (!frame.contains(ch->command_key)) continue;
-            batch.write(i, frame.at(ch->command_key, 0));
+            tx.write(i, frame.at(ch->command_key, 0));
         }
         this->set_state(frame);
         return xerrors::NIL;

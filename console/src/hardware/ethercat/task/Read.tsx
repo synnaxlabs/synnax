@@ -33,10 +33,7 @@ import {
 } from "@/hardware/ethercat/task/types";
 import { Selector } from "@/selector";
 
-const getChannelByMapKey = (
-  channels: Record<string, number>,
-  mapKey: string,
-): number =>
+const getChannelByMapKey = (channels: Record<string, number>, mapKey: string): number =>
   channels[mapKey] ?? channels[caseconv.snakeToCamel(mapKey)] ?? 0;
 
 export const READ_LAYOUT: Common.Task.Layout = {
@@ -191,13 +188,37 @@ const getInitialValues: Common.Task.GetInitialValues<
   };
 };
 
-const resolvePDODataType = (
-  slave: Device.SlaveDevice | undefined,
-  pdo: string,
-): string => {
-  if (slave == null) return "uint16";
+const resolvePDODataType = (slave: Device.SlaveDevice, pdo: string): string => {
   const pdoEntry = slave.properties.pdos.inputs.find((p) => p.name === pdo);
   return pdoEntry?.dataType ?? "uint16";
+};
+
+const checkOrCreateIndex = async (
+  client: Parameters<Common.Task.OnConfigure<typeof readConfigZ>>[0],
+  slave: Device.SlaveDevice,
+  networkSafeName: string,
+): Promise<boolean> => {
+  let shouldCreate = primitive.isZero(slave.properties.readIndex);
+  if (!shouldCreate)
+    try {
+      await client.channels.retrieve(slave.properties.readIndex);
+    } catch (e) {
+      if (NotFoundError.matches(e)) shouldCreate = true;
+      else throw e;
+    }
+
+  if (shouldCreate) {
+    const slaveSafeName = channel.escapeInvalidName(slave.properties.name);
+    const idx = await client.channels.create({
+      name: `${networkSafeName}_s${slave.properties.position}_${slaveSafeName}_time`,
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    slave.properties.readIndex = idx.key;
+    slave.properties.read.channels = {};
+    return true;
+  }
+  return false;
 };
 
 const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
@@ -206,48 +227,40 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
 ) => {
   const network = await client.devices.retrieve<
     Device.NetworkProperties,
-    Device.NetworkMake,
+    Device.Make,
     Device.NetworkModel
   >({ key: config.device });
 
   Common.Device.checkConfigured(network);
 
-  const maxSampleRate = 1_000_000 / network.properties.cycleTimeUs;
+  const maxSampleRate = network.properties.rate.valueOf();
   if (config.sampleRate > maxSampleRate)
     throw new Error(
-      `Sample rate (${config.sampleRate} Hz) exceeds maximum allowed by cycle time (${maxSampleRate} Hz)`,
+      `Sample rate (${config.sampleRate} Hz) exceeds maximum allowed by network rate (${maxSampleRate} Hz)`,
     );
 
-  let shouldCreateIndex = primitive.isZero(network.properties.read.index);
-  if (!shouldCreateIndex)
-    try {
-      await client.channels.retrieve(network.properties.read.index);
-    } catch (e) {
-      if (NotFoundError.matches(e)) shouldCreateIndex = true;
-      else throw e;
-    }
+  const networkSafeName = channel.escapeInvalidName(network.name);
 
-  const safeName = channel.escapeInvalidName(network.name);
-  let modified = false;
+  const channelsBySlaveKey = new Map<string, ReadChannel[]>();
+  for (const ch of config.channels) {
+    const existing = channelsBySlaveKey.get(ch.device) ?? [];
+    existing.push(ch);
+    channelsBySlaveKey.set(ch.device, existing);
+  }
 
-  try {
-    if (shouldCreateIndex) {
-      modified = true;
-      const idx = await client.channels.create({
-        name: `${safeName}_time`,
-        dataType: "timestamp",
-        isIndex: true,
-      });
-      network.properties.read.index = idx.key;
-      network.properties.read.channels = {};
-    }
+  for (const [slaveKey, channels] of channelsBySlaveKey) {
+    const slave = await client.devices.retrieve<
+      Device.SlaveProperties,
+      Device.Make,
+      Device.SlaveModel
+    >({ key: slaveKey });
 
-    const slaveCache = new Map<string, Device.SlaveDevice>();
+    let modified = await checkOrCreateIndex(client, slave, networkSafeName);
+
     const toCreate: ReadChannel[] = [];
-
-    for (const ch of config.channels) {
+    for (const ch of channels) {
       const mapKey = readMapKey(ch);
-      const existing = getChannelByMapKey(network.properties.read.channels, mapKey);
+      const existing = getChannelByMapKey(slave.properties.read.channels, mapKey);
       if (existing === 0) {
         toCreate.push(ch);
         continue;
@@ -262,27 +275,13 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
 
     if (toCreate.length > 0) {
       modified = true;
-      for (const ch of toCreate)
-        if (primitive.isNonZero(ch.device) && !slaveCache.has(ch.device)) {
-          const slave = await client.devices.retrieve<
-            Device.SlaveProperties,
-            Device.SlaveMake,
-            Device.SlaveModel
-          >({ key: ch.device });
-          slaveCache.set(ch.device, slave);
-        }
-
-      const channels = await client.channels.create(
+      const slaveSafeName = channel.escapeInvalidName(slave.properties.name);
+      const created = await client.channels.create(
         toCreate.map((ch) => {
-          const slave = slaveCache.get(ch.device);
           const dataType =
             ch.type === AUTOMATIC_TYPE
               ? resolvePDODataType(slave, ch.pdo)
               : ch.dataType;
-          const slavePosition = slave?.properties?.position ?? 0;
-          const slaveName = channel.escapeInvalidName(
-            slave?.properties?.name ?? "slave",
-          );
           const pdoName = channel.escapeInvalidName(
             ch.type === AUTOMATIC_TYPE
               ? ch.pdo
@@ -291,24 +290,24 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
           return {
             name: primitive.isNonZero(ch.name)
               ? ch.name
-              : `${safeName}_s${slavePosition}_${slaveName}_${pdoName}`,
+              : `${networkSafeName}_s${slave.properties.position}_${slaveSafeName}_${pdoName}`,
             dataType,
-            index: network.properties.read.index,
+            index: slave.properties.readIndex,
           };
         }),
       );
 
-      channels.forEach((c, i) => {
-        network.properties.read.channels[readMapKey(toCreate[i])] = c.key;
+      created.forEach((c, i) => {
+        slave.properties.read.channels[readMapKey(toCreate[i])] = c.key;
       });
     }
-  } finally {
-    if (modified) await client.devices.create(network);
-  }
 
-  config.channels.forEach((ch) => {
-    ch.channel = getChannelByMapKey(network.properties.read.channels, readMapKey(ch));
-  });
+    if (modified) await client.devices.create(slave);
+
+    channels.forEach((ch) => {
+      ch.channel = getChannelByMapKey(slave.properties.read.channels, readMapKey(ch));
+    });
+  }
 
   return [config, network.rack];
 };

@@ -144,34 +144,34 @@ TEST_F(MasterTest, PDOOffsetLookup) {
     PDOEntry input2(0, 0x6000, 2, 32, true);
     PDOEntry output1(0, 0x7000, 1, 16, false);
 
-    size_t offset1 = master->pdo_offset(input1);
-    size_t offset2 = master->pdo_offset(input2);
-    size_t offset3 = master->pdo_offset(output1);
+    auto offset1 = this->master->pdo_offset(input1);
+    auto offset2 = this->master->pdo_offset(input2);
+    auto offset3 = this->master->pdo_offset(output1);
 
-    EXPECT_EQ(offset1, 0);
-    EXPECT_EQ(offset2, 2);
-    EXPECT_EQ(offset3, 0);
+    EXPECT_EQ(offset1.byte, 0);
+    EXPECT_EQ(offset2.byte, 2);
+    EXPECT_EQ(offset3.byte, 0);
 }
 
 TEST_F(MasterTest, BufferAccessAfterActivation) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    ASSERT_NIL(master->initialize());
-    ASSERT_NIL(master->activate());
+    this->master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    ASSERT_NIL(this->master->initialize());
+    ASSERT_NIL(this->master->activate());
 
-    EXPECT_NE(master->input_data(), nullptr);
-    EXPECT_NE(master->output_data(), nullptr);
-    EXPECT_GT(master->input_size(), 0);
-    EXPECT_GT(master->output_size(), 0);
+    EXPECT_FALSE(this->master->input_data().empty());
+    EXPECT_FALSE(this->master->output_data().empty());
+    EXPECT_GT(this->master->input_data().size(), 0);
+    EXPECT_GT(this->master->output_data().size(), 0);
 }
 
 TEST_F(MasterTest, BufferAccessBeforeActivation) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    ASSERT_NIL(master->initialize());
+    this->master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    ASSERT_NIL(this->master->initialize());
 
-    EXPECT_EQ(master->input_data(), nullptr);
-    EXPECT_EQ(master->output_data(), nullptr);
-    EXPECT_EQ(master->input_size(), 0);
-    EXPECT_EQ(master->output_size(), 0);
+    EXPECT_TRUE(this->master->input_data().empty());
+    EXPECT_TRUE(this->master->output_data().empty());
+    EXPECT_EQ(this->master->input_data().size(), 0);
+    EXPECT_EQ(this->master->output_data().size(), 0);
 }
 
 TEST_F(MasterTest, StateTransitionsOnActivation) {
@@ -325,20 +325,24 @@ TEST_F(MasterTest, HasSlaveInState) {
 }
 
 TEST_F(MasterTest, InputOutputDataReadWrite) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    ASSERT_NIL(master->initialize());
-    ASSERT_NIL(master->activate());
+    this->master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    ASSERT_NIL(this->master->initialize());
+    ASSERT_NIL(this->master->activate());
 
     uint32_t test_value = 0xDEADBEEF;
-    master->set_input(0, test_value);
+    this->master->set_input(0, test_value);
 
     uint32_t read_value;
-    std::memcpy(&read_value, master->input_data(), sizeof(read_value));
+    std::memcpy(&read_value, this->master->input_data().data(), sizeof(read_value));
     EXPECT_EQ(read_value, 0xDEADBEEF);
 
     uint16_t output_value = 0x1234;
-    std::memcpy(master->output_data(), &output_value, sizeof(output_value));
-    EXPECT_EQ(master->get_output<uint16_t>(0), 0x1234);
+    std::memcpy(
+        this->master->output_data().data(),
+        &output_value,
+        sizeof(output_value)
+    );
+    EXPECT_EQ(this->master->get_output<uint16_t>(0), 0x1234);
 }
 
 }
