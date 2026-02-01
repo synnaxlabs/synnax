@@ -131,11 +131,10 @@ int ecx_setupnic(ecx_portt *port, const char *ifname, int secondary)
       return 0;
    }
 
-   /* Set immediate mode for low latency */
-   if (pcap_set_immediate_mode(*ppcap, 1) == -1)
-   {
-      /* Not fatal - some pcap versions don't support this */
-   }
+   /* Note: pcap_set_immediate_mode() requires an inactive handle (from pcap_create),
+    * but pcap_open_live() returns an already-activated handle. Calling it here
+    * would be undefined behavior on macOS. Instead, we use a short read timeout
+    * (1ms in pcap_open_live above) which provides similar low-latency behavior. */
 
    /* Setup ethernet headers in tx buffers so we don't have to repeat it */
    for (i = 0; i < EC_MAXBUF; i++)
