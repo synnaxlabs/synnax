@@ -40,6 +40,10 @@ MMCSSFunctions load_mmcss() {
     MMCSSFunctions funcs;
     funcs.module = LoadLibraryW(L"Avrt.dll");
     if (!funcs.module) return funcs;
+    // Suppress C4191: GetProcAddress returns FARPROC which requires cast to specific
+    // function pointer types. This is the standard pattern for runtime DLL loading.
+#pragma warning(push)
+#pragma warning(disable : 4191)
     funcs.set_characteristics = reinterpret_cast<AvSetMmThreadCharacteristicsWFn>(
         GetProcAddress(funcs.module, "AvSetMmThreadCharacteristicsW")
     );
@@ -49,6 +53,7 @@ MMCSSFunctions load_mmcss() {
     funcs.revert = reinterpret_cast<AvRevertMmThreadCharacteristicsFn>(
         GetProcAddress(funcs.module, "AvRevertMmThreadCharacteristics")
     );
+#pragma warning(pop)
     return funcs;
 }
 

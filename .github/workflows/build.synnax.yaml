@@ -200,6 +200,10 @@ jobs:
       - name: Update Submodules
         run: git submodule update --init --recursive
 
+      - name: Fetch LFS files in submodules
+        run: |
+          cd vendor/esi/esi && git lfs pull
+
       - name: Install Deps On Ubuntu
         # Dependencies should already be installed on the machine.
         # This is nominally a no-op, but exists as a fallback and for documentation.
@@ -548,6 +552,10 @@ jobs:
 
       - name: Update Submodules
         run: git submodule update --init --recursive
+
+      - name: Fetch LFS files in submodules
+        run: |
+          cd vendor/esi/esi && git lfs pull
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
