@@ -129,6 +129,7 @@ jobs:
 
       - name: Fetch LFS files in submodules
         run: |
+          sudo apt-get install -y git-lfs
           cd vendor/esi/esi && git lfs pull
 
       - name: Setup Bazel

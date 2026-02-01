@@ -200,8 +200,22 @@ jobs:
       - name: Update Submodules
         run: git submodule update --init --recursive
 
-      - name: Fetch LFS files in submodules
+      - name: Fetch LFS files in submodules (Ubuntu)
+        if: matrix.os == 'ubuntu-build-bot'
         run: |
+          sudo apt-get install -y git-lfs
+          cd vendor/esi/esi && git lfs pull
+
+      - name: Fetch LFS files in submodules (macOS)
+        if: matrix.os == 'macos-build-bot'
+        run: |
+          brew install git-lfs
+          cd vendor/esi/esi && git lfs pull
+
+      - name: Fetch LFS files in submodules (Windows)
+        if: matrix.os == 'windows-build-bot'
+        run: |
+          choco install git-lfs -y
           cd vendor/esi/esi && git lfs pull
 
       - name: Install Deps On Ubuntu
@@ -588,6 +602,7 @@ jobs:
 
       - name: Fetch LFS files in submodules
         run: |
+          sudo apt-get install -y git-lfs
           cd vendor/esi/esi && git lfs pull
 
       - name: Set up Docker Buildx
