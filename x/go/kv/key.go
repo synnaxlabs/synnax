@@ -18,7 +18,7 @@ import (
 
 func CompositeKey(elems ...any) ([]byte, error) {
 	b := new(bytes.Buffer)
-	c := errors.NewCatcher(errors.WithAggregation())
+	c := errors.NewCatcher()
 	for _, e := range elems {
 		switch e := e.(type) {
 		case string:

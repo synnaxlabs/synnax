@@ -23,4 +23,5 @@ type Factory interface {
 	Name() string
 }
 
+// ErrTaskNotHandled is returned when a task is not handled by a factory.
 var ErrTaskNotHandled = errors.New("task not handled by factory")
