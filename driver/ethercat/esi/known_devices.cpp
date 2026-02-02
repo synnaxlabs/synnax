@@ -17,8 +17,8 @@ namespace ethercat::esi {
 
 namespace {
 
-// Include the generated binary blob from the ESI submodule
-#include "vendor/esi/esi/generated/registry_blob.inc"
+// Include the generated binary blob fetched from GitHub releases
+#include "driver/ethercat/esi/registry_blob.inc"
 
 // Binary format structures (must match Go generator)
 struct BlobHeader {

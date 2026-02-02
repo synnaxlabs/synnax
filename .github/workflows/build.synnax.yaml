@@ -200,25 +200,6 @@ jobs:
       - name: Update Submodules
         run: git submodule update --init --recursive
 
-      - name: Fetch LFS files in submodules (Ubuntu)
-        if: matrix.os == 'ubuntu-build-bot'
-        run: |
-          sudo apt-get install -y git-lfs
-          cd vendor/esi/esi && git lfs pull
-
-      - name: Fetch LFS files in submodules (macOS)
-        if: matrix.os == 'macos-build-bot'
-        run: |
-          brew install git-lfs
-          cd vendor/esi/esi && git lfs pull
-
-      - name: Fetch LFS files in submodules (Windows)
-        if: matrix.os == 'windows-build-bot'
-        run: |
-          choco install git-lfs -y
-          cd vendor/esi/esi
-          git lfs pull
-
       - name: Install Deps On Ubuntu
         # Dependencies should already be installed on the machine.
         # This is nominally a no-op, but exists as a fallback and for documentation.
@@ -600,11 +581,6 @@ jobs:
             ${{ inputs.use_simple_artifact_names && 'synnax-console-assets-linux' ||
             format('synnax-console-assets-v{0}-linux', needs.setup.outputs.VERSION) }}
           path: core/pkg/console/dist/
-
-      - name: Fetch LFS files in submodules
-        run: |
-          sudo apt-get install -y git-lfs
-          cd vendor/esi/esi && git lfs pull
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

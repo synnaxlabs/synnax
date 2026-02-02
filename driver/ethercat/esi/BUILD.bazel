@@ -1,11 +1,19 @@
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
+# Copy the registry blob from the http_file repo to a local genfiles location
+genrule(
+    name = "registry_blob",
+    srcs = ["@esi_registry_blob//file:registry_blob.inc"],
+    outs = ["registry_blob.inc"],
+    cmd = "cp $< $@",
+)
+
 cc_library(
     name = "esi",
     srcs = ["known_devices.cpp"],
     hdrs = ["known_devices.h"],
-    # The .inc file is #included from known_devices.cpp
-    textual_hdrs = ["//vendor/esi:esi/generated/registry_blob.inc"],
+    # The .inc file is fetched from GitHub releases via http_file
+    textual_hdrs = [":registry_blob"],
     visibility = ["//driver/ethercat:__subpackages__"],
     deps = [
         "//driver/ethercat/master",

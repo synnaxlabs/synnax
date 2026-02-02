@@ -1,7 +1,0 @@
-# Wrapper for ESI submodule
-# The actual ESI repo is in esi/ subdirectory
-
-exports_files(
-    ["esi/generated/registry_blob.inc"],
-    visibility = ["//driver/ethercat/esi:__pkg__"],
-)
