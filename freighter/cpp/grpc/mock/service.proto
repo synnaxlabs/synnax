@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package test;
+
+service UnaryMessageService {
+  rpc Exec(Message) returns (Message) {}
+}
+
+service StreamMessageService {
+  rpc Exec(stream Message) returns (stream Message) {}
+}
+
+message Message {
+  string payload = 1;
+}

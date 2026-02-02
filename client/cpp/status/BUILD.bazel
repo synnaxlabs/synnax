@@ -4,12 +4,12 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/errors",
-        "//core/pkg/api/grpc/v1:api_grpc",
+        "//core/pkg/api/grpc:api_grpc",
         "//freighter/cpp:freighter",
-        "//freighter/cpp/fgrpc",
+        "//freighter/cpp/grpc",
+        "//x/cpp/errors",
         "//x/cpp/status",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
         "@grpc//:grpc++",
     ],
 )
@@ -21,7 +21,7 @@ cc_test(
         ":status",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

@@ -3,16 +3,24 @@ cc_library(
     srcs = [
         "arc.cpp",
     ],
-    hdrs = ["arc.h"],
+    hdrs = [
+        "arc.h",
+        "json.gen.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/pb",
         "//arc/cpp/graph",
         "//arc/cpp/module",
         "//arc/cpp/text",
         "//client/cpp/errors",
-        "//core/pkg/api/grpc/v1:api_grpc",
+        "//client/cpp/ontology",
+        "//core/pkg/api/grpc:api_grpc",
         "//freighter/cpp:freighter",
-        "//freighter/cpp/fgrpc",
+        "//freighter/cpp/grpc",
+        "//x/cpp/status",
         "@grpc//:grpc++",
     ],
 )
@@ -21,10 +29,11 @@ cc_test(
     name = "arc_test",
     srcs = ["arc_test.cpp"],
     deps = [
+        "//x/cpp/pb",
         ":arc",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

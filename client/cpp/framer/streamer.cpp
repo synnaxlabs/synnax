@@ -11,18 +11,18 @@
 
 #include "client/cpp/framer/framer.h"
 
-namespace synnax {
-void StreamerConfig::to_proto(api::v1::FrameStreamerRequest &f) const {
+namespace synnax::framer {
+void StreamerConfig::to_proto(grpc::framer::StreamerRequest &f) const {
     f.mutable_keys()->Add(channels.begin(), channels.end());
     f.set_downsample_factor(downsample_factor);
     f.set_enable_experimental_codec(enable_experimental_codec);
 }
 
-std::pair<Streamer, xerrors::Error>
-FrameClient::open_streamer(const StreamerConfig &config) const {
+std::pair<Streamer, x::errors::Error>
+Client::open_streamer(const StreamerConfig &config) const {
     auto [net_stream, err] = streamer_client->stream("/frame/stream");
     if (err) return {Streamer(), err};
-    api::v1::FrameStreamerRequest req;
+    grpc::framer::StreamerRequest req;
     config.to_proto(req);
     if (!net_stream->send(req).ok()) net_stream->close_send();
     auto [_, res_err] = net_stream->receive();
@@ -38,7 +38,7 @@ FrameClient::open_streamer(const StreamerConfig &config) const {
 Streamer::Streamer(std::unique_ptr<StreamerStream> stream, StreamerConfig config):
     cfg(std::move(config)), stream(std::move(stream)) {}
 
-std::pair<telem::Frame, xerrors::Error> Streamer::read() const {
+std::pair<x::telem::Frame, x::errors::Error> Streamer::read() const {
     this->assert_open();
     auto [fr, exc] = this->stream->receive();
     if (!fr.buffer().empty())
@@ -46,24 +46,27 @@ std::pair<telem::Frame, xerrors::Error> Streamer::read() const {
             reinterpret_cast<const std::uint8_t *>(fr.buffer().data()),
             fr.buffer().size()
         );
-    return {telem::Frame(fr.frame()), exc};
+    if (exc) return {x::telem::Frame(), exc};
+    auto [frame, proto_err] = x::telem::Frame::from_proto(fr.frame());
+    if (proto_err) return {x::telem::Frame(), proto_err};
+    return {std::move(frame), x::errors::NIL};
 }
 
 void Streamer::close_send() const {
     this->stream->close_send();
 }
 
-xerrors::Error Streamer::close() const {
+x::errors::Error Streamer::close() const {
     this->close_send();
     auto [_, err] = this->stream->receive();
-    return err.skip(freighter::EOF_ERR);
+    return err.skip(freighter::ERR_EOF);
 }
 
-xerrors::Error Streamer::set_channels(const std::vector<ChannelKey> &channels) {
+x::errors::Error Streamer::set_channels(const std::vector<channel::Key> &channels) {
     this->assert_open();
     if (const auto err = this->codec.update(channels)) return err;
     this->cfg.channels = channels;
-    api::v1::FrameStreamerRequest req;
+    grpc::framer::StreamerRequest req;
     this->cfg.to_proto(req);
     return this->stream->send(req);
 }
