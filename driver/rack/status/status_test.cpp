@@ -11,7 +11,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/rack/status/status.h"
 
@@ -19,17 +19,18 @@
 TEST(stateTests, testNominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    auto ch = ASSERT_NIL_P(client->channels.retrieve(synnax::STATUS_SET_CHANNEL_NAME));
-    auto ctx = std::make_shared<task::SynnaxContext>(client);
-    auto hb = rack::status::Task::configure(
-        ctx,
-        synnax::Task(rack.key, "state", "state", "", true)
+    auto ch = ASSERT_NIL_P(
+        client->channels.retrieve(synnax::status::STATUS_SET_CHANNEL_NAME)
     );
-    auto cmd = task::Command(0, "start", {});
+    auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
+    auto task = synnax::task::Task{.name = "state", .type = "state", .internal = true};
+    ASSERT_NIL(rack.tasks.create(task));
+    auto hb = driver::rack::status::Task::configure(ctx, task);
+    auto cmd = synnax::task::Command{.task = task.key, .type = "start", .args = json{}};
     hb->exec(cmd);
-    x::defer stop([&hb]() { hb->stop(false); });
+    x::defer::defer stop([&hb]() { hb->stop(false); });
     auto streamer = ASSERT_NIL_P(client->telem.open_streamer(
-        synnax::StreamerConfig{
+        synnax::framer::StreamerConfig{
             .channels = {ch.key},
         }
     ));
@@ -41,7 +42,7 @@ TEST(stateTests, testNominal) {
         if (j["details"]["rack"] == rack.key) break;
     }
     EXPECT_EQ(j["details"]["rack"], rack.key);
-    EXPECT_EQ(j["variant"], status::variant::SUCCESS);
+    EXPECT_EQ(j["variant"], x::status::VARIANT_SUCCESS);
     EXPECT_EQ(j["message"], "Driver is running");
     ASSERT_NIL(streamer.close());
 }

@@ -42,7 +42,7 @@ cc_library(
         "//driver/transform",
         "//x/cpp/breaker",
         "//x/cpp/loop",
-        "//x/cpp/xjson",
+        "//x/cpp/json",
         "@glog",
         "@nlohmann_json//:json",
     ],
@@ -56,7 +56,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/labjack",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

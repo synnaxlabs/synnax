@@ -14,7 +14,7 @@ cc_library(
         "//x/cpp/breaker",
         "//x/cpp/loop",
         "//x/cpp/status",
-        "//x/cpp/xthread",
+        "//x/cpp/thread",
         "@glog",
         "@nlohmann_json//:json",
     ],
@@ -27,7 +27,7 @@ cc_test(
         "//driver/pipeline/mock",
         "//driver/sequence",
         "//driver/sequence/plugins/mock",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

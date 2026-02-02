@@ -18,7 +18,7 @@
 #include <sys/stat.h>
 #include <systemd/sd-daemon.h>
 
-#include "x/cpp/xthread/xthread.h"
+#include "x/cpp/thread/thread.h"
 
 #include "driver/daemon/daemon.h"
 
@@ -89,38 +89,41 @@ RestartSec=5s
 WantedBy=multi-user.target
 )";
 
-xerrors::Error create_system_user() {
+x::errors::Error create_system_user() {
     LOG(INFO) << "Creating system user";
     int result = system(
         "id -u synnax >/dev/null 2>&1 || useradd -r -s /sbin/nologin synnax"
     );
-    if (result != 0) { return xerrors::Error("Failed to create system user"); }
+    if (result != 0) { return x::errors::Error("Failed to create system user"); }
     return {};
 }
 
-xerrors::Error install_binary() {
+x::errors::Error install_binary() {
     LOG(INFO) << "Moving binary to " << BINARY_INSTALL_DIR;
     std::error_code ec;
     const fs::path curr_bin_path = fs::read_symlink("/proc/self/exe", ec);
     if (ec)
-        return xerrors::Error("Failed to get current executable path: " + ec.message());
+        return x::errors::Error(
+            "Failed to get current executable path: " + ec.message()
+        );
 
     fs::create_directories(BINARY_INSTALL_DIR, ec);
-    if (ec) return xerrors::Error("Failed to create binary directory: " + ec.message());
+    if (ec)
+        return x::errors::Error("Failed to create binary directory: " + ec.message());
 
     // Copy the binary
     const fs::path target_path = "/usr/local/bin/synnax-driver";
     fs::copy_file(curr_bin_path, target_path, fs::copy_options::overwrite_existing, ec);
-    if (ec) return xerrors::Error("Failed to copy binary: " + ec.message());
+    if (ec) return x::errors::Error("Failed to copy binary: " + ec.message());
 
     if (chmod(target_path.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) !=
         0)
-        return xerrors::Error("Failed to set binary permissions");
+        return x::errors::Error("Failed to set binary permissions");
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-xerrors::Error install_service() {
+x::errors::Error install_service() {
     // Check if service exists and is running
     LOG(INFO) << "Checking for existing service";
     if (fs::exists(SYSTEMD_SERVICE_PATH)) {
@@ -140,25 +143,25 @@ xerrors::Error install_service() {
     std::error_code ec;
     fs::create_directories(fs::path(SYSTEMD_SERVICE_PATH).parent_path(), ec);
     if (ec)
-        return xerrors::Error("Failed to create service directory: " + ec.message());
+        return x::errors::Error("Failed to create service directory: " + ec.message());
 
     std::ofstream service_file(SYSTEMD_SERVICE_PATH.c_str());
-    if (!service_file) return xerrors::Error("Failed to create service file");
+    if (!service_file) return x::errors::Error("Failed to create service file");
 
     service_file << SYSTEMD_SERVICE_TEMPLATE;
     service_file.close();
 
     if (chmod(SYSTEMD_SERVICE_PATH.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) != 0)
-        return xerrors::Error("Failed to set service file permissions");
+        return x::errors::Error("Failed to set service file permissions");
 
     LOG(INFO) << "Enabling and starting service";
     if (system("systemctl daemon-reload") != 0)
-        return xerrors::Error("Failed to reload systemd");
+        return x::errors::Error("Failed to reload systemd");
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-xerrors::Error uninstall_service() {
+x::errors::Error uninstall_service() {
     LOG(INFO) << "Stopping and disabling service";
     if (int result = system("systemctl stop synnax-driver"); result != 0)
         LOG(WARNING) << "Failed to stop service (may not be running)";
@@ -168,11 +171,11 @@ xerrors::Error uninstall_service() {
     fs::remove(SYSTEMD_SERVICE_PATH);
 
     if (system("systemctl daemon-reload") != 0)
-        return xerrors::Error("Failed to reload systemd");
+        return x::errors::Error("Failed to reload systemd");
 
     // Note: We intentionally don't remove the binary or user
     // in case there are existing configurations or data we want to preserve
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
 void update_status(Status status, const std::string &message) {
@@ -213,7 +216,7 @@ void run(const Config &config, int argc, char *argv[]) {
 
     // Start watchdog thread
     std::thread watchdog([&]() {
-        xthread::set_name("watchdog");
+        x::thread::set_name("watchdog");
         while (!should_stop) {
             notify_watchdog();
             std::this_thread::sleep_for(std::chrono::seconds(config.watchdog_interval));
@@ -239,25 +242,25 @@ void run(const Config &config, int argc, char *argv[]) {
     watchdog.join();
 }
 
-xerrors::Error start_service() {
+x::errors::Error start_service() {
     LOG(INFO) << "Starting service";
     if (system("systemctl start synnax-driver") != 0)
-        return xerrors::Error("Failed to start service");
-    return xerrors::NIL;
+        return x::errors::Error("Failed to start service");
+    return x::errors::NIL;
 }
 
-xerrors::Error stop_service() {
+x::errors::Error stop_service() {
     LOG(INFO) << "Stopping service";
     if (system("systemctl stop synnax-driver") != 0)
-        return xerrors::Error("Failed to stop service");
-    return xerrors::NIL;
+        return x::errors::Error("Failed to stop service");
+    return x::errors::NIL;
 }
 
-xerrors::Error restart_service() {
+x::errors::Error restart_service() {
     LOG(INFO) << "Restarting service";
     if (system("systemctl restart synnax-driver") != 0)
-        return xerrors::Error("Failed to restart service");
-    return xerrors::NIL;
+        return x::errors::Error("Failed to restart service");
+    return x::errors::NIL;
 }
 
 std::string get_log_file_path() {
@@ -265,19 +268,19 @@ std::string get_log_file_path() {
     return "";
 }
 
-xerrors::Error view_logs() {
+x::errors::Error view_logs() {
     // For systemd, we use journalctl
     int result = system("journalctl -fu synnax-driver");
     // Exit code 130 indicates Ctrl+C termination
     if (result != 0 && WEXITSTATUS(result) != 130)
-        return xerrors::Error("Failed to view logs");
-    return xerrors::NIL;
+        return x::errors::Error("Failed to view logs");
+    return x::errors::NIL;
 }
 
-xerrors::Error status() {
+x::errors::Error status() {
     LOG(INFO) << "Checking service status";
     int result = system("systemctl status synnax-driver");
-    if (result != 0) return xerrors::Error("Service is not running");
-    return xerrors::NIL;
+    if (result != 0) return x::errors::Error("Service is not running");
+    return x::errors::NIL;
 }
 }

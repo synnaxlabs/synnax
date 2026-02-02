@@ -12,8 +12,8 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xjson/xjson.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/errors/errors.h"
 #include "driver/ni/hardware/hardware.h"
@@ -54,19 +54,18 @@ json base_analog_config() {
 TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::Device(
-        "abc123",
-        "my_device",
-        rack.key,
-        "dev1",
-        "ni",
-        "PXI-6255",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "abc123",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "my_device"
+    };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("virtual"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         true
     ));
 
@@ -74,8 +73,12 @@ TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
     j["channels"][0]["device"] = dev.key;
     j["channels"][0]["channel"] = ch.key;
 
-    auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
     ASSERT_NIL(p.error());
 }
 
@@ -85,7 +88,7 @@ TEST(ReadTaskConfigTest, testNonExistingAnalogReadDevice) {
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("virtual"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         true
     ));
 
@@ -93,33 +96,40 @@ TEST(ReadTaskConfigTest, testNonExistingAnalogReadDevice) {
     j["channels"][0]["device"] = "definitely_not_an_existing_device";
     j["channels"][0]["channel"] = ch.key;
 
-    auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
-    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should return a validation error if the channel does not exist.
 TEST(ReadTaskConfigTest, testNonExistentAnalogReadChannel) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::Device(
-        "abc123",
-        "my_device",
-        rack.key,
-        "dev1",
-        "ni",
-        "PXI-6255",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "abc123",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "my_device"
+    };
     ASSERT_NIL(client->devices.create(dev));
 
     auto j = base_analog_config();
     j["channels"][0]["device"] = dev.key;
     j["channels"][0]["channel"] = 12121212;
 
-    auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
-    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should return a validation error if the sample rate is less than the
@@ -127,20 +137,19 @@ TEST(ReadTaskConfigTest, testNonExistentAnalogReadChannel) {
 TEST(ReadTaskConfigTest, testSampleRateLessThanStreamRate) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::Device(
-        "abc123",
-        "my_device",
-        rack.key,
-        "dev1",
-        "ni",
-        "PXI-6255",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "abc123",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "my_device"
+    };
     ASSERT_NIL(client->devices.create(dev));
 
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("virtual"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         true
     ));
 
@@ -149,28 +158,31 @@ TEST(ReadTaskConfigTest, testSampleRateLessThanStreamRate) {
     j["channels"][0]["channel"] = ch.key;
     j["sample_rate"] = 10;
 
-    auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
-    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should return a validation error if no channels in the task are enabled.
 TEST(ReadTaskConfigTest, testNoEnabledChannels) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::Device(
-        "abc123",
-        "my_device",
-        rack.key,
-        "dev1",
-        "ni",
-        "PXI-6255",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "abc123",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "my_device"
+    };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("virtual"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         true
     ));
 
@@ -179,28 +191,31 @@ TEST(ReadTaskConfigTest, testNoEnabledChannels) {
     j["channels"][0]["channel"] = ch.key;
     j["channels"][0]["enabled"] = false;
 
-    auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
-    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should return a validation error if a channel has an unknown type.
 TEST(ReadTaskConfigTest, testUnknownChannelType) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::Device(
-        "abc123",
-        "my_device",
-        rack.key,
-        "dev1",
-        "ni",
-        "PXI-6255",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "abc123",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "my_device"
+    };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("virtual"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         true
     ));
 
@@ -209,30 +224,32 @@ TEST(ReadTaskConfigTest, testUnknownChannelType) {
     j["channels"][0]["channel"] = ch.key;
     j["channels"][0]["type"] = "unknown_channel_type"; // Set an invalid channel type
 
-    auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
-    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 class AnalogReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
-    synnax::Task task;
-    std::unique_ptr<ni::ReadTaskConfig> cfg;
-    std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
-    synnax::Channel index_channel = synnax::Channel(
-        make_unique_channel_name("time_channel"),
-        telem::TIMESTAMP_T,
-        0,
-        true
-    );
-    synnax::Channel data_channel = synnax::Channel(
-        make_unique_channel_name("data_channel"),
-        telem::FLOAT64_T,
-        index_channel.key,
-        false
-    );
+    synnax::task::Task task;
+    std::unique_ptr<driver::ni::ReadTaskConfig> cfg;
+    std::shared_ptr<driver::task::MockContext> ctx;
+    std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
+    synnax::channel::Channel index_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("time_channel"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    synnax::channel::Channel data_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("data_channel"),
+        .data_type = x::telem::FLOAT64_T,
+        .index = index_channel.key,
+    };
 
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -244,12 +261,18 @@ protected:
 
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
-        synnax::Device
-            dev("opcua123", "my_device", rack.key, "dev1", "ni", "PXI-6255", "");
+        synnax::device::Device dev{
+            .key = "opcua123",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "ni",
+            .model = "PXI-6255",
+            .name = "my_device"
+        };
 
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::Task(rack.key, "my_task", "ni_analog_read", "");
+        task = synnax::task::Task(rack.key, "my_task", "ni_analog_read", "");
 
         json j{
             {"data_saving", false},
@@ -276,21 +299,21 @@ protected:
              )}
         };
 
-        auto p = xjson::Parser(j);
-        cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
+        auto p = x::json::Parser(j);
+        cfg = std::make_unique<driver::ni::ReadTaskConfig>(client, p, "ni_analog_read");
         ASSERT_NIL(p.error());
 
-        ctx = std::make_shared<task::MockContext>(client);
-        mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+        ctx = std::make_shared<driver::task::MockContext>(client);
+        mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
     }
 
-    std::unique_ptr<common::ReadTask>
+    std::unique_ptr<driver::task::common::ReadTask>
     create_task(std::unique_ptr<hardware::mock::Reader<double>> mock_hw) {
-        return std::make_unique<common::ReadTask>(
+        return std::make_unique<driver::task::common::ReadTask>(
             task,
             ctx,
-            breaker::default_config(task.name),
-            std::make_unique<ni::ReadTaskSource<double>>(
+            x::breaker::default_config(task.name),
+            std::make_unique<driver::ni::ReadTaskSource<double>>(
                 std::move(*cfg),
                 std::move(mock_hw)
             ),
@@ -308,18 +331,18 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
     rt->stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
     ASSERT_GE(mock_factory->writes->size(), 1);
     auto &fr = mock_factory->writes->at(0);
@@ -335,17 +358,18 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
 TEST_F(AnalogReadTest, testErrorOnStart) {
     parse_config();
     const auto rt = create_task(
-        std::make_unique<hardware::mock::Reader<double>>(std::vector{
-            xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Failed to start hardware")
-        })
+        std::make_unique<hardware::mock::Reader<double>>(std::vector{x::errors::Error(
+            driver::CRITICAL_HARDWARE_ERROR,
+            "Failed to start hardware"
+        )})
     );
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto state = ctx->statuses[0];
-    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.key, synnax::task::status_key(task));
     EXPECT_EQ(state.details.cmd, "start_cmd");
     EXPECT_EQ(state.details.task, task.key);
-    EXPECT_EQ(state.variant, status::variant::ERR);
+    EXPECT_EQ(state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(state.message, "Failed to start hardware");
     rt->stop(false);
 }
@@ -355,8 +379,8 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
     parse_config();
     const auto rt = create_task(
         std::make_unique<hardware::mock::Reader<double>>(
-            std::vector{xerrors::NIL},
-            std::vector{xerrors::Error(
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::Error(
                 driver::CRITICAL_HARDWARE_ERROR,
                 "Failed to stop hardware"
             )}
@@ -365,14 +389,14 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, task.key);
-    EXPECT_EQ(stop_state.variant, status::variant::ERR);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Failed to stop hardware");
 }
 
@@ -381,11 +405,11 @@ TEST_F(AnalogReadTest, testErrorOnRead) {
     parse_config();
     const auto rt = create_task(
         std::make_unique<hardware::mock::Reader<double>>(
-            std::vector{xerrors::NIL},
-            std::vector{xerrors::NIL},
-            std::vector<std::pair<std::vector<double>, xerrors::Error>>{
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::NIL},
+            std::vector<std::pair<std::vector<double>, x::errors::Error>>{
                 {{},
-                 xerrors::Error(
+                 x::errors::Error(
                      driver::CRITICAL_HARDWARE_ERROR,
                      "Failed to read hardware"
                  )}
@@ -396,34 +420,34 @@ TEST_F(AnalogReadTest, testErrorOnRead) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto read_err_state = ctx->statuses[1];
-    EXPECT_EQ(read_err_state.key, task.status_key());
+    EXPECT_EQ(read_err_state.key, synnax::task::status_key(task));
     EXPECT_EQ(read_err_state.details.task, task.key);
-    EXPECT_EQ(read_err_state.variant, status::variant::ERR);
+    EXPECT_EQ(read_err_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(read_err_state.message, "Failed to read hardware");
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     const auto stop_state = ctx->statuses[2];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.task, task.key);
-    EXPECT_EQ(stop_state.variant, status::variant::ERR);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Failed to read hardware");
 }
 
 /// @brief it should correctly coerce read data types to the channel data type.
 TEST_F(AnalogReadTest, testDataTypeCoersion) {
-    data_channel.data_type = telem::FLOAT32_T;
+    data_channel.data_type = x::telem::FLOAT32_T;
     parse_config();
 
     const auto rt = create_task(
         std::make_unique<hardware::mock::Reader<double>>(
-            std::vector{xerrors::NIL},
-            std::vector{xerrors::NIL},
-            std::vector<std::pair<std::vector<double>, xerrors::Error>>{
-                {{1.23456789}, xerrors::NIL}
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::NIL},
+            std::vector<std::pair<std::vector<double>, x::errors::Error>>{
+                {{1.23456789}, x::errors::NIL}
             }
         )
     );
@@ -431,15 +455,15 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.task, task.key);
-    EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_GE(mock_factory->writes->size(), 1);
 
@@ -470,10 +494,10 @@ TEST_F(AnalogReadTest, testDoubleStart) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     EXPECT_EQ(ctx->statuses.size(), 2);
     for (auto &state: ctx->statuses) {
-        EXPECT_EQ(state.key, task.status_key());
+        EXPECT_EQ(state.key, synnax::task::status_key(task));
         EXPECT_EQ(state.details.cmd, "start_cmd");
         EXPECT_EQ(state.details.task, task.key);
-        EXPECT_EQ(state.variant, status::variant::SUCCESS);
+        EXPECT_EQ(state.variant, x::status::VARIANT_SUCCESS);
         EXPECT_EQ(state.message, "Task started successfully");
     }
     rt->stop("stop_cmd", true);
@@ -494,38 +518,36 @@ TEST_F(AnalogReadTest, testDoubleStop) {
     EXPECT_EQ(ctx->statuses.size(), 3);
     // Should only have two state messages (start + stop)
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd1");
     EXPECT_EQ(stop_state.details.task, task.key);
-    EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.message, "Task stopped successfully");
     const auto stop_state_2 = ctx->statuses[2];
-    EXPECT_EQ(stop_state_2.key, task.status_key());
+    EXPECT_EQ(stop_state_2.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state_2.details.cmd, "stop_cmd2");
     EXPECT_EQ(stop_state_2.details.task, task.key);
-    EXPECT_EQ(stop_state_2.variant, status::variant::SUCCESS);
+    EXPECT_EQ(stop_state_2.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state_2.message, "Task stopped successfully");
 }
 
 class DigitalReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
-    synnax::Task task;
-    std::unique_ptr<ni::ReadTaskConfig> cfg;
-    std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
-    synnax::Channel index_channel = synnax::Channel(
-        make_unique_channel_name("time_channel"),
-        telem::TIMESTAMP_T,
-        0,
-        true
-    );
-    synnax::Channel data_channel = synnax::Channel(
-        make_unique_channel_name("digital_channel"),
-        telem::UINT8_T, // Digital data is typically boolean/uint8
-        index_channel.key,
-        false
-    );
+    synnax::task::Task task;
+    std::unique_ptr<driver::ni::ReadTaskConfig> cfg;
+    std::shared_ptr<driver::task::MockContext> ctx;
+    std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
+    synnax::channel::Channel index_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("time_channel"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    synnax::channel::Channel data_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("digital_channel"),
+        .data_type = x::telem::UINT8_T, // Digital data is typically boolean/uint8
+        .index = index_channel.key,
+    };
 
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -537,18 +559,17 @@ protected:
 
         auto rack = ASSERT_NIL_P(client->racks.create("digital_rack"));
 
-        synnax::Device dev(
-            "130227d9-02aa-47e4-b370-0d590add1bc1",
-            "digital_device",
-            rack.key,
-            "dev1",
-            "ni",
-            "PXI-6255",
-            ""
-        );
+        synnax::device::Device dev{
+            .key = "130227d9-02aa-47e4-b370-0d590add1bc1",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "ni",
+            .model = "PXI-6255",
+            .name = "digital_device"
+        };
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::Task(rack.key, "digital_task", "ni_digital_read", "");
+        task = synnax::task::Task(rack.key, "digital_task", "ni_digital_read", "");
 
         json j{
             {"data_saving", true},
@@ -566,21 +587,25 @@ protected:
              }})}
         };
 
-        auto p = xjson::Parser(j);
-        cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_digital_read");
+        auto p = x::json::Parser(j);
+        cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+            client,
+            p,
+            "ni_digital_read"
+        );
         ASSERT_NIL(p.error());
 
-        ctx = std::make_shared<task::MockContext>(client);
-        mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+        ctx = std::make_shared<driver::task::MockContext>(client);
+        mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
     }
 
-    std::unique_ptr<common::ReadTask>
+    std::unique_ptr<driver::task::common::ReadTask>
     create_task(std::unique_ptr<hardware::mock::Reader<uint8_t>> mock_hw) {
-        return std::make_unique<common::ReadTask>(
+        return std::make_unique<driver::task::common::ReadTask>(
             task,
             ctx,
-            breaker::default_config(task.name),
-            std::make_unique<ni::ReadTaskSource<uint8_t>>(
+            x::breaker::default_config(task.name),
+            std::make_unique<driver::ni::ReadTaskSource<uint8_t>>(
                 std::move(*cfg),
                 std::move(mock_hw)
             ),
@@ -594,10 +619,10 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     parse_config();
     auto rt = create_task(
         std::make_unique<hardware::mock::Reader<uint8_t>>(
-            std::vector{xerrors::NIL},
-            std::vector{xerrors::NIL},
-            std::vector<std::pair<std::vector<uint8_t>, xerrors::Error>>{
-                {{1}, xerrors::NIL}
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::NIL},
+            std::vector<std::pair<std::vector<uint8_t>, x::errors::Error>>{
+                {{1}, x::errors::NIL}
             } // Digital high
         )
     );
@@ -605,20 +630,20 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
 
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
 
     ASSERT_GE(mock_factory->writes->size(), 1);
@@ -636,19 +661,18 @@ TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
-    auto dev = synnax::Device(
-        "device123",
-        "test_device",
-        rack.key,
-        "cDAQ1Mod1",
-        "ni",
-        "NI 9229",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "device123",
+        .rack = rack.key,
+        .location = "cDAQ1Mod1",
+        .make = "ni",
+        .model = "NI 9229",
+        .name = "test_device"
+    };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("test_ch"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         true
     ));
 
@@ -656,8 +680,12 @@ TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
     j["channels"][0]["device"] = dev.key;
     j["channels"][0]["channel"] = ch.key;
 
-    auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
     ASSERT_NIL(p.error());
 
     // Verify that channels have dev_loc populated after configuration
@@ -668,22 +696,20 @@ TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
 class CounterReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
-    synnax::Task task;
-    std::unique_ptr<ni::ReadTaskConfig> cfg;
-    std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
-    synnax::Channel index_channel = synnax::Channel(
-        make_unique_channel_name("time_channel"),
-        telem::TIMESTAMP_T,
-        0,
-        true
-    );
-    synnax::Channel data_channel = synnax::Channel(
-        make_unique_channel_name("counter_channel"),
-        telem::FLOAT64_T, // Counter frequency data
-        index_channel.key,
-        false
-    );
+    synnax::task::Task task;
+    std::unique_ptr<driver::ni::ReadTaskConfig> cfg;
+    std::shared_ptr<driver::task::MockContext> ctx;
+    std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
+    synnax::channel::Channel index_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("time_channel"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    synnax::channel::Channel data_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("counter_channel"),
+        .data_type = x::telem::FLOAT64_T, // Counter frequency data
+        .index = index_channel.key,
+    };
 
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -695,18 +721,17 @@ protected:
 
         auto rack = ASSERT_NIL_P(client->racks.create("counter_rack"));
 
-        synnax::Device dev(
-            "f8a9c7e6-1234-4567-890a-bcdef0123456",
-            "counter_device",
-            rack.key,
-            "Dev1",
-            "ni",
-            "PCIe-6343",
-            ""
-        );
+        synnax::device::Device dev{
+            .key = "f8a9c7e6-1234-4567-890a-bcdef0123456",
+            .rack = rack.key,
+            .location = "Dev1",
+            .make = "ni",
+            .model = "PCIe-6343",
+            .name = "counter_device"
+        };
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::Task(rack.key, "counter_task", "ni_counter_read", "");
+        task = synnax::task::Task(rack.key, "counter_task", "ni_counter_read", "");
 
         json j{
             {"data_saving", true},
@@ -732,21 +757,25 @@ protected:
              }})}
         };
 
-        auto p = xjson::Parser(j);
-        cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_counter_read");
+        auto p = x::json::Parser(j);
+        cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+            client,
+            p,
+            "ni_counter_read"
+        );
         ASSERT_NIL(p.error());
 
-        ctx = std::make_shared<task::MockContext>(client);
-        mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+        ctx = std::make_shared<driver::task::MockContext>(client);
+        mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
     }
 
-    std::unique_ptr<common::ReadTask>
+    std::unique_ptr<driver::task::common::ReadTask>
     create_task(std::unique_ptr<hardware::mock::Reader<double>> mock_hw) {
-        return std::make_unique<common::ReadTask>(
+        return std::make_unique<driver::task::common::ReadTask>(
             task,
             ctx,
-            breaker::default_config(task.name),
-            std::make_unique<ni::ReadTaskSource<double>>(
+            x::breaker::default_config(task.name),
+            std::make_unique<driver::ni::ReadTaskSource<double>>(
                 std::move(*cfg),
                 std::move(mock_hw)
             ),
@@ -761,10 +790,10 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
     parse_config();
     auto rt = create_task(
         std::make_unique<hardware::mock::Reader<double>>(
-            std::vector{xerrors::NIL},
-            std::vector{xerrors::NIL},
-            std::vector<std::pair<std::vector<double>, xerrors::Error>>{
-                {{100.5}, xerrors::NIL} // 100.5 Hz frequency reading
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::NIL},
+            std::vector<std::pair<std::vector<double>, x::errors::Error>>{
+                {{100.5}, x::errors::NIL} // 100.5 Hz frequency reading
             }
         )
     );
@@ -772,20 +801,20 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
 
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
 
     ASSERT_GE(mock_factory->writes->size(), 1);
@@ -806,16 +835,16 @@ TEST_F(CounterReadTest, testCounterErrorOnStart) {
     parse_config();
     const auto rt = create_task(
         std::make_unique<hardware::mock::Reader<double>>(std::vector{
-            xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Counter failed to start")
+            x::errors::Error(driver::CRITICAL_HARDWARE_ERROR, "Counter failed to start")
         })
     );
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto state = ctx->statuses[0];
-    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.key, synnax::task::status_key(task));
     EXPECT_EQ(state.details.cmd, "start_cmd");
     EXPECT_EQ(state.details.task, task.key);
-    EXPECT_EQ(state.variant, status::variant::ERR);
+    EXPECT_EQ(state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(state.message, "Counter failed to start");
     rt->stop(false);
 }
@@ -825,8 +854,8 @@ TEST_F(CounterReadTest, testCounterErrorOnStop) {
     parse_config();
     const auto rt = create_task(
         std::make_unique<hardware::mock::Reader<double>>(
-            std::vector{xerrors::NIL},
-            std::vector{xerrors::Error(
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::Error(
                 driver::CRITICAL_HARDWARE_ERROR,
                 "Counter failed to stop"
             )}
@@ -835,14 +864,14 @@ TEST_F(CounterReadTest, testCounterErrorOnStop) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, task.key);
-    EXPECT_EQ(stop_state.variant, status::variant::ERR);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Counter failed to stop");
 }
 
@@ -851,11 +880,14 @@ TEST_F(CounterReadTest, testCounterErrorOnRead) {
     parse_config();
     const auto rt = create_task(
         std::make_unique<hardware::mock::Reader<double>>(
-            std::vector{xerrors::NIL},
-            std::vector{xerrors::NIL},
-            std::vector<std::pair<std::vector<double>, xerrors::Error>>{
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::NIL},
+            std::vector<std::pair<std::vector<double>, x::errors::Error>>{
                 {{},
-                 xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Counter read failed")}
+                 x::errors::Error(
+                     driver::CRITICAL_HARDWARE_ERROR,
+                     "Counter read failed"
+                 )}
             }
         )
     );
@@ -863,21 +895,21 @@ TEST_F(CounterReadTest, testCounterErrorOnRead) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, task.status_key());
+    EXPECT_EQ(start_state.key, synnax::task::status_key(task));
     EXPECT_EQ(start_state.details.cmd, "start_cmd");
-    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto read_err_state = ctx->statuses[1];
-    EXPECT_EQ(read_err_state.key, task.status_key());
-    EXPECT_EQ(read_err_state.variant, status::variant::ERR);
+    EXPECT_EQ(read_err_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(read_err_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(read_err_state.message, "Counter read failed");
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     const auto stop_state = ctx->statuses[2];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(stop_state.variant, status::variant::ERR);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Counter read failed");
 }
 
@@ -886,12 +918,12 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
     parse_config();
     auto rt = create_task(
         std::make_unique<hardware::mock::Reader<double>>(
-            std::vector{xerrors::NIL},
-            std::vector{xerrors::NIL},
-            std::vector<std::pair<std::vector<double>, xerrors::Error>>{
-                {{100.0}, xerrors::NIL},
-                {{150.5}, xerrors::NIL},
-                {{200.75}, xerrors::NIL}
+            std::vector{x::errors::NIL},
+            std::vector{x::errors::NIL},
+            std::vector<std::pair<std::vector<double>, x::errors::Error>>{
+                {{100.0}, x::errors::NIL},
+                {{150.5}, x::errors::NIL},
+                {{200.75}, x::errors::NIL}
             }
         )
     );
@@ -899,9 +931,9 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, task.status_key());
+    EXPECT_EQ(start_state.key, synnax::task::status_key(task));
     EXPECT_EQ(start_state.details.cmd, "start_cmd");
-    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
 
     // Wait for multiple writes
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 3);
@@ -931,9 +963,9 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should correctly parse a counter edge count task configuration.
@@ -941,19 +973,18 @@ TEST(ReadTaskConfigTest, testCounterEdgeCountConfig) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
-    auto dev = synnax::Device(
-        "counter_dev_123",
-        "test_counter_device",
-        rack.key,
-        "Dev1",
-        "ni",
-        "USB-6343",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "counter_dev_123",
+        .rack = rack.key,
+        .location = "Dev1",
+        .make = "ni",
+        .model = "USB-6343",
+        .name = "test_counter_device"
+    };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("edge_count"),
-        telem::UINT32_T,
+        x::telem::UINT32_T,
         true
     ));
 
@@ -976,8 +1007,12 @@ TEST(ReadTaskConfigTest, testCounterEdgeCountConfig) {
          }})}
     };
 
-    auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_counter_read");
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_counter_read"
+    );
     ASSERT_NIL(p.error());
 
     // Verify channel configuration
@@ -990,17 +1025,20 @@ TEST(ReadTaskConfigTest, testCounterPeriodConfig) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
-    auto dev = synnax::Device(
-        "counter_dev_456",
-        "test_period_device",
-        rack.key,
-        "Dev2",
-        "ni",
-        "PCIe-6343",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "counter_dev_456",
+        .rack = rack.key,
+        .location = "Dev2",
+        .make = "ni",
+        .model = "PCIe-6343",
+        .name = "test_period_device"
+    };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(client->channels.create("period", telem::FLOAT64_T, true));
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("period"),
+        x::telem::FLOAT64_T,
+        true
+    ));
 
     json j{
         {"data_saving", false},
@@ -1026,8 +1064,12 @@ TEST(ReadTaskConfigTest, testCounterPeriodConfig) {
          }})}
     };
 
-    auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_counter_read");
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_counter_read"
+    );
     ASSERT_NIL(p.error());
 
     // Verify channel configuration
@@ -1040,23 +1082,39 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
-    auto
-        dev1 = synnax::Device("d1", "dev1", rack.key, "cDAQ1Mod1", "ni", "NI 9229", "");
+    auto dev1 = synnax::device::Device{
+        .key = "d1",
+        .rack = rack.key,
+        .location = "cDAQ1Mod1",
+        .make = "ni",
+        .model = "NI 9229",
+        .name = "dev1"
+    };
     ASSERT_NIL(client->devices.create(dev1));
 
-    auto
-        dev2 = synnax::Device("d2", "dev2", rack.key, "cDAQ1Mod2", "ni", "NI 9205", "");
+    auto dev2 = synnax::device::Device{
+        .key = "d2",
+        .rack = rack.key,
+        .location = "cDAQ1Mod2",
+        .make = "ni",
+        .model = "NI 9205",
+        .name = "dev2"
+    };
     ASSERT_NIL(client->devices.create(dev2));
 
-    auto ch1 = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("ch1"), telem::FLOAT64_T, true)
-    );
-    auto ch2 = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("ch2"), telem::FLOAT64_T, true)
-    );
+    auto ch1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ch1"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    auto ch2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ch2"),
+        x::telem::FLOAT64_T,
+        true
+    ));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("period"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         true
     ));
 
@@ -1090,8 +1148,12 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
          )}
     };
 
-    auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
     ASSERT_NIL(p.error());
 
     // Verify both channels have their respective device locations
@@ -1111,7 +1173,7 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
 /// @brief Test that the minimum sample rate error message is formatted correctly
 TEST(ReadTaskConfigTest, testMinimumSampleRateErrorMessageFormat) {
     // This test verifies the error message format without requiring DAQmx hardware
-    telem::Rate configured_rate(25.0);
+    x::telem::Rate configured_rate(25.0);
     float64 min_rate = 50.0;
     std::string location = "cDAQ1Mod1";
     std::string model = "NI SIM";
@@ -1137,27 +1199,32 @@ TEST(ReadTaskConfigTest, testMinimumSampleRateErrorMessageFormat) {
 TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    auto dev = synnax::Device(
-        "test_device_key",
-        "test_device",
-        rack.key,
-        "dev1",
-        "ni",
-        "PXI-6255",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "test_device_key",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "test_device"
+    };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(
-        client->channels.create("test_channel", telem::FLOAT64_T, true)
-    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("test_channel"),
+        x::telem::FLOAT64_T,
+        true
+    ));
 
     auto j = base_analog_config();
     j["data_saving"] = true;
     j["channels"][0]["device"] = dev.key;
     j["channels"][0]["channel"] = ch.key;
 
-    auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
     ASSERT_NIL(p.error());
 
     // Verify that writer_config has enable_auto_commit set to true

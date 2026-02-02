@@ -13,22 +13,22 @@
 #include "driver/ni/errors.h"
 #include "driver/ni/scan_task.h"
 
-ni::Scanner::Scanner(
+driver::ni::Scanner::Scanner(
     const std::shared_ptr<::syscfg::SugaredAPI> &syscfg,
     ScanTaskConfig cfg,
-    synnax::Task task
+    synnax::task::Task task
 ):
     cfg(std::move(cfg)), task(std::move(task)), syscfg(syscfg) {}
 
-const auto SKIP_DEVICE_ERR = xerrors::Error("ni.skip_device", "");
+const auto SKIP_DEVICE_ERR = x::errors::Error("ni.skip_device", "");
 const std::size_t NO_DEVICES_LOG_MULTIPLIER = 12;
 
-std::pair<ni::Device, xerrors::Error>
-ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
+std::pair<driver::ni::Device, x::errors::Error>
+driver::ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
     char property_value_buf[1024];
     Device dev;
     dev.make = MAKE;
-    dev.rack = synnax::rack_key_from_task_key(this->task.key);
+    dev.rack = synnax::task::rack_key_from_task_key(this->task.key);
     dev.configured = false;
     NISysCfgBool is_simulated;
     if (const auto err = this->syscfg->GetResourceProperty(
@@ -100,19 +100,19 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         dev.resource_name = dev.resource_name.substr(1, dev.resource_name.size() - 2);
     if (is_simulated) dev.key = dev.resource_name;
 
-    dev.status = synnax::DeviceStatus{
-        .key = dev.status_key(),
+    dev.status = synnax::device::Status{
+        .key = synnax::device::status_key(dev),
         .name = dev.name,
-        .variant = status::variant::SUCCESS,
+        .variant = x::status::VARIANT_SUCCESS,
         .message = "Device present",
-        .time = telem::TimeStamp::now(),
-        .details = synnax::DeviceStatusDetails{
+        .time = x::telem::TimeStamp::now(),
+        .details = synnax::device::StatusDetails{
             .rack = dev.rack,
             .device = dev.key,
         }
     };
 
-    auto err = xerrors::NIL;
+    auto err = x::errors::NIL;
     if (this->cfg.should_ignore(dev.model)) {
         LOG(WARNING) << SCAN_LOG_PREFIX << "device ignored by filter: " << dev.key
                      << " (model: " << dev.model << ")";
@@ -124,9 +124,9 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
     return {dev, err};
 }
 
-std::pair<std::vector<synnax::Device>, xerrors::Error>
-ni::Scanner::scan(const common::ScannerContext &ctx) {
-    std::vector<synnax::Device> devices;
+std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+driver::ni::Scanner::scan(const driver::task::common::ScannerContext &ctx) {
+    std::vector<synnax::device::Device> devices;
     NISysCfgEnumResourceHandle resources = nullptr;
     NISysCfgResourceHandle curr_resource = nullptr;
 
@@ -138,10 +138,10 @@ ni::Scanner::scan(const common::ScannerContext &ctx) {
         &resources
     );
     if (err) {
-        if (err.matches(ni::END_OF_ENUM)) {
+        if (err.matches(driver::ni::END_OF_ENUM)) {
             if (ctx.count % NO_DEVICES_LOG_MULTIPLIER == 0)
                 LOG(INFO) << SCAN_LOG_PREFIX << "no devices found.";
-            return {devices, xerrors::NIL};
+            return {devices, x::errors::NIL};
         }
         return {devices, err};
     }
@@ -169,19 +169,19 @@ ni::Scanner::scan(const common::ScannerContext &ctx) {
     return {devices, close_err};
 }
 
-xerrors::Error ni::Scanner::stop() {
+x::errors::Error driver::ni::Scanner::stop() {
     this->syscfg->CloseHandle(this->filter);
     return this->syscfg->CloseHandle(this->session);
 }
 
-xerrors::Error ni::Scanner::start() {
+x::errors::Error driver::ni::Scanner::start() {
     if (const auto err = this->syscfg->InitializeSession(
             nullptr,
             nullptr,
             nullptr,
             NISysCfgLocaleDefault,
             NISysCfgBoolTrue,
-            (this->cfg.scan_rate.period() - telem::SECOND).milliseconds(),
+            (this->cfg.scan_rate.period() - x::telem::SECOND).milliseconds(),
             nullptr,
             &this->session
         ))
@@ -213,5 +213,5 @@ xerrors::Error ni::Scanner::start() {
             NISysCfgBoolTrue
         ))
         return err;
-    return xerrors::NIL;
+    return x::errors::NIL;
 }

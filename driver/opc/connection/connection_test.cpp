@@ -10,13 +10,14 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/errors/errors.h"
 #include "driver/opc/mock/server.h"
 #include "driver/opc/testutil/testutil.h"
 
+namespace driver::opc::connection {
 /// @brief it should establish basic connection and read node value.
 TEST(ConnectionTest, testBasicConn) {
     UA_Variant float_val;
@@ -34,20 +35,20 @@ TEST(ConnectionTest, testBasicConn) {
     mock::Server server(server_cfg);
     server.start();
 
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4840";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
     auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        opc::connection::connect(cfg, "opc"),
-        (5 * telem::SECOND).chrono(),
-        (250 * telem::MILLISECOND).chrono()
+        connect(cfg, "opc"),
+        (5 * x::telem::SECOND).chrono(),
+        (250 * x::telem::MILLISECOND).chrono()
     );
     ASSERT_NE(client, nullptr);
 
-    auto ser = ASSERT_NIL_P(opc::testutil::simple_read(client, "NS=1;S=test"));
-    ASSERT_EQ(ser.data_type(), telem::FLOAT32_T);
+    auto ser = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=test"));
+    ASSERT_EQ(ser.data_type(), x::telem::FLOAT32_T);
     ASSERT_EQ(ser.at<float>(0), 5.0f);
 
     server.stop();
@@ -57,54 +58,42 @@ TEST(ConnectionTest, testBasicConn) {
 
 /// @brief it should return unreachable error when connection is refused.
 TEST(ConnectionTest, connectionRefused) {
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "opc.tcp://localhost:9999";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    ASSERT_OCCURRED_AS_P(
-        opc::connection::connect(cfg, "test"),
-        opc::errors::UNREACHABLE
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), errors::UNREACHABLE);
 }
 
 /// @brief it should return invalid endpoint error for malformed endpoint.
 TEST(ConnectionTest, invalidEndpointFormat) {
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "not-a-valid-endpoint";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    ASSERT_OCCURRED_AS_P(
-        opc::connection::connect(cfg, "test"),
-        opc::errors::INVALID_ENDPOINT
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), errors::INVALID_ENDPOINT);
 }
 
 /// @brief it should return invalid endpoint error for empty endpoint.
 TEST(ConnectionTest, emptyEndpoint) {
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    ASSERT_OCCURRED_AS_P(
-        opc::connection::connect(cfg, "test"),
-        opc::errors::INVALID_ENDPOINT
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), errors::INVALID_ENDPOINT);
 }
 
 /// @brief it should return unreachable error for invalid hostname.
 TEST(ConnectionTest, invalidHostname) {
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "opc.tcp://nonexistent.invalid.hostname:4840";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    ASSERT_OCCURRED_AS_P(
-        opc::connection::connect(cfg, "test"),
-        opc::errors::UNREACHABLE
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), errors::UNREACHABLE);
 }
 
 /// @brief it should reconnect successfully after disconnect.
@@ -115,12 +104,12 @@ TEST(ConnectionTest, disconnectAndReconnect) {
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4841";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
+    auto client = ASSERT_NIL_P(connect(cfg, "test"));
 
     UA_SessionState session_state;
     UA_SecureChannelState channel_state;
@@ -132,7 +121,7 @@ TEST(ConnectionTest, disconnectAndReconnect) {
     UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
     EXPECT_NE(session_state, UA_SESSIONSTATE_ACTIVATED);
 
-    ASSERT_NIL(opc::connection::reconnect(client, cfg.endpoint));
+    ASSERT_NIL(reconnect(client, cfg.endpoint));
 
     UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
     EXPECT_EQ(session_state, UA_SESSIONSTATE_ACTIVATED);
@@ -148,18 +137,18 @@ TEST(ConnectionTest, serverStopDuringConnection) {
     server->start();
     ASSERT_TRUE(server->wait_until_ready());
 
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4842";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
+    auto client = ASSERT_NIL_P(connect(cfg, "test"));
 
     server->stop();
     server.reset();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    auto node_id = ASSERT_NIL_P(opc::NodeId::parse("NS=1;S=TestFloat"));
+    auto node_id = ASSERT_NIL_P(NodeId::parse("NS=1;S=TestFloat"));
 
     UA_ReadValueId ids[1];
     UA_ReadValueId_init(&ids[0]);
@@ -185,12 +174,12 @@ TEST(ConnectionTest, connectionAfterServerRestart) {
     server->start();
     ASSERT_TRUE(server->wait_until_ready());
 
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4844";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client1 = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
+    auto client1 = ASSERT_NIL_P(connect(cfg, "test"));
 
     server->stop();
     server.reset();
@@ -199,7 +188,7 @@ TEST(ConnectionTest, connectionAfterServerRestart) {
     server->start();
     ASSERT_TRUE(server->wait_until_ready());
 
-    auto client2 = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
+    auto client2 = ASSERT_NIL_P(connect(cfg, "test"));
 
     server->stop();
 }
@@ -212,14 +201,14 @@ TEST(ConnectionTest, readAfterDisconnect) {
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4845";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
+    auto client = ASSERT_NIL_P(connect(cfg, "test"));
 
-    auto ser1 = ASSERT_NIL_P(opc::testutil::simple_read(client, "NS=1;S=TestFloat"));
+    auto ser1 = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=TestFloat"));
 
     UA_Client_disconnect(client.get());
 
@@ -239,12 +228,12 @@ TEST(ConnectionTest, multipleDisconnects) {
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4846";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
+    auto client = ASSERT_NIL_P(connect(cfg, "test"));
 
     UA_Client_disconnect(client.get());
     UA_Client_disconnect(client.get());
@@ -263,17 +252,14 @@ TEST(ConnectionTest, usernamePasswordWithoutEncryption) {
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4847";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.username = "any_user";
     cfg.password = "any_password";
 
-    ASSERT_OCCURRED_AS_P(
-        opc::connection::connect(cfg, "test"),
-        opc::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), errors::IDENTITY_TOKEN_REJECTED);
 
     server.stop();
 }
@@ -289,17 +275,14 @@ TEST(ConnectionTest, signModeWithMissingCertificates) {
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4848";
     cfg.security_mode = "Sign";
     cfg.security_policy = "Basic256";
     cfg.client_cert = "/nonexistent/cert.pem";
     cfg.client_private_key = "/nonexistent/key.pem";
 
-    ASSERT_OCCURRED_AS_P(
-        opc::connection::connect(cfg, "test"),
-        opc::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), errors::IDENTITY_TOKEN_REJECTED);
 
     server.stop();
 }
@@ -314,17 +297,14 @@ TEST(ConnectionTest, signAndEncryptModeWithMissingCertificates) {
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4849";
     cfg.security_mode = "SignAndEncrypt";
     cfg.security_policy = "Basic256Sha256";
     cfg.client_cert = "/nonexistent/cert.pem";
     cfg.client_private_key = "/nonexistent/key.pem";
 
-    ASSERT_OCCURRED_AS_P(
-        opc::connection::connect(cfg, "test"),
-        opc::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), errors::IDENTITY_TOKEN_REJECTED);
 
     server.stop();
 }
@@ -339,17 +319,14 @@ TEST(ConnectionTest, missingClientCertificate) {
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4850";
     cfg.security_mode = "Sign";
     cfg.security_policy = "Basic256";
     cfg.client_cert = "/path/to/missing/cert.pem";
     cfg.client_private_key = "/path/to/missing/key.pem";
 
-    ASSERT_OCCURRED_AS_P(
-        opc::connection::connect(cfg, "test"),
-        opc::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), errors::IDENTITY_TOKEN_REJECTED);
 
     server.stop();
 }
@@ -364,17 +341,14 @@ TEST(ConnectionTest, emptyUsernameWithPassword) {
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4851";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.username = "";
     cfg.password = "password";
 
-    ASSERT_OCCURRED_AS_P(
-        opc::connection::connect(cfg, "test"),
-        opc::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), errors::IDENTITY_TOKEN_REJECTED);
 
     server.stop();
 }
@@ -389,17 +363,14 @@ TEST(ConnectionTest, usernameWithEmptyPassword) {
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4852";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.username = "username";
     cfg.password = "";
 
-    ASSERT_OCCURRED_AS_P(
-        opc::connection::connect(cfg, "test"),
-        opc::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), errors::IDENTITY_TOKEN_REJECTED);
 
     server.stop();
 }
@@ -414,17 +385,15 @@ TEST(ConnectionTest, invalidSecurityPolicy) {
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
-    opc::connection::Config cfg;
+    Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4853";
     cfg.security_mode = "Sign";
     cfg.security_policy = "InvalidPolicy999";
     cfg.client_cert = "/nonexistent/cert.pem";
     cfg.client_private_key = "/nonexistent/key.pem";
 
-    ASSERT_OCCURRED_AS_P(
-        opc::connection::connect(cfg, "test"),
-        opc::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), errors::IDENTITY_TOKEN_REJECTED);
 
     server.stop();
+}
 }

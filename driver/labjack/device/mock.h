@@ -23,97 +23,97 @@ public:
     Mock() = default;
     ~Mock() override = default;
 
-    xerrors::Error e_stream_read(
+    x::errors::Error e_stream_read(
         double *data,
         int *dev_scan_backlog,
         int *ljm_scan_backlog
     ) const override {
-        if (should_fail_) return xerrors::Error("mock failure");
+        if (should_fail_) return x::errors::Error("mock failure");
         *dev_scan_backlog = 0;
         *ljm_scan_backlog = 0;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    [[nodiscard]] xerrors::Error e_stream_stop() const override {
-        if (should_fail_) return xerrors::Error("mock failure");
-        return xerrors::NIL;
+    [[nodiscard]] x::errors::Error e_stream_stop() const override {
+        if (should_fail_) return x::errors::Error("mock failure");
+        return x::errors::NIL;
     }
 
-    [[nodiscard]] xerrors::Error
+    [[nodiscard]] x::errors::Error
     e_write_addr(int addr, int type, double value) const override {
-        if (should_fail_) return xerrors::Error("mock failure");
-        return xerrors::NIL;
+        if (should_fail_) return x::errors::Error("mock failure");
+        return x::errors::NIL;
     }
 
-    xerrors::Error e_write_addrs(
+    x::errors::Error e_write_addrs(
         size_t num_frames,
         const int *addrs,
         const int *types,
         const double *values,
         int *error_addrs
     ) const override {
-        if (should_fail_) return xerrors::Error("mock failure");
-        return xerrors::NIL;
+        if (should_fail_) return x::errors::Error("mock failure");
+        return x::errors::NIL;
     }
 
-    [[nodiscard]] xerrors::Error
+    [[nodiscard]] x::errors::Error
     start_interval(int interval_handle, int microseconds) const override {
-        if (should_fail_) return xerrors::Error("mock failure");
-        return xerrors::NIL;
+        if (should_fail_) return x::errors::Error("mock failure");
+        return x::errors::NIL;
     }
 
-    [[nodiscard]] xerrors::Error
+    [[nodiscard]] x::errors::Error
     e_write_name(const char *name, double value) const override {
-        if (should_fail_) return xerrors::Error("mock failure");
-        return xerrors::NIL;
+        if (should_fail_) return x::errors::Error("mock failure");
+        return x::errors::NIL;
     }
 
-    [[nodiscard]] xerrors::Error e_write_names(
+    [[nodiscard]] x::errors::Error e_write_names(
         size_t num_frames,
         const char **names,
         const double *values,
         int *err_addr
     ) const override {
-        if (should_fail_) return xerrors::Error("mock failure");
-        return xerrors::NIL;
+        if (should_fail_) return x::errors::Error("mock failure");
+        return x::errors::NIL;
     }
 
-    [[nodiscard]] xerrors::Error names_to_addrs(
+    [[nodiscard]] x::errors::Error names_to_addrs(
         size_t num_frames,
         const char **names,
         int *addrs,
         int *types
     ) const override {
-        if (should_fail_) return xerrors::Error("mock failure");
-        return xerrors::NIL;
+        if (should_fail_) return x::errors::Error("mock failure");
+        return x::errors::NIL;
     }
 
-    [[nodiscard]] xerrors::Error
+    [[nodiscard]] x::errors::Error
     wait_for_next_interval(int interval_handle, int *skipped_intervals) const override {
-        if (should_fail_) return xerrors::Error("mock failure");
+        if (should_fail_) return x::errors::Error("mock failure");
         *skipped_intervals = 0;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    [[nodiscard]] xerrors::Error e_read_names(
+    [[nodiscard]] x::errors::Error e_read_names(
         size_t num_frames,
         const char **a_names,
         double *a_values,
         int *error_addr
     ) const override {
-        if (should_fail_) return xerrors::Error("mock failure");
-        return xerrors::NIL;
+        if (should_fail_) return x::errors::Error("mock failure");
+        return x::errors::NIL;
     }
 
-    [[nodiscard]] xerrors::Error e_stream_start(
+    [[nodiscard]] x::errors::Error e_stream_start(
         size_t scans_per_read,
         size_t num_addrs,
         const int *scan_list,
         double *scan_rate
     ) const override {
-        if (should_fail_) return xerrors::Error("mock failure");
+        if (should_fail_) return x::errors::Error("mock failure");
         *scan_rate = requested_scan_rate_;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     // Mock control methods

@@ -69,7 +69,7 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"AccelUnit_g", DAQmx_Val_AccelUnit_g}
 };
 
-int32_t inline parse_units(xjson::Parser &cfg, const std::string &path) {
+int32_t inline parse_units(x::json::Parser &cfg, const std::string &path) {
     const auto str_units = cfg.field<std::string>(path, "Volts");
     const auto units = UNITS_MAP.find(str_units);
     if (units == UNITS_MAP.end()) cfg.field_err(path, "invalid units: " + str_units);

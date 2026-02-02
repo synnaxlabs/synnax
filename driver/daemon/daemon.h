@@ -13,9 +13,9 @@
 #include <functional>
 
 /// internal.
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
-namespace daemond {
+namespace driver::daemon {
 // Callback type for the main application logic
 using ApplicationCallback = std::function<void(int argc, char *argv[])>;
 
@@ -37,21 +37,21 @@ struct Config {
 };
 
 // Service management functions
-xerrors::Error install_service();
+x::errors::Error install_service();
 
-xerrors::Error uninstall_service();
+x::errors::Error uninstall_service();
 
 // Service control functions
-xerrors::Error start_service();
+x::errors::Error start_service();
 
-xerrors::Error stop_service();
+x::errors::Error stop_service();
 
-xerrors::Error restart_service();
+x::errors::Error restart_service();
 
 // Service status functions.
-xerrors::Error view_logs();
+x::errors::Error view_logs();
 
-xerrors::Error status();
+x::errors::Error status();
 
 // Runs the application as a daemon with the given configuration
 void run(const Config &config, int argc, char *argv[]);

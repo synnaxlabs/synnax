@@ -28,7 +28,7 @@
 #include "driver/opc/telem/telem.h"
 #include "driver/opc/types/types.h"
 
-namespace opc {
+namespace driver::opc {
 namespace {
 /// @brief Helper function to convert string GUID to UA_Guid
 UA_Guid string_to_guid(const std::string &guidStr) {
@@ -69,7 +69,7 @@ std::string guid_to_string(const UA_Guid &guid) {
 }
 }
 
-NodeId NodeId::parse(const std::string &field_name, xjson::Parser &parser) {
+NodeId NodeId::parse(const std::string &field_name, x::json::Parser &parser) {
     const std::string nodeIdStr = parser.field<std::string>(field_name);
     if (!parser.ok()) return NodeId();
     auto [node_id, err] = parse(nodeIdStr);
@@ -80,11 +80,14 @@ NodeId NodeId::parse(const std::string &field_name, xjson::Parser &parser) {
     return std::move(node_id);
 }
 
-std::pair<NodeId, xerrors::Error> NodeId::parse(const std::string &node_id_str) {
+std::pair<NodeId, x::errors::Error> NodeId::parse(const std::string &node_id_str) {
     std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
     std::smatch matches;
     if (!std::regex_search(node_id_str, matches, regex))
-        return {NodeId(), xerrors::Error(xerrors::VALIDATION, "Invalid NodeId format")};
+        return {
+            NodeId(),
+            x::errors::Error(x::errors::VALIDATION, "Invalid NodeId format")
+        };
 
     int nsIndex = std::stoi(matches[1].str());
     std::string type = matches[2].str();
@@ -122,7 +125,7 @@ std::pair<NodeId, xerrors::Error> NodeId::parse(const std::string &node_id_str) 
     NodeId result(raw_id);
     // Clear the raw_id to prevent double-free (NodeId now owns it)
     UA_NodeId_clear(&raw_id);
-    return {std::move(result), xerrors::NIL};
+    return {std::move(result), x::errors::NIL};
 }
 
 std::string NodeId::to_string(const UA_NodeId &node_id) {
@@ -170,13 +173,13 @@ std::string node_class_to_string(const UA_NodeClass &node_class) {
     return NODE_CLASS_MAP.at(node_class);
 }
 
-xerrors::Error WriteRequestBuilder::add_value(
+x::errors::Error WriteRequestBuilder::add_value(
     const UA_NodeId &node_id,
-    const ::telem::Series &series
+    const ::x::telem::Series &series
 ) {
-    auto [variant, err] = opc::telem::series_to_variant(series);
+    auto [variant, err] = driver::opc::telem::series_to_variant(series);
     if (err) return err;
     add_value(node_id, variant);
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 }

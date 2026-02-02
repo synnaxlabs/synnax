@@ -20,13 +20,13 @@ Base::~Base() {
         LOG(ERROR) << "[ni] unexpected failure to clear daqmx task: " << err;
 }
 
-xerrors::Error Base::start() {
-    if (this->running.exchange(true)) return xerrors::NIL;
+x::errors::Error Base::start() {
+    if (this->running.exchange(true)) return x::errors::NIL;
     return this->dmx->StartTask(this->task_handle);
 }
 
-xerrors::Error Base::stop() {
-    if (!this->running.exchange(false)) return xerrors::NIL;
+x::errors::Error Base::stop() {
+    if (!this->running.exchange(false)) return x::errors::NIL;
     return this->dmx->StopTask(this->task_handle);
 }
 
@@ -36,7 +36,7 @@ DigitalWriter::DigitalWriter(
 ):
     Base(task_handle, dmx) {}
 
-xerrors::Error DigitalWriter::write(const std::vector<uint8_t> &data) {
+x::errors::Error DigitalWriter::write(const std::vector<uint8_t> &data) {
     return this->dmx->WriteDigitalLines(
         this->task_handle,
         1,
@@ -55,7 +55,7 @@ AnalogWriter::AnalogWriter(
 ):
     Base(task_handle, dmx) {}
 
-xerrors::Error AnalogWriter::write(const std::vector<double> &data) {
+x::errors::Error AnalogWriter::write(const std::vector<double> &data) {
     return this->dmx->WriteAnalogF64(
         this->task_handle,
         1,
@@ -121,7 +121,7 @@ AnalogReader::read(const size_t samples_per_channel, std::vector<double> &data) 
 }
 
 template<typename T>
-xerrors::Error SkewTrackingReader<T>::start() {
+x::errors::Error SkewTrackingReader<T>::start() {
     this->total_samples_acquired = 0;
     this->total_samples_requested = 0;
     if (const auto err = this->dmx->SetReadOverWrite(

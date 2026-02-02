@@ -17,29 +17,29 @@
 #include "glog/logging.h"
 
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/loop/loop.h"
-#include "x/cpp/xjson/xjson.h"
-#include "x/cpp/xthread/xthread.h"
+#include "x/cpp/thread/thread.h"
 
 #include "driver/pipeline/base.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/common/status.h"
 #include "driver/task/task.h"
 
-namespace common {
+namespace driver::task::common {
 /// @brief the default rate to scan for devices.
-const auto DEFAULT_SCAN_RATE = telem::Rate(telem::SECOND * 5);
+const auto DEFAULT_SCAN_RATE = x::telem::Rate(x::telem::SECOND * 5);
 
 /// @brief Base configuration for scan tasks with rate and enabled settings.
 struct ScanTaskConfig {
-    telem::Rate scan_rate = DEFAULT_SCAN_RATE;
+    x::telem::Rate scan_rate = DEFAULT_SCAN_RATE;
     bool enabled = true;
 
     ScanTaskConfig() = default;
 
-    explicit ScanTaskConfig(xjson::Parser &cfg):
+    explicit ScanTaskConfig(x::json::Parser &cfg):
         scan_rate(
-            telem::Rate(cfg.field<double>(
+            x::telem::Rate(cfg.field<double>(
                 std::vector<std::string>{"scan_rate", "rate"},
                 DEFAULT_SCAN_RATE.hz()
             ))
@@ -53,7 +53,7 @@ struct ScannerContext {
     /// @brief Devices currently tracked by the scan task. The scanner can use this
     /// to check health or perform other device-specific operations without maintaining
     /// its own device registry.
-    const std::unordered_map<std::string, synnax::Device> *devices = nullptr;
+    const std::unordered_map<std::string, synnax::device::Device> *devices = nullptr;
 };
 
 /// @brief Configuration for a scanner, defining its make and signal monitoring
@@ -72,20 +72,20 @@ struct Scanner {
     virtual ScannerConfig config() const = 0;
 
     /// @brief Lifecycle method called when the scan task starts.
-    virtual xerrors::Error start() { return xerrors::NIL; }
+    virtual x::errors::Error start() { return x::errors::NIL; }
 
     /// @brief Lifecycle method called when the scan task stops.
-    virtual xerrors::Error stop() { return xerrors::NIL; }
+    virtual x::errors::Error stop() { return x::errors::NIL; }
 
     /// @brief Periodic scan method to discover/update devices.
-    virtual std::pair<std::vector<synnax::Device>, xerrors::Error>
+    virtual std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const ScannerContext &ctx) = 0;
 
     /// @brief Optional: Handle custom commands. Return true if handled.
     virtual bool exec(
-        task::Command &cmd,
-        const synnax::Task &task,
-        const std::shared_ptr<task::Context> &ctx
+        synnax::task::Command &cmd,
+        const synnax::task::Task &task,
+        const std::shared_ptr<driver::task::Context> &ctx
     ) {
         return false;
     }
@@ -94,119 +94,125 @@ struct Scanner {
 struct ClusterAPI {
     virtual ~ClusterAPI() = default;
 
-    virtual std::pair<std::vector<synnax::Device>, xerrors::Error>
-    retrieve_devices(const synnax::RackKey &rack, const std::string &make) = 0;
+    virtual std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    retrieve_devices(const synnax::rack::Key &rack, const std::string &make) = 0;
 
-    virtual std::pair<synnax::Device, xerrors::Error>
+    virtual std::pair<synnax::device::Device, x::errors::Error>
     retrieve_device(const std::string &key) = 0;
 
-    virtual xerrors::Error create_devices(std::vector<synnax::Device> &devs) = 0;
+    virtual x::errors::Error
+    create_devices(std::vector<synnax::device::Device> &devs) = 0;
 
-    virtual xerrors::Error
-    update_statuses(std::vector<synnax::DeviceStatus> statuses) = 0;
+    virtual x::errors::Error
+    update_statuses(std::vector<synnax::device::Status> statuses) = 0;
 
-    virtual std::pair<std::unique_ptr<pipeline::Streamer>, xerrors::Error>
-    open_streamer(synnax::StreamerConfig config) = 0;
+    virtual std::pair<std::unique_ptr<driver::pipeline::Streamer>, x::errors::Error>
+    open_streamer(synnax::framer::StreamerConfig config) = 0;
 
-    virtual std::pair<std::vector<synnax::Channel>, xerrors::Error>
+    virtual std::pair<std::vector<synnax::channel::Channel>, x::errors::Error>
     retrieve_channels(const std::vector<std::string> &names) = 0;
 };
 
 struct SynnaxClusterAPI final : ClusterAPI {
     std::shared_ptr<synnax::Synnax> client;
-    synnax::Channel state_channel;
-    std::unique_ptr<synnax::Writer> state_writer;
+    synnax::channel::Channel state_channel;
+    std::unique_ptr<synnax::framer::Writer> state_writer;
 
     explicit SynnaxClusterAPI(const std::shared_ptr<synnax::Synnax> &client):
         client(client) {}
 
-    std::pair<std::vector<synnax::Device>, xerrors::Error>
-    retrieve_devices(const synnax::RackKey &rack, const std::string &make) override {
-        synnax::DeviceRetrieveRequest req;
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    retrieve_devices(const synnax::rack::Key &rack, const std::string &make) override {
+        synnax::device::RetrieveRequest req;
         req.makes = {make};
         req.racks = {rack};
         req.include_status = true;
         return this->client->devices.retrieve(req);
     }
 
-    std::pair<synnax::Device, xerrors::Error>
+    std::pair<synnax::device::Device, x::errors::Error>
     retrieve_device(const std::string &key) override {
         return this->client->devices.retrieve(
             key,
-            synnax::DeviceRetrieveOptions{
+            synnax::device::RetrieveOptions{
                 .include_status = true,
             }
         );
     }
 
-    xerrors::Error create_devices(std::vector<synnax::Device> &devs) override {
-        if (devs.empty()) return xerrors::NIL;
+    x::errors::Error
+    create_devices(std::vector<synnax::device::Device> &devs) override {
+        if (devs.empty()) return x::errors::NIL;
         return this->client->devices.create(devs);
     }
 
-    xerrors::Error
-    update_statuses(std::vector<synnax::DeviceStatus> statuses) override {
-        if (statuses.empty()) return xerrors::NIL;
+    x::errors::Error
+    update_statuses(std::vector<synnax::device::Status> statuses) override {
+        if (statuses.empty()) return x::errors::NIL;
         return this->client->statuses.set(statuses);
     }
 
-    std::pair<std::unique_ptr<pipeline::Streamer>, xerrors::Error>
-    open_streamer(synnax::StreamerConfig config) override {
+    std::pair<std::unique_ptr<driver::pipeline::Streamer>, x::errors::Error>
+    open_streamer(synnax::framer::StreamerConfig config) override {
         auto [s, err] = this->client->telem.open_streamer(config);
         if (err) return {nullptr, err};
-        return {std::make_unique<pipeline::SynnaxStreamer>(std::move(s)), xerrors::NIL};
+        return {
+            std::make_unique<driver::pipeline::SynnaxStreamer>(std::move(s)),
+            x::errors::NIL
+        };
     }
 
-    std::pair<std::vector<synnax::Channel>, xerrors::Error>
+    std::pair<std::vector<synnax::channel::Channel>, x::errors::Error>
     retrieve_channels(const std::vector<std::string> &names) override {
         return this->client->channels.retrieve(names);
     }
 };
 
-class ScanTask final : public task::Task, public pipeline::Base {
-    const synnax::Task task;
-    loop::Timer timer;
+class ScanTask final : public driver::task::Task, public driver::pipeline::Base {
+    const synnax::task::Task task;
+    x::loop::Timer timer;
     std::unique_ptr<Scanner> scanner;
-    std::shared_ptr<task::Context> ctx;
-    synnax::TaskStatus status;
+    std::shared_ptr<driver::task::Context> ctx;
+    synnax::task::Status status;
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
-    std::unordered_map<std::string, synnax::Device> dev_states;
+    std::unordered_map<std::string, synnax::device::Device> dev_states;
     std::string log_prefix;
 
     // Signal monitoring infrastructure
-    synnax::Channel device_set_channel;
-    synnax::Channel device_delete_channel;
-    std::unique_ptr<pipeline::Streamer> signal_streamer;
+    synnax::channel::Channel device_set_channel;
+    synnax::channel::Channel device_delete_channel;
+    std::unique_ptr<driver::pipeline::Streamer> signal_streamer;
     std::thread signal_thread;
     std::mutex mu;
 
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
-        auto last_updated = telem::TimeStamp(0);
+        auto last_updated = x::telem::TimeStamp(0);
         if (const auto dev_state = this->dev_states.find(dev_key);
-            dev_state != this->dev_states.end()) {
-            last_updated = dev_state->second.status.time;
+            dev_state != this->dev_states.end() &&
+            dev_state->second.status.has_value()) {
+            last_updated = dev_state->second.status->time;
         }
-        const auto delta = telem::TimeStamp::now() - last_updated;
-        return delta > telem::SECOND * 30;
+        const auto delta = x::telem::TimeStamp::now() - last_updated;
+        return delta > x::telem::SECOND * 30;
     }
 
     /// @brief Starts signal monitoring thread for device set/delete events.
-    xerrors::Error start_signal_monitoring() {
+    x::errors::Error start_signal_monitoring() {
         auto [channels, err] = this->client->retrieve_channels(
-            {synnax::DEVICE_SET_CHANNEL, synnax::DEVICE_DELETE_CHANNEL}
+            {synnax::device::DEVICE_SET_CHANNEL, synnax::device::DEVICE_DELETE_CHANNEL}
         );
         if (err) return err;
 
         for (const auto &ch: channels) {
-            if (ch.name == synnax::DEVICE_SET_CHANNEL)
+            if (ch.name == synnax::device::DEVICE_SET_CHANNEL)
                 this->device_set_channel = ch;
-            else if (ch.name == synnax::DEVICE_DELETE_CHANNEL)
+            else if (ch.name == synnax::device::DEVICE_DELETE_CHANNEL)
                 this->device_delete_channel = ch;
         }
 
         auto [s, open_err] = this->client->open_streamer(
-            synnax::StreamerConfig{
+            synnax::framer::StreamerConfig{
                 .channels = {device_set_channel.key, device_delete_channel.key}
             }
         );
@@ -216,7 +222,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
         VLOG(1) << this->log_prefix
                 << "started signal monitoring for devices with make: "
                 << this->scanner->config().make;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     /// @brief Stops signal monitoring thread.
@@ -230,8 +236,8 @@ class ScanTask final : public task::Task, public pipeline::Base {
 
     /// @brief Signal thread run loop - processes device set/delete events.
     void signal_thread_run() {
-        xthread::set_name((this->task.name + ":sig").c_str());
-        const auto rack_key = synnax::rack_key_from_task_key(this->key);
+        x::thread::set_name((this->task.name + ":sig").c_str());
+        const auto rack_key = synnax::task::rack_key_from_task_key(this->key);
         const auto make = this->scanner->config().make;
 
         do {
@@ -244,8 +250,8 @@ class ScanTask final : public task::Task, public pipeline::Base {
 
                 if (ch_key == this->device_set_channel.key) {
                     for (const auto &dev_json: series.strings()) {
-                        auto parser = xjson::Parser(dev_json);
-                        auto parsed_dev = synnax::Device::parse(parser);
+                        auto parser = x::json::Parser(dev_json);
+                        auto parsed_dev = synnax::device::Device::parse(parser);
                         if (parser.error()) {
                             LOG(WARNING)
                                 << this->log_prefix
@@ -280,10 +286,10 @@ class ScanTask final : public task::Task, public pipeline::Base {
 public:
     ScanTask(
         std::unique_ptr<Scanner> scanner,
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task,
-        const breaker::Config &breaker_config,
-        const telem::Rate scan_rate,
+        const std::shared_ptr<driver::task::Context> &ctx,
+        const synnax::task::Task &task,
+        const x::breaker::Config &breaker_config,
+        const x::telem::Rate scan_rate,
         std::unique_ptr<ClusterAPI> client
     ):
         Base(breaker_config, task.name),
@@ -296,17 +302,17 @@ public:
         if (this->log_prefix.empty())
             throw std::invalid_argument("log_prefix must be provided in ScannerConfig");
         this->key = task.key;
-        this->status.key = task.status_key();
+        this->status.key = synnax::task::status_key(task);
         this->status.name = task.name;
         this->status.details.task = task.key;
     }
 
     ScanTask(
         std::unique_ptr<Scanner> scanner,
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task,
-        const breaker::Config &breaker_config,
-        const telem::Rate scan_rate
+        const std::shared_ptr<driver::task::Context> &ctx,
+        const synnax::task::Task &task,
+        const x::breaker::Config &breaker_config,
+        const x::telem::Rate scan_rate
     ):
         ScanTask(
             std::move(scanner),
@@ -319,27 +325,27 @@ public:
 
     /// @brief Initializes the scan task by loading remote devices into dev_states.
     /// This is called automatically by run(), but can be called separately for testing.
-    xerrors::Error init() {
+    x::errors::Error init() {
         auto [remote_devs_vec, ret_err] = this->client->retrieve_devices(
-            this->task.rack(),
+            synnax::task::rack(this->task),
             this->scanner->config().make
         );
         if (ret_err) return ret_err;
         for (const auto &dev: remote_devs_vec)
             this->dev_states[dev.key] = dev;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void run() override {
         if (const auto err = this->init()) {
-            this->status.variant = status::variant::ERR;
+            this->status.variant = x::status::VARIANT_ERROR;
             this->status.message = err.message();
             this->ctx->set_status(this->status);
             return;
         }
 
         if (const auto err = this->scanner->start()) {
-            this->status.variant = status::variant::ERR;
+            this->status.variant = x::status::VARIANT_ERROR;
             this->status.message = err.message();
             this->ctx->set_status(this->status);
             return;
@@ -349,12 +355,12 @@ public:
             LOG(WARNING) << this->log_prefix
                          << "failed to start signal monitoring: " << err;
 
-        this->status.variant = status::variant::SUCCESS;
+        this->status.variant = x::status::VARIANT_SUCCESS;
         this->status.message = "Scan task started";
         this->ctx->set_status(this->status);
         while (this->breaker.running()) {
             if (const auto err = this->scan()) {
-                this->status.variant = status::variant::WARNING;
+                this->status.variant = x::status::VARIANT_WARNING;
                 this->status.message = err.message();
                 this->ctx->set_status(this->status);
                 LOG(WARNING) << this->log_prefix
@@ -365,26 +371,26 @@ public:
 
         this->stop_signal_monitoring();
         if (const auto err = this->scanner->stop()) {
-            this->status.variant = status::variant::ERR;
+            this->status.variant = x::status::VARIANT_ERROR;
             this->status.message = err.message();
         } else {
-            this->status.variant = status::variant::SUCCESS;
+            this->status.variant = x::status::VARIANT_SUCCESS;
             this->status.message = "scan task stopped";
         }
         this->ctx->set_status(this->status);
     }
 
-    void exec(task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd) override {
         this->status.details.cmd = cmd.key;
         if (cmd.type == STOP_CMD_TYPE) return this->stop(false);
         if (cmd.type == START_CMD_TYPE) {
             this->start();
             return;
         }
-        if (cmd.type == common::SCAN_CMD_TYPE) {
+        if (cmd.type == driver::task::common::SCAN_CMD_TYPE) {
             const auto err = this->scan();
-            this->status.variant = err ? status::variant::ERR
-                                       : status::variant::SUCCESS;
+            this->status.variant = err ? x::status::VARIANT_ERROR
+                                       : x::status::VARIANT_SUCCESS;
             this->status.message = err ? err.message() : "Scan complete";
             this->ctx->set_status(this->status);
             return;
@@ -394,9 +400,9 @@ public:
         LOG(ERROR) << this->log_prefix << "unknown command type: " << cmd.type;
     }
 
-    xerrors::Error scan() {
-        std::vector<synnax::Device> to_create;
-        std::vector<synnax::DeviceStatus> statuses;
+    x::errors::Error scan() {
+        std::vector<synnax::device::Device> to_create;
+        std::vector<synnax::device::Status> statuses;
         {
             std::lock_guard lock(this->mu);
 
@@ -410,7 +416,7 @@ public:
             // transitions NI may briefly report the same device at multiple locations.
             {
                 std::unordered_set<std::string> seen;
-                std::vector<synnax::Device> deduped;
+                std::vector<synnax::device::Device> deduped;
                 for (auto it = scanned_devs.rbegin(); it != scanned_devs.rend(); ++it) {
                     if (seen.count(it->key)) continue;
                     seen.insert(it->key);
@@ -422,7 +428,7 @@ public:
 
             // Step 2: Track which devices are present that need to be created.
             std::set<std::string> present;
-            auto last_available = telem::TimeStamp::now();
+            auto last_available = x::telem::TimeStamp::now();
             for (auto &scanned_dev: scanned_devs) {
                 present.insert(scanned_dev.key);
                 // Unless the device already exists on the remote, it should not
@@ -456,28 +462,32 @@ public:
                     scanned_dev.configured = remote_dev.configured;
                     to_create.push_back(scanned_dev);
                 }
-                scanned_dev.status.time = last_available;
+                if (!scanned_dev.status.has_value())
+                    scanned_dev.status = synnax::device::Status{};
+                scanned_dev.status->time = last_available;
                 this->dev_states[scanned_dev.key] = scanned_dev;
             }
 
             for (auto &[key, dev]: this->dev_states) {
                 if (present.find(key) != present.end()) continue;
-                dev.status.variant = status::variant::WARNING;
-                dev.status.message = "Device disconnected";
+                if (!dev.status.has_value()) dev.status = synnax::device::Status{};
+                dev.status->variant = x::status::VARIANT_WARNING;
+                dev.status->message = "Device disconnected";
             }
 
             statuses.reserve(this->dev_states.size());
-            for (auto &[key, info]: this->dev_states)
-                statuses.push_back(info.status);
+            for (auto &[key, info]: this->dev_states) {
+                if (info.status.has_value()) statuses.push_back(*info.status);
+            }
         }
 
         if (const auto state_err = this->client->update_statuses(statuses))
             LOG(ERROR) << this->log_prefix
                        << "failed to propagate statuses: " << state_err;
 
-        if (to_create.empty()) return xerrors::NIL;
+        if (to_create.empty()) return x::errors::NIL;
 
-        xerrors::Error last_err = xerrors::NIL;
+        x::errors::Error last_err = x::errors::NIL;
         for (auto &device: to_create) {
             std::vector single_device = {device};
             if (const auto create_err = this->client->create_devices(single_device)) {
@@ -493,8 +503,8 @@ public:
 
     std::string name() const override { return this->task.name; }
 
-    using pipeline::Base::stop;
+    using driver::pipeline::Base::stop;
 
-    void stop(bool will_reconfigure) override { pipeline::Base::stop(); }
+    void stop(bool will_reconfigure) override { driver::pipeline::Base::stop(); }
 };
 }

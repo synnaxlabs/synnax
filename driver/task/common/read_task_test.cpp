@@ -9,45 +9,46 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/task/common/read_task.h"
 
-class MockSource final : public common::Source {
+class MockSource final : public driver::task::common::Source {
     size_t start_count = 0;
-    const std::vector<xerrors::Error> start_errs;
+    const std::vector<x::errors::Error> start_errs;
     size_t stop_count = 0;
-    const std::vector<xerrors::Error> stop_errs;
-    pipeline::mock::Source wrapped;
+    const std::vector<x::errors::Error> stop_errs;
+    driver::pipeline::mock::Source wrapped;
 
-    synnax::WriterConfig writer_config() const override {
-        return synnax::WriterConfig();
+    synnax::framer::WriterConfig writer_config() const override {
+        return synnax::framer::WriterConfig();
     }
 
-    std::vector<synnax::Channel> channels() const override { return {}; }
+    std::vector<synnax::channel::Channel> channels() const override { return {}; }
 
 public:
     explicit MockSource(
-        const std::shared_ptr<std::vector<telem::Frame>> &reads,
-        const std::shared_ptr<std::vector<xerrors::Error>> &read_errors = nullptr,
-        const std::vector<xerrors::Error> &start_err = {},
-        const std::vector<xerrors::Error> &stop_err = {}
+        const std::shared_ptr<std::vector<x::telem::Frame>> &reads,
+        const std::shared_ptr<std::vector<x::errors::Error>> &read_errors = nullptr,
+        const std::vector<x::errors::Error> &start_err = {},
+        const std::vector<x::errors::Error> &stop_err = {}
     ):
         start_errs(start_err), stop_errs(stop_err), wrapped(reads, read_errors) {}
 
-    xerrors::Error start() override {
-        if (start_count >= start_errs.size()) return xerrors::NIL;
+    x::errors::Error start() override {
+        if (start_count >= start_errs.size()) return x::errors::NIL;
         return start_errs[start_count++];
     }
 
-    xerrors::Error stop() override {
-        if (stop_count >= stop_errs.size()) return xerrors::NIL;
+    x::errors::Error stop() override {
+        if (stop_count >= stop_errs.size()) return x::errors::NIL;
         return stop_errs[stop_count++];
     }
 
-    common::ReadResult read(breaker::Breaker &breaker, telem::Frame &data) override {
-        common::ReadResult res;
+    driver::task::common::ReadResult
+    read(x::breaker::Breaker &breaker, x::telem::Frame &data) override {
+        driver::task::common::ReadResult res;
         res.error = this->wrapped.read(breaker, data);
         return res;
     }
@@ -55,18 +56,19 @@ public:
 
 /// @brief it should start and stop the read task with successful status.
 TEST(TestCommonReadTask, testBasicOperation) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    auto
+        mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    synnax::task::Task t;
     t.key = 12345;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<telem::Frame>>();
-    auto s = telem::Series(telem::TimeStamp::now());
-    reads->emplace_back(telem::Frame(0, std::move(s)));
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    auto s = x::telem::Series(x::telem::TimeStamp::now());
+    reads->emplace_back(x::telem::Frame(0, std::move(s)));
     auto mock_source = std::make_unique<MockSource>(reads);
-    common::ReadTask read_task(
+    driver::task::common::ReadTask read_task(
         t,
         ctx,
-        breaker::default_config("cat"),
+        x::breaker::default_config("cat"),
         std::move(mock_source),
         mock_writer_factory
     );
@@ -74,39 +76,40 @@ TEST(TestCommonReadTask, testBasicOperation) {
     read_task.start(start_cmd_key);
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, t.status_key());
+    EXPECT_EQ(start_state.key, synnax::task::status_key(t));
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
     EXPECT_EQ(start_state.details.task, t.key);
-    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
     read_task.stop("stop_cmd", true);
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, t.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(t));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, t.key);
-    EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should report error status when source fails to start.
 TEST(TestCommonReadTask, testErrorOnStart) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    auto
+        mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    synnax::task::Task t;
     t.key = 12345;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<telem::Frame>>();
-    auto s = telem::Series(telem::TimeStamp::now());
-    reads->emplace_back(telem::Frame(0, std::move(s)));
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    auto s = x::telem::Series(x::telem::TimeStamp::now());
+    reads->emplace_back(x::telem::Frame(0, std::move(s)));
     auto mock_source = std::make_unique<MockSource>(
         reads,
         nullptr,
-        std::vector{xerrors::Error("base", "start error")}
+        std::vector{x::errors::Error("base", "start error")}
     );
-    common::ReadTask read_task(
+    driver::task::common::ReadTask read_task(
         t,
         ctx,
-        breaker::default_config("cat"),
+        x::breaker::default_config("cat"),
         std::move(mock_source),
         mock_writer_factory
     );
@@ -114,32 +117,33 @@ TEST(TestCommonReadTask, testErrorOnStart) {
     ASSERT_FALSE(read_task.start(start_cmd_key));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, t.status_key());
+    EXPECT_EQ(start_state.key, synnax::task::status_key(t));
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
     EXPECT_EQ(start_state.details.task, t.key);
-    EXPECT_EQ(start_state.variant, status::variant::ERR);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(start_state.message, "start error");
 }
 
 /// @brief it should report error status when source fails to stop.
 TEST(TestCommonReadTask, testErrorOnStop) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    auto
+        mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    synnax::task::Task t;
     t.key = 12345;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<telem::Frame>>();
-    auto s = telem::Series(telem::TimeStamp::now());
-    reads->emplace_back(telem::Frame(0, std::move(s)));
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    auto s = x::telem::Series(x::telem::TimeStamp::now());
+    reads->emplace_back(x::telem::Frame(0, std::move(s)));
     auto mock_source = std::make_unique<MockSource>(
         reads,
         nullptr,
-        std::vector<xerrors::Error>{},
-        std::vector{xerrors::Error("base", "stop error")}
+        std::vector<x::errors::Error>{},
+        std::vector{x::errors::Error("base", "stop error")}
     );
-    common::ReadTask read_task(
+    driver::task::common::ReadTask read_task(
         t,
         ctx,
-        breaker::default_config("cat"),
+        x::breaker::default_config("cat"),
         std::move(mock_source),
         mock_writer_factory
     );
@@ -147,39 +151,40 @@ TEST(TestCommonReadTask, testErrorOnStop) {
     ASSERT_TRUE(read_task.start(start_cmd_key));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, t.status_key());
+    EXPECT_EQ(start_state.key, synnax::task::status_key(t));
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
     EXPECT_EQ(start_state.details.task, t.key);
-    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
 
     const std::string stop_cmd_key = "stop_cmd";
     ASSERT_TRUE(read_task.stop(stop_cmd_key, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, t.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(t));
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, t.key);
-    EXPECT_EQ(stop_state.variant, status::variant::ERR);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "stop error");
 }
 
 /// @brief it should support multiple start-stop cycles.
 TEST(TestCommonReadTask, testMultiStartStop) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    auto
+        mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    synnax::task::Task t;
     t.key = 12345;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<telem::Frame>>();
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
 
-    auto s = telem::Series(telem::TimeStamp::now());
+    auto s = x::telem::Series(x::telem::TimeStamp::now());
     for (int i = 0; i < 30; i++)
-        reads->emplace_back(telem::Frame(i, s.deep_copy()));
+        reads->emplace_back(x::telem::Frame(i, s.deep_copy()));
 
     auto mock_source = std::make_unique<MockSource>(reads);
-    common::ReadTask read_task(
+    driver::task::common::ReadTask read_task(
         t,
         ctx,
-        breaker::default_config("cat"),
+        x::breaker::default_config("cat"),
         std::move(mock_source),
         mock_writer_factory
     );
@@ -189,10 +194,10 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     ASSERT_TRUE(read_task.start(start_cmd_key1));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state1 = ctx->statuses[0];
-    EXPECT_EQ(start_state1.key, t.status_key());
+    EXPECT_EQ(start_state1.key, synnax::task::status_key(t));
     EXPECT_EQ(start_state1.details.cmd, start_cmd_key1);
     EXPECT_EQ(start_state1.details.task, t.key);
-    EXPECT_EQ(start_state1.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state1.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
 
@@ -200,20 +205,20 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     ASSERT_TRUE(read_task.stop(stop_cmd_key1, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto stop_state1 = ctx->statuses[1];
-    EXPECT_EQ(stop_state1.key, t.status_key());
+    EXPECT_EQ(stop_state1.key, synnax::task::status_key(t));
     EXPECT_EQ(stop_state1.details.cmd, stop_cmd_key1);
     EXPECT_EQ(stop_state1.details.task, t.key);
-    EXPECT_EQ(stop_state1.variant, status::variant::SUCCESS);
+    EXPECT_EQ(stop_state1.variant, x::status::VARIANT_SUCCESS);
 
     // Second start-stop cycle
     const std::string start_cmd_key2 = "start_cmd2";
     ASSERT_TRUE(read_task.start(start_cmd_key2));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 3);
     auto start_state2 = ctx->statuses[2];
-    EXPECT_EQ(start_state2.key, t.status_key());
+    EXPECT_EQ(start_state2.key, synnax::task::status_key(t));
     EXPECT_EQ(start_state2.details.cmd, start_cmd_key2);
     EXPECT_EQ(start_state2.details.task, t.key);
-    EXPECT_EQ(start_state2.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state2.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 2);
 
@@ -221,33 +226,34 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     ASSERT_TRUE(read_task.stop(stop_cmd_key2, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 4);
     auto stop_state2 = ctx->statuses[3];
-    EXPECT_EQ(stop_state2.key, t.status_key());
+    EXPECT_EQ(stop_state2.key, synnax::task::status_key(t));
     EXPECT_EQ(stop_state2.details.cmd, stop_cmd_key2);
     EXPECT_EQ(stop_state2.details.task, t.key);
-    EXPECT_EQ(stop_state2.variant, status::variant::SUCCESS);
+    EXPECT_EQ(stop_state2.variant, x::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should report error status when read fails during operation.
 TEST(TestCommonReadTask, testReadError) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    auto
+        mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    synnax::task::Task t;
     t.key = 12345;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<telem::Frame>>();
-    auto s = telem::Series(telem::TimeStamp::now());
-    reads->emplace_back(telem::Frame(0, s.deep_copy()));
-    reads->emplace_back(telem::Frame(1, s.deep_copy()));
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    auto s = x::telem::Series(x::telem::TimeStamp::now());
+    reads->emplace_back(x::telem::Frame(0, s.deep_copy()));
+    reads->emplace_back(x::telem::Frame(1, s.deep_copy()));
     auto mock_source = std::make_unique<MockSource>(
         reads,
-        std::make_shared<std::vector<xerrors::Error>>(
-            std::vector{xerrors::NIL, xerrors::Error("base", "read error")}
+        std::make_shared<std::vector<x::errors::Error>>(
+            std::vector{x::errors::NIL, x::errors::Error("base", "read error")}
         )
     );
 
-    common::ReadTask read_task(
+    driver::task::common::ReadTask read_task(
         t,
         ctx,
-        breaker::default_config("cat"),
+        x::breaker::default_config("cat"),
         std::move(mock_source),
         mock_writer_factory
     );
@@ -256,51 +262,52 @@ TEST(TestCommonReadTask, testReadError) {
     ASSERT_TRUE(read_task.start(start_cmd_key));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, t.status_key());
+    EXPECT_EQ(start_state.key, synnax::task::status_key(t));
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
     EXPECT_EQ(start_state.details.task, t.key);
-    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.message, "Task started successfully");
 
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto run_err = ctx->statuses[1];
-    ASSERT_EQ(run_err.key, t.status_key());
+    ASSERT_EQ(run_err.key, synnax::task::status_key(t));
     ASSERT_EQ(run_err.details.task, t.key);
-    ASSERT_EQ(run_err.variant, status::variant::ERR);
+    ASSERT_EQ(run_err.variant, x::status::VARIANT_ERROR);
     ASSERT_EQ(run_err.message, "read error");
 
     ASSERT_FALSE(read_task.stop("stop_cmd", true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 3);
     auto stop_state = ctx->statuses[2];
-    EXPECT_EQ(stop_state.key, t.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(t));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, t.key);
-    EXPECT_EQ(stop_state.variant, status::variant::ERR);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "read error");
 }
 
 /// @brief it should recover on second start after first start failure.
 TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    auto
+        mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    synnax::task::Task t;
     t.key = 12345;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<telem::Frame>>();
-    auto s = telem::Series(telem::TimeStamp::now());
-    reads->emplace_back(telem::Frame(0, std::move(s)));
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    auto s = x::telem::Series(x::telem::TimeStamp::now());
+    reads->emplace_back(x::telem::Frame(0, std::move(s)));
 
     // Create a source that fails on first start but succeeds on second start
     auto mock_source = std::make_unique<MockSource>(
         reads,
         nullptr,
-        std::vector{xerrors::Error("base", "first start error"), xerrors::NIL}
+        std::vector{x::errors::Error("base", "first start error"), x::errors::NIL}
     );
 
-    common::ReadTask read_task(
+    driver::task::common::ReadTask read_task(
         t,
         ctx,
-        breaker::default_config("cat"),
+        x::breaker::default_config("cat"),
         std::move(mock_source),
         mock_writer_factory
     );
@@ -310,10 +317,10 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     ASSERT_FALSE(read_task.start(start_cmd_key1));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state1 = ctx->statuses[0];
-    EXPECT_EQ(start_state1.key, t.status_key());
+    EXPECT_EQ(start_state1.key, synnax::task::status_key(t));
     EXPECT_EQ(start_state1.details.cmd, start_cmd_key1);
     EXPECT_EQ(start_state1.details.task, t.key);
-    EXPECT_EQ(start_state1.variant, status::variant::ERR);
+    EXPECT_EQ(start_state1.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(start_state1.message, "first start error");
 
     // Second start attempt - should succeed
@@ -321,10 +328,10 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     ASSERT_TRUE(read_task.start(start_cmd_key2));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto start_state2 = ctx->statuses[1];
-    EXPECT_EQ(start_state2.key, t.status_key());
+    EXPECT_EQ(start_state2.key, synnax::task::status_key(t));
     EXPECT_EQ(start_state2.details.cmd, start_cmd_key2);
     EXPECT_EQ(start_state2.details.task, t.key);
-    EXPECT_EQ(start_state2.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state2.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state2.message, "Task started successfully");
 
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
@@ -334,37 +341,38 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     ASSERT_TRUE(read_task.stop(stop_cmd_key, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 3);
     auto stop_state = ctx->statuses[2];
-    EXPECT_EQ(stop_state.key, t.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(t));
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, t.key);
-    EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should recover on second stop after first stop failure.
 TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    auto
+        mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    synnax::task::Task t;
     t.key = 12345;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<telem::Frame>>();
-    auto s = telem::Series(telem::TimeStamp::now());
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    auto s = x::telem::Series(x::telem::TimeStamp::now());
     // Give the pipeline essentially infinite reads.
     for (int i = 0; i < 30; i++)
-        reads->emplace_back(telem::Frame(0, s.deep_copy()));
+        reads->emplace_back(x::telem::Frame(0, s.deep_copy()));
 
     // Create a source that fails on first stop but succeeds on second stop
     auto mock_source = std::make_unique<MockSource>(
         reads,
         nullptr,
-        std::vector<xerrors::Error>{}, // No start errors
-        std::vector{xerrors::Error("base", "first stop error"), xerrors::NIL}
+        std::vector<x::errors::Error>{}, // No start errors
+        std::vector{x::errors::Error("base", "first stop error"), x::errors::NIL}
         // First stop fails, second succeeds
     );
 
-    common::ReadTask read_task(
+    driver::task::common::ReadTask read_task(
         t,
         ctx,
-        breaker::default_config("cat"),
+        x::breaker::default_config("cat"),
         std::move(mock_source),
         mock_writer_factory
     );
@@ -374,10 +382,10 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     ASSERT_TRUE(read_task.start(start_cmd_key));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, t.status_key());
+    EXPECT_EQ(start_state.key, synnax::task::status_key(t));
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
     EXPECT_EQ(start_state.details.task, t.key);
-    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.message, "Task started successfully");
 
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
@@ -387,10 +395,10 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     ASSERT_TRUE(read_task.stop(stop_cmd_key1, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto stop_state1 = ctx->statuses[1];
-    EXPECT_EQ(stop_state1.key, t.status_key());
+    EXPECT_EQ(stop_state1.key, synnax::task::status_key(t));
     EXPECT_EQ(stop_state1.details.cmd, stop_cmd_key1);
     EXPECT_EQ(stop_state1.details.task, t.key);
-    EXPECT_EQ(stop_state1.variant, status::variant::ERR);
+    EXPECT_EQ(stop_state1.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state1.message, "first stop error");
 
     // Start the task again
@@ -398,10 +406,10 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     ASSERT_TRUE(read_task.start(start_cmd_key2));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 3);
     auto start_state2 = ctx->statuses[2];
-    EXPECT_EQ(start_state2.key, t.status_key());
+    EXPECT_EQ(start_state2.key, synnax::task::status_key(t));
     EXPECT_EQ(start_state2.details.cmd, start_cmd_key2);
     EXPECT_EQ(start_state2.details.task, t.key);
-    EXPECT_EQ(start_state2.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state2.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 2);
 
@@ -410,61 +418,64 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     ASSERT_TRUE(read_task.stop(stop_cmd_key2, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 4);
     auto stop_state2 = ctx->statuses[3];
-    EXPECT_EQ(stop_state2.key, t.status_key());
+    EXPECT_EQ(stop_state2.key, synnax::task::status_key(t));
     EXPECT_EQ(stop_state2.details.cmd, stop_cmd_key2);
     EXPECT_EQ(stop_state2.details.task, t.key);
-    EXPECT_EQ(stop_state2.variant, status::variant::SUCCESS);
+    EXPECT_EQ(stop_state2.variant, x::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should report warning status on temporary hardware error and recover.
 TEST(TestCommonReadTask, testTemporaryErrorWarning) {
-    const auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    const auto
+        mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    synnax::task::Task t;
     t.key = 12345;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<telem::Frame>>();
-    const auto s = telem::Series(telem::TimeStamp::now());
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto s = x::telem::Series(x::telem::TimeStamp::now());
     for (int i = 0; i < 30; i++)
-        reads->emplace_back(telem::Frame(i, s.deep_copy()));
+        reads->emplace_back(x::telem::Frame(i, s.deep_copy()));
     auto mock_source = std::make_unique<MockSource>(
         reads,
-        std::make_shared<std::vector<xerrors::Error>>(
-            std::vector{xerrors::NIL, driver::TEMPORARY_HARDWARE_ERROR, xerrors::NIL}
-        ),
-        std::vector{xerrors::NIL}
+        std::make_shared<std::vector<x::errors::Error>>(std::vector{
+            x::errors::NIL,
+            driver::TEMPORARY_HARDWARE_ERROR,
+            x::errors::NIL
+        }),
+        std::vector{x::errors::NIL}
     );
-    auto breaker_config = breaker::default_config("cat");
-    breaker_config.base_interval = 10 * telem::MILLISECOND;
-    common::ReadTask
+    auto breaker_config = x::breaker::default_config("cat");
+    breaker_config.base_interval = 10 * x::telem::MILLISECOND;
+    driver::task::common::ReadTask
         read_task(t, ctx, breaker_config, std::move(mock_source), mock_writer_factory);
     read_task.start("start_cmd");
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, t.status_key());
+    EXPECT_EQ(start_state.key, synnax::task::status_key(t));
     EXPECT_EQ(start_state.details.cmd, "start_cmd");
-    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     auto warning_state = ctx->statuses[1];
-    EXPECT_EQ(warning_state.key, t.status_key());
+    EXPECT_EQ(warning_state.key, synnax::task::status_key(t));
     EXPECT_EQ(warning_state.details.cmd, "start_cmd");
-    EXPECT_EQ(warning_state.variant, status::variant::WARNING);
+    EXPECT_EQ(warning_state.variant, x::status::VARIANT_WARNING);
     EXPECT_EQ(warning_state.message, driver::TEMPORARY_HARDWARE_ERROR.message());
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     auto recovered_state = ctx->statuses[2];
-    EXPECT_EQ(recovered_state.key, t.status_key());
+    EXPECT_EQ(recovered_state.key, synnax::task::status_key(t));
     EXPECT_EQ(recovered_state.details.cmd, "start_cmd");
-    EXPECT_EQ(recovered_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(recovered_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(recovered_state.message, "Task running");
 
     read_task.stop("stop_cmd", true);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 4);
     auto stop_state = ctx->statuses[3];
-    EXPECT_EQ(stop_state.key, t.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(t));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.message, "Task stopped successfully");
 }
 
@@ -472,80 +483,80 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
 TEST(BaseReadTaskConfigTest, testValidConfig) {
     const json j{{"data_saving", true}, {"sample_rate", 100.0}, {"stream_rate", 50.0}};
 
-    auto p = xjson::Parser(j);
-    const auto cfg = common::BaseReadTaskConfig(p);
+    auto p = x::json::Parser(j);
+    const auto cfg = driver::task::common::BaseReadTaskConfig(p);
     ASSERT_FALSE(p.error()) << p.error();
     EXPECT_TRUE(cfg.data_saving);
-    EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
-    EXPECT_EQ(cfg.stream_rate, telem::Rate(50.0));
+    EXPECT_EQ(cfg.sample_rate, x::telem::Rate(100.0));
+    EXPECT_EQ(cfg.stream_rate, x::telem::Rate(50.0));
 }
 
 /// @brief it should default data_saving to true when not specified.
 TEST(BaseReadTaskConfigTest, testDefaultDataSaving) {
     const json j{{"sample_rate", 100.0}, {"stream_rate", 50.0}};
 
-    auto p = xjson::Parser(j);
-    const auto cfg = common::BaseReadTaskConfig(p);
+    auto p = x::json::Parser(j);
+    const auto cfg = driver::task::common::BaseReadTaskConfig(p);
     ASSERT_FALSE(p.error()) << p.error();
     EXPECT_TRUE(cfg.data_saving);
-    EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
-    EXPECT_EQ(cfg.stream_rate, telem::Rate(50.0));
+    EXPECT_EQ(cfg.sample_rate, x::telem::Rate(100.0));
+    EXPECT_EQ(cfg.stream_rate, x::telem::Rate(50.0));
 }
 
 /// @brief it should accept equal sample and stream rates.
 TEST(BaseReadTaskConfigTest, testEqualRates) {
     const json j{{"sample_rate", 100.0}, {"stream_rate", 100.0}};
 
-    auto p = xjson::Parser(j);
-    const auto cfg = common::BaseReadTaskConfig(p);
+    auto p = x::json::Parser(j);
+    const auto cfg = driver::task::common::BaseReadTaskConfig(p);
     ASSERT_NIL(p.error());
-    EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
-    EXPECT_EQ(cfg.stream_rate, telem::Rate(100.0));
+    EXPECT_EQ(cfg.sample_rate, x::telem::Rate(100.0));
+    EXPECT_EQ(cfg.stream_rate, x::telem::Rate(100.0));
 }
 
 /// @brief it should return validation error when sample_rate is missing.
 TEST(BaseReadTaskConfigTest, testMissingSampleRate) {
     const json j{{"stream_rate", 50.0}};
 
-    auto p = xjson::Parser(j);
-    [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
-    ASSERT_MATCHES(p.error(), xerrors::VALIDATION);
+    auto p = x::json::Parser(j);
+    [[maybe_unused]] auto _ = driver::task::common::BaseReadTaskConfig(p);
+    ASSERT_MATCHES(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should return validation error when stream_rate is missing.
 TEST(BaseReadTaskConfigTest, testMissingStreamRate) {
     const json j{{"sample_rate", 100.0}};
 
-    auto p = xjson::Parser(j);
-    [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
-    ASSERT_MATCHES(p.error(), xerrors::VALIDATION);
+    auto p = x::json::Parser(j);
+    [[maybe_unused]] auto _ = driver::task::common::BaseReadTaskConfig(p);
+    ASSERT_MATCHES(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should return validation error for negative sample_rate.
 TEST(BaseReadTaskConfigTest, testNegativeSampleRate) {
     const json j{{"sample_rate", -100.0}, {"stream_rate", 50.0}};
 
-    auto p = xjson::Parser(j);
-    [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
-    ASSERT_MATCHES(p.error(), xerrors::VALIDATION);
+    auto p = x::json::Parser(j);
+    [[maybe_unused]] auto _ = driver::task::common::BaseReadTaskConfig(p);
+    ASSERT_MATCHES(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should return validation error for negative stream_rate.
 TEST(BaseReadTaskConfigTest, testNegativeStreamRate) {
     const json j{{"sample_rate", 100.0}, {"stream_rate", -50.0}};
 
-    auto p = xjson::Parser(j);
-    [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
-    ASSERT_MATCHES(p.error(), xerrors::VALIDATION);
+    auto p = x::json::Parser(j);
+    [[maybe_unused]] auto _ = driver::task::common::BaseReadTaskConfig(p);
+    ASSERT_MATCHES(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should return validation error when sample_rate is less than stream_rate.
 TEST(BaseReadTaskConfigTest, testSampleRateLessThanStreamRate) {
     const json j{{"sample_rate", 25.0}, {"stream_rate", 50.0}};
 
-    auto p = xjson::Parser(j);
-    [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
-    ASSERT_MATCHES(p.error(), xerrors::VALIDATION);
+    auto p = x::json::Parser(j);
+    [[maybe_unused]] auto _ = driver::task::common::BaseReadTaskConfig(p);
+    ASSERT_MATCHES(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should accept missing stream_rate when marked as optional.
@@ -556,21 +567,25 @@ TEST(BaseReadTaskConfigTest, testStreamRateOptional) {
         // No stream_rate provided
     };
 
-    auto p = xjson::Parser(j);
-    const auto cfg = common::BaseReadTaskConfig(p, common::TimingConfig(), false);
+    auto p = x::json::Parser(j);
+    const auto cfg = driver::task::common::BaseReadTaskConfig(
+        p,
+        driver::task::common::TimingConfig(),
+        false
+    );
     ASSERT_NIL(p.error());
-    EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
+    EXPECT_EQ(cfg.sample_rate, x::telem::Rate(100.0));
     EXPECT_TRUE(cfg.data_saving);
 }
 
 /// @brief it should transfer buffer data to frame for single channel.
 TEST(TestCommonReadTask, testTransferBufSingleChannel) {
     const std::vector buf = {1.0, 2.0, 3.0};
-    telem::Frame fr;
+    x::telem::Frame fr;
     fr.reserve(1);
-    fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
+    fr.emplace(1, x::telem::Series(x::telem::FLOAT64_T, 3));
 
-    common::transfer_buf(buf, fr, 1, 3);
+    driver::task::common::transfer_buf(buf, fr, 1, 3);
 
     EXPECT_EQ(fr.series->at(0).size(), 3);
     EXPECT_EQ(fr.series->at(0).at<double>(0), 1.0);
@@ -582,12 +597,12 @@ TEST(TestCommonReadTask, testTransferBufSingleChannel) {
 TEST(TestCommonReadTask, testTransferBufMultipleChannels) {
     const std::vector buf =
         {1.0, 2.0, 3.0, 4.0, 5.0, 6.0}; // 2 channels, 3 samples each
-    telem::Frame fr;
+    x::telem::Frame fr;
     fr.reserve(2);
-    fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
-    fr.emplace(2, telem::Series(telem::FLOAT64_T, 3));
+    fr.emplace(1, x::telem::Series(x::telem::FLOAT64_T, 3));
+    fr.emplace(2, x::telem::Series(x::telem::FLOAT64_T, 3));
 
-    common::transfer_buf(buf, fr, 2, 3);
+    driver::task::common::transfer_buf(buf, fr, 2, 3);
 
     EXPECT_EQ(fr.series->at(0).size(), 3);
     EXPECT_EQ(fr.series->at(0).at<double>(0), 1.0);
@@ -603,12 +618,12 @@ TEST(TestCommonReadTask, testTransferBufMultipleChannels) {
 /// @brief it should transfer buffer data to frame for integer type channels.
 TEST(TestCommonReadTask, testTransferBufIntegerType) {
     const std::vector buf = {1, 2, 3, 4}; // 2 channels, 2 samples each
-    telem::Frame fr;
+    x::telem::Frame fr;
     fr.reserve(2);
-    fr.emplace(1, telem::Series(telem::INT32_T, 2));
-    fr.emplace(2, telem::Series(telem::INT32_T, 2));
+    fr.emplace(1, x::telem::Series(x::telem::INT32_T, 2));
+    fr.emplace(2, x::telem::Series(x::telem::INT32_T, 2));
 
-    common::transfer_buf(buf, fr, 2, 2);
+    driver::task::common::transfer_buf(buf, fr, 2, 2);
 
     // Check first channel
     EXPECT_EQ(fr.series->at(0).size(), 2);

@@ -17,7 +17,7 @@
 #include "driver/task/common/status.h"
 #include "driver/task/task.h"
 
-namespace common {
+namespace driver::task::common {
 /// @brief common write task configuration parameters used across multiple drivers.
 struct BaseWriteTaskConfig : BaseTaskConfig {
     /// @brief the key of the device the task is writing to.
@@ -30,22 +30,22 @@ struct BaseWriteTaskConfig : BaseTaskConfig {
 
     const BaseWriteTaskConfig &operator=(const BaseWriteTaskConfig &) = delete;
 
-    explicit BaseWriteTaskConfig(xjson::Parser &cfg):
+    explicit BaseWriteTaskConfig(x::json::Parser &cfg):
         BaseTaskConfig(cfg), device_key(cfg.field<std::string>("device")) {}
 };
-class Sink : public pipeline::Sink, public pipeline::Source {
+class Sink : public driver::pipeline::Sink, public driver::pipeline::Source {
     /// @brief the vector of channels to stream for commands.
-    const std::vector<synnax::ChannelKey> cmd_channels;
+    const std::vector<synnax::channel::Key> cmd_channels;
     /// @brief the vector of channels to write state updates for.
-    std::unordered_map<synnax::ChannelKey, synnax::Channel> state_channels;
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> state_channels;
     /// @brief the index keys of the state channels.
-    const std::set<synnax::ChannelKey> state_indexes;
+    const std::set<synnax::channel::Key> state_indexes;
     /// @brief whether data saving is enabled for the task.
     bool data_saving;
 
 public:
     /// @brief the rate at which to communicate state values down the channel.
-    telem::Rate state_rate;
+    x::telem::Rate state_rate;
     /// @brief used to lock concurrent access to the channel state.
     std::mutex chan_state_lock;
     /// @brief used to signal the state source to send values whenever a command
@@ -53,19 +53,19 @@ public:
     std::condition_variable chan_state_cv;
     /// @brief the current state of all the outputs. This is shared between
     /// the command sink and state source.
-    std::unordered_map<synnax::ChannelKey, telem::SampleValue> chan_state;
+    std::unordered_map<synnax::channel::Key, x::telem::SampleValue> chan_state;
 
-    explicit Sink(std::vector<synnax::ChannelKey> cmd_channels):
+    explicit Sink(std::vector<synnax::channel::Key> cmd_channels):
         cmd_channels(std::move(cmd_channels)),
         state_indexes({}),
         data_saving(true),
         state_rate(0) {}
 
     Sink(
-        const telem::Rate state_rate,
-        std::set<synnax::ChannelKey> state_indexes,
-        const std::vector<synnax::Channel> &state_channels,
-        std::vector<synnax::ChannelKey> cmd_channels,
+        const x::telem::Rate state_rate,
+        std::set<synnax::channel::Key> state_indexes,
+        const std::vector<synnax::channel::Channel> &state_channels,
+        std::vector<synnax::channel::Key> cmd_channels,
         const bool data_saving
     ):
         cmd_channels(std::move(cmd_channels)),
@@ -80,27 +80,27 @@ public:
         }
     }
 
-    virtual xerrors::Error start() { return xerrors::NIL; }
+    virtual x::errors::Error start() { return x::errors::NIL; }
 
-    virtual xerrors::Error stop() { return xerrors::NIL; }
+    virtual x::errors::Error stop() { return x::errors::NIL; }
 
-    [[nodiscard]] synnax::StreamerConfig streamer_config() const {
-        return synnax::StreamerConfig{.channels = this->cmd_channels};
+    [[nodiscard]] synnax::framer::StreamerConfig streamer_config() const {
+        return synnax::framer::StreamerConfig{.channels = this->cmd_channels};
     }
 
-    [[nodiscard]] synnax::WriterConfig writer_config() const {
-        std::vector<synnax::ChannelKey> keys;
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
+        std::vector<synnax::channel::Key> keys;
         for (const auto &[_, ch]: this->state_channels)
             keys.push_back(ch.key);
         for (const auto idx: this->state_indexes)
             keys.push_back(idx);
-        return synnax::WriterConfig{
+        return synnax::framer::WriterConfig{
             .channels = keys,
-            .mode = common::data_saving_writer_mode(this->data_saving),
+            .mode = driver::task::common::data_saving_writer_mode(this->data_saving),
         };
     }
 
-    void set_state(const telem::Frame &frame) {
+    void set_state(const x::telem::Frame &frame) {
         std::lock_guard lock{this->chan_state_lock};
         this->chan_state_cv.notify_all();
         for (const auto &[cmd_key, s]: frame) {
@@ -111,46 +111,48 @@ public:
         }
     }
 
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+    x::errors::Error read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         std::unique_lock lock(chan_state_lock);
         this->chan_state_cv.wait_for(lock, this->state_rate.period().chrono());
         fr.clear();
         fr.reserve(this->chan_state.size());
         for (const auto &[key, value]: this->chan_state)
-            fr.emplace(key, telem::Series(value));
-        const auto now = telem::TimeStamp::now();
+            fr.emplace(key, x::telem::Series(value));
+        const auto now = x::telem::TimeStamp::now();
         for (const auto idx: this->state_indexes)
-            fr.emplace(idx, telem::Series(now));
-        return xerrors::NIL;
+            fr.emplace(idx, x::telem::Series(now));
+        return x::errors::NIL;
     }
 };
 
 /// @brief a write task that can write to both digital and analog output channels,
 /// and communicate their state back to Synnax.
-class WriteTask final : public task::Task {
-    class WrappedSink final : public pipeline::Sink, public pipeline::Source {
+class WriteTask final : public driver::task::Task {
+    class WrappedSink final : public driver::pipeline::Sink,
+                              public driver::pipeline::Source {
     public:
         /// @brief the parent write task.
         WriteTask &p;
         /// @brief the underlying wrapped sink that actually executes commands on
         /// the hardware.
-        std::unique_ptr<common::Sink> internal;
+        std::unique_ptr<driver::task::common::Sink> internal;
 
-        WrappedSink(WriteTask &p, std::unique_ptr<common::Sink> sink):
+        WrappedSink(WriteTask &p, std::unique_ptr<driver::task::common::Sink> sink):
             p(p), internal(std::move(sink)) {}
 
-        /// @brief implements pipeline::Sink, and pipeline:Source
-        void stopped_with_err(const xerrors::Error &err) override {
+        /// @brief implements driver::pipeline::Sink, and pipeline:Source
+        void stopped_with_err(const x::errors::Error &err) override {
             this->p.state.error(err);
             this->p.stop("", true);
         }
 
-        xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+        x::errors::Error
+        read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
             return this->internal->read(breaker, fr);
         }
 
-        xerrors::Error write(telem::Frame &frame) override {
-            if (frame.empty()) return xerrors::NIL;
+        x::errors::Error write(x::telem::Frame &frame) override {
+            if (frame.empty()) return x::errors::NIL;
             auto err = this->internal->write(frame);
             if (!err)
                 this->p.state.clear_warning();
@@ -159,7 +161,7 @@ class WriteTask final : public task::Task {
             return err;
         }
 
-        [[nodiscard]] synnax::WriterConfig writer_config() const {
+        [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
             auto cfg = this->internal->writer_config();
             if (cfg.subject.name.empty()) cfg.subject.name = this->p.name();
             return cfg;
@@ -172,21 +174,21 @@ class WriteTask final : public task::Task {
     std::shared_ptr<WrappedSink> sink;
     /// @brief the pipeline used to receive commands from Synnax and write them to
     /// the device.
-    pipeline::Control cmd_write_pipe;
+    driver::pipeline::Control cmd_write_pipe;
     /// @brief the pipeline used to receive state changes from the device and write
     /// to Synnax.
-    pipeline::Acquisition state_write_pipe;
+    driver::pipeline::Acquisition state_write_pipe;
 
 public:
     /// @brief base constructor that takes in pipeline factories to allow the
     /// caller to stub cluster communication during tests.
     explicit WriteTask(
-        const synnax::Task &task,
-        const std::shared_ptr<task::Context> &ctx,
-        const breaker::Config &breaker_cfg,
+        const synnax::task::Task &task,
+        const std::shared_ptr<driver::task::Context> &ctx,
+        const x::breaker::Config &breaker_cfg,
         std::unique_ptr<Sink> sink,
-        const std::shared_ptr<pipeline::WriterFactory> &writer_factory,
-        const std::shared_ptr<pipeline::StreamerFactory> &streamer_factory
+        const std::shared_ptr<driver::pipeline::WriterFactory> &writer_factory,
+        const std::shared_ptr<driver::pipeline::StreamerFactory> &streamer_factory
     ):
         state(ctx, task),
         sink(std::make_shared<WrappedSink>(*this, std::move(sink))),
@@ -208,9 +210,9 @@ public:
     /// @brief primary constructor that uses the task context's Synnax client for
     /// cluster communication.
     explicit WriteTask(
-        const synnax::Task &task,
-        const std::shared_ptr<task::Context> &ctx,
-        const breaker::Config &breaker_cfg,
+        const synnax::task::Task &task,
+        const std::shared_ptr<driver::task::Context> &ctx,
+        const x::breaker::Config &breaker_cfg,
         std::unique_ptr<Sink> sink
     ):
         WriteTask(
@@ -218,19 +220,20 @@ public:
             ctx,
             breaker_cfg,
             std::move(sink),
-            std::make_shared<pipeline::SynnaxWriterFactory>(ctx->client),
-            std::make_shared<pipeline::SynnaxStreamerFactory>(ctx->client)
+            std::make_shared<driver::pipeline::SynnaxWriterFactory>(ctx->client),
+            std::make_shared<driver::pipeline::SynnaxStreamerFactory>(ctx->client)
         ) {}
 
-    /// @brief implements task::Task to execute the provided command on the task.
-    void exec(task::Command &cmd) override {
+    /// @brief implements driver::task::Task to execute the provided command on the
+    /// task.
+    void exec(synnax::task::Command &cmd) override {
         if (cmd.type == "start")
             this->start(cmd.key);
         else if (cmd.type == "stop")
             this->stop(cmd.key, true);
     }
 
-    /// @brief implements task::Task to stop the task.
+    /// @brief implements driver::task::Task to stop the task.
     void stop(const bool will_reconfigure) override {
         this->stop("", !will_reconfigure);
     }
@@ -264,7 +267,7 @@ public:
         return sink_started;
     }
 
-    /// @brief implements task::Task to return the task's name.
+    /// @brief implements driver::task::Task to return the task's name.
     std::string name() const override { return this->state.task.name; }
 };
 }

@@ -17,8 +17,8 @@
 #include "glog/logging.h"
 
 #include "client/cpp/synnax.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xjson/xjson.h"
 
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/modbus.h"
@@ -26,14 +26,15 @@
 #include "driver/task/common/status.h"
 #include "driver/task/task.h"
 
-namespace modbus {
+namespace driver::modbus {
 const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task]";
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
 /// @brief Configuration for the Modbus scanner.
-struct ScanTaskConfig : common::ScanTaskConfig {
+struct ScanTaskConfig : driver::task::common::ScanTaskConfig {
     ScanTaskConfig() = default;
-    explicit ScanTaskConfig(xjson::Parser &cfg): common::ScanTaskConfig(cfg) {}
+    explicit ScanTaskConfig(x::json::Parser &cfg):
+        driver::task::common::ScanTaskConfig(cfg) {}
 };
 
 /// @brief Arguments for testing connection to a Modbus server.
@@ -42,44 +43,44 @@ struct ScanCommandArgs {
     device::ConnectionConfig connection;
 
     /// @brief Parses the arguments from their JSON object representation.
-    explicit ScanCommandArgs(const xjson::Parser &parser):
+    explicit ScanCommandArgs(const x::json::Parser &parser):
         connection(device::ConnectionConfig(parser.child("connection"))) {}
 };
 
-/// @brief Modbus scanner implementing the common::Scanner interface.
+/// @brief Modbus scanner implementing the driver::task::common::Scanner interface.
 /// Handles device health monitoring for Modbus devices.
-class Scanner final : public common::Scanner {
+class Scanner final : public driver::task::common::Scanner {
 public:
     Scanner(
-        std::shared_ptr<task::Context> ctx,
-        synnax::Task task,
+        std::shared_ptr<driver::task::Context> ctx,
+        synnax::task::Task task,
         std::shared_ptr<device::Manager> devices
     );
 
-    /// @brief Returns scanner configuration for common::ScanTask.
-    [[nodiscard]] common::ScannerConfig config() const override;
+    /// @brief Returns scanner configuration for driver::task::common::ScanTask.
+    [[nodiscard]] driver::task::common::ScannerConfig config() const override;
 
     /// @brief Periodic scan method - checks health of all tracked devices.
-    std::pair<std::vector<synnax::Device>, xerrors::Error>
-    scan(const common::ScannerContext &scan_ctx) override;
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    scan(const driver::task::common::ScannerContext &scan_ctx) override;
 
     /// @brief Handle Modbus-specific commands (test connection).
     bool exec(
-        task::Command &cmd,
-        const synnax::Task &task,
-        const std::shared_ptr<task::Context> &ctx
+        synnax::task::Command &cmd,
+        const synnax::task::Task &task,
+        const std::shared_ptr<driver::task::Context> &ctx
     ) override;
 
 private:
-    std::shared_ptr<task::Context> ctx;
-    synnax::Task task;
+    std::shared_ptr<driver::task::Context> ctx;
+    synnax::task::Task task;
     std::shared_ptr<device::Manager> devices;
 
     /// @brief Test connection to a Modbus server.
-    void test_connection(const task::Command &cmd) const;
+    void test_connection(const synnax::task::Command &cmd) const;
 
     /// @brief Check health of a single device by testing its connection.
     /// Sets dev.status based on connection result.
-    void check_device_health(synnax::Device &dev) const;
+    void check_device_health(synnax::device::Device &dev) const;
 };
 }

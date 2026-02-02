@@ -11,21 +11,21 @@
 #include "driver/arc/task.h"
 #include "driver/task/common/status.h"
 
-namespace arc {
+namespace driver::arc {
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) {
     if (task.type != TASK_TYPE) return {nullptr, false};
-    return common::handle_config_err(ctx, task, configure(ctx, task));
+    return task::common::handle_config_err(ctx, task, configure(ctx, task));
 }
 
-std::pair<common::ConfigureResult, xerrors::Error> Factory::configure(
+std::pair<task::common::ConfigureResult, x::errors::Error> Factory::configure(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) {
-    common::ConfigureResult result;
-    auto parser = xjson::Parser(task.config);
+    task::common::ConfigureResult result;
+    auto parser = x::json::Parser(task.config);
     auto [cfg, cfg_err] = TaskConfig::parse(ctx->client, parser);
     if (cfg_err) return {std::move(result), cfg_err};
 
@@ -34,7 +34,7 @@ std::pair<common::ConfigureResult, xerrors::Error> Factory::configure(
 
     result.task = std::move(arc_task);
     result.auto_start = cfg.auto_start;
-    return {std::move(result), xerrors::NIL};
+    return {std::move(result), x::errors::NIL};
 }
 
 std::string Factory::name() {

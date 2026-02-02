@@ -17,7 +17,7 @@ cc_library(
         "//driver/transform",
         "//x/cpp/loop",
         "//x/cpp/status",
-        "//x/cpp/xthread",
+        "//x/cpp/thread",
     ],
 )
 
@@ -36,7 +36,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/pipeline/mock",
         "//driver/task/common",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

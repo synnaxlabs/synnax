@@ -11,7 +11,7 @@
 
 #include "driver/errors/errors.h"
 
-namespace labjack {
+namespace driver::labjack {
 const driver::LibraryInfo LABJACK_LJM = {
     "LabJack LJM shared",
     "https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit"
