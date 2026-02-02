@@ -70,9 +70,9 @@ func preProcess(ctx context.Context, cfg Config) (arc.Module, error) {
 }
 
 type Module struct {
-	StateConfig runtime.ExtendedStateConfig
 	arc.Module
-	Channel channel.Channel
+	Channel     channel.Channel
+	StateConfig runtime.ExtendedStateConfig
 }
 
 func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
@@ -118,7 +118,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 			nextKey := fmt.Sprintf("op_%d", i)
 			g.Nodes = append(g.Nodes, graph.Node{
 				Key:  fmt.Sprintf("op_%d", i),
-				Type: o.Type,
+				Type: string(o.Type),
 				Config: map[string]any{
 					"duration": o.Duration,
 				},

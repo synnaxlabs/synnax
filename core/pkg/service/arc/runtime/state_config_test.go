@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
-	arcsymbol "github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
@@ -53,7 +53,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 						{
 							Key:  "read_node",
 							Type: "on",
-							Channels: arcsymbol.Channels{
+							Channels: types.Channels{
 								Read: set.Mapped[uint32, string]{uint32(ch.Key()): "sensor_1"},
 							},
 						},
@@ -83,7 +83,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 						{
 							Key:  "write_node",
 							Type: "write",
-							Channels: arcsymbol.Channels{
+							Channels: types.Channels{
 								Read: set.Mapped[uint32, string]{uint32(ch.Key()): "actuator_1"},
 							},
 						},
@@ -110,7 +110,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 						{
 							Key:  "any_node",
 							Type: "constant",
-							Channels: arcsymbol.Channels{
+							Channels: types.Channels{
 								Write: set.Mapped[uint32, string]{uint32(ch.Key()): "output_1"},
 							},
 						},
@@ -146,7 +146,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 						{
 							Key:  "read_node",
 							Type: "on",
-							Channels: arcsymbol.Channels{
+							Channels: types.Channels{
 								Read: set.Mapped[uint32, string]{uint32(dataCh.Key()): "data_with_index"},
 							},
 						},
@@ -183,7 +183,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 						{
 							Key:  "write_node",
 							Type: "write",
-							Channels: arcsymbol.Channels{
+							Channels: types.Channels{
 								Read: set.Mapped[uint32, string]{uint32(dataCh.Key()): "write_data_with_index"},
 							},
 						},
@@ -217,7 +217,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 						{
 							Key:  "mixed_node",
 							Type: "transform",
-							Channels: arcsymbol.Channels{
+							Channels: types.Channels{
 								Read:  set.Mapped[uint32, string]{uint32(readCh.Key()): "input_sensor"},
 								Write: set.Mapped[uint32, string]{uint32(writeCh.Key()): "output_actuator"},
 							},
@@ -246,14 +246,14 @@ var _ = Describe("StateConfig", Ordered, func() {
 						{
 							Key:  "node_1",
 							Type: "on",
-							Channels: arcsymbol.Channels{
+							Channels: types.Channels{
 								Read: set.Mapped[uint32, string]{uint32(sharedCh.Key()): "shared_channel"},
 							},
 						},
 						{
 							Key:  "node_2",
 							Type: "on",
-							Channels: arcsymbol.Channels{
+							Channels: types.Channels{
 								Read: set.Mapped[uint32, string]{uint32(sharedCh.Key()): "shared_channel"},
 							},
 						},
@@ -286,7 +286,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 						{
 							Key:      "constant_node",
 							Type:     "constant",
-							Channels: arcsymbol.Channels{},
+							Channels: types.Channels{},
 						},
 					},
 				},
@@ -305,7 +305,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 						{
 							Key:  "invalid_node",
 							Type: "on",
-							Channels: arcsymbol.Channels{
+							Channels: types.Channels{
 								Read: set.Mapped[uint32, string]{999999: "nonexistent"},
 							},
 						},
@@ -332,7 +332,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 						{
 							Key:  "read_node",
 							Type: "on",
-							Channels: arcsymbol.Channels{
+							Channels: types.Channels{
 								Read: set.Mapped[uint32, string]{uint32(virtualCh.Key()): "virtual_no_index"},
 							},
 						},
@@ -414,7 +414,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 						{
 							Key:  "read_node",
 							Type: "on",
-							Channels: arcsymbol.Channels{
+							Channels: types.Channels{
 								Read: set.Mapped[uint32, string]{
 									uint32(readCh1.Key()): "complex_read_1",
 									uint32(readCh2.Key()): "complex_read_2",
@@ -424,7 +424,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 						{
 							Key:  "write_node",
 							Type: "write",
-							Channels: arcsymbol.Channels{
+							Channels: types.Channels{
 								Read:  set.Mapped[uint32, string]{uint32(readCh1.Key()): "complex_read_1"},
 								Write: set.Mapped[uint32, string]{uint32(writeCh.Key()): "complex_write"},
 							},

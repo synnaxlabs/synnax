@@ -30,7 +30,7 @@ type Service interface {
 	// Schema returns the schema of the entities returned by this service.
 	Schema() zyn.Schema
 	// RetrieveResource returns the resource with the give key (Name.Name). If the resource
-	// does not exist, returns a query.NotFound error.
+	// does not exist, returns a query.ErrNotFound error.
 	RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (Resource, error)
 	// Observable is used by the ontology to subscribe to changes in the entities.
 	// This functionality is primarily used for search indexing. If the service's entities

@@ -149,14 +149,16 @@ func (s *Service) CompileModule(ctx context.Context, key uuid.UUID) (Arc, error)
 		return Arc{}, err
 	}
 	resolverOpt := arc.WithResolver(s.symbolResolver)
+	var mod arc.Module
 	if prog.Mode == "text" {
-		prog.Module, err = arc.CompileText(ctx, prog.Text, resolverOpt)
+		mod, err = arc.CompileText(ctx, prog.Text, resolverOpt)
 	} else {
-		prog.Module, err = arc.CompileGraph(ctx, prog.Graph, resolverOpt)
+		mod, err = arc.CompileGraph(ctx, prog.Graph, resolverOpt)
 	}
 	if err != nil {
 		return Arc{}, err
 	}
+	prog.Module = &mod
 	return prog, nil
 }
 

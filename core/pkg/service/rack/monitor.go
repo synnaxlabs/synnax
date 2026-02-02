@@ -86,11 +86,11 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	}
 
 	m.mu.Lock()
-	statuses := make([]Status, len(racks))
+	statuses := make([]status.Status[StatusDetails], len(racks))
 	for i, r := range racks {
 		state := m.mu.racks[r.Key]
 		timeSinceAlive := telem.TimeSpan(now - state.lastUpdated)
-		stat := Status{
+		stat := status.Status[StatusDetails]{
 			Key:         OntologyID(r.Key).String(),
 			Name:        r.Name,
 			Variant:     xstatus.VariantWarning,
@@ -109,7 +109,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 		return err
 	}
 	for _, stat := range statuses {
-		m.Notify(ctx, stat)
+		m.Notify(ctx, Status(stat))
 	}
 	return nil
 }
