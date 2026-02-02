@@ -13,7 +13,6 @@ import { z } from "zod";
 
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
-import { group } from "@/ontology/group";
 import {
   type ID,
   idToString,
@@ -47,7 +46,6 @@ const retrieveResZ = z.object({ resources: resourceZ.array() });
 /** The main client class for executing queries against a Synnax cluster ontology */
 export class Client {
   readonly type: string = "ontology";
-  groups: group.Client;
   private readonly client: UnaryClient;
   private readonly writer: Writer;
   private readonly framer: framer.Client;
@@ -55,7 +53,6 @@ export class Client {
   constructor(unary: UnaryClient, framer: framer.Client) {
     this.client = unary;
     this.writer = new Writer(unary);
-    this.groups = new group.Client(unary);
     this.framer = framer;
   }
 

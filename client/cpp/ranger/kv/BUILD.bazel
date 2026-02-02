@@ -1,0 +1,18 @@
+cc_library(
+    name = "kv",
+    srcs = ["kv.cpp"],
+    hdrs = ["kv.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/errors",
+        "//client/cpp/ontology",
+        "//core/pkg/api/grpc:api_grpc",
+        "//freighter/cpp:freighter",
+        "//freighter/cpp/grpc",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "//x/cpp/uuid",
+        "//x/go/telem:telem_grpc",
+        "@grpc//:grpc++",
+    ],
+)

@@ -11,8 +11,8 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { ontology } from "@/ontology";
-import { group } from "@/ontology/group";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import {
   type Key,
@@ -21,7 +21,7 @@ import {
   newZ,
   type Symbol,
   symbolZ,
-} from "@/workspace/schematic/symbol/payload";
+} from "@/workspace/schematic/symbol/types.gen";
 
 const createReqZ = z.object({ symbols: newZ.array(), parent: ontology.idZ });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
@@ -42,7 +42,7 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
-const retrieveResZ = z.object({ symbols: array.nullableZ(symbolZ) });
+const retrieveResZ = z.object({ symbols: array.nullishToEmpty(symbolZ) });
 const createResZ = z.object({ symbols: symbolZ.array() });
 const emptyResZ = z.object({});
 const retrieveGroupReqZ = z.object({});
@@ -128,5 +128,3 @@ export class Client {
     return res.group;
   }
 }
-
-export const ontologyID = ontology.createIDFactory<Key>("schematic_symbol");

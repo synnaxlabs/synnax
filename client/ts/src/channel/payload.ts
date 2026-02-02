@@ -7,89 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  array,
-  type CrudeDataType,
-  DataType,
-  math,
-  status,
-  TimeSpan,
-  zod,
-} from "@synnaxlabs/x";
+import { zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import {
+  type Key,
+  keyZ,
+  type Name,
+  nameZ,
+  type Payload,
+  payloadZ,
+} from "@/channel/types.gen";
 
-const errorMessage = "Channel key must be a valid uint32.";
-export const keyZ = z.uint32().or(
-  z
-    .string()
-    .refine((val) => !isNaN(Number(val)), { message: errorMessage })
-    .transform(Number)
-    .refine((val) => val < math.MAX_UINT32, { message: errorMessage }),
-);
-export type Key = z.infer<typeof keyZ>;
 export type Keys = Key[];
-export const nameZ = z.string().min(1, "Name must not be empty");
-export type KeyOrName = Key | string;
-export type KeysOrNames = Keys | string[];
-export type PrimitiveParams = KeyOrName | KeysOrNames;
-
-export const OPERATION_TYPES = ["min", "max", "avg", "none"] as const;
-export const operationType = z.enum(OPERATION_TYPES);
-export type OperationType = z.infer<typeof operationType>;
-
-export const operationZ = z.object({
-  type: operationType,
-  resetChannel: keyZ.optional(),
-  duration: TimeSpan.z.optional(),
-});
-
-export type Operation = z.infer<typeof operationZ>;
-
-export const statusZ = status.statusZ();
-export type Status = z.infer<typeof statusZ>;
-
-export const calculationStatusDetailsZ = z.object({ channel: keyZ });
-export type CalculationStatusDetails = z.infer<typeof calculationStatusDetailsZ>;
-export const calculationStatusZ = status.statusZ(calculationStatusDetailsZ);
-export type CalculationStatus = z.infer<typeof calculationStatusZ>;
-
-export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
-export const payloadZ = z.object({
-  name: z.string(),
-  key: keyZ,
-  dataType: DataType.z,
-  leaseholder: zod.uint12,
-  index: keyZ,
-  isIndex: z.boolean(),
-  internal: z.boolean(),
-  virtual: z.boolean(),
-  alias: z.string().optional(),
-  expression: z.string().default(""),
-  status: statusZ.optional(),
-  operations: array.nullableZ(operationZ),
-});
-export interface Payload extends z.infer<typeof payloadZ> {}
-
-export const newZ = payloadZ.extend({
-  key: keyZ.optional(),
-  name: nameZ,
-  leaseholder: zod.uint12.optional(),
-  index: keyZ.optional(),
-  isIndex: z.boolean().optional(),
-  internal: z.boolean().default(false),
-  virtual: z.boolean().default(false),
-  expression: z.string().default(""),
-  operations: array.nullableZ(operationZ).optional(),
-});
-
-export interface New extends Omit<
-  z.input<typeof newZ>,
-  "dataType" | "status" | "internal"
-> {
-  dataType: CrudeDataType;
-}
+export type KeyOrName = Key | Name;
+export type Names = Name[];
+export type Payloads = Payload[];
+export type PrimitiveParams = Key | Keys | Names | Name;
+export type KeysOrNames = Keys | Names;
 
 export const paramsZ = z.union([
   zod.toArray(keyZ),
@@ -97,9 +32,6 @@ export const paramsZ = z.union([
   zod.toArray(payloadZ).transform((p) => p.map((c) => c.key)),
 ]);
 export type Params = PrimitiveParams | Payload | Payload[];
-
-export const ontologyID = ontology.createIDFactory<Key>("channel");
-export const TYPE_ONTOLOGY_ID = ontologyID(0);
 
 const CHAR_REGEX = /[a-zA-Z0-9_]/;
 

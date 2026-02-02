@@ -11,15 +11,15 @@
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
 
-namespace synnax {
+namespace synnax::rack {
 /// @brief it should correctly create a rack in the cluster.
 TEST(RackTests, testCreateRack) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     ASSERT_EQ(r.name, "test_rack");
 }
@@ -27,7 +27,7 @@ TEST(RackTests, testCreateRack) {
 /// @brief it should correctly retrieve a rack from the cluster.
 TEST(RackTests, testRetrieveRack) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto r2 = ASSERT_NIL_P(client.racks.retrieve(r.key));
     ASSERT_EQ(r2.name, "test_rack");
@@ -37,64 +37,69 @@ TEST(RackTests, testRetrieveRack) {
 /// @brief it should correctly delete a rack from the cluster.
 TEST(RackTests, testDeleteRack) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     ASSERT_NIL(client.racks.del(r.key));
-    ASSERT_OCCURRED_AS_P(client.racks.retrieve(r.key), xerrors::QUERY);
+    ASSERT_OCCURRED_AS_P(client.racks.retrieve(r.key), x::errors::QUERY);
 }
 /// @brief it should retrieve a rack by its name.
 TEST(RackTests, testRetrieveRackByName) {
     const auto client = new_test_client();
 
     const auto unique_name = "test_rack_by_name_unique" + std::to_string(rand());
-    auto r = Rack(unique_name);
+    auto r = Rack{.name = unique_name};
     ASSERT_NIL(client.racks.create(r));
     const auto r2 = ASSERT_NIL_P(client.racks.retrieve(unique_name));
     ASSERT_EQ(r2.name, unique_name);
     ASSERT_EQ(r.key, r2.key);
 }
 
+TEST(RackTests, testCreateTaskOnCreatedRack) {
+    const auto client = new_test_client();
+    auto r = Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    task::Task t{
+        .name = "cat",
+        .type = "dog",
+        .internal = false,
+    };
+    ASSERT_NIL(r.tasks.create(t));
+    ASSERT_EQ(task::rack_key_from_task_key(t.key), r.key);
+}
+
+TEST(RackTests, testCreateTaskOnRetrieveRack) {
+    const auto client = new_test_client();
+    auto r = Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    auto retrieved = ASSERT_NIL_P(client.racks.retrieve(r.key));
+    task::Task t{
+        .name = "cat",
+        .type = "dog",
+        .internal = false,
+    };
+    ASSERT_NIL(retrieved.tasks.create(t));
+    ASSERT_EQ(task::rack_key_from_task_key(t.key), r.key);
+    ASSERT_EQ(task::rack_key_from_task_key(t.key), retrieved.key);
+}
+
 /// @brief it should correctly create and retrieve a rack with a status.
 TEST(RackTests, testCreateRackWithStatus) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack_with_status");
-    r.status.key = "rack-status-key";
-    r.status.variant = status::variant::SUCCESS;
-    r.status.message = "Rack is healthy";
-    r.status.time = telem::TimeStamp::now();
-    r.status.details.rack = 123;
+    auto r = Rack{
+        .name = "test_rack_with_status",
+        .status = rack::Status{
+            .key = "rack-status-key",
+            .variant = x::status::VARIANT_SUCCESS,
+            .message = "Rack is healthy",
+            .time = x::telem::TimeStamp::now(),
+            .details = StatusDetails{.rack = 123},
+        }
+    };
     ASSERT_NIL(client.racks.create(r));
     const auto r2 = ASSERT_NIL_P(client.racks.retrieve(r.key));
     ASSERT_EQ(r2.name, "test_rack_with_status");
-    ASSERT_FALSE(r2.status.is_zero());
-    ASSERT_EQ(r2.status.key, "rack-status-key");
-    ASSERT_EQ(r2.status.variant, status::variant::SUCCESS);
-    ASSERT_EQ(r2.status.message, "Rack is healthy");
-}
-
-/// @brief it should correctly parse RackStatusDetails from JSON.
-TEST(RackStatusDetailsTests, testParseFromJSON) {
-    json j = {{"rack", 54321}};
-    const xjson::Parser parser(j);
-    const auto details = RackStatusDetails::parse(parser);
-    ASSERT_NIL(parser.error());
-    ASSERT_EQ(details.rack, 54321);
-}
-
-/// @brief it should correctly serialize RackStatusDetails to JSON.
-TEST(RackStatusDetailsTests, testToJSON) {
-    constexpr RackStatusDetails details{.rack = 98765};
-    const auto j = details.to_json();
-    ASSERT_EQ(j["rack"], 98765);
-}
-
-/// @brief it should round-trip RackStatusDetails through JSON.
-TEST(RackStatusDetailsTests, testRoundTrip) {
-    constexpr RackStatusDetails original{.rack = 11223};
-    const auto j = original.to_json();
-    const xjson::Parser parser(j);
-    const auto recovered = RackStatusDetails::parse(parser);
-    ASSERT_NIL(parser.error());
-    ASSERT_EQ(recovered.rack, original.rack);
+    ASSERT_EQ(r2.status->key, "rack-status-key");
+    ASSERT_EQ(r2.status->variant, x::status::VARIANT_SUCCESS);
+    ASSERT_EQ(r2.status->message, "Rack is healthy");
 }
 }

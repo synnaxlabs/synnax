@@ -19,4 +19,4 @@ export {
   type UsernameRetrieveRequest,
   type UsernamesRetrieveRequest,
 } from "@/user/client";
-export * from "@/user/payload";
+export * from "@/user/types.gen";

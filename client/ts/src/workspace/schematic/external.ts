@@ -8,5 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/workspace/schematic/client";
-export * from "@/workspace/schematic/payload";
 export * from "@/workspace/schematic/symbol";
+export * from "@/workspace/schematic/types.gen";
