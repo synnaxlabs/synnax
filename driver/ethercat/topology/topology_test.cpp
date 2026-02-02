@@ -60,8 +60,7 @@ TEST_F(TopologyValidateTest, MatchingTopologyReturnsNil) {
     expected.emplace("dev1", make_props("dev1", 1, 0x00000002, 0x12345678));
     expected.emplace("dev2", make_props("dev2", 2, 0x00000002, 0xABCDEF00));
 
-    auto err = validate(actual, expected);
-    ASSERT_NIL(err);
+    ASSERT_NIL(validate(actual, expected));
 }
 
 TEST_F(TopologyValidateTest, MissingSlaveAtPositionReturnsMismatch) {
@@ -72,8 +71,7 @@ TEST_F(TopologyValidateTest, MissingSlaveAtPositionReturnsMismatch) {
     std::unordered_map<std::string, device::SlaveProperties> expected;
     expected.emplace("dev1", make_props("dev1", 2, 0x00000002, 0xABCDEF00));
 
-    auto err = validate(actual, expected);
-    ASSERT_OCCURRED_AS(err, TOPOLOGY_MISMATCH);
+    ASSERT_OCCURRED_AS(validate(actual, expected), TOPOLOGY_MISMATCH);
 }
 
 TEST_F(TopologyValidateTest, WrongVendorIdReturnsMismatch) {
@@ -84,8 +82,7 @@ TEST_F(TopologyValidateTest, WrongVendorIdReturnsMismatch) {
     std::unordered_map<std::string, device::SlaveProperties> expected;
     expected.emplace("dev1", make_props("dev1", 1, 0x00000099, 0x12345678));
 
-    auto err = validate(actual, expected);
-    ASSERT_OCCURRED_AS(err, TOPOLOGY_MISMATCH);
+    ASSERT_OCCURRED_AS(validate(actual, expected), TOPOLOGY_MISMATCH);
 }
 
 TEST_F(TopologyValidateTest, WrongProductCodeReturnsMismatch) {
@@ -96,8 +93,7 @@ TEST_F(TopologyValidateTest, WrongProductCodeReturnsMismatch) {
     std::unordered_map<std::string, device::SlaveProperties> expected;
     expected.emplace("dev1", make_props("dev1", 1, 0x00000002, 0x87654321));
 
-    auto err = validate(actual, expected);
-    ASSERT_OCCURRED_AS(err, TOPOLOGY_MISMATCH);
+    ASSERT_OCCURRED_AS(validate(actual, expected), TOPOLOGY_MISMATCH);
 }
 
 TEST_F(TopologyValidateTest, EmptyExpectedReturnsNil) {

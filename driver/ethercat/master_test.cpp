@@ -32,8 +32,7 @@ TEST_F(MasterTest, InitializeSuccess) {
 
 TEST_F(MasterTest, InitializeFailure) {
     master->inject_init_error(xerrors::Error(MASTER_INIT_ERROR, "interface not found"));
-    auto err = master->initialize();
-    ASSERT_OCCURRED_AS(err, MASTER_INIT_ERROR);
+    ASSERT_OCCURRED_AS(master->initialize(), MASTER_INIT_ERROR);
     EXPECT_FALSE(master->is_initialized());
 }
 
@@ -50,14 +49,12 @@ TEST_F(MasterTest, ActivateFailure) {
     master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
     ASSERT_NIL(master->initialize());
     master->inject_activate_error(xerrors::Error(ACTIVATION_ERROR, "failed to map IO"));
-    auto err = master->activate();
-    ASSERT_OCCURRED_AS(err, ACTIVATION_ERROR);
+    ASSERT_OCCURRED_AS(master->activate(), ACTIVATION_ERROR);
     EXPECT_FALSE(master->is_activated());
 }
 
 TEST_F(MasterTest, ActivateWithoutInitializeFails) {
-    auto err = master->activate();
-    ASSERT_OCCURRED_AS(err, ACTIVATION_ERROR);
+    ASSERT_OCCURRED_AS(master->activate(), ACTIVATION_ERROR);
 }
 
 TEST_F(MasterTest, SlaveDiscovery) {
@@ -228,8 +225,7 @@ TEST_F(MasterTest, ReceiveErrorInjection) {
     ASSERT_NIL(master->activate());
 
     master->inject_receive_error(xerrors::Error(CYCLIC_ERROR, "receive failed"));
-    auto err = master->receive();
-    ASSERT_OCCURRED_AS(err, CYCLIC_ERROR);
+    ASSERT_OCCURRED_AS(master->receive(), CYCLIC_ERROR);
 }
 
 TEST_F(MasterTest, SendErrorInjection) {
@@ -238,8 +234,7 @@ TEST_F(MasterTest, SendErrorInjection) {
     ASSERT_NIL(master->activate());
 
     master->inject_send_error(xerrors::Error(CYCLIC_ERROR, "send failed"));
-    auto err = master->send();
-    ASSERT_OCCURRED_AS(err, CYCLIC_ERROR);
+    ASSERT_OCCURRED_AS(master->send(), CYCLIC_ERROR);
 }
 
 TEST_F(MasterTest, ClearInjectedErrors) {

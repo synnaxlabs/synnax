@@ -1,5 +1,3 @@
-load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
-
 # Copy the registry blob from the http_file repo to a local genfiles location
 genrule(
     name = "registry_blob",
