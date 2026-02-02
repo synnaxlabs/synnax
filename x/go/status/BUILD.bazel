@@ -3,8 +3,12 @@ load("@rules_proto//proto:defs.bzl", "proto_library")
 
 proto_library(
     name = "status_proto",
-    srcs = ["status.proto"],
+    srcs = ["pb/status.proto"],
     visibility = ["//visibility:public"],
+    deps = [
+        "//x/go/label:label_proto",
+        "@protobuf//:any_proto",
+    ],
 )
 
 cpp_grpc_library(
@@ -12,4 +16,7 @@ cpp_grpc_library(
     output_mode = "NO_PREFIX",
     protos = [":status_proto"],
     visibility = ["//visibility:public"],
+    deps = [
+        "//x/go/label:label_grpc",
+    ],
 )

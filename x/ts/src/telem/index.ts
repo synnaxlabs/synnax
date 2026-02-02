@@ -7,6 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { type GLBufferController } from "@/telem/gl";
-export * from "@/telem/series";
-export * from "@/telem/telem";
+export * from "@/telem/external";
+export * as telem from "@/telem/external";

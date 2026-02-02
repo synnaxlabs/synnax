@@ -1,0 +1,5 @@
+cc_library(
+    name = "log",
+    hdrs = ["log.h"],
+    visibility = ["//visibility:public"],
+)

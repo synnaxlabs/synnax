@@ -14,8 +14,9 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/fs/fs.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
+namespace x::fs {
 class FSTest : public ::testing::Test {
 protected:
     std::string test_dir;
@@ -110,7 +111,7 @@ TEST_F(FSTest, ReadLargeFile) {
 TEST_F(FSTest, ReadNonExistentFile) {
     auto content = ASSERT_OCCURRED_AS_P(
         fs::read_file(non_existent_file),
-        fs::NOT_FOUND
+        fs::ERR_NOT_FOUND
     );
     ASSERT_TRUE(content.empty());
 }
@@ -156,7 +157,7 @@ TEST_F(FSTest, ReadFileMultipleReads) {
 
 /// @brief it should return a NOT_FOUND error when given an empty path.
 TEST_F(FSTest, ReadFileEmptyPath) {
-    auto content = ASSERT_OCCURRED_AS_P(fs::read_file(""), fs::NOT_FOUND);
+    auto content = ASSERT_OCCURRED_AS_P(fs::read_file(""), fs::ERR_NOT_FOUND);
     ASSERT_TRUE(content.empty());
 }
 
@@ -173,11 +174,11 @@ TEST_F(FSTest, ReadFileRelativePath) {
 
 /// @brief it should define the correct error types.
 TEST_F(FSTest, ErrorTypeVerification) {
-    ASSERT_EQ(fs::FS_ERROR.type, "fs");
-    ASSERT_EQ(fs::NOT_FOUND.type, "fs.not_found");
-    ASSERT_EQ(fs::INVALID_PATH.type, "fs.invalid_path");
-    ASSERT_EQ(fs::PERMISSION_DENIED.type, "fs.permission_denied");
-    ASSERT_EQ(fs::READ_ERROR.type, "fs.read_error");
+    ASSERT_EQ(ERR.type, "fs");
+    ASSERT_EQ(ERR_NOT_FOUND.type, "fs.not_found");
+    ASSERT_EQ(ERR_INVALID_PATH.type, "fs.invalid_path");
+    ASSERT_EQ(ERR_PERMISSION_DENIED.type, "fs.permission_denied");
+    ASSERT_EQ(ERR_READ.type, "fs.read");
 }
 
 /// @brief it should correctly read a file with different newline styles.
@@ -215,4 +216,5 @@ TEST_F(FSTest, ReadFileOneByteOverBuffer) {
     auto content = ASSERT_NIL_P(fs::read_file(over_buffer_file));
     ASSERT_EQ(content.size(), 1025);
     ASSERT_EQ(content, data);
+}
 }

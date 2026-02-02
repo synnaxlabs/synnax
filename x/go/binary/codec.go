@@ -460,3 +460,46 @@ func UnmarshalMsgpackUint32(dec *msgpack.Decoder) (uint32, error) {
 		return 0, errors.Newf("cannot unmarshal %T into uint32", v)
 	}
 }
+
+// MsgpackEncodedJSON is a map[string]any that can unmarshal from either:
+// - A JSON string (which gets parsed into the map)
+// - A msgpack map (which is used directly)
+type MsgpackEncodedJSON map[string]any
+
+// DecodeMsgpack implements msgpack.CustomDecoder to handle both string and map formats.
+func (e *MsgpackEncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
+	// Decode as interface{} to let msgpack handle the type detection
+	v, err := dec.DecodeInterface()
+	if err != nil {
+		return err
+	}
+
+	switch val := v.(type) {
+	case string:
+		// If it's a string, unmarshal it as JSON
+		var m map[string]any
+		if v != "" {
+			if err = json.Unmarshal([]byte(val), &m); err != nil {
+				return errors.Wrapf(err, "failed to unmarshal JSON string into map")
+			}
+		}
+		*e = m
+		return nil
+	case map[string]any:
+		*e = val
+		return nil
+	case map[any]any:
+		m := make(map[string]any)
+		for k, v := range val {
+			if str, ok := k.(string); ok {
+				m[str] = v
+			} else {
+				return errors.Newf("map key %v is not a string", k)
+			}
+		}
+		*e = m
+		return nil
+	default:
+		return errors.Newf("cannot unmarshal %T into MsgpackEncodedJSON", v)
+	}
+}

@@ -15,15 +15,15 @@ import {
   type CrudeYDirection,
   type Dimension,
   type Direction,
-  direction,
   DIRECTIONS,
+  directionZ,
   type Location,
   type SignedDimension,
   Y_LOCATIONS,
   type YLocation,
 } from "@/spatial/base";
 
-export { Direction, direction, DIRECTIONS };
+export { type Direction, DIRECTIONS, directionZ };
 
 export const crude = crudeDirection;
 

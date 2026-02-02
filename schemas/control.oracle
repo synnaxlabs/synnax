@@ -1,0 +1,63 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@py output  "client/py/synnax/x/control"
+@go output  "x/go/control"
+@ts output  "x/ts/src/control"
+@cpp output "x/cpp/control"
+@pb
+
+Authority = uint8 {
+    @doc value """
+        is a numeric value (0-255) representing the level of control authority a
+        subject has over a resource. Higher values indicate greater authority.
+        The maximum value of 255 represents absolute authority.
+    """
+}
+
+Concurrency enum {
+    exclusive = 0
+    shared    = 1
+
+    @doc value "defines whether a resource can have multiple subjects acting on it at once."
+}
+
+Subject struct {
+    key  string {
+        @doc value "is a unique identifier for the subject."
+    }
+    name string {
+        @doc value "is a human-readable name for the subject."
+    }
+
+    @doc value """
+        is an entity that can hold control authority over a resource. Typically
+        represents a user, process, or service.
+    """
+}
+
+State struct<R> {
+    subject   Subject   {
+        @doc value "is the entity controlling the resource."
+    }
+    resource  R         {
+        @doc value "is the resource being controlled."
+    }
+    authority Authority {
+        @doc value """
+            is the level of control authority the subject has over the resource.
+        """
+    }
+
+    @doc value         """
+        represents the state of control over a resource at a point in time,
+        capturing who controls what and with how much authority.
+    """
+    @ts concrete_types
+}

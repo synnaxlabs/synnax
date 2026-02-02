@@ -1,12 +1,12 @@
 cc_library(
     name = "notify",
-    hdrs = ["notify.h"],
     srcs = select({
         "@platforms//os:linux": ["eventfd_notifier.cpp"],
         "@platforms//os:macos": ["kqueue_notifier.cpp"],
         "@platforms//os:windows": ["event_notifier.cpp"],
         "//conditions:default": ["polling_notifier.cpp"],
     }),
+    hdrs = ["notify.h"],
     copts = select({
         "@platforms//os:windows": [
             "/DWIN32_LEAN_AND_MEAN",
@@ -26,7 +26,7 @@ cc_test(
     srcs = ["notify_test.cpp"],
     deps = [
         ":notify",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

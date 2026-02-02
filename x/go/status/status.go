@@ -13,38 +13,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/gorp"
 )
-
-// Variant is a general classification mechanism for statuses.
-type Variant string
-
-const (
-	VariantInfo     Variant = "info"
-	VariantSuccess  Variant = "success"
-	VariantError    Variant = "error"
-	VariantWarning  Variant = "warning"
-	VariantDisabled Variant = "disabled"
-	VariantLoading  Variant = "loading"
-)
-
-// Status is a standardized payload used across Synnax.
-type Status[D any] struct {
-	// Details are customizable details for component specific statuses.
-	Details D `json:"details" msgpack:"details"`
-	// Key is a unique key for the status.
-	Key string `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the status.
-	Name string `json:"name" msgpack:"name"`
-	// Variant is the variant of the status.
-	Variant Variant `json:"variant" msgpack:"variant"`
-	// Message is the message of the status.
-	Message string `json:"message" msgpack:"message"`
-	// Description is the description of the status.
-	Description string `json:"description" msgpack:"description"`
-	// Time is the time the status was created.
-	Time telem.TimeStamp `json:"time" msgpack:"time"`
-}
 
 // String returns a formatted string representation of the Status.
 func (s Status[D]) String() string {
@@ -99,3 +69,15 @@ func (s Status[D]) String() string {
 
 	return b.String()
 }
+
+var _ gorp.Entry[string] = (*Status[any])(nil)
+
+// GorpKey implements gorp.Entry.
+func (s Status[D]) GorpKey() string { return s.Key }
+
+// SetOptions implements gorp.Entry.
+func (s Status[D]) SetOptions() []any { return nil }
+
+// CustomTypeName implements types.CustomTypeName to ensure that Status struct does
+// not conflict with any other types in gorp.
+func (s Status[D]) CustomTypeName() string { return "Status" }

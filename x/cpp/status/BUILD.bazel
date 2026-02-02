@@ -1,11 +1,20 @@
 cc_library(
     name = "status",
-    srcs = ["status.h"],
+    hdrs = [
+        "json.gen.h",
+        "proto.gen.h",
+        "status.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/pb",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/label",
         "//x/cpp/telem",
-        "//x/cpp/xjson",
         "//x/go/status:status_grpc",
+        "@protobuf",
     ],
 )
 
@@ -13,8 +22,9 @@ cc_test(
     name = "status_test",
     srcs = ["status_test.cpp"],
     deps = [
+        "//x/cpp/pb",
         "//x/cpp/status",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

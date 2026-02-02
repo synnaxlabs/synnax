@@ -15,9 +15,10 @@
 #include "x/cpp/notify/notify.h"
 #include "x/cpp/queue/spsc.h"
 
+namespace x::queue {
 /// @brief it should push and pop a single element.
 TEST(SPSCQueueTest, BasicPushPop) {
-    queue::SPSC<int> queue;
+    SPSC<int> queue;
     EXPECT_TRUE(queue.push(42));
     int value;
     EXPECT_TRUE(queue.pop(value));
@@ -26,7 +27,7 @@ TEST(SPSCQueueTest, BasicPushPop) {
 
 /// @brief it should report empty correctly.
 TEST(SPSCQueueTest, Empty) {
-    queue::SPSC<int> queue;
+    SPSC<int> queue;
     EXPECT_TRUE(queue.empty());
     queue.push(1);
     EXPECT_FALSE(queue.empty());
@@ -37,7 +38,7 @@ TEST(SPSCQueueTest, Empty) {
 
 /// @brief it should return false on try_pop when empty.
 TEST(SPSCQueueTest, TryPopEmpty) {
-    queue::SPSC<int> queue;
+    SPSC<int> queue;
     int value;
     EXPECT_FALSE(queue.try_pop(value));
     queue.push(42);
@@ -48,7 +49,7 @@ TEST(SPSCQueueTest, TryPopEmpty) {
 
 /// @brief it should correctly move unique_ptr through the queue.
 TEST(SPSCQueueTest, MoveSemantics) {
-    queue::SPSC<std::unique_ptr<int>> queue;
+    SPSC<std::unique_ptr<int>> queue;
     auto ptr = std::make_unique<int>(42);
     EXPECT_TRUE(queue.push(std::move(ptr)));
     EXPECT_EQ(ptr, nullptr);
@@ -60,7 +61,7 @@ TEST(SPSCQueueTest, MoveSemantics) {
 
 /// @brief it should reject pushes after close.
 TEST(SPSCQueueTest, CloseQueue) {
-    queue::SPSC<int> queue;
+    SPSC<int> queue;
     EXPECT_FALSE(queue.closed());
     EXPECT_TRUE(queue.push(1));
     queue.close();
@@ -74,8 +75,7 @@ TEST(SPSCQueueTest, CloseQueue) {
 
 /// @brief it should unblock waiting pop when closed.
 TEST(SPSCQueueTest, CloseUnblocksWaitingPop) {
-    queue::SPSC<int> queue;
-
+    SPSC<int> queue;
     std::thread consumer([&]() {
         int value;
         EXPECT_FALSE(queue.pop(value));
@@ -83,13 +83,12 @@ TEST(SPSCQueueTest, CloseUnblocksWaitingPop) {
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     queue.close();
-
     consumer.join();
 }
 
 /// @brief it should handle multiple push/pop rounds.
 TEST(SPSCQueueTest, MultipleRounds) {
-    queue::SPSC<int> queue;
+    SPSC<int> queue;
 
     for (int round = 0; round < 10; round++) {
         for (int i = 0; i < 7; i++) {
@@ -106,7 +105,7 @@ TEST(SPSCQueueTest, MultipleRounds) {
 
 /// @brief it should handle concurrent producer and consumer threads.
 TEST(SPSCQueueTest, ProducerConsumerThreads) {
-    queue::SPSC<int> queue;
+    SPSC<int> queue;
     constexpr int num_items = 10000;
 
     std::thread producer([&]() {
@@ -123,7 +122,6 @@ TEST(SPSCQueueTest, ProducerConsumerThreads) {
             EXPECT_EQ(value, i);
         }
     });
-
     producer.join();
     consumer.join();
     EXPECT_TRUE(queue.empty());
@@ -131,7 +129,7 @@ TEST(SPSCQueueTest, ProducerConsumerThreads) {
 
 /// @brief it should honor explicit capacity.
 TEST(SPSCQueueTest, ExplicitCapacity) {
-    queue::SPSC<int> queue(16);
+    SPSC<int> queue(16);
     EXPECT_GE(queue.capacity(), 16);
     size_t pushed = 0;
     while (queue.push(static_cast<int>(pushed)))
@@ -144,7 +142,7 @@ TEST(SPSCQueueTest, ExplicitCapacity) {
 
 /// @brief it should return false when queue is full.
 TEST(SPSCQueueTest, FullQueueReturnsFalse) {
-    queue::SPSC<int> queue(4);
+    SPSC<int> queue(4);
     size_t pushed = 0;
     while (queue.push(static_cast<int>(pushed)))
         pushed++;
@@ -156,7 +154,7 @@ TEST(SPSCQueueTest, FullQueueReturnsFalse) {
 
 /// @brief it should expose the notifier for external integration.
 TEST(SPSCQueueTest, NotifierAccess) {
-    queue::SPSC<int> queue;
+    SPSC<int> queue;
     notify::Notifier &notif = queue.notifier();
     notif.signal();
     EXPECT_TRUE(notif.poll());
@@ -164,7 +162,7 @@ TEST(SPSCQueueTest, NotifierAccess) {
 
 /// @brief it should track size correctly.
 TEST(SPSCQueueTest, SizeTracking) {
-    queue::SPSC<int> queue(16);
+    SPSC<int> queue(16);
     EXPECT_EQ(queue.size(), 0);
     queue.push(1);
     EXPECT_EQ(queue.size(), 1);
@@ -181,7 +179,7 @@ TEST(SPSCQueueTest, SizeTracking) {
 
 /// @brief it should handle high-throughput lock-free operations.
 TEST(SPSCQueueTest, LockFreeStressTest) {
-    queue::SPSC<int> queue(1024);
+    SPSC<int> queue(1024);
     constexpr int num_items = 100000;
     std::atomic<int> items_received{0};
 
@@ -214,7 +212,7 @@ TEST(SPSCQueueTest, LockFreeStressTest) {
 
 /// @brief it should drain items and reopen after reset.
 TEST(SPSCQueueTest, ResetDrainsAndReopens) {
-    queue::SPSC<int> queue;
+    SPSC<int> queue;
     EXPECT_TRUE(queue.push(1));
     EXPECT_TRUE(queue.push(2));
     EXPECT_TRUE(queue.push(3));
@@ -234,7 +232,7 @@ TEST(SPSCQueueTest, ResetDrainsAndReopens) {
 
 /// @brief it should allow multiple reset cycles.
 TEST(SPSCQueueTest, MultipleResetCycles) {
-    queue::SPSC<int> queue;
+    SPSC<int> queue;
 
     for (int cycle = 0; cycle < 3; cycle++) {
         EXPECT_TRUE(queue.push(cycle * 10 + 1));
@@ -249,4 +247,5 @@ TEST(SPSCQueueTest, MultipleResetCycles) {
     int value;
     EXPECT_TRUE(queue.pop(value));
     EXPECT_EQ(value, 100);
+}
 }

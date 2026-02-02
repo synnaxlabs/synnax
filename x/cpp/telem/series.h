@@ -16,19 +16,18 @@
 #include <variant>
 #include <vector>
 
-#include "nlohmann/json.hpp"
-
 #include "x/cpp/binary/binary.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
-#include "x/go/telem/telem.pb.h"
-
-using json = nlohmann::json;
+#include "x/go/telem/pb/frame.pb.h"
+#include "x/go/telem/pb/telem.pb.h"
 
 constexpr char NEWLINE_CHAR = '\n';
 constexpr auto NEWLINE_TERMINATOR = static_cast<std::byte>(NEWLINE_CHAR);
 
-namespace telem {
+namespace x::telem {
 template<typename DestType, typename SrcType>
 static void cast_to_type(std::byte *dest, SrcType *src, const size_t count) {
     auto *typed_dest = reinterpret_cast<DestType *>(dest);
@@ -573,23 +572,15 @@ public:
         this->data_[byte_size() - 1] = NEWLINE_TERMINATOR;
     }
 
-    /// @brief constructs the series from its protobuf representation.
-    explicit Series(const PBSeries &s):
-        data_type_(s.data_type()),
-        cap_(this->size()),
-        cached_byte_size(s.data().size()),
-        size_(0) {
-        if (!this->data_type().is_variable())
-            this->size_ = s.data().size() / this->data_type().density();
-        else
-            for (const char &v: s.data())
-                if (v == NEWLINE_CHAR) ++this->size_;
-        this->data_ = std::make_unique<std::byte[]>(byte_size());
-        memcpy(this->data_.get(), s.data().data(), byte_size());
-    }
+public:
+    /// @brief constructs a series from its protobuf representation.
+    /// @param pb the protobuf representation to convert from.
+    /// @return a pair containing the series and any error that occurred.
+    static std::pair<Series, x::errors::Error>
+    from_proto(const ::x::telem::pb::Series &pb);
 
     /// @brief constructs the series from the given JSON value.
-    explicit Series(const json &value): Series(value.dump(), JSON_T) {}
+    explicit Series(const json::json &value): Series(value.dump(), JSON_T) {}
 
     /// @brief constructs a series of size 1 from the given SampleValue.
     /// @param v the SampleValue to be used.
@@ -614,7 +605,7 @@ public:
 
     /// @brief constructs the series from a vector of JSON values.
     /// @param values the vector of JSON values to be used.
-    explicit Series(const std::vector<json> &values):
+    explicit Series(const std::vector<json::json> &values):
         data_type_(JSON_T), cap_(values.size()), size_(values.size()) {
         // Calculate the total byte size needed (including newline terminators)
         this->cached_byte_size = 0;
@@ -632,6 +623,30 @@ public:
         }
     }
 
+private:
+    /// @brief private constructor for protobuf deserialization
+    explicit Series(const ::x::telem::pb::Series &pb, const TimeRange &tr):
+        data_type_(pb.data_type()),
+        cap_(0),
+        cached_byte_size(pb.data().size()),
+        size_(0),
+        time_range(tr),
+        alignment(pb.alignment()) {
+        // Calculate size based on data type
+        if (!this->data_type_.is_variable()) {
+            this->size_ = pb.data().size() / this->data_type_.density();
+        } else {
+            for (const char &v: pb.data())
+                if (v == NEWLINE_CHAR) ++this->size_;
+        }
+        this->cap_ = this->size_;
+
+        // Copy data
+        this->data_ = std::make_unique<std::byte[]>(byte_size());
+        memcpy(this->data_.get(), pb.data().data(), byte_size());
+    }
+
+public:
     /// @brief sets a number at an index with type casting based on series data type.
     /// @param index the index to set the number at. If negative, the index is
     /// treated as an offset from the end of the series.
@@ -738,6 +753,7 @@ public:
         this->set(d.data_(), index, d.size());
     }
 
+public:
     /// @brief writes the given vector of numeric data to the series.
     /// @param d the vector of numeric data to be written.
     /// @returns the number of samples written. If the capacity of the series is
@@ -859,12 +875,10 @@ public:
         return capped_count;
     }
 
-    /// @brief encodes the series' fields into the given protobuf message.
-    /// @param pb the protobuf message to encode the fields into.
-    void to_proto(PBSeries *pb) const {
-        pb->set_data_type(this->data_type().name());
-        pb->set_data(this->data_.get(), byte_size());
-    }
+public:
+    /// @brief converts the series to its protobuf representation.
+    /// @return the protobuf representation of the series.
+    [[nodiscard]] ::x::telem::pb::Series to_proto() const;
 
     /// @brief returns the data as a vector of strings. This method can only be used
     /// if the data type is STRING or JSON.
@@ -902,14 +916,14 @@ public:
 
     /// @brief returns the data as a vector of JSON values. This method can only be used
     /// if the data type is JSON.
-    [[nodiscard]] std::vector<json> json_values() const {
+    [[nodiscard]] std::vector<json::json> json_values() const {
         if (!this->data_type().matches({JSON_T}))
             throw std::runtime_error("cannot convert a non-JSON series to JSON values");
 
-        std::vector<json> v;
+        std::vector<json::json> v;
         v.reserve(this->size());
         for (const auto &str: this->strings())
-            v.push_back(json::parse(str));
+            v.push_back(nlohmann::json::parse(str));
         return v;
     }
 
@@ -981,10 +995,10 @@ public:
     /// @param index the index to get the JSON at. If negative, the index is treated
     /// as an offset from the end of the series.
     /// @param value the json object to bind the value to.
-    void at(const int &index, json &value) const {
+    void at(const int &index, nlohmann::json &value) const {
         if (!this->data_type().matches({JSON_T}))
             throw std::runtime_error("cannot bind a JSON value on a non-JSON series");
-        value = json::parse(this->at<std::string>(index));
+        value = nlohmann::json::parse(this->at<std::string>(index));
     }
 
     friend std::ostream &operator<<(std::ostream &os, const Series &s) {
@@ -1579,4 +1593,25 @@ struct MultiSeries {
     /// @brief Size returns the number of accumulated series.
     [[nodiscard]] size_t size() const { return series.size(); }
 };
+
+// ==================== Protobuf translators ====================
+
+inline ::x::telem::pb::Series Series::to_proto() const {
+    ::x::telem::pb::Series pb;
+    *pb.mutable_time_range() = this->time_range.to_proto();
+    pb.set_data_type(this->data_type_.name());
+    pb.set_data(this->data_.get(), byte_size());
+    pb.set_alignment(this->alignment.uint64());
+    return pb;
 }
+
+inline std::pair<Series, x::errors::Error>
+Series::from_proto(const ::x::telem::pb::Series &pb) {
+    auto [tr, err] = TimeRange::from_proto(pb.time_range());
+    if (err) return {Series(UNKNOWN_T, 0), err};
+    return {Series(pb, tr), x::errors::NIL};
+}
+
+}
+
+#include "x/cpp/telem/proto.gen.h"

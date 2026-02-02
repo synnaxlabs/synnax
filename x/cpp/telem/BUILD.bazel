@@ -5,18 +5,21 @@ cc_library(
     ],
     hdrs = [
         "clock_skew.h",
-        "control.h",
         "frame.h",
+        "json.gen.h",
+        "proto.gen.h",
         "series.h",
         "telem.h",
+        "types.gen.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/pb",
         "//x/cpp/binary",
-        "//x/go/control:control_grpc",
+        "//x/cpp/json",
         "//x/go/telem:telem_grpc",
         "@nlohmann_json//:json",
-        "@protobuf//:protobuf",
+        "@protobuf",
     ],
 )
 
@@ -29,6 +32,7 @@ cc_test(
         "telem_test.cpp",
     ],
     deps = [
+        "//x/cpp/pb",
         "//x/cpp/loop",
         "//x/cpp/telem",
         "@googletest//:gtest_main",
