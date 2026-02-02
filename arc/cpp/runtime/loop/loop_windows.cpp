@@ -37,7 +37,7 @@ public:
 
     ~WindowsLoop() override { this->close_handles(); }
 
-    void wait(breaker::Breaker &breaker) override {
+    void wait(x::breaker::Breaker &breaker) override {
         if (this->wake_event_ == NULL) return;
 
         switch (this->config_.mode) {
@@ -60,12 +60,12 @@ public:
         }
     }
 
-    xerrors::Error start() override {
-        if (this->wake_event_ != NULL) return xerrors::NIL;
+    x::errors::Error start() override {
+        if (this->wake_event_ != NULL) return x::errors::NIL;
 
         this->wake_event_ = CreateEvent(NULL, FALSE, FALSE, NULL);
         if (this->wake_event_ == NULL) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to create wake event: " + std::to_string(GetLastError())
             );
         }
@@ -73,13 +73,13 @@ public:
         if (this->config_.interval.nanoseconds() > 0) {
             if (this->config_.mode == ExecutionMode::HIGH_RATE) {
                 // HIGH_RATE uses precise software timer
-                this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+                this->timer_ = std::make_unique<x::loop::Timer>(this->config_.interval);
             } else {
                 // Other modes use WaitableTimer
                 this->timer_event_ = CreateWaitableTimer(NULL, FALSE, NULL);
                 if (this->timer_event_ == NULL) {
                     CloseHandle(this->wake_event_);
-                    return xerrors::Error(
+                    return x::errors::Error(
                         "Failed to create waitable timer: " +
                         std::to_string(GetLastError())
                     );
@@ -92,7 +92,7 @@ public:
 
                 const LONG period_ms = static_cast<LONG>(
                     this->config_.interval.nanoseconds() /
-                    telem::MILLISECOND.nanoseconds()
+                    x::telem::MILLISECOND.nanoseconds()
                 );
 
                 if (!SetWaitableTimer(
@@ -105,7 +105,7 @@ public:
                     )) {
                     CloseHandle(this->timer_event_);
                     CloseHandle(this->wake_event_);
-                    return xerrors::Error(
+                    return x::errors::Error(
                         "Failed to set waitable timer: " +
                         std::to_string(GetLastError())
                     );
@@ -128,7 +128,7 @@ public:
             }
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void wake() override {
@@ -136,7 +136,7 @@ public:
         SetEvent(this->wake_event_);
     }
 
-    bool watch(notify::Notifier &notifier) override {
+    bool watch(x::notify::Notifier &notifier) override {
         auto *handle = static_cast<HANDLE>(notifier.native_handle());
         if (handle == nullptr) {
             LOG(ERROR) << "[loop] Notifier has no native handle";
@@ -168,7 +168,7 @@ private:
         this->timer_enabled_ = false;
     }
 
-    void busy_wait(breaker::Breaker &breaker) {
+    void busy_wait(x::breaker::Breaker &breaker) {
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
         if (count == 0) return;
@@ -184,7 +184,7 @@ private:
         }
     }
 
-    void high_rate_wait(breaker::Breaker &breaker) { this->timer_->wait(breaker); }
+    void high_rate_wait(x::breaker::Breaker &breaker) { this->timer_->wait(breaker); }
 
     void event_driven_wait(bool blocking) {
         HANDLE handles[3];
@@ -206,7 +206,7 @@ private:
             LOG(ERROR) << "[loop] WaitForMultipleObjects failed: " << GetLastError();
     }
 
-    void hybrid_wait(breaker::Breaker &breaker) {
+    void hybrid_wait(x::breaker::Breaker &breaker) {
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
         if (count == 0) return;
@@ -229,7 +229,7 @@ private:
         WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
     }
 
-    xerrors::Error set_thread_priority(int priority) {
+    x::errors::Error set_thread_priority(int priority) {
         int win_priority;
         if (priority >= 90) {
             win_priority = THREAD_PRIORITY_TIME_CRITICAL;
@@ -242,24 +242,24 @@ private:
         }
 
         if (!SetThreadPriority(GetCurrentThread(), win_priority)) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to set thread priority: " + std::to_string(GetLastError())
             );
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    xerrors::Error set_cpu_affinity(int cpu) {
+    x::errors::Error set_cpu_affinity(int cpu) {
         const DWORD_PTR mask = static_cast<DWORD_PTR>(1) << cpu;
 
         if (!SetThreadAffinityMask(GetCurrentThread(), mask)) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to set thread affinity: " + std::to_string(GetLastError())
             );
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     DWORD build_handles(HANDLE *handles) const {
@@ -275,13 +275,13 @@ private:
     HANDLE timer_event_ = NULL;
     HANDLE watched_handle_ = NULL;
     bool timer_enabled_ = false;
-    std::unique_ptr<::loop::Timer> timer_;
+    std::unique_ptr<x::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
     auto loop = std::make_unique<WindowsLoop>(cfg);
     if (auto err = loop->start(); err) return {nullptr, err};
-    return {std::move(loop), xerrors::NIL};
+    return {std::move(loop), x::errors::NIL};
 }
 
 }

@@ -16,7 +16,7 @@ import {
 import { array } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import { type Arc, arcZ, keyZ, type New, newZ, type Params } from "@/arc/payload";
+import { type Arc, arcZ, type Key, keyZ, type New, newZ } from "@/arc/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_arc_set";
@@ -33,7 +33,7 @@ const retrieveReqZ = z.object({
 const createReqZ = z.object({ arcs: newZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveResZ = z.object({ arcs: array.nullableZ(arcZ) });
+const retrieveResZ = z.object({ arcs: array.nullishToEmpty(arcZ) });
 const createResZ = z.object({ arcs: arcZ.array() });
 const emptyResZ = z.object({});
 
@@ -102,7 +102,7 @@ export class Client {
     return isSingle ? res.arcs[0] : res.arcs;
   }
 
-  async delete(keys: Params): Promise<void> {
+  async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired(
       this.client,
       "/arc/delete",

@@ -15,8 +15,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/series.h"
-#include "x/cpp/xerrors/errors.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"

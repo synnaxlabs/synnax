@@ -45,7 +45,7 @@ public:
 
     ~LinuxLoop() override { this->close_fds(); }
 
-    void wait(breaker::Breaker &breaker) override {
+    void wait(x::breaker::Breaker &breaker) override {
         if (this->epoll_fd_ == -1) return;
 
         switch (this->config_.mode) {
@@ -68,19 +68,19 @@ public:
         }
     }
 
-    xerrors::Error start() override {
-        if (this->epoll_fd_ != -1) return xerrors::NIL;
+    x::errors::Error start() override {
+        if (this->epoll_fd_ != -1) return x::errors::NIL;
 
         this->epoll_fd_ = epoll_create1(0);
         if (this->epoll_fd_ == -1)
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to create epoll: " + std::string(strerror(errno))
             );
 
         this->event_fd_ = eventfd(0, EFD_NONBLOCK);
         if (this->event_fd_ == -1) {
             close(this->epoll_fd_);
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to create eventfd: " + std::string(strerror(errno))
             );
         }
@@ -91,35 +91,35 @@ public:
         if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->event_fd_, &ev) == -1) {
             close(this->event_fd_);
             close(this->epoll_fd_);
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to add eventfd to epoll: " + std::string(strerror(errno))
             );
         }
 
         if (this->config_.interval.nanoseconds() > 0) {
             if (this->config_.mode == ExecutionMode::HIGH_RATE)
-                this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+                this->timer_ = std::make_unique<x::loop::Timer>(this->config_.interval);
             else {
                 this->timer_fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
                 if (this->timer_fd_ == -1) {
                     close(this->event_fd_);
                     close(this->epoll_fd_);
-                    return xerrors::Error(
+                    return x::errors::Error(
                         "Failed to create timerfd: " + std::string(strerror(errno))
                     );
                 }
 
                 const uint64_t interval_ns = this->config_.interval.nanoseconds();
                 struct itimerspec ts;
-                ts.it_interval.tv_sec = interval_ns / telem::SECOND.nanoseconds();
-                ts.it_interval.tv_nsec = interval_ns % telem::SECOND.nanoseconds();
+                ts.it_interval.tv_sec = interval_ns / x::telem::SECOND.nanoseconds();
+                ts.it_interval.tv_nsec = interval_ns % x::telem::SECOND.nanoseconds();
                 ts.it_value = ts.it_interval;
 
                 if (timerfd_settime(this->timer_fd_, 0, &ts, nullptr) == -1) {
                     close(this->timer_fd_);
                     close(this->event_fd_);
                     close(this->epoll_fd_);
-                    return xerrors::Error(
+                    return x::errors::Error(
                         "Failed to set timerfd interval: " +
                         std::string(strerror(errno))
                     );
@@ -132,7 +132,7 @@ public:
                     close(this->timer_fd_);
                     close(this->event_fd_);
                     close(this->epoll_fd_);
-                    return xerrors::Error(
+                    return x::errors::Error(
                         "Failed to add timerfd to epoll: " +
                         std::string(strerror(errno))
                     );
@@ -160,7 +160,7 @@ public:
             }
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void wake() override {
@@ -169,7 +169,7 @@ public:
         [[maybe_unused]] auto _ = write(this->event_fd_, &val, sizeof(val));
     }
 
-    bool watch(notify::Notifier &notifier) override {
+    bool watch(x::notify::Notifier &notifier) override {
         const int fd = notifier.fd();
         if (fd == -1 || this->epoll_fd_ == -1) return false;
 
@@ -218,7 +218,7 @@ private:
         this->timer_enabled_ = false;
     }
 
-    void busy_wait(breaker::Breaker &breaker) {
+    void busy_wait(x::breaker::Breaker &breaker) {
         struct epoll_event events[2];
 
         while (breaker.running()) {
@@ -234,7 +234,7 @@ private:
         }
     }
 
-    void high_rate_wait(breaker::Breaker &breaker) {
+    void high_rate_wait(x::breaker::Breaker &breaker) {
         this->timer_->wait(breaker);
         struct epoll_event events[2];
         const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
@@ -255,7 +255,7 @@ private:
             LOG(ERROR) << "[loop] epoll_wait error: " << strerror(errno);
     }
 
-    void hybrid_wait(const breaker::Breaker &breaker) {
+    void hybrid_wait(const x::breaker::Breaker &breaker) {
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
             this->config_.spin_duration.nanoseconds()
@@ -306,43 +306,43 @@ private:
         }
     }
 
-    xerrors::Error set_rt_priority(const int priority) {
+    x::errors::Error set_rt_priority(const int priority) {
         struct sched_param param;
         param.sched_priority = priority;
 
         if (sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to set SCHED_FIFO priority (requires CAP_SYS_NICE): " +
                 std::string(strerror(errno))
             );
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    xerrors::Error set_cpu_affinity(int cpu) {
+    x::errors::Error set_cpu_affinity(int cpu) {
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);
         CPU_SET(cpu, &cpuset);
 
         if (sched_setaffinity(0, sizeof(cpuset), &cpuset) == -1) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to set CPU affinity: " + std::string(strerror(errno))
             );
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    xerrors::Error lock_memory() {
+    x::errors::Error lock_memory() {
         if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to lock memory (requires CAP_IPC_LOCK): " +
                 std::string(strerror(errno))
             );
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     Config config_;
@@ -350,13 +350,13 @@ private:
     int event_fd_ = -1;
     int timer_fd_ = -1;
     bool timer_enabled_ = false;
-    std::unique_ptr<::loop::Timer> timer_;
+    std::unique_ptr<x::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
     auto loop = std::make_unique<LinuxLoop>(cfg);
     if (auto err = loop->start(); err) return {nullptr, err};
-    return {std::move(loop), xerrors::NIL};
+    return {std::move(loop), x::errors::NIL};
 }
 
 }

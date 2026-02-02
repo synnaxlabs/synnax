@@ -6,9 +6,9 @@ cc_library(
         "//arc/cpp/ir",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
+        "//x/cpp/errors",
+        "//x/cpp/mem",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
-        "//x/cpp/xmemory",
     ],
 )
 
@@ -19,7 +19,7 @@ cc_test(
         ":constant",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/state",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

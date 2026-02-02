@@ -14,7 +14,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
 
@@ -63,7 +62,7 @@ func formatParams(params types.Params) string {
 }
 
 // formatChannels formats Channels as "read [id: name, ...], write [id: name, ...]"
-func formatChannels(ch symbol.Channels) string {
+func formatChannels(ch types.Channels) string {
 	if len(ch.Read) == 0 && len(ch.Write) == 0 {
 		return "(none)"
 	}

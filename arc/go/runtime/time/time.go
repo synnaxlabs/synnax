@@ -158,7 +158,7 @@ func CalculateTolerance(baseInterval telem.TimeSpan) telem.TimeSpan {
 }
 
 // Create constructs an Interval or Wait node from the given configuration.
-// Returns query.NotFound if the node type is not "interval" or "wait".
+// Returns query.ErrNotFound if the node type is not "interval" or "wait".
 func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case intervalSymbolName:

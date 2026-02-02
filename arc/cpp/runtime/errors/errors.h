@@ -11,16 +11,16 @@
 
 #include <functional>
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/errors/errors.h"
 
 namespace arc::runtime::errors {
 /// @brief Callback invoked when a runtime error or warning occurs.
-using Handler = std::function<void(const xerrors::Error &)>;
+using Handler = std::function<void(const x::errors::Error &)>;
 
 /// @brief No-op error handler for testing.
-inline Handler noop_handler = [](const xerrors::Error &) {};
+inline Handler noop_handler = [](const x::errors::Error &) {};
 /// @brief Base error type for all arc runtime errors.
 const auto BASE = arc::errors::BASE.sub("runtime");
 /// @brief Queue capacity exceeded, data will be lost.

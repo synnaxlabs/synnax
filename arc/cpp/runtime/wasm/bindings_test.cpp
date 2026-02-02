@@ -11,7 +11,7 @@
 
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/bindings.h"
@@ -1098,8 +1098,8 @@ TEST_F(BindingsChannelTest, ChannelReadNoDataReturnsDefault) {
 }
 
 TEST_F(BindingsChannelTest, ChannelReadF64WithData) {
-    const telem::Frame frame(1);
-    auto series = telem::Series(telem::FLOAT64_T, 3);
+    const x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::FLOAT64_T, 3);
     series.write(1.5);
     series.write(2.5);
     series.write(3.5);
@@ -1111,8 +1111,8 @@ TEST_F(BindingsChannelTest, ChannelReadF64WithData) {
 }
 
 TEST_F(BindingsChannelTest, ChannelReadI32WithData) {
-    const telem::Frame frame(1);
-    auto series = telem::Series(telem::INT32_T, 2);
+    const x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::INT32_T, 2);
     series.write(42);
     series.write(-100);
     frame.emplace(2, std::move(series));
@@ -1123,8 +1123,8 @@ TEST_F(BindingsChannelTest, ChannelReadI32WithData) {
 }
 
 TEST_F(BindingsChannelTest, ChannelReadU8WithData) {
-    const telem::Frame frame(1);
-    auto series = telem::Series(telem::UINT8_T, 2);
+    const x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::UINT8_T, 2);
     series.write(static_cast<uint8_t>(255));
     series.write(static_cast<uint8_t>(128));
     frame.emplace(3, std::move(series));
@@ -1164,8 +1164,8 @@ TEST_F(BindingsChannelTest, ChannelWriteU64) {
 
 TEST_F(BindingsChannelTest, ChannelReadDifferentChannelReturnsDefault) {
     // Ingest data for channel 1
-    const telem::Frame frame(1);
-    auto series = telem::Series(telem::FLOAT64_T, 1);
+    const x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::FLOAT64_T, 1);
     series.write(123.456);
     frame.emplace(1, std::move(series));
     state->ingest(frame);
@@ -1224,8 +1224,8 @@ TEST(BindingsNullStateTest, ChannelWriteWithNullStateDoesNotCrash) {
 
 /// @brief Test that panic calls error handler with WASM_PANIC error.
 TEST(BindingsPanicTest, PanicCallsErrorHandler) {
-    std::vector<xerrors::Error> reported_errors;
-    auto error_handler = [&reported_errors](const xerrors::Error &err) {
+    std::vector<x::errors::Error> reported_errors;
+    auto error_handler = [&reported_errors](const x::errors::Error &err) {
         reported_errors.push_back(err);
     };
 
@@ -1239,8 +1239,8 @@ TEST(BindingsPanicTest, PanicCallsErrorHandler) {
 
 /// @brief Test that multiple panics each call error handler.
 TEST(BindingsPanicTest, MultiplePanicsCallErrorHandlerMultipleTimes) {
-    std::vector<xerrors::Error> reported_errors;
-    auto error_handler = [&reported_errors](const xerrors::Error &err) {
+    std::vector<x::errors::Error> reported_errors;
+    auto error_handler = [&reported_errors](const x::errors::Error &err) {
         reported_errors.push_back(err);
     };
 

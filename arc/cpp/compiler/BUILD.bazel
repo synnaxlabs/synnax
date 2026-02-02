@@ -1,0 +1,16 @@
+cc_library(
+    name = "compiler",
+    hdrs = [
+        "compiler.h",
+        "json.gen.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/pb",
+        "//arc/go/compiler:compiler_grpc",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+    ],
+)

@@ -83,7 +83,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 		return nil
 	}
 	drt := dataRuntime{}
-	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel, t.prog.Module)
+	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel, *t.prog.Module)
 	if err != nil {
 		t.setStatus(status.VariantError, false, err.Error())
 		return err
@@ -106,7 +106,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 	if len(t.prog.Module.WASM) > 0 {
 		var err error
 		wasmMod, err = wasm.OpenModule(ctx, wasm.ModuleConfig{
-			Module: t.prog.Module,
+			Module: *t.prog.Module,
 			State:  drt.state,
 		})
 		if err != nil {
@@ -126,7 +126,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 	for _, irNode := range t.prog.Module.Nodes {
 		n, err := f.Create(ctx, node.Config{
 			Node:   irNode,
-			Module: t.prog.Module,
+			Module: *t.prog.Module,
 			State:  drt.state.Node(irNode.Key),
 		})
 		if err != nil {

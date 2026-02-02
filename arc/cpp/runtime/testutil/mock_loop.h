@@ -16,8 +16,8 @@
 #include <vector>
 
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/notify/notify.h"
-#include "x/cpp/xerrors/errors.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 
@@ -34,14 +34,14 @@ public:
     /// @brief Count of watch() invocations.
     std::atomic<int> watch_count{0};
 
-    xerrors::Error start() override {
+    x::errors::Error start() override {
         start_count++;
         std::lock_guard lock(mu);
         should_block = true;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    void wait(breaker::Breaker &breaker) override {
+    void wait(x::breaker::Breaker &breaker) override {
         wait_count++;
         std::unique_lock lock(mu);
         cv.wait_for(lock, std::chrono::milliseconds(10), [&] {
@@ -58,14 +58,14 @@ public:
         cv.notify_all();
     }
 
-    bool watch(notify::Notifier &notifier) override {
+    bool watch(x::notify::Notifier &notifier) override {
         watch_count++;
         watched_notifiers.push_back(&notifier);
         return true;
     }
 
     /// @brief List of notifiers that have been watched.
-    std::vector<notify::Notifier *> watched_notifiers;
+    std::vector<x::notify::Notifier *> watched_notifiers;
 
 private:
     std::condition_variable cv;

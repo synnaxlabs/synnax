@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/series.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
@@ -38,23 +38,23 @@ TEST(StateTest, CreateStateAndGetNode) {
 
 /// @brief Test basic input alignment with two connected nodes
 TEST(StateTest, RefreshInputs_BasicAlignment) {
-    arc::ir::Param output_param;
+    arc::types::Param output_param;
     output_param.name = "output";
-    output_param.type = arc::types::Type(arc::types::Kind::F32);
+    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param input_param;
+    arc::types::Param input_param;
     input_param.name = "input";
-    input_param.type = arc::types::Type(arc::types::Kind::F32);
+    input_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
     arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
-    producer.outputs.params.push_back(output_param);
+    producer.outputs.push_back(output_param);
 
     arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
-    consumer.inputs.params.push_back(input_param);
+    consumer.inputs.push_back(input_param);
 
     arc::ir::Edge edge(
         arc::ir::Handle("producer", "output"),
@@ -83,9 +83,9 @@ TEST(StateTest, RefreshInputs_BasicAlignment) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(3);
-    o_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
-    o_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
-    o_time->set(2, telem::TimeStamp(3 * telem::MICROSECOND));
+    o_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+    o_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
+    o_time->set(2, x::telem::TimeStamp(3 * x::telem::MICROSECOND));
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
@@ -99,23 +99,23 @@ TEST(StateTest, RefreshInputs_BasicAlignment) {
 
 /// @brief Test that refresh_inputs returns false when upstream output is empty
 TEST(StateTest, RefreshInputs_NoTriggerOnEmpty) {
-    arc::ir::Param output_param;
+    arc::types::Param output_param;
     output_param.name = "output";
-    output_param.type = arc::types::Type(arc::types::Kind::F32);
+    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param input_param;
+    arc::types::Param input_param;
     input_param.name = "input";
-    input_param.type = arc::types::Type(arc::types::Kind::F32);
+    input_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
     arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
-    producer.outputs.params.push_back(output_param);
+    producer.outputs.push_back(output_param);
 
     arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
-    consumer.inputs.params.push_back(input_param);
+    consumer.inputs.push_back(input_param);
 
     arc::ir::Edge edge(
         arc::ir::Handle("producer", "output"),
@@ -140,23 +140,23 @@ TEST(StateTest, RefreshInputs_NoTriggerOnEmpty) {
 
 /// @brief Test that watermark tracking prevents reprocessing the same data
 TEST(StateTest, RefreshInputs_WatermarkTracking) {
-    arc::ir::Param output_param;
+    arc::types::Param output_param;
     output_param.name = "output";
-    output_param.type = arc::types::Type(arc::types::Kind::F32);
+    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param input_param;
+    arc::types::Param input_param;
     input_param.name = "input";
-    input_param.type = arc::types::Type(arc::types::Kind::F32);
+    input_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
     arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
-    producer.outputs.params.push_back(output_param);
+    producer.outputs.push_back(output_param);
 
     arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
-    consumer.inputs.params.push_back(input_param);
+    consumer.inputs.push_back(input_param);
 
     arc::ir::Edge edge(
         arc::ir::Handle("producer", "output"),
@@ -185,8 +185,8 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(2);
-    o_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
-    o_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
+    o_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+    o_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
 
     ASSERT_TRUE(consumer_node.refresh_inputs());
     EXPECT_EQ(consumer_node.input(0)->size(), 2);
@@ -196,7 +196,7 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
     o->resize(3);
     o->set(2, 3.0f);
     o_time->resize(3);
-    o_time->set(2, telem::TimeStamp(3 * telem::MICROSECOND));
+    o_time->set(2, x::telem::TimeStamp(3 * x::telem::MICROSECOND));
 
     ASSERT_TRUE(consumer_node.refresh_inputs());
     EXPECT_EQ(consumer_node.input(0)->size(), 3);
@@ -204,37 +204,37 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
 
 /// @brief Test node with multiple inputs only triggers when all have data
 TEST(StateTest, RefreshInputs_MultipleInputs) {
-    arc::ir::Param output1_param;
+    arc::types::Param output1_param;
     output1_param.name = "output";
-    output1_param.type = arc::types::Type(arc::types::Kind::F32);
+    output1_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param output2_param;
+    arc::types::Param output2_param;
     output2_param.name = "output";
-    output2_param.type = arc::types::Type(arc::types::Kind::F32);
+    output2_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param input1_param;
+    arc::types::Param input1_param;
     input1_param.name = "input1";
-    input1_param.type = arc::types::Type(arc::types::Kind::F32);
+    input1_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param input2_param;
+    arc::types::Param input2_param;
     input2_param.name = "input2";
-    input2_param.type = arc::types::Type(arc::types::Kind::F32);
+    input2_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
     arc::ir::Node producer1;
     producer1.key = "producer1";
     producer1.type = "producer1";
-    producer1.outputs.params.push_back(output1_param);
+    producer1.outputs.push_back(output1_param);
 
     arc::ir::Node producer2;
     producer2.key = "producer2";
     producer2.type = "producer2";
-    producer2.outputs.params.push_back(output2_param);
+    producer2.outputs.push_back(output2_param);
 
     arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
-    consumer.inputs.params.push_back(input1_param);
-    consumer.inputs.params.push_back(input2_param);
+    consumer.inputs.push_back(input1_param);
+    consumer.inputs.push_back(input2_param);
 
     arc::ir::Edge edge1(
         arc::ir::Handle("producer1", "output"),
@@ -271,8 +271,8 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
 
     auto &o1_time = producer1_node.output_time(0);
     o1_time->resize(2);
-    o1_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
-    o1_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
+    o1_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+    o1_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
 
     ASSERT_FALSE(consumer_node.refresh_inputs());
 
@@ -283,8 +283,8 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
 
     auto &o2_time = producer2_node.output_time(0);
     o2_time->resize(2);
-    o2_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
-    o2_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
+    o2_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+    o2_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
 
     ASSERT_TRUE(consumer_node.refresh_inputs());
     EXPECT_EQ(consumer_node.input(0)->size(), 2);
@@ -295,15 +295,15 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
 
 /// @brief Test that unconnected optional input uses default value
 TEST(StateTest, OptionalInput_UseDefault) {
-    arc::ir::Param input1_param;
+    arc::types::Param input1_param;
     input1_param.name = "input1";
-    input1_param.type = arc::types::Type(arc::types::Kind::F32);
+    input1_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
     input1_param.value = 42.0f;
 
     arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
-    consumer.inputs.params.push_back(input1_param);
+    consumer.inputs.push_back(input1_param);
 
     arc::ir::Function fn;
     fn.key = "test";
@@ -328,24 +328,24 @@ TEST(StateTest, OptionalInput_UseDefault) {
 
 /// @brief Test that connected input overrides default value
 TEST(StateTest, OptionalInput_OverrideDefault) {
-    arc::ir::Param output_param;
+    arc::types::Param output_param;
     output_param.name = "output";
-    output_param.type = arc::types::Type(arc::types::Kind::F32);
+    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param input_param;
+    arc::types::Param input_param;
     input_param.name = "input";
-    input_param.type = arc::types::Type(arc::types::Kind::F32);
+    input_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
     input_param.value = 42.0f;
 
     arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
-    producer.outputs.params.push_back(output_param);
+    producer.outputs.push_back(output_param);
 
     arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
-    consumer.inputs.params.push_back(input_param);
+    consumer.inputs.push_back(input_param);
 
     arc::ir::Edge edge(
         arc::ir::Handle("producer", "output"),
@@ -373,8 +373,8 @@ TEST(StateTest, OptionalInput_OverrideDefault) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(2);
-    o_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
-    o_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
+    o_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+    o_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
@@ -404,16 +404,16 @@ State create_minimal_state() {
 TEST(StateTest, ClearReads_PreservesLatestSeries) {
     State s = create_minimal_state();
 
-    auto series1 = telem::Series(telem::FLOAT32_T, 3);
+    auto series1 = x::telem::Series(x::telem::FLOAT32_T, 3);
     series1.write(1.0f);
     series1.write(2.0f);
     series1.write(3.0f);
-    s.ingest(telem::Frame(10, std::move(series1)));
+    s.ingest(x::telem::Frame(10, std::move(series1)));
 
-    auto series2 = telem::Series(telem::FLOAT32_T, 2);
+    auto series2 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series2.write(4.0f);
     series2.write(5.0f);
-    s.ingest(telem::Frame(10, std::move(series2)));
+    s.ingest(x::telem::Frame(10, std::move(series2)));
 
     auto [data_before, ok_before] = s.read_channel(10);
     ASSERT_TRUE(ok_before);
@@ -432,16 +432,16 @@ TEST(StateTest, ClearReads_PreservesLatestSeries) {
 TEST(StateTest, ClearReads_PreservesMultipleChannels) {
     State s = create_minimal_state();
 
-    auto series1 = telem::Series(telem::FLOAT32_T, 2);
+    auto series1 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series1.write(1.0f);
     series1.write(2.0f);
-    s.ingest(telem::Frame(10, std::move(series1)));
+    s.ingest(x::telem::Frame(10, std::move(series1)));
 
-    auto series2 = telem::Series(telem::FLOAT64_T, 3);
+    auto series2 = x::telem::Series(x::telem::FLOAT64_T, 3);
     series2.write(10.0);
     series2.write(20.0);
     series2.write(30.0);
-    s.ingest(telem::Frame(20, std::move(series2)));
+    s.ingest(x::telem::Frame(20, std::move(series2)));
 
     s.flush();
 
@@ -459,16 +459,16 @@ TEST(StateTest, ClearReads_PreservesMultipleChannels) {
 TEST(StateTest, ClearReads_PreservedDataAvailableNextCycle) {
     State s = create_minimal_state();
 
-    auto series1 = telem::Series(telem::FLOAT32_T, 2);
+    auto series1 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series1.write(1.0f);
     series1.write(2.0f);
-    s.ingest(telem::Frame(10, std::move(series1)));
+    s.ingest(x::telem::Frame(10, std::move(series1)));
     s.flush();
 
-    auto series2 = telem::Series(telem::FLOAT32_T, 2);
+    auto series2 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series2.write(3.0f);
     series2.write(4.0f);
-    s.ingest(telem::Frame(20, std::move(series2)));
+    s.ingest(x::telem::Frame(20, std::move(series2)));
 
     auto [data10, ok10] = s.read_channel(10);
     ASSERT_TRUE(ok10);
@@ -492,18 +492,18 @@ TEST(StateTest, ClearReads_PreservedDataAvailableNextCycle) {
 TEST(StateTest, ClearReads_NewDataOverwritesPreserved) {
     State s = create_minimal_state();
 
-    auto series1 = telem::Series(telem::FLOAT32_T, 1);
+    auto series1 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series1.write(100.0f);
-    s.ingest(telem::Frame(10, std::move(series1)));
+    s.ingest(x::telem::Frame(10, std::move(series1)));
     s.flush();
 
     auto [data1, ok1] = s.read_channel(10);
     ASSERT_TRUE(ok1);
     EXPECT_EQ(data1.series[0].at<float>(-1), 100.0f);
 
-    auto series2 = telem::Series(telem::FLOAT32_T, 1);
+    auto series2 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series2.write(200.0f);
-    s.ingest(telem::Frame(10, std::move(series2)));
+    s.ingest(x::telem::Frame(10, std::move(series2)));
     s.flush();
 
     auto [data2, ok2] = s.read_channel(10);
@@ -515,11 +515,11 @@ TEST(StateTest, ClearReads_NewDataOverwritesPreserved) {
 TEST(StateTest, ClearReads_SingleSeriesNoOp) {
     State s = create_minimal_state();
 
-    auto series = telem::Series(telem::INT32_T, 3);
+    auto series = x::telem::Series(x::telem::INT32_T, 3);
     series.write(1);
     series.write(2);
     series.write(3);
-    s.ingest(telem::Frame(10, std::move(series)));
+    s.ingest(x::telem::Frame(10, std::move(series)));
 
     s.flush();
 
@@ -545,9 +545,9 @@ TEST(StateTest, ClearReads_EmptyState) {
 TEST(StateTest, ReadChannel_UnknownChannel) {
     State s = create_minimal_state();
 
-    auto series = telem::Series(telem::FLOAT32_T, 1);
+    auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
     series.write(1.0f);
-    s.ingest(telem::Frame(10, std::move(series)));
+    s.ingest(x::telem::Frame(10, std::move(series)));
 
     auto [data, ok] = s.read_channel(99);
     ASSERT_FALSE(ok);
@@ -558,10 +558,10 @@ TEST(StateTest, ReadChannel_UnknownChannel) {
 TEST(StateTest, Reset_ClearsReadsAndWrites) {
     State s = create_minimal_state();
 
-    auto series = telem::Series(telem::FLOAT32_T, 2);
+    auto series = x::telem::Series(x::telem::FLOAT32_T, 2);
     series.write(1.0f);
     series.write(2.0f);
-    s.ingest(telem::Frame(10, std::move(series)));
+    s.ingest(x::telem::Frame(10, std::move(series)));
 
     auto [data_before, ok_before] = s.read_channel(10);
     ASSERT_TRUE(ok_before);
@@ -576,23 +576,23 @@ TEST(StateTest, Reset_ClearsReadsAndWrites) {
 
 /// @brief Test that Node::reset clears watermark tracking
 TEST(StateTest, NodeReset_ClearsWatermarks) {
-    arc::ir::Param output_param;
+    arc::types::Param output_param;
     output_param.name = "output";
-    output_param.type = arc::types::Type(arc::types::Kind::F32);
+    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
-    arc::ir::Param input_param;
+    arc::types::Param input_param;
     input_param.name = "input";
-    input_param.type = arc::types::Type(arc::types::Kind::F32);
+    input_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
     arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
-    producer.outputs.params.push_back(output_param);
+    producer.outputs.push_back(output_param);
 
     arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
-    consumer.inputs.params.push_back(input_param);
+    consumer.inputs.push_back(input_param);
 
     arc::ir::Edge edge(
         arc::ir::Handle("producer", "output"),
@@ -621,8 +621,8 @@ TEST(StateTest, NodeReset_ClearsWatermarks) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(2);
-    o_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
-    o_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
+    o_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+    o_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
 
     ASSERT_TRUE(consumer_node.refresh_inputs());
 
@@ -635,25 +635,25 @@ TEST(StateTest, NodeReset_ClearsWatermarks) {
 
 /// @brief Test that is_series_truthy returns false for empty series
 TEST(StateTest, IsSeriesTruthy_EmptySeriesIsFalsy) {
-    telem::Series empty_series(telem::FLOAT32_T, 0);
+    x::telem::Series empty_series(x::telem::FLOAT32_T, 0);
     EXPECT_FALSE(Node::is_series_truthy(empty_series));
 }
 
 /// @brief Test that is_series_truthy returns false for series with zero value
 TEST(StateTest, IsSeriesTruthy_ZeroValueIsFalsy) {
-    telem::Series series(0.0f);
+    x::telem::Series series(0.0f);
     EXPECT_FALSE(Node::is_series_truthy(series));
 }
 
 /// @brief Test that is_series_truthy returns true for series with non-zero value
 TEST(StateTest, IsSeriesTruthy_NonZeroValueIsTruthy) {
-    telem::Series series(42.0f);
+    x::telem::Series series(42.0f);
     EXPECT_TRUE(Node::is_series_truthy(series));
 }
 
 /// @brief Test that is_series_truthy returns false when last element is zero
 TEST(StateTest, IsSeriesTruthy_LastElementZeroIsFalsy) {
-    telem::Series series(telem::FLOAT32_T, 3);
+    x::telem::Series series(x::telem::FLOAT32_T, 3);
     series.write(1.0f);
     series.write(2.0f);
     series.write(0.0f); // Last element is zero
@@ -662,7 +662,7 @@ TEST(StateTest, IsSeriesTruthy_LastElementZeroIsFalsy) {
 
 /// @brief Test that is_series_truthy returns true when last element is non-zero
 TEST(StateTest, IsSeriesTruthy_LastElementNonZeroIsTruthy) {
-    telem::Series series(telem::FLOAT32_T, 3);
+    x::telem::Series series(x::telem::FLOAT32_T, 3);
     series.write(0.0f);
     series.write(0.0f);
     series.write(1.0f); // Last element is non-zero
@@ -671,18 +671,18 @@ TEST(StateTest, IsSeriesTruthy_LastElementNonZeroIsTruthy) {
 
 /// @brief Test that is_series_truthy works with uint8 series
 TEST(StateTest, IsSeriesTruthy_Uint8Series) {
-    telem::Series zero_series(static_cast<uint8_t>(0));
+    x::telem::Series zero_series(static_cast<uint8_t>(0));
     EXPECT_FALSE(Node::is_series_truthy(zero_series));
 
-    telem::Series one_series(static_cast<uint8_t>(1));
+    x::telem::Series one_series(static_cast<uint8_t>(1));
     EXPECT_TRUE(Node::is_series_truthy(one_series));
 }
 
 /// @brief Test that is_series_truthy works with int64 series
 TEST(StateTest, IsSeriesTruthy_Int64Series) {
-    telem::Series zero_series(static_cast<int64_t>(0));
+    x::telem::Series zero_series(static_cast<int64_t>(0));
     EXPECT_FALSE(Node::is_series_truthy(zero_series));
 
-    telem::Series non_zero_series(static_cast<int64_t>(-42));
+    x::telem::Series non_zero_series(static_cast<int64_t>(-42));
     EXPECT_TRUE(Node::is_series_truthy(non_zero_series));
 }

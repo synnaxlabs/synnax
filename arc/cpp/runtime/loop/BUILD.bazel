@@ -30,9 +30,9 @@ cc_library(
         "//x/cpp/loop",
         "//x/cpp/notify",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
-        "//x/cpp/xjson",
-        "//x/cpp/xlog",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/log",
         "@glog",
     ],
     linkopts = select({
@@ -57,8 +57,8 @@ cc_test(
     deps = [
         ":loop",
         "//x/cpp/breaker",
+        "//x/cpp/test",
         "//x/cpp/notify",
-        "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],
 )

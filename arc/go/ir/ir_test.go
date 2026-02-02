@@ -400,7 +400,7 @@ var _ = Describe("IR", func() {
 				Edges: ir.Edges{
 					// Continuous dataflow
 					{Source: ir.Handle{Node: "timer_1", Param: "output"}, Target: ir.Handle{Node: "pressure_check", Param: ir.LHSInputParam}, Kind: ir.EdgeKindContinuous},
-					// Stage transitions (OneShot)
+					// Stage transitions (EdgeKindOneShot)
 					{Source: ir.Handle{Node: "pressure_check", Param: "output"}, Target: ir.Handle{Node: "pressurization_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
 					{Source: ir.Handle{Node: "pressure_monitor", Param: "threshold"}, Target: ir.Handle{Node: "ignition_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
 					{Source: ir.Handle{Node: "igniter", Param: "complete"}, Target: ir.Handle{Node: "mainstage_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
@@ -439,7 +439,7 @@ var _ = Describe("IR", func() {
 			Expect(continuous).To(HaveLen(1))
 			Expect(oneShot).To(HaveLen(4))
 
-			// All OneShot edges should target stage entries
+			// All EdgeKindOneShot edges should target stage entries
 			for _, e := range oneShot {
 				Expect(e.Target.Node).To(ContainSubstring("_entry"))
 			}

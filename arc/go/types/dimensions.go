@@ -11,23 +11,6 @@ package types
 
 import "fmt"
 
-// Dimensions represents dimension exponents as a vector for dimensional analysis.
-// Uses SI base dimensions plus pragmatic extensions for hardware telemetry.
-// Exponents are typically small (-3 to +3), so int8 is sufficient.
-type Dimensions struct {
-	// SI base dimensions
-	Length      int8 `json:"length,omitempty" msgpack:"length"`           // meters (m)
-	Mass        int8 `json:"mass,omitempty" msgpack:"mass"`               // kilograms (kg)
-	Time        int8 `json:"time,omitempty" msgpack:"time"`               // seconds (s)
-	Current     int8 `json:"current,omitempty" msgpack:"current"`         // amperes (A)
-	Temperature int8 `json:"temperature,omitempty" msgpack:"temperature"` // kelvin (K)
-
-	// Pragmatic extensions (not SI, but useful for hardware telemetry)
-	Angle int8 `json:"angle,omitempty" msgpack:"angle"` // radians/degrees - distinct from dimensionless
-	Count int8 `json:"count,omitempty" msgpack:"count"` // samples, items, cycles, pixels
-	Data  int8 `json:"data,omitempty" msgpack:"data"`   // bits, bytes
-}
-
 // Common dimension constants for base dimensions.
 var (
 	// DimNone represents a dimensionless quantity.
@@ -150,18 +133,6 @@ func (d Dimensions) String() string {
 		result += p
 	}
 	return result
-}
-
-// Unit holds unit metadata for numeric types.
-// A Unit is attached to a Type to indicate that the value has physical dimensions.
-type Unit struct {
-	// Name is the display name for this unit (e.g., "psi", "km", "ms").
-	Name string `json:"name" msgpack:"name"`
-	// Scale is the factor to convert this unit to SI base units.
-	// For example, km has Scale=1000 (1 km = 1000 m).
-	Scale float64 `json:"scale" msgpack:"scale"`
-	// Dimensions contains the dimension exponents for this unit.
-	Dimensions Dimensions `json:"dimensions" msgpack:"dimensions"`
 }
 
 // Equal checks if two units are identical.
