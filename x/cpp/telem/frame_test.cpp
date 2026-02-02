@@ -11,43 +11,29 @@
 
 #include "x/cpp/telem/frame.h"
 
+namespace x::telem {
 /// @brief it should construct a frame with a pre-allocated size.
 TEST(FrameTests, testConstructionFromSize) {
-    const auto f = telem::Frame(2);
-    auto s = telem::Series(std::vector<float>{1, 2, 3});
+    const auto f = Frame(2);
+    auto s = Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
     ASSERT_EQ(f.size(), 1);
 }
 
 /// @brief it should construct a frame from a single series and channel.
 TEST(FrameTests, testConstructionFromSingleSeriesAndChannel) {
-    const auto f = telem::Frame(65537, telem::Series(std::vector<float>{1, 2, 3}));
+    const auto f = Frame(65537, Series(std::vector<float>{1, 2, 3}));
     ASSERT_EQ(f.size(), 1);
     ASSERT_EQ(f.channels->at(0), 65537);
     ASSERT_EQ(f.length(), 3);
-    ASSERT_EQ(f.series->at(0).data_type(), telem::FLOAT32_T);
+    ASSERT_EQ(f.series->at(0).data_type(), FLOAT32_T);
     ASSERT_EQ(f.series->at(0).values<float>()[0], 1);
-}
-
-/// @brief it should construct a frame from a proto.
-TEST(FrameTests, toProto) {
-    const auto f = telem::Frame(2);
-    auto s = telem::Series(std::vector<float>{1, 2, 3});
-    f.emplace(65537, std::move(s));
-    telem::PBFrame p;
-    f.to_proto(&p);
-    ASSERT_EQ(p.keys_size(), 1);
-    ASSERT_EQ(p.series_size(), 1);
-    const auto f2 = telem::Frame(p);
-    ASSERT_EQ(f2.size(), 1);
-    ASSERT_EQ(f2.channels->at(0), 65537);
-    ASSERT_EQ(f2.series->at(0).values<float>()[0], 1);
 }
 
 /// @brief it should output frame contents to ostream.
 TEST(FrameTests, ostream) {
-    const auto f = telem::Frame(2);
-    auto s = telem::Series(std::vector<float>{1, 2, 3});
+    const auto f = Frame(2);
+    auto s = Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
     std::stringstream ss;
     ss << f;
@@ -59,8 +45,8 @@ TEST(FrameTests, ostream) {
 
 /// @brief it should correctly clear the frame for reuse.
 TEST(FrameTests, testClear) {
-    const auto f = telem::Frame(2);
-    auto s = telem::Series(std::vector<float>{1, 2, 3});
+    const auto f = Frame(2);
+    auto s = Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
     f.clear();
     ASSERT_EQ(f.size(), 0);
@@ -70,12 +56,12 @@ TEST(FrameTests, testClear) {
 
 /// @brief it should correctly add a series to the frame.
 TEST(FrameTests, testReserve) {
-    auto f = telem::Frame(2);
+    auto f = Frame(2);
     f.reserve(10);
     ASSERT_EQ(f.size(), 0);
     ASSERT_EQ(f.channels->size(), 0);
     ASSERT_EQ(f.series->size(), 0);
-    f.emplace(65537, telem::Series(std::vector<float>{1, 2, 3}));
+    f.emplace(65537, Series(std::vector<float>{1, 2, 3}));
     ASSERT_EQ(f.size(), 1);
     ASSERT_EQ(f.channels->size(), 1);
     ASSERT_EQ(f.series->size(), 1);
@@ -88,14 +74,14 @@ TEST(FrameTests, testReserve) {
 
 /// @brief it should deep copy the frame.
 TEST(FrameTests, testDeepCopy) {
-    const auto f = telem::Frame(2);
-    auto s = telem::Series(std::vector<float>{1, 2, 3});
+    const auto f = Frame(2);
+    auto s = Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
     const auto f2 = f.deep_copy();
     ASSERT_EQ(f2.size(), 1);
     ASSERT_EQ(f2.channels->at(0), 65537);
     ASSERT_EQ(f2.series->at(0).values<float>()[0], 1);
-    f.emplace(65538, telem::Series(std::vector<float>{4, 5, 6}));
+    f.emplace(65538, Series(std::vector<float>{4, 5, 6}));
     ASSERT_EQ(f.size(), 2);
     ASSERT_EQ(f2.size(), 1);
     ASSERT_EQ(f2.channels->at(0), 65537);
@@ -104,11 +90,11 @@ TEST(FrameTests, testDeepCopy) {
 
 /// @brief it should iterate through the frames keys and values.
 TEST(FrameTests, testIteration) {
-    auto frame = telem::Frame(3);
+    auto frame = Frame(3);
 
-    frame.emplace(65537, telem::Series(std::vector{1.0f, 2.0f, 3.0f}));
-    frame.emplace(65538, telem::Series(std::vector{4.0, 5.0, 6.0}));
-    frame.emplace(65539, telem::Series(std::vector{7, 8, 9}));
+    frame.emplace(65537, Series(std::vector{1.0f, 2.0f, 3.0f}));
+    frame.emplace(65538, Series(std::vector{4.0, 5.0, 6.0}));
+    frame.emplace(65539, Series(std::vector{7, 8, 9}));
 
     ASSERT_EQ(frame.size(), 3);
 
@@ -117,17 +103,17 @@ TEST(FrameTests, testIteration) {
         auto [key, series] = *it;
         count++;
         if (key == 65537) {
-            ASSERT_EQ(series.data_type(), telem::FLOAT32_T);
+            ASSERT_EQ(series.data_type(), FLOAT32_T);
             ASSERT_EQ(series.at<float>(0), 1.0f);
             ASSERT_EQ(series.at<float>(1), 2.0f);
             ASSERT_EQ(series.at<float>(2), 3.0f);
         } else if (key == 65538) {
-            ASSERT_EQ(series.data_type(), telem::FLOAT64_T);
+            ASSERT_EQ(series.data_type(), FLOAT64_T);
             ASSERT_EQ(series.at<double>(0), 4.0);
             ASSERT_EQ(series.at<double>(1), 5.0);
             ASSERT_EQ(series.at<double>(2), 6.0);
         } else if (key == 65539) {
-            ASSERT_EQ(series.data_type(), telem::INT32_T);
+            ASSERT_EQ(series.data_type(), INT32_T);
             ASSERT_EQ(series.at<int32_t>(0), 7);
             ASSERT_EQ(series.at<int32_t>(1), 8);
             ASSERT_EQ(series.at<int32_t>(2), 9);
@@ -144,7 +130,7 @@ TEST(FrameTests, testIteration) {
         seen_keys.insert(key);
 
         if (key == 65537) {
-            ASSERT_EQ(series.data_type(), telem::FLOAT32_T);
+            ASSERT_EQ(series.data_type(), FLOAT32_T);
             std::vector<float> values = series.values<float>();
             ASSERT_EQ(values[0], 1.0f);
             series.set<float>(0, 10.0f);
@@ -166,7 +152,7 @@ TEST(FrameTests, testIteration) {
     }
     ASSERT_EQ(count, 3);
 
-    auto empty_frame = telem::Frame(0);
+    auto empty_frame = Frame(0);
     count = 0;
     for ([[maybe_unused]] auto pair: empty_frame)
         count++;
@@ -176,10 +162,10 @@ TEST(FrameTests, testIteration) {
 
 /// @brief it should work with STL algorithms using begin and end iterators.
 TEST(FrameTests, testIteratorWithSTLAlgorithms) {
-    const auto frame = telem::Frame(3);
-    frame.emplace(65537, telem::Series(std::vector{1.0f, 2.0f, 3.0f}));
-    frame.emplace(65538, telem::Series(std::vector{4.0, 5.0, 6.0}));
-    frame.emplace(65539, telem::Series(std::vector{7, 8, 9}));
+    const auto frame = Frame(3);
+    frame.emplace(65537, Series(std::vector{1.0f, 2.0f, 3.0f}));
+    frame.emplace(65538, Series(std::vector{4.0, 5.0, 6.0}));
+    frame.emplace(65539, Series(std::vector{7, 8, 9}));
 
     const auto it = std::find_if(frame.begin(), frame.end(), [](const auto &pair) {
         return pair.first == 65538;
@@ -188,7 +174,7 @@ TEST(FrameTests, testIteratorWithSTLAlgorithms) {
     ASSERT_NE(it, frame.end());
     auto [key, s] = *it;
     ASSERT_EQ(key, 65538);
-    ASSERT_EQ(s.data_type(), telem::FLOAT64_T);
+    ASSERT_EQ(s.data_type(), FLOAT64_T);
     ASSERT_EQ(s.values<double>()[0], 4.0);
 
     const auto count = std::count_if(frame.begin(), frame.end(), [](const auto &p) {
@@ -210,9 +196,9 @@ TEST(FrameTests, testIteratorWithSTLAlgorithms) {
 /// @brief it should correctly move construct a frame.
 TEST(FrameTests, testMoveConstructor) {
     // Create a frame with data
-    auto f1 = telem::Frame(2);
-    f1.emplace(65537, telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
-    f1.emplace(65538, telem::Series(std::vector<double>{4.0, 5.0, 6.0}));
+    auto f1 = Frame(2);
+    f1.emplace(65537, Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
+    f1.emplace(65538, Series(std::vector<double>{4.0, 5.0, 6.0}));
     ASSERT_EQ(f1.size(), 2);
     ASSERT_EQ(f1.channels->at(0), 65537);
     ASSERT_EQ(f1.series->at(0).at<float>(0), 1.0f);
@@ -240,14 +226,14 @@ TEST(FrameTests, testMoveConstructor) {
 /// @brief it should correctly move assign a frame.
 TEST(FrameTests, testMoveAssignment) {
     // Create source frame with data
-    auto f1 = telem::Frame(2);
-    f1.emplace(65537, telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
-    f1.emplace(65538, telem::Series(std::vector<double>{4.0, 5.0, 6.0}));
+    auto f1 = Frame(2);
+    f1.emplace(65537, Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
+    f1.emplace(65538, Series(std::vector<double>{4.0, 5.0, 6.0}));
     ASSERT_EQ(f1.size(), 2);
 
     // Create destination frame with different data
-    auto f2 = telem::Frame(1);
-    f2.emplace(99999, telem::Series(std::vector<int32_t>{100, 200}));
+    auto f2 = Frame(1);
+    f2.emplace(99999, Series(std::vector<int32_t>{100, 200}));
     ASSERT_EQ(f2.size(), 1);
 
     // Move assign f1 to f2
@@ -273,12 +259,12 @@ TEST(FrameTests, testMoveAssignment) {
 /// @brief it should correctly move assign an empty frame.
 TEST(FrameTests, testMoveAssignmentFromEmpty) {
     // Create empty source frame
-    auto f1 = telem::Frame();
+    auto f1 = Frame();
     ASSERT_EQ(f1.size(), 0);
 
     // Create destination frame with data
-    auto f2 = telem::Frame(1);
-    f2.emplace(65537, telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
+    auto f2 = Frame(1);
+    f2.emplace(65537, Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
     ASSERT_EQ(f2.size(), 1);
 
     // Move assign empty frame to f2
@@ -292,12 +278,12 @@ TEST(FrameTests, testMoveAssignmentFromEmpty) {
 /// @brief it should correctly move assign to an empty frame.
 TEST(FrameTests, testMoveAssignmentToEmpty) {
     // Create source frame with data
-    auto f1 = telem::Frame(2);
-    f1.emplace(65537, telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
+    auto f1 = Frame(2);
+    f1.emplace(65537, Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
     ASSERT_EQ(f1.size(), 1);
 
     // Create empty destination frame
-    auto f2 = telem::Frame();
+    auto f2 = Frame();
     ASSERT_EQ(f2.size(), 0);
 
     // Move assign to empty frame
@@ -309,4 +295,5 @@ TEST(FrameTests, testMoveAssignmentToEmpty) {
     ASSERT_EQ(f2.series->at(0).at<float>(0), 1.0f);
     ASSERT_EQ(f2.series->at(0).at<float>(1), 2.0f);
     ASSERT_EQ(f2.series->at(0).at<float>(2), 3.0f);
+}
 }

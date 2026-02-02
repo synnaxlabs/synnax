@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <string>
 
-namespace url {
+namespace x::url {
 /// @brief A simple URL builder.
 struct URL {
     /// @brief The IP address of the target.

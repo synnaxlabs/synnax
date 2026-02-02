@@ -1,0 +1,14 @@
+cc_library(
+    name = "thread",
+    hdrs = ["thread.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "thread_test",
+    srcs = ["thread_test.cpp"],
+    deps = [
+        "//x/cpp/thread",
+        "@googletest//:gtest_main",
+    ],
+)

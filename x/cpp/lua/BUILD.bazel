@@ -1,0 +1,28 @@
+cc_library(
+    name = "lua",
+    hdrs = ["lua.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/telem",
+        "//x/cpp/errors",
+        "@lua//:liblua",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "lua_test",
+    srcs = ["lua_test.cpp"],
+    linkopts = select({
+        "@platforms//os:macos": [
+            "-ldl",
+            "-lm",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//x/cpp/lua",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

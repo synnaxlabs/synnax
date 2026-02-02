@@ -1,0 +1,22 @@
+cc_library(
+    name = "mem",
+    hdrs = [
+        "indirect.h",
+        "local_shared.h",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "mem_test",
+    size = "small",
+    srcs = [
+        "indirect_test.cpp",
+        "local_shared_test.cpp",
+    ],
+    deps = [
+        "//x/cpp/mem",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

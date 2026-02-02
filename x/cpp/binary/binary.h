@@ -14,7 +14,7 @@
 #include <cstring>
 #include <vector>
 
-namespace binary {
+namespace x::binary {
 /// @brief A simple binary writer to help with frame encoding
 class Writer {
     std::vector<uint8_t> &buf;

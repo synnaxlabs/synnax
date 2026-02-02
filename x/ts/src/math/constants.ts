@@ -10,6 +10,7 @@
 export const MAX_UINT8 = 2 ** 8 - 1;
 export const MAX_UINT12 = 2 ** 12 - 1;
 export const MAX_UINT16 = 2 ** 16 - 1;
+export const MAX_UINT20 = 2 ** 20 - 1;
 export const MAX_UINT32 = 2 ** 32 - 1;
 export const MAX_UINT64 = 2n ** 64n - 1n;
 export const MAX_UINT64_NUMBER = 2 ** 64 - 1;

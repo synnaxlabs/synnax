@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <string>
 
-namespace caseconv {
+namespace x::caseconv {
 /// @brief converts a snake_case string to SCREAMING_SNAKE_CASE
 /// @param input The snake_case string to convert
 /// @return The input string converted to SCREAMING_SNAKE_CASE
