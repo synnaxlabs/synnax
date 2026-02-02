@@ -48,6 +48,11 @@ public:
     /// @return Pair of slave list and error.
     [[nodiscard]] std::pair<std::vector<SlaveInfo>, xerrors::Error>
     discover_slaves(const std::string &key);
+
+private:
+    /// @brief acquires or creates an engine without locking. Caller must hold mu.
+    std::pair<std::shared_ptr<Engine>, xerrors::Error>
+    acquire_unlocked(const std::string &key);
 };
 
 }

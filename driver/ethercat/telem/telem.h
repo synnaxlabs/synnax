@@ -10,10 +10,12 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <iomanip>
 #include <sstream>
 #include <string>
 
+#include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
 namespace ethercat {
@@ -152,5 +154,133 @@ inline std::string format_index_subindex(const uint16_t index, const uint8_t sub
     ss << "0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4)
        << index << ":" << std::setw(2) << static_cast<int>(subindex);
     return ss.str();
+}
+
+/// @brief reads a PDO value from a byte buffer and writes it to a series.
+/// Handles sub-byte values, 24-bit values, and standard byte-aligned values.
+/// @param src pointer to the start of the PDO data in the buffer.
+/// @param bit_offset bit offset within the first byte (0-7).
+/// @param bit_length total bit length of the value.
+/// @param data_type the data type for interpreting the value.
+/// @param series the series to write the extracted value to.
+inline void read_pdo_to_series(
+    const uint8_t *src,
+    const uint8_t bit_offset,
+    const uint8_t bit_length,
+    const telem::DataType data_type,
+    telem::Series &series
+) {
+    if (bit_length < 8) {
+        uint16_t two_bytes = src[0];
+        if (bit_offset + bit_length > 8)
+            two_bytes |= static_cast<uint16_t>(src[1]) << 8;
+        const uint8_t mask = static_cast<uint8_t>((1u << bit_length) - 1);
+        const uint8_t extracted = static_cast<uint8_t>(
+            (two_bytes >> bit_offset) & mask
+        );
+        series.write_casted(&extracted, 1, telem::UINT8_T);
+        return;
+    }
+
+    if (bit_length == 24) {
+        uint32_t raw = static_cast<uint32_t>(src[0]) |
+                       (static_cast<uint32_t>(src[1]) << 8) |
+                       (static_cast<uint32_t>(src[2]) << 16);
+        if (bit_offset > 0)
+            raw = (raw >> bit_offset) |
+                  (static_cast<uint32_t>(src[3]) << (24 - bit_offset));
+        uint32_t val = raw & 0x00FFFFFF;
+        if (data_type == telem::INT32_T || data_type == telem::INT64_T)
+            if (val & 0x800000) val |= 0xFF000000;
+        series.write_casted(&val, 1, data_type);
+        return;
+    }
+
+    telem::DataType source_type = data_type;
+    if (source_type == telem::UNKNOWN_T) source_type = series.data_type();
+    series.write_casted(src, 1, source_type);
+}
+
+/// @brief writes a sample value to a byte buffer as a PDO value.
+/// Handles sub-byte values, 24-bit values, and standard byte-aligned values.
+/// @param dest pointer to the start of the PDO data in the buffer.
+/// @param bit_offset bit offset within the first byte (0-7).
+/// @param bit_length total bit length of the value.
+/// @param data_type the data type for interpreting the value.
+/// @param value the sample value to write.
+inline void write_pdo_from_value(
+    uint8_t *dest,
+    const uint8_t bit_offset,
+    const uint8_t bit_length,
+    const telem::DataType data_type,
+    const telem::SampleValue &value
+) {
+    const auto casted = data_type == telem::UNKNOWN_T ? value : data_type.cast(value);
+
+    if (bit_length < 8) {
+        const auto src_val = telem::cast<uint8_t>(casted);
+        const uint16_t mask = static_cast<uint16_t>((1u << bit_length) - 1);
+
+        if (bit_offset + bit_length > 8) {
+            uint16_t two_bytes = static_cast<uint16_t>(dest[0]) |
+                                 (static_cast<uint16_t>(dest[1]) << 8);
+            const uint16_t shifted_mask = static_cast<uint16_t>(mask << bit_offset);
+            const uint16_t shifted_val = static_cast<uint16_t>(
+                (src_val & mask) << bit_offset
+            );
+            two_bytes = static_cast<uint16_t>(
+                (two_bytes & ~shifted_mask) | shifted_val
+            );
+            dest[0] = static_cast<uint8_t>(two_bytes & 0xFF);
+            dest[1] = static_cast<uint8_t>((two_bytes >> 8) & 0xFF);
+        } else {
+            const uint8_t shifted_mask = static_cast<uint8_t>(mask << bit_offset);
+            const uint8_t shifted_val = static_cast<uint8_t>(
+                (src_val & mask) << bit_offset
+            );
+            dest[0] = static_cast<uint8_t>((dest[0] & ~shifted_mask) | shifted_val);
+        }
+        return;
+    }
+
+    if (bit_length == 24) {
+        const uint32_t src_val = telem::cast<uint32_t>(casted);
+        const uint32_t masked_val = src_val & 0x00FFFFFF;
+
+        if (bit_offset > 0) {
+            uint32_t four_bytes = static_cast<uint32_t>(dest[0]) |
+                                  (static_cast<uint32_t>(dest[1]) << 8) |
+                                  (static_cast<uint32_t>(dest[2]) << 16) |
+                                  (static_cast<uint32_t>(dest[3]) << 24);
+            const uint32_t write_mask = 0x00FFFFFFu << bit_offset;
+            const uint32_t shifted_val = masked_val << bit_offset;
+            four_bytes = (four_bytes & ~write_mask) | shifted_val;
+            dest[0] = static_cast<uint8_t>(four_bytes & 0xFF);
+            dest[1] = static_cast<uint8_t>((four_bytes >> 8) & 0xFF);
+            dest[2] = static_cast<uint8_t>((four_bytes >> 16) & 0xFF);
+            dest[3] = static_cast<uint8_t>((four_bytes >> 24) & 0xFF);
+        } else {
+            dest[0] = static_cast<uint8_t>(masked_val & 0xFF);
+            dest[1] = static_cast<uint8_t>((masked_val >> 8) & 0xFF);
+            dest[2] = static_cast<uint8_t>((masked_val >> 16) & 0xFF);
+        }
+        return;
+    }
+
+    const size_t byte_len = (bit_length + 7) / 8;
+    const void *data = telem::cast_to_void_ptr(casted);
+    std::memcpy(dest, data, byte_len);
+}
+
+/// @brief calculates the number of bytes required to read/write a PDO value.
+/// Accounts for bit offsets that may cause values to span additional bytes.
+/// @param bit_offset bit offset within the first byte (0-7).
+/// @param bit_length total bit length of the value.
+/// @return the number of bytes required in the buffer.
+inline size_t pdo_required_bytes(const uint8_t bit_offset, const uint8_t bit_length) {
+    const size_t byte_len = (bit_length + 7) / 8;
+    if (bit_length == 24 && bit_offset > 0) return 4;
+    if (bit_length < 8 && bit_offset + bit_length > 8) return 2;
+    return byte_len;
 }
 }

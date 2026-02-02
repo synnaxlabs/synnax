@@ -5,6 +5,8 @@ cc_library(
     srcs = [
         "engine.cpp",
         "pool.cpp",
+        "reader.cpp",
+        "writer.cpp",
     ],
     hdrs = [
         "engine.h",
@@ -14,6 +16,7 @@ cc_library(
     deps = [
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
+        "//driver/ethercat/telem",
         "//x/cpp/breaker",
         "//x/cpp/loop",
         "//x/cpp/telem",
