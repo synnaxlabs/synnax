@@ -2561,13 +2561,11 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
         for i, channel in enumerate(self.config.channels):
             if len(channel.device) == 0:
                 if len(device) == 0:
-                    raise ValidationError(
-                        f"""
+                    raise ValidationError(f"""
                         No device provided for {channel} {i + 1} in task and no device
                         provided directly to the task. Please provide a device for the
                         channel or set the device for the task.
-                    """
-                    )
+                    """)
                 channel.device = device
 
 
@@ -2670,13 +2668,11 @@ class CounterReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
         for i, channel in enumerate(self.config.channels):
             if len(channel.device) == 0:
                 if len(device) == 0:
-                    raise ValidationError(
-                        f"""
+                    raise ValidationError(f"""
                         No device provided for {channel} {i + 1} in task and no device
                         provided directly to the task. Please provide a device for the
                         channel or set the device for the task.
-                    """
-                    )
+                    """)
                 channel.device = device
 
 

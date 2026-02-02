@@ -93,6 +93,9 @@ export const themeZ = z
       text: color.colorZ,
       textInverted: color.colorZ,
       textOnPrimary: color.colorZ.default(color.ZERO),
+      primaryText: color.colorZ,
+      errorText: color.colorZ,
+      warningText: color.colorZ,
       logo: z.string(),
     }),
     sizes: z.object({
@@ -153,7 +156,7 @@ const LIGHT_SCALE = [
   "#BCBCBC", // l6 - border 2 hover
   "#ACACAC", // l7 - border 2 active
   "#8F8F8F", // l8 - text 1
-  "#4F4F4F", // l10 - text 2
+  "#4F4F4F", // l9 - text 2
   "#292929", // l10 - text 3
   "#050505", // l11 - text 4
 ];
@@ -230,6 +233,9 @@ const SYNNAX_BASE: ThemeSpec = {
     text: lightGrayScale.l11,
     textInverted: lightGrayScale.l0,
     textOnPrimary: lightGrayScale.l0,
+    primaryText: "#3b82f6",
+    errorText: "#ef4444",
+    warningText: "#f59e0b",
   },
   sizes: {
     base: baseSize,
@@ -286,6 +292,9 @@ export const SYNNAX_DARK: ThemeSpec = Object.freeze({
     text: DARK_GRAY_SCALE.l11,
     textInverted: DARK_GRAY_SCALE.l0,
     textOnPrimary: DARK_GRAY_SCALE.l11,
+    primaryText: "#93c5fd",
+    errorText: "#fca5a5",
+    warningText: "#fcd34d",
   },
 });
 

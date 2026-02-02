@@ -10,6 +10,8 @@
 package runtime_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
@@ -18,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -340,6 +343,37 @@ var _ = Describe("StateConfig", Ordered, func() {
 			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
 			Expect(cfg.Reads.Contains(virtualCh.Key())).To(BeTrue())
 			Expect(cfg.State.ChannelDigests).To(HaveLen(1))
+		})
+
+		It("Should handle interval-triggered function with stateful variable writing to channel", func() {
+			virtCh := &channel.Channel{
+				Name:     "virt_stateful_test",
+				Virtual:  true,
+				DataType: telem.Float32T,
+			}
+			Expect(dist.Channel.Create(ctx, virtCh)).To(Succeed())
+
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					func cat() {
+						counter f32 $= 1.0
+						counter += 1.2
+						%s = counter
+					}
+					interval{period=500ms} -> cat{}
+				`, virtCh.Name),
+			}
+
+			resolver := symbol.CreateResolver(dist.Channel)
+			module := MustSucceed(arc.CompileText(ctx, prog, arc.WithResolver(resolver)))
+
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			Expect(cfg.Reads).To(HaveLen(0))
+			Expect(cfg.Writes.Contains(virtCh.Key())).To(BeTrue())
+			Expect(cfg.Writes).To(HaveLen(1))
+			Expect(cfg.State.ChannelDigests).To(HaveLen(1))
+			Expect(cfg.State.ChannelDigests[0].Key).To(Equal(uint32(virtCh.Key())))
+			Expect(cfg.State.ChannelDigests[0].DataType).To(Equal(telem.Float32T))
 		})
 
 		It("Should build complete config with complex module", func() {

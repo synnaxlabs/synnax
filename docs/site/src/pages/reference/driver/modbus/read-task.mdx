@@ -9,10 +9,11 @@ prevURL: "/reference/driver/modbus/connect-server"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/Media";
+import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import ChannelTypeDetails from "@/components/details/ChannelTypeDetails.astro";
-import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import Details from "@/components/details/Details.astro";
+import ChannelType from "@/components/details/ChannelType.astro";
+import DetailsGroup from "@/components/details/Group.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -38,7 +39,9 @@ For task lifecycle management, see the
 
 ## Register Types Reference
 
-<ChannelTypeDetails>
+<DetailsGroup>
+
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding Register Input ([`holding_register_input`](https://www.modbustools.com/modbus.html#function03))</Text.Text>
 
 Reads from 16-bit read/write registers (Function Code 03). Typically used for
@@ -57,9 +60,9 @@ configuration parameters and analog outputs that can also be read back.
 - `int16`/`uint16`: 1 register (2 bytes)
 - `int32`/`uint32`/`float32`: 2 registers (4 bytes)
 
-</ChannelTypeDetails>
+</ChannelType>
 
-<ChannelTypeDetails>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Input Register ([`register_input`](https://www.modbustools.com/modbus.html#function04))</Text.Text>
 
 Reads from 16-bit read-only registers (Function Code 04). Typically used for analog
@@ -78,9 +81,9 @@ sensor values like temperature, pressure, or flow.
 - `int16`/`uint16`: 1 register (2 bytes)
 - `int32`/`uint32`/`float32`: 2 registers (4 bytes)
 
-</ChannelTypeDetails>
+</ChannelType>
 
-<ChannelTypeDetails>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Coil Input ([`coil_input`](https://www.modbustools.com/modbus.html#function01))</Text.Text>
 
 Reads from 1-bit read/write coils (Function Code 01). Typically used for discrete output
@@ -93,9 +96,9 @@ states that can be read back (e.g., relay states, valve positions).
 
 **Data Type:** Always boolean (0/1)
 
-</ChannelTypeDetails>
+</ChannelType>
 
-<ChannelTypeDetails>
+<ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Discrete Input ([`discrete_input`](https://www.modbustools.com/modbus.html#function02))</Text.Text>
 
 Reads from 1-bit read-only discrete inputs (Function Code 02). Typically used for binary
@@ -108,22 +111,24 @@ sensor inputs (e.g., limit switches, proximity sensors).
 
 **Data Type:** Always boolean (0/1)
 
-</ChannelTypeDetails>
+</ChannelType>
+
+</DetailsGroup>
 
 <Divider.Divider x />
 
 ## Important Rules
 
-- **Sample rates**: All channels in a task sample at the same rate. Create separate
+- **Sample rates** -> All channels in a task sample at the same rate. Create separate
   tasks for different rates.
-- **Software timing**: Modbus tasks use software timing with ~100 μs precision (may
+- **Software timing** -> Modbus tasks use software timing with ~100 μs precision (may
   degrade under heavy load).
-- **One running task per channel**: A channel can only receive live data from one task
+- **One running task per channel** -> A channel can only receive live data from one task
   at a time.
-- **Stream rate optimization**: For low-rate tasks (< 50 Hz), set the stream rate to the
-  sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
+- **Stream rate optimization** -> For low-rate tasks (< 50 Hz), set the stream rate to
+  the sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
   performance.
-- **Byte/word order**: Ensure swap settings match your server configuration for
+- **Byte/word order** -> Ensure swap settings match your server configuration for
   multi-register data types.
 
 <Divider.Divider x />
@@ -139,7 +144,7 @@ sensor inputs (e.g., limit switches, proximity sensors).
   </Fragment>
   <Fragment slot="python">
 
-<ExampleDetails>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -205,9 +210,9 @@ with task.run():
             print(frame)
 ```
 
-</ExampleDetails>
+</Details>
 
-<ExampleDetails>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -231,12 +236,12 @@ task.config.channels[1].data_type = "uint16"
 client.tasks.configure(task)
 ```
 
-</ExampleDetails>
+</Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<ExampleDetails>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -311,9 +316,9 @@ await task.executeCommandSync("stop");
 await streamer.close();
 ```
 
-</ExampleDetails>
+</Details>
 
-<ExampleDetails>
+<Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -344,7 +349,7 @@ await client.tasks.create({
 });
 ```
 
-</ExampleDetails>
+</Details>
 
   </Fragment>
 </Client.Tabs>

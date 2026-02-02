@@ -4,5 +4,5 @@
     "baseUrl": ".",
     "composite": true
   },
-  "include": ["src/**/*", "eslint.config.ts"]
+  "include": ["src/**/*", "eslint.config.ts", "stylelint.config.ts"]
 }

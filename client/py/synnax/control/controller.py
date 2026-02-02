@@ -128,23 +128,19 @@ class Controller:
     @property
     def _writer(self) -> FrameWriter:
         if self._writer_opt is None:
-            raise ValidationError(
-                """
+            raise ValidationError("""
             tried to command a channel but no channels were passed into the write
             argument when calling acquire()!
-            """
-            )
+            """)
         return self._writer_opt
 
     @property
     def _receiver(self) -> _Receiver:
         if self._receiver_opt is None:
-            raise ValidationError(
-                """
+            raise ValidationError("""
             tried to read from a channel but no channels were passed into the read
             argument when calling acquire()!
-            """
-            )
+            """)
         return self._receiver_opt
 
     @overload
@@ -432,8 +428,7 @@ class Controller:
         try:
             return self._receiver.state[ch.key]
         except KeyError:
-            raise KeyError(
-                f"""
+            raise KeyError(f"""
             Channel {ch} not found in controller state. This is for one of two reasons:
 
             1. The channel was not included in the read_from argument passed to
@@ -442,8 +437,7 @@ class Controller:
             2. No data has been received for the channel yet. If you'd like to block
             until a value exists for the channel in state, use the wait_until_defined
             method.
-            """
-            )
+            """)
 
     def __getattr__(self, item):
         try:

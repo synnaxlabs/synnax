@@ -65,6 +65,8 @@ class Scheduler {
     std::unordered_map<std::string, std::pair<std::size_t, std::size_t>> transitions;
     /// @brief Maximum iterations for stage convergence loop.
     size_t max_convergence_iterations = 0;
+    /// @brief Tolerance for timing comparisons to handle OS scheduling jitter.
+    telem::TimeSpan tolerance_;
     /// @brief Error handler for reporting node execution errors.
     errors::Handler error_handler;
 
@@ -88,9 +90,10 @@ public:
     Scheduler(
         const ir::IR &prog,
         std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls,
+        const telem::TimeSpan tolerance,
         errors::Handler error_handler = errors::noop_handler
     ):
-        error_handler(std::move(error_handler)) {
+        tolerance_(tolerance), error_handler(std::move(error_handler)) {
         this->ctx.mark_changed = std::bind_front(&Scheduler::mark_changed, this);
         this->ctx.report_error = std::bind_front(&Scheduler::report_error, this);
         this->ctx.activate_stage = std::bind_front(&Scheduler::transition_stage, this);
@@ -141,7 +144,7 @@ public:
     /// @brief Advances the scheduler by executing global and stage strata.
     void next(const x::telem::TimeSpan elapsed) {
         this->ctx.elapsed = elapsed;
-        // Reset execution context for global strata (no active sequence/stage)
+        this->ctx.tolerance = this->tolerance_;
         this->curr_seq_idx = NO_INDEX;
         this->curr_stage_idx = NO_INDEX;
         this->execute_strata(this->global_strata);

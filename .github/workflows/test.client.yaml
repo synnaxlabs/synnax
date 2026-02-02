@@ -3,10 +3,12 @@ name: Test - Client
 on:
   pull_request:
     paths:
+      - .github/actions/test-python/**
       - .bazeliskrc
       - .bazelrc
       - .clang-format
       - .clang-format-ignore
+      - .github/actions/test-typescript/**
       - .github/workflows/test.client.yaml
       - alamos/go/**
       - alamos/py/**
@@ -16,11 +18,11 @@ on:
       - client/cpp/**
       - client/py/**
       - client/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
       - core/**
-      - Earthfile
       - freighter/cpp/**
       - freighter/go/**
       - freighter/py/**
@@ -46,10 +48,12 @@ on:
       - main
       - rc
     paths:
+      - .github/actions/test-python/**
       - .bazeliskrc
       - .bazelrc
       - .clang-format
       - .clang-format-ignore
+      - .github/actions/test-typescript/**
       - .github/workflows/test.client.yaml
       - alamos/go/**
       - alamos/py/**
@@ -59,11 +63,11 @@ on:
       - client/cpp/**
       - client/py/**
       - client/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
       - core/**
-      - Earthfile
       - freighter/cpp/**
       - freighter/go/**
       - freighter/py/**
@@ -110,7 +114,6 @@ jobs:
               - aspen/**
               - cesium/**
               - core/**
-              - Earthfile
               - freighter/go/**
               - go.work
               - go.work.sum
@@ -130,7 +133,9 @@ jobs:
               - x/cpp/**
             py:
               - *shared
+              - .github/actions/test-python/**
               - alamos/py/**
+              - codecov.yaml
               - client/py/**
               - freighter/py/**
               - pyproject.toml
@@ -138,8 +143,10 @@ jobs:
               - uv.toml
             ts:
               - *shared
+              - .github/actions/test-typescript/**
               - alamos/ts/**
               - client/ts/**
+              - codecov.yaml
               - configs/eslint/**
               - configs/ts/**
               - configs/vite/**
@@ -233,6 +240,8 @@ jobs:
     needs: [changes, server]
     if: needs.changes.outputs.py == 'true'
     runs-on: ubuntu-latest
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     services:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -248,28 +257,17 @@ jobs:
         ports:
           - 9090:9090
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Test Python
+        uses: ./.github/actions/test-python
         with:
-          python-version-file: client/py/pyproject.toml
-
-      - name: Check Import Order
-        run: uv run isort -c .
-        working-directory: client/py
-
-      - name: Check Formatting
-        run: uv run black --check --diff --color .
-        working-directory: client/py
-
-      - name: Test
-        run: uv run pytest
-        working-directory: client/py
+          directory: client/py
+          coverage: true
+          coverage_module: synnax
+          coverage_flag: client-py
+          type_check: false
 
   ts:
     name: Test - TypeScript
@@ -279,6 +277,7 @@ jobs:
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     services:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -293,29 +292,12 @@ jobs:
         ports:
           - 9090:9090
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - name: Test TypeScript
+        uses: ./.github/actions/test-typescript
         with:
-          node-version-file: package.json
-          cache: pnpm
-
-      - name: Install Dependencies
-        run: pnpm install
-
-      - name: Check Types
-        run: pnpm check-types:client
-
-      - name: Check Circular Dependencies
-        run: pnpm madge:client
-
-      - name: Lint
-        run: pnpm lint:client
-
-      - name: Test
-        run: pnpm test:client
+          package: client
+          coverage_flag: client-ts
+          directory: client/ts

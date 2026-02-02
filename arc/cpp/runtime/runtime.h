@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <ranges>
 #include <set>
@@ -58,9 +59,9 @@ class Runtime {
     std::shared_ptr<state::State> state;
     std::unique_ptr<scheduler::Scheduler> scheduler;
     std::unique_ptr<loop::Loop> loop;
-    x::queue::SPSC<x::telem::Frame> inputs;
-    x::queue::SPSC<x::telem::Frame> outputs;
-    x::telem::TimeStamp start_time = x::telem::TimeStamp(0);
+    x::queue::SPSC<telem::Frame> inputs;
+    x::queue::SPSC<telem::Frame> outputs;
+    std::chrono::steady_clock::time_point start_time_steady_;
     errors::Handler error_handler;
 
 public:
@@ -90,8 +91,8 @@ public:
         write_channels(std::move(write_channels)) {}
 
     void run() {
-        this->start_time = x::telem::TimeStamp::now();
-        x::thread::set_name("runtime");
+        this->start_time_steady_ = std::chrono::steady_clock::now();
+        xthread::set_name("runtime");
         this->loop->start();
         if (!this->loop->watch(this->inputs.notifier())) {
             LOG(ERROR) << "[runtime] failed to watch input notifier";
@@ -105,7 +106,13 @@ public:
             while (this->inputs.try_pop(frame) || first) {
                 first = false;
                 this->state->ingest(frame);
-                const auto elapsed = x::telem::TimeStamp::now() - this->start_time;
+                const auto now_steady = std::chrono::steady_clock::now();
+                const auto elapsed = x::telem::TimeSpan(
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        now_steady - this->start_time_steady_
+                    )
+                        .count()
+                );
                 this->scheduler->next(elapsed);
                 if (auto writes = this->state->flush(); !writes.empty()) {
                     x::telem::Frame out_frame(writes.size());
@@ -217,8 +224,18 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         if (err) return {nullptr, err};
         nodes[mod_node.key] = std::move(node);
     }
-    auto sched = std::make_unique<scheduler::Scheduler>(cfg.mod, nodes, error_handler);
-    auto [loop, err] = loop::create(cfg.loop.apply_defaults(time_factory->timing_base));
+    const auto loop_cfg = cfg.loop.apply_defaults(time_factory->base_interval);
+    const auto tolerance = time::calculate_tolerance(
+        loop_cfg.mode,
+        time_factory->base_interval
+    );
+    auto sched = std::make_unique<scheduler::Scheduler>(
+        cfg.mod,
+        nodes,
+        tolerance,
+        error_handler
+    );
+    auto [loop, err] = loop::create(loop_cfg);
     if (err) return {nullptr, err};
     return {
         std::make_shared<Runtime>(

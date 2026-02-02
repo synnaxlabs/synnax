@@ -20,9 +20,13 @@ cc_test(
         ":scheduler",
         "//arc/cpp/ir",
         "//arc/cpp/ir/testutil",
+        "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/runtime/time",
         "//x/cpp/telem",
         "//x/cpp/errors",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

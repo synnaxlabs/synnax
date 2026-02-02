@@ -632,3 +632,57 @@ TEST(StateTest, NodeReset_ClearsWatermarks) {
 
     ASSERT_TRUE(consumer_node.refresh_inputs());
 }
+
+/// @brief Test that is_series_truthy returns false for empty series
+TEST(StateTest, IsSeriesTruthy_EmptySeriesIsFalsy) {
+    telem::Series empty_series(telem::FLOAT32_T, 0);
+    EXPECT_FALSE(Node::is_series_truthy(empty_series));
+}
+
+/// @brief Test that is_series_truthy returns false for series with zero value
+TEST(StateTest, IsSeriesTruthy_ZeroValueIsFalsy) {
+    telem::Series series(0.0f);
+    EXPECT_FALSE(Node::is_series_truthy(series));
+}
+
+/// @brief Test that is_series_truthy returns true for series with non-zero value
+TEST(StateTest, IsSeriesTruthy_NonZeroValueIsTruthy) {
+    telem::Series series(42.0f);
+    EXPECT_TRUE(Node::is_series_truthy(series));
+}
+
+/// @brief Test that is_series_truthy returns false when last element is zero
+TEST(StateTest, IsSeriesTruthy_LastElementZeroIsFalsy) {
+    telem::Series series(telem::FLOAT32_T, 3);
+    series.write(1.0f);
+    series.write(2.0f);
+    series.write(0.0f); // Last element is zero
+    EXPECT_FALSE(Node::is_series_truthy(series));
+}
+
+/// @brief Test that is_series_truthy returns true when last element is non-zero
+TEST(StateTest, IsSeriesTruthy_LastElementNonZeroIsTruthy) {
+    telem::Series series(telem::FLOAT32_T, 3);
+    series.write(0.0f);
+    series.write(0.0f);
+    series.write(1.0f); // Last element is non-zero
+    EXPECT_TRUE(Node::is_series_truthy(series));
+}
+
+/// @brief Test that is_series_truthy works with uint8 series
+TEST(StateTest, IsSeriesTruthy_Uint8Series) {
+    telem::Series zero_series(static_cast<uint8_t>(0));
+    EXPECT_FALSE(Node::is_series_truthy(zero_series));
+
+    telem::Series one_series(static_cast<uint8_t>(1));
+    EXPECT_TRUE(Node::is_series_truthy(one_series));
+}
+
+/// @brief Test that is_series_truthy works with int64 series
+TEST(StateTest, IsSeriesTruthy_Int64Series) {
+    telem::Series zero_series(static_cast<int64_t>(0));
+    EXPECT_FALSE(Node::is_series_truthy(zero_series));
+
+    telem::Series non_zero_series(static_cast<int64_t>(-42));
+    EXPECT_TRUE(Node::is_series_truthy(non_zero_series));
+}

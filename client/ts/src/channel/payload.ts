@@ -19,6 +19,9 @@ import {
   payloadZ,
 } from "@/channel/types.gen";
 
+export type Keys = Key[];
+export type Names = Name[];
+export type Payloads = Payload[];
 export type PrimitiveParams = Key | Keys | Names | Name;
 
 export const paramsZ = z.union([
@@ -26,15 +29,11 @@ export const paramsZ = z.union([
   zod.toArray(nameZ),
   zod.toArray(payloadZ).transform((p) => p.map((c) => c.key)),
 ]);
-export type Keys = Key[];
-export type Names = Name[];
-export type Payloads = Payload[];
-export type KeysOrNames = Key | Name | Keys | Names;
-export type Params = Key | Name | Keys | Names | Payload | Payload[];
-export type KeyOrName = Key | Name;
+export type Params = PrimitiveParams | Payload | Payload[];
+
+const CHAR_REGEX = /[a-zA-Z0-9_]/;
 
 const VALID_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-const CHAR_REGEX = /[a-zA-Z0-9_]/;
 
 export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false) => {
   if (name === "") return changeEmptyToUnderscore ? "_" : "";

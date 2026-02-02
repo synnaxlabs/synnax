@@ -452,8 +452,20 @@ func validateFunctionCall(
 
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	if id := ctx.AST.IDENTIFIER(); id != nil {
-		if _, err := ctx.Scope.Resolve(ctx, id.GetText()); err != nil {
+		resolved, err := ctx.Scope.Resolve(ctx, id.GetText())
+		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+			return
+		}
+		if resolved.Kind == symbol.KindChannel || resolved.Type.Kind == basetypes.KindChan {
+			fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
+				ctx.Diagnostics.Add(diagnostics.Error(fnErr, ctx.AST))
+				return
+			}
+			if fn != nil {
+				fn.Channels.Read[uint32(resolved.ID)] = resolved.Name
+			}
 		}
 		return
 	}

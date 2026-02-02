@@ -32,4 +32,7 @@ type Context struct {
 	// Elapsed is the time elapsed since the runtime started.
 	// Used by time-based nodes (interval, wait) to track timing.
 	Elapsed telem.TimeSpan
+	// Tolerance is the timing tolerance for interval/wait comparisons.
+	// Allows firing up to this amount early to handle OS scheduling jitter.
+	Tolerance telem.TimeSpan
 }

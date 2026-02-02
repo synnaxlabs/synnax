@@ -7,4 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Console from "@/components/console/DownloadButton";
+export * as Console from "@/components/console/external";

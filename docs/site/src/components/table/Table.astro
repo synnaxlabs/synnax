@@ -1,0 +1,14 @@
+---
+const props = Astro.props;
+---
+
+<div class="table-wrapper styled-scrollbar">
+    <table {...props}><slot /></table>
+</div>
+
+<style>
+    .table-wrapper {
+        overflow-x: auto;
+        padding-bottom: 0.5rem;
+    }
+</style>

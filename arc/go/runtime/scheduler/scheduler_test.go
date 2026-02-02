@@ -97,7 +97,7 @@ var _ = Describe("Scheduler", func() {
 	}
 
 	build := func(prog ir.IR) *scheduler.Scheduler {
-		return scheduler.New(prog, nodes)
+		return scheduler.New(prog, nodes, 0)
 	}
 
 	BeforeEach(func() {

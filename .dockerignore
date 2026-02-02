@@ -39,7 +39,6 @@ Thumbs.db
 
 # CI/CD
 /.github
-.earthly
 
 # Temp files
 **/.cache
@@ -70,7 +69,6 @@ Thumbs.db
 *.toml
 *.lock
 !go.sum
-Earthfile
 .dockerignore
 Dockerfile
 

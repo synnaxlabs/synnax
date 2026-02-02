@@ -188,7 +188,6 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 	addOutputsToScope(ctx, ctx.AST.OutputType(), fn)
 
 	if block := ctx.AST.Block(); block != nil {
-		fn.AccumulateReadChannels()
 		statement.AnalyzeBlock(acontext.Child(ctx, block).WithScope(fn))
 		oParam, hasOutput := fn.Type.Outputs.Get(ir.DefaultOutputParam)
 		if hasOutput && !blockAlwaysReturns(block) {

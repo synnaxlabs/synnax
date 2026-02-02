@@ -1,18 +1,20 @@
 {
   "name": "@synnaxlabs/pluto",
-  "version": "0.50.0",
+  "version": "0.50.1",
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && vite build",
     "check-types": "tsc --noEmit",
     "watch": "vite build --watch",
     "test": "vitest",
+    "cov": "vitest --coverage",
     "bench": "vitest bench",
     "dev": "vite",
     "lint": "eslint",
     "fix": "eslint --fix",
     "preview": "vite preview",
     "madge": "madge --circular src",
+    "stylelint": "stylelint \"src/**/*.css\"",
     "generate-theme": "tsx src/theming/static/generate.ts"
   },
   "dependencies": {
@@ -58,9 +60,10 @@
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "eslint-config-synnaxlabs": "workspace:^",
-    "jsdom": "^27.3.0",
+    "jsdom": "^27.4.0",
     "madge": "catalog:",
     "react-dom": "catalog:",
+    "stylelint": "catalog:",
     "stylelint-config-synnaxlabs": "workspace:^",
     "typescript": "catalog:",
     "vite": "catalog:",

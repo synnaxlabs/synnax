@@ -15,7 +15,7 @@ import {
   type Platform,
   PLATFORMS,
   setInURL,
-} from "@/components/platform/platform";
+} from "@/components/platform/Platform";
 
 const indexMap = new Map<Platform, number>();
 PLATFORMS.forEach((p, i) => indexMap.set(p.key, i));
@@ -32,11 +32,17 @@ export const SelectButton = ({ platforms }: SelectButtonProps) => {
   const data = platforms.map((p) => PLATFORMS[indexMap.get(p) as number]);
 
   useEffect(() => {
-    const i = setInterval(() => {
+    const updateFromURL = () => {
       const p = getFromURL(false);
       if (p) setPlatform(p);
-    }, 200);
-    return () => clearInterval(i);
+    };
+    updateFromURL();
+    window.addEventListener("popstate", updateFromURL);
+    window.addEventListener("urlchange", updateFromURL);
+    return () => {
+      window.removeEventListener("popstate", updateFromURL);
+      window.removeEventListener("urlchange", updateFromURL);
+    };
   }, []);
 
   const handleChange = (p: Platform) => {

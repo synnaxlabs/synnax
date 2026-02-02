@@ -58,7 +58,7 @@ export const analyzeParams = (
   if (Array.isArray(channels) && channels.length > 0 && typeof channels[0] === "object")
     channels = (channels as Payload[]).map((c) => c.key);
   else if (typeof channels === "object" && "key" in channels) channels = [channels.key];
-  return analyzeParameters(channels as Key | Name | Keys | Names, {
+  return analyzeParameters(channels as PrimitiveParams, {
     number: "keys",
     string: "names",
   });

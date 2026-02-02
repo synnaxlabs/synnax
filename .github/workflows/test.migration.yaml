@@ -3,14 +3,15 @@ name: Test - Migration
 on:
   pull_request:
     paths:
+      - .github/actions/test-python/**
       - .github/workflows/test.migration.yaml
       - alamos/go/**
       - alamos/py/**
+      - arc/go/**
       - aspen/**
       - cesium/**
       - client/py/**
       - core/**
-      - Earthfile
       - freighter/go/**
       - freighter/py/**
       - go.work
@@ -24,14 +25,15 @@ on:
       - main
       - rc
     paths:
+      - .github/actions/test-python/**
       - .github/workflows/test.migration.yaml
       - alamos/go/**
       - alamos/py/**
+      - arc/go/**
       - aspen/**
       - cesium/**
       - client/py/**
       - core/**
-      - Earthfile
       - freighter/go/**
       - freighter/py/**
       - go.work
@@ -49,10 +51,10 @@ jobs:
     permissions:
       packages: write
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Start Main Server
+      - name: Start Core on main
         id: start_main
         run:
           docker run -d --name synnax-main -p 9090:9090 -e SYNNAX_LISTEN=0.0.0.0:9090 -e
@@ -60,68 +62,10 @@ jobs:
           SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }}
           ghcr.io/synnaxlabs/synnax:latest
 
-      - name: Checkout Main Branch
+      - name: Checkout main
         uses: actions/checkout@v6
         with:
           ref: main
-
-      - name: Install Poetry
-        run: pipx install poetry
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: client/py/pyproject.toml
-          cache: poetry
-
-      - name: Install Dependencies
-        run: poetry install
-        working-directory: client/py
-
-      - name: Python Test with Main Server
-        run: poetry run pytest
-        working-directory: client/py
-
-      - name: Stop Main Server
-        if: always() && steps.start_main.outcome == 'success'
-        run: |
-          docker logs synnax-main
-          docker stop synnax-main
-          docker rm synnax-main
-
-      - name: Checkout Current Branch
-        uses: actions/checkout@v6
-
-      - name: Login to Github Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and Push Current Server Image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./core/Dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
-          cache-from: type=gha,scope=synnax-docker-cache
-          cache-to: type=inline
-          build-args: |
-            DRIVER_ENABLED=false
-
-      - name: Start Current Server
-        id: start_current
-        run:
-          docker run -d --name synnax-current -p 9090:9090 -e SYNNAX_LISTEN=0.0.0.0:9090
-          -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e
-          SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }}
-          ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -131,11 +75,57 @@ jobs:
         with:
           python-version-file: client/py/pyproject.toml
 
-      - name: Python Test with Current Server
+      - name: Test Python with Core on main
         run: uv run pytest
         working-directory: client/py
 
-      - name: Stop Current Server
+      - name: Stop Core on main
+        if: always() && steps.start_main.outcome == 'success'
+        run: |
+          docker logs synnax-main
+          docker stop synnax-main
+          docker rm synnax-main
+
+      - name: Checkout current branch
+        uses: actions/checkout@v6
+
+      - name: Login to Github Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Core on current
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: core/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+          cache-from: type=gha,scope=synnax-docker-cache
+          cache-to: type=inline
+
+      - name: Start Core on current branch
+        id: start_current
+        run:
+          docker run -d --name synnax-current -p 9090:9090 -e SYNNAX_LISTEN=0.0.0.0:9090
+          -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e
+          SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }}
+          ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
+
+      - name: Test Python with Core on current branch
+        uses: ./.github/actions/test-python
+        with:
+          directory: client/py
+          type_check: false
+          format_check: false
+
+      - name: Stop Core on current branch
         if: always() && steps.start_current.outcome == 'success'
         run: |
           docker logs synnax-current

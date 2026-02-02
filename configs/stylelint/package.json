@@ -2,13 +2,24 @@
   "name": "stylelint-config-synnaxlabs",
   "version": "0.50.0",
   "description": "Synnax Style Lint Configuration",
-  "main": "index.js",
+  "main": "index.ts",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/configs/stylelint",
   "author": "emilbon99@gmail.com",
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "stylelint": "^16.26.1",
-    "stylelint-config-standard": "^39.0.1"
+    "stylelint-config-standard": "^40.0.0"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "eslint",
+    "fix": "eslint --fix"
+  },
+  "devDependencies": {
+    "@synnaxlabs/tsconfig": "workspace:^",
+    "eslint": "catalog:",
+    "eslint-config-synnaxlabs": "workspace:^",
+    "stylelint": "catalog:",
+    "typescript": "catalog:"
   }
 }

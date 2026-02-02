@@ -9,18 +9,40 @@
 
 #pragma once
 
-#include <limits>
 #include <memory>
 #include <numeric>
 
 #include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/ir/ir.h"
+#include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::time {
+
+/// @brief Sentinel value indicating base_interval hasn't been set yet.
+/// Using TimeSpan::max() ensures any real interval will be smaller and will replace it.
+inline const telem::TimeSpan UNSET_BASE_INTERVAL = telem::TimeSpan::max();
+
+/// @brief Calculates the tolerance for timing comparisons based on execution mode.
+inline telem::TimeSpan calculate_tolerance(
+    const loop::ExecutionMode mode,
+    const telem::TimeSpan base_interval
+) {
+    if (base_interval == UNSET_BASE_INTERVAL) return 5 * telem::MILLISECOND;
+    const auto half = base_interval / 2;
+    switch (mode) {
+        case loop::ExecutionMode::RT_EVENT:
+        case loop::ExecutionMode::BUSY_WAIT:
+            return std::min(half, 100 * telem::MICROSECOND);
+        case loop::ExecutionMode::HIGH_RATE:
+            return std::min(half, telem::MILLISECOND);
+        default:
+            return std::min(half, 5 * telem::MILLISECOND);
+    }
+}
 
 struct IntervalConfig {
     x::telem::TimeSpan interval;
@@ -42,15 +64,16 @@ public:
         state(std::move(state)), cfg(cfg), last_fired(-1 * this->cfg.interval) {}
 
     x::errors::Error next(node::Context &ctx) override {
-        if (ctx.elapsed - this->last_fired < this->cfg.interval) return x::errors::NIL;
+        if (ctx.elapsed - this->last_fired < this->cfg.interval - ctx.tolerance)
+            return x::errors::NIL;
         this->last_fired = ctx.elapsed;
-        ctx.mark_changed(ir::default_output_param);
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, ctx.elapsed.nanoseconds());
+        ctx.mark_changed(ir::default_output_param);
         return x::errors::NIL;
     }
 
@@ -86,7 +109,8 @@ public:
     x::errors::Error next(node::Context &ctx) override {
         if (this->fired) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
-        if (ctx.elapsed - start_time < cfg.duration) return x::errors::NIL;
+        if (ctx.elapsed - start_time < cfg.duration - ctx.tolerance)
+            return x::errors::NIL;
         this->fired = true;
         const auto &o = state.output(0);
         const auto &o_time = state.output_time(0);
@@ -111,9 +135,7 @@ public:
 
 class Factory : public node::Factory {
 public:
-    x::telem::TimeSpan timing_base = x::telem::TimeSpan(
-        std::numeric_limits<int64_t>::max()
-    );
+    telem::TimeSpan base_interval = UNSET_BASE_INTERVAL;
 
     bool handles(const std::string &node_type) const override {
         return node_type == "interval" || node_type == "wait";
@@ -123,7 +145,7 @@ public:
     create(node::Config &&cfg) override {
         if (cfg.node.type == "interval") {
             IntervalConfig node_cfg(cfg.node.config);
-            this->update_timing_base(node_cfg.interval);
+            this->update_base_interval(node_cfg.interval);
             return {
                 std::make_unique<Interval>(node_cfg, std::move(cfg.state)),
                 x::errors::NIL
@@ -131,7 +153,7 @@ public:
         }
         if (cfg.node.type == "wait") {
             WaitConfig node_cfg(cfg.node.config);
-            this->update_timing_base(node_cfg.duration);
+            this->update_base_interval(node_cfg.duration);
             return {
                 std::make_unique<Wait>(node_cfg, std::move(cfg.state)),
                 x::errors::NIL
@@ -141,12 +163,12 @@ public:
     }
 
 private:
-    void update_timing_base(const x::telem::TimeSpan span) {
-        if (this->timing_base.nanoseconds() == std::numeric_limits<int64_t>::max())
-            this->timing_base = span;
+    void update_base_interval(const x::telem::TimeSpan span) {
+        if (this->base_interval == UNSET_BASE_INTERVAL)
+            this->base_interval = span;
         else
-            this->timing_base = x::telem::TimeSpan(
-                std::gcd(this->timing_base.nanoseconds(), span.nanoseconds())
+            this->base_interval = telem::TimeSpan(
+                std::gcd(this->base_interval.nanoseconds(), span.nanoseconds())
             );
     }
 };

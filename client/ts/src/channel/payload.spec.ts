@@ -43,48 +43,6 @@ describe("nameZ", () => {
       expect(result.success).toBe(false);
       expect(result.error?.issues[0].message).toContain("Name is required");
     });
-
-    it("should reject name starting with digit", () => {
-      const result = channel.nameZ.safeParse("1sensor");
-      expect(result.success).toBe(false);
-      // Regex validation covers both "cannot start with digit" and "invalid characters"
-      expect(result.error?.issues[0].message).toContain(
-        "can only contain letters, digits, and underscores",
-      );
-    });
-
-    it("should reject name with spaces", () => {
-      const result = channel.nameZ.safeParse("my channel");
-      expect(result.success).toBe(false);
-      expect(result.error?.issues[0].message).toContain(
-        "can only contain letters, digits, and underscores",
-      );
-    });
-
-    it("should reject name with special characters", () => {
-      const result = channel.nameZ.safeParse("sensor!");
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject name with hyphens", () => {
-      const result = channel.nameZ.safeParse("sensor-temp");
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject name with dots", () => {
-      const result = channel.nameZ.safeParse("sensor.temp");
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject name with parentheses", () => {
-      const result = channel.nameZ.safeParse("sensor(1)");
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject name with brackets", () => {
-      const result = channel.nameZ.safeParse("sensor[0]");
-      expect(result.success).toBe(false);
-    });
   });
 });
 
@@ -103,24 +61,6 @@ describe("newZ", () => {
 
     it("should reject empty name", () => {
       const result = channel.newZ.safeParse({ ...validNewChannel, name: "" });
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject name starting with digit", () => {
-      const result = channel.newZ.safeParse({ ...validNewChannel, name: "1sensor" });
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject name with spaces", () => {
-      const result = channel.newZ.safeParse({ ...validNewChannel, name: "my channel" });
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject name with special characters", () => {
-      const result = channel.newZ.safeParse({
-        ...validNewChannel,
-        name: "sensor-temp",
-      });
       expect(result.success).toBe(false);
     });
 

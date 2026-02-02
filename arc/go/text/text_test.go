@@ -963,23 +963,18 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Should have 3 nodes: on_sensor (injected trigger), expression, alarm
 				Expect(inter.Nodes).To(HaveLen(3))
 
-				// Verify trigger node was created
 				triggerNode := findNodeByKey(inter.Nodes, "on_sensor_0")
 				Expect(triggerNode.Type).To(Equal("on"))
 				Expect(triggerNode.Channels.Read).To(HaveKey(uint32(42)))
 
-				// Verify expression node exists and tracks channel dependency
 				exprNode := inter.Nodes[1]
 				Expect(exprNode.Type).To(HavePrefix("expression_"))
 				Expect(exprNode.Channels.Read).To(HaveKey(uint32(42)))
 
-				// Verify edges: trigger -> expression -> alarm
 				Expect(inter.Edges).To(HaveLen(2))
 
-				// First edge: trigger -> expression (Continuous)
 				edge0 := inter.Edges[0]
 				Expect(edge0.Source.Node).To(Equal("on_sensor_0"))
 				Expect(edge0.Target.Node).To(Equal(exprNode.Key))
@@ -1007,14 +1002,11 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Should have 4 nodes: 2 trigger nodes + expression + alarm
 				Expect(inter.Nodes).To(HaveLen(4))
 
-				// Count trigger nodes
 				triggerCount := countNodesByType(inter.Nodes, "on")
 				Expect(triggerCount).To(Equal(2))
 
-				// Verify expression node tracks both channel dependencies
 				var exprNode ir.Node
 				for _, n := range inter.Nodes {
 					if n.Type != "on" && n.Type != "alarm" {
@@ -1026,10 +1018,8 @@ var _ = Describe("Text", func() {
 				Expect(exprNode.Channels.Read).To(HaveKey(uint32(1)))
 				Expect(exprNode.Channels.Read).To(HaveKey(uint32(2)))
 
-				// Should have 3 edges: 2 triggers -> expression, expression -> alarm
 				Expect(inter.Edges).To(HaveLen(3))
 
-				// Count edges targeting expression node
 				exprEdgeCount := 0
 				for _, edge := range inter.Edges {
 					if edge.Target.Node == exprNode.Key {
@@ -1049,10 +1039,8 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Should have 2 nodes: expression + write (no trigger injected)
 				Expect(inter.Nodes).To(HaveLen(2))
 
-				// Verify no trigger nodes were created
 				triggerCount := countNodesByType(inter.Nodes, "on")
 				Expect(triggerCount).To(Equal(0))
 			})
@@ -1071,14 +1059,11 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Should have 3 nodes: explicit trigger, expression, alarm
 				Expect(inter.Nodes).To(HaveLen(3))
 
-				// Only one trigger node (the explicit one)
 				triggerCount := countNodesByType(inter.Nodes, "on")
 				Expect(triggerCount).To(Equal(1))
 
-				// Verify edges: trigger -> expression -> alarm (2 edges total)
 				Expect(inter.Edges).To(HaveLen(2))
 			})
 
@@ -1099,12 +1084,74 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Verify trigger node was created
 				triggerCount := countNodesByType(inter.Nodes, "on")
 				Expect(triggerCount).To(Equal(1))
 
 				triggerNode := findNodeByType(inter.Nodes, "on")
 				Expect(triggerNode.Channels.Read).To(HaveKey(uint32(42)))
+			})
+		})
+
+		Context("Interval One-Shot Edge Generation", func() {
+			It("Should generate one-shot edge for interval triggering function", func() {
+				resolver := symbol.MapResolver{
+					"interval": {
+						Name: "interval",
+						Kind: symbol.KindFunction,
+						Type: types.Function(types.FunctionProperties{
+							Config:  types.Params{{Name: "period", Type: types.TimeSpan()}},
+							Outputs: types.Params{{Name: "output", Type: types.U8()}},
+						}),
+					},
+				}
+				source := `
+				func press{} () {
+				}
+
+				interval{period=50ms} => press{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				Expect(inter.Nodes).To(HaveLen(2))
+
+				intervalNode := findNodeByType(inter.Nodes, "interval")
+				Expect(intervalNode.Config).To(HaveLen(1))
+				Expect(intervalNode.Config[0].Name).To(Equal("period"))
+
+				Expect(inter.Edges).To(HaveLen(1))
+				edge := inter.Edges[0]
+				Expect(edge.Source.Node).To(Equal(intervalNode.Key))
+				Expect(edge.Source.Param).To(Equal("output"))
+				Expect(edge.Target.Node).To(Equal("press_0"))
+				Expect(edge.Kind).To(Equal(ir.EdgeKindOneShot))
+			})
+
+			It("Should generate continuous edge for interval with -> operator", func() {
+				resolver := symbol.MapResolver{
+					"interval": {
+						Name: "interval",
+						Kind: symbol.KindFunction,
+						Type: types.Function(types.FunctionProperties{
+							Config:  types.Params{{Name: "period", Type: types.TimeSpan()}},
+							Outputs: types.Params{{Name: "output", Type: types.U8()}},
+						}),
+					},
+				}
+				source := `
+				func handler{} () {
+				}
+
+				interval{period=50ms} -> handler{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				Expect(inter.Edges).To(HaveLen(1))
+				edge := inter.Edges[0]
+				Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
 			})
 		})
 	})
