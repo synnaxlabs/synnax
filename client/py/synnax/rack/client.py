@@ -13,7 +13,7 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
 
 from synnax.exceptions import NotFoundError
-from synnax.rack.payload import Rack
+from synnax.rack.types_gen import Rack
 from synnax.util.normalize import check_for_none, override
 
 

@@ -7,8 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.status.client import Client
-from synnax.status.payload import (
+from synnax.status.client import (
+    DELETE_CHANNEL,
+    ONTOLOGY_TYPE,
+    SET_CHANNEL,
+    Client,
+    ontology_id,
+)
+from synnax.status.types_gen import (
     DISABLED_VARIANT,
     ERROR_VARIANT,
     INFO_VARIANT,
@@ -17,18 +23,20 @@ from synnax.status.payload import (
     WARNING_VARIANT,
     Status,
     Variant,
-    ontology_id,
 )
 
 __all__ = [
     "Client",
-    "Variant",
-    "Status",
-    "SUCCESS_VARIANT",
-    "INFO_VARIANT",
-    "WARNING_VARIANT",
-    "ERROR_VARIANT",
+    "DELETE_CHANNEL",
     "DISABLED_VARIANT",
+    "ERROR_VARIANT",
+    "INFO_VARIANT",
     "LOADING_VARIANT",
     "ontology_id",
+    "SET_CHANNEL",
+    "Status",
+    "ONTOLOGY_TYPE",
+    "SUCCESS_VARIANT",
+    "Variant",
+    "WARNING_VARIANT",
 ]

@@ -474,7 +474,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = ReadTaskConfig.model_validate_json(internal.config)
+            self.config = ReadTaskConfig.model_validate(internal.config)
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = ReadTaskConfig(
@@ -524,7 +524,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
             props["read"]["channels"][key] = ch.channel
 
-        dev.properties = json.dumps(props)
+        dev.properties = props
         return device_client.create(dev)
 
 
@@ -559,7 +559,7 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     ):
         if internal is not None:
             self._internal = internal
-            self.config = WriteTaskConfig.model_validate_json(internal.config)
+            self.config = WriteTaskConfig.model_validate(internal.config)
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = WriteTaskConfig(
@@ -604,7 +604,7 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
             # Map the generated key to the Synnax channel that will send command values
             props["write"]["channels"][key] = ch.channel
 
-        dev.properties = json.dumps(props)
+        dev.properties = props
         return device_client.create(dev)
 
 
@@ -685,5 +685,5 @@ class Device(device.Device):
             make=MAKE,
             model=MODEL,
             configured=configured,
-            properties=json.dumps(props),
+            properties=props,
         )

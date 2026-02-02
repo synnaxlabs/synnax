@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 from typing import Literal
 from uuid import uuid4
 
@@ -2546,7 +2545,7 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = AnalogReadTaskConfig.model_validate_json(internal.config)
+            self.config = AnalogReadTaskConfig.model_validate(internal.config)
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = AnalogReadTaskConfig(
@@ -2604,7 +2603,7 @@ class AnalogWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     ):
         if internal is not None:
             self._internal = internal
-            self.config = AnalogWriteConfig.model_validate_json(internal.config)
+            self.config = AnalogWriteConfig.model_validate(internal.config)
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = AnalogWriteConfig(
@@ -2653,7 +2652,7 @@ class CounterReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = CounterReadConfig.model_validate_json(internal.config)
+            self.config = CounterReadConfig.model_validate(internal.config)
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = CounterReadConfig(
@@ -2714,7 +2713,7 @@ class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = DigitalReadConfig.model_validate_json(internal.config)
+            self.config = DigitalReadConfig.model_validate(internal.config)
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = DigitalReadConfig(
@@ -2760,7 +2759,7 @@ class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     ):
         if internal is not None:
             self._internal = internal
-            self.config = DigitalWriteConfig.model_validate_json(internal.config)
+            self.config = DigitalWriteConfig.model_validate(internal.config)
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = DigitalWriteConfig(
@@ -2824,9 +2823,6 @@ class Device(device.Device):
         if not key:
             key = str(uuid4())
 
-        # Set properties with identifier
-        props = json.dumps({"identifier": identifier})
-
         super().__init__(
             key=key,
             location=location,
@@ -2835,5 +2831,132 @@ class Device(device.Device):
             make=MAKE,
             model=model,
             configured=configured,
-            properties=props,
+            properties={"identifier": identifier},
         )
+
+
+__all__ = [
+    # Units
+    "Units",
+    "UnitsAmps",
+    "UnitsBar",
+    "UnitsDegAngle",
+    "UnitsDegC",
+    "UnitsDegF",
+    "UnitsDegR",
+    "UnitsFtLbs",
+    "UnitsGravity",
+    "UnitsHz",
+    "UnitsInches",
+    "UnitsInchesPerSecond",
+    "UnitsInchLbs",
+    "UnitsInOz",
+    "UnitsKelvins",
+    "UnitsKgForce",
+    "UnitsLbsPerSquareInch",
+    "UnitsMeters",
+    "UnitsMetersPerSecond",
+    "UnitsMetersPerSecondSquared",
+    "UnitsNewtonMeters",
+    "UnitsNewtons",
+    "UnitsOhms",
+    "UnitsPascals",
+    "UnitsPounds",
+    "UnitsRadiansAngle",
+    "UnitsRadiansPerSecond",
+    "UnitsRPM",
+    "UnitsSeconds",
+    "UnitsStrain",
+    "UnitsVolts",
+    "UnitsVoltsPerVolt",
+    "UnitsmVoltsPerVolt",
+    # Scales
+    "LinScale",
+    "MapScale",
+    "NoScale",
+    "PolynomialScale",
+    "Scale",
+    "ScaleType",
+    "TableScale",
+    # Config types
+    "ExcitationSource",
+    "TerminalConfig",
+    # Base classes
+    "BaseAIChan",
+    "BaseAOChan",
+    "BaseChan",
+    "BaseCIChan",
+    "MinMaxVal",
+    # AI Channels
+    "AIAccel4WireDCVoltageChan",
+    "AIAccelChan",
+    "AIAccelChargeChan",
+    "AIBridgeChan",
+    "AIChan",
+    "AIChargeChan",
+    "AICurrentChan",
+    "AICurrentRMSChan",
+    "AIForceBridgePolynomialChan",
+    "AIForceBridgeTableChan",
+    "AIForceBridgeTwoPointLinChan",
+    "AIForceIEPEChan",
+    "AIFreqVoltageChan",
+    "AIMicrophoneChan",
+    "AIPressureBridgePolynomialChan",
+    "AIPressureBridgeTableChan",
+    "AIPressureBridgeTwoPointLinChan",
+    "AIResistanceChan",
+    "AIRosetteStrainGageChan",
+    "AIRTDChan",
+    "AIStrainGageChan",
+    "AITempBuiltInChan",
+    "AIThermocoupleChan",
+    "AIThermistorChanIex",
+    "AIThermistorChanVex",
+    "AITorqueBridgePolynomialChan",
+    "AITorqueBridgeTableChan",
+    "AITorqueBridgeTwoPointLinChan",
+    "AIVelocityIEPEChan",
+    "AIVoltageChan",
+    "AIVoltageChanWithExcit",
+    "AIVoltageRMSChan",
+    # AO Channels
+    "AOChan",
+    "AOCurrentChan",
+    "AOFuncGenChan",
+    "AOVoltageChan",
+    # CI Channels
+    "CIAngularPositionChan",
+    "CIAngularVelocityChan",
+    "CIChan",
+    "CIDutyCycleChan",
+    "CIEdgeCountChan",
+    "CIFrequencyChan",
+    "CILinearPositionChan",
+    "CILinearVelocityChan",
+    "CIPeriodChan",
+    "CIPulseWidthChan",
+    "CISemiPeriodChan",
+    "CITwoEdgeSepChan",
+    # Digital Channels
+    "DIChan",
+    "DOChan",
+    # Task Configs
+    "AnalogReadTaskConfig",
+    "AnalogWriteConfig",
+    "CounterReadConfig",
+    "DigitalReadConfig",
+    "DigitalWriteConfig",
+    # Task State
+    "AnalogReadStateDetails",
+    "TaskStateDetails",
+    # Tasks
+    "AnalogReadTask",
+    "AnalogWriteTask",
+    "CounterReadTask",
+    "DigitalReadTask",
+    "DigitalWriteTask",
+    # Device
+    "Device",
+    "MAKE",
+]

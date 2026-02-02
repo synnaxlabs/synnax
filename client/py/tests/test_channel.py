@@ -73,7 +73,7 @@ class TestChannel:
         """Should raise a validation error when creating a channel with a non-existent index"""
         with pytest.raises(sy.ValidationError):
             client.channels.create(
-                name=channel_name(), data_type=sy.DataType.FLOAT64, index=1234
+                name=channel_name(), data_type=sy.DataType.FLOAT64, index=12345678
             )
 
     def test_create_indexed_pair_no_name(self, client: sy.Synnax):
@@ -92,6 +92,7 @@ class TestChannel:
         with pytest.raises(sy.ValidationError):
             client.channels.create(name=channel_name(), index=idx.key)
 
+    @pytest.mark.focus
     def test_create_from_list(self, client: sy.Synnax):
         """Should create a list of valid channels"""
         ch_one = sy.Channel(
@@ -196,6 +197,7 @@ class TestChannel:
         with pytest.raises(TypeError):
             client.channels.create(data_type=np.csingle)
 
+    @pytest.mark.focus
     def test_retrieve_by_key(
         self, indexed_pair: list[sy.Channel], client: sy.Synnax
     ) -> None:
@@ -450,7 +452,6 @@ class TestChannel:
 
     def test_create_channel_with_avg_operation_duration(self, client: sy.Synnax):
         """Should create a calculated channel with an avg operation over a duration"""
-        from synnax.channel.payload import Operation
 
         idx_ch = client.channels.create(
             name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
@@ -461,7 +462,7 @@ class TestChannel:
             index=idx_ch.key,
         )
 
-        operation = Operation(type="avg", duration=sy.TimeSpan.SECOND * 10)
+        operation = sy.channel.Operation(type="avg", duration=sy.TimeSpan.SECOND * 10)
         channel = sy.Channel(
             name=channel_name(),
             data_type=sy.DataType.FLOAT32,
@@ -480,7 +481,6 @@ class TestChannel:
 
     def test_create_channel_with_min_operation_reset_channel(self, client: sy.Synnax):
         """Should create a calculated channel with a min operation triggered by a reset channel"""
-        from synnax.channel.payload import Operation
 
         idx_ch = client.channels.create(
             name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
@@ -496,7 +496,7 @@ class TestChannel:
             index=idx_ch.key,
         )
 
-        operation = Operation(type="min", reset_channel=reset_channel.key)
+        operation = sy.channel.Operation(type="min", reset_channel=reset_channel.key)
         channel = sy.Channel(
             name=channel_name(),
             data_type=sy.DataType.FLOAT32,
@@ -514,7 +514,6 @@ class TestChannel:
 
     def test_create_channel_with_max_operation(self, client: sy.Synnax):
         """Should create a calculated channel with a max operation"""
-        from synnax.channel.payload import Operation
 
         idx_ch = client.channels.create(
             name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
@@ -525,7 +524,7 @@ class TestChannel:
             index=idx_ch.key,
         )
 
-        operation = Operation(
+        operation = sy.channel.Operation(
             type="max",
             duration=sy.TimeSpan.SECOND * 5,
         )
@@ -544,7 +543,6 @@ class TestChannel:
 
     def test_retrieve_channel_with_operations(self, client: sy.Synnax):
         """Should retrieve a channel and preserve its operations"""
-        from synnax.channel.payload import Operation
 
         idx_ch = client.channels.create(
             name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
@@ -555,7 +553,7 @@ class TestChannel:
             index=idx_ch.key,
         )
 
-        operation = Operation(type="avg", duration=sy.TimeSpan.SECOND * 15)
+        operation = sy.channel.Operation(type="avg", duration=sy.TimeSpan.SECOND * 15)
         channel = sy.Channel(
             name=channel_name(),
             data_type=sy.DataType.FLOAT32,

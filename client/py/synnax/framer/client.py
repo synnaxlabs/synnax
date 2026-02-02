@@ -19,7 +19,7 @@ from synnax.channel.payload import (
     ChannelName,
     ChannelNames,
     ChannelParams,
-    ChannelPayload,
+    Payload,
     normalize_channel_params,
 )
 from synnax.channel.retrieve import ChannelRetriever
@@ -179,7 +179,7 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        channel: ChannelKey | ChannelName | ChannelPayload,
+        channel: ChannelKey | ChannelName | Payload,
         data: CrudeSeries,
         strict: bool = False,
     ):
@@ -196,7 +196,7 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        channel: ChannelKeys | ChannelNames | list[ChannelPayload],
+        channel: ChannelKeys | ChannelNames | list[Payload],
         series: list[CrudeSeries],
         strict: bool = False,
     ): ...
@@ -204,12 +204,12 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        channels: ChannelParams | ChannelPayload | list[ChannelPayload] | CrudeFrame,
+        channels: ChannelParams | Payload | list[Payload] | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
         strict: bool = False,
     ):
         parsed_channels = list()
-        if isinstance(channels, (list, ChannelKey, ChannelPayload, ChannelName)):
+        if isinstance(channels, (list, ChannelKey, Payload, ChannelName)):
             parsed_channels = channels
         elif isinstance(channels, dict):
             parsed_channels = list(channels.keys())

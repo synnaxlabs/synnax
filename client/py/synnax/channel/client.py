@@ -20,12 +20,17 @@ from synnax.channel.payload import (
     ChannelName,
     ChannelNames,
     ChannelParams,
-    ChannelPayload,
-    Operation,
     normalize_channel_params,
-    ontology_id,
 )
 from synnax.channel.retrieve import ChannelRetriever
+from synnax.channel.types_gen import (
+    ONTOLOGY_TYPE,
+    New,
+    Operation,
+    Payload,
+    Status,
+    ontology_id,
+)
 from synnax.channel.writer import ChannelWriter
 from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
 from synnax.framer.client import Client as FrameClient
@@ -39,9 +44,10 @@ from synnax.telem import (
     TimeRange,
 )
 from synnax.util.normalize import normalize
+from synnax.x import control
 
 
-class Channel(ChannelPayload):
+class Channel(Payload):
     """A channel is a logical collection of samples emitted by or representing the
     values of a single source. See
     https://docs.synnaxlabs.com/reference/concepts/channels for an introduction to
@@ -64,6 +70,9 @@ class Channel(ChannelPayload):
         internal: bool = False,
         expression: str = "",
         operations: list[Operation] | None = None,
+        alias: str | None = None,
+        concurrency: control.Concurrency | None = None,
+        status: Status | None = None,
         _frame_client: FrameClient | None = None,
         _client: ChannelClient | None = None,
     ) -> None:
@@ -175,8 +184,8 @@ class Channel(ChannelPayload):
     def __eq__(self, other) -> bool:
         return self.key == other.key
 
-    def to_payload(self) -> ChannelPayload:
-        return ChannelPayload(
+    def to_payload(self) -> Payload:
+        return Payload(
             data_type=self.data_type,
             name=self.name,
             leaseholder=self.leaseholder,
@@ -290,7 +299,7 @@ class ChannelClient:
             if is_index and data_type == DataType.UNKNOWN:
                 data_type = DataType.TIMESTAMP
             _channels = [
-                ChannelPayload(
+                New(
                     name=name,
                     leaseholder=leaseholder,
                     data_type=DataType(data_type),
@@ -379,7 +388,7 @@ class ChannelClient:
         """
         self._creator.rename(normalize(keys), normalize(names))
 
-    def __sugar(self, channels: list[ChannelPayload]) -> list[Channel]:
+    def __sugar(self, channels: list[Payload]) -> list[Channel]:
         return [
             Channel(**c.model_dump(), _frame_client=self._frame_client)
             for c in channels
@@ -388,7 +397,7 @@ class ChannelClient:
 
 def _multiple_results_error(
     channel: ChannelParams,
-    results: list[ChannelPayload],
+    results: list[Payload],
 ) -> MultipleFoundError:
     msg = f"""
 

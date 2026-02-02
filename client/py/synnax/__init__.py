@@ -9,7 +9,7 @@
 
 __version__ = "0.3.0"
 
-from synnax import labjack, modbus, ni, opcua, sequence, status
+from synnax import group, labjack, modbus, ni, ontology, opcua, sequence, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role
 from synnax.arc import (
@@ -54,7 +54,9 @@ from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
 from synnax.synnax import Synnax
-from synnax.task import Task, TaskStatus, TaskStatusDetails
+from synnax.task import Status as TaskStatus
+from synnax.task import StatusDetails as TaskStatusDetails
+from synnax.task import Task
 from synnax.telem import (
     Alignment,
     Authority,
@@ -155,7 +157,7 @@ __all__ = [
     "opcua",
     "sequence",
     "ontology",
-    "auth",
     "status",
     "Status",
+    "group",
 ]
