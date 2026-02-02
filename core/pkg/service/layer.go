@@ -344,10 +344,10 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}
 	siftFactory, err := sift.OpenFactory(sift.FactoryConfig{
 		Device:          l.Device,
-		Ranger:          l.Ranger,
 		Framer:          l.Framer,
 		Channel:         cfg.Distribution.Channel,
 		Status:          l.Status,
+		Task:            l.Task,
 		Instrumentation: cfg.Child("sift"),
 	})
 	if !ok(err, siftFactory) {

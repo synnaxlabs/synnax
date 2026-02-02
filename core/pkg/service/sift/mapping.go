@@ -11,6 +11,7 @@ package sift
 
 import (
 	typev1 "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
+	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -134,5 +135,115 @@ func ConvertSeriesToValues(series telem.Series) ([]any, error) {
 	default:
 		return nil,
 			errors.Newf("unsupported data type for conversion: %s", series.DataType)
+	}
+}
+
+// ConvertSeriesToProtoValues converts a Synnax series to Sift proto channel values.
+func ConvertSeriesToProtoValues(
+	series telem.Series,
+) ([]*ingestv1.IngestWithConfigDataChannelValue, error) {
+	switch series.DataType {
+	case telem.Float64T:
+		data := telem.UnmarshalSlice[float64](series.Data, series.DataType)
+		result := make([]*ingestv1.IngestWithConfigDataChannelValue, len(data))
+		for i, v := range data {
+			result[i] = &ingestv1.IngestWithConfigDataChannelValue{
+				Type: &ingestv1.IngestWithConfigDataChannelValue_Double{Double: v},
+			}
+		}
+		return result, nil
+	case telem.Float32T:
+		data := telem.UnmarshalSlice[float32](series.Data, series.DataType)
+		result := make([]*ingestv1.IngestWithConfigDataChannelValue, len(data))
+		for i, v := range data {
+			result[i] = &ingestv1.IngestWithConfigDataChannelValue{
+				Type: &ingestv1.IngestWithConfigDataChannelValue_Float{Float: v},
+			}
+		}
+		return result, nil
+	case telem.Int64T:
+		data := telem.UnmarshalSlice[int64](series.Data, series.DataType)
+		result := make([]*ingestv1.IngestWithConfigDataChannelValue, len(data))
+		for i, v := range data {
+			result[i] = &ingestv1.IngestWithConfigDataChannelValue{
+				Type: &ingestv1.IngestWithConfigDataChannelValue_Int64{Int64: v},
+			}
+		}
+		return result, nil
+	case telem.Int32T:
+		data := telem.UnmarshalSlice[int32](series.Data, series.DataType)
+		result := make([]*ingestv1.IngestWithConfigDataChannelValue, len(data))
+		for i, v := range data {
+			result[i] = &ingestv1.IngestWithConfigDataChannelValue{
+				Type: &ingestv1.IngestWithConfigDataChannelValue_Int32{Int32: v},
+			}
+		}
+		return result, nil
+	case telem.Uint64T:
+		data := telem.UnmarshalSlice[uint64](series.Data, series.DataType)
+		result := make([]*ingestv1.IngestWithConfigDataChannelValue, len(data))
+		for i, v := range data {
+			result[i] = &ingestv1.IngestWithConfigDataChannelValue{
+				Type: &ingestv1.IngestWithConfigDataChannelValue_Uint64{Uint64: v},
+			}
+		}
+		return result, nil
+	case telem.Uint32T:
+		data := telem.UnmarshalSlice[uint32](series.Data, series.DataType)
+		result := make([]*ingestv1.IngestWithConfigDataChannelValue, len(data))
+		for i, v := range data {
+			result[i] = &ingestv1.IngestWithConfigDataChannelValue{
+				Type: &ingestv1.IngestWithConfigDataChannelValue_Uint32{Uint32: v},
+			}
+		}
+		return result, nil
+	case telem.TimeStampT:
+		data := telem.UnmarshalSlice[telem.TimeStamp](series.Data, series.DataType)
+		result := make([]*ingestv1.IngestWithConfigDataChannelValue, len(data))
+		for i, v := range data {
+			result[i] = &ingestv1.IngestWithConfigDataChannelValue{
+				Type: &ingestv1.IngestWithConfigDataChannelValue_Int64{Int64: int64(v)},
+			}
+		}
+		return result, nil
+	case telem.Int8T:
+		data := telem.UnmarshalSlice[int8](series.Data, series.DataType)
+		result := make([]*ingestv1.IngestWithConfigDataChannelValue, len(data))
+		for i, v := range data {
+			result[i] = &ingestv1.IngestWithConfigDataChannelValue{
+				Type: &ingestv1.IngestWithConfigDataChannelValue_Int32{Int32: int32(v)},
+			}
+		}
+		return result, nil
+	case telem.Int16T:
+		data := telem.UnmarshalSlice[int16](series.Data, series.DataType)
+		result := make([]*ingestv1.IngestWithConfigDataChannelValue, len(data))
+		for i, v := range data {
+			result[i] = &ingestv1.IngestWithConfigDataChannelValue{
+				Type: &ingestv1.IngestWithConfigDataChannelValue_Int32{Int32: int32(v)},
+			}
+		}
+		return result, nil
+	case telem.Uint8T:
+		data := telem.UnmarshalSlice[uint8](series.Data, series.DataType)
+		result := make([]*ingestv1.IngestWithConfigDataChannelValue, len(data))
+		for i, v := range data {
+			result[i] = &ingestv1.IngestWithConfigDataChannelValue{
+				Type: &ingestv1.IngestWithConfigDataChannelValue_Uint32{Uint32: uint32(v)},
+			}
+		}
+		return result, nil
+	case telem.Uint16T:
+		data := telem.UnmarshalSlice[uint16](series.Data, series.DataType)
+		result := make([]*ingestv1.IngestWithConfigDataChannelValue, len(data))
+		for i, v := range data {
+			result[i] = &ingestv1.IngestWithConfigDataChannelValue{
+				Type: &ingestv1.IngestWithConfigDataChannelValue_Uint32{Uint32: uint32(v)},
+			}
+		}
+		return result, nil
+	default:
+		return nil,
+			errors.Newf("unsupported data type for proto conversion: %s", series.DataType)
 	}
 }

@@ -10,14 +10,12 @@
 package sift
 
 import (
-	"encoding/json"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/sift/client"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -34,11 +32,7 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Device *device.Service
-	// Ranger is used for retrieving range information for uploads.
-	//
-	// [REQUIRED]
-	Ranger *ranger.Service
-	// Framer is used for reading/writing telemetry.
+	// Framer is used for reading telemetry.
 	//
 	// [REQUIRED]
 	Framer *framer.Service
@@ -50,10 +44,14 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// Task is used for deleting tasks after upload completion.
+	// Task is used for deleting tasks after completion.
 	//
 	// [REQUIRED]
 	Task *task.Service
+	// ClientFactory creates Sift clients.
+	//
+	// [REQUIRED]
+	ClientFactory client.Factory
 	alamos.Instrumentation
 }
 
@@ -65,29 +63,29 @@ var (
 func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Device = override.Nil(c.Device, other.Device)
-	c.Ranger = override.Nil(c.Ranger, other.Ranger)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Task = override.Nil(c.Task, other.Task)
+	c.ClientFactory = override.Nil(c.ClientFactory, other.ClientFactory)
 	return c
 }
 
 func (c FactoryConfig) Validate() error {
 	v := validate.New("sift.factory")
 	validate.NotNil(v, "device", c.Device)
-	validate.NotNil(v, "ranger", c.Ranger)
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "task", c.Task)
+	validate.NotNil(v, "client_factory", c.ClientFactory)
 	return v.Error()
 }
 
 // Factory creates Sift upload tasks.
 type Factory struct {
 	cfg  FactoryConfig
-	pool *ClientPool
+	pool *client.Pool
 }
 
 var _ driver.Factory = (*Factory)(nil)
@@ -98,7 +96,10 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Factory{cfg: cfg, pool: NewClientPool()}, nil
+	return &Factory{
+		cfg:  cfg,
+		pool: client.NewPool(cfg.ClientFactory),
+	}, nil
 }
 
 // ConfigureTask creates a Sift upload task.
@@ -107,8 +108,8 @@ func (f *Factory) ConfigureTask(ctx driver.Context, t task.Task) (driver.Task, e
 		return nil, driver.ErrTaskNotHandled
 	}
 
-	var cfg TaskConfig
-	if err := json.Unmarshal([]byte(t.Config), &cfg); err != nil {
+	cfg, err := ParseTaskConfig(t.Config)
+	if err != nil {
 		f.setStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, err
 	}
@@ -129,12 +130,29 @@ func (f *Factory) ConfigureTask(ctx driver.Context, t task.Task) (driver.Task, e
 		return nil, err
 	}
 
-	task := newUploadTask(t, cfg, props, f.cfg, f.pool)
+	// Get or create client
+	client, err := f.pool.Get(ctx, props.URI, props.APIKey)
+	if err != nil {
+		f.setStatus(ctx, t, xstatus.VariantError, err.Error())
+		return nil, err
+	}
+
+	uploadTask := newUploadTask(t, cfg, client, f.cfg)
+
 	f.setStatus(ctx, t, xstatus.VariantSuccess, "Task configured")
-	return task, nil
+
+	// Auto-start the upload
+	go uploadTask.run(ctx)
+
+	return uploadTask, nil
 }
 
-func (f *Factory) setStatus(ctx driver.Context, t task.Task, variant xstatus.Variant, message string) {
+func (f *Factory) setStatus(
+	ctx driver.Context,
+	t task.Task,
+	variant xstatus.Variant,
+	message string,
+) {
 	stat := task.Status{
 		Key:     task.OntologyID(t.Key).String(),
 		Name:    t.Name,
@@ -144,7 +162,7 @@ func (f *Factory) setStatus(ctx driver.Context, t task.Task, variant xstatus.Var
 		Details: task.StatusDetails{Task: t.Key, Running: false},
 	}
 	if err := ctx.SetStatus(stat); err != nil {
-		f.cfg.L.Error("failed to set status", zap.Uint64("key", uint64(t.Key)), zap.Error(err))
+		f.cfg.L.Error("failed to set status", zap.Stringer("task", t), zap.Error(err))
 	}
 }
 
