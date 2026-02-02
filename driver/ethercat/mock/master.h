@@ -20,7 +20,7 @@
 #include "driver/ethercat/master/master.h"
 
 namespace ethercat::mock {
-/// Key for PDO offset cache lookup.
+/// @brief key for PDO offset cache lookup.
 struct PDOEntryKey {
     uint16_t slave_position;
     uint16_t index;
@@ -33,7 +33,7 @@ struct PDOEntryKey {
     }
 };
 
-/// Hash function for PDOEntryKey.
+/// @brief hash function for PDOEntryKey.
 struct PDOEntryKeyHash {
     size_t operator()(const PDOEntryKey &key) const {
         return std::hash<uint64_t>()(
@@ -45,7 +45,7 @@ struct PDOEntryKeyHash {
     }
 };
 
-/// Configuration for a simulated slave device.
+/// @brief configuration for a simulated slave device.
 struct MockSlaveConfig {
     uint16_t position;
     uint32_t vendor_id;
@@ -105,10 +105,7 @@ struct MockSlaveConfig {
     }
 };
 
-/// Mock implementation of Master for testing without real EtherCAT hardware.
-///
-/// Simulates the EtherCAT master lifecycle and cyclic operations. Can be configured
-/// with virtual slaves and inject errors for testing error handling paths.
+/// @brief mock implementation of Master for testing without real hardware.
 class Master final : public ethercat::master::Master {
     std::string iface_name;
     std::vector<SlaveInfo> slave_list;
@@ -143,8 +140,7 @@ public:
         output_sz(0),
         init_calls(0) {}
 
-    /// Adds a simulated slave to the mock master.
-    /// Must be called before initialize().
+    /// @brief adds a simulated slave to the mock master.
     void add_slave(const MockSlaveConfig &config) {
         SlaveInfo slave(
             config.position,
@@ -163,23 +159,23 @@ public:
         this->slave_states[config.position] = SlaveState::INIT;
     }
 
-    /// Injects an error to be returned by initialize().
+    /// @brief injects an error to be returned by initialize().
     void inject_init_error(const xerrors::Error &err) { this->inject_init_err = err; }
 
-    /// Injects an error to be returned by activate().
+    /// @brief injects an error to be returned by activate().
     void inject_activate_error(const xerrors::Error &err) {
         this->inject_activate_err = err;
     }
 
-    /// Injects an error to be returned by receive().
+    /// @brief injects an error to be returned by receive().
     void inject_receive_error(const xerrors::Error &err) {
         this->inject_receive_err = err;
     }
 
-    /// Injects an error to be returned by send().
+    /// @brief injects an error to be returned by send().
     void inject_send_error(const xerrors::Error &err) { this->inject_send_err = err; }
 
-    /// Clears all injected errors.
+    /// @brief clears all injected errors.
     void clear_injected_errors() {
         this->inject_init_err = xerrors::NIL;
         this->inject_activate_err = xerrors::NIL;
@@ -187,13 +183,13 @@ public:
         this->inject_send_err = xerrors::NIL;
     }
 
-    /// Sets a slave to fail state transition to the given target state.
+    /// @brief sets a slave to fail state transition to the given target state.
     void
     set_slave_transition_failure(const uint16_t position, const SlaveState target) {
         this->state_transition_failures[position] = target;
     }
 
-    /// Directly sets the state of a specific slave.
+    /// @brief directly sets the state of a specific slave.
     void set_slave_state(const uint16_t position, const SlaveState state) {
         std::lock_guard lock(this->mu);
         this->slave_states[position] = state;
@@ -201,13 +197,13 @@ public:
             if (slave.position == position) slave.state = state;
     }
 
-    /// Returns the log of method calls for verification.
+    /// @brief returns the log of method calls for verification.
     const std::vector<std::string> &call_log() const { return this->calls; }
 
-    /// Clears the method call log.
+    /// @brief clears the method call log.
     void clear_call_log() { this->calls.clear(); }
 
-    /// Checks if a specific method was called.
+    /// @brief checks if a specific method was called.
     bool was_called(const std::string &method) const {
         return std::find(this->calls.begin(), this->calls.end(), method) !=
                this->calls.end();
@@ -350,25 +346,25 @@ public:
 
     std::string interface_name() const override { return this->iface_name; }
 
-    /// Returns whether the master has been initialized.
+    /// @brief returns whether the master has been initialized.
     bool is_initialized() const {
         std::lock_guard lock(this->mu);
         return this->initialized;
     }
 
-    /// Returns whether the master has been activated.
+    /// @brief returns whether the master has been activated.
     bool is_activated() const {
         std::lock_guard lock(this->mu);
         return this->activated;
     }
 
-    /// Returns the number of slaves configured.
+    /// @brief returns the number of slaves configured.
     size_t slave_count() const {
         std::lock_guard lock(this->mu);
         return this->slave_list.size();
     }
 
-    /// Checks if any slaves have the given state.
+    /// @brief checks if any slaves have the given state.
     bool has_slave_in_state(const SlaveState state) const {
         std::lock_guard lock(this->mu);
         for (const auto &[pos, s]: this->slave_states)
@@ -376,7 +372,7 @@ public:
         return false;
     }
 
-    /// Returns the count of slaves in the given state.
+    /// @brief returns the count of slaves in the given state.
     size_t slaves_in_state(const SlaveState state) const {
         std::lock_guard lock(this->mu);
         size_t count = 0;
@@ -385,26 +381,26 @@ public:
         return count;
     }
 
-    /// Returns the number of times initialize() was called.
+    /// @brief returns the number of times initialize() was called.
     size_t init_call_count() const {
         std::lock_guard lock(this->mu);
         return this->init_calls;
     }
 
-    /// Resets the initialize call counter.
+    /// @brief resets the initialize call counter.
     void reset_init_call_count() {
         std::lock_guard lock(this->mu);
         this->init_calls = 0;
     }
 
-    /// Sets a value in the input region for testing.
+    /// @brief sets a value in the input region for testing.
     template<typename T>
     void set_input(const size_t offset, const T value) {
         if (offset + sizeof(T) <= this->input_sz)
             std::memcpy(this->input_iomap.data() + offset, &value, sizeof(T));
     }
 
-    /// Gets a value from the output region for verification.
+    /// @brief gets a value from the output region for verification.
     template<typename T>
     T get_output(const size_t offset) const {
         T value{};
@@ -463,16 +459,13 @@ private:
     }
 };
 
-/// Mock implementation of master::Manager for testing.
-///
-/// Returns pre-configured masters. Use configure() to set up what enumerate()
-/// returns and what create() produces.
+/// @brief mock implementation of master::Manager for testing.
 class Manager final : public master::Manager {
     std::vector<master::Info> infos;
     std::unordered_map<std::string, std::shared_ptr<Master>> masters;
 
 public:
-    /// Configures a master to be returned by enumerate() and create().
+    /// @brief configures a master to be returned by enumerate() and create().
     void configure(const std::string &key, std::shared_ptr<Master> m) {
         this->infos.push_back({key, "Mock " + key});
         this->masters[key] = std::move(m);

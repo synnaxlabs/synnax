@@ -25,33 +25,29 @@
 
 namespace ethercat {
 
-/// Log prefix for scan task messages.
+/// @brief log prefix for scan task messages.
 const std::string SCAN_LOG_PREFIX = "[ethercat.scan_task] ";
 
-/// Command type for testing a master.
+/// @brief command type for testing a master.
 const std::string TEST_INTERFACE_CMD_TYPE = "test_interface";
 
-/// Configuration for the EtherCAT scan task.
+/// @brief configuration for the EtherCAT scan task.
 struct ScanTaskConfig : common::ScanTaskConfig {
     ScanTaskConfig() = default;
 
     explicit ScanTaskConfig(xjson::Parser &cfg): common::ScanTaskConfig(cfg) {}
 };
 
-/// Arguments for the test_interface command.
+/// @brief arguments for the test_interface command.
 struct TestInterfaceArgs {
-    /// Master key to test (e.g., "igh:0" or "eth0").
+    /// @brief master key to test (e.g., "igh:0" or "eth0").
     std::string interface;
 
     explicit TestInterfaceArgs(xjson::Parser &parser):
         interface(parser.field<std::string>("interface")) {}
 };
 
-/// Scanner implementation for EtherCAT device discovery.
-///
-/// The scanner discovers EtherCAT networks and slaves, creating Synnax devices
-/// that represent them. It uses the Pool to discover available masters and
-/// caches slave information from active engines.
+/// @brief scanner implementation for EtherCAT device discovery.
 class Scanner final : public common::Scanner {
 public:
     Scanner(
@@ -61,20 +57,20 @@ public:
         std::shared_ptr<engine::Pool> pool
     );
 
-    /// Returns scanner configuration for common::ScanTask.
+    /// @brief returns scanner configuration for common::ScanTask.
     [[nodiscard]] common::ScannerConfig config() const override;
 
-    /// Lifecycle method called when the scan task starts.
+    /// @brief lifecycle method called when the scan task starts.
     xerrors::Error start() override;
 
-    /// Lifecycle method called when the scan task stops.
+    /// @brief lifecycle method called when the scan task stops.
     xerrors::Error stop() override;
 
-    /// Periodic scan method to discover networks and slaves.
+    /// @brief periodic scan method to discover networks and slaves.
     std::pair<std::vector<synnax::Device>, xerrors::Error>
     scan(const common::ScannerContext &ctx) override;
 
-    /// Handle EtherCAT-specific commands.
+    /// @brief handles EtherCAT-specific commands.
     bool exec(
         task::Command &cmd,
         const synnax::Task &task,
@@ -86,31 +82,30 @@ private:
     synnax::Task task;
     ScanTaskConfig cfg;
     std::shared_ptr<engine::Pool> pool;
-    /// Tracks slave count per master to avoid repetitive logging.
     std::unordered_map<std::string, size_t> last_slave_counts;
 
-    /// Probes a master for EtherCAT slaves.
+    /// @brief probes a master for EtherCAT slaves.
     std::pair<std::vector<SlaveInfo>, xerrors::Error>
     probe_master(const std::string &key) const;
 
-    /// Creates a slave device for the given slave.
+    /// @brief creates a slave device for the given slave.
     synnax::Device create_slave_device(
         const SlaveInfo &slave,
         const std::string &master_key,
         const common::ScannerContext &scan_ctx
     );
 
-    /// Gets base properties from existing device or returns empty JSON object.
+    /// @brief gets base properties from existing device or returns empty JSON.
     static nlohmann::json get_existing_properties(
         const std::string &key,
         const common::ScannerContext &scan_ctx
     );
 
-    /// Generates a device key for a slave.
+    /// @brief generates a device key for a slave.
     static std::string
     generate_slave_key(const SlaveInfo &slave, const std::string &master_key);
 
-    /// Handles the test_interface command.
+    /// @brief handles the test_interface command.
     void test_interface(const task::Command &cmd) const;
 };
 

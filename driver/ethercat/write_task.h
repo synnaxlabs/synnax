@@ -22,12 +22,19 @@
 #include "driver/task/common/write_task.h"
 
 namespace ethercat {
+/// @brief configuration for EtherCAT write tasks.
 struct WriteTaskConfig : common::BaseWriteTaskConfig {
+    /// @brief network interface name for the EtherCAT master.
     std::string interface_name;
+    /// @brief configured output channels.
     std::vector<std::unique_ptr<channel::Output>> channels;
+    /// @brief state feedback channels.
     std::vector<synnax::Channel> state_channels;
+    /// @brief index channel keys for state timestamps.
     std::set<synnax::ChannelKey> state_indexes;
+    /// @brief rate at which state feedback is published.
     telem::Rate state_rate;
+    /// @brief rate at which write commands are executed.
     telem::Rate execution_rate;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
@@ -119,6 +126,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     }
 };
 
+/// @brief sink implementation for EtherCAT write tasks.
 class WriteTaskSink final : public common::Sink {
     WriteTaskConfig cfg;
     std::shared_ptr<engine::Engine> engine;

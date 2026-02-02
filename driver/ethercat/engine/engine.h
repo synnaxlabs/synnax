@@ -27,24 +27,15 @@
 namespace ethercat::engine {
 /// @brief Configuration for the Loop.
 struct Config {
-    /// Maximum allowed cycle overrun before logging a warning.
+    /// @brief maximum allowed cycle overrun before logging a warning.
     telem::TimeSpan max_overrun = telem::TimeSpan(0);
-    /// Real-time thread configuration for the cycle thread.
+    /// @brief real-time thread configuration for the cycle thread.
     xthread::RTConfig rt;
 
     Config() = default;
 };
 
-/// @brief Coordinates cyclic PDO exchange between EtherCAT master and tasks.
-///
-/// The Engine manages a dedicated thread that performs EtherCAT cyclic exchange at a
-/// fixed rate.
-///
-/// Lifecycle:
-/// 1. Create Engine with Master and config
-/// 2. Open Readers/Writers via open_reader()/open_writer()
-/// 3. Engine automatically starts when first Reader or Writer is opened
-/// 4. Engine automatically stops when last Reader and Writer are closed
+/// @brief coordinates cyclic PDO exchange between EtherCAT master and tasks.
 class Engine {
     Config config;
 
@@ -98,17 +89,14 @@ class Engine {
     void unregister_writer(size_t id);
 
 public:
-    /// @brief Proxy for reading input data from the EtherCAT cycle engine.
-    ///
-    /// Each Reader receives its registered PDO data laid out contiguously in
-    /// registration order. Multiple Readers can exist simultaneously. The Reader is
-    /// automatically unregistered when destroyed.
+    /// @brief resolved PDO entry with offset and type information.
     struct ResolvedPDO {
         master::PDOOffset offset;
         telem::DataType data_type;
         uint8_t bit_length;
     };
 
+    /// @brief proxy for reading input data from the EtherCAT cycle engine.
     class Reader {
         Engine &engine;
         size_t id;
@@ -131,32 +119,18 @@ public:
 
         ~Reader();
 
-        /// @brief Blocks until new input data is available, then writes one sample
-        /// to each series in the frame.
-        /// @param brk Breaker for cancellation.
-        /// @param frame Frame with series in registration order. Each series must
-        ///              have the correct data type for its corresponding PDO entry.
-        /// @return xerrors::NIL on success, or error if stopped or engine is not
-        /// running.
+        /// @brief blocks until new input data is available, then writes to the frame.
         [[nodiscard]] xerrors::Error
         read(const breaker::Breaker &brk, const telem::Frame &frame) const;
 
-        /// @brief Blocks until the next PDO exchange epoch without extracting data.
-        /// Use this for decimation when you want to wait for cycles but not sample.
-        /// @param brk Breaker for cancellation.
-        /// @return xerrors::NIL on success, or error if stopped or engine is not
-        /// running.
+        /// @brief blocks until the next PDO exchange epoch without extracting data.
         [[nodiscard]] xerrors::Error wait(const breaker::Breaker &brk) const;
 
-        /// @brief Returns the total size in bytes of all registered PDO entries.
+        /// @brief returns the total size in bytes of all registered PDO entries.
         [[nodiscard]] size_t size() const { return this->total_size; }
     };
 
-    /// @brief Proxy for writing output data to the EtherCAT cycle engine.
-    ///
-    /// Each Writer writes to its registered PDO entries in registration order.
-    /// Multiple Writers can exist simultaneously. Must call close() before
-    /// destruction to unregister from the engine.
+    /// @brief proxy for writing output data to the EtherCAT cycle engine.
     class Writer {
         Engine &engine;
         size_t id;
@@ -164,9 +138,6 @@ public:
 
     public:
         /// @brief RAII batch writer that holds the write lock for multiple writes.
-        ///
-        /// Use start_batch() to create a Batch, then call write() multiple times.
-        /// The lock is released when the Batch is destroyed.
         class Transaction {
             Engine &engine;
             const std::vector<ResolvedPDO> &pdos;
@@ -179,10 +150,7 @@ public:
             Transaction(Transaction &&) = delete;
             Transaction &operator=(Transaction &&) = delete;
 
-            /// @brief Writes a value to a specific PDO entry by index, with type
-            /// conversion.
-            /// @param pdo_index Index into the PDO entries registered with this Writer.
-            /// @param value The value to write. Will be cast to the PDO's data type.
+            /// @brief writes a value to a specific PDO entry by index.
             void write(size_t pdo_index, const telem::SampleValue &value) const;
         };
 
@@ -192,26 +160,20 @@ public:
         Writer(const Writer &) = delete;
         Writer &operator=(const Writer &) = delete;
 
-        /// @brief Creates a batch for writing multiple PDO entries under a single lock.
-        /// @return A Batch object that holds the write lock until destroyed.
+        /// @brief creates a transaction for writing multiple PDO entries under a lock.
         [[nodiscard]] Transaction open_tx() const;
 
-        /// @brief Writes a value to a specific PDO entry by index, with type
-        /// conversion.
-        /// @param pdo_index Index into the PDO entries registered with this Writer.
-        /// @param value The value to write. Will be cast to the PDO's data type.
+        /// @brief writes a value to a specific PDO entry by index.
         void write(size_t pdo_index, const telem::SampleValue &value) const;
     };
 
+    /// @brief the EtherCAT master used for cyclic exchange.
     const std::shared_ptr<master::Master> master;
 
-    /// @brief Constructs an Engine with the given master and configuration.
-    /// @param master The EtherCAT master for cyclic exchange.
-    /// @param config Configuration for RT thread setup.
+    /// @brief constructs an Engine with the given master and configuration.
     explicit Engine(std::shared_ptr<master::Master> master, const Config &config);
 
-    /// @brief Constructs an Engine with the given master using default configuration.
-    /// @param master The EtherCAT master for cyclic exchange.
+    /// @brief constructs an Engine with the given master using default configuration.
     explicit Engine(std::shared_ptr<master::Master> master);
 
     ~Engine();
@@ -219,24 +181,21 @@ public:
     Engine(const Engine &) = delete;
     Engine &operator=(const Engine &) = delete;
 
-    /// @brief Opens a new Reader for the specified PDO entries.
-    /// @param entries PDO entries to register for reading.
-    /// @param sample_rate Desired sample rate for this reader.
+    /// @brief opens a new Reader for the specified PDO entries.
     [[nodiscard]] std::pair<std::unique_ptr<Reader>, xerrors::Error>
     open_reader(const std::vector<PDOEntry> &entries, telem::Rate sample_rate);
 
-    /// @brief Opens a new Writer for the specified PDO entries.
-    /// @param entries PDO entries to register for writing.
-    /// @param execution_rate Desired execution rate for this writer.
+    /// @brief opens a new Writer for the specified PDO entries.
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, xerrors::Error>
     open_writer(const std::vector<PDOEntry> &entries, telem::Rate execution_rate);
 
+    /// @brief returns true if the engine is running.
     bool running() const { return this->breaker.running(); }
 
-    /// @brief Returns the engine configuration.
+    /// @brief returns the engine configuration.
     [[nodiscard]] const Config &cfg() const { return this->config; }
 
-    /// @brief Returns the current engine cycle rate (thread-safe).
+    /// @brief returns the current engine cycle rate (thread-safe).
     [[nodiscard]] telem::Rate cycle_rate() const;
 };
 }

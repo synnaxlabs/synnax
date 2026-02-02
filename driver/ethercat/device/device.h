@@ -18,17 +18,17 @@
 #include "x/cpp/xjson/xjson.h"
 
 namespace ethercat::device {
-/// Information about a single PDO entry from device discovery.
+/// @brief information about a single PDO entry from device discovery.
 struct PDOInfo {
-    /// Human-readable name of the PDO.
+    /// @brief human-readable name of the PDO.
     std::string name;
-    /// CoE object dictionary index (e.g., 0x6000).
+    /// @brief CoE object dictionary index (e.g., 0x6000).
     uint16_t index;
-    /// CoE object dictionary subindex.
+    /// @brief CoE object dictionary subindex.
     uint8_t subindex;
-    /// Size of the data in bits.
+    /// @brief size of the data in bits.
     uint8_t bit_length;
-    /// Data type string (e.g., "uint16", "float32").
+    /// @brief data type string (e.g., "uint16", "float32").
     std::string data_type;
 
     explicit PDOInfo(xjson::Parser &parser):
@@ -39,25 +39,25 @@ struct PDOInfo {
         data_type(parser.field<std::string>("data_type")) {}
 };
 
-/// Properties of an EtherCAT slave device parsed from Synnax device properties.
+/// @brief properties of an EtherCAT slave device parsed from Synnax device properties.
 struct SlaveProperties {
-    /// Unique serial number from device EEPROM.
+    /// @brief unique serial number from device EEPROM.
     uint32_t serial;
-    /// EtherCAT vendor ID.
+    /// @brief EtherCAT vendor ID.
     uint32_t vendor_id;
-    /// Product code identifying device model.
+    /// @brief product code identifying device model.
     uint32_t product_code;
-    /// Hardware/firmware revision.
+    /// @brief hardware/firmware revision.
     uint32_t revision;
-    /// Human-readable device name.
+    /// @brief human-readable device name.
     std::string name;
-    /// Network interface name this slave is connected to.
+    /// @brief network interface name this slave is connected to.
     std::string network;
-    /// Current position on bus (may change).
+    /// @brief current position on bus (may change).
     uint16_t position;
-    /// Input PDOs (TxPDO, slave->master).
+    /// @brief input PDOs (TxPDO, slave->master).
     std::vector<PDOInfo> input_pdos;
-    /// Output PDOs (RxPDO, master->slave).
+    /// @brief output PDOs (RxPDO, master->slave).
     std::vector<PDOInfo> output_pdos;
 
     explicit SlaveProperties(xjson::Parser &parser):
@@ -79,9 +79,7 @@ struct SlaveProperties {
         }
     }
 
-    /// Finds an input PDO by name.
-    /// @param pdo_name The name of the PDO to find.
-    /// @returns The PDO info if found, nullopt otherwise.
+    /// @brief finds an input PDO by name.
     [[nodiscard]] std::optional<PDOInfo>
     find_input_pdo(const std::string &pdo_name) const {
         for (const auto &pdo: input_pdos)
@@ -89,9 +87,7 @@ struct SlaveProperties {
         return std::nullopt;
     }
 
-    /// Finds an output PDO by name.
-    /// @param pdo_name The name of the PDO to find.
-    /// @returns The PDO info if found, nullopt otherwise.
+    /// @brief finds an output PDO by name.
     [[nodiscard]] std::optional<PDOInfo>
     find_output_pdo(const std::string &pdo_name) const {
         for (const auto &pdo: output_pdos)

@@ -20,34 +20,26 @@
 
 namespace ethercat::engine {
 
-/// Manages a pool of EtherCAT engines.
-///
-/// Each engine is associated with a unique key from master::Info. Engines are created
-/// lazily on first request and reused for subsequent tasks. The Pool owns a Manager
-/// that discovers available masters and creates them.
+/// @brief manages a pool of EtherCAT engines keyed by master identifier.
 class Pool {
     std::unique_ptr<master::Manager> manager;
     mutable std::mutex mu;
     std::unordered_map<std::string, std::shared_ptr<Engine>> engines;
 
 public:
-    /// Constructs a pool with the given manager.
+    /// @brief constructs a pool with the given manager.
     explicit Pool(std::unique_ptr<master::Manager> manager);
 
-    /// Returns all available EtherCAT masters discovered by the manager.
+    /// @brief returns all available EtherCAT masters discovered by the manager.
     [[nodiscard]] std::vector<master::Info> enumerate() const;
 
-    /// Acquires or creates an engine for the specified master key.
-    /// @param key The master key (e.g., "igh:0" or "eth0").
-    /// @return Pair of shared pointer to the engine and error.
+    /// @brief acquires or creates an engine for the specified master key.
     std::pair<std::shared_ptr<Engine>, xerrors::Error> acquire(const std::string &key);
 
-    /// Checks if a master has an active (running) engine.
-    /// @param key The master key.
+    /// @brief checks if a master has an active (running) engine.
     [[nodiscard]] bool is_active(const std::string &key) const;
 
-    /// Returns cached slave information from a master's engine.
-    /// @param key The master key.
+    /// @brief returns cached slave information from a master's engine.
     [[nodiscard]] std::vector<SlaveInfo> get_slaves(const std::string &key) const;
 };
 

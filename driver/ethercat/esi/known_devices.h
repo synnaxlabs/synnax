@@ -17,14 +17,7 @@
 
 namespace ethercat::esi {
 
-/// Looks up PDO definitions for a device in the ESI registry.
-/// Uses binary search with revision fallback.
-/// @param vendor_id EtherCAT vendor ID.
-/// @param product_code Device product code.
-/// @param revision Device revision (falls back to any revision if exact match not
-/// found).
-/// @param slave Output parameter populated with PDO information.
-/// @returns true if device was found, false otherwise.
+/// @brief looks up PDO definitions for a device in the ESI registry.
 bool lookup_device_pdos(
     uint32_t vendor_id,
     uint32_t product_code,
@@ -32,15 +25,10 @@ bool lookup_device_pdos(
     SlaveInfo &slave
 );
 
-/// Returns the vendor name for a given vendor ID.
-/// @param vendor_id EtherCAT vendor ID.
-/// @returns Vendor name if found, std::nullopt otherwise.
+/// @brief returns the vendor name for a given vendor ID.
 std::optional<std::string_view> vendor_name(uint32_t vendor_id);
 
-/// Checks if a device is in the registry (any revision).
-/// @param vendor_id EtherCAT vendor ID.
-/// @param product_code Device product code.
-/// @returns true if any revision of this device is known.
+/// @brief checks if a device is in the registry (any revision).
 bool is_device_known(uint32_t vendor_id, uint32_t product_code);
 
 }

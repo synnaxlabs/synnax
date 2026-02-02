@@ -19,15 +19,20 @@
 
 namespace ethercat {
 
+/// @brief integration name for EtherCAT.
 const std::string INTEGRATION_NAME = "ethercat";
+/// @brief device make identifier.
 const std::string DEVICE_MAKE = INTEGRATION_NAME;
+/// @brief device model for slave devices.
 const std::string SLAVE_DEVICE_MODEL = "slave";
+/// @brief task type for read tasks.
 const std::string READ_TASK_TYPE = "ethercat_read";
+/// @brief task type for write tasks.
 const std::string WRITE_TASK_TYPE = "ethercat_write";
+/// @brief task type for scan tasks.
 const std::string SCAN_TASK_TYPE = "ethercat_scan";
 
-/// Creates the default manager for the current platform.
-/// Returns IgH manager if IgH masters are configured, otherwise SOEM.
+/// @brief creates the default manager for the current platform.
 std::unique_ptr<master::Manager> default_manager();
 
 class Factory final : public task::Factory {
@@ -47,10 +52,10 @@ class Factory final : public task::Factory {
     configure_scan(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
 
 public:
-    /// Constructs a Factory with default manager.
+    /// @brief constructs a Factory with default manager.
     Factory();
 
-    /// Constructs a Factory with custom manager.
+    /// @brief constructs a Factory with custom manager.
     explicit Factory(std::unique_ptr<master::Manager> manager);
 
     ~Factory() override = default;
@@ -71,12 +76,10 @@ public:
         const synnax::Rack &rack
     ) override;
 
-    /// Checks if a master has an active engine.
-    /// @param key The master key (e.g., "igh:0" or "eth0").
+    /// @brief checks if a master has an active engine.
     bool is_interface_active(const std::string &key) const;
 
-    /// Returns cached slaves for a master.
-    /// @param key The master key.
+    /// @brief returns cached slaves for a master.
     std::vector<SlaveInfo> get_cached_slaves(const std::string &key) const;
 };
 

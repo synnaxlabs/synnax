@@ -17,8 +17,7 @@
 #include "x/cpp/telem/telem.h"
 
 namespace ethercat {
-/// EtherCAT/CoE data types as defined in ETG.1000.6.
-/// These correspond to the data type field in the object dictionary.
+/// @brief EtherCAT/CoE data types as defined in ETG.1000.6.
 enum class ECDataType : uint16_t {
     EC_UNKNOWN = 0x0000,
     EC_BOOLEAN = 0x0001,
@@ -60,10 +59,7 @@ enum class ECDataType : uint16_t {
     EC_BIT8 = 0x0037,
 };
 
-/// Infers a Synnax data type from the bit length when the CoE type is unknown.
-/// @param bit_length The size of the data in bits.
-/// @param is_signed If true, returns signed types; otherwise unsigned (default).
-/// @returns The most appropriate Synnax data type for the given size.
+/// @brief infers a Synnax data type from the bit length when the CoE type is unknown.
 inline telem::DataType
 infer_type_from_bit_length(const uint8_t bit_length, const bool is_signed = false) {
     if (bit_length == 0) return is_signed ? telem::INT8_T : telem::UINT8_T;
@@ -74,10 +70,7 @@ infer_type_from_bit_length(const uint8_t bit_length, const bool is_signed = fals
     return is_signed ? telem::INT64_T : telem::UINT64_T;
 }
 
-/// Maps an EtherCAT CoE data type to a Synnax telem::DataType.
-/// @param ec_type The EtherCAT data type from the object dictionary.
-/// @param bit_length The bit length of the data (used for validation/fallback).
-/// @returns The corresponding Synnax data type.
+/// @brief maps an EtherCAT CoE data type to a Synnax telem::DataType.
 inline telem::DataType
 map_ethercat_to_synnax(const ECDataType ec_type, const uint8_t bit_length) {
     switch (ec_type) {
@@ -136,14 +129,7 @@ map_ethercat_to_synnax(const ECDataType ec_type, const uint8_t bit_length) {
     }
 }
 
-/// Generates a human-readable name for a PDO entry.
-/// Uses the CoE name if available, otherwise generates from address.
-/// @param coe_name The name from CoE object dictionary (may be empty).
-/// @param index The object dictionary index.
-/// @param subindex The object dictionary subindex.
-/// @param is_input True for TxPDO (input), false for RxPDO (output).
-/// @param data_type The Synnax data type.
-/// @returns A descriptive name for the PDO entry.
+/// @brief generates a human-readable name for a PDO entry.
 inline std::string generate_pdo_entry_name(
     const std::string &coe_name,
     const uint16_t index,
@@ -160,10 +146,7 @@ inline std::string generate_pdo_entry_name(
     return ss.str();
 }
 
-/// Formats an index:subindex pair as a hex string (e.g., "0x6000:01").
-/// @param index The object dictionary index.
-/// @param subindex The object dictionary subindex.
-/// @returns Formatted hex string.
+/// @brief formats an index:subindex pair as a hex string (e.g., "0x6000:01").
 inline std::string format_index_subindex(const uint16_t index, const uint8_t subindex) {
     std::ostringstream ss;
     ss << "0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4)

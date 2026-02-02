@@ -23,11 +23,7 @@
 
 namespace ethercat::mock {
 
-/// Mock implementation of engine::Pool for testing.
-///
-/// Allows pre-configuring mock masters for specific keys before tests run.
-/// When acquire() is called, the pool creates engines using the configured mock
-/// masters.
+/// @brief mock implementation of engine::Pool for testing.
 class Pool {
     mutable std::mutex mu;
     std::unordered_map<std::string, std::shared_ptr<Master>> masters;
@@ -38,29 +34,28 @@ class Pool {
 public:
     Pool() = default;
 
-    /// Configures a mock master for the given key.
-    /// Must be called before acquire() for that key.
+    /// @brief configures a mock master for the given key.
     void configure_master(const std::string &key, std::shared_ptr<Master> master) {
         std::lock_guard lock(this->mu);
         this->masters[key] = std::move(master);
         this->master_infos.push_back({key, ""});
     }
 
-    /// Injects an error to be returned by acquire().
+    /// @brief injects an error to be returned by acquire().
     void inject_acquire_error(const xerrors::Error &err) {
         this->inject_acquire_err = err;
     }
 
-    /// Clears any injected acquire error.
+    /// @brief clears any injected acquire error.
     void clear_injected_errors() { this->inject_acquire_err = xerrors::NIL; }
 
-    /// Returns configured master infos.
+    /// @brief returns configured master infos.
     [[nodiscard]] std::vector<master::Info> enumerate() const {
         std::lock_guard lock(this->mu);
         return this->master_infos;
     }
 
-    /// Acquires or creates an engine for the specified master.
+    /// @brief acquires or creates an engine for the specified master.
     std::pair<std::shared_ptr<engine::Engine>, xerrors::Error>
     acquire(const std::string &key) {
         std::lock_guard lock(this->mu);
@@ -84,14 +79,14 @@ public:
         return {eng, xerrors::NIL};
     }
 
-    /// Checks if a key has an active (running) engine.
+    /// @brief checks if a key has an active (running) engine.
     [[nodiscard]] bool is_active(const std::string &key) const {
         std::lock_guard lock(this->mu);
         auto it = this->engines.find(key);
         return it != this->engines.end() && it->second->running();
     }
 
-    /// Returns cached slave information from a key's mock master.
+    /// @brief returns cached slave information from a key's mock master.
     [[nodiscard]] std::vector<SlaveInfo> get_slaves(const std::string &key) const {
         std::lock_guard lock(this->mu);
         auto it = this->masters.find(key);
@@ -99,7 +94,7 @@ public:
         return {};
     }
 
-    /// Returns the mock master for a key (for test verification).
+    /// @brief returns the mock master for a key (for test verification).
     [[nodiscard]] std::shared_ptr<Master> get_master(const std::string &key) const {
         std::lock_guard lock(this->mu);
         auto it = this->masters.find(key);
@@ -107,7 +102,7 @@ public:
         return nullptr;
     }
 
-    /// Returns the engine for a key (for test verification).
+    /// @brief returns the engine for a key (for test verification).
     [[nodiscard]] std::shared_ptr<engine::Engine>
     get_engine(const std::string &key) const {
         std::lock_guard lock(this->mu);

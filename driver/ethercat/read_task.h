@@ -23,10 +23,15 @@
 #include "driver/task/common/sample_clock.h"
 
 namespace ethercat {
+/// @brief configuration for EtherCAT read tasks.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
+    /// @brief network interface name for the EtherCAT master.
     std::string interface_name;
+    /// @brief index channel keys for timestamp generation.
     std::set<synnax::ChannelKey> indexes;
+    /// @brief configured input channels.
     std::vector<std::unique_ptr<channel::Input>> channels;
+    /// @brief number of samples per channel per batch.
     size_t samples_per_chan;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
@@ -144,6 +149,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     }
 };
 
+/// @brief source implementation for EtherCAT read tasks.
 class ReadTaskSource final : public common::Source {
     ReadTaskConfig cfg;
     std::shared_ptr<engine::Engine> engine;

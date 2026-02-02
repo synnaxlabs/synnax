@@ -23,29 +23,29 @@
 #include "driver/ethercat/master/slave_info.h"
 
 namespace ethercat::channel {
-/// Base class for EtherCAT PDO channel configurations.
+/// @brief base class for EtherCAT PDO channel configurations.
 struct Channel {
-    /// Whether this channel is enabled for data exchange.
+    /// @brief whether this channel is enabled for data exchange.
     bool enabled;
-    /// The key of the slave device in Synnax.
+    /// @brief the key of the slave device in Synnax.
     std::string device_key;
-    /// Position of the slave on the EtherCAT bus.
+    /// @brief position of the slave on the EtherCAT bus.
     uint16_t slave_position;
-    /// Index of the PDO object in the CoE object dictionary (e.g., 0x6000).
+    /// @brief index of the PDO object in the CoE object dictionary (e.g., 0x6000).
     uint16_t index;
-    /// Subindex of the PDO object.
+    /// @brief subindex of the PDO object.
     uint8_t subindex;
-    /// Size of the data in bits.
+    /// @brief size of the data in bits.
     uint8_t bit_length;
-    /// Data type of the PDO.
+    /// @brief data type of the PDO.
     telem::DataType data_type;
 
     virtual ~Channel() = default;
 
-    /// Returns the byte length rounded up from bit_length.
+    /// @brief returns the byte length rounded up from bit_length.
     [[nodiscard]] size_t byte_length() const { return (bit_length + 7) / 8; }
 
-    /// Converts this channel configuration to a PDOEntry.
+    /// @brief converts this channel configuration to a PDOEntry.
     [[nodiscard]] PDOEntry to_pdo_entry(const bool is_input) const {
         return {
             this->slave_position,
@@ -68,14 +68,14 @@ protected:
         data_type(telem::UNKNOWN_T) {}
 };
 
-/// Base input channel (TxPDO, slave->master).
+/// @brief base input channel (TxPDO, slave->master).
 struct Input : virtual Channel {
-    /// The key of the Synnax channel to write data to.
+    /// @brief the key of the Synnax channel to write data to.
     synnax::ChannelKey synnax_key;
-    /// The Synnax channel object (populated after remote lookup).
+    /// @brief the Synnax channel object (populated after remote lookup).
     synnax::Channel ch;
 
-    /// Binds remote channel information retrieved from Synnax.
+    /// @brief binds remote channel information retrieved from Synnax.
     void bind_remote_info(const synnax::Channel &remote_ch) { this->ch = remote_ch; }
 
 protected:
@@ -84,9 +84,10 @@ protected:
         synnax_key(parser.field<synnax::ChannelKey>("channel")) {}
 };
 
-/// Automatic input channel - resolves PDO address from slave device properties by name.
+/// @brief automatic input channel that resolves PDO address from slave device
+/// properties.
 struct AutomaticInput final : Input {
-    /// The name of the PDO to look up in slave device properties.
+    /// @brief the name of the PDO to look up in slave device properties.
     std::string pdo_name;
 
     explicit AutomaticInput(
@@ -108,7 +109,7 @@ struct AutomaticInput final : Input {
     }
 };
 
-/// Manual input channel - user specifies PDO address inline.
+/// @brief manual input channel where user specifies PDO address inline.
 struct ManualInput final : Input {
     explicit ManualInput(xjson::Parser &parser, const device::SlaveProperties &slave):
         Channel(parser, slave), Input(parser, slave) {
@@ -119,14 +120,11 @@ struct ManualInput final : Input {
     }
 };
 
-/// Factory function type for creating input channels.
+/// @brief factory function type for creating input channels.
 using InputFactory = std::function<
     std::unique_ptr<Input>(xjson::Parser &, const device::SlaveProperties &)>;
 
-/// Parses an input channel from JSON configuration.
-/// @param parser The JSON parser positioned at the channel configuration.
-/// @param slave The slave device properties for PDO resolution.
-/// @returns A unique pointer to the parsed input channel, or nullptr on error.
+/// @brief parses an input channel from JSON configuration.
 inline std::unique_ptr<Input>
 parse_input(xjson::Parser &parser, const device::SlaveProperties &slave) {
     static const std::map<std::string, InputFactory> INPUT_FACTORIES = {
@@ -145,13 +143,13 @@ parse_input(xjson::Parser &parser, const device::SlaveProperties &slave) {
     return nullptr;
 }
 
-/// Base output channel (RxPDO, master->slave).
+/// @brief base output channel (RxPDO, master->slave).
 struct Output : virtual Channel {
-    /// The key of the Synnax channel to receive commands from.
+    /// @brief the key of the Synnax channel to receive commands from.
     synnax::ChannelKey command_key;
-    /// The key of the Synnax channel to write state feedback to.
+    /// @brief the key of the Synnax channel to write state feedback to.
     synnax::ChannelKey state_key;
-    /// The Synnax state channel object (populated after remote lookup).
+    /// @brief the Synnax state channel object (populated after remote lookup).
     synnax::Channel state_ch;
 
     void bind_remote_info(const synnax::Channel &state_channel) {
@@ -165,10 +163,10 @@ protected:
         state_key(parser.field<synnax::ChannelKey>("state_channel", 0)) {}
 };
 
-/// Automatic output channel - resolves PDO address from slave device properties by
-/// name.
+/// @brief automatic output channel that resolves PDO address from slave device
+/// properties.
 struct AutomaticOutput final : Output {
-    /// The name of the PDO to look up in slave device properties.
+    /// @brief the name of the PDO to look up in slave device properties.
     std::string pdo_name;
 
     explicit AutomaticOutput(
@@ -190,7 +188,7 @@ struct AutomaticOutput final : Output {
     }
 };
 
-/// Manual output channel - user specifies PDO address inline.
+/// @brief manual output channel where user specifies PDO address inline.
 struct ManualOutput final : Output {
     explicit ManualOutput(xjson::Parser &parser, const device::SlaveProperties &slave):
         Channel(parser, slave), Output(parser, slave) {
@@ -201,14 +199,11 @@ struct ManualOutput final : Output {
     }
 };
 
-/// Factory function type for creating output channels.
+/// @brief factory function type for creating output channels.
 using OutputFactory = std::function<
     std::unique_ptr<Output>(xjson::Parser &, const device::SlaveProperties &)>;
 
-/// Parses an output channel from JSON configuration.
-/// @param parser The JSON parser positioned at the channel configuration.
-/// @param slave The slave device properties for PDO resolution.
-/// @returns A unique pointer to the parsed output channel, or nullptr on error.
+/// @brief parses an output channel from JSON configuration.
 inline std::unique_ptr<Output>
 parse_output(xjson::Parser &parser, const device::SlaveProperties &slave) {
     static const std::map<std::string, OutputFactory> OUTPUT_FACTORIES = {
@@ -227,7 +222,7 @@ parse_output(xjson::Parser &parser, const device::SlaveProperties &slave) {
     return nullptr;
 }
 
-/// Sorts a vector of channel pointers in place by slave position, then by index.
+/// @brief sorts a vector of channel pointers by slave position, then by index.
 template<typename ChannelPtr>
 void sort_by_position(std::vector<ChannelPtr> &channels) {
     std::sort(channels.begin(), channels.end(), [](const auto &a, const auto &b) {
