@@ -36,7 +36,7 @@ type MockFactoryConfig struct {
 	// OnClose is called when Close is invoked.
 	OnClose func() error
 	// Requests receives all requests sent to the ingest stream.
-	Requests confluence.Inlet[*DataStreamRequest]
+	Requests confluence.Inlet[*IngestWithConfigDataStreamRequest]
 }
 
 var _ config.Config[MockFactoryConfig] = MockFactoryConfig{}
@@ -63,9 +63,9 @@ func (c MockFactoryConfig) Override(other MockFactoryConfig) MockFactoryConfig {
 }
 
 // Validate implements config.Config.
-func (c MockFactoryConfig) Validate() error { return nil }
+func (MockFactoryConfig) Validate() error { return nil }
 
-type mock struct{ cfg MockFactoryConfig }
+type mock struct{ MockFactoryConfig }
 
 var _ Client = (*mock)(nil)
 
@@ -79,7 +79,7 @@ func NewMockFactory(cfgs ...MockFactoryConfig) (Factory, error) {
 		if cfg.ErrorOnNew != nil && *cfg.ErrorOnNew {
 			return nil, errors.New("failed to create client")
 		}
-		return &mock{cfg: cfg}, nil
+		return &mock{MockFactoryConfig: cfg}, nil
 	}, nil
 }
 
@@ -87,8 +87,8 @@ func (m *mock) CreateIngestionConfig(
 	_ context.Context,
 	req *CreateIngestionConfigRequest,
 ) (*CreateIngestionConfigResponse, error) {
-	if m.cfg.ErrorOnCreateIngestionConfig != nil &&
-		*m.cfg.ErrorOnCreateIngestionConfig {
+	if m.ErrorOnCreateIngestionConfig != nil &&
+		*m.ErrorOnCreateIngestionConfig {
 		return nil, errors.New("failed to create ingestion config")
 	}
 	return &CreateIngestionConfigResponse{IngestionConfig: &IngestionConfig{
@@ -102,7 +102,7 @@ func (m *mock) CreateRun(
 	_ context.Context,
 	req *CreateRunRequest,
 ) (*CreateRunResponse, error) {
-	if m.cfg.ErrorOnCreateRun != nil && *m.cfg.ErrorOnCreateRun {
+	if m.ErrorOnCreateRun != nil && *m.ErrorOnCreateRun {
 		return nil, errors.New("failed to create run")
 	}
 	return &CreateRunResponse{
@@ -121,33 +121,33 @@ func (m *mock) CreateRun(
 }
 
 func (m *mock) OpenIngester(context.Context) (Ingester, error) {
-	if m.cfg.ErrorOnOpenIngester != nil && *m.cfg.ErrorOnOpenIngester {
+	if m.ErrorOnOpenIngester != nil && *m.ErrorOnOpenIngester {
 		return nil, errors.New("failed to open ingester")
 	}
 	var errorOnStreamClose bool
-	if m.cfg.ErrorOnIngesterClose != nil {
-		errorOnStreamClose = *m.cfg.ErrorOnIngesterClose
+	if m.ErrorOnIngesterClose != nil {
+		errorOnStreamClose = *m.ErrorOnIngesterClose
 	}
-	return newMockIngester(m.cfg.Requests, errorOnStreamClose), nil
+	return newMockIngester(m.Requests, errorOnStreamClose), nil
 }
 
 func (m *mock) Close() error {
-	if m.cfg.OnClose != nil {
-		return m.cfg.OnClose()
+	if m.OnClose != nil {
+		return m.OnClose()
 	}
 	return nil
 }
 
 type mockIngester struct {
-	confluence.UnarySink[*DataStreamRequest]
-	requests           confluence.Inlet[*DataStreamRequest]
+	confluence.UnarySink[*IngestWithConfigDataStreamRequest]
+	requests           confluence.Inlet[*IngestWithConfigDataStreamRequest]
 	errorOnStreamClose bool
 }
 
 var _ Ingester = (*mockIngester)(nil)
 
 func newMockIngester(
-	requests confluence.Inlet[*DataStreamRequest],
+	requests confluence.Inlet[*IngestWithConfigDataStreamRequest],
 	errorOnStreamClose bool,
 ) *mockIngester {
 	s := &mockIngester{requests: requests, errorOnStreamClose: errorOnStreamClose}
@@ -155,19 +155,19 @@ func newMockIngester(
 	return s
 }
 
-func (s *mockIngester) sink(ctx context.Context, req *DataStreamRequest) error {
-	if s.requests == nil {
+func (i *mockIngester) sink(ctx context.Context, req *IngestWithConfigDataStreamRequest) error {
+	if i.requests == nil {
 		return nil
 	}
 	return signal.SendUnderContext(
 		ctx,
-		s.requests.Inlet(),
+		i.requests.Inlet(),
 		req,
 	)
 }
 
-func (s *mockIngester) Close() error {
-	if s.errorOnStreamClose {
+func (i *mockIngester) Close() error {
+	if i.errorOnStreamClose {
 		return errors.New("failed to close ingester")
 	}
 	return nil

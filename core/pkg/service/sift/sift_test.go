@@ -23,8 +23,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/sift/client"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Sift", func() {
@@ -95,44 +95,6 @@ var _ = Describe("Sift", func() {
 		})
 	})
 
-	Describe("ConvertSeriesToValues", func() {
-		It("Should convert Float64 series correctly", func() {
-			series := telem.NewSeriesV(1.5, 2.5, 3.5)
-			Expect(sift.ConvertSeriesToValues(series)).
-				To(Equal([]any{1.5, 2.5, 3.5}))
-		})
-
-		It("Should convert Int64 series correctly", func() {
-			series := telem.NewSeriesV[int64](1, 2, 3)
-			Expect(sift.ConvertSeriesToValues(series)).
-				To(Equal([]any{int64(1), int64(2), int64(3)}))
-		})
-
-		It("Should convert Int8 to Int32", func() {
-			series := telem.NewSeriesV[int8](1, 2, 3)
-			Expect(sift.ConvertSeriesToValues(series)).
-				To(Equal([]any{int32(1), int32(2), int32(3)}))
-		})
-
-		It("Should convert Float32 series correctly", func() {
-			series := telem.NewSeriesV[float32](1.5, 2.5, 3.5)
-			Expect(sift.ConvertSeriesToValues(series)).
-				To(Equal([]any{float32(1.5), float32(2.5), float32(3.5)}))
-		})
-
-		It("Should convert Uint64 series correctly", func() {
-			series := telem.NewSeriesV[uint64](1, 2, 3)
-			Expect(sift.ConvertSeriesToValues(series)).
-				To(Equal([]any{uint64(1), uint64(2), uint64(3)}))
-		})
-
-		It("Should return error for unsupported type", func() {
-			series := telem.Series{DataType: telem.UUIDT}
-			_, err := sift.ConvertSeriesToValues(series)
-			Expect(err).To(HaveOccurred())
-		})
-	})
-
 	Describe("ParseDeviceProperties", func() {
 		It("Should parse valid JSON properties", func() {
 			jsonStr := `{
@@ -161,7 +123,7 @@ var _ = Describe("Sift", func() {
 				"channels": [1, 2, 3],
 				"time_range": {"start": 1000000000, "end": 2000000000}
 			}`
-			cfg, err := sift.ParseTaskConfig(jsonStr)
+			cfg, err := sift.ParseUploadTaskConfig(jsonStr)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cfg.DeviceKey).To(Equal("sift-device-1"))
 			Expect(cfg.AssetName).To(Equal("test-asset"))

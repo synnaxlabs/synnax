@@ -11,6 +11,7 @@ package sift
 
 import (
 	"context"
+	"maps"
 	"sync"
 
 	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
@@ -153,7 +154,7 @@ func (u *Uploader) doUpload(ctx context.Context, params UploadParams) error {
 	// Set up confluence flow
 	sCtx, cancel := signal.Isolated()
 	defer cancel()
-	requests := confluence.NewStream[*client.DataStreamRequest](1)
+	requests := confluence.NewStream[*client.IngestWithConfigDataStreamRequest](1)
 	stream.InFrom(requests)
 	stream.Flow(sCtx)
 
@@ -189,7 +190,7 @@ func (u *Uploader) doUpload(ctx context.Context, params UploadParams) error {
 
 func (u *Uploader) sendFrame(
 	ctx context.Context,
-	requests confluence.Inlet[*client.DataStreamRequest],
+	requests confluence.Inlet[*client.IngestWithConfigDataStreamRequest],
 	frame framer.Frame,
 	indexChannelKey channel.Key,
 	dataChannelKeys []channel.Key,
@@ -198,10 +199,7 @@ func (u *Uploader) sendFrame(
 	runID string,
 ) error {
 	// Collect frame entries into a map for indexed access
-	entries := make(map[channel.Key]telem.Series)
-	for key, series := range frame.Entries() {
-		entries[key] = series
-	}
+	entries := maps.Collect(frame.Entries())
 
 	// Get timestamps from index channel
 	indexSeries := entries[indexChannelKey]
@@ -242,7 +240,7 @@ func (u *Uploader) sendFrame(
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case requests.Inlet() <- &client.DataStreamRequest{
+		case requests.Inlet() <- &client.IngestWithConfigDataStreamRequest{
 			IngestionConfigId: configID,
 			Flow:              flowName,
 			Timestamp:         timestamppb.New(timestamps[i].Time()),

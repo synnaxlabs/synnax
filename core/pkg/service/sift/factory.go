@@ -55,10 +55,7 @@ type FactoryConfig struct {
 	alamos.Instrumentation
 }
 
-var (
-	_                    config.Config[FactoryConfig] = FactoryConfig{}
-	DefaultFactoryConfig                              = FactoryConfig{}
-)
+var _ config.Config[FactoryConfig] = FactoryConfig{}
 
 func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -92,7 +89,7 @@ var _ driver.Factory = (*Factory)(nil)
 
 // OpenFactory creates a new Sift factory.
 func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
-	cfg, err := config.New(DefaultFactoryConfig, cfgs...)
+	cfg, err := config.New(FactoryConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -104,47 +101,12 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 
 // ConfigureTask creates a Sift upload task.
 func (f *Factory) ConfigureTask(ctx driver.Context, t task.Task) (driver.Task, error) {
-	if t.Type != UploadTaskType {
+	switch t.Type {
+	case UploadTaskType:
+		return f.configureUploadTask(ctx, t)
+	default:
 		return nil, driver.ErrTaskNotHandled
 	}
-
-	cfg, err := ParseTaskConfig(t.Config)
-	if err != nil {
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error())
-		return nil, err
-	}
-
-	// Retrieve device for connection properties
-	var dev device.Device
-	if err := f.cfg.Device.NewRetrieve().
-		WhereKeys(cfg.DeviceKey).
-		Entry(&dev).
-		Exec(ctx, nil); err != nil {
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error())
-		return nil, err
-	}
-
-	props, err := ParseDeviceProperties(dev.Properties)
-	if err != nil {
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error())
-		return nil, err
-	}
-
-	// Get or create client
-	client, err := f.pool.Get(ctx, props.URI, props.APIKey)
-	if err != nil {
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error())
-		return nil, err
-	}
-
-	uploadTask := newUploadTask(t, cfg, client, f.cfg)
-
-	f.setStatus(ctx, t, xstatus.VariantSuccess, "Task configured")
-
-	// Auto-start the upload
-	go uploadTask.run(ctx)
-
-	return uploadTask, nil
 }
 
 func (f *Factory) setStatus(
@@ -152,6 +114,7 @@ func (f *Factory) setStatus(
 	t task.Task,
 	variant xstatus.Variant,
 	message string,
+	running bool,
 ) {
 	stat := task.Status{
 		Key:     task.OntologyID(t.Key).String(),
@@ -159,7 +122,7 @@ func (f *Factory) setStatus(
 		Variant: variant,
 		Message: message,
 		Time:    telem.Now(),
-		Details: task.StatusDetails{Task: t.Key, Running: false},
+		Details: task.StatusDetails{Task: t.Key, Running: running},
 	}
 	if err := ctx.SetStatus(stat); err != nil {
 		f.cfg.L.Error("failed to set status", zap.Stringer("task", t), zap.Error(err))

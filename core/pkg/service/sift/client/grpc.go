@@ -38,24 +38,24 @@ func NewGRPC(ctx context.Context, uri, apiKey string) (Client, error) {
 
 var _ Factory = NewGRPC
 
-func (c *grpc) CreateIngestionConfig(
+func (g *grpc) CreateIngestionConfig(
 	ctx context.Context,
 	req *CreateIngestionConfigRequest,
 ) (*CreateIngestionConfigResponse, error) {
 	return ingestionconfigsv1.
-		NewIngestionConfigServiceClient(c).
+		NewIngestionConfigServiceClient(g).
 		CreateIngestionConfig(ctx, req)
 }
 
-func (c *grpc) CreateRun(
+func (g *grpc) CreateRun(
 	ctx context.Context,
 	req *CreateRunRequest,
 ) (*CreateRunResponse, error) {
-	return runsv2.NewRunServiceClient(c).CreateRun(ctx, req)
+	return runsv2.NewRunServiceClient(g).CreateRun(ctx, req)
 }
 
-func (c *grpc) OpenIngester(ctx context.Context) (Ingester, error) {
-	stream, err := ingestv1.NewIngestServiceClient(c).IngestWithConfigDataStream(ctx)
+func (g *grpc) OpenIngester(ctx context.Context) (Ingester, error) {
+	stream, err := ingestv1.NewIngestServiceClient(g).IngestWithConfigDataStream(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (c *grpc) OpenIngester(ctx context.Context) (Ingester, error) {
 }
 
 type grpcIngester struct {
-	confluence.UnarySink[*DataStreamRequest]
+	confluence.UnarySink[*IngestWithConfigDataStreamRequest]
 	stream ingestv1.IngestService_IngestWithConfigDataStreamClient
 }
 
@@ -77,8 +77,8 @@ func newGRPCIngester(
 	return i
 }
 
-func (s *grpcIngester) sink(_ context.Context, req *DataStreamRequest) error {
-	return s.stream.Send(req)
+func (i *grpcIngester) sink(_ context.Context, req *IngestWithConfigDataStreamRequest) error {
+	return i.stream.Send(req)
 }
 
-func (s *grpcIngester) Close() error { _, err := s.stream.CloseAndRecv(); return err }
+func (i *grpcIngester) Close() error { _, err := i.stream.CloseAndRecv(); return err }

@@ -9,12 +9,3 @@
 
 // Package sift provides integration with Sift for uploading historical data.
 package sift
-
-const (
-	// UploadTaskType is the task type for Sift uploads.
-	UploadTaskType = "sift_upload"
-	// DeviceMake is the device make identifier for Sift devices.
-	DeviceMake = "Sift"
-	// DeviceModel is the device model identifier.
-	DeviceModel = "Cloud"
-)
