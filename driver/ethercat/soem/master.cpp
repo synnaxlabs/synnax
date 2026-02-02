@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <sstream>
+#include <unordered_map>
 
 #include "glog/logging.h"
 
@@ -16,9 +18,31 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace ethercat::soem {
-constexpr int STATE_CHANGE_TIMEOUT = 2000000;
-constexpr int PROCESSDATA_TIMEOUT = 1000;
-constexpr size_t DEFAULT_IOMAP_SIZE = 4096;
+namespace {
+void disambiguate_pdo_names(std::vector<PDOEntryInfo> &pdos) {
+    std::unordered_map<std::string, int> name_counts;
+    for (const auto &pdo: pdos)
+        name_counts[pdo.name]++;
+
+    std::unordered_map<std::string, int> seen_counts;
+    for (auto &pdo: pdos) {
+        if (name_counts[pdo.name] > 1) {
+            std::ostringstream oss;
+            oss << pdo.name << " (0x" << std::hex << pdo.index << ":" << std::dec
+                << static_cast<int>(pdo.subindex) << ")";
+            pdo.name = oss.str();
+        }
+    }
+}
+}
+/// Timeout for EtherCAT state transitions (INIT→PRE_OP→SAFE_OP→OP) in microseconds.
+const int STATE_CHANGE_TIMEOUT = static_cast<int>((telem::SECOND * 2).microseconds());
+/// Timeout for cyclic process data exchange in microseconds.
+const int PROCESSDATA_TIMEOUT = static_cast<int>(telem::MILLISECOND.microseconds());
+/// IOMap buffer size for process data image. This is local memory only - actual wire
+/// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
+/// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
+constexpr size_t DEFAULT_IOMAP_SIZE = 131072;
 
 Master::Master(std::string interface_name):
     iface_name(std::move(interface_name)),
@@ -95,7 +119,14 @@ xerrors::Error Master::activate() {
 
     err = this->request_state(EC_STATE_OPERATIONAL, STATE_CHANGE_TIMEOUT);
     if (err) {
-        this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
+        LOG(WARNING) << "OP transition failed: " << err.message()
+                     << "; attempting recovery to SAFE_OP";
+        auto recovery_err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
+        if (recovery_err) {
+            LOG(ERROR) << "Recovery to SAFE_OP failed: " << recovery_err.message()
+                       << "; forcing INIT state";
+            this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
+        }
         return err;
     }
 
@@ -128,12 +159,22 @@ xerrors::Error Master::receive() {
 
     if (wkc < 0) return xerrors::Error(CYCLIC_ERROR, "process data receive failed");
 
-    if (wkc != this->expected_wkc)
+    if (wkc != this->expected_wkc) {
+        std::string failing_slaves;
+        for (int i = 1; i <= this->context.slavecount; ++i) {
+            if ((this->context.slavelist[i].state & EC_STATE_OPERATIONAL) == 0) {
+                if (!failing_slaves.empty()) failing_slaves += ", ";
+                failing_slaves += std::to_string(i) + " (" +
+                                  std::string(this->context.slavelist[i].name) + ")";
+            }
+        }
         return xerrors::Error(
             WORKING_COUNTER_ERROR,
             "working counter mismatch: expected " + std::to_string(this->expected_wkc) +
-                ", got " + std::to_string(wkc)
+                ", got " + std::to_string(wkc) +
+                (failing_slaves.empty() ? "" : "; slaves not in OP: " + failing_slaves)
         );
+    }
 
     return xerrors::NIL;
 }
@@ -231,6 +272,8 @@ void Master::populate_slaves() {
         info.input_bits = soem_slave.Ibits;
         info.output_bits = soem_slave.Obits;
         this->discover_slave_pdos(info);
+        disambiguate_pdo_names(info.input_pdos);
+        disambiguate_pdo_names(info.output_pdos);
         this->slave_list.push_back(info);
     }
 }
@@ -289,7 +332,8 @@ void Master::cache_pdo_offsets() {
     }
 }
 
-constexpr int SDO_TIMEOUT = 700000;
+/// Timeout for SDO (Service Data Object) reads during PDO discovery in microseconds.
+const int SDO_TIMEOUT = static_cast<int>((telem::MILLISECOND * 700).microseconds());
 constexpr int MAX_SDO_FAILURES = 3;
 
 void Master::discover_slave_pdos(SlaveInfo &slave) {

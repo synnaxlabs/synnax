@@ -1,0 +1,24 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
+cc_library(
+    name = "topology",
+    hdrs = ["topology.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/ethercat/device",
+        "//driver/ethercat/errors",
+        "//driver/ethercat/master",
+        "//x/cpp/xerrors",
+    ],
+)
+
+cc_test(
+    name = "topology_test",
+    srcs = ["topology_test.cpp"],
+    deps = [
+        ":topology",
+        "//x/cpp/xjson",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

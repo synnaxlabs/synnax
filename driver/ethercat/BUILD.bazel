@@ -28,6 +28,7 @@ cc_library(
         "//driver/ethercat/master",
         "//driver/ethercat/mock",
         "//driver/ethercat/soem",
+        "//driver/ethercat/topology",
         "//driver/pipeline",
         "//driver/task",
         "//driver/task/common",

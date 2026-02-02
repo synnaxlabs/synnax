@@ -17,6 +17,20 @@
 #include "driver/ethercat/scan_task.h"
 
 namespace ethercat {
+namespace {
+std::string get_pdo_error_guidance(const std::string &error) {
+    if (error.find("CoE") != std::string::npos ||
+        error.find("mailbox") != std::string::npos)
+        return "Use manual channel configuration with explicit index/subindex values.";
+    if (error.find("SII") != std::string::npos ||
+        error.find("fallback") != std::string::npos)
+        return "PDO order may be unreliable. Verify data correctness after configuration.";
+    if (error.find("empty") != std::string::npos ||
+        error.find("no PDO") != std::string::npos)
+        return "Device reports no PDOs. Use manual channel configuration if needed.";
+    return "Use manual channel configuration if automatic discovery is insufficient.";
+}
+}
 
 Scanner::Scanner(
     std::shared_ptr<task::Context> ctx,
@@ -55,25 +69,11 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
     for (const auto &master_info: masters) {
-        std::vector<SlaveInfo> slaves;
-        const bool is_active = this->pool->is_active(master_info.key);
-
-        if (is_active) {
-            VLOG(2) << SCAN_LOG_PREFIX << "using cached slaves for " << master_info.key;
-            slaves = this->pool->get_slaves(master_info.key);
-        } else {
-            VLOG(2) << SCAN_LOG_PREFIX << "probing " << master_info.key;
-            auto [probed_slaves, err] = this->probe_master(master_info.key);
-            if (err) {
-                VLOG(2) << SCAN_LOG_PREFIX << "probe failed for " << master_info.key
-                        << ": " << err.message();
-                continue;
-            }
-            slaves = std::move(probed_slaves);
-            if (!slaves.empty()) {
-                LOG(INFO) << SCAN_LOG_PREFIX << "discovered " << slaves.size()
-                          << " slaves on " << master_info.key;
-            }
+        auto [slaves, err] = this->pool->discover_slaves(master_info.key);
+        if (err) {
+            VLOG(2) << SCAN_LOG_PREFIX << "discovery failed for " << master_info.key
+                    << ": " << err.message();
+            continue;
         }
 
         if (slaves.empty()) continue;
@@ -99,14 +99,6 @@ bool Scanner::exec(
     return false;
 }
 
-std::pair<std::vector<SlaveInfo>, xerrors::Error>
-Scanner::probe_master(const std::string &key) const {
-    auto [engine, err] = this->pool->acquire(key);
-    if (err) return {{}, err};
-    if (auto init_err = engine->master->initialize()) return {{}, init_err};
-    return {engine->master->slaves(), xerrors::NIL};
-}
-
 synnax::Device Scanner::create_slave_device(
     const SlaveInfo &slave,
     const std::string &master_key,
@@ -129,12 +121,12 @@ synnax::Device Scanner::create_slave_device(
                          " outputs)";
             status_variant = status::variant::SUCCESS;
         } else {
-            status_msg = "Discovered (PDO enumeration: " + slave.pdo_discovery_error +
-                         ")";
+            status_msg = "Discovered with warning: " + slave.pdo_discovery_error +
+                         ". " + get_pdo_error_guidance(slave.pdo_discovery_error);
             status_variant = status::variant::WARNING;
         }
     } else {
-        status_msg = "Discovered (no PDOs found)";
+        status_msg = "Discovered (no PDOs found). " + get_pdo_error_guidance("no PDOs");
         status_variant = status::variant::WARNING;
     }
 
@@ -207,7 +199,7 @@ void Scanner::test_interface(const task::Command &cmd) const {
     }
 
     VLOG(1) << SCAN_LOG_PREFIX << "testing interface " << args.interface;
-    auto [slaves, err] = this->probe_master(args.interface);
+    auto [slaves, err] = this->pool->discover_slaves(args.interface);
     if (err) {
         VLOG(1) << SCAN_LOG_PREFIX << "test_interface failed for "
                 << args.interface << ": " << err.message();

@@ -84,10 +84,6 @@ private:
     std::shared_ptr<engine::Pool> pool;
     std::unordered_map<std::string, size_t> last_slave_counts;
 
-    /// @brief probes a master for EtherCAT slaves.
-    std::pair<std::vector<SlaveInfo>, xerrors::Error>
-    probe_master(const std::string &key) const;
-
     /// @brief creates a slave device for the given slave.
     synnax::Device create_slave_device(
         const SlaveInfo &slave,

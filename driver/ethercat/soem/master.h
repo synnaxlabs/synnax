@@ -14,6 +14,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "glog/logging.h"
+
 extern "C" {
 #include "soem/soem.h"
 }
@@ -168,6 +170,8 @@ public:
                 info.key = current->name;
                 info.description = current->desc;
                 masters.push_back(std::move(info));
+            } else {
+                VLOG(2) << "[ethercat] skipping virtual interface: " << current->name;
             }
             current = current->next;
         }

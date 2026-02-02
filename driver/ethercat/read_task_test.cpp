@@ -525,3 +525,34 @@ TEST_F(EtherCATReadTest, SourceReturnsEmptyFrameWhenBreakerStopped) {
 
     ASSERT_NIL(source.stop());
 }
+
+TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+
+    auto parser = xjson::Parser(cfg);
+    ethercat::ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+
+    auto mismatched_master = std::make_shared<ethercat::mock::Master>(
+        NETWORK_INTERFACE
+    );
+    mismatched_master->add_slave(
+        ethercat::mock::MockSlaveConfig(0, 0x99, 0x2, SLAVE_SERIAL, "Test Slave")
+    );
+    auto mismatched_engine = std::make_shared<ethercat::engine::Engine>(
+        mismatched_master
+    );
+
+    auto source = ethercat::ReadTaskSource(mismatched_engine, std::move(task_cfg));
+    ASSERT_OCCURRED_AS(source.start(), ethercat::TOPOLOGY_MISMATCH);
+}

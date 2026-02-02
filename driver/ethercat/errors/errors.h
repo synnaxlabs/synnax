@@ -50,4 +50,6 @@ const xerrors::Error PDO_DISCOVERY_ERROR = BASE_ERROR.sub("pdo_discovery");
 const xerrors::Error SDO_READ_ERROR = BASE_ERROR.sub("sdo_read");
 /// @brief error returned when engine rate doesn't match requested rate.
 const xerrors::Error RATE_MISMATCH = BASE_ERROR.sub("rate_mismatch");
+/// @brief error returned when bus topology doesn't match configured devices.
+const xerrors::Error TOPOLOGY_MISMATCH = BASE_ERROR.sub("topology_mismatch");
 }

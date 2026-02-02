@@ -83,10 +83,15 @@ class Engine {
 
     void publish_inputs(std::span<const uint8_t> src);
     const uint8_t *consume_outputs(size_t &out_len);
+    void update_read_offsets_locked();
     void update_read_offsets();
+    void update_write_offsets_locked(size_t total_size);
     void update_write_offsets(size_t total_size);
     void unregister_reader(size_t id);
     void unregister_writer(size_t id);
+
+    std::shared_ptr<master::Master> master;
+    mutable std::mutex master_init_mu;
 
 public:
     /// @brief resolved PDO entry with offset and type information.
@@ -167,9 +172,6 @@ public:
         void write(size_t pdo_index, const telem::SampleValue &value) const;
     };
 
-    /// @brief the EtherCAT master used for cyclic exchange.
-    const std::shared_ptr<master::Master> master;
-
     /// @brief constructs an Engine with the given master and configuration.
     explicit Engine(std::shared_ptr<master::Master> master, const Config &config);
 
@@ -197,5 +199,14 @@ public:
 
     /// @brief returns the current engine cycle rate (thread-safe).
     [[nodiscard]] telem::Rate cycle_rate() const;
+
+    /// @brief initializes the master (thread-safe, idempotent).
+    [[nodiscard]] xerrors::Error ensure_initialized();
+
+    /// @brief returns discovered slaves.
+    [[nodiscard]] std::vector<SlaveInfo> slaves() const;
+
+    /// @brief returns the interface name.
+    [[nodiscard]] std::string interface_name() const;
 };
 }

@@ -74,9 +74,13 @@ public:
     [[nodiscard]] virtual std::vector<SlaveInfo> slaves() const = 0;
 
     /// @brief returns the current state of a specific slave.
+    /// @note Not safe to call while receive()/send() are actively cycling. Use only
+    /// for pre-activation verification or post-deactivation diagnostics.
     [[nodiscard]] virtual SlaveState slave_state(uint16_t position) const = 0;
 
     /// @brief checks if all configured slaves are in OPERATIONAL state.
+    /// @note Not safe to call while receive()/send() are actively cycling. Use only
+    /// for pre-activation verification or post-deactivation diagnostics.
     [[nodiscard]] virtual bool all_slaves_operational() const = 0;
 
     /// @brief returns the name of the network interface this master is bound to.

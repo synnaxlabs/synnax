@@ -19,6 +19,7 @@
 #include "driver/ethercat/channel/channel.h"
 #include "driver/ethercat/device/device.h"
 #include "driver/ethercat/engine/engine.h"
+#include "driver/ethercat/topology/topology.h"
 #include "driver/task/common/read_task.h"
 #include "driver/task/common/sample_clock.h"
 
@@ -33,13 +34,16 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     std::vector<std::unique_ptr<channel::Input>> channels;
     /// @brief number of samples per channel per batch.
     size_t samples_per_chan;
+    /// @brief cached device properties for topology validation.
+    std::unordered_map<std::string, device::SlaveProperties> device_cache;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         BaseReadTaskConfig(std::move(other)),
         interface_name(std::move(other.interface_name)),
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)),
-        samples_per_chan(other.samples_per_chan) {}
+        samples_per_chan(other.samples_per_chan),
+        device_cache(std::move(other.device_cache)) {}
 
     ReadTaskConfig(const ReadTaskConfig &) = delete;
     const ReadTaskConfig &operator=(const ReadTaskConfig &) = delete;
@@ -99,6 +103,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
 
         this->interface_name = first_network;
+        this->device_cache = std::move(slave_cache);
 
         channel::sort_by_position(this->channels);
 
@@ -160,6 +165,13 @@ public:
         cfg(std::move(cfg)), engine(std::move(eng)) {}
 
     xerrors::Error start() override {
+        if (auto err = topology::validate(
+                this->engine->slaves(),
+                this->cfg.device_cache
+            );
+            err)
+            return err;
+
         std::vector<PDOEntry> entries;
         entries.reserve(this->cfg.channels.size());
         for (const auto &ch: this->cfg.channels)

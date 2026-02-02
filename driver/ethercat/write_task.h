@@ -19,6 +19,7 @@
 #include "driver/ethercat/channel/channel.h"
 #include "driver/ethercat/device/device.h"
 #include "driver/ethercat/engine/engine.h"
+#include "driver/ethercat/topology/topology.h"
 #include "driver/task/common/write_task.h"
 
 namespace ethercat {
@@ -36,6 +37,8 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     telem::Rate state_rate;
     /// @brief rate at which write commands are executed.
     telem::Rate execution_rate;
+    /// @brief cached device properties for topology validation.
+    std::unordered_map<std::string, device::SlaveProperties> device_cache;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
         BaseWriteTaskConfig(std::move(other)),
@@ -44,7 +47,8 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         state_channels(std::move(other.state_channels)),
         state_indexes(std::move(other.state_indexes)),
         state_rate(other.state_rate),
-        execution_rate(other.execution_rate) {}
+        execution_rate(other.execution_rate),
+        device_cache(std::move(other.device_cache)) {}
 
     WriteTaskConfig(const WriteTaskConfig &) = delete;
     const WriteTaskConfig &operator=(const WriteTaskConfig &) = delete;
@@ -92,6 +96,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         if (cfg.error()) return;
 
         this->interface_name = first_network;
+        this->device_cache = std::move(slave_cache);
 
         channel::sort_by_position(this->channels);
         std::vector<synnax::ChannelKey> state_keys;
@@ -145,6 +150,13 @@ public:
         engine(std::move(eng)) {}
 
     xerrors::Error start() override {
+        if (auto err = topology::validate(
+                this->engine->slaves(),
+                this->cfg.device_cache
+            );
+            err)
+            return err;
+
         std::vector<PDOEntry> entries;
         entries.reserve(this->cfg.channels.size());
         for (const auto &ch: this->cfg.channels)

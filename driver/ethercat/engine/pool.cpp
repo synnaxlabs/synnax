@@ -39,8 +39,30 @@ bool Pool::is_active(const std::string &key) const {
 std::vector<SlaveInfo> Pool::get_slaves(const std::string &key) const {
     std::lock_guard lock(this->mu);
     const auto it = this->engines.find(key);
-    if (it != this->engines.end()) return it->second->master->slaves();
+    if (it != this->engines.end()) return it->second->slaves();
     return {};
+}
+
+std::pair<std::vector<SlaveInfo>, xerrors::Error>
+Pool::discover_slaves(const std::string &key) {
+    std::lock_guard lock(this->mu);
+
+    auto it = this->engines.find(key);
+    if (it != this->engines.end()) {
+        auto &engine = it->second;
+        if (engine->running()) return {engine->slaves(), xerrors::NIL};
+        if (auto err = engine->ensure_initialized()) return {{}, err};
+        return {engine->slaves(), xerrors::NIL};
+    }
+
+    auto [m, err] = this->manager->create(key);
+    if (err) return {{}, err};
+
+    auto engine = std::make_shared<Engine>(std::move(m));
+    if (auto init_err = engine->ensure_initialized()) return {{}, init_err};
+
+    this->engines[key] = engine;
+    return {engine->slaves(), xerrors::NIL};
 }
 
 }

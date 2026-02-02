@@ -13,6 +13,7 @@
 #include "x/cpp/xtest/xtest.h"
 
 #include "driver/ethercat/engine/engine.h"
+#include "driver/ethercat/engine/pool.h"
 #include "driver/ethercat/mock/master.h"
 
 class EngineTest : public ::testing::Test {
@@ -483,4 +484,87 @@ TEST_F(EngineReadValueTest, ReadValueSubByte4Bit) {
 
     ASSERT_EQ(frame.series->at(0).size(), 1);
     EXPECT_EQ(frame.series->at(0).at<uint8_t>(0), static_cast<uint8_t>(0x0F));
+}
+
+TEST_F(EngineTest, EnsureInitializedIdempotent) {
+    ASSERT_NIL(this->engine->ensure_initialized());
+    ASSERT_NIL(this->engine->ensure_initialized());
+}
+
+TEST_F(EngineTest, SlavesReturnsDiscoveredSlaves) {
+    auto multi_master = std::make_shared<ethercat::mock::Master>("eth0");
+    multi_master->add_slave(ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    multi_master->add_slave(ethercat::mock::MockSlaveConfig(1, 0x3, 0x4, "Slave2"));
+    auto multi_engine = std::make_shared<ethercat::engine::Engine>(multi_master);
+
+    ASSERT_NIL(multi_engine->ensure_initialized());
+
+    auto slaves = multi_engine->slaves();
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_EQ(slaves[0].position, 0);
+    EXPECT_EQ(slaves[1].position, 1);
+}
+
+TEST_F(EngineTest, InterfaceNameReturnsCorrect) {
+    EXPECT_EQ(this->engine->interface_name(), "eth0");
+}
+
+TEST(PoolTest, DiscoverSlavesCreatesEngine) {
+    auto mock_master = std::make_shared<ethercat::mock::Master>("eth0");
+    mock_master->add_slave(ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    mock_master->add_slave(ethercat::mock::MockSlaveConfig(1, 0x3, 0x4, "Slave2"));
+
+    auto manager = std::make_unique<ethercat::mock::Manager>();
+    manager->configure("eth0", mock_master);
+
+    ethercat::engine::Pool pool(std::move(manager));
+
+    auto [slaves, err] = pool.discover_slaves("eth0");
+    ASSERT_NIL(err);
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_EQ(slaves[0].position, 0);
+    EXPECT_EQ(slaves[1].position, 1);
+}
+
+TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
+    auto mock_master = std::make_shared<ethercat::mock::Master>("eth0");
+    mock_master->add_slave(ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    mock_master->add_slave(ethercat::mock::MockSlaveConfig(1, 0x3, 0x4, "Slave2"));
+
+    auto manager = std::make_unique<ethercat::mock::Manager>();
+    manager->configure("eth0", mock_master);
+
+    ethercat::engine::Pool pool(std::move(manager));
+
+    auto [engine, acq_err] = pool.acquire("eth0");
+    ASSERT_NIL(acq_err);
+    auto reader = ASSERT_NIL_P(engine->open_reader(
+        {ethercat::PDOEntry(0, 0x6000, 1, 16, true)},
+        telem::Rate(100)
+    ));
+
+    EXPECT_TRUE(pool.is_active("eth0"));
+
+    auto [slaves, err] = pool.discover_slaves("eth0");
+    ASSERT_NIL(err);
+    ASSERT_EQ(slaves.size(), 2);
+    EXPECT_EQ(slaves[0].position, 0);
+    EXPECT_EQ(slaves[1].position, 1);
+}
+
+TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
+    auto mock_master = std::make_shared<ethercat::mock::Master>("eth0");
+    mock_master->inject_init_error(
+        xerrors::Error(ethercat::MASTER_INIT_ERROR, "no interface")
+    );
+
+    auto manager = std::make_unique<ethercat::mock::Manager>();
+    manager->configure("eth0", mock_master);
+
+    ethercat::engine::Pool pool(std::move(manager));
+
+    auto [slaves, err] = pool.discover_slaves("eth0");
+    ASSERT_OCCURRED_AS(err, ethercat::MASTER_INIT_ERROR);
+    EXPECT_TRUE(slaves.empty());
+    EXPECT_FALSE(pool.is_active("eth0"));
 }

@@ -494,3 +494,34 @@ TEST_F(EtherCATWriteTest, SinkIgnoresMissingChannelInFrame) {
 
     ASSERT_NIL(sink.stop());
 }
+
+TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
+    auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("cmd"),
+        telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_automatic_output_channel_config(cmd_ch.key, "control_word")
+    );
+
+    auto parser = xjson::Parser(cfg);
+    ethercat::WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+
+    auto mismatched_master = std::make_shared<ethercat::mock::Master>(
+        NETWORK_INTERFACE
+    );
+    mismatched_master->add_slave(
+        ethercat::mock::MockSlaveConfig(0, 0x99, 0x2, SLAVE_SERIAL, "Test Slave")
+    );
+    auto mismatched_engine = std::make_shared<ethercat::engine::Engine>(
+        mismatched_master
+    );
+
+    auto sink = ethercat::WriteTaskSink(mismatched_engine, std::move(task_cfg));
+    ASSERT_OCCURRED_AS(sink.start(), ethercat::TOPOLOGY_MISMATCH);
+}

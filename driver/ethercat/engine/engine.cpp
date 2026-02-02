@@ -101,6 +101,8 @@ void Engine::stop() {
 }
 
 xerrors::Error Engine::reconfigure() {
+    std::scoped_lock lk(this->registration_mu, this->write_mu);
+
     if (this->breaker.running()) {
         LOG(INFO) << "[ethercat] restarting engine " + this->master->interface_name() +
                          " for reconfiguration";
@@ -110,16 +112,13 @@ xerrors::Error Engine::reconfigure() {
         if (this->run_thread.joinable()) this->run_thread.join();
         this->master->deactivate();
     }
+
     std::vector<PDOEntry> all_entries;
-    {
-        std::scoped_lock lk(this->registration_mu, this->write_mu);
-        for (const auto &reg: this->read_registrations)
-            all_entries
-                .insert(all_entries.end(), reg.entries.begin(), reg.entries.end());
-        for (const auto &reg: this->write_registrations)
-            all_entries
-                .insert(all_entries.end(), reg.entries.begin(), reg.entries.end());
-    }
+    for (const auto &reg: this->read_registrations)
+        all_entries.insert(all_entries.end(), reg.entries.begin(), reg.entries.end());
+    for (const auto &reg: this->write_registrations)
+        all_entries.insert(all_entries.end(), reg.entries.begin(), reg.entries.end());
+
     this->breaker.start();
     while (this->breaker.running()) {
         if (auto err = this->master->initialize(); err) {
@@ -150,9 +149,10 @@ xerrors::Error Engine::reconfigure() {
         }
         break;
     }
+
     this->breaker.reset();
-    this->update_read_offsets();
-    this->update_write_offsets(this->master->output_data().size());
+    this->update_read_offsets_locked();
+    this->update_write_offsets_locked(this->master->output_data().size());
     this->restarting = false;
     this->breaker.start();
     this->run_thread = std::thread(&Engine::run, this);
@@ -211,8 +211,7 @@ const uint8_t *Engine::consume_outputs(size_t &out_len) {
     return this->write_active.data();
 }
 
-void Engine::update_read_offsets() {
-    std::lock_guard lock(this->registration_mu);
+void Engine::update_read_offsets_locked() {
     const size_t input_size = this->master->input_data().size();
     if (this->shared_input_buffer.size() != input_size)
         this->shared_input_buffer.resize(input_size);
@@ -223,8 +222,12 @@ void Engine::update_read_offsets() {
     }
 }
 
-void Engine::update_write_offsets(const size_t total_size) {
-    std::lock_guard lock(this->write_mu);
+void Engine::update_read_offsets() {
+    std::lock_guard lock(this->registration_mu);
+    this->update_read_offsets_locked();
+}
+
+void Engine::update_write_offsets_locked(const size_t total_size) {
     for (auto &reg: this->write_registrations) {
         reg.offsets.clear();
         for (const auto &entry: reg.entries)
@@ -238,6 +241,11 @@ void Engine::update_write_offsets(const size_t total_size) {
         old_staging.data(),
         std::min(old_staging.size(), this->write_staging.size())
     );
+}
+
+void Engine::update_write_offsets(const size_t total_size) {
+    std::lock_guard lock(this->write_mu);
+    this->update_write_offsets_locked(total_size);
 }
 
 void Engine::unregister_reader(const size_t id) {
@@ -610,5 +618,18 @@ std::pair<std::unique_ptr<Engine::Writer>, xerrors::Error> Engine::open_writer(
         std::make_unique<Writer>(*this, reg_id, std::move(resolved_pdos)),
         xerrors::NIL
     };
+}
+
+xerrors::Error Engine::ensure_initialized() {
+    std::lock_guard lock(this->master_init_mu);
+    return this->master->initialize();
+}
+
+std::vector<SlaveInfo> Engine::slaves() const {
+    return this->master->slaves();
+}
+
+std::string Engine::interface_name() const {
+    return this->master->interface_name();
 }
 }

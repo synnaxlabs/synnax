@@ -10,7 +10,9 @@
 #pragma once
 
 #include <cstdint>
+#include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "nlohmann/json.hpp"
@@ -104,6 +106,24 @@ struct PDOEntryInfo {
     }
 };
 
+/// @brief disambiguates duplicate PDO names by appending index:subindex.
+/// PDO entries with unique names are left unchanged. Entries with duplicate
+/// names get "(0xINDEX:SUBINDEX)" appended to make them unique.
+/// @param pdos The vector of PDO entries to disambiguate (modified in place).
+inline void disambiguate_pdo_names(std::vector<PDOEntryInfo> &pdos) {
+    std::unordered_map<std::string, int> name_counts;
+    for (const auto &pdo: pdos)
+        name_counts[pdo.name]++;
+    for (auto &pdo: pdos) {
+        if (name_counts[pdo.name] > 1) {
+            std::ostringstream oss;
+            oss << pdo.name << " (0x" << std::hex << pdo.index << ":" << std::dec
+                << static_cast<int>(pdo.subindex) << ")";
+            pdo.name = oss.str();
+        }
+    }
+}
+
 /// @brief information about an EtherCAT slave device discovered on the network.
 struct SlaveInfo {
     /// @brief position of the slave on the EtherCAT bus (0-based index).
@@ -188,6 +208,7 @@ struct SlaveInfo {
         props["position"] = this->position;
         props["input_bits"] = this->input_bits;
         props["output_bits"] = this->output_bits;
+        props["pdo_order_reliable"] = this->coe_pdo_order_reliable;
 
         nlohmann::json inputs = nlohmann::json::array();
         for (const auto &pdo: this->input_pdos)
