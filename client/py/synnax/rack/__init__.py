@@ -8,6 +8,21 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.rack.client import Client
-from synnax.rack.payload import Rack
+from synnax.rack.types_gen import (
+    ONTOLOGY_TYPE,
+    Key,
+    Rack,
+    Status,
+    StatusDetails,
+    ontology_id,
+)
 
-__all__ = ["Client", "Rack"]
+__all__ = [
+    "Client",
+    "Key",
+    "Rack",
+    "Status",
+    "StatusDetails",
+    "ONTOLOGY_TYPE",
+    "ontology_id",
+]

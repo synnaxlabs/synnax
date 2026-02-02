@@ -26,8 +26,8 @@ from synnax.channel.payload import (
     ChannelKeys,
     ChannelName,
     ChannelNames,
-    ChannelPayload,
 )
+from synnax.channel.payload import Payload as ChannelPayload
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.codec import (
     HIGH_PERF_SPECIAL_CHAR,

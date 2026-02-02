@@ -26,9 +26,11 @@ from synnax.channel.payload import (
     ChannelName,
     ChannelNames,
     ChannelParams,
-    ChannelPayload,
+    Payload,
 )
 from synnax.channel.retrieve import ChannelRetriever
+from synnax.color import Color
+from synnax.color import Crude as CrudeColor
 from synnax.exceptions import QueryError
 from synnax.framer.client import Client
 from synnax.framer.frame import CrudeFrame
@@ -42,10 +44,10 @@ from synnax.ranger.payload import (
     RangeKeys,
     RangeName,
     RangeNames,
-    RangePayload,
-    ontology_id,
 )
 from synnax.ranger.retrieve import RangeRetriever
+from synnax.ranger.types_gen import Payload as RangePayload
+from synnax.ranger.types_gen import ontology_id
 from synnax.ranger.writer import RangeWriter
 from synnax.signals.signals import Registry
 from synnax.state import LatestState
@@ -66,7 +68,7 @@ from synnax.util.params import require_named_params
 RANGE_SET_CHANNEL = "sy_range_set"
 
 
-class _InternalScopedChannel(ChannelPayload):
+class _InternalScopedChannel(Payload):
     __range: Range | None = PrivateAttr(None)
     """The range that this channel belongs to."""
     __frame_client: Client | None = PrivateAttr(None)
@@ -88,7 +90,7 @@ class _InternalScopedChannel(ChannelPayload):
         frame_client: Client,
         tasks: TaskClient,
         ontology: OntologyClient,
-        payload: ChannelPayload,
+        payload: Payload,
         aliaser: Aliaser | None = None,
     ):
         super().__init__(**payload.model_dump())
@@ -272,7 +274,7 @@ class Range(RangePayload):
         name: str,
         time_range: TimeRange,
         key: UUID = UUID(int=0),
-        color: str = "",
+        color: CrudeColor | None = None,
         *,
         _frame_client: Client | None = None,
         _channel_retriever: ChannelRetriever | None = None,
@@ -310,9 +312,7 @@ class Range(RangePayload):
         self._tasks = _tasks
         self._ontology = _ontology
 
-    def _get_scoped_channel(
-        self, channels: list[ChannelPayload], query: str
-    ) -> ScopedChannel:
+    def _get_scoped_channel(self, channels: list[Payload], query: str) -> ScopedChannel:
         if len(channels) == 0:
             raise QueryError(f"Channel matching {query} not found")
         return ScopedChannel(query, self.__splice_cached(channels))
@@ -333,9 +333,7 @@ class Range(RangePayload):
             return self._get_scoped_channel(channels, name.__str__())
         return self.__getattr__(name)
 
-    def __splice_cached(
-        self, channels: list[ChannelPayload]
-    ) -> list[_InternalScopedChannel]:
+    def __splice_cached(self, channels: list[Payload]) -> list[_InternalScopedChannel]:
         results = list()
         for pld in channels:
             cached = self._cache.get(pld.key, None)
@@ -409,14 +407,12 @@ class Range(RangePayload):
         return RangePayload(name=self.name, time_range=self.time_range, key=self.key)
 
     @overload
-    def write(
-        self, to: ChannelKey | ChannelName | ChannelPayload, data: CrudeSeries
-    ): ...
+    def write(self, to: ChannelKey | ChannelName | Payload, data: CrudeSeries): ...
 
     @overload
     def write(
         self,
-        to: ChannelKeys | ChannelNames | list[ChannelPayload],
+        to: ChannelKeys | ChannelNames | list[Payload],
         series: list[CrudeSeries],
     ): ...
 
@@ -425,7 +421,7 @@ class Range(RangePayload):
 
     def write(
         self,
-        to: ChannelParams | ChannelPayload | list[ChannelPayload] | CrudeFrame,
+        to: ChannelParams | Payload | list[Payload] | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> None:
         start = self.time_range.start
@@ -436,7 +432,7 @@ class Range(RangePayload):
         *,
         name: str,
         time_range: TimeRange,
-        color: str = "",
+        color: CrudeColor | None = None,
         key: RangeKey = UUID(int=0),
     ) -> Range:
         return self._client.create(
@@ -452,7 +448,7 @@ class Range(RangePayload):
         *,
         name: str,
         time_range: TimeRange,
-        color: str = "",
+        color: CrudeColor | None = None,
         key: RangeKey = UUID(int=0),
     ) -> Range:
         """
@@ -523,7 +519,7 @@ class RangeClient:
         *,
         name: str,
         time_range: TimeRange,
-        color: str = "",
+        color: CrudeColor | None = None,
         retrieve_if_name_exists: bool = False,
         parent: ID | None = None,
         key: RangeKey = UUID(int=0),
@@ -586,7 +582,7 @@ class RangeClient:
         key: RangeKey = UUID(int=0),
         name: str = "",
         time_range: TimeRange | None = None,
-        color: str = "",
+        color: Color | None = None,
         retrieve_if_name_exists: bool = False,
         parent: ID | None = None,
     ) -> Range | list[Range]:

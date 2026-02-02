@@ -221,6 +221,43 @@ class TestModbusReadTask:
                 address=65536, channel=1234, data_type="float32"
             )
 
+    def test_to_payload_serializes_config(self):
+        """Test that to_payload() correctly serializes the config into the payload.
+
+        This is a regression test for the JSONConfigMixin.to_payload() method which
+        must serialize self.config into the payload, not just return the internal task.
+        """
+        task = sy.modbus.ReadTask(
+            name="test-payload-serialization",
+            device="some-device-key",
+            sample_rate=50,
+            stream_rate=10,
+            data_saving=True,
+            auto_start=False,
+            channels=[
+                sy.modbus.HoldingRegisterInputChan(
+                    key="holding-reg-1",
+                    address=0,
+                    channel=1234,
+                    data_type="float32",
+                ),
+            ],
+        )
+
+        payload = task.to_payload()
+
+        # Verify the config is properly serialized in the payload
+        assert payload.config is not None
+        assert isinstance(payload.config, dict)
+        assert payload.config["sample_rate"] == 50
+        assert payload.config["stream_rate"] == 10
+        assert payload.config["device"] == "some-device-key"
+        assert payload.config["data_saving"] is True
+        assert payload.config["auto_start"] is False
+        assert len(payload.config["channels"]) == 1
+        assert payload.config["channels"][0]["address"] == 0
+        assert payload.config["channels"][0]["data_type"] == "float32"
+
     def test_create_and_retrieve_read_task(self, client: sy.Synnax):
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.modbus.ReadTask(
@@ -247,7 +284,7 @@ class TestModbusReadTask:
         created_task = client.tasks.create(
             name="test-modbus-read-task",
             type="modbus_read",
-            config=task.config.model_dump_json(),
+            config=task.config,
         )
         sy.modbus.ReadTask(created_task)
 
@@ -392,6 +429,35 @@ class TestModbusWriteTask:
         assert channel.key != ""
         assert len(channel.key) > 0
 
+    def test_to_payload_serializes_config(self):
+        """Test that to_payload() correctly serializes the config into the payload.
+
+        This is a regression test for the JSONConfigMixin.to_payload() method which
+        must serialize self.config into the payload, not just return the internal task.
+        """
+        task = sy.modbus.WriteTask(
+            name="test-payload-serialization",
+            device="some-device-key",
+            auto_start=False,
+            channels=[
+                sy.modbus.CoilOutputChan(
+                    key="coil-1",
+                    address=5,
+                    channel=1234,
+                ),
+            ],
+        )
+
+        payload = task.to_payload()
+
+        # Verify the config is properly serialized in the payload
+        assert payload.config is not None
+        assert isinstance(payload.config, dict)
+        assert payload.config["device"] == "some-device-key"
+        assert payload.config["auto_start"] is False
+        assert len(payload.config["channels"]) == 1
+        assert payload.config["channels"][0]["address"] == 5
+
     def test_create_and_retrieve_write_task(self, client: sy.Synnax):
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.modbus.WriteTask(
@@ -415,7 +481,7 @@ class TestModbusWriteTask:
         created_task = client.tasks.create(
             name="test-modbus-write-task",
             type="modbus_write",
-            config=task.config.model_dump_json(),
+            config=task.config,
         )
         sy.modbus.WriteTask(created_task)
 
@@ -445,7 +511,7 @@ class TestModbusWriteTask:
         )
 
         # Serialize to JSON
-        config_json = original_task.config.model_dump_json()
+        config_json = original_task.config
 
         # Create task in database
         created_task = client.tasks.create(
@@ -546,16 +612,15 @@ class TestModbusDevicePropertyUpdates:
 
         # Retrieve device and check properties
         updated_device = client.devices.retrieve(key=device.key)
-        props = json.loads(updated_device.properties)
 
         # Verify read.channels mapping exists
-        assert "read" in props
-        assert "channels" in props["read"]
+        assert "read" in updated_device.properties
+        assert "channels" in updated_device.properties["read"]
 
         # Verify channel keys match Console format:
         # InputRegisterChan: "register-input-{address}-{dataType}"
         # HoldingRegisterInputChan: "holding-register-input-{address}-{dataType}"
-        channels = props["read"]["channels"]
+        channels = updated_device.properties["read"]["channels"]
 
         # Check InputRegisterChan mapping (type-address-dataType, underscores replaced with hyphens)
         assert "register-input-0-uint8" in channels
@@ -627,14 +692,13 @@ class TestModbusDevicePropertyUpdates:
 
         # Retrieve device and check properties
         updated_device = client.devices.retrieve(key=device.key)
-        props = json.loads(updated_device.properties)
 
         # Verify write.channels mapping exists
-        assert "write" in props
-        assert "channels" in props["write"]
+        assert "write" in updated_device.properties
+        assert "channels" in updated_device.properties["write"]
 
         # Verify channel keys match Console format (type-address, no dataType for write)
-        channels = props["write"]["channels"]
+        channels = updated_device.properties["write"]["channels"]
 
         # Check CoilOutputChan mapping (type-address, underscores replaced with hyphens)
         assert "coil-output-10" in channels

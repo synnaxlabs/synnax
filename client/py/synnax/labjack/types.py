@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 from typing import Literal, get_args
 from uuid import uuid4
 
@@ -422,7 +421,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = ReadTaskConfig.model_validate_json(internal.config)
+            self.config = ReadTaskConfig.model_validate(internal.config)
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = ReadTaskConfig(
@@ -437,20 +436,13 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        props = (
-            json.loads(dev.properties)
-            if isinstance(dev.properties, str)
-            else dev.properties
-        )
-
-        if "read" not in props:
-            props["read"] = {"index": 0, "channels": {}}
+        if "read" not in dev.properties:
+            dev.properties["read"] = {"index": 0, "channels": {}}
 
         for ch in self.config.channels:
             # Map port location -> channel key for Console
-            props["read"]["channels"][ch.port] = ch.channel
+            dev.properties["read"]["channels"][ch.port] = ch.channel
 
-        dev.properties = json.dumps(props)
         return device_client.create(dev)
 
 
@@ -490,7 +482,7 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     ):
         if internal is not None:
             self._internal = internal
-            self.config = WriteTaskConfig.model_validate_json(internal.config)
+            self.config = WriteTaskConfig.model_validate(internal.config)
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = WriteTaskConfig(
@@ -504,20 +496,14 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        props = (
-            json.loads(dev.properties)
-            if isinstance(dev.properties, str)
-            else dev.properties
-        )
-
-        if "write" not in props:
-            props["write"] = {"channels": {}}
+        if "write" not in dev.properties:
+            dev.properties["write"] = {"channels": {}}
 
         for ch in self.config.channels:
             # Map port location -> state_channel key for Console
-            props["write"]["channels"][ch.port] = ch.state_channel
+            dev.properties["write"]["channels"][ch.port] = ch.state_channel
 
-        dev.properties = json.dumps(props)
+        dev.properties = dev.properties
         return device_client.create(dev)
 
 
@@ -599,5 +585,5 @@ class Device(device.Device):
             make=MAKE,
             model=model,
             configured=configured,
-            properties=json.dumps(props),
+            properties=props,
         )

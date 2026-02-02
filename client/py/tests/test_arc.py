@@ -188,7 +188,7 @@ class TestArcTask:
         payload = task.to_payload()
         assert payload.type == "arc"
         assert payload.name == "Test Arc Task"
-        assert str(arc.key) in payload.config
+        assert payload.config["arc_key"] == str(arc.key)
 
     def test_arc_task_requires_arc_key(self):
         """Should raise error when arc_key is not provided."""
@@ -213,7 +213,7 @@ class TestArcTask:
         assert created.key != 0
         assert created.name == task_name
         assert created.type == "arc"
-        assert str(arc.key) in created.config
+        assert created.config["arc_key"] == str(arc.key)
 
     def test_retrieve_arc_task(self, client: sy.Synnax):
         """Should retrieve an Arc task from the cluster."""

@@ -9,24 +9,25 @@
 
 from __future__ import annotations
 
-import json
 import warnings
 from contextlib import contextmanager
-from typing import Protocol, overload
+from typing import Any, Protocol, overload
 from uuid import uuid4
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
 from pydantic import BaseModel, Field, ValidationError, conint, field_validator
 
+from synnax import status
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
-from synnax.exceptions import ConfigurationError, UnexpectedError
+from synnax.exceptions import ConfigurationError
 from synnax.framer import Client as FrameClient
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
-from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
-from synnax.task.payload import TaskPayload, TaskStatus, ontology_id
+from synnax.task.types_gen import Key
+from synnax.task.types_gen import Payload as TaskPayload
+from synnax.task.types_gen import Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
 
@@ -71,7 +72,6 @@ _DELETE_ENDPOINT = "/task/delete"
 _RETRIEVE_ENDPOINT = "/task/retrieve"
 _COPY_ENDPOINT = "/task/copy"
 
-_TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
 
 
@@ -130,35 +130,35 @@ class BaseWriteTaskConfig(BaseTaskConfig):
     "The key of the Synnax device this task will communicate with."
 
 
-class Task:
-    key: int = 0
-    name: str = ""
-    type: str = ""
-    config: str = ""
-    snapshot: bool = False
-    status: TaskStatus | None = None
+class Task(TaskPayload):
     _frame_client: FrameClient | None = None
 
     def __init__(
         self,
         *,
-        key: int = 0,
+        key: Key = 0,
         rack: int = 0,
         name: str = "",
         type: str = "",
-        config: str = "",
+        config=None,
         snapshot: bool = False,
-        status: TaskStatus | None = None,
+        internal: bool = False,
+        status: Status | None = None,
         _frame_client: FrameClient | None = None,
     ):
+        if config is None:
+            config = dict()
         if key == 0:
             key = (rack << 32) + 0
-        self.key = key
-        self.name = name
-        self.type = type
-        self.config = config
-        self.snapshot = snapshot
-        self.status = status
+        super().__init__(
+            key=key,
+            name=name,
+            type=type,
+            config=config,
+            snapshot=snapshot,
+            internal=internal,
+            status=status,
+        )
         self._frame_client = _frame_client
 
     def to_payload(self) -> TaskPayload:
@@ -175,6 +175,7 @@ class Task:
         self.type = task.type
         self.config = task.config
         self.snapshot = task.snapshot
+        self.internal = task.internal
         self._frame_client = task._frame_client
 
     @property
@@ -220,7 +221,7 @@ class Task:
         type_: str,
         args: dict | None = None,
         timeout: float | TimeSpan = 5,
-    ) -> TaskStatus:
+    ) -> Status:
         """Executes a command on the task and waits for the driver to acknowledge the
         command with a state.
 
@@ -229,7 +230,7 @@ class Task:
         :param timeout: The maximum time to wait for the driver to acknowledge the
         command before a timeout occurs.
         """
-        with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
+        with self._frame_client.open_streamer(status.SET_CHANNEL) as s:
             key = self.execute_command(type_, args)
             while True:
                 frame = s.read(TimeSpan.from_seconds(timeout).seconds)
@@ -237,17 +238,15 @@ class Task:
                     raise TimeoutError(
                         f"timed out waiting for driver to acknowledge {type_} command"
                     )
-                elif _TASK_STATE_CHANNEL not in frame:
+                elif status.SET_CHANNEL not in frame:
                     warnings.warn("task - unexpected missing state in frame")
                     continue
                 try:
-                    status = TaskStatus.model_validate(frame[_TASK_STATE_CHANNEL][0])
-                    if status.details.cmd is not None and status.details.cmd == key:
-                        return status
-                except ValidationError as e:
-                    raise UnexpectedError(f"""
-                    Received invalid task state from driver.
-                    """) from e
+                    stat = Status.model_validate(frame[status.SET_CHANNEL][0])
+                    if stat.details.cmd is not None and stat.details.cmd == key:
+                        return stat
+                except ValidationError:
+                    continue
 
 
 class TaskProtocol(Protocol):
@@ -325,7 +324,7 @@ class JSONConfigMixin(TaskProtocol):
     def to_payload(self) -> TaskPayload:
         """Implements TaskProtocol protocol"""
         pld = self._internal.to_payload()
-        pld.config = json.dumps(self.config.model_dump())
+        pld.config = self.config.model_dump()
         return pld
 
     def set_internal(self, task: Task):
@@ -363,7 +362,7 @@ class Client:
         key: int = 0,
         name: str = "",
         type: str = "",
-        config: str = "",
+        config: dict[str, Any],
         rack: int = 0,
     ): ...
 
@@ -380,9 +379,13 @@ class Client:
         key: int = 0,
         name: str = "",
         type: str = "",
-        config: str = "",
+        config: dict[str, Any] | None = None,
         rack: int = 0,
     ) -> Task | list[Task]:
+        if config is None:
+            config = dict()
+        elif isinstance(config, BaseModel):
+            config = config.model_dump()
         is_single = True
         if tasks is None:
             tasks = [TaskPayload(key=key, name=name, type=type, config=config)]
@@ -418,7 +421,7 @@ class Client:
         if self._device_client is not None:
             task.update_device_properties(self._device_client)
 
-        with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as streamer:
+        with self._frame_client.open_streamer(status.SET_CHANNEL) as streamer:
             pld = self.maybe_assign_def_rack(task.to_payload())
             req = _CreateRequest(tasks=[pld])
             tasks = self.__exec_create(req)
@@ -431,18 +434,21 @@ class Client:
                         "acknowledge configuration"
                     )
                 elif (
-                    _TASK_STATE_CHANNEL not in frame
-                    or len(frame[_TASK_STATE_CHANNEL]) == 0
+                    status.SET_CHANNEL not in frame
+                    or len(frame[status.SET_CHANNEL]) == 0
                 ):
                     warnings.warn("task - unexpected missing state in frame")
                     continue
-                status = TaskStatus.model_validate(frame[_TASK_STATE_CHANNEL][0])
-                if status.details.task != task.key:
+                try:
+                    stat = Status.model_validate(frame[status.SET_CHANNEL][0])
+                except ValidationError:
                     continue
-                if status.variant == SUCCESS_VARIANT:
+                if stat.details.task != task.key:
+                    continue
+                if stat.variant == status.SUCCESS_VARIANT:
                     break
-                if status.variant == ERROR_VARIANT:
-                    raise ConfigurationError(status.message)
+                if stat.variant == status.ERROR_VARIANT:
+                    raise ConfigurationError(stat.message)
         return task
 
     def delete(self, keys: int | list[int]):
@@ -535,5 +541,5 @@ class Client:
         res = send_required(self._client, _COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]
 
-    def sugar(self, tasks: list[Payload]):
+    def sugar(self, tasks: list[TaskPayload]):
         return [Task(**t.model_dump(), _frame_client=self._frame_client) for t in tasks]

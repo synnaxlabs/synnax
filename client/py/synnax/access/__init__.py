@@ -22,3 +22,10 @@ class Client:
     ):
         self.policies = policies
         self.roles = roles
+
+
+__all__ = [
+    "Client",
+    "PolicyClient",
+    "RoleClient",
+]

@@ -12,7 +12,6 @@ from typing import overload
 from freighter import Empty, Payload, UnaryClient, send_required
 from pydantic import Field
 
-from synnax.ontology.group import Client as GroupClient
 from synnax.ontology.payload import ID, CrudeID, Resource
 from synnax.util.normalize import normalize
 
@@ -51,11 +50,9 @@ class RetrieveRes(Payload):
 
 class Client:
     _client: UnaryClient
-    groups: GroupClient
 
-    def __init__(self, client: UnaryClient, groups: GroupClient) -> None:
+    def __init__(self, client: UnaryClient) -> None:
         self._client = client
-        self.groups = groups
 
     @overload
     def retrieve(
