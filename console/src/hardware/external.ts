@@ -9,6 +9,7 @@
 
 import { type Export } from "@/export";
 import { Device } from "@/hardware/device";
+import { Sift } from "@/hardware/sift";
 import { Task } from "@/hardware/task";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
@@ -19,6 +20,7 @@ import { type Selector } from "@/selector";
 
 export * from "@/hardware/device";
 export * from "@/hardware/rack";
+export * from "@/hardware/sift";
 export * from "@/hardware/task";
 
 export const COMMANDS: Palette.Command[] = [...Device.COMMANDS, ...Task.COMMANDS];
@@ -29,6 +31,7 @@ export const FILE_INGESTORS: Import.FileIngestors = Task.FILE_INGESTORS;
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...Device.LAYOUTS,
+  ...Sift.LAYOUTS,
   ...Task.LAYOUTS,
 };
 

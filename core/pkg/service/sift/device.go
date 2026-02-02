@@ -17,9 +17,9 @@ import (
 
 const (
 	// DeviceMake is the device make identifier for Sift devices.
-	DeviceMake = "Sift"
+	DeviceMake = "sift"
 	// DeviceModel is the device model identifier.
-	DeviceModel = "Cloud"
+	DeviceModel = "cloud"
 )
 
 // DeviceProperties contains the Sift connection configuration stored in

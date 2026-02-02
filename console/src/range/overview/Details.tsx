@@ -25,6 +25,7 @@ import { type FC, type ReactElement, useCallback } from "react";
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { CSV } from "@/csv";
+import { Sift } from "@/hardware/sift";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
@@ -123,6 +124,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   };
 
   const promptDownloadCSVModal = CSV.useDownloadModal();
+  const promptExportToSiftModal = Sift.useExportModal();
 
   if (status.variant === "error")
     return (
@@ -197,6 +199,25 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               }
             >
               <Icon.CSV color={9} />
+            </Button.Button>
+            <Button.Button
+              tooltip={`Export data for ${name} to Sift`}
+              tooltipLocation="bottom"
+              variant="text"
+              onClick={() =>
+                handleError(async () => {
+                  await promptExportToSiftModal(
+                    {
+                      timeRange: form.get<NumericTimeRange>("timeRange").value,
+                      name,
+                      channels: [],
+                    },
+                    { icon: "Export" },
+                  );
+                }, "Failed to export to Sift")
+              }
+            >
+              <Icon.Export color={9} />
             </Button.Button>
             <Divider.Divider y />
             {range != null && <FavoriteButton range={range} size="medium" />}
