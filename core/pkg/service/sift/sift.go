@@ -9,3 +9,7 @@
 
 // Package sift provides integration with Sift for uploading historical data.
 package sift
+
+import "github.com/synnaxlabs/synnax/pkg/service/sift/client"
+
+var ClientFactory = client.NewGRPC

@@ -348,6 +348,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Channel:         cfg.Distribution.Channel,
 		Status:          l.Status,
 		Task:            l.Task,
+		ClientFactory:   sift.ClientFactory,
 		Instrumentation: cfg.Child("sift"),
 	})
 	if !ok(err, siftFactory) {

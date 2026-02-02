@@ -11,16 +11,22 @@ package sift_test
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	typev1 "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
 	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
+	ingestionconfigsv1 "github.com/sift-stack/sift/go/gen/sift/ingestion_configs/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/device"
+	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/client"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/telem"
@@ -28,6 +34,69 @@ import (
 )
 
 var _ = Describe("Sift", func() {
+	Describe("GroupChannelsByIndex", func() {
+		It("Should group channels by their index", func() {
+			// Create mock channels with different indexes
+			channels := []channel.Channel{
+				{
+					Name:        "indexA",
+					IsIndex:     true,
+					DataType:    telem.TimeStampT,
+					LocalKey:    1,
+					Leaseholder: 1,
+				},
+				{
+					Name:        "pressure1",
+					DataType:    telem.Float64T,
+					LocalKey:    2,
+					LocalIndex:  1, // References indexA
+					Leaseholder: 1,
+				},
+				{
+					Name:        "pressure2",
+					DataType:    telem.Float64T,
+					LocalKey:    3,
+					LocalIndex:  1, // References indexA
+					Leaseholder: 1,
+				},
+				{
+					Name:        "indexB",
+					IsIndex:     true,
+					DataType:    telem.TimeStampT,
+					LocalKey:    4,
+					Leaseholder: 1,
+				},
+				{
+					Name:        "temp1",
+					DataType:    telem.Float32T,
+					LocalKey:    5,
+					LocalIndex:  4, // References indexB
+					Leaseholder: 1,
+				},
+				{
+					Name:        "temp2",
+					DataType:    telem.Float32T,
+					LocalKey:    6,
+					LocalIndex:  4, // References indexB
+					Leaseholder: 1,
+				},
+			}
+
+			groups := sift.GroupChannelsByIndex(channels)
+			Expect(groups).To(HaveLen(2))
+
+			// Check group A (index key = NewKey(1, 1) for LocalIndex 1)
+			indexAKey := channel.NewKey(1, 1)
+			Expect(groups[indexAKey]).ToNot(BeNil())
+			Expect(groups[indexAKey].DataChannelKeys).To(HaveLen(2))
+
+			// Check group B (index key = NewKey(1, 4) for LocalIndex 4)
+			indexBKey := channel.NewKey(1, 4)
+			Expect(groups[indexBKey]).ToNot(BeNil())
+			Expect(groups[indexBKey].DataChannelKeys).To(HaveLen(2))
+		})
+	})
+
 	Describe("MapDataType", func() {
 		It("Should map Float64 correctly", func() {
 			Expect(sift.MapDataType(telem.Float64T)).
@@ -94,287 +163,366 @@ var _ = Describe("Sift", func() {
 			Expect(err).To(HaveOccurred())
 		})
 	})
-
-	Describe("ParseDeviceProperties", func() {
-		It("Should parse valid JSON properties", func() {
-			jsonStr := `{
-				"uri": "api.siftstack.com:443",
-				"api_key": "sk-test-key"
-			}`
-			Expect(sift.ParseDeviceProperties(jsonStr)).To(Equal(sift.DeviceProperties{
-				URI:    "api.siftstack.com:443",
-				APIKey: "sk-test-key",
-			}))
-		})
-
-		It("Should return error for invalid JSON", func() {
-			_, err := sift.ParseDeviceProperties("invalid json")
-			Expect(err).To(HaveOccurred())
-		})
-	})
-
-	Describe("ParseTaskConfig", func() {
-		It("Should parse valid JSON config", func() {
-			jsonStr := `{
-				"device_key": "sift-device-1",
-				"asset_name": "test-asset",
-				"flow_name": "telemetry",
-				"run_name": "Test Run 1",
-				"channels": [1, 2, 3],
-				"time_range": {"start": 1000000000, "end": 2000000000}
-			}`
-			cfg, err := sift.ParseUploadTaskConfig(jsonStr)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(cfg.DeviceKey).To(Equal("sift-device-1"))
-			Expect(cfg.AssetName).To(Equal("test-asset"))
-			Expect(cfg.FlowName).To(Equal("telemetry"))
-			Expect(cfg.RunName).To(Equal("Test Run 1"))
-			Expect(cfg.Channels).To(HaveLen(3))
-			Expect(cfg.TimeRange.Start).To(Equal(telem.TimeStamp(1000000000)))
-			Expect(cfg.TimeRange.End).To(Equal(telem.TimeStamp(2000000000)))
-		})
-	})
-
-	Describe("Uploader", func() {
-		var ctx context.Context
+	Describe("Factory", func() {
+		var (
+			ctx     context.Context
+			factory *sift.Factory
+		)
 
 		BeforeEach(func() {
 			ctx = context.Background()
 		})
 
-		It("Should upload data from channels to Sift", func() {
-			mockClient, err := MustSucceed(client.NewMockFactory())(ctx, "", "")
-			Expect(err).ToNot(HaveOccurred())
-
-			// Create index channel first
-			indexCh := channel.Channel{
-				Name: "upload_test_index_1", IsIndex: true, DataType: telem.TimeStampT,
+		AfterEach(func() {
+			if factory != nil {
+				Expect(factory.Close()).To(Succeed())
 			}
-			Expect(dist.Channel.NewWriter(nil).Create(ctx, &indexCh)).To(Succeed())
-
-			// Create data channel linked to index
-			dataCh := channel.Channel{
-				Name: "upload_test_data_1", DataType: telem.Float64T, LocalIndex: indexCh.LocalKey,
-			}
-			Expect(dist.Channel.NewWriter(nil).Create(ctx, &dataCh)).To(Succeed())
-
-			channels := []channel.Channel{indexCh, dataCh}
-
-			// Write test data
-			timeRange := telem.TimeRange{
-				Start: telem.SecondTS * 10,
-				End:   telem.SecondTS * 13,
-			}
-			w := MustSucceed(dist.Framer.OpenWriter(ctx, writer.Config{
-				Keys:  channel.KeysFromChannels(channels),
-				Start: timeRange.Start,
-				Sync:  config.True(),
-			}))
-			MustSucceed(w.Write(frame.NewMulti(
-				channel.KeysFromChannels(channels),
-				[]telem.Series{
-					telem.NewSeriesSecondsTSV(10, 11, 12),
-					telem.NewSeriesV(1.5, 2.5, 3.5),
-				},
-			)))
-			MustSucceed(w.Commit())
-			Expect(w.Close()).To(Succeed())
-
-			// Create uploader with mock client
-			uploader := &sift.Uploader{
-				Client:     mockClient,
-				Framer:     framerSvc,
-				ChannelSvc: dist.Channel,
-			}
-
-			// Run upload
-			params := sift.UploadParams{
-				ClientKey: "test-client-key",
-				AssetName: "test-asset",
-				FlowName:  "telemetry",
-				RunName:   "test-run",
-				Channels:  channel.KeysFromChannels(channels),
-				TimeRange: timeRange,
-			}
-			Expect(uploader.Upload(ctx, params)).To(Succeed())
-
-			_ = indexCh
-			_ = dataCh
 		})
 
-		It("Should send data values to Sift stream", func() {
-			// Create a stream to capture requests
-			requests := confluence.NewStream[*ingestv1.IngestWithConfigDataStreamRequest](10)
-			mockClient, err := MustSucceed(client.NewMockFactory(client.MockFactoryConfig{
-				Requests: requests,
-			}))(ctx, "", "")
-			Expect(err).ToNot(HaveOccurred())
-
-			// Create index channel first
-			indexCh := channel.Channel{
-				Name: "upload_stream_index_1", IsIndex: true, DataType: telem.TimeStampT,
-			}
-			Expect(dist.Channel.NewWriter(nil).Create(ctx, &indexCh)).To(Succeed())
-
-			// Create data channel linked to index
-			dataCh := channel.Channel{
-				Name: "upload_stream_data_1", DataType: telem.Float64T, LocalIndex: indexCh.LocalKey,
-			}
-			Expect(dist.Channel.NewWriter(nil).Create(ctx, &dataCh)).To(Succeed())
-
-			channels := []channel.Channel{indexCh, dataCh}
-
-			// Write test data
-			timeRange := telem.TimeRange{
-				Start: telem.SecondTS * 20,
-				End:   telem.SecondTS * 23,
-			}
-			w := MustSucceed(dist.Framer.OpenWriter(ctx, writer.Config{
-				Keys:  channel.KeysFromChannels(channels),
-				Start: timeRange.Start,
-				Sync:  config.True(),
+		createFactory := func(mockCfg ...client.MockFactoryConfig) {
+			factory = MustSucceed(sift.OpenFactory(sift.FactoryConfig{
+				Device:        deviceSvc,
+				Framer:        framerSvc,
+				Channel:       dist.Channel,
+				Status:        statusSvc,
+				Task:          taskSvc,
+				ClientFactory: MustSucceed(client.NewMockFactory(mockCfg...)),
 			}))
-			MustSucceed(w.Write(frame.NewMulti(
-				channel.KeysFromChannels(channels),
-				[]telem.Series{
-					telem.NewSeriesSecondsTSV(20, 21, 22),
-					telem.NewSeriesV(10.0, 20.0, 30.0),
-				},
-			)))
-			MustSucceed(w.Commit())
-			Expect(w.Close()).To(Succeed())
+		}
 
-			// Create uploader and run
-			uploader := &sift.Uploader{
-				Client:     mockClient,
-				Framer:     framerSvc,
-				ChannelSvc: dist.Channel,
+		createDevice := func(key string) {
+			props, _ := json.Marshal(sift.DeviceProperties{
+				URI:    "api.siftstack.com:443",
+				APIKey: "sk-test-key",
+			})
+			dev := device.Device{
+				Key:        key,
+				Name:       "Test Sift Device",
+				Make:       sift.DeviceMake,
+				Model:      sift.DeviceModel,
+				Properties: string(props),
+				Rack:       testRack.Key,
+				Location:   "test-location",
 			}
+			Expect(deviceSvc.NewWriter(nil).Create(ctx, dev)).To(Succeed())
+		}
 
-			params := sift.UploadParams{
-				ClientKey: "test-key",
-				AssetName: "asset",
-				FlowName:  "flow",
-				RunName:   "run",
-				Channels:  channel.KeysFromChannels(channels),
-				TimeRange: timeRange,
-			}
-			Expect(uploader.Upload(ctx, params)).To(Succeed())
-
-			// Verify data was sent to the stream
-			req1 := <-requests.Outlet()
-			Expect(req1.Flow).To(Equal("flow"))
-			Expect(req1.ChannelValues[0].GetDouble()).To(Equal(10.0))
-			req2 := <-requests.Outlet()
-			Expect(req2.ChannelValues[0].GetDouble()).To(Equal(20.0))
-			req3 := <-requests.Outlet()
-			Expect(req3.ChannelValues[0].GetDouble()).To(Equal(30.0))
+		It("Should return ErrTaskNotHandled for unknown task types", func() {
+			createFactory()
+			_, err := factory.ConfigureTask(driver.Context{Context: ctx}, task.Task{
+				Type: "unknown_type",
+			})
+			Expect(err).To(MatchError(driver.ErrTaskNotHandled))
 		})
 
-		It("Should fail when no valid channels to upload", func() {
-			mockClient, err := MustSucceed(client.NewMockFactory())(ctx, "", "")
-			Expect(err).ToNot(HaveOccurred())
+		Describe("Upload Task", func() {
+			It("Should upload data from channels to Sift", func() {
+				requests := confluence.NewStream[*ingestv1.IngestWithConfigDataStreamRequest](10)
+				createFactory(client.MockFactoryConfig{Requests: requests})
+				createDevice("sift-device-upload-1")
 
-			// Create only an index channel (no data channels)
-			indexCh := channel.Channel{
-				Name: "upload_nodata_index_1", IsIndex: true, DataType: telem.TimeStampT,
-			}
-			Expect(dist.Channel.NewWriter(nil).Create(ctx, &indexCh)).To(Succeed())
-			channels := []channel.Channel{indexCh}
+				// Create channels
+				indexCh := channel.Channel{
+					Name: "factory_upload_index_1", IsIndex: true, DataType: telem.TimeStampT,
+				}
+				Expect(dist.Channel.NewWriter(nil).Create(ctx, &indexCh)).To(Succeed())
 
-			uploader := &sift.Uploader{
-				Client:     mockClient,
-				Framer:     framerSvc,
-				ChannelSvc: dist.Channel,
-			}
+				dataCh := channel.Channel{
+					Name: "factory_upload_data_1", DataType: telem.Float64T, LocalIndex: indexCh.LocalKey,
+				}
+				Expect(dist.Channel.NewWriter(nil).Create(ctx, &dataCh)).To(Succeed())
 
-			params := sift.UploadParams{
-				ClientKey: "key",
-				AssetName: "asset",
-				FlowName:  "flow",
-				RunName:   "run",
-				Channels:  channel.KeysFromChannels(channels),
-				TimeRange: telem.TimeRange{Start: telem.SecondTS * 40, End: telem.SecondTS * 41},
-			}
+				channels := []channel.Channel{indexCh, dataCh}
 
-			err = uploader.Upload(ctx, params)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("no valid channels"))
-		})
-
-		It("Should cancel upload when Stop is called", func() {
-			// Use unbuffered channel so sends block until read
-			requests := confluence.NewStream[*ingestv1.IngestWithConfigDataStreamRequest](0)
-			mockClient, err := MustSucceed(client.NewMockFactory(client.MockFactoryConfig{
-				Requests: requests,
-			}))(ctx, "", "")
-			Expect(err).ToNot(HaveOccurred())
-
-			indexCh := channel.Channel{
-				Name: "upload_cancel_index_1", IsIndex: true, DataType: telem.TimeStampT,
-			}
-			Expect(dist.Channel.NewWriter(nil).Create(ctx, &indexCh)).To(Succeed())
-
-			dataCh := channel.Channel{
-				Name: "upload_cancel_data_1", DataType: telem.Float64T, LocalIndex: indexCh.LocalKey,
-			}
-			Expect(dist.Channel.NewWriter(nil).Create(ctx, &dataCh)).To(Succeed())
-			channels := []channel.Channel{indexCh, dataCh}
-
-			// Write a lot of data to make the upload take some time
-			timeRange := telem.TimeRange{
-				Start: telem.SecondTS * 60,
-				End:   telem.SecondTS * 70,
-			}
-			w := MustSucceed(dist.Framer.OpenWriter(ctx, writer.Config{
-				Keys:  channel.KeysFromChannels(channels),
-				Start: timeRange.Start,
-				Sync:  config.True(),
-			}))
-
-			// Write multiple frames of data
-			for i := range 10 {
+				// Write test data
+				timeRange := telem.TimeRange{
+					Start: telem.SecondTS * 100,
+					End:   telem.SecondTS * 103,
+				}
+				w := MustSucceed(dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  channel.KeysFromChannels(channels),
+					Start: timeRange.Start,
+					Sync:  config.True(),
+				}))
 				MustSucceed(w.Write(frame.NewMulti(
 					channel.KeysFromChannels(channels),
 					[]telem.Series{
-						telem.NewSeriesSecondsTSV(telem.TimeStamp(60 + i)),
-						telem.NewSeriesV(float64(i)),
+						telem.NewSeriesSecondsTSV(100, 101, 102),
+						telem.NewSeriesV(1.0, 2.0, 3.0),
 					},
 				)))
-			}
-			MustSucceed(w.Commit())
-			Expect(w.Close()).To(Succeed())
+				MustSucceed(w.Commit())
+				Expect(w.Close()).To(Succeed())
 
-			uploader := &sift.Uploader{
-				Client:     mockClient,
-				Framer:     framerSvc,
-				ChannelSvc: dist.Channel,
-			}
+				// Create task config
+				taskCfg := sift.UploadTaskConfig{
+					DeviceKey: "sift-device-upload-1",
+					AssetName: "test-asset",
+					FlowName:  "telemetry",
+					RunName:   "test-run",
+					Channels:  channel.KeysFromChannels(channels),
+					TimeRange: timeRange,
+				}
+				cfgBytes, _ := json.Marshal(taskCfg)
 
-			params := sift.UploadParams{
-				ClientKey: "key",
-				AssetName: "asset",
-				FlowName:  "flow",
-				RunName:   "run",
-				Channels:  channel.KeysFromChannels(channels),
-				TimeRange: timeRange,
-			}
+				// Configure task
+				t := task.Task{
+					Key:    1,
+					Name:   "Test Upload",
+					Type:   sift.UploadTaskType,
+					Config: string(cfgBytes),
+				}
 
-			// Start upload in background
-			done := make(chan error)
-			go func() {
-				done <- uploader.Upload(ctx, params)
-			}()
+				driverTask, err := factory.ConfigureTask(
+					driver.NewContext(ctx, statusSvc),
+					t,
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(driverTask).ToNot(BeNil())
 
-			// Let the first request through
-			<-requests.Outlet()
+				// Wait for upload to complete by receiving requests
+				Eventually(requests.Outlet(), 5*time.Second).Should(Receive())
+				Eventually(requests.Outlet(), 5*time.Second).Should(Receive())
+				Eventually(requests.Outlet(), 5*time.Second).Should(Receive())
+			})
 
-			// Stop the upload
-			uploader.Stop()
+			It("Should cancel upload when Stop is called", func() {
+				// Use unbuffered channel so sends block
+				requests := confluence.NewStream[*ingestv1.IngestWithConfigDataStreamRequest](0)
+				createFactory(client.MockFactoryConfig{Requests: requests})
+				createDevice("sift-device-cancel-1")
 
-			// Wait for upload to finish and check it was cancelled
-			err = <-done
-			Expect(err).To(MatchError(context.Canceled))
+				// Create channels
+				indexCh := channel.Channel{
+					Name: "factory_cancel_index_1", IsIndex: true, DataType: telem.TimeStampT,
+				}
+				Expect(dist.Channel.NewWriter(nil).Create(ctx, &indexCh)).To(Succeed())
+
+				dataCh := channel.Channel{
+					Name: "factory_cancel_data_1", DataType: telem.Float64T, LocalIndex: indexCh.LocalKey,
+				}
+				Expect(dist.Channel.NewWriter(nil).Create(ctx, &dataCh)).To(Succeed())
+
+				channels := []channel.Channel{indexCh, dataCh}
+
+				// Write more data to make upload take time
+				timeRange := telem.TimeRange{
+					Start: telem.SecondTS * 200,
+					End:   telem.SecondTS * 210,
+				}
+				w := MustSucceed(dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  channel.KeysFromChannels(channels),
+					Start: timeRange.Start,
+					Sync:  config.True(),
+				}))
+				for i := range 10 {
+					MustSucceed(w.Write(frame.NewMulti(
+						channel.KeysFromChannels(channels),
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(telem.TimeStamp(200 + i)),
+							telem.NewSeriesV(float64(i)),
+						},
+					)))
+				}
+				MustSucceed(w.Commit())
+				Expect(w.Close()).To(Succeed())
+
+				// Create task config
+				taskCfg := sift.UploadTaskConfig{
+					DeviceKey: "sift-device-cancel-1",
+					AssetName: "asset",
+					FlowName:  "flow",
+					RunName:   "run",
+					Channels:  channel.KeysFromChannels(channels),
+					TimeRange: timeRange,
+				}
+				cfgBytes, _ := json.Marshal(taskCfg)
+
+				t := task.Task{
+					Key:    2,
+					Name:   "Test Cancel",
+					Type:   sift.UploadTaskType,
+					Config: string(cfgBytes),
+				}
+
+				driverTask, err := factory.ConfigureTask(
+					driver.NewContext(ctx, statusSvc),
+					t,
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Let first request through
+				<-requests.Outlet()
+
+				// Stop the task
+				Expect(driverTask.Stop()).To(Succeed())
+			})
+
+			It("Should upload data from multiple index groups to Sift", func() {
+				requests := confluence.NewStream[*ingestv1.IngestWithConfigDataStreamRequest](20)
+				var ingestionConfigCalls int
+				createFactory(client.MockFactoryConfig{
+					Requests: requests,
+					OnCreateIngestionConfig: func(
+						_ *ingestionconfigsv1.CreateIngestionConfigRequest,
+					) {
+						ingestionConfigCalls++
+					},
+				})
+				createDevice("sift-device-multi-index-1")
+
+				// Create first index and its data channels
+				indexA := channel.Channel{
+					Name: "multi_index_a", IsIndex: true, DataType: telem.TimeStampT,
+				}
+				Expect(dist.Channel.NewWriter(nil).Create(ctx, &indexA)).To(Succeed())
+
+				pressure1 := channel.Channel{
+					Name: "pressure_1", DataType: telem.Float64T, LocalIndex: indexA.LocalKey,
+				}
+				Expect(dist.Channel.NewWriter(nil).Create(ctx, &pressure1)).To(Succeed())
+
+				pressure2 := channel.Channel{
+					Name: "pressure_2", DataType: telem.Float64T, LocalIndex: indexA.LocalKey,
+				}
+				Expect(dist.Channel.NewWriter(nil).Create(ctx, &pressure2)).To(Succeed())
+
+				// Create second index and its data channels
+				indexB := channel.Channel{
+					Name: "multi_index_b", IsIndex: true, DataType: telem.TimeStampT,
+				}
+				Expect(dist.Channel.NewWriter(nil).Create(ctx, &indexB)).To(Succeed())
+
+				temp1 := channel.Channel{
+					Name: "temp_1", DataType: telem.Float32T, LocalIndex: indexB.LocalKey,
+				}
+				Expect(dist.Channel.NewWriter(nil).Create(ctx, &temp1)).To(Succeed())
+
+				temp2 := channel.Channel{
+					Name: "temp_2", DataType: telem.Float32T, LocalIndex: indexB.LocalKey,
+				}
+				Expect(dist.Channel.NewWriter(nil).Create(ctx, &temp2)).To(Succeed())
+
+				// Verify the channels have different index keys
+				Expect(indexA.LocalKey).ToNot(Equal(indexB.LocalKey))
+				Expect(pressure1.Index()).To(Equal(indexA.Key()))
+				Expect(pressure2.Index()).To(Equal(indexA.Key()))
+				Expect(temp1.Index()).To(Equal(indexB.Key()))
+				Expect(temp2.Index()).To(Equal(indexB.Key()))
+
+				// Verify grouping works correctly with created channels
+				allCreatedChannels := []channel.Channel{indexA, pressure1, pressure2, indexB, temp1, temp2}
+				groups := sift.GroupChannelsByIndex(allCreatedChannels)
+				Expect(groups).To(HaveLen(2))
+
+				// Also verify grouping works with retrieved channels
+				allKeys := channel.KeysFromChannels(allCreatedChannels)
+				var retrievedChannels []channel.Channel
+				Expect(dist.Channel.NewRetrieve().
+					WhereKeys(allKeys...).
+					Entries(&retrievedChannels).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(retrievedChannels).To(HaveLen(6))
+
+				retrievedGroups := sift.GroupChannelsByIndex(retrievedChannels)
+				Expect(retrievedGroups).To(HaveLen(2))
+
+				groupA := []channel.Channel{indexA, pressure1, pressure2}
+				groupB := []channel.Channel{indexB, temp1, temp2}
+				allChannels := append(groupA, groupB...)
+
+				// Write test data for group A
+				timeRange := telem.TimeRange{
+					Start: telem.SecondTS * 300,
+					End:   telem.SecondTS * 303,
+				}
+				wA := MustSucceed(dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  channel.KeysFromChannels(groupA),
+					Start: timeRange.Start,
+					Sync:  config.True(),
+				}))
+				MustSucceed(wA.Write(frame.NewMulti(
+					channel.KeysFromChannels(groupA),
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(300, 301, 302),
+						telem.NewSeriesV(100.0, 101.0, 102.0),
+						telem.NewSeriesV(200.0, 201.0, 202.0),
+					},
+				)))
+				MustSucceed(wA.Commit())
+				Expect(wA.Close()).To(Succeed())
+
+				// Write test data for group B
+				wB := MustSucceed(dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  channel.KeysFromChannels(groupB),
+					Start: timeRange.Start,
+					Sync:  config.True(),
+				}))
+				MustSucceed(wB.Write(frame.NewMulti(
+					channel.KeysFromChannels(groupB),
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(300, 301, 302),
+						telem.NewSeriesV[float32](25.0, 26.0, 27.0),
+						telem.NewSeriesV[float32](30.0, 31.0, 32.0),
+					},
+				)))
+				MustSucceed(wB.Commit())
+				Expect(wB.Close()).To(Succeed())
+
+				// Create task config with all channels
+				taskCfg := sift.UploadTaskConfig{
+					DeviceKey: "sift-device-multi-index-1",
+					AssetName: "test-asset",
+					FlowName:  "telemetry",
+					RunName:   "multi-index-run",
+					Channels:  channel.KeysFromChannels(allChannels),
+					TimeRange: timeRange,
+				}
+				cfgBytes, _ := json.Marshal(taskCfg)
+
+				t := task.Task{
+					Key:    3,
+					Name:   "Test Multi-Index Upload",
+					Type:   sift.UploadTaskType,
+					Config: string(cfgBytes),
+				}
+
+				driverTask, err := factory.ConfigureTask(
+					driver.NewContext(ctx, statusSvc),
+					t,
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(driverTask).ToNot(BeNil())
+
+				// Verify 2 ingestion configs were created (one per group)
+				Expect(ingestionConfigCalls).To(Equal(2))
+
+				// Collect requests and verify we get data from both groups
+				// Each group has 2 data channels × 3 samples = 6 samples per group.
+				// With 2 groups, that's 12 total requests.
+				// The iterator may return data in separate frames per channel.
+				receivedRequests := make([]*ingestv1.IngestWithConfigDataStreamRequest, 0)
+				for range 12 {
+					var req *ingestv1.IngestWithConfigDataStreamRequest
+					Eventually(requests.Outlet(), 5*time.Second).Should(Receive(&req))
+					receivedRequests = append(receivedRequests, req)
+				}
+
+				// Verify we received requests with different ingestion config IDs
+				configIDs := make(map[string]int)
+				for _, req := range receivedRequests {
+					configIDs[req.IngestionConfigId]++
+				}
+				// Should have exactly 2 different config IDs (one per group)
+				Expect(configIDs).To(HaveLen(2))
+
+				// All requests should share the same run ID
+				runIDs := make(map[string]bool)
+				for _, req := range receivedRequests {
+					runIDs[req.RunId] = true
+				}
+				Expect(runIDs).To(HaveLen(1))
+			})
 		})
 	})
 })

@@ -52,8 +52,8 @@ func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 	return Series{DataType: TimeStampT, Data: MarshalSlice(data)}
 }
 
-// NewSeriesStrings creates a new Series from a slice of strings. The strings are stored with
-// newline characters as delimiters.
+// NewSeriesStrings creates a new Series from a slice of strings. The strings are stored
+// with newline characters as delimiters.
 func NewSeriesStrings(data []string) Series {
 	return Series{DataType: StringT, Data: MarshalStrings(data, StringT)}
 }
@@ -106,6 +106,24 @@ func UnmarshalStrings(b []byte) []string {
 			end++
 		}
 		data = append(data, string(b[offset:end]))
+		offset = end + 1
+	}
+	return data
+}
+
+// UnmarshalBytes converts a byte slice back into a slice of bytes. It assumes bytes are
+// separated by newline characters.
+func UnmarshalBytes(b []byte) [][]byte {
+	var (
+		offset int
+		data   [][]byte
+	)
+	for offset < len(b) {
+		end := offset
+		for b[end] != newLine {
+			end++
+		}
+		data = append(data, b[offset:end])
 		offset = end + 1
 	}
 	return data

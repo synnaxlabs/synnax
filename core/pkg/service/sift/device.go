@@ -31,8 +31,7 @@ type DeviceProperties struct {
 	APIKey string `json:"api_key"`
 }
 
-// ParseDeviceProperties parses DeviceProperties from a JSON string.
-func ParseDeviceProperties(properties string) (DeviceProperties, error) {
+func parseDeviceProperties(properties string) (DeviceProperties, error) {
 	var p DeviceProperties
 	if err := json.Unmarshal([]byte(properties), &p); err != nil {
 		return p, errors.Wrap(err, "failed to parse device properties")

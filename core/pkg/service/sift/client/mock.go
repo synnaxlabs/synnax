@@ -38,6 +38,9 @@ type MockFactoryConfig struct {
 	ErrorOnIngesterClose *bool
 	// OnClose is called when Close is invoked.
 	OnClose func() error
+	// OnCreateIngestionConfig is called when CreateIngestionConfig is invoked.
+	// Useful for testing to track calls.
+	OnCreateIngestionConfig func(req *ingestionconfigsv1.CreateIngestionConfigRequest)
 	// Requests receives all requests sent to the ingest stream.
 	Requests confluence.Inlet[*ingestv1.IngestWithConfigDataStreamRequest]
 }
@@ -61,6 +64,10 @@ func (c MockFactoryConfig) Override(other MockFactoryConfig) MockFactoryConfig {
 		other.ErrorOnIngesterClose,
 	)
 	c.OnClose = override.Nil(c.OnClose, other.OnClose)
+	c.OnCreateIngestionConfig = override.Nil(
+		c.OnCreateIngestionConfig,
+		other.OnCreateIngestionConfig,
+	)
 	c.Requests = override.Nil(c.Requests, other.Requests)
 	return c
 }
@@ -90,6 +97,9 @@ func (m *mock) CreateIngestionConfig(
 	_ context.Context,
 	req *ingestionconfigsv1.CreateIngestionConfigRequest,
 ) (*ingestionconfigsv1.CreateIngestionConfigResponse, error) {
+	if m.OnCreateIngestionConfig != nil {
+		m.OnCreateIngestionConfig(req)
+	}
 	if m.ErrorOnCreateIngestionConfig != nil &&
 		*m.ErrorOnCreateIngestionConfig {
 		return nil, errors.New("failed to create ingestion config")

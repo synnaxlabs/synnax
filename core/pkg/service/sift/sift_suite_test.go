@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -31,6 +32,9 @@ var (
 	framerSvc *framer.Service
 	taskSvc   *task.Service
 	statusSvc *status.Service
+	deviceSvc *device.Service
+	rackSvc   *rack.Service
+	testRack  *rack.Rack
 )
 
 func TestSift(t *testing.T) {
@@ -58,13 +62,16 @@ var _ = BeforeSuite(func() {
 		Signals:  dist.Signals,
 	}))
 
-	rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+	rackSvc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           dist.DB,
 		Ontology:     dist.Ontology,
 		Group:        dist.Group,
 		HostProvider: mock.StaticHostKeyProvider(1),
 		Status:       statusSvc,
 	}))
+
+	testRack = &rack.Rack{Name: "Test Rack"}
+	Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 
 	taskSvc = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 		DB:       dist.DB,
@@ -88,6 +95,14 @@ var _ = BeforeSuite(func() {
 		Arc:     arcSvc,
 		Status:  statusSvc,
 		DB:      dist.DB,
+	}))
+
+	deviceSvc = MustSucceed(device.OpenService(ctx, device.ServiceConfig{
+		DB:       dist.DB,
+		Ontology: dist.Ontology,
+		Group:    dist.Group,
+		Status:   statusSvc,
+		Rack:     rackSvc,
 	}))
 })
 
