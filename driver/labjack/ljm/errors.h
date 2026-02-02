@@ -701,28 +701,31 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"FILE_IO_END_OF_CWD", "There are no more files in the current working directory."}
 };
 
-const xerrors::Error CRITICAL_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("labjack");
-const xerrors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub("labjack");
-const xerrors::Error RECONNECT_FAILED = CRITICAL_ERROR.sub("LJME_RECONNECT_FAILED");
-const xerrors::Error NO_RESPONSE_BYTES_RECEIVED = CRITICAL_ERROR.sub(
+const x::errors::Error CRITICAL_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("labjack");
+const x::errors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub(
+    "labjack"
+);
+const x::errors::Error RECONNECT_FAILED = CRITICAL_ERROR.sub("LJME_RECONNECT_FAILED");
+const x::errors::Error NO_RESPONSE_BYTES_RECEIVED = CRITICAL_ERROR.sub(
     "LJME_NO_RESPONSE_BYTES_RECEIVED"
 );
-const xerrors::Error STREAM_NOT_INITIALIZED = CRITICAL_ERROR.sub(
+const x::errors::Error STREAM_NOT_INITIALIZED = CRITICAL_ERROR.sub(
     "LJME_STREAM_NOT_INITIALIZED"
 );
-const xerrors::Error SYNCHRONIZATION_TIMEOUT = CRITICAL_ERROR.sub(
+const x::errors::Error SYNCHRONIZATION_TIMEOUT = CRITICAL_ERROR.sub(
     "LJME_SYNCHRONIZATION_TIMEOUT"
 );
-const xerrors::Error LJME_AUTO_IPS_FILE_NOT_FOUND = CRITICAL_ERROR.sub(
+const x::errors::Error LJME_AUTO_IPS_FILE_NOT_FOUND = CRITICAL_ERROR.sub(
     "LJME_AUTO_IPS_FILE_NOT_FOUND"
 );
-const auto TEMPORARILY_UNREACHABLE = xerrors::Error(
+const auto TEMPORARILY_UNREACHABLE = x::errors::Error(
     TEMPORARY_ERROR.sub("unreachable"),
     "The device is temporarily unreachable. Will keep trying"
 );
 
-inline xerrors::Error parse_error(const std::shared_ptr<ljm::API> &ljm, const int err) {
-    if (err == 0) return xerrors::NIL;
+inline x::errors::Error
+parse_error(const std::shared_ptr<ljm::API> &ljm, const int err) {
+    if (err == 0) return x::errors::NIL;
 
     char err_msg[LJM_MAX_NAME_SIZE];
     ljm->err_to_string(err, err_msg);
@@ -731,6 +734,6 @@ inline xerrors::Error parse_error(const std::shared_ptr<ljm::API> &ljm, const in
     if (const auto it = ERROR_DESCRIPTIONS.find(err_msg);
         it != ERROR_DESCRIPTIONS.end())
         description = it->second;
-    return xerrors::Error(CRITICAL_ERROR.sub(err_msg), description);
+    return x::errors::Error(CRITICAL_ERROR.sub(err_msg), description);
 }
 }

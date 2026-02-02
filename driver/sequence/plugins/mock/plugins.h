@@ -11,28 +11,29 @@
 
 #include <vector>
 
-#include "x/cpp/telem/control.h"
+#include "x/cpp/control/control.h"
 
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/sequence/plugins/plugins.h"
 
-namespace plugins::mock {
+namespace driver::sequence::plugins::mock {
 class FrameSink final : public plugins::FrameSink, public pipeline::mock::Sink {
 public:
-    std::vector<
-        std::pair<std::vector<synnax::ChannelKey>, std::vector<telem::Authority>>>
+    std::vector<std::pair<
+        std::vector<synnax::channel::Key>,
+        std::vector<x::control::Authority>>>
         authority_calls;
 
-    xerrors::Error write(telem::Frame &frame) override {
-        return pipeline::mock::Sink::write(frame);
+    x::errors::Error write(x::telem::Frame &frame) override {
+        return Sink::write(frame);
     }
 
-    xerrors::Error set_authority(
-        const std::vector<synnax::ChannelKey> &keys,
-        const std::vector<telem::Authority> &authorities
+    x::errors::Error set_authority(
+        const std::vector<synnax::channel::Key> &keys,
+        const std::vector<x::control::Authority> &authorities
     ) override {
         this->authority_calls.emplace_back(keys, authorities);
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 };
 }

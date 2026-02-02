@@ -9,7 +9,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/ni/syscfg/api.h"
 #include "driver/ni/syscfg/sugared.h"

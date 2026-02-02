@@ -13,7 +13,7 @@
 #include "driver/task/common/sample_clock.h"
 #include "driver/task/task.h"
 
-namespace labjack {
+namespace driver::labjack {
 /// @brief make of LabJack devices.
 const std::string MAKE = "LabJack";
 /// @brief labjack integration name.
@@ -38,7 +38,7 @@ const std::vector UNREACHABLE_ERRORS = {
 };
 
 /// @brief translates LJM errors into useful errors for managing the task lifecycle.
-inline xerrors::Error translate_error(const xerrors::Error &err) {
+inline x::errors::Error translate_error(const x::errors::Error &err) {
     if (err.matches(UNREACHABLE_ERRORS)) return ljm::TEMPORARILY_UNREACHABLE;
     return err;
 }
@@ -46,38 +46,38 @@ inline xerrors::Error translate_error(const xerrors::Error &err) {
 /// @brief factory for creating and operating LabJack tasks.
 class Factory final : public task::Factory {
     std::shared_ptr<device::Manager> dev_manager;
-    common::TimingConfig timing_cfg;
+    task::common::TimingConfig timing_cfg;
 
     /// @brief checks whether the factory is healthy and capable of creating tasks.
     /// If not, the factory will automatically send an error back through the
     /// task state and return false.
     [[nodiscard]] bool check_health(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) const;
 
 public:
     explicit Factory(
         const std::shared_ptr<device::Manager> &dev_manager,
-        const common::TimingConfig timing_cfg
+        const task::common::TimingConfig timing_cfg
     ):
         dev_manager(dev_manager), timing_cfg(timing_cfg) {}
 
     /// @brief creates a new LabJack factory, loading the LJM library.
     static std::unique_ptr<Factory>
-    create(common::TimingConfig timing_cfg = common::TimingConfig());
+    create(task::common::TimingConfig timing_cfg = task::common::TimingConfig());
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) override;
 
     std::string name() override { return INTEGRATION_NAME; }
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Rack &rack
+        const synnax::rack::Rack &rack
     ) override;
 };
 }

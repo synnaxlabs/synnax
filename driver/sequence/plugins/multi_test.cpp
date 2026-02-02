@@ -11,38 +11,39 @@
 
 #include "driver/sequence/plugins/plugins.h"
 
-class MockPlugin : public plugins::Plugin {
+namespace driver::sequence::plugins {
+class MockPlugin : public Plugin {
 public:
     std::vector<std::string> calls;
     bool should_error = false;
     std::string error_on;
 
-    xerrors::Error before_all(lua_State *L) override {
+    x::errors::Error before_all(lua_State *L) override {
         calls.emplace_back("before_all");
         if (should_error && error_on == "before_all")
-            return xerrors::Error("mock error");
-        return xerrors::NIL;
+            return x::errors::Error("mock error");
+        return x::errors::NIL;
     }
 
-    xerrors::Error after_all(lua_State *L) override {
+    x::errors::Error after_all(lua_State *L) override {
         calls.emplace_back("after_all");
         if (should_error && error_on == "after_all")
-            return xerrors::Error("mock error");
-        return xerrors::NIL;
+            return x::errors::Error("mock error");
+        return x::errors::NIL;
     }
 
-    xerrors::Error before_next(lua_State *L) override {
+    x::errors::Error before_next(lua_State *L) override {
         calls.emplace_back("before_next");
         if (should_error && error_on == "before_next")
-            return xerrors::Error("mock error");
-        return xerrors::NIL;
+            return x::errors::Error("mock error");
+        return x::errors::NIL;
     }
 
-    xerrors::Error after_next(lua_State *L) override {
+    x::errors::Error after_next(lua_State *L) override {
         calls.emplace_back("after_next");
         if (should_error && error_on == "after_next")
-            return xerrors::Error("mock error");
-        return xerrors::NIL;
+            return x::errors::Error("mock error");
+        return x::errors::NIL;
     }
 };
 
@@ -54,10 +55,10 @@ TEST(MultiPlugin, testCallOrder) {
 
     auto multi = plugins::MultiPlugin(plugins);
 
-    ASSERT_EQ(multi.before_all(nullptr), xerrors::NIL);
-    ASSERT_EQ(multi.before_next(nullptr), xerrors::NIL);
-    ASSERT_EQ(multi.after_next(nullptr), xerrors::NIL);
-    ASSERT_EQ(multi.after_all(nullptr), xerrors::NIL);
+    ASSERT_EQ(multi.before_all(nullptr), x::errors::NIL);
+    ASSERT_EQ(multi.before_next(nullptr), x::errors::NIL);
+    ASSERT_EQ(multi.after_next(nullptr), x::errors::NIL);
+    ASSERT_EQ(multi.after_all(nullptr), x::errors::NIL);
 
     std::vector<std::string> expected =
         {"before_all", "before_next", "after_next", "after_all"};
@@ -76,7 +77,7 @@ TEST(MultiPlugin, testErrorPropagationBeforeAll) {
     auto multi = plugins::MultiPlugin(plugins);
 
     auto err = multi.before_all(nullptr);
-    ASSERT_NE(err, xerrors::NIL);
+    ASSERT_NE(err, x::errors::NIL);
     ASSERT_EQ(plugin1->calls.size(), 1);
     ASSERT_EQ(plugin2->calls.size(), 1);
 }
@@ -92,7 +93,7 @@ TEST(MultiPlugin, testErrorPropagationAfterAll) {
     auto multi = plugins::MultiPlugin(plugins);
 
     auto err = multi.after_all(nullptr);
-    ASSERT_NE(err, xerrors::NIL);
+    ASSERT_NE(err, x::errors::NIL);
     ASSERT_EQ(plugin1->calls.size(), 1);
     ASSERT_EQ(plugin2->calls.size(), 1);
 }
@@ -108,7 +109,7 @@ TEST(MultiPlugin, testErrorPropagationBeforeNext) {
     auto multi = plugins::MultiPlugin(plugins);
 
     auto err = multi.before_next(nullptr);
-    ASSERT_NE(err, xerrors::NIL);
+    ASSERT_NE(err, x::errors::NIL);
     ASSERT_EQ(plugin1->calls.size(), 1);
     ASSERT_EQ(plugin2->calls.size(), 1);
 }
@@ -124,7 +125,7 @@ TEST(MultiPlugin, testErrorPropagationAfterNext) {
     auto multi = plugins::MultiPlugin(plugins);
 
     auto err = multi.after_next(nullptr);
-    ASSERT_NE(err, xerrors::NIL);
+    ASSERT_NE(err, x::errors::NIL);
     ASSERT_EQ(plugin1->calls.size(), 1);
     ASSERT_EQ(plugin2->calls.size(), 1);
 }
@@ -143,7 +144,7 @@ TEST(MultiPlugin, testAfterAllCallsAllPlugins) {
     auto multi = plugins::MultiPlugin(plugins);
 
     auto err = multi.after_all(nullptr);
-    ASSERT_NE(err, xerrors::NIL);
+    ASSERT_NE(err, x::errors::NIL);
 
     // Verify that all plugins had after_all called
     ASSERT_EQ(plugin1->calls.size(), 1);
@@ -154,4 +155,5 @@ TEST(MultiPlugin, testAfterAllCallsAllPlugins) {
 
     ASSERT_EQ(plugin3->calls.size(), 1);
     ASSERT_EQ(plugin3->calls[0], "after_all");
+}
 }

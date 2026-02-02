@@ -19,13 +19,13 @@ struct Hardware {
     virtual ~Hardware() = default;
 
     /// @brief starts the task.
-    [[nodiscard]] virtual xerrors::Error start() = 0;
+    [[nodiscard]] virtual x::errors::Error start() = 0;
 
     /// @brief stops the task.
-    [[nodiscard]] virtual xerrors::Error stop() = 0;
+    [[nodiscard]] virtual x::errors::Error stop() = 0;
 };
 
-struct ReadResult : common::ReadResult {
+struct ReadResult : driver::task::common::ReadResult {
     int64 skew = 0;
 };
 
@@ -50,7 +50,7 @@ struct Writer : virtual Hardware {
     /// @brief writes data to the hardware.
     /// @param data vector of values to write to the hardware
     /// @return error if the write operation failed
-    [[nodiscard]] virtual xerrors::Error write(const std::vector<T> &data) = 0;
+    [[nodiscard]] virtual x::errors::Error write(const std::vector<T> &data) = 0;
 };
 
 namespace daqmx {
@@ -69,10 +69,10 @@ protected:
 
 public:
     /// @brief implements HardwareInterface to start the DAQmx task.
-    xerrors::Error start() override;
+    x::errors::Error start() override;
 
     /// @brief implements the HardwareInterface to stop the DAQmx task.
-    xerrors::Error stop() override;
+    x::errors::Error stop() override;
 };
 
 /// @brief Implementation of digital output writing using DAQmx
@@ -84,7 +84,7 @@ struct DigitalWriter final : Base, Writer<uint8_t> {
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
-    xerrors::Error write(const std::vector<uint8_t> &data) override;
+    x::errors::Error write(const std::vector<uint8_t> &data) override;
 };
 
 /// @brief Implementation of analog output writing using DAQmx
@@ -96,7 +96,7 @@ struct AnalogWriter final : Base, Writer<double> {
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
-    xerrors::Error write(const std::vector<double> &data) override;
+    x::errors::Error write(const std::vector<double> &data) override;
 };
 
 /// @brief a hardware interface for digital tasks.
@@ -132,7 +132,7 @@ protected:
     int64 update_skew(const size_t &n_requested);
 
 public:
-    xerrors::Error start() override;
+    x::errors::Error start() override;
 };
 
 /// @brief a hardware interface for analog tasks.
@@ -158,9 +158,9 @@ namespace mock {
 /// @brief Base mock implementation for testing hardware interfaces
 struct Base : virtual hardware::Hardware {
     /// @brief Errors to return from start() calls in sequence
-    std::vector<xerrors::Error> start_errors;
+    std::vector<x::errors::Error> start_errors;
     /// @brief Errors to return from stop() calls in sequence
-    std::vector<xerrors::Error> stop_errors;
+    std::vector<x::errors::Error> stop_errors;
     /// @brief Number of times start() was called
     size_t start_call_count;
     /// @brief Number of times stop() was called
@@ -168,13 +168,13 @@ struct Base : virtual hardware::Hardware {
 
 protected:
     explicit Base(
-        const std::vector<xerrors::Error> &start_errors = {xerrors::NIL},
-        const std::vector<xerrors::Error> &stop_errors = {xerrors::NIL}
+        const std::vector<x::errors::Error> &start_errors = {x::errors::NIL},
+        const std::vector<x::errors::Error> &stop_errors = {x::errors::NIL}
     );
 
 public:
-    xerrors::Error start() override;
-    xerrors::Error stop() override;
+    x::errors::Error start() override;
+    x::errors::Error stop() override;
 };
 
 /// @brief Mock implementation of Reader interface for testing
@@ -183,7 +183,7 @@ template<typename T>
 class Reader final : public Base, public hardware::Reader<T> {
 public:
     /// @brief Predefined responses for read() calls
-    std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses;
+    std::vector<std::pair<std::vector<T>, x::errors::Error>> read_responses;
     /// @brief Number of times read() was called
     size_t read_call_count;
 
@@ -192,10 +192,10 @@ public:
     /// @param stop_errors Sequence of errors to return from stop()
     /// @param read_responses Sequence of data and errors to return from read()
     explicit Reader(
-        const std::vector<xerrors::Error> &start_errors = {xerrors::NIL},
-        const std::vector<xerrors::Error> &stop_errors = {xerrors::NIL},
-        std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses = {
-            {{0.5}, xerrors::NIL}
+        const std::vector<x::errors::Error> &start_errors = {x::errors::NIL},
+        const std::vector<x::errors::Error> &stop_errors = {x::errors::NIL},
+        std::vector<std::pair<std::vector<T>, x::errors::Error>> read_responses = {
+            {{0.5}, x::errors::NIL}
         }
     );
 
@@ -208,7 +208,7 @@ template<typename T>
 class Writer final : public Base, public hardware::Writer<T> {
 public:
     /// @brief Errors to return from write() calls in sequence
-    std::vector<xerrors::Error> write_responses;
+    std::vector<x::errors::Error> write_responses;
     /// @brief Number of times write() was called
     size_t write_call_count;
     /// @brief Storage for data written through this mock
@@ -222,12 +222,12 @@ public:
     explicit Writer(
         std::shared_ptr<std::vector<std::vector<T>>> written_data =
             std::make_shared<std::vector<std::vector<T>>>(),
-        const std::vector<xerrors::Error> &start_errors = {xerrors::NIL},
-        const std::vector<xerrors::Error> &stop_errors = {xerrors::NIL},
-        std::vector<xerrors::Error> write_responses = {xerrors::NIL}
+        const std::vector<x::errors::Error> &start_errors = {x::errors::NIL},
+        const std::vector<x::errors::Error> &stop_errors = {x::errors::NIL},
+        std::vector<x::errors::Error> write_responses = {x::errors::NIL}
     );
 
-    xerrors::Error write(const std::vector<T> &data) override;
+    x::errors::Error write(const std::vector<T> &data) override;
 
     std::shared_ptr<std::vector<std::vector<T>>> get_written_data() const {
         return written_data;

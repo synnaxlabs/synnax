@@ -9,7 +9,8 @@
 
 #include "driver/rack/rack.h"
 
-xerrors::Error rack::Config::load_args(xargs::Parser &args) {
+namespace driver::rack {
+x::errors::Error Config::load_args(x::args::Parser &args) {
     this->connection.override(args);
     this->timing.override(args);
     this->manager.override(args);
@@ -18,5 +19,6 @@ xerrors::Error rack::Config::load_args(xargs::Parser &args) {
         args.field("enable-integrations", std::vector<std::string>{}),
         args.field("disable-integrations", std::vector<std::string>{})
     );
-    return xerrors::NIL;
+    return x::errors::NIL;
+}
 }

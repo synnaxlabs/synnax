@@ -11,12 +11,14 @@
 #include <cstdint>
 
 /// internal.
-#include "x/cpp/xlua/xlua.h"
+#include "x/cpp/lua/lua.h"
 
 #include "driver/sequence/plugins/plugins.h"
 
-plugins::JSON::JSON(json source_data): data(std::move(source_data)) {}
+namespace driver::sequence::plugins {
+JSON::JSON(json source_data): data(std::move(source_data)) {}
 
-xerrors::Error plugins::JSON::before_all(lua_State *L) {
-    return xlua::set_globals_from_json_object(L, this->data);
+x::errors::Error JSON::before_all(lua_State *L) {
+    return x::lua::set_globals_from_json_object(L, this->data);
+}
 }

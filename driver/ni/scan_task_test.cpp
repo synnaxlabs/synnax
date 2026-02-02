@@ -9,7 +9,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
 #include "driver/ni/scan_task.h"
 
@@ -17,12 +17,12 @@
 TEST(ScanTaskTest, testConfigParse) {
     // Test default configuration
     json j = {{"enabled", true}};
-    auto p = xjson::Parser(j);
-    ni::ScanTaskConfig cfg(p);
+    auto p = x::json::Parser(j);
+    driver::ni::ScanTaskConfig cfg(p);
 
     EXPECT_TRUE(cfg.enabled);
-    EXPECT_EQ(cfg.scan_rate.hz(), common::DEFAULT_SCAN_RATE.hz());
-    EXPECT_EQ(cfg.ignored_models.size(), ni::DEFAULT_IGNORED_MODELS.size());
+    EXPECT_EQ(cfg.scan_rate.hz(), driver::task::common::DEFAULT_SCAN_RATE.hz());
+    EXPECT_EQ(cfg.ignored_models.size(), driver::ni::DEFAULT_IGNORED_MODELS.size());
 
     // Test custom configuration
     json j2 = {
@@ -30,8 +30,8 @@ TEST(ScanTaskTest, testConfigParse) {
         {"rate", 10.0},
         {"ignored_models", json::array({"^Test.*", "^Mock.*"})}
     };
-    auto p2 = xjson::Parser(j2);
-    ni::ScanTaskConfig cfg2(p2);
+    auto p2 = x::json::Parser(j2);
+    driver::ni::ScanTaskConfig cfg2(p2);
 
     EXPECT_FALSE(cfg2.enabled);
     EXPECT_EQ(cfg2.scan_rate.hz(), 10.0);
@@ -41,8 +41,8 @@ TEST(ScanTaskTest, testConfigParse) {
 /// @brief it should correctly identify models to ignore based on regex patterns.
 TEST(ScanTaskTest, testConfigShouldIgnore) {
     json j = {{"ignored_models", json::array({"^Test.*", "^Mock.*", "PXI-.*"})}};
-    auto p = xjson::Parser(j);
-    ni::ScanTaskConfig cfg(p);
+    auto p = x::json::Parser(j);
+    driver::ni::ScanTaskConfig cfg(p);
 
     // Should ignore models matching the patterns
     EXPECT_TRUE(cfg.should_ignore("TestDevice"));
@@ -56,8 +56,8 @@ TEST(ScanTaskTest, testConfigShouldIgnore) {
 
     // Test with default configuration
     json j2 = {};
-    auto p2 = xjson::Parser(j2);
-    ni::ScanTaskConfig cfg2(p2);
+    auto p2 = x::json::Parser(j2);
+    driver::ni::ScanTaskConfig cfg2(p2);
 
     // Should ignore models matching default patterns
     EXPECT_TRUE(cfg2.should_ignore("cRIO-9068"));

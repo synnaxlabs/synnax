@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "x/cpp/xlib/xlib.h"
+#include "x/cpp/lib/lib.h"
 
 #include "driver/ni/syscfg/api.h"
 #include "driver/ni/syscfg/nisyscfg.h"
@@ -18,12 +18,12 @@ namespace syscfg {
 class SugaredAPI {
     std::shared_ptr<API> syscfg;
 
-    xerrors::Error process_error(NISysCfgStatus status) const;
+    x::errors::Error process_error(NISysCfgStatus status) const;
 
 public:
     explicit SugaredAPI(std::shared_ptr<API> syscfg): syscfg(std::move(syscfg)) {}
 
-    xerrors::Error InitializeSession(
+    x::errors::Error InitializeSession(
         const char *targetName,
         const char *username,
         const char *password,
@@ -34,20 +34,20 @@ public:
         NISysCfgSessionHandle *sessionHandle
     );
 
-    xerrors::Error CreateFilter(
+    x::errors::Error CreateFilter(
         NISysCfgSessionHandle sessionHandle,
         NISysCfgFilterHandle *filterHandle
     );
 
-    xerrors::Error SetFilterProperty(
+    x::errors::Error SetFilterProperty(
         NISysCfgFilterHandle filterHandle,
         NISysCfgFilterProperty propertyID,
         ...
     );
 
-    xerrors::Error CloseHandle(void *syscfgHandle);
+    x::errors::Error CloseHandle(void *syscfgHandle);
 
-    xerrors::Error FindHardware(
+    x::errors::Error FindHardware(
         NISysCfgSessionHandle sessionHandle,
         NISysCfgFilterMode filterMode,
         NISysCfgFilterHandle filterHandle,
@@ -55,19 +55,19 @@ public:
         NISysCfgEnumResourceHandle *resourceEnumHandle
     );
 
-    xerrors::Error NextResource(
+    x::errors::Error NextResource(
         NISysCfgSessionHandle sessionHandle,
         NISysCfgEnumResourceHandle resourceEnumHandle,
         NISysCfgResourceHandle *resourceHandle
     );
 
-    xerrors::Error GetResourceProperty(
+    x::errors::Error GetResourceProperty(
         NISysCfgResourceHandle resourceHandle,
         NISysCfgResourceProperty propertyID,
         void *value
     );
 
-    xerrors::Error GetResourceIndexedProperty(
+    x::errors::Error GetResourceIndexedProperty(
         NISysCfgResourceHandle resourceHandle,
         NISysCfgIndexedProperty propertyID,
         unsigned int index,

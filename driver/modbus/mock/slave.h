@@ -32,22 +32,22 @@
 
 #include "modbus/modbus.h"
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
 
 #include "driver/modbus/util/util.h"
 
 /// glog
 #include "glog/logging.h"
 
-namespace modbus::mock {
+namespace driver::modbus::mock {
 /// @brief Configuration for a mock Modbus slave
 struct SlaveConfig {
     // Maps for storing configured values for each register type
     std::unordered_map<int, uint8_t> coils;
     std::unordered_map<int, uint8_t> discrete_inputs;
-    std::unordered_map<int, telem::SampleValue> holding_registers;
-    std::unordered_map<int, telem::SampleValue> input_registers;
+    std::unordered_map<int, x::telem::SampleValue> holding_registers;
+    std::unordered_map<int, x::telem::SampleValue> input_registers;
     std::string host = "127.0.0.1";
     int port = 1502;
 };
@@ -84,7 +84,7 @@ class Slave {
         if (config_.holding_registers.empty())
             max_holding_register = 16;
         else
-            max_holding_register += (telem::DataType::infer(
+            max_holding_register += (x::telem::DataType::infer(
                                          config_.holding_registers[max_holding_register]
                                      )
                                          .density() +
@@ -94,7 +94,7 @@ class Slave {
         if (config_.input_registers.empty())
             max_input_register = 16;
         else
-            max_input_register += (telem::DataType::infer(
+            max_input_register += (x::telem::DataType::infer(
                                        config_.input_registers[max_input_register]
                                    )
                                        .density() +
@@ -137,7 +137,7 @@ class Slave {
 
         for (const auto &[addr, value]: config_.holding_registers)
             if (addr < nb_registers) {
-                auto dt = telem::DataType::infer(value);
+                auto dt = x::telem::DataType::infer(value);
                 LOG(INFO) << "Holding register[" << addr
                           << "]: inferred type=" << dt.name()
                           << " density=" << dt.density()
@@ -157,7 +157,7 @@ class Slave {
 
         for (const auto &[addr, value]: config_.input_registers)
             if (addr < nb_input_registers) {
-                auto dt = telem::DataType::infer(value);
+                auto dt = x::telem::DataType::infer(value);
                 LOG(INFO) << "Input register[" << addr
                           << "]: inferred type=" << dt.name()
                           << " density=" << dt.density()
@@ -294,12 +294,12 @@ public:
     }
 
     /// @brief Start the slave server in a background thread
-    xerrors::Error start() {
-        if (running_) { return xerrors::NIL; }
+    x::errors::Error start() {
+        if (running_) { return x::errors::NIL; }
 
         socket_ = modbus_tcp_listen(ctx_, 1);
         if (socket_ == -1) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to listen on modbus socket: " +
                 std::string(modbus_strerror(errno))
             );
@@ -309,7 +309,7 @@ public:
         running_ = true;
 
         server_thread_ = std::thread([this] { server_loop(); });
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     /// @brief Stop the slave server

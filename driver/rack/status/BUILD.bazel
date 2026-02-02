@@ -26,7 +26,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/rack/status",
         "//x/cpp/defer",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

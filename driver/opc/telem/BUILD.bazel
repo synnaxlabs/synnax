@@ -7,7 +7,7 @@ cc_library(
         "//driver/opc/errors",
         "//vendor/open62541",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "@glog",
     ],
 )
@@ -17,7 +17,7 @@ cc_test(
     srcs = ["telem_test.cpp"],
     deps = [
         ":telem",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )
