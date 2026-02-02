@@ -504,7 +504,7 @@ var _ = Describe("Sift", func() {
 				receivedRequests := make([]*ingestv1.IngestWithConfigDataStreamRequest, 0)
 				for range 12 {
 					var req *ingestv1.IngestWithConfigDataStreamRequest
-					Eventually(requests.Outlet(), 5*time.Second).Should(Receive(&req))
+					Eventually(requests.Outlet()).Should(Receive(&req))
 					receivedRequests = append(receivedRequests, req)
 				}
 

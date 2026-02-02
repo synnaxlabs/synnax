@@ -65,34 +65,29 @@ type UploadTaskConfig struct {
 func parseUploadTaskConfig(s string) (UploadTaskConfig, error) {
 	var c UploadTaskConfig
 	if err := json.Unmarshal([]byte(s), &c); err != nil {
-		return c, errors.Wrap(err, "failed to parse Sift upload task config")
+		return c, errors.Wrap(err, "failed to parse upload task config")
 	}
 	return c, nil
 }
 
-// ChannelGroup represents a set of channels that share the same index.
-// Each group has its own ingestion config on Sift but shares the same run.
-type ChannelGroup struct {
-	IndexKey        channel.Key
+// channelGroup represents a set of channels that share the same index. Each group has
+// its own ingestion config on Sift but shares the same run.
+type channelGroup struct {
+	index           channel.Key
 	DataChannelKeys []channel.Key
 	configID        string
 }
 
 // GroupChannelsByIndex groups channels by their index channel.
 // Returns a map from index key to the group of data channels that use that index.
-func GroupChannelsByIndex(channels []channel.Channel) map[channel.Key]*ChannelGroup {
-	groups := make(map[channel.Key]*ChannelGroup)
+func GroupChannelsByIndex(channels []channel.Channel) map[channel.Key]*channelGroup {
+	groups := make(map[channel.Key]*channelGroup)
 	for _, ch := range channels {
-		if ch.IsIndex {
-			continue
-		}
 		IndexKey := ch.Index()
-		group, ok := groups[IndexKey]
-		if !ok {
-			group = &ChannelGroup{IndexKey: IndexKey}
-			groups[IndexKey] = group
+		if _, ok := groups[IndexKey]; !ok {
+			groups[IndexKey] = &channelGroup{index: IndexKey}
 		}
-		group.DataChannelKeys = append(group.DataChannelKeys, ch.Key())
+		groups[IndexKey].DataChannelKeys = append(groups[IndexKey].DataChannelKeys, ch.Key())
 	}
 	return groups
 }
@@ -107,7 +102,7 @@ type uploadTask struct {
 	client   client.Client
 	ingester client.Ingester
 	iter     framer.StreamIterator
-	groups   []*ChannelGroup
+	groups   []*channelGroup
 	runID    string
 
 	mu      sync.Mutex
@@ -181,7 +176,7 @@ func (u *uploadTask) streamData(ctx context.Context) error {
 type uploadOrchestrator struct {
 	confluence.AbstractUnarySource[*ingestv1.IngestWithConfigDataStreamRequest]
 	iter     framer.StreamIterator
-	groups   []*ChannelGroup
+	groups   []*channelGroup
 	runID    string
 	flowName string
 }
@@ -259,7 +254,7 @@ func (o *uploadOrchestrator) sendFrame(ctx context.Context, frame framer.Frame) 
 
 	// Process each channel group independently
 	for _, group := range o.groups {
-		indexSeries := entries[group.IndexKey]
+		indexSeries := entries[group.index]
 
 		channelValues := make([][]*ingestv1.IngestWithConfigDataChannelValue, len(group.DataChannelKeys))
 		var numSamples int
@@ -435,7 +430,7 @@ func (f *Factory) configureUploadTask(
 
 	// Create ingestion config for each group
 	clientKeyBase := "synnax-" + strconv.FormatUint(uint64(t.Key), 10)
-	groupSlice := make([]*ChannelGroup, 0, len(groups))
+	groupSlice := make([]*channelGroup, 0, len(groups))
 	groupNum := 0
 	for _, group := range groups {
 		var flowChannels []*ingestionconfigsv1.ChannelConfig
