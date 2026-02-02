@@ -26,12 +26,10 @@ class Pair(Payload):
         value = kwargs.get("value")
         if not isinstance(value, str):
             if not is_primitive(value) and type(value).__str__ == object.__str__:
-                raise ValidationError(
-                    f"""
+                raise ValidationError(f"""
                 Synnax has no way of casting {value} to a string when setting metadata
                 on a range. Please convert the value to a string before setting it.
-                """
-                )
+                """)
         kwargs["value"] = str(value)
         super().__init__(**kwargs)
 

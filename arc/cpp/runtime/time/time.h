@@ -24,23 +24,23 @@ namespace arc::runtime::time {
 
 /// @brief Sentinel value indicating base_interval hasn't been set yet.
 /// Using TimeSpan::max() ensures any real interval will be smaller and will replace it.
-inline const telem::TimeSpan UNSET_BASE_INTERVAL = telem::TimeSpan::max();
+inline const x::telem::TimeSpan UNSET_BASE_INTERVAL = x::telem::TimeSpan::max();
 
 /// @brief Calculates the tolerance for timing comparisons based on execution mode.
-inline telem::TimeSpan calculate_tolerance(
+inline x::telem::TimeSpan calculate_tolerance(
     const loop::ExecutionMode mode,
-    const telem::TimeSpan base_interval
+    const x::telem::TimeSpan base_interval
 ) {
-    if (base_interval == UNSET_BASE_INTERVAL) return 5 * telem::MILLISECOND;
+    if (base_interval == UNSET_BASE_INTERVAL) return 5 * x::telem::MILLISECOND;
     const auto half = base_interval / 2;
     switch (mode) {
         case loop::ExecutionMode::RT_EVENT:
         case loop::ExecutionMode::BUSY_WAIT:
-            return std::min(half, 100 * telem::MICROSECOND);
+            return std::min(half, 100 * x::telem::MICROSECOND);
         case loop::ExecutionMode::HIGH_RATE:
-            return std::min(half, telem::MILLISECOND);
+            return std::min(half, x::telem::MILLISECOND);
         default:
-            return std::min(half, 5 * telem::MILLISECOND);
+            return std::min(half, 5 * x::telem::MILLISECOND);
     }
 }
 
@@ -135,7 +135,7 @@ public:
 
 class Factory : public node::Factory {
 public:
-    telem::TimeSpan base_interval = UNSET_BASE_INTERVAL;
+    x::telem::TimeSpan base_interval = UNSET_BASE_INTERVAL;
 
     bool handles(const std::string &node_type) const override {
         return node_type == "interval" || node_type == "wait";
@@ -167,7 +167,7 @@ private:
         if (this->base_interval == UNSET_BASE_INTERVAL)
             this->base_interval = span;
         else
-            this->base_interval = telem::TimeSpan(
+            this->base_interval = x::telem::TimeSpan(
                 std::gcd(this->base_interval.nanoseconds(), span.nanoseconds())
             );
     }

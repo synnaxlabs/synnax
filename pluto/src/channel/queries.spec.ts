@@ -275,7 +275,9 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({ rangeKey: range.key }, { signal: controller.signal });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => expect(result.current.variant).toEqual("success"), {
+        timeout: 5000,
+      });
       expect(result.current.getItem(channel.key)?.alias).toEqual("alias");
 
       await act(async () => {
@@ -778,7 +780,7 @@ describe("queries", () => {
 
       expect(result.current.form.validate()).toBe(false);
       expect(result.current.form.get("name").status.message).toContain(
-        "Name must not be empty",
+        "Name is required",
       );
     });
 

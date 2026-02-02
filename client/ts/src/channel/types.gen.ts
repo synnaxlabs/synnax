@@ -52,13 +52,7 @@ export const operationZ = z.object({
 });
 export interface Operation extends z.infer<typeof operationZ> {}
 
-export const nameZ = z
-  .string()
-  .min(1, "Name is required")
-  .regex(
-    /^[a-zA-Z_][a-zA-Z0-9_]*$/,
-    "Name can only contain letters, digits, and underscores, and cannot start with a digit",
-  );
+export const nameZ = z.string().min(1, "Name is required");
 export type Name = z.infer<typeof nameZ>;
 
 export const statusZ = status.statusZ();

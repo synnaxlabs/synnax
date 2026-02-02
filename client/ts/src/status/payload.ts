@@ -24,10 +24,7 @@ export const statusZ = <Details extends z.ZodType = z.ZodNever>(
 
 export const newZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
-) =>
-  statusZ(detailsSchema)
-    .omit({ labels: true })
-    .partial({ key: true, name: true, time: true });
+) => status.newZ({ details: detailsSchema }).omit({ labels: true });
 
 // Input type derived from Zod schema for consistency
 export type New<DetailsSchema extends z.ZodType = z.ZodNever> = z.input<

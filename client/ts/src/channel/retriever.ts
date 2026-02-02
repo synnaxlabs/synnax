@@ -16,10 +16,10 @@ import {
   type KeyOrName,
   type Keys,
   type KeysOrNames,
-  type Names,
   type Params,
+  type PrimitiveParams,
 } from "@/channel/payload";
-import { type Key, keyZ, type Name, type Payload, payloadZ } from "@/channel/types.gen";
+import { type Key, keyZ, type Payload, payloadZ } from "@/channel/types.gen";
 import { QueryError } from "@/errors";
 import { keyZ as rangeKeyZ } from "@/range/types.gen";
 import {

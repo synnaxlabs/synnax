@@ -77,14 +77,14 @@ TEST(LoopTest, testWaitBreaker) {
     brk.start();
     const auto start = std::chrono::high_resolution_clock::now();
     std::thread t(runBreaker, std::ref(brk));
-    std::this_thread::sleep_for((telem::MILLISECOND * 10).chrono());
+    std::this_thread::sleep_for((x::telem::MILLISECOND * 10).chrono());
     brk.stop();
     const auto end = std::chrono::high_resolution_clock::now();
     const auto elapsed = telem::TimeSpan(end - start);
     EXPECT_NEAR(
         elapsed.nanoseconds(),
-        (telem::MILLISECOND * 10).nanoseconds(),
-        (telem::MILLISECOND * 10).nanoseconds()
+        (x::telem::MILLISECOND * 10).nanoseconds(),
+        (x::telem::MILLISECOND * 10).nanoseconds()
     );
     t.join();
 }

@@ -39,7 +39,7 @@ IR::edges_from(const std::string &node_key) const {
     return result;
 }
 
-[[nodiscard]] std::vector<Edge> IR::edges_into(const std::string &node_key) const {
+[[nodiscard]] std::vector<Edge> IR::edges_to(const std::string &node_key) const {
     std::vector<Edge> result;
     for (const auto &e: edges)
         if (e.target.node == node_key) result.push_back(e);

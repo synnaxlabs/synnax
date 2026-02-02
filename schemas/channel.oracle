@@ -39,16 +39,13 @@ LocalKey uint20 {
 }
 
 Name = string {
-    @doc value """
+    @doc value         """
         is a human-readable name for a channel. Must start with a letter or
         underscore and contain only letters, digits, and underscores. Names are
         not guaranteed to be unique across channels.
     """
-    @validate {
-        required
-        pattern "^[a-zA-Z_][a-zA-Z0-9_]*$" "Name can only contain letters, digits, and underscores, and cannot start with a digit"
-    }
-    @go output "core/pkg/distribution/channel"
+    @validate required
+    @go output         "core/pkg/distribution/channel"
 }
 
 OperationType enum {

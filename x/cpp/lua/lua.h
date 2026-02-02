@@ -180,13 +180,13 @@ to_series(lua_State *L, const int index, const telem::DataType &data_type) {
     // Check if the index contains any value (even nil)
     if (lua_isnone(L, index))
         return {
-            telem::Series(telem::UNKNOWN_T, 0),
+            telem::Series(x::telem::UNKNOWN_T, 0),
             errors::Error(errors::VALIDATION, "Invalid stack index")
         };
 
     if (lua_isnil(L, index))
         return {
-            telem::Series(telem::UNKNOWN_T, 0),
+            telem::Series(x::telem::UNKNOWN_T, 0),
             errors::Error(errors::VALIDATION, "Expected value but received nil")
         };
 
@@ -215,7 +215,7 @@ to_series(lua_State *L, const int index, const telem::DataType &data_type) {
                         std::string(lua_typename(L, lua_type(L, index))) + "' to " +
                         data_type;
         return {
-            telem::Series(telem::UNKNOWN_T, 0),
+            telem::Series(x::telem::UNKNOWN_T, 0),
             errors::Error(errors::VALIDATION, error_msg)
         };
     }
@@ -239,7 +239,7 @@ to_series(lua_State *L, const int index, const telem::DataType &data_type) {
             };
         }
         return {
-            telem::Series(telem::UNKNOWN_T, 0),
+            telem::Series(x::telem::UNKNOWN_T, 0),
             errors::Error(
                 errors::VALIDATION,
                 "expected string value but received type '" +
@@ -296,7 +296,7 @@ to_series(lua_State *L, const int index, const telem::DataType &data_type) {
             errors::NIL
         };
     return {
-        telem::Series(telem::UNKNOWN_T, 0),
+        telem::Series(x::telem::UNKNOWN_T, 0),
         errors::Error(errors::VALIDATION, "Unsupported data type: " + data_type)
     };
 }

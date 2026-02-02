@@ -18,7 +18,7 @@
 #include <sys/stat.h>
 #include <systemd/sd-daemon.h>
 
-#include "x/cpp/xthread/xthread.h"
+#include "x/cpp/thread/thread.h"
 
 #include "driver/daemon/daemon.h"
 
@@ -216,7 +216,7 @@ void run(const Config &config, int argc, char *argv[]) {
 
     // Start watchdog thread
     std::thread watchdog([&]() {
-        xthread::set_name("watchdog");
+        x::thread::set_name("watchdog");
         while (!should_stop) {
             notify_watchdog();
             std::this_thread::sleep_for(std::chrono::seconds(config.watchdog_interval));

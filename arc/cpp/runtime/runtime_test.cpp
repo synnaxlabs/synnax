@@ -60,7 +60,7 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
     auto scheduler = std::make_unique<scheduler::Scheduler>(
         arc::ir::IR{},
         node_impls,
-        telem::TimeSpan(0)
+        x::telem::TimeSpan(0)
     );
 
     Config cfg{

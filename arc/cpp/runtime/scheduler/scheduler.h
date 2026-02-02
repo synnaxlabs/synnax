@@ -66,7 +66,7 @@ class Scheduler {
     /// @brief Maximum iterations for stage convergence loop.
     size_t max_convergence_iterations = 0;
     /// @brief Tolerance for timing comparisons to handle OS scheduling jitter.
-    telem::TimeSpan tolerance_;
+    x::telem::TimeSpan tolerance_;
     /// @brief Error handler for reporting node execution errors.
     errors::Handler error_handler;
 
@@ -90,7 +90,7 @@ public:
     Scheduler(
         const ir::IR &prog,
         std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls,
-        const telem::TimeSpan tolerance,
+        const x::telem::TimeSpan tolerance,
         errors::Handler error_handler = errors::noop_handler
     ):
         tolerance_(tolerance), error_handler(std::move(error_handler)) {

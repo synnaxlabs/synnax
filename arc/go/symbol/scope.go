@@ -137,7 +137,7 @@ func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 		child.Counter = new(int)
 	}
 	if sym.Kind == KindFunction {
-		child.Channels = NewChannels()
+		child.Channels = types.NewChannels()
 	}
 	if sym.Kind == KindVariable ||
 		sym.Kind == KindStatefulVariable ||

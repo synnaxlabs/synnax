@@ -505,5 +505,6 @@ struct IR {
     [[nodiscard]] std::optional<Edge> edge_to(const Handle &target) const;
     [[nodiscard]] std::unordered_map<std::string, std::vector<Edge>>
     edges_from(const std::string &node_key) const;
+    [[nodiscard]] std::vector<Edge> edges_to(const std::string &node_key) const;
 };
 }

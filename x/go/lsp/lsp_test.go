@@ -44,7 +44,7 @@ var _ = Describe("LSP", func() {
 
 		It("Should translate diagnostics with correct line offset", func() {
 			d := diagnostics.Diagnostics{
-				{Severity: diagnostics.SeverityError, Line: 10, Column: 5, Message: "error message"},
+				{Severity: diagnostics.SeverityError, Start: diagnostics.Position{Line: 10, Col: 5}, End: diagnostics.Position{Line: 10, Col: 10}, Message: "error message"},
 			}
 			cfg := lsp.TranslateConfig{Source: "test-analyzer"}
 			result := lsp.TranslateDiagnostics(d, cfg)
@@ -59,7 +59,7 @@ var _ = Describe("LSP", func() {
 
 		It("Should handle zero or negative line numbers", func() {
 			d := diagnostics.Diagnostics{
-				{Severity: diagnostics.SeverityWarning, Line: 0, Column: 0, Message: "at start"},
+				{Severity: diagnostics.SeverityWarning, Start: diagnostics.Position{Line: 0, Col: 0}, End: diagnostics.Position{Line: 0, Col: 0}, Message: "at start"},
 			}
 			result := lsp.TranslateDiagnostics(d, lsp.TranslateConfig{})
 			Expect(result[0].Range.Start.Line).To(Equal(uint32(0)))
@@ -67,9 +67,9 @@ var _ = Describe("LSP", func() {
 
 		It("Should translate multiple diagnostics", func() {
 			d := diagnostics.Diagnostics{
-				{Severity: diagnostics.SeverityError, Line: 1, Column: 0, Message: "first"},
-				{Severity: diagnostics.SeverityWarning, Line: 5, Column: 10, Message: "second"},
-				{Severity: diagnostics.SeverityHint, Line: 10, Column: 2, Message: "third"},
+				{Severity: diagnostics.SeverityError, Start: diagnostics.Position{Line: 1, Col: 0}, End: diagnostics.Position{Line: 1, Col: 5}, Message: "first"},
+				{Severity: diagnostics.SeverityWarning, Start: diagnostics.Position{Line: 5, Col: 10}, End: diagnostics.Position{Line: 5, Col: 15}, Message: "second"},
+				{Severity: diagnostics.SeverityHint, Start: diagnostics.Position{Line: 10, Col: 2}, End: diagnostics.Position{Line: 10, Col: 7}, Message: "third"},
 			}
 			result := lsp.TranslateDiagnostics(d, lsp.TranslateConfig{Source: "src"})
 

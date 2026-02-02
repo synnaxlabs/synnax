@@ -46,10 +46,10 @@ public:
     /// @brief constructs a frame with a single channel and series.
     /// @param chan the channel key corresponding to the given series.
     /// @param ser the series to add to the frame.
-    Frame(const std::uint32_t &chan, telem::Series &&ser);
+    Frame(const std::uint32_t &chan, x::telem::Series &&ser);
 
     explicit Frame(
-        std::unordered_map<std::uint32_t, telem::SampleValue> &data,
+        std::unordered_map<std::uint32_t, x::telem::SampleValue> &data,
         size_t cap = 0
     );
 
@@ -66,14 +66,14 @@ public:
     /// @brief adds a channel and series to the frame.
     /// @param chan the channel key to add.
     /// @param ser the series to add for the channel key.
-    void add(const std::uint32_t &chan, telem::Series &ser) const;
+    void add(const std::uint32_t &chan, x::telem::Series &ser) const;
 
     /// @brief adds the given series to the frame for the given channel key. Unlike
     /// add,
     ///  this method moves the series into the frame, rather than copying it.
     /// @param chan the channel key to add.
     /// @param ser the series to add for the channel key.
-    void emplace(const std::uint32_t &chan, telem::Series &&ser) const;
+    void emplace(const std::uint32_t &chan, x::telem::Series &&ser) const;
 
     /// @brief returns true if the frame has no series.
     [[nodiscard]] bool empty() const;
@@ -125,7 +125,7 @@ public:
     /// traverse the channel keys and series in the frame.
     struct Iterator {
         using iterator_category = std::forward_iterator_tag;
-        using value_type = std::pair<std::uint32_t, telem::Series &>;
+        using value_type = std::pair<std::uint32_t, x::telem::Series &>;
         using difference_type = std::ptrdiff_t;
         using pointer = value_type *;
         using reference = value_type &;

@@ -265,8 +265,8 @@ TEST(TimeSpanTests, testModulo) {
 /// @brief it should truncate a timespan to a given unit.
 TEST(TimeSpanTests, testTruncate) {
     const auto ts = telem::SECOND * 5 + telem::MICROSECOND * 10;
-    const auto ts3 = ts.truncate(telem::SECOND);
-    ASSERT_EQ(ts3, telem::SECOND * 5);
+    const auto ts3 = ts.truncate(x::telem::SECOND);
+    ASSERT_EQ(ts3, x::telem::SECOND * 5);
 }
 
 /// @brief it should return the original timespan when truncating to zero.
@@ -406,9 +406,9 @@ TEST(TimeRangeTests, testNotEqualOperatorNotEqual) {
 /// @brief it should calculate the period from a rate.
 TEST(RateTests, testPeriod) {
     const auto r = Rate(1);
-    ASSERT_EQ(r.period(), telem::SECOND);
+    ASSERT_EQ(r.period(), x::telem::SECOND);
     const auto r2 = Rate(2);
-    ASSERT_EQ(r2.period(), telem::SECOND / 2);
+    ASSERT_EQ(r2.period(), x::telem::SECOND / 2);
 }
 
 /// @brief it should initialize a rate from a frequency.
@@ -610,28 +610,28 @@ TEST(DataTypeTests, testName) {
 
 /// @brief it should return the byte density for each data type.
 TEST(DataTypeTests, testDensity) {
-    ASSERT_EQ(telem::FLOAT64_T.density(), 8);
-    ASSERT_EQ(telem::FLOAT32_T.density(), 4);
-    ASSERT_EQ(telem::INT8_T.density(), 1);
-    ASSERT_EQ(telem::INT16_T.density(), 2);
-    ASSERT_EQ(telem::INT32_T.density(), 4);
-    ASSERT_EQ(telem::INT64_T.density(), 8);
-    ASSERT_EQ(telem::UINT8_T.density(), 1);
-    ASSERT_EQ(telem::UINT16_T.density(), 2);
-    ASSERT_EQ(telem::UINT32_T.density(), 4);
-    ASSERT_EQ(telem::UINT64_T.density(), 8);
-    ASSERT_EQ(telem::TIMESTAMP_T.density(), 8);
-    ASSERT_EQ(telem::UUID_T.density(), 16);
-    ASSERT_EQ(telem::STRING_T.density(), 0);
-    ASSERT_EQ(telem::JSON_T.density(), 0);
+    ASSERT_EQ(x::telem::FLOAT64_T.density(), 8);
+    ASSERT_EQ(x::telem::FLOAT32_T.density(), 4);
+    ASSERT_EQ(x::telem::INT8_T.density(), 1);
+    ASSERT_EQ(x::telem::INT16_T.density(), 2);
+    ASSERT_EQ(x::telem::INT32_T.density(), 4);
+    ASSERT_EQ(x::telem::INT64_T.density(), 8);
+    ASSERT_EQ(x::telem::UINT8_T.density(), 1);
+    ASSERT_EQ(x::telem::UINT16_T.density(), 2);
+    ASSERT_EQ(x::telem::UINT32_T.density(), 4);
+    ASSERT_EQ(x::telem::UINT64_T.density(), 8);
+    ASSERT_EQ(x::telem::TIMESTAMP_T.density(), 8);
+    ASSERT_EQ(x::telem::UUID_T.density(), 16);
+    ASSERT_EQ(x::telem::STRING_T.density(), 0);
+    ASSERT_EQ(x::telem::JSON_T.density(), 0);
 }
 
 /// @brief it should identify variable-length data types.
 TEST(DataTypeTests, testIsVariable) {
-    ASSERT_TRUE(telem::STRING_T.is_variable());
-    ASSERT_TRUE(telem::JSON_T.is_variable());
-    ASSERT_FALSE(telem::FLOAT32_T.is_variable());
-    ASSERT_FALSE(telem::INT64_T.is_variable());
+    ASSERT_TRUE(x::telem::STRING_T.is_variable());
+    ASSERT_TRUE(x::telem::JSON_T.is_variable());
+    ASSERT_FALSE(x::telem::FLOAT32_T.is_variable());
+    ASSERT_FALSE(x::telem::INT64_T.is_variable());
 }
 
 /// @brief it should check if a data type matches a set of types.
@@ -639,10 +639,10 @@ TEST(DataTypeTests, testMatches) {
     const auto empty = telem::UNKNOWN_T;
     const auto dt = telem::FLOAT32_T;
 
-    const std::vector types = {telem::FLOAT32_T, telem::FLOAT64_T};
+    const std::vector types = {telem::FLOAT32_T, x::telem::FLOAT64_T};
     ASSERT_TRUE(dt.matches(types));
 
-    const std::vector non_matching = {telem::INT32_T, telem::INT64_T};
+    const std::vector non_matching = {telem::INT32_T, x::telem::INT64_T};
     ASSERT_FALSE(dt.matches(non_matching));
 }
 
@@ -953,7 +953,7 @@ TEST(StopwatchTests, testSubMillisecondPrecision) {
     const auto sw = Stopwatch();
     const auto elapsed = sw.elapsed();
     ASSERT_GE(elapsed.nanoseconds(), 0);
-    ASSERT_LT(elapsed, telem::MILLISECOND);
+    ASSERT_LT(elapsed, x::telem::MILLISECOND);
 }
 
 /// @brief it should return a TimeSpan with correct value.

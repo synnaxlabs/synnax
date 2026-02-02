@@ -55,7 +55,7 @@ TEST(StatusTest, TestParse) {
         {"variant", VARIANT_ERROR},
         {"message", "the cat is angry"},
         {"description", "a longer description of the cat's status"},
-        {"time", telem::TimeStamp(telem::SECOND).nanoseconds()},
+        {"time", x::telem::TimeStamp(x::telem::SECOND).nanoseconds()},
         {"details", {{"field1", "test"}, {"field2", 123}}},
         {"labels", json::json::array()}
     };
@@ -65,7 +65,7 @@ TEST(StatusTest, TestParse) {
     ASSERT_EQ(stat.variant, VARIANT_ERROR);
     ASSERT_EQ(stat.message, "the cat is angry");
     ASSERT_EQ(stat.description, "a longer description of the cat's status");
-    ASSERT_EQ(stat.time, telem::TimeStamp(telem::SECOND));
+    ASSERT_EQ(stat.time, x::telem::TimeStamp(x::telem::SECOND));
 }
 
 TEST(StatusTest, TestProtobufRoundTrip) {

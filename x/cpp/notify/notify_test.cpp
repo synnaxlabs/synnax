@@ -30,7 +30,7 @@ TEST(NotifierTest, SignalWait) {
         notifier->signal();
     });
 
-    EXPECT_TRUE(notifier->wait(telem::SECOND));
+    EXPECT_TRUE(notifier->wait(x::telem::SECOND));
 
     signaler.join();
 }
@@ -39,14 +39,14 @@ TEST(NotifierTest, SignalWait) {
 TEST(NotifierTest, SignalBeforeWait) {
     auto notifier = create();
     notifier->signal();
-    EXPECT_TRUE(notifier->wait(telem::MILLISECOND * 100));
+    EXPECT_TRUE(notifier->wait(x::telem::MILLISECOND * 100));
 }
 
 /// @brief it should return false when timeout expires without signal.
 TEST(NotifierTest, TimeoutExpires) {
     auto notifier = notify::create();
     const auto sw = telem::Stopwatch();
-    EXPECT_FALSE(notifier->wait(telem::MILLISECOND * 50));
+    EXPECT_FALSE(notifier->wait(x::telem::MILLISECOND * 50));
     EXPECT_GE(sw.elapsed(), 40 * telem::MILLISECOND);
 }
 
@@ -95,7 +95,7 @@ TEST(NotifierTest, ProducerConsumerPattern) {
 
     std::thread consumer([&]() {
         while (received < num_signals) {
-            if (notifier->wait(telem::MILLISECOND * 100)) received++;
+            if (notifier->wait(x::telem::MILLISECOND * 100)) received++;
         }
     });
 
@@ -108,7 +108,7 @@ TEST(NotifierTest, ProducerConsumerPattern) {
 TEST(NotifierTest, ZeroTimeout) {
     auto notifier = notify::create();
     const auto sw = telem::Stopwatch();
-    EXPECT_FALSE(notifier->wait(telem::TimeSpan(0)));
+    EXPECT_FALSE(notifier->wait(x::telem::TimeSpan(0)));
     EXPECT_LE(sw.elapsed(), 10 * telem::MILLISECOND);
 }
 }

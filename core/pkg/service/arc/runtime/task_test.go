@@ -98,7 +98,7 @@ var _ = Describe("Task", Ordered, func() {
 			if err != nil {
 				return svcarc.Arc{}, err
 			}
-			return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Module: module}, nil
+			return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Module: &module}, nil
 		})
 	}
 
@@ -109,7 +109,7 @@ var _ = Describe("Task", Ordered, func() {
 			if err != nil {
 				return svcarc.Arc{}, err
 			}
-			return svcarc.Arc{Key: uuid.New(), Name: "test-arc", Text: prof, Module: module}, nil
+			return svcarc.Arc{Key: uuid.New(), Name: "test-arc", Text: prof, Module: &module}, nil
 		})
 	}
 
@@ -664,12 +664,11 @@ var _ = Describe("Task", Ordered, func() {
 				`, outputCh.Name, inputCh.Name, inputCh.Name),
 			}
 
-			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 100),
 				Name:   "test-div-zero",
 				Type:   runtime.TaskType,
-				Config: string(cfgJSON),
+				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
 			t := MustBeOk(MustSucceed2(newTextFactory(prog).ConfigureTask(newContext(), svcTask)))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
@@ -712,12 +711,11 @@ var _ = Describe("Task", Ordered, func() {
 				`, outputCh.Name, inputCh.Name, inputCh.Name),
 			}
 
-			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 101),
 				Name:   "test-div-recover",
 				Type:   runtime.TaskType,
-				Config: string(cfgJSON),
+				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
 			t := MustBeOk(MustSucceed2(newTextFactory(prog).ConfigureTask(newContext(), svcTask)))
 

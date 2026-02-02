@@ -59,8 +59,8 @@ class Runtime {
     std::shared_ptr<state::State> state;
     std::unique_ptr<scheduler::Scheduler> scheduler;
     std::unique_ptr<loop::Loop> loop;
-    x::queue::SPSC<telem::Frame> inputs;
-    x::queue::SPSC<telem::Frame> outputs;
+    x::queue::SPSC<x::telem::Frame> inputs;
+    x::queue::SPSC<x::telem::Frame> outputs;
     std::chrono::steady_clock::time_point start_time_steady_;
     errors::Handler error_handler;
 
@@ -92,7 +92,7 @@ public:
 
     void run() {
         this->start_time_steady_ = std::chrono::steady_clock::now();
-        xthread::set_name("runtime");
+        x::thread::set_name("runtime");
         this->loop->start();
         if (!this->loop->watch(this->inputs.notifier())) {
             LOG(ERROR) << "[runtime] failed to watch input notifier";
