@@ -9,30 +9,28 @@
 
 #include <memory>
 
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 
 #include "client/cpp/auth/auth.h"
 #include "freighter/cpp/mock/mock.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
-#include "core/pkg/api/grpc/v1/auth.pb.h"
+#include "core/pkg/api/grpc/auth/auth.pb.h"
 
 /// @brief it should correctly authenticate with a Synnax cluster.
 TEST(TestAuth, testLoginHappyPath) {
-    auto res = api::v1::LoginResponse();
+    auto res = grpc::auth::LoginResponse();
     res.set_token("abc");
-    auto mock_login_client = std::make_unique<
-        MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
-        res,
-        xerrors::NIL
-    );
+    auto mock_login_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::LoginRequest,
+        grpc::auth::LoginResponse>>(res, x::errors::NIL);
     const auto mw = std::make_shared<AuthMiddleware>(
         std::move(mock_login_client),
         "synnax",
         "seldon",
-        5 * telem::SECOND
+        5 * x::telem::SECOND
     );
-    auto mock_client = MockUnaryClient<int, int>{1, xerrors::NIL};
+    auto mock_client = freighter::mock::UnaryClient<int, int>{1, x::errors::NIL};
     mock_client.use(mw);
     auto v = 1;
     const auto r = ASSERT_NIL_P(mock_client.send("", v));
@@ -41,44 +39,43 @@ TEST(TestAuth, testLoginHappyPath) {
 
 /// @brief it should return an error if credentials are invalid.
 TEST(TestAuth, testLoginInvalidCredentials) {
-    auto res = api::v1::LoginResponse();
+    auto res = grpc::auth::LoginResponse();
     res.set_token("abc");
-    auto mock_login_client = std::make_unique<
-        MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
-        res,
-        INVALID_CREDENTIALS
-    );
+    auto mock_login_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::LoginRequest,
+        grpc::auth::LoginResponse>>(res, ERR_INVALID_CREDENTIALS);
     const auto mw = std::make_shared<AuthMiddleware>(
         std::move(mock_login_client),
         "synnax",
         "seldon",
-        5 * telem::SECOND
+        5 * x::telem::SECOND
     );
-    auto mock_client = MockUnaryClient<int, int>{1, xerrors::NIL};
+    auto mock_client = freighter::mock::UnaryClient<int, int>{1, x::errors::NIL};
     mock_client.use(mw);
     auto v = 1;
     auto [r, err] = mock_client.send("", v);
-    ASSERT_OCCURRED_AS(err, INVALID_CREDENTIALS);
+    ASSERT_OCCURRED_AS(err, ERR_INVALID_CREDENTIALS);
 }
 
 /// @brief it should retry authentication if the authentication token is invalid.
 TEST(TestAuth, testLoginRetry) {
-    auto res = api::v1::LoginResponse();
+    auto res = grpc::auth::LoginResponse();
     res.set_token("abc");
-    auto mock_login_client = std::make_unique<
-        MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
-        std::vector<api::v1::LoginResponse>{res, res},
-        std::vector<xerrors::Error>{xerrors::NIL, xerrors::NIL}
+    auto mock_login_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::LoginRequest,
+        grpc::auth::LoginResponse>>(
+        std::vector<grpc::auth::LoginResponse>{res, res},
+        std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
     );
     const auto mw = std::make_shared<AuthMiddleware>(
         std::move(mock_login_client),
         "synnax",
         "seldon",
-        5 * telem::SECOND
+        5 * x::telem::SECOND
     );
-    auto mock_client = MockUnaryClient<int, int>{
+    auto mock_client = freighter::mock::UnaryClient<int, int>{
         {1, 1},
-        {xerrors::Error(INVALID_TOKEN, ""), xerrors::NIL}
+        {x::errors::Error(ERR_INVALID_TOKEN, ""), x::errors::NIL}
     };
     mock_client.use(mw);
     auto v = 1;
@@ -88,34 +85,40 @@ TEST(TestAuth, testLoginRetry) {
 
 class TestAuthRetry : public ::testing::Test {
 protected:
-    api::v1::LoginResponse res;
-    std::unique_ptr<MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>
+    grpc::auth::LoginResponse res;
+    std::unique_ptr<freighter::mock::UnaryClient<
+        grpc::auth::LoginRequest,
+        grpc::auth::LoginResponse>>
         mock_login_client;
     std::shared_ptr<AuthMiddleware> mw;
-    MockUnaryClient<int, int> mock_client;
+    freighter::mock::UnaryClient<int, int> mock_client;
 
     void SetUp() override { res.set_token("abc"); }
 
-    void setupTest(xerrors::Error first_error) {
-        mock_login_client = std::make_unique<
-            MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
-            std::vector<api::v1::LoginResponse>{res, res},
-            std::vector<xerrors::Error>{xerrors::NIL, xerrors::NIL}
+    void setupTest(x::errors::Error first_error) {
+        mock_login_client = std::make_unique<freighter::mock::UnaryClient<
+            grpc::auth::LoginRequest,
+            grpc::auth::LoginResponse>>(
+            std::vector<grpc::auth::LoginResponse>{res, res},
+            std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
         );
         mw = std::make_shared<AuthMiddleware>(
             std::move(mock_login_client),
             "synnax",
             "seldon",
-            5 * telem::SECOND
+            5 * x::telem::SECOND
         );
-        mock_client = MockUnaryClient<int, int>{{1, 1}, {first_error, xerrors::NIL}};
+        mock_client = freighter::mock::UnaryClient<int, int>{
+            {1, 1},
+            {first_error, x::errors::NIL}
+        };
         mock_client.use(mw);
     }
 };
 
 /// @brief it should retry authentication if the authentication token is invalid.
 TEST_F(TestAuthRetry, RetryOnInvalidToken) {
-    setupTest(xerrors::Error(INVALID_TOKEN, ""));
+    setupTest(x::errors::Error(ERR_INVALID_TOKEN, ""));
     auto v = 1;
     const auto r = ASSERT_NIL_P(mock_client.send("", v));
     ASSERT_EQ(r, 1);
@@ -123,7 +126,7 @@ TEST_F(TestAuthRetry, RetryOnInvalidToken) {
 
 /// @brief it should retry authentication if the authentication token is expired.
 TEST_F(TestAuthRetry, RetryOnExpiredToken) {
-    setupTest(xerrors::Error(EXPIRED_TOKEN, ""));
+    setupTest(x::errors::Error(ERR_EXPIRED_TOKEN, ""));
     auto v = 1;
     const auto r = ASSERT_NIL_P(mock_client.send("", v));
     ASSERT_EQ(r, 1);

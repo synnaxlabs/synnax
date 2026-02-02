@@ -14,9 +14,10 @@
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/test/test.h"
 
+namespace synnax::arc {
 std::mt19937 gen_rand = random_generator(std::move("Arc Tests"));
 
 std::string random_arc_name(const std::string &prefix) {
@@ -27,12 +28,12 @@ std::string random_arc_name(const std::string &prefix) {
 /// @brief it should create an Arc program and assign it a non-zero key.
 TEST(TestArc, testCreate) {
     const auto client = new_test_client();
-    auto arc = synnax::Arc("test_arc");
+    auto arc = Arc{.name = "test_arc"};
     arc.text.raw = "// Simple Arc program";
 
     ASSERT_NIL(client.arcs.create(arc));
     ASSERT_EQ(arc.name, "test_arc");
-    ASSERT_FALSE(arc.key.empty());
+    ASSERT_NE(arc.key, x::uuid::NIL);
 }
 
 /// @brief it should create an Arc program using the convenience method.
@@ -40,22 +41,22 @@ TEST(TestArc, testCreateConvenience) {
     const auto client = new_test_client();
     auto arc = ASSERT_NIL_P(client.arcs.create("convenience_arc"));
     ASSERT_EQ(arc.name, "convenience_arc");
-    ASSERT_FALSE(arc.key.empty());
+    ASSERT_NE(arc.key, x::uuid::NIL);
 }
 
 /// @brief it should create multiple Arc programs.
 TEST(TestArc, testCreateMany) {
     const auto client = new_test_client();
-    auto arcs = std::vector<synnax::Arc>{
-        synnax::Arc("arc1"),
-        synnax::Arc("arc2"),
-        synnax::Arc("arc3"),
+    auto arcs = std::vector<Arc>{
+        Arc{.name = "arc1"},
+        Arc{.name = "arc2"},
+        Arc{.name = "arc3"},
     };
 
     ASSERT_NIL(client.arcs.create(arcs));
 
     for (const auto &arc: arcs)
-        ASSERT_FALSE(arc.key.empty());
+        ASSERT_NE(arc.key, x::uuid::NIL);
     ASSERT_EQ(arcs[0].name, "arc1");
     ASSERT_EQ(arcs[1].name, "arc2");
     ASSERT_EQ(arcs[2].name, "arc3");
@@ -65,7 +66,7 @@ TEST(TestArc, testCreateMany) {
 TEST(TestArc, testRetrieveByName) {
     const auto client = new_test_client();
     auto name = random_arc_name("retrieve_test");
-    auto created = synnax::Arc(name);
+    auto created = Arc{.name = name};
     ASSERT_NIL(client.arcs.create(created));
 
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_name(name));
@@ -76,7 +77,7 @@ TEST(TestArc, testRetrieveByName) {
 /// @brief it should retrieve an Arc program by key.
 TEST(TestArc, testRetrieveByKey) {
     const auto client = new_test_client();
-    auto created = synnax::Arc("key_test");
+    auto created = Arc{.name = "key_test"};
     ASSERT_NIL(client.arcs.create(created));
 
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(created.key));
@@ -89,10 +90,7 @@ TEST(TestArc, testRetrieveMany) {
     const auto client = new_test_client();
     auto name1 = random_arc_name("multi1");
     auto name2 = random_arc_name("multi2");
-    auto arcs = std::vector<synnax::Arc>{
-        synnax::Arc(name1),
-        synnax::Arc(name2),
-    };
+    auto arcs = std::vector<Arc>{Arc{.name = name1}, Arc{.name = name2}};
     ASSERT_NIL(client.arcs.create(arcs));
 
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve({name1, name2}));
@@ -102,13 +100,13 @@ TEST(TestArc, testRetrieveMany) {
 /// @brief it should retrieve multiple Arc programs by keys.
 TEST(TestArc, testRetrieveByKeys) {
     const auto client = new_test_client();
-    auto arcs = std::vector<synnax::Arc>{
-        synnax::Arc("keys1"),
-        synnax::Arc("keys2"),
+    auto arcs = std::vector<Arc>{
+        Arc{.name = "keys1"},
+        Arc{.name = "keys2"},
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
-    std::vector<std::string> keys = {arcs[0].key, arcs[1].key};
+    std::vector<x::uuid::UUID> keys = {arcs[0].key, arcs[1].key};
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_keys(keys));
     ASSERT_EQ(retrieved.size(), 2);
 }
@@ -116,43 +114,43 @@ TEST(TestArc, testRetrieveByKeys) {
 /// @brief it should delete an Arc program by key.
 TEST(TestArc, testDelete) {
     const auto client = new_test_client();
-    auto arc = synnax::Arc("delete_test");
+    auto arc = Arc{.name = "delete_test"};
     ASSERT_NIL(client.arcs.create(arc));
 
-    ASSERT_NIL(client.arcs.delete_arc(arc.key));
+    ASSERT_NIL(client.arcs.del(arc.key));
 
-    ASSERT_OCCURRED_AS_P(client.arcs.retrieve_by_key(arc.key), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(client.arcs.retrieve_by_key(arc.key), x::errors::NOT_FOUND);
 }
 
 /// @brief it should delete multiple Arc programs by keys.
 TEST(TestArc, testDeleteMany) {
     const auto client = new_test_client();
-    auto arcs = std::vector<synnax::Arc>{
-        synnax::Arc("delete1"),
-        synnax::Arc("delete2"),
+    auto arcs = std::vector<Arc>{
+        Arc{.name = "delete1"},
+        Arc{.name = "delete2"},
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
-    std::vector<std::string> keys = {arcs[0].key, arcs[1].key};
-    ASSERT_NIL(client.arcs.delete_arc(keys));
+    std::vector<x::uuid::UUID> keys = {arcs[0].key, arcs[1].key};
+    ASSERT_NIL(client.arcs.del(keys));
 
     auto retrieved = ASSERT_OCCURRED_AS_P(
         client.arcs.retrieve_by_keys(keys),
-        xerrors::NOT_FOUND
+        x::errors::NOT_FOUND
     );
 }
 
 /// @brief it should handle the module field correctly.
 TEST(TestArc, testModuleField) {
     const auto client = new_test_client();
-    auto arc = synnax::Arc("module_test");
+    auto arc = Arc{.name = "module_test"};
     arc.text.raw = "// Test program";
 
     ASSERT_NIL(client.arcs.create(arc));
 
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(arc.key));
     ASSERT_EQ(retrieved.key, arc.key);
-    ASSERT_TRUE(retrieved.module.wasm.empty());
+    ASSERT_FALSE(retrieved.module.has_value());
 }
 
 /// @brief it should compile an Arc program when retrieved with compile=true.
@@ -163,18 +161,18 @@ TEST(TestArc, testRetrieveWithCompile) {
     // Create the channels referenced in calc.arc
     auto ox_pt_1 = ASSERT_NIL_P(client.channels.create(
         make_unique_channel_name("ox_pt_1"),
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         true
     ));
     auto ox_pt_doubled = ASSERT_NIL_P(client.channels.create(
         make_unique_channel_name("ox_pt_doubled"),
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         true
     ));
 
     // Create the Arc with calc.arc content
     // This matches arc/go/testdata/calc.arc
-    auto arc = synnax::Arc(random_arc_name("compile_test"));
+    auto arc = Arc{.name = random_arc_name("compile_test")};
     std::string calc_arc_text = R"(
 func calc(val f32) f32 {
     return val * 2
@@ -188,37 +186,39 @@ func calc(val f32) f32 {
     ASSERT_NIL(client.arcs.create(arc));
 
     // Retrieve with compile=true
-    synnax::RetrieveOptions options;
+    RetrieveOptions options;
     options.compile = true;
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(arc.key, options));
     ASSERT_EQ(retrieved.key, arc.key);
 
-    // Verify the module was compiled - should have WASM bytes
-    ASSERT_FALSE(retrieved.module.wasm.empty())
+    // Verify the module was compiled
+    ASSERT_TRUE(retrieved.module.has_value())
+        << "Expected module to be present after compilation";
+    ASSERT_FALSE(retrieved.module->wasm.empty())
         << "Expected WASM bytecode to be present after compilation";
 
     // Verify correct node structure (same as Go test expectations)
     // 3 nodes: source (on), calc function, sink (write)
-    ASSERT_EQ(retrieved.module.nodes.size(), 3)
+    ASSERT_EQ(retrieved.module->nodes.size(), 3)
         << "Expected 3 nodes: source, calc, sink";
 
     // First node: source channel (on)
-    ASSERT_EQ(retrieved.module.nodes[0].type, "on");
-    ASSERT_GT(retrieved.module.nodes[0].channels.read.count(ox_pt_1.key), 0)
+    ASSERT_EQ(retrieved.module->nodes[0].type, "on");
+    ASSERT_GT(retrieved.module->nodes[0].channels.read.count(ox_pt_1.key), 0)
         << "First node should read from ox_pt_1 channel";
-    ASSERT_EQ(retrieved.module.nodes[0].outputs.size(), 1);
+    ASSERT_EQ(retrieved.module->nodes[0].outputs.size(), 1);
 
     // Second node: calc function
-    ASSERT_EQ(retrieved.module.nodes[1].type, "calc");
+    ASSERT_EQ(retrieved.module->nodes[1].type, "calc");
 
     // Third node: sink channel (write)
-    ASSERT_EQ(retrieved.module.nodes[2].type, "write");
-    ASSERT_GT(retrieved.module.nodes[2].channels.write.count(ox_pt_doubled.key), 0)
+    ASSERT_EQ(retrieved.module->nodes[2].type, "write");
+    ASSERT_GT(retrieved.module->nodes[2].channels.write.count(ox_pt_doubled.key), 0)
         << "Third node should write to ox_pt_doubled channel";
-    ASSERT_EQ(retrieved.module.nodes[2].inputs.size(), 1);
+    ASSERT_EQ(retrieved.module->nodes[2].inputs.size(), 1);
 
     // Verify edges (2 edges connecting the 3 nodes)
-    ASSERT_EQ(retrieved.module.edges.size(), 2)
+    ASSERT_EQ(retrieved.module->edges.size(), 2)
         << "Expected 2 edges connecting the nodes";
 }
 
@@ -226,7 +226,7 @@ func calc(val f32) f32 {
 TEST(TestArc, testIntervalNodeCompiles) {
     const auto client = new_test_client();
 
-    auto arc = synnax::Arc(random_arc_name("interval_test"));
+    auto arc = Arc{.name = random_arc_name("interval_test")};
     arc.text.raw = R"(
 sequence main {
     stage initial {
@@ -239,13 +239,16 @@ sequence main {
 
     ASSERT_NIL(client.arcs.create(arc));
 
-    synnax::RetrieveOptions options;
-    options.compile = true;
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(arc.key, options));
-    ASSERT_FALSE(retrieved.module.wasm.empty());
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(
+        arc.key,
+        synnax::arc::RetrieveOptions{
+            .compile = true,
+        }
+    ));
+    ASSERT_FALSE(retrieved.module->wasm.empty());
 
     bool found_interval = false;
-    for (const auto &node: retrieved.module.nodes) {
+    for (const auto &node: retrieved.module->nodes) {
         if (node.type == "interval") {
             found_interval = true;
             bool found_period = false;
@@ -257,7 +260,8 @@ sequence main {
     }
     ASSERT_TRUE(found_interval);
 
-    ASSERT_EQ(retrieved.module.sequences.size(), 1);
-    ASSERT_EQ(retrieved.module.sequences[0].key, "main");
-    ASSERT_EQ(retrieved.module.sequences[0].stages.size(), 2);
+    ASSERT_EQ(retrieved.module->sequences.size(), 1);
+    ASSERT_EQ(retrieved.module->sequences[0].key, "main");
+    ASSERT_EQ(retrieved.module->sequences[0].stages.size(), 2);
+}
 }

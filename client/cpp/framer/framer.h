@@ -16,33 +16,33 @@
 
 #include "client/cpp/channel/channel.h"
 #include "freighter/cpp/freighter.h"
-#include "x/cpp/telem/control.h"
+#include "x/cpp/control/control.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/grpc/v1/framer.pb.h"
+#include "core/pkg/api/grpc/framer/framer.pb.h"
 
-namespace synnax {
+namespace synnax::framer {
 /// @brief type alias for streamer network transport stream.
 using StreamerStream = freighter::
-    Stream<api::v1::FrameStreamerRequest, api::v1::FrameStreamerResponse>;
+    Stream<grpc::framer::StreamerRequest, grpc::framer::StreamerResponse>;
 
 /// @brief type alias for frame writer network transport.
 using StreamerClient = freighter::
-    StreamClient<api::v1::FrameStreamerRequest, api::v1::FrameStreamerResponse>;
+    StreamClient<grpc::framer::StreamerRequest, grpc::framer::StreamerResponse>;
 
 /// @brief type alias for writer network transports stream.
 using WriterStream = freighter::
-    Stream<api::v1::FrameWriterRequest, api::v1::FrameWriterResponse>;
+    Stream<grpc::framer::WriterRequest, grpc::framer::WriterResponse>;
 
 /// @brief type alias for writer network transport.
 using WriterClient = freighter::
-    StreamClient<api::v1::FrameWriterRequest, api::v1::FrameWriterResponse>;
+    StreamClient<grpc::framer::WriterRequest, grpc::framer::WriterResponse>;
 
-const auto FRAMER_ERROR = xerrors::Error("framer");
-const xerrors::Error FRAMER_CLOSED = FRAMER_ERROR.sub("closed");
-const xerrors::Error WRITER_CLOSED = FRAMER_CLOSED.sub("writer");
+const auto FRAMER_ERROR = x::errors::Error("framer");
+const x::errors::Error FRAMER_CLOSED = FRAMER_ERROR.sub("closed");
+const x::errors::Error WRITER_CLOSED = FRAMER_CLOSED.sub("writer");
 
 /// @brief Bit positions for flags in the frame codec
 enum class FlagPosition : uint8_t {
@@ -78,15 +78,15 @@ struct CodecFlags {
 class Codec {
     struct State {
         /// @brief the ordered set of channel keys for the codec.
-        std::set<ChannelKey> keys;
+        std::set<channel::Key> keys;
         /// @brief the data types for each channel in keys.
-        std::unordered_map<ChannelKey, telem::DataType> key_data_types;
+        std::unordered_map<channel::Key, x::telem::DataType> key_data_types;
         /// @brief whether the codec has any channels with variable density data types.
         bool has_variable_data_types = false;
     };
     /// @brief a cached set of sorting indices for ensuring that encoded/decoded
     /// frames are properly sorted.
-    std::vector<std::pair<ChannelKey, size_t>> sorting_indices;
+    std::vector<std::pair<channel::Key, size_t>> sorting_indices;
 
     /// @brief the current sequence number for the codec. This is used to identify
     /// which codec state to use when encoding/decoding frames.
@@ -97,7 +97,7 @@ class Codec {
     std::unordered_map<std::uint32_t, State> states;
 
     /// @brief used to retrieve channels when updating the codec state.
-    ChannelClient channel_client;
+    channel::Client channel_client;
 
     void throw_if_uninitialized() const;
 
@@ -108,35 +108,35 @@ public:
     /// @param data_types The data types corresponding to each channel
     /// @param channels The channel keys
     Codec(
-        const std::vector<ChannelKey> &channels,
-        const std::vector<telem::DataType> &data_types
+        const std::vector<channel::Key> &channels,
+        const std::vector<x::telem::DataType> &data_types
     );
 
     /// @brief instantiates a dynamic codec that uses the provided function to look up
     /// the relevant channels when update() is called.
-    explicit Codec(ChannelClient channel_client):
+    explicit Codec(channel::Client channel_client):
         channel_client(std::move(channel_client)) {}
 
     /// @brief updates the codec to use the given channels. If the channels do not
     /// exist, the codec will return a query::NOT_FOUND error.
-    xerrors::Error update(const std::vector<ChannelKey> &keys);
+    x::errors::Error update(const std::vector<channel::Key> &keys);
 
     /// @brief Encodes a frame into a byte array
     /// @param frame The frame to encode
     /// @param output The byte array to encode the frame into.
     /// @return The encoded frame as a byte vector
-    xerrors::Error encode(const telem::Frame &frame, std::vector<uint8_t> &output);
+    x::errors::Error encode(const x::telem::Frame &frame, std::vector<uint8_t> &output);
 
     /// @brief Decodes a frame from a byte vector.
     /// @param data The byte vector to decode.
     /// @return The decoded frame.
-    [[nodiscard]] std::pair<telem::Frame, xerrors::Error>
+    [[nodiscard]] std::pair<x::telem::Frame, x::errors::Error>
     decode(const std::vector<std::uint8_t> &data) const;
 
     /// @brief decodes a frame from the provided byte array and size.
     /// @param data The byte array to decode.
     /// @param size The size of the byte array.
-    [[nodiscard]] std::pair<telem::Frame, xerrors::Error>
+    [[nodiscard]] std::pair<x::telem::Frame, x::errors::Error>
     decode(const std::uint8_t *data, std::size_t size) const;
 };
 
@@ -144,7 +144,7 @@ public:
 class StreamerConfig {
 public:
     /// @brief the channels to stream.
-    std::vector<ChannelKey> channels;
+    std::vector<channel::Key> channels;
     /// @brief the downsample factor for the streamer.
     int downsample_factor = 1;
     /// @brief enable experimental high-performance codec for the writer.
@@ -152,9 +152,9 @@ public:
 
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
-    void to_proto(api::v1::FrameStreamerRequest &f) const;
+    void to_proto(grpc::framer::StreamerRequest &f) const;
 
-    friend class FrameClient;
+    friend class Client;
     friend class Streamer;
 };
 
@@ -178,7 +178,7 @@ public:
     /// closed.
     /// @note read is not safe to call concurrently with itself or with close(), but
     /// it is safe to call concurrently with setChannels().
-    [[nodiscard]] std::pair<telem::Frame, xerrors::Error> read() const;
+    [[nodiscard]] std::pair<x::telem::Frame, x::errors::Error> read() const;
 
     /// @brief sets the channels to stream from the Synnax cluster, replacing any
     /// channels set during construction or a previous call to setChannels().
@@ -187,7 +187,8 @@ public:
     /// @param channels - the channels to stream.
     /// @note setChannels is not safe to call concurrently with itself or with
     /// close(), but it is safe to call concurrently with read().
-    [[nodiscard]] xerrors::Error set_channels(const std::vector<ChannelKey> &channels);
+    [[nodiscard]] x::errors::Error
+    set_channels(const std::vector<channel::Key> &channels);
 
     /// @brief closes the streamer and releases any resources associated with it. If
     /// any errors occurred during the stream, they will be returned. A streamer
@@ -197,7 +198,7 @@ public:
     /// error during operation.
     /// @note close() is not safe to call concurrently with itself or any other
     /// streamer methods.
-    [[nodiscard]] xerrors::Error close() const;
+    [[nodiscard]] x::errors::Error close() const;
 
     /// @brief closes the sending end of the streamer. Subsequence calls to
     /// receive() will exhaust the stream and eventually return an EOF.
@@ -225,7 +226,7 @@ private:
     std::unique_ptr<StreamerStream> stream;
 
     /// @brief the only class that can construct a streamer.
-    friend class FrameClient;
+    friend class Client;
 };
 
 /// @brief sets the persistence and streaming mode for a writer.
@@ -244,22 +245,22 @@ enum WriterMode : uint8_t {
 /// see https://docs.synnaxlabs.com/concepts/write.
 struct WriterConfig {
     /// @brief The channels to write to.
-    std::vector<ChannelKey> channels;
+    std::vector<channel::Key> channels;
 
     /// @brief sets the starting timestamp for the first sample in the writer. If
     /// this timestamp overlaps with existing data for ANY of the provided channels,
     /// the writer will fail to open.
-    telem::TimeStamp start;
+    x::telem::TimeStamp start;
 
     /// @brief The control authority to set for each channel. If this vector is of
     /// length 1, then the same authority is set for all channels. Otherwise, the
     /// vector must be the same length as the channels vector. If this vector
     /// is empty, then all writes are executed with AUTH_ABSOLUTE authority.
-    std::vector<telem::Authority> authorities;
+    std::vector<x::control::Authority> authorities;
 
     /// @brief sets identifying information for the writer. The subject's key and
     /// name will be used to identify the writer in control transfer scenarios.
-    telem::ControlSubject subject;
+    x::control::Subject subject;
 
     /// @brief sets whether the writer is configured to persist data, stream it, or
     /// both. Options are:
@@ -282,7 +283,7 @@ struct WriterConfig {
     /// durable when auto commit is enabled. Setting this value to zero will make
     /// all writes durable immediately. Lower values will decrease write throughput.
     /// Defaults to 1s when auto-commit is enabled.
-    telem::TimeSpan auto_index_persist_interval = 1 * telem::SECOND;
+    x::telem::TimeSpan auto_index_persist_interval = 1 * x::telem::SECOND;
 
     /// @brief enable protobuf frame caching for the writer. This allows
     /// the writer to avoid repeated allocation and deallocation of protobuf frames,
@@ -300,9 +301,9 @@ struct WriterConfig {
 
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
-    void to_proto(api::v1::FrameWriterConfig *f) const;
+    void to_proto(grpc::framer::WriterConfig *f) const;
 
-    friend class FrameClient;
+    friend class Client;
 
     friend class Writer;
 };
@@ -337,13 +338,13 @@ public:
     /// @returns false if an error occurred in the write pipeline. After an error
     /// occurs, the caller must acknowledge the error by calling error() or close() on
     /// the writer.
-    xerrors::Error write(const telem::Frame &fr);
+    x::errors::Error write(const x::telem::Frame &fr);
 
     /// @brief changes the authority of all channels in the writer to the given
     /// authority level.
     /// @returns true if the authority was set successfully.
     /// @param auth the authority level to set all channels to.
-    [[nodiscard]] xerrors::Error set_authority(const telem::Authority &auth);
+    [[nodiscard]] x::errors::Error set_authority(const x::control::Authority &auth);
 
     /// @brief changes the authority of the given channel to the given authority
     /// level. This does not affect the authority levels of any other channels in
@@ -351,17 +352,17 @@ public:
     /// @returns true if the authority was set successfully.
     /// @param key the channel to set the authority of.
     /// @param authority the authority level to set the channel to.
-    [[nodiscard]] xerrors::Error
-    set_authority(const ChannelKey &key, const telem::Authority &authority);
+    [[nodiscard]] x::errors::Error
+    set_authority(const channel::Key &key, const x::control::Authority &authority);
 
     /// @brief changes the authority of the given channels to the given authority
     /// levels.
     /// @returns true if the authority was set successfully.
     /// @param keys the channels to set the authority of.
     /// @param authorities the authority levels to set the channels to.
-    [[nodiscard]] xerrors::Error set_authority(
-        const std::vector<ChannelKey> &keys,
-        const std::vector<telem::Authority> &authorities
+    [[nodiscard]] x::errors::Error set_authority(
+        const std::vector<channel::Key> &keys,
+        const std::vector<x::control::Authority> &authorities
     );
 
     /// @brief commits all pending writes to the Synnax cluster. Commit can be
@@ -369,18 +370,18 @@ public:
     ///
     /// @returns false if the commit failed. After a commit fails, the caller must
     /// acknowledge the error by calling error() or close() on the writer.
-    std::pair<telem::TimeStamp, xerrors::Error> commit();
+    std::pair<x::telem::TimeStamp, x::errors::Error> commit();
 
     /// @brief closes the writer and releases any resources associated with it. A
     /// writer MUST be closed after use, or the caller risks leaking resources.
     /// Calling any method on a closed writer will throw a runtime_error.
-    [[nodiscard]] xerrors::Error close();
+    [[nodiscard]] x::errors::Error close();
 
 private:
-    [[nodiscard]] xerrors::Error close(const xerrors::Error &close_err);
+    [[nodiscard]] x::errors::Error close(const x::errors::Error &err);
 
     /// @brief the error accumulated if the writer has closed with an error.
-    xerrors::Error close_err = xerrors::NIL;
+    x::errors::Error close_err = x::errors::NIL;
 
     /// @brief the configuration used to open the writer.
     WriterConfig cfg;
@@ -395,14 +396,14 @@ private:
     std::unique_ptr<WriterStream> stream;
 
     /// @brief cached request for reuse during writes
-    std::unique_ptr<api::v1::FrameWriterRequest> cached_write_req;
+    std::unique_ptr<grpc::framer::WriterRequest> cached_write_req;
     /// @brief cached frame within the request for reuse
-    telem::PBFrame *cached_frame = nullptr;
+    ::x::telem::pb::Frame *cached_frame = nullptr;
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.
-    std::pair<api::v1::FrameWriterResponse, xerrors::Error>
-    exec(api::v1::FrameWriterRequest &req, bool ack);
+    std::pair<grpc::framer::WriterResponse, x::errors::Error>
+    exec(grpc::framer::WriterRequest &req, bool ack);
 
     /// @brief opens a writer to the Synnax cluster.
     explicit Writer(
@@ -412,17 +413,17 @@ private:
     );
 
     /// @brief initializes the cached request with the frame structure
-    xerrors::Error init_request(const telem::Frame &fr);
+    x::errors::Error init_request(const x::telem::Frame &fr);
 
-    friend class FrameClient;
+    friend class Client;
 };
 
-class FrameClient {
+class Client {
 public:
-    FrameClient(
+    Client(
         std::unique_ptr<StreamerClient> streamer_client,
         std::unique_ptr<WriterClient> writer_client,
-        ChannelClient channel_client
+        channel::Client channel_client
     ):
         streamer_client(std::move(streamer_client)),
         writer_client(std::move(writer_client)),
@@ -434,7 +435,7 @@ public:
     /// if the writer could not be opened. In the case where ok() is false, the
     /// writer will be in an invalid state and does not need to be closed. If ok()
     /// is true, The writer must be closed after use to avoid leaking resources.
-    [[nodiscard]] std::pair<Writer, xerrors::Error>
+    [[nodiscard]] std::pair<Writer, x::errors::Error>
     open_writer(const WriterConfig &cfg) const;
 
     /// @brief opens a new frame streamer using the given configuration. For
@@ -444,7 +445,7 @@ public:
     /// the streamer will be in an invalid state and does not need to be closed. If
     /// ok() is true, the streamer must be closed after use to avoid leaking
     /// resources.
-    [[nodiscard]] std::pair<Streamer, xerrors::Error>
+    [[nodiscard]] std::pair<Streamer, x::errors::Error>
     open_streamer(const StreamerConfig &config) const;
 
 private:
@@ -456,7 +457,7 @@ private:
     std::unique_ptr<WriterClient> writer_client;
     /// @brief a utility function used to retrieve information about channels from the
     /// cluster.
-    ChannelClient channel_client;
+    channel::Client channel_client;
 };
 
 }

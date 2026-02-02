@@ -3,16 +3,23 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 cc_library(
     name = "device",
     srcs = ["device.cpp"],
-    hdrs = ["device.h"],
+    hdrs = [
+        "device.h",
+        "json.gen.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/pb",
         "//client/cpp/errors",
         "//client/cpp/ontology",
-        "//core/pkg/api/grpc/v1:api_grpc",
+        "//client/cpp/rack",
+        "//core/pkg/api/grpc:api_grpc",
         "//freighter/cpp:freighter",
+        "//x/cpp/errors",
+        "//x/cpp/json",
         "//x/cpp/status",
-        "//x/cpp/xjson",
-        "//x/cpp/xerrors",
     ],
 )
 
@@ -20,10 +27,11 @@ cc_test(
     name = "device_test",
     srcs = ["device_test.cpp"],
     deps = [
+        "//x/cpp/pb",
         ":device",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

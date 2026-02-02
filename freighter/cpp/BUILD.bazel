@@ -3,8 +3,8 @@ cc_library(
     hdrs = ["freighter.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/errors",
         "//x/cpp/url",
-        "//x/cpp/xerrors",
     ],
 )
 
@@ -14,7 +14,7 @@ cc_test(
     srcs = ["freighter_test.cpp"],
     deps = [
         "//freighter/cpp:freighter",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )
