@@ -222,7 +222,7 @@ func (r *Runtime) ChannelReadStr(ctx context.Context, channelID uint32) uint32 {
 	}
 
 	// Unmarshal strings from series
-	strings := telem.UnmarshalStrings(series.Data)
+	strings := telem.UnmarshalVariable[string](series.Data)
 	if len(strings) == 0 {
 		return 0
 	}
@@ -240,7 +240,7 @@ func (r *Runtime) ChannelWriteStr(ctx context.Context, channelID uint32, handle 
 	}
 
 	// Create series from string
-	data := telem.MarshalStrings([]string{str}, telem.StringT)
+	data := telem.MarshalVariable([]string{str})
 	series := telem.Series{
 		DataType: telem.StringT,
 		Data:     data,

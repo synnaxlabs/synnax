@@ -59,7 +59,7 @@ var dataTypes = map[string]DataType{
 	"uint16":    Uint16T,
 	"bytes":     BytesT,
 	"string":    StringT,
-	"json":      JSONT,
+	"[]uint8":   BytesT,
 }
 
 // InferDataType infers the data type of the given generic type argument. Panics
