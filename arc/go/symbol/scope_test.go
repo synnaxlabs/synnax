@@ -452,7 +452,7 @@ var _ = Describe("Scope", func() {
 	Describe("Channels", func() {
 		Describe("NewChannels", func() {
 			It("Should create empty Channels with initialized maps", func() {
-				ch := symbol.NewChannels()
+				ch := types.NewChannels()
 				Expect(ch.Read).ToNot(BeNil())
 				Expect(ch.Write).ToNot(BeNil())
 				Expect(ch.Read).To(HaveLen(0))
@@ -461,7 +461,7 @@ var _ = Describe("Scope", func() {
 		})
 		Describe("Copy", func() {
 			It("Should create deep copy of Channels", func() {
-				ch := symbol.NewChannels()
+				ch := types.NewChannels()
 				ch.Read[1] = "channel1"
 				ch.Write[2] = "channel2"
 				copied := ch.Copy()

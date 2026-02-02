@@ -11,8 +11,6 @@ cc_library(
         "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
-        "//x/cpp/xmemory",
         "@glog",
     ],
 )
@@ -24,7 +22,7 @@ cc_test(
     ],
     deps = [
         ":state",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

@@ -73,7 +73,7 @@ var _ = Describe("Arc", func() {
 		Expect(mod.Nodes).To(HaveLen(3))
 
 		onNode := findNodeByType(mod.Nodes, "on")
-		Expect(onNode.Channels.Read.Contains(uint32(1))).To(BeTrue())
+		Expect(onNode.Channels.Read).To(HaveKey(uint32(1)))
 		Expect(onNode.Outputs).To(HaveLen(1))
 		Expect(onNode.Outputs.Has("output")).To(BeTrue())
 
@@ -84,7 +84,7 @@ var _ = Describe("Arc", func() {
 		Expect(calcNode.Outputs.Has("output")).To(BeTrue())
 
 		writeNode := findNodeByType(mod.Nodes, "write")
-		Expect(writeNode.Channels.Write.Contains(uint32(2))).To(BeTrue())
+		Expect(writeNode.Channels.Write).To(HaveKey(uint32(2)))
 		Expect(writeNode.Inputs).To(HaveLen(1))
 
 		Expect(mod.Edges).To(HaveLen(2))
@@ -138,7 +138,7 @@ var _ = Describe("Arc", func() {
 		Expect(constNode.Config).To(HaveLen(1))
 
 		writeNode := findNodeByType(mod.Nodes, "write")
-		Expect(writeNode.Channels.Write.Contains(uint32(1))).To(BeTrue())
+		Expect(writeNode.Channels.Write).To(HaveKey(uint32(1)))
 
 		Expect(mod.Edges).To(HaveLen(1))
 		edge := MustBeOk(mod.Edges.FindByTarget(ir.Handle{Node: writeNode.Key, Param: "input"}))

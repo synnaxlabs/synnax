@@ -109,7 +109,12 @@ func (f *Factory) ConfigureTask(
 		return nil, false, nil
 	}
 	var cfg TaskConfig
-	if err := json.Unmarshal([]byte(t.Config), &cfg); err != nil {
+	configBytes, err := json.Marshal(t.Config)
+	if err != nil {
+		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
+		return nil, true, err
+	}
+	if err := json.Unmarshal(configBytes, &cfg); err != nil {
 		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, true, err
 	}

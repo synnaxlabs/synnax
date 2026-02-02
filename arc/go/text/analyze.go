@@ -17,7 +17,6 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -25,6 +24,7 @@ import (
 	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 )
 
 type keyGenerator struct {
@@ -65,9 +65,9 @@ func (kg *keyGenerator) entry(seqName, stageName string) string {
 }
 
 type nodeResult struct {
+	node   ir.Node
 	input  ir.Handle
 	output ir.Handle
-	node   ir.Node
 }
 
 func newNodeResult(node ir.Node, inputParam, outputParam string) nodeResult {
@@ -172,7 +172,7 @@ func buildChannelReadNode(name string, sym *symbol.Scope, kg *keyGenerator) (nod
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "on",
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type.Unwrap()}},
 	}
@@ -186,7 +186,7 @@ func buildChannelWriteNode(name string, sym *symbol.Scope, kg *keyGenerator) (no
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "write",
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
 		Inputs:   types.Params{{Name: ir.DefaultInputParam, Type: sym.Type.Unwrap()}},
 	}
@@ -271,7 +271,7 @@ func analyzeExpression(
 		n := ir.Node{
 			Key:      key,
 			Type:     "constant",
-			Channels: symbol.NewChannels(),
+			Channels: types.NewChannels(),
 			Config:   types.Params{{Name: "value", Type: outputType, Value: parsedValue.Value}},
 			Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 		}
@@ -362,11 +362,11 @@ func Analyze(
 type flowChainProcessor struct {
 	kg                 *keyGenerator
 	prevNode           *ir.Node
+	ctx                acontext.Context[parser.IFlowStatementContext]
 	prevOutput         ir.Handle
 	nodes              []ir.Node
 	edges              []ir.Edge
 	additionalTriggers []nodeResult
-	ctx                acontext.Context[parser.IFlowStatementContext]
 	totalFlowNodes     int
 	currentIndex       int
 	lastOpIndex        int
@@ -735,7 +735,7 @@ func analyzeStage(
 	entryNode := ir.Node{
 		Key:      kg.entry(seqName, stageName),
 		Type:     stage.EntryNode.Name,
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Inputs:   stage.EntryNode.Type.Inputs,
 	}
 	nodes = append(nodes, entryNode)
