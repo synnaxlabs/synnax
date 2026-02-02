@@ -36,13 +36,13 @@ import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
-export const CONNECT_LAYOUT_TYPE = "configureSiftDevice";
+export const CONNECT_LAYOUT_TYPE = "connectSiftDevice";
 
 export const CONNECT_LAYOUT: Layout.BaseState = {
   key: CONNECT_LAYOUT_TYPE,
   type: CONNECT_LAYOUT_TYPE,
   name: "Sift.Connect",
-  icon: "Export",
+  icon: "Logo.Sift",
   location: "modal",
   window: { resizable: false, size: { height: 400, width: 600 }, navTop: true },
 };
@@ -51,7 +51,7 @@ const useForm = Device.createForm<Properties, Make>();
 
 const INITIAL_VALUES: device.Device<Properties, Make> = {
   key: "",
-  name: "Sift",
+  name: "",
   make: MAKE,
   model: MODEL,
   location: "",
@@ -67,52 +67,12 @@ const beforeValidate = ({
   Device.RetrieveQuery,
   typeof Device.formSchema,
   Device.FluxSubStore
->) => set("location", get("properties.uri").value);
-
-const beforeSave = async ({
-  get,
-  set,
-}: Flux.FormBeforeSaveParams<
-  Device.RetrieveQuery,
-  typeof Device.formSchema,
-  Device.FluxSubStore
 >) => {
-  const uri = get<string>("properties.uri").value;
-  const apiKey = get<string>("properties.api_key").value;
-
-  if (!uri) throw new Error("Sift URL is required");
-  if (!apiKey) throw new Error("API Key is required");
-
-  // Test the connection by making a request to the Sift API
-  try {
-    const response = await fetch(`${uri}/api/v1/ping`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-    });
-    if (!response.ok)
-      throw new Error(`Failed to connect to Sift: ${response.statusText}`);
-  } catch {
-    // If ping fails, try a different endpoint or just validate the URL format
-    // For now, we'll just validate that we can reach the server
-    try {
-      new URL(uri);
-    } catch {
-      throw new Error("Invalid Sift URL format");
-    }
-  }
-
-  // Create a healthy status for the device
-  const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
-    message: "Sift device connected",
-    variant: "success",
-    details: {
-      rack: get<rack.Key>("rack").value,
-      device: get<device.Key>("key").value,
-    },
-  });
-  set("status", devStatus, { notifyOnChange: false, markTouched: false });
+  let uri = get<string>("properties.uri").value;
+  if (uri.startsWith("https://")) uri = uri.slice(8);
+  else if (uri.startsWith("http://")) uri = uri.slice(7);
+  set("location", uri);
+  set("properties.uri", uri);
   return true;
 };
 
@@ -126,33 +86,30 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     query: { key: layoutKey === CONNECT_LAYOUT_TYPE ? "" : layoutKey },
     initialValues: INITIAL_VALUES,
     beforeValidate,
-    beforeSave,
     afterSave: useCallback(() => onClose(), [onClose]),
   });
-
   return (
-    <Flex.Box align="start" className={CSS.B("sift-connect")} justify="center">
+    <Flex.Box align="start" className={CSS.B("sift-connect")} justify="center" grow>
       <Flex.Box className={CSS.B("content")} grow gap="small">
         <Form.Form<typeof Device.formSchema> {...form}>
           <Form.TextField
             inputProps={{
+              autoFocus: true,
               level: "h2",
-              placeholder: "Sift Device",
+              placeholder: "Name",
               variant: "text",
             }}
             path="name"
           />
-          <Form.Field<rack.Key> path="rack" label="Connect From" required>
+          <Form.Field<rack.Key> path="rack" label="Connect from" required>
             {({ value, onChange }) => (
               <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
             )}
           </Form.Field>
-          <Form.Field<string> path="properties.uri" label="Sift URL">
-            {(p) => (
-              <Input.Text autoFocus placeholder="https://sift.example.com" {...p} />
-            )}
+          <Form.Field<string> path="properties.uri" label="gRPC API URL">
+            {(p) => <Input.Text placeholder="grpc-api.siftstack.com:443" {...p} />}
           </Form.Field>
-          <Form.Field<string> path="properties.api_key" label="API Key">
+          <Form.Field<string> path="properties.apiKey" label="API key">
             {(p) => <Input.Text placeholder="Your API Key" type="password" {...p} />}
           </Form.Field>
         </Form.Form>

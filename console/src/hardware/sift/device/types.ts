@@ -7,16 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export interface Properties {
-  [key: string]: unknown;
+export type Properties = {
+  apiKey: string;
   uri: string;
-  api_key: string;
-}
-
-export const ZERO_PROPERTIES: Properties = {
-  uri: "",
-  api_key: "",
 };
+
+export const ZERO_PROPERTIES: Properties = { uri: "", apiKey: "" };
 
 export type Make = "sift";
 export type Model = "cloud";

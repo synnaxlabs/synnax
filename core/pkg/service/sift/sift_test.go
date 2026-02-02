@@ -192,7 +192,7 @@ var _ = Describe("Sift", func() {
 
 		createDevice := func(key string) {
 			props, _ := json.Marshal(sift.DeviceProperties{
-				URI:    "api.siftstack.com:443",
+				URI:    "grpc-api.siftstack.com:443",
 				APIKey: "sk-test-key",
 			})
 			dev := device.Device{

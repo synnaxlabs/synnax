@@ -8,11 +8,10 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto--sift-connect {
-  padding: 3rem;
-  width: 100%;
+.console-sift-connect {
+    padding: 3rem 3rem 2rem;
 }
 
-.pluto--sift-connect .pluto--content {
-  width: 100%;
+.console-sift-connect .console-content {
+    width: 100%;
 }

@@ -13,12 +13,12 @@ import { Access, Icon } from "@synnaxlabs/pluto";
 import { CONNECT_LAYOUT } from "@/hardware/sift/device/Connect";
 import { Palette } from "@/palette";
 
-const useVisible = () => Access.useUpdateGranted(device.TYPE_ONTOLOGY_ID);
+const useVisible = () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
 
 export const ConnectSiftDeviceCommand = Palette.createSimpleCommand({
   key: "sift-connect-device",
   name: "Connect a Sift Device",
-  icon: <Icon.Export />,
+  icon: <Icon.Logo.Sift />,
   layout: CONNECT_LAYOUT,
   useVisible,
 });

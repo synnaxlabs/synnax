@@ -25,10 +25,12 @@ const (
 // DeviceProperties contains the Sift connection configuration stored in
 // device.Properties.
 type DeviceProperties struct {
-	// URI is the Sift API endpoint (e.g., "api.siftstack.com:443").
-	URI string `json:"uri"`
 	// APIKey is the Sift API key for authentication.
 	APIKey string `json:"api_key"`
+	// URI is the Sift gRPC API endpoint (e.g., "grpc-api.siftstack.com:443"). This
+	// should not include the protocol (e.g., "https://"), and should include the port
+	// (e.g., ":443").
+	URI string `json:"uri"`
 }
 
 func parseDeviceProperties(properties string) (DeviceProperties, error) {
