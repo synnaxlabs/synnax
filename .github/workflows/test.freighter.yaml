@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - .github/actions/test-python/**
+      - .github/actions/test-typescript/**
       - .github/workflows/test.freighter.yaml
       - alamos/go/**
       - alamos/py/**
@@ -33,6 +34,7 @@ on:
       - rc
     paths:
       - .github/actions/test-python/**
+      - .github/actions/test-typescript/**
       - .github/workflows/test.freighter.yaml
       - alamos/go/**
       - alamos/py/**
@@ -95,7 +97,9 @@ jobs:
               - uv.toml
             ts:
               - *server
+              - .github/actions/test-typescript/**
               - alamos/ts/**
+              - codecov.yaml
               - configs/eslint/**
               - configs/ts/**
               - configs/vite/**
@@ -173,6 +177,7 @@ jobs:
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     services:
       integration:
         image: ghcr.io/synnaxlabs/freighter-go-integration:latest
@@ -182,29 +187,12 @@ jobs:
         ports:
           - 8080:8080
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - name: Test TypeScript
+        uses: ./.github/actions/test-typescript
         with:
-          node-version-file: package.json
-          cache: pnpm
-
-      - name: Install Dependencies
-        run: pnpm install
-
-      - name: Check Types
-        run: pnpm check-types:freighter
-
-      - name: Check Circular Dependencies
-        run: pnpm madge:freighter
-
-      - name: Lint
-        run: pnpm lint:freighter
-
-      - name: Test
-        run: pnpm test:freighter
+          package: freighter
+          coverage_flag: freighter-ts
+          directory: freighter/ts

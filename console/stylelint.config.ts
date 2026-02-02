@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import synnaxConfig from "stylelint-config-synnaxlabs";
+import config from "stylelint-config-synnaxlabs";
 
-export default synnaxConfig;
+export default config;

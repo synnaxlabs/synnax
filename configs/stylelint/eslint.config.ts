@@ -7,13 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// <reference types="vitest/config" />
+import synnaxConfig from "eslint-config-synnaxlabs";
 
-import { lib } from "@synnaxlabs/vite-plugin";
-import { defineConfig } from "vite";
-
-export default defineConfig({
-  base: "/x/",
-  plugins: [lib({ name: "x" })],
-  build: { rollupOptions: { external: ["zod"] } },
-});
+export default synnaxConfig;
