@@ -11,6 +11,7 @@ extern "C" {
 #endif
 
 #include "soem/soem.h"
+
 #include "nicdrv.h"
 
 uint16 oshw_htons(uint16 hostshort);

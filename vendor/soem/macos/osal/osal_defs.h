@@ -18,10 +18,9 @@ extern "C" {
 #include <stdio.h>
 #define EC_PRINT printf
 #else
-#define EC_PRINT(...) \
-   do                 \
-   {                  \
-   } while (0)
+#define EC_PRINT(...)                                                                  \
+    do {                                                                               \
+    } while (0)
 #endif
 
 #ifndef OSAL_PACKED
@@ -30,13 +29,13 @@ extern "C" {
 #define OSAL_PACKED_END
 #endif
 
-#define ec_timet            struct timespec
+#define ec_timet struct timespec
 
-#define OSAL_THREAD_HANDLE  pthread_t *
-#define OSAL_THREAD_FUNC    void
+#define OSAL_THREAD_HANDLE pthread_t *
+#define OSAL_THREAD_FUNC void
 #define OSAL_THREAD_FUNC_RT void
 
-#define osal_mutext         pthread_mutex_t
+#define osal_mutext pthread_mutex_t
 
 #ifdef __cplusplus
 }
