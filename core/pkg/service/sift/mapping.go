@@ -10,6 +10,7 @@
 package sift
 
 import (
+	"github.com/samber/lo"
 	typev1 "github.com/sift-stack/sift/go/gen/sift/common/type/v1"
 	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
 	"github.com/synnaxlabs/x/errors"
@@ -58,13 +59,12 @@ func ConvertSeriesToProtoValues(
 	switch series.DataType {
 	case telem.Float64T:
 		data := telem.UnmarshalSlice[float64](series.Data, series.DataType)
-		result := make([]*ingestv1.IngestWithConfigDataChannelValue, len(data))
-		for i, v := range data {
-			result[i] = &ingestv1.IngestWithConfigDataChannelValue{
+		result2 := lo.Map(data, func(v float64, _ int) *ingestv1.IngestWithConfigDataChannelValue {
+			return &ingestv1.IngestWithConfigDataChannelValue{
 				Type: &ingestv1.IngestWithConfigDataChannelValue_Double{Double: v},
 			}
-		}
-		return result, nil
+		})
+		return result2, nil
 	case telem.Float32T:
 		data := telem.UnmarshalSlice[float32](series.Data, series.DataType)
 		result := make([]*ingestv1.IngestWithConfigDataChannelValue, len(data))

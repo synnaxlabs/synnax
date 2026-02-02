@@ -15,6 +15,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
+	ingestionconfigsv1 "github.com/sift-stack/sift/go/gen/sift/ingestion_configs/v1"
+	metadatav1 "github.com/sift-stack/sift/go/gen/sift/metadata/v1"
+	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/client"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -95,7 +99,7 @@ var _ = Describe("Mock", func() {
 				c := MustSucceed(factory(ctx, "", ""))
 				res := MustSucceed(c.CreateIngestionConfig(
 					ctx,
-					&client.CreateIngestionConfigRequest{
+					&ingestionconfigsv1.CreateIngestionConfigRequest{
 						ClientKey: "test-key",
 						AssetName: "test-asset",
 					},
@@ -112,8 +116,10 @@ var _ = Describe("Mock", func() {
 				c := MustSucceed(factory(ctx, "", ""))
 				Expect(c.CreateIngestionConfig(
 					ctx,
-					&client.CreateIngestionConfigRequest{},
-				)).Error().To(MatchError(ContainSubstring("failed to create ingestion config")))
+					&ingestionconfigsv1.CreateIngestionConfigRequest{},
+				)).Error().To(MatchError(
+					ContainSubstring("failed to create ingestion config"),
+				))
 			})
 		})
 		Describe("CreateRun", func() {
@@ -124,10 +130,20 @@ var _ = Describe("Mock", func() {
 				stopTime := timestamppb.New(startTime.AsTime().Add(time.Minute))
 				clientKey := "test-key"
 				tags := []string{"test-tag"}
-				metadata := []*client.MetadataValue{}
+				metadata := []*metadatav1.MetadataValue{
+					{
+						Key: &metadatav1.MetadataKey{
+							Name: "test-key",
+							Type: metadatav1.MetadataKeyType_METADATA_KEY_TYPE_STRING,
+						},
+						Value: &metadatav1.MetadataValue_StringValue{
+							StringValue: "test-value",
+						},
+					},
+				}
 				res := MustSucceed(c.CreateRun(
 					ctx,
-					&client.CreateRunRequest{
+					&runsv2.CreateRunRequest{
 						ClientKey:      &clientKey,
 						Name:           "test-run",
 						StartTime:      startTime,
@@ -153,7 +169,7 @@ var _ = Describe("Mock", func() {
 					ErrorOnCreateRun: config.True(),
 				}))
 				c := MustSucceed(factory(ctx, "", ""))
-				Expect(c.CreateRun(ctx, &client.CreateRunRequest{})).Error().
+				Expect(c.CreateRun(ctx, &runsv2.CreateRunRequest{})).Error().
 					To(MatchError(ContainSubstring("failed to create run")))
 			})
 		})
@@ -175,7 +191,8 @@ var _ = Describe("Mock", func() {
 			})
 
 			It("Should pipe requests to configured inlet", func() {
-				requests := confluence.NewStream[*client.IngestWithConfigDataStreamRequest](1)
+				requests := confluence.
+					NewStream[*ingestv1.IngestWithConfigDataStreamRequest](1)
 				factory := MustSucceed(client.NewMockFactory(client.MockFactoryConfig{
 					Requests: requests,
 				}))
@@ -183,13 +200,14 @@ var _ = Describe("Mock", func() {
 				ingester := MustSucceed(c.OpenIngester(ctx))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				input := confluence.NewStream[*client.IngestWithConfigDataStreamRequest](1)
+				input := confluence.
+					NewStream[*ingestv1.IngestWithConfigDataStreamRequest](1)
 				ingester.InFrom(input)
 				ingester.Flow(sCtx)
 
 				timestamp := telem.Now().Time()
 
-				request := client.IngestWithConfigDataStreamRequest{
+				request := ingestv1.IngestWithConfigDataStreamRequest{
 					Flow:      "flow1",
 					Timestamp: timestamppb.New(timestamp),
 					RunId:     "run-id",
@@ -203,10 +221,11 @@ var _ = Describe("Mock", func() {
 				ingester := MustSucceed(c.OpenIngester(ctx))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				input := confluence.NewStream[*client.IngestWithConfigDataStreamRequest](1)
+				input := confluence.
+					NewStream[*ingestv1.IngestWithConfigDataStreamRequest](1)
 				ingester.InFrom(input)
 				ingester.Flow(sCtx)
-				request := &client.IngestWithConfigDataStreamRequest{
+				request := &ingestv1.IngestWithConfigDataStreamRequest{
 					Flow:      "flow1",
 					Timestamp: timestamppb.Now(),
 					RunId:     "run-id",
@@ -223,10 +242,11 @@ var _ = Describe("Mock", func() {
 				ingester := MustSucceed(c.OpenIngester(ctx))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				input := confluence.NewStream[*client.IngestWithConfigDataStreamRequest](1)
+				input := confluence.
+					NewStream[*ingestv1.IngestWithConfigDataStreamRequest](1)
 				ingester.InFrom(input)
 				ingester.Flow(sCtx)
-				input.Inlet() <- &client.IngestWithConfigDataStreamRequest{
+				input.Inlet() <- &ingestv1.IngestWithConfigDataStreamRequest{
 					Flow:      "flow1",
 					Timestamp: timestamppb.Now(),
 					RunId:     "run-id",

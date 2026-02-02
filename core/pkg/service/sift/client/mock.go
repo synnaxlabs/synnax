@@ -13,6 +13,9 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
+	ingestionconfigsv1 "github.com/sift-stack/sift/go/gen/sift/ingestion_configs/v1"
+	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -36,7 +39,7 @@ type MockFactoryConfig struct {
 	// OnClose is called when Close is invoked.
 	OnClose func() error
 	// Requests receives all requests sent to the ingest stream.
-	Requests confluence.Inlet[*IngestWithConfigDataStreamRequest]
+	Requests confluence.Inlet[*ingestv1.IngestWithConfigDataStreamRequest]
 }
 
 var _ config.Config[MockFactoryConfig] = MockFactoryConfig{}
@@ -85,28 +88,30 @@ func NewMockFactory(cfgs ...MockFactoryConfig) (Factory, error) {
 
 func (m *mock) CreateIngestionConfig(
 	_ context.Context,
-	req *CreateIngestionConfigRequest,
-) (*CreateIngestionConfigResponse, error) {
+	req *ingestionconfigsv1.CreateIngestionConfigRequest,
+) (*ingestionconfigsv1.CreateIngestionConfigResponse, error) {
 	if m.ErrorOnCreateIngestionConfig != nil &&
 		*m.ErrorOnCreateIngestionConfig {
 		return nil, errors.New("failed to create ingestion config")
 	}
-	return &CreateIngestionConfigResponse{IngestionConfig: &IngestionConfig{
-		IngestionConfigId: uuid.New().String(),
-		AssetId:           req.AssetName,
-		ClientKey:         req.ClientKey,
-	}}, nil
+	return &ingestionconfigsv1.CreateIngestionConfigResponse{
+		IngestionConfig: &ingestionconfigsv1.IngestionConfig{
+			IngestionConfigId: uuid.New().String(),
+			AssetId:           req.AssetName,
+			ClientKey:         req.ClientKey,
+		},
+	}, nil
 }
 
 func (m *mock) CreateRun(
 	_ context.Context,
-	req *CreateRunRequest,
-) (*CreateRunResponse, error) {
+	req *runsv2.CreateRunRequest,
+) (*runsv2.CreateRunResponse, error) {
 	if m.ErrorOnCreateRun != nil && *m.ErrorOnCreateRun {
 		return nil, errors.New("failed to create run")
 	}
-	return &CreateRunResponse{
-		Run: &Run{
+	return &runsv2.CreateRunResponse{
+		Run: &runsv2.Run{
 			RunId:          uuid.New().String(),
 			ClientKey:      req.ClientKey,
 			StartTime:      req.StartTime,
@@ -139,15 +144,15 @@ func (m *mock) Close() error {
 }
 
 type mockIngester struct {
-	confluence.UnarySink[*IngestWithConfigDataStreamRequest]
-	requests           confluence.Inlet[*IngestWithConfigDataStreamRequest]
+	confluence.UnarySink[*ingestv1.IngestWithConfigDataStreamRequest]
+	requests           confluence.Inlet[*ingestv1.IngestWithConfigDataStreamRequest]
 	errorOnStreamClose bool
 }
 
 var _ Ingester = (*mockIngester)(nil)
 
 func newMockIngester(
-	requests confluence.Inlet[*IngestWithConfigDataStreamRequest],
+	requests confluence.Inlet[*ingestv1.IngestWithConfigDataStreamRequest],
 	errorOnStreamClose bool,
 ) *mockIngester {
 	s := &mockIngester{requests: requests, errorOnStreamClose: errorOnStreamClose}
@@ -155,7 +160,10 @@ func newMockIngester(
 	return s
 }
 
-func (i *mockIngester) sink(ctx context.Context, req *IngestWithConfigDataStreamRequest) error {
+func (i *mockIngester) sink(
+	ctx context.Context,
+	req *ingestv1.IngestWithConfigDataStreamRequest,
+) error {
 	if i.requests == nil {
 		return nil
 	}

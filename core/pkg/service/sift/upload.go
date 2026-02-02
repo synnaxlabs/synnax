@@ -15,6 +15,8 @@ import (
 	"sync"
 
 	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
+	ingestionconfigsv1 "github.com/sift-stack/sift/go/gen/sift/ingestion_configs/v1"
+	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/client"
@@ -88,7 +90,7 @@ func (u *Uploader) doUpload(ctx context.Context, params UploadParams) error {
 
 	// Build channel lookup map, flow config, and ordered data channel keys
 	channelMap := make(map[channel.Key]channel.Channel)
-	var flowChannels []*client.ChannelConfig
+	var flowChannels []*ingestionconfigsv1.ChannelConfig
 	var dataChannelKeys []channel.Key
 	var indexChannelKey channel.Key
 	for _, ch := range channels {
@@ -101,7 +103,7 @@ func (u *Uploader) doUpload(ctx context.Context, params UploadParams) error {
 		if err != nil {
 			continue
 		}
-		flowChannels = append(flowChannels, &client.ChannelConfig{
+		flowChannels = append(flowChannels, &ingestionconfigsv1.ChannelConfig{
 			Name:     ch.Name,
 			DataType: dt,
 		})
@@ -113,10 +115,10 @@ func (u *Uploader) doUpload(ctx context.Context, params UploadParams) error {
 	}
 
 	// Create ingestion config
-	ingestionCfgRes, err := u.Client.CreateIngestionConfig(ctx, &client.CreateIngestionConfigRequest{
+	ingestionCfgRes, err := u.Client.CreateIngestionConfig(ctx, &ingestionconfigsv1.CreateIngestionConfigRequest{
 		ClientKey: params.ClientKey,
 		AssetName: params.AssetName,
-		Flows:     []*client.FlowConfig{{Name: params.FlowName, Channels: flowChannels}},
+		Flows:     []*ingestionconfigsv1.FlowConfig{{Name: params.FlowName, Channels: flowChannels}},
 	})
 	if err != nil {
 		return err
@@ -124,7 +126,7 @@ func (u *Uploader) doUpload(ctx context.Context, params UploadParams) error {
 	configID := ingestionCfgRes.IngestionConfig.IngestionConfigId
 
 	// Create run
-	runRes, err := u.Client.CreateRun(ctx, &client.CreateRunRequest{
+	runRes, err := u.Client.CreateRun(ctx, &runsv2.CreateRunRequest{
 		Name:      params.RunName,
 		StartTime: timestamppb.New(params.TimeRange.Start.Time()),
 		StopTime:  timestamppb.New(params.TimeRange.End.Time()),
@@ -154,7 +156,7 @@ func (u *Uploader) doUpload(ctx context.Context, params UploadParams) error {
 	// Set up confluence flow
 	sCtx, cancel := signal.Isolated()
 	defer cancel()
-	requests := confluence.NewStream[*client.IngestWithConfigDataStreamRequest](1)
+	requests := confluence.NewStream[*ingestv1.IngestWithConfigDataStreamRequest](1)
 	stream.InFrom(requests)
 	stream.Flow(sCtx)
 
@@ -190,7 +192,7 @@ func (u *Uploader) doUpload(ctx context.Context, params UploadParams) error {
 
 func (u *Uploader) sendFrame(
 	ctx context.Context,
-	requests confluence.Inlet[*client.IngestWithConfigDataStreamRequest],
+	requests confluence.Inlet[*ingestv1.IngestWithConfigDataStreamRequest],
 	frame framer.Frame,
 	indexChannelKey channel.Key,
 	dataChannelKeys []channel.Key,
@@ -240,7 +242,7 @@ func (u *Uploader) sendFrame(
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case requests.Inlet() <- &client.IngestWithConfigDataStreamRequest{
+		case requests.Inlet() <- &ingestv1.IngestWithConfigDataStreamRequest{
 			IngestionConfigId: configID,
 			Flow:              flowName,
 			Timestamp:         timestamppb.New(timestamps[i].Time()),

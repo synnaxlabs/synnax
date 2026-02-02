@@ -40,8 +40,8 @@ var _ Factory = NewGRPC
 
 func (g *grpc) CreateIngestionConfig(
 	ctx context.Context,
-	req *CreateIngestionConfigRequest,
-) (*CreateIngestionConfigResponse, error) {
+	req *ingestionconfigsv1.CreateIngestionConfigRequest,
+) (*ingestionconfigsv1.CreateIngestionConfigResponse, error) {
 	return ingestionconfigsv1.
 		NewIngestionConfigServiceClient(g).
 		CreateIngestionConfig(ctx, req)
@@ -49,8 +49,8 @@ func (g *grpc) CreateIngestionConfig(
 
 func (g *grpc) CreateRun(
 	ctx context.Context,
-	req *CreateRunRequest,
-) (*CreateRunResponse, error) {
+	req *runsv2.CreateRunRequest,
+) (*runsv2.CreateRunResponse, error) {
 	return runsv2.NewRunServiceClient(g).CreateRun(ctx, req)
 }
 
@@ -63,7 +63,7 @@ func (g *grpc) OpenIngester(ctx context.Context) (Ingester, error) {
 }
 
 type grpcIngester struct {
-	confluence.UnarySink[*IngestWithConfigDataStreamRequest]
+	confluence.UnarySink[*ingestv1.IngestWithConfigDataStreamRequest]
 	stream ingestv1.IngestService_IngestWithConfigDataStreamClient
 }
 
@@ -77,7 +77,10 @@ func newGRPCIngester(
 	return i
 }
 
-func (i *grpcIngester) sink(_ context.Context, req *IngestWithConfigDataStreamRequest) error {
+func (i *grpcIngester) sink(
+	_ context.Context,
+	req *ingestv1.IngestWithConfigDataStreamRequest,
+) error {
 	return i.stream.Send(req)
 }
 

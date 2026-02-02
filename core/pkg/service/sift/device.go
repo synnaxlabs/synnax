@@ -35,7 +35,7 @@ type DeviceProperties struct {
 func ParseDeviceProperties(properties string) (DeviceProperties, error) {
 	var p DeviceProperties
 	if err := json.Unmarshal([]byte(properties), &p); err != nil {
-		return p, errors.Wrap(err, "failed to parse Sift device properties")
+		return p, errors.Wrap(err, "failed to parse device properties")
 	}
 	return p, nil
 }
