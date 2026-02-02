@@ -6,6 +6,7 @@ on:
       - .github/actions/test-typescript/**
       - .github/workflows/test.console.yaml
       - alamos/ts/**
+      - arc/ts/**
       - client/ts/**
       - codecov.yaml
       - configs/eslint/**
@@ -29,6 +30,7 @@ on:
       - .github/actions/test-typescript/**
       - .github/workflows/test.console.yaml
       - alamos/ts/**
+      - arc/ts/**
       - client/ts/**
       - codecov.yaml
       - configs/eslint/**
