@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task, UnexpectedError } from "@synnaxlabs/client";
-import { type Form } from "@synnaxlabs/pluto";
-import { caseconv, deep, id } from "@synnaxlabs/x";
+import { caseconv, id } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";

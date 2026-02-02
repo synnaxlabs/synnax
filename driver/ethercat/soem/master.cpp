@@ -18,23 +18,6 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace ethercat::soem {
-namespace {
-void disambiguate_pdo_names(std::vector<PDOEntryInfo> &pdos) {
-    std::unordered_map<std::string, int> name_counts;
-    for (const auto &pdo: pdos)
-        name_counts[pdo.name]++;
-
-    std::unordered_map<std::string, int> seen_counts;
-    for (auto &pdo: pdos) {
-        if (name_counts[pdo.name] > 1) {
-            std::ostringstream oss;
-            oss << pdo.name << " (0x" << std::hex << pdo.index << ":" << std::dec
-                << static_cast<int>(pdo.subindex) << ")";
-            pdo.name = oss.str();
-        }
-    }
-}
-}
 /// Timeout for EtherCAT state transitions (INIT→PRE_OP→SAFE_OP→OP) in microseconds.
 const int STATE_CHANGE_TIMEOUT = static_cast<int>((telem::SECOND * 2).microseconds());
 /// Timeout for cyclic process data exchange in microseconds.
@@ -272,8 +255,6 @@ void Master::populate_slaves() {
         info.input_bits = soem_slave.Ibits;
         info.output_bits = soem_slave.Obits;
         this->discover_slave_pdos(info);
-        disambiguate_pdo_names(info.input_pdos);
-        disambiguate_pdo_names(info.output_pdos);
         this->slave_list.push_back(info);
     }
 }

@@ -9,8 +9,9 @@
 
 #include <gtest/gtest.h>
 
-#include "driver/ethercat/topology/topology.h"
 #include "x/cpp/xtest/xtest.h"
+
+#include "driver/ethercat/topology/topology.h"
 
 namespace ethercat::topology {
 
@@ -35,11 +36,8 @@ protected:
         return device::SlaveProperties(parser);
     }
 
-    static SlaveInfo make_slave(
-        uint16_t position,
-        uint32_t vendor_id,
-        uint32_t product_code
-    ) {
+    static SlaveInfo
+    make_slave(uint16_t position, uint32_t vendor_id, uint32_t product_code) {
         SlaveInfo info;
         info.position = position;
         info.vendor_id = vendor_id;

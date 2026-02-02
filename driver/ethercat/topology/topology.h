@@ -29,9 +29,9 @@ namespace ethercat::topology {
     const std::vector<SlaveInfo> &actual_slaves,
     const std::unordered_map<std::string, device::SlaveProperties> &expected
 ) {
-    for (const auto &[device_key, props] : expected) {
+    for (const auto &[device_key, props]: expected) {
         bool found = false;
-        for (const auto &slave : actual_slaves) {
+        for (const auto &slave: actual_slaves) {
             if (slave.position != props.position) continue;
             found = true;
             if (slave.vendor_id != props.vendor_id)
