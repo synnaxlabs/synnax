@@ -231,6 +231,7 @@ import { NI } from "@/icon/NI";
 import { OPC } from "@/icon/OPC";
 import { Process } from "@/icon/Process";
 import { Pump } from "@/icon/Pump";
+import { Sift } from "@/icon/Sift";
 import { Valve } from "@/icon/Valve";
 
 export const Pause = wrapSVGIcon(MdPause, "pause");
@@ -301,6 +302,7 @@ export const Logo = {
   Modbus,
   NI,
   OPC,
+  Sift,
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
 };
 export const Arrow = {

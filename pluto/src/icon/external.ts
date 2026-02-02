@@ -12,5 +12,6 @@ export * from "@/icon/Icon";
 export * from "@/icon/Process";
 export * from "@/icon/Pump";
 export * from "@/icon/registry";
+export * from "@/icon/Sift";
 export * from "@/icon/Tank";
 export * from "@/icon/Valve";
