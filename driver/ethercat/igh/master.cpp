@@ -17,9 +17,13 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace ethercat::igh {
+/// Device path for the first IgH EtherCAT master kernel module device.
+/// The IgH EtherCAT master creates /dev/EtherCAT<n> devices when loaded.
+constexpr const char *IGH_DEVICE_PATH = "/dev/EtherCAT0";
+
 bool igh_available() {
     struct stat st;
-    return stat("/dev/EtherCAT0", &st) == 0;
+    return stat(IGH_DEVICE_PATH, &st) == 0;
 }
 
 Master::Master(const unsigned int master_index):
@@ -258,6 +262,11 @@ SlaveState Master::slave_state(const uint16_t position) const {
     return convert_state(state.al_state);
 }
 
+/// IgH EtherCAT AL (Application Layer) state value for OPERATIONAL.
+/// EtherCAT state machine states: INIT=0x01, PRE_OP=0x02, BOOT=0x03, SAFE_OP=0x04,
+/// OP=0x08.
+constexpr uint8_t IGH_AL_STATE_OP = 0x08;
+
 bool Master::all_slaves_operational() const {
     std::lock_guard lock(this->mu);
 
@@ -266,7 +275,7 @@ bool Master::all_slaves_operational() const {
     for (const auto &[pos, sc]: this->slave_configs) {
         ec_slave_config_state_t state;
         ecrt_slave_config_state(sc, &state);
-        if (state.al_state != 0x08) return false;
+        if (state.al_state != IGH_AL_STATE_OP) return false;
     }
     return true;
 }

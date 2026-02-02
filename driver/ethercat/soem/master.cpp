@@ -27,6 +27,22 @@ const int PROCESSDATA_TIMEOUT = static_cast<int>(telem::MILLISECOND.microseconds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
 constexpr size_t DEFAULT_IOMAP_SIZE = 131072;
 
+/// @name EtherCAT Object Dictionary Standard Addresses
+/// These are defined by the EtherCAT specification (ETG.1000.6) and are the standard
+/// locations for PDO mapping objects in any compliant EtherCAT slave.
+/// @{
+
+/// First TxPDO (slave→master) mapping object index. Range: 0x1A00-0x1BFF.
+constexpr uint16_t TXPDO_MAPPING_START = 0x1A00;
+/// Last TxPDO mapping object index.
+constexpr uint16_t TXPDO_MAPPING_END = 0x1BFF;
+/// First RxPDO (master→slave) mapping object index. Range: 0x1600-0x17FF.
+constexpr uint16_t RXPDO_MAPPING_START = 0x1600;
+/// Last RxPDO mapping object index.
+constexpr uint16_t RXPDO_MAPPING_END = 0x17FF;
+
+/// @}
+
 Master::Master(std::string interface_name):
     iface_name(std::move(interface_name)),
     context{},
@@ -72,19 +88,9 @@ xerrors::Error Master::activate() {
     if (this->activated)
         return xerrors::Error(ACTIVATION_ERROR, "master already activated");
 
-    int excluded_count = 0;
-    for (int i = 1; i <= this->context.slavecount; ++i) {
-        if (this->context.slavelist[i].eep_id == 0x000000FC) {
-            this->context.slavelist[i].group = 1;
-            excluded_count++;
-        } else {
-            this->context.slavelist[i].group = 0;
-        }
-    }
-
     const int iomap_size = ecx_config_map_group(&this->context, this->iomap.data(), 0);
 
-    if (iomap_size <= 0 && excluded_count < this->context.slavecount)
+    if (iomap_size <= 0)
         return xerrors::Error(ACTIVATION_ERROR, "failed to configure PDO mapping");
 
     const auto &group = this->context.grouplist[0];
@@ -355,9 +361,10 @@ bool Master::discover_pdos_coe(SlaveInfo &slave) {
     if (err) {
         VLOG(2) << "Failed to read TxPDO assignment for slave " << slave.position
                 << ": " << err.message() << " - trying direct PDO read";
-        err = this->read_pdo_mapping(slave.position, 0x1A00, true, slave);
+        err = this->read_pdo_mapping(slave.position, TXPDO_MAPPING_START, true, slave);
         if (err)
-            VLOG(2) << "Failed to read TxPDO mapping 0x1A00 for slave "
+            VLOG(2) << "Failed to read TxPDO mapping 0x" << std::hex
+                    << TXPDO_MAPPING_START << std::dec << " for slave "
                     << slave.position << ": " << err.message();
         else
             tx_success = true;
@@ -370,9 +377,10 @@ bool Master::discover_pdos_coe(SlaveInfo &slave) {
     if (err) {
         VLOG(2) << "Failed to read RxPDO assignment for slave " << slave.position
                 << ": " << err.message() << " - trying direct PDO read";
-        err = this->read_pdo_mapping(slave.position, 0x1600, false, slave);
+        err = this->read_pdo_mapping(slave.position, RXPDO_MAPPING_START, false, slave);
         if (err)
-            VLOG(2) << "Failed to read RxPDO mapping 0x1600 for slave "
+            VLOG(2) << "Failed to read RxPDO mapping 0x" << std::hex
+                    << RXPDO_MAPPING_START << std::dec << " for slave "
                     << slave.position << ": " << err.message();
         else
             rx_success = true;
@@ -730,11 +738,11 @@ bool Master::scan_object_dictionary_for_pdos(
 
     for (uint16_t i = 0; i < od_list.Entries; ++i) {
         const uint16_t index = od_list.Index[i];
-        if (index >= 0x1A00 && index <= 0x1BFF) {
+        if (index >= TXPDO_MAPPING_START && index <= TXPDO_MAPPING_END) {
             txpdo_indices.push_back(index);
             VLOG(2) << "Slave " << slave_pos << " found TxPDO object 0x" << std::hex
                     << index << std::dec;
-        } else if (index >= 0x1600 && index <= 0x17FF) {
+        } else if (index >= RXPDO_MAPPING_START && index <= RXPDO_MAPPING_END) {
             rxpdo_indices.push_back(index);
             VLOG(2) << "Slave " << slave_pos << " found RxPDO object 0x" << std::hex
                     << index << std::dec;

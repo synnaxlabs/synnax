@@ -148,7 +148,12 @@ private:
 bool igh_available();
 
 /// @brief sysfs path where IgH EtherCAT masters are exposed.
+/// The IgH EtherCAT master kernel module exposes masters as
+/// /sys/class/EtherCAT/EtherCAT<n>.
 const std::string SYSFS_ETHERCAT_PATH = "/sys/class/EtherCAT";
+
+/// @brief length of "EtherCAT" prefix in sysfs device names.
+constexpr size_t IGH_SYSFS_PREFIX_LEN = 8;
 
 /// @brief IgH-based implementation of master::Manager.
 class Manager final : public master::Manager {
@@ -159,9 +164,10 @@ public:
         if (dir == nullptr) return masters;
 
         while (dirent *entry = readdir(dir)) {
-            if (std::strncmp(entry->d_name, "EtherCAT", 8) != 0) continue;
+            if (std::strncmp(entry->d_name, "EtherCAT", IGH_SYSFS_PREFIX_LEN) != 0)
+                continue;
 
-            const char *index_str = entry->d_name + 8;
+            const char *index_str = entry->d_name + IGH_SYSFS_PREFIX_LEN;
             char *end = nullptr;
             const long index = std::strtol(index_str, &end, 10);
             if (end == index_str || *end != '\0') continue;
