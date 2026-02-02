@@ -69,8 +69,7 @@ func (r Retrieve) WhereOverlapsWith(tr telem.TimeRange) Retrieve {
 
 func (r Retrieve) WhereHasLabels(matchLabels ...uuid.UUID) Retrieve {
 	r.gorp.Where(func(ctx gorp.Context, rng *Range) (bool, error) {
-		oRng := rng.UseTx(ctx.Tx).setLabel(r.label).setOntology(r.otg)
-		labels, err := oRng.RetrieveLabels(ctx)
+		labels, err := r.label.RetrieveFor(ctx, rng.OntologyID(), ctx.Tx)
 		if err != nil {
 			return false, err
 		}
@@ -104,9 +103,9 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	if err := r.gorp.Exec(ctx, tx); err != nil {
 		return err
 	}
-	entries := gorp.GetEntries[uuid.UUID, Range](r.gorp.Params)
-	for i, e := range entries.All() {
-		entries.Set(i, e.UseTx(tx).setOntology(r.otg).setLabel(r.label))
-	}
+	//entries := gorp.GetEntries[uuid.UUID, Range](r.gorp.Params)
+	//for i, e := range entries.All() {
+	//	entries.Set(i, e.UseTx(tx).setOntology(r.otg).setLabel(r.label))
+	//}
 	return nil
 }

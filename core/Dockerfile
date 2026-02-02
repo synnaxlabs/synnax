@@ -16,6 +16,7 @@ COPY x/go/go.mod x/go/go.sum ./x/go/
 COPY cesium/go.mod cesium/go.sum ./cesium/
 COPY aspen/go.mod aspen/go.sum ./aspen/
 COPY arc/go/go.mod arc/go/go.sum ./arc/go/
+COPY oracle/go.mod oracle/go.sum ./oracle/
 
 # Download dependencies with cache mount for go modules
 RUN --mount=type=cache,target=/go/pkg/mod \

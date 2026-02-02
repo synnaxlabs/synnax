@@ -1,0 +1,55 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.status;
+
+import "google/protobuf/empty.proto";
+import "x/go/status/pb/status.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/status";
+
+service StatusSetService {
+  rpc Exec(SetRequest) returns (SetResponse) {}
+}
+
+service StatusRetrieveService {
+  rpc Exec(RetrieveRequest) returns (RetrieveResponse) {}
+}
+
+service StatusDeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
+}
+
+message SetRequest {
+  string parent = 1;
+  repeated x.status.pb.Status statuses = 2;
+}
+
+message SetResponse {
+  repeated x.status.pb.Status statuses = 1;
+}
+
+message RetrieveRequest {
+  repeated string keys = 1;
+  string search_term = 2;
+  int32 offset = 3;
+  int32 limit = 4;
+  bool include_labels = 5;
+  repeated string has_labels = 6;
+}
+
+message RetrieveResponse {
+  repeated x.status.pb.Status statuses = 1;
+}
+
+message DeleteRequest {
+  repeated string keys = 1;
+}

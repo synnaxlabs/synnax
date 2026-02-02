@@ -10,18 +10,14 @@
 package task
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/vmihailenco/msgpack/v5"
 )
-
-type Key uint64
 
 func NewKey(rack rack.Key, localKey uint32) Key {
 	return Key(uint64(rack)<<32 | uint64(localKey))
@@ -50,16 +46,6 @@ func (k *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return nil
 }
 
-type Task struct {
-	Status   *Status `json:"status" msgpack:"status"`
-	Name     string  `json:"name" msgpack:"name"`
-	Type     string  `json:"type" msgpack:"type"`
-	Config   string  `json:"config" msgpack:"config"`
-	Key      Key     `json:"key" msgpack:"key"`
-	Internal bool    `json:"internal" msgpack:"internal"`
-	Snapshot bool    `json:"snapshot" msgpack:"snapshot"`
-}
-
 var _ gorp.Entry[Key] = Task{}
 
 func (t Task) GorpKey() Key { return t.Key }
@@ -75,29 +61,6 @@ func (t Task) String() string {
 	return t.Key.String()
 }
 
-type StatusDetails struct {
-	Data    map[string]any `json:"data" msgpack:"data"`
-	Cmd     string         `json:"cmd" msgpack:"cmd"`
-	Task    Key            `json:"task" msgpack:"task"`
-	Running bool           `json:"running" msgpack:"running"`
-}
-
-// Status represents the state of a task.
-type Status = status.Status[StatusDetails]
-
-// Command represents a command to be executed by a task.
-type Command struct {
-	// Type is the type of command (e.g. "start", "stop").
-	Type string `json:"type"`
-	// Key is the command key for acknowledgment.
-	Key string `json:"key"`
-	// Args contains command-specific arguments.
-	Args json.RawMessage `json:"args"`
-	// Task is the key of the task to execute the command on.
-	Task Key `json:"task"`
-}
-
-// String returns a string representation of the command.
 func (c Command) String() string {
 	return fmt.Sprintf("%s (key=%s, task=%s)", c.Type, c.Key, c.Task)
 }

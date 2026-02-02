@@ -231,11 +231,12 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return err
 	}
 
-	if apiLayer, err = api.New(api.Config{
+	apiCfg := api.Config{
 		Instrumentation: cfg.Child("api"),
 		Service:         serviceLayer,
 		Distribution:    distributionLayer,
-	}); !ok(err, nil) {
+	}
+	if apiLayer, err = api.New(apiCfg); !ok(err, nil) {
 		return err
 	}
 	creds := auth.InsecureCredentials{
@@ -256,7 +257,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		Instrumentation:     cfg.Instrumentation,
 		StreamWriteDeadline: cfg.slowConsumerTimeout,
 	})
-	apiLayer.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(distributionLayer.Channel)))
+	apiLayer.BindTo(httpapi.New(r, apiCfg))
 
 	// Configure the GRPC Layer AspenTransport.
 	grpcAPI, grpcAPITrans := grpcapi.New(distributionLayer.Channel)

@@ -1,0 +1,41 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.auth;
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/auth";
+
+service AuthLoginService {
+  rpc Exec(LoginRequest) returns (LoginResponse);
+}
+
+message ClusterInfo {
+  string cluster_key = 1;
+  string node_version = 2;
+  uint32 node_key = 3;
+  int64 node_time = 4;
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string token = 1;
+  User user = 2;
+  ClusterInfo cluster_info = 3;
+}
+
+message User {
+  string key = 1;
+  string username = 2;
+}

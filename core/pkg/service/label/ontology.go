@@ -65,9 +65,8 @@ func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
-	"key":   zyn.UUID(),
-	"name":  zyn.String(),
-	"color": zyn.String(),
+	"key":  zyn.UUID(),
+	"name": zyn.String(),
 })
 
 func newResource(l Label) ontology.Resource {

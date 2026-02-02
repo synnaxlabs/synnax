@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -45,7 +46,7 @@ var allObjects = []ontology.ID{
 	{Type: group.OntologyType},
 	{Type: ranger.OntologyType},
 	{Type: framer.OntologyType},
-	{Type: ranger.OntologyTypeAlias},
+	{Type: alias.OntologyType},
 	{Type: user.OntologyType},
 	{Type: workspace.OntologyType},
 	{Type: schematic.OntologyType},
@@ -99,7 +100,7 @@ var (
 				{Type: group.OntologyType},
 				{Type: ranger.OntologyType},
 				{Type: framer.OntologyType},
-				{Type: ranger.OntologyTypeAlias},
+				{Type: alias.OntologyType},
 				{Type: workspace.OntologyType},
 				{Type: schematic.OntologyType},
 				{Type: lineplot.OntologyType},
