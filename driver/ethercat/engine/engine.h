@@ -201,7 +201,7 @@ public:
     [[nodiscard]] telem::Rate cycle_rate() const;
 
     /// @brief initializes the master (thread-safe, idempotent).
-    [[nodiscard]] xerrors::Error ensure_initialized();
+    [[nodiscard]] xerrors::Error ensure_initialized() const;
 
     /// @brief returns discovered slaves.
     [[nodiscard]] std::vector<SlaveInfo> slaves() const;

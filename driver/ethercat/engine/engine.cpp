@@ -199,14 +199,16 @@ void Engine::publish_inputs(const std::span<const uint8_t> src) {
 }
 
 const uint8_t *Engine::consume_outputs(size_t &out_len) {
-    std::lock_guard lock(this->write_mu);
-    if (this->write_active.size() != this->write_staging.size())
-        this->write_active.resize(this->write_staging.size());
-    std::memcpy(
-        this->write_active.data(),
-        this->write_staging.data(),
-        this->write_staging.size()
-    );
+    std::unique_lock lock(this->write_mu, std::try_to_lock);
+    if (lock.owns_lock()) {
+        if (this->write_active.size() != this->write_staging.size())
+            this->write_active.resize(this->write_staging.size());
+        std::memcpy(
+            this->write_active.data(),
+            this->write_staging.data(),
+            this->write_staging.size()
+        );
+    }
     out_len = this->write_active.size();
     return this->write_active.data();
 }
@@ -620,7 +622,7 @@ std::pair<std::unique_ptr<Engine::Writer>, xerrors::Error> Engine::open_writer(
     };
 }
 
-xerrors::Error Engine::ensure_initialized() {
+xerrors::Error Engine::ensure_initialized() const {
     std::lock_guard lock(this->master_init_mu);
     return this->master->initialize();
 }
