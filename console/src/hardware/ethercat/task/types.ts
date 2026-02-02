@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type task } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
+import { channel, type task, UnexpectedError } from "@synnaxlabs/client";
+import { type Form } from "@synnaxlabs/pluto";
+import { caseconv, deep, id } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";
+import { type SlaveDevice } from "@/hardware/ethercat/device/types";
 
 export const PREFIX = "ethercat";
 export const READ_TYPE = `${PREFIX}_read`;
@@ -277,3 +279,35 @@ export const createWriteChannel = (channels: WriteChannel[]): WriteChannel => {
     stateChannelName: "",
   };
 };
+
+/** Gets a channel key from a map, trying both the original key and camelCase. */
+export const getChannelByMapKey = (
+  channels: Record<string, number>,
+  mapKey: string,
+): number => channels[mapKey] ?? channels[caseconv.snakeToCamel(mapKey)] ?? 0;
+
+/** Resolves the data type for a PDO entry on a slave device. */
+export const resolvePDODataType = (
+  slave: SlaveDevice,
+  pdo: string,
+  pdoType: "inputs" | "outputs",
+): string => {
+  const pdoEntry = slave.properties.pdos[pdoType].find((p) => p.name === pdo);
+  if (pdoEntry == null)
+    throw new UnexpectedError(
+      `PDO "${pdo}" not found in ${pdoType} on slave "${slave.properties.name}"`,
+    );
+  return pdoEntry.dataType;
+};
+
+/** Generates a display label for a channel's port/address. */
+export const getPortLabel = (ch: ReadChannel | WriteChannel): string =>
+  ch.type === AUTOMATIC_TYPE
+    ? ch.pdo || "No PDO"
+    : `0x${ch.index.toString(16).padStart(4, "0")}:${ch.subindex}`;
+
+/** Generates a safe name for a PDO channel. */
+export const getPDOName = (ch: ReadChannel | WriteChannel): string =>
+  channel.escapeInvalidName(
+    ch.type === AUTOMATIC_TYPE ? ch.pdo : `_0x${ch.index.toString(16)}_${ch.subindex}`,
+  );

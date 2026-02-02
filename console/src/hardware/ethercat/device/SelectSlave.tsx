@@ -10,6 +10,7 @@
 import { Device, Form } from "@synnaxlabs/pluto";
 import { type ReactElement, useMemo } from "react";
 
+import { useRetrieveSlave } from "@/hardware/ethercat/device/queries";
 import {
   MAKE,
   SLAVE_MODEL,
@@ -28,17 +29,16 @@ export const SelectSlave = ({
   channelsPath = "config.channels",
 }: SelectSlaveProps): ReactElement => {
   const channels = Form.useFieldValue<Array<{ device: string }>>(channelsPath) ?? [];
-
   const firstDeviceKey = useMemo(() => {
-    const keys = channels.map((ch) => ch.device).filter(Boolean);
+    const keys = channels.map((ch) => ch.device).filter((c) => c != null);
     return keys.length > 0 ? keys[0] : "";
   }, [channels]);
 
-  const { data: firstDevice } = Device.useRetrieve({ key: firstDeviceKey });
+  const { data: firstDevice } = useRetrieveSlave({ key: firstDeviceKey });
 
   const selectedNetwork = useMemo(() => {
-    if (!firstDevice) return "";
-    return (firstDevice.properties as SlaveProperties | undefined)?.network ?? "";
+    if (firstDevice == null) return "";
+    return firstDevice.properties?.network ?? "";
   }, [firstDevice]);
 
   return (

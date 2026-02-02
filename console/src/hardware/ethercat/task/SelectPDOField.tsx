@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Device as PlutoDevice, Form as PForm, Select } from "@synnaxlabs/pluto";
+import { Form as PForm, Select } from "@synnaxlabs/pluto";
 import { type ReactElement, useMemo } from "react";
 
-import { type PDOEntry, type SlaveProperties } from "@/hardware/ethercat/device/types";
+import { useRetrieveSlave } from "@/hardware/ethercat/device/queries";
+import { type PDOEntry } from "@/hardware/ethercat/device/types";
 
 export interface SelectPDOFieldProps {
   path: string;
@@ -27,12 +28,11 @@ export const SelectPDOField = ({
   pdoType,
 }: SelectPDOFieldProps): ReactElement => {
   const slaveKey = PForm.useFieldValue<string>(`${path}.device`);
-  const { data: slave } = PlutoDevice.useRetrieve({ key: slaveKey });
+  const { data: slave } = useRetrieveSlave({ key: slaveKey });
 
   const pdoOptions = useMemo((): PDOOption[] => {
     if (slave == null) return [];
-    const props = slave.properties as SlaveProperties | undefined;
-    const pdos = props?.pdos?.[pdoType] ?? [];
+    const pdos = slave.properties?.pdos?.[pdoType] ?? [];
     return pdos.map((pdo: PDOEntry) => ({
       key: pdo.name,
       name: pdo.name,

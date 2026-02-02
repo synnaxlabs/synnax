@@ -9,8 +9,8 @@
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon, Telem } from "@synnaxlabs/pluto";
-import { caseconv, deep, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { primitive } from "@synnaxlabs/x";
+import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { type Device } from "@/hardware/ethercat/device";
@@ -21,6 +21,10 @@ import {
   AUTOMATIC_TYPE,
   type ChannelMode,
   createWriteChannel,
+  getChannelByMapKey,
+  getPDOName,
+  getPortLabel,
+  resolvePDODataType,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteChannel,
@@ -32,9 +36,6 @@ import {
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/ethercat/task/types";
 import { Selector } from "@/selector";
-
-const getChannelByMapKey = (channels: Record<string, number>, mapKey: string): number =>
-  channels[mapKey] ?? channels[caseconv.snakeToCamel(mapKey)] ?? 0;
 
 export const WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -65,16 +66,10 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
   const ch = PForm.useFieldValue<WriteChannel>(path);
-
-  const portLabel =
-    ch.type === AUTOMATIC_TYPE
-      ? ch.pdo || "No PDO"
-      : `0x${ch.index.toString(16).padStart(4, "0")}:${ch.subindex}`;
-
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...props}
-      port={portLabel}
+      port={getPortLabel(ch)}
       path={path}
       channel={ch.cmdChannel}
       stateChannel={ch.stateChannel}
@@ -90,24 +85,7 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
   return (
     <Flex.Box y gap="medium" style={{ padding: "1rem" }}>
       <SelectSlave path={`${path}.device`} />
-      <SelectChannelModeField
-        path={path}
-        onChange={(value, { get, set, path: fieldPath }) => {
-          const prevType = get<ChannelMode>(fieldPath).value;
-          if (prevType === value) return;
-          const parentPath = fieldPath.slice(0, fieldPath.lastIndexOf("."));
-          const prevParent = get<WriteChannel>(parentPath).value;
-          const next = deep.copy(ZERO_WRITE_CHANNELS[value]);
-          set(parentPath, {
-            ...next,
-            key: prevParent.key,
-            device: prevParent.device,
-            name: prevParent.name,
-            enabled: prevParent.enabled,
-            type: value,
-          });
-        }}
-      />
+      <SelectChannelModeField path={path} zeroChannels={ZERO_WRITE_CHANNELS} />
       {channelMode === AUTOMATIC_TYPE ? (
         <SelectPDOField path={path} pdoType="outputs" />
       ) : (
@@ -151,24 +129,18 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
 
 const channelDetails = Component.renderProp(ChannelDetails);
 
+const listItem = Component.renderProp(ChannelListItem);
+
 const Form: FC<
   Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
-> = () => {
-  const listItem = useCallback(
-    ({ key, ...rest }: Common.Task.ChannelListItemProps) => (
-      <ChannelListItem key={key} {...rest} />
-    ),
-    [],
-  );
-  return (
-    <Common.Task.Layouts.ListAndDetails<WriteChannel>
-      listItem={listItem}
-      details={channelDetails}
-      createChannel={createWriteChannel}
-      contextMenuItems={Common.Task.writeChannelContextMenuItems}
-    />
-  );
-};
+> = () => (
+  <Common.Task.Layouts.ListAndDetails<WriteChannel>
+    listItem={listItem}
+    details={channelDetails}
+    createChannel={createWriteChannel}
+    contextMenuItems={Common.Task.writeChannelContextMenuItems}
+  />
+);
 
 const getInitialValues: Common.Task.GetInitialValues<
   typeof writeTypeZ,
@@ -181,11 +153,6 @@ const getInitialValues: Common.Task.GetInitialValues<
       config: writeConfigZ.parse(config),
     };
   return { ...ZERO_WRITE_PAYLOAD };
-};
-
-const resolvePDODataType = (slave: Device.SlaveDevice, pdo: string): string => {
-  const pdoEntry = slave.properties.pdos.outputs.find((p) => p.name === pdo);
-  return pdoEntry?.dataType ?? "uint16";
 };
 
 const checkOrCreateStateIndex = async (
@@ -273,63 +240,44 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
       modified = true;
       const slaveSafeName = channel.escapeInvalidName(slave.properties.name);
 
+      // Pre-compute derived values once per channel
+      const channelData = toCreate.map((ch) => ({
+        ch,
+        pdoName: getPDOName(ch),
+        dataType:
+          ch.type === AUTOMATIC_TYPE
+            ? resolvePDODataType(slave, ch.pdo, "outputs")
+            : ch.dataType,
+      }));
+
       const cmdIndexes = await client.channels.create(
-        toCreate.map((ch) => {
-          const pdoName = channel.escapeInvalidName(
-            ch.type === AUTOMATIC_TYPE
-              ? ch.pdo
-              : `_0x${ch.index.toString(16)}_${ch.subindex}`,
-          );
-          return {
-            name: primitive.isNonZero(ch.cmdChannelName)
-              ? `${ch.cmdChannelName}_cmd_time`
-              : `${networkSafeName}_s${slave.properties.position}_${slaveSafeName}_${pdoName}_cmd_time`,
-            dataType: "timestamp",
-            isIndex: true,
-          };
-        }),
+        channelData.map(({ ch, pdoName }) => ({
+          name: primitive.isNonZero(ch.cmdChannelName)
+            ? `${ch.cmdChannelName}_cmd_time`
+            : `${networkSafeName}_s${slave.properties.position}_${slaveSafeName}_${pdoName}_cmd_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        })),
       );
 
       const cmdChannels = await client.channels.create(
-        toCreate.map((ch, i) => {
-          const dataType =
-            ch.type === AUTOMATIC_TYPE
-              ? resolvePDODataType(slave, ch.pdo)
-              : ch.dataType;
-          const pdoName = channel.escapeInvalidName(
-            ch.type === AUTOMATIC_TYPE
-              ? ch.pdo
-              : `_0x${ch.index.toString(16)}_${ch.subindex}`,
-          );
-          return {
-            name: primitive.isNonZero(ch.cmdChannelName)
-              ? ch.cmdChannelName
-              : `${networkSafeName}_s${slave.properties.position}_${slaveSafeName}_${pdoName}_cmd`,
-            dataType,
-            index: cmdIndexes[i].key,
-          };
-        }),
+        channelData.map(({ ch, pdoName, dataType }, i) => ({
+          name: primitive.isNonZero(ch.cmdChannelName)
+            ? ch.cmdChannelName
+            : `${networkSafeName}_s${slave.properties.position}_${slaveSafeName}_${pdoName}_cmd`,
+          dataType,
+          index: cmdIndexes[i].key,
+        })),
       );
 
       const stateChannels = await client.channels.create(
-        toCreate.map((ch) => {
-          const dataType =
-            ch.type === AUTOMATIC_TYPE
-              ? resolvePDODataType(slave, ch.pdo)
-              : ch.dataType;
-          const pdoName = channel.escapeInvalidName(
-            ch.type === AUTOMATIC_TYPE
-              ? ch.pdo
-              : `_0x${ch.index.toString(16)}_${ch.subindex}`,
-          );
-          return {
-            name: primitive.isNonZero(ch.stateChannelName)
-              ? ch.stateChannelName
-              : `${networkSafeName}_s${slave.properties.position}_${slaveSafeName}_${pdoName}_state`,
-            dataType,
-            index: slave.properties.writeStateIndex,
-          };
-        }),
+        channelData.map(({ ch, pdoName, dataType }) => ({
+          name: primitive.isNonZero(ch.stateChannelName)
+            ? ch.stateChannelName
+            : `${networkSafeName}_s${slave.properties.position}_${slaveSafeName}_${pdoName}_state`,
+          dataType,
+          index: slave.properties.writeStateIndex,
+        })),
       );
 
       toCreate.forEach((ch, i) => {
