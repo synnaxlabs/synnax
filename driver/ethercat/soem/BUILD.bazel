@@ -2,6 +2,12 @@ cc_library(
     name = "soem",
     srcs = ["master.cpp"],
     hdrs = ["master.h"],
+    copts = select({
+        "@platforms//os:windows": [
+            "/wd4005",  # Suppress macro redefinition warning (IN_MULTICAST in wpcap vs Windows SDK)
+        ],
+        "//conditions:default": [],
+    }),
     visibility = ["//driver/ethercat:__pkg__"],
     deps = [
         "//driver/ethercat/errors",
