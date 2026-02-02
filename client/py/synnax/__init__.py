@@ -9,7 +9,7 @@
 
 __version__ = "0.3.0"
 
-from synnax import labjack, modbus, ni, opcua, sequence, status
+from synnax import ethercat, labjack, modbus, ni, opcua, sequence, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role
 from synnax.arc import (
@@ -149,6 +149,7 @@ __all__ = [
     "ValidationError",
     "Writer",
     "WriterMode",
+    "ethercat",
     "modbus",
     "ni",
     "labjack",
