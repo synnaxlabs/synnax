@@ -10,6 +10,26 @@
 // Package sift provides integration with Sift for uploading historical data.
 package sift
 
-import "github.com/synnaxlabs/synnax/pkg/service/sift/client"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/sift/client"
+	"github.com/synnaxlabs/synnax/pkg/service/sift/device"
+	"github.com/synnaxlabs/synnax/pkg/service/sift/upload"
+)
 
+// ClientFactory is the default client factory for creating Sift gRPC clients.
 var ClientFactory = client.NewGRPC
+
+// Re-export device constants for backward compatibility.
+const (
+	DeviceMake  = device.Make
+	DeviceModel = device.Model
+)
+
+// DeviceProperties is an alias for device.Properties.
+type DeviceProperties = device.Properties
+
+// UploadTaskType is the task type for Sift uploads.
+const UploadTaskType = upload.TaskType
+
+// UploadTaskConfig is the configuration for an upload task.
+type UploadTaskConfig = upload.Config

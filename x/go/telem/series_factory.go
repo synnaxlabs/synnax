@@ -11,10 +11,10 @@ package telem
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 
 	"github.com/samber/lo"
-	xbinary "github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
 )
@@ -42,9 +42,9 @@ func MakeSeries(dt DataType, len int) Series {
 	return Series{DataType: dt, Data: make([]byte, len*int(dt.Density()))}
 }
 
-// NewSeriesSecondsTSV creates a new Series containing TimeStamp values. All input timestamps
-// are multiplied by SecondTS to convert them to the standard time unit used in the
-// system.
+// NewSeriesSecondsTSV creates a new Series containing TimeStamp values. All input
+// timestamps are multiplied by SecondTS to convert them to the standard time unit used
+// in the system.
 func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 	for i := range data {
 		data[i] *= SecondTS
@@ -52,79 +52,71 @@ func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 	return Series{DataType: TimeStampT, Data: MarshalSlice(data)}
 }
 
-// NewSeriesStrings creates a new Series from a slice of strings. The strings are stored
-// with newline characters as delimiters.
-func NewSeriesStrings(data []string) Series {
-	return Series{DataType: StringT, Data: MarshalStrings(data, StringT)}
+// NewSeriesVariable creates a new Series from a slice of variable-density values,
+// determining the data type from the type of the slice.
+func NewSeriesVariable[T VariableSample](data []T) Series {
+	return Series{DataType: InferDataType[T](), Data: MarshalVariable(data)}
 }
 
-// NewSeriesStringsV is a variadic version of NewSeriesStrings that creates a new Series from
-// individual string values.
-func NewSeriesStringsV(data ...string) Series { return NewSeriesStrings(data) }
+// NewSeriesVariableV is a variadic version of NewSeriesVariable that creates a new
+// Series from individual variable-density values.
+func NewSeriesVariableV[T VariableSample](data ...T) Series {
+	return NewSeriesVariable(data)
+}
 
-// NewSeriesStaticJSONV constructs a new series from an arbitrary set of JSON values,
+func NewSeriesJSON[T any](data []T) Series {
+	return Series{DataType: JSONT, Data: MarshalJSON(data)}
+}
+
+// NewSeriesJSONV constructs a new series from an arbitrary set of JSON values,
 // marshaling each one in the process.
-func NewSeriesStaticJSONV[T any](data ...T) (series Series) {
-	series.DataType = JSONT
-	strings := make([]string, len(data))
-	for i, v := range data {
-		strings[i] = xbinary.MustEncodeJSONToString(v)
-	}
-	series.Data = MarshalStrings(strings, series.DataType)
-	return series
-}
+func NewSeriesJSONV[T any](data ...T) Series { return NewSeriesJSON(data) }
 
 const newLine = '\n'
 
-// MarshalStrings converts a slice of strings into a byte slice. Each string is
-// terminated with a newline character. Panics if the DataType is not variable.
-func MarshalStrings(data []string, dt DataType) []byte {
-	if !dt.IsVariable() {
-		panic("data type must be variable length")
-	}
-	total := lo.SumBy(data, func(s string) int64 { return int64(len(s)) + 1 })
+// VariableSample is a type that can be stored in a variable-density series.
+type VariableSample interface{ []byte | string }
+
+func MarshalJSON[T any](data []T) []byte {
+	byteSlices := lo.Map(data, func(v T, _ int) []byte {
+		return lo.Must(json.Marshal(v))
+	})
+	return MarshalVariable(byteSlices)
+}
+
+func MarshalVariable[T VariableSample](data []T) []byte {
+	total := lo.SumBy(data, func(v T) int64 { return int64(len(v)) + 1 })
 	b := make([]byte, total)
 	offset := 0
-	for _, s := range data {
-		copy(b[offset:], s)
-		b[offset+len(s)] = newLine
-		offset += len(s) + 1
+	for _, d := range data {
+		copy(b[offset:], d)
+		b[offset+len(d)] = newLine
+		offset += len(d) + 1
 	}
 	return b
 }
 
-// UnmarshalStrings converts a byte slice back into a slice of strings. It assumes
-// strings are separated by newline characters.
-func UnmarshalStrings(b []byte) []string {
+func UnmarshalVariable[T VariableSample](b []byte) []T {
 	var (
 		offset int
-		data   []string
+		data   []T
 	)
 	for offset < len(b) {
 		end := offset
 		for b[end] != newLine {
 			end++
 		}
-		data = append(data, string(b[offset:end]))
+		data = append(data, T(b[offset:end]))
 		offset = end + 1
 	}
 	return data
 }
 
-// UnmarshalBytes converts a byte slice back into a slice of bytes. It assumes bytes are
-// separated by newline characters.
-func UnmarshalBytes(b []byte) [][]byte {
-	var (
-		offset int
-		data   [][]byte
-	)
-	for offset < len(b) {
-		end := offset
-		for b[end] != newLine {
-			end++
-		}
-		data = append(data, b[offset:end])
-		offset = end + 1
+func UnmarshalJSON[T any](b []byte) []T {
+	byteSlices := UnmarshalVariable[[]byte](b)
+	data := make([]T, len(byteSlices))
+	for i, b := range byteSlices {
+		lo.Must0(json.Unmarshal(b, &data[i]))
 	}
 	return data
 }
@@ -194,7 +186,7 @@ func NewSeriesFromAny(value any, dt DataType) Series {
 	case TimeStampT:
 		return NewSeriesV(castToTimeStamp(value))
 	case StringT:
-		return NewSeriesStringsV(castToString(value))
+		return NewSeriesVariableV(castToString(value))
 	case JSONT:
 		return castToJSON(value)
 	case BytesT:
@@ -338,32 +330,10 @@ func castToString(value any) string {
 	switch v := value.(type) {
 	case string:
 		return v
-	case int:
+	case int, int64, int32, int16, int8, uint, uint64, uint32, uint16, uint8, TimeStamp:
 		return fmt.Sprintf("%d", v)
-	case int64:
-		return fmt.Sprintf("%d", v)
-	case int32:
-		return fmt.Sprintf("%d", v)
-	case int16:
-		return fmt.Sprintf("%d", v)
-	case int8:
-		return fmt.Sprintf("%d", v)
-	case uint:
-		return fmt.Sprintf("%d", v)
-	case uint64:
-		return fmt.Sprintf("%d", v)
-	case uint32:
-		return fmt.Sprintf("%d", v)
-	case uint16:
-		return fmt.Sprintf("%d", v)
-	case uint8:
-		return fmt.Sprintf("%d", v)
-	case float64:
+	case float64, float32:
 		return fmt.Sprintf("%g", v)
-	case float32:
-		return fmt.Sprintf("%g", v)
-	case TimeStamp:
-		return fmt.Sprintf("%d", v)
 	default:
 		return fmt.Sprintf("%v", value)
 	}
@@ -372,12 +342,11 @@ func castToString(value any) string {
 func castToJSON(value any) Series {
 	switch v := value.(type) {
 	case string:
-		return Series{DataType: JSONT, Data: MarshalStrings([]string{v}, JSONT)}
+		return Series{DataType: JSONT, Data: MarshalVariable([]string{v})}
 	case []byte:
-		return Series{DataType: JSONT, Data: MarshalStrings([]string{string(v)}, JSONT)}
+		return Series{DataType: JSONT, Data: MarshalVariable([]string{string(v)})}
 	default:
-		jsonStr := xbinary.MustEncodeJSONToString(value)
-		return Series{DataType: JSONT, Data: MarshalStrings([]string{jsonStr}, JSONT)}
+		return Series{DataType: JSONT, Data: MarshalJSON([]any{value})}
 	}
 }
 
@@ -385,8 +354,6 @@ func castToBytes(value any) Series {
 	switch v := value.(type) {
 	case []byte:
 		return Series{DataType: BytesT, Data: append(v, newLine)}
-	case string:
-		return Series{DataType: BytesT, Data: append([]byte(v), newLine)}
 	default:
 		str := castToString(value)
 		return Series{DataType: BytesT, Data: append([]byte(str), newLine)}

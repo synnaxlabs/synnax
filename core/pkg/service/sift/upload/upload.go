@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package sift
+// Package upload provides functionality for uploading data to Sift.
+package upload
 
 import (
 	"context"
@@ -19,12 +20,15 @@ import (
 	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
 	ingestionconfigsv1 "github.com/sift-stack/sift/go/gen/sift/ingestion_configs/v1"
 	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/client"
+	siftdevice "github.com/synnaxlabs/synnax/pkg/service/sift/device"
+	"github.com/synnaxlabs/synnax/pkg/service/sift/transform"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/address"
@@ -38,16 +42,16 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// UploadTaskType is the task type for Sift uploads.
-const UploadTaskType = "sift_upload"
+// TaskType is the task type for Sift uploads.
+const TaskType = "sift_upload"
 
 const (
 	orchestratorAddr address.Address = "orchestrator"
 	ingesterAddr     address.Address = "ingester"
 )
 
-// UploadTaskConfig contains the configuration for an upload task.
-type UploadTaskConfig struct {
+// Config contains the configuration for an upload task.
+type Config struct {
 	// DeviceKey references the Sift device containing connection config.
 	DeviceKey string `json:"device_key"`
 	// AssetName is the Sift asset name to upload to.
@@ -62,8 +66,8 @@ type UploadTaskConfig struct {
 	TimeRange telem.TimeRange `json:"time_range"`
 }
 
-func parseUploadTaskConfig(s string) (UploadTaskConfig, error) {
-	var c UploadTaskConfig
+func parseConfig(s string) (Config, error) {
+	var c Config
 	if err := json.Unmarshal([]byte(s), &c); err != nil {
 		return c, errors.Wrap(err, "failed to parse upload task config")
 	}
@@ -92,13 +96,24 @@ func GroupChannelsByIndex(channels []channel.Channel) map[channel.Key]*channelGr
 	return groups
 }
 
-// uploadTask handles uploading data to Sift as a driver.Task.
+// Dependencies contains the dependencies needed for configuring upload tasks.
+type Dependencies struct {
+	Device  *device.Service
+	Framer  *framer.Service
+	Channel *channel.Service
+	Status  *status.Service
+	Task    *task.Service
+	Pool    *client.Pool
+	L       *alamos.Logger
+}
+
+// Task handles uploading data to Sift as a driver.Task.
 // It manages multiple channel groups, each with its own ingestion config but
 // sharing the same run ID.
-type uploadTask struct {
+type Task struct {
 	task     task.Task
-	cfg      UploadTaskConfig
-	fCfg     FactoryConfig
+	cfg      Config
+	deps     Dependencies
 	client   client.Client
 	ingester client.Ingester
 	iter     framer.StreamIterator
@@ -111,9 +126,9 @@ type uploadTask struct {
 	running bool
 }
 
-var _ driver.Task = (*uploadTask)(nil)
+var _ driver.Task = (*Task)(nil)
 
-func (u *uploadTask) run(ctx context.Context) {
+func (u *Task) run(ctx context.Context) {
 	u.mu.Lock()
 	if u.running {
 		u.cancel()
@@ -148,7 +163,7 @@ func (u *uploadTask) run(ctx context.Context) {
 	u.deleteTask()
 }
 
-func (u *uploadTask) streamData(ctx context.Context) error {
+func (u *Task) streamData(ctx context.Context) error {
 	sCtx, cancel := signal.WithCancel(ctx)
 	defer cancel()
 
@@ -265,7 +280,7 @@ func (o *uploadOrchestrator) sendFrame(ctx context.Context, frame framer.Frame) 
 			if !ok {
 				continue
 			}
-			values, err := ConvertSeriesToProtoValues(series)
+			values, err := transform.SeriesToProtoValues(series)
 			if err != nil {
 				continue
 			}
@@ -325,11 +340,11 @@ func getTimestamps(series, indexSeries telem.Series) []telem.TimeStamp {
 	return timestamps
 }
 
-func (*uploadTask) Exec(context.Context, task.Command) error {
+func (*Task) Exec(context.Context, task.Command) error {
 	return driver.ErrUnsupportedCommand
 }
 
-func (u *uploadTask) Stop() error {
+func (u *Task) Stop() error {
 	u.mu.Lock()
 	if u.cancel != nil {
 		u.cancel()
@@ -339,7 +354,7 @@ func (u *uploadTask) Stop() error {
 	return nil
 }
 
-func (u *uploadTask) setStatus(variant xstatus.Variant, message string, running bool) {
+func (u *Task) setStatus(variant xstatus.Variant, message string, running bool) {
 	stat := task.Status{
 		Key:     task.OntologyID(u.task.Key).String(),
 		Name:    u.task.Name,
@@ -349,68 +364,71 @@ func (u *uploadTask) setStatus(variant xstatus.Variant, message string, running 
 		Details: task.StatusDetails{Task: u.task.Key, Running: running},
 	}
 	if err := status.NewWriter[task.StatusDetails](
-		u.fCfg.Status, nil,
+		u.deps.Status, nil,
 	).Set(context.Background(), &stat); err != nil {
-		u.fCfg.L.Error("failed to set status", zap.Error(err))
+		u.deps.L.Error("failed to set status", zap.Error(err))
 	}
 }
 
-func (u *uploadTask) deleteTask() {
-	if err := u.fCfg.Task.NewWriter(nil).Delete(
+func (u *Task) deleteTask() {
+	if err := u.deps.Task.NewWriter(nil).Delete(
 		context.Background(), u.task.Key, false,
 	); err != nil {
-		u.fCfg.L.Error("failed to delete task",
+		u.deps.L.Error("failed to delete task",
 			zap.Uint64("task", uint64(u.task.Key)),
 			zap.Error(err))
 	}
 }
 
-func (f *Factory) configureUploadTask(
+// Configure creates and configures a new upload task.
+func Configure(
 	ctx driver.Context,
 	t task.Task,
+	deps Dependencies,
+	setStatus func(driver.Context, task.Task, xstatus.Variant, string, bool),
 ) (driver.Task, error) {
-	cfg, err := parseUploadTaskConfig(t.Config)
+	cfg, err := parseConfig(t.Config)
 	if err != nil {
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
+		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 		return nil, err
 	}
 
 	var dev device.Device
-	if err := f.cfg.Device.NewRetrieve().
+	if err := deps.Device.NewRetrieve().
 		WhereKeys(cfg.DeviceKey).
 		Entry(&dev).
 		Exec(ctx, nil); err != nil {
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
+		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 		return nil, err
 	}
-	if dev.Make != DeviceMake {
+	if dev.Make != siftdevice.Make {
 		err := errors.Newf("device make %s is not supported", dev.Make)
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
+		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 		return nil, err
 	}
-	if dev.Model != DeviceModel {
+	if dev.Model != siftdevice.Model {
 		err := errors.Newf("device model %s is not supported", dev.Model)
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
+		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 		return nil, err
 	}
-	props, err := parseDeviceProperties(dev.Properties)
+	props, err := siftdevice.ParseProperties(dev.Properties)
 	if err != nil {
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
+		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 		return nil, err
 	}
 
-	siftClient, err := f.pool.Get(ctx, props.URI, props.APIKey)
+	siftClient, err := deps.Pool.Get(ctx, props.URI, props.APIKey)
 	if err != nil {
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
+		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 		return nil, err
 	}
 
 	var channels []channel.Channel
-	if err := f.cfg.Channel.NewRetrieve().
+	if err := deps.Channel.NewRetrieve().
 		WhereKeys(cfg.Channels...).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
+		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 		return nil, errors.Wrap(err, "failed to retrieve channels")
 	}
 
@@ -424,7 +442,7 @@ func (f *Factory) configureUploadTask(
 	groups := GroupChannelsByIndex(channels)
 	if len(groups) == 0 {
 		err := errors.New("no valid channels to upload")
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
+		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 		return nil, err
 	}
 
@@ -436,9 +454,11 @@ func (f *Factory) configureUploadTask(
 		var flowChannels []*ingestionconfigsv1.ChannelConfig
 		for _, key := range group.DataChannelKeys {
 			ch := channelMap[key]
-			dt, err := MapDataType(ch.DataType)
+			dt, err := transform.DataType(ch.DataType)
 			if err != nil {
-				continue
+				err = errors.Wrapf(err, "channel %s has unsupported data type %s", ch.Name, ch.DataType)
+				setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
+				return nil, err
 			}
 			flowChannels = append(flowChannels, &ingestionconfigsv1.ChannelConfig{
 				Name:     ch.Name,
@@ -459,7 +479,7 @@ func (f *Factory) configureUploadTask(
 			},
 		)
 		if err != nil {
-			f.setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
+			setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 			return nil, err
 		}
 
@@ -470,7 +490,7 @@ func (f *Factory) configureUploadTask(
 
 	if len(groupSlice) == 0 {
 		err := errors.New("no valid channels to upload")
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
+		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 		return nil, err
 	}
 
@@ -482,30 +502,30 @@ func (f *Factory) configureUploadTask(
 		StopTime:  timestamppb.New(cfg.TimeRange.End.Time()),
 	})
 	if err != nil {
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
+		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 		return nil, err
 	}
 
 	ingester, err := siftClient.OpenIngester(ctx)
 	if err != nil {
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
+		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 		return nil, err
 	}
 
-	iter, err := f.cfg.Framer.NewStreamIterator(ctx, framer.IteratorConfig{
+	iter, err := deps.Framer.NewStreamIterator(ctx, framer.IteratorConfig{
 		Keys:   cfg.Channels,
 		Bounds: cfg.TimeRange,
 	})
 	if err != nil {
-		f.setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
+		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 		err := errors.Combine(err, ingester.Close())
 		return nil, err
 	}
 
-	uploadTask := &uploadTask{
+	uploadTask := &Task{
 		task:     t,
 		cfg:      cfg,
-		fCfg:     f.cfg,
+		deps:     deps,
 		client:   siftClient,
 		ingester: ingester,
 		iter:     iter,
@@ -513,7 +533,7 @@ func (f *Factory) configureUploadTask(
 		runID:    runRes.Run.RunId,
 	}
 
-	f.setStatus(ctx, t, xstatus.VariantSuccess, "Uploading to Sift", true)
+	setStatus(ctx, t, xstatus.VariantSuccess, "Uploading to Sift", true)
 	go uploadTask.run(ctx)
 	return uploadTask, nil
 }

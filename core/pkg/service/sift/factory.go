@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/client"
+	"github.com/synnaxlabs/synnax/pkg/service/sift/upload"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -102,8 +103,16 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 // ConfigureTask creates a Sift upload task.
 func (f *Factory) ConfigureTask(ctx driver.Context, t task.Task) (driver.Task, error) {
 	switch t.Type {
-	case UploadTaskType:
-		return f.configureUploadTask(ctx, t)
+	case upload.TaskType:
+		return upload.Configure(ctx, t, upload.Dependencies{
+			Device:  f.cfg.Device,
+			Framer:  f.cfg.Framer,
+			Channel: f.cfg.Channel,
+			Status:  f.cfg.Status,
+			Task:    f.cfg.Task,
+			Pool:    f.pool,
+			L:       f.cfg.L,
+		}, f.setStatus)
 	default:
 		return nil, driver.ErrTaskNotHandled
 	}

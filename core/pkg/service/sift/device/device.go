@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package sift
+package device
 
 import (
 	"encoding/json"
@@ -16,15 +16,14 @@ import (
 )
 
 const (
-	// DeviceMake is the device make identifier for Sift devices.
-	DeviceMake = "sift"
-	// DeviceModel is the device model identifier.
-	DeviceModel = "cloud"
+	// Make is the device make identifier for Sift devices.
+	Make = "sift"
+	// Model is the device model identifier.
+	Model = "cloud"
 )
 
-// DeviceProperties contains the Sift connection configuration stored in
-// device.Properties.
-type DeviceProperties struct {
+// Properties contains the Sift connection configuration stored in device.Properties.
+type Properties struct {
 	// APIKey is the Sift API key for authentication.
 	APIKey string `json:"api_key"`
 	// URI is the Sift gRPC API endpoint (e.g., "grpc-api.siftstack.com:443"). This
@@ -33,8 +32,9 @@ type DeviceProperties struct {
 	URI string `json:"uri"`
 }
 
-func parseDeviceProperties(properties string) (DeviceProperties, error) {
-	var p DeviceProperties
+// ParseProperties parses Sift device properties from a JSON string.
+func ParseProperties(properties string) (Properties, error) {
+	var p Properties
 	if err := json.Unmarshal([]byte(properties), &p); err != nil {
 		return p, errors.Wrap(err, "failed to parse device properties")
 	}
