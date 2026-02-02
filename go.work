@@ -8,6 +8,7 @@ use (
 	./core
 	./freighter/go
 	./freighter/integration
+	./oracle
 	./x/go
 )
 

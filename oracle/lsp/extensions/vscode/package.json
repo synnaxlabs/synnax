@@ -1,0 +1,76 @@
+{
+  "name": "oracle-language",
+  "displayName": "Oracle Schema Language",
+  "description": "Language support for Oracle schema files (.oracle)",
+  "version": "0.1.0",
+  "publisher": "synnaxlabs",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:oracle",
+    "workspaceContains:**/*.oracle"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "oracle",
+        "aliases": [
+          "Oracle",
+          "oracle"
+        ],
+        "extensions": [
+          ".oracle"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "oracle",
+        "scopeName": "source.oracle",
+        "path": "./syntaxes/oracle.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Oracle Language Server",
+      "properties": {
+        "oracle.lsp.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Oracle CLI executable. If empty, will search in PATH."
+        },
+        "oracle.lsp.verbose": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose logging for the language server."
+        }
+      }
+    },
+    "configurationDefaults": {
+      "[oracle]": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "synnaxlabs.oracle-language"
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npx @vscode/vsce package --allow-missing-repository"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.75.0",
+    "@vscode/vsce": "^2.22.0",
+    "typescript": "^5.3.0"
+  }
+}

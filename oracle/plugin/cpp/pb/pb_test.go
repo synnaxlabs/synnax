@@ -1,0 +1,677 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package pb_test
+
+import (
+	"context"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/oracle/plugin/cpp/pb"
+	"github.com/synnaxlabs/oracle/testutil"
+)
+
+func TestCppPB(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "C++ PB Plugin Suite")
+}
+
+var _ = Describe("C++ PB Plugin", func() {
+	var (
+		ctx      context.Context
+		loader   *testutil.MockFileLoader
+		pbPlugin *pb.Plugin
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		loader = testutil.NewMockFileLoader()
+		pbPlugin = pb.New(pb.Options{
+			FileNamePattern:  "proto.gen.h",
+			DisableFormatter: true,
+		})
+	})
+
+	Describe("Plugin Interface", func() {
+		It("Should have correct name", func() {
+			Expect(pbPlugin.Name()).To(Equal("cpp/pb"))
+		})
+
+		It("Should filter on cpp and pb domains", func() {
+			Expect(pbPlugin.Domains()).To(Equal([]string{"cpp", "pb"}))
+		})
+
+		It("Should require cpp/types and pb/types", func() {
+			Expect(pbPlugin.Requires()).To(Equal([]string{"cpp/types", "pb/types"}))
+		})
+	})
+
+	Describe("Generate", func() {
+		Context("array alias fields (e.g., Params -> Param[])", func() {
+			It("Should use add_* for repeated fields in forward conversion", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Param struct {
+						name string
+						value int32
+					}
+
+					Params Param[]
+
+					FunctionProperties struct {
+						inputs Params
+						outputs Params
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				Expect(resp.Files).To(HaveLen(1))
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Should use add_* for repeated fields, not set_*
+						"pb.add_inputs()",
+						"pb.add_outputs()",
+						// Should iterate over the array
+						"for (const auto& item : this->inputs)",
+						"for (const auto& item : this->outputs)",
+					).
+					ToNotContain(
+						// Should NOT use set_* for repeated fields
+						"pb.set_inputs(",
+						"pb.set_outputs(",
+					)
+			})
+
+			It("Should generate correct backward conversion for array aliases", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Param struct {
+						name string
+						value int32
+					}
+
+					Params Param[]
+
+					FunctionProperties struct {
+						inputs Params
+						outputs Params
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Should use from_proto_repeated helper for struct arrays with explicit element type
+						"x::pb::from_proto_repeated<Param>(cpp.inputs, pb.inputs())",
+						"x::pb::from_proto_repeated<Param>(cpp.outputs, pb.outputs())",
+					)
+			})
+
+			It("Should call to_proto/from_proto for struct element types", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Param struct {
+						name string
+						value int32
+					}
+
+					Params Param[]
+
+					FunctionProperties struct {
+						inputs Params
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Forward: call to_proto() on each struct element
+						"item.to_proto()",
+						// Backward: use from_proto_repeated helper
+						"from_proto_repeated",
+					)
+			})
+		})
+
+		Context("direct array fields (non-alias)", func() {
+			It("Should use add_* for direct array fields with struct elements", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Item struct {
+						name string
+						value int32
+					}
+
+					Container struct {
+						items Item[]
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"for (const auto& item : this->items)",
+						"pb.add_items()",
+						"item.to_proto()",
+					)
+			})
+
+			It("Should use add_* for primitive arrays", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Data struct {
+						values int32[]
+						names string[]
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"pb.add_values(item)",
+						"pb.add_names(item)",
+					)
+			})
+		})
+
+		Context("optional struct fields", func() {
+			It("Should use has_value() and mutable_* for optional structs", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Unit struct {
+						name string
+						scale float64
+					}
+
+					Type struct {
+						name string
+						unit Unit??
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Forward: check has_value() and use mutable_*
+						"if (this->unit.has_value())",
+						"*pb.mutable_unit()",
+						"this->unit->to_proto()",
+						// Backward: check has_* and use inline error handling
+						"if (pb.has_unit())",
+						"Unit::from_proto(pb.unit())",
+						"if (err) return {{}, err}",
+					)
+			})
+		})
+
+		Context("self-referential types", func() {
+			It("Should handle self-referential optional struct fields", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Node struct {
+						name string
+						left Node??
+						right Node??
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Should use has_value() for indirect<T> fields
+						"if (this->left.has_value())",
+						"if (this->right.has_value())",
+						// Should use -> to access to_proto()
+						"this->left->to_proto()",
+						"this->right->to_proto()",
+					)
+			})
+		})
+
+		Context("complex type structure from arc/types", func() {
+			It("Should handle the complete Type structure with FunctionProperties and self-refs", func() {
+				source := `
+					@cpp output "arc/cpp/types"
+					@pb output "arc/go/types/pb"
+
+					Param struct {
+						name string
+						kind string
+					}
+
+					Params Param[]
+
+					FunctionProperties struct {
+						inputs Params?
+						outputs Params?
+						config Params?
+					}
+
+					Type struct extends FunctionProperties {
+						kind string
+						name string
+						elem Type??
+						constraint Type??
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				Expect(resp.Files).To(HaveLen(1))
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// FunctionProperties array alias fields should use add_*
+						"pb.add_inputs()",
+						"pb.add_outputs()",
+						"pb.add_config()",
+						// Self-referential fields should use has_value() and ->
+						"if (this->elem.has_value())",
+						"if (this->constraint.has_value())",
+						"this->elem->to_proto()",
+						"this->constraint->to_proto()",
+					)
+			})
+		})
+
+		Context("enum handling", func() {
+			It("Should generate enum translator functions for string enums", func() {
+				source := `
+					@cpp output "client/cpp/status"
+					@pb output "core/pkg/service/status/pb"
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Status struct {
+						variant Variant
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "status", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"VariantToPB",
+						"VariantFromPB",
+						// Should use static unordered_map for O(1) lookup
+						"static const std::unordered_map",
+						"kMap.find(cpp)",
+					)
+			})
+
+			It("Should use static_cast for int enums", func() {
+				source := `
+					@cpp output "client/cpp/status"
+					@pb output "core/pkg/service/status/pb"
+
+					Kind enum {
+						unknown = 0
+						known = 1
+					}
+
+					Item struct {
+						kind Kind
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "status", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"static_cast<",
+					)
+			})
+		})
+
+		Context("any type handling", func() {
+			It("Should use x::json::to_value/from_value for any type fields", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Param struct {
+						name string
+						value any
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Forward: use mutable_* and to_value
+						"*pb.mutable_value() = x::json::to_value(this->value).first",
+						// Backward: use inline error handling with from_value
+						"x::json::from_value(pb.value())",
+						"if (err) return {{}, err}",
+					).
+					ToNotContain(
+						// Should NOT use set_value for any type
+						"pb.set_value(",
+					)
+			})
+
+			It("Should handle hard optional any type fields", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Param struct {
+						name string
+						value any??
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Forward: check has_value() for hard optional
+						"if (this->value.has_value())",
+						"*pb.mutable_value() = x::json::to_value(*this->value).first",
+						// Backward: check has_* and use inline error handling
+						"if (pb.has_value())",
+						"x::json::from_value(pb.value())",
+					)
+			})
+		})
+
+		Context("json type handling", func() {
+			It("Should use x::json::to_struct/from_struct for json type fields", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Config struct {
+						name string
+						metadata json
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Forward: use mutable_* and to_struct
+						"*pb.mutable_metadata() = x::json::to_struct(this->metadata).first",
+						// Backward: use inline error handling with from_struct
+						"x::json::from_struct(pb.metadata())",
+						"if (err) return {{}, err}",
+					).
+					ToNotContain(
+						// Should NOT use set_metadata for json type
+						"pb.set_metadata(",
+					)
+			})
+		})
+
+		Context("Map type handling", func() {
+			It("Should iterate and insert for map fields", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Channels struct {
+						read map<uint32, string>
+						write map<uint32, string>
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Forward: iterate over map and insert into mutable_*
+						"for (const auto& [k, v] : this->read)",
+						"(*pb.mutable_read())[k] = v",
+						"for (const auto& [k, v] : this->write)",
+						"(*pb.mutable_write())[k] = v",
+						// Backward: iterate over pb map and insert into cpp map
+						"for (const auto& [k, v] : pb.read())",
+						"cpp.read[k] = v",
+						"for (const auto& [k, v] : pb.write())",
+						"cpp.write[k] = v",
+					).
+					ToNotContain(
+						// Should NOT use set_* for map fields
+						"pb.set_read(",
+						"pb.set_write(",
+					)
+			})
+		})
+
+		Context("nested array handling (array of arrays)", func() {
+			It("Should use wrapper messages for nested arrays via alias", func() {
+				// This tests the Strata pattern: Strata = Stratum[] where Stratum = string[]
+				source := `
+					@cpp output "arc/cpp/ir"
+					@pb output "arc/go/ir/pb"
+
+					Stratum = string[]
+
+					Strata Stratum[]
+
+					Stage struct {
+						key string
+						strata Strata
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "ir", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Forward: should get a wrapper via add_strata(), then add values
+						"for (const auto& item : this->strata)",
+						"auto* wrapper = pb.add_strata()",
+						"for (const auto& v : item) wrapper->add_values(v)",
+						// Backward: should iterate over wrappers and extract values
+						"for (const auto& wrapper : pb.strata())",
+						"cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()})",
+					).
+					ToNotContain(
+						// Should NOT directly add items (wrong API for nested arrays)
+						"pb.add_strata(item)",
+					)
+			})
+
+			It("Should handle nested arrays in direct array fields", func() {
+				// Oracle doesn't support string[][] directly, so we use an alias
+				source := `
+					@cpp output "arc/cpp/ir"
+					@pb output "arc/go/ir/pb"
+
+					Row = string[]
+
+					Matrix struct {
+						rows Row[]
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "ir", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Forward: should use wrapper pattern
+						"auto* wrapper = pb.add_rows()",
+						"wrapper->add_values(v)",
+						// Backward: should extract from wrapper
+						"wrapper.values().begin()",
+					)
+			})
+
+			It("Should handle nested arrays alongside other fields in a struct", func() {
+				// This tests a more complex case similar to IR struct
+				source := `
+					@cpp output "arc/cpp/ir"
+					@pb output "arc/go/ir/pb"
+
+					Stratum = string[]
+					Strata Stratum[]
+
+					Node struct {
+						key string
+					}
+
+					Nodes Node[]
+
+					IR struct {
+						nodes Nodes
+						strata Strata
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "ir", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Regular struct array should use normal pattern
+						"for (const auto& item : this->nodes) *pb.add_nodes() = item.to_proto()",
+						// Nested array should use wrapper pattern
+						"for (const auto& item : this->strata)",
+						"auto* wrapper = pb.add_strata()",
+						"wrapper->add_values(v)",
+					)
+			})
+
+			It("Should handle nested arrays through distinct type alias", func() {
+				source := `
+					@cpp output "arc/cpp/ir"
+					@pb output "arc/go/ir/pb"
+
+					Row string[]
+					Grid Row[]
+
+					Table struct {
+						data Grid
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "ir", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Should detect nested array through alias chain
+						"auto* wrapper = pb.add_data()",
+						"wrapper->add_values(v)",
+					)
+			})
+		})
+
+		Describe("Array Wrapper Proto Generation", func() {
+			// Proto uses repeated fields for arrays, not wrapper messages.
+			// So array wrapper distinct types (like Params Param[]) cannot have
+			// proto methods - there's no proto message to convert to/from.
+			It("Should not generate proto for array wrappers (proto uses repeated fields)", func() {
+				source := `
+					@cpp output "arc/cpp/types"
+					@pb output "x/go/types/pb"
+
+					Channels uint32[]
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				// No proto.gen.h should be generated for array-only schemas
+				Expect(len(resp.Files)).To(Equal(0))
+			})
+
+			It("Should generate proto for structs but not array wrappers in same schema", func() {
+				source := `
+					@cpp output "arc/cpp/types"
+					@pb output "x/go/types/pb"
+
+					Param struct {
+						name string
+						dataType string
+					}
+
+					Params Param[]
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				// Should generate proto for Param struct only
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"Param::to_proto() const {",
+					).
+					ToNotContain(
+						// Params wrapper should NOT have proto methods
+						"Params::to_proto()",
+					)
+			})
+		})
+
+		Context("includes", func() {
+			It("Should include x/cpp/pb/pb.h for helpers", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Item struct {
+						name string
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						`#include "x/cpp/pb/pb.h"`,
+					)
+			})
+
+			It("Should include unordered_map and string for string enums", func() {
+				source := `
+					@cpp output "client/cpp/status"
+					@pb output "core/pkg/service/status/pb"
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Status struct {
+						variant Variant
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "status", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"#include <unordered_map>",
+						"#include <string>",
+					)
+			})
+
+			It("Should only include type_traits for generic types", func() {
+				// Non-generic type should not include type_traits
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Item struct {
+						name string
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToNotContain(
+						"#include <type_traits>",
+					)
+			})
+		})
+	})
+})
