@@ -124,7 +124,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   };
 
   const promptDownloadCSVModal = CSV.useDownloadModal();
-  const promptExportToSiftModal = Sift.useExportModal();
+  const promptExportToSiftModal = Sift.useUploadModal();
 
   if (status.variant === "error")
     return (
@@ -201,7 +201,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Icon.CSV color={9} />
             </Button.Button>
             <Button.Button
-              tooltip={`Export data for ${name} to Sift`}
+              tooltip={`Upload data for ${name} to Sift`}
               tooltipLocation="bottom"
               variant="text"
               onClick={() =>
@@ -212,12 +212,12 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                       name,
                       channels: [],
                     },
-                    { icon: "Export" },
+                    { icon: "Range" },
                   );
-                }, "Failed to export to Sift")
+                }, "Failed to upload to Sift")
               }
             >
-              <Icon.Export color={9} />
+              <Icon.Logo.Sift color={2} />
             </Button.Button>
             <Divider.Divider y />
             {range != null && <FavoriteButton range={range} size="medium" />}

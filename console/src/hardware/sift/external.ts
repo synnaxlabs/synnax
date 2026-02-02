@@ -8,10 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Device } from "@/hardware/sift/device";
-import {
-  EXPORT_MODAL_LAYOUT_TYPE,
-  ExportModal,
-} from "@/hardware/sift/ExportModal";
+import { UPLOAD_MODAL_LAYOUT_TYPE, UploadModal } from "@/hardware/sift/ExportModal";
 import { type Layout } from "@/layout";
 
 export * from "@/hardware/sift/device";
@@ -19,5 +16,5 @@ export * from "@/hardware/sift/ExportModal";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...Device.LAYOUTS,
-  [EXPORT_MODAL_LAYOUT_TYPE]: ExportModal,
+  [UPLOAD_MODAL_LAYOUT_TYPE]: UploadModal,
 };

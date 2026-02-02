@@ -21,6 +21,7 @@ export interface SelectProps {
   make: string;
   path?: string;
   icon?: Icon.ReactElement;
+  placeholder?: string;
 }
 
 export const Select = ({

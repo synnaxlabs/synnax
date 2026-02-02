@@ -17,28 +17,26 @@ import {
   Form,
   Icon,
   Input,
-  List,
   Nav,
-  Select,
   Status,
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange, TimeRange } from "@synnaxlabs/x";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 
-import { MAKE, type Properties } from "@/hardware/sift/device/types";
+import { Device } from "@/hardware/sift/device";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
-export interface ExportModalArgs extends Modals.BaseArgs<void> {
+export interface UploadModalArgs extends Modals.BaseArgs<void> {
   timeRange: CrudeTimeRange;
   channels: channel.Keys;
   name: string;
 }
 
-export const EXPORT_MODAL_LAYOUT_TYPE = "exportToSift";
+export const UPLOAD_MODAL_LAYOUT_TYPE = "exportToSift";
 
 const formSchema = z.object({
   name: z.string(),
@@ -53,67 +51,12 @@ const formSchema = z.object({
   }),
 });
 
-interface SiftDeviceSelectProps {
-  value: string;
-  onChange: (value: string) => void;
-}
-
-interface SiftDevice {
-  key: string;
-  name: string;
-}
-
-const SiftDeviceSelect = ({ value, onChange }: SiftDeviceSelectProps) => {
-  const client = Synnax.use();
-  const [devices, setDevices] = useState<SiftDevice[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (client == null) {
-      setLoading(false);
-      return;
-    }
-    client.devices
-      .retrieve<Properties>({ makes: [MAKE] })
-      .then((devs) => setDevices(devs.map((d) => ({ key: d.key, name: d.name }))))
-      .catch(() => setDevices([]))
-      .finally(() => setLoading(false));
-  }, [client]);
-
-  const { data, getItem } = List.useStaticData<string, SiftDevice>({ data: devices });
-  if (loading) return <Text.Text level="small">Loading devices...</Text.Text>;
-
-  if (devices.length === 0)
-    return (
-      <Text.Text level="small" color={8}>
-        No Sift devices found. Please connect a Sift device first.
-      </Text.Text>
-    );
-
-  return (
-    <Select.Single<string, SiftDevice>
-      value={value}
-      onChange={onChange}
-      allowNone={false}
-      data={data}
-      getItem={getItem}
-      resourceName="Sift device"
-    >
-      {(props: List.ItemProps<string>) => {
-        const dev = getItem(props.itemKey);
-        if (dev == null) return null;
-        return <Select.ListItem {...props}>{dev.name}</Select.ListItem>;
-      }}
-    </Select.Single>
-  );
-};
-
-interface ExportButtonProps {
+interface UploadButtonProps {
   handleFinish: () => void;
   timeRange: CrudeTimeRange;
 }
 
-const ExportButton = ({ handleFinish, timeRange }: ExportButtonProps) => {
+const UploadButton = ({ handleFinish, timeRange }: UploadButtonProps) => {
   const client = Synnax.use();
   const addStatus = Status.useAdder();
   const { get } = Form.useContext();
@@ -152,24 +95,23 @@ const ExportButton = ({ handleFinish, timeRange }: ExportButtonProps) => {
         },
       };
 
-      console.log(taskConfig);
       const embeddedRack = await client.racks.retrieve({ name: "Node 1" });
       await embeddedRack.createTask({
-        name: `Export to Sift: ${runName}`,
+        name: `Upload ${runName} to Sift`,
         type: "sift_upload",
         config: taskConfig,
       });
 
       addStatus({
         variant: "success",
-        message: `Export to Sift started for ${runName}`,
+        message: `Upload to Sift started for ${runName}`,
       });
 
       handleFinish();
     } catch (e) {
       addStatus({
         variant: "error",
-        message: `Failed to start export: ${String(e)}`,
+        message: `Failed to start upload: ${String(e)}`,
       });
     } finally {
       setLoading(false);
@@ -189,14 +131,14 @@ const ExportButton = ({ handleFinish, timeRange }: ExportButtonProps) => {
       trigger={Triggers.SAVE}
     >
       <Icon.Export />
-      Export to Sift
+      Upload to Sift
     </Button.Button>
   );
 };
 
-export const [useExportModal, ExportModal] = Modals.createBase<void, ExportModalArgs>(
-  "Export.Sift",
-  EXPORT_MODAL_LAYOUT_TYPE,
+export const [useUploadModal, UploadModal] = Modals.createBase<void, UploadModalArgs>(
+  "Upload.Sift",
+  UPLOAD_MODAL_LAYOUT_TYPE,
   ({ value: { timeRange, channels, name }, onFinish }) => {
     const tr = new TimeRange(timeRange);
     const form = Form.use<typeof formSchema>({
@@ -214,9 +156,9 @@ export const [useExportModal, ExportModal] = Modals.createBase<void, ExportModal
 
     const footer = (
       <>
-        <Triggers.SaveHelpText action="Export" />
+        <Triggers.SaveHelpText action="Upload" />
         <Nav.Bar.End x align="center">
-          <ExportButton handleFinish={onFinish} timeRange={timeRange} />
+          <UploadButton handleFinish={onFinish} timeRange={timeRange} />
         </Nav.Bar.End>
       </>
     );
@@ -226,28 +168,23 @@ export const [useExportModal, ExportModal] = Modals.createBase<void, ExportModal
         <Modals.ModalContentLayout footer={footer} gap="huge">
           <Flex.Box y gap="small">
             <Text.Text level="h3" weight={450}>
-              Export {name} to Sift
-            </Text.Text>
-            <Text.Text level="small" color={8}>
-              Export telemetry data to Sift for analysis and visualization.
+              Upload {name} to Sift
             </Text.Text>
           </Flex.Box>
           <Flex.Box y full="x" gap="medium">
-            <Form.Field<string> path="deviceKey" label="Sift Device" required>
-              {({ value, onChange }) => (
-                <SiftDeviceSelect value={value} onChange={onChange} />
-              )}
-            </Form.Field>
+            <Flex.Box x gap="medium">
+              <Device.Select />
+            </Flex.Box>
             <Flex.Box x gap="medium">
               <Form.Field<string> path="assetName" label="Asset Name" required grow>
-                {(p) => <Input.Text placeholder="My Asset" {...p} />}
+                {(p) => <Input.Text placeholder="Asset" {...p} />}
               </Form.Field>
               <Form.Field<string> path="flowName" label="Flow Name" required grow>
-                {(p) => <Input.Text placeholder="telemetry" {...p} />}
+                {(p) => <Input.Text placeholder="Flow" {...p} />}
               </Form.Field>
             </Flex.Box>
             <Form.Field<string> path="runName" label="Run Name" required>
-              {(p) => <Input.Text placeholder="Test Run 1" {...p} />}
+              {(p) => <Input.Text placeholder="Run" {...p} />}
             </Form.Field>
             <Form.Field<channel.Keys> path="channels" label="Channels" required>
               {({ value, onChange }) => (
@@ -255,7 +192,7 @@ export const [useExportModal, ExportModal] = Modals.createBase<void, ExportModal
                   value={value}
                   onChange={onChange}
                   full="x"
-                  triggerProps={{ placeholder: "Select channels to export" }}
+                  triggerProps={{ placeholder: "Select channels to upload" }}
                 />
               )}
             </Form.Field>

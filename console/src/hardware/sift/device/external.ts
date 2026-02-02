@@ -14,6 +14,7 @@ import { type Palette } from "@/palette";
 
 export * from "@/hardware/sift/device/Connect";
 export * from "@/hardware/sift/device/palette";
+export * from "@/hardware/sift/device/Select";
 export * from "@/hardware/sift/device/types";
 
 export const COMMANDS: Palette.Command[] = PALETTE_COMMANDS;
