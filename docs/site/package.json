@@ -13,6 +13,8 @@
     "lint": "eslint",
     "fix": "eslint --fix",
     "madge": "madge --circular src",
+    "format": "prettier --write .",
+    "format-check": "prettier --check .",
     "stylelint": "stylelint \"src/**/*.css\""
   },
   "dependencies": {
