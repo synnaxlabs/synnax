@@ -1,0 +1,12 @@
+cc_library(
+    name = "channel",
+    hdrs = ["channel.h"],
+    visibility = ["//driver/ethercat:__subpackages__"],
+    deps = [
+        "//client/cpp:synnax",
+        "//driver/ethercat/device",
+        "//driver/ethercat/master",
+        "//x/cpp/telem",
+        "//x/cpp/xjson",
+    ],
+)

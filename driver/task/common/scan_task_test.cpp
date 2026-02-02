@@ -272,13 +272,14 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     if (!created_devices->empty()) { EXPECT_EQ((*created_devices)[0].key, "device2"); }
 }
 
-/// @brief it should recreate device when rack key changes.
 TEST(TestScanTask, TestRecreateWhenRackChanges) {
+    const std::string user_props = R"({"user_key":"user_value"})";
+
     synnax::Device dev1;
     dev1.key = "device1";
     dev1.name = "Device 1";
     dev1.rack = 1;
-    dev1.properties = "test_properties";
+    dev1.properties = user_props;
     dev1.configured = true;
 
     synnax::Device dev1_moved = dev1;
@@ -290,10 +291,9 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     synnax::Device dev1_moved_2 = dev1;
     dev1_moved_2.rack = 3;
     dev1_moved_2.name = "dog";
-    dev1_moved_2.properties = "test_properties";
+    dev1_moved_2.properties = "";
     dev1_moved_2.configured = false;
 
-    // Setup scanner with devices to be discovered
     std::vector<std::vector<synnax::Device>> devices = {{dev1_moved}, {dev1_moved_2}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
@@ -302,7 +302,6 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
         std::vector<xerrors::Error>{}
     );
 
-    // Setup remote devices - device1 already exists on the remote with rack1
     auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
     remote_devices->push_back(dev1);
 
@@ -335,33 +334,33 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     EXPECT_EQ(created_devices->size(), 1);
     EXPECT_EQ(created_devices->at(0).key, "device1");
     EXPECT_EQ(created_devices->at(0).rack, 2);
-    EXPECT_EQ(created_devices->at(0).properties, "test_properties");
+    EXPECT_EQ(created_devices->at(0).properties, user_props);
     EXPECT_TRUE(created_devices->at(0).configured);
 
     ASSERT_NIL(scan_task.scan());
     EXPECT_EQ(created_devices->size(), 1);
     EXPECT_EQ(created_devices->at(0).key, "device1");
     EXPECT_EQ(created_devices->at(0).rack, 2);
-    EXPECT_EQ(created_devices->at(0).properties, "test_properties");
+    EXPECT_EQ(created_devices->at(0).properties, user_props);
     EXPECT_TRUE(created_devices->at(0).configured);
 }
 
-/// @brief it should update device when location changes (e.g., renamed in NI MAX).
 TEST(TestScanTask, TestUpdateWhenLocationChanges) {
+    const std::string user_props = R"({"user_key":"user_value"})";
+
     synnax::Device dev1;
     dev1.key = "device1";
     dev1.name = "Device 1";
     dev1.rack = 1;
     dev1.location = "old_location";
-    dev1.properties = "test_properties";
+    dev1.properties = user_props;
     dev1.configured = true;
 
-    // Same device but with new location (simulating NI MAX rename)
     synnax::Device dev1_renamed = dev1;
     dev1_renamed.location = "new_location";
-    dev1_renamed.name = "scanner_name"; // Scanner might set different name
-    dev1_renamed.properties = ""; // Scanner doesn't preserve properties
-    dev1_renamed.configured = false; // Scanner always sets false
+    dev1_renamed.name = "scanner_name";
+    dev1_renamed.properties = "";
+    dev1_renamed.configured = false;
 
     std::vector<std::vector<synnax::Device>> devices = {{dev1_renamed}};
     auto scanner = std::make_unique<MockScanner>(
@@ -371,7 +370,6 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
         std::vector<xerrors::Error>{}
     );
 
-    // Device already exists on remote with old location
     auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
     remote_devices->push_back(dev1);
 
@@ -402,27 +400,25 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     ASSERT_NIL(scan_task.init());
     ASSERT_NIL(scan_task.scan());
 
-    // Device should be updated due to location change
     ASSERT_EQ(created_devices->size(), 1);
     EXPECT_EQ(created_devices->at(0).key, "device1");
     EXPECT_EQ(created_devices->at(0).location, "new_location");
-    // User-configured properties should be preserved
     EXPECT_EQ(created_devices->at(0).name, "Device 1");
-    EXPECT_EQ(created_devices->at(0).properties, "test_properties");
+    EXPECT_EQ(created_devices->at(0).properties, user_props);
     EXPECT_TRUE(created_devices->at(0).configured);
 }
 
-/// @brief it should NOT update device when location is the same.
 TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
+    const std::string user_props = R"({"user_key":"user_value"})";
+
     synnax::Device dev1;
     dev1.key = "device1";
     dev1.name = "Device 1";
     dev1.rack = 1;
     dev1.location = "same_location";
-    dev1.properties = "test_properties";
+    dev1.properties = user_props;
     dev1.configured = true;
 
-    // Same device, same location
     synnax::Device dev1_scanned = dev1;
     dev1_scanned.name = "scanner_name";
     dev1_scanned.properties = "";
@@ -575,18 +571,17 @@ TEST(TestScanTask, TestDeduplicateKeepsLastOldSlot) {
     EXPECT_EQ(created_devices->at(0).location, "old_slot");
 }
 
-/// @brief it should deduplicate and use last occurrence when updating existing device.
 TEST(TestScanTask, TestDeduplicateOnUpdate) {
-    // Device exists on remote with original location
+    const std::string user_props = R"({"user_key":"user_value"})";
+
     synnax::Device existing_dev;
     existing_dev.key = "device1";
     existing_dev.name = "Device 1";
     existing_dev.rack = 1;
     existing_dev.location = "original_slot";
-    existing_dev.properties = "user_properties";
+    existing_dev.properties = user_props;
     existing_dev.configured = true;
 
-    // Scanner returns same device twice with different locations (transition state)
     synnax::Device dev1_old;
     dev1_old.key = "device1";
     dev1_old.name = "Scanner Name";
@@ -634,12 +629,11 @@ TEST(TestScanTask, TestDeduplicateOnUpdate) {
     ASSERT_NIL(scan_task.init());
     ASSERT_NIL(scan_task.scan());
 
-    // Should update with last occurrence's location, preserving user properties
     ASSERT_EQ(created_devices->size(), 1);
     EXPECT_EQ(created_devices->at(0).key, "device1");
     EXPECT_EQ(created_devices->at(0).location, "final_slot");
     EXPECT_EQ(created_devices->at(0).name, "Device 1");
-    EXPECT_EQ(created_devices->at(0).properties, "user_properties");
+    EXPECT_EQ(created_devices->at(0).properties, user_props);
     EXPECT_TRUE(created_devices->at(0).configured);
 }
 

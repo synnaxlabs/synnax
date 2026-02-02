@@ -1,0 +1,16 @@
+cc_library(
+    name = "telem",
+    hdrs = ["telem.h"],
+    visibility = ["//driver/ethercat:__subpackages__"],
+    deps = ["//x/cpp/telem"],
+)
+
+cc_test(
+    name = "telem_test",
+    srcs = ["telem_test.cpp"],
+    deps = [
+        ":telem",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)
