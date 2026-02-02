@@ -20,18 +20,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  type Key,
-  type KeyOrName,
-  keyZ,
-  type New,
-  ontologyID,
-  type Operation,
-  type Params,
-  type Payload,
-  payloadZ,
-  type Status,
-} from "@/channel/payload";
+import { type KeyOrName, type Params } from "@/channel/payload";
 import {
   analyzeParams,
   CacheRetriever,
@@ -41,11 +30,20 @@ import {
   type Retriever,
   type RetrieveRequest,
 } from "@/channel/retriever";
+import {
+  type Key,
+  keyZ,
+  type New,
+  ontologyID,
+  type Operation,
+  type Payload,
+  payloadZ,
+} from "@/channel/types.gen";
 import { type Writer } from "@/channel/writer";
 import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
+import { group } from "@/group";
 import { type ontology } from "@/ontology";
-import { group } from "@/ontology/group";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 interface CreateOptions {
@@ -117,7 +115,7 @@ export class Channel {
   /**
    * The status of the channel.
    */
-  readonly status?: Status;
+  readonly status?: status.Status;
 
   constructor({
     dataType,
@@ -137,7 +135,7 @@ export class Channel {
     internal?: boolean;
     frameClient?: framer.Client;
     density?: CrudeDensity;
-    status?: status.Crude;
+    status?: status.New;
     operations?: Operation[];
   }) {
     this.key = keyZ.parse(key);

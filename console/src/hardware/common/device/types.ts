@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, device } from "@synnaxlabs/client";
+import { channel, device } from "@synnaxlabs/client";
 import { z } from "zod";
 
 const IDENTIFIER_MESSAGE = "Identifier must be between 2-12 characters";
@@ -27,8 +27,10 @@ export const identifierZ = z
 
 export type Identifier = z.infer<typeof identifierZ>;
 
-export interface CommandStatePair {
-  command: channel.Key;
-  state: channel.Key;
-}
+export const commandStatePairZ = z.object({
+  command: channel.keyZ,
+  state: channel.keyZ,
+});
+
+export type CommandStatePair = z.infer<typeof commandStatePairZ>;
 export const ZERO_COMMAND_STATE_PAIR: CommandStatePair = { command: 0, state: 0 };

@@ -18,7 +18,7 @@ export const useListenForChanges = () => {
     (dev: device.Device) => {
       if (dev.configured || alreadyNotified.current.has(dev.key)) return;
       alreadyNotified.current.add(dev.key);
-      addStatus<device.Device>({
+      addStatus<ReturnType<typeof device.deviceZ>>({
         variant: "info",
         message: `New ${dev.model} connected`,
         details: dev,
@@ -31,7 +31,7 @@ export const useListenForChanges = () => {
 
 export const getKeyFromStatus = ({
   details,
-}: Status.NotificationSpec<typeof device.deviceZ>): device.Key | null => {
+}: Status.NotificationSpec<ReturnType<typeof device.deviceZ>>): device.Key | null => {
   if (details == null || details.configured || !("key" in details)) return null;
   return details.key;
 };

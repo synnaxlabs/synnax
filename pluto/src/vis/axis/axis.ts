@@ -25,7 +25,7 @@ export const axisStateZ = tickFactoryProps.extend({
   type: tickType.default("linear"),
   font: z.string(),
   showGrid: z.boolean().default(true),
-  location: location.outer,
+  location: location.outerZ,
   gridColor: color.colorZ,
 });
 

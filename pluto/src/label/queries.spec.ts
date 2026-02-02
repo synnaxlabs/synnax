@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, label } from "@synnaxlabs/client";
+import { color } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -30,11 +31,11 @@ describe("queries", () => {
     it("should return a list of label keys", async () => {
       const label1 = await client.labels.create({
         name: "label1",
-        color: "#FF0000",
+        color: color.construct("#FF0000"),
       });
       const label2 = await client.labels.create({
         name: "label2",
-        color: "#00FF00",
+        color: color.construct("#00FF00"),
       });
 
       const { result } = renderHook(() => Label.useList(), {
@@ -52,7 +53,7 @@ describe("queries", () => {
     it("should get individual labels using getItem", async () => {
       const testLabel = await client.labels.create({
         name: "testLabel",
-        color: "#E774D0",
+        color: color.construct("#E774D0"),
       });
 
       const { result } = renderHook(() => Label.useList(), {
@@ -66,17 +67,17 @@ describe("queries", () => {
       const retrievedLabel = result.current.getItem(testLabel.key);
       expect(retrievedLabel?.key).toEqual(testLabel.key);
       expect(retrievedLabel?.name).toEqual("testLabel");
-      expect(retrievedLabel?.color).toEqual("#E774D0");
+      expect(retrievedLabel?.color).toEqual(color.construct("#E774D0"));
     });
 
     it("should filter labels by search term", async () => {
       await client.labels.create({
         name: "ordinary_label",
-        color: "#FF0000",
+        color: color.construct("#FF0000"),
       });
       await client.labels.create({
         name: "special_label",
-        color: "#00FF00",
+        color: color.construct("#00FF00"),
       });
 
       const { result } = renderHook(() => Label.useList(), {
@@ -99,7 +100,7 @@ describe("queries", () => {
         Array.from({ length: 5 }).map((_, i) =>
           client.labels.create({
             name: `paginationLabel${i}`,
-            color: "#0000FF",
+            color: color.construct("#0000FF"),
           }),
         ),
       );
@@ -130,7 +131,7 @@ describe("queries", () => {
 
       const newLabel = await client.labels.create({
         name: "newLabel",
-        color: "#FFFF00",
+        color: color.construct("#FFFF00"),
       });
 
       await waitFor(() => {
@@ -142,7 +143,7 @@ describe("queries", () => {
     it("should update the list when a label is updated", async () => {
       const testLabel = await client.labels.create({
         name: "original",
-        color: "#FF0000",
+        color: color.construct("#FF0000"),
       });
 
       const { result } = renderHook(() => Label.useList(), {
@@ -169,7 +170,7 @@ describe("queries", () => {
     it("should remove label from list when deleted", async () => {
       const testLabel = await client.labels.create({
         name: "toDelete",
-        color: "#FF0000",
+        color: color.construct("#FF0000"),
       });
 
       const { result } = renderHook(() => Label.useList(), {
@@ -195,15 +196,15 @@ describe("queries", () => {
     it("should retrieve labels for an ontology ID", async () => {
       const label1 = await client.labels.create({
         name: "entityLabel1",
-        color: "#FF0000",
+        color: color.construct("#FF0000"),
       });
       const label2 = await client.labels.create({
         name: "entityLabel2",
-        color: "#00FF00",
+        color: color.construct("#00FF00"),
       });
       const targetLabel = await client.labels.create({
         name: "targetEntity",
-        color: "#0000FF",
+        color: color.construct("#0000FF"),
       });
 
       await client.labels.label(label.ontologyID(targetLabel.key), [
@@ -225,7 +226,7 @@ describe("queries", () => {
     it("should update when labels are added to entity", async () => {
       const targetLabel = await client.labels.create({
         name: "targetForLabeling",
-        color: "#0000FF",
+        color: color.construct("#0000FF"),
       });
 
       const { result } = renderHook(
@@ -242,7 +243,7 @@ describe("queries", () => {
 
       const newLabel = await client.labels.create({
         name: "addedLabel",
-        color: "#FFFF00",
+        color: color.construct("#FFFF00"),
       });
       await client.labels.label(label.ontologyID(targetLabel.key), [newLabel.key]);
 
@@ -423,7 +424,7 @@ describe("queries", () => {
 
       await waitFor(() => {
         expect(result.current.form.value().name).toEqual("newFormLabel");
-        expect(result.current.form.value().color).toEqual("#FF00FF");
+        expect(result.current.form.value().color).toEqual(color.construct("#FF00FF"));
         expect(result.current.form.value().key).toBeDefined();
       });
     });
@@ -441,7 +442,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       expect(result.current.form.value().name).toEqual("existingLabel");
-      expect(result.current.form.value().color).toEqual("#00FFFF");
+      expect(result.current.form.value().color).toEqual(color.construct("#00FFFF"));
 
       act(() => {
         result.current.form.set("name", "editedLabel");
@@ -484,7 +485,7 @@ describe("queries", () => {
       });
 
       expect(result.current.form.value().name).toEqual("");
-      expect(result.current.form.value().color).toEqual("#000000");
+      expect(result.current.form.value().color).toEqual(color.construct("#000000"));
     });
   });
 
