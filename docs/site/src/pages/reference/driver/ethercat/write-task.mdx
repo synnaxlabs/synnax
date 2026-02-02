@@ -1,0 +1,618 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "EtherCAT Write Task"
+description: "Learn how to send commands to EtherCAT devices with Synnax."
+prev: "Read Task"
+prevURL: "/reference/driver/ethercat/read-task"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Video, Image } from "@/components/media/Media";
+import { Fragment } from "react";
+import Details from "@/components/details/Details.astro";
+import ChannelType from "@/components/details/ChannelType.astro";
+import DetailsGroup from "@/components/details/Group.astro";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
+
+<Divider.Divider x />
+
+## How Commands Work
+
+Write tasks use **command** and **state** channels:
+
+- **Command channels** (`_cmd`): Write values here to send commands to the device
+- **State channels** (`_state`): Reflect the current output state from the device
+- **Command time channels** (`_cmd_time`): Index channels storing command timestamps
+
+When you write to a command channel, the task processes the command and sends it to the
+EtherCAT device. The state channel is updated with feedback from the device, providing
+acknowledgment that the command was executed.
+
+<Divider.Divider x />
+
+## Prerequisites
+
+Before creating a write task, ensure you have:
+
+1. [Configured EtherCAT devices](/reference/driver/ethercat/configure-device) discovered
+   on your network.
+2. Identified the RxPDOs (output PDOs) you want to write to each device.
+
+<Note.Note variant="warning" className="compact">
+  All channels in a task must use devices connected to the **same network interface**.
+  Create separate tasks for devices on different EtherCAT networks.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Task Configuration Reference
+
+| Parameter        | Type    | Required | Default | Description                                      |
+| ---------------- | ------- | -------- | ------- | ------------------------------------------------ |
+| `name`           | string  | Yes      | -       | Human-readable task name                         |
+| `execution_rate` | number  | Yes      | -       | Rate (Hz) at which commands are sent to hardware |
+| `state_rate`     | number  | No       | `20`    | Rate (Hz) at which state channels are updated    |
+| `data_saving`    | boolean | No       | `false` | Enable permanent storage in Synnax               |
+| `auto_start`     | boolean | No       | `false` | Automatically start task after configuration     |
+| `channels`       | array   | Yes      | -       | List of output channel configurations            |
+
+<Divider.Divider x />
+
+## Channel Configuration Modes
+
+EtherCAT write tasks support two channel configuration modes: **Automatic** and
+**Manual**. Automatic mode is recommended for most users.
+
+### Automatic Mode (Recommended)
+
+In automatic mode, you select a device and RxPDO name. The system automatically resolves
+the CoE index, subindex, and data type from the device's ESI information.
+
+<DetailsGroup>
+
+<ChannelType>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Automatic Output Channel</Text.Text>
+
+Writes data to an RxPDO using the PDO name for automatic configuration.
+
+| Parameter       | Type   | Required | Default | Description                                           |
+| --------------- | ------ | -------- | ------- | ----------------------------------------------------- |
+| `type`          | string | Yes      | -       | Must be `"automatic"`                                 |
+| `device`        | string | Yes      | -       | Device key                                            |
+| `pdo`           | string | Yes      | -       | PDO name from device discovery (e.g., `control_word`) |
+| `cmd_channel`   | number | Yes      | -       | Synnax command channel key                            |
+| `state_channel` | number | Yes      | -       | Synnax state channel key                              |
+
+</ChannelType>
+
+</DetailsGroup>
+
+**When to use automatic mode:**
+
+- Device has complete ESI information
+- PDO names are visible in the Console device properties
+- Standard device configurations
+
+### Manual Mode
+
+In manual mode, you specify the CoE index, subindex, and data type directly. Use this
+mode when the ESI file is incomplete or when working with non-standard PDO mappings.
+
+<DetailsGroup>
+
+<ChannelType>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Manual Output Channel</Text.Text>
+
+Writes data to an RxPDO using explicit CoE addressing.
+
+| Parameter       | Type   | Required | Default | Description                                          |
+| --------------- | ------ | -------- | ------- | ---------------------------------------------------- |
+| `type`          | string | Yes      | -       | Must be `"manual"`                                   |
+| `device`        | string | Yes      | -       | Device key                                           |
+| `index`         | number | Yes      | -       | CoE object index (e.g., `0x6040`)                    |
+| `subindex`      | number | Yes      | -       | CoE object subindex (typically `0`)                  |
+| `bitLength`     | number | Yes      | -       | Data width in bits (8, 16, 32, 64)                   |
+| `dataType`      | string | Yes      | -       | Synnax data type (`uint8`, `int16`, `float32`, etc.) |
+| `cmd_channel`   | number | Yes      | -       | Synnax command channel key                           |
+| `state_channel` | number | Yes      | -       | Synnax state channel key                             |
+
+</ChannelType>
+
+</DetailsGroup>
+
+**When to use manual mode:**
+
+- ESI file is incomplete or missing PDO definitions
+- Custom PDO mappings configured on the device
+- Non-standard devices
+- Accessing vendor-specific objects
+
+<Note.Note variant="info" className="compact">
+  Common servo drive RxPDO objects include control word (`0x6040`), target position
+  (`0x607A`), and target velocity (`0x60FF`).
+</Note.Note>
+
+<Divider.Divider x />
+
+## Important Rules
+
+- **Network constraint** -> All channels must use devices from the same network
+  interface.
+- **Command/State pairs** -> Each output requires both a command and state channel.
+- **State rate** -> Higher state rates provide faster feedback but increase network
+  load. Typically 10-50 Hz is sufficient.
+- **Execution rate** -> Determines how frequently commands are sent to hardware. Higher
+  rates provide more responsive control.
+- **One running task per channel** -> A channel can only send commands to one task at a
+  time.
+
+<Divider.Divider x />
+
+## How-To
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+    <Video
+      client:only="react"
+      id="device-drivers/ethercat/write-task/ethercat-write"
+    />
+  </Fragment>
+  <Fragment slot="python">
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (Automatic Mode)</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# Retrieve EtherCAT device
+dev = client.devices.retrieve(name="Servo Drive")
+
+# Create command time index
+cmd_time = client.channels.create(
+    name="ec_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create command channels
+control_cmd = client.channels.create(
+    name="control_word_cmd",
+    index=cmd_time.key,
+    data_type=sy.DataType.UINT16,
+    retrieve_if_name_exists=True,
+)
+target_pos_cmd = client.channels.create(
+    name="target_position_cmd",
+    index=cmd_time.key,
+    data_type=sy.DataType.INT32,
+    retrieve_if_name_exists=True,
+)
+
+# Create state time index
+state_time = client.channels.create(
+    name="ec_state_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create state channels
+control_state = client.channels.create(
+    name="control_word_state",
+    index=state_time.key,
+    data_type=sy.DataType.UINT16,
+    retrieve_if_name_exists=True,
+)
+target_pos_state = client.channels.create(
+    name="target_position_state",
+    index=state_time.key,
+    data_type=sy.DataType.INT32,
+    retrieve_if_name_exists=True,
+)
+
+# Create and configure task using automatic mode
+task = client.tasks.create({
+    "name": "EtherCAT Write Task",
+    "type": "ethercat_write",
+    "config": {
+        "device": dev.key,
+        "execution_rate": 100,  # Send commands at 100 Hz
+        "state_rate": 20,       # Update state at 20 Hz
+        "data_saving": True,
+        "channels": [
+            {
+                "type": "automatic",
+                "device": dev.key,
+                "pdo": "control_word",
+                "cmd_channel": control_cmd.key,
+                "state_channel": control_state.key,
+            },
+            {
+                "type": "automatic",
+                "device": dev.key,
+                "pdo": "target_position",
+                "cmd_channel": target_pos_cmd.key,
+                "state_channel": target_pos_state.key,
+            },
+        ],
+    },
+})
+
+# Start task
+task.start()
+
+# Write commands
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["control_word_cmd", "target_position_cmd"],
+) as writer:
+    # Enable drive (control word 0x000F is common for CiA 402)
+    writer.write({
+        "control_word_cmd": 0x000F,
+        "target_position_cmd": 10000,
+    })
+
+    # Read back states
+    with client.open_streamer(["control_word_state", "target_position_state"]) as streamer:
+        frame = streamer.read()
+        print(f"Control State: {frame['control_word_state'][-1]}")
+        print(f"Target Position State: {frame['target_position_state'][-1]}")
+
+task.stop()
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (Manual Mode)</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# Retrieve EtherCAT device
+dev = client.devices.retrieve(name="Servo Drive")
+
+# Create command time index
+cmd_time = client.channels.create(
+    name="ec_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create command channel
+control_cmd = client.channels.create(
+    name="control_word_cmd",
+    index=cmd_time.key,
+    data_type=sy.DataType.UINT16,
+    retrieve_if_name_exists=True,
+)
+
+# Create state time index
+state_time = client.channels.create(
+    name="ec_state_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create state channel
+control_state = client.channels.create(
+    name="control_word_state",
+    index=state_time.key,
+    data_type=sy.DataType.UINT16,
+    retrieve_if_name_exists=True,
+)
+
+# Create task using manual mode with CoE addressing
+task = client.tasks.create({
+    "name": "EtherCAT Manual Write",
+    "type": "ethercat_write",
+    "config": {
+        "device": dev.key,
+        "execution_rate": 100,
+        "state_rate": 20,
+        "data_saving": True,
+        "channels": [
+            {
+                "type": "manual",
+                "device": dev.key,
+                "index": 0x6040,      # Control word (CiA 402)
+                "subindex": 0,
+                "bitLength": 16,
+                "dataType": "uint16",
+                "cmd_channel": control_cmd.key,
+                "state_channel": control_state.key,
+            },
+        ],
+    },
+})
+
+# Start and write
+task.start()
+
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["control_word_cmd"],
+) as writer:
+    writer.write({"control_word_cmd": 0x000F})
+
+task.stop()
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+
+```python
+import synnax as sy
+import json
+
+client = sy.Synnax()
+
+# Retrieve existing task
+task = client.tasks.retrieve(name="EtherCAT Write Task")
+
+# Parse current configuration
+config = json.loads(task.config)
+
+# Update task-level settings
+config["execution_rate"] = 200  # Increase to 200 Hz
+config["state_rate"] = 50       # Increase state rate
+
+# Apply changes
+client.tasks.create({
+    "key": task.key,
+    "name": task.name,
+    "type": task.type,
+    "config": json.dumps(config),
+})
+```
+
+</Details>
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (Automatic Mode)</Text.Text>
+
+```typescript
+import { Synnax, TimeStamp } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve EtherCAT device
+const dev = await client.devices.retrieve({ name: "Servo Drive" });
+
+// Create command time index
+const cmdTime = await client.channels.create({
+  name: "ec_cmd_time",
+  isIndex: true,
+  dataType: "timestamp",
+  retrieveIfNameExists: true,
+});
+
+// Create command channels
+const controlCmd = await client.channels.create({
+  name: "control_word_cmd",
+  index: cmdTime.key,
+  dataType: "uint16",
+  retrieveIfNameExists: true,
+});
+
+const targetPosCmd = await client.channels.create({
+  name: "target_position_cmd",
+  index: cmdTime.key,
+  dataType: "int32",
+  retrieveIfNameExists: true,
+});
+
+// Create state time index
+const stateTime = await client.channels.create({
+  name: "ec_state_time",
+  isIndex: true,
+  dataType: "timestamp",
+  retrieveIfNameExists: true,
+});
+
+// Create state channels
+const controlState = await client.channels.create({
+  name: "control_word_state",
+  index: stateTime.key,
+  dataType: "uint16",
+  retrieveIfNameExists: true,
+});
+
+const targetPosState = await client.channels.create({
+  name: "target_position_state",
+  index: stateTime.key,
+  dataType: "int32",
+  retrieveIfNameExists: true,
+});
+
+// Create and configure task using automatic mode
+const task = await client.tasks.create({
+  name: "EtherCAT Write Task",
+  type: "ethercat_write",
+  config: JSON.stringify({
+    device: dev.key,
+    execution_rate: 100, // Send commands at 100 Hz
+    state_rate: 20, // Update state at 20 Hz
+    data_saving: true,
+    channels: [
+      {
+        type: "automatic",
+        device: dev.key,
+        pdo: "control_word",
+        cmd_channel: controlCmd.key,
+        state_channel: controlState.key,
+      },
+      {
+        type: "automatic",
+        device: dev.key,
+        pdo: "target_position",
+        cmd_channel: targetPosCmd.key,
+        state_channel: targetPosState.key,
+      },
+    ],
+  }),
+});
+
+// Start task
+await task.executeCommandSync("start");
+
+// Write commands
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["control_word_cmd", "target_position_cmd"],
+});
+
+// Enable drive (control word 0x000F is common for CiA 402)
+await writer.write({
+  control_word_cmd: 0x000f,
+  target_position_cmd: 10000,
+});
+
+// Read back states
+const streamer = await client.openStreamer([
+  "control_word_state",
+  "target_position_state",
+]);
+const frame = await streamer.read();
+console.log(`Control State: ${frame.get("control_word_state").at(-1)}`);
+console.log(`Target Position State: ${frame.get("target_position_state").at(-1)}`);
+
+// Stop task
+await task.executeCommandSync("stop");
+await writer.close();
+await streamer.close();
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (Manual Mode)</Text.Text>
+
+```typescript
+import { Synnax, TimeStamp } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve EtherCAT device
+const dev = await client.devices.retrieve({ name: "Servo Drive" });
+
+// Create command time index
+const cmdTime = await client.channels.create({
+  name: "ec_cmd_time",
+  isIndex: true,
+  dataType: "timestamp",
+  retrieveIfNameExists: true,
+});
+
+// Create command channel
+const controlCmd = await client.channels.create({
+  name: "control_word_cmd",
+  index: cmdTime.key,
+  dataType: "uint16",
+  retrieveIfNameExists: true,
+});
+
+// Create state time index
+const stateTime = await client.channels.create({
+  name: "ec_state_time",
+  isIndex: true,
+  dataType: "timestamp",
+  retrieveIfNameExists: true,
+});
+
+// Create state channel
+const controlState = await client.channels.create({
+  name: "control_word_state",
+  index: stateTime.key,
+  dataType: "uint16",
+  retrieveIfNameExists: true,
+});
+
+// Create task using manual mode with CoE addressing
+const task = await client.tasks.create({
+  name: "EtherCAT Manual Write",
+  type: "ethercat_write",
+  config: JSON.stringify({
+    device: dev.key,
+    execution_rate: 100,
+    state_rate: 20,
+    data_saving: true,
+    channels: [
+      {
+        type: "manual",
+        device: dev.key,
+        index: 0x6040, // Control word (CiA 402)
+        subindex: 0,
+        bitLength: 16,
+        dataType: "uint16",
+        cmd_channel: controlCmd.key,
+        state_channel: controlState.key,
+      },
+    ],
+  }),
+});
+
+// Start and write
+await task.executeCommandSync("start");
+
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["control_word_cmd"],
+});
+await writer.write({ control_word_cmd: 0x000f });
+
+await task.executeCommandSync("stop");
+await writer.close();
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve existing task
+const task = await client.tasks.retrieve({ name: "EtherCAT Write Task" });
+
+// Parse current configuration
+const config = JSON.parse(task.config);
+
+// Update task-level settings
+config.execution_rate = 200; // Increase to 200 Hz
+config.state_rate = 50; // Increase state rate
+
+// Apply changes
+await client.tasks.create({
+  key: task.key,
+  name: task.name,
+  type: task.type,
+  config: JSON.stringify(config),
+});
+```
+
+</Details>
+
+  </Fragment>
+</Client.Tabs>
