@@ -33,7 +33,6 @@ import {
 import {
   type Key,
   keyZ,
-  type Name,
   type New,
   ontologyID,
   type Operation,

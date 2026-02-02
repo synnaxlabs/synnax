@@ -98,7 +98,7 @@ public:
 
         if (this->config_.interval.nanoseconds() > 0) {
             if (this->config_.mode == ExecutionMode::HIGH_RATE)
-                this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+                this->timer_ = std::make_unique<x::loop::Timer>(this->config_.interval);
             else {
                 this->timer_fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
                 if (this->timer_fd_ == -1) {
@@ -111,8 +111,8 @@ public:
 
                 const uint64_t interval_ns = this->config_.interval.nanoseconds();
                 struct itimerspec ts;
-                ts.it_interval.tv_sec = interval_ns / telem::SECOND.nanoseconds();
-                ts.it_interval.tv_nsec = interval_ns % telem::SECOND.nanoseconds();
+                ts.it_interval.tv_sec = interval_ns / x::telem::SECOND.nanoseconds();
+                ts.it_interval.tv_nsec = interval_ns % x::telem::SECOND.nanoseconds();
                 ts.it_value = ts.it_interval;
 
                 if (timerfd_settime(this->timer_fd_, 0, &ts, nullptr) == -1) {
@@ -169,7 +169,7 @@ public:
         [[maybe_unused]] auto _ = write(this->event_fd_, &val, sizeof(val));
     }
 
-    bool watch(notify::Notifier &notifier) override {
+    bool watch(x::notify::Notifier &notifier) override {
         const int fd = notifier.fd();
         if (fd == -1 || this->epoll_fd_ == -1) return false;
 
