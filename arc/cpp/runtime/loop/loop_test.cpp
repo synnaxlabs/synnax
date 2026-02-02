@@ -266,7 +266,7 @@ TEST(ConfigTest, AutoModeResolvesToRTEventGetsCpuPinning) {
     cfg.mode = ExecutionMode::AUTO;
     cfg.cpu_affinity = CPU_AFFINITY_AUTO;
     const auto resolved = cfg.apply_defaults(500 * telem::MICROSECOND);
-    if (has_rt_scheduling() && std::thread::hardware_concurrency() > 1) {
+    if (xthread::has_rt_support() && std::thread::hardware_concurrency() > 1) {
         EXPECT_GE(resolved.cpu_affinity, 0);
     }
 }

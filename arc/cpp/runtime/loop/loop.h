@@ -113,7 +113,8 @@ inline ExecutionMode
 select_mode(const telem::TimeSpan timing_interval, const bool has_intervals) {
     if (!has_intervals) return ExecutionMode::EVENT_DRIVEN;
     if (timing_interval < timing::HIGH_RATE_THRESHOLD)
-        return xthread::has_rt_support() ? ExecutionMode::RT_EVENT : ExecutionMode::HIGH_RATE;
+        return xthread::has_rt_support() ? ExecutionMode::RT_EVENT
+                                         : ExecutionMode::HIGH_RATE;
     if (timing_interval < timing::HYBRID_THRESHOLD) return ExecutionMode::HYBRID;
     return ExecutionMode::EVENT_DRIVEN;
 }
