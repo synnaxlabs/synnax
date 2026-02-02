@@ -16,6 +16,7 @@
     "madge": { "dependsOn": ["^build"] },
     "fix": { "cache": false },
     "test": { "dependsOn": ["^build"] },
+    "cov": { "dependsOn": ["^build"], "outputs": ["coverage/**"] },
     "devtools": { "cache": false }
   }
 }

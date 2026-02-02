@@ -3,9 +3,11 @@ name: Test - Console
 on:
   pull_request:
     paths:
+      - .github/actions/test-typescript/**
       - .github/workflows/test.console.yaml
       - alamos/ts/**
       - client/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -24,9 +26,11 @@ on:
       - main
       - rc
     paths:
+      - .github/actions/test-typescript/**
       - .github/workflows/test.console.yaml
       - alamos/ts/**
       - client/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -49,6 +53,7 @@ jobs:
       NODE_OPTIONS: "--max_old_space_size=4096"
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
@@ -65,32 +70,13 @@ jobs:
               'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - name: Test TypeScript
+        uses: ./.github/actions/test-typescript
         with:
-          node-version-file: package.json
-          cache: pnpm
-
-      - name: Install Dependencies
-        run: pnpm install
-
-      - name: Check Types
-        if: matrix.lint
-        run: pnpm check-types:console
-
-      - name: Check Circular Dependencies
-        if: matrix.lint
-        run: pnpm madge:console
-
-      - name: Lint
-        if: matrix.lint
-        run: pnpm lint:console
-
-      - name: Test
-        run: pnpm test:console
+          package: console
+          coverage_flag: console
+          directory: console
+          lint: ${{ matrix.lint }}

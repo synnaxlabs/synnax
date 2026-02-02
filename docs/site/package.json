@@ -12,6 +12,7 @@
     "algolia": "node src/util/algoliasearch.ts",
     "lint": "eslint",
     "fix": "eslint --fix",
+    "madge": "madge --circular src",
     "format": "prettier --write .",
     "format-check": "prettier --check ."
   },
@@ -47,6 +48,7 @@
     "dotenv": "^17.2.3",
     "eslint": "catalog:",
     "eslint-config-synnaxlabs": "workspace:^",
+    "madge": "catalog:",
     "gray-matter": "^4.0.3",
     "html-escaper": "^3.0.3",
     "prettier": "catalog:",
