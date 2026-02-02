@@ -1,0 +1,15 @@
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
+
+proto_library(
+    name = "kv_proto",
+    srcs = ["pb/kv.proto"],
+    visibility = ["//visibility:public"],
+)
+
+cpp_grpc_library(
+    name = "kv_grpc",
+    output_mode = "NO_PREFIX",
+    protos = [":kv_proto"],
+    visibility = ["//visibility:public"],
+)

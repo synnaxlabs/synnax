@@ -11,25 +11,25 @@
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 std::mt19937 gen_rand_device = random_generator("Device Tests");
 
-namespace synnax {
+namespace synnax::device {
 /// @brief it should correctly create a device.
 TEST(DeviceTests, testCreateDevice) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
-    auto d = Device(
-        "asdfjahsdfkasjdfhaks",
-        "test_device",
-        r.key,
-        "test_location",
-        "test_make",
-        "test_model",
-        "test_properties"
-    );
+    auto d = Device{
+        .key = "asdfjahsdfkasjdfhaks",
+        .rack = r.key,
+        .location = "test_location",
+        .make = "test_make",
+        .model = "test_model",
+        .name = "test_device",
+        .properties = "test_properties",
+    };
     ASSERT_NIL(client.devices.create(d));
     ASSERT_EQ(d.name, "test_device");
 }
@@ -37,17 +37,17 @@ TEST(DeviceTests, testCreateDevice) {
 /// @brief it should correctly retrieve a device.
 TEST(DeviceTests, testRetrieveDevice) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
-    auto d = Device(
-        "asdfjahsdfkasjdfhaks",
-        "test_device",
-        r.key,
-        "test_location",
-        "test_make",
-        "test_model",
-        "test_properties"
-    );
+    auto d = Device{
+        .key = "asdfjahsdfkasjdfhaks",
+        .rack = r.key,
+        .location = "test_location",
+        .make = "test_make",
+        .model = "test_model",
+        .name = "test_device",
+        .properties = "test_properties",
+    };
     ASSERT_NIL(client.devices.create(d));
     const auto d2 = ASSERT_NIL_P(client.devices.retrieve(d.key));
     ASSERT_EQ(d2.name, "test_device");
@@ -57,41 +57,36 @@ TEST(DeviceTests, testRetrieveDevice) {
 /// @brief it should correctly retrieve multiple devices.
 TEST(DeviceTests, testRetrieveDevices) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
 
-    // Create first device
-    auto d1 = Device(
-        "device1_key",
-        "test_device_1",
-        r.key,
-        "location_1",
-        "make_1",
-        "model_1",
-        "properties_1"
-    );
+    auto d1 = Device{
+        .key = "device1_key",
+        .rack = r.key,
+        .location = "location_1",
+        .make = "make_1",
+        .model = "model_1",
+        .name = "test_device_1",
+        .properties = "properties_1",
+    };
     ASSERT_NIL(client.devices.create(d1));
 
-    // Create second device
-    auto d2 = Device(
-        "device2_key",
-        "test_device_2",
-        r.key,
-        "location_2",
-        "make_2",
-        "model_2",
-        "properties_2"
-    );
+    auto d2 = Device{
+        .key = "device2_key",
+        .rack = r.key,
+        .location = "location_2",
+        .make = "make_2",
+        .model = "model_2",
+        .name = "test_device_2",
+        .properties = "properties_2",
+    };
     ASSERT_NIL(client.devices.create(d2));
 
-    // Retrieve both devices
     const std::vector keys = {d1.key, d2.key};
     const auto devices = ASSERT_NIL_P(client.devices.retrieve(keys));
 
-    // Verify we got both devices
     ASSERT_EQ(devices.size(), 2);
 
-    // Find and verify first device
     const auto it1 = std::find_if(
         devices.begin(),
         devices.end(),
@@ -101,7 +96,6 @@ TEST(DeviceTests, testRetrieveDevices) {
     ASSERT_EQ(it1->name, "test_device_1");
     ASSERT_EQ(it1->location, "location_1");
 
-    // Find and verify second device
     auto it2 = std::find_if(devices.begin(), devices.end(), [&d2](const Device &d) {
         return d.key == d2.key;
     });
@@ -113,38 +107,38 @@ TEST(DeviceTests, testRetrieveDevices) {
 /// @brief it should correctly create multiple devices at once.
 TEST(DeviceTests, testCreateDevices) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
 
     // Create a vector of devices to add
     std::vector devices = {
-        Device(
-            "device1_key",
-            "test_device_1",
-            r.key,
-            "location_1",
-            "make_1",
-            "model_1",
-            "properties_1"
-        ),
-        Device(
-            "device2_key",
-            "test_device_2",
-            r.key,
-            "location_2",
-            "make_2",
-            "model_2",
-            "properties_2"
-        ),
-        Device(
-            "device3_key",
-            "test_device_3",
-            r.key,
-            "location_3",
-            "make_3",
-            "model_3",
-            "properties_3"
-        )
+        Device{
+            .key = "device1_key",
+            .rack = r.key,
+            .location = "location_1",
+            .make = "make_1",
+            .model = "model_1",
+            .name = "test_device_1",
+            .properties = {{"properties_1", "value"}},
+        },
+        Device{
+            .key = "device2_key",
+            .rack = r.key,
+            .location = "location_2",
+            .make = "make_2",
+            .model = "model_2",
+            .name = "test_device_2",
+            .properties = {{"properties_2", "value"}},
+        },
+        Device{
+            .key = "device3_key",
+            .rack = r.key,
+            .location = "location_3",
+            .make = "make_3",
+            .model = "model_3",
+            .name = "test_device_3",
+            .properties = {{"properties_3", "value3"}},
+        },
     };
 
     // Create all devices at once
@@ -186,31 +180,31 @@ TEST(DeviceTests, testCreateDevices) {
 /// @brief it should correctly handle the configured field.
 TEST(DeviceTests, testDeviceConfigured) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
 
-    auto d1 = Device(
-        "device1_key",
-        "test_device_1",
-        r.key,
-        "location_1",
-        "make_1",
-        "model_1",
-        "properties_1"
-    );
-    d1.configured = false;
+    auto d1 = Device{
+        .key = "device1_key",
+        .rack = r.key,
+        .location = "location_1",
+        .make = "make_1",
+        .model = "model_1",
+        .name = "test_device_1",
+        .configured = false,
+        .properties = "properties_1",
+    };
     ASSERT_NIL(client.devices.create(d1));
 
-    auto d2 = Device(
-        "device2_key",
-        "test_device_2",
-        r.key,
-        "location_2",
-        "make_2",
-        "model_2",
-        "properties_2"
-    );
-    d2.configured = true;
+    auto d2 = Device{
+        .key = "device2_key",
+        .rack = r.key,
+        .location = "location_2",
+        .make = "make_2",
+        .model = "model_2",
+        .name = "test_device_2",
+        .configured = true,
+        .properties = "properties_2",
+    };
     ASSERT_NIL(client.devices.create(d2));
 
     const auto retrieved1 = ASSERT_NIL_P(client.devices.retrieve(d1.key));
@@ -230,37 +224,37 @@ TEST(DeviceTests, testDeviceConfigured) {
 /// @brief it should correctly handle retrieving devices after deletion.
 TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
 
     // Create two devices
-    auto d1 = Device(
-        "device1_key",
-        "test_device_1",
-        r.key,
-        "location_1",
-        "make_1",
-        "model_1",
-        "properties_1"
-    );
+    auto d1 = Device{
+        .key = "device1_key",
+        .rack = r.key,
+        .location = "location_1",
+        .make = "make_1",
+        .model = "model_1",
+        .name = "test_device_1",
+        .properties = "properties_1",
+    };
     ASSERT_NIL(client.devices.create(d1));
 
-    auto d2 = Device(
-        "device2_key",
-        "test_device_2",
-        r.key,
-        "location_2",
-        "make_2",
-        "model_2",
-        "properties_2"
-    );
+    auto d2 = Device{
+        .key = "device2_key",
+        .rack = r.key,
+        .location = "location_2",
+        .make = "make_2",
+        .model = "model_2",
+        .name = "test_device_2",
+        .properties = "properties_2",
+    };
     ASSERT_NIL(client.devices.create(d2));
 
     // Delete the first device
     ASSERT_NIL(client.devices.del(d1.key));
 
     // Verify deleted device returns NOT_FOUND
-    ASSERT_OCCURRED_AS_P(client.devices.retrieve(d1.key), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(client.devices.retrieve(d1.key), x::errors::NOT_FOUND);
 
     // Verify remaining device can still be retrieved
     const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(d2.key));
@@ -271,102 +265,103 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
 /// @brief it should correctly delete a device.
 TEST(DeviceTests, testDeleteDevice) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
 
-    auto d = Device(
-        "device_key",
-        "test_device",
-        r.key,
-        "test_location",
-        "test_make",
-        "test_model",
-        "test_properties"
-    );
+    auto d = Device{
+        .key = "device_key",
+        .rack = r.key,
+        .location = "test_location",
+        .make = "test_make",
+        .model = "test_model",
+        .name = "test_device",
+        .properties = "test_properties",
+    };
     ASSERT_NIL(client.devices.create(d));
     ASSERT_NIL(client.devices.del(d.key));
 
-    ASSERT_OCCURRED_AS_P(client.devices.retrieve(d.key), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(client.devices.retrieve(d.key), x::errors::NOT_FOUND);
 }
 
 /// @brief it should correctly delete multiple devices.
 TEST(DeviceTests, testDeleteDevices) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
 
-    auto d1 = Device(
-        "device1_key",
-        "test_device_1",
-        r.key,
-        "location_1",
-        "make_1",
-        "model_1",
-        "properties_1"
-    );
+    auto d1 = Device{
+        .key = "device1_key",
+        .rack = r.key,
+        .location = "location_1",
+        .make = "make_1",
+        .model = "model_1",
+        .name = "test_device_1",
+        .properties = "properties_1",
+    };
     ASSERT_NIL(client.devices.create(d1));
 
-    auto d2 = Device(
-        "device2_key",
-        "test_device_2",
-        r.key,
-        "location_2",
-        "make_2",
-        "model_2",
-        "properties_2"
-    );
+    auto d2 = Device{
+        .key = "device2_key",
+        .rack = r.key,
+        .location = "location_2",
+        .make = "make_2",
+        .model = "model_2",
+        .name = "test_device_2",
+        .properties = "properties_2",
+    };
     ASSERT_NIL(client.devices.create(d2));
 
     const std::vector keys = {d1.key, d2.key};
     ASSERT_NIL(client.devices.del(keys));
 
-    ASSERT_OCCURRED_AS_P(client.devices.retrieve(keys), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(client.devices.retrieve(keys), x::errors::NOT_FOUND);
 }
 
-/// @brief it should retrieve devices using a DeviceRetrieveRequest with keys and names.
+/// @brief it should retrieve devices using a device::RetrieveRequest with keys and
+/// names.
 TEST(DeviceTests, testRetrieveWithRequest) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto rand = std::to_string(gen_rand_device());
-    auto d1 = Device(
-        "req_d1_" + rand,
-        "req_dev_1_" + rand,
-        r.key,
-        "loc_a",
-        "make_a",
-        "model_a",
-        "p1"
-    );
-    auto d2 = Device(
-        "req_d2_" + rand,
-        "req_dev_2_" + rand,
-        r.key,
-        "loc_b",
-        "make_b",
-        "model_b",
-        "p2"
-    );
-    auto d3 = Device(
-        "req_d3_" + rand,
-        "req_dev_3_" + rand,
-        r.key,
-        "loc_c",
-        "make_c",
-        "model_c",
-        "p3"
-    );
+    auto d1 = Device{
+        .key = "req_d1_" + rand,
+        .rack = r.key,
+        .location = "loc_a",
+        .make = "make_a",
+        .model = "model_a",
+        .name = "req_dev_1_" + rand,
+        .properties = "p1",
+    };
+    auto d2 = Device{
+        .key = "req_d2_" + rand,
+        .rack = r.key,
+        .location = "loc_b",
+        .make = "make_b",
+        .model = "model_b",
+        .name = "req_dev_2_" + rand,
+        .properties = "p2",
+    };
+    auto d3 = Device{
+        .key = "req_d3_" + rand,
+        .rack = r.key,
+        .location = "loc_c",
+        .make = "make_c",
+        .model = "model_c",
+        .name = "req_dev_3_" + rand,
+        .properties = "p3",
+    };
     ASSERT_NIL(client.devices.create(d1));
     ASSERT_NIL(client.devices.create(d2));
     ASSERT_NIL(client.devices.create(d3));
-    DeviceRetrieveRequest req_keys{};
+    device::RetrieveRequest req_keys{};
     req_keys.keys = {d1.key, d3.key};
     const auto devices_keys = ASSERT_NIL_P(client.devices.retrieve(req_keys));
     ASSERT_EQ(devices_keys.size(), 2);
     auto dm = map_device_keys(devices_keys);
     ASSERT_TRUE(dm.find(d1.key) != dm.end());
     ASSERT_TRUE(dm.find(d3.key) != dm.end());
-    DeviceRetrieveRequest req_names{};
+    device::RetrieveRequest req_names{};
     req_names.names = {d1.name, d2.name};
     const auto devices_names = ASSERT_NIL_P(client.devices.retrieve(req_names));
     ASSERT_EQ(devices_names.size(), 2);
@@ -374,30 +369,30 @@ TEST(DeviceTests, testRetrieveWithRequest) {
 /// @brief it should retrieve devices with limit and offset pagination.
 TEST(DeviceTests, testRetrieveWithLimitOffset) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto rand = std::to_string(gen_rand_device());
     const auto make = "limit_make_" + rand;
     std::vector<Device> devices;
     for (int i = 0; i < 5; ++i) {
-        auto d = Device(
-            "limit_d_" + rand + "_" + std::to_string(i),
-            "limit_dev_" + rand + "_" + std::to_string(i),
-            r.key,
-            "loc",
-            make,
-            "model",
-            "props"
-        );
+        auto d = Device{
+            .key = "limit_d_" + rand + "_" + std::to_string(i),
+            .rack = r.key,
+            .location = "loc",
+            .make = make,
+            .model = "model",
+            .name = "limit_dev_" + rand + "_" + std::to_string(i),
+            .properties = "props",
+        };
         ASSERT_NIL(client.devices.create(d));
         devices.push_back(d);
     }
-    DeviceRetrieveRequest req_limit;
+    device::RetrieveRequest req_limit;
     req_limit.makes = {make};
     req_limit.limit = 2;
     const auto devices_limited = ASSERT_NIL_P(client.devices.retrieve(req_limit));
     ASSERT_EQ(devices_limited.size(), 2);
-    DeviceRetrieveRequest req_offset;
+    device::RetrieveRequest req_offset;
     req_offset.makes = {make};
     req_offset.limit = 2;
     req_offset.offset = 2;
@@ -412,64 +407,69 @@ TEST(DeviceTests, testRetrieveWithLimitOffset) {
 /// @brief it should correctly create and retrieve a device with a status.
 TEST(DeviceTests, testCreateDeviceWithStatus) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto rand = std::to_string(gen_rand_device());
-    auto d = Device(
-        "status_dev_" + rand,
-        "device_with_status",
-        r.key,
-        "location",
-        "make",
-        "model",
-        "properties"
-    );
-    d.status.variant = status::variant::SUCCESS;
-    d.status.message = "Device is connected";
-    d.status.time = telem::TimeStamp::now();
-    d.status.details.rack = r.key;
-    d.status.details.device = d.key;
+    auto d = Device{
+        .key = "status_dev_" + rand,
+        .rack = r.key,
+        .location = "location",
+        .make = "make",
+        .model = "model",
+        .name = "device_with_status",
+        .properties = "properties",
+    };
+    d.status = device::Status{
+        .variant = x::status::VARIANT_SUCCESS,
+        .message = "Device is connected",
+        .time = x::telem::TimeStamp::now(),
+        .details = device::StatusDetails{.rack = r.key, .device = d.key}
+    };
     ASSERT_NIL(client.devices.create(d));
     const auto d2 = ASSERT_NIL_P(
         client.devices.retrieve(d.key, {.include_status = true})
     );
     ASSERT_EQ(d2.name, "device_with_status");
-    ASSERT_FALSE(d2.status.is_zero());
-    ASSERT_EQ(d2.status.variant, status::variant::SUCCESS);
-    ASSERT_EQ(d2.status.message, "Device is connected");
-    ASSERT_EQ(d2.status.details.rack, r.key);
+    ASSERT_TRUE(d.status.has_value());
+    ASSERT_EQ(d2.status->variant, x::status::VARIANT_SUCCESS);
+    ASSERT_EQ(d2.status->message, "Device is connected");
+    ASSERT_EQ(d2.status->details.rack, r.key);
 }
 
 /// @brief it should correctly retrieve multiple devices with statuses.
 TEST(DeviceTests, testRetrieveDevicesWithStatus) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto rand = std::to_string(gen_rand_device());
-    auto d1 = Device(
-        "status_d1_" + rand,
-        "device_1_status",
-        r.key,
-        "loc1",
-        "make1",
-        "model1",
-        "props1"
-    );
-    d1.status.variant = status::variant::SUCCESS;
-    d1.status.message = "Device 1 OK";
-    d1.status.time = telem::TimeStamp::now();
-    auto d2 = Device(
-        "status_d2_" + rand,
-        "device_2_status",
-        r.key,
-        "loc2",
-        "make2",
-        "model2",
-        "props2"
-    );
-    d2.status.variant = status::variant::WARNING;
-    d2.status.message = "Device 2 warning";
-    d2.status.time = telem::TimeStamp::now();
+    auto d1 = Device{
+        .key = "status_d1_" + rand,
+        .rack = r.key,
+        .location = "loc1",
+        .make = "make1",
+        .model = "model1",
+        .name = "device_1_status",
+        .properties = "props1",
+        .status = device::Status{
+            .variant = x::status::VARIANT_SUCCESS,
+            .message = "Device 1 OK",
+            .time = x::telem::TimeStamp::now(),
+        }
+    };
+    auto d2 = Device{
+        .key = "status_d2_" + rand,
+        .rack = r.key,
+        .location = "loc2",
+        .make = "make2",
+        .model = "model2",
+        .name = "device_2_status",
+        .properties = "props2",
+        .status = device::Status{
+            .variant = x::status::VARIANT_WARNING,
+            .message = "Device 2 Warning",
+            .time = x::telem::TimeStamp::now(),
+        }
+    };
     ASSERT_NIL(client.devices.create(d1));
     ASSERT_NIL(client.devices.create(d2));
     const std::vector<std::string> keys = {d1.key, d2.key};
@@ -478,27 +478,25 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
     );
     ASSERT_EQ(devices.size(), 2);
     auto dm = map_device_keys(devices);
-    ASSERT_FALSE(dm[d1.key].status.is_zero());
-    ASSERT_EQ(dm[d1.key].status.variant, status::variant::SUCCESS);
-    ASSERT_EQ(dm[d1.key].status.message, "Device 1 OK");
-    ASSERT_FALSE(dm[d2.key].status.is_zero());
-    ASSERT_EQ(dm[d2.key].status.variant, status::variant::WARNING);
-    ASSERT_EQ(dm[d2.key].status.message, "Device 2 warning");
+    ASSERT_EQ(dm[d1.key].status->variant, x::status::VARIANT_SUCCESS);
+    ASSERT_EQ(dm[d1.key].status->message, "Device 1 OK");
+    ASSERT_EQ(dm[d2.key].status->variant, x::status::VARIANT_WARNING);
+    ASSERT_EQ(dm[d2.key].status->message, "Device 2 Warning");
 }
 
-/// @brief it should correctly parse DeviceStatusDetails from JSON.
+/// @brief it should correctly parse device::StatusDetails from JSON.
 TEST(DeviceStatusDetailsTests, testParseFromJSON) {
     json j = {{"rack", 12345}, {"device", "device-abc-123"}};
-    const xjson::Parser parser(j);
-    const auto details = DeviceStatusDetails::parse(parser);
+    const x::json::Parser parser(j);
+    const auto details = device::StatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(details.rack, 12345);
     ASSERT_EQ(details.device, "device-abc-123");
 }
 
-/// @brief it should correctly serialize DeviceStatusDetails to JSON.
+/// @brief it should correctly serialize device::StatusDetails to JSON.
 TEST(DeviceStatusDetailsTests, testToJSON) {
-    const DeviceStatusDetails details{
+    const device::StatusDetails details{
         .rack = 67890,
         .device = "device-xyz-456",
     };
@@ -507,15 +505,15 @@ TEST(DeviceStatusDetailsTests, testToJSON) {
     ASSERT_EQ(j["device"], "device-xyz-456");
 }
 
-/// @brief it should round-trip DeviceStatusDetails through JSON.
+/// @brief it should round-trip device::StatusDetails through JSON.
 TEST(DeviceStatusDetailsTests, testRoundTrip) {
-    DeviceStatusDetails original{
+    device::StatusDetails original{
         .rack = 11111,
         .device = "round-trip-device",
     };
     const auto j = original.to_json();
-    xjson::Parser parser(j);
-    auto recovered = DeviceStatusDetails::parse(parser);
+    x::json::Parser parser(j);
+    auto recovered = device::StatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(recovered.rack, original.rack);
     ASSERT_EQ(recovered.device, original.device);
@@ -533,7 +531,7 @@ TEST(DeviceTests, testParseFromJSON) {
         {"properties", "{\"custom\": true}"},
         {"configured", true}
     };
-    xjson::Parser parser(j);
+    x::json::Parser parser(j);
     auto d = Device::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(d.key, "json-device-key");
@@ -548,14 +546,19 @@ TEST(DeviceTests, testParseFromJSON) {
 /// @brief it should handle default values when parsing Device from JSON.
 TEST(DeviceTests, testParseFromJSONDefaults) {
     const json j = json::object();
-    xjson::Parser parser(j);
+    x::json::Parser parser(j);
     const auto d = Device::parse(parser);
     ASSERT_EQ(d.key, "");
     ASSERT_EQ(d.name, "");
     ASSERT_EQ(d.rack, 0);
     ASSERT_EQ(d.make, "");
     ASSERT_EQ(d.model, "");
-    ASSERT_EQ(d.properties, "");
+    ASSERT_EQ(d.properties, nullptr);
     ASSERT_EQ(d.configured, false);
+}
+
+TEST(DeviceTests, testDeviceStatusKey) {
+    const auto d = Device{.key = "cat"};
+    ASSERT_EQ(device::status_key(d), "device:cat");
 }
 }

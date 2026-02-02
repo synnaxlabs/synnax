@@ -1,0 +1,119 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/telem"
+import "schemas/label"
+import "schemas/color"
+
+@ts output  "client/ts/src/range"
+@py output  "client/py/synnax/ranger"
+@cpp output "client/cpp/ranger"
+
+Key = uuid {
+    @doc value "is a unique identifier for a range, represented as a UUID."
+    @go output "core/pkg/service/ranger"
+}
+
+Range struct {
+    key        Key             {
+        @doc value "is the unique identifier for this range."
+        @key
+    }
+    name       string          {
+        @doc value           "is a human-readable name for the range."
+        @validate min_length 1
+    }
+    time_range telem.TimeRange {
+        @doc value """
+            is the temporal extent of the range, defining its start and end
+            timestamps.
+        """
+    }
+    color      color.Color?    {
+        @doc value """
+            is an optional display color for visual identification of the range
+            in user interfaces.
+        """
+    }
+
+    @doc value """
+        is a user-defined region of time in the Synnax cluster. Ranges act as a
+        method for labeling and categorizing telemetry data within specific time
+        periods.
+    """
+    @go output "core/pkg/service/ranger"
+    @pb
+    @cpp name  "Base"
+    @ts name   "Base"
+    @py name   "Payload"
+}
+
+APIRange struct extends Range {
+    labels label.Label[]? {
+        @doc value """
+            contains optional labels attached to this range for categorization
+            and filtering.
+        """
+    }
+    parent APIRange??     {
+        @doc value """
+            is an optional parent range for hierarchical organization. Ranges
+            can be nested within other ranges.
+        """
+    }
+
+    @doc value     """
+        is a range with additional relationships for hierarchical organization
+        and metadata. This is the primary type exposed through the API.
+    """
+    @go output     "core/pkg/api/ranger"
+    @go name       "Range"
+    @pb name       "Range"
+    @ontology type "range"
+    @cpp name      "Range"
+    @cpp methods   "kv::Client kv = kv::Client()"
+    @cpp includes  "client/cpp/ranger/kv/kv.h"
+}
+
+TSRange struct extends Range {
+    labels     label.Label[]?         {
+        @doc value "contains optional labels attached to this range."
+    }
+    parent     TSRange??              {
+        @doc value "is an optional parent range for hierarchical organization."
+    }
+    time_range telem.TimeRangeBounded {
+        @doc value "is the bounded temporal extent of the range."
+    }
+
+    @doc value "is TypeScript-specific range representation with bounded time ranges."
+    @ts name   "Payload"
+    @py omit
+    @cpp omit
+    @go omit
+    @pb omit
+}
+
+New struct extends TSRange {
+    -parent
+    -labels
+    key Key? {
+        @doc value "is an optional key for the range. If not provided, one will be automatically assigned."
+    }
+
+    @doc value "contains parameters for creating a new range."
+    @ts {
+        name "New"
+        use_input
+    }
+    @py omit
+    @cpp omit
+    @go omit
+    @pb omit
+}

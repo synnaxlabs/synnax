@@ -1,0 +1,90 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/status"
+
+@ts output  "client/ts/src/rack"
+@py output  "client/py/synnax/rack"
+@cpp output "client/cpp/rack"
+@go output  "core/pkg/service/rack"
+@pb
+
+Key uint32 {
+    @doc value """
+        is a composite identifier for a rack. The high 16 bits contain the
+        core node key, and the low 16 bits contain the local sequential key.
+        Racks are leased to specific nodes because task configuration signals
+        are passed through gossip operations, which can take 15s+ to propagate
+        through a large cluster. This structure minimizes hops and configuration
+        latency.
+    """
+}
+
+StatusDetails struct {
+    rack Key {
+        @doc value "is the key of the rack this status pertains to."
+    }
+
+    @doc value "contains rack-specific status details."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is rack-specific status information including operational state."
+}
+
+Rack struct {
+    key          Key      {
+        @doc value "is the composite identifier for this rack."
+        @key
+    }
+    name         string   {
+        @doc value         "is a human-readable name for the rack."
+        @validate required
+    }
+    task_counter uint32?  {
+        @doc value """
+            is an internal counter used for generating unique local task keys.
+        """
+    }
+    embedded     bool?    {
+        @doc value """
+            is true if this rack is embedded within the Synnax server process.
+        """
+    }
+    status       Status?? {
+        @doc value "is the current operational status of the rack."
+    }
+
+    @doc value     """
+        is a collection container for hardware devices and tasks running on a
+        specific cluster node. Racks serve as the integration point between the
+        Synnax server and physical hardware via the Driver system.
+    """
+    @ts name       "Payload"
+    @ontology type "rack"
+    @py name       "Base"
+    @cpp methods   "task::Client tasks"
+    @cpp includes  "client/cpp/task/task.h"
+}
+
+New struct extends Rack {
+    -task_counter
+    -embedded
+    key uint32 {
+        @doc value        "is an optional key for the rack. If 0, one will be automatically assigned."
+        @validate default 0
+    }
+
+    @doc value    "contains parameters for creating a new rack."
+    @ts use_input
+    @go omit
+    @pb omit
+    @cpp omit
+    @py name      "Rack"
+}

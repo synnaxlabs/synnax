@@ -11,9 +11,8 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { type Key, keyZ, type New, newZ, type View, viewZ } from "@/view/payload";
+import { type Key, keyZ, type New, newZ, type View, viewZ } from "@/view/types.gen";
 
 export const SET_CHANNEL_NAME = "sy_view_set";
 export const DELETE_CHANNEL_NAME = "sy_view_delete";
@@ -40,7 +39,7 @@ const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
 export interface RetrieveSingleParams extends z.input<typeof singleRetrieveArgsZ> {}
 export interface RetrieveMultipleParams extends z.input<typeof retrieveRequestZ> {}
 
-const retrieveResponseZ = z.object({ views: array.nullableZ(viewZ) });
+const retrieveResponseZ = z.object({ views: array.nullishToEmpty(viewZ) });
 
 export class Client {
   private readonly client: UnaryClient;
@@ -90,7 +89,3 @@ export class Client {
     );
   }
 }
-
-export const ontologyID = (key: Key): ontology.ID => ({ type: "view", key });
-
-export const TYPE_ONTOLOGY_ID = ontologyID("");
