@@ -20,6 +20,7 @@
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xlog/xlog.h"
+#include "x/cpp/xthread/rt.h"
 
 namespace arc::runtime::loop {
 
@@ -106,17 +107,14 @@ inline std::ostream &operator<<(std::ostream &os, ExecutionMode mode) {
     }
 }
 
-/// @brief Returns true if the platform supports real-time scheduling.
-/// Platform-specific implementation in loop_*.cpp files.
-bool has_rt_scheduling();
-
 /// @brief Auto-selects execution mode based on timing requirements and platform.
 /// Never returns BUSY_WAIT or AUTO.
 inline ExecutionMode
 select_mode(const telem::TimeSpan timing_interval, const bool has_intervals) {
     if (!has_intervals) return ExecutionMode::EVENT_DRIVEN;
     if (timing_interval < timing::HIGH_RATE_THRESHOLD)
-        return has_rt_scheduling() ? ExecutionMode::RT_EVENT : ExecutionMode::HIGH_RATE;
+        return xthread::has_rt_support() ? ExecutionMode::RT_EVENT
+                                         : ExecutionMode::HIGH_RATE;
     if (timing_interval < timing::HYBRID_THRESHOLD) return ExecutionMode::HYBRID;
     return ExecutionMode::EVENT_DRIVEN;
 }
