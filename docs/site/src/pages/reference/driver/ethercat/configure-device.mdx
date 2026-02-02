@@ -1,0 +1,207 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "EtherCAT | Configure Device"
+heading: "Configure an EtherCAT Device"
+description: "Learn how to discover and configure EtherCAT devices."
+prev: "Get Started"
+prevURL: "/reference/driver/ethercat/get-started"
+next: "Read Task"
+nextURL: "/reference/driver/ethercat/read-task"
+---
+
+import { Text as TextComponent } from "@/components";
+import { Divider, Text, Icon, Note } from "@synnaxlabs/pluto";
+import { Image, Video } from "@/components/media/Media";
+import { Details } from "@/components";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Client } from "@/components/client";
+import { Fragment } from "react";
+export const components = mdxOverrides;
+
+<Divider.Divider x />
+
+## Prerequisites
+
+Before configuring EtherCAT devices, ensure you have:
+
+1. A [Synnax Core](/reference/core/quick-start) running on your network.
+2. A [Synnax Driver](/reference/driver/get-started) running on the same machine as your
+   EtherCAT network interface.
+3. An EtherCAT master configured (IgH kernel module or SOEM).
+4. The [Synnax Console](/reference/console/get-started) installed on your local machine.
+
+<Note.Note variant="warning" className="compact">
+  All channels in a task must use devices connected to the **same network interface**.
+  If you have devices on multiple EtherCAT networks, create separate tasks for each
+  network.
+</Note.Note>
+
+<Divider.Divider x />
+
+## How Device Discovery Works
+
+EtherCAT devices are **automatically discovered** when connected to the network. There
+is no need to manually create device configurations.
+
+1. Connect your EtherCAT devices to the network interface.
+2. The Synnax Driver scans the EtherCAT bus and discovers all connected devices.
+3. A notification appears in the Console when new devices are found.
+4. Discovered devices appear in the Devices Toolbar.
+
+The scan task runs periodically to detect new devices and update device information.
+
+<Divider.Divider x />
+
+## Device Properties Reference
+
+When a device is discovered, Synnax stores the following properties:
+
+| Property      | Type   | Description                                                    |
+| ------------- | ------ | -------------------------------------------------------------- |
+| `name`        | string | Human-readable device name from ESI file                       |
+| `serial`      | string | Unique device serial number                                    |
+| `vendorId`    | number | EtherCAT vendor ID                                             |
+| `productCode` | number | Device model/product identifier                                |
+| `revision`    | number | Hardware/firmware revision number                              |
+| `network`     | string | Network interface name (e.g., `eth0`, `enp3s0`)                |
+| `position`    | number | Slave position on the EtherCAT bus (1-indexed)                 |
+| `pdos`        | object | Available PDO mappings (TxPDOs for inputs, RxPDOs for outputs) |
+
+<Divider.Divider x />
+
+## Understanding PDOs
+
+**PDOs (Process Data Objects)** define the cyclic data exchanged between the master and
+devices. PDOs are configured in the device's ESI (EtherCAT Slave Information) file.
+
+### TxPDO (Transmit PDO)
+
+Data transmitted FROM the device TO Synnax. Use TxPDOs in **Read Tasks** to acquire
+sensor data, status information, and feedback values.
+
+### RxPDO (Receive PDO)
+
+Data received BY the device FROM Synnax. Use RxPDOs in **Write Tasks** to send control
+commands, setpoints, and configuration values.
+
+### PDO Entry Properties
+
+Each PDO entry has the following properties:
+
+| Property    | Type   | Description                                     |
+| ----------- | ------ | ----------------------------------------------- |
+| `name`      | string | Human-readable entry name (e.g., `status_word`) |
+| `index`     | number | CoE object index (hexadecimal, e.g., `0x6041`)  |
+| `subindex`  | number | CoE object subindex                             |
+| `bitLength` | number | Data width in bits (e.g., 8, 16, 32)            |
+| `dataType`  | string | Data type (e.g., `uint16`, `int32`, `float32`)  |
+
+<Divider.Divider x />
+
+## How-To
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+
+Synnax automatically discovers EtherCAT devices when they are connected to the network.
+To view discovered devices, open the Devices Toolbar by clicking the device icon
+(<Icon.Device />) on the left side of the screen.
+
+<Video
+  client:only="react"
+  id="device-drivers/ethercat/configure-device/ethercat-configure"
+/>
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+# Connect to Synnax
+client = sy.Synnax()
+
+# List all devices to find EtherCAT devices
+all_devices = client.devices.list()
+
+# Filter for EtherCAT devices
+ethercat_devices = [d for d in all_devices if d.make == "EtherCAT"]
+
+for dev in ethercat_devices:
+    print(f"Device: {dev.name}")
+    print(f"  Key: {dev.key}")
+    print(f"  Network: {dev.location}")
+    print(f"  Position: {dev.properties.get('position')}")
+    print(f"  Vendor ID: {dev.properties.get('vendorId')}")
+    print(f"  Product Code: {dev.properties.get('productCode')}")
+
+# Retrieve a specific device by name
+device = client.devices.retrieve(name="EK1100")
+
+# Access PDO information
+pdos = device.properties.get("pdos", {})
+tx_pdos = pdos.get("tx", [])  # Input PDOs (device -> Synnax)
+rx_pdos = pdos.get("rx", [])  # Output PDOs (Synnax -> device)
+
+print(f"\nTxPDOs (inputs) for {device.name}:")
+for pdo in tx_pdos:
+    print(f"  {pdo['name']}: index=0x{pdo['index']:04X}, "
+          f"subindex={pdo['subindex']}, type={pdo['dataType']}")
+
+print(f"\nRxPDOs (outputs) for {device.name}:")
+for pdo in rx_pdos:
+    print(f"  {pdo['name']}: index=0x{pdo['index']:04X}, "
+          f"subindex={pdo['subindex']}, type={pdo['dataType']}")
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+// Connect to Synnax
+const client = new Synnax();
+
+// List all devices to find EtherCAT devices
+const allDevices = await client.devices.list();
+
+// Filter for EtherCAT devices
+const ethercatDevices = allDevices.filter((d) => d.make === "EtherCAT");
+
+for (const dev of ethercatDevices) {
+  console.log(`Device: ${dev.name}`);
+  console.log(`  Key: ${dev.key}`);
+  console.log(`  Network: ${dev.location}`);
+  console.log(`  Position: ${dev.properties?.position}`);
+  console.log(`  Vendor ID: ${dev.properties?.vendorId}`);
+  console.log(`  Product Code: ${dev.properties?.productCode}`);
+}
+
+// Retrieve a specific device by name
+const device = await client.devices.retrieve({ name: "EK1100" });
+
+// Access PDO information
+const pdos = device.properties?.pdos ?? {};
+const txPdos = pdos.tx ?? []; // Input PDOs (device -> Synnax)
+const rxPdos = pdos.rx ?? []; // Output PDOs (Synnax -> device)
+
+console.log(`\nTxPDOs (inputs) for ${device.name}:`);
+for (const pdo of txPdos) {
+  console.log(
+    `  ${pdo.name}: index=0x${pdo.index.toString(16).padStart(4, "0")}, ` +
+      `subindex=${pdo.subindex}, type=${pdo.dataType}`,
+  );
+}
+
+console.log(`\nRxPDOs (outputs) for ${device.name}:`);
+for (const pdo of rxPdos) {
+  console.log(
+    `  ${pdo.name}: index=0x${pdo.index.toString(16).padStart(4, "0")}, ` +
+      `subindex=${pdo.subindex}, type=${pdo.dataType}`,
+  );
+}
+```
+
+  </Fragment>
+</Client.Tabs>
