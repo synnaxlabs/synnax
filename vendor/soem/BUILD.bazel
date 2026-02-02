@@ -165,13 +165,13 @@ extern "C" {
 /** default number of retries if wkc <= 0 */
 #define EC_DEFAULTRETRIES 3
 
-/* MAC addresses */
+/* MAC addresses - packed as uint16[3] for nicdrv arrays */
 
 /** Primary source MAC address used for EtherCAT. */
-#define EC_PRIMARY_MAC_ARRAY { 0x02, 0x00, 0x00, 0x00, 0x00, 0x01 }
+#define EC_PRIMARY_MAC_ARRAY { 0x0002, 0x0000, 0x0001 }
 
 /** Secondary source MAC address used for EtherCAT. */
-#define EC_SECONDARY_MAC_ARRAY { 0x02, 0x00, 0x00, 0x00, 0x00, 0x02 }
+#define EC_SECONDARY_MAC_ARRAY { 0x0002, 0x0000, 0x0002 }
 
 #ifdef __cplusplus
 }
