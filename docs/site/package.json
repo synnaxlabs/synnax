@@ -12,7 +12,9 @@
     "algolia": "node src/util/algoliasearch.ts",
     "lint": "eslint",
     "fix": "eslint --fix",
-    "madge": "madge --circular src"
+    "madge": "madge --circular src",
+    "format": "prettier --write .",
+    "format-check": "prettier --check ."
   },
   "dependencies": {
     "@astrojs/mdx": "^4.3.13",
