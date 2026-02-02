@@ -5,6 +5,7 @@
   "main": "index.ts",
   "license": "MIT",
   "scripts": {
+    "check-types": "tsc --noEmit",
     "lint": "eslint",
     "fix": "eslint --fix"
   },

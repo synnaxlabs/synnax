@@ -14,6 +14,7 @@
     "fix": "eslint --fix",
     "preview": "vite preview",
     "madge": "madge --circular src",
+    "stylelint": "stylelint \"src/**/*.css\"",
     "generate-theme": "tsx src/theming/static/generate.ts"
   },
   "dependencies": {
@@ -62,6 +63,7 @@
     "jsdom": "^27.4.0",
     "madge": "catalog:",
     "react-dom": "catalog:",
+    "stylelint": "catalog:",
     "stylelint-config-synnaxlabs": "workspace:^",
     "typescript": "catalog:",
     "vite": "catalog:",

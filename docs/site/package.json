@@ -14,7 +14,8 @@
     "fix": "eslint --fix",
     "madge": "madge --circular src",
     "format": "prettier --write .",
-    "format-check": "prettier --check ."
+    "format-check": "prettier --check .",
+    "stylelint": "stylelint \"src/**/*.css\""
   },
   "dependencies": {
     "@astrojs/mdx": "^4.3.13",
@@ -53,6 +54,8 @@
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "strip-markdown": "^6.0.0",
+    "stylelint": "catalog:",
+    "stylelint-config-synnaxlabs": "workspace:^",
     "typescript": "catalog:"
   }
 }
