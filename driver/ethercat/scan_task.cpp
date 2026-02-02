@@ -103,7 +103,7 @@ synnax::Device Scanner::create_slave_device(
     const SlaveInfo &slave,
     const std::string &master_key,
     const common::ScannerContext &scan_ctx
-) {
+) const {
     const auto rack_key = synnax::rack_key_from_task_key(this->task.key);
     const std::string key = this->generate_slave_key(slave, master_key);
 

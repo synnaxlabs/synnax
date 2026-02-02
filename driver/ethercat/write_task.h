@@ -153,8 +153,7 @@ public:
         if (auto err = topology::validate(
                 this->engine->slaves(),
                 this->cfg.device_cache
-            );
-            err)
+            ))
             return err;
 
         std::vector<PDOEntry> entries;

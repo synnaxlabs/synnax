@@ -53,9 +53,8 @@ Pool::discover_slaves(const std::string &key) {
     std::lock_guard lock(this->mu);
     auto [engine, err] = this->acquire_unlocked(key);
     if (err) return {{}, err};
-    if (!engine->running()) {
+    if (!engine->running())
         if (auto init_err = engine->ensure_initialized()) return {{}, init_err};
-    }
     return {engine->slaves(), xerrors::NIL};
 }
 
