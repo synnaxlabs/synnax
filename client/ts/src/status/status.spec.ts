@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp, uuid } from "@synnaxlabs/x";
+import { color, status as xStatus, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 
+import { group } from "@/group";
 import { ontology } from "@/ontology";
-import { group } from "@/ontology/group";
 import { status } from "@/status";
 import { createTestClient } from "@/testutil/client";
 
@@ -82,7 +82,7 @@ describe("Status", () => {
     });
 
     it("should set a status with a parent", async () => {
-      const parentGroup = await client.ontology.groups.create({
+      const parentGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "Parent Group",
       });
@@ -254,13 +254,15 @@ describe("Status", () => {
     it("should delete multiple statuses", async () => {
       const keys = ["del-1", "del-2", "del-3"];
       await client.statuses.set(
-        keys.map((key) => ({
-          name: `Delete ${key}`,
-          key,
-          variant: "info" as status.Status["variant"],
-          message: "To be deleted",
-          time: TimeStamp.now(),
-        })),
+        keys.map((key) =>
+          xStatus.create({
+            name: `Delete ${key}`,
+            key,
+            variant: "info",
+            message: "To be deleted",
+            time: TimeStamp.now(),
+          }),
+        ),
       );
 
       await client.statuses.delete(keys);
@@ -296,11 +298,11 @@ describe("Status", () => {
     it("should correctly retrieve a status with labels attached", async () => {
       const label1 = await client.labels.create({
         name: "Label 1",
-        color: "#0000FF",
+        color: color.construct("#0000FF"),
       });
       const label2 = await client.labels.create({
         name: "Label 2",
-        color: "#FF0000",
+        color: color.construct("#FF0000"),
       });
       const stat = await client.statuses.set({
         name: "Idempotent",
@@ -324,7 +326,7 @@ describe("Status", () => {
 
   describe("status variants", () => {
     it("should support all status variants", async () => {
-      const variants: status.Status["variant"][] = [
+      const variants: xStatus.Variant[] = [
         "success",
         "info",
         "warning",

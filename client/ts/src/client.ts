@@ -19,10 +19,13 @@ import { control } from "@/control";
 import { device } from "@/device";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
+import { group } from "@/group";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { rack } from "@/rack";
-import { ranger } from "@/ranger";
+import { range } from "@/range";
+import { alias } from "@/range/alias";
+import { kv } from "@/range/kv";
 import { status } from "@/status";
 import { task } from "@/task";
 import { Transport } from "@/transport";
@@ -57,7 +60,7 @@ export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 export default class Synnax extends framer.Client {
   readonly createdAt: TimeStamp;
   readonly params: ParsedSynnaxParams;
-  readonly ranges: ranger.Client;
+  readonly ranges: range.Client;
   readonly channels: channel.Client;
   readonly auth: auth.Client;
   readonly users: user.Client;
@@ -73,6 +76,9 @@ export default class Synnax extends framer.Client {
   readonly control: control.Client;
   readonly arcs: arc.Client;
   readonly views: view.Client;
+  readonly kv: kv.Client;
+  readonly aliases: alias.Client;
+  readonly groups: group.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -132,10 +138,10 @@ export default class Synnax extends framer.Client {
     );
     this.control = new control.Client(this);
     this.ontology = new ontology.Client(transport.unary, this);
-    const rangeWriter = new ranger.Writer(this.transport.unary);
+    const rangeWriter = new range.Writer(this.transport.unary);
     this.labels = new label.Client(this.transport.unary);
     this.statuses = new status.Client(this.transport.unary);
-    this.ranges = new ranger.Client(
+    this.ranges = new range.Client(
       this,
       rangeWriter,
       this.transport.unary,
@@ -156,6 +162,9 @@ export default class Synnax extends framer.Client {
     this.devices = new device.Client(this.transport.unary);
     this.arcs = new arc.Client(this.transport.unary, this.transport.stream);
     this.views = new view.Client(this.transport.unary);
+    this.kv = new kv.Client(this.transport.unary);
+    this.aliases = new alias.Client(this.transport.unary);
+    this.groups = new group.Client(this.transport.unary);
   }
 
   get key(): string {

@@ -219,7 +219,7 @@ const MultiElementProperties = ({
             const match = el.className.match(/react-flow__handle-(\w+)/);
             if (match == null)
               throw new Error(`[schematic] - cannot find handle orientation`);
-            const orientation = location.outer.parse(match[1]);
+            const orientation = location.outerZ.parse(match[1]);
             return new Diagram.HandleLayout(dist, orientation);
           });
           return new Diagram.NodeLayout(el.key, nodeBox, handles);
@@ -282,7 +282,7 @@ const MultiElementProperties = ({
             const match = el.className.match(/react-flow__handle-(\w+)/);
             if (match == null)
               throw new Error(`[schematic] - cannot find handle orientation`);
-            const orientation = location.outer.parse(match[1]);
+            const orientation = location.outerZ.parse(match[1]);
             return new Diagram.HandleLayout(dist, orientation);
           });
           return new Diagram.NodeLayout(el.key, nodeBox, handles);
@@ -333,11 +333,11 @@ const MultiElementProperties = ({
   };
 
   const handleRotateIndividual = (dir: direction.Angular): void => {
-    elements.forEach((e) => {
-      if (e.type !== "node") return;
-      const parsed = location.outer.safeParse(e.props.orientation);
+    elements.forEach((el) => {
+      if (el.type !== "node") return;
+      const parsed = location.outerZ.safeParse(el.props.orientation);
       if (!parsed.success) return;
-      onChange(e.key, { orientation: location.rotate(parsed.data, dir) });
+      onChange(el.key, { orientation: location.rotate(parsed.data, dir) });
     });
   };
 

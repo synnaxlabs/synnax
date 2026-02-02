@@ -9,19 +9,23 @@
 
 import { z } from "zod";
 
+import { zod } from "@/zod";
+
 /** A regex to match hex colors. */
 const hexRegex = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i;
 
 /** A zod schema for a hex color. */
 const hexZ = z.string().regex(hexRegex);
 /** A zod schema for an RGB value. */
-const rgbValueZ = z.number().min(0).max(255);
+const rgbValueZ = zod.uint8;
 /** A zod schema for an alpha value between 0 and 1. */
 const alphaZ = z.number().min(0).max(1);
 /** A zod schema for an RGBA color. */
 const rgbaZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ, alphaZ]);
 /** A zod schema for an RGB color. */
 const rgbZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ]);
+/** A zod schema for an RGBA color as a struct. */
+const rgbaStructZ = z.object({ r: rgbValueZ, g: rgbValueZ, b: rgbValueZ, a: alphaZ });
 /** A zod schema for a legacy color object. */
 const legacyObjectZ = z.object({ rgba255: rgbaZ });
 /** A zod schema for a hue value between 0 and 360. */
@@ -44,14 +48,15 @@ export type Hex = z.infer<typeof hexZ>;
 
 /** A legacy color object. Used for backwards compatibility. */
 type LegacyObject = z.infer<typeof legacyObjectZ>;
-
+/** A color in RGBA format as a struct. */
+type RGBAStruct = z.infer<typeof rgbaStructZ>;
 /** A zod schema for a crude color representation. */
-export const crudeZ = z.union([hexZ, rgbZ, rgbaZ, hslaZ, legacyObjectZ]);
+export const crudeZ = z.union([hexZ, rgbZ, rgbaZ, hslaZ, legacyObjectZ, rgbaStructZ]);
 /**
  * An unparsed representation of a color i.e. a value that can be converted into
  * a Color object.
  */
-export type Crude = Hex | RGBA | Color | RGB | LegacyObject;
+export type Crude = Hex | RGBA | Color | RGB | LegacyObject | RGBAStruct;
 
 /** A zod schema to parse color values from various crude representations. */
 export const colorZ = crudeZ.transform((v) => construct(v));
@@ -113,6 +118,7 @@ export const construct = (color: Crude, alpha: number = 1): Color => {
     if (color.length === 3) return [...color, alpha];
     return color;
   }
+  if ("a" in color) return [color.r, color.g, color.b, color.a];
   return color.rgba255;
 };
 
@@ -140,8 +146,9 @@ export interface ToHex {
 export const hex = ((color?: Crude) => {
   if (color == null) return undefined;
   const [r, g, b, a] = construct(color);
+  const alphaByte = Math.round(a * 255);
   return `#${rgbaToHex(r)}${rgbaToHex(g)}${rgbaToHex(b)}${
-    a === 1 ? "" : rgbaToHex(a * 255)
+    alphaByte === 255 ? "" : rgbaToHex(alphaByte)
   }`;
 }) as ToHex;
 
@@ -197,8 +204,7 @@ export const hsla = (color: Crude): HSLA => rgbaToHSLA(construct(color));
 /**
  * @returns A new color with the given alpha.
  * @param color - The color to set the alpha value on.
- * @param alpha - The alpha value to set. If the value is greater than 1, it will be
- * divided by 100.
+ * @param alpha - The alpha value to set (0-1).
  */
 export const setAlpha = (color: Crude, alpha: number): Color => {
   const [r, g, b] = construct(color);

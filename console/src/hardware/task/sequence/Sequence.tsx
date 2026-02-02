@@ -274,9 +274,9 @@ const getInitialValues: Common.Task.GetInitialValues<
 };
 
 const SCHEMAS = {
-  typeSchema: typeZ,
-  configSchema: configZ,
-  statusDataSchema: statusDetailsZ,
+  type: typeZ,
+  config: configZ,
+  statusData: statusDetailsZ,
 };
 
 export const Sequence = Common.Task.wrapForm<

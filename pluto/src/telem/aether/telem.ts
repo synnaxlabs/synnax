@@ -121,7 +121,9 @@ export type ColorSource = Source<color.Color>;
 export const colorSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("color") });
 export type ColorSourceSpec = z.infer<typeof colorSourceSpecZ>;
 
-export type StatusSource<Details = never> = Source<status.Status<Details>>;
+export type StatusSource<Details extends z.ZodType = z.ZodNever> = Source<
+  status.Status<Details>
+>;
 export const statusSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("status") });
 export type StatusSourceSpec = z.infer<typeof statusSourceSpecZ>;
 

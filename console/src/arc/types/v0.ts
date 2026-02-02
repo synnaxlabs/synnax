@@ -50,14 +50,14 @@ export const stateZ = z.object({
   version: z.literal(VERSION),
   remoteCreated: z.boolean(),
   graph: graphStateZ,
-  text: arc.textZ.default({ raw: "" }),
-  mode: arc.modeZ.optional(),
+  text: arc.text.textZ.default({ raw: "" }),
+  mode: arc.modeZ.default("graph"),
 });
 
 export interface State extends z.infer<typeof stateZ> {}
 
 export const copyBufferZ = z.object({
-  pos: xy.xy,
+  pos: xy.xyZ,
   nodes: z.array(Diagram.nodeZ),
   edges: z.array(z.unknown()),
   props: z.record(z.string(), z.unknown()),
@@ -110,7 +110,7 @@ export const ZERO_STATE: State = {
   graph: ZERO_GRAPH_STATE,
   remoteCreated: false,
   text: { raw: "" },
-  mode: undefined,
+  mode: "graph",
 };
 
 export const ZERO_SLICE_STATE: SliceState = {

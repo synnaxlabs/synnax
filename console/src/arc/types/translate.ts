@@ -12,7 +12,7 @@ import { color, xy } from "@synnaxlabs/x";
 
 import { type GraphState } from "@/arc/types";
 
-export const translateGraphToConsole = (module: arc.Graph): GraphState => ({
+export const translateGraphToConsole = (module: arc.graph.Graph): GraphState => ({
   nodes: module.nodes.map((n) => ({
     key: n.key,
     position: n.position,
@@ -41,7 +41,7 @@ export const translateGraphToConsole = (module: arc.Graph): GraphState => ({
   fitViewOnResize: false,
 });
 
-export const translateGraphToServer = (arc: GraphState): arc.Graph => ({
+export const translateGraphToServer = (arc: GraphState): arc.graph.Graph => ({
   nodes: arc.nodes.map((n) => {
     const { key: type, ...config } = arc.props[n.key];
     return { key: n.key, type, config, position: n.position };
@@ -50,4 +50,6 @@ export const translateGraphToServer = (arc: GraphState): arc.Graph => ({
     source: { param: e.sourceHandle as string, node: e.source },
     target: { param: e.targetHandle as string, node: e.target },
   })),
+  viewport: { position: xy.ZERO, zoom: 1 },
+  functions: [],
 });

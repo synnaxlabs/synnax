@@ -11,7 +11,7 @@ import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
-import { type z } from "zod";
+import type z from "zod";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
@@ -222,13 +222,21 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   config,
   name,
 ) => {
-  const previous = await client.devices.retrieve<Device.Properties, Device.Make>({
+  const previous = await client.devices.retrieve({
     key: config.device,
+    schemas: { properties: Device.propertiesZ, make: Device.makeZ },
   });
-  const device = await client.devices.create<Device.Properties, Device.Make>({
-    ...previous,
-    properties: Device.migrateProperties(previous.properties),
-  });
+  const device = await client.devices.create<
+    typeof Device.propertiesZ,
+    typeof Device.makeZ,
+    z.ZodString
+  >(
+    {
+      ...previous,
+      properties: Device.migrateProperties(previous.properties),
+    },
+    { properties: Device.propertiesZ, make: Device.makeZ },
+  );
 
   const index = await determineIndexChannel({
     client,

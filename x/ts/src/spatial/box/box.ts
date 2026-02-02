@@ -30,8 +30,8 @@ export const domRect = z.object({
   bottom: z.number(),
 });
 export const box = z.object({
-  one: xy.xy,
-  two: xy.xy,
+  one: xy.xyZ,
+  two: xy.xyZ,
   root: location.corner,
 });
 

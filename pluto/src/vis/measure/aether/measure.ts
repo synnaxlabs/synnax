@@ -30,9 +30,9 @@ export const modeZ = z.enum(["one", "two"]);
 export type Mode = z.infer<typeof modeZ>;
 
 export const measureStateZ = z.object({
-  one: xy.xy.nullable(),
-  two: xy.xy.nullable(),
-  hover: xy.xy.nullable(),
+  one: xy.xyZ.nullable(),
+  two: xy.xyZ.nullable(),
+  hover: xy.xyZ.nullable(),
   mode: modeZ.default("one"),
   color: z
     .union([

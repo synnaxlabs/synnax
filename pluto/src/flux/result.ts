@@ -40,14 +40,14 @@ export const resultStatusDetails = <
 };
 
 export type ResultStatus<StatusDetails extends z.ZodType = z.ZodNever> =
-  | status.Status<StatusDetails, "success">
-  | status.Status<StatusDetails, "loading">
-  | status.Status<StatusDetails, "disabled">
-  | status.Status<typeof status.exceptionDetailsSchema, "error">;
+  | status.Status<StatusDetails, z.ZodLiteral<"success">>
+  | status.Status<StatusDetails, z.ZodLiteral<"loading">>
+  | status.Status<StatusDetails, z.ZodLiteral<"disabled">>
+  | status.Status<typeof status.exceptionDetailsSchema, z.ZodLiteral<"error">>;
 
 export interface ErrorResult {
   variant: "error";
-  status: status.Status<typeof status.exceptionDetailsSchema, "error">;
+  status: status.Status<typeof status.exceptionDetailsSchema, z.ZodLiteral<"error">>;
   data: undefined;
 }
 
@@ -56,7 +56,7 @@ export type SuccessResult<
   StatusDetails extends z.ZodType = z.ZodNever,
 > = {
   variant: "success";
-  status: status.Status<StatusDetails, "success">;
+  status: status.Status<StatusDetails, z.ZodLiteral<"success">>;
   data: Data;
 };
 
@@ -65,7 +65,7 @@ export type LoadingResult<
   StatusDetails extends z.ZodType = z.ZodNever,
 > = {
   variant: "loading";
-  status: status.Status<StatusDetails, "loading">;
+  status: status.Status<StatusDetails, z.ZodLiteral<"loading">>;
   data: Data | undefined;
 };
 
@@ -74,7 +74,7 @@ export type DisabledResult<
   StatusDetails extends z.ZodType = z.ZodNever,
 > = {
   variant: "disabled";
-  status: status.Status<StatusDetails, "disabled">;
+  status: status.Status<StatusDetails, z.ZodLiteral<"disabled">>;
   data: Data | undefined;
 };
 

@@ -20,7 +20,7 @@ export const viewportZ = z.object({
    * The top-left pixel offset of the diagram pan position. Note that this
    * offset is unscaled by zoom.
    */
-  position: xy.xy,
+  position: xy.xyZ,
 
   /**
    * A decimal of the current diagram zoom. Larger values represent
@@ -54,7 +54,7 @@ export const edgeZ = z.object({
   target: z.string(),
 
   id: z.string(),
-  data: record.unknownZ.optional(),
+  data: record.unknownZ().optional(),
 
   /**
    * Whether the edge is currently selected.
@@ -86,7 +86,7 @@ export const nodeZ = z.object({
   /** A unique key for identifying the node within the diagram. */
   key: z.string(),
   /** The XY coordinate of the top left corner of the node. Unscaled by the viewport. */
-  position: xy.xy,
+  position: xy.xyZ,
   /** Whether the node is currently selected. */
   selected: z.boolean().optional(),
   /** An optional z-index for the node. */
@@ -94,7 +94,7 @@ export const nodeZ = z.object({
   /** The type of the node. */
   type: z.string().optional(),
   /** The data associated with the node. */
-  data: record.unknownZ.optional(),
+  data: record.unknownZ().optional(),
   /** The measured dimensions of the node. */
   measured: z
     .object({ width: z.number().optional(), height: z.number().optional() })

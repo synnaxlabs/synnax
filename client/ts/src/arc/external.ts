@@ -8,4 +8,9 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/arc/client";
-export * from "@/arc/payload";
+export * from "@/arc/compiler";
+export * from "@/arc/graph";
+export * from "@/arc/ir";
+export * from "@/arc/module";
+export * from "@/arc/text";
+export * from "@/arc/types.gen";

@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/device/client";
-export * from "@/device/payload";
+export * from "@/device/types.gen";

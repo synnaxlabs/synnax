@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/rack/client";
-export * from "@/rack/payload";
+export * from "@/rack/types.gen";

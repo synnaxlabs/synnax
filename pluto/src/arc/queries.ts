@@ -114,8 +114,13 @@ export const formSchema = arc.newZ.extend({
 
 export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
-  version: "0.0.0",
-  graph: { nodes: [], edges: [] },
+  mode: "text",
+  graph: {
+    nodes: [],
+    edges: [],
+    viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+    functions: [],
+  },
   text: { raw: "" },
 };
 
@@ -166,14 +171,14 @@ const configuringStatus = (taskKey: task.Key): task.Status<typeof taskStatusData
     },
   });
 
-const TASK_SCHEMAS: task.Schemas<
+const TASK_SCHEMAS: task.PayloadSchemas<
   typeof taskTypeZ,
   typeof taskConfigZ,
   typeof taskStatusDataZ
 > = {
-  typeSchema: taskTypeZ,
-  configSchema: taskConfigZ,
-  statusDataSchema: taskStatusDataZ,
+  type: taskTypeZ,
+  config: taskConfigZ,
+  statusData: taskStatusDataZ,
 };
 
 export const { useUpdate: useCreate } = Flux.createUpdate<

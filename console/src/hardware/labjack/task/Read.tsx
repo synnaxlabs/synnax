@@ -230,7 +230,11 @@ const Form: FC<
 > = (props) => {
   const isSnapshot = Common.Task.useIsSnapshot();
   return (
-    <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
+    <Common.Device.Provider<
+      typeof Device.propertiesZ,
+      typeof Device.makeZ,
+      typeof Device.modelZ
+    >
       canConfigure={!isSnapshot}
       configureLayout={Device.CONFIGURE_LAYOUT}
     >
@@ -255,8 +259,13 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve<Device.Properties>({
+  const dev = await client.devices.retrieve({
     key: config.device,
+    schemas: {
+      properties: Device.propertiesZ,
+      make: Device.makeZ,
+      model: Device.modelZ,
+    },
   });
   Common.Device.checkConfigured(dev);
   let shouldCreateIndex = false;

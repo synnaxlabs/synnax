@@ -187,12 +187,13 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve<
-    Device.Properties,
-    Device.Make,
-    Device.Model
-  >({
+  const dev = await client.devices.retrieve({
     key: config.device,
+    schemas: {
+      properties: Device.propertiesZ,
+      make: Device.makeZ,
+      model: Device.modelZ,
+    },
   });
   let shouldCreateIndex = false;
   if (dev.properties.read.index)

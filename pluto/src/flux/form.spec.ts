@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, type label } from "@synnaxlabs/client";
-import { testutil } from "@synnaxlabs/x";
+import { color, testutil } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -373,7 +373,7 @@ describe("useForm", () => {
     it("should correctly update the form data when the listener receives changes", async () => {
       const label = await client.labels.create({
         name: "Initial Name",
-        color: "#000000",
+        color: color.construct("#000000"),
       });
 
       const initialValues = {
@@ -427,7 +427,7 @@ describe("useForm", () => {
     it("should not mark form fields as touched when setting them view the listener", async () => {
       const label = await client.labels.create({
         name: "Initial Name",
-        color: "#000000",
+        color: color.construct("#000000"),
       });
 
       const initialValues = {

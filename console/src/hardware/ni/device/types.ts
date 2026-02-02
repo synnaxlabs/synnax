@@ -7,44 +7,51 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type device } from "@synnaxlabs/client";
+import { channel, type device } from "@synnaxlabs/client";
+import { z } from "zod";
 
-import { type Common } from "@/hardware/common";
+import { Common } from "@/hardware/common";
 
 export const MAKE = "NI";
-export type Make = typeof MAKE;
+export const makeZ = z.literal(MAKE);
+export type Make = z.infer<typeof makeZ>;
 
-export type Properties = {
-  identifier: Common.Device.Identifier;
-  analogInput: {
-    portCount: number;
-    index: channel.Key;
-    channels: Record<string, channel.Key>;
-  };
-  analogOutput: {
-    portCount: number;
-    stateIndex: channel.Key;
-    channels: Record<string, Common.Device.CommandStatePair>;
-  };
-  counterInput: {
-    portCount: number;
-    index: channel.Key;
-    channels: Record<string, channel.Key>;
-  };
-  digitalInputOutput: { portCount: number; lineCounts: number[] };
-  digitalInput: {
-    portCount: number;
-    lineCounts: number[];
-    index: channel.Key;
-    channels: Record<string, channel.Key>;
-  };
-  digitalOutput: {
-    portCount: number;
-    lineCounts: number[];
-    stateIndex: channel.Key;
-    channels: Record<string, Common.Device.CommandStatePair>;
-  };
-};
+export const propertiesZ = z.object({
+  identifier: Common.Device.identifierZ,
+  analogInput: z.object({
+    portCount: z.number(),
+    index: channel.keyZ,
+    channels: z.record(z.string(), channel.keyZ),
+  }),
+  analogOutput: z.object({
+    portCount: z.number(),
+    stateIndex: channel.keyZ,
+    channels: z.record(z.string(), Common.Device.commandStatePairZ),
+  }),
+  counterInput: z.object({
+    portCount: z.number(),
+    index: channel.keyZ,
+    channels: z.record(z.string(), channel.keyZ),
+  }),
+  digitalInputOutput: z.object({
+    portCount: z.number(),
+    lineCounts: z.array(z.number()),
+  }),
+  digitalInput: z.object({
+    portCount: z.number(),
+    lineCounts: z.array(z.number()),
+    index: channel.keyZ,
+    channels: z.record(z.string(), channel.keyZ),
+  }),
+  digitalOutput: z.object({
+    portCount: z.number(),
+    lineCounts: z.array(z.number()),
+    stateIndex: channel.keyZ,
+    channels: z.record(z.string(), Common.Device.commandStatePairZ),
+  }),
+});
+
+export type Properties = z.infer<typeof propertiesZ>;
 
 export const ZERO_PROPERTIES: Properties = {
   identifier: "",
@@ -56,5 +63,5 @@ export const ZERO_PROPERTIES: Properties = {
   digitalOutput: { portCount: 0, lineCounts: [], stateIndex: 0, channels: {} },
 };
 
-export interface Device extends device.Device<Properties, Make> {}
-export interface New extends device.New<Properties, Make> {}
+export interface Device extends device.Device<typeof propertiesZ, typeof makeZ> {}
+export interface New extends device.New<typeof propertiesZ, typeof makeZ> {}

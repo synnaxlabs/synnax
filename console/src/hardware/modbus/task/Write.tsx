@@ -20,7 +20,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { caseconv, deep, id, primitive } from "@synnaxlabs/x";
+import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CSS } from "@/css";
@@ -192,15 +192,18 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve<Device.Properties>({
+  const dev = await client.devices.retrieve({
     key: config.device,
+    schemas: {
+      properties: Device.propertiesZ,
+      make: Device.makeZ,
+      model: Device.modelZ,
+    },
   });
   const commandsToCreate: OutputChannel[] = [];
   for (const channel of config.channels) {
     const key = writeMapKey(channel);
-    const existing =
-      dev.properties.write.channels[key] ??
-      dev.properties.write.channels[caseconv.snakeToCamel(key)];
+    const existing = dev.properties.write.channels[key];
     if (existing == null) {
       commandsToCreate.push(channel);
       continue;
@@ -242,9 +245,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
 
   config.channels = config.channels.map((c) => ({
     ...c,
-    channel:
-      dev.properties.write.channels[writeMapKey(c)] ??
-      dev.properties.write.channels[caseconv.snakeToCamel(writeMapKey(c))],
+    channel: dev.properties.write.channels[writeMapKey(c)],
   }));
 
   return [config, dev.rack];

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, rack, type task } from "@synnaxlabs/client";
+import { caseconv } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const TYPE = "sequence";
@@ -20,7 +21,7 @@ export const configZ = z.object({
   read: z.array(channel.keyZ),
   write: z.array(channel.keyZ),
   script: z.string(),
-  globals: z.record(z.string(), z.unknown()),
+  globals: caseconv.preserveCase(z.record(z.string(), z.unknown())),
 });
 export type Config = z.infer<typeof configZ>;
 export const ZERO_CONFIG: Config = {
