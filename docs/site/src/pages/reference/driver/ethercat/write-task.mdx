@@ -169,6 +169,7 @@ Writes data to an RxPDO using explicit CoE addressing.
 
 ```python
 import synnax as sy
+from synnax import ethercat
 
 client = sy.Synnax()
 
@@ -220,54 +221,46 @@ target_pos_state = client.channels.create(
 )
 
 # Create and configure task using automatic mode
-task = client.tasks.create({
-    "name": "EtherCAT Write Task",
-    "type": "ethercat_write",
-    "config": {
-        "device": dev.key,
-        "execution_rate": 100,  # Send commands at 100 Hz
-        "state_rate": 20,       # Update state at 20 Hz
-        "data_saving": True,
-        "channels": [
-            {
-                "type": "automatic",
-                "device": dev.key,
-                "pdo": "control_word",
-                "cmd_channel": control_cmd.key,
-                "state_channel": control_state.key,
-            },
-            {
-                "type": "automatic",
-                "device": dev.key,
-                "pdo": "target_position",
-                "cmd_channel": target_pos_cmd.key,
-                "state_channel": target_pos_state.key,
-            },
-        ],
-    },
-})
+task = ethercat.WriteTask(
+    name="EtherCAT Write Task",
+    execution_rate=100,  # Send commands at 100 Hz
+    state_rate=20,       # Update state at 20 Hz
+    data_saving=True,
+    channels=[
+        ethercat.AutomaticOutputChan(
+            device=dev.key,
+            pdo="control_word",
+            cmd_channel=control_cmd.key,
+            state_channel=control_state.key,
+        ),
+        ethercat.AutomaticOutputChan(
+            device=dev.key,
+            pdo="target_position",
+            cmd_channel=target_pos_cmd.key,
+            state_channel=target_pos_state.key,
+        ),
+    ],
+)
 
-# Start task
-task.start()
+client.tasks.configure(task)
 
-# Write commands
-with client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=["control_word_cmd", "target_position_cmd"],
-) as writer:
-    # Enable drive (control word 0x000F is common for CiA 402)
-    writer.write({
-        "control_word_cmd": 0x000F,
-        "target_position_cmd": 10000,
-    })
+# Start task and write commands
+with task.run():
+    with client.open_writer(
+        start=sy.TimeStamp.now(),
+        channels=["control_word_cmd", "target_position_cmd"],
+    ) as writer:
+        # Enable drive (control word 0x000F is common for CiA 402)
+        writer.write({
+            "control_word_cmd": 0x000F,
+            "target_position_cmd": 10000,
+        })
 
-    # Read back states
-    with client.open_streamer(["control_word_state", "target_position_state"]) as streamer:
-        frame = streamer.read()
-        print(f"Control State: {frame['control_word_state'][-1]}")
-        print(f"Target Position State: {frame['target_position_state'][-1]}")
-
-task.stop()
+        # Read back states
+        with client.open_streamer(["control_word_state", "target_position_state"]) as streamer:
+            frame = streamer.read()
+            print(f"Control State: {frame['control_word_state'][-1]}")
+            print(f"Target Position State: {frame['target_position_state'][-1]}")
 ```
 
 </Details>
@@ -277,6 +270,7 @@ task.stop()
 
 ```python
 import synnax as sy
+from synnax import ethercat
 
 client = sy.Synnax()
 
@@ -316,39 +310,33 @@ control_state = client.channels.create(
 )
 
 # Create task using manual mode with CoE addressing
-task = client.tasks.create({
-    "name": "EtherCAT Manual Write",
-    "type": "ethercat_write",
-    "config": {
-        "device": dev.key,
-        "execution_rate": 100,
-        "state_rate": 20,
-        "data_saving": True,
-        "channels": [
-            {
-                "type": "manual",
-                "device": dev.key,
-                "index": 0x6040,      # Control word (CiA 402)
-                "subindex": 0,
-                "bitLength": 16,
-                "dataType": "uint16",
-                "cmd_channel": control_cmd.key,
-                "state_channel": control_state.key,
-            },
-        ],
-    },
-})
+task = ethercat.WriteTask(
+    name="EtherCAT Manual Write",
+    execution_rate=100,
+    state_rate=20,
+    data_saving=True,
+    channels=[
+        ethercat.ManualOutputChan(
+            device=dev.key,
+            index=0x6040,      # Control word (CiA 402)
+            subindex=0,
+            bit_length=16,
+            data_type="uint16",
+            cmd_channel=control_cmd.key,
+            state_channel=control_state.key,
+        ),
+    ],
+)
+
+client.tasks.configure(task)
 
 # Start and write
-task.start()
-
-with client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=["control_word_cmd"],
-) as writer:
-    writer.write({"control_word_cmd": 0x000F})
-
-task.stop()
+with task.run():
+    with client.open_writer(
+        start=sy.TimeStamp.now(),
+        channels=["control_word_cmd"],
+    ) as writer:
+        writer.write({"control_word_cmd": 0x000F})
 ```
 
 </Details>
@@ -358,27 +346,20 @@ task.stop()
 
 ```python
 import synnax as sy
-import json
+from synnax import ethercat
 
 client = sy.Synnax()
 
-# Retrieve existing task
+# Retrieve existing task and wrap with typed class
 task = client.tasks.retrieve(name="EtherCAT Write Task")
-
-# Parse current configuration
-config = json.loads(task.config)
+task = ethercat.WriteTask(internal=task)
 
 # Update task-level settings
-config["execution_rate"] = 200  # Increase to 200 Hz
-config["state_rate"] = 50       # Increase state rate
+task.config.execution_rate = 200  # Increase to 200 Hz
+task.config.state_rate = 50       # Increase state rate
 
 # Apply changes
-client.tasks.create({
-    "key": task.key,
-    "name": task.name,
-    "type": task.type,
-    "config": json.dumps(config),
-})
+client.tasks.configure(task)
 ```
 
 </Details>
