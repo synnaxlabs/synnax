@@ -27,8 +27,8 @@ namespace ethercat {
 
 std::unique_ptr<master::Manager> default_manager() {
 #ifdef __linux__
-    auto igh_mgr = std::make_unique<igh::Manager>();
-    if (!igh_mgr->enumerate().empty()) return igh_mgr;
+    auto [igh_mgr, err] = igh::Manager::open();
+    if (!err) return std::move(igh_mgr);
 #endif
     return std::make_unique<soem::Manager>();
 }
