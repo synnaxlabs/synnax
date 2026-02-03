@@ -1,0 +1,40 @@
+name: Test - SOEM
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/test.soem.yaml
+      - vendor/soem/**
+      - MODULE.bazel
+      - MODULE.bazel.lock
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - .github/workflows/test.soem.yaml
+      - vendor/soem/**
+      - MODULE.bazel
+      - MODULE.bazel.lock
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test (macOS)
+    runs-on: macos-build-bot
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: false
+          disk-cache: false
+          repository-cache: false
+
+      - name: Test
+        run: bazel test --test_output=all //vendor/soem:all
