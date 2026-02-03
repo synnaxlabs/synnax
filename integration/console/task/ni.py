@@ -112,7 +112,7 @@ class NITask(TaskPage):
             dev_name = name[:12]
         # Handle device creation modal if it appears
         sy.sleep(0.2)  # Give modal time to appear
-        if layout.check_for_modal():
+        if layout.is_modal_open():
             sy.sleep(0.2)
             layout.fill_input_field("Name", dev_name)
             layout.click_btn("Next")
@@ -121,7 +121,7 @@ class NITask(TaskPage):
             layout.click_btn("Save")
             sy.sleep(0.2)
 
-        if layout.check_for_modal():
+        if layout.is_modal_open():
             raise RuntimeError("Blocking modal is still open")
 
         # Create channel using provided class

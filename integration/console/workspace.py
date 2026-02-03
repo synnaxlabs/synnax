@@ -62,7 +62,7 @@ class WorkspaceClient:
             Tuple of (pane_locator, tab_locator, page_id)
         """
         self.layout.close_nav_drawer()
-        if random.random() < 0:
+        if random.random() < 0.5:
             return self._create_page_by_new_page_button(page_type, page_name)
         return self._create_page_by_command_palette(page_type, page_name)
 

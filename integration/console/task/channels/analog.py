@@ -176,7 +176,7 @@ class Analog:
         if value is not None:
             self.layout.fill_input_field(label, str(value))
             # Blur the input to trigger UI normalization (e.g., "4.0" -> "4")
-            self.layout.press_key("Tab")
+            self.layout.press_key("Escape")
             if track:
                 self.form_values[label] = self.layout.get_input_field(label)
         elif track:

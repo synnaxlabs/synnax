@@ -563,8 +563,6 @@ class ChannelClient(BaseClient):
     def delete(self, names: ChannelNames) -> None:
         """Deletes one or more channels via console UI."""
         normalized_names = normalize_channel_params(names)
-        if len(normalized_names.channels) != len(normalized_names.channels):
-            raise ValueError("Number of names and new names must be equal")
         for name in normalized_names.channels:
             self._delete_single_channel(str(name))
 

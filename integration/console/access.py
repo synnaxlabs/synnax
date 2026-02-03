@@ -224,7 +224,7 @@ class AccessClient(BaseClient):
         self.ctx_menu.click_option("Assign to role")
 
         # Modal should now be open - select role
-        if not self.layout.check_for_modal():
+        if not self.layout.is_modal_open():
             raise RuntimeError("Assign role modal did not open")
 
         # Click on role dropdown and select
@@ -332,7 +332,7 @@ class AccessClient(BaseClient):
         self.ctx_menu.click_option("Delete")
 
         # Confirm deletion in modal if present
-        if self.layout.check_for_modal():
+        if self.layout.is_modal_open():
             self.layout.page.get_by_role(
                 "button", name="Delete", exact=True
             ).first.click()

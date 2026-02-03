@@ -42,10 +42,6 @@ class BaseClient:
         self.notifications = NotificationsClient(layout.page)
         self.tree = Tree(layout.page)
 
-    def _wait_for_hidden(self, item: Locator) -> None:
-        """Wait for an item to be removed/hidden."""
-        item.wait_for(state="hidden", timeout=5000)
-
     def _context_menu_action(self, item: Locator, action: str) -> None:
         """Perform a context menu action on an item.
 
