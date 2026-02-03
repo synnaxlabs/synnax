@@ -10,18 +10,17 @@
 #pragma once
 
 #include <cstdint>
-#include <sstream>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
-#include "nlohmann/json.hpp"
+#include "x/cpp/xjson/xjson.h"
 
-#include "x/cpp/telem/telem.h"
+#include "driver/ethercat/pdo/pdo.h"
 
-namespace ethercat {
+namespace ethercat::slave {
+
 /// @brief EtherCAT slave application layer states as defined in ETG.1000.
-enum class SlaveState : uint8_t {
+enum class State : uint8_t {
     UNKNOWN = 0,
     INIT = 1,
     PRE_OP = 2,
@@ -30,84 +29,26 @@ enum class SlaveState : uint8_t {
     BOOT = 3
 };
 
-/// @brief converts a SlaveState enum value to its string representation.
-inline std::string slave_state_to_string(const SlaveState state) {
+/// @brief converts a slave::State enum value to its string representation.
+inline std::string slave_state_to_string(const State state) {
     switch (state) {
-        case SlaveState::INIT:
+        case State::INIT:
             return "INIT";
-        case SlaveState::PRE_OP:
+        case State::PRE_OP:
             return "PRE-OP";
-        case SlaveState::SAFE_OP:
+        case State::SAFE_OP:
             return "SAFE-OP";
-        case SlaveState::OP:
+        case State::OP:
             return "OP";
-        case SlaveState::BOOT:
+        case State::BOOT:
             return "BOOT";
         default:
             return "UNKNOWN";
     }
 }
 
-/// @brief information about a single PDO entry discovered during slave enumeration.
-struct PDOEntryInfo {
-    /// @brief parent PDO index (e.g., 0x1A00 for TxPDO, 0x1600 for RxPDO).
-    uint16_t pdo_index;
-    /// @brief object dictionary index of this entry.
-    uint16_t index;
-    /// @brief object dictionary subindex of this entry.
-    uint8_t subindex;
-    /// @brief size of the data in bits.
-    uint8_t bit_length;
-    /// @brief true for input (TxPDO), false for output (RxPDO).
-    bool is_input;
-    /// @brief human-readable name from CoE object dictionary.
-    std::string name;
-    /// @brief Synnax data type for channel creation.
-    telem::DataType data_type;
-
-    PDOEntryInfo():
-        pdo_index(0),
-        index(0),
-        subindex(0),
-        bit_length(0),
-        is_input(true),
-        data_type(telem::UINT8_T) {}
-
-    PDOEntryInfo(
-        const uint16_t pdo_index,
-        const uint16_t index,
-        const uint8_t subindex,
-        const uint8_t bit_length,
-        const bool is_input,
-        std::string name,
-        const telem::DataType &data_type
-    ):
-        pdo_index(pdo_index),
-        index(index),
-        subindex(subindex),
-        bit_length(bit_length),
-        is_input(is_input),
-        name(std::move(name)),
-        data_type(data_type) {}
-
-    /// @brief returns the size of this PDO entry in bytes (rounded up from bits).
-    [[nodiscard]] size_t byte_length() const { return (this->bit_length + 7) / 8; }
-
-    /// @brief serializes this PDO entry to JSON.
-    [[nodiscard]] nlohmann::json to_json() const {
-        return {
-            {"name", this->name},
-            {"pdo_index", this->pdo_index},
-            {"index", this->index},
-            {"subindex", this->subindex},
-            {"bit_length", this->bit_length},
-            {"data_type", this->data_type.name()}
-        };
-    }
-};
-
 /// @brief information about an EtherCAT slave device discovered on the network.
-struct SlaveInfo {
+struct Properties {
     /// @brief position of the slave on the EtherCAT bus (0-based index).
     uint16_t position;
     /// @brief EtherCAT vendor ID assigned by ETG.
@@ -121,15 +62,15 @@ struct SlaveInfo {
     /// @brief human-readable name of the slave device.
     std::string name;
     /// @brief current application layer state of the slave.
-    SlaveState state;
+    State state;
     /// @brief total input size in bits.
     uint32_t input_bits;
     /// @brief total output size in bits.
     uint32_t output_bits;
     /// @brief discovered input PDOs (TxPDO, slave→master).
-    std::vector<PDOEntryInfo> input_pdos;
+    std::vector<pdo::Properties> input_pdos;
     /// @brief discovered output PDOs (RxPDO, master→slave).
-    std::vector<PDOEntryInfo> output_pdos;
+    std::vector<pdo::Properties> output_pdos;
     /// @brief true if PDO discovery completed.
     bool pdos_discovered;
     /// @brief true if PDOs were discovered via CoE assignment objects.
@@ -137,26 +78,26 @@ struct SlaveInfo {
     /// @brief error message if PDO discovery failed (empty on success).
     std::string pdo_discovery_error;
 
-    SlaveInfo():
+    Properties():
         position(0),
         vendor_id(0),
         product_code(0),
         revision(0),
         serial(0),
-        state(SlaveState::UNKNOWN),
+        state(State::UNKNOWN),
         input_bits(0),
         output_bits(0),
         pdos_discovered(false),
         coe_pdo_order_reliable(false) {}
 
-    SlaveInfo(
+    Properties(
         const uint16_t position,
         const uint32_t vendor_id,
         const uint32_t product_code,
         const uint32_t revision,
         const uint32_t serial,
         std::string name,
-        const SlaveState state,
+        const State state,
         const uint32_t input_bits = 0,
         const uint32_t output_bits = 0
     ):
@@ -206,22 +147,4 @@ struct SlaveInfo {
     }
 };
 
-/// @brief describes a single PDO entry (object) to be exchanged cyclically.
-struct PDOEntry {
-    /// @brief position of the slave on the EtherCAT bus.
-    uint16_t slave_position = 0;
-    /// @brief index of the PDO object in the CoE object dictionary.
-    uint16_t index = 0;
-    /// @brief subindex of the PDO object.
-    uint8_t subindex = 0;
-    /// @brief size of the data in bits.
-    uint8_t bit_length = 0;
-    /// @brief true for input (TxPDO), false for output (RxPDO).
-    bool is_input = true;
-    /// @brief actual hardware data type from the PDO.
-    telem::DataType data_type = telem::UNKNOWN_T;
-
-    /// @brief returns the size of this PDO entry in bytes (rounded up from bits).
-    [[nodiscard]] size_t byte_length() const { return (bit_length + 7) / 8; }
-};
 }

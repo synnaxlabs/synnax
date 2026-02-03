@@ -83,7 +83,7 @@ TEST_F(HardwareTest, ActivatePartialIOLITE) {
 
     for (const auto &slave: slaves) {
         auto state = master->slave_state(slave.position);
-        if (state == SlaveState::OP) op_count++;
+        if (state == slave::State::OP) op_count++;
     }
 
     EXPECT_GE(op_count, EXPECTED_OP_SLAVES)
@@ -182,7 +182,7 @@ TEST_F(HardwareTest, GracefulShutdownIOLITE) {
     auto slaves = master->slaves();
     for (const auto &slave: slaves) {
         auto state = master->slave_state(slave.position);
-        EXPECT_TRUE(state == SlaveState::INIT || state == SlaveState::PRE_OP)
+        EXPECT_TRUE(state == slave::State::INIT || state == slave::State::PRE_OP)
             << "Slave " << slave.position << " in unexpected state after deactivate";
     }
 }
@@ -256,7 +256,7 @@ TEST_F(CyclicEngineHardwareTest, MultipleTasksRefCounting) {
 
 TEST_F(CyclicEngineHardwareTest, WaitForInputsWithHardware) {
     TaskRegistration reg;
-    reg.inputs.push_back(PDOEntry(1, 0x6000, 1, 8, true));
+    reg.inputs.push_back(pdo::Entry(1, 0x6000, 1, 8, true));
     auto registered = ASSERT_NIL_P(engine->register_task(reg));
     cleanup = registered.unregister;
 
@@ -291,7 +291,7 @@ TEST_F(CyclicEngineHardwareTest, SustainedCyclicExchange) {
 
 TEST_F(CyclicEngineHardwareTest, DynamicPDORegistrationWhileRunning) {
     TaskRegistration reg1;
-    reg1.inputs.push_back(PDOEntry(1, 0x6000, 1, 8, true));
+    reg1.inputs.push_back(pdo::Entry(1, 0x6000, 1, 8, true));
     auto registered1 = ASSERT_NIL_P(engine->register_task(reg1));
     EXPECT_TRUE(engine->is_running());
 
@@ -301,7 +301,7 @@ TEST_F(CyclicEngineHardwareTest, DynamicPDORegistrationWhileRunning) {
     ASSERT_NIL(engine->wait_for_inputs(buffer, stopped));
 
     TaskRegistration reg2;
-    reg2.inputs.push_back(PDOEntry(1, 0x6000, 2, 8, true));
+    reg2.inputs.push_back(pdo::Entry(1, 0x6000, 2, 8, true));
     auto registered2 = ASSERT_NIL_P(engine->register_task(reg2));
 
     EXPECT_TRUE(engine->is_running());
@@ -315,7 +315,7 @@ TEST_F(CyclicEngineHardwareTest, DynamicPDORegistrationWhileRunning) {
 
 TEST_F(CyclicEngineHardwareTest, MultipleRestartsWithHardware) {
     TaskRegistration reg1;
-    reg1.inputs.push_back(PDOEntry(1, 0x6000, 1, 8, true));
+    reg1.inputs.push_back(pdo::Entry(1, 0x6000, 1, 8, true));
     auto registered1 = ASSERT_NIL_P(engine->register_task(reg1));
 
     std::atomic<bool> stopped{false};
@@ -323,14 +323,14 @@ TEST_F(CyclicEngineHardwareTest, MultipleRestartsWithHardware) {
     ASSERT_NIL(engine->wait_for_inputs(buffer, stopped));
 
     TaskRegistration reg2;
-    reg2.inputs.push_back(PDOEntry(1, 0x6000, 2, 8, true));
+    reg2.inputs.push_back(pdo::Entry(1, 0x6000, 2, 8, true));
     auto registered2 = ASSERT_NIL_P(engine->register_task(reg2));
     EXPECT_TRUE(engine->is_running());
 
     ASSERT_NIL(engine->wait_for_inputs(buffer, stopped));
 
     TaskRegistration reg3;
-    reg3.inputs.push_back(PDOEntry(1, 0x6000, 3, 8, true));
+    reg3.inputs.push_back(pdo::Entry(1, 0x6000, 3, 8, true));
     auto registered3 = ASSERT_NIL_P(engine->register_task(reg3));
     EXPECT_TRUE(engine->is_running());
 

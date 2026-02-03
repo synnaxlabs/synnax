@@ -36,22 +36,22 @@ protected:
         return device::SlaveProperties(parser);
     }
 
-    static SlaveInfo
+    static slave::Properties
     make_slave(uint16_t position, uint32_t vendor_id, uint32_t product_code) {
-        SlaveInfo info;
+        slave::Properties info;
         info.position = position;
         info.vendor_id = vendor_id;
         info.product_code = product_code;
         info.revision = 1;
         info.serial = 0;
         info.name = "TestSlave";
-        info.state = SlaveState::PRE_OP;
+        info.state = slave::State::PRE_OP;
         return info;
     }
 };
 
 TEST_F(TopologyValidateTest, MatchingTopologyReturnsNil) {
-    std::vector<SlaveInfo> actual = {
+    std::vector<slave::Properties> actual = {
         make_slave(1, 0x00000002, 0x12345678),
         make_slave(2, 0x00000002, 0xABCDEF00),
     };
@@ -64,7 +64,7 @@ TEST_F(TopologyValidateTest, MatchingTopologyReturnsNil) {
 }
 
 TEST_F(TopologyValidateTest, MissingSlaveAtPositionReturnsMismatch) {
-    std::vector<SlaveInfo> actual = {
+    std::vector<slave::Properties> actual = {
         make_slave(1, 0x00000002, 0x12345678),
     };
 
@@ -75,7 +75,7 @@ TEST_F(TopologyValidateTest, MissingSlaveAtPositionReturnsMismatch) {
 }
 
 TEST_F(TopologyValidateTest, WrongVendorIdReturnsMismatch) {
-    std::vector<SlaveInfo> actual = {
+    std::vector<slave::Properties> actual = {
         make_slave(1, 0x00000002, 0x12345678),
     };
 
@@ -86,7 +86,7 @@ TEST_F(TopologyValidateTest, WrongVendorIdReturnsMismatch) {
 }
 
 TEST_F(TopologyValidateTest, WrongProductCodeReturnsMismatch) {
-    std::vector<SlaveInfo> actual = {
+    std::vector<slave::Properties> actual = {
         make_slave(1, 0x00000002, 0x12345678),
     };
 
@@ -97,7 +97,7 @@ TEST_F(TopologyValidateTest, WrongProductCodeReturnsMismatch) {
 }
 
 TEST_F(TopologyValidateTest, EmptyExpectedReturnsNil) {
-    std::vector<SlaveInfo> actual = {
+    std::vector<slave::Properties> actual = {
         make_slave(1, 0x00000002, 0x12345678),
     };
 
@@ -107,7 +107,7 @@ TEST_F(TopologyValidateTest, EmptyExpectedReturnsNil) {
 }
 
 TEST_F(TopologyValidateTest, MultipleDevicesAllMatchReturnsNil) {
-    std::vector<SlaveInfo> actual = {
+    std::vector<slave::Properties> actual = {
         make_slave(1, 0x00000002, 0x12345678),
         make_slave(2, 0x00000003, 0xABCDEF00),
         make_slave(3, 0x00000004, 0x11111111),

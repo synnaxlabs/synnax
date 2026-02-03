@@ -25,35 +25,12 @@
 #include "driver/ethercat/igh/api.h"
 #include "driver/ethercat/igh/ecrt.h"
 #include "driver/ethercat/master/master.h"
+#include "driver/ethercat/pdo/pdo.h"
 
 namespace ethercat::igh {
-/// @brief key for PDO offset cache lookup.
-struct PDOEntryKey {
-    uint16_t slave_position;
-    uint16_t index;
-    uint8_t subindex;
-    bool is_input;
-
-    bool operator==(const PDOEntryKey &other) const {
-        return slave_position == other.slave_position && index == other.index &&
-               subindex == other.subindex && is_input == other.is_input;
-    }
-};
-
-/// @brief hash function for PDOEntryKey.
-struct PDOEntryKeyHash {
-    size_t operator()(const PDOEntryKey &key) const {
-        return std::hash<uint64_t>()(
-            (static_cast<uint64_t>(key.slave_position) << 32) |
-            (static_cast<uint64_t>(key.index) << 16) |
-            (static_cast<uint64_t>(key.subindex) << 8) |
-            static_cast<uint64_t>(key.is_input)
-        );
-    }
-};
 
 /// @brief IgH EtherLab implementation of the Master interface.
-class Master final : public ethercat::master::Master {
+class Master final : public master::Master {
     /// @brief API wrapper for dynamic library loading.
     std::shared_ptr<API> api;
     /// @brief IgH master index (typically 0, configured in /etc/ethercat.conf).
@@ -76,10 +53,9 @@ class Master final : public ethercat::master::Master {
     /// @brief output size in bytes (RxPDO, master→slave).
     size_t output_sz;
     /// @brief cached PDO offsets computed during activation.
-    std::unordered_map<PDOEntryKey, master::PDOOffset, PDOEntryKeyHash>
-        pdo_offset_cache;
+    pdo::Offsets pdo_offsets;
     /// @brief cached slave information populated during initialization.
-    std::vector<SlaveInfo> cached_slaves;
+    std::vector<slave::Properties> cached_slaves;
     /// @brief lazily configured slave handles (position -> slave_config).
     std::unordered_map<uint16_t, ec_slave_config_t *> slave_configs;
     /// @brief slaves that are disabled (excluded from cyclic exchange).
@@ -106,7 +82,7 @@ public:
 
     xerrors::Error initialize() override;
 
-    xerrors::Error register_pdos(const std::vector<PDOEntry> &entries) override;
+    xerrors::Error register_pdos(const std::vector<pdo::Entry> &entries) override;
 
     void set_slave_enabled(uint16_t position, bool enabled) override;
 
@@ -122,11 +98,11 @@ public:
 
     std::span<uint8_t> output_data() override;
 
-    master::PDOOffset pdo_offset(const PDOEntry &entry) const override;
+    pdo::Offset pdo_offset(const pdo::Entry &entry) const override;
 
-    std::vector<SlaveInfo> slaves() const override;
+    std::vector<slave::Properties> slaves() const override;
 
-    SlaveState slave_state(uint16_t position) const override;
+    slave::State slave_state(uint16_t position) const override;
 
     bool all_slaves_operational() const override;
 
@@ -136,17 +112,17 @@ public:
     ec_slave_config_t *get_or_create_slave_config(uint16_t position);
 
     /// @brief registers a PDO entry for cyclic exchange.
-    std::pair<size_t, xerrors::Error> register_pdo(const PDOEntry &entry);
+    std::pair<size_t, xerrors::Error> register_pdo(const pdo::Entry &entry);
 
 private:
-    /// @brief converts IgH slave state to our SlaveState enum.
-    static SlaveState convert_state(uint8_t igh_state);
+    /// @brief converts IgH slave state to our slave::State enum.
+    static slave::State convert_state(uint8_t igh_state);
 
     /// @brief discovers PDO entries for a slave and populates its PDO lists.
-    void discover_slave_pdos(SlaveInfo &slave);
+    void discover_slave_pdos(slave::Properties &slave);
 
     /// @brief configures the PDO mapping for a slave based on discovered PDOs.
-    void configure_slave_pdos(ec_slave_config_t *sc, const SlaveInfo &slave);
+    void configure_slave_pdos(ec_slave_config_t *sc, const slave::Properties &slave);
 
     /// @brief reads the name of a PDO entry from the slave's object dictionary.
     std::string

@@ -87,7 +87,8 @@ public:
     }
 
     /// @brief returns cached slave information from a key's mock master.
-    [[nodiscard]] std::vector<SlaveInfo> get_slaves(const std::string &key) const {
+    [[nodiscard]] std::vector<slave::Properties>
+    get_slaves(const std::string &key) const {
         std::lock_guard lock(this->mu);
         auto it = this->masters.find(key);
         if (it != this->masters.end()) return it->second->slaves();

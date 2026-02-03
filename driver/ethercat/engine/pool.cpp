@@ -41,14 +41,14 @@ bool Pool::is_active(const std::string &key) const {
     return it != this->engines.end() && it->second->running();
 }
 
-std::vector<SlaveInfo> Pool::get_slaves(const std::string &key) const {
+std::vector<slave::Properties> Pool::get_slaves(const std::string &key) const {
     std::lock_guard lock(this->mu);
     const auto it = this->engines.find(key);
     if (it != this->engines.end()) return it->second->slaves();
     return {};
 }
 
-std::pair<std::vector<SlaveInfo>, xerrors::Error>
+std::pair<std::vector<slave::Properties>, xerrors::Error>
 Pool::discover_slaves(const std::string &key) {
     std::lock_guard lock(this->mu);
     auto [engine, err] = this->acquire_unlocked(key);

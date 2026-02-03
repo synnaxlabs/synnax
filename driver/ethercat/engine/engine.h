@@ -41,8 +41,8 @@ class Engine {
 
     struct Registration {
         size_t id;
-        std::vector<PDOEntry> entries;
-        std::vector<master::PDOOffset> offsets;
+        std::vector<pdo::Entry> entries;
+        std::vector<pdo::Offset> offsets;
         telem::Rate rate;
     };
 
@@ -96,7 +96,7 @@ class Engine {
 public:
     /// @brief resolved PDO entry with offset and type information.
     struct ResolvedPDO {
-        master::PDOOffset offset;
+        pdo::Offset offset;
         telem::DataType data_type;
         uint8_t bit_length;
     };
@@ -185,11 +185,11 @@ public:
 
     /// @brief opens a new Reader for the specified PDO entries.
     [[nodiscard]] std::pair<std::unique_ptr<Reader>, xerrors::Error>
-    open_reader(const std::vector<PDOEntry> &entries, telem::Rate sample_rate);
+    open_reader(const std::vector<pdo::Entry> &entries, telem::Rate sample_rate);
 
     /// @brief opens a new Writer for the specified PDO entries.
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, xerrors::Error>
-    open_writer(const std::vector<PDOEntry> &entries, telem::Rate execution_rate);
+    open_writer(const std::vector<pdo::Entry> &entries, telem::Rate execution_rate);
 
     /// @brief returns true if the engine is running.
     bool running() const { return this->breaker.running(); }
@@ -204,7 +204,7 @@ public:
     [[nodiscard]] xerrors::Error ensure_initialized() const;
 
     /// @brief returns discovered slaves.
-    [[nodiscard]] std::vector<SlaveInfo> slaves() const;
+    [[nodiscard]] std::vector<slave::Properties> slaves() const;
 
     /// @brief returns the interface name.
     [[nodiscard]] std::string interface_name() const;

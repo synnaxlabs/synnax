@@ -22,7 +22,7 @@ namespace {
 std::string get_pdo_error_guidance(const std::string &error) {
     if (error.find("CoE") != std::string::npos ||
         error.find("mailbox") != std::string::npos)
-        return "Use manual channel configuration with explicit index/subindex values.";
+        return "Use manual channel configuration with explicit index/sub_index values.";
     if (error.find("SII") != std::string::npos ||
         error.find("fallback") != std::string::npos)
         return "PDO order may be unreliable. Verify data correctness after configuration.";
@@ -116,7 +116,7 @@ bool Scanner::exec(
 }
 
 synnax::Device Scanner::create_slave_device(
-    const SlaveInfo &slave,
+    const slave::Properties &slave,
     const std::string &master_key,
     const common::ScannerContext &scan_ctx
 ) const {
@@ -187,8 +187,10 @@ nlohmann::json Scanner::get_existing_properties(
     } catch (const nlohmann::json::parse_error &) { return nlohmann::json::object(); }
 }
 
-std::string
-Scanner::generate_slave_key(const SlaveInfo &slave, const std::string &master_key) {
+std::string Scanner::generate_slave_key(
+    const slave::Properties &slave,
+    const std::string &master_key
+) {
     if (slave.serial != 0)
         return "ethercat_" + std::to_string(slave.vendor_id) + "_" +
                std::to_string(slave.product_code) + "_" + std::to_string(slave.serial);

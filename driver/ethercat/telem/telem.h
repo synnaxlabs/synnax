@@ -135,7 +135,7 @@ map_ethercat_to_synnax(const ECDataType ec_type, const uint8_t bit_length) {
 inline std::string generate_pdo_entry_name(
     const std::string &coe_name,
     const uint16_t index,
-    const uint8_t subindex,
+    const uint8_t sub_index,
     const bool is_input,
     const telem::DataType &data_type
 ) {
@@ -144,15 +144,16 @@ inline std::string generate_pdo_entry_name(
     std::ostringstream ss;
     ss << (is_input ? "Input" : "Output") << " (" << data_type.name() << ") 0x"
        << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << index
-       << ":" << std::setw(2) << static_cast<int>(subindex);
+       << ":" << std::setw(2) << static_cast<int>(sub_index);
     return ss.str();
 }
 
-/// @brief formats an index:subindex pair as a hex string (e.g., "0x6000:01").
-inline std::string format_index_subindex(const uint16_t index, const uint8_t subindex) {
+/// @brief formats an index:sub_index pair as a hex string (e.g., "0x6000:01").
+inline std::string
+format_index_sub_index(const uint16_t index, const uint8_t sub_index) {
     std::ostringstream ss;
     ss << "0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4)
-       << index << ":" << std::setw(2) << static_cast<int>(subindex);
+       << index << ":" << std::setw(2) << static_cast<int>(sub_index);
     return ss.str();
 }
 

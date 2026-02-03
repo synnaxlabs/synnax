@@ -20,7 +20,7 @@
 #include "x/cpp/xjson/xjson.h"
 
 #include "driver/ethercat/device/device.h"
-#include "driver/ethercat/master/slave_info.h"
+#include "driver/ethercat/slave/slave.h"
 
 namespace ethercat::channel {
 /// @brief base class for EtherCAT PDO channel configurations.
@@ -33,8 +33,8 @@ struct Channel {
     uint16_t slave_position;
     /// @brief index of the PDO object in the CoE object dictionary (e.g., 0x6000).
     uint16_t index;
-    /// @brief subindex of the PDO object.
-    uint8_t subindex;
+    /// @brief sub_index of the PDO object.
+    uint8_t sub_index;
     /// @brief size of the data in bits.
     uint8_t bit_length;
     /// @brief data type of the PDO.
@@ -45,12 +45,12 @@ struct Channel {
     /// @brief returns the byte length rounded up from bit_length.
     [[nodiscard]] size_t byte_length() const { return (this->bit_length + 7) / 8; }
 
-    /// @brief converts this channel configuration to a PDOEntry.
-    [[nodiscard]] PDOEntry to_pdo_entry(const bool is_input) const {
+    /// @brief converts this channel configuration to a pdo::Entry.
+    [[nodiscard]] pdo::Entry to_pdo_entry(const bool is_input) const {
         return {
             this->slave_position,
             this->index,
-            this->subindex,
+            this->sub_index,
             this->bit_length,
             is_input,
             this->data_type
@@ -63,7 +63,7 @@ protected:
         device_key(parser.field<std::string>("device")),
         slave_position(slave.position),
         index(0),
-        subindex(0),
+        sub_index(0),
         bit_length(0),
         data_type(telem::UNKNOWN_T) {}
 };
@@ -103,7 +103,7 @@ struct AutomaticInput final : Input {
             return;
         }
         this->index = pdo->index;
-        this->subindex = pdo->subindex;
+        this->sub_index = pdo->sub_index;
         this->bit_length = pdo->bit_length;
         this->data_type = telem::DataType(pdo->data_type);
     }
@@ -114,7 +114,7 @@ struct ManualInput final : Input {
     explicit ManualInput(xjson::Parser &parser, const device::SlaveProperties &slave):
         Channel(parser, slave), Input(parser, slave) {
         this->index = static_cast<uint16_t>(parser.field<int>("index"));
-        this->subindex = static_cast<uint8_t>(parser.field<int>("subindex"));
+        this->sub_index = static_cast<uint8_t>(parser.field<int>("sub_index"));
         this->bit_length = static_cast<uint8_t>(parser.field<int>("bit_length"));
         this->data_type = telem::DataType(parser.field<std::string>("data_type"));
     }
@@ -182,7 +182,7 @@ struct AutomaticOutput final : Output {
             return;
         }
         this->index = pdo->index;
-        this->subindex = pdo->subindex;
+        this->sub_index = pdo->sub_index;
         this->bit_length = pdo->bit_length;
         this->data_type = telem::DataType(pdo->data_type);
     }
@@ -193,7 +193,7 @@ struct ManualOutput final : Output {
     explicit ManualOutput(xjson::Parser &parser, const device::SlaveProperties &slave):
         Channel(parser, slave), Output(parser, slave) {
         this->index = static_cast<uint16_t>(parser.field<int>("index"));
-        this->subindex = static_cast<uint8_t>(parser.field<int>("subindex"));
+        this->sub_index = static_cast<uint8_t>(parser.field<int>("sub_index"));
         this->bit_length = static_cast<uint8_t>(parser.field<int>("bit_length"));
         this->data_type = telem::DataType(parser.field<std::string>("data_type"));
     }

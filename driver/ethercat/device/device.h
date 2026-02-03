@@ -24,8 +24,8 @@ struct PDOInfo {
     std::string name;
     /// @brief CoE object dictionary index (e.g., 0x6000).
     uint16_t index;
-    /// @brief CoE object dictionary subindex.
-    uint8_t subindex;
+    /// @brief CoE object dictionary sub_index.
+    uint8_t sub_index;
     /// @brief size of the data in bits.
     uint8_t bit_length;
     /// @brief data type string (e.g., "uint16", "float32").
@@ -34,7 +34,7 @@ struct PDOInfo {
     explicit PDOInfo(xjson::Parser &parser):
         name(parser.field<std::string>("name")),
         index(static_cast<uint16_t>(parser.field<int>("index"))),
-        subindex(static_cast<uint8_t>(parser.field<int>("subindex"))),
+        sub_index(static_cast<uint8_t>(parser.field<int>("sub_index"))),
         bit_length(static_cast<uint8_t>(parser.field<int>("bit_length"))),
         data_type(parser.field<std::string>("data_type")) {}
 };

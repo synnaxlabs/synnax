@@ -30,7 +30,7 @@ protected:
 
 TEST_F(EngineTest, OpenReaderReturnsCorrectSize) {
     auto reader = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 1, 16, true)},
+        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true)},
         telem::Rate(100)
     ));
     EXPECT_EQ(reader->size(), 2);
@@ -38,7 +38,7 @@ TEST_F(EngineTest, OpenReaderReturnsCorrectSize) {
 
 TEST_F(EngineTest, OpenWriterSucceeds) {
     auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::PDOEntry(0, 0x7000, 1, 16, false)},
+        {ethercat::pdo::Entry(0, 0x7000, 1, 16, false)},
         telem::Rate(100)
     ));
     writer->write(0, static_cast<uint16_t>(0x1234));
@@ -46,8 +46,8 @@ TEST_F(EngineTest, OpenWriterSucceeds) {
 
 TEST_F(EngineTest, OpenReaderWithMultiplePDOs) {
     auto reader = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 1, 16, true),
-         ethercat::PDOEntry(0, 0x6000, 2, 32, true)},
+        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true),
+         ethercat::pdo::Entry(0, 0x6000, 2, 32, true)},
         telem::Rate(100)
     ));
     EXPECT_EQ(reader->size(), 6);
@@ -55,7 +55,7 @@ TEST_F(EngineTest, OpenReaderWithMultiplePDOs) {
 
 TEST_F(EngineTest, ReadReturnsData) {
     auto reader = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 1, 16, true)},
+        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true)},
         telem::Rate(100)
     ));
 
@@ -69,7 +69,7 @@ TEST_F(EngineTest, ReadReturnsData) {
 
 TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
     auto reader = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 1, 16, true)},
+        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true)},
         telem::Rate(100)
     ));
 
@@ -80,7 +80,7 @@ TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
 
 TEST_F(EngineTest, WriteSucceeds) {
     auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::PDOEntry(0, 0x7000, 1, 16, false)},
+        {ethercat::pdo::Entry(0, 0x7000, 1, 16, false)},
         telem::Rate(100)
     ));
     writer->write(0, static_cast<uint16_t>(0x1234));
@@ -110,12 +110,12 @@ TEST_F(EngineTest, ActivateErrorPropagates) {
 
 TEST_F(EngineTest, MultipleReadersCanRead) {
     auto reader1 = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 1, 16, true)},
+        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true)},
         telem::Rate(100)
     ));
 
     auto reader2 = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 2, 32, true)},
+        {ethercat::pdo::Entry(0, 0x6000, 2, 32, true)},
         telem::Rate(100)
     ));
 
@@ -139,8 +139,8 @@ TEST_F(EngineTest, MultipleSlavesPDORegistration) {
     auto multi_engine = std::make_shared<ethercat::engine::Engine>(multi_master);
 
     auto reader = ASSERT_NIL_P(multi_engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 1, 16, true),
-         ethercat::PDOEntry(1, 0x6000, 1, 32, true)},
+        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true),
+         ethercat::pdo::Entry(1, 0x6000, 1, 32, true)},
         telem::Rate(100)
     ));
 
@@ -149,12 +149,12 @@ TEST_F(EngineTest, MultipleSlavesPDORegistration) {
 
 TEST_F(EngineTest, MixedReadersAndWriters) {
     auto reader = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 1, 16, true)},
+        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true)},
         telem::Rate(100)
     ));
 
     auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::PDOEntry(0, 0x7000, 1, 16, false)},
+        {ethercat::pdo::Entry(0, 0x7000, 1, 16, false)},
         telem::Rate(100)
     ));
 
@@ -169,7 +169,7 @@ TEST_F(EngineTest, MixedReadersAndWriters) {
 
 TEST_F(EngineTest, ReadAfterReconfigure) {
     auto reader1 = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 1, 16, true)},
+        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true)},
         telem::Rate(100)
     ));
 
@@ -180,7 +180,7 @@ TEST_F(EngineTest, ReadAfterReconfigure) {
     ASSERT_NIL(reader1->read(brk, frame1));
 
     auto reader2 = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 2, 32, true)},
+        {ethercat::pdo::Entry(0, 0x6000, 2, 32, true)},
         telem::Rate(100)
     ));
 
@@ -193,7 +193,7 @@ TEST_F(EngineTest, ReadAfterReconfigure) {
 
 TEST_F(EngineTest, WriteTypeConversionFloatToInt16) {
     auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::PDOEntry(0, 0x7000, 1, 16, false, telem::INT16_T)},
+        {ethercat::pdo::Entry(0, 0x7000, 1, 16, false, telem::INT16_T)},
         telem::Rate(100)
     ));
     writer->write(0, 42.7f);
@@ -205,7 +205,7 @@ TEST_F(EngineTest, WriteTypeConversionFloatToInt16) {
 
 TEST_F(EngineTest, WriteTypeConversionInt64ToInt32) {
     auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::PDOEntry(0, 0x7000, 1, 32, false, telem::INT32_T)},
+        {ethercat::pdo::Entry(0, 0x7000, 1, 32, false, telem::INT32_T)},
         telem::Rate(100)
     ));
     writer->write(0, static_cast<int64_t>(0x12345678));
@@ -217,7 +217,7 @@ TEST_F(EngineTest, WriteTypeConversionInt64ToInt32) {
 
 TEST_F(EngineTest, WriteSubByteSingleByte) {
     auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::PDOEntry(0, 0x7000, 1, 4, false, telem::UINT8_T)},
+        {ethercat::pdo::Entry(0, 0x7000, 1, 4, false, telem::UINT8_T)},
         telem::Rate(100)
     ));
     writer->write(0, static_cast<uint8_t>(0x0F));
@@ -229,7 +229,7 @@ TEST_F(EngineTest, WriteSubByteSingleByte) {
 
 TEST_F(EngineTest, Write24BitNoOffset) {
     auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::PDOEntry(0, 0x7000, 1, 24, false, telem::INT32_T)},
+        {ethercat::pdo::Entry(0, 0x7000, 1, 24, false, telem::INT32_T)},
         telem::Rate(100)
     ));
     writer->write(0, static_cast<int32_t>(0x123456));
@@ -243,7 +243,7 @@ TEST_F(EngineTest, Write24BitNoOffset) {
 
 TEST_F(EngineTest, Write24BitSignedNegative) {
     auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::PDOEntry(0, 0x7000, 1, 24, false, telem::INT32_T)},
+        {ethercat::pdo::Entry(0, 0x7000, 1, 24, false, telem::INT32_T)},
         telem::Rate(100)
     ));
     writer->write(0, static_cast<int32_t>(-1));
@@ -270,10 +270,10 @@ protected:
 };
 
 TEST_F(EngineReadValueTest, ReadValueInt16) {
-    ethercat::PDOEntryInfo pdo_info;
+    ethercat::pdo::Properties pdo_info;
     pdo_info.pdo_index = 0x1A00;
     pdo_info.index = 0x6000;
-    pdo_info.subindex = 1;
+    pdo_info.sub_index = 1;
     pdo_info.bit_length = 16;
     pdo_info.is_input = true;
     pdo_info.name = "status_word";
@@ -286,7 +286,7 @@ TEST_F(EngineReadValueTest, ReadValueInt16) {
     this->create_engine();
 
     auto reader = ASSERT_NIL_P(this->engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 1, 16, true, telem::INT16_T)},
+        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true, telem::INT16_T)},
         telem::Rate(100)
     ));
 
@@ -303,10 +303,10 @@ TEST_F(EngineReadValueTest, ReadValueInt16) {
 }
 
 TEST_F(EngineReadValueTest, ReadValueInt32) {
-    ethercat::PDOEntryInfo pdo_info;
+    ethercat::pdo::Properties pdo_info;
     pdo_info.pdo_index = 0x1A00;
     pdo_info.index = 0x6000;
-    pdo_info.subindex = 1;
+    pdo_info.sub_index = 1;
     pdo_info.bit_length = 32;
     pdo_info.is_input = true;
     pdo_info.name = "position";
@@ -319,7 +319,7 @@ TEST_F(EngineReadValueTest, ReadValueInt32) {
     this->create_engine();
 
     auto reader = ASSERT_NIL_P(this->engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 1, 32, true, telem::INT32_T)},
+        {ethercat::pdo::Entry(0, 0x6000, 1, 32, true, telem::INT32_T)},
         telem::Rate(100)
     ));
 
@@ -336,19 +336,19 @@ TEST_F(EngineReadValueTest, ReadValueInt32) {
 }
 
 TEST_F(EngineReadValueTest, ReadValueMultiplePDOs) {
-    ethercat::PDOEntryInfo pdo1;
+    ethercat::pdo::Properties pdo1;
     pdo1.pdo_index = 0x1A00;
     pdo1.index = 0x6000;
-    pdo1.subindex = 1;
+    pdo1.sub_index = 1;
     pdo1.bit_length = 16;
     pdo1.is_input = true;
     pdo1.name = "status_word";
     pdo1.data_type = telem::INT16_T;
 
-    ethercat::PDOEntryInfo pdo2;
+    ethercat::pdo::Properties pdo2;
     pdo2.pdo_index = 0x1A00;
     pdo2.index = 0x6000;
-    pdo2.subindex = 2;
+    pdo2.sub_index = 2;
     pdo2.bit_length = 32;
     pdo2.is_input = true;
     pdo2.name = "position";
@@ -361,8 +361,8 @@ TEST_F(EngineReadValueTest, ReadValueMultiplePDOs) {
     this->create_engine();
 
     auto reader = ASSERT_NIL_P(this->engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 1, 16, true, telem::INT16_T),
-         ethercat::PDOEntry(0, 0x6000, 2, 32, true, telem::INT32_T)},
+        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true, telem::INT16_T),
+         ethercat::pdo::Entry(0, 0x6000, 2, 32, true, telem::INT32_T)},
         telem::Rate(100)
     ));
 
@@ -384,10 +384,10 @@ TEST_F(EngineReadValueTest, ReadValueMultiplePDOs) {
 }
 
 TEST_F(EngineReadValueTest, ReadValue24BitPositive) {
-    ethercat::PDOEntryInfo pdo_info;
+    ethercat::pdo::Properties pdo_info;
     pdo_info.pdo_index = 0x1A00;
     pdo_info.index = 0x6000;
-    pdo_info.subindex = 1;
+    pdo_info.sub_index = 1;
     pdo_info.bit_length = 24;
     pdo_info.is_input = true;
     pdo_info.name = "position_24bit";
@@ -400,7 +400,7 @@ TEST_F(EngineReadValueTest, ReadValue24BitPositive) {
     this->create_engine();
 
     auto reader = ASSERT_NIL_P(this->engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 1, 24, true, telem::INT32_T)},
+        {ethercat::pdo::Entry(0, 0x6000, 1, 24, true, telem::INT32_T)},
         telem::Rate(100)
     ));
 
@@ -419,10 +419,10 @@ TEST_F(EngineReadValueTest, ReadValue24BitPositive) {
 }
 
 TEST_F(EngineReadValueTest, ReadValue24BitNegative) {
-    ethercat::PDOEntryInfo pdo_info;
+    ethercat::pdo::Properties pdo_info;
     pdo_info.pdo_index = 0x1A00;
     pdo_info.index = 0x6000;
-    pdo_info.subindex = 1;
+    pdo_info.sub_index = 1;
     pdo_info.bit_length = 24;
     pdo_info.is_input = true;
     pdo_info.name = "position_24bit";
@@ -435,7 +435,7 @@ TEST_F(EngineReadValueTest, ReadValue24BitNegative) {
     this->create_engine();
 
     auto reader = ASSERT_NIL_P(this->engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 1, 24, true, telem::INT32_T)},
+        {ethercat::pdo::Entry(0, 0x6000, 1, 24, true, telem::INT32_T)},
         telem::Rate(100)
     ));
 
@@ -454,10 +454,10 @@ TEST_F(EngineReadValueTest, ReadValue24BitNegative) {
 }
 
 TEST_F(EngineReadValueTest, ReadValueSubByte4Bit) {
-    ethercat::PDOEntryInfo pdo_info;
+    ethercat::pdo::Properties pdo_info;
     pdo_info.pdo_index = 0x1A00;
     pdo_info.index = 0x6000;
-    pdo_info.subindex = 1;
+    pdo_info.sub_index = 1;
     pdo_info.bit_length = 4;
     pdo_info.is_input = true;
     pdo_info.name = "nibble";
@@ -470,7 +470,7 @@ TEST_F(EngineReadValueTest, ReadValueSubByte4Bit) {
     this->create_engine();
 
     auto reader = ASSERT_NIL_P(this->engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 1, 4, true, telem::UINT8_T)},
+        {ethercat::pdo::Entry(0, 0x6000, 1, 4, true, telem::UINT8_T)},
         telem::Rate(100)
     ));
 
@@ -537,7 +537,7 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
 
     auto engine = ASSERT_NIL_P(pool.acquire("eth0"));
     auto reader = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::PDOEntry(0, 0x6000, 1, 16, true)},
+        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true)},
         telem::Rate(100)
     ));
 

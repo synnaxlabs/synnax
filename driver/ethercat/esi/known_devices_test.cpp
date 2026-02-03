@@ -15,7 +15,7 @@ namespace ethercat::esi {
 
 class KnownDevicesTest : public ::testing::Test {
 protected:
-    SlaveInfo slave;
+    slave::Properties slave;
 };
 
 TEST_F(KnownDevicesTest, LookupUnknownDeviceReturnsFalse) {
@@ -38,7 +38,7 @@ TEST_F(KnownDevicesTest, VendorNameReturnsNulloptForUnknown) {
 class BeckhoffDevicesTest : public ::testing::Test {
 protected:
     static constexpr uint32_t BECKHOFF_VENDOR_ID = 0x00000002;
-    SlaveInfo slave;
+    slave::Properties slave;
 };
 
 TEST_F(BeckhoffDevicesTest, VendorNameReturnsBeckhoff) {
@@ -51,7 +51,7 @@ TEST_F(BeckhoffDevicesTest, VendorNameReturnsBeckhoff) {
 class DEWESoftDevicesTest : public ::testing::Test {
 protected:
     static constexpr uint32_t DEWESOFT_VENDOR_ID = 0xDEBE50F7;
-    SlaveInfo slave;
+    slave::Properties slave;
 };
 
 TEST_F(DEWESoftDevicesTest, VendorNameReturnsDEWESoft) {

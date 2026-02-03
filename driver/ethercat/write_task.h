@@ -157,7 +157,7 @@ public:
             ))
             return err;
 
-        std::vector<PDOEntry> entries;
+        std::vector<pdo::Entry> entries;
         entries.reserve(this->cfg.channels.size());
         for (const auto &ch: this->cfg.channels)
             entries.push_back(ch->to_pdo_entry(false));

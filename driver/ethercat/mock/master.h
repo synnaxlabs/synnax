@@ -20,31 +20,6 @@
 #include "driver/ethercat/master/master.h"
 
 namespace ethercat::mock {
-/// @brief key for PDO offset cache lookup.
-struct PDOEntryKey {
-    uint16_t slave_position;
-    uint16_t index;
-    uint8_t subindex;
-    bool is_input;
-
-    bool operator==(const PDOEntryKey &other) const {
-        return slave_position == other.slave_position && index == other.index &&
-               subindex == other.subindex && is_input == other.is_input;
-    }
-};
-
-/// @brief hash function for PDOEntryKey.
-struct PDOEntryKeyHash {
-    size_t operator()(const PDOEntryKey &key) const {
-        return std::hash<uint64_t>()(
-            (static_cast<uint64_t>(key.slave_position) << 32) |
-            (static_cast<uint64_t>(key.index) << 16) |
-            (static_cast<uint64_t>(key.subindex) << 8) |
-            static_cast<uint64_t>(key.is_input)
-        );
-    }
-};
-
 /// @brief configuration for a simulated slave device.
 struct MockSlaveConfig {
     uint16_t position;
@@ -53,8 +28,8 @@ struct MockSlaveConfig {
     uint32_t revision;
     uint32_t serial;
     std::string name;
-    std::vector<PDOEntryInfo> input_pdos;
-    std::vector<PDOEntryInfo> output_pdos;
+    std::vector<pdo::Properties> input_pdos;
+    std::vector<pdo::Properties> output_pdos;
     bool pdos_discovered;
     std::string pdo_discovery_error;
 
@@ -87,13 +62,13 @@ struct MockSlaveConfig {
         name(std::move(name)),
         pdos_discovered(false) {}
 
-    MockSlaveConfig &with_input_pdos(std::vector<PDOEntryInfo> pdos) {
+    MockSlaveConfig &with_input_pdos(std::vector<pdo::Properties> pdos) {
         this->input_pdos = std::move(pdos);
         this->pdos_discovered = true;
         return *this;
     }
 
-    MockSlaveConfig &with_output_pdos(std::vector<PDOEntryInfo> pdos) {
+    MockSlaveConfig &with_output_pdos(std::vector<pdo::Properties> pdos) {
         this->output_pdos = std::move(pdos);
         this->pdos_discovered = true;
         return *this;
@@ -108,10 +83,9 @@ struct MockSlaveConfig {
 /// @brief mock implementation of Master for testing without real hardware.
 class Master final : public ethercat::master::Master {
     std::string iface_name;
-    std::vector<SlaveInfo> slave_list;
-    std::unordered_map<uint16_t, SlaveState> slave_states;
-    std::unordered_map<PDOEntryKey, master::PDOOffset, PDOEntryKeyHash>
-        pdo_offset_cache;
+    std::vector<slave::Properties> slave_list;
+    std::unordered_map<uint16_t, slave::State> slave_states;
+    std::unordered_map<pdo::Key, pdo::Offset, pdo::KeyHash> pdo_offset_cache;
     bool initialized;
     bool activated;
     mutable std::mutex mu;
@@ -121,7 +95,7 @@ class Master final : public ethercat::master::Master {
     xerrors::Error inject_receive_err;
     xerrors::Error inject_send_err;
 
-    std::unordered_map<uint16_t, SlaveState> state_transition_failures;
+    std::unordered_map<uint16_t, slave::State> state_transition_failures;
 
     std::vector<uint8_t> input_iomap;
     std::vector<uint8_t> output_iomap;
@@ -129,7 +103,7 @@ class Master final : public ethercat::master::Master {
     size_t output_sz;
     std::vector<std::string> calls;
     size_t init_calls;
-    std::vector<PDOEntry> registered_pdos;
+    std::vector<pdo::Entry> registered_pdos;
 
 public:
     explicit Master(std::string interface_name = "mock0"):
@@ -142,21 +116,21 @@ public:
 
     /// @brief adds a simulated slave to the mock master.
     void add_slave(const MockSlaveConfig &config) {
-        SlaveInfo slave(
+        slave::Properties slave(
             config.position,
             config.vendor_id,
             config.product_code,
             config.revision,
             config.serial,
             config.name,
-            SlaveState::INIT
+            slave::State::INIT
         );
         slave.input_pdos = config.input_pdos;
         slave.output_pdos = config.output_pdos;
         slave.pdos_discovered = config.pdos_discovered;
         slave.pdo_discovery_error = config.pdo_discovery_error;
         this->slave_list.push_back(std::move(slave));
-        this->slave_states[config.position] = SlaveState::INIT;
+        this->slave_states[config.position] = slave::State::INIT;
     }
 
     /// @brief injects an error to be returned by initialize().
@@ -185,12 +159,12 @@ public:
 
     /// @brief sets a slave to fail state transition to the given target state.
     void
-    set_slave_transition_failure(const uint16_t position, const SlaveState target) {
+    set_slave_transition_failure(const uint16_t position, const slave::State target) {
         this->state_transition_failures[position] = target;
     }
 
     /// @brief directly sets the state of a specific slave.
-    void set_slave_state(const uint16_t position, const SlaveState state) {
+    void set_slave_state(const uint16_t position, const slave::State state) {
         std::lock_guard lock(this->mu);
         this->slave_states[position] = state;
         for (auto &slave: this->slave_list)
@@ -218,7 +192,7 @@ public:
         return xerrors::NIL;
     }
 
-    xerrors::Error register_pdos(const std::vector<PDOEntry> &entries) override {
+    xerrors::Error register_pdos(const std::vector<pdo::Entry> &entries) override {
         std::lock_guard lock(this->mu);
         this->calls.push_back("register_pdos");
         this->registered_pdos = entries;
@@ -259,18 +233,18 @@ public:
         for (auto &[pos, state]: this->slave_states) {
             auto it = this->state_transition_failures.find(pos);
             if (it != this->state_transition_failures.end() &&
-                it->second == SlaveState::OP)
-                state = SlaveState::SAFE_OP;
+                it->second == slave::State::OP)
+                state = slave::State::SAFE_OP;
             else
-                state = SlaveState::OP;
+                state = slave::State::OP;
         }
         for (auto &slave: this->slave_list) {
             auto it = this->state_transition_failures.find(slave.position);
             if (it != this->state_transition_failures.end() &&
-                it->second == SlaveState::OP)
-                slave.state = SlaveState::SAFE_OP;
+                it->second == slave::State::OP)
+                slave.state = slave::State::SAFE_OP;
             else
-                slave.state = SlaveState::OP;
+                slave.state = slave::State::OP;
         }
         return xerrors::NIL;
     }
@@ -285,9 +259,9 @@ public:
         this->input_sz = 0;
         this->output_sz = 0;
         for (auto &[pos, state]: this->slave_states)
-            state = SlaveState::INIT;
+            state = slave::State::INIT;
         for (auto &slave: this->slave_list)
-            slave.state = SlaveState::INIT;
+            slave.state = slave::State::INIT;
     }
 
     xerrors::Error receive() override {
@@ -314,12 +288,12 @@ public:
         return {this->output_iomap.data(), this->output_sz};
     }
 
-    master::PDOOffset pdo_offset(const PDOEntry &entry) const override {
+    pdo::Offset pdo_offset(const pdo::Entry &entry) const override {
         std::lock_guard lock(this->mu);
-        PDOEntryKey key{
+        pdo::Key key{
             entry.slave_position,
             entry.index,
-            entry.subindex,
+            entry.sub_index,
             entry.is_input
         };
         auto it = this->pdo_offset_cache.find(key);
@@ -327,22 +301,22 @@ public:
         return {};
     }
 
-    std::vector<SlaveInfo> slaves() const override {
+    std::vector<slave::Properties> slaves() const override {
         std::lock_guard lock(this->mu);
         return this->slave_list;
     }
 
-    SlaveState slave_state(const uint16_t position) const override {
+    slave::State slave_state(const uint16_t position) const override {
         std::lock_guard lock(this->mu);
         const auto it = this->slave_states.find(position);
-        if (it == this->slave_states.end()) return SlaveState::UNKNOWN;
+        if (it == this->slave_states.end()) return slave::State::UNKNOWN;
         return it->second;
     }
 
     bool all_slaves_operational() const override {
         std::lock_guard lock(this->mu);
         for (const auto &[pos, state]: this->slave_states)
-            if (state != SlaveState::OP) return false;
+            if (state != slave::State::OP) return false;
         return !this->slave_states.empty();
     }
 
@@ -367,7 +341,7 @@ public:
     }
 
     /// @brief checks if any slaves have the given state.
-    bool has_slave_in_state(const SlaveState state) const {
+    bool has_slave_in_state(const slave::State state) const {
         std::lock_guard lock(this->mu);
         for (const auto &[pos, s]: this->slave_states)
             if (s == state) return true;
@@ -375,7 +349,7 @@ public:
     }
 
     /// @brief returns the count of slaves in the given state.
-    size_t slaves_in_state(const SlaveState state) const {
+    size_t slaves_in_state(const slave::State state) const {
         std::lock_guard lock(this->mu);
         size_t count = 0;
         for (const auto &[pos, s]: this->slave_states)
@@ -418,42 +392,30 @@ private:
         size_t output_byte_offset = 0;
         if (!this->registered_pdos.empty()) {
             for (const auto &pdo: this->registered_pdos) {
-                PDOEntryKey key{
+                pdo::Key key{
                     pdo.slave_position,
                     pdo.index,
-                    pdo.subindex,
+                    pdo.sub_index,
                     pdo.is_input
                 };
                 if (pdo.is_input) {
-                    this->pdo_offset_cache[key] = master::PDOOffset{
-                        input_byte_offset,
-                        0
-                    };
+                    this->pdo_offset_cache[key] = pdo::Offset{input_byte_offset, 0};
                     input_byte_offset += pdo.byte_length();
                 } else {
-                    this->pdo_offset_cache[key] = master::PDOOffset{
-                        output_byte_offset,
-                        0
-                    };
+                    this->pdo_offset_cache[key] = pdo::Offset{output_byte_offset, 0};
                     output_byte_offset += pdo.byte_length();
                 }
             }
         } else {
             for (const auto &slave: this->slave_list) {
                 for (const auto &pdo: slave.input_pdos) {
-                    PDOEntryKey key{slave.position, pdo.index, pdo.subindex, true};
-                    this->pdo_offset_cache[key] = master::PDOOffset{
-                        input_byte_offset,
-                        0
-                    };
+                    pdo::Key key{slave.position, pdo.index, pdo.sub_index, true};
+                    this->pdo_offset_cache[key] = pdo::Offset{input_byte_offset, 0};
                     input_byte_offset += pdo.byte_length();
                 }
                 for (const auto &pdo: slave.output_pdos) {
-                    PDOEntryKey key{slave.position, pdo.index, pdo.subindex, false};
-                    this->pdo_offset_cache[key] = master::PDOOffset{
-                        output_byte_offset,
-                        0
-                    };
+                    pdo::Key key{slave.position, pdo.index, pdo.sub_index, false};
+                    this->pdo_offset_cache[key] = pdo::Offset{output_byte_offset, 0};
                     output_byte_offset += pdo.byte_length();
                 }
             }

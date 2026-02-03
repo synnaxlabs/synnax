@@ -140,7 +140,8 @@ bool Factory::is_interface_active(const std::string &key) const {
     return this->pool->is_active(key);
 }
 
-std::vector<SlaveInfo> Factory::get_cached_slaves(const std::string &key) const {
+std::vector<slave::Properties>
+Factory::get_cached_slaves(const std::string &key) const {
     return this->pool->get_slaves(key);
 }
 

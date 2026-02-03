@@ -19,7 +19,7 @@
 #include "x/cpp/xjson/xjson.h"
 
 #include "driver/ethercat/ethercat.h"
-#include "driver/ethercat/master/slave_info.h"
+#include "driver/ethercat/slave/slave.h"
 #include "driver/task/common/scan_task.h"
 #include "driver/task/task.h"
 
@@ -89,7 +89,7 @@ private:
 
     /// @brief creates a slave device for the given slave.
     synnax::Device create_slave_device(
-        const SlaveInfo &slave,
+        const slave::Properties &slave,
         const std::string &master_key,
         const common::ScannerContext &scan_ctx
     ) const;
@@ -102,7 +102,7 @@ private:
 
     /// @brief generates a device key for a slave.
     static std::string
-    generate_slave_key(const SlaveInfo &slave, const std::string &master_key);
+    generate_slave_key(const slave::Properties &slave, const std::string &master_key);
 
     /// @brief handles the test_interface command.
     void test_interface(const task::Command &cmd) const;

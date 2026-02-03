@@ -78,7 +78,7 @@ TEST_F(MasterTest, SlaveStateQueriesBeforeActivation) {
     master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
     ASSERT_NIL(master->initialize());
 
-    EXPECT_EQ(master->slave_state(0), SlaveState::INIT);
+    EXPECT_EQ(master->slave_state(0), slave::State::INIT);
     EXPECT_FALSE(master->all_slaves_operational());
 }
 
@@ -88,8 +88,8 @@ TEST_F(MasterTest, SlaveStateQueriesAfterActivation) {
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
 
-    EXPECT_EQ(master->slave_state(0), SlaveState::OP);
-    EXPECT_EQ(master->slave_state(1), SlaveState::OP);
+    EXPECT_EQ(master->slave_state(0), slave::State::OP);
+    EXPECT_EQ(master->slave_state(1), slave::State::OP);
     EXPECT_TRUE(master->all_slaves_operational());
 }
 
@@ -97,13 +97,13 @@ TEST_F(MasterTest, SlaveStateQueryUnknownPosition) {
     master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
     ASSERT_NIL(master->initialize());
 
-    EXPECT_EQ(master->slave_state(99), SlaveState::UNKNOWN);
+    EXPECT_EQ(master->slave_state(99), slave::State::UNKNOWN);
 }
 
 TEST_F(MasterTest, PDOOffsetLookup) {
     auto cfg = mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1")
                    .with_input_pdos({
-                       PDOEntryInfo(
+                       pdo::Properties(
                            0x1600,
                            0x6000,
                            1,
@@ -112,7 +112,7 @@ TEST_F(MasterTest, PDOOffsetLookup) {
                            "Input1",
                            telem::INT16_T
                        ),
-                       PDOEntryInfo(
+                       pdo::Properties(
                            0x1600,
                            0x6000,
                            2,
@@ -123,7 +123,7 @@ TEST_F(MasterTest, PDOOffsetLookup) {
                        ),
                    })
                    .with_output_pdos({
-                       PDOEntryInfo(
+                       pdo::Properties(
                            0x1A00,
                            0x7000,
                            1,
@@ -137,9 +137,9 @@ TEST_F(MasterTest, PDOOffsetLookup) {
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
 
-    PDOEntry input1(0, 0x6000, 1, 16, true);
-    PDOEntry input2(0, 0x6000, 2, 32, true);
-    PDOEntry output1(0, 0x7000, 1, 16, false);
+    pdo::Entry input1(0, 0x6000, 1, 16, true);
+    pdo::Entry input2(0, 0x6000, 2, 32, true);
+    pdo::Entry output1(0, 0x7000, 1, 16, false);
 
     auto offset1 = this->master->pdo_offset(input1);
     auto offset2 = this->master->pdo_offset(input2);
@@ -175,11 +175,11 @@ TEST_F(MasterTest, StateTransitionsOnActivation) {
     master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
     ASSERT_NIL(master->initialize());
 
-    EXPECT_EQ(master->slave_state(0), SlaveState::INIT);
+    EXPECT_EQ(master->slave_state(0), slave::State::INIT);
 
     ASSERT_NIL(master->activate());
 
-    EXPECT_EQ(master->slave_state(0), SlaveState::OP);
+    EXPECT_EQ(master->slave_state(0), slave::State::OP);
 }
 
 TEST_F(MasterTest, PartialStateTransition) {
@@ -187,17 +187,17 @@ TEST_F(MasterTest, PartialStateTransition) {
     master->add_slave(mock::MockSlaveConfig(1, 0x1, 0x3, "Slave2"));
     master->add_slave(mock::MockSlaveConfig(2, 0x1, 0x4, "Slave3"));
 
-    master->set_slave_transition_failure(1, SlaveState::OP);
+    master->set_slave_transition_failure(1, slave::State::OP);
 
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
 
-    EXPECT_EQ(master->slave_state(0), SlaveState::OP);
-    EXPECT_EQ(master->slave_state(1), SlaveState::SAFE_OP);
-    EXPECT_EQ(master->slave_state(2), SlaveState::OP);
+    EXPECT_EQ(master->slave_state(0), slave::State::OP);
+    EXPECT_EQ(master->slave_state(1), slave::State::SAFE_OP);
+    EXPECT_EQ(master->slave_state(2), slave::State::OP);
     EXPECT_FALSE(master->all_slaves_operational());
-    EXPECT_EQ(master->slaves_in_state(SlaveState::OP), 2);
-    EXPECT_EQ(master->slaves_in_state(SlaveState::SAFE_OP), 1);
+    EXPECT_EQ(master->slaves_in_state(slave::State::OP), 2);
+    EXPECT_EQ(master->slaves_in_state(slave::State::SAFE_OP), 1);
 }
 
 TEST_F(MasterTest, GracefulDeactivation) {
@@ -206,12 +206,12 @@ TEST_F(MasterTest, GracefulDeactivation) {
     ASSERT_NIL(master->activate());
 
     EXPECT_TRUE(master->is_activated());
-    EXPECT_EQ(master->slave_state(0), SlaveState::OP);
+    EXPECT_EQ(master->slave_state(0), slave::State::OP);
 
     master->deactivate();
 
     EXPECT_FALSE(master->is_activated());
-    EXPECT_EQ(master->slave_state(0), SlaveState::INIT);
+    EXPECT_EQ(master->slave_state(0), slave::State::INIT);
     EXPECT_TRUE(master->was_called("deactivate"));
 }
 
@@ -286,13 +286,13 @@ TEST_F(MasterTest, SetSlaveStateDirectly) {
     master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
     ASSERT_NIL(master->initialize());
 
-    EXPECT_EQ(master->slave_state(0), SlaveState::INIT);
+    EXPECT_EQ(master->slave_state(0), slave::State::INIT);
 
-    master->set_slave_state(0, SlaveState::PRE_OP);
-    EXPECT_EQ(master->slave_state(0), SlaveState::PRE_OP);
+    master->set_slave_state(0, slave::State::PRE_OP);
+    EXPECT_EQ(master->slave_state(0), slave::State::PRE_OP);
 
-    master->set_slave_state(0, SlaveState::SAFE_OP);
-    EXPECT_EQ(master->slave_state(0), SlaveState::SAFE_OP);
+    master->set_slave_state(0, slave::State::SAFE_OP);
+    EXPECT_EQ(master->slave_state(0), slave::State::SAFE_OP);
 }
 
 TEST_F(MasterTest, SlaveCountAccessor) {
@@ -310,13 +310,13 @@ TEST_F(MasterTest, HasSlaveInState) {
     master->add_slave(mock::MockSlaveConfig(1, 0x1, 0x3, "Slave2"));
     ASSERT_NIL(master->initialize());
 
-    EXPECT_TRUE(master->has_slave_in_state(SlaveState::INIT));
-    EXPECT_FALSE(master->has_slave_in_state(SlaveState::OP));
+    EXPECT_TRUE(master->has_slave_in_state(slave::State::INIT));
+    EXPECT_FALSE(master->has_slave_in_state(slave::State::OP));
 
     ASSERT_NIL(master->activate());
 
-    EXPECT_FALSE(master->has_slave_in_state(SlaveState::INIT));
-    EXPECT_TRUE(master->has_slave_in_state(SlaveState::OP));
+    EXPECT_FALSE(master->has_slave_in_state(slave::State::INIT));
+    EXPECT_TRUE(master->has_slave_in_state(slave::State::OP));
 }
 
 TEST_F(MasterTest, InputOutputDataReadWrite) {

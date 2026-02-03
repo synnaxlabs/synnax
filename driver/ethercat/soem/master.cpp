@@ -78,7 +78,7 @@ xerrors::Error Master::initialize() {
     return xerrors::NIL;
 }
 
-xerrors::Error Master::register_pdos(const std::vector<PDOEntry> &) {
+xerrors::Error Master::register_pdos(const std::vector<pdo::Entry> &) {
     return xerrors::NIL;
 }
 
@@ -146,7 +146,7 @@ void Master::deactivate() {
         this->expected_wkc = 0;
         this->input_sz = 0;
         this->output_sz = 0;
-        this->pdo_offset_cache.clear();
+        this->pdo_offsets.clear();
     }
 
     if (this->initialized) {
@@ -203,24 +203,24 @@ std::span<uint8_t> Master::output_data() {
     return {this->iomap.data(), this->output_sz};
 }
 
-master::PDOOffset Master::pdo_offset(const PDOEntry &entry) const {
+pdo::Offset Master::pdo_offset(const pdo::Entry &entry) const {
     std::lock_guard lock(this->mu);
-    PDOEntryKey key{entry.slave_position, entry.index, entry.subindex, entry.is_input};
-    auto it = this->pdo_offset_cache.find(key);
-    if (it != this->pdo_offset_cache.end()) return it->second;
+    pdo::Key key{entry.slave_position, entry.index, entry.sub_index, entry.is_input};
+    auto it = this->pdo_offsets.find(key);
+    if (it != this->pdo_offsets.end()) return it->second;
     return {};
 }
 
-std::vector<SlaveInfo> Master::slaves() const {
+std::vector<slave::Properties> Master::slaves() const {
     std::lock_guard lock(this->mu);
     return this->slave_list;
 }
 
-SlaveState Master::slave_state(const uint16_t position) const {
+slave::State Master::slave_state(const uint16_t position) const {
     std::lock_guard lock(this->mu);
 
     if (position == 0 || position > static_cast<uint16_t>(this->context.slavecount))
-        return SlaveState::UNKNOWN;
+        return slave::State::UNKNOWN;
 
     return convert_state(this->context.slavelist[position].state);
 }
@@ -240,22 +240,22 @@ std::string Master::interface_name() const {
     return this->iface_name;
 }
 
-SlaveState Master::convert_state(const uint16_t soem_state) {
+slave::State Master::convert_state(const uint16_t soem_state) {
     const uint16_t state = soem_state & 0x0F;
 
     switch (state) {
         case EC_STATE_INIT:
-            return SlaveState::INIT;
+            return slave::State::INIT;
         case EC_STATE_PRE_OP:
-            return SlaveState::PRE_OP;
+            return slave::State::PRE_OP;
         case EC_STATE_BOOT:
-            return SlaveState::BOOT;
+            return slave::State::BOOT;
         case EC_STATE_SAFE_OP:
-            return SlaveState::SAFE_OP;
+            return slave::State::SAFE_OP;
         case EC_STATE_OPERATIONAL:
-            return SlaveState::OP;
+            return slave::State::OP;
         default:
-            return SlaveState::UNKNOWN;
+            return slave::State::UNKNOWN;
     }
 }
 
@@ -265,7 +265,7 @@ void Master::populate_slaves() {
 
     for (int i = 1; i <= this->context.slavecount; ++i) {
         const auto &soem_slave = this->context.slavelist[i];
-        SlaveInfo info{};
+        slave::Properties info{};
         info.position = static_cast<uint16_t>(i);
         info.vendor_id = soem_slave.eep_man;
         info.product_code = soem_slave.eep_id;
@@ -282,7 +282,7 @@ void Master::populate_slaves() {
 
 void Master::cache_pdo_offsets() {
     std::lock_guard lock(this->mu);
-    this->pdo_offset_cache.clear();
+    this->pdo_offsets.clear();
 
     for (const auto &slave: this->slave_list) {
         if (slave.position == 0 ||
@@ -314,8 +314,8 @@ void Master::cache_pdo_offsets() {
 
         size_t input_bit_offset = 0;
         for (const auto &pdo: slave.input_pdos) {
-            PDOEntryKey key{slave.position, pdo.index, pdo.subindex, true};
-            this->pdo_offset_cache[key] = {
+            pdo::Key key{slave.position, pdo.index, pdo.sub_index, true};
+            this->pdo_offsets[key] = {
                 slave_input_offset + input_bit_offset / 8,
                 static_cast<uint8_t>(input_bit_offset % 8)
             };
@@ -324,8 +324,8 @@ void Master::cache_pdo_offsets() {
 
         size_t output_bit_offset = 0;
         for (const auto &pdo: slave.output_pdos) {
-            PDOEntryKey key{slave.position, pdo.index, pdo.subindex, false};
-            this->pdo_offset_cache[key] = {
+            pdo::Key key{slave.position, pdo.index, pdo.sub_index, false};
+            this->pdo_offsets[key] = {
                 slave_output_offset + output_bit_offset / 8,
                 static_cast<uint8_t>(output_bit_offset % 8)
             };
@@ -338,7 +338,7 @@ void Master::cache_pdo_offsets() {
 const int SDO_TIMEOUT = static_cast<int>((telem::MILLISECOND * 700).microseconds());
 constexpr int MAX_SDO_FAILURES = 3;
 
-void Master::discover_slave_pdos(SlaveInfo &slave) {
+void Master::discover_slave_pdos(slave::Properties &slave) {
     if (esi::lookup_device_pdos(
             slave.vendor_id,
             slave.product_code,
@@ -354,7 +354,7 @@ void Master::discover_slave_pdos(SlaveInfo &slave) {
     if (!this->discover_pdos_coe(slave)) this->discover_pdos_sii(slave);
 }
 
-bool Master::discover_pdos_coe(SlaveInfo &slave) {
+bool Master::discover_pdos_coe(slave::Properties &slave) {
     const auto &soem_slave = this->context.slavelist[slave.position];
     VLOG(2) << "Slave " << slave.position << " mbx_proto: 0x" << std::hex
             << static_cast<int>(soem_slave.mbx_proto) << std::dec;
@@ -426,7 +426,7 @@ bool Master::discover_pdos_coe(SlaveInfo &slave) {
     return true;
 }
 
-void Master::discover_pdos_sii(SlaveInfo &slave) {
+void Master::discover_pdos_sii(slave::Properties &slave) {
     VLOG(1) << "Using SII fallback for slave " << slave.position;
 
     for (uint8_t t = 0; t <= 1; ++t) {
@@ -526,7 +526,7 @@ void Master::discover_pdos_sii(SlaveInfo &slave) {
                     data_type
                 );
 
-                PDOEntryInfo entry(
+                pdo::Properties entry(
                     pdo_index,
                     obj_idx,
                     obj_subidx,
@@ -570,7 +570,7 @@ xerrors::Error Master::read_pdo_assign(
     const uint16_t slave_pos,
     const uint16_t assign_index,
     const bool is_input,
-    SlaveInfo &slave
+    slave::Properties &slave
 ) {
     uint8_t num_pdos = 0;
     int size = sizeof(num_pdos);
@@ -633,7 +633,7 @@ xerrors::Error Master::read_pdo_mapping(
     const uint16_t slave_pos,
     const uint16_t pdo_index,
     const bool is_input,
-    SlaveInfo &slave
+    slave::Properties &slave
 ) {
     uint8_t num_entries = 0;
     int size = sizeof(num_entries);
@@ -683,27 +683,27 @@ xerrors::Error Master::read_pdo_mapping(
         if (mapping == 0) continue;
 
         const uint16_t index = static_cast<uint16_t>((mapping >> 16) & 0xFFFF);
-        const uint8_t subindex = static_cast<uint8_t>((mapping >> 8) & 0xFF);
+        const uint8_t sub_index = static_cast<uint8_t>((mapping >> 8) & 0xFF);
         const uint8_t bit_length = static_cast<uint8_t>(mapping & 0xFF);
 
-        if (index == 0 && subindex == 0) continue;
+        if (index == 0 && sub_index == 0) continue;
 
         const std::string coe_name = this->read_pdo_entry_name(
             slave_pos,
             index,
-            subindex
+            sub_index
         );
         const telem::DataType data_type = infer_type_from_bit_length(bit_length);
         const std::string name = generate_pdo_entry_name(
             coe_name,
             index,
-            subindex,
+            sub_index,
             is_input,
             data_type
         );
 
-        PDOEntryInfo
-            entry(pdo_index, index, subindex, bit_length, is_input, name, data_type);
+        pdo::Properties
+            entry(pdo_index, index, sub_index, bit_length, is_input, name, data_type);
 
         if (is_input)
             slave.input_pdos.push_back(entry);
@@ -717,7 +717,7 @@ xerrors::Error Master::read_pdo_mapping(
 std::string Master::read_pdo_entry_name(
     const uint16_t slave_pos,
     const uint16_t index,
-    const uint8_t subindex
+    const uint8_t sub_index
 ) {
     ec_ODlistt od_list{};
     od_list.Slave = slave_pos;
@@ -725,7 +725,7 @@ std::string Master::read_pdo_entry_name(
     od_list.Entries = 1;
 
     ec_OElistt oe_list{};
-    if (ecx_readOEsingle(&this->context, 0, subindex, &od_list, &oe_list) > 0)
+    if (ecx_readOEsingle(&this->context, 0, sub_index, &od_list, &oe_list) > 0)
         if (oe_list.Entries > 0 && oe_list.Name[0][0] != '\0')
             return std::string(oe_list.Name[0]);
 
@@ -734,7 +734,7 @@ std::string Master::read_pdo_entry_name(
 
 bool Master::scan_object_dictionary_for_pdos(
     const uint16_t slave_pos,
-    SlaveInfo &slave
+    slave::Properties &slave
 ) {
     ec_ODlistt od_list{};
     std::memset(&od_list, 0, sizeof(od_list));

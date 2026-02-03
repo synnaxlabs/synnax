@@ -17,7 +17,7 @@
 
 #include "driver/ethercat/device/device.h"
 #include "driver/ethercat/errors/errors.h"
-#include "driver/ethercat/master/slave_info.h"
+#include "driver/ethercat/slave/slave.h"
 
 namespace ethercat::topology {
 
@@ -26,7 +26,7 @@ namespace ethercat::topology {
 /// @param expected Map of device_key to SlaveProperties from config.
 /// @return xerrors::NIL if topology matches, TOPOLOGY_MISMATCH otherwise.
 [[nodiscard]] inline xerrors::Error validate(
-    const std::vector<SlaveInfo> &actual_slaves,
+    const std::vector<slave::Properties> &actual_slaves,
     const std::unordered_map<std::string, device::SlaveProperties> &expected
 ) {
     for (const auto &[device_key, props]: expected) {

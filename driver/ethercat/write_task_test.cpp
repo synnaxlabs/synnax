@@ -51,12 +51,12 @@ protected:
             json::array(),
             {{{"name", "control_word"},
               {"index", 0x7000},
-              {"subindex", 1},
+              {"sub_index", 1},
               {"bit_length", 16},
               {"data_type", "int16"}},
              {{"name", "setpoint"},
               {"index", 0x7000},
-              {"subindex", 2},
+              {"sub_index", 2},
               {"bit_length", 32},
               {"data_type", "int32"}}}
         );
@@ -141,7 +141,7 @@ protected:
     json create_manual_output_channel_config(
         const synnax::ChannelKey &command_key,
         uint16_t index,
-        uint8_t subindex,
+        uint8_t sub_index,
         uint8_t bit_length,
         const std::string &data_type,
         synnax::ChannelKey state_key = 0
@@ -150,7 +150,7 @@ protected:
             {"type", "manual"},
             {"device", slave_device.key},
             {"index", index},
-            {"subindex", subindex},
+            {"sub_index", sub_index},
             {"bit_length", bit_length},
             {"data_type", data_type},
             {"cmd_channel", command_key},
@@ -180,7 +180,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithAutomaticChannel) {
     EXPECT_EQ(task_cfg.channels.size(), 1);
     EXPECT_EQ(task_cfg.interface_name, "eth0");
     EXPECT_EQ(task_cfg.channels[0]->index, 0x7000);
-    EXPECT_EQ(task_cfg.channels[0]->subindex, 1);
+    EXPECT_EQ(task_cfg.channels[0]->sub_index, 1);
     EXPECT_EQ(task_cfg.channels[0]->bit_length, 16);
 }
 
@@ -202,7 +202,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithManualChannel) {
     ASSERT_NIL(parser.error());
     EXPECT_EQ(task_cfg.channels.size(), 1);
     EXPECT_EQ(task_cfg.channels[0]->index, 0x7000);
-    EXPECT_EQ(task_cfg.channels[0]->subindex, 2);
+    EXPECT_EQ(task_cfg.channels[0]->sub_index, 2);
     EXPECT_EQ(task_cfg.channels[0]->bit_length, 32);
 }
 
@@ -348,7 +348,7 @@ TEST_F(EtherCATWriteTest, InvalidSlaveDevice) {
          {{{"type", "manual"},
            {"device", "nonexistent_slave_key"},
            {"index", 0x7000},
-           {"subindex", 1},
+           {"sub_index", 1},
            {"bit_length", 16},
            {"data_type", "int16"},
            {"cmd_channel", cmd_ch.key},
@@ -387,9 +387,9 @@ TEST_F(EtherCATWriteTest, ParseConfigWithMixedChannelTypes) {
     ASSERT_NIL(parser.error());
     EXPECT_EQ(task_cfg.channels.size(), 2);
     EXPECT_EQ(task_cfg.channels[0]->index, 0x7000);
-    EXPECT_EQ(task_cfg.channels[0]->subindex, 1);
+    EXPECT_EQ(task_cfg.channels[0]->sub_index, 1);
     EXPECT_EQ(task_cfg.channels[1]->index, 0x7000);
-    EXPECT_EQ(task_cfg.channels[1]->subindex, 3);
+    EXPECT_EQ(task_cfg.channels[1]->sub_index, 3);
 }
 
 TEST_F(EtherCATWriteTest, SinkWritesDataToEngine) {
