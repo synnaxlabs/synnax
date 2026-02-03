@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { useMemoDeepEqual } from "@/memo";
 import { button } from "@/vis/button/aether";
 
 export type Mode = button.Mode;
 export const MODES = button.MODES;
 
-export interface UseProps extends Omit<z.input<typeof button.buttonStateZ>, "trigger"> {
+export interface UseProps extends z.input<typeof button.buttonStateZ> {
   aetherKey: string;
 }
 
@@ -28,29 +27,17 @@ export interface UseReturn {
 }
 
 export const use = ({ aetherKey, sink, mode }: UseProps): UseReturn => {
-  const memoProps = useMemoDeepEqual({ sink, mode });
-  const propsRef = useRef({ trigger: 0, ...memoProps });
-  const { setState } = Aether.useLifecycle({
+  const {
+    methods: { onMouseDown: mouseDown, onMouseUp: mouseUp },
+  } = Aether.useUnidirectional({
     aetherKey,
     type: button.Button.TYPE,
     schema: button.buttonStateZ,
-    initialState: propsRef.current,
+    methods: button.buttonMethodsZ,
+    state: { sink, mode },
   });
-
-  useEffect(() => {
-    propsRef.current = { ...propsRef.current, ...memoProps };
-    setState(propsRef.current);
-  }, [memoProps, setState, aetherKey]);
-
-  const onMouseUp = useCallback(() => {
-    propsRef.current.trigger += button.MOUSE_UP_INCREMENT;
-    setState(propsRef.current);
-  }, [setState]);
-
-  const onMouseDown = useCallback(() => {
-    propsRef.current.trigger += button.MOUSE_DOWN_INCREMENT;
-    setState(propsRef.current);
-  }, [setState]);
-
+  // Wrap to prevent React event from being passed as argument
+  const onMouseDown = useCallback(() => mouseDown(), [mouseDown]);
+  const onMouseUp = useCallback(() => mouseUp(), [mouseUp]);
   return { onClick: onMouseUp, onMouseDown, onMouseUp };
 };

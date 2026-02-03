@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -193,7 +193,7 @@ private:
     /// @brief implements pipeline::Sink to write the incoming frame to the
     /// underlying hardware. If the values are successfully written, updates
     /// the write tasks state to match the output values.
-    xerrors::Error write(const synnax::Frame &frame) override {
+    xerrors::Error write(telem::Frame &frame) override {
         for (const auto &[cmd_key, series]: frame)
             if (auto it = this->cfg.buf_indexes.find(cmd_key);
                 it != this->cfg.buf_indexes.end()) {

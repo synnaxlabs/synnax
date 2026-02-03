@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,7 +21,8 @@ import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 
 export interface IndicatorProps
-  extends Omit<z.input<typeof control.indicatorStateZ>, "status" | "color">,
+  extends
+    Omit<z.input<typeof control.indicatorStateZ>, "status" | "color">,
     PropsWithChildren {}
 
 export interface StatusDetails {

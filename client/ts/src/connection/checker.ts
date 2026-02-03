@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -48,7 +48,7 @@ const createWarning = (
   const toUpgrade = clientIsNewer ? "Core" : "client";
   return `Synnax Core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is too ${clientIsNewer ? "old" : "new"} for client version ${clientVersion}.
   This may cause compatibility issues. We recommend updating the ${toUpgrade}. For more information, see
-  https://docs.synnaxlabs.com/reference/typescript-client/troubleshooting#old-${toUpgrade}-version`;
+  https://docs.synnaxlabs.com/reference/client/resources/troubleshooting#old-${toUpgrade}-version`;
 };
 
 /** Polls a synnax cluster for connectivity information. */

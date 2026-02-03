@@ -1,0 +1,232 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Errors"
+description: "Arc error code reference for compile-time and runtime errors"
+prev: "Built-In Functions"
+prevURL: "/reference/control/arc/reference/built-ins"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+Arc errors fall into two categories: compile-time errors (caught before deployment) and
+runtime errors (occur during execution).
+
+## Error Code Format
+
+Arc error codes follow the pattern:
+
+```
+ARC<category><number>
+```
+
+| Category    | Range   | Description                               |
+| ----------- | ------- | ----------------------------------------- |
+| Type System | ARC2xxx | Type mismatches and constraint violations |
+| Functions   | ARC3xxx | Argument count and type errors            |
+| Symbols     | ARC4xxx | Undefined or redefined symbols            |
+
+<Divider.Divider x />
+
+## Compile-Time Errors
+
+The compiler catches these before deployment.
+
+### Type System Errors (ARC2xxx)
+
+| Code    | Name                    | Description                                   |
+| ------- | ----------------------- | --------------------------------------------- |
+| ARC2001 | TypeMismatch            | Incompatible types in operation or assignment |
+| ARC2003 | TypeConstraintViolation | Type doesn't satisfy constraint               |
+
+**Example: TypeMismatch**
+
+```arc
+// Error: cannot add i32 and f64
+x i32 := 42
+y f64 := x + 1.0
+```
+
+**Fix:** Use explicit type casting:
+
+```arc
+x i32 := 42
+y f64 := f64(x) + 1.0
+```
+
+### Function Errors (ARC3xxx)
+
+| Code    | Name         | Description                      |
+| ------- | ------------ | -------------------------------- |
+| ARC3001 | FuncArgCount | Wrong number of arguments        |
+| ARC3002 | FuncArgType  | Function argument has wrong type |
+
+**Example: FuncArgCount**
+
+```arc
+func add(x f64, y f64) f64 {
+    return x + y
+}
+
+// Error: expected 2 arguments, got 1
+result := add(5.0)
+```
+
+### Symbol Errors (ARC4xxx)
+
+| Code    | Name            | Description                         |
+| ------- | --------------- | ----------------------------------- |
+| ARC4001 | SymbolUndefined | Referenced symbol not found         |
+| ARC4002 | SymbolRedefined | Symbol declared twice in same scope |
+
+**Example: SymbolUndefined**
+
+```arc
+// Error: undefined symbol 'ox_pt_1'
+value := ox_pt_1    // channel doesn't exist in cluster
+```
+
+**Example: SymbolRedefined**
+
+```arc
+x := 42
+x := 100    // Error: x already declared
+```
+
+<Divider.Divider x />
+
+## Common Error Messages
+
+| Message                                                | Meaning                                               |
+| ------------------------------------------------------ | ----------------------------------------------------- |
+| `"X is not a channel"`                                 | Using a non-channel where a channel is expected       |
+| `"X is not a function"`                                | Using `{}` syntax on something that isn't a function  |
+| `"X is not a channel or sequence"`                     | Invalid target for flow or transition                 |
+| `"X has more than one parameter"`                      | Anonymous config value used with multi-param function |
+| `"input routing table must precede a func invocation"` | Routing table in wrong position                       |
+| `"compound assignment requires numeric element type"`  | Using `+=` etc. with non-numeric type                 |
+| `"undefined symbol: X"`                                | Symbol not declared (typo or missing channel)         |
+| `"type mismatch"`                                      | Incompatible types in operation                       |
+| `"missing return"`                                     | Function with return type has no return statement     |
+| `"unreachable code"`                                   | Code after unconditional return                       |
+
+<Divider.Divider x />
+
+## Runtime Errors
+
+These errors occur during execution and stop the Arc task (but not the driver).
+
+### Arithmetic Errors
+
+| Error            | Cause                          |
+| ---------------- | ------------------------------ |
+| Division by zero | Dividing by zero in `/` or `%` |
+
+```arc
+// Runtime error if b is 0
+result := a / b
+```
+
+**Prevention:**
+
+```arc
+if b != 0 {
+    result := a / b
+}
+```
+
+### Array/String Errors
+
+| Error                | Cause                                         |
+| -------------------- | --------------------------------------------- |
+| Out-of-bounds access | Index outside valid range                     |
+| Length mismatch      | Series operation with different-length arrays |
+
+```arc
+data := [1.0, 2.0, 3.0]
+value := data[5]    // Runtime error: index 5 out of bounds
+```
+
+**Prevention:**
+
+```arc
+if index < len(data) {
+    value := data[index]
+}
+```
+
+### Channel Errors
+
+| Error         | Cause                                                         |
+| ------------- | ------------------------------------------------------------- |
+| Type mismatch | Writing wrong type to channel (if not caught at compile time) |
+
+<Divider.Divider x />
+
+## Error Severity Levels
+
+| Level   | Description                             |
+| ------- | --------------------------------------- |
+| Error   | Prevents compilation or stops execution |
+| Warning | Potential problem, compiles anyway      |
+| Info    | Informational message                   |
+| Hint    | Suggested improvement                   |
+
+The text editor shows errors inline with severity indicators.
+
+<Divider.Divider x />
+
+## Error Isolation
+
+A runtime error in one Arc task only stops that task. Other tasks and the hardware
+driver continue running normally. The error status is reported to Console where you can
+see what went wrong.
+
+<Divider.Divider x />
+
+## Debugging
+
+### Check Task Status
+
+When an Arc automation doesn't behave as expected:
+
+1. Check the task status in Console
+2. Runtime errors (division by zero, out-of-bounds) stop the task and report the error
+3. The error message indicates what went wrong
+
+### Use LSP Diagnostics
+
+The text editor shows compile-time errors inline:
+
+- Red underline: Error (won't compile)
+- Yellow underline: Warning (compiles but suspicious)
+- Hover for error message and suggested fix
+
+### Write Intermediate Values
+
+Write intermediate values to channels for debugging:
+
+```arc
+func debug_controller(value f64) f64 {
+    error := value - setpoint
+    debug_error = error    // Write to channel for visibility
+    return error * gain
+}
+```
+
+Monitor these channels in Console to trace data flow.
+
+<Divider.Divider x />
+
+## Common Fixes
+
+| Problem              | Fix                                      |
+| -------------------- | ---------------------------------------- |
+| Type mismatch        | Add explicit cast: `f64(x)`              |
+| Undefined symbol     | Check spelling, verify channel exists    |
+| Wrong argument count | Check function signature                 |
+| Division by zero     | Add guard: `if b != 0`                   |
+| Index out of bounds  | Add guard: `if i < len(data)`            |
+| Missing return       | Add `return` statement to all code paths |

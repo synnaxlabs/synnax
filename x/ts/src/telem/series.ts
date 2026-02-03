@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -1553,9 +1553,9 @@ class MultiSeriesIterator<T extends TelemValue = TelemValue> implements Iterator
   }
 }
 
-class MultiSubIterator<T extends TelemValue = TelemValue>
-  implements IterableIterator<T>
-{
+class MultiSubIterator<
+  T extends TelemValue = TelemValue,
+> implements IterableIterator<T> {
   private readonly series: MultiSeries<T>;
   private index: number;
   private end: number;

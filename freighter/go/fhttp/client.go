@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,8 +22,8 @@ type ClientFactoryConfig struct {
 }
 
 func (c ClientFactoryConfig) Validate() error {
-	v := validate.New("[ws.streamClient]")
-	validate.NotNil(v, "Codec", c.Codec)
+	v := validate.New("ws.stream_client")
+	validate.NotNil(v, "codec", c.Codec)
 	return v.Error()
 }
 
@@ -32,7 +32,7 @@ func (c ClientFactoryConfig) Override(other ClientFactoryConfig) ClientFactoryCo
 	return c
 }
 
-var DefaultClientConfig = ClientFactoryConfig{
+var DefaultClientFactoryConfig = ClientFactoryConfig{
 	Codec: httputil.MsgPackCodec,
 }
 
@@ -41,7 +41,7 @@ type ClientFactory struct {
 }
 
 func NewClientFactory(configs ...ClientFactoryConfig) *ClientFactory {
-	cfg, err := config.New(DefaultClientConfig, configs...)
+	cfg, err := config.New(DefaultClientFactoryConfig, configs...)
 	if err != nil {
 		panic(err)
 	}

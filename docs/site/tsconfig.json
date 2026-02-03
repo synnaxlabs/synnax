@@ -9,6 +9,7 @@
     "static/env.d.ts",
     "astro.config.ts",
     "astro-components.d.ts",
-    "eslint.config.ts"
+    "eslint.config.ts",
+    "stylelint.config.ts"
   ]
 }

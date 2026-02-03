@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -86,12 +86,10 @@ class Frame:
             self.series = list() if series is None else [Series(d) for d in series]
             self.channels = channels or list[ChannelKey]()
         else:
-            raise ValueError(
-                f"""
+            raise ValueError(f"""
                 [Frame] - invalid construction arguments. Received {channels}
                 and {series}.
-            """
-            )
+            """)
 
     def __str__(self) -> str:
         return self.to_df().__str__()
@@ -166,12 +164,10 @@ class Frame:
         """
         if not all(isinstance(k, ChannelKey) for k in self.channels):
             diff = [k for k in self.channels if not isinstance(k, ChannelKey)]
-            raise ValidationError(
-                f"""
+            raise ValidationError(f"""
             Cannot convert a frame that contains channel names to a payload.
             The following channels are invalid: {diff}
-            """
-            )
+            """)
         return FramePayload(keys=self.channels, series=self.series)
 
     def to_df(self) -> DataFrame:

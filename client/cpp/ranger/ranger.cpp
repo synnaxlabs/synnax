@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,8 +12,8 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/ranger.pb.h"
-#include "x/go/telem/x/go/telem/telem.pb.h"
+#include "core/pkg/api/grpc/v1/ranger.pb.h"
+#include "x/go/telem/telem.pb.h"
 
 namespace synnax {
 Range::Range(std::string name, telem::TimeRange time_range):

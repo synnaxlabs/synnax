@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -592,11 +592,8 @@ describe("Arc LSP", () => {
         expect(diagnostics.length).toBeGreaterThan(0);
 
         // Position should be mapped correctly (line 0 for original expression)
-        // Note: Parse errors may not be position-mapped correctly yet
-        // This is a known limitation - for now we just verify diagnostics exist
         const firstDiag = diagnostics[0];
-        console.log("Diagnostic position:", firstDiag.range.start);
-        // expect(firstDiag.range.start.line).toBe(0);
+        expect(firstDiag.range.start.line).toBe(0);
       }
 
       stream.closeSend();

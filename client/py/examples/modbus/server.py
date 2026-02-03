@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -68,7 +68,7 @@ async def updating_writer(context):
         await asyncio.sleep(1 / RATE)
 
 
-async def run_server():
+async def run_server() -> None:
     """Run the Modbus TCP server."""
     # Initialize data store
     store = ModbusDeviceContext(

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,10 +12,10 @@ import { type ReactElement } from "react";
 
 import { type Generic } from "@/generic";
 import { Icon } from "@/icon";
-import { Text as Core } from "@/text";
+import { Text as Base } from "@/text";
 import { type Key, type Trigger } from "@/triggers/triggers";
 
-export type TextProps<E extends Generic.ElementType = "p"> = Core.TextProps<E> & {
+export type TextProps<E extends Generic.ElementType = "p"> = Base.TextProps<E> & {
   trigger: Trigger;
 };
 
@@ -58,14 +58,14 @@ export const Text = <E extends Generic.ElementType = "p">({
   level,
   ...rest
 }: TextProps<E>): ReactElement => (
-  <Core.Text level={level} gap="small" {...rest}>
-    <Core.Text level={level} gap="tiny" el="span">
+  <Base.Text level={level} gap="small" {...rest}>
+    <Base.Text level={level} gap="tiny" el="span">
       {sortTriggers(trigger).map((t) => (
-        <Core.Text key={t} el="span" variant="keyboard" level={level}>
+        <Base.Text key={t} el="span" variant="keyboard" level={level}>
           {getCustomText(t)}
-        </Core.Text>
+        </Base.Text>
       ))}
-    </Core.Text>
+    </Base.Text>
     {children}
-  </Core.Text>
+  </Base.Text>
 );

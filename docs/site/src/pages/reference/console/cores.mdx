@@ -9,9 +9,8 @@ nextURL: "/reference/console/ui-overview"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
-import Code from "@/components/code/Code.astro";
-import { Video } from "@/components/Media";
-import Table from "@/components/Table.astro";
+import { Video } from "@/components/media/Media";
+import { Table } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -29,7 +28,7 @@ monitors the connection to the Core and displays it in the top-right corner of t
 
 ### Parameters
 
-<Table>
+<table>
   <thead>
     <tr>
       <th>Parameter</th>
@@ -73,14 +72,14 @@ monitors the connection to the Core and displays it in the top-right corner of t
       }
     </tr>
   </tbody>
-</Table>
+</table>
 
 ### Demo Core
 
 Synnax has a demo Core that can be connected to which always plots some data. To
 connect, enter the following parameters:
 
-<Table>
+<table>
   <thead>
     <tr>
       <th>Parameter</th>
@@ -119,4 +118,4 @@ connect, enter the following parameters:
       <td>true</td>
     </tr>
   </tbody>
-</Table>
+</table>

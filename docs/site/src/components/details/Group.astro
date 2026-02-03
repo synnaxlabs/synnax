@@ -1,0 +1,30 @@
+---
+
+---
+
+<div class="details-group">
+    <slot />
+</div>
+
+<style>
+    .details-group {
+        margin: 2rem 0;
+    }
+
+    .details-group :global(details) {
+        margin: 0;
+        border-top: none;
+        border-radius: 0;
+    }
+
+    .details-group :global(details:first-of-type) {
+        border-top: var(--pluto-border);
+        border-top-left-radius: 1rem;
+        border-top-right-radius: 1rem;
+    }
+
+    .details-group :global(details:last-of-type) {
+        border-bottom-left-radius: 1rem;
+        border-bottom-right-radius: 1rem;
+    }
+</style>

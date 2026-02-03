@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,7 +11,6 @@ import { DOWNLOAD_MODAL_LAYOUT_TYPE, DownloadModal } from "@/csv/DownloadModal";
 import { type Layout } from "@/layout";
 
 export * from "@/csv/DownloadModal";
-export * from "@/csv/useDownload";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [DOWNLOAD_MODAL_LAYOUT_TYPE]: DownloadModal,

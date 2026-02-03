@@ -10,8 +10,8 @@ nextURL: "/reference/console/calculated-channels"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import { Video } from "@/components/Media";
-import Table from "@/components/Table.astro";
+import { Video } from "@/components/media/Media";
+import { Table } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -36,7 +36,7 @@ palette by pressing `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (macOS).
 
 When creating a channel, you will be prompted to fill in the following fields:
 
-<Table>
+<table>
   <thead>
     <tr>
       <th>Field</th>
@@ -89,7 +89,7 @@ When creating a channel, you will be prompted to fill in the following fields:
     </tr>
 
   </tbody>
-</Table>
+</table>
 
 ### Index vs. Data Channels
 

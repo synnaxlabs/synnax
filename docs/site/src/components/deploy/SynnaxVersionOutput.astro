@@ -1,8 +1,8 @@
 ---
-import CodeI from "@/components/code/CodeI.astro";
+import Inline from "@/components/code/Inline.astro";
 import { fetchVersion } from "@/util/fetchVersion";
 
 const version = await fetchVersion();
 ---
 
-<CodeI theme="css-variables" lang="" code={`Synnax version ${version}`} />
+<Inline theme="css-variables" lang="text" code={`Synnax version ${version}`} />

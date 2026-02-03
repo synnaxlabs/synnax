@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -163,22 +163,22 @@ var _ = Describe("Is", func() {
 	Describe("As", func() {
 		It("Should return false for non-matching error types", func() {
 			err := errors.New("test")
-			var customErr *customError
-			Expect(errors.As(err, &customErr)).To(BeFalse())
+			var errCustom *customError
+			Expect(errors.As(err, &errCustom)).To(BeFalse())
 		})
 
 		It("Should return true and set target for matching error types", func() {
 			originalErr := &customError{msg: "test"}
 			err := errors.Wrap(originalErr, "wrapped")
-			var customErr *customError
-			Expect(errors.As(err, &customErr)).To(BeTrue())
-			Expect(customErr).To(Equal(originalErr))
+			var errCustom *customError
+			Expect(errors.As(err, &errCustom)).To(BeTrue())
+			Expect(errCustom).To(Equal(originalErr))
 		})
 
 		It("Should panic if target is not a pointer", func() {
 			err := errors.New("test")
-			var customErr customError
-			Expect(func() { errors.As(err, customErr) }).To(Panic())
+			var errCustom customError
+			Expect(func() { errors.As(err, errCustom) }).To(Panic())
 		})
 	})
 })

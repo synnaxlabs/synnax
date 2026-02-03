@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -39,21 +39,4 @@ type OffsetWriter interface {
 	// Len returns the number of bytes written by the writer.
 	Len() int64
 	io.Writer
-}
-
-type combinedReadWriteCloser struct {
-	io.Reader
-	io.Writer
-	io.Closer
-}
-
-func (c combinedReadWriteCloser) Close() error {
-	if c.Closer != nil {
-		return c.Closer.Close()
-	}
-	return nil
-}
-
-func CombineReadWriteCloser(r io.Reader, w io.Writer, closer io.Closer) io.ReadWriteCloser {
-	return combinedReadWriteCloser{Reader: r, Writer: w, Closer: closer}
 }

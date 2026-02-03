@@ -10,8 +10,7 @@ prevURL: "/reference/core/installation"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import Code from "@/components/code/Code.astro";
-import { Table } from "@/components/Table";
+import { Table } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -52,7 +51,8 @@ We recommend using TLS for securing all communications with your Core.
 
 There are four important command line options for configuring TLS:
 
-<Table
+<Table.Data
+  client:only="react"
   columns={[
     { key: "option", name: "Option", type: "code", width: 130 },
     { key: "description", name: "Description", type: "string" },

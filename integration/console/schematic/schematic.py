@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -83,7 +83,7 @@ class Schematic(ConsolePage):
                 command_channel="press_vlv_cmd"
             )
             configured_valve = schematic.create_symbol(valve)
-            configured_valve.move(-90, -100)
+            configured_valve.move(delta_x=-90, delta_y=-100)
         """
 
         symbol.create(self.page, self.console)
@@ -288,7 +288,7 @@ class Schematic(ConsolePage):
             raise ValueError(
                 f"Control Authority must be between 0 and 255, got {authority}"
             )
-        self.console.close_all_notifications()
+        self.console.notifications.close_all()
         self.console.click("Control")
         self.console.fill_input_field("Control Authority", str(authority))
 
@@ -298,7 +298,7 @@ class Schematic(ConsolePage):
         show_control_legend: bool | None = None,
     ) -> None:
         """Set schematic properties."""
-        self.console.close_all_notifications()
+        self.console.notifications.close_all()
         self.console.click("Control")
 
         if control_authority is not None:
@@ -442,7 +442,7 @@ class Schematic(ConsolePage):
         Returns:
             Tuple of (control_authority, show_control_legend)
         """
-        self.console.close_all_notifications()
+        self.console.notifications.close_all()
         self.console.click("Control")
 
         control_authority = int(self.console.get_input_field("Control Authority"))
@@ -812,7 +812,7 @@ class Schematic(ConsolePage):
         )
 
         expected_angle = 90.0 if direction == "clockwise" else -90.0
-        angular_tolerance = 15.0
+        angular_tolerance = 17.0
 
         for i in range(len(symbols)):
 

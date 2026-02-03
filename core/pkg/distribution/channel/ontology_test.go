@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -30,6 +30,13 @@ var _ = Describe("Ontology", Ordered, func() {
 	BeforeAll(func() { mockCluster = mock.ProvisionCluster(ctx, 1) })
 	AfterAll(func() {
 		Expect(mockCluster.Close()).To(Succeed())
+	})
+	Describe("OntologyID", func() {
+		It("Should correctly return the ontology.ID for the specified channel", func() {
+			ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, ch)).To(Succeed())
+			Expect(ch.OntologyID()).To(Equal(channel.OntologyID(ch.Key())))
+		})
 	})
 	Describe("OpenNexter", func() {
 		It("Should correctly iterate over all channels", func() {
@@ -65,7 +72,7 @@ var _ = Describe("Ontology", Ordered, func() {
 					c := <-changes
 					g.Expect(c).To(HaveLen(1))
 					v := c[0]
-					g.Expect(v.Variant).To(Equal(change.Set))
+					g.Expect(v.Variant).To(Equal(change.VariantSet))
 					g.Expect(v.Key.Key).To(Equal(ch.Key().String()))
 				}).Should(Succeed())
 			})

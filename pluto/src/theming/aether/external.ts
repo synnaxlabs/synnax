@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,5 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/theming/aether/provider";
-export * from "@/theming/core/fontString";
-export * from "@/theming/core/theme";
+export * from "@/theming/base/fontString";
+export * from "@/theming/base/theme";

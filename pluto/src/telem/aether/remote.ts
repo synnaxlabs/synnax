@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -118,8 +118,10 @@ export class StreamChannelValue
   }
 }
 
-interface SelectedChannelProperties
-  extends Pick<channel.Payload, "key" | "dataType" | "virtual"> {
+interface SelectedChannelProperties extends Pick<
+  channel.Payload,
+  "key" | "dataType" | "virtual"
+> {
   isCalculated: boolean;
 }
 
@@ -130,23 +132,8 @@ const fetchChannelProperties = async (
 ): Promise<SelectedChannelProperties> => {
   const c = await client.retrieveChannel(ch);
   const isCalculated = channel.isCalculated(c);
-  const isLegacyCalculated = channel.isLegacyCalculated(c);
   if (!fetchIndex || c.isIndex)
     return { key: c.key, dataType: c.dataType, virtual: c.virtual, isCalculated };
-  if (isLegacyCalculated) {
-    const indexKey = await channel.resolveLegacyCalculatedIndex(
-      client.retrieveChannel.bind(client),
-      c,
-    );
-    if (indexKey == null) throw new NotFoundError("Failed to resolve calculated index");
-    const indexCH = await client.retrieveChannel(indexKey);
-    return {
-      key: indexCH.key,
-      dataType: DataType.TIMESTAMP,
-      virtual: false,
-      isCalculated,
-    };
-  }
   if (c.virtual && !isCalculated)
     throw new NotFoundError("cannot use virtual channels as a data source");
   return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };

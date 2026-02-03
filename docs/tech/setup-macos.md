@@ -161,40 +161,36 @@ You should see something like:
 pip: aliased to pip3.11
 ```
 
-## 5.1 - Install Poetry
+## 5.1 - Install uv
 
-We use [Poetry](https://python-poetry.org/) to manage Python dependencies. To install
-Poetry, run:
+We use [uv](https://docs.astral.sh/uv/) to manage Python dependencies. To install uv,
+run:
 
 ```zsh
-brew install poetry
+brew install uv
 ```
 
 To verify the installation, run:
 
 ```zsh
-poetry --version
+uv --version
 ```
 
 The output should look something like:
 
 ```zsh
-Poetry version 1.1.x
+uv 0.5.x
 ```
 
 ## 5.2 - Install Python Dependencies
 
-Synnax has three Python projects: `freighter/py`, `client/py`, and `alamos/py`. To
-install the dependencies for all three projects, move into the respective project
-directories and run
+Synnax uses a uv workspace with four Python projects: `alamos/py`, `freighter/py`,
+`client/py`, and `integration`. To install the dependencies for all projects, run from
+the repository root:
 
 ```zsh
-poetry install
+uv sync
 ```
-
-If, for freighter/py, the `poetry install` command gives an error, go into the
-`freighter/py/pyproject.toml` file, comment the line `alamos = "^0.2.0"`, and uncomment
-the line that follows.
 
 # 6 - Front End Build System
 

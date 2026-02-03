@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,31 +9,28 @@
 
 #include <filesystem>
 
-#include <gtest/gtest.h>
-
 #include "x/cpp/kv/kv.h"
+#include "x/cpp/xtest/xtest.h"
 
 class JSONTest : public ::testing::Test {
 protected:
     std::string temp_path;
 
     void SetUp() override {
-        // Use system temp directory as base
-        auto temp_dir = std::filesystem::temp_directory_path();
+        const auto temp_dir = std::filesystem::temp_directory_path();
         temp_path = (temp_dir / "json_test" / "test.json").string();
     }
 
     void TearDown() override {
-        // Clean up test files after each test
         try {
             std::filesystem::remove_all(std::filesystem::path(temp_path).parent_path());
         } catch (const std::filesystem::filesystem_error &e) {
-            // Log error but don't fail the test
             std::cerr << "Cleanup failed: " << e.what() << std::endl;
         }
     }
 };
 
+/// @brief it should create a new JSON file when it does not exist.
 TEST_F(JSONTest, CreateNewFile) {
     kv::JSONFileConfig config;
     config.path = temp_path;
@@ -43,11 +40,11 @@ TEST_F(JSONTest, CreateNewFile) {
     config.file_mode = std::filesystem::perms::owner_read |
                        std::filesystem::perms::owner_write;
 
-    auto [kv, err] = kv::JSONFile::open(config);
-    ASSERT_FALSE(err) << err.message();
+    auto kv = ASSERT_NIL_P(kv::JSONFile::open(config));
     ASSERT_TRUE(std::filesystem::exists(temp_path));
 }
 
+/// @brief it should correctly set, get, and delete key-value pairs.
 TEST_F(JSONTest, SetGetDelete) {
     kv::JSONFileConfig config;
     config.path = temp_path;
@@ -57,36 +54,26 @@ TEST_F(JSONTest, SetGetDelete) {
     config.file_mode = std::filesystem::perms::owner_read |
                        std::filesystem::perms::owner_write;
 
-    auto [kv, err] = kv::JSONFile::open(config);
-    ASSERT_FALSE(err) << err.message();
+    auto kv = ASSERT_NIL_P(kv::JSONFile::open(config));
 
-    // Test set
-    err = kv->set("key1", "value1");
-    ASSERT_FALSE(err) << err.message();
+    ASSERT_NIL(kv->set("key1", "value1"));
 
     // Test get
     std::string value;
-    err = kv->get("key1", value);
-    ASSERT_FALSE(err) << err.message();
-    ASSERT_EQ(value, "value1");
-
-    // Test get non-existent key
-    err = kv->get("nonexistent", value);
-    ASSERT_TRUE(err);
+    ASSERT_NIL(kv->get("key1", value));
+    ASSERT_OCCURRED_AS(kv->get("nonexistent", value), xerrors::NOT_FOUND);
 
     // Test delete
-    err = kv->del("key1");
-    ASSERT_FALSE(err) << err.message();
+    ASSERT_NIL(kv->del("key1"));
 
     // Verify key was deleted
-    err = kv->get("key1", value);
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS(kv->get("key1", value), xerrors::NOT_FOUND);
 
     // Test delete non-existent key (should not error)
-    err = kv->del("nonexistent");
-    ASSERT_FALSE(err) << err.message();
+    ASSERT_NIL(kv->del("nonexistent"));
 }
 
+/// @brief it should persist data across multiple file instances.
 TEST_F(JSONTest, Persistence) {
     kv::JSONFileConfig config;
     config.path = temp_path;
@@ -97,19 +84,15 @@ TEST_F(JSONTest, Persistence) {
                        std::filesystem::perms::owner_write;
     // Write some data
     {
-        auto [kv, err] = kv::JSONFile::open(config);
-        ASSERT_FALSE(err) << err.message();
-        err = kv->set("persistent", "data");
-        ASSERT_FALSE(err) << err.message();
+        auto kv = ASSERT_NIL_P(kv::JSONFile::open(config));
+        ASSERT_NIL(kv->set("persistent", "data"));
     }
 
     // Read it back in a new instance
     {
-        auto [kv, err] = kv::JSONFile::open(config);
-        ASSERT_FALSE(err) << err.message();
+        auto kv = ASSERT_NIL_P(kv::JSONFile::open(config));
         std::string value;
-        err = kv->get("persistent", value);
-        ASSERT_FALSE(err) << err.message();
+        ASSERT_NIL(kv->get("persistent", value));
         ASSERT_EQ(value, "data");
     }
 }

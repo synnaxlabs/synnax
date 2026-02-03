@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstddef>
 #include <iostream>
 #include <string>
@@ -20,7 +21,7 @@
 #include "x/cpp/binary/binary.h"
 #include "x/cpp/telem/telem.h"
 
-#include "x/go/telem/x/go/telem/telem.pb.h"
+#include "x/go/telem/telem.pb.h"
 
 using json = nlohmann::json;
 
@@ -124,7 +125,8 @@ private:
         cached_byte_size(other.cached_byte_size),
         size_(other.size_),
         data_(std::make_unique<std::byte[]>(other.byte_size())),
-        time_range(other.time_range) {
+        time_range(other.time_range),
+        alignment(other.alignment) {
         memcpy(data_.get(), other.data_.get(), other.byte_size());
     }
 
@@ -162,6 +164,216 @@ private:
             apply_numeric_op<uint8_t, T>(rhs, op);
     }
 
+    template<typename T, typename Op>
+    void apply_binary_op_typed(const Series &other, Series &result, Op op) const {
+        auto *lhs = reinterpret_cast<const T *>(this->data_.get());
+        auto *rhs = reinterpret_cast<const T *>(other.data_.get());
+        auto *out = reinterpret_cast<T *>(result.data_.get());
+        for (size_t i = 0; i < this->size(); i++)
+            out[i] = op(lhs[i], rhs[i]);
+    }
+
+    template<typename Op>
+    Series apply_binary_op(const Series &other, Op op) const {
+        if (this->size() != other.size())
+            throw std::runtime_error("series length mismatch for binary operation");
+        if (this->data_type() != other.data_type())
+            throw std::runtime_error("series type mismatch for binary operation");
+
+        auto result = Series(this->data_type(), this->size());
+        result.resize(this->size());
+
+        const auto dt = this->data_type();
+        if (dt == FLOAT64_T)
+            apply_binary_op_typed<double>(other, result, op);
+        else if (dt == FLOAT32_T)
+            apply_binary_op_typed<float>(other, result, op);
+        else if (dt == INT64_T)
+            apply_binary_op_typed<int64_t>(other, result, op);
+        else if (dt == INT32_T)
+            apply_binary_op_typed<int32_t>(other, result, op);
+        else if (dt == INT16_T)
+            apply_binary_op_typed<int16_t>(other, result, op);
+        else if (dt == INT8_T)
+            apply_binary_op_typed<int8_t>(other, result, op);
+        else if (dt == UINT64_T)
+            apply_binary_op_typed<uint64_t>(other, result, op);
+        else if (dt == UINT32_T)
+            apply_binary_op_typed<uint32_t>(other, result, op);
+        else if (dt == UINT16_T)
+            apply_binary_op_typed<uint16_t>(other, result, op);
+        else if (dt == UINT8_T)
+            apply_binary_op_typed<uint8_t>(other, result, op);
+
+        return result;
+    }
+
+    template<typename T, typename Op>
+    void apply_comparison_op_typed(const Series &other, Series &result, Op op) const {
+        auto *lhs = reinterpret_cast<const T *>(this->data_.get());
+        auto *rhs = reinterpret_cast<const T *>(other.data_.get());
+        auto *out = reinterpret_cast<uint8_t *>(result.data_.get());
+        for (size_t i = 0; i < this->size(); i++)
+            out[i] = op(lhs[i], rhs[i]) ? 1 : 0;
+    }
+
+    template<typename Op>
+    Series apply_comparison_op(const Series &other, Op op) const {
+        if (this->size() != other.size())
+            throw std::runtime_error("series length mismatch for comparison");
+        if (this->data_type() != other.data_type())
+            throw std::runtime_error("series type mismatch for comparison");
+
+        auto result = Series(UINT8_T, this->size());
+        result.resize(this->size());
+
+        const auto dt = this->data_type();
+        if (dt == FLOAT64_T)
+            apply_comparison_op_typed<double>(other, result, op);
+        else if (dt == FLOAT32_T)
+            apply_comparison_op_typed<float>(other, result, op);
+        else if (dt == INT64_T)
+            apply_comparison_op_typed<int64_t>(other, result, op);
+        else if (dt == INT32_T)
+            apply_comparison_op_typed<int32_t>(other, result, op);
+        else if (dt == INT16_T)
+            apply_comparison_op_typed<int16_t>(other, result, op);
+        else if (dt == INT8_T)
+            apply_comparison_op_typed<int8_t>(other, result, op);
+        else if (dt == UINT64_T)
+            apply_comparison_op_typed<uint64_t>(other, result, op);
+        else if (dt == UINT32_T)
+            apply_comparison_op_typed<uint32_t>(other, result, op);
+        else if (dt == UINT16_T)
+            apply_comparison_op_typed<uint16_t>(other, result, op);
+        else if (dt == UINT8_T)
+            apply_comparison_op_typed<uint8_t>(other, result, op);
+
+        return result;
+    }
+
+    template<typename T, typename Op>
+    void apply_unary_op_typed(Series &result, Op op) const {
+        auto *src = reinterpret_cast<const T *>(this->data_.get());
+        auto *out = reinterpret_cast<T *>(result.data_.get());
+        for (size_t i = 0; i < this->size(); i++)
+            out[i] = op(src[i]);
+    }
+
+    template<typename Op>
+    Series apply_unary_op(Op op) const {
+        auto result = Series(this->data_type(), this->size());
+        result.resize(this->size());
+
+        const auto dt = this->data_type();
+        if (dt == FLOAT64_T)
+            apply_unary_op_typed<double>(result, op);
+        else if (dt == FLOAT32_T)
+            apply_unary_op_typed<float>(result, op);
+        else if (dt == INT64_T)
+            apply_unary_op_typed<int64_t>(result, op);
+        else if (dt == INT32_T)
+            apply_unary_op_typed<int32_t>(result, op);
+        else if (dt == INT16_T)
+            apply_unary_op_typed<int16_t>(result, op);
+        else if (dt == INT8_T)
+            apply_unary_op_typed<int8_t>(result, op);
+        else if (dt == UINT64_T)
+            apply_unary_op_typed<uint64_t>(result, op);
+        else if (dt == UINT32_T)
+            apply_unary_op_typed<uint32_t>(result, op);
+        else if (dt == UINT16_T)
+            apply_unary_op_typed<uint16_t>(result, op);
+        else if (dt == UINT8_T)
+            apply_unary_op_typed<uint8_t>(result, op);
+
+        return result;
+    }
+
+    template<typename SourceType, typename T, typename Op>
+    void apply_scalar_comparison_op_typed(T scalar, Series &result, Op op) const {
+        auto *src = reinterpret_cast<const SourceType *>(this->data_.get());
+        auto *out = reinterpret_cast<uint8_t *>(result.data_.get());
+        for (size_t i = 0; i < this->size(); i++)
+            out[i] = op(src[i], static_cast<SourceType>(scalar)) ? 1 : 0;
+    }
+
+    template<typename T, typename Op>
+    Series apply_scalar_comparison_op(T scalar, Op op) const {
+        auto result = Series(UINT8_T, this->size());
+        result.resize(this->size());
+
+        const auto dt = this->data_type();
+        if (dt == FLOAT64_T)
+            apply_scalar_comparison_op_typed<double>(scalar, result, op);
+        else if (dt == FLOAT32_T)
+            apply_scalar_comparison_op_typed<float>(scalar, result, op);
+        else if (dt == INT64_T)
+            apply_scalar_comparison_op_typed<int64_t>(scalar, result, op);
+        else if (dt == INT32_T)
+            apply_scalar_comparison_op_typed<int32_t>(scalar, result, op);
+        else if (dt == INT16_T)
+            apply_scalar_comparison_op_typed<int16_t>(scalar, result, op);
+        else if (dt == INT8_T)
+            apply_scalar_comparison_op_typed<int8_t>(scalar, result, op);
+        else if (dt == UINT64_T)
+            apply_scalar_comparison_op_typed<uint64_t>(scalar, result, op);
+        else if (dt == UINT32_T)
+            apply_scalar_comparison_op_typed<uint32_t>(scalar, result, op);
+        else if (dt == UINT16_T)
+            apply_scalar_comparison_op_typed<uint16_t>(scalar, result, op);
+        else if (dt == UINT8_T)
+            apply_scalar_comparison_op_typed<uint8_t>(scalar, result, op);
+
+        return result;
+    }
+
+    template<typename T, typename Op>
+    Series apply_scalar_op(T scalar, Op op) const {
+        auto result = this->deep_copy();
+        result.cast_and_apply_numeric_op(scalar, op);
+        return result;
+    }
+
+    template<typename SourceType, typename T, typename Op>
+    void apply_reverse_scalar_op_typed(T scalar, Series &result, Op op) const {
+        auto *src = reinterpret_cast<const SourceType *>(this->data_.get());
+        auto *out = reinterpret_cast<SourceType *>(result.data_.get());
+        const auto cast_scalar = static_cast<SourceType>(scalar);
+        for (size_t i = 0; i < this->size(); i++)
+            out[i] = op(cast_scalar, src[i]);
+    }
+
+    template<typename T, typename Op>
+    Series apply_reverse_scalar_op(T scalar, Op op) const {
+        auto result = Series(this->data_type(), this->size());
+        result.resize(this->size());
+
+        const auto dt = this->data_type();
+        if (dt == FLOAT64_T)
+            apply_reverse_scalar_op_typed<double>(scalar, result, op);
+        else if (dt == FLOAT32_T)
+            apply_reverse_scalar_op_typed<float>(scalar, result, op);
+        else if (dt == INT64_T)
+            apply_reverse_scalar_op_typed<int64_t>(scalar, result, op);
+        else if (dt == INT32_T)
+            apply_reverse_scalar_op_typed<int32_t>(scalar, result, op);
+        else if (dt == INT16_T)
+            apply_reverse_scalar_op_typed<int16_t>(scalar, result, op);
+        else if (dt == INT8_T)
+            apply_reverse_scalar_op_typed<int8_t>(scalar, result, op);
+        else if (dt == UINT64_T)
+            apply_reverse_scalar_op_typed<uint64_t>(scalar, result, op);
+        else if (dt == UINT32_T)
+            apply_reverse_scalar_op_typed<uint32_t>(scalar, result, op);
+        else if (dt == UINT16_T)
+            apply_reverse_scalar_op_typed<uint16_t>(scalar, result, op);
+        else if (dt == UINT8_T)
+            apply_reverse_scalar_op_typed<uint8_t>(scalar, result, op);
+
+        return result;
+    }
+
 public:
     /// @brief returns the number of samples in the series.
     [[nodiscard]] size_t size() const { return this->size_; }
@@ -197,8 +409,24 @@ public:
         cached_byte_size(other.cached_byte_size),
         size_(other.size_),
         data_(std::move(other.data_)),
-        time_range(other.time_range) {
+        time_range(other.time_range),
+        alignment(other.alignment) {
         other.data_ = nullptr;
+    }
+
+    /// @brief move assignment operator.
+    Series &operator=(Series &&other) noexcept {
+        if (this != &other) {
+            data_type_ = std::move(other.data_type_);
+            cap_ = other.cap_;
+            cached_byte_size = other.cached_byte_size;
+            size_ = other.size_;
+            data_ = std::move(other.data_);
+            time_range = other.time_range;
+            alignment = other.alignment;
+            other.data_ = nullptr;
+        }
+        return *this;
     }
 
     /// @brief returns a raw pointer to the underlying buffer backing the series. This
@@ -404,11 +632,11 @@ public:
         }
     }
 
-    /// @brief sets a number at an index.
+    /// @brief sets a number at an index with type casting based on series data type.
     /// @param index the index to set the number at. If negative, the index is
     /// treated as an offset from the end of the series.
-    /// @param value the value to set. The provided value should be compatible with
-    /// the series' data type. It is up to you to ensure that this is the case.
+    /// @param value the value to set. The value will be cast to match the series'
+    /// data type.
     template<typename NumericType>
     void set(const int &index, const NumericType value) {
         static_assert(
@@ -416,30 +644,87 @@ public:
             "NumericType must be a numeric type"
         );
         const auto adjusted = this->validate_bounds(index);
-        auto *dest = reinterpret_cast<NumericType *>(
-            data_.get() + adjusted * this->data_type().density()
+        const auto dt = this->data_type();
+        auto *base_ptr = data_.get() + adjusted * dt.density();
+
+        if (dt == FLOAT64_T) {
+            *reinterpret_cast<double *>(base_ptr) = static_cast<double>(value);
+        } else if (dt == FLOAT32_T) {
+            *reinterpret_cast<float *>(base_ptr) = static_cast<float>(value);
+        } else if (dt == INT64_T || dt == TIMESTAMP_T) {
+            *reinterpret_cast<int64_t *>(base_ptr) = static_cast<int64_t>(value);
+        } else if (dt == INT32_T) {
+            *reinterpret_cast<int32_t *>(base_ptr) = static_cast<int32_t>(value);
+        } else if (dt == INT16_T) {
+            *reinterpret_cast<int16_t *>(base_ptr) = static_cast<int16_t>(value);
+        } else if (dt == INT8_T) {
+            *reinterpret_cast<int8_t *>(base_ptr) = static_cast<int8_t>(value);
+        } else if (dt == UINT64_T) {
+            *reinterpret_cast<uint64_t *>(base_ptr) = static_cast<uint64_t>(value);
+        } else if (dt == UINT32_T) {
+            *reinterpret_cast<uint32_t *>(base_ptr) = static_cast<uint32_t>(value);
+        } else if (dt == UINT16_T) {
+            *reinterpret_cast<uint16_t *>(base_ptr) = static_cast<uint16_t>(value);
+        } else if (dt == UINT8_T) {
+            *reinterpret_cast<uint8_t *>(base_ptr) = static_cast<uint8_t>(value);
+        }
+    }
+
+    /// @brief sets a TimeStamp at an index.
+    /// @param index the index to set the timestamp at. If negative, the index is
+    /// treated as an offset from the end of the series.
+    /// @param value the timestamp value to set.
+    void set(const int &index, const TimeStamp value) {
+        this->set(index, value.nanoseconds());
+    }
+
+    /// @brief sets a SampleValue at an index.
+    /// @param index the index to set the value at. If negative, the index is
+    /// treated as an offset from the end of the series.
+    /// @param val the SampleValue to set. The value will be written based on
+    /// the series' data type.
+    void set(const int &index, const SampleValue &val) {
+        if (this->data_type().is_variable()) {
+            throw std::runtime_error(
+                "set() with SampleValue is not supported for variable-size data types"
+            );
+        }
+        if (std::holds_alternative<std::string>(val)) {
+            throw std::runtime_error("cannot set string value on non-string series");
+        }
+        if (std::holds_alternative<TimeStamp>(val)) {
+            this->set(index, std::get<TimeStamp>(val));
+            return;
+        }
+        std::visit(
+            [this, index]<typename T>(const T &v) {
+                if constexpr (!std::is_same_v<T, std::string> &&
+                              !std::is_same_v<T, TimeStamp>) {
+                    this->set(index, v);
+                }
+            },
+            val
         );
-        *dest = value;
     }
 
     /// @brief sets the given array of numeric data at the given index.
     /// @param d the array of numeric data to be written.
     /// @param index the index to write the data at. If negative, the index is
     /// treated as an offset from the end of the series.
-    /// @param size_ the number of samples to write.
+    /// @param count the number of samples to write.
     /// @throws std::runtime_error if the index is out of bounds or the write would
     /// exceed the capacity of the series.
     template<typename NumericType>
-    void set(const NumericType *d, const int &index, const size_t size_) {
+    void set(const NumericType *d, const int &index, const size_t count) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
         );
-        const auto adjusted = this->validate_bounds(index, size_);
+        const auto adjusted = this->validate_bounds(index, count);
         memcpy(
             this->data_.get() + adjusted * this->data_type().density(),
             d,
-            size_ * this->data_type().density()
+            count * this->data_type().density()
         );
     }
 
@@ -559,19 +844,19 @@ public:
 
     /// @brief writes the given array of numeric data to the series.
     /// @param d the array of numeric data to be written.
-    /// @param size_ the number of samples to write.
+    /// @param count the number of samples to write.
     /// @returns the number of samples written. If the capacity of the series is
     /// exceeded, it will only write as many samples as it can hold.
     template<typename NumericType>
-    size_t write(const NumericType *d, const size_t size_) {
+    size_t write(const NumericType *d, const size_t count) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "generic argument to write must be a numeric type"
         );
-        const size_t count = std::min(size_, this->cap() - this->size());
-        memcpy(this->data_.get(), d, count * this->data_type().density());
-        this->size_ += count;
-        return count;
+        const size_t capped_count = std::min(count, this->cap() - this->size());
+        memcpy(this->data_.get(), d, capped_count * this->data_type().density());
+        this->size_ += capped_count;
+        return capped_count;
     }
 
     /// @brief encodes the series' fields into the given protobuf message.
@@ -862,12 +1147,260 @@ public:
         cast_and_apply_numeric_op(rhs, std::divides<T>());
     }
 
+    /// @brief Series-Series addition operator. Returns a new Series.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator+(const Series &other) const {
+        return apply_binary_op(other, [](auto a, auto b) { return a + b; });
+    }
+
+    /// @brief Series-Series subtraction operator. Returns a new Series.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator-(const Series &other) const {
+        return apply_binary_op(other, [](auto a, auto b) { return a - b; });
+    }
+
+    /// @brief Series-Series multiplication operator. Returns a new Series.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator*(const Series &other) const {
+        return apply_binary_op(other, [](auto a, auto b) { return a * b; });
+    }
+
+    /// @brief Series-Series division operator. Returns a new Series.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator/(const Series &other) const {
+        return apply_binary_op(other, [](auto a, auto b) { return a / b; });
+    }
+
+    /// @brief Series-Series modulo operator. Returns a new Series.
+    /// Uses % for integer types, std::fmod for floating-point types.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator%(const Series &other) const {
+        return apply_binary_op(other, [](auto a, auto b) {
+            if constexpr (std::is_integral_v<decltype(a)>) {
+                return a % b;
+            } else {
+                return std::fmod(a, b);
+            }
+        });
+    }
+
+    /// @brief Series + scalar operator. Returns a new Series.
+    template<typename T>
+    Series operator+(T scalar) const {
+        return apply_scalar_op(scalar, std::plus<T>());
+    }
+
+    /// @brief Series - scalar operator. Returns a new Series.
+    template<typename T>
+    Series operator-(T scalar) const {
+        return apply_scalar_op(scalar, std::minus<T>());
+    }
+
+    /// @brief Series * scalar operator. Returns a new Series.
+    template<typename T>
+    Series operator*(T scalar) const {
+        return apply_scalar_op(scalar, std::multiplies<T>());
+    }
+
+    /// @brief Series / scalar operator. Returns a new Series.
+    /// @throws std::runtime_error if scalar is zero.
+    template<typename T>
+    Series operator/(T scalar) const {
+        if (scalar == 0) throw std::runtime_error("division by zero");
+        return apply_scalar_op(scalar, std::divides<T>());
+    }
+
+    /// @brief Series % scalar operator. Returns a new Series.
+    /// Uses % for integer types, std::fmod for floating-point types.
+    /// @throws std::runtime_error if scalar is zero.
+    template<typename T>
+    Series operator%(T scalar) const {
+        if (scalar == 0) throw std::runtime_error("modulo by zero");
+        if constexpr (std::is_integral_v<T>) {
+            return apply_scalar_op(scalar, std::modulus<T>());
+        } else {
+            return apply_scalar_op(scalar, [](auto a, auto b) {
+                return std::fmod(a, b);
+            });
+        }
+    }
+
+    /// @brief scalar + Series operator (commutative). Returns a new Series.
+    template<typename T>
+    friend Series operator+(T scalar, const Series &s) {
+        return s + scalar;
+    }
+
+    /// @brief scalar * Series operator (commutative). Returns a new Series.
+    template<typename T>
+    friend Series operator*(T scalar, const Series &s) {
+        return s * scalar;
+    }
+
+    /// @brief scalar - Series operator. Computes (scalar - element) for each element.
+    template<typename T>
+    friend Series operator-(T scalar, const Series &s) {
+        return s.apply_reverse_scalar_op(scalar, std::minus<T>());
+    }
+
+    /// @brief scalar / Series operator. Computes (scalar / element) for each element.
+    template<typename T>
+    friend Series operator/(T scalar, const Series &s) {
+        return s.apply_reverse_scalar_op(scalar, std::divides<T>());
+    }
+
+    /// @brief scalar % Series operator. Computes (scalar % element) for each element.
+    /// Uses % for integer types, std::fmod for floating-point types.
+    template<typename T>
+    friend Series operator%(T scalar, const Series &s) {
+        if constexpr (std::is_integral_v<T>) {
+            return s.apply_reverse_scalar_op(scalar, std::modulus<T>());
+        } else {
+            return s.apply_reverse_scalar_op(scalar, [](auto a, auto b) {
+                return std::fmod(a, b);
+            });
+        }
+    }
+
+    /// @brief Series > Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator>(const Series &other) const {
+        return apply_comparison_op(other, [](auto a, auto b) { return a > b; });
+    }
+
+    /// @brief Series < Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator<(const Series &other) const {
+        return apply_comparison_op(other, [](auto a, auto b) { return a < b; });
+    }
+
+    /// @brief Series >= Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator>=(const Series &other) const {
+        return apply_comparison_op(other, [](auto a, auto b) { return a >= b; });
+    }
+
+    /// @brief Series <= Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator<=(const Series &other) const {
+        return apply_comparison_op(other, [](auto a, auto b) { return a <= b; });
+    }
+
+    /// @brief Series == Series element-wise comparison. Returns UINT8_T Series.
+    /// Note: This performs element-wise comparison, not structural equality.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator==(const Series &other) const {
+        return apply_comparison_op(other, [](auto a, auto b) { return a == b; });
+    }
+
+    /// @brief Series != Series element-wise comparison. Returns UINT8_T Series.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator!=(const Series &other) const {
+        return apply_comparison_op(other, [](auto a, auto b) { return a != b; });
+    }
+
+    /// @brief Series > scalar comparison. Returns UINT8_T Series with 0/1 values.
+    template<typename T>
+    Series operator>(T scalar) const {
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a > b; });
+    }
+
+    /// @brief Series < scalar comparison. Returns UINT8_T Series with 0/1 values.
+    template<typename T>
+    Series operator<(T scalar) const {
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a < b; });
+    }
+
+    /// @brief Series >= scalar comparison. Returns UINT8_T Series with 0/1 values.
+    template<typename T>
+    Series operator>=(T scalar) const {
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
+            return a >= b;
+        });
+    }
+
+    /// @brief Series <= scalar comparison. Returns UINT8_T Series with 0/1 values.
+    template<typename T>
+    Series operator<=(T scalar) const {
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
+            return a <= b;
+        });
+    }
+
+    /// @brief Series == scalar comparison. Returns UINT8_T Series with 0/1 values.
+    template<typename T>
+    Series operator==(T scalar) const {
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
+            return a == b;
+        });
+    }
+
+    /// @brief Series != scalar comparison. Returns UINT8_T Series with 0/1 values.
+    template<typename T>
+    Series operator!=(T scalar) const {
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
+            return a != b;
+        });
+    }
+
+    /// @brief Unary negation operator. Returns a new Series with negated values.
+    /// Works for all numeric types (signed and unsigned).
+    Series operator-() const {
+        return apply_unary_op([](auto a) { return -a; });
+    }
+
+    /// @brief Bitwise NOT operator. Returns a new Series with inverted bits.
+    /// Only valid for integer types.
+    /// @throws std::runtime_error if called on floating-point types.
+    Series operator~() const {
+        const auto dt = this->data_type();
+        if (dt == FLOAT32_T || dt == FLOAT64_T) {
+            throw std::runtime_error(
+                "bitwise NOT not supported for floating-point types"
+            );
+        }
+        return apply_unary_op([](auto a) {
+            if constexpr (std::is_integral_v<decltype(a)>) {
+                return static_cast<decltype(a)>(~a);
+            } else {
+                // This branch is never reached due to the runtime check above,
+                // but is needed for template instantiation.
+                return a;
+            }
+        });
+    }
+
+    /// @brief Logical NOT. Returns a UINT8_T Series where each element is
+    /// 1 if the original was 0, and 0 if the original was non-zero.
+    [[nodiscard]] Series logical_not() const {
+        return apply_scalar_comparison_op(0, [](auto a, auto b) { return a == b; });
+    }
+
     /// @brief deep copies the series, including all of its data_. This function
     /// should be called explicitly (as opposed to an implicit copy constructor) to
     /// avoid accidental deep copies.
     [[nodiscard]] Series deep_copy() const { return {*this}; }
 
     void clear() { this->size_ = 0; }
+
+    void resize(size_t new_size) {
+        if (this->data_type().is_variable()) {
+            throw std::runtime_error(
+                "resize not supported for variable-size data types"
+            );
+        }
+        if (new_size > this->cap_) {
+            const auto density = this->data_type().density();
+            auto new_data = std::make_unique<std::byte[]>(new_size * density);
+            if (this->size_ > 0) {
+                memcpy(new_data.get(), this->data_.get(), this->size_ * density);
+            }
+            this->data_ = std::move(new_data);
+            this->cap_ = new_size;
+            this->cached_byte_cap = new_size * density;
+        }
+        this->size_ = new_size;
+    }
 
     /// @brief writes data to the series while performing any necessary type casting
     /// @param data the data to write
@@ -1026,5 +1559,24 @@ public:
             this->size_ += n_read / this->data_type().density();
         return n_read;
     }
+};
+
+/// @brief MultiSeries holds multiple series for accumulating data from a channel.
+/// This matches Go's telem.MultiSeries pattern for handling multiple data arrivals
+/// before consumption.
+struct MultiSeries {
+    std::vector<Series> series; ///< Accumulated series
+
+    /// @brief Append adds a series to the accumulation.
+    void append(Series s) { series.push_back(std::move(s)); }
+
+    /// @brief Clear removes all accumulated series.
+    void clear() { series.clear(); }
+
+    /// @brief Empty returns true if no series are accumulated.
+    [[nodiscard]] bool empty() const { return series.empty(); }
+
+    /// @brief Size returns the number of accumulated series.
+    [[nodiscard]] size_t size() const { return series.size(); }
 };
 }

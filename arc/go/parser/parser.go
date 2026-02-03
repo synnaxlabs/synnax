@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:generate antlr4 -Dlanguage=Go -o . -package parser ArcLexer.g4 ArcParser.g4
+//go:generate antlr4 -Dlanguage=Go -visitor -o . -package parser ArcLexer.g4 ArcParser.g4
+//go:generate go run gen_token_literals.go
 
 // Package parser provides parsing functionality for the Arc programming language.
 // It uses ANTLR4-generated parsers to convert Arc source code into abstract syntax trees.
@@ -136,9 +137,25 @@ func (e *errorListener) SyntaxError(
 	_ antlr.RecognitionException,
 ) {
 	e.Add(diagnostics.Diagnostic{
-		Severity: diagnostics.Error,
-		Line:     line,
-		Column:   column,
+		Severity: diagnostics.SeverityError,
+		Start:    diagnostics.Position{Line: line, Col: column},
 		Message:  msg,
 	})
+}
+
+// TokensAdjacent returns true if two tokens are adjacent with no whitespace between them.
+// This is used by the numericLiteral grammar rule to determine if an IDENTIFIER
+// immediately follows a numeric literal (making it a unit suffix like "300ms")
+// versus being separated by whitespace (making them separate tokens).
+//
+// The check uses character positions: if prev token ends at position X,
+// and next token starts at position X+1, they are adjacent.
+func (p *ArcParser) TokensAdjacent(prev, next antlr.Token) bool {
+	if prev == nil || next == nil {
+		return false
+	}
+	// GetStop() returns the last character index of the token (inclusive)
+	// GetStart() returns the first character index of the token
+	// Adjacent means next starts exactly where prev ends + 1
+	return prev.GetStop()+1 == next.GetStart()
 }

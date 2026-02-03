@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -212,10 +212,10 @@ configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client
         LOG(ERROR) << "[opc.scanner] Failed to configure encryption: "
                    << UA_StatusCode_name(e_err);
         const auto status_name = UA_StatusCode_name(e_err);
-        return xerrors::Error(
-            freighter::TYPE_UNREACHABLE,
+        return {
+            errors::ENCRYPTION_CONFIG_FAILED,
             "Failed to configure encryption: " + std::string(status_name)
-        );
+        };
     }
     return xerrors::NIL;
 }
@@ -290,7 +290,8 @@ connect(const Config &cfg, std::string log_prefix) {
     config->timeout = cfg.client_timeout_ms > 0 ? cfg.client_timeout_ms
                                                 : 7200000; // Default: 2 hours
 
-    configure_encryption(cfg, client);
+    if (const auto enc_err = configure_encryption(cfg, client))
+        return {nullptr, enc_err};
     if (!cfg.username.empty() || !cfg.password.empty()) {
         if (const auto err = errors::parse(UA_ClientConfig_setAuthenticationUsername(
                 config,

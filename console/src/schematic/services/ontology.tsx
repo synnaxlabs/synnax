@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,7 +14,7 @@ import {
   Icon,
   Menu as PMenu,
   Mosaic,
-  Schematic as Core,
+  Schematic as Base,
   Status,
   Text,
 } from "@synnaxlabs/pluto";
@@ -35,7 +35,7 @@ import { Schematic } from "@/schematic";
 
 const useDelete = createUseDelete({
   type: "Schematic",
-  query: Core.useDelete,
+  query: Base.useDelete,
   convertKey: String,
   beforeUpdate: async ({ data, removeLayout, store }) => {
     removeLayout(...data);
@@ -49,8 +49,8 @@ const useCopy = (props: Ontology.TreeContextMenuProps): (() => void) => {
     selection: { ids },
     state: { getResource },
   } = props;
-  const rename = Core.useRename();
-  const copy = Core.useCopy({
+  const rename = Base.useRename();
+  const copy = Base.useCopy({
     afterSuccess: useCallback(
       async ({ data }: Flux.AfterSuccessParams<schematic.Schematic>) => {
         const id = schematic.ontologyID(data.key);
@@ -72,23 +72,23 @@ export const useRangeSnapshot = () => {
   const addStatus = Status.useAdder();
   const rng = Range.useSelect();
   const buildMessage = useCallback(
-    ({ schematics }: Core.SnapshotParams) =>
+    ({ schematics }: Base.SnapshotParams) =>
       `${strings.naturalLanguageJoin(
         array.toArray(schematics).map((s) => s.name),
         "schematic",
       )} to ${rng?.name ?? "active range"}`,
     [rng],
   );
-  const { update } = Core.useSnapshot({
+  const { update } = Base.useSnapshot({
     afterSuccess: useCallback(
-      ({ data }: Flux.AfterSuccessParams<Core.SnapshotParams>) =>
+      ({ data }: Flux.AfterSuccessParams<Base.SnapshotParams>) =>
         addStatus({
           variant: "success",
           message: `Successfully snapshotted ${buildMessage(data)}`,
         }),
       [buildMessage, addStatus],
     ),
-    afterFailure: ({ status, data }: Flux.AfterFailureParams<Core.SnapshotParams>) =>
+    afterFailure: ({ status, data }: Flux.AfterFailureParams<Base.SnapshotParams>) =>
       addStatus({ ...status, message: `Failed to snapshot ${buildMessage(data)}` }),
   });
   return ({
@@ -110,7 +110,7 @@ export const useRangeSnapshot = () => {
 };
 
 const useRename = createUseRename({
-  query: Core.useRename,
+  query: Base.useRename,
   ontologyID: schematic.ontologyID,
   convertKey: String,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,12 +17,12 @@ import (
 // Table is the data for a visualization component used to view a table of telemetry over
 // time.
 type Table struct {
-	// Key is a unique identifier for the table.
-	Key uuid.UUID `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the table.
 	Name string `json:"name" msgpack:"name"`
 	// Data is JSON-encoded data for the table.
 	Data string `json:"data" msgpack:"data"`
+	// Key is a unique identifier for the table.
+	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Table{}

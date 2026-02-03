@@ -23,15 +23,7 @@ These are also covered in the
 To install the dependencies, run the following command from the `client/py` directory:
 
 ```bash
-poetry install
-```
-
-### Starting a Shell
-
-To start a shell, run the following command from the `client/py` directory:
-
-```bash
-poetry shell
+uv sync
 ```
 
 ### Running the Tests

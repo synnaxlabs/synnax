@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,6 +15,7 @@
 #include "freighter/cpp/fgrpc/mock/freighter/cpp/fgrpc/mock/service.grpc.pb.h"
 #include "freighter/cpp/fgrpc/mock/server.h"
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/xtest/xtest.h"
 
 /// Internal response type uses message.
 using RQ = test::Message;
@@ -24,26 +25,25 @@ using STREAM_RPC = test::StreamMessageService;
 
 auto base_target = "localhost:8080";
 
-/// @brief Test to make sure message proto works as expected.
+/// @brief it should set and get payload in a message proto.
 TEST(testGRPC, basicProto) {
     auto m = test::Message();
     m.set_payload("Hello");
     ASSERT_EQ(m.payload(), "Hello");
 }
 
-///// @brief Test the basic unary interface on success.
+/// @brief it should send a unary request and receive a response.
 TEST(testGRPC, testBasicUnary) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    auto pool = std::make_shared<fgrpc::Pool>();
+    const auto pool = std::make_shared<fgrpc::Pool>();
     auto client = fgrpc::UnaryClient<RQ, RS, UNARY_RPC>(pool, base_target);
     auto mes = test::Message();
     mes.set_payload("Sending to Server");
-    auto [res, err] = client.send("", mes);
-    ASSERT_TRUE(err.ok());
+    const auto res = ASSERT_NIL_P(client.send("", mes));
     ASSERT_EQ(res.payload(), "Read request: Sending to Server");
-    stopServers();
+    stop_servers();
     s.join();
 }
 
@@ -61,39 +61,36 @@ public:
     }
 };
 
-///// @brief Test that the basic unary interface propagates metadata headers through
-///// middleware.
+/// @brief it should propagate metadata headers through middleware.
 TEST(testGRPC, testMiddlewareInjection) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    auto pool = std::make_shared<fgrpc::Pool>();
+    const auto pool = std::make_shared<fgrpc::Pool>();
     auto client = fgrpc::UnaryClient<RQ, RS, UNARY_RPC>(pool, base_target);
-    auto mw = std::make_shared<myMiddleware>();
+    const auto mw = std::make_shared<myMiddleware>();
     client.use(mw);
     auto mes = test::Message();
     mes.set_payload("Sending to Server");
-    auto [res, err] = client.send("", mes);
+    auto res = ASSERT_NIL_P(client.send("", mes));
     ASSERT_EQ(res.payload(), "Read request: Sending to Server");
-    stopServers();
+    stop_servers();
     s.join();
 }
 
-///// @brief Test the basic unary interface on failure.
+/// @brief it should return an unreachable error when server is not available.
 TEST(testGRPC, testFailedUnary) {
     // Note that the easiest way to cause a failure
     // here is to simply not set up a server, so that
     // we don't get a response.
-    auto pool = std::make_shared<fgrpc::Pool>();
+    const auto pool = std::make_shared<fgrpc::Pool>();
     auto client = fgrpc::UnaryClient<RQ, RS, UNARY_RPC>(pool, base_target);
     auto mes = test::Message();
     mes.set_payload("Sending to Server");
-    auto [res, err] = client.send("", mes);
-    ASSERT_EQ(res.payload(), "");
-    ASSERT_TRUE(err.matches(freighter::UNREACHABLE));
+    ASSERT_OCCURRED_AS_P(client.send("", mes), freighter::UNREACHABLE);
 }
 
-///// @brief Test sending a message to multiple targets.
+/// @brief it should send messages to multiple targets.
 TEST(testGRPC, testMultipleTargets) {
     std::string target_one("localhost:8080");
     std::string target_two("localhost:8081");
@@ -104,22 +101,20 @@ TEST(testGRPC, testMultipleTargets) {
     auto client = fgrpc::UnaryClient<RQ, RS, UNARY_RPC>(pool);
     auto mes_one = test::Message();
     mes_one.set_payload("Sending to Server One");
-    auto [res_one, err] = client.send(target_one, mes_one);
-    ASSERT_FALSE(err);
+    auto res_one = ASSERT_NIL_P(client.send(target_one, mes_one));
     ASSERT_EQ(res_one.payload(), "Read request: Sending to Server One");
 
     auto mes_two = test::Message();
     mes_two.set_payload("Sending to Server Two");
-    auto [res_two, err2] = client.send(target_two, mes_two);
-    ASSERT_FALSE(err2);
+    auto res_two = ASSERT_NIL_P(client.send(target_two, mes_two));
     ASSERT_EQ(res_two.payload(), "Read request: Sending to Server Two");
 
-    stopServers();
+    stop_servers();
     s1.join();
     s2.join();
 }
 
-///// @brief Test sending and receiving one message.
+/// @brief it should send and receive a message over a stream.
 TEST(testGRPC, testBasicStream) {
     std::string target("localhost:8080");
     std::thread s(server, target);
@@ -129,22 +124,18 @@ TEST(testGRPC, testBasicStream) {
     auto client = fgrpc::StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
     auto mes = test::Message();
 
-    auto [streamer, err] = client.stream("");
-    ASSERT_FALSE(err);
+    auto streamer = ASSERT_NIL_P(client.stream(""));
     mes.set_payload("Sending to Streaming Server");
-    err = streamer->send(mes);
-    ASSERT_FALSE(err) << err.message();
+    ASSERT_NIL(streamer->send(mes));
     streamer->close_send();
-    auto [res, err2] = streamer->receive();
-    ASSERT_FALSE(err2) << err2.message();
+    auto res = ASSERT_NIL_P(streamer->receive());
     ASSERT_EQ(res.payload(), "Read request: Sending to Streaming Server");
-    auto [_, err3] = streamer->receive();
-    ASSERT_TRUE(err3.type == freighter::EOF_ERR.type) << err3.message();
-    stopServers();
+    ASSERT_OCCURRED_AS_P(streamer->receive(), freighter::EOF_ERR);
+    stop_servers();
     s.join();
 }
 
-///// @brief Test making and sending with multiple stream objects.
+/// @brief it should send messages using multiple stream objects to different targets.
 TEST(testGRPC, testMultipleStreamObjects) {
     std::string target_one("localhost:8080");
     std::string target_two("localhost:8081");
@@ -157,18 +148,16 @@ TEST(testGRPC, testMultipleStreamObjects) {
     auto mes_one = test::Message();
     auto mes_two = test::Message();
 
-    auto [streamer_one, err_one] = client.stream(target_one);
-    auto [streamer_two, err_two] = client.stream(target_two);
-    ASSERT_FALSE(err_one);
-    ASSERT_FALSE(err_two);
+    auto streamer_one = ASSERT_NIL_P(client.stream(target_one));
+    auto streamer_two = ASSERT_NIL_P(client.stream(target_two));
     mes_one.set_payload("Sending to Streaming Server from Streamer One");
     mes_two.set_payload("Sending to Streaming Server from Streamer Two");
-    ASSERT_FALSE(streamer_one->send(mes_one));
+    ASSERT_NIL(streamer_one->send(mes_one));
     streamer_one->close_send();
-    ASSERT_FALSE(streamer_two->send(mes_two));
+    ASSERT_NIL(streamer_two->send(mes_two));
     streamer_two->close_send();
-    auto [res_one, err_one2] = streamer_one->receive();
-    auto [res_two, err_two2] = streamer_two->receive();
+    auto res_one = ASSERT_NIL_P(streamer_one->receive());
+    auto res_two = ASSERT_NIL_P(streamer_two->receive());
     ASSERT_EQ(
         res_one.payload(),
         "Read request: Sending to Streaming Server from Streamer One"
@@ -177,17 +166,15 @@ TEST(testGRPC, testMultipleStreamObjects) {
         res_two.payload(),
         "Read request: Sending to Streaming Server from Streamer Two"
     );
-    auto err_one3 = streamer_one->receive().second;
-    auto err_two3 = streamer_two->receive().second;
-    ASSERT_TRUE(err_one3.type == freighter::EOF_ERR.type);
-    ASSERT_TRUE(err_two3.type == freighter::EOF_ERR.type);
+    ASSERT_OCCURRED_AS_P(streamer_one->receive(), freighter::EOF_ERR);
+    ASSERT_OCCURRED_AS_P(streamer_two->receive(), freighter::EOF_ERR);
 
-    stopServers();
+    stop_servers();
     s1.join();
     s2.join();
 }
 
-///// @brief Test sending and receiving one message.
+/// @brief it should send and receive multiple messages over a single stream.
 TEST(testGRPC, testSendMultipleMessages) {
     std::string target("localhost:8080");
     std::thread s(server, target);
@@ -198,58 +185,50 @@ TEST(testGRPC, testSendMultipleMessages) {
     auto mes = test::Message();
     auto mes_two = test::Message();
 
-    auto [streamer, exc] = client.stream("");
-    ASSERT_FALSE(exc) << exc;
+    auto streamer = ASSERT_NIL_P(client.stream(""));
     mes.set_payload("Sending to Streaming Server");
     streamer->send(mes);
-    auto [res, err2] = streamer->receive();
+    auto res = ASSERT_NIL_P(streamer->receive());
     ASSERT_EQ(res.payload(), "Read request: Sending to Streaming Server");
 
     mes_two.set_payload("Sending New Message");
     streamer->send(mes_two);
     streamer->close_send();
-    auto [res_two, err_two2] = streamer->receive();
-    ASSERT_FALSE(err_two2) << err_two2;
+    auto res_two = ASSERT_NIL_P(streamer->receive());
     ASSERT_EQ(res_two.payload(), "Read request: Sending New Message");
 
-    auto [_, err3] = streamer->receive();
-    ASSERT_TRUE(err3.type == freighter::EOF_ERR.type) << err3;
+    ASSERT_OCCURRED_AS_P(streamer->receive(), freighter::EOF_ERR);
 
-    stopServers();
+    stop_servers();
     s.join();
 }
 
-///// @brief Test sending and receiving one message.
+/// @brief it should return an unreachable error when stream server is not available.
 TEST(testGRPC, testStreamError) {
     std::string target("localhost:8080");
     auto pool = std::make_shared<fgrpc::Pool>();
     auto client = fgrpc::StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
     auto mes = test::Message();
 
-    auto [streamer, exc] = client.stream(target);
-    ASSERT_FALSE(exc);
-    xerrors::Error err = streamer->send(mes);
-    ASSERT_FALSE(err.ok());
+    auto streamer = ASSERT_NIL_P(client.stream(target));
+    ASSERT_OCCURRED_AS(streamer->send(mes), freighter::UNREACHABLE);
 
-    auto [res, err2] = streamer->receive();
-    ASSERT_FALSE(err2.ok());
+    ASSERT_OCCURRED_AS_P(streamer->receive(), freighter::UNREACHABLE);
 }
 
 void client_send(
-    int num,
-    std::shared_ptr<fgrpc::UnaryClient<RQ, RS, UNARY_RPC>> client
+    const int num,
+    const std::shared_ptr<fgrpc::UnaryClient<RQ, RS, UNARY_RPC>> &client
 ) {
     auto mes = test::Message();
     mes.set_payload(std::to_string(num));
-    auto [res, err] = client->send("", mes);
-    ASSERT_TRUE(err.ok());
+    auto res = ASSERT_NIL_P(client->send("", mes));
     ASSERT_EQ(res.payload(), "Read request: " + std::to_string(num));
 }
 
-const int N_THREADS = 3;
+constexpr int N_THREADS = 3;
 
-///// @brief Test that we can send many messages with the same client and don't have any
-/// errors.
+/// @brief it should handle concurrent unary requests from multiple threads.
 TEST(testGRPC, stressTestUnaryWithManyThreads) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
@@ -260,38 +239,32 @@ TEST(testGRPC, stressTestUnaryWithManyThreads) {
         base_target
     );
 
-    auto mw = std::make_shared<myMiddleware>();
+    const auto mw = std::make_shared<myMiddleware>();
     global_unary_client->use(mw);
     std::vector<std::thread> threads;
 
-    // Time to boil all the cores.
-    for (int i = 0; i < N_THREADS; i++) {
+    for (int i = 0; i < N_THREADS; i++)
         threads.emplace_back(client_send, i, global_unary_client);
-    }
     for (size_t i = 0; i < N_THREADS; i++) {
         threads[i].join();
     }
-    stopServers();
+    stop_servers();
     s.join();
 }
 
 void stream_send(
-    int num,
-    std::shared_ptr<fgrpc::StreamClient<RQ, RS, STREAM_RPC>> client
+    const int num,
+    const std::shared_ptr<fgrpc::StreamClient<RQ, RS, STREAM_RPC>> &client
 ) {
     auto mes = test::Message();
     mes.set_payload(std::to_string(num));
-    auto [stream, err] = client->stream("");
-    ASSERT_TRUE(err.ok());
-    err = stream->send(mes);
-    ASSERT_TRUE(err.ok());
-    auto [res, err_] = stream->receive();
-    ASSERT_TRUE(err_.ok());
+    const auto stream = ASSERT_NIL_P(client->stream(""));
+    ASSERT_NIL(stream->send(mes));
+    const auto res = ASSERT_NIL_P(stream->receive());
     ASSERT_EQ(res.payload(), "Read request: " + std::to_string(num));
 }
 
-///// @brief Test that we can send many messages with the same client and different
-/// stream invocations.
+/// @brief it should handle concurrent stream requests from multiple threads.
 TEST(testGRPC, stressTestStreamWithManyThreads) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
@@ -305,16 +278,15 @@ TEST(testGRPC, stressTestStreamWithManyThreads) {
     global_stream_client->use(mw);
     std::vector<std::thread> threads;
 
-    // Time to boil all the cores.
-    for (int i = 0; i < N_THREADS; i++) {
+    for (int i = 0; i < N_THREADS; i++)
         threads.emplace_back(stream_send, i, global_stream_client);
-    }
-    for (size_t i = 0; i < N_THREADS; i++) {
+    for (size_t i = 0; i < N_THREADS; i++)
         threads[i].join();
-    }
-    stopServers();
+    stop_servers();
     s.join();
 }
+
+/// @brief it should reuse the same channel for requests to the same host.
 TEST(testGRPC, testPoolChannelReuse) {
     std::string target("localhost:8080");
     std::thread s(server, target);
@@ -326,20 +298,44 @@ TEST(testGRPC, testPoolChannelReuse) {
     // Send to first endpoint
     auto mes1 = test::Message();
     mes1.set_payload("First endpoint");
-    auto [res1, err1] = client.send(target + "/endpoint1", mes1);
-    ASSERT_FALSE(err1);
+    auto res1 = ASSERT_NIL_P(client.send(target + "/endpoint1", mes1));
 
     // Send to second endpoint with same host:port
     auto mes2 = test::Message();
     mes2.set_payload("Second endpoint");
-    auto [res2, err2] = client.send(target + "/endpoint2", mes2);
-    ASSERT_FALSE(err2);
+    auto res2 = ASSERT_NIL_P(client.send(target + "/endpoint2", mes2));
 
     // Get the channel count from the pool's internal map
     size_t channel_count = pool->size();
     EXPECT_EQ(channel_count, 1)
         << "Pool should maintain only one channel for the same host:port";
 
-    stopServers();
+    stop_servers();
+    s.join();
+}
+
+/// @brief it should not crash when calling close_send on a dead connection.
+TEST(testGRPC, testCloseSendOnDeadConnection) {
+    auto pool = std::make_shared<fgrpc::Pool>();
+    auto client = fgrpc::StreamClient<RQ, RS, STREAM_RPC>(pool, "localhost:9999");
+    auto streamer = ASSERT_NIL_P(client.stream(""));
+    auto mes = test::Message();
+    mes.set_payload("test");
+    streamer->send(mes);
+    ASSERT_OCCURRED_AS_P(streamer->receive(), freighter::UNREACHABLE);
+    streamer->close_send();
+}
+
+/// @brief it should safely call close_send multiple times.
+TEST(testGRPC, testCloseSendIdempotent) {
+    std::string target("localhost:8080");
+    std::thread s(server, target);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    auto pool = std::make_shared<fgrpc::Pool>();
+    auto client = fgrpc::StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
+    auto streamer = ASSERT_NIL_P(client.stream(""));
+    streamer->close_send();
+    streamer->close_send();
+    stop_servers();
     s.join();
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -181,7 +181,7 @@ export const Edit: Layout.Renderer = () => {
             placeholder={
               <>
                 <Icon.Search />
-                Search Labels
+                Search labels
               </>
             }
             value={searchTerm}
@@ -197,7 +197,6 @@ export const Edit: Layout.Renderer = () => {
             onClick={() => setNewFormVisible(true)}
           >
             <Icon.Add />
-            Add Label
           </Button.Button>
         </Flex.Box>
         <Divider.Divider x />

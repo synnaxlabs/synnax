@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -29,8 +29,8 @@ import (
 
 const FreeCount = 50
 
-// Config is the configuration for a verification service
-type Config struct {
+// ServiceConfig is the configuration for a verification service
+type ServiceConfig struct {
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// [OPTIONAL]
@@ -39,26 +39,26 @@ type Config struct {
 	//
 	// [REQUIRED]
 	kv.DB
-	// CheckInterval is the interval at which verification will be performed.
-	//
-	// [OPTIONAL] - Defaults to 24 hours
-	CheckInterval time.Duration
 	// Verifier is the verifier used for verifying things that need to be verified.
 	//
 	// [OPTIONAL] - Defaults to ""
 	Verifier string
+	// CheckInterval is the interval at which verification will be performed.
+	//
+	// [OPTIONAL] - Defaults to 24 hours
+	CheckInterval time.Duration
 	// WarningTime is the period given to start warning before verification will fail.
 	//
 	// [OPTIONAL] - Defaults to 1 week
 	WarningTime time.Duration
 }
 
-var _ config.Config[Config] = Config{}
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 var retrieveKey = []byte("bGljZW5zZUtleQ==")
 
 // Validate validates the configuration for use in the service.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("channel.verification")
 	validate.NotNil(v, "db", c.DB)
 	validate.NonZero(v, "warning_time", c.WarningTime)
@@ -67,7 +67,7 @@ func (c Config) Validate() error {
 }
 
 // Override replaces fields on c with valid fields from other.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.CheckInterval = override.If(c.CheckInterval, other.CheckInterval,
@@ -78,8 +78,8 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// DefaultConfig is the default configuration for the verification service.
-var DefaultConfig = Config{
+// DefaultServiceConfig is the default configuration for the verification service.
+var DefaultServiceConfig = ServiceConfig{
 	CheckInterval: 24 * time.Hour,
 	WarningTime:   7 * 24 * time.Hour,
 }
@@ -87,8 +87,8 @@ var DefaultConfig = Config{
 // Service provides a service for verifying channels.
 type Service struct {
 	info
-	cfg      Config
 	shutdown io.Closer
+	cfg      ServiceConfig
 }
 
 var _ io.Closer = &Service{}
@@ -106,8 +106,8 @@ var (
 )
 
 // OpenService opens a new verification service.
-func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 
 	if cfg.Verifier == "" {
 		if err = service.loadCache(ctx); err != nil {
-			if !errors.Is(err, kv.NotFound) {
+			if !errors.Is(err, kv.ErrNotFound) {
 				return nil, err
 			}
 			cfg.L.Info(useFreeLog)
@@ -165,7 +165,7 @@ func (s *Service) IsOverflowed(inUse types.Uint20) error {
 		return nil
 	}
 	if inUse > s.numCh {
-		return newErrTooMany(s.numCh)
+		return newTooManyError(s.numCh)
 	}
 	return nil
 }

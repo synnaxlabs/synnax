@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -44,7 +44,7 @@ func resolveStatus(r *Rack) *Status {
 			Key:     OntologyID(r.Key).String(),
 			Name:    r.Name,
 			Time:    telem.Now(),
-			Variant: xstatus.WarningVariant,
+			Variant: xstatus.VariantWarning,
 			Message: "Status unknown",
 			Details: StatusDetails{Rack: r.Key},
 		}
@@ -79,7 +79,7 @@ func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 	if err = w.status.Set(ctx, stat); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
+	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID)
 }
 
 // Delete deletes the rack with the provided key and its associated status. Delete is

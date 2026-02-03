@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -100,14 +100,14 @@ var _ = Describe("Convergence", func() {
 					clusters = append(clusters, cluster)
 				}
 				Expect(len(clusters)).To(Equal(values.clusterSize))
-				for j, cluster_ := range clusters {
-					Expect(cluster_.HostKey()).To(Equal(node.Key(j + 1)))
+				for j, c := range clusters {
+					Expect(c.HostKey()).To(Equal(node.Key(j + 1)))
 				}
-				for _, cluster_ := range clusters {
-					Eventually(cluster_.Nodes, values.convergenceThreshold).Should(HaveLen(values.clusterSize))
+				for _, c := range clusters {
+					Eventually(c.Nodes, values.convergenceThreshold).Should(HaveLen(values.clusterSize))
 				}
-				for _, cluster_ := range clusters {
-					Expect(cluster_.Close()).To(Succeed())
+				for _, c := range clusters {
+					Expect(c.Close()).To(Succeed())
 				}
 			})
 

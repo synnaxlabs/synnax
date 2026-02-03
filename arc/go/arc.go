@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -60,9 +60,26 @@ func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Module, error) 
 	if !diagnostics.Ok() {
 		return Module{}, diagnostics
 	}
-	output, err := compiler.Compile(ctx, inter)
+	output, cErr := compiler.Compile(ctx, inter)
+	if cErr != nil {
+		return Module{}, cErr
+	}
+	return Module{IR: inter, Output: output}, nil
+}
+
+func CompileText(ctx context.Context, t Text, opts ...Option) (Module, error) {
+	o := newOptions(opts)
+	textWithAST, err := text.Parse(t)
 	if err != nil {
 		return Module{}, err
+	}
+	inter, diagnostics := text.Analyze(ctx, textWithAST, o.resolver)
+	if !diagnostics.Ok() {
+		return Module{}, diagnostics
+	}
+	output, cErr := compiler.Compile(ctx, inter)
+	if cErr != nil {
+		return Module{}, cErr
 	}
 	return Module{IR: inter, Output: output}, nil
 }

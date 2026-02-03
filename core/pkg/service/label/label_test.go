@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,8 +34,8 @@ var _ = Describe("Label", Ordered, func() {
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		svc = MustSucceed(label.OpenService(ctx, label.Config{
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		svc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -87,7 +87,7 @@ var _ = Describe("Label", Ordered, func() {
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(w.Delete(ctx, l.Key)).To(Succeed())
-			Expect(svc.NewRetrieve().WhereKeys(l.Key).Exec(ctx, nil)).To(MatchError(query.NotFound))
+			Expect(svc.NewRetrieve().WhereKeys(l.Key).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		})
 		It("Should delete many labels", func() {
 			ls := []label.Label{
@@ -103,7 +103,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
 			Expect(w.DeleteMany(ctx, []uuid.UUID{ls[0].Key, ls[1].Key})).To(Succeed())
 			for _, l := range ls {
-				Expect(svc.NewRetrieve().WhereKeys(l.Key).Exec(ctx, nil)).To(MatchError(query.NotFound))
+				Expect(svc.NewRetrieve().WhereKeys(l.Key).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			}
 		})
 	})

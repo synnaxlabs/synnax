@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -79,7 +79,7 @@ func (e EnumZ) Dump(data any) (any, error) {
 		if e.optional {
 			return nil, nil
 		}
-		return nil, errors.WithStack(validate.RequiredError)
+		return nil, errors.WithStack(validate.ErrRequired)
 	}
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Pointer {
@@ -87,7 +87,7 @@ func (e EnumZ) Dump(data any) (any, error) {
 			if e.optional {
 				return nil, nil
 			}
-			return nil, errors.WithStack(validate.RequiredError)
+			return nil, errors.WithStack(validate.ErrRequired)
 		}
 		val = val.Elem()
 	}
@@ -114,7 +114,7 @@ func (e EnumZ) Parse(data any, dest any) error {
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
-			return errors.WithStack(validate.RequiredError)
+			return errors.WithStack(validate.ErrRequired)
 		}
 		val = val.Elem()
 	}
@@ -168,7 +168,7 @@ func Enum[T comparable](values ...T) EnumZ {
 
 func invalidEnumValueError(value any, allowedValues []any) error {
 	return errors.Wrapf(
-		validate.Error,
+		validate.ErrValidation,
 		"invalid enum value %v, allowed values are %v",
 		value,
 		allowedValues,

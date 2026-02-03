@@ -1,0 +1,38 @@
+name: Test - Arc Bindings
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/test.arc.bindings.yaml
+      - alamos/go/**
+      - arc/cpp/**
+      - arc/go/**
+      - arc/scripts/validate_bindings.sh
+      - go.work
+      - go.work.sum
+      - x/go/**
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - .github/workflows/test.arc.bindings.yaml
+      - alamos/go/**
+      - arc/cpp/**
+      - arc/go/**
+      - arc/scripts/validate_bindings.sh
+      - go.work
+      - go.work.sum
+      - x/go/**
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate WASM Bindings
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Validate WASM bindings
+        run: arc/scripts/validate_bindings.sh

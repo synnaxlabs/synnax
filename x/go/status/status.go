@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,16 +20,18 @@ import (
 type Variant string
 
 const (
-	InfoVariant     Variant = "info"
-	SuccessVariant  Variant = "success"
-	ErrorVariant    Variant = "error"
-	WarningVariant  Variant = "warning"
-	DisabledVariant Variant = "disabled"
-	LoadingVariant  Variant = "loading"
+	VariantInfo     Variant = "info"
+	VariantSuccess  Variant = "success"
+	VariantError    Variant = "error"
+	VariantWarning  Variant = "warning"
+	VariantDisabled Variant = "disabled"
+	VariantLoading  Variant = "loading"
 )
 
 // Status is a standardized payload used across Synnax.
 type Status[D any] struct {
+	// Details are customizable details for component specific statuses.
+	Details D `json:"details" msgpack:"details"`
 	// Key is a unique key for the status.
 	Key string `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the status.
@@ -42,8 +44,6 @@ type Status[D any] struct {
 	Description string `json:"description" msgpack:"description"`
 	// Time is the time the status was created.
 	Time telem.TimeStamp `json:"time" msgpack:"time"`
-	// Details are customizable details for component specific statuses.
-	Details D `json:"details" msgpack:"details"`
 }
 
 // String returns a formatted string representation of the Status.
@@ -52,17 +52,17 @@ func (s Status[D]) String() string {
 
 	var variantIcon string
 	switch s.Variant {
-	case InfoVariant:
+	case VariantInfo:
 		variantIcon = "ℹ"
-	case SuccessVariant:
+	case VariantSuccess:
 		variantIcon = "✓"
-	case ErrorVariant:
+	case VariantError:
 		variantIcon = "✗"
-	case WarningVariant:
+	case VariantWarning:
 		variantIcon = "⚠"
-	case DisabledVariant:
+	case VariantDisabled:
 		variantIcon = "⊘"
-	case LoadingVariant:
+	case VariantLoading:
 		variantIcon = "◌"
 	default:
 		variantIcon = "•"

@@ -1,0 +1,18 @@
+cc_library(
+    name = "SPSC",
+    hdrs = ["spsc.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/notify",
+    ],
+)
+
+cc_test(
+    name = "spsc_test",
+    size = "small",
+    srcs = ["spsc_test.cpp"],
+    deps = [
+        ":SPSC",
+        "@googletest//:gtest_main",
+    ],
+)

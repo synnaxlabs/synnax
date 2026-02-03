@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,16 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { control, Diagram, Schematic, Value, Viewport } from "@synnaxlabs/pluto";
-import { color, xy } from "@synnaxlabs/x";
+import {
+  control,
+  Diagram,
+  Flex,
+  Schematic,
+  Text,
+  Value,
+  Viewport,
+} from "@synnaxlabs/pluto";
+import { color, direction, location, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
 
+export const labelZ = z.looseObject({
+  label: z.string().optional(),
+  level: Text.levelZ.optional(),
+  orientation: location.location.optional(),
+  direction: direction.direction.optional(),
+  maxInlineSize: z.number().optional(),
+  align: Flex.alignmentZ.optional(),
+});
+
 export const nodePropsZ = z.looseObject({
   key: Schematic.Symbol.variantZ,
   color: color.crudeZ.optional(),
-  label: z.looseObject({ label: z.string().optional() }).optional(),
+  label: labelZ.optional(),
 });
 export interface NodeProps extends z.infer<typeof nodePropsZ> {}
 
@@ -51,7 +68,6 @@ export const stateZ = z.object({
     return p;
   }),
   control: control.statusZ,
-  controlAcquireTrigger: z.number(),
 });
 export interface State extends z.infer<typeof stateZ> {}
 export const ZERO_STATE: State = {
@@ -64,7 +80,6 @@ export const ZERO_STATE: State = {
   viewport: { position: xy.ZERO, zoom: 1 },
   editable: true,
   control: "released",
-  controlAcquireTrigger: 0,
   fitViewOnResize: false,
 };
 

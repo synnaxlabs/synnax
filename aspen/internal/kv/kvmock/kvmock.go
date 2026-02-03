@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,12 +24,12 @@ import (
 
 type Builder struct {
 	clustermock.Builder
-	BaseCfg     kv.Config
 	OpNet       *fmock.Network[kv.TxRequest, kv.TxRequest]
 	FeedbackNet *fmock.Network[kv.FeedbackMessage, types.Nil]
 	LeaseNet    *fmock.Network[kv.TxRequest, types.Nil]
 	RecoveryNet *fmock.Network[kv.RecoveryRequest, kv.RecoveryResponse]
 	KVs         map[node.Key]xkv.DB
+	BaseCfg     kv.Config
 }
 
 func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {

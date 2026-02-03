@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -61,13 +61,13 @@ const (
 // close WSMessage type to correctly encode and transfer information about a closure
 // error across the socket.
 type WSMessage[P freighter.Payload] struct {
+	// Payload is the user payload to send if the WSMessage type is WSMessageTypeData.
+	Payload P `json:"payload" msgpack:"payload"`
+	// Err is the error payload to send if the WSMessage type is WSMessageTypeClose.
+	Err errors.Payload `json:"error" msgpack:"error"`
 	// Type represents the type of WSMessage being sent. One of WSMessageTypeData
 	// or WSMessageTypeClose.
 	Type WSMessageType `json:"type" msgpack:"type"`
-	// Err is the error payload to send if the WSMessage type is WSMessageTypeClose.
-	Err errors.Payload `json:"error" msgpack:"error"`
-	// Payload is the user payload to send if the WSMessage type is WSMessageTypeData.
-	Payload P `json:"payload" msgpack:"payload"`
 }
 
 const (
@@ -90,19 +90,19 @@ func newStreamCore[RQ, RS freighter.Payload](
 }
 
 type coreConfig struct {
+	codec binary.Codec
+	conn  *ws.Conn
 	alamos.Instrumentation
-	conn          *ws.Conn
-	codec         binary.Codec
 	writeDeadline time.Duration
 }
 
 // streamCore is the common functionality implemented by both the client and server streams.
 type streamCore[I, O freighter.Payload] struct {
-	coreConfig
+	peerCloseErr       error
 	serverShutdownSig  <-chan struct{}
 	normalShutdownSig  chan struct{}
 	successfulShutdown chan struct{}
-	peerCloseErr       error
+	coreConfig
 }
 
 func (c *streamCore[I, O]) send(msg WSMessage[O]) error {
@@ -139,7 +139,7 @@ func (c *streamCore[I, O]) Receive() (pld I, err error) {
 		} else if ws.IsCloseError(err, contextCancelledCloseCode) {
 			c.peerCloseErr = context.Canceled
 		} else {
-			c.peerCloseErr = freighter.StreamClosed
+			c.peerCloseErr = freighter.ErrStreamClosed
 		}
 		c.peerCloseErr = errors.WithStack(c.peerCloseErr)
 		return pld, c.peerCloseErr
@@ -172,7 +172,7 @@ func (s *clientStream[RQ, RS]) Send(req RQ) error {
 		return freighter.EOF
 	}
 	if s.sendClosed {
-		return freighter.StreamClosed
+		return freighter.ErrStreamClosed
 	}
 	s.peerCloseErr = s.send(WSMessage[RQ]{Type: WSMessageTypeData, Payload: req})
 	return s.peerCloseErr
@@ -215,7 +215,7 @@ func (s *serverStream[RQ, RS]) close(err error) error {
 		}
 	}
 
-	s.peerCloseErr = freighter.StreamClosed
+	s.peerCloseErr = freighter.ErrStreamClosed
 
 	// Tell the client we're closing the connection. Make sure to include
 	// a write deadline here in-case the client is stuck.
@@ -331,15 +331,15 @@ func mdToHeaders(md freighter.Context) http.Header {
 }
 
 type streamServer[RQ, RS freighter.Payload] struct {
+	alamos.Instrumentation
+	serverCtx context.Context
 	serverOptions
+	handler func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
+	wg      *sync.WaitGroup
+	path    string
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	alamos.Instrumentation
-	serverCtx     context.Context
-	path          string
-	handler       func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
 	writeDeadline time.Duration
-	wg            *sync.WaitGroup
 }
 
 func (s *streamServer[RQ, RS]) BindHandler(

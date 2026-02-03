@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -510,7 +510,10 @@ const GroupList = ({
     () => remoteData.retrieve({ parent: symbolGroupID }),
     [remoteData.retrieve, symbolGroupID],
   );
-  const data = List.useCombinedData({ first: staticData, second: remoteData });
+  const data = List.useCombinedData<group.Key, group.Group>({
+    first: staticData,
+    second: remoteData,
+  });
   const menuProps = Menu.useContextMenu();
   return (
     <Select.Frame<group.Key, group.Group>
@@ -561,10 +564,7 @@ const SearchSymbolList = ({
   const { data, getItem, subscribe } = List.useCombinedData<
     string,
     Schematic.Symbol.Spec | schematic.symbol.Symbol
-  >({
-    first: staticData,
-    second: remote,
-  });
+  >({ first: staticData, second: remote });
   const { search } = List.usePager({
     retrieve: useCallback(
       (args) => {

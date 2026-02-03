@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,6 +10,7 @@
 package types
 
 import (
+	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -21,7 +22,17 @@ func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
 		return types.Type{}, nil
 	}
 	if primitive := ctx.PrimitiveType(); primitive != nil {
-		return inferPrimitiveType(primitive)
+		t, err := inferPrimitiveType(primitive)
+		if err != nil {
+			return types.Type{}, err
+		}
+		if unitSuffix := ctx.UnitSuffix(); unitSuffix != nil {
+			t, err = applyUnitSuffix(t, unitSuffix)
+			if err != nil {
+				return types.Type{}, err
+			}
+		}
+		return t, nil
 	}
 	if channel := ctx.ChannelType(); channel != nil {
 		return inferChannelType(channel)
@@ -29,7 +40,17 @@ func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
 	if series := ctx.SeriesType(); series != nil {
 		return inferSeriesType(series)
 	}
-	return types.Type{}, errors.New("unknown type")
+	return types.Type{}, errors.New("could not determine type")
+}
+
+func applyUnitSuffix(t types.Type, ctx parser.IUnitSuffixContext) (types.Type, error) {
+	unitName := ctx.IDENTIFIER().GetText()
+	unit, ok := units.Resolve(unitName)
+	if !ok {
+		return types.Type{}, errors.Newf("unknown unit: %s", unitName)
+	}
+	t.Unit = unit
+	return t, nil
 }
 
 func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (types.Type, error) {
@@ -39,7 +60,7 @@ func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (types.Type, error) {
 	if ctx.STR() != nil {
 		return types.String(), nil
 	}
-	return types.Type{}, errors.New("unknown primitive type")
+	return types.Type{}, errors.New("unknown type: expected a primitive (i32, f64, str, etc.)")
 }
 
 func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
@@ -49,22 +70,7 @@ func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
 	if float := ctx.FloatType(); float != nil {
 		return inferFloatType(float)
 	}
-	if temporal := ctx.TemporalType(); temporal != nil {
-		return inferTemporalType(temporal)
-	}
-	return types.Type{}, errors.New("unknown numeric type")
-}
-
-func inferTemporalType(ctx parser.ITemporalTypeContext) (types.Type, error) {
-	text := ctx.GetText()
-	switch text {
-	case "timestamp":
-		return types.TimeStamp(), nil
-	case "timespan":
-		return types.TimeSpan(), nil
-	default:
-		return types.Type{}, errors.New("unknown temporal type")
-	}
+	return types.Type{}, errors.New("unknown type: expected a numeric type (i32, f64, etc.)")
 }
 
 func inferIntegerType(ctx parser.IIntegerTypeContext) (types.Type, error) {
@@ -108,11 +114,20 @@ func inferChannelType(ctx parser.IChannelTypeContext) (types.Type, error) {
 	var err error
 	if primitive := ctx.PrimitiveType(); primitive != nil {
 		valueType, err = inferPrimitiveType(primitive)
+		if err != nil {
+			return types.Type{}, err
+		}
+		if unitSuffix := ctx.UnitSuffix(); unitSuffix != nil {
+			valueType, err = applyUnitSuffix(valueType, unitSuffix)
+			if err != nil {
+				return types.Type{}, err
+			}
+		}
 	} else if series := ctx.SeriesType(); series != nil {
 		valueType, err = inferSeriesType(series)
-	}
-	if err != nil {
-		return types.Type{}, err
+		if err != nil {
+			return types.Type{}, err
+		}
 	}
 	return types.Chan(valueType), nil
 }
@@ -123,30 +138,21 @@ func inferSeriesType(ctx parser.ISeriesTypeContext) (types.Type, error) {
 		if err != nil {
 			return types.Type{}, err
 		}
+		if unitSuffix := ctx.UnitSuffix(); unitSuffix != nil {
+			valueType, err = applyUnitSuffix(valueType, unitSuffix)
+			if err != nil {
+				return types.Type{}, err
+			}
+		}
 		return types.Series(valueType), nil
 	}
-	return types.Type{}, errors.New("series must have primitive type")
+	return types.Type{}, errors.New("series elements must be a primitive type (i32, f64, str, etc.)")
 }
 
-// Compatible returns true if t1 and t2 are structurally compatible after unwrapping
-// one level of channel or series wrapper. This is used during expression type inference
-// where channels are automatically read to access their value type.
-//
-// The function ensures that wrapper types are preserved - channels only match channels,
-// and series only match series. After unwrapping, the underlying types are compared
-// using structural equality.
-//
-// This function should NOT be used for:
-//   - Type variables (use the constraint system instead)
-//   - Strict type checking (use Check function)
-//
-// Examples:
-//
-//	chan<int> ~ chan<int>    -> true
-//	chan<int> ~ int          -> true (one is wrapped, one is not)
-//	series<f32> ~ series<f32> -> true
-//	chan<int> ~ series<int>  -> false (different wrapper types)
-//	f32 ~ f64                -> false (incompatible base types)
+// Compatible returns true if t1 and t2 have compatible base types after unwrapping
+// one level of channel or series wrapper. This is used for binary operations where
+// series + scalar broadcasting is allowed. For assignment compatibility (where
+// structural matching is required), use AssignmentCompatible instead.
 func Compatible(t1, t2 types.Type) bool {
 	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
 		return false
@@ -167,7 +173,26 @@ func Compatible(t1, t2 types.Type) bool {
 
 	t1 = t1.Unwrap()
 	t2 = t2.Unwrap()
-	return types.Equal(t1, t2)
+	// Check base type kind only, not units (units handled by units.ValidateBinaryOp)
+	return t1.Kind == t2.Kind
+}
+
+// AssignmentCompatible returns true if exprType can be assigned to varType.
+// Unlike Compatible, this requires structural matching - a series cannot be
+// assigned to a scalar variable, even if their element types match.
+func AssignmentCompatible(varType, exprType types.Type) bool {
+	if varType.Kind == types.KindInvalid || exprType.Kind == types.KindInvalid {
+		return false
+	}
+	if !types.StructuralMatch(varType, exprType) {
+		return false
+	}
+	varType = varType.Unwrap()
+	exprType = exprType.Unwrap()
+	if varType.Kind == types.KindVariable || exprType.Kind == types.KindVariable {
+		return true
+	}
+	return varType.Kind == exprType.Kind
 }
 
 // LiteralAssignmentCompatible returns true if a literal of literalType can be assigned
@@ -178,9 +203,14 @@ func LiteralAssignmentCompatible(
 	if variableType.Kind == types.KindInvalid || literalType.Kind == types.KindInvalid {
 		return false
 	}
-	// Unwrap channels to their value type, just like Compatible does
+	if !types.StructuralMatch(variableType, literalType) {
+		return false
+	}
 	variableType = variableType.Unwrap()
 	literalType = literalType.Unwrap()
+	if literalType.Kind == types.KindVariable {
+		return true
+	}
 	if variableType.String() == literalType.String() {
 		return true
 	}

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type Channel } from "@synnaxlabs/pluto";
+import { type Channel, Status } from "@synnaxlabs/pluto";
 import { TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
@@ -26,25 +26,39 @@ export interface DownloadAsCSVArgs {
 }
 
 export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
-  const downloadCSV = CSV.useDownload();
+  const openDownloadCSVModal = CSV.useDownloadModal();
+  const handleError = Status.useErrorHandler();
   return useCallback(
     ({ timeRanges, lines, name }) => {
-      const keys = unique.unique(
+      const channels = unique.unique(
         lines
           .flatMap((l) => [l.channels.y, l.channels.x])
           .filter(
             (v): v is channel.Key => v != null && v != 0 && typeof v === "number",
           ),
       );
-      const keysToNames = lines.reduce<Record<channel.Key, string>>((acc, l) => {
+      const channelNames = lines.reduce<Record<channel.Key, string>>((acc, l) => {
         if (l.label == null) return acc;
         if (typeof l.channels.y === "number") acc[l.channels.y] = l.label;
         if (typeof l.channels.x === "number") acc[l.channels.x] = l.label;
         return acc;
       }, {});
-      downloadCSV({ timeRanges, name, keys, keysToNames });
+      const timeRange = TimeRange.merge(...timeRanges);
+      handleError(
+        async () =>
+          openDownloadCSVModal(
+            {
+              timeRange: timeRange.numeric,
+              name,
+              channels,
+              channelNames,
+            },
+            { icon: "LinePlot" },
+          ),
+        `Failed to download CSV data for ${name}`,
+      );
     },
-    [downloadCSV],
+    [openDownloadCSVModal],
   );
 };
 

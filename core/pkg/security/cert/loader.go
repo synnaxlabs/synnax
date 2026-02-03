@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -29,6 +29,8 @@ import (
 // LoaderConfig is the configuration for creating a new Loader.
 type LoaderConfig struct {
 	alamos.Instrumentation
+	// FS is the filesystem to use.
+	FS xfs.FS
 	// CertsDir is the directory where the certificates are stored.
 	CertsDir string
 	// CAKeyPath is the path to the CA private key. This is relative to CertsDir.
@@ -39,8 +41,6 @@ type LoaderConfig struct {
 	NodeKeyPath string
 	// NodeCertPath is the path to the node certificate. This is relative to CertsDir.
 	NodeCertPath string
-	// FS is the filesystem to use.
-	FS xfs.FS
 }
 
 var (
@@ -86,13 +86,13 @@ func (l LoaderConfig) Override(other LoaderConfig) LoaderConfig {
 
 // Validate implements Properties.
 func (l LoaderConfig) Validate() error {
-	v := validate.New("cert.Loader")
-	validate.NotEmptyString(v, "CertsDir", l.CertsDir)
-	validate.NotEmptyString(v, "CAKeyPath", l.CAKeyPath)
-	validate.NotEmptyString(v, "CACertPath", l.CACertPath)
-	validate.NotEmptyString(v, "NodeKeyPath", l.NodeKeyPath)
-	validate.NotEmptyString(v, "NodeCertPath", l.NodeCertPath)
-	validate.NotNil(v, "FS", l.FS)
+	v := validate.New("cert.loader")
+	validate.NotEmptyString(v, "certs_dir", l.CertsDir)
+	validate.NotEmptyString(v, "ca_key_path", l.CAKeyPath)
+	validate.NotEmptyString(v, "ca_cert_path", l.CACertPath)
+	validate.NotEmptyString(v, "node_key_path", l.NodeKeyPath)
+	validate.NotEmptyString(v, "node_cert_path", l.NodeCertPath)
+	validate.NotNil(v, "fs", l.FS)
 	return v.Error()
 }
 

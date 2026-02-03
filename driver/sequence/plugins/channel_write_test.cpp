@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -71,94 +71,112 @@ protected:
     lua_State *L{};
 };
 
+/// @brief it should write float32 values to channel.
 TEST_F(SetOperatorTest, Float32Value) {
     SetupChannel(telem::FLOAT32_T);
     RunTest<float>("3.14", 3.14f);
 }
 
+/// @brief it should write float64 values to channel.
 TEST_F(SetOperatorTest, Float64Value) {
     SetupChannel(telem::FLOAT64_T);
     RunTest<double>("3.14159265359", 3.14159265359);
 }
 
+/// @brief it should write int8 values to channel.
 TEST_F(SetOperatorTest, Int8Value) {
     SetupChannel(telem::INT8_T);
     RunTest<int8_t>("127", 127);
 }
 
+/// @brief it should write int16 values to channel.
 TEST_F(SetOperatorTest, Int16Value) {
     SetupChannel(telem::INT16_T);
     RunTest<int16_t>("32767", 32767);
 }
 
+/// @brief it should write int32 values to channel.
 TEST_F(SetOperatorTest, Int32Value) {
     SetupChannel(telem::INT32_T);
     RunTest<int32_t>("2147483647", 2147483647);
 }
 
+/// @brief it should write int64 values to channel.
 TEST_F(SetOperatorTest, Int64Value) {
     SetupChannel(telem::INT64_T);
     RunTest<int64_t>("9223372036854775807", 9223372036854775807LL);
 }
 
+/// @brief it should write uint8 zero value to channel.
 TEST_F(SetOperatorTest, Uint8NumberValue) {
     SetupChannel(telem::UINT8_T);
     RunTest<uint8_t>("0", 0);
 }
 
+/// @brief it should write uint8 one value to channel.
 TEST_F(SetOperatorTest, Uint8Number1Value) {
     SetupChannel(telem::UINT8_T);
     RunTest<uint8_t>("1", 1);
 }
 
+/// @brief it should write boolean false as uint8 zero to channel.
 TEST_F(SetOperatorTest, Uint8ChannelBooleanValue) {
     SetupChannel(telem::UINT8_T);
     RunTest<uint8_t>("false", 0);
 }
 
+/// @brief it should write Lua false as uint8 zero to channel.
 TEST_F(SetOperatorTest, Uint8ChannelFalseValue) {
     SetupChannel(telem::UINT8_T);
     RunTest<uint8_t>("false", 0);
 }
 
+/// @brief it should write uint16 values to channel.
 TEST_F(SetOperatorTest, UInt16Value) {
     SetupChannel(telem::UINT16_T);
     RunTest<uint16_t>("65535", 65535);
 }
 
+/// @brief it should write uint32 values to channel.
 TEST_F(SetOperatorTest, UInt32Value) {
     SetupChannel(telem::UINT32_T);
     RunTest<uint32_t>("4294967295", 4294967295);
 }
 
+/// @brief it should write string values to channel.
 TEST_F(SetOperatorTest, StringValue) {
     SetupChannel(telem::STRING_T);
     RunStringTest("'hello'", "hello");
 }
 
+/// @brief it should convert number to string when writing to string channel.
 TEST_F(SetOperatorTest, StringTypeMismatch) {
     SetupChannel(telem::STRING_T);
     RunStringTest("123", "123.000000");
 }
 
+/// @brief it should reject string when writing to float32 channel.
 TEST_F(SetOperatorTest, Float32TypeMismatch) {
     SetupChannel(telem::FLOAT32_T);
     ASSERT_NE(luaL_dostring(L, "set('my_channel', 'not a number')"), 0);
     EXPECT_EQ(sink->writes->size(), 0);
 }
 
+/// @brief it should reject string when writing to int32 channel.
 TEST_F(SetOperatorTest, Int32TypeMismatch) {
     SetupChannel(telem::INT32_T);
     ASSERT_NE(luaL_dostring(L, "set('my_channel', 'not an integer')"), 0);
     EXPECT_EQ(sink->writes->size(), 0);
 }
 
+/// @brief it should reject string when writing to uint8 boolean channel.
 TEST_F(SetOperatorTest, BooleanTypeMismatch) {
     SetupChannel(telem::UINT8_T);
     ASSERT_NE(luaL_dostring(L, "set('my_channel', 'not a boolean')"), 0);
     EXPECT_EQ(sink->writes->size(), 0);
 }
 
+/// @brief it should return error when writing to nonexistent channel.
 TEST_F(SetOperatorTest, ChannelNotFound) {
     SetupChannel(telem::FLOAT32_T);
     ASSERT_NE(luaL_dostring(L, "set('nonexistent_channel', 3.14)"), 0);
@@ -222,16 +240,19 @@ protected:
     lua_State *L{};
 };
 
+/// @brief it should write float32 values with automatic index timestamp.
 TEST_F(SetOperatorWithIndexTest, Float32ValueWithIndex) {
     SetupChannels(telem::FLOAT32_T);
     RunIndexedTest<float>("3.14", 3.14f);
 }
 
+/// @brief it should write int32 values with automatic index timestamp.
 TEST_F(SetOperatorWithIndexTest, Int32ValueWithIndex) {
     SetupChannels(telem::INT32_T);
     RunIndexedTest<int32_t>("42", 42);
 }
 
+/// @brief it should write boolean values with automatic index timestamp.
 TEST_F(SetOperatorWithIndexTest, BooleanValueWithIndex) {
     SetupChannels(telem::UINT8_T);
     RunIndexedTest<uint8_t>("true", 1);
@@ -274,7 +295,7 @@ protected:
     lua_State *L{};
 };
 
-/// @brief it should set the authority of all chanels.
+/// @brief it should set the authority of all channels.
 TEST_F(SetAuthorityTest, SingleAuthForAllChannels) {
     ASSERT_EQ(luaL_dostring(L, "set_authority(42)"), 0);
     ASSERT_EQ(sink->authority_calls.size(), 1);
@@ -285,6 +306,7 @@ TEST_F(SetAuthorityTest, SingleAuthForAllChannels) {
         EXPECT_EQ(auth, 42);
 }
 
+/// @brief it should set authority on a single channel by name.
 TEST_F(SetAuthorityTest, SingleChannelAuth) {
     ASSERT_EQ(luaL_dostring(L, "set_authority('channel1', 42)"), 0);
     ASSERT_EQ(sink->authority_calls.size(), 1);
@@ -295,6 +317,7 @@ TEST_F(SetAuthorityTest, SingleChannelAuth) {
     EXPECT_EQ(auths[0], 42);
 }
 
+/// @brief it should set same authority on multiple channels.
 TEST_F(SetAuthorityTest, MultipleChannelsSameAuth) {
     ASSERT_EQ(luaL_dostring(L, "set_authority({'channel1', 'channel2'}, 42)"), 0);
     ASSERT_EQ(sink->authority_calls.size(), 1);
@@ -305,6 +328,7 @@ TEST_F(SetAuthorityTest, MultipleChannelsSameAuth) {
         EXPECT_EQ(auth, 42);
 }
 
+/// @brief it should set different authorities on multiple channels.
 TEST_F(SetAuthorityTest, MultipleChannelsDifferentAuth) {
     ASSERT_EQ(
         luaL_dostring(
@@ -328,11 +352,13 @@ TEST_F(SetAuthorityTest, MultipleChannelsDifferentAuth) {
     EXPECT_EQ(auth_map[3], 44); // channel3
 }
 
+/// @brief it should reject authority set on nonexistent channel.
 TEST_F(SetAuthorityTest, InvalidChannelName) {
     ASSERT_NE(luaL_dostring(L, "set_authority('nonexistent', 42)"), 0);
     EXPECT_EQ(sink->authority_calls.size(), 0);
 }
 
+/// @brief it should reject invalid arguments to set_authority.
 TEST_F(SetAuthorityTest, InvalidArguments) {
     ASSERT_NE(luaL_dostring(L, "set_authority()"), 0);
     ASSERT_NE(luaL_dostring(L, "set_authority('channel1')"), 0);
@@ -340,6 +366,7 @@ TEST_F(SetAuthorityTest, InvalidArguments) {
     EXPECT_EQ(sink->authority_calls.size(), 0);
 }
 
+/// @brief it should safely handle stop being called before start.
 TEST(ChannelWriteLifecycle, StopBeforeStart) {
     auto sink = std::make_shared<plugins::mock::FrameSink>();
     synnax::Channel ch;
@@ -356,6 +383,7 @@ TEST(ChannelWriteLifecycle, StopBeforeStart) {
     lua_close(L);
 }
 
+/// @brief it should safely handle being started twice.
 TEST(ChannelWriteLifecycle, DoubleStart) {
     const auto sink = std::make_shared<plugins::mock::FrameSink>();
     synnax::Channel ch;
@@ -374,6 +402,7 @@ TEST(ChannelWriteLifecycle, DoubleStart) {
     lua_close(L);
 }
 
+/// @brief it should safely handle being stopped twice.
 TEST(ChannelWriteLifecycle, DoubleStop) {
     const auto sink = std::make_shared<plugins::mock::FrameSink>();
     synnax::Channel ch;

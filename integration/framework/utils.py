@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -10,10 +10,23 @@
 import multiprocessing
 import os
 import platform
+import random
 import re
+import string
 import subprocess
 import sys
+import uuid
 from typing import Any
+
+# Centralized results directory for all test artifacts (screenshots, CSVs, etc.)
+RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "results")
+
+
+def get_results_path(filename: str) -> str:
+    """Get the full path for a results file, ensuring the directory exists."""
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    return os.path.join(RESULTS_DIR, filename)
+
 
 # SY-2920: Websocket Error handling improvements
 WEBSOCKET_ERROR_PATTERNS = [
@@ -77,6 +90,50 @@ def validate_and_sanitize_name(name: str) -> str:
         raise ValueError("Name cannot consist only of hyphens and underscores")
 
     return sanitized
+
+
+LINK_PATTERN = re.compile(r"^synnax://cluster/([^/]+)/([^/]+)/([^/]+)$")
+
+
+def assert_link_format(
+    link: str, resource_type: str, resource_id: str | None = None
+) -> None:
+    """Assert that a synnax:// link matches the expected format.
+
+    :param link: The link to validate.
+    :param resource_type: The resource type (e.g., "lineplot", "log", "channel").
+    :param resource_id: Optional specific resource ID to match. If None, validates as UUID.
+    """
+    match = LINK_PATTERN.match(link)
+    assert match, f"Link should match synnax://cluster/<uuid>/<type>/<id>, got: {link}"
+
+    cluster_id, actual_type, actual_id = match.groups()
+
+    try:
+        uuid.UUID(cluster_id)
+    except ValueError:
+        raise AssertionError(f"Cluster ID should be a valid UUID, got: {cluster_id}")
+
+    assert (
+        actual_type == resource_type
+    ), f"Resource type should be '{resource_type}', got: {actual_type}"
+
+    if resource_id is not None:
+        assert (
+            actual_id == resource_id
+        ), f"Resource ID should be '{resource_id}', got: {actual_id}"
+    else:
+        try:
+            uuid.UUID(actual_id)
+        except ValueError:
+            raise AssertionError(
+                f"Resource ID should be a valid UUID, got: {actual_id}"
+            )
+
+
+def get_random_name() -> str:
+    """Get a random name, which is a random 12-character string"""
+    return "".join(random.choices(string.ascii_letters + string.digits, k=12))
 
 
 def get_machine_info() -> str:
@@ -157,6 +214,12 @@ def get_machine_info() -> str:
 
     else:
         return system
+
+
+def rgb_to_hex(rgb_str: str) -> str:
+    vals = re.findall(r"[\d.]+", rgb_str)
+    r, g, b = [int(float(x)) for x in vals[:3]]
+    return f"#{r:02X}{g:02X}{b:02X}"
 
 
 def get_memory_info() -> str:

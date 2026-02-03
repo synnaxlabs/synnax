@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,7 +20,7 @@ import z from "zod";
 import { Aether } from "@/aether";
 import { context } from "@/context";
 import { useAsyncEffect, useCombinedStateAndRef } from "@/hooks";
-import { Status } from "@/status/core";
+import { Status } from "@/status/base";
 import { synnax } from "@/synnax/aether";
 
 export interface ContextValue extends synnax.ContextValue {

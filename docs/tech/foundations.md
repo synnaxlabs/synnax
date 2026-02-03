@@ -42,7 +42,7 @@ provided a general 'roadmap' for different platform components below.
 ### 0.0.4 - User Interfaces
 
 1. [Programming Core in TypeScript](#103---programming-core-in-javascript-and-typescript)
-2. [Package Management - PNPM](#71---pnpm)
+2. [Package Management - pnpm](#71---pnpm)
 3. [Build Systems and Infrastructure - Mono Repo](#80---monorepo)
 4. [Build Systems and Infrastructure - Turbo Repo](#81---turbo-repo)
 5. [User Interfaces](#9---user-interfaces)
@@ -215,16 +215,16 @@ great video explaining how excessive abstraction can be dangerous.
 
 # 7 - Package Management
 
-## 7.0 - Poetry
+## 7.0 - uv
 
-We use Poetry for managing packages and virtual environments in our Python code. Make
-sure you've familiarized yourself with some of the basic commands. Documentation is
-available [here](https://python-poetry.org/docs/). As a supplement to this, make sure
-you've read our [Python build system guide](./python/python.md).
+We use uv for managing packages and virtual environments in our Python code. Make sure
+you've familiarized yourself with some of the basic commands. Documentation is available
+[here](https://docs.astral.sh/uv/). As a supplement to this, make sure you've read our
+[Python build system guide](./python/python.md).
 
-## 7.1 - PNPM
+## 7.1 - pnpm
 
-PNPM is the package manager we use for all of our TypeScript code. Make sure you've
+pnpm is the package manager we use for all of our TypeScript code. Make sure you've
 familiarized yourself with some of the basic commands. Documentation is available
 [here](https://pnpm.io/). As a supplement to this, make sure you've read our
 [frontend build system guide](./typescript/build.md).

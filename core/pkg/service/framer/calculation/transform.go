@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,8 +22,8 @@ import (
 type transform struct {
 	confluence.AbstractLinear[framer.StreamerResponse, framer.WriterRequest]
 	streamerRequests confluence.Inlet[framer.StreamerRequest]
-	calculators      calculator.Group
 	onStatusChange   OnStatusChange
+	calculators      calculator.Group
 }
 
 var _ confluence.Segment[framer.StreamerResponse, framer.WriterRequest] = (*transform)(nil)
@@ -50,7 +50,7 @@ func (g *transform) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					continue
 				}
 				if err := signal.SendUnderContext(ctx, g.Out.Inlet(), framer.WriterRequest{
-					Command: writer.Write,
+					Command: writer.CommandWrite,
 					Frame:   output.KeepKeys(writeTo),
 				}); err != nil {
 					return err

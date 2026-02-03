@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,20 +17,20 @@ import (
 )
 
 var _ = Describe("Errors", func() {
-	Describe("NewErrRangeWriteConflict", func() {
+	Describe("NewRangeWriteConflictError", func() {
 		It("Should correctly format a range overlap error", func() {
 			writerTr := (telem.SecondTS * 5).SpanRange(3 * telem.Second)
 			existingTr := (telem.SecondTS * 2).SpanRange(4 * telem.Second)
-			err := domain.NewErrRangeWriteConflict(writerTr, existingTr)
+			err := domain.NewRangeWriteConflictError(writerTr, existingTr)
 			Expect(err).To(MatchError(domain.ErrWriteConflict))
 			Expect(err.Error()).To(Equal("write for range 1970-01-01T00:00:05Z - :08 (3s) overlaps with existing data occupying time range 1970-01-01T00:00:02Z - :06 (4s) for a time span of 1s: write overlaps with existing data in database: validation error"))
 		})
 	})
-	Describe("NewErrPointWriteConflict", func() {
+	Describe("NewPointWriteConflictError", func() {
 		It("Should correctly format a point overlap error", func() {
 			existingTr := (telem.SecondTS * 2).SpanRange(4 * telem.Second)
 			point := (2 * telem.SecondTS).Add(1 * telem.Second)
-			err := domain.NewErrPointWriteConflict(point, existingTr)
+			err := domain.NewPointWriteConflictError(point, existingTr)
 			Expect(err).To(MatchError(domain.ErrWriteConflict))
 			Expect(err.Error()).To(Equal("1970-01-01T00:00:03Z overlaps with existing data occupying time range 1970-01-01T00:00:02Z - :06 (4s). Timestamp occurs 1s after the start and 3s before the end of the range: write overlaps with existing data in database: validation error"))
 		})

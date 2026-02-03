@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -100,59 +100,12 @@ o:
 	return err
 }
 
-// MultiSender wraps a slice of freighter.StreamSender(s) to provide a confluence
-// compatible interface for sending messages over a network freighter. MultiSender
-// sends a copy of each message received from the Outlet.
-type MultiSender[M freighter.Payload] struct {
-	Senders []freighter.StreamSenderCloser[M]
-	confluence.UnarySink[M]
-}
-
-// Flow implements the Flow interface.
-func (m *MultiSender[M]) Flow(ctx signal.Context, opts ...confluence.Option) {
-	ctx.Go(m.send, confluence.NewOptions(opts).Signal...)
-}
-
-func (m *MultiSender[M]) send(ctx context.Context) error {
-	var err error
-	defer func() {
-		err = errors.Combine(m.closeSenders(), err)
-	}()
-o:
-	for {
-		select {
-		case <-ctx.Done():
-			err = ctx.Err()
-			break o
-		case res, ok := <-m.In.Outlet():
-			if !ok {
-				break o
-			}
-			for _, sender := range m.Senders {
-				if sErr := sender.Send(res); sErr != nil {
-					err = sErr
-					break o
-				}
-			}
-		}
-	}
-	return err
-}
-
-func (m *MultiSender[M]) closeSenders() error {
-	c := errors.NewCatcher(errors.WithAggregation())
-	for _, s := range m.Senders {
-		c.Exec(s.CloseSend)
-	}
-	return c.Error()
-}
-
 type MapTargetedSender[M freighter.Payload] map[address.Address]freighter.StreamSenderCloser[M]
 
 func (s MapTargetedSender[M]) Send(_ context.Context, target address.Address, msg M) error {
 	sender, ok := s[target]
 	if !ok {
-		return address.NewErrTargetNotFound(target)
+		return address.NewTargetNotFoundError(target)
 	}
 	return sender.Send(msg)
 }
@@ -163,78 +116,6 @@ func (s MapTargetedSender[M]) Close() error {
 		c.Exec(s.CloseSend)
 	}
 	return c.Error()
-}
-
-type ClientTargetedSender[RQ, RS freighter.Payload] struct {
-	Transport freighter.StreamClient[RQ, RS]
-	MapTargetedSender[RQ]
-}
-
-func (c ClientTargetedSender[RQ, RS]) Send(ctx context.Context, target address.Address, req RQ) error {
-	sender, ok := c.MapTargetedSender[target]
-	if !ok {
-		if err := c.open(ctx, target); err != nil {
-			return err
-		}
-		sender = c.MapTargetedSender[target]
-	}
-	return sender.Send(req)
-}
-
-func (c ClientTargetedSender[RQ, RS]) Close() error {
-	return c.MapTargetedSender.Close()
-}
-
-func (c ClientTargetedSender[RQ, RS]) open(ctx context.Context, target address.Address) error {
-	stream, err := c.Transport.Stream(ctx, target)
-	if err != nil {
-		return err
-	}
-	c.MapTargetedSender[target] = stream
-	return nil
-}
-
-// SwitchSender wraps a map of freighter.StreamSenderCloser to provide a confluence
-// compatible interface for sending messages over a network freighter. SwitchSender
-// receives a value, resolves its target address through a SwitchFunc, and sends it
-// on its merry way.
-type SwitchSender[M freighter.Payload] struct {
-	Sender TargetedSender[M]
-	Switch confluence.SwitchFunc[M]
-	confluence.UnarySink[M]
-}
-
-func (sw *SwitchSender[M]) Flow(ctx signal.Context, opts ...confluence.Option) {
-	ctx.Go(sw.send, confluence.NewOptions(opts).Signal...)
-}
-
-func (sw *SwitchSender[M]) send(ctx context.Context) error {
-	var err error
-	defer func() {
-		err = errors.Combine(sw.Sender.Close(), err)
-	}()
-o:
-	for {
-		select {
-		case <-ctx.Done():
-			err = ctx.Err()
-			break o
-		case msg, ok := <-sw.In.Outlet():
-			if !ok {
-				break o
-			}
-			target, ok, swErr := sw.Switch(ctx, msg)
-			if !ok || swErr != nil {
-				err = swErr
-				break o
-			}
-			if sErr := sw.Sender.Send(ctx, target, msg); sErr != nil {
-				err = sErr
-				break o
-			}
-		}
-	}
-	return err
 }
 
 // BatchSwitchSender wraps a map of freighter.StreamSenderCloser to provide a confluence
@@ -295,9 +176,9 @@ o:
 // compatible interface for sending transformed messages over a network freighter.
 // MultiTransformSender transforms each input message and sends a copy to each sender.
 type MultiTransformSender[I confluence.Value, M freighter.Payload] struct {
-	Senders   []freighter.StreamSenderCloser[M]
-	Transform confluence.TransformFunc[I, M]
 	confluence.UnarySink[I]
+	Transform confluence.TransformFunc[I, M]
+	Senders   []freighter.StreamSenderCloser[M]
 }
 
 // Flow implements the Flow interface.

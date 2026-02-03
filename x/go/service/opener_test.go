@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,7 +26,7 @@ var _ = Describe("Opener", Ordered, func() {
 		err              error
 		closer           xio.MultiCloser
 		cleanup          func(error) error
-		ok               func(err error, c io.Closer) bool
+		ok               func(error, io.Closer) bool
 		multiCloserCalls int
 		cancel           context.CancelFunc
 	)

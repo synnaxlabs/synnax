@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,12 +24,12 @@ import (
 // Policies are attached to roles, and roles are assigned to users via ontology relationships.
 type Policy struct {
 	Name string `json:"name" msgpack:"name"`
-	// Key is a unique uuid to identify the policy.
-	Key uuid.UUID `json:"key" msgpack:"key"`
 	// Objects is the list of objects that the policy applies to
 	Objects []ontology.ID `json:"objects" msgpack:"objects"`
 	// Actions is the list of actions that the policy applies to
 	Actions []access.Action `json:"actions" msgpack:"actions"`
+	// Key is a unique uuid to identify the policy.
+	Key uuid.UUID `json:"key" msgpack:"key"`
 	// Internal indicates whether the policy is built-in to the system.
 	Internal bool `json:"internal" msgpack:"internal"`
 }

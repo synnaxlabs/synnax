@@ -1,0 +1,42 @@
+name: Test - Arc (Go)
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/test.arc.go.yaml
+      - .github/workflows/test.go.yaml
+      - .golangci.yaml
+      - alamos/go/**
+      - arc/go/**
+      - codecov.yaml
+      - freighter/go/**
+      - go.work
+      - go.work.sum
+      - scripts/check_gofmt.sh
+      - x/go/**
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - .github/workflows/test.arc.go.yaml
+      - .github/workflows/test.go.yaml
+      - .golangci.yaml
+      - alamos/go/**
+      - arc/go/**
+      - codecov.yaml
+      - freighter/go/**
+      - go.work
+      - go.work.sum
+      - scripts/check_gofmt.sh
+      - x/go/**
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.go.yaml
+    secrets: inherit
+    with:
+      directory: arc/go
+      ginkgo_flags: -p --randomize-all --race
+      coverage_flag: arc-go

@@ -7,14 +7,12 @@ platforms: ["Linux", "Windows", "macOS", "Docker"]
 
 import { Flex, Note, Divider, Video as PVideo } from "@synnaxlabs/pluto";
 
-import { Console } from "@/components/console";
-import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
-import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
-import Details from "@/components/details/Details.astro";
-import { mdxOverrides } from "@/components/mdxOverrides";
-import { Image, Video } from "@/components/Media";
-import { Platform } from "@/components/platform";
+import { Console, Platform } from "@/components";
+import DownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
+import MoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
 import WindowsDownloadButton from "@/components/core/WindowsDownloadButton.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Image, Video } from "@/components/media/Media";
 
 export const components = mdxOverrides;
 
@@ -100,16 +98,32 @@ docker run -p 9090:9090 synnaxlabs/synnax --listen=localhost:9090 --mem --insecu
 This will pull the latest version of Synnax from Docker Hub and start a Core with the
 following parameters:
 
-`-p 9090:9090` - This maps port 9090 on the host to port 9090 in the container. This
-allows access to the Synnax Core from the host machine.
-
-`--listen=localhost:9090` - This sets the address that the Core will listen on. This is
-the reachable address of the Core.
-
-`--mem` - Tells the Core to store all data in memory, which is useful for learning and
-development.
-
-`--insecure` - Tells the Core to run without TLS.
+<table>
+  <thead>
+    <tr>
+      <th>Flag</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`-p 9090:9090`</td>
+      <td>Maps port 9090 on the host to port 9090 in the container</td>
+    </tr>
+    <tr>
+      <td>`--listen=localhost:9090`</td>
+      <td>Sets the address that the Core will listen on</td>
+    </tr>
+    <tr>
+      <td>`--mem`</td>
+      <td>Store all data in memory (useful for learning and development)</td>
+    </tr>
+    <tr>
+      <td>`--insecure`</td>
+      <td>Run without TLS</td>
+    </tr>
+  </tbody>
+</table>
 
 If you're interested in more details on these flags, see the
 [CLI Reference](/reference/core/cli-reference).
@@ -124,11 +138,11 @@ To stop the Core, simply press `Ctrl+C` in the terminal.
 
 To start a Core on Linux, first download the latest Synnax binary by running:
 
-<SynnaxDownloadURL os="linux" />
+<DownloadURL os="linux" />
 
 Then, move the binary to `/usr/local/bin`:
 
-<SynnaxMoveCommand os="linux" />
+<MoveCommand os="linux" />
 
 Next, give execution permissions to the binary:
 
@@ -149,13 +163,28 @@ synnax start --listen=localhost:9090 --mem --insecure
 
 This will start a Core with the following parameters:
 
-`--listen=localhost:9090` - This sets the address that the Core will listen on. This is
-the reachable address of the Core.
-
-`--mem` - Tells the Core to store all data in memory, which is useful for learning and
-development.
-
-`--insecure` - Tells the Core to run without TLS.
+<table>
+  <thead>
+    <tr>
+      <th>Flag</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`--listen=localhost:9090`</td>
+      <td>Sets the address that the Core will listen on</td>
+    </tr>
+    <tr>
+      <td>`--mem`</td>
+      <td>Store all data in memory (useful for learning and development)</td>
+    </tr>
+    <tr>
+      <td>`--insecure`</td>
+      <td>Run without TLS</td>
+    </tr>
+  </tbody>
+</table>
 
 If you're interested in more details on these flags, see the
 [CLI Reference](/reference/core/cli-reference).
@@ -170,11 +199,11 @@ To stop the Core, simply press `Ctrl+C` in the terminal.
 
 To start a Core on macOS, first download the latest Synnax binary by running:
 
-<SynnaxDownloadURL os="macos" />
+<DownloadURL os="macos" />
 
 Next, move the binary to `usr/local/bin`:
 
-<SynnaxMoveCommand os="macos" />
+<MoveCommand os="macos" />
 
 Then, give execution permissions to the binary:
 
@@ -195,13 +224,28 @@ synnax start --listen=localhost:9090 --mem --insecure
 
 This will start a Core with the following parameters:
 
-`--listen=localhost:9090` - This sets the address that the Core will listen on. This is
-the reachable address of the Core.
-
-`--mem` - Tells the Core to store all data in memory, which is useful for learning and
-development.
-
-`--insecure` - Tells the Core to run without TLS.
+<table>
+  <thead>
+    <tr>
+      <th>Flag</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`--listen=localhost:9090`</td>
+      <td>Sets the address that the Core will listen on</td>
+    </tr>
+    <tr>
+      <td>`--mem`</td>
+      <td>Store all data in memory (useful for learning and development)</td>
+    </tr>
+    <tr>
+      <td>`--insecure`</td>
+      <td>Run without TLS</td>
+    </tr>
+  </tbody>
+</table>
 
 If you're interested in more details on these flags, see the
 [CLI Reference](/reference/core/cli-reference).
@@ -236,13 +280,28 @@ synnax start --listen=localhost:9090 --mem --insecure
 
 This will start a Core with the following parameters:
 
-`--listen=localhost:9090` - This sets the address that the Core will listen on. This is
-the reachable address of the Core.
-
-`--mem` - Tells the Core to store all data in memory, which is useful for learning and
-development.
-
-`--insecure` - Tells the Core to run without TLS.
+<table>
+  <thead>
+    <tr>
+      <th>Flag</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`--listen=localhost:9090`</td>
+      <td>Sets the address that the Core will listen on</td>
+    </tr>
+    <tr>
+      <td>`--mem`</td>
+      <td>Store all data in memory (useful for learning and development)</td>
+    </tr>
+    <tr>
+      <td>`--insecure`</td>
+      <td>Run without TLS</td>
+    </tr>
+  </tbody>
+</table>
 
 If you're interested in more details on these flags, see the
 [CLI Reference](/reference/core/cli-reference).

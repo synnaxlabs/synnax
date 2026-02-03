@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,7 +20,7 @@ import {
 } from "@/form/Context";
 import { type FieldState, type GetOptions, State } from "@/form/state";
 import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
-import { Status } from "@/status/core";
+import { Status } from "@/status/base";
 
 export interface OnChangeArgs<Z extends z.ZodType> {
   /** The values in the form AFTER the change. */

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,8 +11,6 @@
 #include <utility>
 
 #include "client/cpp/framer/framer.h"
-
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
 
 /// @brief enumeration of possible writer commands.
 enum WriterCommand : uint32_t {
@@ -56,7 +54,7 @@ void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
     f->set_err_on_unauthorized(this->err_on_unauthorized);
 }
 
-xerrors::Error Writer::write(const synnax::Frame &fr) {
+xerrors::Error Writer::write(const telem::Frame &fr) {
     if (this->close_err) return this->close_err;
     if (const auto err = this->init_request(fr)) return this->close(err);
     return this->exec(*this->cached_write_req, false).second;
@@ -95,7 +93,7 @@ xerrors::Error Writer::close() {
     return this->close(xerrors::NIL);
 }
 
-xerrors::Error Writer::init_request(const Frame &fr) {
+xerrors::Error Writer::init_request(const telem::Frame &fr) {
     if (this->cfg.enable_experimental_codec) {
         if (this->cached_write_req == nullptr)
             this->cached_write_req = std::make_unique<api::v1::FrameWriterRequest>();

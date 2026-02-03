@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -50,9 +50,9 @@ import (
 var (
 	// errQuorumUnreachable is returned when a quorum jury cannot be safely assembled.
 	errQuorumUnreachable = errors.New("quorum unreachable")
-	// proposalRejected is an internal error returned when a juror rejects a pledge
+	// errProposalRejected is an internal error returned when a juror rejects a pledge
 	// proposal from a responsible node.
-	proposalRejected = errors.New("proposal rejected")
+	errProposalRejected = errors.New("proposal rejected")
 )
 
 // Pledge pledges a new node to the cluster. This node, called the Pledge,
@@ -150,9 +150,9 @@ func arbitrate(cfg Config) error {
 }
 
 type responsible struct {
-	Config
 	candidateSnapshot node.Group
-	_proposedKey      node.Key
+	Config
+	_proposedKey node.Key
 }
 
 func (r *responsible) propose(ctx context.Context) (res Response, err error) {
@@ -238,14 +238,13 @@ func (r *responsible) consultQuorum(ctx context.Context, key node.Key, quorum no
 	defer cancel()
 	wg := errgroup.Group{}
 	for _, n := range quorum {
-		n_ := n
 		wg.Go(func() error {
-			_, err := r.TransportClient.Send(reqCtx, n_.Address, Request{Key: key})
-			if errors.Is(err, proposalRejected) {
+			_, err := r.TransportClient.Send(reqCtx, n.Address, Request{Key: key})
+			if errors.Is(err, errProposalRejected) {
 				r.L.Debug(
 					"quorum rejected proposal",
 					zap.Uint32("key", uint32(key)),
-					zap.Stringer("address", n_.Address),
+					zap.Stringer("address", n.Address),
 				)
 				cancel()
 			}
@@ -254,7 +253,7 @@ func (r *responsible) consultQuorum(ctx context.Context, key node.Key, quorum no
 			if err != nil {
 				r.L.Error("failed to reach juror",
 					zap.Uint32("key", uint32(key)),
-					zap.Stringer("address", n_.Address),
+					zap.Stringer("address", n.Address),
 				)
 				cancel()
 			}
@@ -265,9 +264,9 @@ func (r *responsible) consultQuorum(ctx context.Context, key node.Key, quorum no
 }
 
 type juror struct {
-	Config
-	mu        sync.Mutex
 	approvals []node.Key
+	Config
+	mu sync.Mutex
 }
 
 func (j *juror) verdict(ctx context.Context, req Request) (err error) {
@@ -275,19 +274,19 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 		return ctx.Err()
 	}
 	_, span := j.T.Prod(ctx, "juror.verdict")
-	defer func() { _ = span.EndWith(err, proposalRejected) }()
+	defer func() { _ = span.EndWith(err, errProposalRejected) }()
 	logID := zap.Uint32("key", uint32(req.Key))
 	j.L.Debug("juror received proposal. making verdict", logID)
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	if slices.Contains(j.approvals, req.Key) {
 		j.L.Warn("juror rejected proposal. already approved for a different pledge", logID)
-		err = proposalRejected
+		err = errProposalRejected
 		return
 	}
 	if req.Key <= highestNodeID(j.Candidates()) {
 		j.L.Warn("juror rejected proposal. id out of range", logID)
-		err = proposalRejected
+		err = errProposalRejected
 	}
 	j.approvals = append(j.approvals, req.Key)
 	j.L.Debug("juror approved proposal", logID)

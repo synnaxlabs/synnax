@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,10 +16,10 @@ import (
 )
 
 type Workspace struct {
-	Key    uuid.UUID `json:"key" msgpack:"key"`
 	Name   string    `json:"name" msgpack:"name"`
-	Author uuid.UUID `json:"author" msgpack:"author"`
 	Layout string    `json:"layout" msgpack:"layout"`
+	Key    uuid.UUID `json:"key" msgpack:"key"`
+	Author uuid.UUID `json:"author" msgpack:"author"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Workspace{}

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,16 +12,15 @@ import { deep, type record } from "@synnaxlabs/x";
 import data from "@/hardware/ni/device/enriched.json";
 import { type Properties, ZERO_PROPERTIES } from "@/hardware/ni/device/types";
 
-interface PickedEnrichedProperties
-  extends Pick<
-    Properties,
-    | "analogInput"
-    | "analogOutput"
-    | "counterInput"
-    | "digitalInputOutput"
-    | "digitalInput"
-    | "digitalOutput"
-  > {}
+interface PickedEnrichedProperties extends Pick<
+  Properties,
+  | "analogInput"
+  | "analogOutput"
+  | "counterInput"
+  | "digitalInputOutput"
+  | "digitalInput"
+  | "digitalOutput"
+> {}
 
 export const enrich = (model: string, properties: Properties): Properties => {
   const enriched = (data as record.Unknown)[model] as {

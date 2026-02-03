@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,11 +18,11 @@ import (
 
 // Group is a simple grouping of resources within the cluster's ontology.
 type Group struct {
+	// Name is the name for the group.
+	Name string `json:"name" msgpack:"name"`
 	// Key is the unique identifier for the group. Will be generated on creation if not
 	// set.
 	Key uuid.UUID `json:"key" msgpack:"key"`
-	// Name is the name for the group.
-	Name string `json:"name" msgpack:"name"`
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{

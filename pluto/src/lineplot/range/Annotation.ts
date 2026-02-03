@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,8 +13,7 @@ import { Aether } from "@/aether";
 import { range } from "@/lineplot/range/aether";
 
 interface AnnotationProps
-  extends z.input<typeof range.annotationStateZ>,
-    Aether.ComponentProps {}
+  extends z.input<typeof range.annotationStateZ>, Aether.ComponentProps {}
 
 export const Annotation = ({ aetherKey, ...rest }: AnnotationProps): null => {
   Aether.use({

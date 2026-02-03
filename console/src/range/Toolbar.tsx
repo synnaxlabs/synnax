@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,7 +17,7 @@ import {
   type Flux,
   Haul,
   Icon,
-  List as CoreList,
+  List as BaseList,
   Menu as PMenu,
   Ranger,
   Select,
@@ -89,14 +89,14 @@ const List = (): ReactElement => {
       onChange={handleSelect}
     >
       <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
-      <CoreList.Items
+      <BaseList.Items
         full="y"
         emptyContent={<NoRanges />}
         {...dropProps}
         onContextMenu={menuProps.open}
       >
         {listItem}
-      </CoreList.Items>
+      </BaseList.Items>
     </Select.Frame>
   );
 };
@@ -120,7 +120,7 @@ export const useRename = () => {
   });
 };
 
-const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
+const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
   const { itemKey } = props;
   const entry = useSelect(itemKey);
   const labels = Ranger.useLabels(itemKey)?.data ?? [];

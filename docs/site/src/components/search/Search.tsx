@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -65,8 +65,6 @@ export const Search = (): ReactElement => (
 );
 
 const ICONS: Record<string, Icon.ReactElement> = {
-  "python-client": <Icon.Python />,
-  "typescript-client": <Icon.TypeScript />,
   core: <Icon.Cluster />,
   console: <Icon.Visualize />,
   concepts: <Icon.Concepts />,
@@ -105,10 +103,11 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
       gap="medium"
       aria-selected
       href={href}
+      propagateClick
       {...props}
     >
       <Flex.Box direction="y" empty>
-        <Text.Text level="h5" dangerouslySetInnerHTML={{ __html: title }} gap="tiny" />
+        <Text.Text level="h5" dangerouslySetInnerHTML={{ __html: title }} empty />
         <Breadcrumb.Breadcrumb level="small" gap="tiny" highlightVariant="last">
           {icon}
           {path.split("/").map((segment, index) => (

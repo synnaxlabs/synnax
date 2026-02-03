@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,8 +18,8 @@ import { type Ontology } from "@/ontology";
 import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "labels";
-export const RESOURCE_NAME = "Label";
-export const PLURAL_RESOURCE_NAME = "Labels";
+export const RESOURCE_NAME = "label";
+export const PLURAL_RESOURCE_NAME = "labels";
 
 export interface FluxStore extends Flux.UnaryStore<label.Key, label.Label> {}
 
@@ -75,17 +75,16 @@ export const retrieveCachedLabelsOf = (store: FluxSubStore, id: ontology.ID) => 
   return store.labels.get(keys);
 };
 
-interface SetLabelsForParams
-  extends Omit<
-    UpdateParams<
-      {
-        id: ontology.ID;
-        labels: label.Key[];
-      },
-      FluxSubStore
-    >,
-    "setStatus"
-  > {}
+interface SetLabelsForParams extends Omit<
+  UpdateParams<
+    {
+      id: ontology.ID;
+      labels: label.Key[];
+    },
+    FluxSubStore
+  >,
+  "setStatus"
+> {}
 
 export const setLabelsFor = async ({
   store,
@@ -234,7 +233,7 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
   label.Label[],
   FluxSubStore
 >({
-  name: "Labels",
+  name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { keys }, store }) => {
     const cached = store.labels.get(keys);
     const missing = keys.filter((k) => !store.labels.has(k));

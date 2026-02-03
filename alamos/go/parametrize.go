@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,9 +9,7 @@
 
 package alamos
 
-import (
-	"io"
-)
+import "io"
 
 type ParametrizeConfig[V ParametrizeVars] interface {
 	Next() (V, error)
@@ -45,8 +43,8 @@ func (p *Parametrize[V]) Construct() {
 }
 
 type iterVars[T ParametrizeVars] struct {
-	i    int
 	vars []T
+	i    int
 }
 
 func (iv *iterVars[T]) Next() (T, error) {

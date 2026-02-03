@@ -2,10 +2,10 @@
 title: "Version 0.49 Release Notes"
 ---
 
-import Release from "@/components/releases/Release.astro";
-import { Image } from "@/components/Media";
+import { Image } from "@/components/media/Media";
 import { Divider, Flex } from "@synnaxlabs/pluto";
-import Diagram from "@/components/Diagram.astro";
+import Release from "@/components/releases/Release.astro";
+import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -33,20 +33,17 @@ the [Users](/reference/console/users) page.
 Statuses for all Drivers, devices, and tasks are now displayed in the Status Explorer,
 providing a unified view of your entire system's health.
 
-<Diagram
-  preview
-  style="height: 300px; width: 600px; padding: 0rem 9rem; margin-left: auto; margin-right: auto"
->
+<Diagram preview style={{ height: "350px", padding: "3rem" }}>
   <Image
     client:only="react"
     id="releases/0-49-0/status-handling"
     style={{
-      borderTopLeftRadius: "1rem",
-      position: "absolute",
-      width: 500,
-      bottom: "-35rem",
-      right: "-10rem",
-      border: "0.5px solid var(--pluto-gray-l5)",
+      borderRadius: "2rem",
+      width: "110%",
+      border: "1px solid var(--pluto-gray-l5)",
+      position: "relative",
+      left: "25%",
+      top: "5rem",
     }}
     themed={false}
   />

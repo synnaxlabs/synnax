@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,8 +13,9 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/override"
@@ -22,14 +23,14 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var errWriterClosed = core.NewErrResourceClosed("virtual.writer")
+var errWriterClosed = resource.NewClosedError("virtual.writer")
 
 type WriterConfig struct {
+	ErrOnUnauthorizedOpen *bool
 	Subject               xcontrol.Subject
 	Start                 telem.TimeStamp
 	End                   telem.TimeStamp
 	Authority             xcontrol.Authority
-	ErrOnUnauthorizedOpen *bool
 }
 
 var (
@@ -40,9 +41,9 @@ var (
 )
 
 func (cfg WriterConfig) Validate() error {
-	v := validate.New("virtual.WriterConfig")
-	validate.NotEmptyString(v, "Subject.Key", cfg.Subject.Key)
-	validate.NotNil(v, "ErrOnUnauthorizedOpen", cfg.ErrOnUnauthorizedOpen)
+	v := validate.New("virtual.writer_config")
+	validate.NotEmptyString(v, "subject.key", cfg.Subject.Key)
+	validate.NotNil(v, "err_on_unauthorized_open", cfg.ErrOnUnauthorizedOpen)
 	return v.Error()
 }
 
@@ -60,10 +61,6 @@ func (cfg WriterConfig) domain() telem.TimeRange {
 }
 
 type Writer struct {
-	WriterConfig
-	// Channel stores information about the channel being written to, most importantly
-	// the density and index.
-	Channel core.Channel
 	// onClose is called when the writer is closed.
 	onClose func()
 	// control stores the control gate held by the virtual writer, and used to track control
@@ -72,6 +69,10 @@ type Writer struct {
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.
 	wrapError func(error) error
+	// Channel stores information about the channel being written to, most importantly
+	// the density and index.
+	Channel channel.Channel
+	WriterConfig
 	// closed stores whether the writer is closed. Operations like Write and Commit do
 	// not succeed on closed writers.
 	closed bool

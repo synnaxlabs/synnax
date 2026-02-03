@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,16 +14,13 @@ import (
 	"go/types"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -39,31 +36,13 @@ type (
 		api.ChannelCreateResponse,
 		*gapi.ChannelCreateResponse,
 	]
-	channelCreateClient = fgrpc.UnaryClient[
-		api.ChannelCreateRequest,
-		*gapi.ChannelCreateRequest,
-		api.ChannelCreateResponse,
-		*gapi.ChannelCreateResponse,
-	]
 	channelRetrieveServer = fgrpc.UnaryServer[
 		api.ChannelRetrieveRequest,
 		*gapi.ChannelRetrieveRequest,
 		api.ChannelRetrieveResponse,
 		*gapi.ChannelRetrieveResponse,
 	]
-	channelRetrieveClient = fgrpc.UnaryClient[
-		api.ChannelRetrieveRequest,
-		*gapi.ChannelRetrieveRequest,
-		api.ChannelRetrieveResponse,
-		*gapi.ChannelRetrieveResponse,
-	]
 	channelDeleteServer = fgrpc.UnaryServer[
-		api.ChannelDeleteRequest,
-		*gapi.ChannelDeleteRequest,
-		types.Nil,
-		*emptypb.Empty,
-	]
-	channelDeleteClient = fgrpc.UnaryClient[
 		api.ChannelDeleteRequest,
 		*gapi.ChannelDeleteRequest,
 		types.Nil,
@@ -233,44 +212,4 @@ func newChannel(a *api.Transport) fgrpc.BindableTransport {
 	a.ChannelRetrieve = r
 	a.ChannelDelete = d
 	return fgrpc.CompoundBindableTransport{c, r, d}
-}
-
-func NewChannelCreateClient(
-	pool *fgrpc.Pool,
-) freighter.UnaryClient[api.ChannelCreateRequest, api.ChannelCreateResponse] {
-	return &channelCreateClient{
-		RequestTranslator:  channelCreateRequestTranslator{},
-		ResponseTranslator: channelCreateResponseTranslator{},
-		Pool:               pool,
-		ServiceDesc:        &gapi.ChannelCreateService_ServiceDesc,
-		Exec: func(ctx context.Context, connInterface grpc.ClientConnInterface, request *gapi.ChannelCreateRequest) (*gapi.ChannelCreateResponse, error) {
-			return gapi.NewChannelCreateServiceClient(connInterface).Exec(ctx, request)
-		},
-	}
-}
-
-func NewChannelRetrieveClient(pool *fgrpc.Pool,
-) freighter.UnaryClient[api.ChannelRetrieveRequest, api.ChannelRetrieveResponse] {
-	return &channelRetrieveClient{
-		RequestTranslator:  channelRetrieveRequestTranslator{},
-		ResponseTranslator: channelRetrieveResponseTranslator{},
-		Pool:               pool,
-		ServiceDesc:        &gapi.ChannelRetrieveService_ServiceDesc,
-		Exec: func(ctx context.Context, connInterface grpc.ClientConnInterface, request *gapi.ChannelRetrieveRequest) (*gapi.ChannelRetrieveResponse, error) {
-			return gapi.NewChannelRetrieveServiceClient(connInterface).Exec(ctx, request)
-		},
-	}
-}
-
-func NewChannelDeleteClient(pool *fgrpc.Pool,
-) freighter.UnaryClient[api.ChannelDeleteRequest, types.Nil] {
-	return &channelDeleteClient{
-		RequestTranslator:  channelDeleteRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
-		Pool:               pool,
-		ServiceDesc:        &gapi.ChannelDeleteService_ServiceDesc,
-		Exec: func(ctx context.Context, connInterface grpc.ClientConnInterface, request *gapi.ChannelDeleteRequest) (*emptypb.Empty, error) {
-			return gapi.NewChannelDeleteServiceClient(connInterface).Exec(ctx, request)
-		},
-	}
 }

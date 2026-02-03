@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,24 +11,24 @@ import { channel } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { Channel } from "@/channel";
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 
-const CREATE_COMMAND: Palette.Command = {
-  icon: <Icon.Channel />,
-  name: "Create a Channel",
+const useVisible = () => Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
+
+export const CreateCommand = Palette.createSimpleCommand({
   key: "create-channel",
-  onSelect: ({ placeLayout }) => placeLayout(Channel.CREATE_LAYOUT),
-  visible: ({ store, client }) =>
-    Access.createGranted({ id: channel.TYPE_ONTOLOGY_ID, store, client }),
-};
-
-const CREATE_CALCULATED_COMMAND: Palette.Command = {
+  name: "Create a Channel",
   icon: <Icon.Channel />,
-  name: "Create a Calculated Channel",
-  key: "create-calculated-channel",
-  onSelect: ({ placeLayout }) => placeLayout(Channel.CALCULATED_LAYOUT),
-  visible: ({ store, client }) =>
-    Access.createGranted({ id: channel.TYPE_ONTOLOGY_ID, store, client }),
-};
+  layout: Channel.CREATE_LAYOUT,
+  useVisible,
+});
 
-export const COMMANDS = [CREATE_COMMAND, CREATE_CALCULATED_COMMAND];
+export const CreateCalculatedCommand = Palette.createSimpleCommand({
+  key: "create-calculated-channel",
+  name: "Create a Calculated Channel",
+  icon: <Icon.Channel />,
+  layout: Channel.CALCULATED_LAYOUT,
+  useVisible,
+});
+
+export const COMMANDS = [CreateCommand, CreateCalculatedCommand];

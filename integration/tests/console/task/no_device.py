@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -84,7 +84,7 @@ class NoDevice(ConsoleCase):
         ni_ai.configure()
 
         # Assert error notification
-        notifications = self.console.check_for_notifications(timeout=5)
+        notifications = self.console.notifications.check(timeout=5)
         msg = notifications[0]["message"]
         msg_expected = "Failed to update Task"
         assert (

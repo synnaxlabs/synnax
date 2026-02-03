@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,6 +23,7 @@ export { Device } from "@/device";
 export { Dialog } from "@/dialog";
 export { Direction } from "@/direction";
 export { Divider } from "@/divider";
+export { Errors } from "@/errors";
 export { Flex } from "@/flex";
 export { Flux } from "@/flux";
 export { Form } from "@/form";
@@ -42,7 +43,6 @@ export { Menu } from "@/menu";
 export { Mosaic } from "@/mosaic";
 export { Nav } from "@/nav";
 export { Note } from "@/note";
-export { Observe } from "@/observe";
 export { Ontology } from "@/ontology";
 export { OS } from "@/os";
 export { Pluto } from "@/pluto";
@@ -74,6 +74,7 @@ export { Triggers } from "@/triggers";
 export { User } from "@/user";
 export * from "@/util/event";
 export { Video } from "@/video";
+export { View } from "@/view";
 export { Viewport } from "@/viewport";
 export { axis } from "@/vis/axis";
 export { Canvas } from "@/vis/canvas";

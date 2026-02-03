@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -23,7 +23,7 @@ Key features demonstrated:
 
 Before running this example:
 1. Start the Modbus simulator server:
-   poetry run python driver/modbus/dev/server.py
+   uv run python driver/modbus/dev/server.py
 
 2. Connect the Modbus device in Synnax Console:
    - Host: localhost (127.0.0.1)
@@ -38,7 +38,7 @@ import synnax as sy
 from synnax import modbus
 
 # We've logged in via the command-line interface, so there's no need to provide
-# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
+# credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
 client = sy.Synnax()
 
 # Retrieve the Modbus device from Synnax

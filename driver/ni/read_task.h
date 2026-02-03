@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -112,11 +112,11 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         auto remote_channels = map_channel_Keys(channel_vec);
         std::unordered_map<std::string, synnax::Device> devices;
         if (this->device_key != "cross-device") {
-            auto [device, err] = client->devices.retrieve(this->device_key);
-            if (err) {
+            auto [device, device_err] = client->devices.retrieve(this->device_key);
+            if (device_err) {
                 cfg.field_err(
                     "device",
-                    "failed to retrieve device for task: " + err.message()
+                    "failed to retrieve device for task: " + device_err.message()
                 );
                 return;
             }
@@ -299,7 +299,7 @@ private:
         return this->cfg.writer();
     }
 
-    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    common::ReadResult read(breaker::Breaker &breaker, telem::Frame &fr) override {
         common::ReadResult res;
         const auto n_channels = this->cfg.channels.size();
         const auto n_samples = this->cfg.samples_per_chan;

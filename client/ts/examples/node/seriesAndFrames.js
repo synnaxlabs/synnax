@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -82,7 +82,7 @@ import { DataType } from "@synnaxlabs/client";
 
 series = new Series([1, 2, 3, 4, 5]);
 console.log(series.dataType.toString()); // "float64"
-console.log(series.dataType.equals(DataType.STRING)); // true
+console.log(series.dataType.equals(DataType.FLOAT64)); // true
 
 series = new Series([1, 2, 3, 4, 5]);
 console.log(series.max); // 5

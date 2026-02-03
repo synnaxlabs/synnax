@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,8 +13,9 @@
 
 #include "client/cpp/auth/auth.h"
 #include "freighter/cpp/mock/mock.h"
+#include "x/cpp/xtest/xtest.h"
 
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
+#include "core/pkg/api/grpc/v1/auth.pb.h"
 
 /// @brief it should correctly authenticate with a Synnax cluster.
 TEST(TestAuth, testLoginHappyPath) {
@@ -34,8 +35,8 @@ TEST(TestAuth, testLoginHappyPath) {
     auto mock_client = MockUnaryClient<int, int>{1, xerrors::NIL};
     mock_client.use(mw);
     auto v = 1;
-    auto [r, err] = mock_client.send("", v);
-    EXPECT_TRUE(err.matches(xerrors::NIL));
+    const auto r = ASSERT_NIL_P(mock_client.send("", v));
+    ASSERT_EQ(r, 1);
 }
 
 /// @brief it should return an error if credentials are invalid.
@@ -45,9 +46,9 @@ TEST(TestAuth, testLoginInvalidCredentials) {
     auto mock_login_client = std::make_unique<
         MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
         res,
-        xerrors::Error(INVALID_CREDENTIALS, "")
+        INVALID_CREDENTIALS
     );
-    auto mw = std::make_shared<AuthMiddleware>(
+    const auto mw = std::make_shared<AuthMiddleware>(
         std::move(mock_login_client),
         "synnax",
         "seldon",
@@ -57,8 +58,7 @@ TEST(TestAuth, testLoginInvalidCredentials) {
     mock_client.use(mw);
     auto v = 1;
     auto [r, err] = mock_client.send("", v);
-    EXPECT_TRUE(err) << err.message();
-    EXPECT_TRUE(err.matches(INVALID_CREDENTIALS));
+    ASSERT_OCCURRED_AS(err, INVALID_CREDENTIALS);
 }
 
 /// @brief it should retry authentication if the authentication token is invalid.
@@ -82,9 +82,8 @@ TEST(TestAuth, testLoginRetry) {
     };
     mock_client.use(mw);
     auto v = 1;
-    auto [r, err] = mock_client.send("", v);
-    EXPECT_FALSE(err) << err.message();
-    EXPECT_TRUE(err.matches(xerrors::NIL));
+    const auto r = ASSERT_NIL_P(mock_client.send("", v));
+    ASSERT_EQ(r, 1);
 }
 
 class TestAuthRetry : public ::testing::Test {
@@ -118,16 +117,14 @@ protected:
 TEST_F(TestAuthRetry, RetryOnInvalidToken) {
     setupTest(xerrors::Error(INVALID_TOKEN, ""));
     auto v = 1;
-    auto [r, err] = mock_client.send("", v);
-    EXPECT_FALSE(err) << err.message();
-    EXPECT_TRUE(err.matches(xerrors::NIL));
+    const auto r = ASSERT_NIL_P(mock_client.send("", v));
+    ASSERT_EQ(r, 1);
 }
 
 /// @brief it should retry authentication if the authentication token is expired.
 TEST_F(TestAuthRetry, RetryOnExpiredToken) {
     setupTest(xerrors::Error(EXPIRED_TOKEN, ""));
     auto v = 1;
-    auto [r, err] = mock_client.send("", v);
-    EXPECT_FALSE(err) << err.message();
-    EXPECT_TRUE(err.matches(xerrors::NIL));
+    const auto r = ASSERT_NIL_P(mock_client.send("", v));
+    ASSERT_EQ(r, 1);
 }

@@ -16,13 +16,17 @@ I have verified that, when released, the following packages will not conflict wi
 - [ ] [`alamos/ts`](https://www.npmjs.com/package/@synnaxlabs/alamos)
 - [ ] [`client/py`](https://pypi.org/project/synnax/)
 - [ ] [`client/ts`](https://www.npmjs.com/package/@synnaxlabs/client)
+- [ ] [`configs/eslint`](https://www.npmjs.com/package/eslint-config-synnaxlabs)
+- [ ] [`configs/stylelint`](https://www.npmjs.com/package/stylelint-config-synnaxlabs)
+- [ ] [`configs/ts`](https://www.npmjs.com/package/@synnaxlabs/tsconfig)
+- [ ] [`configs/vite`](https://www.npmjs.com/package/@synnaxlabs/vite-plugin)
 - [ ] [`console`](https://github.com/synnaxlabs/synnax/releases)
+- [ ] [`core`](https://github.com/synnaxlabs/synnax/releases)
 - [ ] [`drift`](https://www.npmjs.com/package/@synnaxlabs/drift)
 - [ ] [`freighter/py`](https://pypi.org/project/synnax-freighter/)
 - [ ] [`freighter/ts`](https://www.npmjs.com/package/@synnaxlabs/freighter)
 - [ ] [`media`](https://npmjs.com/package/@synnaxlabs/media)
 - [ ] [`pluto`](https://npmjs.com/package/@synnaxlabs/pluto)
-- [ ] [`server`](https://github.com/synnaxlabs/synnax/releases)
 - [ ] [`x/ts`](https://www.npmjs.com/package/@synnaxlabs/x)
 
 ## Documentation
@@ -73,99 +77,63 @@ I have verified that code examples for each of the following services run correc
 I can successfully:
 
 - **Create Channel Modal**
-  - [ ] Create a new channel from the command palette.
-  - [ ] Create multiple channels with the "Create More" flag set to true.
-- **Resources Toolbar**
-  - [ ] Open a channel plot by double-clicking it.
-  - [ ] Drag and drop a channel onto a line plot.
-  - [ ] Drag and drop a channel onto the line plot toolbar.
-  - **Context Menu**
-    - [ ] Rename a channel.
-    - [ ] Group multiple channels.
-    - [ ] Edit the calculation of a calculated channel.
-    - [ ] Set an alias for a channel under a range.
-    - [ ] Clear an alias for a channel under a range.
-    - [ ] Delete a channel.
-    - [ ] Copy a link to a channel.
-    - [ ] Hard reload the console.
-- **Search and Command Palette**
-  - [ ] Open a channel plot by its name.
-  - [ ] Open the "Create Channel" modal.
-  - [ ] Open the "Create Calculated Channel" modal.
-- **Calculated Channels**
-  - [ ] Plot a basic calculated channel.
-  - [ ] Plot a nested calculated channel.
-  - [ ] Intentionally create a channel with an erroneous expression, plot it and make sure the Console and Core remain stable and the error is logged to the Core and the Console.
-  - [ ] Run and plot channels from python calc_channel_stress.py setting `--rate` with
-    - [ ] 10 Hz
-    - [ ] 100 Hz
-    - [ ] 1,000 Hz
 - [ ] Open a channel plot from a link.
 - [ ] Rename a channel and ensure the change synchronizes properly across:
-  - Resources Toolbar
-  - Line Plot Visualization Toolbar
-  - Log Visualization Toolbar
-  - Schematic Visualization Toolbar
-  - Table Visualization Toolbar
   - Task Configuration Dialog
 - [ ] Set an alias for a channel and ensure the change synchronizes properly across:
-  - Resources Toolbar
-  - Line Plot Visualization Toolbar
   - Log Visualization Toolbar
   - Schematic Visualization Toolbar
   - Table Visualization Toolbar
   - Task Configuration Dialog
 - [ ] Remove an alias for a channel and ensure the change synchronizes properly across:
-  - Resources Toolbar
-  - Line Plot Visualization Toolbar
   - Log Visualization Toolbar
   - Schematic Visualization Toolbar
   - Table Visualization Toolbar
   - Task Configuration Dialog
 
-### Clusters
+### Core
 
 I can successfully:
 
-- **Connect Cluster Modal**
-  - [ ] Connect to a cluster.
+- **Connect core Modal**
+  - [ ] Connect to a core.
 - **Dropdown**
-  - [ ] Add a new cluster.
-  - [ ] Connect to a cluster by selecting it.
-  - [ ] Disconnect from a cluster by selecting it.
-  - [ ] View the default local cluster in the selector.
-  - [ ] View the default demo cluster in the selector.
+  - [ ] Add a new core.
+  - [ ] Connect to a core by selecting it.
+  - [ ] Disconnect from a core by selecting it.
+  - [ ] View the default local core in the selector.
+  - [ ] View the default demo core in the selector.
   - **Context Menu**
-    - [ ] Connect to a cluster.
-    - [ ] Disconnect the active cluster.
-    - [ ] Rename a cluster.
-    - [ ] Remove a cluster.
-    - [ ] Copy a link to a cluster.
+    - [ ] Connect to a core.
+    - [ ] Disconnect the active core.
+    - [ ] Rename a core.
+    - [ ] Remove a core.
+    - [ ] Copy a link to a core.
     - [ ] Hard reload the console.
 - **Search and Command Palette**
-  - [ ] Open the "Connect Cluster" modal.
+  - [ ] Open the "Connect Core" modal.
   - [ ] Open the "Add a Core" command (replaces "Connect a Core").
-  - [ ] Use the "Log Out" command to log out of the active cluster.
-- [ ] Open a cluster from a link.
-- [ ] Receive meaningful feedback when a cluster connection fails.
+  - [ ] Use the "Log Out" command to log out of the active core.
+- [ ] Open a core from a link.
+- [ ] Receive meaningful feedback when a core connection fails.
 
 ### Login Page
 
 I can successfully:
 
 - **Login Screen**
-  - [ ] See the cluster list on the left when multiple clusters are configured.
-  - [ ] Select a cluster from the list and see it highlighted.
-  - [ ] Switch between clusters and see the login form reset (username/password cleared).
-  - [ ] Log in with valid credentials (username: synnax, password: seldon).
+  - [ ] See the core list on the left when multiple cores are configured.
+  - [ ] Select a core from the list and see it highlighted.
+  - [ ] Switch between cores and see the login form reset (username/password cleared).
+  - [x] Log in with valid credentials (username: synnax, password: seldon). (user_login_logout.py)
   - [ ] Receive meaningful error feedback when logging in with invalid credentials.
-  - [ ] Add a new cluster using the "+" button in the cluster list header.
-  - [ ] See connection status indicators for each cluster in the list.
+  - [ ] Add a new core using the "+" button in the core list header.
+  - [ ] See connection status indicators for each core in the list.
 - **User Badge**
   - [ ] See the user avatar and username in the top-right corner after logging in.
   - [ ] Click the user badge to open the logout menu.
-  - [ ] Log out using the logout button in the user badge dropdown.
-  - [ ] See the login screen again after logging out.
+  - [x] Log out using the logout button in the user badge dropdown. (user_logout_badge.py)
+  - [x] See the login screen again after logging out. (user_logout_badge.py)
 
 ### Devices
 
@@ -180,46 +148,25 @@ I can successfully:
     - [ ] Rename a device.
     - [ ] Delete a device.
 
-### Documentation
-
-I can successfully:
-
-- [ ] Open documentation from the command palette.
-- [ ] Open documentation from the question mark icon.
-- [ ] Close and reopen documentation in the same place as left off.
-
-### Labels
-
-I can successfully:
-
-- **Search and Command Palette**
-  - [ ] Open the "Edit Label" modal.
-- **Edit Label Modal**
-  - [ ] Add a new label.
-  - [ ] Edit an existing label's name.
-  - [ ] Change the color of an existing label.
-  - [ ] Rename a label and ensure the change synchronizes with the range toolbar.
-  - [ ] Change a label's color and ensure the change synchronizes with the range toolbar.
-
 ### Layout
 
 I can successfully:
 
 - [ ] Drag and drop a mosaic leaf into a new window.
-- [ ] Rename a tab by double-clicking its name.
-- [ ] Close layout tabs by clicking the close icon.
+- [x] Rename a tab by double-clicking its name. (mosaic_operations.py)
+- [x] Close layout tabs by clicking the close icon. (pages/open_close.py)
 - **Context Menu**
-  - [ ] Split a mosaic leaf horizontally.
-  - [ ] Split a mosaic leaf vertically.
+  - [x] Split a mosaic leaf horizontally. (mosaic_operations.py)
+  - [x] Split a mosaic leaf vertically. (mosaic_operations.py)
   - [ ] Focus on a leaf.
   - [ ] Rename a mosaic leaf.
   - [ ] Open a leaf in a new window.
   - [ ] Move a mosaic leaf to the main window from a secondary window.
-- [ ] Rename a tab with `Cmd + E`.
-- [ ] Close layout tabs with `Cmd + W`.
+- [x] Rename a tab with `Cmd + E`. (keyboard_shortcuts.py)
+- [x] Close layout tabs with `Cmd + W`. (keyboard_shortcuts.py)
 - [ ] Focus using `Cmd + L`.
 - [ ] Open in a new window with `Cmd + O`.
-- [ ] Create a new mosaic leaf with `Cmd + T`.
+- [x] Create a new mosaic leaf with `Cmd + T`. (keyboard_shortcuts.py)
 - **Search and Command Palette**
   - [ ] Toggle the color theme.
 
@@ -227,72 +174,26 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Create a new line plot from the mosaic.
+- [x] Create a new line plot from the mosaic. (pages/open_close.py)
 - **Visualization**
-  - [ ] Plot a historical range of data.
-  - [ ] Plot a live range of data.
-  - [ ] Move channels between axes.
-  - [ ] Adjust the line thickness.
-  - [ ] Relabel a line.
-  - [ ] Set the plot title.
-  - [ ] Download a range as a CSV.
-  - [ ] Create a range from line plot selection.
   - [ ] Use the measuring tool on the line plot.
-  - [ ] Rename a line plot from its tab title.
-  - [ ] Export a line plot.
-  - [ ] Copy a link to a line plot.
-  - [ ] Download a line plot as a CSV from the toolbar.
-- **Resources Toolbar**
-  - [ ] Open a plot by selecting it.
-  - [ ] Drag a plot onto the mosaic.
-  - **Context Menu**
-    - [ ] Rename a plot.
-    - [ ] Delete a plot.
-    - [ ] Delete multiple plots.
-    - [ ] Export a plot.
-    - [ ] Copy a link to a plot.
 - **Search and Command Palette**
-  - [ ] Open an existing line plot.
-  - [ ] Create a new line plot.
   - [ ] Open the "Import Line Plot" dialog.
 - [ ] Open a line plot from its link.
 - [ ] Import a line plot.
-- [ ] Rename a line plot and ensure synchronization across:
-  - Resources Toolbar
-  - Mosaic Tab
-  - Visualization Toolbar
 
 ### Logs
 
 I can successfully:
 
-- [ ] Create a new log from the visualization selector.
 - **Visualization**
-  - [ ] Rename a log from its mosaic tab title.
   - [ ] Scroll to view historical data.
-  - [ ] Stream data from a virtual channel.
-  - [ ] Stream data from a persisted channel.
   - [ ] Pause and resume scrolling using the streaming icon in the top right.
   - [ ] Switch the logging channel and observe data switching.
   - [ ] Preserve log data from a virtual channel in the buffer.
-  - [ ] Copy a link to a log.
-- **Resources Toolbar**
-  - [ ] Open a log by selecting it.
-  - [ ] Drag a log onto the mosaic.
-  - **Context Menu**
-    - [ ] Rename a log.
-    - [ ] Delete a log.
-    - [ ] Delete multiple logs.
-    - [ ] Group logs.
-    - [ ] Copy a link to a log.
 - **Search and Command Palette**
-  - [ ] Create a new log.
   - [ ] Open an existing log.
 - [ ] Open a log from its link.
-- [ ] Rename a log and ensure synchronization across:
-  - Visualization Toolbar
-  - Resources Toolbar
-  - Mosaic Tab Name
 
 ### Ontology
 
@@ -309,7 +210,7 @@ I can successfully:
 
 - **Role Management**
   - [ ] View all available roles in the Resources Toolbar.
-  - [ ] Assign a role to a user.
+  - [x] Assign a role to a user. (user_assign_role.py)
   - [ ] Unassign a role from a user.
   - [ ] Cannot delete built-in roles (Owner, Engineer, Operator, Viewer).
 
@@ -318,66 +219,27 @@ I can successfully:
   - [ ] Can create, edit, and delete all resource types.
 
 - **As an Engineer:**
-  - [ ] Can create and edit schematics, line plots, tables, logs, and workspaces.
-  - [ ] Cannot register new users or assign roles.
+  - [x] Can create and edit schematics, line plots, tables, logs, and workspaces. (role_engineer_permissions.py)
+  - [x] Cannot register new users or assign roles. (role_engineer_permissions.py)
 
 - **As an Operator:**
-  - [ ] Can actuate valves on a schematic.
-  - [ ] Cannot create or edit schematics.
+  - [x] Can actuate valves on a schematic. (simple_press_valves.py)
+  - [x] Cannot create or edit schematics. (role_operator_permissions.py)
 
 - **As a Viewer:**
   - [ ] Can view schematics, line plots, tables, logs.
   - [ ] Cannot actuate valves on a schematic.
-  - [ ] Cannot create or edit any resources.
-
-### Racks
-
-I can successfully:
-
-- **Devices Toolbar**
-  - [ ] See a rack's state get updated.
-  - **Context Menu**
-    - [ ] Rename a rack.
-    - [ ] Delete a rack.
-    - [ ] Copy a rack's key.
-    - [ ] Create a control sequence from a rack.
+  - [x] Cannot create or edit any resources. (role_viewer_permissions.py)
 
 ### Ranges
 
 I can successfully:
 
-- **Create Range Modal**
-  - [ ] Create a new local range.
-  - [ ] Create a new persisted range.
-  - [ ] Create a range with a parent range.
-  - [ ] Add labels while creating a range.
-  - [ ] Update the start and end times through changing the stage of a range
 - **Range Details**
-  - [ ] Rename a range from the tab name.
-  - [ ] Rename a range.
-  - [ ] Navigate to a parent range from a range
-  - [ ] Copy Python code
-  - [ ] Copy TypeScript code
-  - [ ] Copy a link to the range
-  - [ ] Open and successfully download data as a CSV
-  - [ ] Favorite the range
-  - [ ] Unfavorite the range
-  - [ ] Change start and end times.
-  - [ ] Change start and end times via the stage
-  - [ ] Add labels.
-  - [ ] Remove labels.
   - **Child Ranges**
-    - [ ] Click and navigate to a child range
-    - [ ] Create child ranges
-    - [ ] Change the stage of a child range
-    - [ ] Favorite a child range
-    - [ ] Unfavorite a child range
     - **Context Menu**
       - [ ] Rename a child range
-      - [ ] Create a child range
-      - [ ] Favorite a child range
       - [ ] Favorite multiple child ranges
-      - [ ] Unfavorite a child range
       - [ ] Unfavorite multiple child ranges
       - [ ] Copy the link to a range
       - [ ] Delete a child range
@@ -391,42 +253,23 @@ I can successfully:
   - **Snapshots**
     - [ ] Navigate to a snapshot by clicking on it
     - [ ] Remove a snapshot
-- **Search and Command Palette**
-  - [ ] Open an existing range layout window.
-  - [ ] Open the "Create Range" dialog.
-  - [ ] Open the Range Explorer
 - **Range Toolbar**
   - [ ] Open the "Create Range" modal from the toolbar.
   - [ ] Open the Range Explorer from the toolbar
-  - [ ] Switch the active range by clicking it.
   - **Context Menu**
-    - [ ] Open the "Create Range" modal.
-    - [ ] Open the range layout tab.
-    - [ ] Set an active range.
     - [ ] Remove an active range.
-    - [ ] Rename a range.
-    - [ ] Open the "Create Range" modal with a child range.
     - [ ] Add to the active line plot.
     - [ ] Add to a new line plot.
-    - [ ] Remove from favorites.
-    - [ ] Delete a persisted range.
-    - [ ] Copy a link to a persisted range.
     - [ ] Save a local range to Synnax.
 - **Range Explorer**
-  - [ ] Open the range overview dialog by clicking on a range.
   - [ ] Search ranges
   - [ ] Filter ranges by labels
-  - [ ] Favorite and unfavorite ranges and see them added to the range toolbar
-  - [ ] Change the stage of a range
   - **Context Menu**
-    - [ ] Rename a range
     - [ ] Create a child range
-    - [ ] Favorite a range
     - [ ] Favorite multiple ranges
     - [ ] Unfavorite a range
     - [ ] Unfavorite multiple ranges
     - [ ] Copy the link to a range
-    - [ ] Delete a range
     - [ ] Delete multiple ranges
 - [ ] Open a range from its link.
 - [ ] Rename a range and ensure synchronization across:
@@ -452,13 +295,9 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Create a new schematic from the mosaic.
 - **Visualization**
   - [ ] Display live data on a value.
-  - [ ] Actuate a valve.
-  - [ ] Select and change the color of multiple elements.
   - [ ] View the list of writers in control on the schematic.
-  - [ ] Acquire absolute control over a control sequence.
   - [ ] Copy a link.
   - [ ] Export a schematic.
 - **Resources Toolbar**
@@ -475,13 +314,7 @@ I can successfully:
     - [ ] Copy multiple schematics.
     - [ ] Copy a link to a schematic.
 - **Search and Command Palette**
-  - [ ] Open an existing schematic.
-  - [ ] Create a new schematic.
   - [ ] Import a schematic from a file.
-- [ ] Rename a schematic and ensure synchronization across:
-  - Mosaic Tab
-  - Resources Toolbar
-  - Visualization Toolbar
 - [ ] Rename a schematic snapshot and ensure synchronization across:
   - Mosaic Tab
   - Resources Toolbar
@@ -519,7 +352,6 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Create a new table from the mosaic.
 - [ ] Open a table from a link.
 - **Visualization**
   - [ ] Add rows and columns to a table.
@@ -530,19 +362,11 @@ I can successfully:
   - [ ] Double-click a table to load it.
   - [ ] Drag a table onto the mosaic to load it.
   - **Context Menu**
-    - [ ] Rename a table.
-    - [ ] Delete a table.
-    - [ ] Delete multiple tables.
     - [ ] Export a table.
     - [ ] Copy a link to a table.
 - **Search and Command Palette**
   - [ ] Open an existing table.
-  - [ ] Create a new table.
   - [ ] Import a table from a file.
-- [ ] Rename a table and ensure synchronization across:
-  - Mosaic Tab
-  - Resources Toolbar
-  - Visualization Toolbar
 
 ### Tasks
 
@@ -589,20 +413,13 @@ I can successfully:
 I can successfully:
 
 - **Resources Toolbar**
-  - [ ] Open the "Assign Role" dialog for a user.
-  - [ ] Assign a role to a user.
   - [ ] Unassign a role from a user.
-  - [ ] View the roles assigned to a user.
   - [ ] Open the "Permissions" dialog.
   - [ ] Rename a user.
   - [ ] Delete a user.
   - [ ] Delete multiple users.
-- **Search and Command Palette**
-  - [ ] Register a new user.
-  - [ ] Register a new user with a specific role assigned.
 - [ ] Change a user's username and log in with the new username.
 - [ ] Change a user's role and verify their permissions change accordingly.
-- [ ] Log in as a user with a specific role and verify permission enforcement.
 
 ### Arc
 
@@ -665,34 +482,18 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Create a new workspace.
 - [ ] Import a workspace by drag and dropping from a directory.
-- **Workspace Selector**
-  - [ ] Create a new workspace.
-  - [ ] Switch workspaces in the selector.
-  - [ ] Clear workspaces from the selector.
+
 - **Resources Toolbar**
-  - [ ] Switch workspaces in the resources view.
   - **Context Menu**
-    - [ ] Rename a workspace.
-    - [ ] Delete a workspace.
     - [ ] Export a workspace.
-    - [ ] Create a new line plot in a workspace.
-    - [ ] Create a new log in a workspace.
-    - [ ] Create a new schematic in a workspace.
-    - [ ] Create a new table in a workspace.
     - [ ] Import a line plot.
     - [ ] Import a schematic.
     - [ ] Import a log.
     - [ ] Import a table.
 - [ ] Open a workspace from a link.
 - **Search and Command Palette**
-  - [ ] Open the "Create Workspace" dialog.
   - [ ] Import a workspace.
-  - [ ] Open an existing workspace.
-- [ ] Rename a workspace and ensure synchronization across:
-  - Resources Toolbar
-  - Workspace Selector
 - [ ] Create a workspace in a previous version of Synnax, add visualizations, and open it in the release candidate.
 
 ## Driver
@@ -775,9 +576,9 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable NI integration when starting the server.
-- [ ] Recognize and connect to an NI device locally.
+- [x] Recognize and connect to an NI device locally. (driver_ni_digital_write.py)
 - [ ] Recognize and connect to NI devices over the network.
-- [ ] Recognize and connect to physical and simulated devices.
+- [x] Recognize and connect to physical and simulated devices. (driver_ni_digital_write.py)
 - [ ] Disconnect a physical device while a task is running without causing faults.
 - [ ] Ignore chassis and view devices connected to it.
 - [ ] Run the Driver without NI-DAQmx and System Configuration libraries installed.
@@ -843,31 +644,21 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable OPC UA integration when starting the server.
-- [ ] Connect to an unencrypted OPC UA server.
 - [ ] Connect to an encrypted OPC UA server.
-- [ ] Create additional channels and move them to existing sampling groups.
 - [ ] Move and rename channels.
 - **Read Task**
   - **Single Sampling**
-    - [ ] Read from multiple channels.
-    - [ ] Autogenerate timestamps on the driver.
     - [ ] Read timestamps from the OPC UA server.
-  - **Array Sampling**
-    - [ ] Read from multiple channels.
     - **Test the following array sizes:**
-      - [ ] 1
       - [ ] 10
       - [ ] 100
-    - [ ] Autogenerate timestamps on the driver.
     - [ ] Read timestamps from the OPC UA server.
-    - [ ] Avoid driver crashes when improper array sizes are specified.
   - [ ] Obtain recommended Synnax channels based on the configured OPC UA node.
   - [ ] Connect to and read data from a physical device.
   - [ ] Maintain Driver operation during device disconnection or channel removal while a task is running.
   - [ ] Enable and disable data saving.
 - **Write Task**
   - [ ] Perform control and verify changes on the connected OPC UA server.
-  - [ ] Stop, start, and reconfigure tasks.
   - [ ] Enable and disable data saving.
   - [ ] Perform a write operation on an encrypted server.
 
@@ -876,16 +667,10 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable Modbus integration when starting the server.
-- [ ] Connect to a Modbus TCP server.
-- [ ] Configure connection parameters (IP address, port, unit ID).
 - **Read Task**
-  - [ ] Read holding registers from a Modbus server.
-  - [ ] Read input registers from a Modbus server.
-  - [ ] Read coils and discrete inputs from a Modbus server.
   - [ ] Plot live data from Modbus registers.
   - [ ] Apply scaling to register values.
   - [ ] Enable and disable data saving.
-  - [ ] Stop, start, and reconfigure read tasks.
   - [ ] Handle device disconnection gracefully.
   - **Reliable data reading at the following sample rates:**
     - [ ] 1 Hz
@@ -896,8 +681,5 @@ I can successfully:
   - [ ] Write to coils on a Modbus server.
   - [ ] Perform control actions using a schematic.
   - [ ] Stop, start, and reconfigure write tasks.
-  - **Configure response time for specified state rates:**
-    - [ ] 1 Hz (visible delay)
-    - [ ] 20 Hz (near-instant response)
 - [ ] Run simultaneous read and write tasks on the same device.
 - [ ] Run tasks across multiple Modbus servers concurrently.

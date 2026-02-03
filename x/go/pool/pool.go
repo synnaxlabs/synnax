@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -31,9 +31,9 @@ func New[K comparable, A Adapter](factory Factory[K, A]) Pool[K, A] {
 }
 
 type core[K comparable, A Adapter] struct {
-	mu      sync.RWMutex
 	factory Factory[K, A]
 	pool    map[K][]A
+	mu      sync.RWMutex
 }
 
 func (p *core[K, A]) Acquire(key K) (A, error) {

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -45,6 +45,7 @@ export { task } from "@/task";
 export { createTestClientWithPolicy } from "@/testutil/access";
 export { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil/client";
 export { user } from "@/user";
+export { view } from "@/view";
 export { workspace } from "@/workspace";
 export { lineplot } from "@/workspace/lineplot";
 export { log } from "@/workspace/log";

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -27,7 +27,7 @@ var (
 
 // newGateway opens a new StreamWriter that writes to the store on the gateway node.
 func (s *Service) newGateway(ctx context.Context, cfg Config) (StreamWriter, error) {
-	w, err := s.TS.NewStreamWriter(ctx, cfg.toStorage())
+	w, err := s.cfg.TS.NewStreamWriter(ctx, cfg.toStorage())
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (s *Service) newGateway(ctx context.Context, cfg Config) (StreamWriter, err
 	reqT := &confluence.LinearTransform[Request, ts.WriterRequest]{}
 	reqT.Transform = newRequestTranslator()
 	resT := &confluence.LinearTransform[ts.WriterResponse, Response]{}
-	resT.Transform = newResponseTranslator(s.HostResolver.HostKey())
+	resT.Transform = newResponseTranslator(s.cfg.HostResolver.HostKey())
 	plumber.SetSegment(pipe, gatewayRequestsAddr, reqT)
 	plumber.SetSegment(pipe, gatewayResponsesAddr, resT)
 	plumber.MustConnect[ts.WriterRequest](pipe, gatewayRequestsAddr, gatewayTSWriterAddr, 1)

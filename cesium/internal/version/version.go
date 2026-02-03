@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,6 @@ package version
 
 type Version = uint8
 
-const V1 Version = 1
-const V2 Version = 2
-const Current = V2
+const Version1 Version = 1
+const Version2 Version = 2
+const VersionCurrent = Version2

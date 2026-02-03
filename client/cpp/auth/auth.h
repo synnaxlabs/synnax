@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,7 +21,7 @@
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xos/xos.h"
 
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
+#include "core/pkg/api/grpc/v1/auth.pb.h"
 
 /// @brief auth metadata key. NOTE: This must be lowercase, GRPC will panic on
 /// capitalized or uppercase keys.

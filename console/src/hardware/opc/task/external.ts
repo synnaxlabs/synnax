@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,9 +10,9 @@
 import { type Export } from "@/export";
 import { Common } from "@/hardware/common";
 import { ingestRead, ingestWrite } from "@/hardware/opc/task/import";
-import { Read, READ_LAYOUT, READ_SELECTABLE } from "@/hardware/opc/task/Read";
+import { Read, READ_LAYOUT, ReadSelectable } from "@/hardware/opc/task/Read";
 import { READ_TYPE, WRITE_TYPE } from "@/hardware/opc/task/types";
-import { Write, WRITE_LAYOUT, WRITE_SELECTABLE } from "@/hardware/opc/task/Write";
+import { Write, WRITE_LAYOUT, WriteSelectable } from "@/hardware/opc/task/Write";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
@@ -37,7 +37,7 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [WRITE_TYPE]: Write,
 };
 
-export const SELECTABLES: Selector.Selectable[] = [READ_SELECTABLE, WRITE_SELECTABLE];
+export const SELECTABLES: Selector.Selectable[] = [ReadSelectable, WriteSelectable];
 
 export const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
   [READ_TYPE]: READ_LAYOUT,

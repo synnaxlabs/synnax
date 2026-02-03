@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,61 +24,65 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type Config struct {
+type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultServiceConfig                              = ServiceConfig{}
 )
 
-// Override implements Config.
-func (c Config) Override(other Config) Config {
+// Override implements ServiceConfig.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
-// Validate implements Config.
-func (c Config) Validate() error {
+// Validate implements ServiceConfig.
+func (c ServiceConfig) Validate() error {
 	v := validate.New("group")
-	validate.NotNil(v, "DB", c.DB)
-	validate.NotNil(v, "Ontology", c.Ontology)
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "ontology", c.Ontology)
 	return v.Error()
 }
 
 type Service struct {
-	Config
+	cfg     ServiceConfig
 	signals io.Closer
 }
 
-func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg}
+	s := &Service{cfg: cfg}
 	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
 
-func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent ontology.ID) (g Group, err error) {
-	err = s.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
+func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent ontology.ID) (Group, error) {
+	var g Group
+	err := s.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
+	if errors.Skip(err, query.ErrNotFound) != nil {
+		return Group{}, err
+	}
 	w := s.NewWriter(nil)
-	if errors.Is(err, query.NotFound) {
+	if errors.Is(err, query.ErrNotFound) {
 		return w.Create(ctx, groupName, parent)
 	}
 	return w.CreateWithKey(ctx, g.Key, groupName, parent)
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: gorp.OverrideTx(s.DB, tx), otg: s.Ontology.NewWriter(tx)}
+	return Writer{tx: gorp.OverrideTx(s.cfg.DB, tx), otg: s.cfg.Ontology.NewWriter(tx)}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
-	return newRetrieve(s.DB)
+	return newRetrieve(s.cfg.DB)
 }
 
 func (s *Service) Close() error {
@@ -108,7 +112,7 @@ func (w Writer) Create(
 	if err = w.otg.DefineResource(ctx, id); err != nil {
 		return
 	}
-	if err = w.otg.DefineRelationship(ctx, parent, ontology.ParentOf, id); err != nil {
+	if err = w.otg.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, id); err != nil {
 		return
 	}
 	return g, err
@@ -132,7 +136,7 @@ func (w Writer) CreateWithKey(
 	if err = w.otg.DefineResource(ctx, id); err != nil {
 		return
 	}
-	if err = w.otg.DefineRelationship(ctx, parent, ontology.ParentOf, id); err != nil {
+	if err = w.otg.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, id); err != nil {
 		return
 	}
 	return g, err
@@ -147,7 +151,7 @@ func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 		var children []ontology.Resource
 		if err := w.otg.NewRetrieve().
 			WhereIDs(OntologyID(key)).
-			TraverseTo(ontology.Children).
+			TraverseTo(ontology.ChildrenTraverser).
 			ExcludeFieldData(true).
 			Entries(&children).
 			Exec(ctx, w.tx); err != nil {
@@ -157,7 +161,7 @@ func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 			return !lo.Contains(keyStrings, item.ID.Key)
 		})
 		if len(children) > 0 {
-			return errors.Wrap(validate.Error, "cannot delete a group with children")
+			return errors.Wrap(validate.ErrValidation, "cannot delete a group with children")
 		}
 		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
 			return err

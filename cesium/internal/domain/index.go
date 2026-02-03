@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 	"sync"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
@@ -20,14 +21,15 @@ import (
 )
 
 type index struct {
+	indexPersist *indexPersist
 	alamos.Instrumentation
 	mu struct {
-		sync.RWMutex
 		pointers []pointer
+		sync.RWMutex
 	}
-	deleteLock   sync.RWMutex
-	indexPersist *indexPersist
-	persistHead  int
+	persistHead int
+	deleteLock  sync.RWMutex
+	totalSize   *atomic.Int64
 }
 
 // insert adds a new pointer to the index.
@@ -51,7 +53,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 			i, overlap := idx.unprotectedSearch(p.TimeRange)
 			if overlap {
 				idx.mu.Unlock()
-				return span.Error(NewErrRangeWriteConflict(p.TimeRange, idx.mu.pointers[i].TimeRange))
+				return span.Error(NewRangeWriteConflictError(p.TimeRange, idx.mu.pointers[i].TimeRange))
 			}
 			insertAt = i + 1
 		}
@@ -65,6 +67,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		idx.mu.pointers = slices.Insert(idx.mu.pointers, insertAt, p)
 	}
 
+	idx.totalSize.Add(int64(p.size))
 	idx.persistHead = min(idx.persistHead, insertAt)
 
 	idx.mu.Unlock()
@@ -103,7 +106,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		// pointers.
 		idx.L.DPanic("cannot update a database with no domains")
 		idx.mu.Unlock()
-		return span.Error(NewErrRangeNotFound(p.TimeRange))
+		return span.Error(NewRangeNotFoundError(p.TimeRange))
 	}
 	lastI := len(idx.mu.pointers) - 1
 	updateAt := lastI
@@ -120,18 +123,20 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		// database to reach this inconceivable state.
 		idx.L.DPanic("cannot update a pointer with a different start timestamp")
 		idx.mu.Unlock()
-		return span.Error(NewErrRangeNotFound(p.TimeRange))
+		return span.Error(NewRangeNotFoundError(p.TimeRange))
 	}
 	overlapsWithNext := updateAt != len(ptrs)-1 && ptrs[updateAt+1].OverlapsWith(p.TimeRange)
 	overlapsWithPrev := updateAt != 0 && ptrs[updateAt-1].OverlapsWith(p.TimeRange)
 	if overlapsWithPrev {
 		idx.mu.Unlock()
-		return span.Error(NewErrRangeWriteConflict(p.TimeRange, ptrs[updateAt-1].TimeRange))
+		return span.Error(NewRangeWriteConflictError(p.TimeRange, ptrs[updateAt-1].TimeRange))
 	} else if overlapsWithNext {
 		idx.mu.Unlock()
-		return span.Error(NewErrRangeWriteConflict(p.TimeRange, ptrs[updateAt+1].TimeRange))
+		return span.Error(NewRangeWriteConflictError(p.TimeRange, ptrs[updateAt+1].TimeRange))
 	} else {
+		sizeDelta := int64(p.size) - int64(oldP.size)
 		idx.mu.pointers[updateAt] = p
+		idx.totalSize.Add(sizeDelta)
 	}
 
 	idx.persistHead = min(idx.persistHead, updateAt)

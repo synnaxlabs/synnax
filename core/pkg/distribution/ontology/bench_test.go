@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,8 +19,6 @@ import (
 	"testing"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -35,26 +33,22 @@ type benchService struct {
 
 var _ ontology.Service = (*benchService)(nil)
 
-const benchType ontology.Type = "bench"
+const benchOntologyType ontology.Type = "bench"
 
-type BenchResource struct {
-	Key string
-}
+type BenchResource struct{ Key string }
 
 func newBenchID(key string) ontology.ID {
-	return ontology.ID{Key: key, Type: benchType}
+	return ontology.ID{Key: key, Type: benchOntologyType}
 }
 
-var benchSchema = zyn.Object(map[string]zyn.Schema{
-	"key": zyn.String(),
-})
+var benchSchema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
-func (s *benchService) Type() ontology.Type { return benchType }
+func (s *benchService) Type() ontology.Type { return benchOntologyType }
 
 func (s *benchService) Schema() zyn.Schema { return benchSchema }
 
 func (s *benchService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
-	return core.NewResource(s.Schema(), newBenchID(key), key, BenchResource{Key: key}), nil
+	return ontology.NewResource(s.Schema(), newBenchID(key), key, BenchResource{Key: key}), nil
 }
 
 func (s *benchService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
@@ -132,7 +126,7 @@ func (e *benchEnv) populateTree(b *testing.B, depth, width int) (root ontology.I
 			if err := w.DefineResource(e.ctx, child); err != nil {
 				b.Fatalf("failed to define resource: %v", err)
 			}
-			if err := w.DefineRelationship(e.ctx, parent, ontology.ParentOf, child); err != nil {
+			if err := w.DefineRelationship(e.ctx, parent, ontology.RelationshipTypeParentOf, child); err != nil {
 				b.Fatalf("failed to define relationship: %v", err)
 			}
 			result = append(result, build(d-1, child)...)
@@ -185,7 +179,7 @@ func BenchmarkTraverseChildren(b *testing.B) {
 				var err error
 				for i := 0; i < b.N; i++ {
 					var res []ontology.Resource
-					err = env.otg.NewRetrieve().WhereIDs(root).TraverseTo(ontology.Children).Entries(&res).Exec(env.ctx, nil)
+					err = env.otg.NewRetrieve().WhereIDs(root).TraverseTo(ontology.ChildrenTraverser).Entries(&res).Exec(env.ctx, nil)
 				}
 				if err != nil {
 					b.Fatalf("benchmark failed: %v", err)
@@ -207,7 +201,7 @@ func BenchmarkTraverseParents(b *testing.B) {
 			var err error
 			for i := 0; i < b.N; i++ {
 				var res []ontology.Resource
-				err = env.otg.NewRetrieve().WhereIDs(leaf).TraverseTo(ontology.Parents).Entries(&res).Exec(env.ctx, nil)
+				err = env.otg.NewRetrieve().WhereIDs(leaf).TraverseTo(ontology.ParentsTraverser).Entries(&res).Exec(env.ctx, nil)
 			}
 			if err != nil {
 				b.Fatalf("benchmark failed: %v", err)
@@ -248,7 +242,7 @@ func BenchmarkSearch(b *testing.B) {
 			b.ResetTimer()
 			var err error
 			for i := 0; i < b.N; i++ {
-				_, err = env.otg.Search(env.ctx, search.Request{Term: "500"})
+				_, err = env.otg.Search(env.ctx, ontology.SearchRequest{Term: "500"})
 			}
 			if err != nil {
 				b.Fatalf("benchmark failed: %v", err)
@@ -268,7 +262,7 @@ func BenchmarkRetrieveByType(b *testing.B) {
 			var err error
 			for i := 0; i < b.N; i++ {
 				var res []ontology.Resource
-				err = env.otg.NewRetrieve().WhereTypes(benchType).Entries(&res).Exec(env.ctx, nil)
+				err = env.otg.NewRetrieve().WhereTypes(benchOntologyType).Entries(&res).Exec(env.ctx, nil)
 			}
 			if err != nil {
 				b.Fatalf("benchmark failed: %v", err)
@@ -293,7 +287,7 @@ func BenchmarkMultiHopTraversal(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					q := env.otg.NewRetrieve().WhereIDs(root)
 					for range hops {
-						q = q.TraverseTo(ontology.Children)
+						q = q.TraverseTo(ontology.ChildrenTraverser)
 					}
 					var res []ontology.Resource
 					err = q.Entries(&res).Exec(env.ctx, nil)
@@ -319,9 +313,9 @@ func BenchmarkIntermediateTraversalOverhead(b *testing.B) {
 				var res []ontology.Resource
 				err = env.otg.NewRetrieve().
 					WhereIDs(root).
-					TraverseTo(ontology.Children).
-					TraverseTo(ontology.Children).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
+					TraverseTo(ontology.ChildrenTraverser).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&res).
 					Exec(env.ctx, nil)
 			}
@@ -349,7 +343,7 @@ func (e *benchEnv) populateParentsWithChildren(b *testing.B, numParents, childre
 			if err := w.DefineResource(e.ctx, child); err != nil {
 				b.Fatalf("failed to define child: %v", err)
 			}
-			if err := w.DefineRelationship(e.ctx, parents[i], ontology.ParentOf, child); err != nil {
+			if err := w.DefineRelationship(e.ctx, parents[i], ontology.RelationshipTypeParentOf, child); err != nil {
 				b.Fatalf("failed to define relationship: %v", err)
 			}
 		}
@@ -374,7 +368,7 @@ func BenchmarkTraverseChildrenByType(b *testing.B) {
 					var res []ontology.Resource
 					err = env.otg.NewRetrieve().
 						WhereIDs(parents...).
-						TraverseTo(ontology.Children).
+						TraverseTo(ontology.ChildrenTraverser).
 						Entries(&res).
 						Exec(env.ctx, nil)
 				}
@@ -393,8 +387,8 @@ func BenchmarkTraverseChildrenByType(b *testing.B) {
 					var res []ontology.Resource
 					err = env.otg.NewRetrieve().
 						WhereIDs(parents...).
-						TraverseTo(ontology.Children).
-						WhereTypes(benchType).
+						TraverseTo(ontology.ChildrenTraverser).
+						WhereTypes(benchOntologyType).
 						Entries(&res).
 						Exec(env.ctx, nil)
 				}

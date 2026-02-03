@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,8 +12,8 @@ import { useCallback, useEffect } from "react";
 
 import { EmptyAction } from "@/components";
 import {
-  ChannelList as Core,
-  type ChannelListProps as CoreProps,
+  ChannelList as Base,
+  type ChannelListProps as BaseProps,
 } from "@/hardware/common/task/ChannelList";
 import { useIsSnapshot } from "@/hardware/common/task/Form";
 import { type Channel } from "@/hardware/common/task/types";
@@ -59,11 +59,10 @@ const EmptyContent = ({ onAdd }: EmptyContentProps) => {
   );
 };
 
-export interface ChannelListProps<C extends Channel>
-  extends Omit<
-    CoreProps<C>,
-    "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate"
-  > {
+export interface ChannelListProps<C extends Channel> extends Omit<
+  BaseProps<C>,
+  "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate"
+> {
   createChannel: (channels: C[]) => C | null;
   createChannels?: (channels: C[], keys: string[]) => C[];
   path?: string;
@@ -113,7 +112,7 @@ export const ChannelList = <C extends Channel>({
     [createChannels, onSelect, push],
   );
   return (
-    <Core
+    <Base
       {...rest}
       data={data}
       header={<Header onAdd={handleAdd} />}

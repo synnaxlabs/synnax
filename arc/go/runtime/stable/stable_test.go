@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -100,7 +100,7 @@ var _ = Describe("StableFor", func() {
 				State: s.Node("stable"),
 			}
 			_, err := factory.Create(ctx, cfg)
-			Expect(err).To(HaveOccurredAs(query.NotFound))
+			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 		})
 	})
 

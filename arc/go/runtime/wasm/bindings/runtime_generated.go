@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,11 +14,11 @@ package bindings
 import (
 	"context"
 	"math"
-	"sync"
 
 	"github.com/synnaxlabs/arc/runtime/state"
 	xmath "github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/telem/op"
 	"github.com/tetratelabs/wazero/api"
 )
 
@@ -27,10 +27,6 @@ import (
 type Runtime struct {
 	state  *state.State
 	memory api.Memory // WASM memory for reading string literals
-
-	// String storage - handle to string mapping
-	strings             map[uint32]string
-	stringHandleCounter uint32
 
 	// State storage for stateful variables
 	// Key: (funcID << 32) | varID
@@ -45,35 +41,39 @@ type Runtime struct {
 	stateF32    map[uint64]float32
 	stateF64    map[uint64]float64
 	stateString map[uint64]string
-
-	mu sync.RWMutex
+	stateSeries map[uint64]telem.Series
 }
 
 func NewRuntime(state *state.State, memory api.Memory) *Runtime {
 	return &Runtime{
-		state:               state,
-		memory:              memory,
-		strings:             make(map[uint32]string),
-		stringHandleCounter: 1, // Start at 1, 0 is reserved for empty/null
-		stateU8:             make(map[uint64]uint8),
-		stateU16:            make(map[uint64]uint16),
-		stateU32:            make(map[uint64]uint32),
-		stateU64:            make(map[uint64]uint64),
-		stateI8:             make(map[uint64]int8),
-		stateI16:            make(map[uint64]int16),
-		stateI32:            make(map[uint64]int32),
-		stateI64:            make(map[uint64]int64),
-		stateF32:            make(map[uint64]float32),
-		stateF64:            make(map[uint64]float64),
-		stateString:         make(map[uint64]string),
+		state:       state,
+		memory:      memory,
+		stateU8:     make(map[uint64]uint8),
+		stateU16:    make(map[uint64]uint16),
+		stateU32:    make(map[uint64]uint32),
+		stateU64:    make(map[uint64]uint64),
+		stateI8:     make(map[uint64]int8),
+		stateI16:    make(map[uint64]int16),
+		stateI32:    make(map[uint64]int32),
+		stateI64:    make(map[uint64]int64),
+		stateF32:    make(map[uint64]float32),
+		stateF64:    make(map[uint64]float64),
+		stateString: make(map[uint64]string),
+		stateSeries: make(map[uint64]telem.Series),
 	}
 }
 
 // SetMemory updates the WASM memory reference (used after module instantiation).
 func (r *Runtime) SetMemory(memory api.Memory) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.memory = memory
+}
+
+// GetString returns the string value for a handle (used for testing).
+func (r *Runtime) GetString(handle uint32) string {
+	if str, ok := r.state.StringGet(handle); ok {
+		return str
+	}
+	return ""
 }
 
 // stateKey combines funcID and varID into a single key for state storage.
@@ -81,13 +81,8 @@ func stateKey(funcID uint32, varID uint32) uint64 {
 	return (uint64(funcID) << 32) | uint64(varID)
 }
 
-// ===== Channel Operations =====
-
 // ChannelReadU8 reads the latest value from a channel.
 func (r *Runtime) ChannelReadU8(ctx context.Context, channelID uint32) uint8 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return uint8(0) // Default value
@@ -99,9 +94,6 @@ func (r *Runtime) ChannelReadU8(ctx context.Context, channelID uint32) uint8 {
 
 // ChannelWriteU8 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteU8(ctx context.Context, channelID uint32, value uint8) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[uint8](value)
 
@@ -111,9 +103,6 @@ func (r *Runtime) ChannelWriteU8(ctx context.Context, channelID uint32, value ui
 
 // ChannelReadU16 reads the latest value from a channel.
 func (r *Runtime) ChannelReadU16(ctx context.Context, channelID uint32) uint16 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return uint16(0) // Default value
@@ -125,9 +114,6 @@ func (r *Runtime) ChannelReadU16(ctx context.Context, channelID uint32) uint16 {
 
 // ChannelWriteU16 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteU16(ctx context.Context, channelID uint32, value uint16) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[uint16](value)
 
@@ -137,9 +123,6 @@ func (r *Runtime) ChannelWriteU16(ctx context.Context, channelID uint32, value u
 
 // ChannelReadU32 reads the latest value from a channel.
 func (r *Runtime) ChannelReadU32(ctx context.Context, channelID uint32) uint32 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return uint32(0) // Default value
@@ -151,9 +134,6 @@ func (r *Runtime) ChannelReadU32(ctx context.Context, channelID uint32) uint32 {
 
 // ChannelWriteU32 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteU32(ctx context.Context, channelID uint32, value uint32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[uint32](value)
 
@@ -163,9 +143,6 @@ func (r *Runtime) ChannelWriteU32(ctx context.Context, channelID uint32, value u
 
 // ChannelReadU64 reads the latest value from a channel.
 func (r *Runtime) ChannelReadU64(ctx context.Context, channelID uint32) uint64 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return uint64(0) // Default value
@@ -177,9 +154,6 @@ func (r *Runtime) ChannelReadU64(ctx context.Context, channelID uint32) uint64 {
 
 // ChannelWriteU64 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteU64(ctx context.Context, channelID uint32, value uint64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[uint64](value)
 
@@ -189,9 +163,6 @@ func (r *Runtime) ChannelWriteU64(ctx context.Context, channelID uint32, value u
 
 // ChannelReadI8 reads the latest value from a channel.
 func (r *Runtime) ChannelReadI8(ctx context.Context, channelID uint32) int8 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return int8(0) // Default value
@@ -203,9 +174,6 @@ func (r *Runtime) ChannelReadI8(ctx context.Context, channelID uint32) int8 {
 
 // ChannelWriteI8 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteI8(ctx context.Context, channelID uint32, value int8) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[int8](value)
 
@@ -215,9 +183,6 @@ func (r *Runtime) ChannelWriteI8(ctx context.Context, channelID uint32, value in
 
 // ChannelReadI16 reads the latest value from a channel.
 func (r *Runtime) ChannelReadI16(ctx context.Context, channelID uint32) int16 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return int16(0) // Default value
@@ -229,9 +194,6 @@ func (r *Runtime) ChannelReadI16(ctx context.Context, channelID uint32) int16 {
 
 // ChannelWriteI16 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteI16(ctx context.Context, channelID uint32, value int16) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[int16](value)
 
@@ -241,9 +203,6 @@ func (r *Runtime) ChannelWriteI16(ctx context.Context, channelID uint32, value i
 
 // ChannelReadI32 reads the latest value from a channel.
 func (r *Runtime) ChannelReadI32(ctx context.Context, channelID uint32) int32 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return int32(0) // Default value
@@ -255,9 +214,6 @@ func (r *Runtime) ChannelReadI32(ctx context.Context, channelID uint32) int32 {
 
 // ChannelWriteI32 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteI32(ctx context.Context, channelID uint32, value int32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[int32](value)
 
@@ -267,9 +223,6 @@ func (r *Runtime) ChannelWriteI32(ctx context.Context, channelID uint32, value i
 
 // ChannelReadI64 reads the latest value from a channel.
 func (r *Runtime) ChannelReadI64(ctx context.Context, channelID uint32) int64 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return int64(0) // Default value
@@ -281,9 +234,6 @@ func (r *Runtime) ChannelReadI64(ctx context.Context, channelID uint32) int64 {
 
 // ChannelWriteI64 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteI64(ctx context.Context, channelID uint32, value int64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[int64](value)
 
@@ -293,9 +243,6 @@ func (r *Runtime) ChannelWriteI64(ctx context.Context, channelID uint32, value i
 
 // ChannelReadF32 reads the latest value from a channel.
 func (r *Runtime) ChannelReadF32(ctx context.Context, channelID uint32) float32 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return float32(0) // Default value
@@ -307,9 +254,6 @@ func (r *Runtime) ChannelReadF32(ctx context.Context, channelID uint32) float32 
 
 // ChannelWriteF32 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteF32(ctx context.Context, channelID uint32, value float32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[float32](value)
 
@@ -319,9 +263,6 @@ func (r *Runtime) ChannelWriteF32(ctx context.Context, channelID uint32, value f
 
 // ChannelReadF64 reads the latest value from a channel.
 func (r *Runtime) ChannelReadF64(ctx context.Context, channelID uint32) float64 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return float64(0) // Default value
@@ -333,9 +274,6 @@ func (r *Runtime) ChannelReadF64(ctx context.Context, channelID uint32) float64 
 
 // ChannelWriteF64 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteF64(ctx context.Context, channelID uint32, value float64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[float64](value)
 
@@ -343,13 +281,8 @@ func (r *Runtime) ChannelWriteF64(ctx context.Context, channelID uint32, value f
 	r.state.WriteChannelValue(channelID, series)
 }
 
-// ===== State Operations =====
-
 // StateLoadU8 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadU8(ctx context.Context, funcID uint32, varID uint32, initValue uint8) uint8 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateU8[key]; ok {
 		return value
@@ -361,18 +294,12 @@ func (r *Runtime) StateLoadU8(ctx context.Context, funcID uint32, varID uint32, 
 
 // StateStoreU8 stores a stateful variable's value.
 func (r *Runtime) StateStoreU8(ctx context.Context, funcID uint32, varID uint32, value uint8) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateU8[key] = value
 }
 
 // StateLoadU16 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadU16(ctx context.Context, funcID uint32, varID uint32, initValue uint16) uint16 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateU16[key]; ok {
 		return value
@@ -384,18 +311,12 @@ func (r *Runtime) StateLoadU16(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreU16 stores a stateful variable's value.
 func (r *Runtime) StateStoreU16(ctx context.Context, funcID uint32, varID uint32, value uint16) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateU16[key] = value
 }
 
 // StateLoadU32 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadU32(ctx context.Context, funcID uint32, varID uint32, initValue uint32) uint32 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateU32[key]; ok {
 		return value
@@ -407,18 +328,12 @@ func (r *Runtime) StateLoadU32(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreU32 stores a stateful variable's value.
 func (r *Runtime) StateStoreU32(ctx context.Context, funcID uint32, varID uint32, value uint32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateU32[key] = value
 }
 
 // StateLoadU64 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadU64(ctx context.Context, funcID uint32, varID uint32, initValue uint64) uint64 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateU64[key]; ok {
 		return value
@@ -430,18 +345,12 @@ func (r *Runtime) StateLoadU64(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreU64 stores a stateful variable's value.
 func (r *Runtime) StateStoreU64(ctx context.Context, funcID uint32, varID uint32, value uint64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateU64[key] = value
 }
 
 // StateLoadI8 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadI8(ctx context.Context, funcID uint32, varID uint32, initValue int8) int8 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateI8[key]; ok {
 		return value
@@ -453,18 +362,12 @@ func (r *Runtime) StateLoadI8(ctx context.Context, funcID uint32, varID uint32, 
 
 // StateStoreI8 stores a stateful variable's value.
 func (r *Runtime) StateStoreI8(ctx context.Context, funcID uint32, varID uint32, value int8) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateI8[key] = value
 }
 
 // StateLoadI16 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadI16(ctx context.Context, funcID uint32, varID uint32, initValue int16) int16 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateI16[key]; ok {
 		return value
@@ -476,18 +379,12 @@ func (r *Runtime) StateLoadI16(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreI16 stores a stateful variable's value.
 func (r *Runtime) StateStoreI16(ctx context.Context, funcID uint32, varID uint32, value int16) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateI16[key] = value
 }
 
 // StateLoadI32 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadI32(ctx context.Context, funcID uint32, varID uint32, initValue int32) int32 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateI32[key]; ok {
 		return value
@@ -499,18 +396,12 @@ func (r *Runtime) StateLoadI32(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreI32 stores a stateful variable's value.
 func (r *Runtime) StateStoreI32(ctx context.Context, funcID uint32, varID uint32, value int32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateI32[key] = value
 }
 
 // StateLoadI64 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadI64(ctx context.Context, funcID uint32, varID uint32, initValue int64) int64 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateI64[key]; ok {
 		return value
@@ -522,18 +413,12 @@ func (r *Runtime) StateLoadI64(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreI64 stores a stateful variable's value.
 func (r *Runtime) StateStoreI64(ctx context.Context, funcID uint32, varID uint32, value int64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateI64[key] = value
 }
 
 // StateLoadF32 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadF32(ctx context.Context, funcID uint32, varID uint32, initValue float32) float32 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateF32[key]; ok {
 		return value
@@ -545,18 +430,12 @@ func (r *Runtime) StateLoadF32(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreF32 stores a stateful variable's value.
 func (r *Runtime) StateStoreF32(ctx context.Context, funcID uint32, varID uint32, value float32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateF32[key] = value
 }
 
 // StateLoadF64 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadF64(ctx context.Context, funcID uint32, varID uint32, initValue float64) float64 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateF64[key]; ok {
 		return value
@@ -568,14 +447,9 @@ func (r *Runtime) StateLoadF64(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreF64 stores a stateful variable's value.
 func (r *Runtime) StateStoreF64(ctx context.Context, funcID uint32, varID uint32, value float64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateF64[key] = value
 }
-
-// ===== Generic Operations =====
 
 // Now returns the current timestamp.
 func (r *Runtime) Now(ctx context.Context) uint64 {
@@ -592,8 +466,6 @@ func (r *Runtime) Panic(ctx context.Context, ptr uint32, length uint32) {
 	panic("arc panic: " + string(msg))
 }
 
-// ===== Math Operations =====
-
 // MathPowF32 computes base^exponent for f32.
 func (r *Runtime) MathPowF32(ctx context.Context, base float32, exponent float32) float32 {
 	return float32(math.Pow(float64(base), float64(exponent)))
@@ -604,75 +476,61 @@ func (r *Runtime) MathPowF64(ctx context.Context, base float64, exponent float64
 	return math.Pow(base, exponent)
 }
 
-// MathIntPowU8 computes base^exponent for u8 using integer exponentiation.
-func (r *Runtime) MathIntPowU8(ctx context.Context, base uint8, exponent uint8) uint8 {
+// MathPowU8 computes base^exponent for u8 using integer exponentiation.
+func (r *Runtime) MathPowU8(ctx context.Context, base uint8, exponent uint8) uint8 {
 	return xmath.IntPow(base, int(exponent))
 }
 
-// MathIntPowU16 computes base^exponent for u16 using integer exponentiation.
-func (r *Runtime) MathIntPowU16(ctx context.Context, base uint16, exponent uint16) uint16 {
+// MathPowU16 computes base^exponent for u16 using integer exponentiation.
+func (r *Runtime) MathPowU16(ctx context.Context, base uint16, exponent uint16) uint16 {
 	return xmath.IntPow(base, int(exponent))
 }
 
-// MathIntPowU32 computes base^exponent for u32 using integer exponentiation.
-func (r *Runtime) MathIntPowU32(ctx context.Context, base uint32, exponent uint32) uint32 {
+// MathPowU32 computes base^exponent for u32 using integer exponentiation.
+func (r *Runtime) MathPowU32(ctx context.Context, base uint32, exponent uint32) uint32 {
 	return xmath.IntPow(base, int(exponent))
 }
 
-// MathIntPowU64 computes base^exponent for u64 using integer exponentiation.
-func (r *Runtime) MathIntPowU64(ctx context.Context, base uint64, exponent uint64) uint64 {
+// MathPowU64 computes base^exponent for u64 using integer exponentiation.
+func (r *Runtime) MathPowU64(ctx context.Context, base uint64, exponent uint64) uint64 {
 	return xmath.IntPow(base, int(exponent))
 }
 
-// MathIntPowI8 computes base^exponent for i8 using integer exponentiation.
-func (r *Runtime) MathIntPowI8(ctx context.Context, base int8, exponent int8) int8 {
+// MathPowI8 computes base^exponent for i8 using integer exponentiation.
+func (r *Runtime) MathPowI8(ctx context.Context, base int8, exponent int8) int8 {
 	return xmath.IntPow(base, int(exponent))
 }
 
-// MathIntPowI16 computes base^exponent for i16 using integer exponentiation.
-func (r *Runtime) MathIntPowI16(ctx context.Context, base int16, exponent int16) int16 {
+// MathPowI16 computes base^exponent for i16 using integer exponentiation.
+func (r *Runtime) MathPowI16(ctx context.Context, base int16, exponent int16) int16 {
 	return xmath.IntPow(base, int(exponent))
 }
 
-// MathIntPowI32 computes base^exponent for i32 using integer exponentiation.
-func (r *Runtime) MathIntPowI32(ctx context.Context, base int32, exponent int32) int32 {
+// MathPowI32 computes base^exponent for i32 using integer exponentiation.
+func (r *Runtime) MathPowI32(ctx context.Context, base int32, exponent int32) int32 {
 	return xmath.IntPow(base, int(exponent))
 }
 
-// MathIntPowI64 computes base^exponent for i64 using integer exponentiation.
-func (r *Runtime) MathIntPowI64(ctx context.Context, base int64, exponent int64) int64 {
+// MathPowI64 computes base^exponent for i64 using integer exponentiation.
+func (r *Runtime) MathPowI64(ctx context.Context, base int64, exponent int64) int64 {
 	return xmath.IntPow(base, int(exponent))
 }
-
-// ===== String Operations =====
 
 // StringFromLiteral creates a string from WASM memory and returns a handle.
 func (r *Runtime) StringFromLiteral(ctx context.Context, ptr uint32, length uint32) uint32 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Read string data from WASM memory
 	data, ok := r.memory.Read(ptr, length)
 	if !ok {
 		return 0 // Return null handle on failure
 	}
 
-	// Generate new handle
-	handle := r.stringHandleCounter
-	r.stringHandleCounter++
-
-	// Store string
-	r.strings[handle] = string(data)
-
-	return handle
+	// Store string in state and return handle
+	return r.state.StringCreate(string(data))
 }
 
 // StringLen returns the length of a string.
 func (r *Runtime) StringLen(ctx context.Context, handle uint32) uint32 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	if str, ok := r.strings[handle]; ok {
+	if str, ok := r.state.StringGet(handle); ok {
 		return uint32(len(str))
 	}
 	return 0
@@ -680,11 +538,8 @@ func (r *Runtime) StringLen(ctx context.Context, handle uint32) uint32 {
 
 // StringEqual compares two strings for equality.
 func (r *Runtime) StringEqual(ctx context.Context, handle1 uint32, handle2 uint32) uint32 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	str1, ok1 := r.strings[handle1]
-	str2, ok2 := r.strings[handle2]
+	str1, ok1 := r.state.StringGet(handle1)
+	str2, ok2 := r.state.StringGet(handle2)
 
 	if ok1 && ok2 && str1 == str2 {
 		return 1
@@ -692,11 +547,21 @@ func (r *Runtime) StringEqual(ctx context.Context, handle1 uint32, handle2 uint3
 	return 0
 }
 
+// StringConcat concatenates two strings and returns a new handle.
+func (r *Runtime) StringConcat(ctx context.Context, handle1 uint32, handle2 uint32) uint32 {
+	str1, ok1 := r.state.StringGet(handle1)
+	str2, ok2 := r.state.StringGet(handle2)
+
+	if !ok1 || !ok2 {
+		return 0 // Return null handle if either string doesn't exist
+	}
+
+	// Concatenate strings and store result
+	return r.state.StringCreate(str1 + str2)
+}
+
 // ChannelReadStr reads the latest string from a channel and returns a handle.
 func (r *Runtime) ChannelReadStr(ctx context.Context, channelID uint32) uint32 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return 0 // Return null handle
@@ -708,24 +573,14 @@ func (r *Runtime) ChannelReadStr(ctx context.Context, channelID uint32) uint32 {
 		return 0
 	}
 
-	// Get the last (most recent) string
-	str := strings[len(strings)-1]
-
-	// Generate handle and store
-	handle := r.stringHandleCounter
-	r.stringHandleCounter++
-	r.strings[handle] = str
-
-	return handle
+	// Get the last (most recent) string and store it
+	return r.state.StringCreate(strings[len(strings)-1])
 }
 
 // ChannelWriteStr writes a string to a channel (queued for flush).
 func (r *Runtime) ChannelWriteStr(ctx context.Context, channelID uint32, handle uint32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Look up string by handle
-	str, ok := r.strings[handle]
+	str, ok := r.state.StringGet(handle)
 	if !ok {
 		return // Invalid handle, do nothing
 	}
@@ -743,21 +598,15 @@ func (r *Runtime) ChannelWriteStr(ctx context.Context, channelID uint32, handle 
 
 // StateLoadStr loads a stateful string variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadStr(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	str, ok := r.stateString[key]
 	if ok {
 		// Exists - create a new handle for the stored string
-		handle := r.stringHandleCounter
-		r.stringHandleCounter++
-		r.strings[handle] = str
-		return handle
+		return r.state.StringCreate(str)
 	}
 
 	// Not found - store the init string and return the same handle
-	if initStr, ok := r.strings[initHandle]; ok {
+	if initStr, ok := r.state.StringGet(initHandle); ok {
 		r.stateString[key] = initStr
 	}
 	return initHandle
@@ -765,15 +614,4063 @@ func (r *Runtime) StateLoadStr(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreStr stores a stateful string variable's value.
 func (r *Runtime) StateStoreStr(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Look up string by handle
-	str, ok := r.strings[handle]
+	str, ok := r.state.StringGet(handle)
 	if !ok {
 		return // Invalid handle, do nothing
 	}
 
 	key := stateKey(funcID, varID)
 	r.stateString[key] = str
+}
+
+// SeriesCreateEmptyU8 creates an empty series of the given length.
+func (r *Runtime) SeriesCreateEmptyU8(ctx context.Context, length uint32) uint32 {
+	s := telem.MakeSeries(telem.Uint8T, int(length))
+	return r.state.SeriesStore(s)
+}
+
+// SeriesSetElementU8 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementU8(ctx context.Context, handle uint32, index uint32, value uint8) uint32 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			telem.SetValueAt[uint8](s, int(index), value)
+		}
+	}
+	return handle
+}
+
+// SeriesIndexU8 gets an element from a series at the given index.
+func (r *Runtime) SeriesIndexU8(ctx context.Context, handle uint32, index uint32) uint8 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			return telem.ValueAt[uint8](s, int(index))
+		}
+	}
+	return uint8(0)
+}
+
+// SeriesElementAddU8 adds a scalar to all elements of a series.
+func (r *Runtime) SeriesElementAddU8(ctx context.Context, handle uint32, scalar uint8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementSubU8 subtracts a scalar from all elements of a series.
+func (r *Runtime) SeriesElementSubU8(ctx context.Context, handle uint32, scalar uint8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementMulU8 multiplies all elements of a series by a scalar.
+func (r *Runtime) SeriesElementMulU8(ctx context.Context, handle uint32, scalar uint8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementDivU8 divides all elements of a series by a scalar.
+func (r *Runtime) SeriesElementDivU8(ctx context.Context, handle uint32, scalar uint8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementModU8 computes modulo of all elements of a series by a scalar.
+func (r *Runtime) SeriesElementModU8(ctx context.Context, handle uint32, scalar uint8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ModuloScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRSubU8 computes scalar - series (reverse subtract).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar - series'.
+func (r *Runtime) SeriesElementRSubU8(ctx context.Context, scalar uint8, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseSubtractScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRDivU8 computes scalar / series (reverse divide).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar / series'.
+func (r *Runtime) SeriesElementRDivU8(ctx context.Context, scalar uint8, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseDivideScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRAddU8 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddU8(ctx context.Context, scalar uint8, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRMulU8 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulU8(ctx context.Context, scalar uint8, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRModU8 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModU8(ctx context.Context, scalar uint8, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesAddU8 adds two series element-wise.
+func (r *Runtime) SeriesSeriesAddU8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in addition")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddU8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesSubU8 subtracts two series element-wise.
+func (r *Runtime) SeriesSeriesSubU8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in subtraction")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractU8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesMulU8 multiplies two series element-wise.
+func (r *Runtime) SeriesSeriesMulU8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in multiplication")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyU8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesDivU8 divides two series element-wise.
+func (r *Runtime) SeriesSeriesDivU8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in division")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideU8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesModU8 computes modulo of two series element-wise.
+func (r *Runtime) SeriesSeriesModU8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in modulo")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.ModuloU8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTU8 compares two series element-wise (greater than).
+func (r *Runtime) SeriesCompareGTU8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanU8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTU8 compares two series element-wise (less than).
+func (r *Runtime) SeriesCompareLTU8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanU8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEU8 compares two series element-wise (greater or equal).
+func (r *Runtime) SeriesCompareGEU8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualU8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEU8 compares two series element-wise (less or equal).
+func (r *Runtime) SeriesCompareLEU8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualU8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQU8 compares two series element-wise (equal).
+func (r *Runtime) SeriesCompareEQU8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualU8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEU8 compares two series element-wise (not equal).
+func (r *Runtime) SeriesCompareNEU8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualU8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTScalarU8 compares series > scalar.
+func (r *Runtime) SeriesCompareGTScalarU8(ctx context.Context, handle uint32, scalar uint8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTScalarU8 compares series < scalar.
+func (r *Runtime) SeriesCompareLTScalarU8(ctx context.Context, handle uint32, scalar uint8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEScalarU8 compares series >= scalar.
+func (r *Runtime) SeriesCompareGEScalarU8(ctx context.Context, handle uint32, scalar uint8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEScalarU8 compares series <= scalar.
+func (r *Runtime) SeriesCompareLEScalarU8(ctx context.Context, handle uint32, scalar uint8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQScalarU8 compares series == scalar.
+func (r *Runtime) SeriesCompareEQScalarU8(ctx context.Context, handle uint32, scalar uint8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEScalarU8 compares series != scalar.
+func (r *Runtime) SeriesCompareNEScalarU8(ctx context.Context, handle uint32, scalar uint8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualScalarU8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// StateLoadSeriesU8 loads a persisted series, returns new handle.
+func (r *Runtime) StateLoadSeriesU8(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
+	key := stateKey(funcID, varID)
+	if s, ok := r.stateSeries[key]; ok {
+		return r.state.SeriesStore(s)
+	}
+	// Initialize from provided handle
+	if initS, ok := r.state.SeriesGet(initHandle); ok {
+		r.stateSeries[key] = initS
+	}
+	return initHandle
+}
+
+// StateStoreSeriesU8 persists a series to state.
+func (r *Runtime) StateStoreSeriesU8(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		r.stateSeries[stateKey(funcID, varID)] = s
+	}
+}
+
+// SeriesCreateEmptyU16 creates an empty series of the given length.
+func (r *Runtime) SeriesCreateEmptyU16(ctx context.Context, length uint32) uint32 {
+	s := telem.MakeSeries(telem.Uint16T, int(length))
+	return r.state.SeriesStore(s)
+}
+
+// SeriesSetElementU16 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementU16(ctx context.Context, handle uint32, index uint32, value uint16) uint32 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			telem.SetValueAt[uint16](s, int(index), value)
+		}
+	}
+	return handle
+}
+
+// SeriesIndexU16 gets an element from a series at the given index.
+func (r *Runtime) SeriesIndexU16(ctx context.Context, handle uint32, index uint32) uint16 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			return telem.ValueAt[uint16](s, int(index))
+		}
+	}
+	return uint16(0)
+}
+
+// SeriesElementAddU16 adds a scalar to all elements of a series.
+func (r *Runtime) SeriesElementAddU16(ctx context.Context, handle uint32, scalar uint16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementSubU16 subtracts a scalar from all elements of a series.
+func (r *Runtime) SeriesElementSubU16(ctx context.Context, handle uint32, scalar uint16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementMulU16 multiplies all elements of a series by a scalar.
+func (r *Runtime) SeriesElementMulU16(ctx context.Context, handle uint32, scalar uint16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementDivU16 divides all elements of a series by a scalar.
+func (r *Runtime) SeriesElementDivU16(ctx context.Context, handle uint32, scalar uint16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementModU16 computes modulo of all elements of a series by a scalar.
+func (r *Runtime) SeriesElementModU16(ctx context.Context, handle uint32, scalar uint16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ModuloScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRSubU16 computes scalar - series (reverse subtract).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar - series'.
+func (r *Runtime) SeriesElementRSubU16(ctx context.Context, scalar uint16, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseSubtractScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRDivU16 computes scalar / series (reverse divide).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar / series'.
+func (r *Runtime) SeriesElementRDivU16(ctx context.Context, scalar uint16, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseDivideScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRAddU16 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddU16(ctx context.Context, scalar uint16, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRMulU16 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulU16(ctx context.Context, scalar uint16, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRModU16 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModU16(ctx context.Context, scalar uint16, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesAddU16 adds two series element-wise.
+func (r *Runtime) SeriesSeriesAddU16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in addition")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddU16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesSubU16 subtracts two series element-wise.
+func (r *Runtime) SeriesSeriesSubU16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in subtraction")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractU16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesMulU16 multiplies two series element-wise.
+func (r *Runtime) SeriesSeriesMulU16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in multiplication")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyU16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesDivU16 divides two series element-wise.
+func (r *Runtime) SeriesSeriesDivU16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in division")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideU16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesModU16 computes modulo of two series element-wise.
+func (r *Runtime) SeriesSeriesModU16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in modulo")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.ModuloU16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTU16 compares two series element-wise (greater than).
+func (r *Runtime) SeriesCompareGTU16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanU16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTU16 compares two series element-wise (less than).
+func (r *Runtime) SeriesCompareLTU16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanU16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEU16 compares two series element-wise (greater or equal).
+func (r *Runtime) SeriesCompareGEU16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualU16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEU16 compares two series element-wise (less or equal).
+func (r *Runtime) SeriesCompareLEU16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualU16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQU16 compares two series element-wise (equal).
+func (r *Runtime) SeriesCompareEQU16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualU16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEU16 compares two series element-wise (not equal).
+func (r *Runtime) SeriesCompareNEU16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualU16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTScalarU16 compares series > scalar.
+func (r *Runtime) SeriesCompareGTScalarU16(ctx context.Context, handle uint32, scalar uint16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTScalarU16 compares series < scalar.
+func (r *Runtime) SeriesCompareLTScalarU16(ctx context.Context, handle uint32, scalar uint16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEScalarU16 compares series >= scalar.
+func (r *Runtime) SeriesCompareGEScalarU16(ctx context.Context, handle uint32, scalar uint16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEScalarU16 compares series <= scalar.
+func (r *Runtime) SeriesCompareLEScalarU16(ctx context.Context, handle uint32, scalar uint16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQScalarU16 compares series == scalar.
+func (r *Runtime) SeriesCompareEQScalarU16(ctx context.Context, handle uint32, scalar uint16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEScalarU16 compares series != scalar.
+func (r *Runtime) SeriesCompareNEScalarU16(ctx context.Context, handle uint32, scalar uint16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualScalarU16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// StateLoadSeriesU16 loads a persisted series, returns new handle.
+func (r *Runtime) StateLoadSeriesU16(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
+	key := stateKey(funcID, varID)
+	if s, ok := r.stateSeries[key]; ok {
+		return r.state.SeriesStore(s)
+	}
+	// Initialize from provided handle
+	if initS, ok := r.state.SeriesGet(initHandle); ok {
+		r.stateSeries[key] = initS
+	}
+	return initHandle
+}
+
+// StateStoreSeriesU16 persists a series to state.
+func (r *Runtime) StateStoreSeriesU16(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		r.stateSeries[stateKey(funcID, varID)] = s
+	}
+}
+
+// SeriesCreateEmptyU32 creates an empty series of the given length.
+func (r *Runtime) SeriesCreateEmptyU32(ctx context.Context, length uint32) uint32 {
+	s := telem.MakeSeries(telem.Uint32T, int(length))
+	return r.state.SeriesStore(s)
+}
+
+// SeriesSetElementU32 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementU32(ctx context.Context, handle uint32, index uint32, value uint32) uint32 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			telem.SetValueAt[uint32](s, int(index), value)
+		}
+	}
+	return handle
+}
+
+// SeriesIndexU32 gets an element from a series at the given index.
+func (r *Runtime) SeriesIndexU32(ctx context.Context, handle uint32, index uint32) uint32 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			return telem.ValueAt[uint32](s, int(index))
+		}
+	}
+	return uint32(0)
+}
+
+// SeriesElementAddU32 adds a scalar to all elements of a series.
+func (r *Runtime) SeriesElementAddU32(ctx context.Context, handle uint32, scalar uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementSubU32 subtracts a scalar from all elements of a series.
+func (r *Runtime) SeriesElementSubU32(ctx context.Context, handle uint32, scalar uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementMulU32 multiplies all elements of a series by a scalar.
+func (r *Runtime) SeriesElementMulU32(ctx context.Context, handle uint32, scalar uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementDivU32 divides all elements of a series by a scalar.
+func (r *Runtime) SeriesElementDivU32(ctx context.Context, handle uint32, scalar uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementModU32 computes modulo of all elements of a series by a scalar.
+func (r *Runtime) SeriesElementModU32(ctx context.Context, handle uint32, scalar uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ModuloScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRSubU32 computes scalar - series (reverse subtract).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar - series'.
+func (r *Runtime) SeriesElementRSubU32(ctx context.Context, scalar uint32, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseSubtractScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRDivU32 computes scalar / series (reverse divide).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar / series'.
+func (r *Runtime) SeriesElementRDivU32(ctx context.Context, scalar uint32, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseDivideScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRAddU32 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddU32(ctx context.Context, scalar uint32, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRMulU32 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulU32(ctx context.Context, scalar uint32, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRModU32 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModU32(ctx context.Context, scalar uint32, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesAddU32 adds two series element-wise.
+func (r *Runtime) SeriesSeriesAddU32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in addition")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddU32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesSubU32 subtracts two series element-wise.
+func (r *Runtime) SeriesSeriesSubU32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in subtraction")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractU32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesMulU32 multiplies two series element-wise.
+func (r *Runtime) SeriesSeriesMulU32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in multiplication")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyU32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesDivU32 divides two series element-wise.
+func (r *Runtime) SeriesSeriesDivU32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in division")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideU32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesModU32 computes modulo of two series element-wise.
+func (r *Runtime) SeriesSeriesModU32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in modulo")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.ModuloU32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTU32 compares two series element-wise (greater than).
+func (r *Runtime) SeriesCompareGTU32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanU32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTU32 compares two series element-wise (less than).
+func (r *Runtime) SeriesCompareLTU32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanU32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEU32 compares two series element-wise (greater or equal).
+func (r *Runtime) SeriesCompareGEU32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualU32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEU32 compares two series element-wise (less or equal).
+func (r *Runtime) SeriesCompareLEU32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualU32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQU32 compares two series element-wise (equal).
+func (r *Runtime) SeriesCompareEQU32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualU32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEU32 compares two series element-wise (not equal).
+func (r *Runtime) SeriesCompareNEU32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualU32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTScalarU32 compares series > scalar.
+func (r *Runtime) SeriesCompareGTScalarU32(ctx context.Context, handle uint32, scalar uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTScalarU32 compares series < scalar.
+func (r *Runtime) SeriesCompareLTScalarU32(ctx context.Context, handle uint32, scalar uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEScalarU32 compares series >= scalar.
+func (r *Runtime) SeriesCompareGEScalarU32(ctx context.Context, handle uint32, scalar uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEScalarU32 compares series <= scalar.
+func (r *Runtime) SeriesCompareLEScalarU32(ctx context.Context, handle uint32, scalar uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQScalarU32 compares series == scalar.
+func (r *Runtime) SeriesCompareEQScalarU32(ctx context.Context, handle uint32, scalar uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEScalarU32 compares series != scalar.
+func (r *Runtime) SeriesCompareNEScalarU32(ctx context.Context, handle uint32, scalar uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualScalarU32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// StateLoadSeriesU32 loads a persisted series, returns new handle.
+func (r *Runtime) StateLoadSeriesU32(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
+	key := stateKey(funcID, varID)
+	if s, ok := r.stateSeries[key]; ok {
+		return r.state.SeriesStore(s)
+	}
+	// Initialize from provided handle
+	if initS, ok := r.state.SeriesGet(initHandle); ok {
+		r.stateSeries[key] = initS
+	}
+	return initHandle
+}
+
+// StateStoreSeriesU32 persists a series to state.
+func (r *Runtime) StateStoreSeriesU32(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		r.stateSeries[stateKey(funcID, varID)] = s
+	}
+}
+
+// SeriesCreateEmptyU64 creates an empty series of the given length.
+func (r *Runtime) SeriesCreateEmptyU64(ctx context.Context, length uint32) uint32 {
+	s := telem.MakeSeries(telem.Uint64T, int(length))
+	return r.state.SeriesStore(s)
+}
+
+// SeriesSetElementU64 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementU64(ctx context.Context, handle uint32, index uint32, value uint64) uint32 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			telem.SetValueAt[uint64](s, int(index), value)
+		}
+	}
+	return handle
+}
+
+// SeriesIndexU64 gets an element from a series at the given index.
+func (r *Runtime) SeriesIndexU64(ctx context.Context, handle uint32, index uint32) uint64 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			return telem.ValueAt[uint64](s, int(index))
+		}
+	}
+	return uint64(0)
+}
+
+// SeriesElementAddU64 adds a scalar to all elements of a series.
+func (r *Runtime) SeriesElementAddU64(ctx context.Context, handle uint32, scalar uint64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementSubU64 subtracts a scalar from all elements of a series.
+func (r *Runtime) SeriesElementSubU64(ctx context.Context, handle uint32, scalar uint64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementMulU64 multiplies all elements of a series by a scalar.
+func (r *Runtime) SeriesElementMulU64(ctx context.Context, handle uint32, scalar uint64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementDivU64 divides all elements of a series by a scalar.
+func (r *Runtime) SeriesElementDivU64(ctx context.Context, handle uint32, scalar uint64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementModU64 computes modulo of all elements of a series by a scalar.
+func (r *Runtime) SeriesElementModU64(ctx context.Context, handle uint32, scalar uint64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ModuloScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRSubU64 computes scalar - series (reverse subtract).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar - series'.
+func (r *Runtime) SeriesElementRSubU64(ctx context.Context, scalar uint64, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseSubtractScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRDivU64 computes scalar / series (reverse divide).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar / series'.
+func (r *Runtime) SeriesElementRDivU64(ctx context.Context, scalar uint64, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseDivideScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRAddU64 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddU64(ctx context.Context, scalar uint64, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRMulU64 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulU64(ctx context.Context, scalar uint64, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRModU64 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModU64(ctx context.Context, scalar uint64, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesAddU64 adds two series element-wise.
+func (r *Runtime) SeriesSeriesAddU64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in addition")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddU64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesSubU64 subtracts two series element-wise.
+func (r *Runtime) SeriesSeriesSubU64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in subtraction")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractU64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesMulU64 multiplies two series element-wise.
+func (r *Runtime) SeriesSeriesMulU64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in multiplication")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyU64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesDivU64 divides two series element-wise.
+func (r *Runtime) SeriesSeriesDivU64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in division")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideU64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesModU64 computes modulo of two series element-wise.
+func (r *Runtime) SeriesSeriesModU64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in modulo")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.ModuloU64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTU64 compares two series element-wise (greater than).
+func (r *Runtime) SeriesCompareGTU64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanU64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTU64 compares two series element-wise (less than).
+func (r *Runtime) SeriesCompareLTU64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanU64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEU64 compares two series element-wise (greater or equal).
+func (r *Runtime) SeriesCompareGEU64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualU64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEU64 compares two series element-wise (less or equal).
+func (r *Runtime) SeriesCompareLEU64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualU64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQU64 compares two series element-wise (equal).
+func (r *Runtime) SeriesCompareEQU64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualU64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEU64 compares two series element-wise (not equal).
+func (r *Runtime) SeriesCompareNEU64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualU64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTScalarU64 compares series > scalar.
+func (r *Runtime) SeriesCompareGTScalarU64(ctx context.Context, handle uint32, scalar uint64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTScalarU64 compares series < scalar.
+func (r *Runtime) SeriesCompareLTScalarU64(ctx context.Context, handle uint32, scalar uint64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEScalarU64 compares series >= scalar.
+func (r *Runtime) SeriesCompareGEScalarU64(ctx context.Context, handle uint32, scalar uint64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEScalarU64 compares series <= scalar.
+func (r *Runtime) SeriesCompareLEScalarU64(ctx context.Context, handle uint32, scalar uint64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQScalarU64 compares series == scalar.
+func (r *Runtime) SeriesCompareEQScalarU64(ctx context.Context, handle uint32, scalar uint64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEScalarU64 compares series != scalar.
+func (r *Runtime) SeriesCompareNEScalarU64(ctx context.Context, handle uint32, scalar uint64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualScalarU64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// StateLoadSeriesU64 loads a persisted series, returns new handle.
+func (r *Runtime) StateLoadSeriesU64(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
+	key := stateKey(funcID, varID)
+	if s, ok := r.stateSeries[key]; ok {
+		return r.state.SeriesStore(s)
+	}
+	// Initialize from provided handle
+	if initS, ok := r.state.SeriesGet(initHandle); ok {
+		r.stateSeries[key] = initS
+	}
+	return initHandle
+}
+
+// StateStoreSeriesU64 persists a series to state.
+func (r *Runtime) StateStoreSeriesU64(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		r.stateSeries[stateKey(funcID, varID)] = s
+	}
+}
+
+// SeriesCreateEmptyI8 creates an empty series of the given length.
+func (r *Runtime) SeriesCreateEmptyI8(ctx context.Context, length uint32) uint32 {
+	s := telem.MakeSeries(telem.Int8T, int(length))
+	return r.state.SeriesStore(s)
+}
+
+// SeriesSetElementI8 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementI8(ctx context.Context, handle uint32, index uint32, value int8) uint32 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			telem.SetValueAt[int8](s, int(index), value)
+		}
+	}
+	return handle
+}
+
+// SeriesIndexI8 gets an element from a series at the given index.
+func (r *Runtime) SeriesIndexI8(ctx context.Context, handle uint32, index uint32) int8 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			return telem.ValueAt[int8](s, int(index))
+		}
+	}
+	return int8(0)
+}
+
+// SeriesElementAddI8 adds a scalar to all elements of a series.
+func (r *Runtime) SeriesElementAddI8(ctx context.Context, handle uint32, scalar int8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementSubI8 subtracts a scalar from all elements of a series.
+func (r *Runtime) SeriesElementSubI8(ctx context.Context, handle uint32, scalar int8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementMulI8 multiplies all elements of a series by a scalar.
+func (r *Runtime) SeriesElementMulI8(ctx context.Context, handle uint32, scalar int8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementDivI8 divides all elements of a series by a scalar.
+func (r *Runtime) SeriesElementDivI8(ctx context.Context, handle uint32, scalar int8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementModI8 computes modulo of all elements of a series by a scalar.
+func (r *Runtime) SeriesElementModI8(ctx context.Context, handle uint32, scalar int8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ModuloScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRSubI8 computes scalar - series (reverse subtract).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar - series'.
+func (r *Runtime) SeriesElementRSubI8(ctx context.Context, scalar int8, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseSubtractScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRDivI8 computes scalar / series (reverse divide).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar / series'.
+func (r *Runtime) SeriesElementRDivI8(ctx context.Context, scalar int8, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseDivideScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRAddI8 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddI8(ctx context.Context, scalar int8, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRMulI8 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulI8(ctx context.Context, scalar int8, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRModI8 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModI8(ctx context.Context, scalar int8, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesAddI8 adds two series element-wise.
+func (r *Runtime) SeriesSeriesAddI8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in addition")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddI8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesSubI8 subtracts two series element-wise.
+func (r *Runtime) SeriesSeriesSubI8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in subtraction")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractI8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesMulI8 multiplies two series element-wise.
+func (r *Runtime) SeriesSeriesMulI8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in multiplication")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyI8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesDivI8 divides two series element-wise.
+func (r *Runtime) SeriesSeriesDivI8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in division")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideI8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesModI8 computes modulo of two series element-wise.
+func (r *Runtime) SeriesSeriesModI8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in modulo")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.ModuloI8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTI8 compares two series element-wise (greater than).
+func (r *Runtime) SeriesCompareGTI8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanI8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTI8 compares two series element-wise (less than).
+func (r *Runtime) SeriesCompareLTI8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanI8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEI8 compares two series element-wise (greater or equal).
+func (r *Runtime) SeriesCompareGEI8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualI8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEI8 compares two series element-wise (less or equal).
+func (r *Runtime) SeriesCompareLEI8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualI8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQI8 compares two series element-wise (equal).
+func (r *Runtime) SeriesCompareEQI8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualI8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEI8 compares two series element-wise (not equal).
+func (r *Runtime) SeriesCompareNEI8(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualI8(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTScalarI8 compares series > scalar.
+func (r *Runtime) SeriesCompareGTScalarI8(ctx context.Context, handle uint32, scalar int8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTScalarI8 compares series < scalar.
+func (r *Runtime) SeriesCompareLTScalarI8(ctx context.Context, handle uint32, scalar int8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEScalarI8 compares series >= scalar.
+func (r *Runtime) SeriesCompareGEScalarI8(ctx context.Context, handle uint32, scalar int8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEScalarI8 compares series <= scalar.
+func (r *Runtime) SeriesCompareLEScalarI8(ctx context.Context, handle uint32, scalar int8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQScalarI8 compares series == scalar.
+func (r *Runtime) SeriesCompareEQScalarI8(ctx context.Context, handle uint32, scalar int8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEScalarI8 compares series != scalar.
+func (r *Runtime) SeriesCompareNEScalarI8(ctx context.Context, handle uint32, scalar int8) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualScalarI8(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// StateLoadSeriesI8 loads a persisted series, returns new handle.
+func (r *Runtime) StateLoadSeriesI8(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
+	key := stateKey(funcID, varID)
+	if s, ok := r.stateSeries[key]; ok {
+		return r.state.SeriesStore(s)
+	}
+	// Initialize from provided handle
+	if initS, ok := r.state.SeriesGet(initHandle); ok {
+		r.stateSeries[key] = initS
+	}
+	return initHandle
+}
+
+// StateStoreSeriesI8 persists a series to state.
+func (r *Runtime) StateStoreSeriesI8(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		r.stateSeries[stateKey(funcID, varID)] = s
+	}
+}
+
+// SeriesCreateEmptyI16 creates an empty series of the given length.
+func (r *Runtime) SeriesCreateEmptyI16(ctx context.Context, length uint32) uint32 {
+	s := telem.MakeSeries(telem.Int16T, int(length))
+	return r.state.SeriesStore(s)
+}
+
+// SeriesSetElementI16 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementI16(ctx context.Context, handle uint32, index uint32, value int16) uint32 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			telem.SetValueAt[int16](s, int(index), value)
+		}
+	}
+	return handle
+}
+
+// SeriesIndexI16 gets an element from a series at the given index.
+func (r *Runtime) SeriesIndexI16(ctx context.Context, handle uint32, index uint32) int16 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			return telem.ValueAt[int16](s, int(index))
+		}
+	}
+	return int16(0)
+}
+
+// SeriesElementAddI16 adds a scalar to all elements of a series.
+func (r *Runtime) SeriesElementAddI16(ctx context.Context, handle uint32, scalar int16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementSubI16 subtracts a scalar from all elements of a series.
+func (r *Runtime) SeriesElementSubI16(ctx context.Context, handle uint32, scalar int16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementMulI16 multiplies all elements of a series by a scalar.
+func (r *Runtime) SeriesElementMulI16(ctx context.Context, handle uint32, scalar int16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementDivI16 divides all elements of a series by a scalar.
+func (r *Runtime) SeriesElementDivI16(ctx context.Context, handle uint32, scalar int16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementModI16 computes modulo of all elements of a series by a scalar.
+func (r *Runtime) SeriesElementModI16(ctx context.Context, handle uint32, scalar int16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ModuloScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRSubI16 computes scalar - series (reverse subtract).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar - series'.
+func (r *Runtime) SeriesElementRSubI16(ctx context.Context, scalar int16, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseSubtractScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRDivI16 computes scalar / series (reverse divide).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar / series'.
+func (r *Runtime) SeriesElementRDivI16(ctx context.Context, scalar int16, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseDivideScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRAddI16 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddI16(ctx context.Context, scalar int16, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRMulI16 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulI16(ctx context.Context, scalar int16, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRModI16 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModI16(ctx context.Context, scalar int16, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesAddI16 adds two series element-wise.
+func (r *Runtime) SeriesSeriesAddI16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in addition")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddI16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesSubI16 subtracts two series element-wise.
+func (r *Runtime) SeriesSeriesSubI16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in subtraction")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractI16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesMulI16 multiplies two series element-wise.
+func (r *Runtime) SeriesSeriesMulI16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in multiplication")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyI16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesDivI16 divides two series element-wise.
+func (r *Runtime) SeriesSeriesDivI16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in division")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideI16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesModI16 computes modulo of two series element-wise.
+func (r *Runtime) SeriesSeriesModI16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in modulo")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.ModuloI16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTI16 compares two series element-wise (greater than).
+func (r *Runtime) SeriesCompareGTI16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanI16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTI16 compares two series element-wise (less than).
+func (r *Runtime) SeriesCompareLTI16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanI16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEI16 compares two series element-wise (greater or equal).
+func (r *Runtime) SeriesCompareGEI16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualI16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEI16 compares two series element-wise (less or equal).
+func (r *Runtime) SeriesCompareLEI16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualI16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQI16 compares two series element-wise (equal).
+func (r *Runtime) SeriesCompareEQI16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualI16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEI16 compares two series element-wise (not equal).
+func (r *Runtime) SeriesCompareNEI16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualI16(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTScalarI16 compares series > scalar.
+func (r *Runtime) SeriesCompareGTScalarI16(ctx context.Context, handle uint32, scalar int16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTScalarI16 compares series < scalar.
+func (r *Runtime) SeriesCompareLTScalarI16(ctx context.Context, handle uint32, scalar int16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEScalarI16 compares series >= scalar.
+func (r *Runtime) SeriesCompareGEScalarI16(ctx context.Context, handle uint32, scalar int16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEScalarI16 compares series <= scalar.
+func (r *Runtime) SeriesCompareLEScalarI16(ctx context.Context, handle uint32, scalar int16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQScalarI16 compares series == scalar.
+func (r *Runtime) SeriesCompareEQScalarI16(ctx context.Context, handle uint32, scalar int16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEScalarI16 compares series != scalar.
+func (r *Runtime) SeriesCompareNEScalarI16(ctx context.Context, handle uint32, scalar int16) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualScalarI16(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// StateLoadSeriesI16 loads a persisted series, returns new handle.
+func (r *Runtime) StateLoadSeriesI16(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
+	key := stateKey(funcID, varID)
+	if s, ok := r.stateSeries[key]; ok {
+		return r.state.SeriesStore(s)
+	}
+	// Initialize from provided handle
+	if initS, ok := r.state.SeriesGet(initHandle); ok {
+		r.stateSeries[key] = initS
+	}
+	return initHandle
+}
+
+// StateStoreSeriesI16 persists a series to state.
+func (r *Runtime) StateStoreSeriesI16(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		r.stateSeries[stateKey(funcID, varID)] = s
+	}
+}
+
+// SeriesCreateEmptyI32 creates an empty series of the given length.
+func (r *Runtime) SeriesCreateEmptyI32(ctx context.Context, length uint32) uint32 {
+	s := telem.MakeSeries(telem.Int32T, int(length))
+	return r.state.SeriesStore(s)
+}
+
+// SeriesSetElementI32 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementI32(ctx context.Context, handle uint32, index uint32, value int32) uint32 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			telem.SetValueAt[int32](s, int(index), value)
+		}
+	}
+	return handle
+}
+
+// SeriesIndexI32 gets an element from a series at the given index.
+func (r *Runtime) SeriesIndexI32(ctx context.Context, handle uint32, index uint32) int32 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			return telem.ValueAt[int32](s, int(index))
+		}
+	}
+	return int32(0)
+}
+
+// SeriesElementAddI32 adds a scalar to all elements of a series.
+func (r *Runtime) SeriesElementAddI32(ctx context.Context, handle uint32, scalar int32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementSubI32 subtracts a scalar from all elements of a series.
+func (r *Runtime) SeriesElementSubI32(ctx context.Context, handle uint32, scalar int32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementMulI32 multiplies all elements of a series by a scalar.
+func (r *Runtime) SeriesElementMulI32(ctx context.Context, handle uint32, scalar int32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementDivI32 divides all elements of a series by a scalar.
+func (r *Runtime) SeriesElementDivI32(ctx context.Context, handle uint32, scalar int32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementModI32 computes modulo of all elements of a series by a scalar.
+func (r *Runtime) SeriesElementModI32(ctx context.Context, handle uint32, scalar int32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ModuloScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRSubI32 computes scalar - series (reverse subtract).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar - series'.
+func (r *Runtime) SeriesElementRSubI32(ctx context.Context, scalar int32, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseSubtractScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRDivI32 computes scalar / series (reverse divide).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar / series'.
+func (r *Runtime) SeriesElementRDivI32(ctx context.Context, scalar int32, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseDivideScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRAddI32 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddI32(ctx context.Context, scalar int32, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRMulI32 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulI32(ctx context.Context, scalar int32, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRModI32 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModI32(ctx context.Context, scalar int32, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesAddI32 adds two series element-wise.
+func (r *Runtime) SeriesSeriesAddI32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in addition")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddI32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesSubI32 subtracts two series element-wise.
+func (r *Runtime) SeriesSeriesSubI32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in subtraction")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractI32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesMulI32 multiplies two series element-wise.
+func (r *Runtime) SeriesSeriesMulI32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in multiplication")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyI32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesDivI32 divides two series element-wise.
+func (r *Runtime) SeriesSeriesDivI32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in division")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideI32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesModI32 computes modulo of two series element-wise.
+func (r *Runtime) SeriesSeriesModI32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in modulo")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.ModuloI32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTI32 compares two series element-wise (greater than).
+func (r *Runtime) SeriesCompareGTI32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanI32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTI32 compares two series element-wise (less than).
+func (r *Runtime) SeriesCompareLTI32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanI32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEI32 compares two series element-wise (greater or equal).
+func (r *Runtime) SeriesCompareGEI32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualI32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEI32 compares two series element-wise (less or equal).
+func (r *Runtime) SeriesCompareLEI32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualI32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQI32 compares two series element-wise (equal).
+func (r *Runtime) SeriesCompareEQI32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualI32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEI32 compares two series element-wise (not equal).
+func (r *Runtime) SeriesCompareNEI32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualI32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTScalarI32 compares series > scalar.
+func (r *Runtime) SeriesCompareGTScalarI32(ctx context.Context, handle uint32, scalar int32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTScalarI32 compares series < scalar.
+func (r *Runtime) SeriesCompareLTScalarI32(ctx context.Context, handle uint32, scalar int32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEScalarI32 compares series >= scalar.
+func (r *Runtime) SeriesCompareGEScalarI32(ctx context.Context, handle uint32, scalar int32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEScalarI32 compares series <= scalar.
+func (r *Runtime) SeriesCompareLEScalarI32(ctx context.Context, handle uint32, scalar int32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQScalarI32 compares series == scalar.
+func (r *Runtime) SeriesCompareEQScalarI32(ctx context.Context, handle uint32, scalar int32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEScalarI32 compares series != scalar.
+func (r *Runtime) SeriesCompareNEScalarI32(ctx context.Context, handle uint32, scalar int32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualScalarI32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// StateLoadSeriesI32 loads a persisted series, returns new handle.
+func (r *Runtime) StateLoadSeriesI32(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
+	key := stateKey(funcID, varID)
+	if s, ok := r.stateSeries[key]; ok {
+		return r.state.SeriesStore(s)
+	}
+	// Initialize from provided handle
+	if initS, ok := r.state.SeriesGet(initHandle); ok {
+		r.stateSeries[key] = initS
+	}
+	return initHandle
+}
+
+// StateStoreSeriesI32 persists a series to state.
+func (r *Runtime) StateStoreSeriesI32(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		r.stateSeries[stateKey(funcID, varID)] = s
+	}
+}
+
+// SeriesCreateEmptyI64 creates an empty series of the given length.
+func (r *Runtime) SeriesCreateEmptyI64(ctx context.Context, length uint32) uint32 {
+	s := telem.MakeSeries(telem.Int64T, int(length))
+	return r.state.SeriesStore(s)
+}
+
+// SeriesSetElementI64 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementI64(ctx context.Context, handle uint32, index uint32, value int64) uint32 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			telem.SetValueAt[int64](s, int(index), value)
+		}
+	}
+	return handle
+}
+
+// SeriesIndexI64 gets an element from a series at the given index.
+func (r *Runtime) SeriesIndexI64(ctx context.Context, handle uint32, index uint32) int64 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			return telem.ValueAt[int64](s, int(index))
+		}
+	}
+	return int64(0)
+}
+
+// SeriesElementAddI64 adds a scalar to all elements of a series.
+func (r *Runtime) SeriesElementAddI64(ctx context.Context, handle uint32, scalar int64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementSubI64 subtracts a scalar from all elements of a series.
+func (r *Runtime) SeriesElementSubI64(ctx context.Context, handle uint32, scalar int64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementMulI64 multiplies all elements of a series by a scalar.
+func (r *Runtime) SeriesElementMulI64(ctx context.Context, handle uint32, scalar int64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementDivI64 divides all elements of a series by a scalar.
+func (r *Runtime) SeriesElementDivI64(ctx context.Context, handle uint32, scalar int64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementModI64 computes modulo of all elements of a series by a scalar.
+func (r *Runtime) SeriesElementModI64(ctx context.Context, handle uint32, scalar int64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ModuloScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRSubI64 computes scalar - series (reverse subtract).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar - series'.
+func (r *Runtime) SeriesElementRSubI64(ctx context.Context, scalar int64, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseSubtractScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRDivI64 computes scalar / series (reverse divide).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar / series'.
+func (r *Runtime) SeriesElementRDivI64(ctx context.Context, scalar int64, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseDivideScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRAddI64 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddI64(ctx context.Context, scalar int64, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRMulI64 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulI64(ctx context.Context, scalar int64, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRModI64 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModI64(ctx context.Context, scalar int64, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesAddI64 adds two series element-wise.
+func (r *Runtime) SeriesSeriesAddI64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in addition")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddI64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesSubI64 subtracts two series element-wise.
+func (r *Runtime) SeriesSeriesSubI64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in subtraction")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractI64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesMulI64 multiplies two series element-wise.
+func (r *Runtime) SeriesSeriesMulI64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in multiplication")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyI64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesDivI64 divides two series element-wise.
+func (r *Runtime) SeriesSeriesDivI64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in division")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideI64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesModI64 computes modulo of two series element-wise.
+func (r *Runtime) SeriesSeriesModI64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in modulo")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.ModuloI64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTI64 compares two series element-wise (greater than).
+func (r *Runtime) SeriesCompareGTI64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanI64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTI64 compares two series element-wise (less than).
+func (r *Runtime) SeriesCompareLTI64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanI64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEI64 compares two series element-wise (greater or equal).
+func (r *Runtime) SeriesCompareGEI64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualI64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEI64 compares two series element-wise (less or equal).
+func (r *Runtime) SeriesCompareLEI64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualI64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQI64 compares two series element-wise (equal).
+func (r *Runtime) SeriesCompareEQI64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualI64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEI64 compares two series element-wise (not equal).
+func (r *Runtime) SeriesCompareNEI64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualI64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTScalarI64 compares series > scalar.
+func (r *Runtime) SeriesCompareGTScalarI64(ctx context.Context, handle uint32, scalar int64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTScalarI64 compares series < scalar.
+func (r *Runtime) SeriesCompareLTScalarI64(ctx context.Context, handle uint32, scalar int64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEScalarI64 compares series >= scalar.
+func (r *Runtime) SeriesCompareGEScalarI64(ctx context.Context, handle uint32, scalar int64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEScalarI64 compares series <= scalar.
+func (r *Runtime) SeriesCompareLEScalarI64(ctx context.Context, handle uint32, scalar int64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQScalarI64 compares series == scalar.
+func (r *Runtime) SeriesCompareEQScalarI64(ctx context.Context, handle uint32, scalar int64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEScalarI64 compares series != scalar.
+func (r *Runtime) SeriesCompareNEScalarI64(ctx context.Context, handle uint32, scalar int64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualScalarI64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// StateLoadSeriesI64 loads a persisted series, returns new handle.
+func (r *Runtime) StateLoadSeriesI64(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
+	key := stateKey(funcID, varID)
+	if s, ok := r.stateSeries[key]; ok {
+		return r.state.SeriesStore(s)
+	}
+	// Initialize from provided handle
+	if initS, ok := r.state.SeriesGet(initHandle); ok {
+		r.stateSeries[key] = initS
+	}
+	return initHandle
+}
+
+// StateStoreSeriesI64 persists a series to state.
+func (r *Runtime) StateStoreSeriesI64(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		r.stateSeries[stateKey(funcID, varID)] = s
+	}
+}
+
+// SeriesCreateEmptyF32 creates an empty series of the given length.
+func (r *Runtime) SeriesCreateEmptyF32(ctx context.Context, length uint32) uint32 {
+	s := telem.MakeSeries(telem.Float32T, int(length))
+	return r.state.SeriesStore(s)
+}
+
+// SeriesSetElementF32 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementF32(ctx context.Context, handle uint32, index uint32, value float32) uint32 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			telem.SetValueAt[float32](s, int(index), value)
+		}
+	}
+	return handle
+}
+
+// SeriesIndexF32 gets an element from a series at the given index.
+func (r *Runtime) SeriesIndexF32(ctx context.Context, handle uint32, index uint32) float32 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			return telem.ValueAt[float32](s, int(index))
+		}
+	}
+	return float32(0)
+}
+
+// SeriesElementAddF32 adds a scalar to all elements of a series.
+func (r *Runtime) SeriesElementAddF32(ctx context.Context, handle uint32, scalar float32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementSubF32 subtracts a scalar from all elements of a series.
+func (r *Runtime) SeriesElementSubF32(ctx context.Context, handle uint32, scalar float32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementMulF32 multiplies all elements of a series by a scalar.
+func (r *Runtime) SeriesElementMulF32(ctx context.Context, handle uint32, scalar float32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementDivF32 divides all elements of a series by a scalar.
+func (r *Runtime) SeriesElementDivF32(ctx context.Context, handle uint32, scalar float32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementModF32 computes modulo of all elements of a series by a scalar.
+func (r *Runtime) SeriesElementModF32(ctx context.Context, handle uint32, scalar float32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ModuloScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRSubF32 computes scalar - series (reverse subtract).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar - series'.
+func (r *Runtime) SeriesElementRSubF32(ctx context.Context, scalar float32, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseSubtractScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRDivF32 computes scalar / series (reverse divide).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar / series'.
+func (r *Runtime) SeriesElementRDivF32(ctx context.Context, scalar float32, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseDivideScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRAddF32 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddF32(ctx context.Context, scalar float32, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRMulF32 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulF32(ctx context.Context, scalar float32, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRModF32 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModF32(ctx context.Context, scalar float32, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesAddF32 adds two series element-wise.
+func (r *Runtime) SeriesSeriesAddF32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in addition")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddF32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesSubF32 subtracts two series element-wise.
+func (r *Runtime) SeriesSeriesSubF32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in subtraction")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractF32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesMulF32 multiplies two series element-wise.
+func (r *Runtime) SeriesSeriesMulF32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in multiplication")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyF32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesDivF32 divides two series element-wise.
+func (r *Runtime) SeriesSeriesDivF32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in division")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideF32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesModF32 computes modulo of two series element-wise.
+func (r *Runtime) SeriesSeriesModF32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in modulo")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.ModuloF32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTF32 compares two series element-wise (greater than).
+func (r *Runtime) SeriesCompareGTF32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanF32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTF32 compares two series element-wise (less than).
+func (r *Runtime) SeriesCompareLTF32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanF32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEF32 compares two series element-wise (greater or equal).
+func (r *Runtime) SeriesCompareGEF32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualF32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEF32 compares two series element-wise (less or equal).
+func (r *Runtime) SeriesCompareLEF32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualF32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQF32 compares two series element-wise (equal).
+func (r *Runtime) SeriesCompareEQF32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualF32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEF32 compares two series element-wise (not equal).
+func (r *Runtime) SeriesCompareNEF32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualF32(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTScalarF32 compares series > scalar.
+func (r *Runtime) SeriesCompareGTScalarF32(ctx context.Context, handle uint32, scalar float32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTScalarF32 compares series < scalar.
+func (r *Runtime) SeriesCompareLTScalarF32(ctx context.Context, handle uint32, scalar float32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEScalarF32 compares series >= scalar.
+func (r *Runtime) SeriesCompareGEScalarF32(ctx context.Context, handle uint32, scalar float32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEScalarF32 compares series <= scalar.
+func (r *Runtime) SeriesCompareLEScalarF32(ctx context.Context, handle uint32, scalar float32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQScalarF32 compares series == scalar.
+func (r *Runtime) SeriesCompareEQScalarF32(ctx context.Context, handle uint32, scalar float32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEScalarF32 compares series != scalar.
+func (r *Runtime) SeriesCompareNEScalarF32(ctx context.Context, handle uint32, scalar float32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualScalarF32(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// StateLoadSeriesF32 loads a persisted series, returns new handle.
+func (r *Runtime) StateLoadSeriesF32(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
+	key := stateKey(funcID, varID)
+	if s, ok := r.stateSeries[key]; ok {
+		return r.state.SeriesStore(s)
+	}
+	// Initialize from provided handle
+	if initS, ok := r.state.SeriesGet(initHandle); ok {
+		r.stateSeries[key] = initS
+	}
+	return initHandle
+}
+
+// StateStoreSeriesF32 persists a series to state.
+func (r *Runtime) StateStoreSeriesF32(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		r.stateSeries[stateKey(funcID, varID)] = s
+	}
+}
+
+// SeriesCreateEmptyF64 creates an empty series of the given length.
+func (r *Runtime) SeriesCreateEmptyF64(ctx context.Context, length uint32) uint32 {
+	s := telem.MakeSeries(telem.Float64T, int(length))
+	return r.state.SeriesStore(s)
+}
+
+// SeriesSetElementF64 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementF64(ctx context.Context, handle uint32, index uint32, value float64) uint32 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			telem.SetValueAt[float64](s, int(index), value)
+		}
+	}
+	return handle
+}
+
+// SeriesIndexF64 gets an element from a series at the given index.
+func (r *Runtime) SeriesIndexF64(ctx context.Context, handle uint32, index uint32) float64 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		if int64(index) < s.Len() {
+			return telem.ValueAt[float64](s, int(index))
+		}
+	}
+	return float64(0)
+}
+
+// SeriesElementAddF64 adds a scalar to all elements of a series.
+func (r *Runtime) SeriesElementAddF64(ctx context.Context, handle uint32, scalar float64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementSubF64 subtracts a scalar from all elements of a series.
+func (r *Runtime) SeriesElementSubF64(ctx context.Context, handle uint32, scalar float64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementMulF64 multiplies all elements of a series by a scalar.
+func (r *Runtime) SeriesElementMulF64(ctx context.Context, handle uint32, scalar float64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementDivF64 divides all elements of a series by a scalar.
+func (r *Runtime) SeriesElementDivF64(ctx context.Context, handle uint32, scalar float64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementModF64 computes modulo of all elements of a series by a scalar.
+func (r *Runtime) SeriesElementModF64(ctx context.Context, handle uint32, scalar float64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ModuloScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRSubF64 computes scalar - series (reverse subtract).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar - series'.
+func (r *Runtime) SeriesElementRSubF64(ctx context.Context, scalar float64, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseSubtractScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRDivF64 computes scalar / series (reverse divide).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar / series'.
+func (r *Runtime) SeriesElementRDivF64(ctx context.Context, scalar float64, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseDivideScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRAddF64 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddF64(ctx context.Context, scalar float64, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRMulF64 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulF64(ctx context.Context, scalar float64, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesElementRModF64 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModF64(ctx context.Context, scalar float64, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesAddF64 adds two series element-wise.
+func (r *Runtime) SeriesSeriesAddF64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in addition")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddF64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesSubF64 subtracts two series element-wise.
+func (r *Runtime) SeriesSeriesSubF64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in subtraction")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractF64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesMulF64 multiplies two series element-wise.
+func (r *Runtime) SeriesSeriesMulF64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in multiplication")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyF64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesDivF64 divides two series element-wise.
+func (r *Runtime) SeriesSeriesDivF64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in division")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideF64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesSeriesModF64 computes modulo of two series element-wise.
+func (r *Runtime) SeriesSeriesModF64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in modulo")
+	}
+	result := telem.Series{DataType: s1.DataType}
+	op.ModuloF64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTF64 compares two series element-wise (greater than).
+func (r *Runtime) SeriesCompareGTF64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanF64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTF64 compares two series element-wise (less than).
+func (r *Runtime) SeriesCompareLTF64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanF64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEF64 compares two series element-wise (greater or equal).
+func (r *Runtime) SeriesCompareGEF64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualF64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEF64 compares two series element-wise (less or equal).
+func (r *Runtime) SeriesCompareLEF64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualF64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQF64 compares two series element-wise (equal).
+func (r *Runtime) SeriesCompareEQF64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualF64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEF64 compares two series element-wise (not equal).
+func (r *Runtime) SeriesCompareNEF64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
+	if !ok1 || !ok2 {
+		return 0
+	}
+	if s1.Len() != s2.Len() {
+		panic("arc panic: series length mismatch in comparison")
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualF64(s1, s2, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGTScalarF64 compares series > scalar.
+func (r *Runtime) SeriesCompareGTScalarF64(ctx context.Context, handle uint32, scalar float64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLTScalarF64 compares series < scalar.
+func (r *Runtime) SeriesCompareLTScalarF64(ctx context.Context, handle uint32, scalar float64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareGEScalarF64 compares series >= scalar.
+func (r *Runtime) SeriesCompareGEScalarF64(ctx context.Context, handle uint32, scalar float64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareLEScalarF64 compares series <= scalar.
+func (r *Runtime) SeriesCompareLEScalarF64(ctx context.Context, handle uint32, scalar float64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareEQScalarF64 compares series == scalar.
+func (r *Runtime) SeriesCompareEQScalarF64(ctx context.Context, handle uint32, scalar float64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesCompareNEScalarF64 compares series != scalar.
+func (r *Runtime) SeriesCompareNEScalarF64(ctx context.Context, handle uint32, scalar float64) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualScalarF64(s, scalar, &result)
+	return r.state.SeriesStore(result)
+}
+
+// StateLoadSeriesF64 loads a persisted series, returns new handle.
+func (r *Runtime) StateLoadSeriesF64(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
+	key := stateKey(funcID, varID)
+	if s, ok := r.stateSeries[key]; ok {
+		return r.state.SeriesStore(s)
+	}
+	// Initialize from provided handle
+	if initS, ok := r.state.SeriesGet(initHandle); ok {
+		r.stateSeries[key] = initS
+	}
+	return initHandle
+}
+
+// StateStoreSeriesF64 persists a series to state.
+func (r *Runtime) StateStoreSeriesF64(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		r.stateSeries[stateKey(funcID, varID)] = s
+	}
+}
+
+// SeriesNegateI8 negates all elements of a series.
+func (r *Runtime) SeriesNegateI8(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.NegateI8(s, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesNegateI16 negates all elements of a series.
+func (r *Runtime) SeriesNegateI16(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.NegateI16(s, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesNegateI32 negates all elements of a series.
+func (r *Runtime) SeriesNegateI32(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.NegateI32(s, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesNegateI64 negates all elements of a series.
+func (r *Runtime) SeriesNegateI64(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.NegateI64(s, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesNegateF32 negates all elements of a series.
+func (r *Runtime) SeriesNegateF32(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.NegateF32(s, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesNegateF64 negates all elements of a series.
+func (r *Runtime) SeriesNegateF64(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.NegateF64(s, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesNotU8 performs logical NOT on a boolean series.
+func (r *Runtime) SeriesNotU8(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotU8(s, &result)
+	return r.state.SeriesStore(result)
+}
+
+// SeriesLen returns the length of a series.
+func (r *Runtime) SeriesLen(ctx context.Context, handle uint32) uint64 {
+	if s, ok := r.state.SeriesGet(handle); ok {
+		return uint64(s.Len())
+	}
+	return 0
+}
+
+// SeriesSlice returns a slice of a series.
+func (r *Runtime) SeriesSlice(ctx context.Context, handle uint32, start uint32, end uint32) uint32 {
+	s, ok := r.state.SeriesGet(handle)
+	if !ok {
+		return 0
+	}
+	length := int(s.Len())
+	startIdx := int(start)
+	endIdx := int(end)
+	if endIdx < 0 || endIdx > length {
+		endIdx = length
+	}
+	if startIdx < 0 {
+		startIdx = 0
+	}
+	if startIdx >= endIdx {
+		return 0
+	}
+	density := int(s.DataType.Density())
+	sliced := telem.Series{
+		DataType: s.DataType,
+		Data:     s.Data[startIdx*density : endIdx*density],
+	}
+	return r.state.SeriesStore(sliced)
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,7 +11,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import { SYNNAX_DARK, SYNNAX_LIGHT, type Theme, themeZ } from "@/theming/core/theme";
+import { SYNNAX_DARK, SYNNAX_LIGHT, type Theme, themeZ } from "@/theming/base/theme";
 import { toCSSVars } from "@/theming/css";
 
 const INDENTATION = "    ";
@@ -50,7 +50,10 @@ const generateStatic = (
   // Read the copyright header from the licenses directory
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  const headerPath = path.resolve(__dirname, "../../../licenses/headers/template.txt");
+  const headerPath = path.resolve(
+    __dirname,
+    "../../../../licenses/headers/template.txt",
+  );
   const headerContent = fs.readFileSync(headerPath, "utf-8").trim();
 
   // Replace template arguments

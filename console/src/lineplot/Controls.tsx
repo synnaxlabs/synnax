@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,7 +14,7 @@ import { location } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { Controls as Core } from "@/components";
+import { Controls as Base } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import {
@@ -64,7 +64,7 @@ export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   return (
-    <Core>
+    <Base>
       <Flex.Box x gap="small">
         <Viewport.SelectMode
           value={mode}
@@ -142,6 +142,6 @@ export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
           </Button.Toggle>
         </Flex.Box>
       )}
-    </Core>
+    </Base>
   );
 };

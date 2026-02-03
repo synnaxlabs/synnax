@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,9 +21,9 @@ import (
 const indexFile = "index" + extension
 
 type indexPersist struct {
-	Config
 	p   *pointerPersist
 	idx *index
+	Config
 }
 
 func openIndexPersist(idx *index, fs fs.FS) (*indexPersist, error) {
@@ -59,9 +59,9 @@ func (ip *indexPersist) Close() error {
 }
 
 type pointerPersist struct {
+	pointerCodec
 	fs.File
 	sync.Mutex
-	pointerCodec
 }
 
 func openPointerPersist(fs fs.FS) (*pointerPersist, error) {

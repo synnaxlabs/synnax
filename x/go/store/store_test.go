@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,17 +19,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type state struct {
-	value int
-}
+type state struct{ value int }
 
-func (s state) Copy() state {
-	return s
-}
-
-func copyState(s state) state {
-	return s
-}
+func copyState(s state) state { return s }
 
 var _ = Describe("Store", func() {
 	Describe("core", func() {
@@ -43,11 +35,11 @@ var _ = Describe("Store", func() {
 		It("Should initialize an observable store correctly", func() {
 			s := MustSucceed(store.WrapObservable(store.ObservableConfig[state, state]{
 				Store:     store.New(copyState),
-				Transform: store.PassthroughTransform[state],
+				Transform: func(_, next state) (state, bool) { return next, true },
 				GoNotify:  config.False(),
 			}))
 			var changedState state
-			s.OnChange(func(ctx context.Context, s state) { changedState = s })
+			s.OnChange(func(_ context.Context, s state) { changedState = s })
 			s.SetState(ctx, state{value: 2})
 			Expect(changedState.value).To(Equal(2))
 		})

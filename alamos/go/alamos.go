@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -69,11 +69,11 @@ type Instrumentation struct {
 	// R is the Reporter used by this instrumentation. This field should be considered
 	// read-only.
 	R *Reporter
+	// children stores all child instrumentation created by this instrumentation.
+	children map[string]Instrumentation
 	// Meta is the Metadata associated with this instrumentation. This field should be
 	// considered read-only.
 	Meta InstrumentationMeta
-	// children stores all child instrumentation created by this instrumentation.
-	children map[string]Instrumentation
 }
 
 // New instantiates new Instrumentation with the given key and options. The returned
@@ -167,8 +167,3 @@ func WithReporter(r *Reporter) Option { return func(ins *Instrumentation) { ins.
 
 // WithLogger configures the instrumentation to use the given Logger.
 func WithLogger(l *Logger) Option { return func(ins *Instrumentation) { ins.L = l } }
-
-// WithServiceName configures the instrumentation to use the given service name.
-func WithServiceName(sn string) Option {
-	return func(ins *Instrumentation) { ins.Meta.ServiceName = sn }
-}

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -39,7 +39,8 @@ void rack::Rack::run(xargs::Parser &args, const std::function<void()> &on_shutdo
         this->task_manager = std::make_unique<task::Manager>(
             cfg.rack,
             cfg.new_client(),
-            cfg.new_factory()
+            cfg.new_factory(),
+            cfg.manager
         );
         err = this->task_manager->run([this]() { this->breaker.reset(); });
         if (err && this->should_exit(err, on_shutdown)) return;

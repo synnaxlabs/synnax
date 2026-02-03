@@ -1,0 +1,65 @@
+name: Test - Docs
+
+on:
+  pull_request:
+    paths:
+      - .github/actions/test-typescript/**
+      - .github/workflows/test.docs.yaml
+      - alamos/ts/**
+      - arc/ts/**
+      - client/ts/**
+      - configs/eslint/**
+      - configs/ts/**
+      - configs/vite/**
+      - docs/site/**
+      - freighter/ts/**
+      - package.json
+      - pluto/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - x/media/**
+      - x/ts/**
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - .github/actions/test-typescript/**
+      - .github/workflows/test.docs.yaml
+      - alamos/ts/**
+      - arc/ts/**
+      - client/ts/**
+      - configs/eslint/**
+      - configs/ts/**
+      - configs/vite/**
+      - docs/site/**
+      - freighter/ts/**
+      - package.json
+      - pluto/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - x/media/**
+      - x/ts/**
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Test TypeScript
+        uses: ./.github/actions/test-typescript
+        with:
+          package: docs
+          test: false
+
+      - name: Build
+        run: pnpm build:docs

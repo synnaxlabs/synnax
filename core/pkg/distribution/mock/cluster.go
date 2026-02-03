@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -38,7 +38,6 @@ type Node struct {
 }
 
 type Cluster struct {
-	cfg         distribution.Config
 	storage     *mock.Cluster
 	Nodes       map[cluster.NodeKey]Node
 	writerNet   *tmock.FramerWriterNetwork
@@ -48,6 +47,7 @@ type Cluster struct {
 	deleteNet   *tmock.FramerDeleterNetwork
 	aspenNet    *aspentransmock.Network
 	addrFactory *address.Factory
+	cfg         distribution.Config
 }
 
 func ProvisionCluster(ctx context.Context, n int, cfgs ...distribution.Config) *Cluster {
@@ -59,7 +59,14 @@ func ProvisionCluster(ctx context.Context, n int, cfgs ...distribution.Config) *
 }
 
 func NewCluster(cfgs ...distribution.Config) *Cluster {
-	cfg, _ := config.New(distribution.Config{}, cfgs...)
+	// NOTE: We don't use config.New here because it returns a zero-value when
+	// validation fails (which it will since we don't have required fields).
+	// Instead, we manually merge the configs to preserve values like
+	// ValidateChannelNames.
+	var cfg distribution.Config
+	for _, c := range cfgs {
+		cfg = cfg.Override(c)
+	}
 	return &Cluster{
 		cfg:         cfg,
 		storage:     mock.NewCluster(),

@@ -1,0 +1,240 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Get Started"
+description: "Create and run your first Arc automation"
+prev: "Introduction"
+prevURL: "/reference/control/arc/introduction"
+next: "Sequences and Stages"
+nextURL: "/reference/control/arc/concepts/sequences-and-stages"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+This page walks you through creating, deploying, and running your first Arc automation.
+By the end, you'll have a working program that reads sensor data, processes it, and
+writes the result to another channel.
+
+<Divider.Divider x />
+
+## Create an Arc Automation
+
+Open the command palette (`Ctrl/Cmd + Shift + P`) and search for "Create an Arc
+automation". You can also click the "+" button in the toolbar or right-click a driver in
+the resources panel.
+
+<Video client:only="react" id="control/arc/get-started/create-automation" />
+
+Choose a name and select **Text** for the editor mode.
+
+<Divider.Divider x />
+
+## Your First Program
+
+Copy this code into the editor:
+
+```arc
+func scale_reading(value f64) f64 {
+    return value * 2.0
+}
+
+func output_reading() {
+    count f64 $= 10
+    count += 1
+    tank_pressure = count
+}
+
+tank_pressure -> scale_reading{} -> pressure_scaled
+
+interval{period=200ms} -> output_reading{}
+```
+
+This program has two parts that work together:
+
+1. **A data generator** — Every 200 milliseconds, `output_reading` increments a counter
+   (11, 12, 13, ...) and writes the value to `tank_pressure`
+2. **A processing pipeline** — Whenever `tank_pressure` updates, Arc automatically runs
+   `scale_reading` (which doubles the value) and writes the result to `pressure_scaled`
+
+The result: `pressure_scaled` will show 22, 24, 26, 28, ... updating five times per
+second. This demonstrates Arc's reactive model—you declare how data flows, and Arc
+handles the scheduling.
+
+You'll likely see red squiggly lines under `tank_pressure` and `pressure_scaled`. This
+indicates the channels don't exist in your cluster yet. To run this program, you'll need
+to create them first.
+
+### Creating the Channels
+
+Open the command palette (`Ctrl/Cmd + Shift + P`) and search for "Create Channel".
+Create two [virtual channels](/reference/concepts/channels#virtual-channels):
+
+| Name              | Virtual | Data Type |
+| ----------------- | ------- | --------- |
+| `tank_pressure`   | Yes     | `float64` |
+| `pressure_scaled` | Yes     | `float64` |
+
+`float64` is a 64-bit floating-point number—the
+[channel data type](/reference/concepts/channels#data-type) that corresponds to Arc's
+[`f64` type](/reference/control/arc/reference/types#floating-point-types). Use `float64`
+for channels that store decimal values like sensor readings.
+
+Virtual channels don't persist data to disk, making them ideal for testing automations.
+For more details on channel types and creation options, see
+[Console Channels](/reference/console/channels).
+
+Once created, the red squiggles will disappear and your program is ready to deploy.
+
+<Divider.Divider x />
+
+## Understanding the Syntax
+
+Let's break down the key parts:
+
+### Function with Input and Output
+
+```arc
+func scale_reading(value f64) f64 {
+    return value * 2.0
+}
+```
+
+- `func` starts a function declaration
+- `scale_reading` is the function name
+- `(value f64)` means the function takes one input named `value` of type `f64`
+- The second `f64` after the parentheses is the return type
+- `return value * 2.0` sends the computed result back
+
+### Stateful Variables
+
+```arc
+func output_reading() {
+    count f64 $= 10
+    count += 1
+    tank_pressure = count
+}
+```
+
+The `$=` operator creates a **stateful variable**—a value that persists across
+invocations. Regular variables (`:=`) reset every time the function runs, but stateful
+variables remember their value.
+
+Here, `count` starts at 10 the first time `output_reading` runs. Each subsequent call
+increments it: 11, 12, 13, and so on. The function then writes this value to
+`tank_pressure`.
+
+For more on stateful variables, see
+[Stateful Variables](/reference/control/arc/concepts/stateful-variables).
+
+### Flow Statements
+
+```arc
+tank_pressure -> scale_reading{} -> pressure_scaled
+```
+
+The `->` arrow creates a **flow**—a reactive connection that runs every time new data
+arrives:
+
+- `tank_pressure` is the source channel
+- `scale_reading{}` processes each value (the `{}` instantiates the function)
+- `pressure_scaled` receives the result
+
+Whenever something writes to `tank_pressure`, Arc automatically runs `scale_reading` and
+updates `pressure_scaled`.
+
+### Interval Timer
+
+```arc
+interval{period=200ms} -> output_reading{}
+```
+
+`interval` is a built-in that fires on a schedule. Here it triggers every 200
+milliseconds, which runs `output_reading` five times per second.
+
+This pattern—an interval driving a function—is common for control loops, periodic
+sampling, and generating test data.
+
+<Divider.Divider x />
+
+## Deploy to a Driver
+
+Arc automations run on a [driver](/reference/driver/get-started), the process that
+manages your hardware. To deploy:
+
+1. Select a driver from the dropdown in the editor toolbar
+2. Click **Configure** to upload the automation to Synnax
+3. Click the **Play** button to start execution
+
+<Video client:only="react" id="control/arc/get-started/deploy-automation" />
+
+The status indicator shows whether your automation is running, stopped, or has errors.
+You can stop execution at any time with the **Pause** button.
+
+<Divider.Divider x />
+
+## A Threshold Alarm
+
+Here's a more practical example that triggers a notification when pressure exceeds a
+limit. This builds on our previous example by adding alarm logic:
+
+```arc
+func output_reading() {
+    count f64 $= 10
+    count += 1
+    tank_pressure = count
+}
+
+func check_pressure{limit f64}(reading f64) u8 {
+    return reading > limit
+}
+
+tank_pressure -> check_pressure{limit=15.0} => set_status{
+    status_key="pressure_warning",
+    name="Tank Pressure Alarm",
+    variant="warning",
+    message="Tank pressure exceeded 15"
+}
+
+interval{period=200ms} -> output_reading{}
+```
+
+This program reuses `tank_pressure` from before, but now checks if the value exceeds 15.
+Since our counter starts at 10 and increments each cycle, you'll see the warning trigger
+after about one second (when count reaches 16).
+
+New concepts in this example:
+
+- **Config parameter** (`{limit f64}`): A constant set when the function is
+  instantiated. Here, `limit=15.0` sets the threshold
+- **Return type `u8`**: An unsigned 8-bit integer. The comparison `reading > limit`
+  returns 1 (true) or 0 (false)
+- **One-shot edge** (`=>`): Unlike `->` which runs every cycle, `=>` fires once when the
+  condition becomes true. This prevents the alarm from triggering repeatedly while
+  pressure stays above the limit
+- **Built-in function** (`set_status`): Displays a notification in the Console toolbar
+  when the input is truthy (non-zero)
+
+<Divider.Divider x />
+
+## What's Next
+
+You've created a basic Arc automation. The real power of Arc comes from **sequences**,
+which let you build multi-step procedures that progress through stages based on
+conditions.
+
+**Recommended next step**:
+[Sequences and Stages](/reference/control/arc/concepts/sequences-and-stages) to learn
+how to build test procedures, startup routines, and state machines.
+
+Or explore other topics:
+
+- **[Reactive Execution](/reference/control/arc/concepts/reactive-execution)**:
+  Understand how Arc schedules computations and the difference between continuous (`->`)
+  and one-shot (`=>`) edges
+- **[Channels and Series](/reference/control/arc/concepts/channels-and-series)**: Work
+  with telemetry data and array operations
+- **[Stateful Variables](/reference/control/arc/concepts/stateful-variables)**: Persist
+  values across executions for counters and rate-of-change detection

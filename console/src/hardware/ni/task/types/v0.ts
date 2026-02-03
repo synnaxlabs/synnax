@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,16 +20,18 @@ const portZ = z.number().int().nonnegative();
 const lineZ = z.number().int().nonnegative();
 
 const analogChannelExtensionShape = { port: portZ };
-interface AnalogChannelExtension
-  extends z.infer<z.ZodObject<typeof analogChannelExtensionShape>> {}
+interface AnalogChannelExtension extends z.infer<
+  z.ZodObject<typeof analogChannelExtensionShape>
+> {}
 const ZERO_ANALOG_CHANNEL_EXTENSION: AnalogChannelExtension = { port: 0 };
 
 const digitalChannelExtensionShape = {
   port: portZ,
   line: lineZ,
 };
-interface DigitalChannelExtension
-  extends z.infer<z.ZodObject<typeof digitalChannelExtensionShape>> {}
+interface DigitalChannelExtension extends z.infer<
+  z.ZodObject<typeof digitalChannelExtensionShape>
+> {}
 const ZERO_DIGITAL_CHANNEL_EXTENSION: DigitalChannelExtension = { port: 0, line: 0 };
 
 const baseAIChanZ = Common.Task.readChannelZ.extend(analogChannelExtensionShape);
@@ -422,8 +424,9 @@ export const aiForceBridgeTableChanZ = baseAIChanZ.extend({
   units: forceUnitsZ,
   physicalUnits: forceUnitsZ,
 });
-export interface AIForceBridgeTableChan
-  extends z.infer<typeof aiForceBridgeTableChanZ> {}
+export interface AIForceBridgeTableChan extends z.infer<
+  typeof aiForceBridgeTableChanZ
+> {}
 export const ZERO_AI_FORCE_BRIDGE_TABLE_CHAN: AIForceBridgeTableChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_MIN_MAX_VAL,
@@ -464,8 +467,9 @@ export const aiForceBridgeTwoPointLinChanZ = baseAIChanZ.extend({
   units: forceUnitsZ,
   physicalUnits: forceUnitsZ,
 });
-export interface AIForceBridgeTwoPointLinChan
-  extends z.infer<typeof aiForceBridgeTwoPointLinChanZ> {}
+export interface AIForceBridgeTwoPointLinChan extends z.infer<
+  typeof aiForceBridgeTwoPointLinChanZ
+> {}
 export const ZERO_AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN: AIForceBridgeTwoPointLinChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_MIN_MAX_VAL,
@@ -545,8 +549,9 @@ export const aiPressureBridgeTableChanZ = baseAIChanZ.extend({
   units: pressureUnitsZ,
   physicalUnits: pressureUnitsZ,
 });
-export interface AIPressureBridgeTableChan
-  extends z.infer<typeof aiPressureBridgeTableChanZ> {}
+export interface AIPressureBridgeTableChan extends z.infer<
+  typeof aiPressureBridgeTableChanZ
+> {}
 export const ZERO_AI_PRESSURE_BRIDGE_TABLE_CHAN: AIPressureBridgeTableChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_MIN_MAX_VAL,
@@ -572,8 +577,9 @@ export const aiPressureBridgeTwoPointLinChanZ = baseAIChanZ.extend({
   units: pressureUnitsZ,
   physicalUnits: pressureUnitsZ,
 });
-export interface AIPressureBridgeTwoPointLinChan
-  extends z.infer<typeof aiPressureBridgeTwoPointLinChanZ> {}
+export interface AIPressureBridgeTwoPointLinChan extends z.infer<
+  typeof aiPressureBridgeTwoPointLinChanZ
+> {}
 export const ZERO_AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN: AIPressureBridgeTwoPointLinChan =
   {
     ...ZERO_BASE_AI_CHAN,
@@ -789,8 +795,9 @@ export const aiTorqueBridgeTableChanZ = baseAIChanZ.extend({
   units: torqueUnitsZ,
   physicalUnits: torqueUnitsZ,
 });
-export interface AITorqueBridgeTableChan
-  extends z.infer<typeof aiTorqueBridgeTableChanZ> {}
+export interface AITorqueBridgeTableChan extends z.infer<
+  typeof aiTorqueBridgeTableChanZ
+> {}
 export const ZERO_AI_TORQUE_BRIDGE_TABLE_CHAN: AITorqueBridgeTableChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_MIN_MAX_VAL,
@@ -816,8 +823,9 @@ export const aiTorqueBridgeTwoPointLinChanZ = baseAIChanZ.extend({
   units: torqueUnitsZ,
   physicalUnits: torqueUnitsZ,
 });
-interface AITorqueBridgeTwoPointLinChan
-  extends z.infer<typeof aiTorqueBridgeTwoPointLinChanZ> {}
+interface AITorqueBridgeTwoPointLinChan extends z.infer<
+  typeof aiTorqueBridgeTwoPointLinChanZ
+> {}
 export const ZERO_AI_TORQUE_BRIDGE_TWO_POINT_LIN_CHAN: AITorqueBridgeTwoPointLinChan = {
   ...ZERO_BASE_AI_CHAN,
   ...ZERO_MIN_MAX_VAL,
@@ -954,8 +962,9 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
 };
 
 const counterChannelExtensionShape = { port: portZ, device: Common.Device.keyZ };
-interface CounterChannelExtension
-  extends z.infer<z.ZodObject<typeof counterChannelExtensionShape>> {}
+interface CounterChannelExtension extends z.infer<
+  z.ZodObject<typeof counterChannelExtensionShape>
+> {}
 const ZERO_COUNTER_CHANNEL_EXTENSION: CounterChannelExtension = { port: 0, device: "" };
 
 const baseCIChanZ = Common.Task.readChannelZ.extend(counterChannelExtensionShape);
@@ -1543,7 +1552,7 @@ export const ZERO_DO_CHANNEL: DOChannel = {
 export type DigitalChannel = DIChannel | DOChannel;
 
 const baseReadConfigZ = Common.Task.baseReadConfigZ.extend({
-  sampleRate: z.number().positive().max(100000),
+  sampleRate: z.number().positive().max(1000000),
   streamRate: z.number().positive().max(20000),
 });
 interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
@@ -1629,12 +1638,11 @@ export const ANALOG_READ_TYPE = `${PREFIX}_analog_read`;
 export const analogReadTypeZ = z.literal(ANALOG_READ_TYPE);
 export type AnalogReadType = z.infer<typeof analogReadTypeZ>;
 
-interface AnalogReadPayload
-  extends task.Payload<
-    typeof analogReadTypeZ,
-    typeof analogReadConfigZ,
-    typeof analogReadStatusDataZ
-  > {}
+interface AnalogReadPayload extends task.Payload<
+  typeof analogReadTypeZ,
+  typeof analogReadConfigZ,
+  typeof analogReadStatusDataZ
+> {}
 export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   key: "",
   name: "NI Analog Read Task",
@@ -1678,12 +1686,11 @@ export const COUNTER_READ_TYPE = `${PREFIX}_counter_read`;
 export const counterReadTypeZ = z.literal(COUNTER_READ_TYPE);
 export type CounterReadType = z.infer<typeof counterReadTypeZ>;
 
-export interface CounterReadPayload
-  extends task.Payload<
-    typeof counterReadTypeZ,
-    typeof counterReadConfigZ,
-    typeof counterReadStatusDataZ
-  > {}
+export interface CounterReadPayload extends task.Payload<
+  typeof counterReadTypeZ,
+  typeof counterReadConfigZ,
+  typeof counterReadStatusDataZ
+> {}
 export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
   key: "",
   name: "NI Counter Read Task",
@@ -1691,14 +1698,15 @@ export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
   type: COUNTER_READ_TYPE,
 };
 
-export interface CounterReadTask
-  extends task.Task<
-    typeof counterReadTypeZ,
-    typeof counterReadConfigZ,
-    typeof counterReadStatusDataZ
-  > {}
-export interface NewCounterReadTask
-  extends task.New<typeof counterReadTypeZ, typeof counterReadConfigZ> {}
+export interface CounterReadTask extends task.Task<
+  typeof counterReadTypeZ,
+  typeof counterReadConfigZ,
+  typeof counterReadStatusDataZ
+> {}
+export interface NewCounterReadTask extends task.New<
+  typeof counterReadTypeZ,
+  typeof counterReadConfigZ
+> {}
 
 export const analogWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
@@ -1718,12 +1726,11 @@ export const ANALOG_WRITE_TYPE = `${PREFIX}_analog_write`;
 export const analogWriteTypeZ = z.literal(ANALOG_WRITE_TYPE);
 export type AnalogWriteType = z.infer<typeof analogWriteTypeZ>;
 
-export interface AnalogWritePayload
-  extends task.Payload<
-    typeof analogWriteTypeZ,
-    typeof analogWriteConfigZ,
-    typeof analogWriteStatusDataZ
-  > {}
+export interface AnalogWritePayload extends task.Payload<
+  typeof analogWriteTypeZ,
+  typeof analogWriteConfigZ,
+  typeof analogWriteStatusDataZ
+> {}
 export const ZERO_ANALOG_WRITE_PAYLOAD: AnalogWritePayload = {
   key: "",
   name: "NI Analog Write Task",
@@ -1731,14 +1738,15 @@ export const ZERO_ANALOG_WRITE_PAYLOAD: AnalogWritePayload = {
   type: ANALOG_WRITE_TYPE,
 };
 
-export interface AnalogWriteTask
-  extends task.Task<
-    typeof analogWriteTypeZ,
-    typeof analogWriteConfigZ,
-    typeof analogWriteStatusDataZ
-  > {}
-export interface NewAnalogWriteTask
-  extends task.New<typeof analogWriteTypeZ, typeof analogWriteConfigZ> {}
+export interface AnalogWriteTask extends task.Task<
+  typeof analogWriteTypeZ,
+  typeof analogWriteConfigZ,
+  typeof analogWriteStatusDataZ
+> {}
+export interface NewAnalogWriteTask extends task.New<
+  typeof analogWriteTypeZ,
+  typeof analogWriteConfigZ
+> {}
 
 export const digitalReadConfigZ = baseReadConfigZ
   .extend({
@@ -1761,12 +1769,11 @@ export const DIGITAL_READ_TYPE = `${PREFIX}_digital_read`;
 export const digitalReadTypeZ = z.literal(DIGITAL_READ_TYPE);
 export type DigitalReadType = z.infer<typeof digitalReadTypeZ>;
 
-export interface DigitalReadPayload
-  extends task.Payload<
-    typeof digitalReadTypeZ,
-    typeof digitalReadConfigZ,
-    typeof digitalReadStatusDataZ
-  > {}
+export interface DigitalReadPayload extends task.Payload<
+  typeof digitalReadTypeZ,
+  typeof digitalReadConfigZ,
+  typeof digitalReadStatusDataZ
+> {}
 export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
   key: "",
   name: "NI Digital Read Task",
@@ -1774,14 +1781,15 @@ export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
   type: DIGITAL_READ_TYPE,
 };
 
-export interface DigitalReadTask
-  extends task.Task<
-    typeof digitalReadTypeZ,
-    typeof digitalReadConfigZ,
-    typeof digitalReadStatusDataZ
-  > {}
-export interface NewDigitalReadTask
-  extends task.New<typeof digitalReadTypeZ, typeof digitalReadConfigZ> {}
+export interface DigitalReadTask extends task.Task<
+  typeof digitalReadTypeZ,
+  typeof digitalReadConfigZ,
+  typeof digitalReadStatusDataZ
+> {}
+export interface NewDigitalReadTask extends task.New<
+  typeof digitalReadTypeZ,
+  typeof digitalReadConfigZ
+> {}
 
 export const digitalWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
@@ -1802,12 +1810,11 @@ export const DIGITAL_WRITE_TYPE = `${PREFIX}_digital_write`;
 export const digitalWriteTypeZ = z.literal(DIGITAL_WRITE_TYPE);
 export type DigitalWriteType = z.infer<typeof digitalWriteTypeZ>;
 
-export interface DigitalWritePayload
-  extends task.Payload<
-    typeof digitalWriteTypeZ,
-    typeof digitalWriteConfigZ,
-    typeof digitalWriteStatusDataZ
-  > {}
+export interface DigitalWritePayload extends task.Payload<
+  typeof digitalWriteTypeZ,
+  typeof digitalWriteConfigZ,
+  typeof digitalWriteStatusDataZ
+> {}
 export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
   key: "",
   name: "NI Digital Write Task",
@@ -1815,14 +1822,15 @@ export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
   type: DIGITAL_WRITE_TYPE,
 };
 
-export interface DigitalWriteTask
-  extends task.Task<
-    typeof digitalWriteTypeZ,
-    typeof digitalWriteConfigZ,
-    typeof digitalWriteStatusDataZ
-  > {}
-export interface NewDigitalWriteTask
-  extends task.New<typeof digitalWriteTypeZ, typeof digitalWriteConfigZ> {}
+export interface DigitalWriteTask extends task.Task<
+  typeof digitalWriteTypeZ,
+  typeof digitalWriteConfigZ,
+  typeof digitalWriteStatusDataZ
+> {}
+export interface NewDigitalWriteTask extends task.New<
+  typeof digitalWriteTypeZ,
+  typeof digitalWriteConfigZ
+> {}
 
 export const scanStatusDataZ = z.unknown();
 export type ScanStatusDetails = task.Status<typeof scanStatusDataZ>;
@@ -1836,9 +1844,15 @@ export const scanConfigZ = z.object({
 });
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
-export interface ScanPayload
-  extends task.Payload<typeof scanTypeZ, typeof scanConfigZ, typeof scanStatusDataZ> {}
+export interface ScanPayload extends task.Payload<
+  typeof scanTypeZ,
+  typeof scanConfigZ,
+  typeof scanStatusDataZ
+> {}
 
-export interface ScanTask
-  extends task.Task<typeof scanTypeZ, typeof scanConfigZ, typeof scanStatusDataZ> {}
+export interface ScanTask extends task.Task<
+  typeof scanTypeZ,
+  typeof scanConfigZ,
+  typeof scanStatusDataZ
+> {}
 export interface NewScanTask extends task.New<typeof scanTypeZ, typeof scanConfigZ> {}

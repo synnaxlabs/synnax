@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -68,11 +68,11 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			Describe("Details Handling", func() {
 				It("Should correctly return a custom error to the client", func() {
 					server.BindHandler(func(ctx context.Context, req request) (response, error) {
-						return response{}, myCustomError
+						return response{}, errCustom
 					})
 					req := request{ID: 1, Message: "hello"}
 					_, err := client.Send(context.TODO(), addr, req)
-					Expect(err).To(Equal(myCustomError))
+					Expect(err).To(Equal(errCustom))
 				})
 			})
 			Describe("Middleware", func() {

@@ -3,15 +3,25 @@ name: Test - Alamos (Python)
 on:
   pull_request:
     paths:
+      - .github/actions/test-python/**
       - .github/workflows/test.alamos.py.yaml
       - alamos/py/**
+      - codecov.yaml
+      - pyproject.toml
+      - uv.lock
+      - uv.toml
   push:
     branches:
       - main
       - rc
     paths:
+      - .github/actions/test-python/**
       - .github/workflows/test.alamos.py.yaml
       - alamos/py/**
+      - codecov.yaml
+      - pyproject.toml
+      - uv.lock
+      - uv.toml
   workflow_dispatch:
 
 jobs:
@@ -31,40 +41,18 @@ jobs:
           - os:
               ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
               'windows-latest' }}
-
     runs-on: ${{ matrix.os }}
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
-      - name: Set up Poetry
-        run: pipx install poetry
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Test Python
+        uses: ./.github/actions/test-python
         with:
-          python-version-file: alamos/py/pyproject.toml
-          cache: poetry
-
-      - name: Install Dependencies
-        run: poetry install
-        working-directory: alamos/py
-
-      - name: isort
-        if: matrix.format
-        run: poetry run isort -c .
-        working-directory: alamos/py
-
-      - name: Format
-        if: matrix.format
-        run: poetry run black --check --diff --color .
-        working-directory: alamos/py
-
-      - name: Mypy
-        if: matrix.format
-        run: poetry run mypy .
-        working-directory: alamos/py
-
-      - name: Test
-        run: poetry run pytest
-        working-directory: alamos/py
+          directory: alamos/py
+          coverage: true
+          coverage_module: alamos
+          coverage_flag: alamos-py
+          format_check: ${{ matrix.format }}

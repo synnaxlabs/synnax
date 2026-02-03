@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,29 +9,54 @@
 
 import { lineplot } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { LinePlot } from "@/lineplot";
 import { CreateIcon, ImportIcon } from "@/lineplot/services/Icon";
 import { import_ } from "@/lineplot/services/import";
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 
-const CREATE_COMMAND: Palette.Command = {
-  key: "create-line-plot",
-  name: "Create a Line Plot",
-  icon: <CreateIcon />,
-  onSelect: ({ placeLayout }) => placeLayout(LinePlot.create()),
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: lineplot.TYPE_ONTOLOGY_ID, store, client }),
+const useVisible = () => Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);
+
+export const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
+  const handleSelect = useCallback(() => placeLayout(LinePlot.create()), [placeLayout]);
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Create a Line Plot"
+      icon={<CreateIcon />}
+      onSelect={handleSelect}
+    />
+  );
 };
+CreateCommand.key = "create-line-plot";
+CreateCommand.commandName = "Create a Line Plot";
+CreateCommand.useVisible = useVisible;
 
-const IMPORT_COMMAND: Palette.Command = {
-  key: "import-line-plot",
-  name: "Import Line Plot(s)",
-  sortOrder: -1,
-  icon: <ImportIcon />,
-  onSelect: import_,
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: lineplot.TYPE_ONTOLOGY_ID, store, client }),
+export const ImportCommand: Palette.Command = ({
+  placeLayout,
+  handleError,
+  store,
+  client,
+  fluxStore,
+  ...listProps
+}) => {
+  const handleSelect = useCallback(
+    () => import_({ placeLayout, handleError, store, client, fluxStore }),
+    [placeLayout, handleError, store, client, fluxStore],
+  );
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Import Line Plot(s)"
+      icon={<ImportIcon />}
+      onSelect={handleSelect}
+    />
+  );
 };
+ImportCommand.key = "import-line-plot";
+ImportCommand.commandName = "Import Line Plot(s)";
+ImportCommand.sortOrder = -1;
+ImportCommand.useVisible = useVisible;
 
-export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];
+export const COMMANDS = [CreateCommand, ImportCommand];

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,7 @@ package alamos
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -53,16 +54,16 @@ var (
 	_ config.Config[TracingConfig] = (*TracingConfig)(nil)
 	// DefaultTracingConfig is the default configuration for a Tracer.
 	DefaultTracingConfig = TracingConfig{
-		Filter: ThresholdEnvFilter(Bench),
+		Filter: ThresholdEnvFilter(EnvironmentBench),
 	}
 )
 
 // Validate implements config.Config.
 func (c TracingConfig) Validate() error {
-	v := validate.New("alamos.TracingConfig")
-	validate.NotNil(v, "OtelProvider", c.OtelProvider)
-	validate.NotNil(v, "OtelPropagator", c.OtelPropagator)
-	validate.NotNil(v, "Filter", c.Filter)
+	v := validate.New("alamos.tracing_config")
+	validate.NotNil(v, "otel_provider", c.OtelProvider)
+	validate.NotNil(v, "otel_propagator", c.OtelPropagator)
+	validate.NotNil(v, "filter", c.Filter)
 	return v.Error()
 }
 
@@ -79,9 +80,9 @@ func (c TracingConfig) Override(other TracingConfig) TracingConfig {
 // be used as part of Instrumentation. To creat a Tracer, use NewTracer and pass
 // it in a call to alamos.New using the WithTracer option.
 type Tracer struct {
-	meta        InstrumentationMeta
-	_otelTracer oteltrace.Tracer
 	config      TracingConfig
+	_otelTracer oteltrace.Tracer
+	meta        InstrumentationMeta
 }
 
 // NewTracer initializes a new devTracer using the given configuration. If no configuration
@@ -98,26 +99,26 @@ func NewTracer(configs ...TracingConfig) (*Tracer, error) {
 // Debug starts a span at the debug level with the given key. If the context is already
 // wrapped in a span, the span will be a child of the existing span.
 func (t *Tracer) Debug(ctx context.Context, key string) (context.Context, Span) {
-	return t.Trace(ctx, key, Debug)
+	return t.Trace(ctx, key, EnvironmentDebug)
 }
 
 // Prod starts a span at the production level. If the context is already wrapped in a
 // span, the span will be a child of the existing span.
 func (t *Tracer) Prod(ctx context.Context, key string) (context.Context, Span) {
-	return t.Trace(ctx, key, Prod)
+	return t.Trace(ctx, key, EnvironmentProd)
 }
 
 // Bench starts a span at the benchmark level. If the context is already wrapped in a
 // span, the span will be a child of the existing span.
 func (t *Tracer) Bench(ctx context.Context, key string) (context.Context, Span) {
-	return t.Trace(ctx, key, Bench)
+	return t.Trace(ctx, key, EnvironmentBench)
 }
 
 // Trace wraps the given context in a span with the given key and level. If the context
 // is already wrapped in a span, the span will be a child of the existing span.
 func (t *Tracer) Trace(ctx context.Context, key string, env Environment) (context.Context, Span) {
 	if t == nil || !t.config.Filter(env, key) {
-		return ctx, nopSpanV
+		return ctx, nopSpan{}
 	}
 	spanKey := t.meta.extendPath(key)
 	ctx, otel := t.otelTracer().Start(ctx, spanKey)
@@ -156,8 +157,8 @@ func (t *Tracer) child(meta InstrumentationMeta) (nt *Tracer) {
 }
 
 type span struct {
-	key  string
 	otel oteltrace.Span
+	key  string
 }
 
 var _ Span = span{}
@@ -172,7 +173,7 @@ func (s span) Error(err error, exclude ...error) error {
 	}
 	s.otel.RecordError(err)
 	if !errors.IsAny(err, exclude...) {
-		s.Status(Error)
+		s.Status(StatusError)
 	}
 	return err
 }
@@ -196,8 +197,6 @@ func (s span) EndWith(err error, exclude ...error) error {
 
 // nopSpan is a span that does nothing.
 type nopSpan struct{}
-
-var nopSpanV Span = nopSpan{}
 
 func (s nopSpan) Key() string { return "" }
 

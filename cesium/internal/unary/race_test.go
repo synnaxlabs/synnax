@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,10 +14,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -26,9 +26,9 @@ var _ = Describe("Unary racing", func() {
 	for fsName, makeFS := range FileSystems {
 		Context("FS:"+fsName, func() {
 			var (
-				fs                xfs.FS
+				fs                fs.FS
 				cleanUp           func() error
-				indexKey, dataKey core.ChannelKey
+				indexKey, dataKey channel.Key
 				indexDB           *unary.DB
 				dataDB            *unary.DB
 			)
@@ -40,7 +40,7 @@ var _ = Describe("Unary racing", func() {
 				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        indexFS,
 					MetaCodec: codec,
-					Channel: core.Channel{
+					Channel: channel.Channel{
 						Name:     "Anker",
 						Key:      indexKey,
 						IsIndex:  true,
@@ -52,7 +52,7 @@ var _ = Describe("Unary racing", func() {
 				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        dataFS,
 					MetaCodec: codec,
-					Channel: core.Channel{
+					Channel: channel.Channel{
 						Name:     "Jimmy",
 						Key:      dataKey,
 						DataType: telem.Int64T,

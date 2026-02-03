@@ -1,0 +1,302 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Sequences"
+description:
+  "Arc sequence and stage reference for state machine declarations, transitions, and
+  entry points"
+prev: "Functions"
+prevURL: "/reference/control/arc/reference/functions"
+next: "Built-In Functions"
+nextURL: "/reference/control/arc/reference/built-ins"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+## Sequence Declaration
+
+```arc
+sequence name {
+    stage stage1 {
+        // flow statements
+    }
+    stage stage2 {
+        // flow statements
+    }
+}
+```
+
+A sequence is a state machine containing ordered stages. Only one stage is active at a
+time per sequence.
+
+<Divider.Divider x />
+
+## Stage Declaration
+
+```arc
+stage name {
+    flow_statement,
+    flow_statement,
+    flow_statement
+}
+```
+
+Stage bodies contain flow statements separated by commas. All flow statements in a stage
+run concurrently while the stage is active.
+
+### Stage Body Syntax
+
+```arc
+stage pressurize {
+    // Continuous flows (run every cycle)
+    1 -> press_vlv_cmd,
+    sensor -> controller{},
+
+    // One-shot transitions (fire once)
+    pressure > 500 => next,
+    abort_btn => abort
+}
+```
+
+<Divider.Divider x />
+
+## Flow Operators in Stages
+
+### Continuous Flow (`->`)
+
+Runs every execution cycle while the stage is active:
+
+```arc
+stage active {
+    1 -> valve_cmd,              // keeps valve open
+    sensor -> filter{} -> output // processes every sample
+}
+```
+
+### One-Shot Flow (`=>`)
+
+Fires once when condition becomes true, then stops:
+
+```arc
+stage wait {
+    pressure > 500 => next       // fires once
+}
+```
+
+One-shot state resets when the stage is re-entered.
+
+<Divider.Divider x />
+
+## Transition Targets
+
+| Target          | Description                                        |
+| --------------- | -------------------------------------------------- |
+| `next`          | Go to next stage in definition order               |
+| `stage_name`    | Jump to named stage in same sequence               |
+| `sequence_name` | Jump to different sequence (starts at first stage) |
+
+### Using `next`
+
+```arc
+sequence test {
+    stage step1 {
+        condition => next    // goes to step2
+    }
+    stage step2 {
+        condition => next    // goes to step3
+    }
+    stage step3 {
+        // terminal stage
+    }
+}
+```
+
+<Note.Note variant="warning">
+  Using `next` on the last stage in a sequence is a compile-time error.
+</Note.Note>
+
+### Named Stage Transitions
+
+```arc
+sequence test {
+    stage idle {
+        start_btn => pressurize
+    }
+    stage pressurize {
+        pressure > 500 => hold,
+        abort_btn => idle        // can go backwards
+    }
+    stage hold {
+        wait{duration=10s} => complete
+    }
+    stage complete {
+        // terminal
+    }
+}
+```
+
+### Cross-Sequence Transitions
+
+```arc
+sequence main {
+    stage pressurize {
+        emergency => abort       // jumps to abort sequence
+    }
+}
+
+sequence abort {
+    stage safed {
+        0 -> all_valves_cmd
+    }
+}
+```
+
+Cross-sequence transitions:
+
+1. Deactivate current stage in source sequence
+2. Activate first stage of target sequence
+3. No built-in "return" mechanism
+
+<Divider.Divider x />
+
+## Entry Points
+
+Entry points trigger sequences from external events:
+
+```arc
+start_cmd => main           // channel triggers main sequence
+emergency_stop => abort     // channel triggers abort sequence
+```
+
+Entry points use `=>` because they fire once when the channel value becomes truthy.
+
+### Triggering Sequences
+
+Entry point channels are typically `u8` virtual channels:
+
+1. Create a `u8` virtual channel in Synnax (e.g., `start_cmd`)
+2. Wire the channel to a button in Console
+3. When clicked, the button writes `1` to the channel
+4. Arc sees the truthy value and triggers the sequence
+
+<Divider.Divider x />
+
+## Stage Entry Semantics
+
+When entering a stage:
+
+1. All one-shot (`=>`) transition states reset (can fire again)
+2. All stateful variables in stage nodes reset
+3. Continuous flows (`->`) start fresh
+
+Stages are stateless between entries.
+
+<Divider.Divider x />
+
+## Concurrency Within Stages
+
+All flow statements in a stage run concurrently:
+
+```arc
+stage pressurize {
+    // ALL of these run simultaneously
+    sensor -> controller{target=500},    // control loop
+    ox_pt_1 > 600 => abort,              // monitoring
+    fuel_pt_1 > 400 => abort,            // monitoring
+    abort_btn => abort,                   // listening
+    pressure > 500 => next               // success check
+}
+```
+
+### Line Order and Priority
+
+When multiple one-shot transitions (`=>`) are true simultaneously, the first one listed
+wins:
+
+```arc
+stage pressurize {
+    // Safety conditions first (higher priority)
+    ox_pt_1 > 600 => abort,       // 1st priority
+    fuel_pt_1 > 400 => abort,     // 2nd priority
+    abort_btn => abort,           // 3rd priority
+
+    // Success condition after safety
+    pressure > 500 => next        // only if no abort
+}
+```
+
+For continuous flows (`->`), if multiple flows write to the same channel, last write
+wins based on line order.
+
+<Divider.Divider x />
+
+## Complete Example
+
+```arc
+sequence main {
+    stage idle {
+        0 -> press_vlv_cmd,
+        0 -> vent_vlv_cmd,
+        start_btn => pressurize
+    }
+
+    stage pressurize {
+        // Safety first
+        ox_pt_1 > 700 => abort,
+        fuel_pt_1 > 500 => abort,
+        abort_btn => abort,
+
+        // Control
+        1 -> press_vlv_cmd,
+        0 -> vent_vlv_cmd,
+
+        // Progress
+        ox_pt_1 > 500 => hold
+    }
+
+    stage hold {
+        ox_pt_1 > 700 => abort,
+        abort_btn => abort,
+
+        1 -> press_vlv_cmd,
+        wait{duration=5s} => vent
+    }
+
+    stage vent {
+        0 -> press_vlv_cmd,
+        1 -> vent_vlv_cmd,
+        ox_pt_1 < 50 => complete
+    }
+
+    stage complete {
+        0 -> press_vlv_cmd,
+        0 -> vent_vlv_cmd
+    }
+}
+
+sequence abort {
+    stage safed {
+        0 -> press_vlv_cmd,
+        0 -> vent_vlv_cmd,
+        1 -> vent_vlv_cmd
+    }
+}
+
+// Entry points
+start_cmd => main
+emergency_stop => abort
+```
+
+<Divider.Divider x />
+
+## Restrictions
+
+| Restriction                 | Description                                            |
+| --------------------------- | ------------------------------------------------------ |
+| One active stage            | Only one stage per sequence is active at a time        |
+| No `next` on last stage     | Using `next` on the final stage is an error            |
+| Entry points at top level   | Entry points must be outside sequences                 |
+| Acyclic continuous flows    | Continuous flows (`->`) within a stage must be acyclic |
+| Stage transitions can cycle | One-shot transitions (`=>`) can form cycles            |

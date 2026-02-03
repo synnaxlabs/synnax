@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -36,26 +36,26 @@ func fileKeyToName(key uint16) string {
 // fileReaders represents readers on a file. It provides a mutex lock to prevent any
 // modifications to the list of readers.
 type fileReaders struct {
-	sync.RWMutex
 	open []controlledReader
+	sync.RWMutex
 }
 
 type fileController struct {
-	Config
-	writers struct {
-		sync.RWMutex
+	counter     *xio.Int32Counter
+	release     chan struct{}
+	counterFile io.Closer
+	writers     struct {
 		open map[uint16]controlledWriter
 		// unopened is a set of file keys to files that are not oversize and do not have
 		// any file handles for them in open.
 		unopened set.Set[uint16]
+		sync.RWMutex
 	}
 	readers struct {
-		sync.RWMutex
 		files map[uint16]*fileReaders
+		sync.RWMutex
 	}
-	release     chan struct{}
-	counter     *xio.Int32Counter
-	counterFile io.Closer
+	Config
 }
 
 const counterFile = "counter" + extension
@@ -236,11 +236,11 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 		return &w, s.Size(), span.Error(err)
 	}
 
-	nextKey_, err := fc.counter.Add(1)
+	nextCtr, err := fc.counter.Add(1)
 	if err != nil {
 		return nil, 0, span.Error(err)
 	}
-	nextKey := uint16(nextKey_)
+	nextKey := uint16(nextCtr)
 	file, err := fc.FS.Open(
 		fileKeyToName(nextKey),
 		os.O_CREATE|os.O_EXCL|os.O_WRONLY,
@@ -396,7 +396,7 @@ func (fc *fileController) rejuvenate(fileKey uint16) error {
 
 	if w, ok := fc.writers.open[fileKey]; ok {
 		if !w.tryAcquire() {
-			return newErrResourceInUse("writer", fileKey)
+			return newResourceInUseError("writer", fileKey)
 		}
 		if err := w.TrackedWriteCloser.Close(); err != nil {
 			return err
@@ -441,7 +441,7 @@ func (fc *fileController) close() error {
 	for _, w := range fc.writers.open {
 		c.Exec(func() error {
 			if !w.tryAcquire() {
-				return newErrResourceInUse("writer", w.fileKey)
+				return newResourceInUseError("writer", w.fileKey)
 			}
 			return w.HardClose()
 		})
@@ -451,7 +451,7 @@ func (fc *fileController) close() error {
 		for _, r := range f.open {
 			c.Exec(func() error {
 				if !r.tryAcquire() {
-					return newErrResourceInUse("reader", r.fileKey)
+					return newResourceInUseError("reader", r.fileKey)
 				}
 				return r.HardClose()
 			})
@@ -463,8 +463,8 @@ func (fc *fileController) close() error {
 }
 
 type controlledWriter struct {
-	controllerEntry
 	xio.TrackedWriteCloser
+	controllerEntry
 }
 
 func (c *controlledWriter) tryAcquire() bool {
@@ -488,8 +488,8 @@ func (c *controlledWriter) HardClose() error {
 }
 
 type controlledReader struct {
-	controllerEntry
 	xio.ReaderAtCloser
+	controllerEntry
 }
 
 func (c *controlledReader) Close() error {
@@ -505,10 +505,10 @@ func (c *controlledReader) HardClose() error {
 }
 
 type controllerEntry struct {
-	ins     alamos.Instrumentation
 	inUse   *atomic.Bool
-	fileKey uint16
 	release chan struct{}
+	ins     alamos.Instrumentation
+	fileKey uint16
 }
 
 func newPoolEntry(key uint16, release chan struct{}, ins alamos.Instrumentation) controllerEntry {

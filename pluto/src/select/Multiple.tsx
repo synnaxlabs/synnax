@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,7 +11,7 @@ import { type record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { type ReactElement } from "react";
 
-import { Dialog as CoreDialog } from "@/dialog";
+import { Dialog as BaseDialog } from "@/dialog";
 import { type List } from "@/list";
 import { Dialog, type DialogProps } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps } from "@/select/Frame";
@@ -25,15 +25,17 @@ import {
 export interface MultipleProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
-> extends Omit<MultipleFrameProps<K, E>, "multiple" | "children">,
+>
+  extends
+    Omit<MultipleFrameProps<K, E>, "multiple" | "children">,
     Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions">,
-    Omit<CoreDialog.FrameProps, "onChange" | "children" | "variant">,
+    Omit<BaseDialog.FrameProps, "onChange" | "children" | "variant">,
     Pick<MultipleTriggerProps<K>, "disabled" | "icon" | "haulType">,
     Pick<List.ItemsProps<K>, "children"> {
   resourceName: string;
   renderTag?: MultipleTriggerProps<K>["children"];
   triggerProps?: MultipleTriggerProps<K>;
-  dialogProps?: CoreDialog.FrameProps;
+  dialogProps?: BaseDialog.FrameProps;
   variant?: Variant;
 }
 
@@ -62,7 +64,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   variant = "connected",
   ...rest
 }: MultipleProps<K, E>): ReactElement => (
-  <CoreDialog.Frame variant={transformDialogVariant(variant)} {...rest}>
+  <BaseDialog.Frame variant={transformDialogVariant(variant)} {...rest}>
     <Frame<K, E>
       multiple
       value={value}
@@ -96,5 +98,5 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         {children}
       </Dialog>
     </Frame>
-  </CoreDialog.Frame>
+  </BaseDialog.Frame>
 );

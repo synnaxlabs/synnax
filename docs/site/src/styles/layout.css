@@ -1,0 +1,254 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/*
+ * Layout Styles
+ *
+ * Page structure, navigation, article layout.
+ * With CSS layers, these override Pluto's defaults.
+ */
+
+/* Main content area */
+main {
+    position: relative;
+    min-height: calc(100vh - 30rem);
+    display: flex;
+    flex-direction: row;
+
+    & > section {
+        display: flex;
+        flex-direction: row;
+        flex: 1;
+        padding: 0 2rem;
+        max-width: 1100px;
+        margin: 0 auto;
+        min-width: 0;
+        overflow-x: clip;
+    }
+}
+
+@media (max-width: 800px) {
+    main > section {
+        padding: 0 1rem;
+    }
+}
+
+/* Sticky navigation */
+nav {
+    position: sticky;
+    top: 22rem;
+
+    & p,
+    & small {
+        white-space: normal;
+    }
+}
+
+/* Page navigation sidebar */
+.page-nav {
+    width: 270px;
+    min-width: 270px;
+    overflow: hidden;
+    padding-left: 2rem;
+    align-self: flex-start;
+    position: sticky;
+    top: 14.5rem;
+    height: calc(100vh - 14.5rem);
+    background: var(--pluto-gray-l2-20);
+    border-right: var(--pluto-border);
+
+    .pluto-tabs-selector {
+        position: sticky;
+        top: 0;
+        background: var(--pluto-gray-l0);
+        margin-bottom: 3rem;
+
+        & .pluto-text {
+            font-size: var(--pluto-small-size);
+            font-weight: 400;
+        }
+
+        & .pluto-tabs-selector__btn {
+            flex-grow: 1;
+        }
+    }
+}
+
+.on-this-page .pluto-btn.pluto-text--p {
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+}
+
+.pluto-dialog__dialog .pluto-list__item.pluto-text--p {
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+}
+
+@media (max-width: 800px) {
+    .page-nav {
+        display: none;
+    }
+}
+
+/* On this page sidebar - hide on smaller screens */
+@media (max-width: 1150px) {
+    nav.on-this-page,
+    .on-this-page {
+        display: none !important;
+    }
+}
+
+/* Mobile page navigation dialog */
+.page-nav-mobile-content {
+    & > div:first-child {
+        display: none;
+    }
+    padding-top: 2rem;
+    width: calc(100vw - 5rem);
+    height: 70vh;
+    overflow: hidden;
+    border-radius: 1rem;
+}
+
+/* Article content */
+article {
+    h1,
+    h1.pluto-text {
+        margin-top: 5rem;
+        margin-bottom: 3rem;
+        letter-spacing: -0.02em;
+    }
+
+    h2,
+    h2.pluto-text {
+        margin-top: 8rem;
+        margin-bottom: 3rem;
+        letter-spacing: -0.01em;
+        color: var(--pluto-gray-l11);
+    }
+
+    h2:has(+ .pluto-divider),
+    h2.pluto-text:has(+ .pluto-divider) {
+        margin-bottom: 4rem;
+    }
+
+    .pluto-divider + h2,
+    .pluto-divider + h2.pluto-text {
+        margin-top: 4rem;
+    }
+
+    .pluto-tabs-selector .pluto-text {
+        color: var(--pluto-gray-l10);
+    }
+
+    .pluto-tabs-content h2:first-of-type {
+        margin-top: 4rem;
+    }
+
+    h3,
+    h3.pluto-text {
+        margin-top: 5rem;
+        margin-bottom: 2.5rem;
+        color: var(--pluto-gray-l11);
+    }
+
+    h4,
+    h4.pluto-text {
+        margin-top: 4rem;
+        margin-bottom: 2rem;
+        color: var(--pluto-gray-l11);
+    }
+
+    h5,
+    h6 {
+        margin-top: 4rem;
+        margin-bottom: 2rem;
+    }
+
+    table {
+        margin: 4rem 0;
+    }
+
+    :is(h2, h2.pluto-text) + :is(h3, h3.pluto-text) {
+        margin-top: 3rem;
+    }
+
+    :is(h3, h3.pluto-text) + :is(h4, h4.pluto-text) {
+        margin-top: 2rem;
+    }
+
+    :is(h2, h2.pluto-text, h3, h3.pluto-text, h4, h4.pluto-text) + table {
+        margin-top: 2rem;
+    }
+
+    :is(h2, h2.pluto-text, h3, h3.pluto-text, h4, h4.pluto-text) + .astro-code-wrapper {
+        margin-top: 3rem;
+    }
+
+    .pluto-btn .pluto-text {
+        margin: 0;
+    }
+
+    p {
+        margin: 2.5rem 0;
+        color: var(--docs-body-color);
+    }
+
+    video,
+    iframe,
+    img {
+        margin: 5rem 0;
+    }
+
+    ul {
+        padding-left: 5rem;
+    }
+
+    .yt-video {
+        width: 100%;
+        aspect-ratio: 3456 / 2240;
+        border-radius: 1rem;
+        border: var(--pluto-border);
+    }
+
+    :is(h1, h2, h3, h4).pluto-text {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        width: fit-content;
+
+        & a.heading-anchor {
+            display: inline-flex;
+            align-items: center;
+            color: var(--pluto-gray-l7);
+            opacity: 0;
+            margin-left: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        &:hover {
+            & a.heading-anchor {
+                opacity: 1;
+
+                &:hover {
+                    color: var(--pluto-gray-l9);
+                }
+            }
+        }
+    }
+}
+
+/* Responsive article styles */
+@media (max-width: 800px) {
+    article ul {
+        padding-left: 2rem;
+    }
+}

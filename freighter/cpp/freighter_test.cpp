@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/xtest/xtest.h"
 
 class BasicMiddleware final : public freighter::PassthroughMiddleware {
     std::string value;
@@ -32,15 +33,16 @@ public:
     }
 };
 
+/// @brief it should execute middleware chain and return incremented result.
 TEST(testFreighter, testMiddlewareCollector) {
     auto collector = freighter::MiddlewareCollector<int, int>();
-    auto mw1 = std::make_shared<BasicMiddleware>("5");
-    auto mw2 = std::make_shared<BasicMiddleware>("6");
+    const auto mw1 = std::make_shared<BasicMiddleware>("5");
+    const auto mw2 = std::make_shared<BasicMiddleware>("6");
     auto f = BasicFinalizer();
     collector.use(mw1);
     collector.use(mw2);
-    auto ctx = freighter::Context("test", freighter::URL("1"), freighter::UNARY);
+    const auto ctx = freighter::Context("test", url::URL("1"), freighter::UNARY);
     auto req = 1;
-    auto [res, err] = collector.exec(ctx, &f, req);
+    const auto res = ASSERT_NIL_P(collector.exec(ctx, &f, req));
     ASSERT_EQ(res, 2);
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,7 +19,7 @@ class MockTransform final : public Transform {
 public:
     explicit MockTransform(bool should_fail = false): should_fail_(should_fail) {}
 
-    xerrors::Error transform(synnax::Frame &frame) override {
+    xerrors::Error transform(telem::Frame &frame) override {
         was_called_ = true;
         if (should_fail_)
             return xerrors::Error(xerrors::INTERNAL, "Mock transform failed");
@@ -42,7 +42,7 @@ TEST(TransformTests, ChainTransform) {
     chain.add(mock1);
     chain.add(mock2);
 
-    synnax::Frame frame;
+    telem::Frame frame;
     ASSERT_NIL(chain.transform(frame));
     ASSERT_TRUE(mock1->was_called());
     ASSERT_TRUE(mock2->was_called());
@@ -61,7 +61,7 @@ TEST(TransformTests, ChainTransformFailure) {
     chain.add(mock2);
     chain.add(mock3);
 
-    synnax::Frame frame;
+    telem::Frame frame;
     ASSERT_OCCURRED_AS(chain.transform(frame), xerrors::INTERNAL);
     ASSERT_TRUE(mock1->was_called());
     ASSERT_TRUE(mock2->was_called());
@@ -71,7 +71,7 @@ TEST(TransformTests, ChainTransformFailure) {
 /// @brief it should do nothing in an empty chain.
 TEST(TransformTests, EmptyChain) {
     Chain chain;
-    synnax::Frame frame;
+    telem::Frame frame;
     ASSERT_NIL(chain.transform(frame));
 }
 
@@ -102,7 +102,7 @@ protected:
     }
 
     std::vector<synnax::Channel> channels;
-    synnax::Frame frame;
+    telem::Frame frame;
 };
 
 /// @brief it should tare the value of a channel.
@@ -117,7 +117,7 @@ TEST_F(TareTests, BasicTare) {
     json tare_args = json::object();
     ASSERT_NIL(tare.tare(tare_args));
 
-    synnax::Frame new_frame(2);
+    telem::Frame new_frame(2);
     auto new_series1 = telem::Series(telem::FLOAT64_T, 2);
     new_series1.write(30.0);
     new_series1.write(40.0);
@@ -147,7 +147,7 @@ TEST_F(TareTests, TareSpecificChannels) {
     json tare_args = {{"keys", {1}}};
     ASSERT_NIL(tare.tare(tare_args));
 
-    synnax::Frame new_frame(2);
+    telem::Frame new_frame(2);
     auto new_series1 = telem::Series(telem::FLOAT64_T, 2);
     new_series1.write(30.0);
     new_series1.write(40.0);
@@ -167,7 +167,7 @@ TEST_F(TareTests, TareSpecificChannels) {
     ASSERT_EQ(new_frame.at<float>(2, 1), 35.0f); // Unchanged
 
     // Subsequent frame should use same tare values
-    synnax::Frame third_frame(2);
+    telem::Frame third_frame(2);
     auto third_series1 = telem::Series(telem::FLOAT64_T, 2);
     third_series1.write(50.0);
     third_series1.write(60.0);
@@ -214,7 +214,7 @@ TEST(ScaleTests, LinearScale) {
     xjson::Parser parser(config);
     Scale scale(parser, channels);
 
-    synnax::Frame frame(1);
+    telem::Frame frame(1);
     auto series = telem::Series(telem::FLOAT64_T, 2);
     series.write(10.0);
     series.write(20.0);
@@ -248,7 +248,7 @@ TEST(ScaleTests, MapScale) {
     xjson::Parser parser(config);
     Scale scale(parser, channels);
 
-    synnax::Frame frame(1);
+    telem::Frame frame(1);
     auto series = telem::Series(telem::FLOAT64_T, 3);
     series.write(0.0);
     series.write(50.0);
@@ -291,7 +291,7 @@ TEST(ScaleTests, MultipleChannels) {
     xjson::Parser parser(config);
     Scale scale(parser, channels);
 
-    synnax::Frame frame(2);
+    telem::Frame frame(2);
     auto series1 = telem::Series(telem::FLOAT64_T, 1);
     series1.write(5.0);
     frame.emplace(1, std::move(series1));
@@ -321,7 +321,7 @@ TEST(ScaleTests, IgnoreUnknownChannels) {
     xjson::Parser parser(config);
     Scale scale(parser, channels);
 
-    synnax::Frame frame(2);
+    telem::Frame frame(2);
 
     auto series1 = telem::Series(telem::FLOAT64_T, 1);
     series1.write(5.0);
@@ -359,7 +359,7 @@ TEST(ScaleTests, DisabledChannel) {
     xjson::Parser parser(config);
     Scale scale(parser, channels);
 
-    synnax::Frame frame(2);
+    telem::Frame frame(2);
 
     auto series1 = telem::Series(telem::FLOAT64_T, 1);
     series1.write(10.0);
@@ -392,7 +392,7 @@ TEST(ScaleTests, TransformInplaceUsage) {
     xjson::Parser parser(config);
     Scale scale(parser, channels);
 
-    synnax::Frame frame(3);
+    telem::Frame frame(3);
 
     auto series1 = telem::Series(telem::FLOAT64_T, 2);
     series1.write(1.0);
@@ -419,7 +419,7 @@ TEST(ScaleTests, TransformInplaceUsage) {
     ASSERT_EQ(frame.at<float>(3, 1), 2.5f);
 }
 
-// @brief it should correctly tare channels with different data types.
+/// @brief it should correctly tare channels with different data types.
 TEST_F(TareTests, TareWithDifferentDataTypes) {
     std::vector<synnax::Channel> channels;
 
@@ -442,7 +442,7 @@ TEST_F(TareTests, TareWithDifferentDataTypes) {
 
     Tare tare(channels);
 
-    synnax::Frame frame(3);
+    telem::Frame frame(3);
     auto series1 = telem::Series(telem::INT32_T, 2);
     series1.write(100);
     series1.write(200);
@@ -463,7 +463,7 @@ TEST_F(TareTests, TareWithDifferentDataTypes) {
     json tare_args = json::object();
     ASSERT_NIL(tare.tare(tare_args));
 
-    synnax::Frame new_frame(3);
+    telem::Frame new_frame(3);
     auto new_series1 = telem::Series(telem::INT32_T, 2);
     new_series1.write(300);
     new_series1.write(400);
@@ -491,7 +491,7 @@ TEST_F(TareTests, TareWithDifferentDataTypes) {
     ASSERT_EQ(new_frame.at<double>(3, 1), 500.0); // 4000.25 - 3500.25
 
     // Test subsequent frame with same tare values
-    synnax::Frame third_frame(3);
+    telem::Frame third_frame(3);
     auto third_series1 = telem::Series(telem::INT32_T, 2);
     third_series1.write(500);
     third_series1.write(600);
@@ -548,7 +548,7 @@ TEST(ChainTests, ComplexTransformChain) {
     json tare_args = json::object();
     ASSERT_NIL(tare->tare(tare_args));
 
-    synnax::Frame frame(1);
+    telem::Frame frame(1);
     auto series = telem::Series(telem::FLOAT64_T, 1);
     series.write(50.0);
     frame.emplace(1, std::move(series));
@@ -556,7 +556,7 @@ TEST(ChainTests, ComplexTransformChain) {
     ASSERT_NIL(chain.transform(frame));
 
     // Create second frame
-    synnax::Frame frame2(1);
+    telem::Frame frame2(1);
     auto series2 = telem::Series(telem::FLOAT64_T, 1);
     series2.write(70.0);
     frame2.emplace(1, std::move(series2));

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,20 +17,20 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[Next-1]
-	_ = x[Prev-2]
-	_ = x[SeekFirst-3]
-	_ = x[SeekLast-4]
-	_ = x[SeekLE-5]
-	_ = x[SeekGE-6]
-	_ = x[Valid-7]
-	_ = x[Error-8]
-	_ = x[SetBounds-9]
+	_ = x[CommandNext-1]
+	_ = x[CommandPrev-2]
+	_ = x[CommandSeekFirst-3]
+	_ = x[CommandSeekLast-4]
+	_ = x[CommandSeekLE-5]
+	_ = x[CommandSeekGE-6]
+	_ = x[CommandValid-7]
+	_ = x[CommandError-8]
+	_ = x[CommandSetBounds-9]
 }
 
-const _Command_name = "NextPrevSeekFirstSeekLastSeekLESeekGEValidErrorSetBounds"
+const _Command_name = "CommandNextCommandPrevCommandSeekFirstCommandSeekLastCommandSeekLECommandSeekGECommandValidCommandErrorCommandSetBounds"
 
-var _Command_index = [...]uint8{0, 4, 8, 17, 25, 31, 37, 42, 47, 56}
+var _Command_index = [...]uint8{0, 11, 22, 38, 53, 66, 79, 91, 103, 119}
 
 func (i Command) String() string {
 	i -= 1

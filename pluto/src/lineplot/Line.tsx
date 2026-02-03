@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,9 +12,9 @@ import { type ReactElement, useEffect } from "react";
 import { type Aether } from "@/aether";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useContext } from "@/lineplot/LinePlot";
-import { Line as Core } from "@/vis/line";
+import { Line as Base } from "@/vis/line";
 
-export interface LineProps extends Core.LineProps, Aether.ComponentProps {
+export interface LineProps extends Base.LineProps, Aether.ComponentProps {
   legendGroup: string;
 }
 
@@ -33,7 +33,7 @@ export const Line = ({
     return () => removeLine(cKey);
   }, [label, color, visible, legendGroup]);
   return (
-    <Core.Line
+    <Base.Line
       aetherKey={cKey}
       color={color}
       label={label}

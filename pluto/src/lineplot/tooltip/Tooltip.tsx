@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,7 +16,8 @@ import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { tooltip } from "@/lineplot/tooltip/aether";
 
 export interface TooltipProps
-  extends Omit<z.input<typeof tooltip.tooltipStateZ>, "position">,
+  extends
+    Omit<z.input<typeof tooltip.tooltipStateZ>, "position">,
     Aether.ComponentProps {}
 
 export const Tooltip = ({ aetherKey, ...rest }: TooltipProps): ReactElement | null => {

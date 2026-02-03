@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,6 +12,7 @@ package auth
 import (
 	"context"
 	"fmt"
+
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -42,7 +43,7 @@ func (db *KV) authenticate(
 	var secureCreds SecureCredentials
 	err := db.retrieve(ctx, tx, creds.Username, &secureCreds)
 	if err != nil {
-		if errors.Is(err, query.NotFound) {
+		if errors.Is(err, query.ErrNotFound) {
 			err = InvalidCredentials
 		}
 		return SecureCredentials{}, err

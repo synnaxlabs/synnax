@@ -1,0 +1,241 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Sequences and Stages"
+description: "Building state machines with Arc's sequence and stage constructs"
+prev: "Get Started"
+prevURL: "/reference/control/arc/get-started"
+next: "Reactive Execution"
+nextURL: "/reference/control/arc/concepts/reactive-execution"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+Sequences are Arc's way of building multi-step procedures. A sequence contains ordered
+stages, with only one stage active at a time. When you enter a stage, its flows execute;
+when you leave, they stop.
+
+This is the most common use case for Arc: test sequences, startup routines, shutdown
+procedures, and any workflow that progresses through distinct phases.
+
+<Note.Note variant="warning">
+  **Everything in a stage runs at the same time.** The code looks sequential, but Arc
+  executes all flows in a stage concurrently.
+</Note.Note>
+
+<Divider.Divider x />
+
+## A Simple Example
+
+Here's a basic pressurization sequence:
+
+```arc
+sequence main {
+    stage idle {
+        0 -> valve_cmd,
+        start_btn => next
+    }
+
+    stage pressurize {
+        1 -> valve_cmd,
+        tank_pressure > 500 => next
+    }
+
+    stage hold {
+        1 -> valve_cmd,
+        wait{duration=30s} => next
+    }
+
+    stage complete {
+        0 -> valve_cmd
+    }
+}
+
+start_btn => main
+```
+
+This sequence:
+
+1. **Starts in `idle`**: Valve is closed (0), waiting for the operator to press start
+2. **Moves to `pressurize`**: Opens the valve (1), waits for pressure to reach 500
+3. **Moves to `hold`**: Keeps valve open for 30 seconds
+4. **Ends in `complete`**: Closes the valve
+
+The `start_btn => main` at the bottom is the **entry point**. When `start_btn` receives
+a truthy value (non-zero), the sequence starts.
+
+<Divider.Divider x />
+
+## Concurrency Within Stages
+
+All flows in a stage run simultaneously. This is different from traditional line-by-line
+code execution.
+
+```arc
+stage pressurize {
+    // ALL of these run at the same time:
+    1 -> valve_cmd,                       // keep valve open
+    tank_pressure -> pressure_display,    // update display
+    tank_pressure > 600 => abort,         // safety limit
+    tank_temp > 300 => abort,             // temperature limit
+    abort_btn => abort,                   // operator abort
+    tank_pressure > 500 => next           // success condition
+}
+```
+
+You don't write loops to "keep checking" these conditions. Arc monitors all of them
+concurrently while the stage is active.
+
+<Note.Note variant="info">
+**Line order determines priority for transitions.** When multiple one-shot edges
+(`=>`) could fire in the same cycle, the one listed first wins. Always put safety
+conditions before success conditions.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Transitions
+
+Use `=>` (one-shot edge) to transition between stages:
+
+```arc
+stage idle {
+    start_btn => next           // advance to next stage in order
+}
+
+stage running {
+    stop_btn => idle            // jump to specific stage
+    emergency => abort          // jump to different sequence
+}
+```
+
+### Transition Targets
+
+| Syntax             | Behavior                                                 |
+| ------------------ | -------------------------------------------------------- |
+| `=> next`          | Go to the next stage in definition order                 |
+| `=> stage_name`    | Jump to any stage in the same sequence                   |
+| `=> sequence_name` | Jump to a different sequence (starts at its first stage) |
+
+Using `next` on the last stage is a compile error.
+
+<Divider.Divider x />
+
+## Entry Points
+
+Sequences start when triggered by a channel. Wire a channel to a sequence using `=>`:
+
+```arc
+start_cmd => main
+emergency_stop => abort
+```
+
+The sequence starts when the source channel has a truthy value (non-zero).
+
+### Triggering from Schematics
+
+Entry points are typically `u8` virtual channels:
+
+1. Create a `u8` virtual channel in Synnax (e.g., `start_cmd`)
+2. Add a button to a schematic that writes to `start_cmd`
+3. When clicked, the button writes `1` to the channel
+4. Arc sees the truthy value and starts the sequence
+
+<Divider.Divider x />
+
+## Stage Entry Semantics
+
+When entering a stage:
+
+1. All one-shot transition states reset (can fire again)
+2. All stateful variables in the stage reset to initial values
+3. Reactive flows start fresh
+
+Stages don't remember their previous state. If you transition away and come back,
+everything starts over.
+
+<Divider.Divider x />
+
+## Complete Example: Test Sequence
+
+Here's a realistic test stand sequence with safety handling:
+
+```arc
+sequence main {
+    stage idle {
+        0 -> press_valve,
+        0 -> vent_valve,
+        start_btn => next
+    }
+
+    stage pressurize {
+        1 -> press_valve,
+        0 -> vent_valve,
+
+        // Safety conditions (listed first = highest priority)
+        tank_pressure > 600 => abort,
+        tank_temp > 300 => abort,
+        abort_btn => abort,
+
+        // Success condition
+        tank_pressure > 500 => next
+    }
+
+    stage hold {
+        1 -> press_valve,
+
+        tank_pressure > 600 => abort,
+        abort_btn => abort,
+
+        wait{duration=30s} => next
+    }
+
+    stage depressurize {
+        0 -> press_valve,
+        1 -> vent_valve,
+
+        tank_pressure < 50 => complete
+    }
+
+    stage complete {
+        0 -> press_valve,
+        0 -> vent_valve
+    }
+}
+
+sequence abort {
+    stage safed {
+        0 -> press_valve,
+        1 -> vent_valve,
+        0 -> igniter
+    }
+}
+
+start_btn => main
+emergency_stop => abort
+```
+
+Notice that safety conditions are listed before success conditions in each stage. The
+`abort` sequence can be triggered from any stage or from the `emergency_stop` button.
+Transitioning to `abort` leaves the `main` sequence entirely.
+
+<Divider.Divider x />
+
+## Direct Assignments
+
+Inside stages, you can use both flow syntax and direct assignment:
+
+```arc
+stage pressurize {
+    // Flow syntax: reactive pipeline
+    sensor -> filter{} -> display,
+
+    // Direct assignment: equivalent to "1 -> valve_cmd"
+    valve_cmd = 1
+}
+```
+
+Direct assignments behave like constant flows. They continuously set the value while the
+stage is active. Use whichever is clearer for your use case.

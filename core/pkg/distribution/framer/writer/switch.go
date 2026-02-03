@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -43,7 +43,7 @@ func (rs *peerSwitchSender) _switch(
 	r Request,
 	oReqs map[address.Address]Request,
 ) error {
-	if r.Command == Write {
+	if r.Command == CommandWrite {
 		for nodeKey, frame := range r.Frame.SplitByLeaseholder() {
 			addr, ok := rs.addresses[nodeKey]
 			if !ok {

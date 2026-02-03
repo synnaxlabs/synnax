@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type Config struct {
+type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Signals  *signals.Provider
@@ -31,12 +31,12 @@ type Config struct {
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultServiceConfig                              = ServiceConfig{}
 )
 
 // Override implements [config.Config].
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
@@ -45,7 +45,7 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements [config.Config].
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("policy")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "group", c.Group)
@@ -54,7 +54,7 @@ func (c Config) Validate() error {
 }
 
 type Service struct {
-	cfg     Config
+	cfg     ServiceConfig
 	signals io.Closer
 	group   group.Group
 }
@@ -66,10 +66,8 @@ func (s *Service) Close() error {
 	return nil
 }
 
-const groupName = "Users"
-
-func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -77,12 +75,11 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
 	}
-	s.group, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
-	if err != nil {
+	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Users", ontology.RootID); err != nil {
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		if s.signals, err = signals.PublishFromGorp[uuid.UUID, Role](
+		if s.signals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigUUID[Role](cfg.DB),

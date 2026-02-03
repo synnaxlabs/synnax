@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,24 +9,40 @@
 
 import { type PayloadAction } from "@reduxjs/toolkit";
 import { Icon } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 import { CLEAR_STATE } from "@/persist/state";
 
-const CLEAR_LOCAL_STORAGE_COMMAND: Palette.Command = {
-  key: "clear-local-storage",
-  name: "Clear Local Storage",
-  icon: <Icon.Close />,
-  onSelect: ({ store, confirm, handleError }) =>
-    handleError(async () => {
-      const res = await confirm({
-        message: "Are you sure you want to clear the Console's local storage?",
-        description:
-          "This will remove all saved Console data that is not persisted within a Synnax Core.",
-      });
-      if (!res) return;
-      store.dispatch(CLEAR_STATE as PayloadAction<any>);
-    }, "Failed to clear local storage"),
+export const ClearCommand: Palette.Command = ({
+  store,
+  confirm,
+  handleError,
+  ...listProps
+}) => {
+  const handleSelect = useCallback(
+    () =>
+      handleError(async () => {
+        const res = await confirm({
+          message: "Are you sure you want to clear the Console's local storage?",
+          description:
+            "This will remove all saved Console data that is not persisted within a Synnax Core.",
+        });
+        if (!res) return;
+        store.dispatch(CLEAR_STATE as PayloadAction<any>);
+      }, "Failed to clear local storage"),
+    [store, confirm, handleError],
+  );
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Clear Local Storage"
+      icon={<Icon.Close />}
+      onSelect={handleSelect}
+    />
+  );
 };
+ClearCommand.key = "clear-local-storage";
+ClearCommand.commandName = "Clear Local Storage";
 
-export const COMMANDS = [CLEAR_LOCAL_STORAGE_COMMAND];
+export const COMMANDS = [ClearCommand];

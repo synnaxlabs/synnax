@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,34 +16,35 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"github.com/synnaxlabs/x/errors"
 	"io"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 const (
-	TypeECDSAPrivateKey   = "EC PRIVATE KEY"
-	TypeRSAPrivateKey     = "RSA PRIVATE KEY"
-	TypeED25519PrivateKey = "PRIVATE KEY"
-	TypeCertificate       = "CERTIFICATE"
+	BlockTypeECPrivateKey    = "EC PRIVATE KEY"
+	BlockTypeRSAPrivateKey   = "RSA PRIVATE KEY"
+	BlockTypePKCS8PrivateKey = "PRIVATE KEY"
+	BlockTypeCertificate     = "CERTIFICATE"
 )
 
 func FromPrivateKey(key crypto.PrivateKey) (*pem.Block, error) {
 	switch key := key.(type) {
 	case *rsa.PrivateKey:
 		return &pem.Block{
-			Type:  TypeRSAPrivateKey,
+			Type:  BlockTypeRSAPrivateKey,
 			Bytes: x509.MarshalPKCS1PrivateKey(key),
 		}, nil
 	case *ecdsa.PrivateKey:
 		b, err := x509.MarshalECPrivateKey(key)
 		return &pem.Block{
-			Type:  TypeECDSAPrivateKey,
+			Type:  BlockTypeECPrivateKey,
 			Bytes: b,
 		}, errors.Wrap(err, "[security] - failed to marshal ECDSA private key")
 	case *ed25519.PrivateKey:
 		b, err := x509.MarshalPKCS8PrivateKey(key)
 		return &pem.Block{
-			Type:  TypeED25519PrivateKey,
+			Type:  BlockTypePKCS8PrivateKey,
 			Bytes: b,
 		}, errors.Wrap(err, "[security] - failed to marshal ed25519 private key")
 	}
@@ -51,16 +52,16 @@ func FromPrivateKey(key crypto.PrivateKey) (*pem.Block, error) {
 }
 
 func FromCertBytes(b []byte) *pem.Block {
-	return &pem.Block{Type: TypeCertificate, Bytes: b}
+	return &pem.Block{Type: BlockTypeCertificate, Bytes: b}
 }
 
 func ToPrivateKey(b *pem.Block) (crypto.PrivateKey, error) {
 	switch b.Type {
-	case TypeRSAPrivateKey:
+	case BlockTypeRSAPrivateKey:
 		return x509.ParsePKCS1PrivateKey(b.Bytes)
-	case TypeECDSAPrivateKey:
+	case BlockTypeECPrivateKey:
 		return x509.ParseECPrivateKey(b.Bytes)
-	case TypeED25519PrivateKey:
+	case BlockTypePKCS8PrivateKey:
 		return x509.ParsePKCS8PrivateKey(b.Bytes)
 	}
 	return nil, errors.New("[security] - unsupported key type")
@@ -87,11 +88,12 @@ func Read(r io.Reader) (*pem.Block, error) {
 }
 
 // ReadMany reads all PEM blocks from the reader.
-func ReadMany(r io.Reader) (blocks []*pem.Block, err error) {
+func ReadMany(r io.Reader) ([]*pem.Block, error) {
 	b, err := io.ReadAll(r)
 	if err != nil {
-		return
+		return nil, err
 	}
+	var blocks []*pem.Block
 	for {
 		var p *pem.Block
 		p, b = pem.Decode(b)
@@ -100,6 +102,5 @@ func ReadMany(r io.Reader) (blocks []*pem.Block, err error) {
 		}
 		blocks = append(blocks, p)
 	}
-	return
-
+	return blocks, nil
 }

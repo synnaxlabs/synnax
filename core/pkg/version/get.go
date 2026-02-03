@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,10 +12,11 @@ package version
 import (
 	"embed"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 //go:embed VERSION
@@ -29,9 +30,9 @@ const errorMsg = "unexpected failure to resolve version"
 // -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=abc123
 // -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=2025-01-01T00:00:00Z
 var (
-	Version   string = ""
-	GitCommit string = ""
-	BuildDate string = ""
+	Version   string
+	GitCommit string
+	BuildDate string
 )
 
 // Prod returns the production version of Synnax.

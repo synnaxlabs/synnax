@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,5 +14,4 @@ export * from "@/lineplot/LinePlot";
 export * from "@/lineplot/queries";
 export * from "@/lineplot/Title";
 export * from "@/lineplot/tooltip";
-export * from "@/lineplot/useBoundQuerier";
 export * from "@/lineplot/Viewport";

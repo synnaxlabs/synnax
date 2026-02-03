@@ -1,0 +1,26 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "arc_simple",
+      "tests": [
+        {
+          "case": "arc/arc_press_sequence",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/arc_thermal_monitor",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/arc_tpc_cold_flow",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/arc_interval_press",
+          "parameters": { "rack_key": [65537, 65538] }
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <thread>
 
+#include "glog/logging.h"
 #include "nlohmann/json.hpp"
 
 #include "driver/errors/errors.h"
@@ -21,7 +22,7 @@ using json = nlohmann::json;
 namespace pipeline {
 SynnaxWriter::SynnaxWriter(synnax::Writer internal): internal(std::move(internal)) {}
 
-xerrors::Error SynnaxWriter::write(const synnax::Frame &fr) {
+xerrors::Error SynnaxWriter::write(const telem::Frame &fr) {
     return this->internal.write(fr);
 }
 
@@ -68,13 +69,17 @@ Acquisition::Acquisition(
 
 /// @brief attempts to resolve the start timestamp for the writer from a series in
 /// the frame with a timestamp data type. If that can't be found, resolveStart falls
-/// back to the
-telem::TimeStamp resolve_start(const synnax::Frame &frame) {
-    for (size_t i = 0; i < frame.size(); i++)
-        if (frame.series->at(i).data_type() == telem::TIMESTAMP_T) {
-            const auto ts = frame.series->at(i).at<int64_t>(0);
-            if (ts != 0) return telem::TimeStamp(ts);
+/// back to now().
+telem::TimeStamp resolve_start(const telem::Frame &frame) {
+    auto min_timestamp = telem::TimeStamp::max();
+    for (size_t i = 0; i < frame.size(); i++) {
+        const auto &series = frame.series->at(i);
+        if (series.data_type() == telem::TIMESTAMP_T && series.size() > 0) {
+            const auto ts = series.at<telem::TimeStamp>(0);
+            if (ts < min_timestamp) min_timestamp = ts;
         }
+    }
+    if (min_timestamp < telem::TimeStamp::max()) return min_timestamp;
     return telem::TimeStamp::now();
 }
 
@@ -84,7 +89,7 @@ void Acquisition::run() {
     xerrors::Error writer_err;
     xerrors::Error source_err;
     // A running breaker means the pipeline user has not called stop.
-    synnax::Frame frame(0);
+    telem::Frame frame(0);
     while (this->breaker.running()) {
 
         if (auto source_err_i = this->source->read(this->breaker, frame)) {

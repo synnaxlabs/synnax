@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { type arc } from "@synnaxlabs/client";
 import { type Diagram, type Theming, type Viewport } from "@synnaxlabs/pluto";
 import { box, id, scale, xy } from "@synnaxlabs/x";
 
@@ -113,6 +114,16 @@ export interface SetRemoteCreatedPayload {
 
 export interface SelectAllPayload {
   key: string;
+}
+
+export interface SetRawTextPayload {
+  key: string;
+  raw: string;
+}
+
+export interface SetModePayload {
+  key: string;
+  mode: arc.Mode;
 }
 
 export const calculatePos = (
@@ -330,6 +341,16 @@ export const { actions, reducer } = createSlice({
       arc.graph.nodes.forEach((node) => (node.selected = true));
       arc.graph.edges.forEach((edge) => (edge.selected = true));
     },
+    setRawText: (state, { payload }: PayloadAction<SetRawTextPayload>) => {
+      const { key: layoutKey, raw } = payload;
+      const arc = state.arcs[layoutKey];
+      arc.text.raw = raw;
+    },
+    setMode: (state, { payload }: PayloadAction<SetModePayload>) => {
+      const { key, mode } = payload;
+      const arc = state.arcs[key];
+      if (arc != null) arc.mode = mode;
+    },
   },
 });
 
@@ -364,6 +385,8 @@ export const {
   pasteSelection,
   setViewportMode,
   setRemoteCreated,
+  setRawText,
+  setMode,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

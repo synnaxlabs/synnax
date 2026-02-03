@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -49,16 +49,6 @@ var _ = Describe("Middleware", func() {
 		}
 		req := &request{}
 		_, err := chain.Exec(req, &myFinalizer{})
-		Expect(err).To(BeNil())
-		Expect(req.value).To(Equal("request"))
-	})
-
-	It("Should collect middleware correctly", func() {
-		collector := &middleware.Collector[*request, *response]{}
-		collector.Use(&myFirstMiddleware{})
-		collector.Use(&myFirstMiddleware{})
-		req := &request{}
-		_, err := collector.Exec(req, &myFinalizer{})
 		Expect(err).To(BeNil())
 		Expect(req.value).To(Equal("request"))
 	})

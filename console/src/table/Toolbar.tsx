@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,7 +23,7 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Toolbar as Core } from "@/components";
+import { Toolbar as Base } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
@@ -66,8 +66,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   };
   const handleExport = useExport();
   return (
-    <Core.Content>
-      <Core.Header>
+    <Base.Content>
+      <Base.Header>
         <Flex.Box x align="center">
           <Breadcrumb.Breadcrumb>
             <Breadcrumb.Segment weight={500} color={9} level="h5">
@@ -89,7 +89,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
             ontologyID={table.ontologyID(layoutKey)}
           />
         </Flex.Box>
-      </Core.Header>
+      </Base.Header>
       <Flex.Box full>
         {selectedCells.length === 0 ? (
           <EmptyContent />
@@ -103,7 +103,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
           />
         )}
       </Flex.Box>
-    </Core.Content>
+    </Base.Content>
   );
 };
 

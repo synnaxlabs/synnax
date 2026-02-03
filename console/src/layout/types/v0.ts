@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -75,7 +75,6 @@ export const stateZ = z.object({
   tab: layoutTabPropsZ.partial().optional(),
   args: z.unknown().optional(),
   excludeFromWorkspace: z.boolean().optional(),
-  beta: z.boolean().default(false).optional(),
   unsavedChanges: z.boolean().default(false).optional(),
 });
 
@@ -129,10 +128,6 @@ export interface State<A = unknown> {
    * from the workspace. This is typically used for modal layouts.
    */
   excludeFromWorkspace?: boolean;
-  /**
-   * beta is a flag that indicates whether the layout should be marked with a beta tag.
-   */
-  beta?: boolean;
   /**
    * unsavedChanges is a flag that indicates whether the layout has unsaved changes.
    */

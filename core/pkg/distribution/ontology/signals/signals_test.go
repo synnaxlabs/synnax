@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
@@ -39,15 +38,15 @@ type changeService struct {
 	observe.Observer[iter.Seq[ontology.Change]]
 }
 
-const changeType ontology.Type = "change"
+const changeOntologyType ontology.Type = "change"
 
 func newChangeID(key string) ontology.ID {
-	return ontology.ID{Key: key, Type: changeType}
+	return ontology.ID{Key: key, Type: changeOntologyType}
 }
 
 var _ ontology.Service = (*changeService)(nil)
 
-func (s *changeService) Type() ontology.Type { return changeType }
+func (s *changeService) Type() ontology.Type { return changeOntologyType }
 
 func (s *changeService) Schema() zyn.Schema {
 	return zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
@@ -62,7 +61,7 @@ func (s *changeService) RetrieveResource(
 	key string,
 	_ gorp.Tx,
 ) (ontology.Resource, error) {
-	return core.NewResource(
+	return ontology.NewResource(
 		s.Schema(),
 		newChangeID(key),
 		"",
@@ -109,9 +108,9 @@ var _ = Describe("Signals", Ordered, func() {
 			svc.NotifyGenerator(ctx, func() iter.Seq[ontology.Change] {
 				return slices.Values([]ontology.Change{
 					{
-						Variant: change.Set,
+						Variant: change.VariantSet,
 						Key:     newChangeID(key),
-						Value: core.NewResource(
+						Value: ontology.NewResource(
 							svc.Schema(),
 							newChangeID(key),
 							"empty",
@@ -148,7 +147,7 @@ var _ = Describe("Signals", Ordered, func() {
 			svc.NotifyGenerator(ctx, func() iter.Seq[ontology.Change] {
 				return slices.Values([]ontology.Change{
 					{
-						Variant: change.Delete,
+						Variant: change.VariantDelete,
 						Key:     newChangeID(key),
 					},
 				})
@@ -187,7 +186,7 @@ var _ = Describe("Signals", Ordered, func() {
 		secondResource := newChangeID("def")
 		Expect(w.DefineResource(ctx, firstResource)).To(Succeed())
 		Expect(w.DefineResource(ctx, secondResource)).To(Succeed())
-		Expect(w.DefineRelationship(ctx, firstResource, ontology.ParentOf, secondResource)).To(Succeed())
+		Expect(w.DefineRelationship(ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet(), 10*time.Second).Should(Receive(&res))
 		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.SeriesAt(0).Data))
@@ -224,9 +223,9 @@ var _ = Describe("Signals", Ordered, func() {
 		Expect(w.DefineResource(ctx, firstResource)).To(Succeed())
 		Expect(w.DefineResource(ctx, secondResource)).To(Succeed())
 		By("Creating the relationship")
-		Expect(w.DefineRelationship(ctx, firstResource, ontology.ParentOf, secondResource)).To(Succeed())
+		Expect(w.DefineRelationship(ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource)).To(Succeed())
 		By("Deleting the relationship")
-		Expect(w.DeleteRelationship(ctx, firstResource, ontology.ParentOf, secondResource)).To(Succeed())
+		Expect(w.DeleteRelationship(ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		By("Decoding the relationships")

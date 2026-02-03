@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,6 +23,7 @@ extern "C" {
 
 using json = nlohmann::json;
 
+/// @brief it should apply JSON variables as Lua globals.
 TEST(JSONPluginTest, BasicVariableApplication) {
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
@@ -73,6 +74,7 @@ TEST(JSONPluginTest, BasicVariableApplication) {
     lua_close(L);
 }
 
+/// @brief it should reject non-object JSON as invalid.
 TEST(JSONPluginTest, InvalidJSON) {
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);

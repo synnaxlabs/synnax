@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -38,10 +38,10 @@ type Migration[I, O Migratable] func(Context, I) (O, error)
 
 // MigrationConfig holds the configuration for creating a migration
 type MigrationConfig[I, O Migratable] struct {
-	// Name is the name of the migration
-	Name string
 	// Migrate is the migration function.
 	Migrate Migration[I, O]
+	// Name is the name of the migration
+	Name string
 }
 
 // CreateMigration creates a new migration with logging
@@ -82,9 +82,9 @@ func (m Migrations) LatestVersion() version.Counter {
 // MigratorConfig holds the configuration for creating a migrator
 type MigratorConfig[I, O Migratable] struct {
 	alamos.Instrumentation
-	Name       string
-	Migrations Migrations
 	Default    O
+	Migrations Migrations
+	Name       string
 }
 
 // NewMigrator creates a function that can migrate data from one version to another
@@ -130,13 +130,13 @@ func NewMigrator[I, O Migratable](cfg MigratorConfig[I, O]) func(I) O {
 			return cfg.Default, errors.Newf("no migration found for v %v", int(v))
 		}
 
-		new_, err := migration(Context{Context: context.Background(), Instrumentation: cfg.Instrumentation}, old)
+		next, err := migration(Context{Context: context.Background(), Instrumentation: cfg.Instrumentation}, old)
 		if err != nil {
 			return cfg.Default, err
 		}
 
 		applied = true
-		return migrate(new_)
+		return migrate(next)
 	}
 
 	return func(v I) O {

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,7 +21,7 @@ export interface BarProps extends Omit<Flex.BoxProps, "direction" | "size" | "re
   bordered?: boolean;
 }
 
-const CoreBar = ({
+const BaseBar = ({
   location: location_ = "left",
   size = "9rem",
   className,
@@ -76,7 +76,7 @@ const contentFactory =
     />
   );
 
-type CoreBarType = typeof CoreBar;
+type BaseBarType = typeof BaseBar;
 
 const Start = contentFactory("start");
 Start.displayName = "NavbarStart";
@@ -89,7 +89,7 @@ Content.displayName = "NavbarContent";
 const AbsoluteCenter = contentFactory("absolute-center");
 AbsoluteCenter.displayName = "NavbarAbsoluteCenter";
 
-export interface BarType extends CoreBarType {
+export interface BarType extends BaseBarType {
   Start: typeof Start;
   Center: typeof Center;
   End: typeof End;
@@ -97,7 +97,7 @@ export interface BarType extends CoreBarType {
   Content: typeof Content;
 }
 
-export const Bar = CoreBar as BarType;
+export const Bar = BaseBar as BarType;
 
 Bar.Start = Start;
 Bar.Center = Center;

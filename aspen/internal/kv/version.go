@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,11 +21,11 @@ import (
 )
 
 type versionFilter struct {
-	Config
+	confluence.BatchSwitch[TxRequest, TxRequest]
 	memKV      xkv.DB
 	acceptedTo address.Address
 	rejectedTo address.Address
-	confluence.BatchSwitch[TxRequest, TxRequest]
+	Config
 }
 
 func newVersionFilter(cfg Config, acceptedTo address.Address, rejectedTo address.Address) segment {
@@ -66,7 +66,7 @@ func (vc *versionFilter) filter(ctx context.Context, op Operation) bool {
 	if err != nil {
 		dig, err = getDigestFromKV(ctx, vc.Engine, op.Key)
 		if err != nil {
-			return errors.Is(err, xkv.NotFound)
+			return errors.Is(err, xkv.ErrNotFound)
 		}
 	}
 	// If the versions of the operation are equal, we select a winning operation
@@ -95,9 +95,9 @@ func getDigestFromKV(ctx context.Context, kve xkv.DB, key []byte) (Digest, error
 const versionCounterKey = "ver"
 
 type versionAssigner struct {
-	Config
-	counter *xkv.AtomicInt64Counter
 	confluence.LinearTransform[TxRequest, TxRequest]
+	counter *xkv.AtomicInt64Counter
+	Config
 }
 
 func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {

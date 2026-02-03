@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -37,6 +37,6 @@ var (
 
 var errTooManyWrapString = base64.MustDecode("bGltaXQgaXMgJWQgY2hhbm5lbHM=")
 
-func newErrTooMany(count types.Uint20) error {
+func newTooManyError(count types.Uint20) error {
 	return errors.Wrapf(ErrTooMany, errTooManyWrapString, count)
 }

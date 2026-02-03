@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,24 +20,28 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Calculation", Ordered, func() {
 	var (
-		c    *calculation.Service
-		dist mock.Node
+		c         *calculation.Service
+		dist      mock.Node
+		statusSvc *status.Service
 	)
 	open := func(
 		indexChannels,
@@ -97,33 +101,56 @@ var _ = Describe("Calculation", Ordered, func() {
 	BeforeAll(func() {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
-		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		}))
-		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+			Ontology: dist.Ontology,
 			Label:    labelSvc,
+		}))
+		rackService := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:           dist.DB,
+			Ontology:     dist.Ontology,
+			Group:        dist.Group,
+			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       statusSvc,
+		}))
+		DeferCleanup(func() {
+			Expect(rackService.Close()).To(Succeed())
+		})
+		taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
-			Signals:  dist.Signals,
+			Rack:     rackService,
+			Status:   statusSvc,
 		}))
+		DeferCleanup(func() {
+			Expect(taskSvc.Close()).To(Succeed())
+		})
 		arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
 			DB:       dist.DB,
-			Framer:   dist.Framer,
-			Status:   statusSvc,
 			Signals:  dist.Signals,
+			Task:     taskSvc,
 		}))
+		DeferCleanup(func() {
+			Expect(arcSvc.Close()).To(Succeed())
+		})
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Framer:            dist.Framer,
 			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
 			Arc:               arcSvc,
+			Status:            statusSvc,
 		}))
 	})
 
@@ -144,14 +171,14 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
 			defer cancel()
 			baseCh := bases[0]
 			calcCh := calcs[0]
-			MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
+			MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
 			var res framer.StreamerResponse
 			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
@@ -181,7 +208,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Name:        channel.NewRandomName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.Free,
+					Leaseholder: cluster.NodeKeyFree,
 					Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 				}}
 			})
@@ -191,7 +218,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				baseCh1 := bases[0]
 				baseCh2 := bases[1]
 				calcCh := calcs[0]
-				MustSucceed(w.Write(core.MultiFrame(
+				MustSucceed(w.Write(frame.NewMulti(
 					[]channel.Key{baseCh1.Key(), baseCh2.Key()},
 					[]telem.Series{telem.NewSeriesV[int64](1, 2), telem.NewSeriesV[int64](2, 4)},
 				)))
@@ -208,8 +235,8 @@ var _ = Describe("Calculation", Ordered, func() {
 				baseCh1 := bases[0]
 				baseCh2 := bases[1]
 				calcCh := calcs[0]
-				MustSucceed(w.Write(core.UnaryFrame(baseCh1.Key(), telem.NewSeriesV[int64](1, 2))))
-				MustSucceed(w.Write(core.UnaryFrame(baseCh2.Key(), telem.NewSeriesV[int64](2, 4))))
+				MustSucceed(w.Write(frame.NewUnary(baseCh1.Key(), telem.NewSeriesV[int64](1, 2))))
+				MustSucceed(w.Write(frame.NewUnary(baseCh2.Key(), telem.NewSeriesV[int64](2, 4))))
 				var res framer.StreamerResponse
 				Eventually(sOutlet.Outlet()).Should(Receive(&res))
 				Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
@@ -233,7 +260,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Name:        channel.NewRandomName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.Free,
+					Leaseholder: cluster.NodeKeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 				}}
 			)
@@ -242,7 +269,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			idxCh := indexes[0]
 			baseCh := bases[0]
 			calcCh := calcs[0]
-			MustSucceed(w.Write(core.MultiFrame(
+			MustSucceed(w.Write(frame.NewMulti(
 				[]channel.Key{idxCh.Key(), baseCh.Key()},
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2),
@@ -278,7 +305,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Name:        channel.NewRandomName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
-						Leaseholder: cluster.Free,
+						Leaseholder: cluster.NodeKeyFree,
 						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
@@ -288,7 +315,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				baseCh1 := bases[0]
 				baseCh2 := bases[1]
 				calcCh := calcs[0]
-				MustSucceed(w.Write(core.MultiFrame(
+				MustSucceed(w.Write(frame.NewMulti(
 					[]channel.Key{idxCh.Key(), baseCh1.Key(), baseCh2.Key()},
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(1, 2),
@@ -329,7 +356,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Name:        channel.NewRandomName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
-						Leaseholder: cluster.Free,
+						Leaseholder: cluster.NodeKeyFree,
 						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
@@ -342,7 +369,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					baseCh2 = bases[1]
 					calcCh  = calcs[0]
 				)
-				MustSucceed(w.Write(core.MultiFrame(
+				MustSucceed(w.Write(frame.NewMulti(
 					[]channel.Key{idxCh1.Key(), idxCh2.Key(), baseCh1.Key(), baseCh2.Key()},
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(1, 2),
@@ -384,7 +411,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Name:        channel.NewRandomName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
-						Leaseholder: cluster.Free,
+						Leaseholder: cluster.NodeKeyFree,
 						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
@@ -397,14 +424,14 @@ var _ = Describe("Calculation", Ordered, func() {
 					baseCh2 = bases[1]
 					calcCh  = calcs[0]
 				)
-				MustSucceed(w.Write(core.MultiFrame(
+				MustSucceed(w.Write(frame.NewMulti(
 					[]channel.Key{idxCh1.Key(), baseCh1.Key()},
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(3, 4),
 						telem.NewSeriesV[float32](2, 4),
 					},
 				)))
-				MustSucceed(w.Write(core.MultiFrame(
+				MustSucceed(w.Write(frame.NewMulti(
 					[]channel.Key{idxCh2.Key(), baseCh2.Key()},
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(1, 2),
@@ -433,13 +460,13 @@ var _ = Describe("Calculation", Ordered, func() {
 					Name:        calc1Name,
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.Free,
+					Leaseholder: cluster.NodeKeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 				}, {
 					Name:        channel.NewRandomName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.Free,
+					Leaseholder: cluster.NodeKeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", calc1Name),
 				}}
 			})
@@ -449,7 +476,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				baseCh := bases[0]
 				calcCh := calcs[0]
 				calc2Ch := calcs[1]
-				MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
+				MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
 
 				var res framer.StreamerResponse
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
@@ -465,13 +492,107 @@ var _ = Describe("Calculation", Ordered, func() {
 				defer cancel()
 				baseCh := bases[0]
 				calc2Ch := calcs[1]
-				MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
+				MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
 
 				var res framer.StreamerResponse
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calc2Ch.Key()}))
 				Expect(res.Frame.Get(calc2Ch.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](4, 8))
 			})
+		})
+	})
+
+	Describe("Calculation Status", func() {
+		Specify("Should persist error status on invalid expression request", func() {
+			calcs := []channel.Channel{{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: cluster.NodeKeyFree,
+				Expression:  "invalid expression without return",
+			}}
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			rm := c.OpenRequestManager()
+			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
+			var st calculation.Status
+			statusKey := channel.OntologyID(calcs[0].Key()).String()
+			Expect(status.NewRetrieve[calculation.StatusDetails](statusSvc).
+				WhereKeys(statusKey).
+				Entry(&st).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(st.Variant).To(Equal(xstatus.VariantError))
+			Expect(rm.Close(ctx)).To(Succeed())
+		})
+		Specify("Should persist error status on calculation update failure", func() {
+			bases := []channel.Channel{{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			calcs := []channel.Channel{{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: cluster.NodeKeyFree,
+				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+			}}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			rm := c.OpenRequestManager()
+			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
+			calcs[0].Expression = "invalid expression without return"
+			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
+			var st calculation.Status
+			statusKey := channel.OntologyID(calcs[0].Key()).String()
+			Eventually(func(g Gomega) {
+				err := status.NewRetrieve[calculation.StatusDetails](statusSvc).
+					WhereKeys(statusKey).
+					Entry(&st).
+					Exec(ctx, nil)
+				g.Expect(err).To(Succeed())
+				g.Expect(st.Variant).To(Equal(xstatus.VariantError))
+			}).Should(Succeed())
+			Expect(rm.Close(ctx)).To(Succeed())
+		})
+		Specify("Should include channel key in status details", func() {
+			calcs := []channel.Channel{{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: cluster.NodeKeyFree,
+				Expression:  "invalid expression",
+			}}
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			rm := c.OpenRequestManager()
+			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
+			var st calculation.Status
+			statusKey := channel.OntologyID(calcs[0].Key()).String()
+			Expect(status.NewRetrieve[calculation.StatusDetails](statusSvc).
+				WhereKeys(statusKey).
+				Entry(&st).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(st.Details.Channel).To(Equal(calcs[0].Key()))
+			Expect(rm.Close(ctx)).To(Succeed())
+		})
+		Specify("Should use channel ontology ID as status key", func() {
+			calcs := []channel.Channel{{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: cluster.NodeKeyFree,
+				Expression:  "invalid expression",
+			}}
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			rm := c.OpenRequestManager()
+			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
+			var st calculation.Status
+			expectedKey := channel.OntologyID(calcs[0].Key()).String()
+			Expect(status.NewRetrieve[calculation.StatusDetails](statusSvc).
+				WhereKeys(expectedKey).
+				Entry(&st).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(st.Key).To(Equal(expectedKey))
+			Expect(rm.Close(ctx)).To(Succeed())
 		})
 	})
 
@@ -486,14 +607,14 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
 			defer cancel()
 			baseCh := bases[0]
 			calcCh := calcs[0]
-			MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
+			MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
 			var res framer.StreamerResponse
 			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
@@ -503,7 +624,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				_, err := w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2)))
+				_, err := w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2)))
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
@@ -527,7 +648,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
@@ -535,7 +656,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			baseCh := bases[0]
 			baseCh2 := bases[1]
 			calcCh := calcs[0]
-			MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
+			MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
 			var res framer.StreamerResponse
 			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
@@ -545,7 +666,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
 
 			Expect(func(g Gomega) {
-				_, err := w.Write(core.UnaryFrame(baseCh2.Key(), telem.NewSeriesV[int64](1, 2)))
+				_, err := w.Write(frame.NewUnary(baseCh2.Key(), telem.NewSeriesV[int64](1, 2)))
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))

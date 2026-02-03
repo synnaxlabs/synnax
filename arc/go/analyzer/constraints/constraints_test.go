@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,28 +23,39 @@ var _ = Describe("Constraint System", func() {
 
 	Describe("Basic Constraint Collection", func() {
 		It("should track type variables", func() {
-			tv1 := types.Variable("T", nil)
-			constraint := types.NumericConstraint()
-			tv2 := types.Variable("U", &constraint)
-			system.AddEquality(tv1, types.F32(), nil, "test")
-			system.AddEquality(tv2, types.I32(), nil, "test")
+			var (
+				tv1        = types.Variable("T", nil)
+				constraint = types.NumericConstraint()
+				tv2        = types.Variable("U", &constraint)
+			)
+			Expect(system.AddEquality(tv1, types.F32(), nil, "test")).To(Succeed())
+			Expect(system.AddEquality(tv2, types.I32(), nil, "test")).To(Succeed())
 			Expect(system.TypeVars).To(HaveLen(2))
 			Expect(system.Constraints).To(HaveLen(2))
 		})
 
 		It("should track constraints between type variables", func() {
-			tv1 := types.Variable("T", nil)
-			tv2 := types.Variable("U", nil)
-			system.AddEquality(tv1, tv2, nil, "T = U")
+			var (
+				tv1 = types.Variable("T", nil)
+				tv2 = types.Variable("U", nil)
+			)
+			Expect(system.AddEquality(tv1, tv2, nil, "T = U")).To(Succeed())
 			Expect(system.TypeVars).To(HaveLen(2))
 			Expect(system.Constraints).To(HaveLen(1))
 		})
 
 		It("should handle nested type variables in channels", func() {
-			constraint := types.NumericConstraint()
-			tv := types.Variable("T", &constraint)
-			chanType := types.Chan(tv)
-			system.AddEquality(chanType, types.Chan(types.F32()), nil, "channel types")
+			var (
+				constraint = types.NumericConstraint()
+				tv         = types.Variable("T", &constraint)
+				chanType   = types.Chan(tv)
+			)
+			Expect(system.AddEquality(
+				chanType,
+				types.Chan(types.F32()),
+				nil,
+				"channel types",
+			)).To(Succeed())
 			Expect(system.TypeVars).To(HaveLen(1))
 			Expect(system.TypeVars["T"]).NotTo(BeNil())
 		})
@@ -57,116 +68,169 @@ var _ = Describe("Constraint System", func() {
 
 		It("should return true when type variables exist", func() {
 			tv := types.Variable("T", nil)
-			system.AddEquality(tv, types.F32(), nil, "test")
+			Expect(system.AddEquality(tv, types.F32(), nil, "test")).To(Succeed())
 			Expect(system.HasTypeVariables()).To(BeTrue())
 		})
 	})
 
 	Describe("ApplySubstitutions", func() {
 		It("should apply simple substitutions", func() {
-			tv := types.Variable("T", nil)
 			system.Substitutions["T"] = types.F32()
-			result := system.ApplySubstitutions(tv)
+			var (
+				tv     = types.Variable("T", nil)
+				result = system.ApplySubstitutions(tv)
+			)
 			Expect(result).To(Equal(types.F32()))
 		})
 
 		It("should apply substitutions recursively", func() {
-			tv1 := types.Variable("T", nil)
-			tv2 := types.Variable("U", nil)
+			var (
+				tv1 = types.Variable("T", nil)
+				tv2 = types.Variable("U", nil)
+			)
 			system.Substitutions["T"] = tv2
 			system.Substitutions["U"] = types.I64()
 			Expect(system.ApplySubstitutions(tv1)).To(Equal(types.I64()))
 		})
 
 		It("should apply substitutions in compound types", func() {
-			tv := types.Variable("T", nil)
-			chanType := types.Chan(tv)
+			var (
+				tv       = types.Variable("T", nil)
+				chanType = types.Chan(tv)
+			)
 			system.Substitutions["T"] = types.F64()
 			Expect(system.ApplySubstitutions(chanType)).To(Equal(types.Chan(types.F64())))
 		})
 
 		It("should apply substitutions in series types", func() {
-			constraint := types.NumericConstraint()
-			tv := types.Variable("T", &constraint)
-			seriesType := types.Series(tv)
+			var (
+				constraint = types.NumericConstraint()
+				tv         = types.Variable("T", &constraint)
+				seriesType = types.Series(tv)
+			)
 			system.Substitutions["T"] = types.I32()
-			Expect(system.ApplySubstitutions(seriesType)).To(Equal(types.Series(types.I32())))
+			Expect(system.ApplySubstitutions(seriesType)).
+				To(Equal(types.Series(types.I32())))
 		})
 
 		It("should apply substitutions to function input types", func() {
-			tv := types.Variable("T", nil)
-			props := types.NewFunctionProperties()
-			props.Inputs = append(props.Inputs, types.Param{Name: "x", Type: tv})
-			fnType := types.Function(props)
 			system.Substitutions["T"] = types.F32()
-			result := system.ApplySubstitutions(fnType)
-			inputParam, ok := result.Inputs.Get("x")
-			Expect(ok).To(BeTrue())
+			var (
+				tv    = types.Variable("T", nil)
+				props = types.FunctionProperties{
+					Inputs: types.Params{{Name: "x", Type: tv}},
+				}
+				fnType     = types.Function(props)
+				result     = system.ApplySubstitutions(fnType)
+				inputParam = MustBeOk(result.Inputs.Get("x"))
+			)
 			Expect(inputParam.Type).To(Equal(types.F32()))
 		})
 
 		It("should apply substitutions to function output types", func() {
-			tv := types.Variable("T", nil)
-			props := types.NewFunctionProperties()
-			props.Outputs = append(props.Outputs, types.Param{Name: "result", Type: tv})
-			fnType := types.Function(props)
+			var (
+				tv    = types.Variable("T", nil)
+				props = types.FunctionProperties{
+					Outputs: types.Params{{Name: "result", Type: tv}}}
+				fnType = types.Function(props)
+			)
 			system.Substitutions["T"] = types.I64()
-			result := system.ApplySubstitutions(fnType)
-			outputParam, ok := result.Outputs.Get("result")
-			Expect(ok).To(BeTrue())
+			var (
+				result      = system.ApplySubstitutions(fnType)
+				outputParam = MustBeOk(result.Outputs.Get("result"))
+			)
 			Expect(outputParam.Type).To(Equal(types.I64()))
 		})
 
 		It("should apply substitutions to function config types", func() {
-			tv := types.Variable("T", nil)
-			props := types.NewFunctionProperties()
-			props.Config = append(props.Config, types.Param{Name: "threshold", Type: tv})
-			fnType := types.Function(props)
+			var (
+				tv    = types.Variable("T", nil)
+				props = types.FunctionProperties{
+					Config: types.Params{{Name: "threshold", Type: tv}}}
+				fnType = types.Function(props)
+			)
 			system.Substitutions["T"] = types.F64()
-			result := system.ApplySubstitutions(fnType)
-			configParam, ok := result.Config.Get("threshold")
-			Expect(ok).To(BeTrue())
+			var (
+				result      = system.ApplySubstitutions(fnType)
+				configParam = MustBeOk(result.Config.Get("threshold"))
+			)
 			Expect(configParam.Type).To(Equal(types.F64()))
 		})
 
 		It("should apply substitutions to multiple function parameters", func() {
-			tv1 := types.Variable("T1", nil)
-			tv2 := types.Variable("T2", nil)
-			tv3 := types.Variable("T3", nil)
-			props := types.NewFunctionProperties()
-			props.Inputs = append(props.Inputs, types.Param{Name: "x", Type: tv1})
-			props.Outputs = append(props.Outputs, types.Param{Name: "y", Type: tv2})
-			props.Config = append(props.Config, types.Param{Name: "z", Type: tv3})
-			fnType := types.Function(props)
+			var (
+				tv1   = types.Variable("T1", nil)
+				tv2   = types.Variable("T2", nil)
+				tv3   = types.Variable("T3", nil)
+				props = types.FunctionProperties{
+					Inputs:  types.Params{{Name: "x", Type: tv1}},
+					Outputs: types.Params{{Name: "y", Type: tv2}},
+					Config:  types.Params{{Name: "z", Type: tv3}},
+				}
+				fnType = types.Function(props)
+			)
 			system.Substitutions["T1"] = types.F32()
 			system.Substitutions["T2"] = types.I32()
 			system.Substitutions["T3"] = types.String()
-			result := system.ApplySubstitutions(fnType)
-			inputParam := MustBeOk(result.Inputs.Get("x"))
-			outputParam := MustBeOk(result.Outputs.Get("y"))
-			configParam := MustBeOk(result.Config.Get("z"))
+			var (
+				result      = system.ApplySubstitutions(fnType)
+				inputParam  = MustBeOk(result.Inputs.Get("x"))
+				outputParam = MustBeOk(result.Outputs.Get("y"))
+				configParam = MustBeOk(result.Config.Get("z"))
+			)
 			Expect(inputParam.Type).To(Equal(types.F32()))
 			Expect(outputParam.Type).To(Equal(types.I32()))
 			Expect(configParam.Type).To(Equal(types.String()))
 		})
 
 		It("should handle circular substitution chains correctly", func() {
-			tv1 := types.Variable("A", nil)
-			tv2 := types.Variable("B", nil)
+			var (
+				tv1 = types.Variable("A", nil)
+				tv2 = types.Variable("B", nil)
+			)
 			system.Substitutions["A"] = tv2
 			system.Substitutions["B"] = tv1
 			result := system.ApplySubstitutions(tv1)
 			Expect(result.Kind).To(Equal(types.KindVariable))
 		})
+
+		It("should preserve unit from type variable when result has no unit", func() {
+			var (
+				unit = &types.Unit{Name: "psi", Scale: 1.0}
+				tv   = types.Variable("T", nil)
+			)
+			tv.Unit = unit
+			system.Substitutions["T"] = types.F32()
+			result := system.ApplySubstitutions(tv)
+			Expect(result.Kind).To(Equal(types.KindF32))
+			Expect(result.Unit).To(Equal(unit))
+		})
+
+		It("should not override result unit when result already has unit", func() {
+			var (
+				unit1      = &types.Unit{Name: "psi", Scale: 1.0}
+				unit2      = &types.Unit{Name: "bar", Scale: 100000.0}
+				tv         = types.Variable("T", nil)
+				resultType = types.F32()
+			)
+			tv.Unit = unit1
+			resultType.Unit = unit2
+			system.Substitutions["T"] = resultType
+			result := system.ApplySubstitutions(tv)
+			Expect(result.Kind).To(Equal(types.KindF32))
+			Expect(result.Unit).To(Equal(unit2))
+		})
 	})
 
 	Describe("String", func() {
 		It("should format constraint system as string", func() {
-			constraint := types.NumericConstraint()
-			tv1 := types.Variable("T1", &constraint)
-			tv2 := types.Variable("T2", nil)
-			system.AddEquality(tv1, types.F32(), nil, "T1 = f32")
-			system.AddCompatible(tv2, types.I32(), nil, "T2 ~ i32")
+			var (
+				constraint = types.NumericConstraint()
+				tv1        = types.Variable("T1", &constraint)
+				tv2        = types.Variable("T2", nil)
+			)
+			Expect(system.AddEquality(tv1, types.F32(), nil, "T1 = f32")).To(Succeed())
+			Expect(system.AddCompatible(tv2, types.I32(), nil, "T2 ~ i32")).To(Succeed())
 			system.Substitutions["T1"] = types.F32()
 			str := system.String()
 			Expect(str).To(ContainSubstring("Type Variables"))
@@ -177,11 +241,13 @@ var _ = Describe("Constraint System", func() {
 		})
 
 		It("should show resolved and unresolved type variables", func() {
-			constraint := types.NumericConstraint()
-			tv1 := types.Variable("Resolved", &constraint)
-			tv2 := types.Variable("Unresolved", nil)
-			system.AddEquality(tv1, types.F32(), nil, "test")
-			system.AddEquality(tv2, tv2, nil, "test")
+			var (
+				constraint = types.NumericConstraint()
+				tv1        = types.Variable("Resolved", &constraint)
+				tv2        = types.Variable("Unresolved", nil)
+			)
+			Expect(system.AddEquality(tv1, types.F32(), nil, "test")).To(Succeed())
+			Expect(system.AddEquality(tv2, tv2, nil, "test")).To(Succeed())
 			system.Substitutions["Resolved"] = types.F32()
 			str := system.String()
 			Expect(str).To(ContainSubstring("Resolved"))
@@ -191,22 +257,39 @@ var _ = Describe("Constraint System", func() {
 		})
 
 		It("should distinguish equality vs compatible constraints in string output", func() {
-			tv1 := types.Variable("T1", nil)
-			tv2 := types.Variable("T2", nil)
-			system.AddEquality(tv1, types.F32(), nil, "equality constraint")
-			system.AddCompatible(tv2, types.I32(), nil, "compatible constraint")
-			str := system.String()
-			Expect(str).To(ContainSubstring("≡"))
-			Expect(str).To(ContainSubstring("~"))
-			Expect(str).To(ContainSubstring("equality constraint"))
-			Expect(str).To(ContainSubstring("compatible constraint"))
+			var (
+				tv1 = types.Variable("T1", nil)
+				tv2 = types.Variable("T2", nil)
+			)
+			Expect(system.AddEquality(
+				tv1,
+				types.F32(),
+				nil,
+				"equality constraint",
+			)).To(Succeed())
+			Expect(system.AddCompatible(
+				tv2,
+				types.I32(),
+				nil,
+				"compatible constraint",
+			)).To(Succeed())
+			Expect(system.String()).To(SatisfyAll(
+				ContainSubstring("≡"),
+				ContainSubstring("~"),
+				ContainSubstring("equality constraint"),
+				ContainSubstring("compatible constraint"),
+			))
 		})
 
 		It("should show constraint reasons", func() {
 			tv := types.Variable("T", nil)
-			system.AddEquality(tv, types.F32(), nil, "because we need float precision")
-			str := system.String()
-			Expect(str).To(ContainSubstring("because we need float precision"))
+			Expect(system.AddEquality(
+				tv,
+				types.F32(),
+				nil,
+				"because we need float precision",
+			)).To(Succeed())
+			Expect(system.String()).To(ContainSubstring("because we need float precision"))
 		})
 	})
 })

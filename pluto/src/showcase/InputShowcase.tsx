@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,40 +17,50 @@ import { Text } from "@/text";
 
 import { SubcategorySection } from "./SubcategorySection";
 
-export interface InputShowcaseTextProps
-  extends optional.Optional<Input.TextProps, "value" | "onChange"> {}
+export interface InputShowcaseTextProps extends optional.Optional<
+  Input.TextProps,
+  "value" | "onChange"
+> {}
 
 export const InputShowcaseText = (props: InputShowcaseTextProps) => {
   const [value, setValue] = useState<string>(props.value ?? "");
   return <Input.Text {...props} value={value} onChange={setValue} />;
 };
 
-export interface InputShowcaseNumericProps
-  extends optional.Optional<Input.NumericProps, "value" | "onChange"> {}
+export interface InputShowcaseNumericProps extends optional.Optional<
+  Input.NumericProps,
+  "value" | "onChange"
+> {}
 
 export const InputShowcaseNumeric = (props: InputShowcaseNumericProps) => {
   const [value, setValue] = useState(0);
   return <Input.Numeric {...props} value={value} onChange={setValue} />;
 };
 
-export interface InputShowcaseSwitchProps
-  extends optional.Optional<Input.SwitchProps, "value" | "onChange"> {}
+export interface InputShowcaseSwitchProps extends optional.Optional<
+  Input.SwitchProps,
+  "value" | "onChange"
+> {}
 
 export const InputShowcaseSwitch = (props: InputShowcaseSwitchProps) => {
   const [value, setValue] = useState(props.value ?? false);
   return <Input.Switch {...props} value={value} onChange={setValue} />;
 };
 
-export interface InputShowcaseCheckboxProps
-  extends optional.Optional<Input.CheckboxProps, "value" | "onChange"> {}
+export interface InputShowcaseCheckboxProps extends optional.Optional<
+  Input.CheckboxProps,
+  "value" | "onChange"
+> {}
 
 export const InputShowcaseCheckbox = (props: InputShowcaseCheckboxProps) => {
   const [value, setValue] = useState(props.value ?? false);
   return <Input.Checkbox {...props} value={value} onChange={setValue} />;
 };
 
-export interface InputShowcaseDateTimeProps
-  extends optional.Optional<Input.DateTimeProps, "value" | "onChange"> {}
+export interface InputShowcaseDateTimeProps extends optional.Optional<
+  Input.DateTimeProps,
+  "value" | "onChange"
+> {}
 
 export const InputShowcaseDateTime = (props: InputShowcaseDateTimeProps) => {
   const [value, setValue] = useState(Number(TimeStamp.now().valueOf()));
@@ -64,8 +74,10 @@ const INPUT_PLACEHOLDER = (
   </>
 );
 
-export interface InputShowcaseTextAreaProps
-  extends optional.Optional<Input.TextProps, "value" | "onChange"> {}
+export interface InputShowcaseTextAreaProps extends optional.Optional<
+  Input.TextProps,
+  "value" | "onChange"
+> {}
 
 export const InputShowcaseTextArea = (props: InputShowcaseTextAreaProps) => {
   const [value, setValue] = useState("");

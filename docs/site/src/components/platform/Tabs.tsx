@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,12 +14,12 @@ import {
   type Platform,
   PLATFORMS,
   setInURL,
-} from "@/components/platform/platform";
-import { Tabs as Core, type TabsProps as CoreProps } from "@/components/Tabs";
+} from "@/components/platform/Platform";
+import { Tabs as Base, type TabsProps as BaseProps } from "@/components/tabs/Tabs";
 
 const TABS = PLATFORMS.map(({ key, ...p }) => ({ ...p, tabKey: key }));
 
-export interface TabsProps extends Omit<CoreProps, "tabs" | "queryParamKey"> {
+export interface TabsProps extends Omit<BaseProps, "tabs" | "queryParamKey"> {
   exclude?: Platform[];
   priority?: Platform[];
 }
@@ -42,5 +42,5 @@ export const Tabs = ({ exclude = [], priority = [], ...rest }: TabsProps) => {
       return aIndex - bIndex;
     });
 
-  return <Core queryParamKey="platform" tabs={tabs} {...rest} />;
+  return <Base queryParamKey="platform" tabs={tabs} {...rest} />;
 };

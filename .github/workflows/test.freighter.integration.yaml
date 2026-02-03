@@ -1,0 +1,42 @@
+name: Test - Freighter (Integration)
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/test.freighter.integration.yaml
+      - .github/workflows/test.go.yaml
+      - .golangci.yaml
+      - alamos/go/**
+      - codecov.yaml
+      - freighter/go/**
+      - freighter/integration/**
+      - go.work
+      - go.work.sum
+      - scripts/check_gofmt.sh
+      - x/go/**
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - .github/workflows/test.freighter.integration.yaml
+      - .github/workflows/test.go.yaml
+      - .golangci.yaml
+      - alamos/go/**
+      - codecov.yaml
+      - freighter/go/**
+      - freighter/integration/**
+      - go.work
+      - go.work.sum
+      - scripts/check_gofmt.sh
+      - x/go/**
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.go.yaml
+    secrets: inherit
+    with:
+      directory: freighter/integration
+      ginkgo_flags: -p --randomize-all --race
+      coverage_flag: freighter-integration

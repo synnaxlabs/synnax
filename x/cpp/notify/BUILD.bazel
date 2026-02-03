@@ -1,0 +1,32 @@
+cc_library(
+    name = "notify",
+    hdrs = ["notify.h"],
+    srcs = select({
+        "@platforms//os:linux": ["eventfd_notifier.cpp"],
+        "@platforms//os:macos": ["kqueue_notifier.cpp"],
+        "@platforms//os:windows": ["event_notifier.cpp"],
+        "//conditions:default": ["polling_notifier.cpp"],
+    }),
+    copts = select({
+        "@platforms//os:windows": [
+            "/DWIN32_LEAN_AND_MEAN",
+            "/DNOMINMAX",
+        ],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "notify_test",
+    size = "small",
+    srcs = ["notify_test.cpp"],
+    deps = [
+        ":notify",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

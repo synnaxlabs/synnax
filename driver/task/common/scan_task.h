@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,8 +9,10 @@
 
 #pragma once
 
+#include <algorithm>
 #include <mutex>
 #include <thread>
+#include <unordered_set>
 
 #include "glog/logging.h"
 
@@ -404,6 +406,20 @@ public:
             if (err) return err;
             this->scanner_ctx.count++;
 
+            // Step 1.5: Deduplicate by key (keep last). During physical device
+            // transitions NI may briefly report the same device at multiple locations.
+            {
+                std::unordered_set<std::string> seen;
+                std::vector<synnax::Device> deduped;
+                for (auto it = scanned_devs.rbegin(); it != scanned_devs.rend(); ++it) {
+                    if (seen.count(it->key)) continue;
+                    seen.insert(it->key);
+                    deduped.push_back(std::move(*it));
+                }
+                std::reverse(deduped.begin(), deduped.end());
+                scanned_devs = std::move(deduped);
+            }
+
             // Step 2: Track which devices are present that need to be created.
             std::set<std::string> present;
             auto last_available = telem::TimeStamp::now();
@@ -419,9 +435,22 @@ public:
                     continue;
                 }
                 const auto remote_dev = iter->second;
+                bool needs_update = false;
+
+                if (scanned_dev.location != remote_dev.location) {
+                    LOG(INFO) << this->log_prefix << "device location changed from "
+                              << remote_dev.location << " to " << scanned_dev.location;
+                    needs_update = true;
+                }
+
                 if (scanned_dev.rack != remote_dev.rack &&
                     this->update_threshold_exceeded(scanned_dev.key)) {
                     LOG(INFO) << this->log_prefix << "taking ownership over device";
+                    needs_update = true;
+                }
+
+                if (needs_update) {
+                    // Preserve user-configured properties
                     scanned_dev.properties = remote_dev.properties;
                     scanned_dev.name = remote_dev.name;
                     scanned_dev.configured = remote_dev.configured;

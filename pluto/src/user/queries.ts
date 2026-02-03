@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -27,7 +27,7 @@ export type UseDeleteArgs = user.Key | user.Key[];
 export interface FluxStore extends Flux.UnaryStore<user.Key, user.User> {}
 
 export const FLUX_STORE_KEY = "users";
-const RESOURCE_NAME = "User";
+const RESOURCE_NAME = "user";
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   FluxSubStore,

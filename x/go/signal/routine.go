@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,14 +25,14 @@ import (
 type RoutineOption func(r *routineOptions)
 
 type RoutineInfo struct {
+	// FailureReason is the error that caused the routine to exit.
+	FailureReason error
 	// Key is a unique identifier for the routine within the parent context.
 	Key string
 	// ContextKey is the key of the context that the routine is running in.
 	ContextKey string
 	// State is the current state of the routine.
 	State RoutineState
-	// FailureReason is the error that caused the routine to exit.
-	FailureReason error
 }
 
 func (r RoutineInfo) PrettyString() string {
@@ -55,13 +55,13 @@ type (
 
 //go:generate stringer -type=RoutineState
 const (
-	Starting RoutineState = iota
-	Running
-	Stopping
-	Exited
-	Failed
-	ContextCanceled
-	Panicked
+	RoutineStateStarting RoutineState = iota
+	RoutineStateRunning
+	RoutineStateStopping
+	RoutineStateExited
+	RoutineStateFailed
+	RoutineStateContextCanceled
+	RoutineStatePanicked
 )
 
 //go:generate stringer -type=panicPolicy
@@ -72,9 +72,9 @@ const (
 )
 
 const (
-	// CancelOnExit defines if the routine should cancel the context upon exiting.
+	// cancelOnExit defines if the routine should cancel the context upon exiting.
 	cancelOnExit contextPolicy = iota + 1
-	// CancelOnFail defines if the routine should cancel the context upon exiting
+	// cancelOnFail defines if the routine should cancel the context upon exiting
 	cancelOnFail
 )
 
@@ -107,17 +107,9 @@ func WithKeyf(format string, args ...any) RoutineOption {
 	}
 }
 
-// AddCallerSkip sets the callerSkip on the routine. The callerSkip is the number of
-// stacks to skip when logging.
-func AddCallerSkip(skip int) RoutineOption {
-	return func(r *routineOptions) {
-		r.callerSkip = skip
-	}
-}
-
 type deferral struct {
-	key string
 	f   func() error
+	key string
 }
 
 // RecoverWithErrOnPanic instructs the goroutine to recover if it panics, and fail with
@@ -186,15 +178,6 @@ func WithRetryScale(scale float32) RoutineOption {
 	}
 }
 
-// CancelOnExit instructs the goroutine to cancel upon exiting (error or no error)
-// If CancelOnFail or CancelOnExit is already called, this overrides the previous
-// configuration.
-func CancelOnExit() RoutineOption {
-	return func(r *routineOptions) {
-		r.contextPolicy = cancelOnExit
-	}
-}
-
 // CancelOnFail instructs the goroutine to cancel upon failing (error)
 // If CancelOnFail or CancelOnExit is already called, this overrides the previous
 // configuration.
@@ -227,19 +210,19 @@ type routineOptions struct {
 }
 
 type routine struct {
-	ctx *core
-	routineOptions
-	L *alamos.Logger
 	// span traces the goroutine's execution.
 	span alamos.Span
-	// breaker is the circuit breaker used in the goroutine
-	breaker breaker.Breaker
+	ctx  *core
+	L    *alamos.Logger
 	// state represents the current state of the routine
 	state struct {
-		state RoutineState
 		// err is the error that cause the routine to exit.
-		err error
+		err   error
+		state RoutineState
 	}
+	// breaker is the circuit breaker used in the goroutine
+	breaker breaker.Breaker
+	routineOptions
 }
 
 func (r *routine) info() RoutineInfo {
@@ -269,11 +252,11 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 
 	// If the context has already been canceled, don't even start the routine.
 	if r.ctx.Err() != nil {
-		r.state.state = Failed
+		r.state.state = RoutineStateFailed
 		r.state.err = r.ctx.Err()
 		return r.ctx, false
 	}
-	r.state.state = Starting
+	r.state.state = RoutineStateStarting
 
 	r.ctx.L.Debug("starting routine", r.zapFields()...)
 	ctx, r.span = r.ctx.T.Prod(r.ctx, r.path())
@@ -286,7 +269,7 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 func (r *routine) runPostlude(err error) error {
 	r.ctx.mu.Lock()
 	r.ctx.L.Debug("stopping routine", r.zapFields()...)
-	r.state.state = Stopping
+	r.state.state = RoutineStateStopping
 	r.ctx.mu.Unlock()
 
 	for i := range r.deferrals {
@@ -302,9 +285,9 @@ func (r *routine) runPostlude(err error) error {
 		_ = r.span.Error(err, context.Canceled)
 		// Only non-context errors are considered failures.
 		if errors.IsAny(err, context.Canceled, context.DeadlineExceeded) {
-			r.state.state = ContextCanceled
+			r.state.state = RoutineStateContextCanceled
 		} else {
-			r.state.state = Failed
+			r.state.state = RoutineStateFailed
 			r.state.err = err
 			r.ctx.L.Error("routine failed", r.zapFields()...)
 			r.ctx.L.Debugf(routineFailedFormat, r.key, r.state.err, r.ctx.routineDiagnostics())
@@ -313,7 +296,7 @@ func (r *routine) runPostlude(err error) error {
 			r.ctx.cancel()
 		}
 	} else {
-		r.state.state = Exited
+		r.state.state = RoutineStateExited
 	}
 
 	if r.contextPolicy == cancelOnExit {
@@ -344,7 +327,7 @@ func (r *routine) maybeRecover(panicReason any) error {
 
 	switch r.panicPolicy {
 	case propagatePanic:
-		r.state.state = Panicked
+		r.state.state = RoutineStatePanicked
 		if err, ok := panicReason.(error); ok {
 			r.state.err = err
 			_ = r.span.Error(err)
@@ -352,13 +335,13 @@ func (r *routine) maybeRecover(panicReason any) error {
 		r.span.End()
 		panic(panicReason)
 	case recoverErr:
-		r.state.state = Failed
+		r.state.state = RoutineStateFailed
 		if err, ok := panicReason.(error); ok {
 			return errors.Wrapf(err, "routine %s recovered", r.key)
 		}
 		return errors.Newf("%s", panicReason)
 	case recoverNoErr:
-		r.state.state = Exited
+		r.state.state = RoutineStateExited
 		return nil
 	default:
 		msg := fmt.Sprintf("unknown panic policy %v", r.panicPolicy)
@@ -398,7 +381,7 @@ func (r *routine) goRun(f func(context.Context) error) {
 	if ctx, proceed := r.runPrelude(); proceed {
 		pprof.Do(ctx, pprof.Labels("routine", r.path()), func(ctx context.Context) {
 			r.ctx.mu.Lock()
-			r.state.state = Running
+			r.state.state = RoutineStateRunning
 			r.ctx.mu.Unlock()
 
 			r.ctx.internal.Go(func() (err error) {

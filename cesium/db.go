@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,7 +15,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/alignment"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
@@ -24,39 +26,47 @@ import (
 )
 
 type (
-	Channel    = core.Channel
-	ChannelKey = core.ChannelKey
-	Frame      = core.Frame
+	Channel    = channel.Channel
+	ChannelKey = channel.Key
+	Frame      = channel.Frame
 )
 
 var (
-	errDBClosed          = core.NewErrResourceClosed("cesium.db")
-	ErrChannelNotFound   = core.ErrChannelNotFound
-	ZeroLeadingAlignment = core.ZeroLeadingAlignment
+	errDBClosed          = resource.NewClosedError("cesium.db")
+	ErrChannelNotFound   = channel.ErrNotFound
+	ZeroLeadingAlignment = alignment.ZeroLeading
 )
+
+// Metrics contains statistics about the cesium database.
+type Metrics struct {
+	// DiskSize is the total disk space used by all channel data.
+	DiskSize telem.Size
+	// ChannelCount is the number of channels in the database.
+	ChannelCount int
+}
 
 // LeadingAlignment returns an Alignment whose array index is the maximum possible value
 // and whose sample index is the provided value.
 func LeadingAlignment(domainIdx, sampleIdx uint32) telem.Alignment {
-	return core.LeadingAlignment(domainIdx, sampleIdx)
+	return alignment.Leading(domainIdx, sampleIdx)
 }
 
 type DB struct {
+	shutdown io.Closer
 	*options
-	relay *relay
-	mu    struct {
-		sync.RWMutex
+	relay  *relay
+	closed *atomic.Bool
+	mu     struct {
 		unaryDBs   map[ChannelKey]unary.DB
 		virtualDBs map[ChannelKey]virtual.DB
 		digests    struct {
-			key      ChannelKey
 			shutdown io.Closer
 			inlet    confluence.Inlet[WriterRequest]
 			outlet   confluence.Outlet[WriterResponse]
+			key      ChannelKey
 		}
+		sync.RWMutex
 	}
-	closed   *atomic.Bool
-	shutdown io.Closer
 }
 
 // Write writes the frame to database at the specified start time.
@@ -80,7 +90,7 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 }
 
 // WriteSeries writes a series into the specified channel at the specified start time.
-func (db *DB) WriteSeries(ctx context.Context, key core.ChannelKey, start telem.TimeStamp, series telem.Series) error {
+func (db *DB) WriteSeries(ctx context.Context, key channel.Key, start telem.TimeStamp, series telem.Series) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
@@ -88,7 +98,7 @@ func (db *DB) WriteSeries(ctx context.Context, key core.ChannelKey, start telem.
 }
 
 // Read reads from the database at the specified time range and outputs a frame.
-func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.ChannelKey) (frame Frame, err error) {
+func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...channel.Key) (frame Frame, err error) {
 	if db.closed.Load() {
 		return frame, errDBClosed
 	}
@@ -106,6 +116,20 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.Channel
 		frame = frame.Extend(iter.Value())
 	}
 	return frame, err
+}
+
+// Metrics returns current metrics for the database.
+func (db *DB) Metrics() Metrics {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	var size telem.Size
+	for _, u := range db.mu.unaryDBs {
+		size += u.Size()
+	}
+	return Metrics{
+		DiskSize:     size,
+		ChannelCount: len(db.mu.unaryDBs) + len(db.mu.virtualDBs),
+	}
 }
 
 // Close closes the database.

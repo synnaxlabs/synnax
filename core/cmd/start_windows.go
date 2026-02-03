@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,4 +11,28 @@
 
 package cmd
 
-func disablePermissionBits() {}
+import (
+	"fmt"
+	"os"
+
+	"github.com/spf13/cobra"
+	"github.com/synnaxlabs/synnax/cmd/service"
+)
+
+// RunMain is the entry point for the Synnax CLI on Windows. It detects whether the
+// process is running as a Windows Service or as an application and routes to the
+// appropriate startup path.
+func RunMain() {
+	isService, err := service.Is()
+	cobra.CheckErr(err)
+	if isService {
+		fmt.Println("Running as service")
+		cobra.CheckErr(service.Run())
+		return
+	}
+	if err := Cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func init() { Cmd.AddCommand(service.Cmd) }

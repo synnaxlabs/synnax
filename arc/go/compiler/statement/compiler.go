@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -29,11 +29,8 @@ func Compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err 
 	if retStmt := ctx.AST.ReturnStatement(); retStmt != nil {
 		return true, compileReturnStatement(context.Child(ctx, retStmt))
 	}
-	if chanOp := ctx.AST.ChannelOperation(); chanOp != nil {
-		return false, compileChannelOperation(context.Child(ctx, chanOp))
-	}
-	if fnCall := ctx.AST.FunctionCall(); fnCall != nil {
-		_, err = compileFunctionCall(context.Child(ctx, fnCall))
+	if expr := ctx.AST.Expression(); expr != nil {
+		_, err = compileExpressionStatement(context.Child(ctx, expr))
 		return false, err
 	}
 	return false, errors.New("unknown statement type")

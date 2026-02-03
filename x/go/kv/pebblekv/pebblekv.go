@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
@@ -113,15 +114,15 @@ func (d db) NewReader() kv.TxReader { return d.OpenTx().NewReader() }
 func (d db) withTx(ctx context.Context, f func(tx kv.Tx) error) error {
 	var (
 		err error
-		t   = d.OpenTx()
+		tx  = d.OpenTx()
 	)
 	defer func() {
-		err = errors.Combine(err, t.Close())
+		err = errors.Combine(err, tx.Close())
 	}()
-	if err = f(t); err != nil {
+	if err = f(tx); err != nil {
 		return err
 	}
-	err = t.Commit(ctx)
+	err = tx.Commit(ctx)
 	return err
 }
 
@@ -177,13 +178,16 @@ func (d db) Report() alamos.Report {
 	return alamos.Report{"engine": "pebble"}
 }
 
+// Size implements kv.DB.
+func (d db) Size() telem.Size { return telem.Size(d.DB.Metrics().DiskSpaceUsage()) }
+
 // Close implement io.Closer.
 func (d db) Close() error { return d.DB.Close() }
 
 type tx struct {
-	db        db
-	committed bool
+	db db
 	*pebble.Batch
+	committed bool
 }
 
 var _ kv.Tx = (*tx)(nil)
@@ -260,9 +264,9 @@ func (txn *tx) NewReader() kv.TxReader {
 func kindToVariant(kind pebble.InternalKeyKind) (change.Variant, bool) {
 	switch kind {
 	case pebble.InternalKeyKindSet:
-		return change.Set, true
+		return change.VariantSet, true
 	case pebble.InternalKeyKindDelete:
-		return change.Delete, true
+		return change.VariantDelete, true
 	default:
 		return 0, false
 	}
@@ -277,7 +281,7 @@ func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
 
 func translateError(err error) error {
 	if errors.Is(err, pebble.ErrNotFound) {
-		return kv.NotFound
+		return kv.ErrNotFound
 	}
 	return err
 }

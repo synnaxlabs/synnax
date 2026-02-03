@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,8 +18,10 @@ import { ConnectionLine, Edge, type EdgeData } from "@/schematic/edge";
 import { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";
 import { Diagram } from "@/vis/diagram";
 
-export interface SchematicProps
-  extends Omit<Diagram.DiagramProps, "dragHandleSelector"> {}
+export interface SchematicProps extends Omit<
+  Diagram.DiagramProps,
+  "dragHandleSelector"
+> {}
 
 const edgeRenderer = Component.renderProp(Edge);
 

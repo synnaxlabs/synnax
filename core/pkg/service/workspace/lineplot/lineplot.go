@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,12 +16,12 @@ import (
 
 // LinePlot is the data for a visualization used to plott lines of telemetry.
 type LinePlot struct {
-	// Key is a unique identifier for the line plot.
-	Key uuid.UUID `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the line plot.
 	Name string `json:"name" msgpack:"name"`
 	// Data is JSON-encoded data for the line plot.
 	Data string `json:"data" msgpack:"data"`
+	// Key is a unique identifier for the line plot.
+	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
 var _ gorp.Entry[uuid.UUID] = LinePlot{}

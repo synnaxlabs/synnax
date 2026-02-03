@@ -5,11 +5,16 @@ nextURL: "/reference/control/embedded/recipes"
 next: "Recipes"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
-import { Image, Video } from "@/components/Media";
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Image, Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import Table from "@/components/Table.astro";
+import { Table } from "@/components";
 export const components = mdxOverrides;
+
+<Note.Note variant="warning">
+  The Lua-based embedded sequence editor is deprecated. For new automations, use
+  [Arc](/reference/control/arc/introduction) instead.
+</Note.Note>
 
 Synnax's embedded sequence editor allows you to write, test, and run tightly controlled
 automations directly within the Synnax Console.
@@ -19,7 +24,7 @@ very simple, and you'll only need a simple set of keywords for most sequences. H
 some other useful resources for getting started:
 
 {/* prettier-ignore */}
-<Table>
+<table>
   <thead>
     <tr>
       <th>Resource</th>
@@ -37,7 +42,7 @@ some other useful resources for getting started:
         editor</td>
     </tr>
   </tbody>
-</Table>
+</table>
 
 <Divider.Divider x />
 

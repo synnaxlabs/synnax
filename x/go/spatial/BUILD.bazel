@@ -1,0 +1,15 @@
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+
+proto_library(
+    name = "spatial_proto",
+    srcs = ["spatial.proto"],
+    visibility = ["//visibility:public"],
+)
+
+cpp_grpc_library(
+    name = "spatial_grpc",
+    output_mode = "NO_PREFIX",
+    protos = [":spatial_proto"],
+    visibility = ["//visibility:public"],
+)

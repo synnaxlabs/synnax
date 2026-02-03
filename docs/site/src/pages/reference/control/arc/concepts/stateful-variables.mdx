@@ -1,0 +1,194 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Stateful Variables"
+description: "How to persist values across executions using Arc's stateful variables"
+prev: "Channels and Series"
+prevURL: "/reference/control/arc/concepts/channels-and-series"
+next: "Data Processing"
+nextURL: "/reference/control/arc/how-to/data-processing"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+Arc functions execute repeatedly in response to incoming data. Each execution starts
+fresh, with local variables reset to their initial values. **Stateful variables** let
+you preserve values across these executions.
+
+<Divider.Divider x />
+
+## Local vs Stateful Variables
+
+Use `:=` for local variables that reset each execution, and `$=` for stateful variables
+that persist:
+
+```arc
+func example() {
+    local := 0      // resets to 0 every execution
+    state $= 0      // persists across executions
+
+    local = local + 1   // always becomes 1
+    state = state + 1   // increments: 1, 2, 3, ...
+}
+```
+
+The `$=` operator declares a stateful variable with an initial value. After the first
+execution, subsequent executions use the persisted value instead of the initial value.
+
+<Divider.Divider x />
+
+## Common Patterns
+
+### Counter
+
+Track how many times a condition has occurred:
+
+```arc
+func count_events{threshold f64} (value f64) i64 {
+    count $= 0
+    if value > threshold {
+        count = count + 1
+    }
+    return count
+}
+```
+
+### Accumulator
+
+Sum values over time:
+
+```arc
+func accumulate(value f64) f64 {
+    total $= 0.0
+    total = total + value
+    return total
+}
+```
+
+### Previous Value
+
+Compare the current value to the previous one:
+
+```arc
+func rate_of_change(value f64) f64 {
+    prev $= 0.0
+    delta := value - prev
+    prev = value
+    return delta
+}
+```
+
+### Running Maximum
+
+Track the highest value seen:
+
+```arc
+func running_max(value f64) f64 {
+    max $= 0.0
+    if value > max {
+        max = value
+    }
+    return max
+}
+```
+
+### State Toggle
+
+Maintain an on/off state:
+
+```arc
+func toggle(trigger u8) u8 {
+    state $= 0
+    if trigger {
+        if state == 0 {
+            state = 1
+        } else {
+            state = 0
+        }
+    }
+    return state
+}
+```
+
+<Divider.Divider x />
+
+## Stateful Variables Replace Loops
+
+Since Arc doesn't have loops, stateful variables are how you implement iterative
+algorithms. Instead of looping until a condition is met, you update state each execution
+and let the reactive model handle the iteration.
+
+Traditional approach (not Arc):
+
+```python
+total = 0
+for reading in readings:
+    total += reading
+average = total / len(readings)
+```
+
+Arc approach:
+
+```arc
+func running_average(value f64) f64 {
+    total $= 0.0
+    count $= 0
+    total = total + value
+    count = count + 1
+    return total / f64(count)
+}
+```
+
+The function executes once per incoming value, accumulating the total and count across
+executions.
+
+<Divider.Divider x />
+
+## Reset on Stage Re-entry
+
+When a stage in a [sequence](/reference/control/arc/concepts/sequences-and-stages) is
+re-entered, all stateful variables in that stage reset to their initial values. This
+ensures stages start fresh when you transition back to them.
+
+```arc
+sequence main {
+    stage monitoring {
+        // count resets to 0 each time we enter monitoring
+        sensor -> count_events{threshold=100.0} -> event_count
+        event_count > 10 => alert
+    }
+
+    stage alert {
+        // handle alert...
+        acknowledged => monitoring  // re-entering resets count
+    }
+}
+```
+
+If you need to preserve state across stage re-entries, put the stateful logic in a
+function that's called from the top level (outside any sequence).
+
+<Divider.Divider x />
+
+## Type Inference
+
+Stateful variables infer their type from the initial value, just like local variables.
+You can also specify the type explicitly:
+
+```arc
+func example() {
+    // Type inferred from initial value
+    count $= 0           // i64 (integer literal default)
+    total $= 0.0         // f64 (float literal default)
+
+    // Explicit type annotation
+    precise f32 $= 0.0   // f32 instead of f64
+}
+```
+
+<Note.Note variant="info">
+  Integer literals default to `i64` and float literals default to `f64`. If you need a
+  different type, add an explicit annotation.
+</Note.Note>

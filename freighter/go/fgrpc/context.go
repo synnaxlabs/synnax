@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -28,7 +28,7 @@ func parseServerContext(
 
 	oCtx := freighter.Context{
 		Context:  ctx,
-		Role:     freighter.Server,
+		Role:     freighter.RoleServer,
 		Target:   address.Address(serviceName),
 		Protocol: Reporter.Protocol,
 		Params:   make(freighter.Params),

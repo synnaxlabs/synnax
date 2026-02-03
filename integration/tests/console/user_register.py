@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -9,16 +9,15 @@
 
 """Test user registration via Console UI."""
 
-import uuid
-
 from console.case import ConsoleCase
+from framework.utils import get_random_name
 
 
 class UserRegister(ConsoleCase):
     """Test registering a new user via Console UI."""
 
     def run(self) -> None:
-        username = f"testuser_{uuid.uuid4().hex[:8]}"
+        username = f"testuser_{get_random_name()}"
         password = "testpassword123"
         first_name = "Test"
         last_name = "User"

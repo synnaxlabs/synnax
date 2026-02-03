@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -7,13 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import uuid
-
 import synnax as sy
 
 from console.case import ConsoleCase
 from console.schematic import Setpoint, Value
 from console.schematic.schematic import Schematic
+from framework.utils import get_random_name
 
 
 class SetOutput(ConsoleCase):
@@ -25,8 +24,8 @@ class SetOutput(ConsoleCase):
 
         console = self.console
         client = self.client
-        CHANNEL_NAME = f"command_channel_{str(uuid.uuid4())[:4]}"
-        INDEX_NAME = f"idx_channel_{str(uuid.uuid4())[:4]}"
+        CHANNEL_NAME = f"command_channel_{get_random_name()}"
+        INDEX_NAME = f"idx_channel_{get_random_name()}"
         self.log("Creating channels")
 
         index_ch = client.channels.create(
@@ -48,12 +47,12 @@ class SetOutput(ConsoleCase):
         setpoint_symbol = schematic.create_symbol(
             Setpoint(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
         )
-        setpoint_symbol.move(-200, 0)
+        setpoint_symbol.move(delta_x=-200, delta_y=0)
 
         value_symbol = schematic.create_symbol(
             Value(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
         )
-        value_symbol.move(200, 0)
+        value_symbol.move(delta_x=200, delta_y=0)
 
         schematic.connect_symbols(setpoint_symbol, "right", value_symbol, "left")
 

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,8 +14,10 @@ import { CSS } from "@/css";
 import { useContext } from "@/header/Header";
 import { Text } from "@/text";
 
-export interface ButtonTitleProps
-  extends Omit<Button.ButtonProps, "variant" | "size"> {}
+export interface ButtonTitleProps extends Omit<
+  Button.ButtonProps,
+  "variant" | "size"
+> {}
 
 /**
  * Header.Title.Use renders a clickable header title.

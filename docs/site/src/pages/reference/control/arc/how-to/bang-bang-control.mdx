@@ -1,0 +1,508 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Bang-Bang Control"
+description: "Implement simple on/off control with hysteresis in Arc"
+prev: "Alarms"
+prevURL: "/reference/control/arc/how-to/alarms"
+next: "Test Sequences"
+nextURL: "/reference/control/arc/how-to/test-sequences"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+Bang-bang control is the simplest form of closed-loop control: turn something on when a
+value is too low, off when it's too high. It's commonly used for temperature control
+(heaters, coolers), pressure regulation, and level control.
+
+<Divider.Divider x />
+
+## Basic On/Off Control
+
+Turn a heater on when temperature drops below a setpoint:
+
+```arc
+func on_off{setpoint f64} (value f64) u8 {
+    if value < setpoint {
+        return 1
+    }
+    return 0
+}
+
+tank_temp -> on_off{setpoint=50.0} -> heater_cmd
+```
+
+This turns the heater on whenever temperature drops below 50°C and off when it rises
+above 50°C. The problem: rapid cycling as the temperature hovers near the setpoint.
+
+<Divider.Divider x />
+
+## Bang-Bang with Hysteresis
+
+Add a deadband to prevent rapid switching:
+
+```arc
+func bang_bang{
+    low f64,      // turn on below this
+    high f64      // turn off above this
+} (value f64) u8 {
+    state $= 0
+
+    if state == 0 {
+        // Output is off, turn on if below low threshold
+        if value < low {
+            state = 1
+        }
+    } else {
+        // Output is on, turn off if above high threshold
+        if value > high {
+            state = 0
+        }
+    }
+
+    return state
+}
+
+tank_temp -> bang_bang{low=48.0, high=52.0} -> heater_cmd
+```
+
+The heater turns on when temperature drops below 48°C and stays on until temperature
+rises above 52°C. The 4°C deadband prevents cycling.
+
+<Divider.Divider x />
+
+## Heater Control Example
+
+A complete heater controller with enable and safety limits:
+
+```arc
+func heater_control{
+    setpoint f64,
+    deadband f64,     // half the total deadband (±)
+    max_temp f64      // safety cutoff
+} (temp f64, enable u8) u8 {
+    state $= 0
+
+    // Safety cutoff
+    if temp > max_temp {
+        state = 0
+        return 0
+    }
+
+    // Check if enabled
+    if enable == 0 {
+        state = 0
+        return 0
+    }
+
+    // Bang-bang control
+    low := setpoint - deadband
+    high := setpoint + deadband
+
+    if state == 0 {
+        if temp < low {
+            state = 1
+        }
+    } else {
+        if temp > high {
+            state = 0
+        }
+    }
+
+    return state
+}
+
+// Use interval and channel config parameters for multi-input control
+func heater_ctrl{
+    temp chan f64,
+    enable chan u8,
+    setpoint f64,
+    deadband f64,
+    max_temp f64
+} () u8 {
+    state $= 0
+    t := temp
+    en := enable
+
+    if t > max_temp { state = 0; return 0 }
+    if en == 0 { state = 0; return 0 }
+
+    low := setpoint - deadband
+    high := setpoint + deadband
+
+    if state == 0 {
+        if t < low { state = 1 }
+    } else {
+        if t > high { state = 0 }
+    }
+    return state
+}
+
+interval{period=50ms} -> heater_ctrl{
+    temp=tank_temp,
+    enable=heater_enable,
+    setpoint=50.0,
+    deadband=2.0,
+    max_temp=80.0
+} -> heater_cmd
+```
+
+The heater maintains 50°C ± 2°C, but shuts off if temperature exceeds 80°C regardless of
+the setpoint.
+
+<Divider.Divider x />
+
+## Cooling Control
+
+Cooling works the same way with inverted logic:
+
+```arc
+func cooler_control{
+    setpoint f64,
+    deadband f64,
+    min_temp f64     // don't cool below this
+} (temp f64, enable u8) u8 {
+    state $= 0
+
+    // Safety limit
+    if temp < min_temp {
+        state = 0
+        return 0
+    }
+
+    if enable == 0 {
+        state = 0
+        return 0
+    }
+
+    high := setpoint + deadband
+    low := setpoint - deadband
+
+    if state == 0 {
+        // Cooler is off, turn on if above high threshold
+        if temp > high {
+            state = 1
+        }
+    } else {
+        // Cooler is on, turn off if below low threshold
+        if temp < low {
+            state = 0
+        }
+    }
+
+    return state
+}
+
+// Similar pattern with channel config parameters
+func cooler_ctrl{
+    temp chan f64,
+    enable chan u8,
+    setpoint f64,
+    deadband f64,
+    min_temp f64
+} () u8 {
+    state $= 0
+    t := temp
+    en := enable
+
+    if t < min_temp { state = 0; return 0 }
+    if en == 0 { state = 0; return 0 }
+
+    high := setpoint + deadband
+    low := setpoint - deadband
+
+    if state == 0 {
+        if t > high { state = 1 }
+    } else {
+        if t < low { state = 0 }
+    }
+    return state
+}
+
+interval{period=50ms} -> cooler_ctrl{
+    temp=tank_temp,
+    enable=cooler_enable,
+    setpoint=25.0,
+    deadband=2.0,
+    min_temp=5.0
+} -> cooler_cmd
+```
+
+<Divider.Divider x />
+
+## Pressure Regulation
+
+Maintain tank pressure by controlling a fill valve:
+
+```arc
+func pressure_regulator{
+    target f64,
+    deadband f64,
+    max_pressure f64
+} (pressure f64, enable u8) u8 {
+    valve_state $= 0
+
+    // Over-pressure protection
+    if pressure > max_pressure {
+        valve_state = 0
+        return 0
+    }
+
+    if enable == 0 {
+        valve_state = 0
+        return 0
+    }
+
+    low := target - deadband
+    high := target + deadband
+
+    if valve_state == 0 {
+        if pressure < low {
+            valve_state = 1
+        }
+    } else {
+        if pressure > high {
+            valve_state = 0
+        }
+    }
+
+    return valve_state
+}
+
+func pressure_ctrl{
+    pressure chan f64,
+    enable chan u8,
+    target f64,
+    deadband f64,
+    max_pressure f64
+} () u8 {
+    state $= 0
+    p := pressure
+    en := enable
+
+    if p > max_pressure { state = 0; return 0 }
+    if en == 0 { state = 0; return 0 }
+
+    low := target - deadband
+    high := target + deadband
+
+    if state == 0 {
+        if p < low { state = 1 }
+    } else {
+        if p > high { state = 0 }
+    }
+    return state
+}
+
+interval{period=50ms} -> pressure_ctrl{
+    pressure=tank_pressure,
+    enable=press_enable,
+    target=500.0,
+    deadband=10.0,
+    max_pressure=600.0
+} -> valve_cmd
+```
+
+<Divider.Divider x />
+
+## Dual-Action Control
+
+Some systems have both heating and cooling (or filling and venting):
+
+```arc
+func dual_control{
+    setpoint f64,
+    heat_deadband f64,
+    cool_deadband f64
+} (value f64, enable u8) (heat u8, cool u8) {
+    heat_state $= 0
+    cool_state $= 0
+
+    if enable == 0 {
+        heat_state = 0
+        cool_state = 0
+        heat = 0
+        cool = 0
+        return
+    }
+
+    // Heating control (below setpoint)
+    heat_on := setpoint - heat_deadband
+    heat_off := setpoint
+
+    if heat_state == 0 {
+        if value < heat_on {
+            heat_state = 1
+        }
+    } else {
+        if value > heat_off {
+            heat_state = 0
+        }
+    }
+
+    // Cooling control (above setpoint)
+    cool_off := setpoint
+    cool_on := setpoint + cool_deadband
+
+    if cool_state == 0 {
+        if value > cool_on {
+            cool_state = 1
+        }
+    } else {
+        if value < cool_off {
+            cool_state = 0
+        }
+    }
+
+    heat = heat_state
+    cool = cool_state
+}
+
+// For dual outputs, use separate control functions
+func heat_control{
+    temp chan f64,
+    enable chan u8,
+    setpoint f64,
+    deadband f64
+} () u8 {
+    state $= 0
+    t := temp
+    en := enable
+
+    if en == 0 { state = 0; return 0 }
+
+    low := setpoint - deadband
+    if state == 0 {
+        if t < low { state = 1 }
+    } else {
+        if t > setpoint { state = 0 }
+    }
+    return state
+}
+
+func cool_control{
+    temp chan f64,
+    enable chan u8,
+    setpoint f64,
+    deadband f64
+} () u8 {
+    state $= 0
+    t := temp
+    en := enable
+
+    if en == 0 { state = 0; return 0 }
+
+    high := setpoint + deadband
+    if state == 0 {
+        if t > high { state = 1 }
+    } else {
+        if t < setpoint { state = 0 }
+    }
+    return state
+}
+
+interval{period=50ms} -> heat_control{
+    temp=tank_temp, enable=temp_enable, setpoint=50.0, deadband=3.0
+} -> heater_cmd
+
+interval{period=50ms} -> cool_control{
+    temp=tank_temp, enable=temp_enable, setpoint=50.0, deadband=3.0
+} -> cooler_cmd
+```
+
+<Note.Note variant="info">
+  In dual-action control, the deadbands prevent simultaneous heating and cooling. The
+  system only heats when 3°C below setpoint and only cools when 3°C above.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Periodic Control Loop
+
+For consistent timing, use an interval to trigger the control loop:
+
+```arc
+func bang_bang_controller{
+    sensor chan f64,
+    output chan f64,
+    low f64,
+    high f64
+} () {
+    state $= 0
+    value := sensor
+
+    if state == 0 {
+        if value < low {
+            state = 1
+        }
+    } else {
+        if value > high {
+            state = 0
+        }
+    }
+
+    output = f64(state)
+}
+
+// Run control loop at 20Hz (50ms)
+interval{period=50ms} -> bang_bang_controller{
+    sensor=tank_temp,
+    output=heater_cmd,
+    low=48.0,
+    high=52.0
+}
+```
+
+This ensures the control loop runs at a consistent rate regardless of how often sensor
+data arrives.
+
+<Divider.Divider x />
+
+## Bang-Bang in Sequences
+
+Use bang-bang control during specific sequence stages:
+
+```arc
+sequence main {
+    stage preheat {
+        // Maintain temperature while pressurizing
+        tank_temp -> bang_bang{low=45.0, high=55.0} -> heater_cmd,
+
+        // Wait for temperature to stabilize
+        tank_temp > 48 and tank_temp < 52 => next
+    }
+
+    stage pressurize {
+        // Continue temperature control
+        tank_temp -> bang_bang{low=45.0, high=55.0} -> heater_cmd,
+
+        // Also control pressure
+        tank_pressure -> bang_bang{low=490.0, high=510.0} -> valve_cmd,
+
+        tank_pressure > 500 and tank_temp > 48 => next
+    }
+
+    stage hold {
+        // Maintain both
+        tank_temp -> bang_bang{low=45.0, high=55.0} -> heater_cmd,
+        tank_pressure -> bang_bang{low=490.0, high=510.0} -> valve_cmd,
+
+        wait{duration=60s} => next
+    }
+
+    stage complete {
+        0 -> heater_cmd,
+        0 -> valve_cmd
+    }
+}
+
+start_cmd => main
+```
+
+<Note.Note variant="warning">
+  Bang-bang control is simple but produces oscillating outputs. For smoother control,
+  consider more sophisticated algorithms implemented outside Arc or future Arc library
+  additions for PID control.
+</Note.Note>

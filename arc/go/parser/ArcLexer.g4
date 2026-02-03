@@ -9,13 +9,14 @@ FUNC        : 'func';
 IF          : 'if';
 ELSE        : 'else';
 RETURN      : 'return';
-NOW         : 'now';
-LEN         : 'len';
+
+// Sequencing keywords
+SEQUENCE    : 'sequence';
+STAGE       : 'stage';
+NEXT        : 'next';
 
 // Channel keywords
 CHAN        : 'chan';
-RECV_CHAN   : '<-chan';
-SEND_CHAN   : '->chan';
 
 // Primitive types
 I8          : 'i8';
@@ -29,22 +30,27 @@ U64         : 'u64';
 F32         : 'f32';
 F64         : 'f64';
 STR         : 'str';
-TIMESTAMP   : 'timestamp';
-TIMESPAN    : 'timespan';
 SERIES      : 'series';
 
 // =============================================================================
 // Operators
 // =============================================================================
 
-// Channel operators (order matters - longer tokens first)
+// Channel operators
 ARROW       : '->';
-RECV        : '<-';
 
 
 DECLARE     : ':=';  // Local variable declaration
 STATE_DECLARE: '$='; // Stateful variable declaration
+TRANSITION  : '=>';  // Stage transition operator
 ASSIGN      : '=';   // Assignment to existing variable
+
+// Compound assignment
+PLUS_ASSIGN     : '+=';
+MINUS_ASSIGN    : '-=';
+STAR_ASSIGN     : '*=';
+SLASH_ASSIGN    : '/=';
+PERCENT_ASSIGN  : '%=';
 
 // Arithmetic
 PLUS        : '+';
@@ -91,15 +97,6 @@ fragment DIGITS : DIGIT+ ;
 
 fragment DIGIT: [0-9];
 
-// Temporal and frequency literals must be checked before plain numeric literals
-TEMPORAL_LITERAL
-    : (DIGITS | (DIGITS '.' DIGITS?) | ('.' DIGITS)) ('ns' | 'us' | 'ms' | 's' | 'm' | 'h')
-    ;
-
-FREQUENCY_LITERAL
-    : (DIGITS | (DIGITS '.' DIGITS?) | ('.' DIGITS)) ([hH][zZ] | [kK][hH][zZ] | [mM][hH][zZ])
-    ;
-
 // Simple numeric literals without suffixes or special formats
 INTEGER_LITERAL
     : DIGITS
@@ -131,10 +128,10 @@ IDENTIFIER  : [a-zA-Z_] [a-zA-Z0-9_]*;
 // =============================================================================
 
 // Single-line comment
-SINGLE_LINE_COMMENT: '//' ~[\r\n]* -> skip;
+SINGLE_LINE_COMMENT: '//' ~[\r\n]* -> channel(HIDDEN);
 
 // Multi-line comment
-MULTI_LINE_COMMENT: '/*' .*? '*/' -> skip;
+MULTI_LINE_COMMENT: '/*' .*? '*/' -> channel(HIDDEN);
 
-// Whitespace
-WS          : [ \t\r\n]+ -> skip;
+// Whitespace - on hidden channel to preserve position info for adjacency checks
+WS          : [ \t\r\n]+ -> channel(HIDDEN);

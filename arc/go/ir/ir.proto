@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package arc.v1.ir;
+
+import "arc/go/symbol/symbol.proto";
+import "arc/go/types/types.proto";
+
+option go_package = "github.com/synnaxlabs/arc/ir";
+
+message PBHandle {
+  string node = 1;
+  string param = 2;
+}
+
+enum PBEdgeKind {
+  PB_EDGE_KIND_UNSPECIFIED = 0;
+  PB_EDGE_KIND_CONTINUOUS = 1;
+  PB_EDGE_KIND_ONE_SHOT = 2;
+}
+
+message PBEdge {
+  PBHandle source = 1;
+  PBHandle target = 2;
+  PBEdgeKind kind = 3;
+}
+
+message PBStage {
+  string key = 1;
+  repeated string nodes = 2;
+  repeated PBStratum strata = 3;
+}
+
+message PBSequence {
+  string key = 1;
+  repeated PBStage stages = 2;
+}
+
+message PBBody {
+  string raw = 1;
+}
+
+message PBFunction {
+  string key = 1;
+  PBBody body = 2;
+  repeated types.PBParam config = 3;
+  repeated types.PBParam inputs = 4;
+  repeated types.PBParam outputs = 5;
+  symbol.PBChannels channels = 6;
+}
+
+message PBStratum {
+  repeated string nodes = 1;
+}
+
+message PBNode {
+  string key = 1;
+  string type = 2;
+  repeated types.PBParam config = 3;
+  repeated types.PBParam inputs = 4;
+  repeated types.PBParam outputs = 5;
+  symbol.PBChannels channels = 6;
+}
+
+message PBIR {
+  repeated PBFunction functions = 1;
+  repeated PBNode nodes = 2;
+  repeated PBEdge edges = 3;
+  repeated PBStratum strata = 4;
+  repeated PBSequence sequences = 5;
+}

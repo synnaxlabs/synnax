@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,9 +18,7 @@ import (
 )
 
 var _ = Describe("Retrieve", func() {
-	var (
-		sym1, sym2, sym3 symbol.Symbol
-	)
+	var sym1, sym2, sym3 symbol.Symbol
 
 	BeforeEach(func() {
 		sym1 = symbol.Symbol{
@@ -79,7 +77,7 @@ var _ = Describe("Retrieve", func() {
 				WhereKeys(uuid.New()).
 				Entry(&retrieved).
 				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.NotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 	})
 

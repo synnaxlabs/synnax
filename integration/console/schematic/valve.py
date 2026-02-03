@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -47,7 +47,7 @@ class Valve(Symbol):
         if self.page is None or self.console is None:
             raise RuntimeError("Symbol not attached to schematic")
 
-        self.console.close_all_notifications()
+        self.console.notifications.close_all()
         self.console.click("Symbols")
         initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())
 
@@ -87,11 +87,13 @@ class Valve(Symbol):
         self.page.get_by_text("Control").last.click()
 
         if state_channel is not None:
-            self.set_channel("State Channel", state_channel)
+            self.set_channel(input_field="State Channel", channel_name=state_channel)
             applied_properties["state_channel"] = state_channel
 
         if command_channel is not None:
-            self.set_channel("Command Channel", command_channel)
+            self.set_channel(
+                input_field="Command Channel", channel_name=command_channel
+            )
             applied_properties["command_channel"] = command_channel
 
         if show_control_chip is not None:

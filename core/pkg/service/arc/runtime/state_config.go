@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,8 +21,33 @@ import (
 )
 
 type ExtendedStateConfig struct {
-	State         state.Config
-	Reads, Writes set.Set[channel.Key]
+	Reads  set.Set[channel.Key]
+	Writes set.Set[channel.Key]
+	State  state.Config
+}
+
+func retrieveChannels(
+	ctx context.Context,
+	channelSvc *channel.Service,
+	keys []channel.Key,
+) ([]channel.Channel, error) {
+	channels := make([]channel.Channel, 0, len(keys))
+	if err := channelSvc.NewRetrieve().
+		WhereKeys(keys...).
+		Entries(&channels).
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	indexes := lo.FilterMap(channels, func(item channel.Channel, index int) (channel.Key, bool) {
+		return item.Index(), !item.Virtual
+	})
+	indexChannels := make([]channel.Channel, 0, len(indexes))
+	if err := channelSvc.NewRetrieve().
+		WhereKeys(indexes...).
+		Entries(&indexChannels).Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	return slices.Concat(channels, indexChannels), nil
 }
 
 func NewStateConfig(

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -170,7 +170,7 @@ func (n NumberZ) Dump(data any) (any, error) {
 		if n.optional {
 			return nil, nil
 		}
-		return nil, errors.WithStack(validate.RequiredError)
+		return nil, errors.WithStack(validate.ErrRequired)
 	}
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Pointer {
@@ -178,7 +178,7 @@ func (n NumberZ) Dump(data any) (any, error) {
 			if n.optional {
 				return nil, nil
 			}
-			return nil, errors.WithStack(validate.RequiredError)
+			return nil, errors.WithStack(validate.ErrRequired)
 		}
 		val = val.Elem()
 	}
@@ -402,7 +402,7 @@ func (n NumberZ) Parse(data any, dest any) error {
 		}
 		if intVal > (1<<(destType.Bits()-1)-1) || intVal < -(1<<(destType.Bits()-1)) {
 			return errors.Wrap(
-				validate.ConversionError,
+				validate.ErrConversion,
 				"integer value out of range for destination type",
 			)
 		}
@@ -448,39 +448,15 @@ func Uint32() NumberZ { return Number().Uint32() }
 // Uint64 is a schema that validates uint64 numbers.
 func Uint64() NumberZ { return Number().Uint64() }
 
-// Float32 is a schema that validates float32 numbers.
-func Float32() NumberZ { return Number().Float32() }
-
-// Float64 is a schema that validates float64 numbers.
-func Float64() NumberZ { return Number().Float64() }
-
-// Int is a schema that validates integer numbers.
-func Int() NumberZ { return Number().Int() }
-
-// Int8 is a schema that validates int8 numbers.
-func Int8() NumberZ { return Number().Int8() }
-
-// Int16 is a schema that validates int16 numbers.
-func Int16() NumberZ { return Number().Int16() }
-
-// Int32 is a schema that validates int32 numbers.
-func Int32() NumberZ { return Number().Int32() }
-
 // Int64 is a schema that validates int64 numbers.
 func Int64() NumberZ { return Number().Int64() }
-
-// Uint is a schema that validates uint numbers.
-func Uint() NumberZ { return Number().Uint() }
-
-// Uint8 is a schema that validates uint8 numbers.
-func Uint8() NumberZ { return Number().Uint8() }
 
 // Uint16 is a schema that validates uint16 numbers.
 func Uint16() NumberZ { return Number().Uint16() }
 
 func fractionalPartError(float float64) error {
 	return errors.Wrapf(
-		validate.ConversionError,
+		validate.ErrConversion,
 		"cannot convert float %v with fractional part to integer",
 		float,
 	)
@@ -488,7 +464,7 @@ func fractionalPartError(float float64) error {
 
 func negativeToUnsignedError[T types.Numeric](value T) error {
 	return errors.Wrapf(
-		validate.ConversionError,
+		validate.ErrConversion,
 		"cannot convert negative value %v to unsigned integer",
 		value,
 	)
@@ -496,7 +472,7 @@ func negativeToUnsignedError[T types.Numeric](value T) error {
 
 func valueOutOfRangeError[T types.Numeric](value T, destinationType string) error {
 	return errors.Wrapf(
-		validate.ConversionError,
+		validate.ErrConversion,
 		"integer value %v out of range for destination type %s",
 		value,
 		destinationType,
@@ -512,7 +488,7 @@ func cannotConvertToNumberError(val reflect.Value) error {
 
 func unsignedIntegerTooLargeError() error {
 	return errors.Wrap(
-		validate.ConversionError,
+		validate.ErrConversion,
 		"unsigned integer value too large for conversion to signed integer",
 	)
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
+#include "x/cpp/telem/frame.h"
 #include "x/cpp/xtest/xtest.h"
 
 #include "driver/modbus/mock/slave.h"
@@ -68,6 +69,7 @@ protected:
     }
 };
 
+/// @brief it should write coil and register values to Modbus device.
 TEST_F(ModbusWriteTest, testBasicWrite) {
     this->setup_task_config();
     modbus::mock::SlaveConfig slave_cfg;
@@ -97,8 +99,8 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
     auto p = xjson::Parser(task_cfg);
     cfg = std::make_unique<modbus::WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
-    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
-    synnax::Frame fr(2);
+    const auto reads = std::make_shared<std::vector<telem::Frame>>();
+    telem::Frame fr(2);
     fr.emplace(coil_ch.key, telem::Series(static_cast<uint8_t>(1)));
     fr.emplace(reg_ch.key, telem::Series(static_cast<uint16_t>(12345)));
     reads->push_back(std::move(fr));
@@ -126,6 +128,7 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
     wt->stop("stop_cmd", true);
 }
 
+/// @brief it should write multiple data types to holding registers.
 TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     this->setup_task_config();
     modbus::mock::SlaveConfig slave_cfg;
@@ -194,8 +197,8 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     cfg = std::make_unique<modbus::WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
-    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
-    synnax::Frame fr(5);
+    const auto reads = std::make_shared<std::vector<telem::Frame>>();
+    telem::Frame fr(5);
     fr.emplace(int16_ch.key, telem::Series(static_cast<int16_t>(-1234)));
     fr.emplace(uint32_ch.key, telem::Series(static_cast<uint32_t>(0xDEADBEEF)));
     fr.emplace(int32_ch.key, telem::Series(static_cast<int32_t>(-2147483648)));
@@ -228,6 +231,7 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     wt->stop("stop_cmd", true);
 }
 
+/// @brief it should return validation errors for invalid configurations.
 TEST_F(ModbusWriteTest, testInvalidWriteConfiguration) {
     this->setup_task_config();
 
@@ -266,6 +270,7 @@ TEST_F(ModbusWriteTest, testInvalidWriteConfiguration) {
     ASSERT_OCCURRED_AS(p4.error(), xerrors::VALIDATION);
 }
 
+/// @brief it should handle concurrent writes to multiple channels.
 TEST_F(ModbusWriteTest, testConcurrentWrites) {
     this->setup_task_config();
     modbus::mock::SlaveConfig slave_cfg;
@@ -318,8 +323,8 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
     cfg = std::make_unique<modbus::WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
-    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
-    synnax::Frame fr(4);
+    const auto reads = std::make_shared<std::vector<telem::Frame>>();
+    telem::Frame fr(4);
     fr.emplace(coil1.key, telem::Series(static_cast<uint8_t>(1)));
     fr.emplace(coil2.key, telem::Series(static_cast<uint8_t>(0)));
     fr.emplace(reg1.key, telem::Series(static_cast<uint16_t>(1000)));
@@ -351,6 +356,7 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
     wt->stop("stop_cmd", true);
 }
 
+/// @brief it should verify written values match expected values.
 TEST_F(ModbusWriteTest, testWriteVerification) {
     this->setup_task_config();
     modbus::mock::SlaveConfig slave_cfg;
@@ -384,8 +390,8 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     cfg = std::make_unique<modbus::WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
-    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
-    synnax::Frame fr(2);
+    const auto reads = std::make_shared<std::vector<telem::Frame>>();
+    telem::Frame fr(2);
     fr.emplace(coil_ch.key, telem::Series(static_cast<uint8_t>(1)));
     fr.emplace(reg_ch.key, telem::Series(static_cast<uint16_t>(42)));
     reads->push_back(std::move(fr));
@@ -490,8 +496,8 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     cfg = std::make_unique<modbus::WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
-    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
-    synnax::Frame fr(3);
+    const auto reads = std::make_shared<std::vector<telem::Frame>>();
+    telem::Frame fr(3);
     fr.emplace(holding0.key, telem::Series(static_cast<uint8_t>(50)));
     fr.emplace(holding1.key, telem::Series(static_cast<uint8_t>(100)));
     fr.emplace(holding2.key, telem::Series(static_cast<uint8_t>(150)));

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,9 +26,7 @@ import (
 )
 
 var _ = Describe("OperationSender", func() {
-	var (
-		net *fmock.Network[gossip.Message, gossip.Message]
-	)
+	var net *fmock.Network[gossip.Message, gossip.Message]
 	BeforeEach(func() {
 		net = fmock.NewNetwork[gossip.Message, gossip.Message]()
 	})

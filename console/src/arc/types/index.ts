@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,6 +21,7 @@ export type GraphState = v0.GraphState;
 export type CopyBuffer = v0.CopyBuffer;
 export type AnyState = v0.State;
 export type AnySliceState = v0.SliceState;
+export type Mode = v0.Mode;
 
 export const ZERO_STATE = v0.ZERO_STATE;
 export const ZERO_SLICE_STATE = v0.ZERO_SLICE_STATE;

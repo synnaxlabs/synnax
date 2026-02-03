@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -93,6 +93,7 @@ export const useField = (<I, O = I>(
       () => get<I>(path, { optional, defaultValue }),
       [path, get, optional, defaultValue],
     ),
+    () => null,
   );
   if (state == null) {
     if (!optional) throw new Error(`Field state is null: ${path}`);
@@ -148,6 +149,7 @@ export const useFieldState = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   return useSyncExternalStore(
     bind,
     useCallback(() => get<O>(path, opts), [path, get, opts]),
+    () => null,
   );
 }) as UseFieldState;
 
@@ -212,8 +214,10 @@ export const useFieldListUtils = <K extends record.Key, E extends record.Keyed<K
   opts?: ContextOptions<z.ZodType>,
 ): FieldListUtils<K, E> => fieldListUtils<K, E>(useContext(opts?.ctx), path);
 
-export interface UseFieldListReturn<K extends record.Key, E extends record.Keyed<K>>
-  extends FieldListUtils<K, E> {
+export interface UseFieldListReturn<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> extends FieldListUtils<K, E> {
   data: K[];
 }
 

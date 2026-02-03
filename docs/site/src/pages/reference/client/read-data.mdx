@@ -1,0 +1,518 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Reading Data"
+description:
+  "Learn how to read data from channels in Synnax, including real-time streaming and
+  historical reads."
+next: "Writing Data"
+nextURL: "/reference/client/write-data"
+prev: "Time Types"
+prevURL: "/reference/client/time-types"
+clients: ["python", "typescript"]
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This guide covers reading channel data from Synnax. For real-time data acquisition and
+monitoring, streaming is the recommended approach. Historical reads are useful for
+analyzing data that has already been recorded.
+
+If you'd like a conceptual overview of how reads work in Synnax, check out the
+[reads concepts guide](/reference/concepts/reads).
+
+<Divider.Divider x />
+
+## Streaming Data
+
+Streaming data is useful for real-time processing, visualization, and monitoring. If
+you'd like a conceptual overview of how streaming works in Synnax, check out the
+[streams](/reference/concepts/streams) page.
+
+### Opening a Streamer
+
+To start streaming data, call the <Client.Var client:load py="open_streamer"
+ts="openStreamer" /> method on the client and provide a list of channels to stream.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+# Python's context manager is recommended
+with client.open_streamer(["ch1", "ch2"]) as streamer:
+    for frame in streamer:
+        # Process the frame
+
+# Alternative method
+# (requires explicit closing)
+streamer = client.open_streamer(["ch1", "ch2"])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const streamer = await client.openStreamer(["ch1", "ch2"]);
+try {
+  for await (const frame of streamer) {
+    // Process the frame
+  }
+} finally {
+  streamer.close();
+}
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Downsampling Option
+
+To stream data at a lower rate, use the <Client.Var client:load py="downsample_factor"
+ts="downsampleFactor" /> parameter. The streamer will skip the specified number of
+samples in each series before returning the next frame. Note that this does not average
+values—it skips samples.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+# Read every 2nd sample
+streamer = client.open_streamer(
+    channels=["temperature", "pressure"],
+    downsample_factor=2,
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// Read every 2nd sample
+const streamer = await client.openStreamer({
+  channels: ["temperature", "pressure"],
+  downsampleFactor: 2,
+});
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Using an Async Streamer
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+For `asyncio` support, use `open_async_streamer`. It has the same interface as the
+synchronous streamer:
+
+```python
+async with await client.open_async_streamer(["ch1", "ch2"]) as streamer:
+    async for frame in streamer:
+        # Process the frame
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+<br />
+TypeScript streaming is async by default.
+
+  </Fragment>
+</Client.Tabs>
+
+### Reading Frames
+
+To read the next incoming frame, call the `read` method on the streamer.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+frame = streamer.read()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const frame = await streamer.read();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+This call will block until a new frame is available. Note that a frame may not contain
+data for every channel—see [Handling Partial Frames](#handling-partial-frames) for
+details.
+
+For more on working with frames, see
+[Series and Frames](/reference/client/series-and-frames).
+
+### Using a For Loop
+
+The streamer implements an iterator, allowing you to use a for loop to continuously
+process incoming frames.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+# Process frames synchronously
+
+for frame in streamer:
+    print(frame.at(-1))
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// Process frames asynchronously
+for await (const frame of streamer) {
+  console.log(frame.at(-1));
+}
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Handling Partial Frames
+
+When reading frames from a streamer, it's important to note that a frame may not contain
+data for every channel specified when opening the streamer. For example, when reading
+from two sensors, `temperature` and `pressure`, that are being sampled by different
+devices at different rates, a frame may contain data only for the first channel,
+followed by a frame containing only data for the second channel.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+streamer = client.open_streamer(["temperature", "pressure"])
+
+frame = streamer.read()
+print(frame[-1])
+# Output: {"temperature": 25.0}
+
+frame = streamer.read()
+print(frame[-1])
+# Output: {"pressure": 1013.25}
+
+frame = streamer.read()
+print(frame[-1])
+# Output: {"temperature": 25.1, "pressure": 1013.25}
+
+# Check if a frame contains data for a specific channel
+if "temperature" in frame:
+    print(frame["temperature"])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const streamer = await client.openStreamer(["temperature", "pressure"]);
+
+const frame = await streamer.read();
+console.log(frame.at(-1));
+// Output: { temperature: 25.0 }
+
+const frame2 = await streamer.read();
+console.log(frame2.at(-1));
+// Output: { pressure: 1013.25 }
+
+const frame3 = await streamer.read();
+console.log(frame3.at(-1));
+// Output: { temperature: 25.1, pressure: 1013.25 }
+
+// Check if a frame contains data for a specific channel
+if (frame.has("temperature")) console.log(frame.get("temperature"));
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Specifying a Timeout
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+Add a `timeout` parameter to the `read` method. If the timeout is reached before a new
+frame is available, the method returns `None`.
+
+```python
+# Wait for 5 seconds
+frame = streamer.read(timeout=5)
+
+# A `TimeSpan` object can also be used
+frame = streamer.read(timeout=5 * sy.TimeSpan.SECOND)
+
+if frame is None:
+    print("Timed out waiting for a frame")
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+TypeScript doesn't have built-in timeout support. Instead, you can use `Promise.race()`
+to achieve the equivalent functionality.
+
+```typescript
+const timeout = (ms: number) =>
+  new Promise<null>((resolve) => setTimeout(() => resolve(null), ms));
+
+// Wait for 5 seconds
+const frame = await Promise.race([streamer.read(), timeout(5000)]);
+
+if (frame === null) {
+  console.log("Timed out waiting for a frame");
+}
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Updating the Channel List
+
+To update the list of channels being streamed, call the <Client.Var client:load
+py="update*channels" ts="update" /> method on the streamer. This will \_replace* the
+current list of channels, not add to it.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+streamer.update_channels(["temperature", "pressure", "humidity"])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await streamer.update(["temperature", "pressure", "humidity"]);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Closing the Streamer
+
+After you're done streaming, it's essential that you call the `close` method on the
+streamer to release the network connection and other related resources.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+streamer.close()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+streamer.close();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+Using structured cleanup patterns ensures the streamer is always closed, even if an
+exception is thrown.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+# Using the streamer as a context manager ensures
+# the streamer is always closed correctly.
+
+with client.open_streamer(["temperature1", "temperature2"]) as streamer:
+    for frame in streamer:
+        # Process the frame
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const streamer = await client.openStreamer(["temperature1", "temperature2"]);
+try {
+  for await (const frame of streamer) {
+    // Process the frame
+  }
+} finally {
+  streamer.close();
+}
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Historical Reads
+
+Historical reads are useful for analyzing data that has already been recorded. Use these
+patterns when working with past data rather than live streams.
+
+### Reading from a Channel
+
+The simplest way to read historical data from Synnax is to use the `read` method on a
+`Channel`.
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+```python
+channel = client.channels.retrieve("my_temp_sensor")
+start = sy.TimeStamp("2025-02-12 12:30:00")
+end = sy.TimeStamp("2025-02-12 14:30:00")
+
+data = channel.read(start, end)
+```
+
+The returned data is a [`Series`](/reference/client/series-and-frames#series) object,
+which contains the time-range occupied by the data. Notably, the `Series` can be treated
+exactly like a `numpy.ndarray`.
+
+```python
+data = data - 273.15
+tr = data.time_range
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const channel = await client.channels.retrieve("my_temp_sensor");
+const start = new Date("2025-02-12T12:30:00Z");
+const end = new Date("2025-02-12T14:30:00Z");
+
+const series = await channel.read(start, end);
+```
+
+The returned data is a [`Series`](/reference/client/series-and-frames#series), which
+maintains a very similar interface to a JavaScript typed array (e.g. `Float32Array`,
+`Int32Array`, etc.). Convert the returned data to a JavaScript array easily:
+
+```typescript
+const data = Array.from(series);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+### Reading from Multiple Channels
+
+The returned data is an instance of the
+[Frame](/reference/client/series-and-frames#frames) class.
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+Access the `Series` object using the `[]` operator. The `Frame` can also be converted to
+a `pandas.DataFrame` by calling the `to_df` method.
+
+```python
+import synnax as sy
+
+start = sy.TimeStamp("2025-02-12 12:30:00")
+end = sy.TimeStamp("2025-02-12 14:30:00")
+
+frame = client.read(start, end, ["my_sensor", "sensor_index"])
+
+data = frame["my_sensor"]
+df = frame.to_df()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+To access the data for a specific channel, use the `get` method.
+
+```typescript
+import { TimeStamp, TimeSpan } from "@synnaxlabs/client";
+
+const start = TimeStamp.now();
+const end = start.add(TimeSpan.seconds(10));
+
+const frame = await client.read({ start, end }, ["my_sensor", "sensor_index"]);
+
+const temperature = frame.get("temperature");
+const humidity = frame.get("humidity");
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+### Reading the Latest Data
+
+The `readLatest` method allows you to read the latest N samples from one or more
+channels:
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+```python
+# Read the latest sample from a channel
+latest_value = client.read_latest("my_tc", n=1)
+
+# Read the latest 10 samples from a channel
+latest_samples = client.read_latest("my_tc", n=10)
+
+# Read the latest 5 samples from multiple channels
+frame = client.read_latest(["my_tc", "my_sg", "my_pt"], n=5)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// Read the latest sample from a channel
+const latestValue = await client.readLatest("my_tc", 1);
+
+// Read the latest 10 samples from a channel
+const latestSamples = await client.readLatest("my_tc", 10);
+
+// Read the latest 5 samples from multiple channels
+const frame = await client.readLatest(["my_tc", "my_sg", "my_pt"], 5);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+The returned data follows the same conventions as regular reads - a `Series` for single
+channels or a `Frame` for multiple channels.

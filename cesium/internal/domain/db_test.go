@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,11 +12,10 @@ package domain_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/cesium/internal/resource"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
-
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -26,7 +25,7 @@ var _ = Describe("DB", func() {
 			Describe("HasDataFor", func() {
 				var (
 					db      *domain.DB
-					fs      xfs.FS
+					fs      fs.FS
 					cleanUp func() error
 				)
 				BeforeEach(func() {
@@ -67,11 +66,54 @@ var _ = Describe("DB", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
-					Expect(db.Close()).To(MatchError(core.ErrOpenResource))
+					Expect(db.Close()).To(MatchError(resource.ErrOpen))
 					Expect(w.Close()).To(Succeed())
 					Expect(db.Close()).To(Succeed())
 					Expect(cleanUp()).To(Succeed())
 
+				})
+			})
+
+			Describe("Size", func() {
+				var (
+					db      *domain.DB
+					fs      fs.FS
+					cleanUp func() error
+				)
+				BeforeEach(func() {
+					fs, cleanUp = makeFS()
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              fs,
+						Instrumentation: PanicLogger(),
+					}))
+				})
+				AfterEach(func() {
+					Expect(db.Close()).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
+				})
+
+				It("Should return zero for an empty database", func() {
+					Expect(db.Size()).To(Equal(telem.Size(0)))
+				})
+
+				It("Should return the correct size after writing data", func() {
+					data := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+					tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
+					Expect(domain.Write(ctx, db, tr, data)).To(Succeed())
+					Expect(db.Size()).To(Equal(telem.Size(len(data))))
+				})
+
+				It("Should accumulate size across multiple writes", func() {
+					data1 := []byte{1, 2, 3, 4, 5}
+					tr1 := (10 * telem.SecondTS).SpanRange(5 * telem.Second)
+					Expect(domain.Write(ctx, db, tr1, data1)).To(Succeed())
+
+					data2 := []byte{6, 7, 8, 9, 10, 11, 12}
+					tr2 := (20 * telem.SecondTS).SpanRange(7 * telem.Second)
+					Expect(domain.Write(ctx, db, tr2, data2)).To(Succeed())
+
+					expectedSize := telem.Size(len(data1) + len(data2))
+					Expect(db.Size()).To(Equal(expectedSize))
 				})
 			})
 		})
@@ -81,7 +123,7 @@ var _ = Describe("DB", func() {
 		Describe("HasDataFor", func() {
 			It("Should return ErrDBClosed", func() {
 				db := MustSucceed(domain.Open(domain.Config{
-					FS:              xfs.NewMem(),
+					FS:              fs.NewMem(),
 					Instrumentation: PanicLogger(),
 				}))
 				Expect(db.Close()).To(Succeed())

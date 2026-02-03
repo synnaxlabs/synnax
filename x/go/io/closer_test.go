@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,17 +10,16 @@
 package io_test
 
 import (
-	"errors"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
 )
 
 // mockCloser is a test helper that tracks Close() calls
 type mockCloser struct {
-	closed bool
 	err    error
+	closed bool
 }
 
 func (m *mockCloser) Close() error {

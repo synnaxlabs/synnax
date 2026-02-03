@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,15 +11,16 @@ import { device } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { CONNECT_LAYOUT } from "@/hardware/opc/device/Connect";
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 
-const CONNECT_SERVER_COMMAND: Palette.Command = {
+const useVisible = () => Access.useUpdateGranted(device.TYPE_ONTOLOGY_ID);
+
+export const ConnectOPCServerCommand = Palette.createSimpleCommand({
   key: "opc-ua-connect-server",
   name: "Connect an OPC UA Server",
   icon: <Icon.Logo.OPC />,
-  onSelect: ({ placeLayout }) => placeLayout(CONNECT_LAYOUT),
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: device.TYPE_ONTOLOGY_ID, store, client }),
-};
+  layout: CONNECT_LAYOUT,
+  useVisible,
+});
 
-export const COMMANDS: Palette.Command[] = [CONNECT_SERVER_COMMAND];
+export const COMMANDS = [ConnectOPCServerCommand];

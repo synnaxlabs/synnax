@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,7 @@ import { Edit, EDIT_LAYOUT_TYPE } from "@/label/Edit";
 import { type Layout } from "@/layout";
 
 export * from "@/label/Edit";
+export * from "@/label/filter";
 export * from "@/label/Select";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

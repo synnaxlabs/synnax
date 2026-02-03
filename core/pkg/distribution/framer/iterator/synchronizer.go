@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,13 +18,13 @@ import (
 )
 
 type synchronizer struct {
-	ins alamos.Instrumentation
 	confluence.LinearTransform[Response, Response]
-	nodeCount int
-	cycle     struct {
-		counter int
+	ins   alamos.Instrumentation
+	cycle struct {
 		res     Response
+		counter int
 	}
+	nodeCount int
 }
 
 func newSynchronizer(nodeCount int, ins alamos.Instrumentation) confluence.Segment[Response, Response] {
@@ -43,7 +43,7 @@ func (s *synchronizer) sync(_ context.Context, res Response) (Response, bool, er
 		return res, false, nil
 	}
 
-	if res.Variant == DataResponse {
+	if res.Variant == ResponseVariantData {
 		return res, true, nil
 	}
 

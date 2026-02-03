@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -30,9 +30,6 @@ func (c *Catcher) Exec(ca func() error) {
 		c.errors = append(c.errors, err)
 	}
 }
-
-// Reset resets the Catcher so it becomes error free.
-func (c *Catcher) Reset() { c.errors = []error{} }
 
 // Error returns the most recent error caught.
 func (c *Catcher) Error() error {

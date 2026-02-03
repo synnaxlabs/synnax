@@ -1,34 +1,26 @@
 [project]
 name = "synnax-test-framework"
-version = "0.49.0"
-description = "Integration test framework for Synnax Labs"
-authors = [{ name = "Nico Alba", email = "nico@synnaxlabs.com" }]
-requires-python = ">=3.11,<4"
-dynamic = ["dependencies"]
+version = "0.0.0"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "synnax",
+    "matplotlib>=3.10.8,<4",
+    "numpy>=2.4.1,<3",
+    "playwright>=1.57.0,<2",
+    "pymodbus>=3.11.4,<4",
+    "asyncua>=1.1.8,<2",
+]
+classifiers = ["Private :: Do Not Upload"]
 
-[tool.poetry]
-packages = [{ include = "framework" }, { include = "tests" }]
+[dependency-groups]
+dev = ["black>=26.1.0,<27", "isort>=7.0.0,<8", "mypy>=1.19.1,<2"]
 
 [project.scripts]
-# Make the test conductor easily runnable
 test-conductor = "framework.test_conductor:main"
-
-[tool.poetry.dependencies]
-synnax = { path = "../client/py", develop = true }
-matplotlib = "^3.10.7"
-numpy = "^2.3.4"
-playwright = "^1.55.0"
-
-[tool.poetry.group.dev.dependencies]
-black = "^25.9.0"
-isort = "^7.0.0"
-mypy = "^1.18.2"
-poetry = "^2.2.1"
-vermin = "^1.7.0"
-
-[tool.poetry.scripts]
 tc = "framework.test_conductor:main"
-test-conductor = "framework.test_conductor:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["driver", "framework", "tests"]
 
 [tool.isort]
 profile = "black"
@@ -42,7 +34,15 @@ strict = true
 module = "synnax.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "examples.*"
+ignore_missing_imports = true
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_types = true
 warn_required_dynamic_aliases = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -46,7 +46,8 @@ const ListItem = ({
 const listItemRenderProp = Component.renderProp(ListItem);
 
 export interface SelectMultipleProps
-  extends Omit<
+  extends
+    Omit<
       Select.MultipleProps<label.Key, label.Label | undefined>,
       "data" | "resourceName" | "subscribe" | "children"
     >,
@@ -102,7 +103,8 @@ export const SelectMultiple = ({
 };
 
 export interface SelectSingleProps
-  extends Omit<
+  extends
+    Omit<
       Select.SingleProps<label.Key, label.Label | undefined>,
       "data" | "resourceName" | "subscribe" | "children"
     >,

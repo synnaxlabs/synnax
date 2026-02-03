@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -62,8 +62,8 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"configured": zyn.Bool(),
 })
 
-func newResource(r Device) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(r.Key), r.Name, r)
+func newResource(d Device) ontology.Resource {
+	return ontology.NewResource(schema, OntologyID(d.Key), d.Name, d)
 }
 
 var _ ontology.Service = (*Service)(nil)
@@ -110,5 +110,8 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 // ontology.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := gorp.WrapReader[string, Device](s.cfg.DB).OpenNexter(ctx)
-	return xiter.Map(n, newResource), closer, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return xiter.Map(n, newResource), closer, nil
 }

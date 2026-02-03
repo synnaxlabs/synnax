@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,7 +23,7 @@ export const statusZ = <Details extends z.ZodType = z.ZodNever>(
 
 export const newZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
-) => statusZ(detailsSchema).omit({ labels: true }).partial({ key: true });
+) => statusZ(detailsSchema).omit({ labels: true }).extend({ key: keyZ.optional() });
 
 export type New<DetailsSchema extends z.ZodType = z.ZodNever> = z.input<
   ReturnType<typeof newZ<DetailsSchema>>

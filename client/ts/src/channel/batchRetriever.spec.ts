@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -55,7 +55,6 @@ describe("channelchannel.Retriever", () => {
         virtual: false,
         expression: "",
         operations: [],
-        requires: [],
       }));
     });
     const retriever = new channel.DebouncedBatchRetriever(base, 10);
@@ -85,7 +84,6 @@ describe("channelchannel.Retriever", () => {
         virtual: false,
         expression: "",
         operations: [],
-        requires: [],
       }));
     });
     const retriever = new channel.DebouncedBatchRetriever(base, 10);

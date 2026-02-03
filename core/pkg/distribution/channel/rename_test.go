@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -95,7 +95,7 @@ var _ = Describe("Rename", Ordered, func() {
 				{
 					Name:        channel.NewRandomName(),
 					DataType:    telem.StringT,
-					Leaseholder: cluster.Free,
+					Leaseholder: cluster.NodeKeyFree,
 					Virtual:     true,
 				},
 			}
@@ -133,7 +133,7 @@ var _ = Describe("Rename", Ordered, func() {
 			ch3 := channel.Channel{
 				Name:        fmt.Sprintf("young_newton_%s", id),
 				DataType:    telem.StringT,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 				Virtual:     true,
 			}
 			channels := []channel.Channel{ch1, ch2, ch3}

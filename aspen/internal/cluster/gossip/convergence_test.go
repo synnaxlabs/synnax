@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,6 +12,8 @@ package gossip_test
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -20,7 +22,6 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/rand"
-	"sync"
 )
 
 type convergenceVars struct {
@@ -53,9 +54,7 @@ var progressiveConvergence = []convergenceVars{
 }
 
 var _ = Describe("Convergence", func() {
-	var (
-		net *fmock.Network[gossip.Message, gossip.Message]
-	)
+	var net *fmock.Network[gossip.Message, gossip.Message]
 	BeforeEach(func() {
 		net = fmock.NewNetwork[gossip.Message, gossip.Message]()
 	})

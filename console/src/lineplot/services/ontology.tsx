@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,7 +11,7 @@ import { lineplot, ontology } from "@synnaxlabs/client";
 import {
   Access,
   Icon,
-  LinePlot as Core,
+  LinePlot as Base,
   Menu as PMenu,
   Mosaic,
 } from "@synnaxlabs/pluto";
@@ -31,7 +31,7 @@ import { createUseRename } from "@/ontology/createUseRename";
 const useDelete = createUseDelete({
   type: "Line Plot",
   icon: "LinePlot",
-  query: Core.useDelete,
+  query: Base.useDelete,
   convertKey: String,
   beforeUpdate: async ({ data, removeLayout, store }) => {
     removeLayout(...data);
@@ -41,7 +41,7 @@ const useDelete = createUseDelete({
 });
 
 const useRename = createUseRename({
-  query: Core.useRename,
+  query: Base.useRename,
   ontologyID: lineplot.ontologyID,
   convertKey: String,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {

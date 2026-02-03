@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -30,6 +30,8 @@ func _() {
 	_ = x[OpReturn-15]
 	_ = x[OpCall-16]
 	_ = x[OpCallIndirect-17]
+	_ = x[OpDrop-26]
+	_ = x[OpSelect-27]
 	_ = x[OpLocalGet-32]
 	_ = x[OpLocalSet-33]
 	_ = x[OpLocalTee-34]
@@ -183,19 +185,21 @@ func _() {
 const (
 	_Opcode_name_0 = "OpUnreachableOpNopOpBlockOpLoopOpIfOpElse"
 	_Opcode_name_1 = "OpEndOpBrOpBrIfOpBrTableOpReturnOpCallOpCallIndirect"
-	_Opcode_name_2 = "OpLocalGetOpLocalSetOpLocalTeeOpGlobalGetOpGlobalSet"
-	_Opcode_name_3 = "OpI32LoadOpI64LoadOpF32LoadOpF64LoadOpI32Load8SOpI32Load8UOpI32Load16SOpI32Load16U"
-	_Opcode_name_4 = "OpI32StoreOpI64StoreOpF32StoreOpF64StoreOpI32Store8OpI32Store16"
-	_Opcode_name_5 = "OpMemorySizeOpMemoryGrowOpI32ConstOpI64ConstOpF32ConstOpF64ConstOpI32EqzOpI32EqOpI32NeOpI32LtSOpI32LtUOpI32GtSOpI32GtUOpI32LeSOpI32LeUOpI32GeSOpI32GeUOpI64EqzOpI64EqOpI64NeOpI64LtSOpI64LtUOpI64GtSOpI64GtUOpI64LeSOpI64LeUOpI64GeSOpI64GeUOpF32EqOpF32NeOpF32LtOpF32GtOpF32LeOpF32GeOpF64EqOpF64NeOpF64LtOpF64GtOpF64LeOpF64GeOpI32ClzOpI32CtzOpI32PopcntOpI32AddOpI32SubOpI32MulOpI32DivSOpI32DivUOpI32RemSOpI32RemUOpI32AndOpI32OrOpI32XorOpI32ShlOpI32ShrSOpI32ShrUOpI32RotlOpI32RotrOpI64ClzOpI64CtzOpI64PopcntOpI64AddOpI64SubOpI64MulOpI64DivSOpI64DivUOpI64RemSOpI64RemUOpI64AndOpI64OrOpI64XorOpI64ShlOpI64ShrSOpI64ShrUOpI64RotlOpI64RotrOpF32AbsOpF32NegOpF32CeilOpF32FloorOpF32TruncOpF32NearestOpF32SqrtOpF32AddOpF32SubOpF32MulOpF32DivOpF32MinOpF32MaxOpF32CopysignOpF64AbsOpF64NegOpF64CeilOpF64FloorOpF64TruncOpF64NearestOpF64SqrtOpF64AddOpF64SubOpF64MulOpF64DivOpF64MinOpF64MaxOpF64CopysignOpI32WrapI64OpI32TruncF32SOpI32TruncF32UOpI32TruncF64SOpI32TruncF64UOpI64ExtendI32SOpI64ExtendI32UOpI64TruncF32SOpI64TruncF32UOpI64TruncF64SOpI64TruncF64UOpF32ConvertI32SOpF32ConvertI32UOpF32ConvertI64SOpF32ConvertI64UOpF32DemoteF64OpF64ConvertI32SOpF64ConvertI32UOpF64ConvertI64SOpF64ConvertI64UOpF64PromoteF32OpI32ReinterpretF32OpI64ReinterpretF64OpF32ReinterpretI32OpF64ReinterpretI64"
+	_Opcode_name_2 = "OpDropOpSelect"
+	_Opcode_name_3 = "OpLocalGetOpLocalSetOpLocalTeeOpGlobalGetOpGlobalSet"
+	_Opcode_name_4 = "OpI32LoadOpI64LoadOpF32LoadOpF64LoadOpI32Load8SOpI32Load8UOpI32Load16SOpI32Load16U"
+	_Opcode_name_5 = "OpI32StoreOpI64StoreOpF32StoreOpF64StoreOpI32Store8OpI32Store16"
+	_Opcode_name_6 = "OpMemorySizeOpMemoryGrowOpI32ConstOpI64ConstOpF32ConstOpF64ConstOpI32EqzOpI32EqOpI32NeOpI32LtSOpI32LtUOpI32GtSOpI32GtUOpI32LeSOpI32LeUOpI32GeSOpI32GeUOpI64EqzOpI64EqOpI64NeOpI64LtSOpI64LtUOpI64GtSOpI64GtUOpI64LeSOpI64LeUOpI64GeSOpI64GeUOpF32EqOpF32NeOpF32LtOpF32GtOpF32LeOpF32GeOpF64EqOpF64NeOpF64LtOpF64GtOpF64LeOpF64GeOpI32ClzOpI32CtzOpI32PopcntOpI32AddOpI32SubOpI32MulOpI32DivSOpI32DivUOpI32RemSOpI32RemUOpI32AndOpI32OrOpI32XorOpI32ShlOpI32ShrSOpI32ShrUOpI32RotlOpI32RotrOpI64ClzOpI64CtzOpI64PopcntOpI64AddOpI64SubOpI64MulOpI64DivSOpI64DivUOpI64RemSOpI64RemUOpI64AndOpI64OrOpI64XorOpI64ShlOpI64ShrSOpI64ShrUOpI64RotlOpI64RotrOpF32AbsOpF32NegOpF32CeilOpF32FloorOpF32TruncOpF32NearestOpF32SqrtOpF32AddOpF32SubOpF32MulOpF32DivOpF32MinOpF32MaxOpF32CopysignOpF64AbsOpF64NegOpF64CeilOpF64FloorOpF64TruncOpF64NearestOpF64SqrtOpF64AddOpF64SubOpF64MulOpF64DivOpF64MinOpF64MaxOpF64CopysignOpI32WrapI64OpI32TruncF32SOpI32TruncF32UOpI32TruncF64SOpI32TruncF64UOpI64ExtendI32SOpI64ExtendI32UOpI64TruncF32SOpI64TruncF32UOpI64TruncF64SOpI64TruncF64UOpF32ConvertI32SOpF32ConvertI32UOpF32ConvertI64SOpF32ConvertI64UOpF32DemoteF64OpF64ConvertI32SOpF64ConvertI32UOpF64ConvertI64SOpF64ConvertI64UOpF64PromoteF32OpI32ReinterpretF32OpI64ReinterpretF64OpF32ReinterpretI32OpF64ReinterpretI64"
 )
 
 var (
 	_Opcode_index_0 = [...]uint8{0, 13, 18, 25, 31, 35, 41}
 	_Opcode_index_1 = [...]uint8{0, 5, 9, 15, 24, 32, 38, 52}
-	_Opcode_index_2 = [...]uint8{0, 10, 20, 30, 41, 52}
-	_Opcode_index_3 = [...]uint8{0, 9, 18, 27, 36, 47, 58, 70, 82}
-	_Opcode_index_4 = [...]uint8{0, 10, 20, 30, 40, 51, 63}
-	_Opcode_index_5 = [...]uint16{0, 12, 24, 34, 44, 54, 64, 72, 79, 86, 94, 102, 110, 118, 126, 134, 142, 150, 158, 165, 172, 180, 188, 196, 204, 212, 220, 228, 236, 243, 250, 257, 264, 271, 278, 285, 292, 299, 306, 313, 320, 328, 336, 347, 355, 363, 371, 380, 389, 398, 407, 415, 422, 430, 438, 447, 456, 465, 474, 482, 490, 501, 509, 517, 525, 534, 543, 552, 561, 569, 576, 584, 592, 601, 610, 619, 628, 636, 644, 653, 663, 673, 685, 694, 702, 710, 718, 726, 734, 742, 755, 763, 771, 780, 790, 800, 812, 821, 829, 837, 845, 853, 861, 869, 882, 894, 908, 922, 936, 950, 965, 980, 994, 1008, 1022, 1036, 1052, 1068, 1084, 1100, 1114, 1130, 1146, 1162, 1178, 1193, 1212, 1231, 1250, 1269}
+	_Opcode_index_2 = [...]uint8{0, 6, 14}
+	_Opcode_index_3 = [...]uint8{0, 10, 20, 30, 41, 52}
+	_Opcode_index_4 = [...]uint8{0, 9, 18, 27, 36, 47, 58, 70, 82}
+	_Opcode_index_5 = [...]uint8{0, 10, 20, 30, 40, 51, 63}
+	_Opcode_index_6 = [...]uint16{0, 12, 24, 34, 44, 54, 64, 72, 79, 86, 94, 102, 110, 118, 126, 134, 142, 150, 158, 165, 172, 180, 188, 196, 204, 212, 220, 228, 236, 243, 250, 257, 264, 271, 278, 285, 292, 299, 306, 313, 320, 328, 336, 347, 355, 363, 371, 380, 389, 398, 407, 415, 422, 430, 438, 447, 456, 465, 474, 482, 490, 501, 509, 517, 525, 534, 543, 552, 561, 569, 576, 584, 592, 601, 610, 619, 628, 636, 644, 653, 663, 673, 685, 694, 702, 710, 718, 726, 734, 742, 755, 763, 771, 780, 790, 800, 812, 821, 829, 837, 845, 853, 861, 869, 882, 894, 908, 922, 936, 950, 965, 980, 994, 1008, 1022, 1036, 1052, 1068, 1084, 1100, 1114, 1130, 1146, 1162, 1178, 1193, 1212, 1231, 1250, 1269}
 )
 
 func (i Opcode) String() string {
@@ -205,18 +209,21 @@ func (i Opcode) String() string {
 	case 11 <= i && i <= 17:
 		i -= 11
 		return _Opcode_name_1[_Opcode_index_1[i]:_Opcode_index_1[i+1]]
+	case 26 <= i && i <= 27:
+		i -= 26
+		return _Opcode_name_2[_Opcode_index_2[i]:_Opcode_index_2[i+1]]
 	case 32 <= i && i <= 36:
 		i -= 32
-		return _Opcode_name_2[_Opcode_index_2[i]:_Opcode_index_2[i+1]]
+		return _Opcode_name_3[_Opcode_index_3[i]:_Opcode_index_3[i+1]]
 	case 40 <= i && i <= 47:
 		i -= 40
-		return _Opcode_name_3[_Opcode_index_3[i]:_Opcode_index_3[i+1]]
+		return _Opcode_name_4[_Opcode_index_4[i]:_Opcode_index_4[i+1]]
 	case 54 <= i && i <= 59:
 		i -= 54
-		return _Opcode_name_4[_Opcode_index_4[i]:_Opcode_index_4[i+1]]
+		return _Opcode_name_5[_Opcode_index_5[i]:_Opcode_index_5[i+1]]
 	case 63 <= i && i <= 191:
 		i -= 63
-		return _Opcode_name_5[_Opcode_index_5[i]:_Opcode_index_5[i+1]]
+		return _Opcode_name_6[_Opcode_index_6[i]:_Opcode_index_6[i+1]]
 	default:
 		return "Opcode(" + strconv.FormatInt(int64(i), 10) + ")"
 	}

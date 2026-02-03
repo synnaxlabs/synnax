@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -90,14 +90,12 @@ TEST(TaskTests, testDeleteTask) {
     auto t = Task(r.key, "test_module", "mock", "config");
     ASSERT_NIL(r.tasks.create(t));
     ASSERT_NIL(r.tasks.del(t.key));
-    auto [retrieved, err] = r.tasks.retrieve(t.key);
-    ASSERT_TRUE(err);
-    ASSERT_TRUE(err.matches(xerrors::NOT_FOUND));
+    ASSERT_OCCURRED_AS_P(r.tasks.retrieve(t.key), xerrors::NOT_FOUND);
 }
 
 /// @brief it should convert a task key to an ontology ID
 TEST(TaskTests, testTaskOntologyId) {
-    const synnax::TaskKey key = 12345678901234;
+    constexpr synnax::TaskKey key = 12345678901234;
     const auto id = synnax::task_ontology_id(key);
     ASSERT_EQ(id.type, "task");
     ASSERT_EQ(id.key, "12345678901234");

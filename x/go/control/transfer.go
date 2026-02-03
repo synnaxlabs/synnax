@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -37,10 +37,10 @@ func (s Subject) String() string {
 // authority. It is used to indicate the states of several subjects who are contending
 // over a particular resource.
 type State[R comparable] struct {
-	// Subject is the subject controlling (or attempting to control) the resource.
-	Subject Subject `json:"subject" msgpack:"subject"`
 	// Resource is the resource under control.
 	Resource R `json:"resource" msgpack:"resource"`
+	// Subject is the subject controlling (or attempting to control) the resource.
+	Subject Subject `json:"subject" msgpack:"subject"`
 	// Authority is the authority that the subject has over the resource. A higher
 	// authority means a higher precedence over a subject with a lower Authority.
 	Authority Authority `json:"authority" msgpack:"authority"`

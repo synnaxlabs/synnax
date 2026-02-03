@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -37,27 +37,36 @@ var (
 )
 
 type constant struct {
-	state *state.Node
-	value any
+	*state.Node
+	value       any
+	initialized bool
 }
 
-func (c constant) Init(ctx node.Context) {
-	d := c.state.Output(0)
+var _ node.Node = (*constant)(nil)
+
+func (c *constant) Next(ctx node.Context) {
+	if c.initialized {
+		return
+	}
+	c.initialized = true
+	d := c.Output(0)
 	*d = telem.NewSeriesFromAny(c.value, d.DataType)
-	t := c.state.OutputTime(0)
+	t := c.OutputTime(0)
 	*t = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
-func (c constant) Next(node.Context) {}
+func (c *constant) Reset() {
+	c.initialized = false
+}
 
 type constantFactory struct{}
 
 func (c *constantFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symName {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
-	return constant{state: cfg.State, value: cfg.Node.Config[0].Value}, nil
+	return &constant{Node: cfg.State, value: cfg.Node.Config[0].Value}, nil
 }
 
 func NewFactory() node.Factory { return &constantFactory{} }

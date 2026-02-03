@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -49,6 +49,8 @@ inline bool get_name(char *buf, size_t len) {
     PWSTR wname = nullptr;
     if (SUCCEEDED(GetThreadDescription(GetCurrentThread(), &wname))) {
         std::wcstombs(buf, wname, len);
+        // Ensure null termination for truncated names on Windows
+        if (len > 0) buf[len - 1] = '\0';
         LocalFree(wname);
         return true;
     }

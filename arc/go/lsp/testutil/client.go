@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,12 +11,21 @@ package testutil
 
 import (
 	"context"
+	"sync"
 
 	"go.lsp.dev/protocol"
 )
 
-// MockClient for testing (satisfies protocol.Client interface)
-type MockClient struct{}
+type MockClient struct {
+	mu          sync.Mutex
+	diagnostics []protocol.Diagnostic
+}
+
+func (m *MockClient) Diagnostics() []protocol.Diagnostic {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.diagnostics
+}
 
 func (m *MockClient) ShowMessage(context.Context, *protocol.ShowMessageParams) error {
 	return nil
@@ -54,8 +63,10 @@ func (m *MockClient) ApplyEdit(context.Context, *protocol.ApplyWorkspaceEditPara
 	return false, nil
 }
 
-func (m *MockClient) PublishDiagnostics(context.Context, *protocol.PublishDiagnosticsParams) error {
-	// Silently ignore diagnostics in tests
+func (m *MockClient) PublishDiagnostics(_ context.Context, params *protocol.PublishDiagnosticsParams) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.diagnostics = params.Diagnostics
 	return nil
 }
 

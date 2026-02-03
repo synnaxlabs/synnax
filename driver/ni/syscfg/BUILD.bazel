@@ -28,3 +28,14 @@ cc_library(
     ],
     deps = [],
 )
+
+cc_test(
+    name = "syscfg_test",
+    srcs = ["sugared_test.cpp"],
+    deps = [
+        ":syscfg",
+        "//driver/ni:ni_errors",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

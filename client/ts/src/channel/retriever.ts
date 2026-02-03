@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,11 +18,10 @@ import {
   type Keys,
   type KeysOrNames,
   keyZ,
-  type Name,
-  type Names,
   type Params,
   type Payload,
   payloadZ,
+  type PrimitiveParams,
 } from "@/channel/payload";
 import { QueryError } from "@/errors";
 import { keyZ as rangeKeyZ } from "@/ranger/payload";
@@ -48,8 +47,10 @@ const reqZ = z.object({
 });
 export interface RetrieveRequest extends z.input<typeof reqZ> {}
 
-export interface RetrieveOptions
-  extends Omit<RetrieveRequest, "keys" | "names" | "search"> {}
+export interface RetrieveOptions extends Omit<
+  RetrieveRequest,
+  "keys" | "names" | "search"
+> {}
 export interface PageOptions extends Omit<RetrieveOptions, "offset" | "limit"> {}
 
 const resZ = z.object({ channels: array.nullableZ(payloadZ) });
@@ -60,7 +61,7 @@ export const analyzeParams = (
   if (Array.isArray(channels) && channels.length > 0 && typeof channels[0] === "object")
     channels = (channels as Payload[]).map((c) => c.key);
   else if (typeof channels === "object" && "key" in channels) channels = [channels.key];
-  return analyzeParameters(channels as Key | Name | Keys | Names, {
+  return analyzeParameters(channels as PrimitiveParams, {
     number: "keys",
     string: "names",
   });

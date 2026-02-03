@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,32 +17,43 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/legacy"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/status"
+	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
+// legacyStatusChannels are channels used in previous versions to store calculation
+// status updates before the status service was introduced.
+var legacyStatusChannels = []string{"sy_calculation_status", "sy_calculation_state"}
+
+// StatusDetails contains calculation-specific status information.
+type StatusDetails struct {
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+}
+
+// Status is an alias for the calculation status type.
+type Status = status.Status[StatusDetails]
+
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
-	alamos.Instrumentation
-	DB *gorp.DB
+	// ChannelObservable is used to listen to real-time changes in calculated channels
+	// so the calculation routines can be updated accordingly.
+	// [REQUIRED]
+	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
+	DB                *gorp.DB
 	// Framer is the underlying frame service to stream cache channel values and write
 	// calculated samples.
 	// [REQUIRED]
@@ -51,30 +62,20 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// ChannelObservable is used to listen to real-time changes in calculated channels
-	// so the calculation routines can be updated accordingly.
-	// [REQUIRED]
-	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
 	// Arc is used for compiling arc programs used for executing calculations.
 	// [REQUIRED]
 	Arc *arc.Service
-	// StateCodec is the encoder/decoder used to communicate calculation state
-	// changes.
-	// [OPTIONAL]
-	StateCodec binary.Codec
-	// EnableLegacyCalculations sets whether to enable the legacy, lua-based calculated
-	// channel engine.
-	// [OPTIONAL] - Default false
-	EnableLegacyCalculations *bool
+	// Status is used for persisting calculation status updates.
+	// [REQUIRED]
+	Status *status.Service
+	alamos.Instrumentation
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for opening the calculation service.
-	DefaultConfig = ServiceConfig{
-		StateCodec:               &binary.JSONCodec{},
-		EnableLegacyCalculations: config.False(),
-	}
+	// DefaultServiceConfig is the default configuration for opening the calculation
+	// service.
+	DefaultServiceConfig = ServiceConfig{}
 )
 
 // Validate implements config.Config.
@@ -83,10 +84,9 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "channel_observable", c.ChannelObservable)
-	validate.NotNil(v, "state_codec", c.StateCodec)
-	validate.NotNil(v, "enable_legacy_calculations", c.EnableLegacyCalculations)
 	validate.NotNil(v, "arc", c.Arc)
 	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "status", c.Status)
 	return v.Error()
 }
 
@@ -96,33 +96,28 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
-	c.StateCodec = override.Nil(c.StateCodec, other.StateCodec)
 	c.Arc = override.Nil(c.Arc, other.Arc)
-	c.EnableLegacyCalculations = override.Nil(c.EnableLegacyCalculations, other.EnableLegacyCalculations)
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
 
 type Service struct {
-	cfg ServiceConfig
-	mu  struct {
-		sync.Mutex
+	disconnectFromChannelChanges observe.Disconnect
+	cfg                          ServiceConfig
+	mu                           struct {
 		graph       *graph.Graph
 		calculators map[channel.Key]*calculator.Calculator
 		groups      map[int]*group
+		sync.Mutex
 	}
-	disconnectFromChannelChanges observe.Disconnect
-	stateKey                     channel.Key
-	writer                       *framer.Writer
-	legacy                       *legacy.Service
+	statusWriter status.Writer[StatusDetails]
 }
-
-const StatusChannelName = "sy_calculation_status"
 
 // OpenService opens the service with the provided configuration. The service must be closed
 // when it is no longer needed.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -135,77 +130,46 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 
-	calculationStateCh := channel.Channel{
-		Name:        StatusChannelName,
-		DataType:    telem.JSONT,
-		Virtual:     true,
-		Leaseholder: cluster.Free,
-		Internal:    true,
+	s := &Service{
+		cfg:          cfg,
+		statusWriter: status.NewWriter[StatusDetails](cfg.Status, nil),
 	}
-
-	if err = cfg.Channel.MapRename(ctx, map[string]string{
-		"sy_calculation_state": StatusChannelName,
-	}, true); err != nil {
-		return nil, err
-	}
-
-	if err = cfg.Channel.Create(
-		ctx,
-		&calculationStateCh,
-		channel.RetrieveIfNameExists(),
-	); err != nil {
-		return nil, err
-	}
-
-	w, err := cfg.Framer.OpenWriter(ctx, framer.WriterConfig{
-		Keys:        []channel.Key{calculationStateCh.Key()},
-		Start:       telem.Now(),
-		Authorities: []control.Authority{255},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	s := &Service{cfg: cfg, writer: w, stateKey: calculationStateCh.Key()}
 	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
 	s.mu.graph = g
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group)
 
-	if err = s.migrateChannels(ctx); err != nil {
-		s.cfg.L.Error("failed to migrate legacy calculated channels", zap.Error(err))
+	if err := cfg.Channel.DeleteManyByNames(ctx, legacyStatusChannels, true); err != nil {
+		cfg.L.Debug("failed to delete legacy status channels", zap.Error(err))
 	}
 
-	if *cfg.EnableLegacyCalculations {
-		s.legacy, err = legacy.OpenService(ctx, legacy.ServiceConfig{
-			Instrumentation: cfg.Child("legacy"),
-			Channel:         cfg.Channel,
-			Framer:          cfg.Framer,
-			StateCodec:      cfg.StateCodec,
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	s.cfg.L.Info("calculation service initialized",
-		zap.String("status_channel", StatusChannelName),
-		zap.Uint32("status_channel_key", uint32(calculationStateCh.Key())),
-		zap.Bool("legacy_calculations_enabled", *cfg.EnableLegacyCalculations),
-	)
+	s.cfg.L.Info("calculation service initialized")
 
 	return s, nil
 }
 
 func (s *Service) setStatus(
-	_ context.Context,
+	ctx context.Context,
 	statuses ...calculator.Status,
 ) {
-	if _, err := s.writer.Write(core.UnaryFrame(
-		s.stateKey,
-		telem.NewSeriesStaticJSONV(statuses...),
-	)); err != nil {
-		s.cfg.L.Error("failed to encode state", zap.Error(err))
+	for _, st := range statuses {
+		chKey, err := channel.ParseKey(st.Key)
+		if err != nil {
+			s.cfg.L.Error("failed to parse channel key from status", zap.Error(err), zap.String("key", st.Key))
+			continue
+		}
+		statusKey := channel.OntologyID(chKey).String()
+		if err := s.statusWriter.Set(ctx, &Status{
+			Key:         statusKey,
+			Name:        st.Name,
+			Variant:     st.Variant,
+			Message:     st.Message,
+			Description: st.Description,
+			Time:        telem.Now(),
+			Details:     StatusDetails{Channel: chKey},
+		}); err != nil {
+			s.cfg.L.Error("failed to set status", zap.Error(err), zap.String("key", statusKey))
+		}
 	}
 }
 
@@ -217,11 +181,7 @@ func (s *Service) handleChange(
 		ch := cg.Value
 		// Don't stop calculating if the channel is deleted. The calculation will be
 		// automatically shut down when it is no longer needed.
-		if cg.Variant != change.Set || !ch.IsCalculated() {
-			continue
-		}
-		if ch.IsLegacyCalculated() {
-			s.legacy.Update(ctx, ch)
+		if cg.Variant != change.VariantSet || !ch.IsCalculated() {
 			continue
 		}
 		s.mu.Lock()
@@ -232,7 +192,8 @@ func (s *Service) handleChange(
 		if err := s.updateCalculation(ctx, ch); err != nil {
 			s.setStatus(ctx, calculator.Status{
 				Key:         ch.Key().String(),
-				Variant:     status.ErrorVariant,
+				Name:        ch.Name,
+				Variant:     xstatus.VariantError,
 				Message:     fmt.Sprintf("failed to update calculation for %s", ch),
 				Description: err.Error(),
 			})
@@ -364,9 +325,6 @@ func (s *Service) Close() error {
 	for _, g := range s.mu.groups {
 		c.Exec(g.Close)
 	}
-	if s.legacy != nil {
-		c.Exec(s.legacy.Close)
-	}
 	return c.Error()
 }
 
@@ -390,11 +348,6 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 	defer s.mu.Unlock()
 
 	for _, k := range removed {
-		if s.legacy != nil {
-			if err := s.legacy.Remove(ctx, k); err != nil {
-				return err
-			}
-		}
 		if err := s.mu.graph.Remove(k); err != nil {
 			return err
 		}
@@ -403,19 +356,11 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 		if !ch.IsCalculated() {
 			continue
 		}
-		if ch.IsLegacyCalculated() {
-			if err := s.legacy.Add(ctx, ch.Key()); err != nil {
-				statuses = append(statuses, calculator.Status{
-					Key:         ch.Key().String(),
-					Message:     fmt.Sprintf("Failed to request legacy calculation for %s", ch),
-					Description: err.Error(),
-				})
-			}
-			continue
-		}
 		if err := s.mu.graph.Add(ctx, ch); err != nil {
 			statuses = append(statuses, calculator.Status{
-				Key:         ch.String(),
+				Key:         ch.Key().String(),
+				Name:        ch.Name,
+				Variant:     xstatus.VariantError,
 				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),
 				Description: err.Error(),
 			})

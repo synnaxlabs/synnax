@@ -1,0 +1,181 @@
+---
+import { Logo } from "@synnaxlabs/media";
+import { Icon, Button, Text, Flex } from "@synnaxlabs/pluto";
+import Search from "@/components/search/Search.astro";
+import { PageMobile } from "@/components/nav/Page";
+const url = Astro.url.pathname;
+---
+
+<Flex.Box className="main-header" justify="center" align="center" el="header" empty>
+    <Flex.Box className="top" justify="center" align="center">
+        <Flex.Box
+            className="header-content"
+            direction="x"
+            justify="between"
+            align="center"
+        >
+            <a href="https://synnaxlabs.com">
+                <Logo variant="title" />
+            </a>
+            <Flex.Box direction="x" align="center" justify="center">
+                <Flex.Box direction="x" gap="small">
+                    <Search />
+                    <PageMobile client:only="react" currentPage={Astro.url.pathname} />
+                </Flex.Box>
+                <Button.Button
+                    className="version-button"
+                    variant="text"
+                    href="https://github.com/synnaxlabs/synnax"
+                >
+                    <p class="version" transition:persist></p>
+                    <Icon.Logo.Github />
+                </Button.Button>
+            </Flex.Box>
+        </Flex.Box>
+    </Flex.Box>
+    <Flex.Box className="bottom" justify="center" align="center">
+        <Flex.Box direction="x" className="header-content" gap={5} justify="start">
+            <Text.Text
+                href="/"
+                className={url === "/" ? "active" : ""}
+                level="h5"
+                overflow="nowrap">Docs Home</Text.Text
+            >
+            <Text.Text
+                href="/guides/"
+                className={url.includes("guides") ? "active" : ""}
+                level="h5"
+                variant="prose"
+                overflow="nowrap">Guides</Text.Text
+            >
+            <Text.Text
+                href="/reference/"
+                className={url.includes("reference") ? "active" : ""}
+                level="h5"
+                overflow="nowrap">Reference</Text.Text
+            >
+            <Text.Text
+                href="/releases/"
+                className={url.includes("releases") ? "active" : ""}
+                level="h5"
+                overflow="nowrap">Releases</Text.Text
+            >
+        </Flex.Box>
+    </Flex.Box>
+</Flex.Box>
+
+<style is:global>
+    .main-header {
+        z-index: 4;
+        position: sticky;
+        top: 0;
+        background: var(--pluto-gray-l2-30);
+        backdrop-filter: blur(3rem);
+        -webkit-backdrop-filter: blur(3rem);
+
+        .top {
+            height: 9rem;
+            border-bottom: var(--pluto-border);
+            border-color: var(--pluto-gray-l3);
+            width: 100%;
+
+            & .version-button {
+                & p {
+                    color: var(--pluto-gray-l8);
+                    font-weight: 400;
+                }
+                & .pluto-icon {
+                    color: var(--pluto-gray-l9);
+                    transform: scale(115%) translateY(-5%);
+                }
+            }
+
+            & .synnax-logo--title {
+                height: 5rem;
+            }
+        }
+
+        .bottom {
+            .header-content {
+                padding: 0 10rem;
+            }
+            height: 5.5rem;
+            border-bottom: var(--pluto-border);
+            border-color: var(--pluto-gray-l3);
+            width: 100%;
+
+            .pluto-text:is(a) {
+                font-size: 13.5px;
+                font-weight: 425;
+                color: var(--pluto-gray-l9);
+                position: relative;
+                padding: 0 1rem;
+                text-decoration: none;
+                &:before {
+                    transition: all 0.2s ease-in-out;
+                    content: "";
+                    position: absolute;
+                    width: 0%;
+                    height: var(--pluto-border-width);
+                    bottom: -7px;
+                    left: 0%;
+                    border-bottom: var(--pluto-border);
+                    border-color: var(--pluto-primary-z);
+                    border-width: 2px;
+                }
+                &.active {
+                    color: var(--pluto-gray-l11);
+                    font-weight: 500;
+                    &:before {
+                        width: 50% !important;
+                    }
+                }
+                &:hover {
+                    text-decoration: none;
+                    color: var(--pluto-gray-l10);
+                    &:before {
+                        width: 50%;
+                    }
+                }
+            }
+        }
+        .header-content {
+            width: 100%;
+            max-width: var(--max-width);
+            padding: 0 7rem;
+        }
+
+        .page-nav-mobile {
+            display: none;
+        }
+    }
+
+    @media (max-width: 800px) {
+        .main-header {
+            .bottom .header-content {
+                justify-content: center !important;
+            }
+            .top .header-content {
+                padding: 0 3rem;
+            }
+            .version-button {
+                display: none;
+            }
+            .page-nav-mobile {
+                display: flex;
+            }
+        }
+    }
+
+    @media (max-width: 800px) and (hover: none) {
+        .main-header {
+            z-index: 100;
+            flex-direction: column-reverse !important;
+            position: fixed;
+            bottom: 0px;
+            top: unset;
+            width: 100%;
+            border-top: var(--pluto-border);
+        }
+    }
+</style>

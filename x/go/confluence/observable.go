@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,25 +15,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 )
-
-// ObservablePublisher is a Source that subscribes to an ObservableSubscriber and
-// publishes the values to its outlets.
-type ObservablePublisher[V Value] struct {
-	AbstractUnarySource[V]
-	observe.Observable[V]
-}
-
-// Flow implements the Flow interface.
-func (s *ObservablePublisher[V]) Flow(ctx signal.Context, opts ...Option) {
-	ctx.Go(func(ctx context.Context) error {
-		remove := s.OnChange(func(ctx context.Context, v V) {
-			_ = signal.SendUnderContext(ctx, s.Out.Inlet(), v)
-		})
-		<-ctx.Done()
-		remove()
-		return ctx.Err()
-	})
-}
 
 // ObservableTransformPublisher is a Source that subscribes to an ObservableSubscriber,
 // transforms the value through a provided transform function, and publishes the
@@ -76,32 +57,6 @@ func NewObservableSubscriber[V Value]() *ObservableSubscriber[V] {
 	o := &ObservableSubscriber[V]{Observer: observe.New[V]()}
 	o.Sink = o.sink
 	return o
-}
-
-type ObservableTransformSubscriber[V Value, T Value] struct {
-	UnarySink[V]
-	Transform TransformFunc[V, T]
-	observe.Observer[T]
-}
-
-func NewObservableTransformSubscriber[V Value, T Value](
-	f TransformFunc[V, T],
-) *ObservableTransformSubscriber[V, T] {
-	o := &ObservableTransformSubscriber[V, T]{
-		Transform: f,
-		Observer:  observe.New[T](),
-	}
-	o.Sink = o.sink
-	return o
-}
-
-func (o *ObservableTransformSubscriber[V, T]) sink(ctx context.Context, v V) error {
-	t, ok, err := o.Transform(ctx, v)
-	if err != nil || !ok {
-		return err
-	}
-	o.Notify(ctx, t)
-	return nil
 }
 
 type GeneratorTransformObservable[V Value, T Value] struct {

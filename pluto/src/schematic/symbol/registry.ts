@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -250,7 +250,7 @@ import {
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
-import { Value as CoreValue } from "@/vis/value";
+import { Value as BaseValue } from "@/vis/value";
 
 export interface Spec<P extends object = object> {
   key: Variant;
@@ -1043,7 +1043,7 @@ const value: Spec<ValueProps> = {
     stalenessTimeout: 5,
     stalenessColor: t.colors.warning.m1,
     telem: ZERO_NUMERIC_STRINGER_SOURCE_PROPS.source,
-    redline: CoreValue.ZERO_READLINE,
+    redline: BaseValue.ZERO_READLINE,
   }),
   zIndex: Z_INDEX_UPPER,
 };

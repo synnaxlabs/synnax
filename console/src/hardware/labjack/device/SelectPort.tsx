@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,7 +18,8 @@ import {
 } from "@/hardware/labjack/device/types";
 
 export interface SelectPortProps
-  extends Omit<
+  extends
+    Omit<
       Select.SingleProps<string, Port | undefined>,
       "resourceName" | "data" | "children"
     >,

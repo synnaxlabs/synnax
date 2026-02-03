@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,8 +13,8 @@ import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "groups";
-export const RESOURCE_NAME = "Group";
-export const PLURAL_RESOURCE_NAME = "Groups";
+export const RESOURCE_NAME = "group";
+export const PLURAL_RESOURCE_NAME = "groups";
 
 export interface FluxStore extends Flux.UnaryStore<group.Key, group.Group> {}
 

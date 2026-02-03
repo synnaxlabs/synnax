@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,23 +13,29 @@
 
 #include "x/cpp/xerrors/errors.h"
 
+/// @brief it should correctly parse an error from a string with type and data.
 TEST(testXErrors, testErrorConstructionFromString) {
     const std::string error = "sy.validation---invalid key: 1000: validation error";
-    auto err = xerrors::Error(error);
+    const auto err = xerrors::Error(error);
+    EXPECT_EQ(err.type, xerrors::VALIDATION.type);
+    EXPECT_EQ(err.data, "invalid key: 1000: validation error");
 }
 
+/// @brief it should correctly compare two equal errors.
 TEST(testXErrors, testErrorEqualsExactlyEqual) {
     const auto err1 = xerrors::Error("test", "");
     const auto err2 = xerrors::Error("test", "");
     ASSERT_EQ(err1, err2);
 }
 
+/// @brief it should match errors with the same type prefix.
 TEST(testXErrors, testErrorHequalHasPrefix) {
     const auto err1 = xerrors::Error("test", "");
     const auto err2 = xerrors::Error("test-specific", "");
     ASSERT_TRUE(err2.matches(err1));
 }
 
+/// @brief it should match errors against a vector of possible matches.
 TEST(testXErrors, testErrorMatchesVector) {
     const auto err = xerrors::Error("test.specific.error", "");
     const std::vector errors = {
@@ -46,6 +52,7 @@ TEST(testXErrors, testErrorMatchesVector) {
     ASSERT_FALSE(err.matches(no_matches));
 }
 
+/// @brief it should create a nil error with default constructor.
 TEST(testXErrors, testDefaultConstructor) {
     const auto err = xerrors::Error();
     ASSERT_EQ(err.type, xerrors::TYPE_NIL);
@@ -53,6 +60,7 @@ TEST(testXErrors, testDefaultConstructor) {
     ASSERT_TRUE(err.ok());
 }
 
+/// @brief it should create an error with new data from an existing error.
 TEST(testXErrors, testConstructorWithErrorAndData) {
     const auto base_err = xerrors::Error("base.error", "base data");
     const auto err = xerrors::Error(base_err, "new data");
@@ -60,6 +68,7 @@ TEST(testXErrors, testConstructorWithErrorAndData) {
     ASSERT_EQ(err.data, "new data");
 }
 
+/// @brief it should correctly construct an error from a protobuf message.
 TEST(testXErrors, testConstructorFromProtobuf) {
     errors::PBPayload pb_err;
     pb_err.set_type("protobuf.error");
@@ -69,6 +78,7 @@ TEST(testXErrors, testConstructorFromProtobuf) {
     ASSERT_EQ(err.data, "protobuf data");
 }
 
+/// @brief it should create a sub-error with appended type.
 TEST(testXErrors, testSubMethod) {
     const auto base_err = xerrors::Error("base", "");
     const auto sub_err = base_err.sub("child");
@@ -76,6 +86,7 @@ TEST(testXErrors, testSubMethod) {
     ASSERT_TRUE(sub_err.data.empty());
 }
 
+/// @brief it should reparent an error to a new parent type.
 TEST(testXErrors, testReparentMethod) {
     const auto child_err = xerrors::Error("old.parent.child", "child data");
     const auto new_parent = xerrors::Error("new.parent", "");
@@ -89,6 +100,7 @@ TEST(testXErrors, testReparentMethod) {
     ASSERT_EQ(unchanged.data, "data");
 }
 
+/// @brief it should return true for ok() on nil errors and false otherwise.
 TEST(testXErrors, testOkMethod) {
     const auto nil_err = xerrors::Error(xerrors::TYPE_NIL, "");
     ASSERT_TRUE(nil_err.ok());
@@ -97,6 +109,7 @@ TEST(testXErrors, testOkMethod) {
     ASSERT_FALSE(non_nil_err.ok());
 }
 
+/// @brief it should format the error message correctly.
 TEST(testXErrors, testMessageMethod) {
     const auto err = xerrors::Error("test.error", "error message");
     ASSERT_EQ(err.message(), "[test.error] error message");
@@ -105,6 +118,7 @@ TEST(testXErrors, testMessageMethod) {
     ASSERT_EQ(no_data_err.message(), "[test.error] ");
 }
 
+/// @brief it should convert to false for nil errors and true for non-nil errors.
 TEST(testXErrors, testBoolOperator) {
     const auto nil_err = xerrors::Error(xerrors::TYPE_NIL, "");
     ASSERT_FALSE(static_cast<bool>(nil_err));
@@ -113,6 +127,7 @@ TEST(testXErrors, testBoolOperator) {
     ASSERT_TRUE(static_cast<bool>(non_nil_err));
 }
 
+/// @brief it should correctly stream the error to an output stream.
 TEST(testXErrors, testStreamOperator) {
     const auto err = xerrors::Error("test.error", "error message");
     std::stringstream ss;
@@ -120,6 +135,7 @@ TEST(testXErrors, testStreamOperator) {
     ASSERT_EQ(ss.str(), "[test.error] error message");
 }
 
+/// @brief it should match errors against string type prefixes.
 TEST(testXErrors, testMatchesString) {
     const auto err = xerrors::Error("test.specific.error", "");
     ASSERT_TRUE(err.matches("test"));
@@ -129,6 +145,7 @@ TEST(testXErrors, testMatchesString) {
     ASSERT_FALSE(err.matches("other"));
 }
 
+/// @brief it should correctly handle nil error matching behavior.
 TEST(testXErrors, testNilMatchesBehavior) {
     const auto nil_err = xerrors::NIL;
     const auto specific_err = xerrors::Error("test.specific.error", "");
@@ -144,6 +161,7 @@ TEST(testXErrors, testNilMatchesBehavior) {
     ASSERT_TRUE(nil_err.matches(xerrors::TYPE_NIL));
 }
 
+/// @brief it should match errors against a vector of string types.
 TEST(testXErrors, testMatchesVectorStrings) {
     const auto err = xerrors::Error("test.specific.error", "");
     const std::vector<std::string> types = {"wrong", "test.specific", "another"};
@@ -153,6 +171,7 @@ TEST(testXErrors, testMatchesVectorStrings) {
     ASSERT_FALSE(err.matches(no_match_types));
 }
 
+/// @brief it should skip matching errors and return nil.
 TEST(testXErrors, testSkipSingleError) {
     const auto err = xerrors::Error("test.error", "data");
     const auto skip_err = xerrors::Error("test", "");
@@ -167,6 +186,7 @@ TEST(testXErrors, testSkipSingleError) {
     ASSERT_EQ(not_skipped.data, "data");
 }
 
+/// @brief it should skip errors matching any in a vector.
 TEST(testXErrors, testSkipVectorErrors) {
     const auto err = xerrors::Error("test.error", "data");
     const std::vector<xerrors::Error> skip_errors = {
@@ -189,6 +209,7 @@ TEST(testXErrors, testSkipVectorErrors) {
     ASSERT_EQ(not_skipped.data, "data");
 }
 
+/// @brief it should skip errors matching a string type.
 TEST(testXErrors, testSkipString) {
     const auto err = xerrors::Error("test.error", "data");
 
@@ -201,6 +222,7 @@ TEST(testXErrors, testSkipString) {
     ASSERT_EQ(not_skipped.data, "data");
 }
 
+/// @brief it should correctly compare errors for inequality.
 TEST(testXErrors, testNotEqualsOperator) {
     const auto err1 = xerrors::Error("test1", "");
     const auto err2 = xerrors::Error("test2", "");
@@ -210,18 +232,21 @@ TEST(testXErrors, testNotEqualsOperator) {
     ASSERT_FALSE(err1 != err3);
 }
 
+/// @brief it should correctly compare an error type to a string.
 TEST(testXErrors, testEqualsStringOperator) {
     const auto err = xerrors::Error("test", "data");
     ASSERT_TRUE(err == "test");
     ASSERT_FALSE(err == "other");
 }
 
+/// @brief it should correctly compare an error type inequality to a string.
 TEST(testXErrors, testNotEqualsStringOperator) {
     const auto err = xerrors::Error("test", "data");
     ASSERT_FALSE(err != "test");
     ASSERT_TRUE(err != "other");
 }
 
+/// @brief it should define all predefined error types correctly.
 TEST(testXErrors, testPredefinedErrors) {
     ASSERT_EQ(xerrors::NIL.type, xerrors::TYPE_NIL);
     ASSERT_EQ(xerrors::UNKNOWN.type, xerrors::TYPE_UNKNOWN);
@@ -237,12 +262,14 @@ TEST(testXErrors, testPredefinedErrors) {
     ASSERT_EQ(xerrors::UNAUTHORIZED.type, "sy.control.unauthorized");
 }
 
+/// @brief it should parse a string without delimiter as type only.
 TEST(testXErrors, testStringConstructorWithoutDelimiter) {
     const auto err = xerrors::Error("simple.error");
     ASSERT_EQ(err.type, "simple.error");
     ASSERT_TRUE(err.data.empty());
 }
 
+/// @brief it should correctly parse a string with delimiter into type and data.
 TEST(testXErrors, testStringConstructorWithDelimiter) {
     const auto err = xerrors::Error("error.type---error data");
     ASSERT_EQ(err.type, "error.type");

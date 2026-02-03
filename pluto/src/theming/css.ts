@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,7 +10,7 @@
 import { color } from "@synnaxlabs/x";
 
 import { createHexOpacityVariants, CSS, unitProperty } from "@/css";
-import { type Theme } from "@/theming/core/theme";
+import { type Theme } from "@/theming/base/theme";
 
 const OPACITIES: readonly number[] = [
   95, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5,
@@ -84,6 +84,9 @@ export const toCSSVars = (
     "text-color": color.hex(theme.colors.text),
     "text-color-rgb": color.rgbString(theme.colors.text),
     "text-on-primary": color.hex(theme.colors.textOnPrimary),
+    "primary-text": color.hex(theme.colors.primaryText),
+    "error-text": color.hex(theme.colors.errorText),
+    "warning-text": color.hex(theme.colors.warningText),
     "border-color": color.hex(theme.colors.border),
     "base-size": unitProperty(theme.sizes.base, "px"),
     "border-radius": unitProperty(theme.sizes.border.radius, "px"),

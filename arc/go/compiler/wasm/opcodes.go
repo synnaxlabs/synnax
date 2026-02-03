@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -53,6 +53,12 @@ const (
 const (
 	OpCall         Opcode = 0x10 // call
 	OpCallIndirect Opcode = 0x11 // call_indirect
+)
+
+// Parametric instructions
+const (
+	OpDrop   Opcode = 0x1a // drop
+	OpSelect Opcode = 0x1b // select
 )
 
 // Variable instructions

@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -6,6 +6,20 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+
+"""
+TPC (Thrust Chamber) pressurization control sequence for a rocket engine.
+
+To run this example:
+
+Terminal 1 - Start the TPC simulator:
+    cd client/py
+    uv run python -m examples.simulators.tpc
+
+Terminal 2 - Run the control sequence:
+    cd client/py
+    uv run python -m examples.control.tpc.control_sequence
+"""
 
 import dataclasses
 import time
@@ -108,6 +122,8 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             print("Waiting for confirmation to start test")
             log(ctrl, "Waiting for confirmation to start test")
             ctrl.wait_until(start_sim_cmd)
+            print("Starting TPC Test")
+            log(ctrl, "Starting TPC Test")
         try:
             parent_rng = client.ranges.create(
                 name="TPC Test",

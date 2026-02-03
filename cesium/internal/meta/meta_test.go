@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,12 +17,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -31,7 +31,7 @@ var _ = Describe("Meta", func() {
 	for fsName, makeFS := range FileSystems {
 		var (
 			ctx     context.Context
-			fs      xfs.FS
+			fs      fs.FS
 			cleanUp func() error
 			codec   binary.Codec
 		)
@@ -49,7 +49,7 @@ var _ = Describe("Meta", func() {
 					ch := MustSucceed(meta.Open(
 						ctx,
 						subFs,
-						core.Channel{
+						channel.Channel{
 							Key:      key,
 							Name:     "Faraday",
 							Virtual:  true,
@@ -72,14 +72,14 @@ var _ = Describe("Meta", func() {
 			})
 
 			Describe("Impossible meta configurations", func() {
-				DescribeTable("meta configs", func(ch core.Channel, badField string) {
+				DescribeTable("meta configs", func(ch channel.Channel, badField string) {
 					key := GenerateChannelKey()
 					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
 					createdChannel := MustSucceed(
 						meta.Open(
 							ctx,
 							subFs,
-							core.Channel{
+							channel.Channel{
 								Key:      key,
 								Name:     "John",
 								Virtual:  true,
@@ -98,14 +98,14 @@ var _ = Describe("Meta", func() {
 				},
 					Entry(
 						"datatype not set",
-						core.Channel{
+						channel.Channel{
 							Key: GenerateChannelKey(), Name: "Wick", Virtual: true,
 						},
 						"data_type",
 					),
 					Entry(
 						"virtual indexed",
-						core.Channel{
+						channel.Channel{
 							Key:      GenerateChannelKey(),
 							Virtual:  true,
 							Name:     "Snow?",
@@ -116,7 +116,7 @@ var _ = Describe("Meta", func() {
 					),
 					Entry(
 						"index not type timestamp",
-						core.Channel{
+						channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "Mulaney?",
 							IsIndex:  true,
@@ -133,7 +133,7 @@ var _ = Describe("Meta", func() {
 				ch := MustSucceed(meta.Open(
 					ctx,
 					subFs,
-					core.Channel{
+					channel.Channel{
 						Key:      key,
 						Name:     "Faraday",
 						Virtual:  true,
@@ -144,11 +144,11 @@ var _ = Describe("Meta", func() {
 				Expect(ch.Key).To(Equal(key))
 
 				Expect(meta.Create(ctx, subFs, &brokenCodec{}, ch)).Error().
-					To(MatchError(encodingError))
+					To(MatchError(errEncoding))
 				Expect(subFs.Exists("meta.json")).To(BeTrue())
 
 				Expect(meta.Read(ctx, subFs, &brokenCodec{})).Error().
-					To(MatchError(encodingError))
+					To(MatchError(errEncoding))
 				Expect(subFs.Exists("meta.json")).To(BeTrue())
 				Expect(subFs.Exists("meta.json.tmp")).To(BeFalse())
 
@@ -167,20 +167,20 @@ type brokenCodec struct{}
 
 var _ binary.Codec = (*brokenCodec)(nil)
 
-var encodingError = errors.New("broken codec")
+var errEncoding = errors.New("broken codec")
 
 func (b *brokenCodec) Encode(context.Context, any) ([]byte, error) {
-	return nil, encodingError
+	return nil, errEncoding
 }
 
 func (b *brokenCodec) EncodeStream(context.Context, io.Writer, any) error {
-	return encodingError
+	return errEncoding
 }
 
 func (b *brokenCodec) Decode(context.Context, []byte, any) error {
-	return encodingError
+	return errEncoding
 }
 
 func (b *brokenCodec) DecodeStream(context.Context, io.Reader, any) error {
-	return encodingError
+	return errEncoding
 }

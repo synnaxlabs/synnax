@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -168,9 +168,9 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 					sem.Release(1)
 				}()
 				var (
-					commitCount                   = 0
-					highWaterMark telem.TimeStamp = 0
-					indexData                     = make([]telem.TimeStamp, cfg.samplesPerDomain)
+					commitCount   int
+					highWaterMark telem.TimeStamp
+					indexData     = make([]telem.TimeStamp, cfg.samplesPerDomain)
 					frame         cesium.Frame
 				)
 
@@ -279,8 +279,8 @@ func BenchRead(
 		db            *cesium.DB
 		err           error
 		frame         cesium.Frame
-		indexData                     = make([]telem.TimeStamp, cfg.samplesPerDomain)
-		highWaterMark telem.TimeStamp = 0
+		indexData     = make([]telem.TimeStamp, cfg.samplesPerDomain)
+		highWaterMark telem.TimeStamp
 	)
 
 	db, err = cesium.Open(ctx, "benchmark_read_test", cesium.WithFS(fs))
@@ -442,9 +442,9 @@ func BenchStream(
 					sem.Release(1)
 				}()
 				var (
-					commitCount                   = 0
-					highWaterMark telem.TimeStamp = 0
-					indexData                     = make([]telem.TimeStamp, cfg.samplesPerDomain)
+					commitCount   = 0
+					highWaterMark telem.TimeStamp
+					indexData     = make([]telem.TimeStamp, cfg.samplesPerDomain)
 					frame         cesium.Frame
 					w             *cesium.Writer
 					s             cesium.Streamer[cesium.StreamerRequest, cesium.StreamerResponse]

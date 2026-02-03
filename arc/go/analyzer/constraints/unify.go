@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,18 +18,62 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// Sentinel errors for type unification failures.
+var (
+	// ErrConstraints is the base constraints error type.
+	ErrConstraints = errors.New("constraints")
+	// ErrCyclicType indicates a type variable occurs within its own substitution.
+	ErrCyclicType = errors.Wrap(ErrConstraints, "cyclic type dependency")
+	// ErrConstraintViolation indicates a type does not satisfy a type variable's constraint.
+	ErrConstraintViolation = errors.Wrap(ErrConstraints, "constraint violation")
+	// ErrUnresolvable indicates two types cannot be unified.
+	ErrUnresolvable = errors.Wrap(ErrConstraints, "types are not unifiable")
+	// ErrUnresolvedVariable indicates a type variable could not be resolved to a concrete type.
+	ErrUnresolvedVariable = errors.Wrap(ErrConstraints, "unresolved type variable")
+	// ErrConvergence indicates the unification algorithm did not converge within iteration limit.
+	ErrConvergence = errors.Wrap(ErrConstraints, "unification did not converge")
+)
+
+// UnificationError captures context about a failed type unification.
+type UnificationError struct {
+	// Constraint that failed to unify.
+	Constraint *Constraint
+	// Left is the resolved left type after substitutions.
+	Left types.Type
+	// Right is the resolved right type after substitutions.
+	Right types.Type
+	// Message is the user-facing error message.
+	Message string
+	// Hint provides an optional suggestion for fixing the error (e.g., type conversion).
+	Hint string
+}
+
+func (e *UnificationError) Error() string { return e.Message }
+
+// GetHint implements diagnostics.HintProvider.
+func (e *UnificationError) GetHint() string { return e.Hint }
+
+var _ error = (*UnificationError)(nil)
+
+const maxUnificationIterations = 100
+
 // Unify solves all accumulated constraints by computing type variable substitutions.
 // Returns an error if constraints conflict or cannot converge within iteration limit.
 func (s *System) Unify() error {
-	const maxIterations = 100
-	for iteration := 0; iteration < maxIterations; iteration++ {
+	for iteration := 0; iteration < maxUnificationIterations; iteration++ {
 		var (
-			changed      = false
+			changed      bool
 			previousSubs = maps.Clone(s.Substitutions)
 		)
 		for _, c := range s.Constraints {
 			if err := s.unifyTypes(c.Left, c.Right, c); err != nil {
-				return errors.Wrapf(err, "failed to unify %v and %v: %s", c.Left, c.Right, c.Reason)
+				return errors.Wrapf(
+					err,
+					"failed to unify %v and %v: %s",
+					c.Left,
+					c.Right,
+					c.Reason,
+				)
 			}
 		}
 		if len(s.Substitutions) != len(previousSubs) {
@@ -42,27 +86,70 @@ func (s *System) Unify() error {
 				}
 			}
 		}
-		// If no changes occurred, we've reached a fixpoint
 		if !changed {
 			break
 		}
-		// Safety check for infinite loops
-		if iteration == maxIterations-1 {
-			return errors.Newf("type unification did not converge after %d iterations (possible constraint conflict)", maxIterations)
+		if iteration == maxUnificationIterations-1 {
+			return errors.Wrapf(ErrConvergence, "after %d iterations", maxUnificationIterations)
 		}
 	}
 
-	// Resolve remaining unresolved type variables with defaults
 	for name, tv := range s.TypeVars {
 		if _, resolved := s.Substitutions[name]; !resolved {
 			if tv.Constraint != nil {
 				s.Substitutions[name] = defaultTypeForConstraint(*tv.Constraint)
 			} else {
-				return errors.Newf("type variable %s could not be resolved", name)
+				return errors.Wrapf(ErrUnresolvedVariable, "%s", name)
 			}
 		}
 	}
 	return nil
+}
+
+// UnifyConstraint attempts to unify a single constraint immediately.
+// Returns a UnificationError with context if types are incompatible.
+func (s *System) UnifyConstraint(c Constraint) error {
+	if err := s.unifyTypes(c.Left, c.Right, c); err != nil {
+		left := s.ApplySubstitutions(c.Left)
+		right := s.ApplySubstitutions(c.Right)
+		msg := fmt.Sprintf("type mismatch: %v is not compatible with %v", right, left)
+		if c.Reason != "" {
+			msg = fmt.Sprintf("type mismatch in %s: %v is not compatible with %v", c.Reason, right, left)
+		}
+		var hint string
+		if left.IsNumeric() && right.IsNumeric() {
+			hintType := concreteTypeForHint(left)
+			hint = fmt.Sprintf("hint: use %s(value) to convert", hintType)
+		}
+		return &UnificationError{
+			Constraint: &c,
+			Left:       left,
+			Right:      right,
+			Message:    msg,
+			Hint:       hint,
+		}
+	}
+	return nil
+}
+
+// concreteTypeForHint returns a concrete type name for use in error hints.
+// Converts constraint kinds (integer, float) to their default concrete types (i64, f64).
+func concreteTypeForHint(t types.Type) string {
+	if t.Kind == types.KindVariable && t.Constraint != nil {
+		switch t.Constraint.Kind {
+		case types.KindIntegerConstant:
+			return "i64"
+		case types.KindFloatConstant, types.KindNumericConstant, types.KindExactIntegerFloatConstant:
+			return "f64"
+		}
+	}
+	if t.Kind == types.KindIntegerConstant {
+		return "i64"
+	}
+	if t.Kind == types.KindFloatConstant || t.Kind == types.KindExactIntegerFloatConstant {
+		return "f64"
+	}
+	return t.String()
 }
 
 func (s *System) unifyTypes(t1, t2 types.Type, source Constraint) error {
@@ -77,18 +164,16 @@ func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, vis
 			return nil
 		}
 		visiting[t1.Name] = true
-		err := s.unifyTypeVariableWithVisited(t1, t2, source, visiting)
-		delete(visiting, t1.Name)
-		return err
+		defer delete(visiting, t1.Name)
+		return s.unifyTypeVariableWithVisited(t1, t2, source, visiting)
 	}
 	if t2.Kind == types.KindVariable {
 		if visiting[t2.Name] {
 			return nil
 		}
 		visiting[t2.Name] = true
-		err := s.unifyTypeVariableWithVisited(t2, t1, source, visiting)
-		delete(visiting, t2.Name)
-		return err
+		defer delete(visiting, t2.Name)
+		return s.unifyTypeVariableWithVisited(t2, t1, source, visiting)
 	}
 
 	// Now apply substitutions for non-type-variable types
@@ -98,22 +183,27 @@ func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, vis
 		return nil
 	}
 
+	// Handle compound types (channel, series) - must be same kind to unify
 	if t1.Kind == types.KindChan || t1.Kind == types.KindSeries {
-		if t2.Kind == types.KindChan || t2.Kind == types.KindSeries {
-			return s.unifyTypesWithVisited(t1.Unwrap(), t2.Unwrap(), source, visiting)
+		if t1.Kind != t2.Kind {
+			return errors.Wrapf(ErrUnresolvable, "%v and %v", t1, t2)
 		}
-		return errors.Newf("cannot unify channel %v with %v", t1, t2)
+		return s.unifyTypesWithVisited(t1.Unwrap(), t2.Unwrap(), source, visiting)
 	}
 
 	if source.Kind == KindCompatible && t1.IsNumeric() && t2.IsNumeric() {
 		return nil
 	}
 
-	return errors.Newf("types %v and %v are not unifiable", t1, t2)
+	return errors.Wrapf(ErrUnresolvable, "%v and %v", t1, t2)
 }
 
 // unifyTypeVariableWithVisited is the internal recursive function with cycle detection
-func (s *System) unifyTypeVariableWithVisited(tv, other types.Type, source Constraint, visiting map[string]bool) error {
+func (s *System) unifyTypeVariableWithVisited(
+	tv, other types.Type,
+	source Constraint,
+	visiting map[string]bool,
+) error {
 	if existing, exists := s.Substitutions[tv.Name]; exists {
 		// Type variable already has a substitution
 		// If we're in a compatible context with numeric types, we may need to promote
@@ -154,60 +244,59 @@ func (s *System) unifyTypeVariableWithVisited(tv, other types.Type, source Const
 
 	if tv.Constraint == nil {
 		if occursIn(tv, other) {
-			return errors.Newf("cyclic type: %s occurs in %v", tv.Name, other)
+			return errors.Wrapf(ErrCyclicType, "%s occurs in %v", tv.Name, other)
 		}
 	} else if tv.Constraint.Kind == types.KindNumericConstant {
 		if !checkType.IsNumeric() {
-			return errors.Newf("type %v does not satisfy constraint %v", other, tv)
+			return errors.Wrapf(
+				ErrConstraintViolation,
+				"%v does not satisfy numeric constraint",
+				other,
+			)
 		}
 	} else if tv.Constraint.Kind == types.KindIntegerConstant {
 		// Integer constraint: accepts any numeric type (for literal coercion)
 		// Integer literals can be coerced to floats: `x f32 := 42` is valid
 		if !checkType.IsNumeric() {
-			return errors.Newf("type %v does not satisfy integer constraint", other)
+			return errors.Wrapf(
+				ErrConstraintViolation,
+				"%v does not satisfy integer constraint",
+				other,
+			)
 		}
 	} else if tv.Constraint.Kind == types.KindFloatConstant {
-		// Float constraint: accepts float types, or any numeric if compatible context
-		if source.Kind == KindCompatible {
-			if !checkType.IsNumeric() {
-				return errors.Newf("type %v does not satisfy float constraint in compatible context", other)
-			}
-		} else {
-			// In equality/assignment context, only accept floats
-			if !checkType.IsFloat() {
-				return errors.Newf("type %v does not satisfy float constraint", other)
-			}
+		// Float constraint: in compatible context, only accept floats (not concrete integers).
+		// This ensures `x := 10; x + 3.2` fails (x is resolved to i64, can't add float literal).
+		// But `2 + 3.2` still works because both are type variables that can promote.
+		if !checkType.IsFloat() {
+			return errors.Wrapf(
+				ErrConstraintViolation,
+				"%v does not satisfy float constraint",
+				other,
+			)
+		}
+	} else if tv.Constraint.Kind == types.KindExactIntegerFloatConstant {
+		if !checkType.IsNumeric() {
+			return errors.Wrapf(
+				ErrConstraintViolation,
+				"%v does not satisfy exact integer float constraint",
+				other,
+			)
 		}
 	}
 
-	// For constraint kinds (IntegerConstant, FloatConstant, NumericConstant),
+	// For constraint kinds (IntegerConstant, FloatConstant, NumericConstant, ExactIntegerFloatConstant),
 	// we've already validated compatibility above, so skip exact match check
 	isConstraintKind := tv.Constraint != nil && (tv.Constraint.Kind == types.KindIntegerConstant ||
 		tv.Constraint.Kind == types.KindFloatConstant ||
-		tv.Constraint.Kind == types.KindNumericConstant)
+		tv.Constraint.Kind == types.KindNumericConstant ||
+		tv.Constraint.Kind == types.KindExactIntegerFloatConstant)
 
 	if !isConstraintKind && tv.Constraint != nil && !types.Equal(*tv.Constraint, other) {
-		if source.Kind == KindCompatible && tv.Constraint.IsNumeric() && other.IsNumeric() {
-			if tv.Constraint.IsFloat() || other.IsFloat() {
-				if tv.Constraint.Is64Bit() || other.Is64Bit() {
-					other = types.F64()
-				} else {
-					other = types.F32()
-				}
-			} else if tv.Constraint.Is64Bit() || other.Is64Bit() {
-				if tv.Constraint.IsSignedInteger() || other.IsSignedInteger() {
-					other = types.F64()
-				} else {
-					other = types.U64()
-				}
-			} else if tv.Constraint.IsSignedInteger() || other.IsSignedInteger() {
-				other = types.I32()
-			} else {
-				other = types.U32()
-			}
-		} else {
-			return errors.Newf("type %v does not match constraint %v", other, tv.Constraint)
+		if source.Kind != KindCompatible || !tv.Constraint.IsNumeric() || !other.IsNumeric() {
+			return errors.Wrapf(ErrConstraintViolation, "%v does not satisfy %v constraint", other, tv.Constraint)
 		}
+		other = promoteNumericTypes(*tv.Constraint, other)
 	}
 	s.Substitutions[tv.Name] = other
 	return nil
@@ -225,22 +314,19 @@ func occursIn(lhs, rhs types.Type) bool {
 
 func defaultTypeForConstraint(constraint types.Type) types.Type {
 	switch constraint.Kind {
-	case types.KindNumericConstant:
-		return types.F64()
 	case types.KindIntegerConstant:
 		return types.I64()
-	case types.KindFloatConstant:
+	case types.KindFloatConstant, types.KindNumericConstant, types.KindExactIntegerFloatConstant:
 		return types.F64()
 	default:
 		return constraint
 	}
 }
 
-// promoteNumericTypes returns the promoted type when unifying two numeric types
-// Implements the promotion rules from promotion_test.go:
-// Rule 1: Float promotion (if either is float)
-// Rule 2: 64-bit integer promotion (if either is 64-bit)
-// Rule 3: 32-bit promotion (for smaller types)
+// promoteNumericTypes returns the promoted type when unifying two numeric types.
+// Rule 1: Float promotion - if either is float, result is f32 or f64.
+// Rule 2: 64-bit integer promotion - mixed signedness promotes to f64.
+// Rule 3: 32-bit promotion - smaller types widen to i32 or u32.
 func promoteNumericTypes(t1, t2 types.Type) types.Type {
 	// Rule 1: Float Promotion
 	if t1.IsFloat() || t2.IsFloat() {
@@ -252,18 +338,13 @@ func promoteNumericTypes(t1, t2 types.Type) types.Type {
 
 	// Rule 2: 64-bit Integer Promotion
 	if t1.Is64Bit() || t2.Is64Bit() {
-		// Mixed signedness at 64-bit promotes to F64
 		if t1.IsSignedInteger() != t2.IsSignedInteger() {
 			return types.F64()
 		}
-		// Both unsigned 64-bit
 		if t1.IsUnsignedInteger() && t2.IsUnsignedInteger() {
 			return types.U64()
 		}
-		// Different widths with signed
-		if t1.IsSignedInteger() || t2.IsSignedInteger() {
-			return types.F64()
-		}
+		return types.F64()
 	}
 
 	// Rule 3: 32-bit and Smaller Integer Promotion

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -39,12 +39,12 @@ func NewAuthService(p Provider) *AuthService {
 }
 
 type AuthLoginResponse struct {
-	// User is the user the token is associated with.
-	User user.User `json:"user" msgpack:"user"`
 	// Token is the JWT.
 	Token string `json:"token" msgpack:"token"`
 	// ClusterInfo is the information about the cluster.
 	ClusterInfo ClusterInfo `json:"cluster_info" msgpack:"cluster_info"`
+	// User is the user the token is associated with.
+	User user.User `json:"user" msgpack:"user"`
 }
 
 type AuthLoginRequest struct {

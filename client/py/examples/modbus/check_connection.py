@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -76,7 +76,7 @@ print("Diagnostic complete")
 print()
 print("Next steps:")
 print("1. Make sure the Modbus server is running:")
-print("   poetry run python driver/modbus/dev/server.py")
+print("   uv run python driver/modbus/dev/server.py")
 print("2. Check the Synnax Console for any error messages")
 print("3. Check the driver logs for connection errors")
 print("=" * 70)

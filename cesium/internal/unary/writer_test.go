@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,12 +15,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/alignment"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -37,7 +39,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			Describe("Index", func() {
 				var (
 					db      *unary.DB
-					fs      xfs.FS
+					fs      fs.FS
 					cleanUp func() error
 				)
 				BeforeEach(func() {
@@ -45,7 +47,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					db = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        fs,
 						MetaCodec: codec,
-						Channel: core.Channel{
+						Channel: channel.Channel{
 							Name:     "Conrad",
 							Key:      2,
 							DataType: telem.TimeStampT,
@@ -66,8 +68,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(t.Occurred()).To(BeTrue())
 					v, err := w.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4, 5))
 					Expect(err).ToNot(HaveOccurred())
-					Expect(v).To(Equal(core.LeadingAlignment(1, 0)))
-					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(core.LeadingAlignment(1, 6)))
+					Expect(v).To(Equal(alignment.Leading(1, 0)))
+					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(alignment.Leading(1, 6)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(11*telem.SecondTS + 1))
 					t = MustSucceed(w.Close())
 					Expect(t.Occurred()).To(BeTrue())
@@ -88,21 +90,21 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			Describe("Channel Indexed", func() {
 				var (
 					dataDB  *unary.DB
-					dataFS  xfs.FS
+					dataFS  fs.FS
 					indexDB *unary.DB
-					indexFS xfs.FS
+					indexFS fs.FS
 					index   = testutil.GenerateChannelKey()
 					data    = testutil.GenerateChannelKey()
 					cleanUp func() error
 				)
 				BeforeEach(func() {
-					var fs xfs.FS
+					var fs fs.FS
 					fs, cleanUp = makeFS()
 					indexFS = MustSucceed(fs.Sub("index"))
 					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
 						MetaCodec: codec,
-						Channel: core.Channel{
+						Channel: channel.Channel{
 							Key:      index,
 							Name:     "Cayley",
 							DataType: telem.TimeStampT,
@@ -115,7 +117,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
 						MetaCodec: codec,
-						Channel: core.Channel{
+						Channel: channel.Channel{
 							Key:      data,
 							Name:     "Maxwell",
 							DataType: telem.Int64T,
@@ -140,7 +142,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					By("Taking control of the DB")
 					Expect(dataDB.LeadingControlState().Subject).To(Equal(control.Subject{Key: "foo"}))
 					Expect(t.Occurred()).To(BeTrue())
-					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})))).To(Equal(core.LeadingAlignment(1, 0)))
+					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})))).To(Equal(alignment.Leading(1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(20*telem.SecondTS + 1))
 					t = MustSucceed(w.Close())
 					Expect(t.Occurred()).To(BeTrue())
@@ -153,7 +155,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Start:   10 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"},
 					}))
-					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4})))).To(Equal(core.LeadingAlignment(1, 0)))
+					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4})))).To(Equal(alignment.Leading(1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(14*telem.SecondTS + 1))
 					_, err := w.Close()
 					Expect(err).ToNot(HaveOccurred())
@@ -414,7 +416,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			Describe("Control", func() {
 				var (
 					db      *unary.DB
-					fs      xfs.FS
+					fs      fs.FS
 					cleanUp func() error
 				)
 				BeforeEach(func() {
@@ -422,7 +424,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					db = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        fs,
 						MetaCodec: codec,
-						Channel: core.Channel{
+						Channel: channel.Channel{
 							Name:     "Frederick",
 							Key:      2,
 							DataType: telem.TimeStampT,
@@ -443,14 +445,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Subject:   control.Subject{Key: "foo"},
 						}))
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4, 5)))).To(Equal(core.LeadingAlignment(1, 0)))
+						Expect(MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4, 5)))).To(Equal(alignment.Leading(1, 0)))
 						w2, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 							Start:     10 * telem.SecondTS,
 							Authority: control.AuthorityAbsolute,
 							Subject:   control.Subject{Key: "bar"},
 						}))
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(MustSucceed(w2.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(core.LeadingAlignment(1, 6)))
+						Expect(MustSucceed(w2.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(alignment.Leading(1, 6)))
 						a, err := w1.Write(telem.NewSeriesSecondsTSV(12, 13, 14, 15, 16, 17))
 						Expect(err).To(MatchError(control.ErrUnauthorized))
 						Expect(a).To(Equal(telem.Alignment(0)))
@@ -458,7 +460,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).To(MatchError(control.ErrUnauthorized))
 						t = MustSucceed(w2.Close())
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(12, 13, 14, 15, 16, 17)))).To(Equal(core.LeadingAlignment(1, 12)))
+						Expect(MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(12, 13, 14, 15, 16, 17)))).To(Equal(alignment.Leading(1, 12)))
 						Expect(MustSucceed(w1.Commit(ctx))).To(Equal(17*telem.SecondTS + 1))
 						t = MustSucceed(w1.Close())
 						Expect(t.Occurred()).To(BeTrue())
@@ -510,7 +512,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			Describe("Close", Ordered, func() {
 				var (
 					db      *unary.DB
-					fs      xfs.FS
+					fs      fs.FS
 					cleanUp func() error
 					key     = testutil.GenerateChannelKey()
 				)
@@ -519,7 +521,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					db = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        fs,
 						MetaCodec: codec,
-						Channel: core.Channel{
+						Channel: channel.Channel{
 							Key:      key,
 							Name:     "gauss",
 							DataType: telem.TimeStampT,
@@ -538,7 +540,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Start:   10 * telem.SecondTS,
 							Subject: control.Subject{Key: "foo"}},
 						))
-						e = core.NewErrResourceClosed("unary.writer")
+						e = resource.NewClosedError("unary.writer")
 					)
 					Expect(t.Occurred()).To(BeTrue())
 					_, err := w.Close()
@@ -557,12 +559,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Start:   10 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"}},
 					)
-					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("unary.db")))
+					Expect(err).To(HaveOccurredAs(resource.NewClosedError("unary.db")))
 					Expect(err).To(MatchError(ContainSubstring("channel [gauss]<%d>", key)))
 				})
 				It("Should not write on a closed database", func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(unary.Write(ctx, db, 0, telem.NewSeriesV[int64](0, 1, 2))).To(HaveOccurredAs(core.NewErrResourceClosed("unary.db")))
+					Expect(unary.Write(ctx, db, 0, telem.NewSeriesV[int64](0, 1, 2))).To(HaveOccurredAs(resource.NewClosedError("unary.db")))
 				})
 			})
 		})

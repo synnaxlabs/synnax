@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type ranger } from "@synnaxlabs/client";
+import { createTestClient, ranger } from "@synnaxlabs/client";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -253,6 +253,58 @@ describe("queries", () => {
       });
     });
 
+    it("should filter ranges by labels", async () => {
+      const label = await client.labels.create({
+        name: "Filter Label",
+        color: "#000000",
+      });
+      const r = await client.ranges.create({
+        name: "Filter Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await client.labels.label(ranger.ontologyID(r.key), [label.key]);
+      const { result } = renderHook(
+        () => Ranger.useList({ initialQuery: { hasLabels: [label.key] } }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.retrieve(
+          { hasLabels: [label.key] },
+          { signal: controller.signal },
+        );
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toHaveLength(1);
+      expect(result.current.data).toContain(r.key);
+      // add a new range without the label
+      const r2 = await client.ranges.create({
+        name: "Unlabeled Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      act(() => {
+        result.current.retrieve(
+          { hasLabels: [label.key] },
+          { signal: controller.signal },
+        );
+      });
+      await waitFor(() => expect(result.current.data).toHaveLength(1));
+      expect(result.current.data).not.toContain(r2.key);
+      // add a new range with the label
+      const r3 = await client.ranges.create({
+        name: "Labeled Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await client.labels.label(ranger.ontologyID(r3.key), [label.key]);
+      act(() => {
+        result.current.retrieve(
+          { hasLabels: [label.key] },
+          { signal: controller.signal },
+        );
+      });
+      await waitFor(() => expect(result.current.data).toHaveLength(2));
+      expect(result.current.data).toContain(r3.key);
+    });
+
     it("should handle ranges with custom colors", async () => {
       const coloredRange = await client.ranges.create({
         name: "coloredRange",
@@ -270,6 +322,45 @@ describe("queries", () => {
 
       const retrievedRange = result.current.getItem(coloredRange.key);
       expect(retrievedRange?.color).toEqual("#E774D0");
+    });
+
+    it("should update range when a label is deleted", async () => {
+      const label1 = await client.labels.create({
+        name: "labelToDelete",
+        color: "#FF0000",
+      });
+      const label2 = await client.labels.create({
+        name: "labelToKeep",
+        color: "#00FF00",
+      });
+      const testRange = await client.ranges.create({
+        name: "rangeWithLabels",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await client.labels.label(ranger.ontologyID(testRange.key), [
+        label1.key,
+        label2.key,
+      ]);
+
+      const { result } = renderHook(() => Ranger.useList(), {
+        wrapper,
+      });
+      act(() => {
+        result.current.retrieve({ includeLabels: true }, { signal: controller.signal });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const rangeBeforeDelete = result.current.getItem(testRange.key);
+      expect(rangeBeforeDelete?.labels?.map((l) => l.key)).toContain(label1.key);
+      expect(rangeBeforeDelete?.labels?.map((l) => l.key)).toContain(label2.key);
+
+      await client.labels.remove(testRange.ontologyID, [label1.key]);
+
+      await waitFor(() => {
+        const rangeAfterDelete = result.current.getItem(testRange.key);
+        expect(rangeAfterDelete?.labels?.map((l) => l.key)).not.toContain(label1.key);
+        expect(rangeAfterDelete?.labels?.map((l) => l.key)).toContain(label2.key);
+      });
     });
 
     it("should handle ranges with different time spans", async () => {

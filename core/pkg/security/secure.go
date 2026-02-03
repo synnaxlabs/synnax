@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,10 +21,10 @@ import (
 
 // secureProvider implements the Provider interface for use in a secure cluster.
 type secureProvider struct {
-	ProviderConfig
 	loader   *cert.Loader
 	tls      *tls.Certificate
 	certPool *x509.CertPool
+	ProviderConfig
 }
 
 func newSecureProvider(cfg ProviderConfig) (Provider, error) {

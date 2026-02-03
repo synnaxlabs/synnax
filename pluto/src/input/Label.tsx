@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,8 +14,10 @@ import { type DetailedHTMLProps, type HTMLAttributes, type ReactElement } from "
 import { CSS } from "@/css";
 
 /** Props for the {@link Label} component. */
-export interface LabelProps
-  extends DetailedHTMLProps<HTMLAttributes<HTMLLabelElement>, HTMLLabelElement> {
+export interface LabelProps extends DetailedHTMLProps<
+  HTMLAttributes<HTMLLabelElement>,
+  HTMLLabelElement
+> {
   required?: boolean;
 }
 

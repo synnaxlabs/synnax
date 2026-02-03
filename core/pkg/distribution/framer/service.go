@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,19 +34,22 @@ import (
 // To create a new service, call Open with a valid ServiceConfig. The framer service
 // must be closed after used.
 type Service struct {
-	cfg             Config
 	Relay           *relay.Relay
 	writer          *writer.Service
 	iterator        *iterator.Service
 	deleter         *deleter.Service
+	cfg             ServiceConfig
 	controlStateKey channel.Key
 }
 
-// Config is the configuration for the Service.
-type Config struct {
-	// Instrumentation is used for logging, tracing, etc.
-	// [OPTIONAL]
-	alamos.Instrumentation
+// ServiceConfig is the configuration for the Service.
+type ServiceConfig struct {
+	// Transport is the network transport for moving telemetry across nodes.
+	// [REQUIRED]
+	Transport Transport
+	// HostResolved is used to resolve address information about hosts on the network.
+	// [REQUIRED]
+	HostResolver cluster.HostResolver
 	// Channel is used to retrieve channel information.
 	//
 	// [REQUIRED]
@@ -54,24 +57,21 @@ type Config struct {
 	// TS is the underlying storage time-series database for reading and writing telemetry.
 	// [REQUIRED]
 	TS *ts.DB
-	// Transport is the network transport for moving telemetry across nodes.
-	// [REQUIRED]
-	Transport Transport
-	// HostResolved is used to resolve address information about hosts on the network.
-	// [REQUIRED]
-	HostResolver cluster.HostResolver
+	// Instrumentation is used for logging, tracing, etc.
+	// [OPTIONAL]
+	alamos.Instrumentation
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for opening the framer service.
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for opening the framer service.
 	// This configuration is not valid on its own and must be overridden by a
 	// user-provided configuration. See Config for more information.
-	DefaultConfig = Config{}
+	DefaultServiceConfig = ServiceConfig{}
 )
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer")
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "ts", c.TS)
@@ -81,7 +81,7 @@ func (c Config) Validate() error {
 }
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.TS = override.Nil(c.TS, other.TS)
@@ -100,8 +100,8 @@ const freeWritePipelineBuffer = 4000
 // non-nil error if the configuration is invalid or another error occurs.
 //
 // The Service must be closed after use.
-func OpenService(cfgs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+func OpenService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -9,9 +9,8 @@
 
 """Test changing a user's role via Console UI context menu."""
 
-import uuid
-
 from console.case import ConsoleCase
+from framework.utils import get_random_name
 
 
 class UserAssignRole(ConsoleCase):
@@ -19,7 +18,7 @@ class UserAssignRole(ConsoleCase):
 
     def run(self) -> None:
         # Create a user with initial role
-        username = f"testuser_{uuid.uuid4().hex[:8]}"
+        username = f"testuser_{get_random_name()}"
         password = "testpassword123"
         first_name = "Test"
         last_name = "User"
@@ -45,7 +44,7 @@ class UserAssignRole(ConsoleCase):
 
         # Change user's role via context menu
         self.log(f"Changing {username} role from {initial_role} to {new_role}")
-        self.console.access.assign_role_to_user(username, new_role)
+        self.console.access.assign_role_to_user(username=username, role_name=new_role)
 
         # Expand new role and verify user moved
         self.console.access.expand_role(new_role)

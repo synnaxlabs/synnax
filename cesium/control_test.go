@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,8 +21,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/cesium/internal/core"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -204,7 +204,7 @@ var _ = Describe("Control", func() {
 
 						By("Writing to the first writer")
 						w1In.Inlet() <- cesium.WriterRequest{
-							Command: cesium.WriterWrite,
+							Command: cesium.WriterCommandWrite,
 							Frame: telem.MultiFrame(
 								[]cesium.ChannelKey{indexChKey, dataChKey},
 								[]telem.Series{
@@ -234,7 +234,7 @@ var _ = Describe("Control", func() {
 
 						By("Writing to the second writer")
 						w2In.Inlet() <- cesium.WriterRequest{
-							Command: cesium.WriterWrite,
+							Command: cesium.WriterCommandWrite,
 							Frame: telem.MultiFrame(
 								[]cesium.ChannelKey{indexChKey, dataChKey},
 								[]telem.Series{
@@ -246,7 +246,7 @@ var _ = Describe("Control", func() {
 
 						By("Committing the second writer")
 						w2In.Inlet() <- cesium.WriterRequest{
-							Command: cesium.WriterCommit,
+							Command: cesium.WriterCommandCommit,
 						}
 						var r cesium.WriterResponse
 						Eventually(w2Out.Outlet()).Should(Receive(&r))
@@ -407,13 +407,13 @@ var _ = Describe("Control", func() {
 						)).To(Succeed())
 						w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Start:          0,
-							Channels:       []core.ChannelKey{k1, k2},
+							Channels:       []channel.Key{k1, k2},
 							ControlSubject: xcontrol.Subject{Key: "1111", Name: "writer1"},
 							Authorities:    []xcontrol.Authority{xcontrol.AuthorityAbsolute - 1},
 						}))
 						w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Start:          2,
-							Channels:       []core.ChannelKey{k2, k3},
+							Channels:       []channel.Key{k2, k3},
 							ControlSubject: xcontrol.Subject{Key: "2222", Name: "writer2"},
 							Authorities:    []xcontrol.Authority{xcontrol.AuthorityAbsolute},
 						}))

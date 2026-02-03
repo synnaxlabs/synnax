@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,12 +19,11 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -33,11 +32,11 @@ import (
 )
 
 type scenario struct {
-	resCount int
-	name     string
-	channels []channel.Channel
 	dist     mock.Node
 	close    io.Closer
+	name     string
+	channels []channel.Channel
+	resCount int
 }
 
 var _ = Describe("Relay", func() {
@@ -72,7 +71,7 @@ var _ = Describe("Relay", func() {
 					defer GinkgoRecover()
 					Expect(w.Close()).To(Succeed())
 				}()
-				writeF := core.MultiFrame(
+				writeF := frame.NewMulti(
 					keys,
 					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
@@ -85,7 +84,7 @@ var _ = Describe("Relay", func() {
 				for range s.resCount {
 					var res relay.Response
 					Eventually(readerRes.Outlet()).Should(Receive(&res))
-					f = core.MergeFrames([]core.Frame{f, res.Frame})
+					f = frame.Merge([]frame.Frame{f, res.Frame})
 				}
 				Expect(f.Count()).To(Equal(3))
 				for i, k := range f.KeysSlice() {
@@ -114,7 +113,7 @@ var _ = Describe("Relay", func() {
 			_, err := svc.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
 				Keys: []channel.Key{12345},
 			})
-			Expect(err).To(HaveOccurredAs(query.NotFound))
+			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 		})
 	})
 })
@@ -178,8 +177,8 @@ func peerOnlyScenario() scenario {
 }
 func mixedScenario() scenario {
 	channels := newChannelSet()
-	cluster_ := mock.ProvisionCluster(ctx, 3)
-	node := cluster_.Nodes[1]
+	clstr := mock.ProvisionCluster(ctx, 3)
+	node := clstr.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = cluster.NodeKey(i + 1)
 		channels[i] = ch
@@ -196,7 +195,7 @@ func mixedScenario() scenario {
 		name:     "Mixed Gateway and Peer",
 		channels: channels,
 		dist:     node,
-		close:    cluster_,
+		close:    clstr,
 	}
 }
 
@@ -205,7 +204,7 @@ func freeScenario() scenario {
 	builder := mock.ProvisionCluster(ctx, 1)
 	dist := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = cluster.Free
+		ch.Leaseholder = cluster.NodeKeyFree
 		ch.Virtual = true
 		channels[i] = ch
 	}

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,6 +13,7 @@ import { type box, location } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/css";
+import { Errors } from "@/errors";
 import { type BarProps } from "@/nav/Bar";
 import { Resize } from "@/resize";
 import { Eraser } from "@/vis/eraser";
@@ -36,7 +37,8 @@ export interface UseDrawerReturn {
 }
 
 export interface DrawerProps
-  extends Omit<BarProps, "onSelect" | "onResize">,
+  extends
+    Omit<BarProps, "onSelect" | "onResize">,
     UseDrawerReturn,
     Partial<Pick<Resize.SingleProps, "onResize" | "collapseThreshold" | "onCollapse">> {
   eraseEnabled?: boolean;
@@ -94,7 +96,7 @@ export const Drawer = ({
       initialSize={initialSize}
       {...rest}
     >
-      {content}
+      <Errors.Boundary>{content}</Errors.Boundary>
     </Resize.Single>
   );
 };

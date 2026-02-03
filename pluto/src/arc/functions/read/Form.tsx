@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,12 +11,12 @@ import { type channel } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Form as Core } from "@/form";
+import { Form as Base } from "@/form";
 
 export const Form = (): ReactElement => (
-  <Core.Field<channel.Key> path="channel">
+  <Base.Field<channel.Key> path="channel">
     {({ value, onChange }) => (
       <Channel.SelectSingle value={value} onChange={onChange} />
     )}
-  </Core.Field>
+  </Base.Field>
 );

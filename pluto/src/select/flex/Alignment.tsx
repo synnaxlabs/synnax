@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,8 +14,10 @@ import { Icon } from "@/icon";
 import { type Select } from "@/select";
 import { Button, Buttons } from "@/select/Button";
 
-export interface AlignmentProps
-  extends Omit<Select.ButtonsProps<Flex.Alignment>, "keys"> {}
+export interface AlignmentProps extends Omit<
+  Select.ButtonsProps<Flex.Alignment>,
+  "keys"
+> {}
 
 export const Alignment = ({ value, ...rest }: AlignmentProps): ReactElement => (
   <Buttons {...rest} value={value} keys={Flex.ALIGNMENTS}>

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,12 +22,12 @@ type Role uint8
 
 //go:generate stringer -type=Role
 const (
-	// Client indicates whether the middleware is located on the client side of the
+	// RoleClient indicates whether the middleware is located on the client side of the
 	// request.
-	Client Role = iota + 1
-	// Server indicates whether the middleware is located on the server side of the
+	RoleClient Role = iota + 1
+	// RoleServer indicates whether the middleware is located on the server side of the
 	// request.
-	Server
+	RoleServer
 )
 
 // Variant indicates the variant of transport (unary or streaming) that the middleware
@@ -36,28 +36,28 @@ type Variant uint8
 
 //go:generate stringer -type=Variant
 const (
-	// Unary is set on middleware that is executed for a unary request.
-	Unary Variant = iota + 1
-	// Stream is set on middleware that is executed for a streaming request.
-	Stream
+	// VariantUnary is set on middleware that is executed for a unary request.
+	VariantUnary Variant = iota + 1
+	// VariantStream is set on middleware that is executed for a streaming request.
+	VariantStream
 )
 
 // Context represents the metadata for a request that is passed to Middleware.
 type Context struct {
 	context.Context
-	// Role indicates the location of the middleware (client or server).
-	Role Role
-	// Variant indicates the variant of the middleware (unary or stream).
-	Variant Variant
+	// Params is a set of arbitrary parameters that can be set by client side middleware,
+	// and read by server side middleware.
+	Params
 	// Protocol is the protocol that the request is being sent over.
 	Protocol string
 	// Target is the address the request is being sent to.
 	Target address.Address
 	// Sec is the security information for the requests/response connection.
 	Sec SecurityInfo
-	// Params is a set of arbitrary parameters that can be set by client side middleware,
-	// and read by server side middleware.
-	Params
+	// Role indicates the location of the middleware (client or server).
+	Role Role
+	// Variant indicates the variant of the middleware (unary or stream).
+	Variant Variant
 }
 
 // SecurityInfo represents the security information for a request.
@@ -65,10 +65,10 @@ type SecurityInfo struct {
 	// TLS contains the TLS information for the request. If Used is false, the connection
 	// is not protected by TLS, and the ConnectionState is invalid.
 	TLS struct {
-		// Used is set to true if TLS is being used.
-		Used bool
 		// ConnectionState is the TLS connection state.
 		tls.ConnectionState
+		// Used is set to true if TLS is being used.
+		Used bool
 	}
 }
 

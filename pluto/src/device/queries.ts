@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,13 +19,15 @@ import { Status } from "@/status";
 import { type Task } from "@/task";
 
 export const FLUX_STORE_KEY = "devices";
-const RESOURCE_NAME = "Device";
-const PLURAL_RESOURCE_NAME = "Devices";
+const RESOURCE_NAME = "device";
+const PLURAL_RESOURCE_NAME = "devices";
 
 // Explicitly omit 'status' from the device type to make sure we aren't storing two
 // copies of the statuses in the flux store.
-export interface FluxStore
-  extends Flux.UnaryStore<string, Omit<device.Device, "status">> {}
+export interface FluxStore extends Flux.UnaryStore<
+  string,
+  Omit<device.Device, "status">
+> {}
 
 export interface FluxSubStore extends Task.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;

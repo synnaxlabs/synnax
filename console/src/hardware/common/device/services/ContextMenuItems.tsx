@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,8 +19,10 @@ export interface TaskContextMenuItemConfig {
   layout: Task.Layout;
 }
 
-export interface ContextMenuItemsProps
-  extends Pick<Ontology.TreeContextMenuProps, "selection" | "state"> {
+export interface ContextMenuItemsProps extends Pick<
+  Ontology.TreeContextMenuProps,
+  "selection" | "state"
+> {
   children?: ReactElement;
   configureLayout: Layout.BaseState;
   taskContextMenuItemConfigs: TaskContextMenuItemConfig[];

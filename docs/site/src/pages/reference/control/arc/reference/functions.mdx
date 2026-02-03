@@ -1,0 +1,338 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Functions"
+description:
+  "Arc function reference for declaration syntax, config parameters, inputs, outputs,
+  and calling conventions"
+prev: "Operators"
+prevURL: "/reference/control/arc/reference/operators"
+next: "Sequences"
+nextURL: "/reference/control/arc/reference/sequences"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+## Function Declaration
+
+```arc
+func name{config}(inputs) output {
+    // body
+}
+```
+
+| Part       | Required | Description                      |
+| ---------- | -------- | -------------------------------- |
+| `func`     | Yes      | Keyword                          |
+| `name`     | Yes      | Function identifier              |
+| `{config}` | No       | Config parameters (compile-time) |
+| `(inputs)` | Yes      | Input parameters (runtime)       |
+| `output`   | No       | Return type                      |
+| `{ body }` | Yes      | Function body                    |
+
+<Divider.Divider x />
+
+## Basic Functions
+
+A function with inputs and an output:
+
+```arc
+func add(x f64, y f64) f64 {
+    return x + y
+}
+```
+
+A function with no return value:
+
+```arc
+func log_value(value f64) {
+    debug_channel = value
+}
+```
+
+<Divider.Divider x />
+
+## Config Parameters
+
+Config parameters are set at instantiation time (compile-time constants). They appear in
+braces `{}` after the function name.
+
+```arc
+func filter{threshold f64} (value f64) f64 {
+    if value > threshold {
+        return value
+    }
+    return 0.0
+}
+```
+
+### Using Config Parameters
+
+In flow statements, provide config values when instantiating:
+
+```arc
+sensor -> filter{threshold=50.0} -> output
+```
+
+### Config Parameter Types
+
+Config parameters can be:
+
+- Literal values (`50.0`, `100`, `"name"`)
+- Channel references (for dynamic setpoints)
+
+```arc
+func controller{
+    setpoint f64,           // can be literal or channel
+    sensor chan f64,        // channel reference
+    output chan f64         // channel reference
+} (enable u8) f64 {
+    value := sensor
+    if enable {
+        output = value - setpoint
+    }
+    return value
+}
+
+// Static setpoint
+sensor -> controller{setpoint=100.0, sensor=temp, output=cmd}
+
+// Dynamic setpoint from channel
+sensor -> controller{setpoint=setpoint_input, sensor=temp, output=cmd}
+```
+
+### Anonymous Config Values
+
+Single-parameter functions allow anonymous config values:
+
+```arc
+func scale{factor f64} (value f64) f64 {
+    return value * factor
+}
+
+// Named (explicit)
+sensor -> scale{factor=2.0} -> output
+
+// Anonymous (single-param only)
+sensor -> scale{2.0} -> output
+```
+
+Multi-parameter functions require named values:
+
+```arc
+func clamp{min f64, max f64} (value f64) f64 {
+    // ...
+}
+
+// Must use names
+sensor -> clamp{min=0.0, max=100.0} -> output
+```
+
+<Divider.Divider x />
+
+## Input Parameters
+
+Input parameters are received at runtime when the function is triggered. They appear in
+parentheses `()`.
+
+```arc
+func process(value f64, scale f64) f64 {
+    return value * scale
+}
+```
+
+### Optional Parameters
+
+Optional parameters have default values and must be trailing:
+
+```arc
+func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
+    if value < min { return min }
+    if value > max { return max }
+    return value
+}
+```
+
+Calling with defaults:
+
+```arc
+// In imperative scope (function body)
+result := clamp(x)              // uses defaults
+result := clamp(x, -10.0)       // min=-10.0, max=1.0 (default)
+result := clamp(x, -10.0, 10.0) // explicit values
+```
+
+<Divider.Divider x />
+
+## Output Types
+
+### Single Unnamed Output
+
+```arc
+func double(value f64) f64 {
+    return value * 2
+}
+```
+
+### Single Named Output
+
+```arc
+func compute(x f64) result f64 {
+    result = x * 2
+    return result
+}
+```
+
+### Multiple Named Outputs
+
+```arc
+func split(value f64) (high f64, low f64) {
+    if value > 50.0 {
+        high = value
+    } else {
+        low = value
+    }
+}
+```
+
+Use routing tables to connect multiple outputs:
+
+```arc
+sensor -> split{} -> {
+    high: alarm{},
+    low: logger{}
+}
+```
+
+<Divider.Divider x />
+
+## Calling Functions
+
+Arc has two calling conventions depending on context.
+
+### Imperative Scope (Function Bodies)
+
+Inside function bodies, call functions with parentheses:
+
+```arc
+func outer(x f64) f64 {
+    y := inner(x)        // function call
+    z := clamp(y, 0.0, 100.0)
+    return z
+}
+```
+
+### Reactive Scope (Flow Statements)
+
+In flow statements, instantiate functions with config braces:
+
+```arc
+sensor -> filter{threshold=50.0} -> output
+```
+
+Input parameters are wired from the incoming flow automatically.
+
+<Divider.Divider x />
+
+## Stateful Variables in Functions
+
+Functions can declare stateful variables that persist across invocations:
+
+```arc
+func counter() i64 {
+    count $= 0           // persists
+    count = count + 1
+    return count
+}
+```
+
+Each function instantiation has its own state:
+
+```arc
+// Two separate counters with independent state
+interval{period=100ms} -> counter{} -> count1
+interval{period=200ms} -> counter{} -> count2
+```
+
+<Divider.Divider x />
+
+## Channel Operations in Functions
+
+Functions can read from and write to channels:
+
+```arc
+func controller{
+    input chan f64,
+    output chan f64,
+    threshold f64
+} () {
+    value := input              // read (non-blocking)
+    if value > threshold {
+        output = value          // write (queued)
+    }
+}
+```
+
+Functions can also reference global channels by name:
+
+```arc
+func monitor() {
+    if ox_pt_1 > 500 {
+        alarm_status = 1
+    }
+}
+```
+
+<Note.Note variant="info">
+  Channel reads in function bodies are non-blocking snapshots. They return the latest
+  value or zero if no data exists.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Multi-Input Functions
+
+Use routing tables to map multiple sources to input parameters:
+
+```arc
+func average(a f64, b f64) f64 {
+    return (a + b) / 2.0
+}
+
+{ sensor1: a, sensor2: b } -> average{} -> avg_output
+```
+
+The routing table maps channel names to parameter names.
+
+<Divider.Divider x />
+
+## Restrictions
+
+| Restriction            | Description                                             |
+| ---------------------- | ------------------------------------------------------- |
+| No closures            | Functions cannot capture variables from enclosing scope |
+| No nested functions    | Functions cannot be defined inside other functions      |
+| No partial application | All required arguments must be provided                 |
+| Explicit returns       | Functions with return types require `return` statements |
+| Config = constants     | Config values must be literals or channel identifiers   |
+
+<Divider.Divider x />
+
+## Recursion
+
+Recursion is allowed but must have a termination condition:
+
+```arc
+func factorial(n i64) i64 {
+    if n <= 1 {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+```
+
+<Note.Note variant="warning">
+  Unbounded recursion causes a stack overflow at runtime.
+</Note.Note>

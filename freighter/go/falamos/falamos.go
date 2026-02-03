@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,7 +25,6 @@ import (
 
 // Config is the configuration for the instrumentation Middleware.
 type Config struct {
-	alamos.Instrumentation
 	// EnableTracing sets whether the middleware starts traces. Defaults to true.
 	// [OPTIONAL]
 	EnableTracing *bool
@@ -36,6 +35,7 @@ type Config struct {
 	// EnableLogging sets whether the middleware logs the trace. Defaults to true.
 	// [OPTIONAL]
 	EnableLogging *bool
+	alamos.Instrumentation
 	// Level is the level of the trace. Defaults to alamos.Prod.
 	// [OPTIONAL]
 	Level alamos.Environment
@@ -43,8 +43,8 @@ type Config struct {
 
 // Validate implements config.Config
 func (cfg Config) Validate() error {
-	v := validate.New("falamos.Properties")
-	validate.NotNil(v, "Instrumentation", cfg.Instrumentation)
+	v := validate.New("falamos.config")
+	validate.NotNil(v, "instrumentation", cfg.Instrumentation)
 	return v.Error()
 }
 
@@ -59,9 +59,9 @@ func (cfg Config) Override(other Config) Config {
 
 var _ config.Config[Config] = Config{}
 
-// Default is the default configuration for the tracing middleware.
-var Default = Config{
-	Level:             alamos.Prod,
+// DefaultConfig is the default configuration for the tracing middleware.
+var DefaultConfig = Config{
+	Level:             alamos.EnvironmentProd,
 	EnableTracing:     config.True(),
 	EnablePropagation: config.True(),
 	EnableLogging:     config.True(),
@@ -70,7 +70,7 @@ var Default = Config{
 // Middleware adds traces and logs to incoming and outgoing requests and ensures
 // that they are propagated across the network.
 func Middleware(configs ...Config) (freighter.Middleware, error) {
-	cfg, err := config.New(Default, configs...)
+	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -79,20 +79,20 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 		next freighter.Next,
 	) (freighter.Context, error) {
 		var (
-			span     alamos.Span
-			carrier_ = carrier{Context: ctx}
+			span    alamos.Span
+			carrier = carrier{Context: ctx}
 		)
 
-		if *cfg.EnablePropagation && ctx.Role == freighter.Server {
-			ctx.Context = cfg.T.Depropagate(ctx, carrier_)
+		if *cfg.EnablePropagation && ctx.Role == freighter.RoleServer {
+			ctx.Context = cfg.T.Depropagate(ctx, carrier)
 		}
 
 		if *cfg.EnableTracing {
 			ctx.Context, span = cfg.T.Trace(ctx.Context, ctx.Target.String(), cfg.Level)
 		}
 
-		if *cfg.EnablePropagation && ctx.Role == freighter.Client {
-			cfg.T.Propagate(ctx, carrier_)
+		if *cfg.EnablePropagation && ctx.Role == freighter.RoleClient {
+			cfg.T.Propagate(ctx, carrier)
 		}
 
 		oCtx, err := next(ctx)

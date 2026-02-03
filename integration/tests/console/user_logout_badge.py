@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -9,9 +9,8 @@
 
 """Test logging out via user badge dropdown."""
 
-import uuid
-
 from console.case import ConsoleCase
+from framework.utils import get_random_name
 
 
 class UserLogoutBadge(ConsoleCase):
@@ -19,7 +18,7 @@ class UserLogoutBadge(ConsoleCase):
 
     def run(self) -> None:
         # Create a new user
-        username = f"testuser_{uuid.uuid4().hex[:8]}"
+        username = f"testuser_{get_random_name()}"
         password = "testpassword123"
         first_name = "BadgeTest"
         last_name = "User"
@@ -44,7 +43,7 @@ class UserLogoutBadge(ConsoleCase):
 
         # Log back in as the new user
         self.log(f"Logging in as {username}...")
-        self.console.access.login(username, password)
+        self.console.access.login(username=username, password=password)
 
         # Verify we're logged in by checking for the first name in the user badge
         user_badge = self.page.get_by_text(first_name, exact=True)

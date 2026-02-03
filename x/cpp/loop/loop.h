@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,38 +22,12 @@ using hs_clock = std::chrono::high_resolution_clock;
 using nanos = std::chrono::nanoseconds;
 
 namespace loop {
+/// @brief Threshold below which high-resolution timing is used.
 const telem::TimeSpan HIGH_RES_THRESHOLD = telem::Rate(200).period();
+/// @brief Threshold below which medium-resolution timing is used.
 const telem::TimeSpan MEDIUM_RES_THRESHOLD = telem::Rate(20).period();
-
+/// @brief Base resolution for sleep calibration.
 const telem::TimeSpan RESOLUTION = (100 * telem::MICROSECOND);
-
-/// @brief fine grain sleep function (using Welford's online algorithm)
-/// @param dur the duration to sleep for in nanoseconds
-inline void precise_sleep(const telem::TimeSpan &dur) {
-    const auto end = hs_clock::now() + dur.chrono();
-    // static because variance in sleep duration is measured across each call
-    // to compute a more accurate sleep time for the machine running the code
-    static telem::TimeSpan estimate = RESOLUTION * 10; // overestimate initially
-    static telem::TimeSpan mean = RESOLUTION * 10;
-    static auto M2 = telem::TimeSpan::ZERO();
-    static int64_t count = 1;
-    while (dur > estimate) {
-        auto start = hs_clock::now();
-        if (start >= end) break;
-        std::this_thread::sleep_for(RESOLUTION.chrono());
-        const auto curr_end = hs_clock::now();
-        const auto elapsed = std::chrono::duration_cast<nanos>(curr_end - start)
-                                 .count();
-        const telem::TimeSpan delta = elapsed - mean;
-        mean += delta / count;
-        M2 += delta * (elapsed - mean);
-        estimate = mean + std::sqrt((M2 / count).nanoseconds());
-        count++;
-    }
-    // busy wait for the last bit to ensure we sleep for the correct duration
-    while (end > hs_clock::now())
-        ;
-}
 
 class Timer {
 public:
@@ -83,7 +57,7 @@ public:
         }
         const auto remaining = interval - elapsed;
         if (this->high_rate())
-            precise_sleep(remaining);
+            this->precise_sleep(remaining);
         else
             std::this_thread::sleep_for(remaining.chrono());
         last = hs_clock::now();
@@ -99,7 +73,7 @@ public:
         }
         const auto remaining = interval - elapsed;
         if (this->high_rate())
-            precise_sleep(remaining);
+            this->precise_sleep(remaining);
         else if (this->medium_rate())
             std::this_thread::sleep_for(remaining.chrono());
         else
@@ -113,8 +87,38 @@ private:
 
     [[nodiscard]] bool medium_rate() const { return interval < MEDIUM_RES_THRESHOLD; }
 
+    /// @brief Fine-grained sleep using Welford's online algorithm for calibration.
+    void precise_sleep(const telem::TimeSpan &dur) {
+        const auto end = hs_clock::now() + dur.chrono();
+        while (dur > sleep_estimate_) {
+            auto start = hs_clock::now();
+            if (start >= end) break;
+            std::this_thread::sleep_for(RESOLUTION.chrono());
+            const auto curr_end = hs_clock::now();
+            const auto elapsed_ns = std::chrono::duration_cast<nanos>(curr_end - start)
+                                        .count();
+            const telem::TimeSpan delta = elapsed_ns - sleep_mean_;
+            sleep_mean_ += delta / sleep_count_;
+            sleep_M2_ += delta * (elapsed_ns - sleep_mean_);
+            sleep_estimate_ = sleep_mean_ +
+                              std::sqrt((sleep_M2_ / sleep_count_).nanoseconds());
+            sleep_count_++;
+        }
+        while (end > hs_clock::now())
+            ;
+    }
+
     telem::TimeSpan interval{};
     bool last_set = false;
     std::chrono::time_point<std::chrono::high_resolution_clock> last;
+
+    /// @brief Welford's algorithm state: estimated sleep overhead.
+    telem::TimeSpan sleep_estimate_ = RESOLUTION * 10;
+    /// @brief Welford's algorithm state: running mean of sleep durations.
+    telem::TimeSpan sleep_mean_ = RESOLUTION * 10;
+    /// @brief Welford's algorithm state: sum of squared deviations.
+    telem::TimeSpan sleep_M2_ = telem::TimeSpan::ZERO();
+    /// @brief Welford's algorithm state: sample count.
+    int64_t sleep_count_ = 1;
 };
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -44,8 +44,8 @@ var _ = Describe("Status", Ordered, func() {
 			DB:           db,
 			EnableSearch: config.True(),
 		}))
-		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		labelSvc = MustSucceed(label.OpenService(ctx, label.Config{
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -127,7 +127,7 @@ var _ = Describe("Status", Ordered, func() {
 					var res ontology.Resource
 					Expect(otg.NewRetrieve().
 						WhereIDs(status.OntologyID(child.Key)).
-						TraverseTo(ontology.Parents).
+						TraverseTo(ontology.ParentsTraverser).
 						Entry(&res).
 						Exec(ctx, tx)).To(Succeed())
 					Expect(res.ID).To(Equal(status.OntologyID(parent.Key)))
@@ -174,7 +174,7 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(w.Delete(ctx, "delete-key")).To(Succeed())
 
 				err := svc.NewRetrieve().WhereKeys("delete-key").Entry(&status.Status[any]{}).Exec(ctx, tx)
-				Expect(err).To(MatchError(query.NotFound))
+				Expect(err).To(MatchError(query.ErrNotFound))
 			})
 
 			It("Should be idempotent", func() {
@@ -201,7 +201,7 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(w.SetMany(ctx, &statuses)).To(Succeed())
 				Expect(w.DeleteMany(ctx, "del1", "del2")).To(Succeed())
 
-				Expect(svc.NewRetrieve().WhereKeys("del1", "del2").Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+				Expect(svc.NewRetrieve().WhereKeys("del1", "del2").Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 			})
 		})
 	})
@@ -410,8 +410,8 @@ var _ = Describe("Status", Ordered, func() {
 		It("Should decode mismatched types with zero values for missing fields", func() {
 			// Store a status with TypeA details
 			type TypeA struct {
-				FieldA int
 				FieldB string
+				FieldA int
 			}
 			writerA := status.NewWriter[TypeA](svc, tx)
 			Expect(writerA.Set(ctx, &status.Status[TypeA]{

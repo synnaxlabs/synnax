@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,7 +17,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -44,8 +43,9 @@ func OntologyIDsFromPolicies(policies []Policy) []ontology.ID {
 }
 
 // KeysFromOntologyIDs extracts the Policy keys from the given ontology.IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
-	keys = make([]uuid.UUID, len(ids))
+func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
+	keys := make([]uuid.UUID, len(ids))
+	var err error
 	for i, id := range ids {
 		keys[i], err = uuid.Parse(id.Key)
 		if err != nil {
@@ -61,8 +61,8 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"internal": zyn.Bool(),
 })
 
-func newResource(l Policy) ontology.Resource {
-	return core.NewResource(schema, OntologyID(l.Key), l.Name, l)
+func newResource(p Policy) ontology.Resource {
+	return ontology.NewResource(schema, OntologyID(p.Key), p.Name, p)
 }
 
 type change = xchange.Change[uuid.UUID, Policy]
@@ -82,11 +82,11 @@ func (s *Service) RetrieveResource(
 	if err != nil {
 		return ontology.Resource{}, err
 	}
-	var l Policy
-	if err := s.NewRetrieve().WhereKeys(k).Entry(&l).Exec(ctx, tx); err != nil {
+	var p Policy
+	if err := s.NewRetrieve().WhereKeys(k).Entry(&p).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
-	return newResource(l), nil
+	return newResource(p), nil
 }
 
 func translateChange(c change) ontology.Change {
@@ -108,5 +108,8 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := gorp.WrapReader[uuid.UUID, Policy](s.cfg.DB).OpenNexter(ctx)
-	return xiter.Map(n, newResource), closer, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return xiter.Map(n, newResource), closer, nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -27,23 +27,23 @@ type Streamer = confluence.Segment[Request, Response]
 
 type streamer struct {
 	confluence.AbstractLinear[Request, Response]
-	addr    address.Address
 	demands confluence.Inlet[demand]
 	relay   *Relay
+	addr    address.Address
 	cfg     StreamerConfig
 }
 
 // StreamerConfig is the configuration for creating a new streamer.
 type StreamerConfig struct {
+	// SendOpenAck sets whether to send an acknowledgement when the streamer has
+	// successfully connected to the relay and is ready to start streaming data.
+	// [OPTIONAL] - defaults to false
+	SendOpenAck *bool `json:"send_open_ack" msgpack:"send_open_ack"`
 	// Keys are the list of channels to read from. This slice may be empty, in
 	// which case no data will be streamed until a new configuration is provided
 	// as a request to the streamer.
 	// [OPTIONAL]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
-	// SendOpenAck sets whether to send an acknowledgement when the streamer has
-	// successfully connected to the relay and is ready to start streaming data.
-	// [OPTIONAL] - defaults to false
-	SendOpenAck *bool `json:"send_open_ack" msgpack:"send_open_ack"`
 }
 
 var (
@@ -98,7 +98,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		// demands before we connect to the delta, otherwise, under extreme load we
 		// may cause deadlock.
 		s.demands.Inlet() <- demand{
-			Variant: change.Set,
+			Variant: change.VariantSet,
 			Key:     s.addr,
 			Value:   Request{Keys: s.cfg.Keys},
 		}
@@ -110,7 +110,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			// we do this before updating our demands, otherwise we may deadlock.
 			disconnect()
 			// Tell the tapper that we are no longer requesting any channels.
-			s.demands.Inlet() <- demand{Variant: change.Delete, Key: s.addr}
+			s.demands.Inlet() <- demand{Variant: change.VariantDelete, Key: s.addr}
 			// If we add this in AttachClosables, it may not be closed at the end of
 			// if the caller does not use the confluence.CloseOutputInletsOnExit option, so
 			// we explicitly close it here.
@@ -131,7 +131,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				}
 				req.Keys = lo.Uniq(req.Keys)
 				s.cfg.Keys = req.Keys
-				d := demand{Variant: change.Set, Key: s.addr, Value: req}
+				d := demand{Variant: change.VariantSet, Key: s.addr, Value: req}
 				if err := signal.SendUnderContext(ctx, s.demands.Inlet(), d); err != nil {
 					return err
 				}

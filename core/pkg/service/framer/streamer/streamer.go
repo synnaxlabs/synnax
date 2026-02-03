@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -67,10 +67,10 @@ func (cfg Config) distribution() framer.StreamerConfig {
 
 // ServiceConfig is the configuration for opening a new streamer service.
 type ServiceConfig struct {
-	alamos.Instrumentation
 	Calculation *calculation.Service
 	Channel     *channel.Service
 	DistFramer  *framer.Service
+	alamos.Instrumentation
 }
 
 var (

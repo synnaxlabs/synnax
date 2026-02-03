@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -61,7 +61,7 @@ struct BaseReadTaskConfig : BaseTaskConfig {
 /// @brief Initializes a frame with the correct size and series for all channels
 template<typename ChannelContainer>
 void initialize_frame(
-    synnax::Frame &fr,
+    telem::Frame &fr,
     const ChannelContainer &channels,
     const std::set<synnax::ChannelKey> &index_keys,
     const size_t samples_per_chan
@@ -94,7 +94,7 @@ struct Source {
     /// @brief an optional function called to stop the source.
     virtual xerrors::Error stop() { return xerrors::NIL; }
 
-    virtual ReadResult read(breaker::Breaker &breaker, synnax::Frame &data) = 0;
+    virtual ReadResult read(breaker::Breaker &breaker, telem::Frame &data) = 0;
 
     virtual ~Source() = default;
 };
@@ -125,7 +125,7 @@ class ReadTask final : public task::Task {
             this->p.stop("", true);
         }
 
-        xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+        xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
             auto [err, warning] = this->internal->read(breaker, fr);
             // Three cases.
             // 1. We have an error, but it's temporary, so we trigger the breaker
@@ -249,7 +249,7 @@ inline std::string skew_warning(const size_t skew) {
 template<typename T>
 void transfer_buf(
     const std::vector<T> &buf,
-    const synnax::Frame &fr,
+    const telem::Frame &fr,
     const size_t n_channels,
     const size_t n_samples_per_channel
 ) {

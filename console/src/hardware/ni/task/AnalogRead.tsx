@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -30,7 +30,7 @@ import {
   ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const ANALOG_READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -39,12 +39,11 @@ export const ANALOG_READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.NI",
 };
 
-export const ANALOG_READ_SELECTABLE: Selector.Selectable = {
-  key: ANALOG_READ_TYPE,
+export const AnalogReadSelectable = Selector.createSimpleItem({
   title: "NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  create: async ({ layoutKey }) => ({ ...ANALOG_READ_LAYOUT, key: layoutKey }),
-};
+  layout: ANALOG_READ_LAYOUT,
+});
 
 const Properties = () => (
   <>
@@ -105,8 +104,8 @@ const Form: FC<
 > = () => {
   const [tare, allowTare, handleTare] = Common.Task.useTare<AIChannel>();
   const listItem = useCallback(
-    ({ key, itemKey, ...rest }: Common.Task.ChannelListItemProps) => (
-      <ChannelListItem key={key} itemKey={itemKey} {...rest} onTare={tare} />
+    ({ key, ...rest }: Common.Task.ChannelListItemProps) => (
+      <ChannelListItem key={key} {...rest} onTare={tare} />
     ),
     [tare],
   );
@@ -175,45 +174,48 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
         else throw e;
       }
     const identifier = channel.escapeInvalidName(dev.properties.identifier);
-    if (shouldCreateIndex) {
-      modified = true;
-      const aiIndex = await client.channels.create({
-        name: `${identifier}_ai_time`,
-        dataType: "timestamp",
-        isIndex: true,
-      });
-      dev.properties.analogInput.index = aiIndex.key;
-      dev.properties.analogInput.channels = {};
+    try {
+      if (shouldCreateIndex) {
+        modified = true;
+        const aiIndex = await client.channels.create({
+          name: `${identifier}_ai_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        });
+        dev.properties.analogInput.index = aiIndex.key;
+        dev.properties.analogInput.channels = {};
+      }
+      const toCreate: AIChannel[] = [];
+      for (const channel of config.channels) {
+        if (channel.device !== dev.key) continue;
+        // check if the channel is in properties
+        const exKey = dev.properties.analogInput.channels[channel.port.toString()];
+        if (primitive.isZero(exKey)) toCreate.push(channel);
+        else
+          try {
+            await client.channels.retrieve(exKey.toString());
+          } catch (e) {
+            if (QueryError.matches(e)) toCreate.push(channel);
+            else throw e;
+          }
+      }
+      if (toCreate.length > 0) {
+        modified = true;
+        const channels = await client.channels.create(
+          toCreate.map((c) => ({
+            name: primitive.isNonZero(c.name) ? c.name : `${identifier}_ai_${c.port}`,
+            dataType: "float32",
+            index: dev.properties.analogInput.index,
+          })),
+        );
+        channels.forEach(
+          (c, i) =>
+            (dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key),
+        );
+      }
+    } finally {
+      if (modified) await client.devices.create(dev);
     }
-    const toCreate: AIChannel[] = [];
-    for (const channel of config.channels) {
-      if (channel.device !== dev.key) continue;
-      // check if the channel is in properties
-      const exKey = dev.properties.analogInput.channels[channel.port.toString()];
-      if (primitive.isZero(exKey)) toCreate.push(channel);
-      else
-        try {
-          await client.channels.retrieve(exKey.toString());
-        } catch (e) {
-          if (QueryError.matches(e)) toCreate.push(channel);
-          else throw e;
-        }
-    }
-    if (toCreate.length > 0) {
-      modified = true;
-      const channels = await client.channels.create(
-        toCreate.map((c) => ({
-          name: `${identifier}_ai_${c.port}`,
-          dataType: "float32",
-          index: dev.properties.analogInput.index,
-        })),
-      );
-      channels.forEach(
-        (c, i) =>
-          (dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key),
-      );
-    }
-    if (modified) await client.devices.create(dev);
     config.channels.forEach((c) => {
       if (c.device !== dev.key) return;
       c.channel = dev.properties.analogInput.channels[c.port.toString()];

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -238,7 +238,7 @@ public:
         return this->cfg.sy_channels();
     }
 
-    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    common::ReadResult read(breaker::Breaker &breaker, ::telem::Frame &fr) override {
         common::ReadResult res;
         this->timer.wait(breaker);
         opc::ReadResponse ua_res(UA_Client_Service_read(
@@ -257,8 +257,15 @@ public:
         std::vector<std::string> error_messages;
         for (std::size_t i = 0; i < ua_res.get().resultsSize; ++i) {
             auto &result = ua_res.get().results[i];
-            if (res.error = opc::errors::parse(result.status); res.error) return res;
             const auto &ch = cfg.channels[i];
+            if (res.error = opc::errors::parse(result.status); res.error) {
+                res.error = driver::wrap_channel_error(
+                    res.error,
+                    ch->ch.name,
+                    opc::NodeId::to_string(ch->node.get())
+                );
+                return res;
+            }
             auto &s = fr.series->at(i);
             s.clear();
             auto [written, err] = opc::telem::ua_array_write_to_series(
@@ -309,7 +316,7 @@ public:
     ):
         BaseReadTaskSource(std::move(pool), std::move(cfg), cfg.sample_rate) {}
 
-    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    common::ReadResult read(breaker::Breaker &breaker, ::telem::Frame &fr) override {
         common::ReadResult res;
         common::initialize_frame(
             fr,
@@ -333,8 +340,15 @@ public:
             bool skip_sample = false;
             for (std::size_t j = 0; j < ua_res.get().resultsSize; ++j) {
                 UA_DataValue &result = ua_res.get().results[j];
-                if (res.error = opc::errors::parse(result.status); res.error)
+                const auto &ch = this->cfg.channels[j];
+                if (res.error = opc::errors::parse(result.status); res.error) {
+                    res.error = driver::wrap_channel_error(
+                        res.error,
+                        ch->ch.name,
+                        opc::NodeId::to_string(ch->node.get())
+                    );
                     return res;
+                }
                 auto [written, write_err] = opc::telem::write_to_series(
                     fr.series->at(j),
                     result.value
@@ -342,8 +356,8 @@ public:
                 if (write_err) {
                     skip_sample = true;
                     res.warning = "Invalid OPC UA data detected for channel " +
-                                  this->cfg.channels[j]->ch.name + ": " +
-                                  write_err.message() + ", skipping frame";
+                                  ch->ch.name + ": " + write_err.message() +
+                                  ", skipping frame";
                     break;
                 }
             }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type primitive, type record } from "@synnaxlabs/x";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 export type State = Exclude<primitive.Value, undefined> | record.Unknown | void;
 export type SetFunc<S, PS = S> = (prev: PS) => S;
@@ -109,11 +109,12 @@ export const usePersisted = <S extends State>(
     if (stored == null) return executeInitialSetter(initial);
     return JSON.parse(stored);
   });
-  return [
-    internal,
-    (value) => {
+  const set = useCallback(
+    (value: SetArg<S>) => {
       setInternal(value);
       localStorage.setItem(key, JSON.stringify(value));
     },
-  ];
+    [setInternal, key],
+  );
+  return [internal, set];
 };

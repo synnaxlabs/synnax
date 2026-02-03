@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -93,18 +93,6 @@ type sink struct {
 	key uint32
 }
 
-func (s *sink) Init(node.Context) {
-	if !s.RefreshInputs() {
-		return
-	}
-	data := s.Input(0)
-	time := s.InputTime(0)
-	if data.Len() == 0 {
-		return
-	}
-	s.WriteChan(s.key, data, time)
-}
-
 func (s *sink) Next(node.Context) {
 	if !s.RefreshInputs() {
 		return
@@ -131,7 +119,7 @@ func (t telemFactory) Create(_ context.Context, cfg node.Config) (node.Node, err
 	isSource := cfg.Node.Type == sourceSymbolName
 	isSink := cfg.Node.Type == sinkSymbolName
 	if !isSource && !isSink {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 	var nodeCfg config
 	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {

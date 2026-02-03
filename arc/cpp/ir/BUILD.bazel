@@ -1,0 +1,26 @@
+cc_library(
+    name = "ir",
+    hdrs = [
+        "format.h",
+        "ir.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/types",
+        "//arc/go/ir:ir_grpc",
+        "//arc/go/symbol:symbol_grpc",
+        "//arc/go/types:types_grpc",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "ir_test",
+    srcs = ["ir_test.cpp"],
+    deps = [
+        ":ir",
+        "//arc/go/ir:ir_grpc",
+        "//arc/go/symbol:symbol_grpc",
+        "@googletest//:gtest_main",
+    ],
+)

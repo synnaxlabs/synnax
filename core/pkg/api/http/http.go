@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -157,5 +157,10 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transpo
 		StatusSet:      fhttp.UnaryServer[api.StatusSetRequest, api.StatusSetResponse](router, "/api/v1/status/set"),
 		StatusRetrieve: fhttp.UnaryServer[api.StatusRetrieveRequest, api.StatusRetrieveResponse](router, "/api/v1/status/retrieve"),
 		StatusDelete:   fhttp.UnaryServer[api.StatusDeleteRequest, types.Nil](router, "/api/v1/status/delete"),
+
+		// VIEW
+		ViewCreate:   fhttp.UnaryServer[api.ViewCreateRequest, api.ViewCreateResponse](router, "/api/v1/view/create"),
+		ViewRetrieve: fhttp.UnaryServer[api.ViewRetrieveRequest, api.ViewRetrieveResponse](router, "/api/v1/view/retrieve"),
+		ViewDelete:   fhttp.UnaryServer[api.ViewDeleteRequest, types.Nil](router, "/api/v1/view/delete"),
 	}
 }

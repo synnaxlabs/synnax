@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -95,9 +95,10 @@ const isPositionVisible = async (position: xy.XY): Promise<boolean> => {
 /**
  * A Tauri backed implementation of the drift Runtime.
  */
-export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction>
-  implements Runtime<S, A>
-{
+export class TauriRuntime<
+  S extends StoreState,
+  A extends Action = UnknownAction,
+> implements Runtime<S, A> {
   private readonly win: WebviewWindow;
   private unsubscribe: Record<string, UnlistenFn>;
   private fullscreenPoll: NodeJS.Timeout | null = null;

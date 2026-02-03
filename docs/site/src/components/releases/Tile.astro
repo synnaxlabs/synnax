@@ -1,0 +1,50 @@
+---
+import { Text, Flex } from "@synnaxlabs/pluto";
+import PolkaDot from "./PolkaDot.astro";
+---
+
+<Flex.Box
+    direction="y"
+    className="release-tile"
+    align="center"
+    justify="center"
+    el="a"
+    href="/releases"
+    grow
+>
+    <Flex.Box direction="y" grow justify="center" align="center" empty>
+        <Text.Text className="latest" level="small" weight={500} color={7}
+            >Latest Release</Text.Text
+        >
+        <Text.Text level="h1">v0.37.0</Text.Text>
+    </Flex.Box>
+    <Text.Text level="small" color={10} weight={450}>
+        Synnax version 0.37.0 is our final release of 2024! It brings a number of
+        improvements to schematics, workspaces, and our LabJack device driver.
+    </Text.Text>
+    <PolkaDot />
+</Flex.Box>
+
+<style is:global>
+    .release-tile {
+        text-decoration: none !important;
+        & h1 {
+            font-size: 12rem;
+            color: var(--pluto-primary-z-50);
+            line-height: 110%;
+        }
+        &:hover {
+            border-color: var(--pluto-gray-l5);
+        }
+        flex-basis: 50%;
+        transition: all 0.3s;
+        padding: 4rem;
+        position: relative;
+        border: var(--pluto-border);
+        border-radius: 2rem;
+        background-color: var(--pluto-gray-l0);
+        border-color: var(--pluto-gray-l4);
+        box-shadow: var(--pluto-shadow-v1);
+        cursor: pointer;
+    }
+</style>

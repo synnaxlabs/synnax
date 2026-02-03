@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -101,11 +101,11 @@ export const compareSemVer = ((
   const semB = semVerZ.parse(b);
 
   // Split version and pre-release parts
-  const [aCore, aPreRelease] = semA.split("-");
-  const [bCore, bPreRelease] = semB.split("-");
+  const [aMain, aPreRelease] = semA.split("-");
+  const [bMain, bPreRelease] = semB.split("-");
 
-  const [aMajor, aMinor, aPatch] = aCore.split(".").map(Number);
-  const [bMajor, bMinor, bPatch] = bCore.split(".").map(Number);
+  const [aMajor, aMinor, aPatch] = aMain.split(".").map(Number);
+  const [bMajor, bMinor, bPatch] = bMain.split(".").map(Number);
 
   if (opts.checkMajor) {
     if (aMajor < bMajor) return compare.LESS_THAN;

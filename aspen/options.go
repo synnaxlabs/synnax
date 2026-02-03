@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,25 +34,9 @@ type Option func(*options)
 
 type options struct {
 	alamos.Instrumentation
-	// dirname is the directory where aspen will store its data.
-	// this option is ignored if a custom kv.ServiceConfig.Engine is set.
-	dirname string
-	// addr sets the address for the host node.
-	addr address.Address
-	// peerAddresses sets the addresses for the peers of the host node.
-	peerAddresses []address.Address
-	// cluster gives the configuration for gossiping cluster state.
-	cluster cluster.Config
-	// kv gives the configuration for KV options.
-	kv kv.Config
-	// externalKV is a boolean flag indicating whether the caller provided an external
-	// key-value engine. If so, aspen will not close the engine when it shuts down.
-	externalKV bool
 	// fs sets the filesystem to be used for storing data. This option is ignored
 	// if a custom kv.ServiceConfig.Engine is set.
 	fs vfs.FS
-	// bootstrap is a boolean used to indicate whether to bootstrap a new cluster.
-	bootstrap bool
 	// transport is the transport package for the messages that aspen exchanges.
 	// this setting overrides all other transport settings in sub-configs.
 	transport struct {
@@ -61,6 +45,22 @@ type options struct {
 		// external transport they control themselves.
 		external bool
 	}
+	// dirname is the directory where aspen will store its data.
+	// this option is ignored if a custom kv.ServiceConfig.Engine is set.
+	dirname string
+	// addr sets the address for the host node.
+	addr address.Address
+	// kv gives the configuration for KV options.
+	kv kv.Config
+	// peerAddresses sets the addresses for the peers of the host node.
+	peerAddresses []address.Address
+	// cluster gives the configuration for gossiping cluster state.
+	cluster cluster.Config
+	// externalKV is a boolean flag indicating whether the caller provided an external
+	// key-value engine. If so, aspen will not close the engine when it shuts down.
+	externalKV bool
+	// bootstrap is a boolean used to indicate whether to bootstrap a new cluster.
+	bootstrap bool
 }
 
 func (o *options) Report() alamos.Report {
@@ -106,10 +106,7 @@ func WithInstrumentation(i alamos.Instrumentation) Option {
 // InMemory sets aspen to use a memory-backed KV engine. This option is ignored if a
 // custom KV engine is set (using WithEngine).
 func InMemory() Option {
-	return func(o *options) {
-		o.dirname = ""
-		o.fs = vfs.NewMem()
-	}
+	return func(o *options) { o.dirname = ""; o.fs = vfs.NewMem() }
 }
 
 // PropagationConfig is a set of configurable values that tune how quickly state converges

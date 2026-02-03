@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,10 +9,16 @@
 
 import "@/range/Explorer.css";
 
-import { Ranger } from "@synnaxlabs/pluto";
+import { ranger } from "@synnaxlabs/client";
+import { Access, Button, Component, Icon, Ranger } from "@synnaxlabs/pluto";
+import { location } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
-import { type Layout } from "@/layout";
-import { List } from "@/range/list/List";
+import { Label } from "@/label";
+import { Layout } from "@/layout";
+import { CREATE_LAYOUT } from "@/range/Create";
+import { Item } from "@/range/list/Item";
+import { View } from "@/view";
 
 export const EXPLORER_LAYOUT_TYPE = "range_explorer";
 
@@ -25,19 +31,41 @@ export const EXPLORER_LAYOUT: Layout.State = {
   location: "mosaic",
 };
 
-export const Explorer: Layout.Renderer = () => {
-  const { data, getItem, subscribe, retrieve } = Ranger.useList({
+const item = Component.renderProp(Item);
+
+export const Explorer: Layout.Renderer = () => (
+  <View.Frame resourceType="range">
+    <Internal />
+  </View.Frame>
+);
+
+const Internal = () => {
+  const listProps = Ranger.useList({
+    initialQuery: View.useContext().getInitialView().query,
     sort: Ranger.sortByStage,
   });
+  const placeLayout = Layout.usePlacer();
+  const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
+  const canCreate = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
-    <List
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      retrieve={retrieve}
-      enableAddButton
-      enableSearch
-      enableFilters
-    />
+    <View.Form {...listProps}>
+      <View.Toolbar>
+        <View.FilterMenu>
+          <Label.Filter.MenuItem />
+        </View.FilterMenu>
+        <View.Search />
+        <Label.Filter.Chips />
+        {canCreate && (
+          <Button.Button
+            onClick={handleCreate}
+            tooltipLocation={location.BOTTOM_LEFT}
+            tooltip="Create a range"
+          >
+            <Icon.Add />
+          </Button.Button>
+        )}
+      </View.Toolbar>
+      <View.Items>{item}</View.Items>
+    </View.Form>
   );
 };

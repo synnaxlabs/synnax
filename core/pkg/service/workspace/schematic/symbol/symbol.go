@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,12 +16,12 @@ import (
 
 // Symbol represents a schematic symbol specification with its visual states and regions.
 type Symbol struct {
-	// Key is a unique identifier for the symbol.
-	Key uuid.UUID `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the symbol.
-	Name string `json:"name" msgpack:"name"`
 	// Data is JSON-encoded data containing SVG, states and regions for the symbol.
 	Data map[string]any `json:"data" msgpack:"data"`
+	// Name is a human-readable name for the symbol.
+	Name string `json:"name" msgpack:"name"`
+	// Key is a unique identifier for the symbol.
+	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Symbol{}

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,11 +9,11 @@
 
 import clsx, { type ClassValue } from "clsx";
 
-const CoreBEM = clsx;
+const BaseBEM = clsx;
 
-type CoreBEMType = typeof clsx;
+type BaseBEMType = typeof clsx;
 
-export interface BEM extends CoreBEMType {
+export interface BEM extends BaseBEMType {
   B: (...blocks: string[]) => string;
   E: (element: string) => string;
   M: (...modifiers: string[]) => string;
@@ -30,7 +30,7 @@ const MODIFIER = "--";
 export const newBEM = (prefix: string): BEM => {
   // We need to define a new function to avoid reassigning the original
   // on each call to newBEM.
-  const BEM_: BEM = (...args: ClassValue[]): string => CoreBEM(...args);
+  const BEM_: BEM = (...args: ClassValue[]): string => BaseBEM(...args);
   BEM_.B = (...blocks) => prefix + BLOCK + blocks.join(BLOCK);
   BEM_.E = (element) => prefix + ELEMENT + element;
   BEM_.M = (...modifiers) => prefix + MODIFIER + modifiers.join("-");

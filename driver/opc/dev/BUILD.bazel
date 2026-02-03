@@ -35,6 +35,14 @@ cc_binary(
 cc_binary(
     name = "client_encrypted",
     srcs = ["client_encrypted.cpp"],
+    linkopts = select({
+        "@platforms//os:windows": [
+            "ws2_32.lib",
+            "Iphlpapi.lib",
+            "bcrypt.lib",
+        ],
+        "//conditions:default": [],
+    }),
     deps = [
         "//vendor/mbedtls",
         "//vendor/open62541",
@@ -44,6 +52,14 @@ cc_binary(
 cc_binary(
     name = "client",
     srcs = ["client.cpp"],
+    linkopts = select({
+        "@platforms//os:windows": [
+            "ws2_32.lib",
+            "Iphlpapi.lib",
+            "bcrypt.lib",
+        ],
+        "//conditions:default": [],
+    }),
     deps = [
         "//vendor/mbedtls",
         "//vendor/open62541",
@@ -53,6 +69,14 @@ cc_binary(
 cc_binary(
     name = "client_observer",
     srcs = ["client_observer.cpp"],
+    linkopts = select({
+        "@platforms//os:windows": [
+            "ws2_32.lib",
+            "Iphlpapi.lib",
+            "bcrypt.lib",
+        ],
+        "//conditions:default": [],
+    }),
     deps = [
         "//vendor/mbedtls",
         "//vendor/open62541",

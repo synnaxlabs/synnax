@@ -1,0 +1,67 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package arc.v1.types;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/synnaxlabs/arc/types";
+
+enum PBKind {
+  PB_KIND_UNSPECIFIED = 0;
+  PB_KIND_U8 = 1;
+  PB_KIND_U16 = 2;
+  PB_KIND_U32 = 3;
+  PB_KIND_U64 = 4;
+  PB_KIND_I8 = 5;
+  PB_KIND_I16 = 6;
+  PB_KIND_I32 = 7;
+  PB_KIND_I64 = 8;
+  PB_KIND_F32 = 9;
+  PB_KIND_F64 = 10;
+  PB_KIND_STRING = 11;
+  // 12 and 13 were PB_KIND_TIMESTAMP and PB_KIND_TIMESPAN, now removed.
+  // Timestamps and timespans are represented as i64 with time unit metadata.
+  PB_KIND_CHAN = 14;
+  PB_KIND_SERIES = 15;
+}
+
+// PBDimensions represents dimension exponents for dimensional analysis.
+// Uses SI base dimensions plus pragmatic extensions for hardware telemetry.
+message PBDimensions {
+  int32 length = 1; // meters (m)
+  int32 mass = 2; // kilograms (kg)
+  int32 time = 3; // seconds (s)
+  int32 current = 4; // amperes (A)
+  int32 temperature = 5; // kelvin (K)
+  int32 angle = 6; // radians/degrees
+  int32 count = 7; // samples, items, cycles
+  int32 data = 8; // bits, bytes
+}
+
+// PBUnit holds unit metadata for numeric types.
+message PBUnit {
+  PBDimensions dimensions = 1;
+  double scale = 2; // Factor to convert to SI base units
+  string name = 3; // Display name (e.g., "psi", "km", "ms")
+}
+
+message PBType {
+  PBKind kind = 1;
+  PBType elem = 2;
+  PBUnit unit = 3; // Optional unit metadata for numeric types
+}
+
+message PBParam {
+  string name = 1;
+  PBType type = 2;
+  google.protobuf.Value value = 3;
+}

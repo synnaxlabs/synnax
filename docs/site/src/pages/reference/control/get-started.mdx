@@ -6,11 +6,11 @@ nextURL: "/reference/control/control-authority"
 next: "Control Authority"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
-import { Image, Video } from "@/components/Media";
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Image, Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import Diagram from "@/components/Diagram.astro";
-import Table from "@/components/Table.astro";
+import { Table } from "@/components";
+import Diagram from "@/components/diagram/Diagram.astro";
 export const components = mdxOverrides;
 
 Control sequences are the primary means for automating hardware operations in your
@@ -22,41 +22,47 @@ available within Synnax.
 
 ## Control Sequence Types
 
-There are two ways to write control sequences in Synnax: via our
-[Python client](/reference/python-client/get-started) and our
-[Embedded Sequence Editor](/reference/control/embedded/get-started).
+There are two primary ways to write control sequences in Synnax:
 
-Python control sequences are ideal for complex automations requiring a high degree of
-customization. Embedded control sequences are simple, but can be run on real-time OSs
-such as National Instruments cRIOs through our
-[NI Linux Real-Time Driver](/reference/driver/installation?platform=ni-linux-rt).
-Embedded control sequences can be edited and deployed directly from within the
-[Synnax Console](/reference/console/get-started).
+**[Arc](/reference/control/arc/introduction)** is Synnax's automation language for
+hardware control. Arc is reactive, meaning you declare what should happen when data
+changes rather than writing polling loops. It offers both a visual Graph Mode and a Text
+Mode, runs directly on [drivers](/reference/driver/get-started) (including
+[NI Linux Real-Time](/reference/driver/installation?platform=ni-linux-rt)), and is
+performant enough for real-time control applications. Arc automations can be edited and
+deployed directly from within the [Synnax Console](/reference/console/get-started).
+
+**[Python client](/reference/python-client/get-started)** gives you the flexibility to
+write whatever software you need, with access to the entire Python ecosystem. Python
+sequences run externally and communicate with Synnax over the network, which introduces
+latency and makes control loop timing less predictable. Use Python for automations where
+you need maximum flexibility, and Arc for automations where you need consistent,
+low-latency control.
+
+<Note.Note variant="warning">
+  The [Embedded Sequence Editor](/reference/control/embedded/get-started) (Lua-based) is
+  deprecated. New automations should use Arc instead.
+</Note.Note>
 
 <Divider.Divider x />
 
 ## How Control Sequences Work
 
-Both our Python and embedded sequencing systems use the same conceptual approach to
-control. Control sequences [stream data](/reference/concepts/streams) from a set of
-input channels, perform some computations, and [write data](/reference/concepts/writes)
-to a set of output channels.
+Control sequences [stream data](/reference/concepts/streams) from a set of input
+channels, perform some computation, and [write data](/reference/concepts/writes) to a
+set of output channels.
 
-A control sequence is just a process, such as a Python script or a loop, that
-[streams data](/reference/concepts/streams) from a set of input channels, performs some
-computation, and [writes data](/reference/concepts/writes) to a set of output channels.
+Arc uses a reactive model where you declare what should happen when data changes. When a
+channel updates, Arc automatically runs the relevant computations:
 
-```lua
---- This code block runs 10 times per second.
+```arc
+// Open the valve when pressure is below threshold, close it otherwise
+func bang_bang{threshold f64}(pressure f64) u8 {
+    if pressure < threshold { return 1 }
+    return 0
+}
 
---- Check if the current pressure is below the threshold.
-if pressure < 100 then
-    --- If so, open the valve.
-    set("press_vlv_cmd", true)
-else
-    --- Otherwise, close the valve.
-    set("press_vlv_cmd", false)
-end
+pressure -> bang_bang{threshold=100.0} -> press_vlv_cmd
 ```
 
 There is no mention of hardware configuration in this sequence. Parameters like
@@ -79,7 +85,7 @@ deployment that communicates with National Instruments devices:
 </Diagram>
 
 {/* prettier-ignore */}
-<Table>
+<table>
   <thead>
     <tr>
       <th style={{width: "160px"}}>Component</th>
@@ -120,4 +126,4 @@ deployment that communicates with National Instruments devices:
         Digital Write Task.</td>
     </tr>
   </tbody>
-</Table>
+</table>

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	DecodeError = errors.New("failed to decode")
-	EncodeError = errors.New("failed to encode")
+	ErrDecode = errors.New("failed to decode")
+	ErrEncode = errors.New("failed to encode")
 )
 
 // sugarEncodingErr adds additional context to encoding errors.
@@ -36,7 +36,7 @@ func sugarEncodingErr(value any, base error) error {
 		return base
 	}
 	val := reflect.ValueOf(value)
-	main := errors.Wrapf(EncodeError, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
+	main := errors.Wrapf(ErrEncode, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
 	return errors.Combine(main, base)
 }
 
@@ -46,7 +46,7 @@ func sugarDecodingErr(data []byte, value any, base error) error {
 		return base
 	}
 	val := reflect.ValueOf(value)
-	main := errors.Wrapf(DecodeError, "kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
+	main := errors.Wrapf(ErrDecode, "kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
 	return errors.Combine(main, base)
 }
 
@@ -193,42 +193,11 @@ func (m *MsgPackCodec) EncodeStream(ctx context.Context, w io.Writer, value any)
 	return sugarEncodingErr(value, err)
 }
 
-// PassThroughCodec wraps a Codec and checks for values that are already encoded
-// ([]byte) and returns them as is.
-type PassThroughCodec struct{ Codec }
-
-// Encode implements the Encoder interface.
-func (enc *PassThroughCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	if bv, ok := value.([]byte); ok {
-		return bv, nil
-	}
-	return enc.Codec.Encode(ctx, value)
-}
-
-// Decode implements the Decoder interface.
-func (enc *PassThroughCodec) Decode(ctx context.Context, data []byte, value any) error {
-	return enc.DecodeStream(ctx, bytes.NewReader(data), value)
-}
-
-// DecodeStream implements the Decoder interface.
-func (enc *PassThroughCodec) DecodeStream(ctx context.Context, r io.Reader, value any) error {
-	if bv, ok := value.(*[]byte); ok {
-		*bv, _ = io.ReadAll(r)
-		return nil
-	}
-	return enc.Codec.DecodeStream(ctx, r, value)
-}
-
-// EncodeStream implements the Encoder interface.
-func (enc *PassThroughCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	return enc.Codec.EncodeStream(ctx, w, value)
-}
-
 // TracingCodec wraps a Codec and traces the encoding and decoding operations.
 type TracingCodec struct {
+	Codec
 	alamos.Instrumentation
 	Level alamos.Environment
-	Codec
 }
 
 // Encode implements the Encoder interface.

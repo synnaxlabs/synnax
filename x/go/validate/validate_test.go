@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -108,15 +108,40 @@ var _ = Describe("Validate", func() {
 				})
 			})
 
-			Describe("LessThan", func() {
-				It("Should validate numbers less than threshold", func() {
-					Expect(validate.LessThan(v, "field", 5, 10)).To(BeFalse())
+			Describe("InBounds", func() {
+				It("Should validate values within bounds", func() {
+					Expect(validate.InBounds(v, "field", 5, 1, 10)).To(BeFalse())
 					Expect(v.Error()).NotTo(HaveOccurred())
 				})
 
-				It("Should catch numbers greater than or equal to threshold", func() {
-					Expect(validate.LessThan(v, "field", 10, 10)).To(BeTrue())
+				It("Should accept values at lower bound (inclusive)", func() {
+					Expect(validate.InBounds(v, "field", 1, 1, 10)).To(BeFalse())
+					Expect(v.Error()).NotTo(HaveOccurred())
+				})
+
+				It("Should reject values at upper bound (exclusive)", func() {
+					Expect(validate.InBounds(v, "field", 10, 1, 10)).To(BeTrue())
 					Expect(v.Error()).To(HaveOccurred())
+				})
+
+				It("Should reject values below lower bound", func() {
+					Expect(validate.InBounds(v, "field", 0, 1, 10)).To(BeTrue())
+					Expect(v.Error()).To(HaveOccurred())
+				})
+
+				It("Should reject values above upper bound", func() {
+					Expect(validate.InBounds(v, "field", 11, 1, 10)).To(BeTrue())
+					Expect(v.Error()).To(HaveOccurred())
+				})
+
+				It("Should work with float values", func() {
+					Expect(validate.InBounds(v, "field", 5.5, 1.0, 10.0)).To(BeFalse())
+					Expect(v.Error()).NotTo(HaveOccurred())
+				})
+
+				It("Should include bounds in error message", func() {
+					validate.InBounds(v, "field", 0, 1, 10)
+					Expect(v.Error().Error()).To(ContainSubstring("[1, 10)"))
 				})
 			})
 		})

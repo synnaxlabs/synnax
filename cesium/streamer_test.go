@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,19 +10,30 @@
 package cesium_test
 
 import (
+	"context"
 	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/alignment"
+	"github.com/synnaxlabs/cesium/internal/resource"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+func decodeControlUpdate(ctx context.Context, s telem.Series) (cesium.ControlUpdate, error) {
+	var u cesium.ControlUpdate
+	if err := (&binary.JSONCodec{}).Decode(ctx, s.Data, &u); err != nil {
+		return cesium.ControlUpdate{}, err
+	}
+	return u, nil
+}
 
 var _ = Describe("Streamer Behavior", func() {
 	for fsName, makeFS := range fileSystems {
@@ -30,7 +41,7 @@ var _ = Describe("Streamer Behavior", func() {
 		Context("FS: "+fsName, Ordered, func() {
 			var (
 				db         *cesium.DB
-				fs         xfs.FS
+				fs         fs.FS
 				cleanUp    func() error
 				controlKey cesium.ChannelKey = 5
 			)
@@ -72,7 +83,7 @@ var _ = Describe("Streamer Behavior", func() {
 
 					f := <-o.Outlet()
 					Expect(f.Frame.Count()).To(Equal(1))
-					d.Alignment = core.LeadingAlignment(1, 0)
+					d.Alignment = alignment.Leading(1, 0)
 					Expect(f.Frame.SeriesAt(0)).To(Equal(d))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
@@ -91,7 +102,7 @@ var _ = Describe("Streamer Behavior", func() {
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{basic2},
 						Start:    10 * telem.SecondTS,
-						Mode:     cesium.WriterPersistOnly,
+						Mode:     cesium.WriterModePersistOnly,
 					}))
 					r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{basic2},
@@ -139,11 +150,11 @@ var _ = Describe("Streamer Behavior", func() {
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{written},
 					)))
-					var f cesium.StreamerResponse
-					Eventually(o.Outlet()).Should(Receive(&f))
-					Expect(f.Frame.Count()).To(Equal(1))
-					written.Alignment = core.LeadingAlignment(1, 0)
-					Expect(f.Frame.SeriesAt(0)).To(Equal(written))
+					var res cesium.StreamerResponse
+					Eventually(o.Outlet()).Should(Receive(&res))
+					Expect(res.Frame.Count()).To(Equal(1))
+					written.Alignment = alignment.Leading(1, 0)
+					Expect(res.Frame.SeriesAt(0)).To(Equal(written))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
 					Expect(w.Close()).To(Succeed())
@@ -180,7 +191,7 @@ var _ = Describe("Streamer Behavior", func() {
 					Eventually(func(g Gomega) {
 						g.Eventually(o.Outlet()).Should(Receive(&r))
 						g.Expect(r.Frame.Count()).To(Equal(1))
-						u, err := cesium.DecodeControlUpdate(ctx, r.Frame.SeriesAt(0))
+						u, err := decodeControlUpdate(ctx, r.Frame.SeriesAt(0))
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(u.Transfers).To(HaveLen(1))
 						first := u.Transfers[0]
@@ -209,7 +220,7 @@ var _ = Describe("Streamer Behavior", func() {
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})

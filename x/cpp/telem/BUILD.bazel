@@ -1,8 +1,12 @@
 cc_library(
     name = "telem",
+    srcs = [
+        "frame.cpp",
+    ],
     hdrs = [
         "clock_skew.h",
         "control.h",
+        "frame.h",
         "series.h",
         "telem.h",
     ],
@@ -12,6 +16,7 @@ cc_library(
         "//x/go/control:control_grpc",
         "//x/go/telem:telem_grpc",
         "@nlohmann_json//:json",
+        "@protobuf//:protobuf",
     ],
 )
 
@@ -19,6 +24,7 @@ cc_test(
     name = "telem_test",
     srcs = [
         "clock_skew_test.cpp",
+        "frame_test.cpp",
         "series_test.cpp",
         "telem_test.cpp",
     ],

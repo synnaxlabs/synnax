@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -71,8 +71,7 @@ export interface StreamSenderCloser<RQ extends z.ZodType> extends StreamSender<R
  * Interface for a bidirectional stream between a client and a server.
  */
 export interface Stream<RQ extends z.ZodType, RS extends z.ZodType = RQ>
-  extends StreamSenderCloser<RQ>,
-    StreamReceiver<RS> {}
+  extends StreamSenderCloser<RQ>, StreamReceiver<RS> {}
 
 /**
  * Interface for a bidirectional stream between a client and a server.

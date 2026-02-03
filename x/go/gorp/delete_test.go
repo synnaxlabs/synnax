@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -69,8 +69,8 @@ var _ = Describe("Delete", func() {
 			Expect(gorp.NewDelete[int, entry]().
 				WhereKeys(1).
 				Guard(func(_ gorp.Context, e entry) error {
-					return validate.Error
-				}).Exec(ctx, tx)).To(HaveOccurredAs(validate.Error))
+					return validate.ErrValidation
+				}).Exec(ctx, tx)).To(HaveOccurredAs(validate.ErrValidation))
 			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(ctx, tx)).To(BeTrue())
 		})
 
@@ -83,8 +83,8 @@ var _ = Describe("Delete", func() {
 				Guard(func(gCtx gorp.Context, _ entry) error {
 					Expect(gCtx.Tx).To(BeIdenticalTo(tx))
 					Expect(gCtx.Context).To(BeIdenticalTo(ctx))
-					return validate.Error
-				}).Exec(ctx, tx)).To(HaveOccurredAs(validate.Error))
+					return validate.ErrValidation
+				}).Exec(ctx, tx)).To(HaveOccurredAs(validate.ErrValidation))
 			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(22).Exists(ctx, tx)).To(BeTrue())
 		})
 

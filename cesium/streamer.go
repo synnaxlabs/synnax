@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,7 @@ package cesium
 import (
 	"context"
 
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -21,13 +21,13 @@ import (
 // to.
 type StreamerRequest struct {
 	// Channels sets the channels the Streamer subscribes to.
-	Channels []core.ChannelKey
+	Channels []channel.Key
 }
 
 // StreamerConfig sets the configuration parameters used when opening the Streamer.
 type StreamerConfig struct {
 	// Channels sets the channels the Streamer subscribes to.
-	Channels []core.ChannelKey
+	Channels []channel.Key
 	// OnSuccessfulStart is closed when the Streamer is successfully opened.
 	SendOpenAck bool
 }
@@ -69,7 +69,6 @@ func passThroughStreamerResponseTranslator(res StreamerResponse) StreamerRespons
 // streamer, and cancelling it has no implications after NewStreamer returns.
 func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer[StreamerRequest, StreamerResponse], error) {
 	return NewTranslatedStreamer(
-		ctx,
 		db,
 		cfg,
 		passThroughStreamerRequestTranslator,
@@ -79,11 +78,10 @@ func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer[Str
 }
 
 func NewTranslatedStreamer[I any, O any](
-	_ context.Context,
 	db *DB,
 	cfg StreamerConfig,
 	translateRequest func(I) StreamerRequest,
-	translateResponse func(response StreamerResponse) O,
+	translateResponse func(StreamerResponse) O,
 ) (Streamer[I, O], error) {
 	if db.closed.Load() {
 		return nil, errDBClosed
@@ -97,11 +95,11 @@ func NewTranslatedStreamer[I any, O any](
 }
 
 type streamer[I any, O any] struct {
-	StreamerConfig
 	confluence.AbstractLinear[I, O]
 	relay             *relay
 	translateRequest  func(I) StreamerRequest
 	translateResponse func(StreamerResponse) O
+	StreamerConfig
 }
 
 var _ Streamer[StreamerRequest, StreamerResponse] = (*streamer[StreamerRequest, StreamerResponse])(nil)

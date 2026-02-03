@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -35,6 +35,39 @@ class TestSeries:
         assert s.data_type == sy.DataType.FLOAT64
         assert s[3] == 4
         assert s.__array__().dtype == np.float64
+
+    def test_array_with_dtype(self):
+        """Should convert to specified dtype when using __array__"""
+        s = sy.Series([1, 2, 3], data_type=sy.DataType.INT64)
+        arr = s.__array__(dtype=np.float32)
+        assert arr.dtype == np.float32
+        assert list(arr) == [1.0, 2.0, 3.0]
+
+    def test_array_with_copy_true(self):
+        """Should return a copy when copy=True"""
+        s = sy.Series([1, 2, 3], data_type=sy.DataType.INT64)
+        arr1 = s.__array__(copy=True)
+        arr2 = s.__array__(copy=True)
+        assert not np.shares_memory(arr1, arr2)
+
+    def test_array_with_copy_false_same_dtype(self):
+        """Should not copy when copy=False and no dtype conversion needed"""
+        s = sy.Series([1, 2, 3], data_type=sy.DataType.INT64)
+        arr = s.__array__(copy=False)
+        assert arr.dtype == np.int64
+
+    def test_np_array_with_dtype(self):
+        """Should work with np.array() and dtype parameter (NumPy 2.0 protocol)"""
+        s = sy.Series([1, 2, 3], data_type=sy.DataType.INT64)
+        arr = np.array(s, dtype=np.float32)
+        assert arr.dtype == np.float32
+
+    def test_np_array_with_copy(self):
+        """Should work with np.array() and copy parameter (NumPy 2.0 protocol)"""
+        s = sy.Series([1, 2, 3], data_type=sy.DataType.INT64)
+        arr = np.array(s, copy=True)
+        assert arr.dtype == np.int64
+        assert list(arr) == [1, 2, 3]
 
     def test_construction_from_pd_series(self):
         """Should correctly construct the array from a pandas series"""
@@ -248,6 +281,32 @@ class TestMultiSeries:
         assert len(s.to_numpy()) == 6
         assert s.to_numpy().dtype == np.int8
 
+    def test_array_with_dtype(self):
+        """Should convert to specified dtype when using __array__"""
+        s1 = sy.Series([1, 2, 3], data_type=sy.DataType.INT8)
+        s2 = sy.Series([4, 5, 6], data_type=sy.DataType.INT8)
+        s = sy.MultiSeries([s1, s2])
+        arr = s.__array__(dtype=np.float32)
+        assert arr.dtype == np.float32
+        assert list(arr) == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+
+    def test_np_array_with_dtype(self):
+        """Should work with np.array() and dtype parameter (NumPy 2.0 protocol)"""
+        s1 = sy.Series([1, 2, 3], data_type=sy.DataType.INT8)
+        s2 = sy.Series([4, 5, 6], data_type=sy.DataType.INT8)
+        s = sy.MultiSeries([s1, s2])
+        arr = np.array(s, dtype=np.float64)
+        assert arr.dtype == np.float64
+
+    def test_np_array_with_copy(self):
+        """Should work with np.array() and copy parameter (NumPy 2.0 protocol)"""
+        s1 = sy.Series([1, 2, 3], data_type=sy.DataType.INT8)
+        s2 = sy.Series([4, 5, 6], data_type=sy.DataType.INT8)
+        s = sy.MultiSeries([s1, s2])
+        arr = np.array(s, copy=True)
+        assert arr.dtype == np.int8
+        assert list(arr) == [1, 2, 3, 4, 5, 6]
+
     def test_time_range(self):
         """Should correctly return the time range of the sy.MultiSeries"""
         s1 = sy.Series(
@@ -348,3 +407,35 @@ class TestMultiSeries:
         bounds = ms.alignment_bounds
         assert bounds.lower == 0
         assert bounds.upper == 0
+
+    def test_empty_multiseries_to_numpy(self):
+        """Should return an empty numpy array for empty sy.MultiSeries"""
+        ms = sy.MultiSeries([])
+        arr = ms.to_numpy()
+        assert len(arr) == 0
+        assert arr.dtype == np.float64
+
+    def test_empty_multiseries_to_numpy_with_dtype(self):
+        """Should return an empty numpy array with specified dtype"""
+        ms = sy.MultiSeries([])
+        arr = ms.to_numpy(dtype=np.int32)
+        assert len(arr) == 0
+        assert arr.dtype == np.int32
+
+    def test_single_series_copy_false(self):
+        """Should respect copy=False for single series MultiSeries"""
+        s = sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)
+        ms = sy.MultiSeries([s])
+        arr1 = ms.__array__(copy=False)
+        arr2 = ms.__array__(copy=False)
+        # With copy=False on single series, both should share the same buffer
+        assert np.shares_memory(arr1, arr2)
+
+    def test_single_series_copy_true(self):
+        """Should create a copy when copy=True for single series MultiSeries"""
+        s = sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)
+        ms = sy.MultiSeries([s])
+        arr1 = ms.__array__(copy=True)
+        arr2 = ms.__array__(copy=True)
+        # With copy=True, they should not share memory
+        assert not np.shares_memory(arr1, arr2)

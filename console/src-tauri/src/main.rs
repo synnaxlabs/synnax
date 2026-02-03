@@ -9,7 +9,7 @@ extern crate objc2_app_kit;
 extern crate objc2_foundation;
 
 #[cfg(target_os = "macos")]
-use device_query::{DeviceEvents, DeviceQuery, DeviceState, MouseState};
+use device_query::{DeviceEvents, DeviceEventsHandler, DeviceQuery, DeviceState, MouseState};
 #[cfg(target_os = "macos")]
 use std::thread;
 #[cfg(target_os = "macos")]
@@ -108,8 +108,9 @@ fn main() {
             #[cfg(target_os = "macos")]
             thread::spawn(move || {
                 let app_handle = app_handle.clone();
-                let device_state = DeviceState::new();
-                let _guard = device_state.on_mouse_up(move |_pos| {
+                let handler = DeviceEventsHandler::new(Duration::from_millis(10))
+                    .expect("Failed to create device events handler");
+                let _guard = handler.on_mouse_up(move |_button| {
                     let state: MouseState = DeviceState::new().get_mouse();
                     app_handle
                         .emit("mouse_up", state.coords)

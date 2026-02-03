@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,8 +10,7 @@
 import { Flex, Text } from "@synnaxlabs/pluto";
 
 export interface EmptyActionProps
-  extends Omit<Flex.BoxProps<"div">, "onClick">,
-    Pick<Text.TextProps, "onClick"> {
+  extends Omit<Flex.BoxProps<"div">, "onClick">, Pick<Text.TextProps, "onClick"> {
   message: string;
   action?: string;
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,7 +15,7 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/channel.pb.h"
+#include "core/pkg/api/grpc/v1/channel.pb.h"
 
 namespace synnax {
 /// @brief an alias for the type of channel's key.

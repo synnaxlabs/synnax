@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,15 +13,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Hashers is a list of hashers that synnax uses to encrypt and validate passwords.
-// The Hashers are tried in order. The first Hasher that returns a non-nil error
+// hashers is a list of hashers that synnax uses to encrypt and validate passwords.
+// The hashers are tried in order. The first Hasher that returns a non-nil error
 // is used. This value should generally remain unmodified unless the cluster is tailored
 // to specific user needs.
-var Hashers = DefaultHashers()
-
-// DefaultHashers returns a list of default hashers that delta uses to encrypt and
-// validate/passwords.
-func DefaultHashers() []Hasher { return []Hasher{BcryptHasher{}} }
+var hashers = []Hasher{BcryptHasher{}}
 
 // Hasher hashes and compares passwords against a hash.
 type Hasher interface {
