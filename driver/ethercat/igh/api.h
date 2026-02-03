@@ -9,9 +9,10 @@
 
 #pragma once
 
+#include "x/cpp/xlib/xlib.h"
+
 #include "driver/errors/errors.h"
 #include "driver/ethercat/igh/ecrt.h"
-#include "x/cpp/xlib/xlib.h"
 
 namespace ethercat::igh {
 /// @brief library path for the IgH EtherCAT master shared library.
@@ -61,31 +62,34 @@ class API {
 public:
     explicit API(std::unique_ptr<xlib::SharedLib> lib): lib(std::move(lib)) {
         memset(&this->func_ptrs, 0, sizeof(this->func_ptrs));
-        this->func_ptrs.request_master = reinterpret_cast<decltype(&ecrt_request_master)>(
+        this->func_ptrs
+            .request_master = reinterpret_cast<decltype(&ecrt_request_master)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_request_master"))
         );
-        this->func_ptrs.release_master = reinterpret_cast<decltype(&ecrt_release_master)>(
+        this->func_ptrs
+            .release_master = reinterpret_cast<decltype(&ecrt_release_master)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_release_master"))
         );
-        this->func_ptrs.master_activate =
-            reinterpret_cast<decltype(&ecrt_master_activate)>(
-                const_cast<void *>(this->lib->get_func_ptr("ecrt_master_activate"))
-            );
-        this->func_ptrs.master_deactivate =
-            reinterpret_cast<decltype(&ecrt_master_deactivate)>(
-                const_cast<void *>(this->lib->get_func_ptr("ecrt_master_deactivate"))
-            );
-        this->func_ptrs.master_create_domain =
-            reinterpret_cast<decltype(&ecrt_master_create_domain)>(
-                const_cast<void *>(this->lib->get_func_ptr("ecrt_master_create_domain"))
-            );
+        this->func_ptrs
+            .master_activate = reinterpret_cast<decltype(&ecrt_master_activate)>(
+            const_cast<void *>(this->lib->get_func_ptr("ecrt_master_activate"))
+        );
+        this->func_ptrs
+            .master_deactivate = reinterpret_cast<decltype(&ecrt_master_deactivate)>(
+            const_cast<void *>(this->lib->get_func_ptr("ecrt_master_deactivate"))
+        );
+        this->func_ptrs.master_create_domain = reinterpret_cast<
+            decltype(&ecrt_master_create_domain)>(
+            const_cast<void *>(this->lib->get_func_ptr("ecrt_master_create_domain"))
+        );
         this->func_ptrs.domain_size = reinterpret_cast<decltype(&ecrt_domain_size)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_domain_size"))
         );
         this->func_ptrs.domain_data = reinterpret_cast<decltype(&ecrt_domain_data)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_domain_data"))
         );
-        this->func_ptrs.domain_process = reinterpret_cast<decltype(&ecrt_domain_process)>(
+        this->func_ptrs
+            .domain_process = reinterpret_cast<decltype(&ecrt_domain_process)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_domain_process"))
         );
         this->func_ptrs.domain_queue = reinterpret_cast<decltype(&ecrt_domain_queue)>(
@@ -97,47 +101,45 @@ public:
         this->func_ptrs.master_send = reinterpret_cast<decltype(&ecrt_master_send)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_master_send"))
         );
-        this->func_ptrs.master_receive = reinterpret_cast<decltype(&ecrt_master_receive)>(
+        this->func_ptrs
+            .master_receive = reinterpret_cast<decltype(&ecrt_master_receive)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_master_receive"))
         );
         this->func_ptrs.master = reinterpret_cast<decltype(&ecrt_master)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_master"))
         );
-        this->func_ptrs.master_get_slave =
-            reinterpret_cast<decltype(&ecrt_master_get_slave)>(
-                const_cast<void *>(this->lib->get_func_ptr("ecrt_master_get_slave"))
-            );
-        this->func_ptrs.master_slave_config =
-            reinterpret_cast<decltype(&ecrt_master_slave_config)>(
-                const_cast<void *>(this->lib->get_func_ptr("ecrt_master_slave_config"))
-            );
-        this->func_ptrs.slave_config_state =
-            reinterpret_cast<decltype(&ecrt_slave_config_state)>(
-                const_cast<void *>(this->lib->get_func_ptr("ecrt_slave_config_state"))
-            );
-        this->func_ptrs.slave_config_pdos =
-            reinterpret_cast<decltype(&ecrt_slave_config_pdos)>(
-                const_cast<void *>(this->lib->get_func_ptr("ecrt_slave_config_pdos"))
-            );
-        this->func_ptrs.slave_config_reg_pdo_entry =
-            reinterpret_cast<decltype(&ecrt_slave_config_reg_pdo_entry)>(
-                const_cast<void *>(
-                    this->lib->get_func_ptr("ecrt_slave_config_reg_pdo_entry")
-                )
-            );
-        this->func_ptrs.master_get_sync_manager =
-            reinterpret_cast<decltype(&ecrt_master_get_sync_manager)>(
-                const_cast<void *>(
-                    this->lib->get_func_ptr("ecrt_master_get_sync_manager")
-                )
-            );
-        this->func_ptrs.master_get_pdo = reinterpret_cast<decltype(&ecrt_master_get_pdo)>(
+        this->func_ptrs
+            .master_get_slave = reinterpret_cast<decltype(&ecrt_master_get_slave)>(
+            const_cast<void *>(this->lib->get_func_ptr("ecrt_master_get_slave"))
+        );
+        this->func_ptrs.master_slave_config = reinterpret_cast<
+            decltype(&ecrt_master_slave_config)>(
+            const_cast<void *>(this->lib->get_func_ptr("ecrt_master_slave_config"))
+        );
+        this->func_ptrs
+            .slave_config_state = reinterpret_cast<decltype(&ecrt_slave_config_state)>(
+            const_cast<void *>(this->lib->get_func_ptr("ecrt_slave_config_state"))
+        );
+        this->func_ptrs
+            .slave_config_pdos = reinterpret_cast<decltype(&ecrt_slave_config_pdos)>(
+            const_cast<void *>(this->lib->get_func_ptr("ecrt_slave_config_pdos"))
+        );
+        this->func_ptrs.slave_config_reg_pdo_entry = reinterpret_cast<
+            decltype(&ecrt_slave_config_reg_pdo_entry)>(const_cast<void *>(
+            this->lib->get_func_ptr("ecrt_slave_config_reg_pdo_entry")
+        ));
+        this->func_ptrs.master_get_sync_manager = reinterpret_cast<
+            decltype(&ecrt_master_get_sync_manager)>(
+            const_cast<void *>(this->lib->get_func_ptr("ecrt_master_get_sync_manager"))
+        );
+        this->func_ptrs
+            .master_get_pdo = reinterpret_cast<decltype(&ecrt_master_get_pdo)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_master_get_pdo"))
         );
-        this->func_ptrs.master_get_pdo_entry =
-            reinterpret_cast<decltype(&ecrt_master_get_pdo_entry)>(
-                const_cast<void *>(this->lib->get_func_ptr("ecrt_master_get_pdo_entry"))
-            );
+        this->func_ptrs.master_get_pdo_entry = reinterpret_cast<
+            decltype(&ecrt_master_get_pdo_entry)>(
+            const_cast<void *>(this->lib->get_func_ptr("ecrt_master_get_pdo_entry"))
+        );
     }
 
     /// @brief loads the IgH EtherCAT library and returns an API instance.
@@ -164,7 +166,9 @@ public:
     }
 
     /// @brief deactivates the master.
-    [[nodiscard]] int master_deactivate(ec_master_t *master) const {
+    /// No [[nodiscard]]: called during cleanup/error recovery where failure cannot be
+    /// meaningfully handled - we're already shutting down.
+    int master_deactivate(ec_master_t *master) const {
         return this->func_ptrs.master_deactivate(master);
     }
 
@@ -184,28 +188,37 @@ public:
     }
 
     /// @brief processes received datagrams.
-    [[nodiscard]] int domain_process(ec_domain_t *domain) const {
+    /// No [[nodiscard]]: cyclic function - working counter state (checked via
+    /// domain_state) is the proper error detection mechanism for communication issues.
+    int domain_process(ec_domain_t *domain) const {
         return this->func_ptrs.domain_process(domain);
     }
 
     /// @brief queues domain datagrams for sending.
-    [[nodiscard]] int domain_queue(ec_domain_t *domain) const {
+    /// No [[nodiscard]]: cyclic function - working counter state is the proper error
+    /// detection mechanism for communication issues.
+    int domain_queue(ec_domain_t *domain) const {
         return this->func_ptrs.domain_queue(domain);
     }
 
     /// @brief returns the current domain state.
-    [[nodiscard]] int
-    domain_state(const ec_domain_t *domain, ec_domain_state_t *state) const {
+    /// No [[nodiscard]]: populates state struct which is the primary output; return
+    /// value is secondary and state is checked directly after call.
+    int domain_state(const ec_domain_t *domain, ec_domain_state_t *state) const {
         return this->func_ptrs.domain_state(domain, state);
     }
 
     /// @brief sends all queued datagrams.
-    [[nodiscard]] int master_send(ec_master_t *master) const {
+    /// No [[nodiscard]]: cyclic function - working counter state is the proper error
+    /// detection mechanism for communication issues.
+    int master_send(ec_master_t *master) const {
         return this->func_ptrs.master_send(master);
     }
 
     /// @brief fetches received frames from the hardware.
-    [[nodiscard]] int master_receive(ec_master_t *master) const {
+    /// No [[nodiscard]]: cyclic function - working counter state is the proper error
+    /// detection mechanism for communication issues.
+    int master_receive(ec_master_t *master) const {
         return this->func_ptrs.master_receive(master);
     }
 
@@ -236,7 +249,9 @@ public:
     }
 
     /// @brief returns the state of a slave configuration.
-    [[nodiscard]] int slave_config_state(
+    /// No [[nodiscard]]: informational query used for logging/monitoring. Populates
+    /// state struct which is the primary output; failure is non-critical.
+    int slave_config_state(
         const ec_slave_config_t *sc,
         ec_slave_config_state_t *state
     ) const {
@@ -288,7 +303,8 @@ public:
         uint16_t pos,
         ec_pdo_info_t *pdo
     ) const {
-        return this->func_ptrs.master_get_pdo(master, slave_position, sync_index, pos, pdo);
+        return this->func_ptrs
+            .master_get_pdo(master, slave_position, sync_index, pos, pdo);
     }
 
     /// @brief obtains PDO entry information.
