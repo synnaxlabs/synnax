@@ -20,72 +20,12 @@
 #include "driver/ethercat/master/master.h"
 
 namespace ethercat::mock {
-/// @brief configuration for a simulated slave device.
-struct MockSlaveConfig {
-    uint16_t position;
-    uint32_t vendor_id;
-    uint32_t product_code;
-    uint32_t revision;
-    uint32_t serial;
-    std::string name;
-    std::vector<pdo::Properties> input_pdos;
-    std::vector<pdo::Properties> output_pdos;
-    bool pdos_discovered;
-    std::string pdo_discovery_error;
-
-    MockSlaveConfig(
-        const uint16_t position,
-        const uint32_t vendor_id,
-        const uint32_t product_code,
-        std::string name
-    ):
-        position(position),
-        vendor_id(vendor_id),
-        product_code(product_code),
-        revision(0),
-        serial(0),
-        name(std::move(name)),
-        pdos_discovered(false) {}
-
-    MockSlaveConfig(
-        const uint16_t position,
-        const uint32_t vendor_id,
-        const uint32_t product_code,
-        const uint32_t serial,
-        std::string name
-    ):
-        position(position),
-        vendor_id(vendor_id),
-        product_code(product_code),
-        revision(0),
-        serial(serial),
-        name(std::move(name)),
-        pdos_discovered(false) {}
-
-    MockSlaveConfig &with_input_pdos(std::vector<pdo::Properties> pdos) {
-        this->input_pdos = std::move(pdos);
-        this->pdos_discovered = true;
-        return *this;
-    }
-
-    MockSlaveConfig &with_output_pdos(std::vector<pdo::Properties> pdos) {
-        this->output_pdos = std::move(pdos);
-        this->pdos_discovered = true;
-        return *this;
-    }
-
-    MockSlaveConfig &with_pdo_discovery_error(std::string error) {
-        this->pdo_discovery_error = std::move(error);
-        return *this;
-    }
-};
-
 /// @brief mock implementation of Master for testing without real hardware.
-class Master final : public ethercat::master::Master {
+class Master final : public master::Master {
     std::string iface_name;
     std::vector<slave::Properties> slave_list;
     std::unordered_map<uint16_t, slave::State> slave_states;
-    std::unordered_map<pdo::Key, pdo::Offset, pdo::KeyHash> pdo_offset_cache;
+    pdo::Offsets pdo_offset_cache;
     bool initialized;
     bool activated;
     mutable std::mutex mu;
@@ -115,22 +55,11 @@ public:
         init_calls(0) {}
 
     /// @brief adds a simulated slave to the mock master.
-    void add_slave(const MockSlaveConfig &config) {
-        slave::Properties slave(
-            config.position,
-            config.vendor_id,
-            config.product_code,
-            config.revision,
-            config.serial,
-            config.name,
-            slave::State::INIT
-        );
-        slave.input_pdos = config.input_pdos;
-        slave.output_pdos = config.output_pdos;
-        slave.pdos_discovered = config.pdos_discovered;
-        slave.pdo_discovery_error = config.pdo_discovery_error;
-        this->slave_list.push_back(std::move(slave));
-        this->slave_states[config.position] = slave::State::INIT;
+    void add_slave(slave::Properties props) {
+        props.state = slave::State::INIT;
+        const auto pos = props.position;
+        this->slave_list.push_back(std::move(props));
+        this->slave_states[pos] = slave::State::INIT;
     }
 
     /// @brief injects an error to be returned by initialize().

@@ -86,33 +86,21 @@ struct Properties {
     /// @brief Synnax data type for channel creation.
     telem::DataType data_type;
 
-    Properties():
-        pdo_index(0),
-        index(0),
-        sub_index(0),
-        bit_length(0),
-        is_input(true),
-        data_type(telem::UINT8_T) {}
-
-    Properties(
-        const uint16_t pdo_index,
-        const uint16_t index,
-        const uint8_t sub_index,
-        const uint8_t bit_length,
-        const bool is_input,
-        std::string name,
-        const telem::DataType &data_type
-    ):
-        pdo_index(pdo_index),
-        index(index),
-        sub_index(sub_index),
-        bit_length(bit_length),
-        is_input(is_input),
-        name(std::move(name)),
-        data_type(data_type) {}
-
     /// @brief returns the size of this PDO entry in bytes (rounded up from bits).
     [[nodiscard]] size_t byte_length() const { return (this->bit_length + 7) / 8; }
+
+    /// @brief parses PDO properties from JSON.
+    static Properties parse(xjson::Parser &parser, const bool is_input) {
+        return {
+            .pdo_index = static_cast<uint16_t>(parser.field<int>("pdo_index", 0)),
+            .index = static_cast<uint16_t>(parser.field<int>("index")),
+            .sub_index = static_cast<uint8_t>(parser.field<int>("sub_index")),
+            .bit_length = static_cast<uint8_t>(parser.field<int>("bit_length")),
+            .is_input = is_input,
+            .name = parser.field<std::string>("name"),
+            .data_type = telem::DataType(parser.field<std::string>("data_type")),
+        };
+    }
 
     /// @brief serializes this PDO entry to JSON.
     [[nodiscard]] nlohmann::json to_json() const {

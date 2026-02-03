@@ -19,7 +19,6 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xjson/xjson.h"
 
-#include "driver/ethercat/device/device.h"
 #include "driver/ethercat/slave/slave.h"
 
 namespace ethercat::channel {
@@ -58,7 +57,7 @@ struct Channel {
     }
 
 protected:
-    explicit Channel(xjson::Parser &parser, const device::SlaveProperties &slave):
+    explicit Channel(xjson::Parser &parser, const slave::Properties &slave):
         enabled(parser.field<bool>("enabled", true)),
         device_key(parser.field<std::string>("device")),
         slave_position(slave.position),
@@ -79,7 +78,7 @@ struct Input : virtual Channel {
     void bind_remote_info(const synnax::Channel &remote_ch) { this->ch = remote_ch; }
 
 protected:
-    explicit Input(xjson::Parser &parser, const device::SlaveProperties &slave):
+    explicit Input(xjson::Parser &parser, const slave::Properties &slave):
         Channel(parser, slave),
         synnax_key(parser.field<synnax::ChannelKey>("channel")) {}
 };
@@ -90,10 +89,7 @@ struct AutomaticInput final : Input {
     /// @brief the name of the PDO to look up in slave device properties.
     std::string pdo_name;
 
-    explicit AutomaticInput(
-        xjson::Parser &parser,
-        const device::SlaveProperties &slave
-    ):
+    explicit AutomaticInput(xjson::Parser &parser, const slave::Properties &slave):
         Channel(parser, slave),
         Input(parser, slave),
         pdo_name(parser.field<std::string>("pdo")) {
@@ -111,7 +107,7 @@ struct AutomaticInput final : Input {
 
 /// @brief manual input channel where user specifies PDO address inline.
 struct ManualInput final : Input {
-    explicit ManualInput(xjson::Parser &parser, const device::SlaveProperties &slave):
+    explicit ManualInput(xjson::Parser &parser, const slave::Properties &slave):
         Channel(parser, slave), Input(parser, slave) {
         this->index = static_cast<uint16_t>(parser.field<int>("index"));
         this->sub_index = static_cast<uint8_t>(parser.field<int>("sub_index"));
@@ -122,17 +118,17 @@ struct ManualInput final : Input {
 
 /// @brief factory function type for creating input channels.
 using InputFactory = std::function<
-    std::unique_ptr<Input>(xjson::Parser &, const device::SlaveProperties &)>;
+    std::unique_ptr<Input>(xjson::Parser &, const slave::Properties &)>;
 
 /// @brief parses an input channel from JSON configuration.
 inline std::unique_ptr<Input>
-parse_input(xjson::Parser &parser, const device::SlaveProperties &slave) {
+parse_input(xjson::Parser &parser, const slave::Properties &slave) {
     static const std::map<std::string, InputFactory> INPUT_FACTORIES = {
         {"automatic",
-         [](xjson::Parser &cfg, const device::SlaveProperties &s) {
+         [](xjson::Parser &cfg, const slave::Properties &s) {
              return std::make_unique<AutomaticInput>(cfg, s);
          }},
-        {"manual", [](xjson::Parser &cfg, const device::SlaveProperties &s) {
+        {"manual", [](xjson::Parser &cfg, const slave::Properties &s) {
              return std::make_unique<ManualInput>(cfg, s);
          }}
     };
@@ -157,7 +153,7 @@ struct Output : virtual Channel {
     }
 
 protected:
-    explicit Output(xjson::Parser &parser, const device::SlaveProperties &slave):
+    explicit Output(xjson::Parser &parser, const slave::Properties &slave):
         Channel(parser, slave),
         command_key(parser.field<synnax::ChannelKey>("cmd_channel")),
         state_key(parser.field<synnax::ChannelKey>("state_channel", 0)) {}
@@ -169,10 +165,7 @@ struct AutomaticOutput final : Output {
     /// @brief the name of the PDO to look up in slave device properties.
     std::string pdo_name;
 
-    explicit AutomaticOutput(
-        xjson::Parser &parser,
-        const device::SlaveProperties &slave
-    ):
+    explicit AutomaticOutput(xjson::Parser &parser, const slave::Properties &slave):
         Channel(parser, slave),
         Output(parser, slave),
         pdo_name(parser.field<std::string>("pdo")) {
@@ -190,7 +183,7 @@ struct AutomaticOutput final : Output {
 
 /// @brief manual output channel where user specifies PDO address inline.
 struct ManualOutput final : Output {
-    explicit ManualOutput(xjson::Parser &parser, const device::SlaveProperties &slave):
+    explicit ManualOutput(xjson::Parser &parser, const slave::Properties &slave):
         Channel(parser, slave), Output(parser, slave) {
         this->index = static_cast<uint16_t>(parser.field<int>("index"));
         this->sub_index = static_cast<uint8_t>(parser.field<int>("sub_index"));
@@ -201,17 +194,17 @@ struct ManualOutput final : Output {
 
 /// @brief factory function type for creating output channels.
 using OutputFactory = std::function<
-    std::unique_ptr<Output>(xjson::Parser &, const device::SlaveProperties &)>;
+    std::unique_ptr<Output>(xjson::Parser &, const slave::Properties &)>;
 
 /// @brief parses an output channel from JSON configuration.
 inline std::unique_ptr<Output>
-parse_output(xjson::Parser &parser, const device::SlaveProperties &slave) {
+parse_output(xjson::Parser &parser, const slave::Properties &slave) {
     static const std::map<std::string, OutputFactory> OUTPUT_FACTORIES = {
         {"automatic",
-         [](xjson::Parser &cfg, const device::SlaveProperties &s) {
+         [](xjson::Parser &cfg, const slave::Properties &s) {
              return std::make_unique<AutomaticOutput>(cfg, s);
          }},
-        {"manual", [](xjson::Parser &cfg, const device::SlaveProperties &s) {
+        {"manual", [](xjson::Parser &cfg, const slave::Properties &s) {
              return std::make_unique<ManualOutput>(cfg, s);
          }}
     };

@@ -23,7 +23,14 @@ protected:
 
     void SetUp() override {
         mock_master = std::make_shared<ethercat::mock::Master>("eth0");
-        mock_master->add_slave(ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+        mock_master->add_slave(
+            ethercat::slave::Properties{
+                .position = 0,
+                .vendor_id = 0x1,
+                .product_code = 0x2,
+                .name = "Slave1"
+            }
+        );
         engine = std::make_shared<ethercat::engine::Engine>(mock_master);
     }
 };
@@ -133,8 +140,22 @@ TEST_F(EngineTest, MultipleReadersCanRead) {
 
 TEST_F(EngineTest, MultipleSlavesPDORegistration) {
     auto multi_master = std::make_shared<ethercat::mock::Master>("eth0");
-    multi_master->add_slave(ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    multi_master->add_slave(ethercat::mock::MockSlaveConfig(1, 0x1, 0x3, "Slave2"));
+    multi_master->add_slave(
+        ethercat::slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
+    multi_master->add_slave(
+        ethercat::slave::Properties{
+            .position = 1,
+            .vendor_id = 0x1,
+            .product_code = 0x3,
+            .name = "Slave2"
+        }
+    );
 
     auto multi_engine = std::make_shared<ethercat::engine::Engine>(multi_master);
 
@@ -270,18 +291,22 @@ protected:
 };
 
 TEST_F(EngineReadValueTest, ReadValueInt16) {
-    ethercat::pdo::Properties pdo_info;
-    pdo_info.pdo_index = 0x1A00;
-    pdo_info.index = 0x6000;
-    pdo_info.sub_index = 1;
-    pdo_info.bit_length = 16;
-    pdo_info.is_input = true;
-    pdo_info.name = "status_word";
-    pdo_info.data_type = telem::INT16_T;
-
     this->mock_master->add_slave(
-        ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1")
-            .with_input_pdos({pdo_info})
+        ethercat::slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1",
+            .input_pdos =
+                {{.pdo_index = 0x1A00,
+                  .index = 0x6000,
+                  .sub_index = 1,
+                  .bit_length = 16,
+                  .is_input = true,
+                  .name = "status_word",
+                  .data_type = telem::INT16_T}},
+            .pdos_discovered = true,
+        }
     );
     this->create_engine();
 
@@ -303,18 +328,22 @@ TEST_F(EngineReadValueTest, ReadValueInt16) {
 }
 
 TEST_F(EngineReadValueTest, ReadValueInt32) {
-    ethercat::pdo::Properties pdo_info;
-    pdo_info.pdo_index = 0x1A00;
-    pdo_info.index = 0x6000;
-    pdo_info.sub_index = 1;
-    pdo_info.bit_length = 32;
-    pdo_info.is_input = true;
-    pdo_info.name = "position";
-    pdo_info.data_type = telem::INT32_T;
-
     this->mock_master->add_slave(
-        ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1")
-            .with_input_pdos({pdo_info})
+        ethercat::slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1",
+            .input_pdos =
+                {{.pdo_index = 0x1A00,
+                  .index = 0x6000,
+                  .sub_index = 1,
+                  .bit_length = 32,
+                  .is_input = true,
+                  .name = "position",
+                  .data_type = telem::INT32_T}},
+            .pdos_discovered = true,
+        }
     );
     this->create_engine();
 
@@ -336,27 +365,31 @@ TEST_F(EngineReadValueTest, ReadValueInt32) {
 }
 
 TEST_F(EngineReadValueTest, ReadValueMultiplePDOs) {
-    ethercat::pdo::Properties pdo1;
-    pdo1.pdo_index = 0x1A00;
-    pdo1.index = 0x6000;
-    pdo1.sub_index = 1;
-    pdo1.bit_length = 16;
-    pdo1.is_input = true;
-    pdo1.name = "status_word";
-    pdo1.data_type = telem::INT16_T;
-
-    ethercat::pdo::Properties pdo2;
-    pdo2.pdo_index = 0x1A00;
-    pdo2.index = 0x6000;
-    pdo2.sub_index = 2;
-    pdo2.bit_length = 32;
-    pdo2.is_input = true;
-    pdo2.name = "position";
-    pdo2.data_type = telem::INT32_T;
-
     this->mock_master->add_slave(
-        ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1")
-            .with_input_pdos({pdo1, pdo2})
+        ethercat::slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1",
+            .input_pdos =
+                {
+                    {.pdo_index = 0x1A00,
+                     .index = 0x6000,
+                     .sub_index = 1,
+                     .bit_length = 16,
+                     .is_input = true,
+                     .name = "status_word",
+                     .data_type = telem::INT16_T},
+                    {.pdo_index = 0x1A00,
+                     .index = 0x6000,
+                     .sub_index = 2,
+                     .bit_length = 32,
+                     .is_input = true,
+                     .name = "position",
+                     .data_type = telem::INT32_T},
+                },
+            .pdos_discovered = true,
+        }
     );
     this->create_engine();
 
@@ -384,18 +417,22 @@ TEST_F(EngineReadValueTest, ReadValueMultiplePDOs) {
 }
 
 TEST_F(EngineReadValueTest, ReadValue24BitPositive) {
-    ethercat::pdo::Properties pdo_info;
-    pdo_info.pdo_index = 0x1A00;
-    pdo_info.index = 0x6000;
-    pdo_info.sub_index = 1;
-    pdo_info.bit_length = 24;
-    pdo_info.is_input = true;
-    pdo_info.name = "position_24bit";
-    pdo_info.data_type = telem::INT32_T;
-
     this->mock_master->add_slave(
-        ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1")
-            .with_input_pdos({pdo_info})
+        ethercat::slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1",
+            .input_pdos =
+                {{.pdo_index = 0x1A00,
+                  .index = 0x6000,
+                  .sub_index = 1,
+                  .bit_length = 24,
+                  .is_input = true,
+                  .name = "position_24bit",
+                  .data_type = telem::INT32_T}},
+            .pdos_discovered = true,
+        }
     );
     this->create_engine();
 
@@ -419,18 +456,22 @@ TEST_F(EngineReadValueTest, ReadValue24BitPositive) {
 }
 
 TEST_F(EngineReadValueTest, ReadValue24BitNegative) {
-    ethercat::pdo::Properties pdo_info;
-    pdo_info.pdo_index = 0x1A00;
-    pdo_info.index = 0x6000;
-    pdo_info.sub_index = 1;
-    pdo_info.bit_length = 24;
-    pdo_info.is_input = true;
-    pdo_info.name = "position_24bit";
-    pdo_info.data_type = telem::INT32_T;
-
     this->mock_master->add_slave(
-        ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1")
-            .with_input_pdos({pdo_info})
+        ethercat::slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1",
+            .input_pdos =
+                {{.pdo_index = 0x1A00,
+                  .index = 0x6000,
+                  .sub_index = 1,
+                  .bit_length = 24,
+                  .is_input = true,
+                  .name = "position_24bit",
+                  .data_type = telem::INT32_T}},
+            .pdos_discovered = true,
+        }
     );
     this->create_engine();
 
@@ -454,18 +495,22 @@ TEST_F(EngineReadValueTest, ReadValue24BitNegative) {
 }
 
 TEST_F(EngineReadValueTest, ReadValueSubByte4Bit) {
-    ethercat::pdo::Properties pdo_info;
-    pdo_info.pdo_index = 0x1A00;
-    pdo_info.index = 0x6000;
-    pdo_info.sub_index = 1;
-    pdo_info.bit_length = 4;
-    pdo_info.is_input = true;
-    pdo_info.name = "nibble";
-    pdo_info.data_type = telem::UINT8_T;
-
     this->mock_master->add_slave(
-        ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1")
-            .with_input_pdos({pdo_info})
+        ethercat::slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1",
+            .input_pdos =
+                {{.pdo_index = 0x1A00,
+                  .index = 0x6000,
+                  .sub_index = 1,
+                  .bit_length = 4,
+                  .is_input = true,
+                  .name = "nibble",
+                  .data_type = telem::UINT8_T}},
+            .pdos_discovered = true,
+        }
     );
     this->create_engine();
 
@@ -493,8 +538,22 @@ TEST_F(EngineTest, EnsureInitializedIdempotent) {
 
 TEST_F(EngineTest, SlavesReturnsDiscoveredSlaves) {
     auto multi_master = std::make_shared<ethercat::mock::Master>("eth0");
-    multi_master->add_slave(ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    multi_master->add_slave(ethercat::mock::MockSlaveConfig(1, 0x3, 0x4, "Slave2"));
+    multi_master->add_slave(
+        ethercat::slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
+    multi_master->add_slave(
+        ethercat::slave::Properties{
+            .position = 1,
+            .vendor_id = 0x3,
+            .product_code = 0x4,
+            .name = "Slave2"
+        }
+    );
     auto multi_engine = std::make_shared<ethercat::engine::Engine>(multi_master);
 
     ASSERT_NIL(multi_engine->ensure_initialized());
@@ -511,8 +570,22 @@ TEST_F(EngineTest, InterfaceNameReturnsCorrect) {
 
 TEST(PoolTest, DiscoverSlavesCreatesEngine) {
     auto mock_master = std::make_shared<ethercat::mock::Master>("eth0");
-    mock_master->add_slave(ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    mock_master->add_slave(ethercat::mock::MockSlaveConfig(1, 0x3, 0x4, "Slave2"));
+    mock_master->add_slave(
+        ethercat::slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
+    mock_master->add_slave(
+        ethercat::slave::Properties{
+            .position = 1,
+            .vendor_id = 0x3,
+            .product_code = 0x4,
+            .name = "Slave2"
+        }
+    );
 
     auto manager = std::make_unique<ethercat::mock::Manager>();
     manager->configure("eth0", mock_master);
@@ -527,8 +600,22 @@ TEST(PoolTest, DiscoverSlavesCreatesEngine) {
 
 TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
     auto mock_master = std::make_shared<ethercat::mock::Master>("eth0");
-    mock_master->add_slave(ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    mock_master->add_slave(ethercat::mock::MockSlaveConfig(1, 0x3, 0x4, "Slave2"));
+    mock_master->add_slave(
+        ethercat::slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
+    mock_master->add_slave(
+        ethercat::slave::Properties{
+            .position = 1,
+            .vendor_id = 0x3,
+            .product_code = 0x4,
+            .name = "Slave2"
+        }
+    );
 
     auto manager = std::make_unique<ethercat::mock::Manager>();
     manager->configure("eth0", mock_master);

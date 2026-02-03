@@ -58,7 +58,8 @@ xerrors::Error Master::initialize() {
     for (unsigned int i = 0; i < master_info.slave_count; ++i) {
         ec_slave_info_t slave_info;
         if (this->api->master_get_slave(this->ec_master, i, &slave_info) == 0) {
-            slave::Properties info(
+            slave::Properties info{
+                this->interface_name(),
                 static_cast<uint16_t>(i),
                 slave_info.vendor_id,
                 slave_info.product_code,
@@ -66,7 +67,7 @@ xerrors::Error Master::initialize() {
                 slave_info.serial_number,
                 slave_info.name,
                 slave::State::INIT
-            );
+            };
             this->discover_slave_pdos(info);
             this->cached_slaves.push_back(std::move(info));
         }

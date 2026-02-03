@@ -7,3 +7,12 @@ cc_library(
         "//x/cpp/xjson",
     ],
 )
+
+cc_test(
+    name = "slave_test",
+    srcs = ["slave_test.cpp"],
+    deps = [
+        ":slave",
+        "@googletest//:gtest_main",
+    ],
+)

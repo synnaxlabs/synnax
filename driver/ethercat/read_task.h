@@ -17,7 +17,6 @@
 #include "x/cpp/xjson/xjson.h"
 
 #include "driver/ethercat/channel/channel.h"
-#include "driver/ethercat/device/device.h"
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/topology/topology.h"
 #include "driver/task/common/read_task.h"
@@ -35,7 +34,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief number of samples per channel per batch.
     size_t samples_per_chan;
     /// @brief cached device properties for topology validation.
-    std::unordered_map<std::string, device::SlaveProperties> device_cache;
+    std::unordered_map<std::string, slave::Properties> device_cache;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         BaseReadTaskConfig(std::move(other)),
@@ -63,7 +62,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
 
-        std::unordered_map<std::string, device::SlaveProperties> slave_cache;
+        std::unordered_map<std::string, slave::Properties> slave_cache;
         std::string first_network;
 
         cfg.iter("channels", [&](xjson::Parser &ch) {
@@ -76,7 +75,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                     return;
                 }
                 auto props_parser = xjson::Parser(slave_dev.properties);
-                slave_cache.emplace(slave_key, device::SlaveProperties(props_parser));
+                slave_cache.emplace(slave_key, slave::Properties::parse(props_parser));
                 if (props_parser.error()) {
                     ch.field_err("device", props_parser.error().message());
                     return;

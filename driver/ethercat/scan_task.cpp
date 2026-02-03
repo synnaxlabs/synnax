@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <ranges>
 #include <utility>
 
 #include "glog/logging.h"
 
 #include "x/cpp/telem/telem.h"
 
-#include "driver/ethercat/device/device.h"
 #include "driver/ethercat/scan_task.h"
 
 namespace ethercat {
@@ -67,9 +67,9 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     if (this->pool == nullptr) return {devices, xerrors::NIL};
 
     if (scan_ctx.count == 0 && scan_ctx.devices != nullptr) {
-        for (const auto &[key, dev]: *scan_ctx.devices) {
+        for (const auto &dev: *scan_ctx.devices | std::views::values) {
             auto props_parser = xjson::Parser(dev.properties);
-            device::SlaveProperties props(props_parser);
+            auto props = slave::Properties::parse(props_parser);
             if (props_parser.error() || props.enabled) continue;
 
             auto [engine, err] = this->pool->acquire(props.network);
@@ -124,7 +124,7 @@ synnax::Device Scanner::create_slave_device(
     const std::string key = this->generate_slave_key(slave, master_key);
 
     nlohmann::json props = get_existing_properties(key, scan_ctx);
-    auto slave_props = slave.to_device_properties(master_key);
+    auto slave_props = slave.to_json();
     for (auto &[k, v]: slave_props.items())
         props[k] = v;
 
@@ -202,7 +202,7 @@ std::string Scanner::generate_slave_key(
 
 void Scanner::on_device_set(const synnax::Device &dev) {
     auto props_parser = xjson::Parser(dev.properties);
-    device::SlaveProperties props(props_parser);
+    auto props = slave::Properties::parse(props_parser);
     if (props_parser.error()) return;
 
     auto [engine, err] = this->pool->acquire(props.network);

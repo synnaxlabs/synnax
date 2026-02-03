@@ -60,28 +60,32 @@ protected:
         );
 
         mock_master = std::make_shared<ethercat::mock::Master>(NETWORK_INTERFACE);
-
-        ethercat::pdo::Properties status_pdo;
-        status_pdo.pdo_index = 0x1A00;
-        status_pdo.index = 0x6000;
-        status_pdo.sub_index = 1;
-        status_pdo.bit_length = 16;
-        status_pdo.is_input = true;
-        status_pdo.name = "status_word";
-        status_pdo.data_type = telem::INT16_T;
-
-        ethercat::pdo::Properties sensor_pdo;
-        sensor_pdo.pdo_index = 0x1A00;
-        sensor_pdo.index = 0x6000;
-        sensor_pdo.sub_index = 2;
-        sensor_pdo.bit_length = 32;
-        sensor_pdo.is_input = true;
-        sensor_pdo.name = "sensor_value";
-        sensor_pdo.data_type = telem::INT32_T;
-
         mock_master->add_slave(
-            ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, SLAVE_SERIAL, "Test Slave")
-                .with_input_pdos({status_pdo, sensor_pdo})
+            ethercat::slave::Properties{
+                .position = 0,
+                .vendor_id = 0x1,
+                .product_code = 0x2,
+                .serial = SLAVE_SERIAL,
+                .name = "Test Slave",
+                .input_pdos =
+                    {
+                        {.pdo_index = 0x1A00,
+                         .index = 0x6000,
+                         .sub_index = 1,
+                         .bit_length = 16,
+                         .is_input = true,
+                         .name = "status_word",
+                         .data_type = telem::INT16_T},
+                        {.pdo_index = 0x1A00,
+                         .index = 0x6000,
+                         .sub_index = 2,
+                         .bit_length = 32,
+                         .is_input = true,
+                         .name = "sensor_value",
+                         .data_type = telem::INT32_T},
+                    },
+                .pdos_discovered = true,
+            }
         );
         engine = std::make_shared<ethercat::engine::Engine>(mock_master);
     }
@@ -99,6 +103,7 @@ protected:
             {"name", "Test Slave"},
             {"network", NETWORK_INTERFACE},
             {"position", 0},
+            {"enabled", true},
             {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
         };
         synnax::Device dev(
@@ -547,7 +552,13 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
         NETWORK_INTERFACE
     );
     mismatched_master->add_slave(
-        ethercat::mock::MockSlaveConfig(0, 0x99, 0x2, SLAVE_SERIAL, "Test Slave")
+        ethercat::slave::Properties{
+            .position = 0,
+            .vendor_id = 0x99,
+            .product_code = 0x2,
+            .serial = SLAVE_SERIAL,
+            .name = "Test Slave",
+        }
     );
     auto mismatched_engine = std::make_shared<ethercat::engine::Engine>(
         mismatched_master

@@ -63,7 +63,13 @@ protected:
 
         mock_master = std::make_shared<ethercat::mock::Master>(NETWORK_INTERFACE);
         mock_master->add_slave(
-            ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, SLAVE_SERIAL, "Test Slave")
+            ethercat::slave::Properties{
+                .position = 0,
+                .vendor_id = 0x1,
+                .product_code = 0x2,
+                .serial = SLAVE_SERIAL,
+                .name = "Test Slave",
+            }
         );
         engine = std::make_shared<ethercat::engine::Engine>(mock_master);
     }
@@ -97,6 +103,7 @@ protected:
             {"name", "Test Slave"},
             {"network", NETWORK_INTERFACE},
             {"position", 0},
+            {"enabled", true},
             {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
         };
         synnax::Device dev(
@@ -516,7 +523,13 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
         NETWORK_INTERFACE
     );
     mismatched_master->add_slave(
-        ethercat::mock::MockSlaveConfig(0, 0x99, 0x2, SLAVE_SERIAL, "Test Slave")
+        ethercat::slave::Properties{
+            .position = 0,
+            .vendor_id = 0x99,
+            .product_code = 0x2,
+            .serial = SLAVE_SERIAL,
+            .name = "Test Slave",
+        }
     );
     auto mismatched_engine = std::make_shared<ethercat::engine::Engine>(
         mismatched_master

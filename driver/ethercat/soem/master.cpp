@@ -241,9 +241,7 @@ std::string Master::interface_name() const {
 }
 
 slave::State Master::convert_state(const uint16_t soem_state) {
-    const uint16_t state = soem_state & 0x0F;
-
-    switch (state) {
+    switch (soem_state & 0x0F) {
         case EC_STATE_INIT:
             return slave::State::INIT;
         case EC_STATE_PRE_OP:
@@ -266,6 +264,7 @@ void Master::populate_slaves() {
     for (int i = 1; i <= this->context.slavecount; ++i) {
         const auto &soem_slave = this->context.slavelist[i];
         slave::Properties info{};
+        info.network = this->interface_name();
         info.position = static_cast<uint16_t>(i);
         info.vendor_id = soem_slave.eep_man;
         info.product_code = soem_slave.eep_id;
@@ -620,8 +619,7 @@ xerrors::Error Master::read_pdo_assign(
 
         if (pdo_index == 0) continue;
 
-        auto err = this->read_pdo_mapping(slave_pos, pdo_index, is_input, slave);
-        if (err)
+        if (auto err = this->read_pdo_mapping(slave_pos, pdo_index, is_input, slave))
             VLOG(2) << "Failed to read PDO mapping 0x" << std::hex << pdo_index
                     << " for slave " << std::dec << slave_pos << ": " << err.message();
     }

@@ -17,7 +17,6 @@
 #include "x/cpp/xjson/xjson.h"
 
 #include "driver/ethercat/channel/channel.h"
-#include "driver/ethercat/device/device.h"
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/topology/topology.h"
 #include "driver/task/common/write_task.h"
@@ -38,7 +37,7 @@ struct WriteTaskConfig : common::BaseTaskConfig {
     /// @brief rate at which write commands are executed.
     telem::Rate execution_rate;
     /// @brief cached device properties for topology validation.
-    std::unordered_map<std::string, device::SlaveProperties> device_cache;
+    std::unordered_map<std::string, slave::Properties> device_cache;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
         BaseTaskConfig(std::move(other)),
@@ -60,7 +59,7 @@ struct WriteTaskConfig : common::BaseTaskConfig {
         BaseTaskConfig(cfg),
         state_rate(telem::Rate(cfg.field<float>("state_rate", 1.0f))),
         execution_rate(telem::Rate(cfg.field<float>("execution_rate", 1000.0f))) {
-        std::unordered_map<std::string, device::SlaveProperties> slave_cache;
+        std::unordered_map<std::string, slave::Properties> slave_cache;
         std::string first_network;
 
         cfg.iter("channels", [&](xjson::Parser &ch) {
@@ -73,7 +72,7 @@ struct WriteTaskConfig : common::BaseTaskConfig {
                     return;
                 }
                 auto props_parser = xjson::Parser(slave_dev.properties);
-                slave_cache.emplace(slave_key, device::SlaveProperties(props_parser));
+                slave_cache.emplace(slave_key, slave::Properties::parse(props_parser));
                 if (props_parser.error()) {
                     ch.field_err("device", props_parser.error().message());
                     return;

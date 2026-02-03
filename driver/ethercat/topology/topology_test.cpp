@@ -17,7 +17,7 @@ namespace ethercat::topology {
 
 class TopologyValidateTest : public ::testing::Test {
 protected:
-    static device::SlaveProperties make_props(
+    static slave::Properties make_props(
         const std::string &key,
         uint16_t position,
         uint32_t vendor_id,
@@ -33,7 +33,7 @@ protected:
             {"position", position}
         };
         auto parser = xjson::Parser(j);
-        return device::SlaveProperties(parser);
+        return slave::Properties::parse(parser);
     }
 
     static slave::Properties
@@ -56,7 +56,7 @@ TEST_F(TopologyValidateTest, MatchingTopologyReturnsNil) {
         make_slave(2, 0x00000002, 0xABCDEF00),
     };
 
-    std::unordered_map<std::string, device::SlaveProperties> expected;
+    std::unordered_map<std::string, slave::Properties> expected;
     expected.emplace("dev1", make_props("dev1", 1, 0x00000002, 0x12345678));
     expected.emplace("dev2", make_props("dev2", 2, 0x00000002, 0xABCDEF00));
 
@@ -68,7 +68,7 @@ TEST_F(TopologyValidateTest, MissingSlaveAtPositionReturnsMismatch) {
         make_slave(1, 0x00000002, 0x12345678),
     };
 
-    std::unordered_map<std::string, device::SlaveProperties> expected;
+    std::unordered_map<std::string, slave::Properties> expected;
     expected.emplace("dev1", make_props("dev1", 2, 0x00000002, 0xABCDEF00));
 
     ASSERT_OCCURRED_AS(validate(actual, expected), TOPOLOGY_MISMATCH);
@@ -79,7 +79,7 @@ TEST_F(TopologyValidateTest, WrongVendorIdReturnsMismatch) {
         make_slave(1, 0x00000002, 0x12345678),
     };
 
-    std::unordered_map<std::string, device::SlaveProperties> expected;
+    std::unordered_map<std::string, slave::Properties> expected;
     expected.emplace("dev1", make_props("dev1", 1, 0x00000099, 0x12345678));
 
     ASSERT_OCCURRED_AS(validate(actual, expected), TOPOLOGY_MISMATCH);
@@ -90,7 +90,7 @@ TEST_F(TopologyValidateTest, WrongProductCodeReturnsMismatch) {
         make_slave(1, 0x00000002, 0x12345678),
     };
 
-    std::unordered_map<std::string, device::SlaveProperties> expected;
+    std::unordered_map<std::string, slave::Properties> expected;
     expected.emplace("dev1", make_props("dev1", 1, 0x00000002, 0x87654321));
 
     ASSERT_OCCURRED_AS(validate(actual, expected), TOPOLOGY_MISMATCH);
@@ -101,7 +101,7 @@ TEST_F(TopologyValidateTest, EmptyExpectedReturnsNil) {
         make_slave(1, 0x00000002, 0x12345678),
     };
 
-    std::unordered_map<std::string, device::SlaveProperties> expected;
+    std::unordered_map<std::string, slave::Properties> expected;
 
     ASSERT_NIL(validate(actual, expected));
 }
@@ -113,7 +113,7 @@ TEST_F(TopologyValidateTest, MultipleDevicesAllMatchReturnsNil) {
         make_slave(3, 0x00000004, 0x11111111),
     };
 
-    std::unordered_map<std::string, device::SlaveProperties> expected;
+    std::unordered_map<std::string, slave::Properties> expected;
     expected.emplace("dev1", make_props("dev1", 1, 0x00000002, 0x12345678));
     expected.emplace("dev2", make_props("dev2", 2, 0x00000003, 0xABCDEF00));
     expected.emplace("dev3", make_props("dev3", 3, 0x00000004, 0x11111111));

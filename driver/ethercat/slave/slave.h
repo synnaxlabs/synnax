@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -49,6 +50,7 @@ inline std::string slave_state_to_string(const State state) {
 
 /// @brief information about an EtherCAT slave device discovered on the network.
 struct Properties {
+    std::string network;
     /// @brief position of the slave on the EtherCAT bus (0-based index).
     uint16_t position;
     /// @brief EtherCAT vendor ID assigned by ETG.
@@ -77,50 +79,55 @@ struct Properties {
     bool coe_pdo_order_reliable;
     /// @brief error message if PDO discovery failed (empty on success).
     std::string pdo_discovery_error;
-
-    Properties():
-        position(0),
-        vendor_id(0),
-        product_code(0),
-        revision(0),
-        serial(0),
-        state(State::UNKNOWN),
-        input_bits(0),
-        output_bits(0),
-        pdos_discovered(false),
-        coe_pdo_order_reliable(false) {}
-
-    Properties(
-        const uint16_t position,
-        const uint32_t vendor_id,
-        const uint32_t product_code,
-        const uint32_t revision,
-        const uint32_t serial,
-        std::string name,
-        const State state,
-        const uint32_t input_bits = 0,
-        const uint32_t output_bits = 0
-    ):
-        position(position),
-        vendor_id(vendor_id),
-        product_code(product_code),
-        revision(revision),
-        serial(serial),
-        name(std::move(name)),
-        state(state),
-        input_bits(input_bits),
-        output_bits(output_bits),
-        pdos_discovered(false),
-        coe_pdo_order_reliable(false) {}
+    /// @brief whether the device is enabled or not.
+    bool enabled;
 
     /// @brief returns the total number of discovered PDO entries.
     [[nodiscard]] size_t pdo_count() const {
         return this->input_pdos.size() + this->output_pdos.size();
     }
 
+    /// @brief finds an input PDO by name.
+    [[nodiscard]] std::optional<pdo::Properties>
+    find_input_pdo(const std::string &pdo_name) const {
+        for (const auto &pdo: input_pdos)
+            if (pdo.name == pdo_name) return pdo;
+        return std::nullopt;
+    }
+
+    /// @brief finds an output PDO by name.
+    [[nodiscard]] std::optional<pdo::Properties>
+    find_output_pdo(const std::string &pdo_name) const {
+        for (const auto &pdo: output_pdos)
+            if (pdo.name == pdo_name) return pdo;
+        return std::nullopt;
+    }
+
+    /// @brief parses slave properties from JSON.
+    static Properties parse(xjson::Parser &parser) {
+        Properties props;
+        props.serial = parser.field<uint32_t>("serial");
+        props.vendor_id = parser.field<uint32_t>("vendor_id");
+        props.product_code = parser.field<uint32_t>("product_code");
+        props.revision = parser.field<uint32_t>("revision");
+        props.name = parser.field<std::string>("name");
+        props.network = parser.field<std::string>("network", "");
+        props.position = static_cast<uint16_t>(parser.field<int>("position"));
+        props.enabled = parser.field<bool>("enabled");
+        const auto pdos_parser = parser.child("pdos");
+        if (!pdos_parser.error()) {
+            pdos_parser.iter("inputs", [&props](xjson::Parser &pdo) {
+                props.input_pdos.push_back(pdo::Properties::parse(pdo, true));
+            });
+            pdos_parser.iter("outputs", [&props](xjson::Parser &pdo) {
+                props.output_pdos.push_back(pdo::Properties::parse(pdo, false));
+            });
+        }
+        return props;
+    }
+
     /// @brief serializes this slave's properties to JSON.
-    [[nodiscard]] nlohmann::json
-    to_device_properties(const std::string &network) const {
+    [[nodiscard]] nlohmann::json to_json() const {
         nlohmann::json props;
         props["vendor_id"] = this->vendor_id;
         props["product_code"] = this->product_code;
@@ -132,7 +139,7 @@ struct Properties {
         props["input_bits"] = this->input_bits;
         props["output_bits"] = this->output_bits;
         props["pdo_order_reliable"] = this->coe_pdo_order_reliable;
-        props["enabled"] = true;
+        props["enabled"] = this->enabled;
 
         nlohmann::json inputs = nlohmann::json::array();
         for (const auto &pdo: this->input_pdos)
