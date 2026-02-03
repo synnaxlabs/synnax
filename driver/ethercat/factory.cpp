@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "glog/logging.h"
+
 #include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/read_task.h"
 #include "driver/ethercat/scan_task.h"
@@ -28,7 +30,13 @@ namespace ethercat {
 std::unique_ptr<master::Manager> default_manager() {
 #ifdef __linux__
     auto [igh_mgr, err] = igh::Manager::open();
-    if (!err) return std::move(igh_mgr);
+    if (!err) {
+        LOG(INFO) << "[ethercat] using IgH EtherCAT master backend";
+        return std::move(igh_mgr);
+    }
+    LOG(INFO) << "[ethercat] IgH unavailable, falling back to SOEM backend";
+#else
+    LOG(INFO) << "[ethercat] using SOEM backend";
 #endif
     return std::make_unique<soem::Manager>();
 }
