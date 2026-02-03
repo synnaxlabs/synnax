@@ -60,7 +60,7 @@ export interface RetrieveQuery extends device.RetrieveSingleParams {}
 
 const BASE_QUERY: Partial<RetrieveQuery> = { includeStatus: true };
 
-const retrieveSingle = async <
+export const retrieveSingle = async <
   Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
@@ -89,6 +89,41 @@ const retrieveSingle = async <
   store.devices.set(dev);
   if (dev.status != null) store.statuses.set(dev.status);
   return dev;
+};
+
+export interface RetrieveMultipleQuery {
+  keys: device.Key[];
+}
+
+export const retrieveMultiple = async <
+  Properties extends record.Unknown = record.Unknown,
+  Make extends string = string,
+  Model extends string = string,
+>({
+  client,
+  store,
+  query: { keys },
+}: Flux.RetrieveParams<RetrieveMultipleQuery, FluxSubStore>): Promise<
+  device.Device<Properties, Make, Model>[]
+> => {
+  const cached = store.devices.get(keys);
+  const cachedKeys = new Set(cached.map((d) => d.key));
+  const missingKeys = keys.filter((key) => !cachedKeys.has(key));
+
+  const devices = [...cached];
+  if (missingKeys.length > 0) {
+    const fetched = await client.devices.retrieve<Properties, Make, Model>({
+      ...BASE_QUERY,
+      keys: missingKeys,
+    });
+    devices.push(...fetched);
+    store.devices.set(fetched);
+    fetched.forEach((d) => {
+      if (d.status != null) store.statuses.set(d.status);
+    });
+  }
+
+  return devices as device.Device<Properties, Make, Model>[];
 };
 
 export const createRetrieve = <

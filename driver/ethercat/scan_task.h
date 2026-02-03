@@ -77,6 +77,9 @@ public:
         const std::shared_ptr<task::Context> &ctx
     ) override;
 
+    /// @brief handles device updates to sync passive flag to engine.
+    void on_device_set(const synnax::Device &dev) override;
+
 private:
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
@@ -89,7 +92,7 @@ private:
         const SlaveInfo &slave,
         const std::string &master_key,
         const common::ScannerContext &scan_ctx
-    );
+    ) const;
 
     /// @brief gets base properties from existing device or returns empty JSON.
     static nlohmann::json get_existing_properties(

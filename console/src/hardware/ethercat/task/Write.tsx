@@ -24,10 +24,10 @@ import {
   getChannelByMapKey,
   getPDOName,
   getPortLabel,
+  type OutputChannel,
   resolvePDODataType,
   WRITE_SCHEMAS,
   WRITE_TYPE,
-  type WriteChannel,
   writeConfigZ,
   writeMapKey,
   type writeStatusDataZ,
@@ -65,7 +65,7 @@ const Properties = () => (
 const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<WriteChannel>(path);
+  const ch = PForm.useFieldValue<OutputChannel>(path);
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...props}
@@ -75,6 +75,7 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
       stateChannel={ch.stateChannel}
       hasTareButton={false}
       canTare={false}
+      nameDirection="y"
       portMaxChars={20}
     />
   );
@@ -134,7 +135,7 @@ const listItem = Component.renderProp(ChannelListItem);
 const Form: FC<
   Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
 > = () => (
-  <Common.Task.Layouts.ListAndDetails<WriteChannel>
+  <Common.Task.Layouts.ListAndDetails<OutputChannel>
     listItem={listItem}
     details={channelDetails}
     createChannel={createWriteChannel}
@@ -208,7 +209,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   const networkSafeName = channel.escapeInvalidName(network);
   const rack = slaves[0].rack;
 
-  const channelsBySlaveKey = new Map<string, WriteChannel[]>();
+  const channelsBySlaveKey = new Map<string, OutputChannel[]>();
   for (const ch of config.channels) {
     const existing = channelsBySlaveKey.get(ch.device) ?? [];
     existing.push(ch);
@@ -220,7 +221,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
 
     let modified = await checkOrCreateStateIndex(client, slave, networkSafeName);
 
-    const toCreate: WriteChannel[] = [];
+    const toCreate: OutputChannel[] = [];
     for (const ch of channels) {
       const mapKey = writeMapKey(ch);
       const existing = getChannelByMapKey(slave.properties.write.channels, mapKey);

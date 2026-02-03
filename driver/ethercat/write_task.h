@@ -150,11 +150,11 @@ public:
         engine(std::move(eng)) {}
 
     xerrors::Error start() override {
+        if (auto err = this->engine->ensure_initialized(); err) return err;
         if (auto err = topology::validate(
                 this->engine->slaves(),
                 this->cfg.device_cache
-            );
-            err)
+            ))
             return err;
 
         std::vector<PDOEntry> entries;

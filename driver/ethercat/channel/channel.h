@@ -43,7 +43,7 @@ struct Channel {
     virtual ~Channel() = default;
 
     /// @brief returns the byte length rounded up from bit_length.
-    [[nodiscard]] size_t byte_length() const { return (bit_length + 7) / 8; }
+    [[nodiscard]] size_t byte_length() const { return (this->bit_length + 7) / 8; }
 
     /// @brief converts this channel configuration to a PDOEntry.
     [[nodiscard]] PDOEntry to_pdo_entry(const bool is_input) const {
@@ -97,15 +97,15 @@ struct AutomaticInput final : Input {
         Channel(parser, slave),
         Input(parser, slave),
         pdo_name(parser.field<std::string>("pdo")) {
-        auto pdo = slave.find_input_pdo(pdo_name);
+        auto pdo = slave.find_input_pdo(this->pdo_name);
         if (!pdo) {
-            parser.field_err("pdo", "PDO '" + pdo_name + "' not found in slave");
+            parser.field_err("pdo", "PDO '" + this->pdo_name + "' not found in slave");
             return;
         }
-        index = pdo->index;
-        subindex = pdo->subindex;
-        bit_length = pdo->bit_length;
-        data_type = telem::DataType(pdo->data_type);
+        this->index = pdo->index;
+        this->subindex = pdo->subindex;
+        this->bit_length = pdo->bit_length;
+        this->data_type = telem::DataType(pdo->data_type);
     }
 };
 
@@ -113,10 +113,10 @@ struct AutomaticInput final : Input {
 struct ManualInput final : Input {
     explicit ManualInput(xjson::Parser &parser, const device::SlaveProperties &slave):
         Channel(parser, slave), Input(parser, slave) {
-        index = static_cast<uint16_t>(parser.field<int>("index"));
-        subindex = static_cast<uint8_t>(parser.field<int>("subindex"));
-        bit_length = static_cast<uint8_t>(parser.field<int>("bit_length"));
-        data_type = telem::DataType(parser.field<std::string>("data_type"));
+        this->index = static_cast<uint16_t>(parser.field<int>("index"));
+        this->subindex = static_cast<uint8_t>(parser.field<int>("subindex"));
+        this->bit_length = static_cast<uint8_t>(parser.field<int>("bit_length"));
+        this->data_type = telem::DataType(parser.field<std::string>("data_type"));
     }
 };
 
@@ -176,15 +176,15 @@ struct AutomaticOutput final : Output {
         Channel(parser, slave),
         Output(parser, slave),
         pdo_name(parser.field<std::string>("pdo")) {
-        auto pdo = slave.find_output_pdo(pdo_name);
+        auto pdo = slave.find_output_pdo(this->pdo_name);
         if (!pdo) {
-            parser.field_err("pdo", "PDO '" + pdo_name + "' not found in slave");
+            parser.field_err("pdo", "PDO '" + this->pdo_name + "' not found in slave");
             return;
         }
-        index = pdo->index;
-        subindex = pdo->subindex;
-        bit_length = pdo->bit_length;
-        data_type = telem::DataType(pdo->data_type);
+        this->index = pdo->index;
+        this->subindex = pdo->subindex;
+        this->bit_length = pdo->bit_length;
+        this->data_type = telem::DataType(pdo->data_type);
     }
 };
 
@@ -192,10 +192,10 @@ struct AutomaticOutput final : Output {
 struct ManualOutput final : Output {
     explicit ManualOutput(xjson::Parser &parser, const device::SlaveProperties &slave):
         Channel(parser, slave), Output(parser, slave) {
-        index = static_cast<uint16_t>(parser.field<int>("index"));
-        subindex = static_cast<uint8_t>(parser.field<int>("subindex"));
-        bit_length = static_cast<uint8_t>(parser.field<int>("bit_length"));
-        data_type = telem::DataType(parser.field<std::string>("data_type"));
+        this->index = static_cast<uint16_t>(parser.field<int>("index"));
+        this->subindex = static_cast<uint8_t>(parser.field<int>("subindex"));
+        this->bit_length = static_cast<uint8_t>(parser.field<int>("bit_length"));
+        this->data_type = telem::DataType(parser.field<std::string>("data_type"));
     }
 };
 

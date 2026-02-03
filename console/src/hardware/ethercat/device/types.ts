@@ -58,6 +58,7 @@ export const slavePropertiesZ = z.object({
   write: z.object({
     channels: z.record(z.string(), z.number()),
   }),
+  passive: z.boolean().optional().default(false),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
 
@@ -74,6 +75,7 @@ export const ZERO_SLAVE_PROPERTIES: SlaveProperties = {
   writeStateIndex: 0,
   read: { channels: {} },
   write: { channels: {} },
+  passive: false,
 };
 
 export interface SlaveDevice extends device.Device<SlaveProperties, Make, SlaveModel> {}

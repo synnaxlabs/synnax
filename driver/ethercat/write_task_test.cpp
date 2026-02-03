@@ -79,7 +79,7 @@ protected:
             "Network",
             props.dump()
         );
-        auto err = client->devices.create(dev);
+        const auto err = client->devices.create(dev);
         EXPECT_TRUE(!err) << err.message();
         return dev;
     }
@@ -88,7 +88,7 @@ protected:
         uint32_t serial,
         const json &input_pdos,
         const json &output_pdos
-    ) {
+    ) const {
         json props = {
             {"serial", serial},
             {"vendor_id", 0x1},
@@ -108,7 +108,7 @@ protected:
             "TestModule",
             props.dump()
         );
-        auto err = client->devices.create(dev);
+        const auto err = client->devices.create(dev);
         EXPECT_TRUE(!err) << err.message();
         return dev;
     }

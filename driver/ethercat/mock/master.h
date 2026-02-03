@@ -225,6 +225,8 @@ public:
         return xerrors::NIL;
     }
 
+    void set_passive_slave(uint16_t, bool) override {}
+
     xerrors::Error activate() override {
         std::lock_guard lock(this->mu);
         this->calls.push_back("activate");

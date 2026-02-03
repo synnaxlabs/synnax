@@ -120,6 +120,9 @@ struct Scanner {
     ) {
         return false;
     }
+
+    /// @brief Called when a device is set/updated via the signal channel.
+    virtual void on_device_set(const synnax::Device &dev) {}
 };
 
 struct ClusterAPI {
@@ -291,8 +294,8 @@ class ScanTask final : public task::Task, public pipeline::Base {
                         }
                         if (dev.make != make || dev.rack != rack_key) continue;
                         std::lock_guard lock(this->mu);
-                        if (this->dev_states.find(dev.key) == this->dev_states.end())
-                            this->dev_states[dev.key] = dev;
+                        this->dev_states[dev.key] = dev;
+                        this->scanner->on_device_set(dev);
                     }
                 } else if (ch_key == this->device_delete_channel.key)
                     for (const auto &dev_key: series.strings()) {
