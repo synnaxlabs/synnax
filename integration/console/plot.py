@@ -91,7 +91,7 @@ class Plot(ConsolePage):
         Returns:
             The CSV file contents as a string.
         """
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         self.layout.show_visualization_toolbar()
         csv_button = self.page.locator(".pluto-icon--csv").locator("..")
         csv_button.click()
@@ -118,7 +118,7 @@ class Plot(ConsolePage):
 
     def set_axis(self, axis: Axis, config: dict[str, Any]) -> None:
         """Set axis configuration with the given parameters."""
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         self.page.get_by_text("Axes").click(timeout=5000)
         self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=5000)
 
@@ -205,7 +205,7 @@ class Plot(ConsolePage):
         Args:
             title: The new title for the plot
         """
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         self.page.locator("#properties").click(timeout=5000)
 
         title_input = (
@@ -223,7 +223,7 @@ class Plot(ConsolePage):
         Args:
             thickness: Stroke width (1-10)
         """
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         self.page.locator("#lines").click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
@@ -248,7 +248,7 @@ class Plot(ConsolePage):
         Args:
             label: New label for the line
         """
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         self.page.locator("#lines").click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
@@ -267,7 +267,7 @@ class Plot(ConsolePage):
         Returns:
             The current stroke width
         """
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         self.page.locator("#lines").click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
@@ -281,7 +281,7 @@ class Plot(ConsolePage):
         Returns:
             The current line label
         """
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         self.page.locator("#lines").click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
@@ -323,7 +323,7 @@ class Plot(ConsolePage):
             channels: ChannelClient for showing/hiding channels sidebar
             axis: Target axis (Y1, Y2, or X1)
         """
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         channels.show_channels()
 
         channel_item = (

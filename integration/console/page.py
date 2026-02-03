@@ -18,7 +18,10 @@ from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 
 from framework.utils import get_results_path
 
+from .context_menu import ContextMenu
 from .layout import LayoutClient
+from .notifications import NotificationsClient
+from .tree import Tree
 
 PageType = Literal[
     "Control Sequence",
@@ -111,6 +114,9 @@ class ConsolePage:
         self.layout = layout
         self.page_name = page_name
         self.pane_locator = pane_locator
+        self.ctx_menu = ContextMenu(layout.page)
+        self.notifications = NotificationsClient(layout.page)
+        self.tree = Tree(layout.page)
 
     def _get_tab(self) -> Locator:
         """Get the tab locator for this page."""
@@ -291,7 +297,7 @@ class ConsolePage:
         Returns:
             The copied link from clipboard (empty string if clipboard access fails).
         """
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         self.layout.show_visualization_toolbar()
         link_button = self.page.locator(".pluto-icon--link").locator("..")
         link_button.click(timeout=5000)

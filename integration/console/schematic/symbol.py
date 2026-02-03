@@ -14,6 +14,7 @@ import synnax as sy
 from playwright.sync_api import FloatRect, Locator, Page
 
 from ..layout import LayoutClient
+from ..notifications import NotificationsClient
 
 """ Symbol Box helpers """
 
@@ -91,6 +92,7 @@ class Symbol(ABC):
 
         self.page = layout.page
         self.layout = layout
+        self.notifications = NotificationsClient(layout.page)
 
         toolbar = SymbolToolbar(self.layout)
         self.symbol_id = toolbar.add_symbol(self._symbol_type, self._symbol_group)
@@ -107,13 +109,13 @@ class Symbol(ABC):
         pass
 
     def _disable_edit_mode(self) -> None:
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         edit_off_icon = self.page.get_by_label("pluto-icon--edit-off")
         if edit_off_icon.count() > 0:
             edit_off_icon.click()
 
     def _enable_edit_mode(self) -> None:
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         enable_editing_link = self.page.get_by_text("enable editing", exact=False)
         if enable_editing_link.count() > 0:
             enable_editing_link.click()

@@ -16,6 +16,8 @@ from playwright.sync_api import Locator
 
 from .context_menu import ContextMenu
 from .layout import LayoutClient
+from .notifications import NotificationsClient
+from .tree import Tree
 
 
 class BaseClient:
@@ -33,10 +35,12 @@ class BaseClient:
         """Initialize the base client.
 
         Args:
-            layout: The LayoutClient for UI operations (includes notifications).
+            layout: The LayoutClient for UI operations.
         """
         self.layout = layout
-        self.context_menu = ContextMenu(layout.page)
+        self.ctx_menu = ContextMenu(layout.page)
+        self.notifications = NotificationsClient(layout.page)
+        self.tree = Tree(layout.page)
 
     def _wait_for_hidden(self, item: Locator, timeout: int = 5000) -> None:
         """Wait for an item to be removed/hidden.
@@ -54,7 +58,7 @@ class BaseClient:
             item: The Locator for the element to right-click.
             action: The exact text of the menu action to click.
         """
-        self.context_menu.action(item, action)
+        self.ctx_menu.action(item, action)
 
     def _show_panel_by_icon(self, icon_name: str, item_prefix: str) -> None:
         """Show a navigation panel by clicking its toolbar button.
@@ -163,7 +167,7 @@ class BaseClient:
             item: The Locator for the item to delete.
             timeout: Maximum time in milliseconds to wait for deletion.
         """
-        self.context_menu.action(item, "Delete")
+        self.ctx_menu.action(item, "Delete")
         modal = self.layout.page.locator(self.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=2000)
         modal.get_by_role("button", name="Delete", exact=True).click()
@@ -185,7 +189,7 @@ class BaseClient:
                 item.click(modifiers=["ControlOrMeta"])
 
         if then_right_click_last and items:
-            self.context_menu.open_on(items[-1])
+            self.ctx_menu.open_on(items[-1])
 
     def _open_modal(self, command: str, selector: str) -> None:
         """Open a modal via command palette.
@@ -215,9 +219,9 @@ class BaseClient:
         Returns:
             True if errors were found, False otherwise.
         """
-        for notification in self.layout.notifications.check():
+        for notification in self.notifications.check():
             message = notification.get("message", "")
             if "Failed" in message or "Error" in message:
-                self.layout.notifications.close(0)
+                self.notifications.close(0)
                 return True
         return False

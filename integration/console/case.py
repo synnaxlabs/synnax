@@ -99,7 +99,7 @@ class ConsoleCase(TestCase):
         # Prevent state pollution
         # Selecting workspace restores tabs
         self.console.close_all_tabs()
-        self.console.layout.notifications.close_connection()
+        self.console.notifications.close_connection()
 
     def teardown(self) -> None:
         self.context.close()

@@ -298,7 +298,7 @@ class Schematic(ConsolePage):
             raise ValueError(
                 f"Control Authority must be between 0 and 255, got {authority}"
             )
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         self.layout.click("Control")
         self.layout.fill_input_field("Control Authority", str(authority))
 
@@ -308,7 +308,7 @@ class Schematic(ConsolePage):
         show_control_legend: bool | None = None,
     ) -> None:
         """Set schematic properties."""
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         self.layout.click("Control")
 
         if control_authority is not None:
@@ -433,7 +433,7 @@ class Schematic(ConsolePage):
         Returns:
             Tuple of (control_authority, show_control_legend)
         """
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         self.layout.show_visualization_toolbar()
         self.layout.click("Control")
 

@@ -20,8 +20,9 @@ from framework.utils import get_results_path
 from .channels import ChannelClient
 from .context_menu import ContextMenu
 from .layout import LayoutClient
-from .tree import Tree
 from .log import Log
+from .notifications import NotificationsClient
+from .tree import Tree
 from .page import ConsolePage, PageType
 from .plot import Plot
 from .schematic import Schematic
@@ -48,7 +49,8 @@ class WorkspaceClient:
     ):
         self.layout = layout
         self.client = client
-        self.context_menu = ContextMenu(layout.page)
+        self.ctx_menu = ContextMenu(layout.page)
+        self.notifications = NotificationsClient(layout.page)
         self.tree = Tree(layout.page)
 
     def create_page(
@@ -306,7 +308,7 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(old_name)
         page_item.wait_for(state="visible", timeout=5000)
-        self.context_menu.action(page_item, "Rename")
+        self.ctx_menu.action(page_item, "Rename")
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
         self.get_page(new_name).wait_for(state="visible", timeout=5000)
@@ -322,7 +324,7 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        self.context_menu.action(page_item, "Delete")
+        self.ctx_menu.action(page_item, "Delete")
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
@@ -342,7 +344,7 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        self.context_menu.open_on(page_item)
+        self.ctx_menu.open_on(page_item)
         menu = self.layout.page.locator(".pluto-menu-context")
         delete_item = menu.get_by_text("Delete", exact=True)
         ungroup_item = menu.get_by_text("Ungroup", exact=True)
@@ -373,7 +375,7 @@ class WorkspaceClient:
             page_item.click(modifiers=["ControlOrMeta"])
 
         last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        self.context_menu.action(last_item, "Delete")
+        self.ctx_menu.action(last_item, "Delete")
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
@@ -393,7 +395,7 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        self.context_menu.action(page_item, "Copy link")
+        self.ctx_menu.action(page_item, "Copy link")
         self.layout.close_nav_drawer()
         return self.layout.read_clipboard()
 
@@ -419,7 +421,7 @@ class WorkspaceClient:
             page_item.click(modifiers=["ControlOrMeta"])
 
         last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        self.context_menu.action(last_item, "Group Selection")
+        self.ctx_menu.action(last_item, "Group Selection")
         self.layout.select_all_and_type(group_name)
         self.layout.press_enter()
         self.layout.close_nav_drawer()
@@ -447,11 +449,11 @@ class WorkspaceClient:
             raise Exception(
                 f"Page '{name}' not found. Available items: {item_texts}"
             ) from e
-        self.context_menu.open_on(page_item)
+        self.ctx_menu.open_on(page_item)
         self.layout.page.evaluate("delete window.showSaveFilePicker")
 
         with self.layout.page.expect_download(timeout=5000) as download_info:
-            self.context_menu.click_option("Export")
+            self.ctx_menu.click_option("Export")
 
         download = download_info.value
         save_path = get_results_path(f"{name}_export.json")
@@ -472,7 +474,7 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        self.context_menu.action(page_item, f"Snapshot to {range_name}")
+        self.ctx_menu.action(page_item, f"Snapshot to {range_name}")
         self.layout.close_nav_drawer()
 
     def snapshot_pages_to_active_range(self, names: list[str], range_name: str) -> None:
@@ -497,7 +499,7 @@ class WorkspaceClient:
             page_item.click(modifiers=["ControlOrMeta"])
 
         last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        self.context_menu.action(last_item, f"Snapshot to {range_name}")
+        self.ctx_menu.action(last_item, f"Snapshot to {range_name}")
         self.layout.close_nav_drawer()
 
     def copy_page(self, name: str, new_name: str) -> None:
@@ -510,7 +512,7 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        self.context_menu.action(page_item, "Copy")
+        self.ctx_menu.action(page_item, "Copy")
 
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
@@ -541,7 +543,7 @@ class WorkspaceClient:
 
         # For single item, reuse first_item; otherwise get the last item
         last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        self.context_menu.action(last_item, "Copy")
+        self.ctx_menu.action(last_item, "Copy")
 
         for name in names:
             copy_name = f"{name} (copy)"
@@ -617,7 +619,7 @@ class WorkspaceClient:
         self.layout.show_resource_toolbar("workspace")
         workspace = self.get_item(old_name)
         workspace.wait_for(state="visible", timeout=5000)
-        self.context_menu.action(workspace, "Rename")
+        self.ctx_menu.action(workspace, "Rename")
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
         self.layout.close_nav_drawer()
@@ -632,7 +634,7 @@ class WorkspaceClient:
 
         workspace = self.get_item(name)
         workspace.wait_for(state="visible", timeout=5000)
-        self.context_menu.action(workspace, "Delete")
+        self.ctx_menu.action(workspace, "Delete")
 
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)

@@ -23,7 +23,6 @@ from synnax.telem import (
 
 from .base import BaseClient
 from .layout import LayoutClient
-from .tree import Tree
 
 
 class ChannelClient(BaseClient):
@@ -43,7 +42,6 @@ class ChannelClient(BaseClient):
     ):
         super().__init__(layout)
         self.client = client
-        self.tree = Tree(layout.page)
 
     def _get_channels_button(self) -> Locator:
         """Get the channels button in the sidebar."""
@@ -100,7 +98,7 @@ class ChannelClient(BaseClient):
         item = self._find_channel_item(name)
         if item is None:
             raise ValueError(f"Channel {name} not found")
-        self.context_menu.open_on(item)
+        self.ctx_menu.open_on(item)
         return item
 
     def create(
@@ -346,7 +344,7 @@ class ChannelClient(BaseClient):
         :param new_expression: The new calculation expression.
         """
         self._right_click_channel(name)
-        self.context_menu.click_option("Edit calculation")
+        self.ctx_menu.click_option("Edit calculation")
 
         editor = self.layout.page.locator(".monaco-editor")
         editor.wait_for(state="visible", timeout=5000)
@@ -371,7 +369,7 @@ class ChannelClient(BaseClient):
         :param alias: The alias to set for the channel.
         """
         self._right_click_channel(name)
-        self.context_menu.click_option("Set alias under", exact=False)
+        self.ctx_menu.click_option("Set alias under", exact=False)
 
         self.layout.page.keyboard.type(alias)
         self.layout.press_enter()
@@ -389,7 +387,7 @@ class ChannelClient(BaseClient):
         :param name: The name of the channel to clear the alias for.
         """
         self._right_click_channel(name)
-        self.context_menu.click_option("Remove alias under", exact=False)
+        self.ctx_menu.click_option("Remove alias under", exact=False)
 
         self.hide_channels()
 
@@ -403,7 +401,7 @@ class ChannelClient(BaseClient):
         items = self.tree.find_by_prefix(self.ITEM_PREFIX)
         if not items:
             raise ValueError("No channels found to trigger reload")
-        self.context_menu.action(items[0], "Reload Console")
+        self.ctx_menu.action(items[0], "Reload Console")
 
         self.layout.page.wait_for_load_state("load", timeout=30000)
         self.layout.page.wait_for_load_state("networkidle", timeout=30000)
@@ -433,7 +431,7 @@ class ChannelClient(BaseClient):
 
         # Right-click last item and select "Group Selection"
         assert last_item is not None
-        self.context_menu.action(last_item, "Group Selection")
+        self.ctx_menu.action(last_item, "Group Selection")
 
         editable_input = self.layout.page.locator(
             "input.pluto-text__input--editable"
@@ -455,7 +453,7 @@ class ChannelClient(BaseClient):
         :returns: The copied link (if clipboard access is available).
         """
         self._right_click_channel(name)
-        self.context_menu.click_option("Copy link")
+        self.ctx_menu.click_option("Copy link")
         self.hide_channels()
         return self.layout.read_clipboard()
 
@@ -557,7 +555,7 @@ class ChannelClient(BaseClient):
             new_name: The new name for the channel.
         """
         item = self._right_click_channel(old_name)
-        self.context_menu.click_option("Rename")
+        self.ctx_menu.click_option("Rename")
 
         channel_name_element = item.locator("p.pluto-text--editable")
         channel_name_element.click()
@@ -597,11 +595,11 @@ class ChannelClient(BaseClient):
 
         self._delete_with_confirmation(item, timeout)
 
-        for i, notification in enumerate(self.layout.notifications.check()):
+        for i, notification in enumerate(self.notifications.check()):
             message = notification.get("message", "")
             description = notification.get("description", "")
             if message == "Failed to delete Channel" and name in description:
-                self.layout.notifications.close(i)
+                self.notifications.close(i)
                 raise RuntimeError(f"{message} {name}, {description}")
 
         self._wait_for_item_removed(self.ITEM_PREFIX, name, timeout, exact=True)

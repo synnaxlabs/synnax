@@ -26,7 +26,6 @@ from playwright.sync_api import Locator
 
 from .base import BaseClient
 from .layout import LayoutClient
-from .tree import Tree
 
 
 class AccessClient(BaseClient):
@@ -38,7 +37,6 @@ class AccessClient(BaseClient):
 
     def __init__(self, layout: LayoutClient):
         super().__init__(layout)
-        self.tree = Tree(layout.page)
 
     # -------------------------------------------------------------------------
     # Login/Logout
@@ -161,7 +159,7 @@ class AccessClient(BaseClient):
         :returns: True if the user was created successfully.
         """
         # Clear any existing notifications to avoid false positives
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
 
         # Open command palette and register user
         self.layout.command_palette("Register a User")
@@ -218,12 +216,12 @@ class AccessClient(BaseClient):
             raise ValueError(f"User '{username}' not found in users panel")
 
         # Right-click to open context menu and click "Assign to role"
-        self.context_menu.open_on(user_item)
+        self.ctx_menu.open_on(user_item)
         assign_option = self.layout.page.get_by_text("Assign to role", exact=True).first
         if assign_option.count() == 0:
-            self.context_menu.close()
+            self.ctx_menu.close()
             raise ValueError("'Assign to role' option not available for this user")
-        self.context_menu.click_option("Assign to role")
+        self.ctx_menu.click_option("Assign to role")
 
         # Modal should now be open - select role
         if not self.layout.check_for_modal():
@@ -283,19 +281,19 @@ class AccessClient(BaseClient):
             raise ValueError(f"Role '{old_name}' not found")
 
         # Right-click to open context menu
-        self.context_menu.open_on(role_item)
+        self.ctx_menu.open_on(role_item)
 
         # Check if Rename option exists and is not disabled
         rename_option = self.layout.page.get_by_text("Rename", exact=True).first
         if rename_option.count() == 0:
-            self.context_menu.close()
+            self.ctx_menu.close()
             raise ValueError("Rename option not available (role may be internal)")
         rename_class = rename_option.get_attribute("class") or ""
         if "disabled" in rename_class.lower():
-            self.context_menu.close()
+            self.ctx_menu.close()
             raise ValueError("Rename option is disabled (role may be internal)")
 
-        self.context_menu.click_option("Rename")
+        self.ctx_menu.click_option("Rename")
 
         # Find the editable text element and fill new name
         role_name_element = role_item.locator("p.pluto-text--editable")
@@ -319,19 +317,19 @@ class AccessClient(BaseClient):
             raise ValueError(f"Role '{name}' not found")
 
         # Right-click to open context menu
-        self.context_menu.open_on(role_item)
+        self.ctx_menu.open_on(role_item)
 
         # Check if Delete option exists and is not disabled
         delete_option = self.layout.page.get_by_text("Delete", exact=True).first
         if delete_option.count() == 0:
-            self.context_menu.close()
+            self.ctx_menu.close()
             raise ValueError("Delete option not available (role may be internal)")
         delete_class = delete_option.get_attribute("class") or ""
         if "disabled" in delete_class.lower():
-            self.context_menu.close()
+            self.ctx_menu.close()
             raise ValueError("Delete option is disabled (role may be internal)")
 
-        self.context_menu.click_option("Delete")
+        self.ctx_menu.click_option("Delete")
 
         # Confirm deletion in modal if present
         if self.layout.check_for_modal():
@@ -357,7 +355,7 @@ class AccessClient(BaseClient):
             raise ValueError(f"Role '{name}' not found")
 
         # Right-click to open context menu
-        self.context_menu.open_on(role_item)
+        self.ctx_menu.open_on(role_item)
 
         # Check if Rename and Delete are available and not disabled
         rename_option = self.layout.page.get_by_text("Rename", exact=True).first
@@ -375,7 +373,7 @@ class AccessClient(BaseClient):
             delete_available = "disabled" not in delete_class.lower()
 
         # Close context menu
-        self.context_menu.close()
+        self.ctx_menu.close()
 
         return rename_available and delete_available
 

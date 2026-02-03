@@ -18,7 +18,7 @@ from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from .context_menu import ContextMenu
-from .notifications import NotificationsClient
+
 
 AriaRole = Literal[
     "alert",
@@ -118,8 +118,7 @@ class LayoutClient:
 
     def __init__(self, page: Page):
         self.page = page
-        self.context_menu = ContextMenu(self.page)
-        self.notifications = NotificationsClient(self.page)
+        self.ctx_menu = ContextMenu(self.page)  # For internal tab operations
 
     def command_palette(self, command: str, retries: int = 3) -> None:
         """Execute a command via the command palette."""
@@ -550,7 +549,7 @@ class LayoutClient:
         if modality == "button":
             tab.get_by_label("pluto-tabs__close").click()
         else:
-            self.context_menu.action(tab.locator("p"), "Close", exact=False)
+            self.ctx_menu.action(tab.locator("p"), "Close", exact=False)
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
@@ -578,7 +577,7 @@ class LayoutClient:
         if modality == "dblclick":
             tab.locator("p").first.dblclick()
         else:
-            self.context_menu.action(tab.locator("p"), "Rename", exact=False)
+            self.ctx_menu.action(tab.locator("p"), "Rename", exact=False)
 
         # The tab name uses Text.Editable which becomes contentEditable (not an input)
         editable_text = tab.locator("p[contenteditable='true']").first
@@ -604,7 +603,7 @@ class LayoutClient:
             tab_name: Name of the tab to split
         """
         tab = self.get_tab(tab_name)
-        self.context_menu.action(tab, "Split Horizontally", exact=False)
+        self.ctx_menu.action(tab, "Split Horizontally", exact=False)
 
     def split_vertical(self, tab_name: str) -> None:
         """Split a leaf vertically via context menu.
@@ -613,7 +612,7 @@ class LayoutClient:
             tab_name: Name of the tab to split
         """
         tab = self.get_tab(tab_name)
-        self.context_menu.action(tab, "Split Vertically", exact=False)
+        self.ctx_menu.action(tab, "Split Vertically", exact=False)
 
     def focus(self, tab_name: str) -> None:
         """Focus on a leaf (maximize it) via context menu.
@@ -622,7 +621,7 @@ class LayoutClient:
             tab_name: Name of the tab to focus
         """
         tab = self.get_tab(tab_name)
-        self.context_menu.action(tab, "Focus", exact=False)
+        self.ctx_menu.action(tab, "Focus", exact=False)
 
     def show_visualization_toolbar(self) -> None:
         """Show the visualization toolbar by pressing V."""

@@ -19,6 +19,7 @@ from .channels import ChannelClient
 from .docs import DocsClient
 from .labels import LabelClient
 from .layout import LayoutClient
+from .notifications import NotificationsClient
 from .rack import RackClient
 from .ranges import RangesClient
 from .workspace import WorkspaceClient
@@ -29,8 +30,8 @@ class Console:
     Console UI automation interface - thin orchestration layer.
 
     Composes specialized clients for interacting with the Synnax Console application.
-    Most UI operations are accessed through self.layout (LayoutClient).
-    Notifications are accessed via self.layout.notifications.
+    Layout operations are accessed through self.layout (LayoutClient).
+    Each client imports and instantiates its own utilities (notifications, ctx_menu, tree).
     """
 
     access: AccessClient
@@ -40,6 +41,7 @@ class Console:
     docs: DocsClient
     labels: LabelClient
     layout: LayoutClient
+    notifications: NotificationsClient
     rack: RackClient
     ranges: RangesClient
     workspace: WorkspaceClient
@@ -49,6 +51,7 @@ class Console:
         self.page = page
         self.client = client
         self.layout = LayoutClient(page)
+        self.notifications = NotificationsClient(page)
         self.docs = DocsClient(self.layout)
         self.labels = LabelClient(self.layout)
         self.rack = RackClient(self.layout)

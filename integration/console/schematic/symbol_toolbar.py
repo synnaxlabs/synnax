@@ -19,6 +19,7 @@ from framework.utils import get_results_path
 
 from ..context_menu import ContextMenu
 from ..layout import LayoutClient
+from ..notifications import NotificationsClient
 from .symbol_editor import SymbolEditor
 
 
@@ -28,7 +29,8 @@ class SymbolToolbar:
     def __init__(self, layout: LayoutClient):
         self.page = layout.page
         self.layout = layout
-        self.context_menu = ContextMenu(layout.page)
+        self.ctx_menu = ContextMenu(layout.page)
+        self.notifications = NotificationsClient(layout.page)
 
     @property
     def toolbar(self) -> Locator:
@@ -47,7 +49,7 @@ class SymbolToolbar:
     def select_group(self, name: str) -> None:
         """Select a symbol group by name."""
         self.show()
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         self.layout.click("Symbols")
         self.layout.wait_for_visible(self.group_list)
 
@@ -58,7 +60,7 @@ class SymbolToolbar:
     def create_group(self, name: str) -> None:
         """Create a new symbol group via the toolbar button."""
         self.show()
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
 
         create_group_btn = (
             self.toolbar.locator("button[class*='outlined']")
@@ -83,7 +85,7 @@ class SymbolToolbar:
         self.select_group(old_name)
 
         group_btn = self.layout.locator("button").filter(has_text=old_name)
-        self.context_menu.action(group_btn, "Rename")
+        self.ctx_menu.action(group_btn, "Rename")
 
         name_input = self.layout.locator("input[placeholder='Group Name']")
         self.layout.wait_for_visible(name_input)
@@ -100,7 +102,7 @@ class SymbolToolbar:
         self.show()
         group_btn = self.layout.locator("button").filter(has_text=name)
         self.layout.wait_for_visible(group_btn)
-        self.context_menu.action(group_btn, "Delete")
+        self.ctx_menu.action(group_btn, "Delete")
 
         confirm_btn = self.page.get_by_role("button", name="Delete")
         confirm_btn.wait_for(state="visible", timeout=3000)
@@ -173,7 +175,7 @@ class SymbolToolbar:
     def rename_symbol(self, old_name: str, new_name: str) -> None:
         """Rename a symbol via context menu."""
         symbol = self.get_symbol(old_name)
-        self.context_menu.action(symbol, "Rename")
+        self.ctx_menu.action(symbol, "Rename")
 
         name_input = self.page.locator("input[placeholder='Symbol Name']")
         name_input.wait_for(state="visible", timeout=5000)
@@ -186,7 +188,7 @@ class SymbolToolbar:
     def edit_symbol(self, name: str) -> SymbolEditor:
         """Open the symbol editor for an existing symbol via context menu."""
         symbol = self.get_symbol(name)
-        self.context_menu.action(symbol, "Edit")
+        self.ctx_menu.action(symbol, "Edit")
 
         editor = SymbolEditor(self.layout)
         editor.wait_for_open()
@@ -195,7 +197,7 @@ class SymbolToolbar:
     def delete_symbol(self, name: str) -> None:
         """Delete a symbol via context menu."""
         symbol = self.get_symbol(name)
-        self.context_menu.action(symbol, "Delete")
+        self.ctx_menu.action(symbol, "Delete")
 
         confirm_btn = self.page.get_by_role("button", name="Delete", exact=True)
         if confirm_btn.count() > 0:
@@ -206,12 +208,12 @@ class SymbolToolbar:
     def export_symbol(self, name: str) -> dict[str, Any]:
         """Export a symbol via context menu and return the JSON content."""
         symbol = self.get_symbol(name)
-        self.context_menu.open_on(symbol)
+        self.ctx_menu.open_on(symbol)
 
         self.page.evaluate("delete window.showSaveFilePicker")
 
         with self.page.expect_download(timeout=5000) as download_info:
-            self.context_menu.click_option("Export")
+            self.ctx_menu.click_option("Export")
 
         download = download_info.value
         save_path = get_results_path(f"{name}_export.json")
@@ -240,7 +242,7 @@ class SymbolToolbar:
         Returns:
             The data-testid of the newly created symbol node (e.g., "rf__node-{uuid}")
         """
-        self.layout.notifications.close_all()
+        self.notifications.close_all()
         initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())
 
         self._add_by_search(symbol_type)

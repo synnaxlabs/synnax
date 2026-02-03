@@ -82,7 +82,7 @@ class CustomSymbols(ConsoleCase):
         schematic = self.console.workspace.create_schematic(self.schematic_name)
         toolbar = SymbolToolbar(self.console.layout)
         toolbar.show()
-        self.console.layout.notifications.close_all()
+        self.console.notifications.close_all()
 
         self.test_create_symbol_group(toolbar)
         self.test_rename_symbol_group(toolbar)
