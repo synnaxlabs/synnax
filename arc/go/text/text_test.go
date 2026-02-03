@@ -350,6 +350,97 @@ var _ = Describe("Text", func() {
 					Expect(cfg.Value).To(Equal(configValues[cfg.Name]), "config[%d] '%s' value mismatch", i, cfg.Name)
 				}
 			})
+
+			It("Should handle f64 global constants in config", func() {
+				source := `
+				SCALE := 2.5
+				OFFSET := 0.1
+
+				func transform{
+					scale f64,
+					offset f64
+				} (x f64) f64 {
+					return x * scale + offset
+				}
+
+				func sink{} () {
+				}
+
+				transform{scale=SCALE, offset=OFFSET} -> sink{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "transform_0")
+				Expect(node.Config).To(HaveLen(2))
+
+				configValues := map[string]float64{
+					"scale": 2.5, "offset": 0.1,
+				}
+				for _, cfg := range node.Config {
+					Expect(cfg.Type).To(Equal(types.F64()))
+					Expect(cfg.Value).To(Equal(configValues[cfg.Name]))
+				}
+			})
+
+			It("Should handle mixed literal and constant config values", func() {
+				source := `
+				THRESHOLD := 100
+
+				func filter{
+					threshold i64,
+					enabled i64
+				} (x i64) i64 {
+					return x
+				}
+
+				func sink{} () {
+				}
+
+				filter{threshold=THRESHOLD, enabled=1} -> sink{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "filter_0")
+				Expect(node.Config).To(HaveLen(2))
+
+				for _, cfg := range node.Config {
+					if cfg.Name == "threshold" {
+						Expect(cfg.Value).To(Equal(int64(100)))
+					} else if cfg.Name == "enabled" {
+						Expect(cfg.Value).To(Equal(int64(1)))
+					}
+				}
+			})
+
+			It("Should handle typed global constants in config", func() {
+				source := `
+				MAX_VALUE i32 := 255
+
+				func clamp{
+					max i32
+				} (x i32) i32 {
+					return x
+				}
+
+				func sink{} () {
+				}
+
+				clamp{max=MAX_VALUE} -> sink{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "clamp_0")
+				Expect(node.Config).To(HaveLen(1))
+				Expect(node.Config[0].Name).To(Equal("max"))
+				Expect(node.Config[0].Type).To(Equal(types.I32()))
+				Expect(node.Config[0].Value).To(Equal(int32(255)))
+			})
 		})
 
 		Context("Edge Parameter Validation", func() {
