@@ -35,20 +35,20 @@ var _ = Describe("Accumulator", func() {
 			var (
 				counter     int
 				accumulator errors.Accumulator
-				testErr     = errors.New("test error")
+				errTest     = errors.New("test error")
 			)
 			const count = 3
 			for i := range count {
 				accumulator.Exec(func() error {
 					counter++
 					if i == 2 {
-						return testErr
+						return errTest
 					}
 					return nil
 				})
 			}
 			Expect(counter).To(Equal(count))
-			Expect(accumulator.Error()).To(MatchError(testErr))
+			Expect(accumulator.Error()).To(MatchError(errTest))
 		})
 		It("Should accumulate multiple errors", func() {
 			errMap := map[int]error{

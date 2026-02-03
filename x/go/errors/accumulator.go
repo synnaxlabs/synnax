@@ -17,4 +17,4 @@ type Accumulator struct{ err error }
 func (a *Accumulator) Exec(fn func() error) { a.err = Join(a.err, fn()) }
 
 // Error returns the error(s) aggregated by the Accumulator.
-func (a *Accumulator) Error() error { return a.err }
+func (a Accumulator) Error() error { return a.err }
