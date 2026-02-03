@@ -14,9 +14,9 @@ import { type ReactElement, useCallback } from "react";
 import {
   AUTOMATIC_TYPE,
   type ChannelMode,
+  type InputChannel,
   MANUAL_TYPE,
-  type ReadChannel,
-  type WriteChannel,
+  type OutputChannel,
 } from "@/hardware/ethercat/task/types";
 
 interface ChannelModeEntry extends record.KeyedNamed<ChannelMode> {}
@@ -41,7 +41,7 @@ const Base = Form.buildSelectField<ChannelMode, ChannelModeEntry>({
 
 export interface SelectChannelModeFieldProps {
   path: string;
-  zeroChannels: Record<ChannelMode, ReadChannel | WriteChannel>;
+  zeroChannels: Record<ChannelMode, InputChannel | OutputChannel>;
 }
 
 export const SelectChannelModeField = ({
@@ -56,7 +56,7 @@ export const SelectChannelModeField = ({
       const prevType = get(fieldPath).value;
       if (prevType === value) return;
       const parentPath = fieldPath.slice(0, fieldPath.lastIndexOf("."));
-      const prevParent = get<ReadChannel | WriteChannel>(parentPath).value;
+      const prevParent = get<InputChannel | OutputChannel>(parentPath).value;
       const next = deep.copy(zeroChannels[value]);
       set(parentPath, {
         ...next,

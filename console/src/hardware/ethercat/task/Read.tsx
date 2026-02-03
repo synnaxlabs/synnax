@@ -24,9 +24,9 @@ import {
   getChannelByMapKey,
   getPDOName,
   getPortLabel,
+  type InputChannel,
   READ_SCHEMAS,
   READ_TYPE,
-  type ReadChannel,
   readConfigZ,
   readMapKey,
   type readStatusDataZ,
@@ -62,10 +62,11 @@ const Properties = () => (
 const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<ReadChannel>(path);
+  const ch = PForm.useFieldValue<InputChannel>(path);
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...props}
+      nameDirection="y"
       port={getPortLabel(ch)}
       path={path}
       channel={ch.channel}
@@ -130,7 +131,7 @@ const listItem = Component.renderProp(ChannelListItem);
 const Form: FC<
   Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
 > = () => (
-  <Common.Task.Layouts.ListAndDetails<ReadChannel>
+  <Common.Task.Layouts.ListAndDetails<InputChannel>
     listItem={listItem}
     details={channelDetails}
     createChannel={createReadChannel}
@@ -204,7 +205,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   const networkSafeName = channel.escapeInvalidName(network);
   const rack = slaves[0].rack;
 
-  const channelsBySlaveKey = new Map<string, ReadChannel[]>();
+  const channelsBySlaveKey = new Map<string, InputChannel[]>();
   for (const ch of config.channels) {
     const existing = channelsBySlaveKey.get(ch.device) ?? [];
     existing.push(ch);
@@ -216,7 +217,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
 
     let modified = await checkOrCreateIndex(client, slave, networkSafeName);
 
-    const toCreate: ReadChannel[] = [];
+    const toCreate: InputChannel[] = [];
     for (const ch of channels) {
       const mapKey = readMapKey(ch);
       const existing = getChannelByMapKey(slave.properties.read.channels, mapKey);

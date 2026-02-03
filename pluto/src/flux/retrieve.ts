@@ -69,6 +69,7 @@ export interface UseObservableBaseRetrieveParams<
   Data extends state.State,
 > {
   addStatusOnFailure?: boolean;
+  skip?: (q: Query) => boolean;
   beforeRetrieve?: (Params: BeforeRetrieveParams<Query>) => Data | boolean;
   onChange: (result: state.SetArg<Result<Data>>, query: Query) => void;
   scope?: string;
@@ -102,7 +103,7 @@ export interface UseDirectRetrieveParams<
   Data extends state.State,
 > extends Pick<
   UseObservableBaseRetrieveParams<Query, Data>,
-  "scope" | "beforeRetrieve" | "addStatusOnFailure"
+  "scope" | "beforeRetrieve" | "addStatusOnFailure" | "skip"
 > {
   query: Query;
 }
@@ -121,10 +122,7 @@ export interface UseRetrieveEffectParams<
 export interface UseRetrieve<Query extends base.Shape, Data extends state.State> {
   (
     params: Query,
-    opts?: Pick<
-      UseDirectRetrieveParams<Query, Data>,
-      "beforeRetrieve" | "addStatusOnFailure"
-    >,
+    opts?: Omit<UseDirectRetrieveParams<Query, Data>, "query">,
   ): UseDirectRetrieveReturn<Data>;
 }
 
@@ -190,6 +188,7 @@ const useObservableBase = <
   onChange,
   scope,
   beforeRetrieve,
+  skip,
   addStatusOnFailure = true,
   allowDisconnected = false as AllowDisconnected,
 }: UseObservableBaseRetrieveParams<Query, Data> &
@@ -227,6 +226,7 @@ const useObservableBase = <
       );
       queryRef.current = query;
       try {
+        if (skip != null && skip(query)) return;
         if (beforeRetrieve != null) {
           const result = beforeRetrieve({ query });
           if (result == false) return;
@@ -256,7 +256,7 @@ const useObservableBase = <
         onChange(res, query);
       }
     },
-    [client, name, beforeRetrieve, addStatusOnFailure, onChange],
+    [client, name, beforeRetrieve, addStatusOnFailure, onChange, skip],
   );
   const retrieveSync = useCallback(
     (query: state.SetArg<Query, Partial<Query>>, options?: base.FetchOptions) =>
@@ -368,7 +368,7 @@ export const createRetrieve = <
 ): CreateRetrieveReturn<Query, Data> => ({
   useRetrieve: (
     query: Query,
-    opts?: Pick<UseDirectRetrieveParams<Query, Data>, "beforeRetrieve">,
+    opts?: Omit<UseDirectRetrieveParams<Query, Data>, "query">,
   ) => useDirect({ ...createParams, query, ...opts }),
   useRetrieveStateful: () => useStateful(createParams),
   useRetrieveEffect: (Params: UseRetrieveEffectParams<Query, Data>) =>

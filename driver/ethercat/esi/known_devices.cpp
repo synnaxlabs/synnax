@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <cstring>
 
 #include "x/cpp/telem/telem.h"
@@ -137,23 +138,22 @@ bool lookup_device_pdos(
     const auto *idx = device_index();
     const uint32_t idx_count = header()->device_index_count;
 
-    // Binary search for (vendor_id, product_code)
-    size_t lo = 0, hi = idx_count;
-    while (lo < hi) {
-        const size_t mid = lo + (hi - lo) / 2;
-        const auto &entry = idx[mid];
-        if (entry.vendor_id < vendor_id ||
-            (entry.vendor_id == vendor_id && entry.product_code < product_code)) {
-            lo = mid + 1;
-        } else {
-            hi = mid;
+    const auto it = std::lower_bound(
+        idx,
+        idx + idx_count,
+        std::pair{vendor_id, product_code},
+        [](const BlobDeviceIndex &entry, const std::pair<uint32_t, uint32_t> &target) {
+            return entry.vendor_id < target.first ||
+                   (entry.vendor_id == target.first &&
+                    entry.product_code < target.second);
         }
-    }
+    );
 
-    if (lo >= idx_count) return false;
-    const auto &entry = idx[lo];
-    if (entry.vendor_id != vendor_id || entry.product_code != product_code)
+    if (it == idx + idx_count || it->vendor_id != vendor_id ||
+        it->product_code != product_code)
         return false;
+
+    const auto &entry = *it;
 
     // Search for exact revision match, fallback to first
     const auto *devs = devices();
@@ -209,39 +209,34 @@ std::optional<std::string_view> vendor_name(const uint32_t vendor_id) {
     const auto *vends = vendors();
     const uint32_t count = header()->vendor_count;
 
-    // Binary search for vendor
-    size_t lo = 0, hi = count;
-    while (lo < hi) {
-        const size_t mid = lo + (hi - lo) / 2;
-        if (vends[mid].vendor_id < vendor_id) {
-            lo = mid + 1;
-        } else {
-            hi = mid;
-        }
-    }
-    if (lo >= count || vends[lo].vendor_id != vendor_id) return std::nullopt;
-    return std::string_view(string_at(vends[lo].name_offset));
+    const auto it = std::lower_bound(
+        vends,
+        vends + count,
+        vendor_id,
+        [](const BlobVendor &v, uint32_t id) { return v.vendor_id < id; }
+    );
+
+    if (it == vends + count || it->vendor_id != vendor_id) return std::nullopt;
+    return std::string_view(string_at(it->name_offset));
 }
 
 bool is_device_known(const uint32_t vendor_id, const uint32_t product_code) {
     const auto *idx = device_index();
     const uint32_t idx_count = header()->device_index_count;
 
-    // Binary search for (vendor_id, product_code)
-    size_t lo = 0, hi = idx_count;
-    while (lo < hi) {
-        const size_t mid = lo + (hi - lo) / 2;
-        const auto &entry = idx[mid];
-        if (entry.vendor_id < vendor_id ||
-            (entry.vendor_id == vendor_id && entry.product_code < product_code)) {
-            lo = mid + 1;
-        } else {
-            hi = mid;
+    const auto it = std::lower_bound(
+        idx,
+        idx + idx_count,
+        std::pair{vendor_id, product_code},
+        [](const BlobDeviceIndex &entry, const std::pair<uint32_t, uint32_t> &target) {
+            return entry.vendor_id < target.first ||
+                   (entry.vendor_id == target.first &&
+                    entry.product_code < target.second);
         }
-    }
-    if (lo >= idx_count) return false;
-    const auto &entry = idx[lo];
-    return entry.vendor_id == vendor_id && entry.product_code == product_code;
+    );
+
+    return it != idx + idx_count && it->vendor_id == vendor_id &&
+           it->product_code == product_code;
 }
 
 }
