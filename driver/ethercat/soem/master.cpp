@@ -82,12 +82,12 @@ xerrors::Error Master::register_pdos(const std::vector<PDOEntry> &) {
     return xerrors::NIL;
 }
 
-void Master::set_passive_slave(const uint16_t position, const bool passive) {
+void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
     std::lock_guard lock(this->mu);
-    if (passive)
-        this->passive_slaves.insert(position);
+    if (!enabled)
+        this->disabled_slaves.insert(position);
     else
-        this->passive_slaves.erase(position);
+        this->disabled_slaves.erase(position);
 }
 
 xerrors::Error Master::activate() {
@@ -98,7 +98,7 @@ xerrors::Error Master::activate() {
 
     {
         std::lock_guard lock(this->mu);
-        for (const auto pos: this->passive_slaves)
+        for (const auto pos: this->disabled_slaves)
             if (pos > 0 && pos <= static_cast<uint16_t>(this->context.slavecount))
                 this->context.slavelist[pos].group = 1;
     }

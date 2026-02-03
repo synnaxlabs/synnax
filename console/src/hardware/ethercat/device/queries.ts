@@ -34,17 +34,17 @@ export const useCommonNetwork = (channels: Channel[]) => {
   return network;
 };
 
-export interface TogglePassiveParams {
+export interface ToggleEnabledParams {
   keys: device.Key | device.Key[];
-  passive?: boolean;
+  enabled?: boolean;
 }
 
-export const { useUpdate: useTogglePassive } = Flux.createUpdate<
-  TogglePassiveParams,
+export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
+  ToggleEnabledParams,
   Device.FluxSubStore,
-  TogglePassiveParams
+  ToggleEnabledParams
 >({
-  name: "Toggle Passive",
+  name: "Toggle Enabled",
   verbs: Flux.UPDATE_VERBS,
   update: async ({ data, client, store, rollbacks }) => {
     const keys = array.toArray(data.keys);
@@ -55,11 +55,11 @@ export const { useUpdate: useTogglePassive } = Flux.createUpdate<
       query: { keys },
     });
 
-    const passiveValue = data.passive ?? !devices[0]?.properties?.passive;
+    const enabledValue = data.enabled ?? !devices[0]?.properties?.enabled;
 
     const updated = devices.map((dev) => ({
       ...dev,
-      properties: { ...dev.properties, passive: passiveValue },
+      properties: { ...dev.properties, enabled: enabledValue },
     }));
 
     rollbacks.push(store.devices.set(updated));

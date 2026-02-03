@@ -70,14 +70,14 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         for (const auto &[key, dev]: *scan_ctx.devices) {
             auto props_parser = xjson::Parser(dev.properties);
             device::SlaveProperties props(props_parser);
-            if (props_parser.error() || !props.passive) continue;
+            if (props_parser.error() || props.enabled) continue;
 
             auto [engine, err] = this->pool->acquire(props.network);
             if (err) continue;
 
             LOG(INFO) << SCAN_LOG_PREFIX << "initializing slave " << props.position
-                      << " on " << props.network << " as passive";
-            engine->set_passive_slave(props.position, props.passive);
+                      << " on " << props.network << " as disabled";
+            engine->set_slave_enabled(props.position, props.enabled);
         }
     }
 
@@ -128,14 +128,14 @@ synnax::Device Scanner::create_slave_device(
     for (auto &[k, v]: slave_props.items())
         props[k] = v;
 
-    bool is_passive = false;
-    if (props.contains("passive") && props["passive"].is_boolean())
-        is_passive = props["passive"].get<bool>();
+    bool is_enabled = true;
+    if (props.contains("enabled") && props["enabled"].is_boolean())
+        is_enabled = props["enabled"].get<bool>();
 
     std::string status_msg;
     std::string status_variant;
-    if (is_passive) {
-        status_msg = "Device marked as passive";
+    if (!is_enabled) {
+        status_msg = "Device disabled";
         status_variant = status::variant::DISABLED;
     } else if (slave.pdos_discovered) {
         if (slave.pdo_discovery_error.empty()) {
@@ -207,14 +207,14 @@ void Scanner::on_device_set(const synnax::Device &dev) {
     if (err) return;
 
     LOG(INFO) << SCAN_LOG_PREFIX << "setting slave " << props.position << " on "
-              << props.network << " passive=" << (props.passive ? "true" : "false");
-    engine->set_passive_slave(props.position, props.passive);
+              << props.network << " enabled=" << (props.enabled ? "true" : "false");
+    engine->set_slave_enabled(props.position, props.enabled);
 
     synnax::DeviceStatus status{
         .key = dev.status_key(),
         .name = dev.name,
-        .variant = props.passive ? status::variant::DISABLED : status::variant::SUCCESS,
-        .message = props.passive ? "Device marked as passive" : "Device active",
+        .variant = props.enabled ? status::variant::SUCCESS : status::variant::DISABLED,
+        .message = props.enabled ? "Device enabled" : "Device disabled",
         .time = telem::TimeStamp::now(),
         .details = {.rack = dev.rack, .device = dev.key},
     };

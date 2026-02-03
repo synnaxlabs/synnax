@@ -13,7 +13,7 @@ import { useCallback, useMemo } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ethercat/device";
-import { useTogglePassive } from "@/hardware/ethercat/device/queries";
+import { useToggleEnabled } from "@/hardware/ethercat/device/queries";
 import { type SlaveProperties } from "@/hardware/ethercat/device/types";
 import { Task } from "@/hardware/ethercat/task";
 import { type Ontology } from "@/ontology";
@@ -35,24 +35,24 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
   const keys = props.selection.ids.map((id) => id.key);
   const store = Flux.useStore<PlutoDevice.FluxSubStore>();
-  const { update: togglePassive } = useTogglePassive();
+  const { update: toggleEnabled } = useToggleEnabled();
 
-  const { allPassive, allActive } = useMemo(() => {
+  const { allDisabled, allEnabled } = useMemo(() => {
     const devices = store.devices.get(keys) as device.Device<SlaveProperties>[];
-    const passiveCount = devices.filter((d) => d.properties?.passive).length;
+    const disabledCount = devices.filter((d) => !d.properties?.enabled).length;
     return {
-      allPassive: passiveCount === devices.length,
-      allActive: passiveCount === 0,
+      allDisabled: disabledCount === devices.length,
+      allEnabled: disabledCount === 0,
     };
   }, [store, keys]);
 
-  const handleSetPassive = useCallback(() => {
-    togglePassive({ keys, passive: true });
-  }, [keys, togglePassive]);
+  const handleDisable = useCallback(() => {
+    toggleEnabled({ keys, enabled: false });
+  }, [keys, toggleEnabled]);
 
-  const handleSetActive = useCallback(() => {
-    togglePassive({ keys, passive: false });
-  }, [keys, togglePassive]);
+  const handleEnable = useCallback(() => {
+    toggleEnabled({ keys, enabled: true });
+  }, [keys, toggleEnabled]);
 
   return (
     <>
@@ -61,16 +61,16 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
         configureLayout={Device.CONFIGURE_LAYOUT}
         taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
       />
-      {!allPassive && (
-        <Menu.Item itemKey="ethercat.setPassive" onClick={handleSetPassive}>
+      {!allDisabled && (
+        <Menu.Item itemKey="ethercat.disable" onClick={handleDisable}>
           <Icon.Disable />
-          Set passive
+          Disable
         </Menu.Item>
       )}
-      {!allActive && (
-        <Menu.Item itemKey="ethercat.setActive" onClick={handleSetActive}>
+      {!allEnabled && (
+        <Menu.Item itemKey="ethercat.enable" onClick={handleEnable}>
           <Icon.Enable />
-          Set active
+          Enable
         </Menu.Item>
       )}
     </>

@@ -49,9 +49,9 @@ public:
     [[nodiscard]] virtual xerrors::Error
     register_pdos(const std::vector<PDOEntry> &entries) = 0;
 
-    /// @brief marks a slave as passive, excluding it from cyclic exchange.
+    /// @brief sets whether a slave is enabled for cyclic exchange.
     /// Must be called after initialize() and before activate().
-    virtual void set_passive_slave(uint16_t position, bool passive) = 0;
+    virtual void set_slave_enabled(uint16_t position, bool enabled) = 0;
 
     /// @brief activates the master and transitions slaves to OPERATIONAL state.
     [[nodiscard]] virtual xerrors::Error activate() = 0;

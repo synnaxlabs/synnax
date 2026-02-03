@@ -59,8 +59,8 @@ struct SlaveProperties {
     std::vector<PDOInfo> input_pdos;
     /// @brief output PDOs (RxPDO, master->slave).
     std::vector<PDOInfo> output_pdos;
-    /// @brief exclude from cyclic exchange (group 1 in SOEM).
-    bool passive;
+    /// @brief whether this slave participates in cyclic exchange.
+    bool enabled;
 
     explicit SlaveProperties(xjson::Parser &parser):
         serial(parser.field<uint32_t>("serial")),
@@ -70,7 +70,7 @@ struct SlaveProperties {
         name(parser.field<std::string>("name")),
         network(parser.field<std::string>("network", "")),
         position(static_cast<uint16_t>(parser.field<int>("position"))),
-        passive(parser.field<bool>("passive", false)) {
+        enabled(parser.field<bool>("enabled", true)) {
         auto pdos_parser = parser.child("pdos");
         if (!pdos_parser.error()) {
             pdos_parser.iter("inputs", [this](xjson::Parser &pdo) {

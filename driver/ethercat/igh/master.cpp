@@ -100,12 +100,12 @@ xerrors::Error Master::register_pdos(const std::vector<PDOEntry> &entries) {
     return xerrors::NIL;
 }
 
-void Master::set_passive_slave(const uint16_t position, const bool passive) {
+void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
     std::lock_guard lock(this->mu);
-    if (passive)
-        this->passive_slaves.insert(position);
+    if (!enabled)
+        this->disabled_slaves.insert(position);
     else
-        this->passive_slaves.erase(position);
+        this->disabled_slaves.erase(position);
 }
 
 xerrors::Error Master::activate() {
@@ -272,7 +272,7 @@ bool Master::all_slaves_operational() const {
     if (!this->activated) return false;
 
     for (const auto &[pos, sc]: this->slave_configs) {
-        if (this->passive_slaves.contains(pos)) continue;
+        if (this->disabled_slaves.contains(pos)) continue;
         ec_slave_config_state_t state;
         this->api->slave_config_state(sc, &state);
         if (state.al_state != IGH_AL_STATE_OP) return false;
@@ -287,8 +287,8 @@ std::string Master::interface_name() const {
 ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
     std::lock_guard lock(this->mu);
 
-    if (this->passive_slaves.contains(position)) {
-        VLOG(1) << "[ethercat.igh] skipping slave config for passive slave "
+    if (this->disabled_slaves.contains(position)) {
+        VLOG(1) << "[ethercat.igh] skipping slave config for disabled slave "
                 << position;
         return nullptr;
     }
