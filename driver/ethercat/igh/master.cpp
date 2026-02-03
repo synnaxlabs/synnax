@@ -10,23 +10,14 @@
 #include <map>
 
 #include "glog/logging.h"
-#include <sys/stat.h>
 
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/igh/master.h"
 #include "driver/ethercat/telem/telem.h"
 
 namespace ethercat::igh {
-/// Device path for the first IgH EtherCAT master kernel module device.
-/// The IgH EtherCAT master creates /dev/EtherCAT<n> devices when loaded.
-constexpr const char *IGH_DEVICE_PATH = "/dev/EtherCAT0";
-
-bool igh_available() {
-    struct stat st;
-    return stat(IGH_DEVICE_PATH, &st) == 0;
-}
-
-Master::Master(const unsigned int master_index):
+Master::Master(std::shared_ptr<API> api, const unsigned int master_index):
+    api(std::move(api)),
     master_index(master_index),
     ec_master(nullptr),
     input_domain(nullptr),
@@ -47,7 +38,7 @@ Master::~Master() {
 xerrors::Error Master::initialize() {
     if (this->initialized) return xerrors::NIL;
 
-    this->ec_master = ecrt_request_master(this->master_index);
+    this->ec_master = this->api->request_master(this->master_index);
     if (!this->ec_master)
         return xerrors::Error(
             MASTER_INIT_ERROR,
@@ -55,8 +46,8 @@ xerrors::Error Master::initialize() {
         );
 
     ec_master_info_t master_info;
-    if (ecrt_master(this->ec_master, &master_info) < 0) {
-        ecrt_release_master(this->ec_master);
+    if (this->api->master(this->ec_master, &master_info) < 0) {
+        this->api->release_master(this->ec_master);
         this->ec_master = nullptr;
         return xerrors::Error(MASTER_INIT_ERROR, "failed to get master info");
     }
@@ -66,7 +57,7 @@ xerrors::Error Master::initialize() {
 
     for (unsigned int i = 0; i < master_info.slave_count; ++i) {
         ec_slave_info_t slave_info;
-        if (ecrt_master_get_slave(this->ec_master, i, &slave_info) == 0) {
+        if (this->api->master_get_slave(this->ec_master, i, &slave_info) == 0) {
             SlaveInfo info(
                 static_cast<uint16_t>(i),
                 slave_info.vendor_id,
@@ -81,16 +72,16 @@ xerrors::Error Master::initialize() {
         }
     }
 
-    this->output_domain = ecrt_master_create_domain(this->ec_master);
+    this->output_domain = this->api->master_create_domain(this->ec_master);
     if (!this->output_domain) {
-        ecrt_release_master(this->ec_master);
+        this->api->release_master(this->ec_master);
         this->ec_master = nullptr;
         return xerrors::Error(MASTER_INIT_ERROR, "failed to create output domain");
     }
 
-    this->input_domain = ecrt_master_create_domain(this->ec_master);
+    this->input_domain = this->api->master_create_domain(this->ec_master);
     if (!this->input_domain) {
-        ecrt_release_master(this->ec_master);
+        this->api->release_master(this->ec_master);
         this->ec_master = nullptr;
         return xerrors::Error(MASTER_INIT_ERROR, "failed to create input domain");
     }
@@ -115,8 +106,8 @@ xerrors::Error Master::activate() {
     if (!this->output_domain || !this->input_domain)
         return xerrors::Error(ACTIVATION_ERROR, "domains not created");
 
-    const size_t output_domain_size = ecrt_domain_size(this->output_domain);
-    const size_t input_domain_size = ecrt_domain_size(this->input_domain);
+    const size_t output_domain_size = this->api->domain_size(this->output_domain);
+    const size_t input_domain_size = this->api->domain_size(this->input_domain);
 
     VLOG(1) << "[ethercat.igh] activating master " << this->master_index << " with "
             << this->slave_configs.size() << " configured slaves"
@@ -128,21 +119,21 @@ xerrors::Error Master::activate() {
     this->output_sz = output_domain_size;
     this->input_sz = input_domain_size;
 
-    if (ecrt_master_activate(this->ec_master) < 0)
+    if (this->api->master_activate(this->ec_master) < 0)
         return xerrors::Error(ACTIVATION_ERROR, "ecrt_master_activate failed");
 
-    this->output_domain_data = ecrt_domain_data(this->output_domain);
-    this->input_domain_data = ecrt_domain_data(this->input_domain);
+    this->output_domain_data = this->api->domain_data(this->output_domain);
+    this->input_domain_data = this->api->domain_data(this->input_domain);
 
     if (!this->output_domain_data && this->output_sz > 0) {
-        ecrt_master_deactivate(this->ec_master);
+        this->api->master_deactivate(this->ec_master);
         return xerrors::Error(
             ACTIVATION_ERROR,
             "failed to get output domain data pointer"
         );
     }
     if (!this->input_domain_data && this->input_sz > 0) {
-        ecrt_master_deactivate(this->ec_master);
+        this->api->master_deactivate(this->ec_master);
         return xerrors::Error(
             ACTIVATION_ERROR,
             "failed to get input domain data pointer"
@@ -159,7 +150,7 @@ xerrors::Error Master::activate() {
 
     for (const auto &[pos, sc]: this->slave_configs) {
         ec_slave_config_state_t state;
-        ecrt_slave_config_state(sc, &state);
+        this->api->slave_config_state(sc, &state);
         VLOG(1) << "[ethercat.igh] slave " << pos << " state after activation: "
                 << "al_state=0x" << std::hex << static_cast<int>(state.al_state)
                 << std::dec << " ("
@@ -174,9 +165,9 @@ void Master::deactivate() {
     if (!this->initialized) return;
 
     VLOG(1) << "[ethercat.igh] master " << this->master_index << " deactivating";
-    if (this->activated) ecrt_master_deactivate(this->ec_master);
+    if (this->activated) this->api->master_deactivate(this->ec_master);
     if (this->ec_master) {
-        ecrt_release_master(this->ec_master);
+        this->api->release_master(this->ec_master);
         this->ec_master = nullptr;
     }
     this->input_domain = nullptr;
@@ -195,13 +186,13 @@ void Master::deactivate() {
 xerrors::Error Master::receive() {
     if (!this->activated) return xerrors::Error(CYCLIC_ERROR, "not activated");
 
-    ecrt_master_receive(this->ec_master);
+    this->api->master_receive(this->ec_master);
 
-    ecrt_domain_process(this->output_domain);
-    ecrt_domain_process(this->input_domain);
+    this->api->domain_process(this->output_domain);
+    this->api->domain_process(this->input_domain);
 
-    ecrt_domain_state(this->output_domain, &this->output_domain_state);
-    ecrt_domain_state(this->input_domain, &this->input_domain_state);
+    this->api->domain_state(this->output_domain, &this->output_domain_state);
+    this->api->domain_state(this->input_domain, &this->input_domain_state);
 
     if (this->output_domain_state.wc_state == EC_WC_ZERO ||
         this->input_domain_state.wc_state == EC_WC_ZERO)
@@ -219,9 +210,9 @@ xerrors::Error Master::receive() {
 xerrors::Error Master::send() {
     if (!this->activated) return xerrors::Error(CYCLIC_ERROR, "not activated");
 
-    ecrt_domain_queue(this->output_domain);
-    ecrt_domain_queue(this->input_domain);
-    ecrt_master_send(this->ec_master);
+    this->api->domain_queue(this->output_domain);
+    this->api->domain_queue(this->input_domain);
+    this->api->master_send(this->ec_master);
 
     return xerrors::NIL;
 }
@@ -258,7 +249,7 @@ SlaveState Master::slave_state(const uint16_t position) const {
     auto it = this->slave_configs.find(position);
     if (it == this->slave_configs.end()) return SlaveState::UNKNOWN;
 
-    ecrt_slave_config_state(it->second, &state);
+    this->api->slave_config_state(it->second, &state);
     return convert_state(state.al_state);
 }
 
@@ -274,7 +265,7 @@ bool Master::all_slaves_operational() const {
 
     for (const auto &[pos, sc]: this->slave_configs) {
         ec_slave_config_state_t state;
-        ecrt_slave_config_state(sc, &state);
+        this->api->slave_config_state(sc, &state);
         if (state.al_state != IGH_AL_STATE_OP) return false;
     }
     return true;
@@ -293,7 +284,7 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
     if (position >= this->cached_slaves.size()) return nullptr;
 
     const auto &slave = this->cached_slaves[position];
-    ec_slave_config_t *sc = ecrt_master_slave_config(
+    ec_slave_config_t *sc = this->api->master_slave_config(
         this->ec_master,
         0,
         position,
@@ -314,7 +305,7 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
     size_t registered_inputs = 0;
 
     for (const auto &pdo: slave.output_pdos) {
-        int result = ecrt_slave_config_reg_pdo_entry(
+        int result = this->api->slave_config_reg_pdo_entry(
             sc,
             pdo.index,
             pdo.subindex,
@@ -338,7 +329,7 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
     }
 
     for (const auto &pdo: slave.input_pdos) {
-        int result = ecrt_slave_config_reg_pdo_entry(
+        int result = this->api->slave_config_reg_pdo_entry(
             sc,
             pdo.index,
             pdo.subindex,
@@ -414,7 +405,7 @@ void Master::configure_slave_pdos(ec_slave_config_t *sc, const SlaveInfo &slave)
         {0xff, EC_DIR_INPUT, 0, nullptr, EC_WD_DISABLE}
     };
 
-    if (ecrt_slave_config_pdos(sc, 4, syncs) < 0) {
+    if (this->api->slave_config_pdos(sc, 4, syncs) < 0) {
         LOG(WARNING) << "[ethercat.igh] failed to configure PDOs for slave "
                      << slave.position;
     } else {
@@ -507,14 +498,15 @@ void Master::discover_slave_pdos(SlaveInfo &slave) {
     }
 
     ec_slave_info_t slave_info;
-    if (ecrt_master_get_slave(this->ec_master, slave.position, &slave_info) != 0) {
+    if (this->api->master_get_slave(this->ec_master, slave.position, &slave_info) !=
+        0) {
         slave.pdo_discovery_error = "failed to get slave info";
         return;
     }
 
     for (uint8_t sm_idx = 0; sm_idx < slave_info.sync_count; ++sm_idx) {
         ec_sync_info_t sync_info{};
-        if (ecrt_master_get_sync_manager(
+        if (this->api->master_get_sync_manager(
                 this->ec_master,
                 slave.position,
                 sm_idx,
@@ -526,7 +518,7 @@ void Master::discover_slave_pdos(SlaveInfo &slave) {
 
         for (unsigned int pdo_pos = 0; pdo_pos < sync_info.n_pdos; ++pdo_pos) {
             ec_pdo_info_t pdo_info{};
-            if (ecrt_master_get_pdo(
+            if (this->api->master_get_pdo(
                     this->ec_master,
                     slave.position,
                     sm_idx,
@@ -538,7 +530,7 @@ void Master::discover_slave_pdos(SlaveInfo &slave) {
             for (unsigned int entry_pos = 0; entry_pos < pdo_info.n_entries;
                  ++entry_pos) {
                 ec_pdo_entry_info_t entry_info{};
-                if (ecrt_master_get_pdo_entry(
+                if (this->api->master_get_pdo_entry(
                         this->ec_master,
                         slave.position,
                         sm_idx,

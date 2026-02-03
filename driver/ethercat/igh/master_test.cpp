@@ -17,21 +17,28 @@ namespace ethercat::igh {
 
 class MasterTest : public ::testing::Test {
 protected:
+    std::unique_ptr<Manager> manager;
+    std::shared_ptr<master::Master> master_instance;
+
     void SetUp() override {
-        if (!igh_available()) GTEST_SKIP() << "IgH EtherCAT master not available";
+        auto [mgr, err] = Manager::open();
+        if (err) GTEST_SKIP() << "IgH EtherCAT master not available: " << err.message();
+        manager = std::move(mgr);
+        auto [m, create_err] = manager->create("igh:0");
+        if (create_err)
+            GTEST_SKIP() << "Failed to create master: " << create_err.message();
+        master_instance = std::move(m);
     }
 };
 
 TEST_F(MasterTest, InitializesWithKernelModule) {
-    Master master(0);
-    ASSERT_NIL(master.initialize());
+    ASSERT_NIL(master_instance->initialize());
 }
 
 TEST_F(MasterTest, DetectsSlaves) {
-    Master master(0);
-    ASSERT_NIL(master.initialize());
+    ASSERT_NIL(master_instance->initialize());
 
-    auto slaves = master.slaves();
+    auto slaves = master_instance->slaves();
     EXPECT_GT(slaves.size(), 0) << "No slaves detected on the EtherCAT network";
 
     for (const auto &slave: slaves) {
@@ -42,41 +49,40 @@ TEST_F(MasterTest, DetectsSlaves) {
 }
 
 TEST_F(MasterTest, ActivatesAndDeactivates) {
-    Master master(0);
-    ASSERT_NIL(master.initialize());
-    ASSERT_NIL(master.activate());
-    master.deactivate();
+    ASSERT_NIL(master_instance->initialize());
+    ASSERT_NIL(master_instance->activate());
+    master_instance->deactivate();
 }
 
 TEST_F(MasterTest, CyclicExchange) {
-    Master master(0);
-    ASSERT_NIL(master.initialize());
+    ASSERT_NIL(master_instance->initialize());
 
-    auto slaves = master.slaves();
+    auto slaves = master_instance->slaves();
     if (slaves.empty()) GTEST_SKIP() << "No slaves for cyclic test";
 
-    ASSERT_NIL(master.activate());
+    ASSERT_NIL(master_instance->activate());
 
     for (int i = 0; i < 100; ++i) {
-        ASSERT_NIL(master.receive());
-        ASSERT_NIL(master.send());
+        ASSERT_NIL(master_instance->receive());
+        ASSERT_NIL(master_instance->send());
     }
 
-    master.deactivate();
+    master_instance->deactivate();
 }
 
 TEST_F(MasterTest, InterfaceNameReturnsIgHFormat) {
-    Master master(0);
-    EXPECT_EQ(master.interface_name(), "igh:0");
+    EXPECT_EQ(master_instance->interface_name(), "igh:0");
 
-    Master master2(1);
-    EXPECT_EQ(master2.interface_name(), "igh:1");
+    auto [m2, err] = manager->create("igh:1");
+    ASSERT_NIL(err);
+    EXPECT_EQ(m2->interface_name(), "igh:1");
 }
 
-TEST(IgHAvailabilityTest, ChecksKernelModulePresence) {
-    bool available = igh_available();
-    std::cout << "IgH EtherCAT master available: " << (available ? "yes" : "no")
+TEST(ManagerOpenTest, ChecksDeviceAndLibraryAvailability) {
+    auto [mgr, err] = Manager::open();
+    std::cout << "IgH EtherCAT master available: " << (!err ? "yes" : "no")
               << std::endl;
+    if (err) std::cout << "Error: " << err.message() << std::endl;
 }
 
 }

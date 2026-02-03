@@ -89,7 +89,7 @@ private:
         const SlaveInfo &slave,
         const std::string &master_key,
         const common::ScannerContext &scan_ctx
-    );
+    ) const;
 
     /// @brief gets base properties from existing device or returns empty JSON.
     static nlohmann::json get_existing_properties(

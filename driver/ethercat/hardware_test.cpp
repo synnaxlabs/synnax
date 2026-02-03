@@ -225,8 +225,7 @@ protected:
 
 TEST_F(CyclicEngineHardwareTest, StartAndStopCyclicExchange) {
     TaskRegistration reg;
-    auto [registered, err] = engine->register_task(reg);
-    ASSERT_NIL(err);
+    auto registered = ASSERT_NIL_P(engine->register_task(reg));
     cleanup = registered.unregister;
 
     EXPECT_TRUE(engine->is_running());
@@ -241,10 +240,8 @@ TEST_F(CyclicEngineHardwareTest, StartAndStopCyclicExchange) {
 
 TEST_F(CyclicEngineHardwareTest, MultipleTasksRefCounting) {
     TaskRegistration reg;
-    auto [reg1, err1] = engine->register_task(reg);
-    ASSERT_NIL(err1);
-    auto [reg2, err2] = engine->register_task(reg);
-    ASSERT_NIL(err2);
+    auto reg1 = ASSERT_NIL_P(engine->register_task(reg));
+    auto reg2 = ASSERT_NIL_P(engine->register_task(reg));
     EXPECT_EQ(engine->task_count(), 2);
     EXPECT_TRUE(engine->is_running());
 
@@ -260,8 +257,7 @@ TEST_F(CyclicEngineHardwareTest, MultipleTasksRefCounting) {
 TEST_F(CyclicEngineHardwareTest, WaitForInputsWithHardware) {
     TaskRegistration reg;
     reg.inputs.push_back(PDOEntry(1, 0x6000, 1, 8, true));
-    auto [registered, err] = engine->register_task(reg);
-    ASSERT_NIL(err);
+    auto registered = ASSERT_NIL_P(engine->register_task(reg));
     cleanup = registered.unregister;
 
     std::atomic<bool> stopped{false};
@@ -276,8 +272,7 @@ TEST_F(CyclicEngineHardwareTest, WaitForInputsWithHardware) {
 
 TEST_F(CyclicEngineHardwareTest, SustainedCyclicExchange) {
     TaskRegistration reg;
-    auto [registered, err] = engine->register_task(reg);
-    ASSERT_NIL(err);
+    auto registered = ASSERT_NIL_P(engine->register_task(reg));
     cleanup = registered.unregister;
 
     constexpr int TEST_DURATION_MS = 1000;
@@ -297,8 +292,7 @@ TEST_F(CyclicEngineHardwareTest, SustainedCyclicExchange) {
 TEST_F(CyclicEngineHardwareTest, DynamicPDORegistrationWhileRunning) {
     TaskRegistration reg1;
     reg1.inputs.push_back(PDOEntry(1, 0x6000, 1, 8, true));
-    auto [registered1, err1] = engine->register_task(reg1);
-    ASSERT_NIL(err1);
+    auto registered1 = ASSERT_NIL_P(engine->register_task(reg1));
     EXPECT_TRUE(engine->is_running());
 
     std::atomic<bool> stopped{false};
@@ -308,8 +302,7 @@ TEST_F(CyclicEngineHardwareTest, DynamicPDORegistrationWhileRunning) {
 
     TaskRegistration reg2;
     reg2.inputs.push_back(PDOEntry(1, 0x6000, 2, 8, true));
-    auto [registered2, err2] = engine->register_task(reg2);
-    ASSERT_NIL(err2);
+    auto registered2 = ASSERT_NIL_P(engine->register_task(reg2));
 
     EXPECT_TRUE(engine->is_running());
     EXPECT_EQ(engine->task_count(), 2);
@@ -323,8 +316,7 @@ TEST_F(CyclicEngineHardwareTest, DynamicPDORegistrationWhileRunning) {
 TEST_F(CyclicEngineHardwareTest, MultipleRestartsWithHardware) {
     TaskRegistration reg1;
     reg1.inputs.push_back(PDOEntry(1, 0x6000, 1, 8, true));
-    auto [registered1, err1] = engine->register_task(reg1);
-    ASSERT_NIL(err1);
+    auto registered1 = ASSERT_NIL_P(engine->register_task(reg1));
 
     std::atomic<bool> stopped{false};
     std::vector<uint8_t> buffer;
@@ -332,16 +324,14 @@ TEST_F(CyclicEngineHardwareTest, MultipleRestartsWithHardware) {
 
     TaskRegistration reg2;
     reg2.inputs.push_back(PDOEntry(1, 0x6000, 2, 8, true));
-    auto [registered2, err2] = engine->register_task(reg2);
-    ASSERT_NIL(err2);
+    auto registered2 = ASSERT_NIL_P(engine->register_task(reg2));
     EXPECT_TRUE(engine->is_running());
 
     ASSERT_NIL(engine->wait_for_inputs(buffer, stopped));
 
     TaskRegistration reg3;
     reg3.inputs.push_back(PDOEntry(1, 0x6000, 3, 8, true));
-    auto [registered3, err3] = engine->register_task(reg3);
-    ASSERT_NIL(err3);
+    auto registered3 = ASSERT_NIL_P(engine->register_task(reg3));
     EXPECT_TRUE(engine->is_running());
 
     ASSERT_NIL(engine->wait_for_inputs(buffer, stopped));
@@ -351,4 +341,4 @@ TEST_F(CyclicEngineHardwareTest, MultipleRestartsWithHardware) {
     registered3.unregister();
 }
 
-} // namespace ethercat
+}

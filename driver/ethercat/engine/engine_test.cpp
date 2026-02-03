@@ -519,8 +519,7 @@ TEST(PoolTest, DiscoverSlavesCreatesEngine) {
 
     ethercat::engine::Pool pool(std::move(manager));
 
-    auto [slaves, err] = pool.discover_slaves("eth0");
-    ASSERT_NIL(err);
+    auto slaves = ASSERT_NIL_P(pool.discover_slaves("eth0"));
     ASSERT_EQ(slaves.size(), 2);
     EXPECT_EQ(slaves[0].position, 0);
     EXPECT_EQ(slaves[1].position, 1);
@@ -536,8 +535,7 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
 
     ethercat::engine::Pool pool(std::move(manager));
 
-    auto [engine, acq_err] = pool.acquire("eth0");
-    ASSERT_NIL(acq_err);
+    auto engine = ASSERT_NIL_P(pool.acquire("eth0"));
     auto reader = ASSERT_NIL_P(engine->open_reader(
         {ethercat::PDOEntry(0, 0x6000, 1, 16, true)},
         telem::Rate(100)
@@ -545,8 +543,7 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
 
     EXPECT_TRUE(pool.is_active("eth0"));
 
-    auto [slaves, err] = pool.discover_slaves("eth0");
-    ASSERT_NIL(err);
+    auto slaves = ASSERT_NIL_P(pool.discover_slaves("eth0"));
     ASSERT_EQ(slaves.size(), 2);
     EXPECT_EQ(slaves[0].position, 0);
     EXPECT_EQ(slaves[1].position, 1);
@@ -563,8 +560,10 @@ TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
 
     ethercat::engine::Pool pool(std::move(manager));
 
-    auto [slaves, err] = pool.discover_slaves("eth0");
-    ASSERT_OCCURRED_AS(err, ethercat::MASTER_INIT_ERROR);
+    auto slaves = ASSERT_OCCURRED_AS_P(
+        pool.discover_slaves("eth0"),
+        ethercat::MASTER_INIT_ERROR
+    );
     EXPECT_TRUE(slaves.empty());
     EXPECT_FALSE(pool.is_active("eth0"));
 }
