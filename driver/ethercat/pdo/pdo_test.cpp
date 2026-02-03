@@ -14,13 +14,13 @@
 
 /// @brief it should return true when all Key fields match and false otherwise.
 TEST(PDOKeyTest, EqualityOperator) {
-    ethercat::pdo::Key key1{
+    const ethercat::pdo::Key key1{
         .slave_position = 1,
         .index = 0x6000,
         .sub_index = 1,
         .is_input = true
     };
-    ethercat::pdo::Key key2{
+    const ethercat::pdo::Key key2{
         .slave_position = 1,
         .index = 0x6000,
         .sub_index = 1,
@@ -56,23 +56,23 @@ TEST(PDOKeyTest, EqualityOperator) {
 
 /// @brief it should produce consistent hashes for equal keys.
 TEST(PDOKeyTest, HashConsistency) {
-    ethercat::pdo::Key key1{
+    const ethercat::pdo::Key key1{
         .slave_position = 1,
         .index = 0x6000,
         .sub_index = 1,
         .is_input = true
     };
-    ethercat::pdo::Key key2{
+    const ethercat::pdo::Key key2{
         .slave_position = 1,
         .index = 0x6000,
         .sub_index = 1,
         .is_input = true
     };
 
-    ethercat::pdo::KeyHash hasher;
+    const ethercat::pdo::KeyHash hasher;
     EXPECT_EQ(hasher(key1), hasher(key2));
 
-    ethercat::pdo::Key key3{
+    const ethercat::pdo::Key key3{
         .slave_position = 2,
         .index = 0x6000,
         .sub_index = 1,
@@ -85,7 +85,7 @@ TEST(PDOKeyTest, HashConsistency) {
 TEST(PDOKeyTest, WorksInUnorderedMap) {
     ethercat::pdo::Offsets offsets;
 
-    ethercat::pdo::Key key1{
+    const ethercat::pdo::Key key1{
         .slave_position = 1,
         .index = 0x6000,
         .sub_index = 1,
@@ -93,7 +93,7 @@ TEST(PDOKeyTest, WorksInUnorderedMap) {
     };
     offsets[key1] = {.byte = 0, .bit = 0};
 
-    ethercat::pdo::Key key2{
+    const ethercat::pdo::Key key2{
         .slave_position = 1,
         .index = 0x6000,
         .sub_index = 2,
@@ -105,7 +105,7 @@ TEST(PDOKeyTest, WorksInUnorderedMap) {
     EXPECT_EQ(offsets[key1].byte, 0);
     EXPECT_EQ(offsets[key2].byte, 2);
 
-    ethercat::pdo::Key lookup{
+    const ethercat::pdo::Key lookup{
         .slave_position = 1,
         .index = 0x6000,
         .sub_index = 1,
