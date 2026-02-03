@@ -191,6 +191,7 @@ struct SlaveInfo {
         props["input_bits"] = this->input_bits;
         props["output_bits"] = this->output_bits;
         props["pdo_order_reliable"] = this->coe_pdo_order_reliable;
+        props["enabled"] = true;
 
         nlohmann::json inputs = nlohmann::json::array();
         for (const auto &pdo: this->input_pdos)
