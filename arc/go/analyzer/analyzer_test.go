@@ -81,7 +81,7 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, prog, globalResolver)
-			analyzer.AnalyzeProgram(ctx, nil)
+			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 		})
 
@@ -96,7 +96,7 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, prog, globalResolver)
-			analyzer.AnalyzeProgram(ctx, nil)
+			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "test"))
 			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
@@ -116,7 +116,7 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, prog, globalResolver)
-			analyzer.AnalyzeProgram(ctx, nil)
+			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "test"))
 			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
