@@ -8,7 +8,10 @@ cc_library(
     ],
     includes = ["."],
     linkopts = ["-lpthread"],
-    visibility = ["//vendor/soem:__subpackages__"],
+    visibility = [
+        "//vendor/soem:__pkg__",
+        "//vendor/soem:__subpackages__",
+    ],
     deps = ["//vendor/soem:osal_header"],
 )
 

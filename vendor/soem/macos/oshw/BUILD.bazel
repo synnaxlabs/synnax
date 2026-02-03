@@ -17,7 +17,7 @@ cc_library(
         "-lpthread",
         "-lpcap",
     ],
-    visibility = ["//vendor/soem:__subpackages__"],
+    visibility = ["//vendor/soem:__pkg__"],
     deps = [
         "//vendor/soem:soem_headers",
         "//vendor/soem/macos/osal",
