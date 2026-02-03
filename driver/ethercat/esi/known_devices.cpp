@@ -56,7 +56,7 @@ struct BlobDevice {
 struct BlobPDO {
     uint16_t pdo_index;
     uint16_t index;
-    uint8_t subindex;
+    uint8_t sub_index;
     uint8_t bit_length;
     uint8_t data_type;
     uint8_t padding;
@@ -127,13 +127,13 @@ telem::DataType id_to_data_type(uint8_t id) {
     }
 }
 
-} // anonymous namespace
+}
 
 bool lookup_device_pdos(
     const uint32_t vendor_id,
     const uint32_t product_code,
     const uint32_t revision,
-    SlaveInfo &slave
+    slave::Properties &slave
 ) {
     const auto *idx = device_index();
     const uint32_t idx_count = header()->device_index_count;
@@ -178,7 +178,7 @@ bool lookup_device_pdos(
         slave.input_pdos.emplace_back(
             p.pdo_index,
             p.index,
-            p.subindex,
+            p.sub_index,
             p.bit_length,
             true,
             string_at(p.name_offset),
@@ -193,7 +193,7 @@ bool lookup_device_pdos(
         slave.output_pdos.emplace_back(
             p.pdo_index,
             p.index,
-            p.subindex,
+            p.sub_index,
             p.bit_length,
             false,
             string_at(p.name_offset),
@@ -201,7 +201,6 @@ bool lookup_device_pdos(
         );
     }
 
-    slave.pdos_discovered = true;
     return true;
 }
 

@@ -225,10 +225,10 @@ TEST(GeneratePdoEntryName, FormatsHighSubindex) {
 }
 
 TEST(FormatIndexSubindex, FormatsCorrectly) {
-    EXPECT_EQ(ethercat::format_index_subindex(0x6000, 0x01), "0x6000:01");
-    EXPECT_EQ(ethercat::format_index_subindex(0x1A00, 0xFF), "0x1A00:FF");
-    EXPECT_EQ(ethercat::format_index_subindex(0x0000, 0x00), "0x0000:00");
-    EXPECT_EQ(ethercat::format_index_subindex(0xFFFF, 0xAB), "0xFFFF:AB");
+    EXPECT_EQ(ethercat::format_index_sub_index(0x6000, 0x01), "0x6000:01");
+    EXPECT_EQ(ethercat::format_index_sub_index(0x1A00, 0xFF), "0x1A00:FF");
+    EXPECT_EQ(ethercat::format_index_sub_index(0x0000, 0x00), "0x0000:00");
+    EXPECT_EQ(ethercat::format_index_sub_index(0xFFFF, 0xAB), "0xFFFF:AB");
 }
 
 TEST(ReadPdoToSeries, SingleBitAtOffset0) {

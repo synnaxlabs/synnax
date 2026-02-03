@@ -42,9 +42,10 @@ TEST_F(MasterTest, DetectsSlaves) {
     EXPECT_GT(slaves.size(), 0) << "No slaves detected on the EtherCAT network";
 
     for (const auto &slave: slaves) {
-        std::cout << "Slave " << slave.position << ": " << slave.name << " (Vendor: 0x"
-                  << std::hex << slave.vendor_id << ", Product: 0x"
-                  << slave.product_code << std::dec << ")" << std::endl;
+        std::cout << "Slave " << slave.properties.position << ": "
+                  << slave.properties.name << " (Vendor: 0x" << std::hex
+                  << slave.properties.vendor_id << ", Product: 0x"
+                  << slave.properties.product_code << std::dec << ")" << std::endl;
     }
 }
 

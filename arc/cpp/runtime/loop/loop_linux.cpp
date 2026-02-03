@@ -127,17 +127,8 @@ public:
             }
         }
 
-        xthread::RTConfig rt_cfg;
-        rt_cfg.enabled = this->config_.rt_priority > 0;
-        rt_cfg.priority = this->config_.rt_priority;
-        rt_cfg.cpu_affinity = this->config_.cpu_affinity;
-        rt_cfg.lock_memory = this->config_.lock_memory;
-        if (rt_cfg.enabled && this->config_.interval.nanoseconds() > 0) {
-            rt_cfg.period = this->config_.interval;
-            rt_cfg.computation = this->config_.interval * 0.2;
-            rt_cfg.deadline = this->config_.interval * 0.8;
-            rt_cfg.prefer_deadline_scheduler = true;
-        }
+        auto rt_cfg = this->config_.rt();
+        rt_cfg.prefer_deadline_scheduler = true;
         if (auto err = xthread::apply_rt_config(rt_cfg); err)
             LOG(WARNING) << "[loop] Failed to apply RT config: " << err.message();
 

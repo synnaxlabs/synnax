@@ -154,10 +154,12 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the key of the device to read from.
     std::string device_key;
     /// @brief the indexes of all data channels in the task.
+    /// Dynamically populated by querying the core.
     std::set<synnax::ChannelKey> indexes;
     /// @brief the list of readers to use for reading data from the device.
     std::vector<std::unique_ptr<Reader>> readers;
     /// @brief the connection configuration for the device.
+    /// Dynamically populated from device properties.
     device::ConnectionConfig conn;
     /// @brief the number of samples per channel to read on each read() call.
     std::size_t samples_per_chan;

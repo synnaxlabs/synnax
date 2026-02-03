@@ -3,7 +3,6 @@ cc_library(
     hdrs = ["topology.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//driver/ethercat/device",
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
         "//x/cpp/xerrors",

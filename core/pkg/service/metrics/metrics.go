@@ -29,7 +29,7 @@ type metric struct {
 	ch      channel.Channel
 }
 
-func (svc *Service) createMetrics(namePrefix string, idxKey channel.LocalKey) []metric {
+func (s *Service) createMetrics(namePrefix string, idxKey channel.LocalKey) []metric {
 	makeChannel := func(name string) channel.Channel {
 		return channel.Channel{
 			Name:       namePrefix + name,
@@ -64,13 +64,13 @@ func (svc *Service) createMetrics(namePrefix string, idxKey channel.LocalKey) []
 		{
 			ch: makeChannel(tsSizeMetricName),
 			collect: func() (float32, error) {
-				return float32(svc.cfg.Storage.TSSize().Gigabytes()), nil
+				return float32(s.cfg.Storage.TSSize().Gigabytes()), nil
 			},
 		},
 		{
 			ch: makeChannel(kvSizeMetricName),
 			collect: func() (float32, error) {
-				return float32(svc.cfg.Storage.KVSize().Gigabytes()), nil
+				return float32(s.cfg.Storage.KVSize().Gigabytes()), nil
 			},
 		},
 	}

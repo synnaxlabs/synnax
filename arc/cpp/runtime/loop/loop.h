@@ -190,6 +190,24 @@ struct Config {
         return cfg;
     }
 
+    /// @brief Converts this loop Config to an xthread::RTConfig for applying RT
+    /// settings to the current thread. Platform-specific flags
+    /// (prefer_deadline_scheduler, use_mmcss) should be set by the caller after
+    /// conversion.
+    [[nodiscard]] xthread::RTConfig rt() const {
+        xthread::RTConfig cfg;
+        cfg.enabled = this->rt_priority > 0;
+        cfg.priority = this->rt_priority;
+        cfg.cpu_affinity = this->cpu_affinity;
+        cfg.lock_memory = this->lock_memory;
+        if (cfg.enabled && this->interval.nanoseconds() > 0) {
+            cfg.period = this->interval;
+            cfg.computation = this->interval * 0.2;
+            cfg.deadline = this->interval * 0.8;
+        }
+        return cfg;
+    }
+
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
         os << "  " << xlog::SHALE() << "execution mode" << xlog::RESET() << ": "
            << cfg.mode << "\n";
