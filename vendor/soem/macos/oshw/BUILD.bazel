@@ -1,0 +1,36 @@
+cc_library(
+    name = "oshw",
+    srcs = [
+        "nicdrv.c",
+        "oshw.c",
+    ],
+    hdrs = [
+        "nicdrv.h",
+        "oshw.h",
+    ],
+    copts = [
+        "-Wno-unused-parameter",
+        "-Wno-sign-compare",
+    ],
+    includes = ["."],
+    linkopts = [
+        "-lpthread",
+        "-lpcap",
+    ],
+    visibility = ["//vendor/soem:__subpackages__"],
+    deps = [
+        "//vendor/soem:soem_headers",
+        "//vendor/soem/macos/osal",
+    ],
+)
+
+cc_test(
+    name = "oshw_test",
+    srcs = ["oshw_test.cpp"],
+    deps = [
+        ":oshw",
+        "//vendor/soem:soem_headers",
+        "//vendor/soem/macos/osal",
+        "@googletest//:gtest_main",
+    ],
+)

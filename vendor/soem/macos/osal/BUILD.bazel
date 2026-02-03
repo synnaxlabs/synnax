@@ -1,0 +1,23 @@
+cc_library(
+    name = "osal",
+    srcs = ["osal.c"],
+    hdrs = ["osal_defs.h"],
+    copts = [
+        "-Wno-unused-parameter",
+        "-Wno-sign-compare",
+    ],
+    includes = ["."],
+    linkopts = ["-lpthread"],
+    visibility = ["//vendor/soem:__subpackages__"],
+    deps = ["//vendor/soem:osal_header"],
+)
+
+cc_test(
+    name = "osal_test",
+    srcs = ["osal_test.cpp"],
+    deps = [
+        ":osal",
+        "//vendor/soem:osal_header",
+        "@googletest//:gtest_main",
+    ],
+)

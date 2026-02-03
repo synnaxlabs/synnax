@@ -7,11 +7,12 @@ extern "C" {
 #include "osal.h"
 }
 
-#include <gtest/gtest.h>
-#include <pthread.h>
 #include <atomic>
 #include <thread>
 #include <vector>
+
+#include <gtest/gtest.h>
+#include <pthread.h>
 
 /// @brief Test fixture for OSAL time and timer tests.
 class OsalTimeTest : public ::testing::Test {
