@@ -29,10 +29,17 @@ TEST(PropertiesPdoCount, ReturnsZeroForEmptyProperties) {
 
 TEST(PropertiesPdoCount, ReturnsSumOfInputAndOutputPdos) {
     Properties props{
-        .input_pdos = {
-            {.pdo_index = 0x1A00, .index = 0x6000, .sub_index = 1, .bit_length = 16},
-            {.pdo_index = 0x1A00, .index = 0x6000, .sub_index = 2, .bit_length = 16},
-        },
+        .input_pdos =
+            {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 16},
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 2,
+                 .bit_length = 16},
+            },
         .output_pdos = {
             {.pdo_index = 0x1600, .index = 0x7000, .sub_index = 1, .bit_length = 8},
         },
@@ -48,7 +55,11 @@ TEST(PropertiesFindInputPdo, ReturnsNulloptWhenEmpty) {
 TEST(PropertiesFindInputPdo, ReturnsNulloptWhenNameNotFound) {
     Properties props{
         .input_pdos = {
-            {.pdo_index = 0x1A00, .index = 0x6000, .sub_index = 1, .bit_length = 16, .name = "Position"},
+            {.pdo_index = 0x1A00,
+             .index = 0x6000,
+             .sub_index = 1,
+             .bit_length = 16,
+             .name = "Position"},
         },
     };
     ASSERT_FALSE(props.find_input_pdo("Velocity").has_value());
@@ -57,8 +68,16 @@ TEST(PropertiesFindInputPdo, ReturnsNulloptWhenNameNotFound) {
 TEST(PropertiesFindInputPdo, ReturnsMatchingPdo) {
     Properties props{
         .input_pdos = {
-            {.pdo_index = 0x1A00, .index = 0x6000, .sub_index = 1, .bit_length = 16, .name = "Position"},
-            {.pdo_index = 0x1A00, .index = 0x6000, .sub_index = 2, .bit_length = 32, .name = "Velocity"},
+            {.pdo_index = 0x1A00,
+             .index = 0x6000,
+             .sub_index = 1,
+             .bit_length = 16,
+             .name = "Position"},
+            {.pdo_index = 0x1A00,
+             .index = 0x6000,
+             .sub_index = 2,
+             .bit_length = 32,
+             .name = "Velocity"},
         },
     };
     auto result = props.find_input_pdo("Velocity");
@@ -75,7 +94,11 @@ TEST(PropertiesFindOutputPdo, ReturnsNulloptWhenEmpty) {
 TEST(PropertiesFindOutputPdo, ReturnsNulloptWhenNameNotFound) {
     Properties props{
         .output_pdos = {
-            {.pdo_index = 0x1600, .index = 0x7000, .sub_index = 1, .bit_length = 16, .name = "TargetPosition"},
+            {.pdo_index = 0x1600,
+             .index = 0x7000,
+             .sub_index = 1,
+             .bit_length = 16,
+             .name = "TargetPosition"},
         },
     };
     ASSERT_FALSE(props.find_output_pdo("TargetVelocity").has_value());
@@ -84,8 +107,16 @@ TEST(PropertiesFindOutputPdo, ReturnsNulloptWhenNameNotFound) {
 TEST(PropertiesFindOutputPdo, ReturnsMatchingPdo) {
     Properties props{
         .output_pdos = {
-            {.pdo_index = 0x1600, .index = 0x7000, .sub_index = 1, .bit_length = 16, .name = "TargetPosition"},
-            {.pdo_index = 0x1600, .index = 0x7000, .sub_index = 2, .bit_length = 8, .name = "ControlWord"},
+            {.pdo_index = 0x1600,
+             .index = 0x7000,
+             .sub_index = 1,
+             .bit_length = 16,
+             .name = "TargetPosition"},
+            {.pdo_index = 0x1600,
+             .index = 0x7000,
+             .sub_index = 2,
+             .bit_length = 8,
+             .name = "ControlWord"},
         },
     };
     auto result = props.find_output_pdo("ControlWord");
@@ -127,24 +158,21 @@ TEST(PropertiesParse, ParsesWithPdos) {
         {"network", "eth0"},
         {"position", 2},
         {"enabled", true},
-        {"pdos", {
-            {"inputs", {{
-                {"pdo_index", 0x1A00},
-                {"index", 0x6000},
-                {"sub_index", 1},
-                {"bit_length", 16},
-                {"name", "Value"},
-                {"data_type", "int16"}
-            }}},
-            {"outputs", {{
-                {"pdo_index", 0x1600},
-                {"index", 0x7000},
-                {"sub_index", 1},
-                {"bit_length", 8},
-                {"name", "Control"},
-                {"data_type", "uint8"}
-            }}}
-        }}
+        {"pdos",
+         {{"inputs",
+           {{{"pdo_index", 0x1A00},
+             {"index", 0x6000},
+             {"sub_index", 1},
+             {"bit_length", 16},
+             {"name", "Value"},
+             {"data_type", "int16"}}}},
+          {"outputs",
+           {{{"pdo_index", 0x1600},
+             {"index", 0x7000},
+             {"sub_index", 1},
+             {"bit_length", 8},
+             {"name", "Control"},
+             {"data_type", "uint8"}}}}}}
     };
     auto parser = xjson::Parser(j);
     auto props = Properties::parse(parser);
@@ -186,24 +214,22 @@ TEST(PropertiesToJson, SerializesAllFields) {
         .name = "EL3001",
         .input_bits = 16,
         .output_bits = 8,
-        .input_pdos = {{
-            .pdo_index = 0x1A00,
-            .index = 0x6000,
-            .sub_index = 1,
-            .bit_length = 16,
-            .is_input = true,
-            .name = "Value",
-            .data_type = telem::INT16_T
-        }},
-        .output_pdos = {{
-            .pdo_index = 0x1600,
-            .index = 0x7000,
-            .sub_index = 1,
-            .bit_length = 8,
-            .is_input = false,
-            .name = "Control",
-            .data_type = telem::UINT8_T
-        }},
+        .input_pdos =
+            {{.pdo_index = 0x1A00,
+              .index = 0x6000,
+              .sub_index = 1,
+              .bit_length = 16,
+              .is_input = true,
+              .name = "Value",
+              .data_type = telem::INT16_T}},
+        .output_pdos =
+            {{.pdo_index = 0x1600,
+              .index = 0x7000,
+              .sub_index = 1,
+              .bit_length = 8,
+              .is_input = false,
+              .name = "Control",
+              .data_type = telem::UINT8_T}},
         .coe_pdo_order_reliable = true,
         .enabled = true,
     };

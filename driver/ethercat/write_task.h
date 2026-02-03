@@ -159,7 +159,7 @@ public:
         std::vector<pdo::Entry> entries;
         entries.reserve(this->cfg.channels.size());
         for (const auto &ch: this->cfg.channels)
-            entries.push_back(ch->to_pdo_entry(false));
+            entries.push_back(*ch);
         auto [wtr, err] = this->engine->open_writer(
             std::move(entries),
             this->cfg.execution_rate

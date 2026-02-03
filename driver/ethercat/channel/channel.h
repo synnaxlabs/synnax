@@ -23,48 +23,20 @@
 
 namespace ethercat::channel {
 /// @brief base class for EtherCAT PDO channel configurations.
-struct Channel {
+/// Inherits PDO addressing from pdo::Entry.
+struct Channel : pdo::Entry {
     /// @brief whether this channel is enabled for data exchange.
     bool enabled;
     /// @brief the key of the slave device in Synnax.
     std::string device_key;
-    /// @brief position of the slave on the EtherCAT bus.
-    uint16_t slave_position;
-    /// @brief index of the PDO object in the CoE object dictionary (e.g., 0x6000).
-    uint16_t index;
-    /// @brief sub_index of the PDO object.
-    uint8_t sub_index;
-    /// @brief size of the data in bits.
-    uint8_t bit_length;
-    /// @brief data type of the PDO.
-    telem::DataType data_type;
 
     virtual ~Channel() = default;
 
-    /// @brief returns the byte length rounded up from bit_length.
-    [[nodiscard]] size_t byte_length() const { return (this->bit_length + 7) / 8; }
-
-    /// @brief converts this channel configuration to a pdo::Entry.
-    [[nodiscard]] pdo::Entry to_pdo_entry(const bool is_input) const {
-        return {
-            this->slave_position,
-            this->index,
-            this->sub_index,
-            this->bit_length,
-            is_input,
-            this->data_type
-        };
-    }
-
 protected:
     explicit Channel(xjson::Parser &parser, const slave::Properties &slave):
+        pdo::Entry{slave.position, 0, 0, 0, true, telem::UNKNOWN_T},
         enabled(parser.field<bool>("enabled", true)),
-        device_key(parser.field<std::string>("device")),
-        slave_position(slave.position),
-        index(0),
-        sub_index(0),
-        bit_length(0),
-        data_type(telem::UNKNOWN_T) {}
+        device_key(parser.field<std::string>("device")) {}
 };
 
 /// @brief base input channel (TxPDO, slave->master).
@@ -80,7 +52,9 @@ struct Input : virtual Channel {
 protected:
     explicit Input(xjson::Parser &parser, const slave::Properties &slave):
         Channel(parser, slave),
-        synnax_key(parser.field<synnax::ChannelKey>("channel")) {}
+        synnax_key(parser.field<synnax::ChannelKey>("channel")) {
+        this->is_input = true;
+    }
 };
 
 /// @brief automatic input channel that resolves PDO address from slave device
@@ -156,7 +130,9 @@ protected:
     explicit Output(xjson::Parser &parser, const slave::Properties &slave):
         Channel(parser, slave),
         command_key(parser.field<synnax::ChannelKey>("cmd_channel")),
-        state_key(parser.field<synnax::ChannelKey>("state_channel", 0)) {}
+        state_key(parser.field<synnax::ChannelKey>("state_channel", 0)) {
+        this->is_input = false;
+    }
 };
 
 /// @brief automatic output channel that resolves PDO address from slave device
