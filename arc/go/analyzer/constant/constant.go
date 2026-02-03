@@ -48,25 +48,21 @@ func collectConstant(
 	name := globalConst.IDENTIFIER().GetText()
 	lit := globalConst.Literal()
 
-	// Determine target type (optional - can be inferred from literal)
 	var targetType types.Type
 	if typeCtx := globalConst.Type_(); typeCtx != nil {
 		targetType, _ = atypes.InferFromTypeContext(typeCtx)
 	}
 
-	// Use existing literal.Parse utility
 	parsed, err := literal.Parse(lit, targetType)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, lit))
 		return
 	}
 
-	// If no explicit type, use the inferred type from the literal
 	if !targetType.IsValid() {
 		targetType = parsed.Type
 	}
 
-	// Add to symbol table (no ID assigned - values are inlined)
 	if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Name:         name,
 		Kind:         symbol.KindGlobalConstant,

@@ -17,7 +17,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var bCtx = context.Background()
+var bCtx context.Context
+
+var _ = BeforeEach(func() {
+	bCtx = context.Background()
+})
 
 func TestConstant(t *testing.T) {
 	RegisterFailHandler(Fail)
