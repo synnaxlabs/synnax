@@ -408,9 +408,10 @@ var _ = Describe("Text", func() {
 				Expect(node.Config).To(HaveLen(2))
 
 				for _, cfg := range node.Config {
-					if cfg.Name == "threshold" {
+					switch cfg.Name {
+					case "threshold":
 						Expect(cfg.Value).To(Equal(int64(100)))
-					} else if cfg.Name == "enabled" {
+					case "enabled":
 						Expect(cfg.Value).To(Equal(int64(1)))
 					}
 				}
