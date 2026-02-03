@@ -556,7 +556,6 @@ func extractConfigValues(
 			return channelKey, true
 		}
 
-		// Check for global constant identifier
 		if primary := parser.GetPrimaryExpression(expr); primary != nil {
 			if id := primary.IDENTIFIER(); id != nil {
 				sym, err := ctx.Scope.Resolve(ctx, id.GetText())
