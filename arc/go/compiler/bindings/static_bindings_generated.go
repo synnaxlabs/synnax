@@ -544,10 +544,41 @@ type Bindings struct {
 	SeriesNegateI8 func(context.Context, uint32) uint32
 	SeriesNotU8 func(context.Context, uint32) uint32
 
-	// Generic operations
+	// Time operations
 	Now               func(context.Context) uint64
+	TimeElapsed       func(context.Context, uint64) uint64
+
+	// Core operations
 	Len               func(context.Context, uint32) uint64
 	Panic             func(context.Context, uint32, uint32)
+
+	// Math operations - unary (f64 -> f64)
+	MathSqrt          func(context.Context, float64) float64
+	MathSin           func(context.Context, float64) float64
+	MathCos           func(context.Context, float64) float64
+	MathTan           func(context.Context, float64) float64
+	MathAsin          func(context.Context, float64) float64
+	MathAcos          func(context.Context, float64) float64
+	MathAtan          func(context.Context, float64) float64
+	MathAbs           func(context.Context, float64) float64
+	MathFloor         func(context.Context, float64) float64
+	MathCeil          func(context.Context, float64) float64
+	MathRound         func(context.Context, float64) float64
+	MathExp           func(context.Context, float64) float64
+	MathLog           func(context.Context, float64) float64
+	MathLog10         func(context.Context, float64) float64
+
+	// Math operations - binary (f64, f64 -> f64)
+	MathPow           func(context.Context, float64, float64) float64
+	MathMin           func(context.Context, float64, float64) float64
+	MathMax           func(context.Context, float64, float64) float64
+	MathAtan2         func(context.Context, float64, float64) float64
+
+	// Math constants
+	MathPi            func(context.Context) float64
+	MathE             func(context.Context) float64
+
+	// Math power operations - typed
 	MathPowU8 func(context.Context, uint8, uint8) uint8
 	MathPowU16 func(context.Context, uint16, uint16) uint16
 	MathPowU32 func(context.Context, uint32, uint32) uint32
@@ -558,8 +589,13 @@ type Bindings struct {
 	MathPowI64 func(context.Context, int64, int64) int64
 	MathPowF32 func(context.Context, float32, float32) float32
 	MathPowF64 func(context.Context, float64, float64) float64
+
+
+	// Series operations
 	SeriesLen         func(context.Context, uint32) uint64
 	SeriesSlice       func(context.Context, uint32, uint32, uint32) uint32
+
+	// String operations
 	StringFromLiteral func(context.Context, uint32, uint32) uint32
 	StringConcat      func(context.Context, uint32, uint32) uint32
 	StringEqual       func(context.Context, uint32, uint32) uint32
@@ -2542,11 +2578,19 @@ func (b *Bindings) setDefaultStubs() {
 	}
 
 	// Generic operation stubs
+	// Time operation stubs
 	if b.Now == nil {
 		b.Now = func(ctx context.Context) uint64 {
 			panic("now() not implemented")
 		}
 	}
+	if b.TimeElapsed == nil {
+		b.TimeElapsed = func(ctx context.Context, start uint64) uint64 {
+			panic("time.elapsed() not implemented")
+		}
+	}
+
+	// Core operation stubs
 	if b.Len == nil {
 		b.Len = func(ctx context.Context, handle uint32) uint64 {
 			panic("len() not implemented")
@@ -2557,56 +2601,166 @@ func (b *Bindings) setDefaultStubs() {
 			panic("panic() called")
 		}
 	}
+
+	// Math unary function stubs
+	if b.MathSqrt == nil {
+		b.MathSqrt = func(ctx context.Context, x float64) float64 {
+			panic("math.sqrt() not implemented")
+		}
+	}
+	if b.MathSin == nil {
+		b.MathSin = func(ctx context.Context, x float64) float64 {
+			panic("math.sin() not implemented")
+		}
+	}
+	if b.MathCos == nil {
+		b.MathCos = func(ctx context.Context, x float64) float64 {
+			panic("math.cos() not implemented")
+		}
+	}
+	if b.MathTan == nil {
+		b.MathTan = func(ctx context.Context, x float64) float64 {
+			panic("math.tan() not implemented")
+		}
+	}
+	if b.MathAsin == nil {
+		b.MathAsin = func(ctx context.Context, x float64) float64 {
+			panic("math.asin() not implemented")
+		}
+	}
+	if b.MathAcos == nil {
+		b.MathAcos = func(ctx context.Context, x float64) float64 {
+			panic("math.acos() not implemented")
+		}
+	}
+	if b.MathAtan == nil {
+		b.MathAtan = func(ctx context.Context, x float64) float64 {
+			panic("math.atan() not implemented")
+		}
+	}
+	if b.MathAbs == nil {
+		b.MathAbs = func(ctx context.Context, x float64) float64 {
+			panic("math.abs() not implemented")
+		}
+	}
+	if b.MathFloor == nil {
+		b.MathFloor = func(ctx context.Context, x float64) float64 {
+			panic("math.floor() not implemented")
+		}
+	}
+	if b.MathCeil == nil {
+		b.MathCeil = func(ctx context.Context, x float64) float64 {
+			panic("math.ceil() not implemented")
+		}
+	}
+	if b.MathRound == nil {
+		b.MathRound = func(ctx context.Context, x float64) float64 {
+			panic("math.round() not implemented")
+		}
+	}
+	if b.MathExp == nil {
+		b.MathExp = func(ctx context.Context, x float64) float64 {
+			panic("math.exp() not implemented")
+		}
+	}
+	if b.MathLog == nil {
+		b.MathLog = func(ctx context.Context, x float64) float64 {
+			panic("math.log() not implemented")
+		}
+	}
+	if b.MathLog10 == nil {
+		b.MathLog10 = func(ctx context.Context, x float64) float64 {
+			panic("math.log10() not implemented")
+		}
+	}
+
+	// Math binary function stubs
+	if b.MathPow == nil {
+		b.MathPow = func(ctx context.Context, x, y float64) float64 {
+			panic("math.pow() not implemented")
+		}
+	}
+	if b.MathMin == nil {
+		b.MathMin = func(ctx context.Context, x, y float64) float64 {
+			panic("math.min() not implemented")
+		}
+	}
+	if b.MathMax == nil {
+		b.MathMax = func(ctx context.Context, x, y float64) float64 {
+			panic("math.max() not implemented")
+		}
+	}
+	if b.MathAtan2 == nil {
+		b.MathAtan2 = func(ctx context.Context, y, x float64) float64 {
+			panic("math.atan2() not implemented")
+		}
+	}
+
+	// Math constant stubs
+	if b.MathPi == nil {
+		b.MathPi = func(ctx context.Context) float64 {
+			panic("math.pi() not implemented")
+		}
+	}
+	if b.MathE == nil {
+		b.MathE = func(ctx context.Context) float64 {
+			panic("math.e() not implemented")
+		}
+	}
+
+	// Math typed power stubs
 	if b.MathPowU8 == nil {
 		b.MathPowU8 = func(ctx context.Context, base, exp uint8) uint8 {
-			panic("math_int_pow_u8() not implemented")
+			panic("math.pow_u8() not implemented")
 		}
 	}
 	if b.MathPowU16 == nil {
 		b.MathPowU16 = func(ctx context.Context, base, exp uint16) uint16 {
-			panic("math_int_pow_u16() not implemented")
+			panic("math.pow_u16() not implemented")
 		}
 	}
 	if b.MathPowU32 == nil {
 		b.MathPowU32 = func(ctx context.Context, base, exp uint32) uint32 {
-			panic("math_int_pow_u32() not implemented")
+			panic("math.pow_u32() not implemented")
 		}
 	}
 	if b.MathPowU64 == nil {
 		b.MathPowU64 = func(ctx context.Context, base, exp uint64) uint64 {
-			panic("math_int_pow_u64() not implemented")
+			panic("math.pow_u64() not implemented")
 		}
 	}
 	if b.MathPowI8 == nil {
 		b.MathPowI8 = func(ctx context.Context, base, exp int8) int8 {
-			panic("math_int_pow_i8() not implemented")
+			panic("math.pow_i8() not implemented")
 		}
 	}
 	if b.MathPowI16 == nil {
 		b.MathPowI16 = func(ctx context.Context, base, exp int16) int16 {
-			panic("math_int_pow_i16() not implemented")
+			panic("math.pow_i16() not implemented")
 		}
 	}
 	if b.MathPowI32 == nil {
 		b.MathPowI32 = func(ctx context.Context, base, exp int32) int32 {
-			panic("math_int_pow_i32() not implemented")
+			panic("math.pow_i32() not implemented")
 		}
 	}
 	if b.MathPowI64 == nil {
 		b.MathPowI64 = func(ctx context.Context, base, exp int64) int64 {
-			panic("math_int_pow_i64() not implemented")
+			panic("math.pow_i64() not implemented")
 		}
 	}
 	if b.MathPowF32 == nil {
 		b.MathPowF32 = func(ctx context.Context, base, exp float32) float32 {
-			panic("math_int_pow_f32() not implemented")
+			panic("math.pow_f32() not implemented")
 		}
 	}
 	if b.MathPowF64 == nil {
 		b.MathPowF64 = func(ctx context.Context, base, exp float64) float64 {
-			panic("math_int_pow_f64() not implemented")
+			panic("math.pow_f64() not implemented")
 		}
 	}
+
+	// Series operation stubs
 	if b.SeriesLen == nil {
 		b.SeriesLen = func(ctx context.Context, handle uint32) uint64 {
 			panic("series_len() not implemented")
@@ -3216,7 +3370,33 @@ func (b *Bindings) bindStringModule(ctx context.Context, rt wazero.Runtime) erro
 func (b *Bindings) bindMathModule(ctx context.Context, rt wazero.Runtime) error {
 	m := rt.NewHostModuleBuilder(ModuleMath)
 
-	// Power operations for all types
+	// Unary functions (f64 -> f64)
+	m.NewFunctionBuilder().WithFunc(b.MathSqrt).Export("sqrt")
+	m.NewFunctionBuilder().WithFunc(b.MathSin).Export("sin")
+	m.NewFunctionBuilder().WithFunc(b.MathCos).Export("cos")
+	m.NewFunctionBuilder().WithFunc(b.MathTan).Export("tan")
+	m.NewFunctionBuilder().WithFunc(b.MathAsin).Export("asin")
+	m.NewFunctionBuilder().WithFunc(b.MathAcos).Export("acos")
+	m.NewFunctionBuilder().WithFunc(b.MathAtan).Export("atan")
+	m.NewFunctionBuilder().WithFunc(b.MathAbs).Export("abs")
+	m.NewFunctionBuilder().WithFunc(b.MathFloor).Export("floor")
+	m.NewFunctionBuilder().WithFunc(b.MathCeil).Export("ceil")
+	m.NewFunctionBuilder().WithFunc(b.MathRound).Export("round")
+	m.NewFunctionBuilder().WithFunc(b.MathExp).Export("exp")
+	m.NewFunctionBuilder().WithFunc(b.MathLog).Export("log")
+	m.NewFunctionBuilder().WithFunc(b.MathLog10).Export("log10")
+
+	// Binary functions (f64, f64 -> f64)
+	m.NewFunctionBuilder().WithFunc(b.MathPow).Export("pow")
+	m.NewFunctionBuilder().WithFunc(b.MathMin).Export("min")
+	m.NewFunctionBuilder().WithFunc(b.MathMax).Export("max")
+	m.NewFunctionBuilder().WithFunc(b.MathAtan2).Export("atan2")
+
+	// Constants
+	m.NewFunctionBuilder().WithFunc(b.MathPi).Export("pi")
+	m.NewFunctionBuilder().WithFunc(b.MathE).Export("e")
+
+	// Typed power operations
 	m.NewFunctionBuilder().WithFunc(b.wrapMathPowF32()).Export("pow_f32")
 	m.NewFunctionBuilder().WithFunc(b.wrapMathPowF64()).Export("pow_f64")
 	m.NewFunctionBuilder().WithFunc(b.wrapMathPowU8()).Export("pow_u8")
@@ -3228,9 +3408,6 @@ func (b *Bindings) bindMathModule(ctx context.Context, rt wazero.Runtime) error 
 	m.NewFunctionBuilder().WithFunc(b.wrapMathPowI32()).Export("pow_i32")
 	m.NewFunctionBuilder().WithFunc(b.wrapMathPowI64()).Export("pow_i64")
 
-	// Generic f64 pow (for math.pow(x, y))
-	m.NewFunctionBuilder().WithFunc(b.wrapMathPowF64()).Export("pow")
-
 	_, err := m.Instantiate(ctx)
 	return err
 }
@@ -3240,8 +3417,7 @@ func (b *Bindings) bindTimeModule(ctx context.Context, rt wazero.Runtime) error 
 	m := rt.NewHostModuleBuilder(ModuleTime)
 
 	m.NewFunctionBuilder().WithFunc(b.Now).Export("now")
-	// Len is moved to series module as it operates on series
-	m.NewFunctionBuilder().WithFunc(b.Len).Export("len")
+	m.NewFunctionBuilder().WithFunc(b.TimeElapsed).Export("elapsed")
 
 	_, err := m.Instantiate(ctx)
 	return err

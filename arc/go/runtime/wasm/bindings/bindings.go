@@ -70,11 +70,40 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	b.StringLen = runtime.StringLen
 	b.StringEqual = runtime.StringEqual
 
-	// Generic operations
+	// Time operations
 	b.Now = runtime.Now
+	b.TimeElapsed = runtime.TimeElapsed
+
+	// Core operations
 	b.Panic = runtime.Panic
 
-	// Math operations
+	// Math unary operations (f64 -> f64)
+	b.MathSqrt = runtime.MathSqrt
+	b.MathSin = runtime.MathSin
+	b.MathCos = runtime.MathCos
+	b.MathTan = runtime.MathTan
+	b.MathAsin = runtime.MathAsin
+	b.MathAcos = runtime.MathAcos
+	b.MathAtan = runtime.MathAtan
+	b.MathAbs = runtime.MathAbs
+	b.MathFloor = runtime.MathFloor
+	b.MathCeil = runtime.MathCeil
+	b.MathRound = runtime.MathRound
+	b.MathExp = runtime.MathExp
+	b.MathLog = runtime.MathLog
+	b.MathLog10 = runtime.MathLog10
+
+	// Math binary operations (f64, f64 -> f64)
+	b.MathPow = runtime.MathPow
+	b.MathMin = runtime.MathMin
+	b.MathMax = runtime.MathMax
+	b.MathAtan2 = runtime.MathAtan2
+
+	// Math constants
+	b.MathPi = runtime.MathPi
+	b.MathE = runtime.MathE
+
+	// Math typed power operations
 	b.MathPowF32 = runtime.MathPowF32
 	b.MathPowF64 = runtime.MathPowF64
 	b.MathPowU8 = runtime.MathPowU8

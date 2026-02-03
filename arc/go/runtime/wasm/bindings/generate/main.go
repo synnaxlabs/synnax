@@ -143,6 +143,11 @@ func (r *Runtime) Now(ctx context.Context) uint64 {
 	return uint64(telem.Now())
 }
 
+// TimeElapsed returns the elapsed time since the given start timestamp.
+func (r *Runtime) TimeElapsed(ctx context.Context, start uint64) uint64 {
+	return uint64(telem.Now()) - start
+}
+
 // Panic is called when Arc code panics.
 func (r *Runtime) Panic(ctx context.Context, ptr uint32, length uint32) {
 	// Read panic message from WASM memory
@@ -152,6 +157,32 @@ func (r *Runtime) Panic(ctx context.Context, ptr uint32, length uint32) {
 	}
 	panic("arc panic: " + string(msg))
 }
+
+// Math unary functions (f64 -> f64)
+func (r *Runtime) MathSqrt(ctx context.Context, x float64) float64 { return math.Sqrt(x) }
+func (r *Runtime) MathSin(ctx context.Context, x float64) float64 { return math.Sin(x) }
+func (r *Runtime) MathCos(ctx context.Context, x float64) float64 { return math.Cos(x) }
+func (r *Runtime) MathTan(ctx context.Context, x float64) float64 { return math.Tan(x) }
+func (r *Runtime) MathAsin(ctx context.Context, x float64) float64 { return math.Asin(x) }
+func (r *Runtime) MathAcos(ctx context.Context, x float64) float64 { return math.Acos(x) }
+func (r *Runtime) MathAtan(ctx context.Context, x float64) float64 { return math.Atan(x) }
+func (r *Runtime) MathAbs(ctx context.Context, x float64) float64 { return math.Abs(x) }
+func (r *Runtime) MathFloor(ctx context.Context, x float64) float64 { return math.Floor(x) }
+func (r *Runtime) MathCeil(ctx context.Context, x float64) float64 { return math.Ceil(x) }
+func (r *Runtime) MathRound(ctx context.Context, x float64) float64 { return math.Round(x) }
+func (r *Runtime) MathExp(ctx context.Context, x float64) float64 { return math.Exp(x) }
+func (r *Runtime) MathLog(ctx context.Context, x float64) float64 { return math.Log(x) }
+func (r *Runtime) MathLog10(ctx context.Context, x float64) float64 { return math.Log10(x) }
+
+// Math binary functions (f64, f64 -> f64)
+func (r *Runtime) MathPow(ctx context.Context, x, y float64) float64 { return math.Pow(x, y) }
+func (r *Runtime) MathMin(ctx context.Context, x, y float64) float64 { return math.Min(x, y) }
+func (r *Runtime) MathMax(ctx context.Context, x, y float64) float64 { return math.Max(x, y) }
+func (r *Runtime) MathAtan2(ctx context.Context, y, x float64) float64 { return math.Atan2(y, x) }
+
+// Math constants
+func (r *Runtime) MathPi(ctx context.Context) float64 { return math.Pi }
+func (r *Runtime) MathE(ctx context.Context) float64 { return math.E }
 
 // MathPowF32 computes base^exponent for f32.
 func (r *Runtime) MathPowF32(ctx context.Context, base float32, exponent float32) float32 {
