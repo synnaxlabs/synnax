@@ -246,32 +246,19 @@ class WorkspaceClient:
         """
         return self.layout.page.locator(".pluto-tree__item").filter(has_text=name).first
 
-    def page_exists(self, name: str, timeout: int = 2000) -> bool:
-        """Check if a page (schematic, line plot, etc.) exists in the workspace.
-
-        Args:
-            name: Name of the page to check
-            timeout: Maximum time in milliseconds to wait for the page to appear
-
-        Returns:
-            True if page exists, False otherwise
-        """
+    def page_exists(self, name: str) -> bool:
+        """Check if a page (schematic, line plot, etc.) exists in the workspace."""
         self.expand_active()
         try:
-            self.get_page(name).wait_for(state="visible", timeout=timeout)
+            self.get_page(name).wait_for(state="visible", timeout=5000)
             return True
         except PlaywrightTimeoutError:
             return False
 
-    def wait_for_page_removed(self, name: str, timeout: int = 5000) -> None:
-        """Wait for a page to be removed from the workspace.
-
-        Args:
-            name: Name of the page to wait for removal
-            timeout: Maximum time in milliseconds to wait
-        """
+    def wait_for_page_removed(self, name: str) -> None:
+        """Wait for a page to be removed from the workspace."""
         page_item = self.get_page(name)
-        page_item.wait_for(state="hidden", timeout=timeout)
+        page_item.wait_for(state="hidden", timeout=5000)
 
     def open_page(self, name: str) -> None:
         """Open a page by double-clicking it in the workspace resources toolbar.

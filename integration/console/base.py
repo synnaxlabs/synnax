@@ -42,14 +42,9 @@ class BaseClient:
         self.notifications = NotificationsClient(layout.page)
         self.tree = Tree(layout.page)
 
-    def _wait_for_hidden(self, item: Locator, timeout: int = 5000) -> None:
-        """Wait for an item to be removed/hidden.
-
-        Args:
-            item: The Locator for the element to wait for.
-            timeout: Maximum time in milliseconds to wait.
-        """
-        item.wait_for(state="hidden", timeout=timeout)
+    def _wait_for_hidden(self, item: Locator) -> None:
+        """Wait for an item to be removed/hidden."""
+        item.wait_for(state="hidden", timeout=5000)
 
     def _context_menu_action(self, item: Locator, action: str) -> None:
         """Perform a context menu action on an item.
@@ -90,88 +85,13 @@ class BaseClient:
         self.layout.press_key(shortcut_key)
         items.first.wait_for(state="visible", timeout=5000)
 
-    def _find_toolbar_item(self, item_prefix: str, name: str) -> Locator | None:
-        """Find a toolbar item by name.
-
-        Args:
-            item_prefix: The ID prefix of items (e.g., "rack:", "role:").
-            name: The name to search for.
-
-        Returns:
-            The Locator for the item, or None if not found.
-        """
-        items = self.layout.page.locator(f"div[id^='{item_prefix}']").filter(
-            has_text=name
-        )
-        if items.count() == 0:
-            return None
-        return items.first
-
-    def _toolbar_item_exists(self, item_prefix: str, name: str) -> bool:
-        """Check if a toolbar item exists.
-
-        Args:
-            item_prefix: The ID prefix of items (e.g., "rack:", "role:").
-            name: The name to search for.
-
-        Returns:
-            True if the item exists, False otherwise.
-        """
-        return self._find_toolbar_item(item_prefix, name) is not None
-
-    def _get_toolbar_item(self, item_prefix: str, name: str) -> Locator:
-        """Get a toolbar item by name, raising if not found.
-
-        Args:
-            item_prefix: The ID prefix of items (e.g., "rack:", "role:").
-            name: The name to search for.
-
-        Returns:
-            The Locator for the item.
-
-        Raises:
-            ValueError: If the item is not found.
-        """
-        item = self._find_toolbar_item(item_prefix, name)
-        if item is None:
-            raise ValueError(
-                f"Item '{name}' not found in toolbar (prefix: {item_prefix})"
-            )
-        return item
-
-    def _wait_for_item_removed(
-        self, item_prefix: str, name: str, timeout: int = 5000, *, exact: bool = False
-    ) -> None:
-        """Wait for an item to be removed from a toolbar/panel.
-
-        Args:
-            item_prefix: The ID prefix of items (e.g., "rack:", "channel:").
-            name: The name of the item to wait for removal.
-            timeout: Maximum time in milliseconds to wait.
-            exact: If True, use exact text matching (important for items with similar names).
-        """
-        if exact:
-            item = self.layout.page.locator(f"div[id^='{item_prefix}']").filter(
-                has=self.layout.page.get_by_text(name, exact=True)
-            )
-        else:
-            item = self.layout.page.locator(f"div[id^='{item_prefix}']").filter(
-                has_text=name
-            )
-        item.first.wait_for(state="hidden", timeout=timeout)
-
-    def _delete_with_confirmation(self, item: Locator, timeout: int = 5000) -> None:
-        """Delete an item via context menu with confirmation modal.
-
-        Args:
-            item: The Locator for the item to delete.
-            timeout: Maximum time in milliseconds to wait for deletion.
-        """
+    def _delete_with_confirmation(self, item: Locator) -> None:
+        """Delete an item via context menu with confirmation modal."""
         self.ctx_menu.action(item, "Delete")
         modal = self.layout.page.locator(self.MODAL_SELECTOR)
-        modal.wait_for(state="visible", timeout=2000)
+        modal.wait_for(state="visible", timeout=5000)
         modal.get_by_role("button", name="Delete", exact=True).click()
-        modal.wait_for(state="hidden", timeout=timeout)
+        modal.wait_for(state="hidden", timeout=5000)
 
     def _select_multiple_items(
         self, items: list[Locator], then_right_click_last: bool = True

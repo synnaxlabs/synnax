@@ -34,26 +34,22 @@ class SymbolEditor:
             "Click to select an SVG file or drag and drop it here"
         )
 
-    def wait_for_open(self, timeout: int = 5000) -> None:
-        """Wait for the editor modal to open.
-
-        In create mode, the drop zone is shown first.
-        In edit mode (existing symbol), the form is shown directly since SVG is loaded.
-        """
+    def wait_for_open(self) -> None:
+        """Wait for the editor modal to open."""
         try:
             self.drop_zone.wait_for(state="visible", timeout=1000)
         except PlaywrightTimeoutError:
-            self.wait_for_form_visible(timeout=timeout)
+            self.wait_for_form_visible()
 
-    def wait_for_form_visible(self, timeout: int = 5000) -> None:
+    def wait_for_form_visible(self) -> None:
         """Wait for the form fields to appear (after SVG upload)."""
         self.page.locator("input[placeholder='Symbol Name']").wait_for(
-            state="visible", timeout=timeout
+            state="visible", timeout=5000
         )
 
-    def wait_for_closed(self, timeout: int = 5000) -> None:
+    def wait_for_closed(self) -> None:
         """Wait for the editor modal to close."""
-        self.modal.wait_for(state="hidden", timeout=timeout)
+        self.modal.wait_for(state="hidden", timeout=5000)
 
     def set_name(self, name: str) -> None:
         """Set the symbol name."""

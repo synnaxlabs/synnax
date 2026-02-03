@@ -299,16 +299,11 @@ class RangesClient(BaseClient):
         )
         parent_button.click(timeout=5000)
 
-    def wait_for_overview(self, name: str, timeout: int = 5000) -> None:
-        """Wait for the range overview to show a specific range.
-
-        Args:
-            name: The name of the range to wait for.
-            timeout: Maximum time to wait in milliseconds.
-        """
+    def wait_for_overview(self, name: str) -> None:
+        """Wait for the range overview to show a specific range."""
         name_input = self.layout.page.locator("input[placeholder='Name']").first
-        name_input.wait_for(state="visible", timeout=timeout)
-        expect(name_input).to_have_value(name, timeout=timeout)
+        name_input.wait_for(state="visible", timeout=5000)
+        expect(name_input).to_have_value(name, timeout=5000)
 
     def is_overview_showing(self, name: str) -> bool:
         """Check if the range overview is showing a specific range.
@@ -794,18 +789,10 @@ class RangesClient(BaseClient):
             has_text=name
         )
 
-    def snapshot_exists_in_overview(self, name: str, timeout: int = 5000) -> bool:
-        """Check if a snapshot exists in the Snapshots section of the overview.
-
-        Args:
-            name: The name of the snapshot to check for.
-            timeout: Maximum time to wait in milliseconds.
-
-        Returns:
-            True if the snapshot exists, False otherwise.
-        """
+    def snapshot_exists_in_overview(self, name: str) -> bool:
+        """Check if a snapshot exists in the Snapshots section of the overview."""
         try:
-            self.get_snapshot_item(name).wait_for(state="visible", timeout=timeout)
+            self.get_snapshot_item(name).wait_for(state="visible", timeout=5000)
             return True
         except PlaywrightTimeoutError:
             return False

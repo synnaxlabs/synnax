@@ -59,37 +59,23 @@ class DocsClient(BaseClient):
         iframe.wait_for(state="visible", timeout=10000)
         return iframe.get_attribute("src") or ""
 
-    def has_text(self, text: str, timeout: int = 10000) -> bool:
-        """Check if the documentation iframe contains specific text.
-
-        Args:
-            text: The text to search for in the iframe content.
-            timeout: Maximum time in milliseconds to wait for the text.
-
-        Returns:
-            True if the text is found and visible, False otherwise.
-        """
+    def has_text(self, text: str) -> bool:
+        """Check if the documentation iframe contains specific text."""
         try:
             self.get_frame().get_by_text(text).first.wait_for(
-                state="visible", timeout=timeout
+                state="visible", timeout=5000
             )
             return True
         except PlaywrightTimeoutError:
             return False
 
-    def wait_for_iframe_loaded(self, timeout: int = 15000) -> None:
-        """Wait for the documentation iframe to be fully loaded.
-
-        Waits for the iframe to be visible and any loading spinner to disappear.
-
-        Args:
-            timeout: Maximum time in milliseconds to wait.
-        """
-        self._get_iframe().wait_for(state="visible", timeout=timeout)
+    def wait_for_iframe_loaded(self) -> None:
+        """Wait for the documentation iframe to be fully loaded."""
+        self._get_iframe().wait_for(state="visible", timeout=5000)
         loader = self.layout.page.locator(".console-docs .pluto--loader")
         if loader.count() > 0:
             try:
-                loader.wait_for(state="hidden", timeout=timeout)
+                loader.wait_for(state="hidden", timeout=5000)
             except PlaywrightTimeoutError:
                 pass
 

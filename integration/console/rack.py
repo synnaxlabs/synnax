@@ -29,27 +29,25 @@ class RackClient(BaseClient):
     def find_item(self, name: str) -> Locator | None:
         """Find a rack item in the devices panel by name."""
         self._show_devices_panel()
-        return self._find_toolbar_item(self.ITEM_PREFIX, name)
+        return self.tree.find_by_name(self.ITEM_PREFIX, name, exact=False)
 
     def get_item(self, name: str) -> Locator:
         """Get a rack item locator from the devices panel."""
         self._show_devices_panel()
-        return self._get_toolbar_item(self.ITEM_PREFIX, name)
+        item = self.tree.find_by_name(self.ITEM_PREFIX, name, exact=False)
+        if item is None:
+            raise ValueError(f"Rack '{name}' not found")
+        return item
 
     def exists(self, name: str) -> bool:
         """Check if a rack exists in the devices panel."""
         self._show_devices_panel()
-        return self._toolbar_item_exists(self.ITEM_PREFIX, name)
+        return self.tree.find_by_name(self.ITEM_PREFIX, name, exact=False) is not None
 
-    def wait_for_rack_removed(self, name: str, timeout: int = 5000) -> None:
-        """Wait for a rack to be removed from the devices panel.
-
-        Args:
-            name: Name of the rack to wait for removal
-            timeout: Maximum time in milliseconds to wait
-        """
+    def wait_for_rack_removed(self, name: str) -> None:
+        """Wait for a rack to be removed from the devices panel."""
         self._show_devices_panel()
-        self._wait_for_item_removed(self.ITEM_PREFIX, name, timeout)
+        self.tree.wait_for_removal(self.ITEM_PREFIX, name, exact=False)
 
     def get_status(self, name: str) -> dict[str, str]:
         """Get the status of a rack by hovering over its status indicator."""

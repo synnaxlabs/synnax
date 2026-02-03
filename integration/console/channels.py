@@ -475,14 +475,10 @@ class ChannelClient(BaseClient):
         finally:
             self.hide_channels()
 
-    def wait_for_channel_removed(self, name: ChannelName, timeout: int = 5000) -> None:
-        """Wait for a channel to be removed from the channel list.
-
-        :param name: The name of the channel to wait for removal.
-        :param timeout: Maximum time in milliseconds to wait.
-        """
+    def wait_for_channel_removed(self, name: ChannelName) -> None:
+        """Wait for a channel to be removed from the channel list."""
         self.show_channels()
-        self._wait_for_item_removed(self.ITEM_PREFIX, str(name), timeout, exact=True)
+        self.tree.wait_for_removal(self.ITEM_PREFIX, str(name), exact=True)
         self.hide_channels()
 
     def wait_for_channels(
@@ -564,36 +560,22 @@ class ChannelClient(BaseClient):
 
         self.hide_channels()
 
-    def delete(self, names: ChannelNames, timeout: int = 5000) -> None:
-        """Deletes one or more channels via console UI.
-
-        :param names: The name(s) of the channel(s) to delete.
-        :returns: None.
-        """
-        # Normalize inputs to lists
+    def delete(self, names: ChannelNames) -> None:
+        """Deletes one or more channels via console UI."""
         normalized_names = normalize_channel_params(names)
-
-        # Ensure we have the same number of names and new names
         if len(normalized_names.channels) != len(normalized_names.channels):
             raise ValueError("Number of names and new names must be equal")
-
-        # Delete each channel via console UI
         for name in normalized_names.channels:
-            self._delete_single_channel(str(name), timeout)
+            self._delete_single_channel(str(name))
 
-    def _delete_single_channel(self, name: str, timeout: int = 5000) -> None:
-        """Delete a single channel via the context menu.
-
-        Args:
-            name: The name of the channel to delete.
-            timeout: Maximum time in milliseconds to wait for deletion.
-        """
+    def _delete_single_channel(self, name: str) -> None:
+        """Delete a single channel via the context menu."""
         self.show_channels()
         item = self._find_channel_item(name)
         if item is None:
             raise ValueError(f"Channel {name} not found")
 
-        self._delete_with_confirmation(item, timeout)
+        self._delete_with_confirmation(item)
 
         for i, notification in enumerate(self.notifications.check()):
             message = notification.get("message", "")
@@ -602,7 +584,7 @@ class ChannelClient(BaseClient):
                 self.notifications.close(i)
                 raise RuntimeError(f"{message} {name}, {description}")
 
-        self._wait_for_item_removed(self.ITEM_PREFIX, name, timeout, exact=True)
+        self.tree.wait_for_removal(self.ITEM_PREFIX, name, exact=True)
         self.hide_channels()
 
     def list_all(self) -> list[ChannelName]:

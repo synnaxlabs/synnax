@@ -111,16 +111,14 @@ class LogLifecycle(ConsoleCase):
                 w.write({self.idx_name: sy.TimeStamp.now(), self.data_name: (42.0 + i)})
                 sy.sleep(0.1)
 
-        assert log.wait_until_streaming(
-            timeout_ms=5000
-        ), "Log should be streaming after data write"
+        assert log.wait_until_streaming(), "Log should be streaming after data write"
         assert not log.is_empty(), "Log should not be empty after data write"
         assert not log.is_waiting_for_data(), "Log should not be waiting for data"
 
         self.console.reload()
 
-        assert log.wait_until_streaming(
-            timeout_ms=5000
+        assert (
+            log.wait_until_streaming()
         ), "Log should still be streaming after reload (persisted)"
         assert (
             not log.is_waiting_for_data()
@@ -131,8 +129,8 @@ class LogLifecycle(ConsoleCase):
         self.log("Testing virtual channel streaming")
 
         log.set_channel(self.virtual_name)
-        assert log.wait_until_waiting_for_data(
-            timeout_ms=2000
+        assert (
+            log.wait_until_waiting_for_data()
         ), "Log should be waiting for data initially (virtual channel)"
 
         with self.client.open_writer(
@@ -143,15 +141,15 @@ class LogLifecycle(ConsoleCase):
             for i in range(5):
                 writer.write({self.virtual_name: float(i)})
                 sy.sleep(0.1)
-            assert log.wait_until_streaming(
-                timeout_ms=5000
+            assert (
+                log.wait_until_streaming()
             ), "Log should be streaming virtual channel data"
             assert not log.is_empty(), "Log should not be empty with virtual data"
 
         self.console.reload()
 
-        assert log.wait_until_waiting_for_data(
-            timeout_ms=5000
+        assert (
+            log.wait_until_waiting_for_data()
         ), "Log should be waiting for data after reload (virtual channel not persisted)"
 
     def test_rename_from_tab(self, log: Log) -> None:

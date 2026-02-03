@@ -341,7 +341,7 @@ class SchematicLifecycle(ConsoleCase):
         snapshot_names = self.console.ranges.get_snapshot_names_in_overview()
         self.log(f"Snapshots found in overview: {snapshot_names}")
         assert self.console.ranges.snapshot_exists_in_overview(
-            snapshot_name, timeout=10000
+            snapshot_name
         ), f"Snapshot '{snapshot_name}' should exist in Range Details Overview. Found: {snapshot_names}"
 
         self.console.ranges.open_snapshot_from_overview(snapshot_name)

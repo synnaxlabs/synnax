@@ -80,44 +80,24 @@ class Log(ConsolePage):
         live_button = self.pane_locator.locator("button.pluto-log__live")
         return live_button.count() > 0
 
-    def wait_until_streaming(self, timeout_ms: int = 5000) -> bool:
-        """Wait until the log starts streaming data.
-
-        Args:
-            timeout_ms: Maximum time to wait in milliseconds.
-
-        Returns:
-            True if streaming started, False if timeout reached.
-
-        Raises:
-            Exception: Re-raises any non-timeout exceptions.
-        """
+    def wait_until_streaming(self) -> bool:
+        """Wait until the log starts streaming data."""
         live_button = self.page.locator(
             f"{self.pluto_label} button.pluto-log__live"
         ).first
         try:
-            live_button.wait_for(state="visible", timeout=timeout_ms)
+            live_button.wait_for(state="visible", timeout=5000)
             return True
         except PlaywrightTimeoutError:
             return False
 
-    def wait_until_waiting_for_data(self, timeout_ms: int = 5000) -> bool:
-        """Wait until the log shows 'No data received yet' message.
-
-        Args:
-            timeout_ms: Maximum time to wait in milliseconds.
-
-        Returns:
-            True if waiting state reached, False if timeout reached.
-
-        Raises:
-            Exception: Re-raises any non-timeout exceptions.
-        """
+    def wait_until_waiting_for_data(self) -> bool:
+        """Wait until the log shows 'No data received yet' message."""
         waiting_message = self.page.locator(self.pluto_label).get_by_text(
             "No data received yet"
         )
         try:
-            waiting_message.wait_for(state="visible", timeout=timeout_ms)
+            waiting_message.wait_for(state="visible", timeout=5000)
             return True
         except PlaywrightTimeoutError:
             return False
