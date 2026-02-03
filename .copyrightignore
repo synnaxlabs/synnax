@@ -8,3 +8,6 @@
 **/nisyscfg.h
 **/nidaqmx.h
 vendor/**
+
+# IgH EtherCAT Master
+driver/ethercat/igh/ecrt.h
