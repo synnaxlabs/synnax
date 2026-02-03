@@ -24,7 +24,7 @@
 
 namespace ethercat {
 /// @brief configuration for EtherCAT write tasks.
-struct WriteTaskConfig : common::BaseWriteTaskConfig {
+struct WriteTaskConfig : common::BaseTaskConfig {
     /// @brief network interface name for the EtherCAT master.
     std::string interface_name;
     /// @brief configured output channels.
@@ -41,7 +41,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     std::unordered_map<std::string, device::SlaveProperties> device_cache;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
-        BaseWriteTaskConfig(std::move(other)),
+        BaseTaskConfig(std::move(other)),
         interface_name(std::move(other.interface_name)),
         channels(std::move(other.channels)),
         state_channels(std::move(other.state_channels)),
@@ -57,7 +57,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &cfg
     ):
-        BaseWriteTaskConfig(cfg),
+        BaseTaskConfig(cfg),
         state_rate(telem::Rate(cfg.field<float>("state_rate", 1.0f))),
         execution_rate(telem::Rate(cfg.field<float>("execution_rate", 1000.0f))) {
         std::unordered_map<std::string, device::SlaveProperties> slave_cache;
