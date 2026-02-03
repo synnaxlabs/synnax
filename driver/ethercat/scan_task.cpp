@@ -14,6 +14,7 @@
 
 #include "x/cpp/telem/telem.h"
 
+#include "driver/ethercat/device/device.h"
 #include "driver/ethercat/scan_task.h"
 
 namespace ethercat {
@@ -65,6 +66,21 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::Device> devices;
     if (this->pool == nullptr) return {devices, xerrors::NIL};
 
+    if (scan_ctx.count == 0 && scan_ctx.devices != nullptr) {
+        for (const auto &[key, dev]: *scan_ctx.devices) {
+            auto props_parser = xjson::Parser(dev.properties);
+            device::SlaveProperties props(props_parser);
+            if (props_parser.error() || props.enabled) continue;
+
+            auto [engine, err] = this->pool->acquire(props.network);
+            if (err) continue;
+
+            LOG(INFO) << SCAN_LOG_PREFIX << "initializing slave " << props.position
+                      << " on " << props.network << " as disabled";
+            engine->set_slave_enabled(props.position, props.enabled);
+        }
+    }
+
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
@@ -112,9 +128,16 @@ synnax::Device Scanner::create_slave_device(
     for (auto &[k, v]: slave_props.items())
         props[k] = v;
 
+    bool is_enabled = true;
+    if (props.contains("enabled") && props["enabled"].is_boolean())
+        is_enabled = props["enabled"].get<bool>();
+
     std::string status_msg;
     std::string status_variant;
-    if (slave.pdos_discovered) {
+    if (!is_enabled) {
+        status_msg = "Device disabled";
+        status_variant = status::variant::DISABLED;
+    } else if (slave.pdos_discovered) {
         if (slave.pdo_discovery_error.empty()) {
             status_msg = "Discovered (" + std::to_string(slave.input_pdos.size()) +
                          " inputs, " + std::to_string(slave.output_pdos.size()) +
@@ -173,6 +196,31 @@ Scanner::generate_slave_key(const SlaveInfo &slave, const std::string &master_ke
     std::replace(safe_key.begin(), safe_key.end(), ':', '_');
     return "ethercat_" + safe_key + "_" + std::to_string(slave.vendor_id) + "_" +
            std::to_string(slave.product_code) + "_" + std::to_string(slave.position);
+}
+
+void Scanner::on_device_set(const synnax::Device &dev) {
+    auto props_parser = xjson::Parser(dev.properties);
+    device::SlaveProperties props(props_parser);
+    if (props_parser.error()) return;
+
+    auto [engine, err] = this->pool->acquire(props.network);
+    if (err) return;
+
+    LOG(INFO) << SCAN_LOG_PREFIX << "setting slave " << props.position << " on "
+              << props.network << " enabled=" << (props.enabled ? "true" : "false");
+    engine->set_slave_enabled(props.position, props.enabled);
+
+    synnax::DeviceStatus status{
+        .key = dev.status_key(),
+        .name = dev.name,
+        .variant = props.enabled ? status::variant::SUCCESS : status::variant::DISABLED,
+        .message = props.enabled ? "Device enabled" : "Device disabled",
+        .time = telem::TimeStamp::now(),
+        .details = {.rack = dev.rack, .device = dev.key},
+    };
+    if (auto status_err = this->ctx->client->statuses.set(status); status_err)
+        LOG(WARNING) << SCAN_LOG_PREFIX
+                     << "failed to update device status: " << status_err;
 }
 
 void Scanner::test_interface(const task::Command &cmd) const {

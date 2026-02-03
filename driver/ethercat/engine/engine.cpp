@@ -395,4 +395,8 @@ std::vector<SlaveInfo> Engine::slaves() const {
 std::string Engine::interface_name() const {
     return this->master->interface_name();
 }
+
+void Engine::set_slave_enabled(const uint16_t position, const bool enabled) {
+    this->master->set_slave_enabled(position, enabled);
+}
 }

@@ -208,5 +208,8 @@ public:
 
     /// @brief returns the interface name.
     [[nodiscard]] std::string interface_name() const;
+
+    /// @brief sets whether a slave is enabled for cyclic exchange.
+    void set_slave_enabled(uint16_t position, bool enabled);
 };
 }

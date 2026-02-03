@@ -82,11 +82,26 @@ xerrors::Error Master::register_pdos(const std::vector<PDOEntry> &) {
     return xerrors::NIL;
 }
 
+void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
+    std::lock_guard lock(this->mu);
+    if (!enabled)
+        this->disabled_slaves.insert(position);
+    else
+        this->disabled_slaves.erase(position);
+}
+
 xerrors::Error Master::activate() {
     if (!this->initialized)
         return xerrors::Error(ACTIVATION_ERROR, "master not initialized");
     if (this->activated)
         return xerrors::Error(ACTIVATION_ERROR, "master already activated");
+
+    {
+        std::lock_guard lock(this->mu);
+        for (const auto pos: this->disabled_slaves)
+            if (pos > 0 && pos <= static_cast<uint16_t>(this->context.slavecount))
+                this->context.slavelist[pos].group = 1;
+    }
 
     const int iomap_size = ecx_config_map_group(&this->context, this->iomap.data(), 0);
 
