@@ -12,9 +12,9 @@
 Provides shared patterns and helpers that all console clients can inherit from.
 """
 
-import synnax as sy
 from playwright.sync_api import Locator
 
+from .context_menu import ContextMenu
 from .layout import LayoutClient
 
 
@@ -36,15 +36,7 @@ class BaseClient:
             layout: The LayoutClient for UI operations (includes notifications).
         """
         self.layout = layout
-
-    def _right_click(self, item: Locator) -> None:
-        """Right-click on an item to open context menu.
-
-        Args:
-            item: The Locator for the element to right-click.
-        """
-        item.click(button="right")
-        sy.sleep(0.2)
+        self.context_menu = ContextMenu(layout.page)
 
     def _wait_for_hidden(self, item: Locator, timeout: int = 5000) -> None:
         """Wait for an item to be removed/hidden.
@@ -62,8 +54,7 @@ class BaseClient:
             item: The Locator for the element to right-click.
             action: The exact text of the menu action to click.
         """
-        self._right_click(item)
-        self.layout.page.get_by_text(action, exact=True).click()
+        self.context_menu.action(item, action)
 
     def _show_panel_by_icon(self, icon_name: str, item_prefix: str) -> None:
         """Show a navigation panel by clicking its toolbar button.
@@ -172,8 +163,7 @@ class BaseClient:
             item: The Locator for the item to delete.
             timeout: Maximum time in milliseconds to wait for deletion.
         """
-        self._right_click(item)
-        self.layout.page.get_by_text("Delete", exact=True).first.click()
+        self.context_menu.action(item, "Delete")
         modal = self.layout.page.locator(self.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=2000)
         modal.get_by_role("button", name="Delete", exact=True).click()
@@ -195,7 +185,7 @@ class BaseClient:
                 item.click(modifiers=["ControlOrMeta"])
 
         if then_right_click_last and items:
-            self._right_click(items[-1])
+            self.context_menu.open_on(items[-1])
 
     def _open_modal(self, command: str, selector: str) -> None:
         """Open a modal via command palette.

@@ -17,6 +17,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from framework.utils import get_results_path
 
+from ..context_menu import ContextMenu
 from ..layout import LayoutClient
 from .symbol_editor import SymbolEditor
 
@@ -27,6 +28,7 @@ class SymbolToolbar:
     def __init__(self, layout: LayoutClient):
         self.page = layout.page
         self.layout = layout
+        self.context_menu = ContextMenu(layout.page)
 
     @property
     def toolbar(self) -> Locator:
@@ -81,11 +83,7 @@ class SymbolToolbar:
         self.select_group(old_name)
 
         group_btn = self.layout.locator("button").filter(has_text=old_name)
-        self.layout.right_click(group_btn)
-
-        menu = self.layout.locator(".pluto-menu-context")
-        self.layout.wait_for_visible(menu)
-        self.layout.click("Rename")
+        self.context_menu.action(group_btn, "Rename")
 
         name_input = self.layout.locator("input[placeholder='Group Name']")
         self.layout.wait_for_visible(name_input)
@@ -102,11 +100,7 @@ class SymbolToolbar:
         self.show()
         group_btn = self.layout.locator("button").filter(has_text=name)
         self.layout.wait_for_visible(group_btn)
-        self.layout.right_click(group_btn)
-
-        menu = self.layout.locator(".pluto-menu-context")
-        self.layout.wait_for_visible(menu)
-        self.layout.click("Delete")
+        self.context_menu.action(group_btn, "Delete")
 
         confirm_btn = self.page.get_by_role("button", name="Delete")
         confirm_btn.wait_for(state="visible", timeout=3000)
@@ -179,11 +173,7 @@ class SymbolToolbar:
     def rename_symbol(self, old_name: str, new_name: str) -> None:
         """Rename a symbol via context menu."""
         symbol = self.get_symbol(old_name)
-        symbol.click(button="right")
-
-        menu = self.page.locator(".pluto-menu-context")
-        menu.wait_for(state="visible", timeout=2000)
-        menu.get_by_text("Rename", exact=True).click()
+        self.context_menu.action(symbol, "Rename")
 
         name_input = self.page.locator("input[placeholder='Symbol Name']")
         name_input.wait_for(state="visible", timeout=5000)
@@ -196,11 +186,7 @@ class SymbolToolbar:
     def edit_symbol(self, name: str) -> SymbolEditor:
         """Open the symbol editor for an existing symbol via context menu."""
         symbol = self.get_symbol(name)
-        symbol.click(button="right")
-
-        menu = self.page.locator(".pluto-menu-context")
-        menu.wait_for(state="visible", timeout=2000)
-        menu.get_by_text("Edit", exact=True).click()
+        self.context_menu.action(symbol, "Edit")
 
         editor = SymbolEditor(self.layout)
         editor.wait_for_open()
@@ -209,11 +195,7 @@ class SymbolToolbar:
     def delete_symbol(self, name: str) -> None:
         """Delete a symbol via context menu."""
         symbol = self.get_symbol(name)
-        symbol.click(button="right")
-
-        menu = self.page.locator(".pluto-menu-context")
-        menu.wait_for(state="visible", timeout=2000)
-        menu.get_by_text("Delete", exact=True).click()
+        self.context_menu.action(symbol, "Delete")
 
         confirm_btn = self.page.get_by_role("button", name="Delete", exact=True)
         if confirm_btn.count() > 0:
@@ -224,15 +206,12 @@ class SymbolToolbar:
     def export_symbol(self, name: str) -> dict[str, Any]:
         """Export a symbol via context menu and return the JSON content."""
         symbol = self.get_symbol(name)
-        symbol.click(button="right")
-
-        menu = self.page.locator(".pluto-menu-context")
-        menu.wait_for(state="visible", timeout=2000)
+        self.context_menu.open_on(symbol)
 
         self.page.evaluate("delete window.showSaveFilePicker")
 
         with self.page.expect_download(timeout=5000) as download_info:
-            menu.get_by_text("Export", exact=True).click()
+            self.context_menu.click_option("Export")
 
         download = download_info.value
         save_path = get_results_path(f"{name}_export.json")

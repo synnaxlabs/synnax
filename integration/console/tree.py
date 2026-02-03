@@ -33,7 +33,8 @@ class Tree:
         :param prefix: The ID prefix (e.g., 'role:', 'user:', 'channel:').
         :returns: List of visible Locator elements.
         """
-        elements = self.page.locator(f"div[id^='{prefix}']").all()
+        locator = self.page.locator(f"div[id^='{prefix}']")
+        elements = locator.all()
         return [el for el in elements if el.is_visible()]
 
     def find_by_name(self, prefix: str, name: str) -> Locator | None:
@@ -115,14 +116,6 @@ class Tree:
             return False
         class_attr = expand_icon.get_attribute("class") or ""
         return "pluto-tree__expansion-indicator--expanded" in class_attr
-
-    def right_click(self, item: Locator) -> None:
-        """Right-click on a tree item to open context menu.
-
-        :param item: The Locator for the tree item.
-        """
-        item.click(button="right")
-        sy.sleep(0.2)
 
     def get_editable_text(self, item: Locator) -> str:
         """Get the editable text content from a tree item.

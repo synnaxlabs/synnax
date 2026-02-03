@@ -216,8 +216,7 @@ class RangesClient(BaseClient):
         """Rename a range via modal dialog from the explorer."""
         item = self.get_explorer_item(old_name)
         item.wait_for(state="visible", timeout=5000)
-        self._right_click(item)
-        self.layout.page.get_by_text("Rename", exact=True).click(timeout=5000)
+        self.context_menu.action(item, "Rename")
         name_input = self.layout.page.locator("input[placeholder='Name']")
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(new_name)
@@ -231,8 +230,7 @@ class RangesClient(BaseClient):
         """Delete a range via context menu in the explorer."""
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
-        self._right_click(item)
-        self.layout.page.get_by_text("Delete", exact=True).click(timeout=5000)
+        self.context_menu.action(item, "Delete")
 
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
@@ -245,25 +243,21 @@ class RangesClient(BaseClient):
         self.layout.hide_visualization_toolbar()
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
-        self._right_click(item)
+        self.context_menu.open_on(item)
         add_btn = self.layout.page.get_by_text("Add to favorites", exact=True)
         remove_btn = self.layout.page.get_by_text("Remove from favorites", exact=True)
         add_btn.or_(remove_btn).wait_for(state="visible", timeout=2000)
         if remove_btn.is_visible():
-            self.layout.press_escape()
+            self.context_menu.close()
             return
-        add_btn.click(timeout=5000)
-        add_btn.wait_for(state="hidden", timeout=2000)
+        self.context_menu.click_option("Add to favorites")
 
     def unfavorite_from_toolbar(self, name: str) -> None:
         """Remove a range from favorites via context menu in the toolbar."""
         self.show_toolbar()
         item = self.get_toolbar_item(name)
         item.wait_for(state="visible", timeout=5000)
-        self._right_click(item)
-        remove_btn = self.layout.page.get_by_text("Remove from favorites", exact=True)
-        remove_btn.wait_for(state="visible", timeout=5000)
-        remove_btn.click()
+        self.context_menu.action(item, "Remove from favorites")
         self.wait_for_removed_from_toolbar(name)
 
     def favorite(self, name: str) -> None:
@@ -675,17 +669,14 @@ class RangesClient(BaseClient):
         """
         item = self.get_child_range_item(name)
         item.wait_for(state="visible", timeout=5000)
-        self._right_click(item)
+        self.context_menu.open_on(item)
         add_btn = self.layout.page.get_by_text("Add to favorites", exact=True)
         remove_btn = self.layout.page.get_by_text("Remove from favorites", exact=True)
         add_btn.or_(remove_btn).wait_for(state="visible", timeout=2000)
         if remove_btn.is_visible():
-            remove_btn.click()
-            remove_btn.wait_for(state="hidden", timeout=2000)
-            self._right_click(item)
-            add_btn.wait_for(state="visible", timeout=2000)
-        add_btn.click()
-        add_btn.wait_for(state="hidden", timeout=2000)
+            self.context_menu.click_option("Remove from favorites")
+            self.context_menu.open_on(item)
+        self.context_menu.click_option("Add to favorites")
 
     def unfavorite_child_range(self, name: str) -> None:
         """Unfavorite a child range from the Child Ranges section via context menu.
@@ -695,10 +686,7 @@ class RangesClient(BaseClient):
         """
         item = self.get_child_range_item(name)
         item.wait_for(state="visible", timeout=5000)
-        self._right_click(item)
-        remove_btn = self.layout.page.get_by_text("Remove from favorites", exact=True)
-        remove_btn.wait_for(state="visible", timeout=2000)
-        remove_btn.click()
+        self.context_menu.action(item, "Remove from favorites")
         self.wait_for_removed_from_toolbar(name)
 
     def child_range_exists(self, name: str) -> bool:

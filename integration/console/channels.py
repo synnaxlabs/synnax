@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import re
-
 import synnax as sy
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
@@ -25,6 +23,7 @@ from synnax.telem import (
 
 from .base import BaseClient
 from .layout import LayoutClient
+from .tree import Tree
 
 
 class ChannelClient(BaseClient):
@@ -44,6 +43,7 @@ class ChannelClient(BaseClient):
     ):
         super().__init__(layout)
         self.client = client
+        self.tree = Tree(layout.page)
 
     def _get_channels_button(self) -> Locator:
         """Get the channels button in the sidebar."""
@@ -55,10 +55,6 @@ class ChannelClient(BaseClient):
         """Get the channels pane header."""
         return self.layout.page.locator("text=Channels").first
 
-    def _get_channels_list(self) -> Locator:
-        """Get the channels list locator."""
-        return self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']")
-
     def show_channels(self) -> None:
         """Show the channels pane in the sidebar if not already visible."""
         channels_pane = self._get_channels_pane()
@@ -66,7 +62,9 @@ class ChannelClient(BaseClient):
             return
         self._get_channels_button().click(force=True, timeout=5000)
         channels_pane.wait_for(state="visible", timeout=5000)
-        self._get_channels_list().first.wait_for(state="attached", timeout=5000)
+        self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").first.wait_for(
+            state="visible", timeout=5000
+        )
 
     def hide_channels(self) -> None:
         """Hide the channels pane in the sidebar if currently visible."""
@@ -83,21 +81,13 @@ class ChannelClient(BaseClient):
             channels pane and try again (handles cases where list is stale).
         :returns: The channel item Locator, or None if not found.
         """
-        for item in self._get_channels_list().all():
-            if not item.is_visible():
-                continue
-            channel_name_element = item.locator("p.pluto-text--editable")
-            text = channel_name_element.inner_text().strip()
-            if text == name:
-                return item
-
-        if retry_with_refresh:
+        item = self.tree.find_by_name(self.ITEM_PREFIX, str(name))
+        if item is None and retry_with_refresh:
             self.hide_channels()
             self.layout.page.wait_for_timeout(100)
             self.show_channels()
-            return self._find_channel_item(name, retry_with_refresh=False)
-
-        return None
+            return self.tree.find_by_name(self.ITEM_PREFIX, str(name))
+        return item
 
     def _right_click_channel(self, name: ChannelName) -> Locator:
         """Find a channel and right-click it to open context menu.
@@ -110,7 +100,7 @@ class ChannelClient(BaseClient):
         item = self._find_channel_item(name)
         if item is None:
             raise ValueError(f"Channel {name} not found")
-        self._right_click(item)
+        self.context_menu.open_on(item)
         return item
 
     def create(
@@ -356,10 +346,7 @@ class ChannelClient(BaseClient):
         :param new_expression: The new calculation expression.
         """
         self._right_click_channel(name)
-
-        edit_option = self.layout.page.get_by_text("Edit calculation", exact=True).first
-        edit_option.wait_for(state="visible", timeout=5000)
-        edit_option.click(timeout=1000)
+        self.context_menu.click_option("Edit calculation")
 
         editor = self.layout.page.locator(".monaco-editor")
         editor.wait_for(state="visible", timeout=5000)
@@ -384,12 +371,7 @@ class ChannelClient(BaseClient):
         :param alias: The alias to set for the channel.
         """
         self._right_click_channel(name)
-
-        set_alias_option = self.layout.page.get_by_text(
-            re.compile(r"Set alias under")
-        ).first
-        set_alias_option.wait_for(state="visible", timeout=5000)
-        set_alias_option.click(timeout=1000)
+        self.context_menu.click_option("Set alias under", exact=False)
 
         self.layout.page.keyboard.type(alias)
         self.layout.press_enter()
@@ -407,13 +389,7 @@ class ChannelClient(BaseClient):
         :param name: The name of the channel to clear the alias for.
         """
         self._right_click_channel(name)
-
-        clear_alias_option = self.layout.page.get_by_text(
-            re.compile(r"Remove alias under")
-        ).first
-        clear_alias_option.wait_for(state="visible", timeout=5000)
-        clear_alias_option.click(timeout=1000)
-        clear_alias_option.wait_for(state="hidden", timeout=5000)
+        self.context_menu.click_option("Remove alias under", exact=False)
 
         self.hide_channels()
 
@@ -424,12 +400,10 @@ class ChannelClient(BaseClient):
         This will reload the entire console.
         """
         self.show_channels()
-        item = self._get_channels_list().first
-        self._right_click(item)
-
-        reload_option = self.layout.page.get_by_text("Reload Console", exact=True).first
-        reload_option.wait_for(state="visible", timeout=2000)
-        reload_option.click(timeout=1000)
+        items = self.tree.find_by_prefix(self.ITEM_PREFIX)
+        if not items:
+            raise ValueError("No channels found to trigger reload")
+        self.context_menu.action(items[0], "Reload Console")
 
         self.layout.page.wait_for_load_state("load", timeout=30000)
         self.layout.page.wait_for_load_state("networkidle", timeout=30000)
@@ -445,34 +419,21 @@ class ChannelClient(BaseClient):
 
         self.show_channels()
 
-        first_item = True
+        # Select all channels (first one normal click, rest with Ctrl+Click)
+        last_item = None
+        for i, name in enumerate(names):
+            item = self.tree.find_by_name(self.ITEM_PREFIX, name)
+            if item is None:
+                raise ValueError(f"Channel {name} not found")
+            if i == 0:
+                item.click()
+            else:
+                item.click(modifiers=["ControlOrMeta"])
+            last_item = item
 
-        for name in names:
-            for item in self._get_channels_list().all():
-                if item.is_visible():
-                    channel_name_element = item.locator("p.pluto-text--editable")
-                    text = channel_name_element.inner_text().strip()
-                    if text == name:
-                        if first_item:
-                            item.click()
-                            first_item = False
-                        else:
-                            item.click(modifiers=["ControlOrMeta"])
-                        break
-
-        for item in self._get_channels_list().all():
-            if item.is_visible():
-                channel_name_element = item.locator("p.pluto-text--editable")
-                text = channel_name_element.inner_text().strip()
-                if text == names[-1]:
-                    self._right_click(item)
-                    break
-
-        group_selection_item = self.layout.page.get_by_text(
-            "Group Selection", exact=True
-        ).first
-        group_selection_item.wait_for(state="visible", timeout=2000)
-        group_selection_item.click()
+        # Right-click last item and select "Group Selection"
+        assert last_item is not None
+        self.context_menu.action(last_item, "Group Selection")
 
         editable_input = self.layout.page.locator(
             "input.pluto-text__input--editable"
@@ -494,13 +455,8 @@ class ChannelClient(BaseClient):
         :returns: The copied link (if clipboard access is available).
         """
         self._right_click_channel(name)
-
-        copy_link_item = self.layout.page.get_by_text("Copy Link").first
-        copy_link_item.wait_for(state="visible", timeout=2000)
-        copy_link_item.click(timeout=1000)
-
+        self.context_menu.click_option("Copy link")
         self.hide_channels()
-
         return self.layout.read_clipboard()
 
     def exists(self, name: ChannelName) -> bool:
@@ -601,10 +557,7 @@ class ChannelClient(BaseClient):
             new_name: The new name for the channel.
         """
         item = self._right_click_channel(old_name)
-
-        rename_option = self.layout.page.get_by_text("Rename", exact=True).first
-        rename_option.wait_for(state="visible", timeout=2000)
-        rename_option.click(timeout=1000)
+        self.context_menu.click_option("Rename")
 
         channel_name_element = item.locator("p.pluto-text--editable")
         channel_name_element.click()
@@ -661,17 +614,7 @@ class ChannelClient(BaseClient):
             A list of channel names currently visible in the channels pane.
         """
         self.show_channels()
-
-        all_items = self._get_channels_list().all()
-        channels = list[ChannelName]()
-        for item in all_items:
-            if item.is_visible():
-                # Extract channel name from the <p> element inside the channel div
-                channel_name_element = item.locator("p.pluto-text--editable")
-                channel_name = channel_name_element.inner_text().strip()
-                channels.append(channel_name)
-
-        return channels
+        return self.tree.list_names(self.ITEM_PREFIX)
 
     def close_modal(self) -> None:
         """Close any open modal by clicking the close button."""

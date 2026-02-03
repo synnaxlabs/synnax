@@ -18,7 +18,9 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from framework.utils import get_results_path
 
 from .channels import ChannelClient
+from .context_menu import ContextMenu
 from .layout import LayoutClient
+from .tree import Tree
 from .log import Log
 from .page import ConsolePage, PageType
 from .plot import Plot
@@ -46,6 +48,8 @@ class WorkspaceClient:
     ):
         self.layout = layout
         self.client = client
+        self.context_menu = ContextMenu(layout.page)
+        self.tree = Tree(layout.page)
 
     def create_page(
         self, page_type: PageType, page_name: str | None = None
@@ -167,6 +171,9 @@ class WorkspaceClient:
     def get_item(self, name: str) -> Locator:
         """Get a workspace item locator from the resources toolbar.
 
+        Note: Returns a Locator that can be waited on, even if the item isn't
+        visible yet. Use exists() to check if an item is currently visible.
+
         Args:
             name: Name of the workspace
 
@@ -191,16 +198,11 @@ class WorkspaceClient:
         self.layout.show_resource_toolbar("workspace")
         try:
             self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").first.wait_for(
-                state="visible", timeout=2000
+                state="visible", timeout=5000
             )
         except PlaywrightTimeoutError:
             return False
-        count = (
-            self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']")
-            .filter(has_text=name)
-            .count()
-        )
-        return count > 0
+        return self.tree.find_by_name(self.ITEM_PREFIX, name) is not None
 
     def wait_for_workspace_removed(self, name: str) -> None:
         """Wait for a workspace to be removed from the resources toolbar.
@@ -218,10 +220,13 @@ class WorkspaceClient:
     def expand_active(self) -> None:
         """Expand the active workspace in the resources toolbar to show its contents."""
         self.layout.show_resource_toolbar("workspace")
-        workspace_item = self.layout.page.locator(
-            f"div[id^='{self.ITEM_PREFIX}']"
-        ).first
-        workspace_item.wait_for(state="visible", timeout=10000)
+        self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").first.wait_for(
+            state="visible", timeout=5000
+        )
+        workspace_items = self.tree.find_by_prefix(self.ITEM_PREFIX)
+        if not workspace_items:
+            return
+        workspace_item = workspace_items[0]
         caret = workspace_item.locator(".pluto--location-bottom")
         if caret.count() > 0:
             return
@@ -301,8 +306,7 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(old_name)
         page_item.wait_for(state="visible", timeout=5000)
-        page_item.click(button="right")
-        self.layout.page.get_by_text("Rename", exact=True).click(timeout=5000)
+        self.context_menu.action(page_item, "Rename")
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
         self.get_page(new_name).wait_for(state="visible", timeout=5000)
@@ -318,8 +322,7 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        page_item.click(button="right")
-        self.layout.page.get_by_text("Delete", exact=True).click(timeout=5000)
+        self.context_menu.action(page_item, "Delete")
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
@@ -339,9 +342,8 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        page_item.click(button="right")
+        self.context_menu.open_on(page_item)
         menu = self.layout.page.locator(".pluto-menu-context")
-        menu.wait_for(state="visible", timeout=2000)
         delete_item = menu.get_by_text("Delete", exact=True)
         ungroup_item = menu.get_by_text("Ungroup", exact=True)
         if delete_item.count() > 0:
@@ -371,9 +373,7 @@ class WorkspaceClient:
             page_item.click(modifiers=["ControlOrMeta"])
 
         last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        last_item.click(button="right")
-
-        self.layout.page.get_by_text("Delete", exact=True).click(timeout=5000)
+        self.context_menu.action(last_item, "Delete")
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
@@ -393,10 +393,7 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        page_item.click(button="right")
-        menu = self.layout.page.locator(".pluto-menu-context")
-        menu.wait_for(state="visible", timeout=2000)
-        menu.get_by_text("Copy link", exact=True).click(timeout=5000)
+        self.context_menu.action(page_item, "Copy link")
         self.layout.close_nav_drawer()
         return self.layout.read_clipboard()
 
@@ -422,9 +419,7 @@ class WorkspaceClient:
             page_item.click(modifiers=["ControlOrMeta"])
 
         last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        last_item.click(button="right")
-
-        self.layout.page.get_by_text("Group Selection", exact=True).click(timeout=5000)
+        self.context_menu.action(last_item, "Group Selection")
         self.layout.select_all_and_type(group_name)
         self.layout.press_enter()
         self.layout.close_nav_drawer()
@@ -452,11 +447,11 @@ class WorkspaceClient:
             raise Exception(
                 f"Page '{name}' not found. Available items: {item_texts}"
             ) from e
-        page_item.click(button="right")
+        self.context_menu.open_on(page_item)
         self.layout.page.evaluate("delete window.showSaveFilePicker")
 
         with self.layout.page.expect_download(timeout=5000) as download_info:
-            self.layout.page.get_by_text("Export", exact=True).first.click(timeout=5000)
+            self.context_menu.click_option("Export")
 
         download = download_info.value
         save_path = get_results_path(f"{name}_export.json")
@@ -477,13 +472,7 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        page_item.click(button="right")
-
-        snapshot_item = self.layout.page.get_by_text(
-            f"Snapshot to {range_name}", exact=True
-        )
-        snapshot_item.wait_for(state="visible", timeout=5000)
-        snapshot_item.click(timeout=5000)
+        self.context_menu.action(page_item, f"Snapshot to {range_name}")
         self.layout.close_nav_drawer()
 
     def snapshot_pages_to_active_range(self, names: list[str], range_name: str) -> None:
@@ -508,13 +497,7 @@ class WorkspaceClient:
             page_item.click(modifiers=["ControlOrMeta"])
 
         last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        last_item.click(button="right")
-
-        snapshot_item = self.layout.page.get_by_text(
-            f"Snapshot to {range_name}", exact=True
-        )
-        snapshot_item.wait_for(state="visible", timeout=5000)
-        snapshot_item.click(timeout=5000)
+        self.context_menu.action(last_item, f"Snapshot to {range_name}")
         self.layout.close_nav_drawer()
 
     def copy_page(self, name: str, new_name: str) -> None:
@@ -527,11 +510,7 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        page_item.click(button="right")
-
-        copy_item = self.layout.page.get_by_text("Copy", exact=True)
-        copy_item.wait_for(state="visible", timeout=5000)
-        copy_item.click(timeout=5000)
+        self.context_menu.action(page_item, "Copy")
 
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
@@ -562,11 +541,7 @@ class WorkspaceClient:
 
         # For single item, reuse first_item; otherwise get the last item
         last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        last_item.click(button="right")
-
-        copy_item = self.layout.page.get_by_text("Copy", exact=True)
-        copy_item.wait_for(state="visible", timeout=5000)
-        copy_item.click(timeout=5000)
+        self.context_menu.action(last_item, "Copy")
 
         for name in names:
             copy_name = f"{name} (copy)"
@@ -642,8 +617,7 @@ class WorkspaceClient:
         self.layout.show_resource_toolbar("workspace")
         workspace = self.get_item(old_name)
         workspace.wait_for(state="visible", timeout=5000)
-        workspace.click(button="right")
-        self.layout.page.get_by_text("Rename", exact=True).click(timeout=5000)
+        self.context_menu.action(workspace, "Rename")
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
         self.layout.close_nav_drawer()
@@ -658,9 +632,7 @@ class WorkspaceClient:
 
         workspace = self.get_item(name)
         workspace.wait_for(state="visible", timeout=5000)
-        workspace.click(button="right", timeout=5000)
-
-        self.layout.page.get_by_text("Delete", exact=True).click(timeout=5000)
+        self.context_menu.action(workspace, "Delete")
 
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
@@ -806,11 +778,9 @@ class WorkspaceClient:
         """
         channels.show_channels()
 
-        channel_item = (
-            self.layout.page.locator(f"div[id^='channel:']")
-            .filter(has_text=channel_name)
-            .first
-        )
+        channel_item = self.tree.find_by_name("channel:", channel_name)
+        if channel_item is None:
+            raise ValueError(f"Channel '{channel_name}' not found")
         channel_item.wait_for(state="visible", timeout=5000)
         channel_item.dblclick()
 

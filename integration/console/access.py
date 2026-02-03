@@ -217,17 +217,13 @@ class AccessClient(BaseClient):
         if user_item is None:
             raise ValueError(f"User '{username}' not found in users panel")
 
-        # Right-click to open context menu
-        self._right_click(user_item)
-
-        # Click "Assign to role" option
+        # Right-click to open context menu and click "Assign to role"
+        self.context_menu.open_on(user_item)
         assign_option = self.layout.page.get_by_text("Assign to role", exact=True).first
         if assign_option.count() == 0:
-            self.layout.press_escape()
+            self.context_menu.close()
             raise ValueError("'Assign to role' option not available for this user")
-
-        assign_option.click(timeout=1000)
-        sy.sleep(0.3)
+        self.context_menu.click_option("Assign to role")
 
         # Modal should now be open - select role
         if not self.layout.check_for_modal():
@@ -287,22 +283,19 @@ class AccessClient(BaseClient):
             raise ValueError(f"Role '{old_name}' not found")
 
         # Right-click to open context menu
-        self._right_click(role_item)
+        self.context_menu.open_on(role_item)
 
-        # Click Rename option
+        # Check if Rename option exists and is not disabled
         rename_option = self.layout.page.get_by_text("Rename", exact=True).first
         if rename_option.count() == 0:
-            self.layout.press_escape()
+            self.context_menu.close()
             raise ValueError("Rename option not available (role may be internal)")
-
-        # Check if disabled
         rename_class = rename_option.get_attribute("class") or ""
         if "disabled" in rename_class.lower():
-            self.layout.press_escape()
+            self.context_menu.close()
             raise ValueError("Rename option is disabled (role may be internal)")
 
-        rename_option.click(timeout=1000)
-        sy.sleep(0.2)
+        self.context_menu.click_option("Rename")
 
         # Find the editable text element and fill new name
         role_name_element = role_item.locator("p.pluto-text--editable")
@@ -326,22 +319,19 @@ class AccessClient(BaseClient):
             raise ValueError(f"Role '{name}' not found")
 
         # Right-click to open context menu
-        self._right_click(role_item)
+        self.context_menu.open_on(role_item)
 
-        # Click Delete option
+        # Check if Delete option exists and is not disabled
         delete_option = self.layout.page.get_by_text("Delete", exact=True).first
         if delete_option.count() == 0:
-            self.layout.press_escape()
+            self.context_menu.close()
             raise ValueError("Delete option not available (role may be internal)")
-
-        # Check if disabled
         delete_class = delete_option.get_attribute("class") or ""
         if "disabled" in delete_class.lower():
-            self.layout.press_escape()
+            self.context_menu.close()
             raise ValueError("Delete option is disabled (role may be internal)")
 
-        delete_option.click()
-        sy.sleep(0.2)
+        self.context_menu.click_option("Delete")
 
         # Confirm deletion in modal if present
         if self.layout.check_for_modal():
@@ -367,7 +357,7 @@ class AccessClient(BaseClient):
             raise ValueError(f"Role '{name}' not found")
 
         # Right-click to open context menu
-        self._right_click(role_item)
+        self.context_menu.open_on(role_item)
 
         # Check if Rename and Delete are available and not disabled
         rename_option = self.layout.page.get_by_text("Rename", exact=True).first
@@ -385,8 +375,7 @@ class AccessClient(BaseClient):
             delete_available = "disabled" not in delete_class.lower()
 
         # Close context menu
-        self.layout.press_escape()
-        sy.sleep(0.1)
+        self.context_menu.close()
 
         return rename_available and delete_available
 
