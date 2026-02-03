@@ -110,7 +110,19 @@ export const retrieveMultiple = async <
   const cachedKeys = new Set(cached.map((d) => d.key));
   const missingKeys = keys.filter((key) => !cachedKeys.has(key));
 
-  const devices = [...cached];
+  const statusKeys = cached.map((d) => device.statusKey(d.key));
+  const statuses = await Status.retrieveMultiple({
+    store,
+    client,
+    query: { keys: statusKeys },
+  });
+  const statusMap = new Map(statuses.map((s) => [s.key, s]));
+  const cachedWithStatus = cached.map((d) => {
+    const status = statusMap.get(device.statusKey(d.key));
+    return { ...d, status } as device.Device<Properties, Make, Model>;
+  });
+
+  const devices = [...cachedWithStatus];
   if (missingKeys.length > 0) {
     const fetched = await client.devices.retrieve<Properties, Make, Model>({
       ...BASE_QUERY,
@@ -123,7 +135,7 @@ export const retrieveMultiple = async <
     });
   }
 
-  return devices as device.Device<Properties, Make, Model>[];
+  return devices;
 };
 
 export const createRetrieve = <

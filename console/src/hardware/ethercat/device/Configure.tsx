@@ -16,7 +16,7 @@ export const CONFIGURE_LAYOUT_TYPE = "configure_EtherCAT";
 export const CONFIGURE_LAYOUT: Layout.BaseState = {
   ...Common.Device.CONFIGURE_LAYOUT,
   name: "Device.Configure",
-  icon: "Device",
+  icon: "Logo.EtherCAT",
   type: CONFIGURE_LAYOUT_TYPE,
   key: CONFIGURE_LAYOUT_TYPE,
 };
