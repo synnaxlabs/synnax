@@ -50,7 +50,12 @@ func collectConstant(
 
 	var targetType types.Type
 	if typeCtx := globalConst.Type_(); typeCtx != nil {
-		targetType, _ = atypes.InferFromTypeContext(typeCtx)
+		var err error
+		targetType, err = atypes.InferFromTypeContext(typeCtx)
+		if err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, typeCtx))
+			return
+		}
 	}
 
 	parsed, err := literal.Parse(lit, targetType)
