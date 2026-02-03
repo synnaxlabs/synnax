@@ -89,7 +89,7 @@ private:
 
     /// @brief creates a slave device for the given slave.
     synnax::Device create_slave_device(
-        const slave::Properties &slave,
+        const slave::DiscoveryResult &slave,
         const std::string &master_key,
         const common::ScannerContext &scan_ctx
     ) const;

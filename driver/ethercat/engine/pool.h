@@ -40,14 +40,14 @@ public:
     [[nodiscard]] bool is_active(const std::string &key) const;
 
     /// @brief returns cached slave information from a master's engine.
-    [[nodiscard]] std::vector<slave::Properties>
+    [[nodiscard]] std::vector<slave::DiscoveryResult>
     get_slaves(const std::string &key) const;
 
     /// @brief discovers slaves on a master, handling engine lifecycle internally.
     /// If engine is running, returns cached slaves. If not, initializes first.
     /// @param key The master key (e.g., "igh:0" or "eth0").
     /// @return Pair of slave list and error.
-    [[nodiscard]] std::pair<std::vector<slave::Properties>, xerrors::Error>
+    [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, xerrors::Error>
     discover_slaves(const std::string &key);
 
 private:

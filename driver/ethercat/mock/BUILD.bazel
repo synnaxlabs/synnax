@@ -12,3 +12,16 @@ cc_library(
         "//x/cpp/xerrors",
     ],
 )
+
+cc_test(
+    name = "mock_test",
+    srcs = [
+        "master_test.cpp",
+        "pool_test.cpp",
+    ],
+    deps = [
+        ":mock",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

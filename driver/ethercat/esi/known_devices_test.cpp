@@ -21,7 +21,8 @@ protected:
 TEST_F(KnownDevicesTest, LookupUnknownDeviceReturnsFalse) {
     bool found = lookup_device_pdos(0xDEADBEEF, 0x12345678, 0x00000001, slave);
     EXPECT_FALSE(found);
-    EXPECT_FALSE(slave.pdos_discovered);
+    EXPECT_TRUE(slave.input_pdos.empty());
+    EXPECT_TRUE(slave.output_pdos.empty());
 }
 
 TEST_F(KnownDevicesTest, IsDeviceKnownReturnsFalseForUnknown) {
@@ -92,7 +93,6 @@ TEST_F(DEWESoftDevicesTest, LookupPopulatesPDOs) {
         this->slave
     );
     EXPECT_TRUE(found);
-    EXPECT_TRUE(this->slave.pdos_discovered);
 
     size_t total_pdos = this->slave.input_pdos.size() + this->slave.output_pdos.size();
     EXPECT_GT(total_pdos, 0);
@@ -115,7 +115,6 @@ TEST_F(DEWESoftDevicesTest, RevisionFallbackWorks) {
         this->slave
     );
     EXPECT_TRUE(found) << "Revision fallback should work";
-    EXPECT_TRUE(this->slave.pdos_discovered);
 }
 
 }

@@ -23,7 +23,7 @@ namespace ethercat::mock {
 /// @brief mock implementation of Master for testing without real hardware.
 class Master final : public master::Master {
     std::string iface_name;
-    std::vector<slave::Properties> slave_list;
+    std::vector<slave::DiscoveryResult> slave_list;
     std::unordered_map<uint16_t, slave::State> slave_states;
     pdo::Offsets pdo_offset_cache;
     bool initialized;
@@ -56,9 +56,12 @@ public:
 
     /// @brief adds a simulated slave to the mock master.
     void add_slave(slave::Properties props) {
-        props.state = slave::State::INIT;
         const auto pos = props.position;
-        this->slave_list.push_back(std::move(props));
+        slave::DiscoveryResult result{};
+        result.properties = std::move(props);
+        result.status.state = slave::State::INIT;
+        result.status.pdos_discovered = true;
+        this->slave_list.push_back(std::move(result));
         this->slave_states[pos] = slave::State::INIT;
     }
 
@@ -97,7 +100,7 @@ public:
         std::lock_guard lock(this->mu);
         this->slave_states[position] = state;
         for (auto &slave: this->slave_list)
-            if (slave.position == position) slave.state = state;
+            if (slave.properties.position == position) slave.status.state = state;
     }
 
     /// @brief returns the log of method calls for verification.
@@ -148,9 +151,9 @@ public:
             }
         } else {
             for (const auto &slave: this->slave_list) {
-                for (const auto &pdo: slave.input_pdos)
+                for (const auto &pdo: slave.properties.input_pdos)
                     this->input_sz += pdo.byte_length();
-                for (const auto &pdo: slave.output_pdos)
+                for (const auto &pdo: slave.properties.output_pdos)
                     this->output_sz += pdo.byte_length();
             }
         }
@@ -168,12 +171,12 @@ public:
                 state = slave::State::OP;
         }
         for (auto &slave: this->slave_list) {
-            auto it = this->state_transition_failures.find(slave.position);
+            auto it = this->state_transition_failures.find(slave.properties.position);
             if (it != this->state_transition_failures.end() &&
                 it->second == slave::State::OP)
-                slave.state = slave::State::SAFE_OP;
+                slave.status.state = slave::State::SAFE_OP;
             else
-                slave.state = slave::State::OP;
+                slave.status.state = slave::State::OP;
         }
         return xerrors::NIL;
     }
@@ -190,7 +193,7 @@ public:
         for (auto &[pos, state]: this->slave_states)
             state = slave::State::INIT;
         for (auto &slave: this->slave_list)
-            slave.state = slave::State::INIT;
+            slave.status.state = slave::State::INIT;
     }
 
     xerrors::Error receive() override {
@@ -230,7 +233,7 @@ public:
         return {};
     }
 
-    std::vector<slave::Properties> slaves() const override {
+    std::vector<slave::DiscoveryResult> slaves() const override {
         std::lock_guard lock(this->mu);
         return this->slave_list;
     }
@@ -337,13 +340,14 @@ private:
             }
         } else {
             for (const auto &slave: this->slave_list) {
-                for (const auto &pdo: slave.input_pdos) {
-                    pdo::Key key{slave.position, pdo.index, pdo.sub_index, true};
+                const auto &props = slave.properties;
+                for (const auto &pdo: props.input_pdos) {
+                    pdo::Key key{props.position, pdo.index, pdo.sub_index, true};
                     this->pdo_offset_cache[key] = pdo::Offset{input_byte_offset, 0};
                     input_byte_offset += pdo.byte_length();
                 }
-                for (const auto &pdo: slave.output_pdos) {
-                    pdo::Key key{slave.position, pdo.index, pdo.sub_index, false};
+                for (const auto &pdo: props.output_pdos) {
+                    pdo::Key key{props.position, pdo.index, pdo.sub_index, false};
                     this->pdo_offset_cache[key] = pdo::Offset{output_byte_offset, 0};
                     output_byte_offset += pdo.byte_length();
                 }

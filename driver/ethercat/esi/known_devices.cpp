@@ -201,7 +201,6 @@ bool lookup_device_pdos(
         );
     }
 
-    slave.pdos_discovered = true;
     return true;
 }
 

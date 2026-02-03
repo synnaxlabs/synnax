@@ -41,7 +41,7 @@ class Master final : public master::Master {
     /// @brief cached PDO offsets computed at activation time.
     pdo::Offsets pdo_offsets;
     /// @brief cached slave information populated during initialization.
-    std::vector<slave::Properties> slave_list;
+    std::vector<slave::DiscoveryResult> slave_list;
     /// @brief slave positions that are disabled (excluded from cyclic exchange).
     std::set<uint16_t> disabled_slaves;
     /// @brief protects slave state queries.
@@ -82,7 +82,7 @@ public:
 
     pdo::Offset pdo_offset(const pdo::Entry &entry) const override;
 
-    std::vector<slave::Properties> slaves() const override;
+    std::vector<slave::DiscoveryResult> slaves() const override;
 
     slave::State slave_state(uint16_t position) const override;
 
@@ -101,20 +101,20 @@ private:
     void cache_pdo_offsets();
 
     /// @brief discovers PDO entries for a slave and populates its PDO lists.
-    void discover_slave_pdos(slave::Properties &slave);
+    void discover_slave_pdos(slave::DiscoveryResult &slave);
 
     /// @brief discovers PDOs using CoE SDO reads (primary method).
-    bool discover_pdos_coe(slave::Properties &slave);
+    bool discover_pdos_coe(slave::DiscoveryResult &slave);
 
     /// @brief discovers PDOs from SII EEPROM (fallback method).
-    void discover_pdos_sii(slave::Properties &slave);
+    void discover_pdos_sii(slave::DiscoveryResult &slave);
 
     /// @brief reads PDO assignment object to get list of assigned PDOs.
     xerrors::Error read_pdo_assign(
         uint16_t slave_pos,
         uint16_t assign_index,
         bool is_input,
-        slave::Properties &slave
+        slave::DiscoveryResult &slave
     );
 
     /// @brief reads PDO mapping entries from a specific PDO.
@@ -122,7 +122,7 @@ private:
         uint16_t slave_pos,
         uint16_t pdo_index,
         bool is_input,
-        slave::Properties &slave
+        slave::DiscoveryResult &slave
     );
 
     /// @brief reads the name of a PDO entry from the CoE object dictionary.
@@ -130,7 +130,8 @@ private:
     read_pdo_entry_name(uint16_t slave_pos, uint16_t index, uint8_t sub_index);
 
     /// @brief scans the CoE object dictionary to find PDO mapping indices.
-    bool scan_object_dictionary_for_pdos(uint16_t slave_pos, slave::Properties &slave);
+    bool
+    scan_object_dictionary_for_pdos(uint16_t slave_pos, slave::DiscoveryResult &slave);
 
     /// @brief transitions all slaves to the specified state.
     xerrors::Error request_state(uint16_t state, int timeout);

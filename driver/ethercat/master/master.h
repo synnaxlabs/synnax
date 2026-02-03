@@ -68,7 +68,7 @@ public:
     [[nodiscard]] virtual pdo::Offset pdo_offset(const pdo::Entry &entry) const = 0;
 
     /// @brief returns information about all slaves discovered during initialization.
-    [[nodiscard]] virtual std::vector<slave::Properties> slaves() const = 0;
+    [[nodiscard]] virtual std::vector<slave::DiscoveryResult> slaves() const = 0;
 
     /// @brief returns the current state of a specific slave.
     /// @note Not safe to call while receive()/send() are actively cycling. Use only

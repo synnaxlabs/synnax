@@ -45,7 +45,6 @@ protected:
         info.revision = 1;
         info.serial = 0;
         info.name = "TestSlave";
-        info.state = slave::State::PRE_OP;
         return info;
     }
 };

@@ -116,36 +116,38 @@ bool Scanner::exec(
 }
 
 synnax::Device Scanner::create_slave_device(
-    const slave::Properties &slave,
+    const slave::DiscoveryResult &slave,
     const std::string &master_key,
     const common::ScannerContext &scan_ctx
 ) const {
+    const auto &props = slave.properties;
+    const auto &sts = slave.status;
     const auto rack_key = synnax::rack_key_from_task_key(this->task.key);
-    const std::string key = this->generate_slave_key(slave, master_key);
+    const std::string key = this->generate_slave_key(props, master_key);
 
-    nlohmann::json props = get_existing_properties(key, scan_ctx);
-    auto slave_props = slave.to_json();
+    nlohmann::json json_props = get_existing_properties(key, scan_ctx);
+    auto slave_props = props.to_json();
     for (auto &[k, v]: slave_props.items())
-        props[k] = v;
+        json_props[k] = v;
 
     bool is_enabled = true;
-    if (props.contains("enabled") && props["enabled"].is_boolean())
-        is_enabled = props["enabled"].get<bool>();
+    if (json_props.contains("enabled") && json_props["enabled"].is_boolean())
+        is_enabled = json_props["enabled"].get<bool>();
 
     std::string status_msg;
     std::string status_variant;
     if (!is_enabled) {
         status_msg = "Device disabled";
         status_variant = status::variant::DISABLED;
-    } else if (slave.pdos_discovered) {
-        if (slave.pdo_discovery_error.empty()) {
-            status_msg = "Discovered (" + std::to_string(slave.input_pdos.size()) +
-                         " inputs, " + std::to_string(slave.output_pdos.size()) +
+    } else if (sts.pdos_discovered) {
+        if (sts.pdo_discovery_error.empty()) {
+            status_msg = "Discovered (" + std::to_string(props.input_pdos.size()) +
+                         " inputs, " + std::to_string(props.output_pdos.size()) +
                          " outputs)";
             status_variant = status::variant::SUCCESS;
         } else {
-            status_msg = "Discovered with warning: " + slave.pdo_discovery_error +
-                         ". " + get_pdo_error_guidance(slave.pdo_discovery_error);
+            status_msg = "Discovered with warning: " + sts.pdo_discovery_error + ". " +
+                         get_pdo_error_guidance(sts.pdo_discovery_error);
             status_variant = status::variant::WARNING;
         }
     } else {
@@ -155,13 +157,13 @@ synnax::Device Scanner::create_slave_device(
 
     synnax::Device dev;
     dev.key = key;
-    dev.name = slave.name.empty() ? "EtherCAT Slave " + std::to_string(slave.position)
-                                  : slave.name;
+    dev.name = props.name.empty() ? "EtherCAT Slave " + std::to_string(props.position)
+                                  : props.name;
     dev.make = DEVICE_MAKE;
     dev.model = SLAVE_DEVICE_MODEL;
-    dev.location = master_key + ".Slot " + std::to_string(slave.position);
+    dev.location = master_key + ".Slot " + std::to_string(props.position);
     dev.rack = rack_key;
-    dev.properties = props.dump();
+    dev.properties = json_props.dump();
     dev.status = synnax::DeviceStatus{
         .key = dev.status_key(),
         .name = dev.name,

@@ -15,6 +15,8 @@
 #include <sstream>
 #include <string>
 
+#include "glog/logging.h"
+
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
@@ -65,10 +67,13 @@ enum class ECDataType : uint16_t {
 inline telem::DataType
 infer_type_from_bit_length(const uint8_t bit_length, const bool is_signed = false) {
     if (bit_length == 0) return is_signed ? telem::INT8_T : telem::UINT8_T;
-    if (bit_length == 1) return telem::UINT8_T; // Boolean, always unsigned
+    if (bit_length == 1) return telem::UINT8_T;
     if (bit_length <= 8) return is_signed ? telem::INT8_T : telem::UINT8_T;
     if (bit_length <= 16) return is_signed ? telem::INT16_T : telem::UINT16_T;
     if (bit_length <= 32) return is_signed ? telem::INT32_T : telem::UINT32_T;
+    if (bit_length > 64)
+        LOG(WARNING) << "bit length " << static_cast<int>(bit_length)
+                     << " exceeds 64 bits, truncating to 64-bit type";
     return is_signed ? telem::INT64_T : telem::UINT64_T;
 }
 

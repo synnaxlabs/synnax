@@ -9,8 +9,9 @@
 
 #include "gtest/gtest.h"
 
-#include "driver/ethercat/pdo/pdo.h"
 #include "x/cpp/xjson/xjson.h"
+
+#include "driver/ethercat/pdo/pdo.h"
 
 /// @brief it should return true when all Key fields match and false otherwise.
 TEST(PDOKeyTest, EqualityOperator) {
@@ -28,30 +29,38 @@ TEST(PDOKeyTest, EqualityOperator) {
     };
     EXPECT_TRUE(key1 == key2);
 
-    EXPECT_FALSE((key1 == ethercat::pdo::Key{
-        .slave_position = 2,
-        .index = 0x6000,
-        .sub_index = 1,
-        .is_input = true
-    }));
-    EXPECT_FALSE((key1 == ethercat::pdo::Key{
-        .slave_position = 1,
-        .index = 0x7000,
-        .sub_index = 1,
-        .is_input = true
-    }));
-    EXPECT_FALSE((key1 == ethercat::pdo::Key{
-        .slave_position = 1,
-        .index = 0x6000,
-        .sub_index = 2,
-        .is_input = true
-    }));
-    EXPECT_FALSE((key1 == ethercat::pdo::Key{
-        .slave_position = 1,
-        .index = 0x6000,
-        .sub_index = 1,
-        .is_input = false
-    }));
+    EXPECT_FALSE(
+        (key1 == ethercat::pdo::Key{
+                     .slave_position = 2,
+                     .index = 0x6000,
+                     .sub_index = 1,
+                     .is_input = true
+                 })
+    );
+    EXPECT_FALSE(
+        (key1 == ethercat::pdo::Key{
+                     .slave_position = 1,
+                     .index = 0x7000,
+                     .sub_index = 1,
+                     .is_input = true
+                 })
+    );
+    EXPECT_FALSE(
+        (key1 == ethercat::pdo::Key{
+                     .slave_position = 1,
+                     .index = 0x6000,
+                     .sub_index = 2,
+                     .is_input = true
+                 })
+    );
+    EXPECT_FALSE(
+        (key1 == ethercat::pdo::Key{
+                     .slave_position = 1,
+                     .index = 0x6000,
+                     .sub_index = 1,
+                     .is_input = false
+                 })
+    );
 }
 
 /// @brief it should produce consistent hashes for equal keys.

@@ -48,8 +48,9 @@ inline std::string slave_state_to_string(const State state) {
     }
 }
 
-/// @brief information about an EtherCAT slave device discovered on the network.
+/// @brief static properties of an EtherCAT slave device stored in device.properties.
 struct Properties {
+    /// @brief network interface the slave is connected to.
     std::string network;
     /// @brief position of the slave on the EtherCAT bus (0-based index).
     uint16_t position;
@@ -63,8 +64,6 @@ struct Properties {
     uint32_t serial;
     /// @brief human-readable name of the slave device.
     std::string name;
-    /// @brief current application layer state of the slave.
-    State state;
     /// @brief total input size in bits.
     uint32_t input_bits;
     /// @brief total output size in bits.
@@ -73,12 +72,8 @@ struct Properties {
     std::vector<pdo::Properties> input_pdos;
     /// @brief discovered output PDOs (RxPDO, master→slave).
     std::vector<pdo::Properties> output_pdos;
-    /// @brief true if PDO discovery completed.
-    bool pdos_discovered;
     /// @brief true if PDOs were discovered via CoE assignment objects.
     bool coe_pdo_order_reliable;
-    /// @brief error message if PDO discovery failed (empty on success).
-    std::string pdo_discovery_error;
     /// @brief whether the device is enabled or not.
     bool enabled;
 
@@ -153,5 +148,32 @@ struct Properties {
         return props;
     }
 };
+
+/// @brief dynamic status information about an EtherCAT slave from discovery.
+struct Status {
+    /// @brief current application layer state of the slave.
+    State state;
+    /// @brief true if PDO discovery completed successfully.
+    bool pdos_discovered;
+    /// @brief error message if PDO discovery failed (empty on success).
+    std::string pdo_discovery_error;
+};
+
+/// @brief combined result from slave discovery containing both static properties
+/// and dynamic status.
+struct DiscoveryResult {
+    Properties properties;
+    Status status;
+};
+
+/// @brief extracts properties from a vector of discovery results.
+inline std::vector<Properties>
+discovered_properties(const std::vector<DiscoveryResult> &results) {
+    std::vector<Properties> props;
+    props.reserve(results.size());
+    for (const auto &r: results)
+        props.push_back(r.properties);
+    return props;
+}
 
 }

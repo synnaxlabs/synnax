@@ -25,12 +25,15 @@ namespace ethercat {
 /// @brief configuration for EtherCAT write tasks.
 struct WriteTaskConfig : common::BaseTaskConfig {
     /// @brief network interface name for the EtherCAT master.
+    /// Dynamically populated from device properties.
     std::string interface_name;
     /// @brief configured output channels.
     std::vector<std::unique_ptr<channel::Output>> channels;
     /// @brief state feedback channels.
+    /// Dynamically populated by querying the core.
     std::vector<synnax::Channel> state_channels;
     /// @brief index channel keys for state timestamps.
+    /// Dynamically populated by querying the core.
     std::set<synnax::ChannelKey> state_indexes;
     /// @brief rate at which state feedback is published.
     telem::Rate state_rate;
@@ -151,7 +154,7 @@ public:
     xerrors::Error start() override {
         if (auto err = this->engine->ensure_initialized(); err) return err;
         if (auto err = topology::validate(
-                this->engine->slaves(),
+                slave::discovered_properties(this->engine->slaves()),
                 this->cfg.device_cache
             ))
             return err;

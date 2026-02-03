@@ -54,6 +54,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the list of channels to read from the server.
     std::unordered_map<synnax::ChannelKey, std::unique_ptr<OutputChan>> channels;
     /// @brief the config for connecting to the OPC UA server.
+    /// Dynamically populated from device properties.
     opc::connection::Config connection;
 
     explicit WriteTaskConfig(

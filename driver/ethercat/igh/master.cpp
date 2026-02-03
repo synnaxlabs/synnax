@@ -58,18 +58,17 @@ xerrors::Error Master::initialize() {
     for (unsigned int i = 0; i < master_info.slave_count; ++i) {
         ec_slave_info_t slave_info;
         if (this->api->master_get_slave(this->ec_master, i, &slave_info) == 0) {
-            slave::Properties info{
-                this->interface_name(),
-                static_cast<uint16_t>(i),
-                slave_info.vendor_id,
-                slave_info.product_code,
-                slave_info.revision_number,
-                slave_info.serial_number,
-                slave_info.name,
-                slave::State::INIT
-            };
-            this->discover_slave_pdos(info);
-            this->cached_slaves.push_back(std::move(info));
+            slave::DiscoveryResult result{};
+            result.properties.network = this->interface_name();
+            result.properties.position = static_cast<uint16_t>(i);
+            result.properties.vendor_id = slave_info.vendor_id;
+            result.properties.product_code = slave_info.product_code;
+            result.properties.revision = slave_info.revision_number;
+            result.properties.serial = slave_info.serial_number;
+            result.properties.name = slave_info.name;
+            result.status.state = slave::State::INIT;
+            this->discover_slave_pdos(result);
+            this->cached_slaves.push_back(std::move(result));
         }
     }
 
@@ -249,7 +248,7 @@ pdo::Offset Master::pdo_offset(const pdo::Entry &entry) const {
     return {};
 }
 
-std::vector<slave::Properties> Master::slaves() const {
+std::vector<slave::DiscoveryResult> Master::slaves() const {
     std::lock_guard lock(this->mu);
     return this->cached_slaves;
 }
@@ -304,7 +303,7 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
 
     if (position >= this->cached_slaves.size()) return nullptr;
 
-    const auto &slave = this->cached_slaves[position];
+    const auto &slave = this->cached_slaves[position].properties;
     ec_slave_config_t *sc = this->api->master_slave_config(
         this->ec_master,
         0,
@@ -513,23 +512,25 @@ std::string Master::read_pdo_entry_name(
     return "";
 }
 
-void Master::discover_slave_pdos(slave::Properties &slave) {
+void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
+    auto &props = slave.properties;
+    auto &status = slave.status;
     if (esi::lookup_device_pdos(
-            slave.vendor_id,
-            slave.product_code,
-            slave.revision,
-            slave
+            props.vendor_id,
+            props.product_code,
+            props.revision,
+            props
         )) {
-        VLOG(1) << "[ethercat.igh] slave " << slave.position
-                << " PDOs discovered via ESI: " << slave.input_pdos.size()
-                << " inputs, " << slave.output_pdos.size() << " outputs";
+        VLOG(1) << "[ethercat.igh] slave " << props.position
+                << " PDOs discovered via ESI: " << props.input_pdos.size()
+                << " inputs, " << props.output_pdos.size() << " outputs";
         return;
     }
 
     ec_slave_info_t slave_info;
-    if (this->api->master_get_slave(this->ec_master, slave.position, &slave_info) !=
+    if (this->api->master_get_slave(this->ec_master, props.position, &slave_info) !=
         0) {
-        slave.pdo_discovery_error = "failed to get slave info";
+        status.pdo_discovery_error = "failed to get slave info";
         return;
     }
 
@@ -537,7 +538,7 @@ void Master::discover_slave_pdos(slave::Properties &slave) {
         ec_sync_info_t sync_info{};
         if (this->api->master_get_sync_manager(
                 this->ec_master,
-                slave.position,
+                props.position,
                 sm_idx,
                 &sync_info
             ) != 0)
@@ -549,7 +550,7 @@ void Master::discover_slave_pdos(slave::Properties &slave) {
             ec_pdo_info_t pdo_info{};
             if (this->api->master_get_pdo(
                     this->ec_master,
-                    slave.position,
+                    props.position,
                     sm_idx,
                     static_cast<uint16_t>(pdo_pos),
                     &pdo_info
@@ -561,7 +562,7 @@ void Master::discover_slave_pdos(slave::Properties &slave) {
                 ec_pdo_entry_info_t entry_info{};
                 if (this->api->master_get_pdo_entry(
                         this->ec_master,
-                        slave.position,
+                        props.position,
                         sm_idx,
                         static_cast<uint16_t>(pdo_pos),
                         static_cast<uint16_t>(entry_pos),
@@ -575,7 +576,7 @@ void Master::discover_slave_pdos(slave::Properties &slave) {
                     entry_info.bit_length
                 );
                 const std::string coe_name = this->read_pdo_entry_name(
-                    slave.position,
+                    props.position,
                     entry_info.index,
                     entry_info.subindex
                 );
@@ -598,17 +599,17 @@ void Master::discover_slave_pdos(slave::Properties &slave) {
                 );
 
                 if (is_input)
-                    slave.input_pdos.push_back(entry);
+                    props.input_pdos.push_back(entry);
                 else
-                    slave.output_pdos.push_back(entry);
+                    props.output_pdos.push_back(entry);
             }
         }
     }
 
-    slave.pdos_discovered = true;
-    slave.coe_pdo_order_reliable = true;
-    VLOG(1) << "[ethercat.igh] slave " << slave.position
-            << " PDOs discovered via IgH: " << slave.input_pdos.size() << " inputs, "
-            << slave.output_pdos.size() << " outputs";
+    status.pdos_discovered = true;
+    props.coe_pdo_order_reliable = true;
+    VLOG(1) << "[ethercat.igh] slave " << props.position
+            << " PDOs discovered via IgH: " << props.input_pdos.size() << " inputs, "
+            << props.output_pdos.size() << " outputs";
 }
 }

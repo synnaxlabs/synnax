@@ -67,10 +67,10 @@ TEST_F(HardwareTest, ScanDiscoversSlavesIOLITE) {
         << "Expected " << EXPECTED_SLAVE_COUNT << " slaves, found " << slaves.size();
 
     for (const auto &slave: slaves) {
-        EXPECT_NE(slave.vendor_id, 0u)
-            << "Slave " << slave.position << " has no vendor ID";
-        EXPECT_FALSE(slave.name.empty())
-            << "Slave " << slave.position << " has no name";
+        EXPECT_NE(slave.properties.vendor_id, 0u)
+            << "Slave " << slave.properties.position << " has no vendor ID";
+        EXPECT_FALSE(slave.properties.name.empty())
+            << "Slave " << slave.properties.position << " has no name";
     }
 }
 
@@ -82,7 +82,7 @@ TEST_F(HardwareTest, ActivatePartialIOLITE) {
     int op_count = 0;
 
     for (const auto &slave: slaves) {
-        auto state = master->slave_state(slave.position);
+        auto state = master->slave_state(slave.properties.position);
         if (state == slave::State::OP) op_count++;
     }
 
@@ -181,9 +181,10 @@ TEST_F(HardwareTest, GracefulShutdownIOLITE) {
 
     auto slaves = master->slaves();
     for (const auto &slave: slaves) {
-        auto state = master->slave_state(slave.position);
+        auto state = master->slave_state(slave.properties.position);
         EXPECT_TRUE(state == slave::State::INIT || state == slave::State::PRE_OP)
-            << "Slave " << slave.position << " in unexpected state after deactivate";
+            << "Slave " << slave.properties.position
+            << " in unexpected state after deactivate";
     }
 }
 
@@ -193,9 +194,9 @@ TEST_F(HardwareTest, SlaveDataOffsetsIOLITE) {
 
     auto slaves = master->slaves();
     for (const auto &slave: slaves) {
-        auto offsets = master->slave_data_offsets(slave.position);
+        auto offsets = master->slave_data_offsets(slave.properties.position);
         EXPECT_GE(offsets.input_size + offsets.output_size, 0u)
-            << "Slave " << slave.position << " has no data";
+            << "Slave " << slave.properties.position << " has no data";
     }
 }
 

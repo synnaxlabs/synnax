@@ -55,7 +55,7 @@ class Master final : public master::Master {
     /// @brief cached PDO offsets computed during activation.
     pdo::Offsets pdo_offsets;
     /// @brief cached slave information populated during initialization.
-    std::vector<slave::Properties> cached_slaves;
+    std::vector<slave::DiscoveryResult> cached_slaves;
     /// @brief lazily configured slave handles (position -> slave_config).
     std::unordered_map<uint16_t, ec_slave_config_t *> slave_configs;
     /// @brief slaves that are disabled (excluded from cyclic exchange).
@@ -100,7 +100,7 @@ public:
 
     pdo::Offset pdo_offset(const pdo::Entry &entry) const override;
 
-    std::vector<slave::Properties> slaves() const override;
+    std::vector<slave::DiscoveryResult> slaves() const override;
 
     slave::State slave_state(uint16_t position) const override;
 
@@ -119,7 +119,7 @@ private:
     static slave::State convert_state(uint8_t igh_state);
 
     /// @brief discovers PDO entries for a slave and populates its PDO lists.
-    void discover_slave_pdos(slave::Properties &slave);
+    void discover_slave_pdos(slave::DiscoveryResult &slave);
 
     /// @brief configures the PDO mapping for a slave based on discovered PDOs.
     void configure_slave_pdos(ec_slave_config_t *sc, const slave::Properties &slave);

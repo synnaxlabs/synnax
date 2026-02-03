@@ -388,7 +388,7 @@ xerrors::Error Engine::ensure_initialized() const {
     return this->master->initialize();
 }
 
-std::vector<slave::Properties> Engine::slaves() const {
+std::vector<slave::DiscoveryResult> Engine::slaves() const {
     return this->master->slaves();
 }
 

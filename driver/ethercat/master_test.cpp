@@ -108,12 +108,12 @@ TEST_F(MasterTest, SlaveDiscovery) {
 
     auto slaves = master->slaves();
     ASSERT_EQ(slaves.size(), 3);
-    EXPECT_EQ(slaves[0].position, 0);
-    EXPECT_EQ(slaves[0].vendor_id, 0x100);
-    EXPECT_EQ(slaves[0].product_code, 0x200);
-    EXPECT_EQ(slaves[0].name, "Slave1");
-    EXPECT_EQ(slaves[1].position, 1);
-    EXPECT_EQ(slaves[2].position, 2);
+    EXPECT_EQ(slaves[0].properties.position, 0);
+    EXPECT_EQ(slaves[0].properties.vendor_id, 0x100);
+    EXPECT_EQ(slaves[0].properties.product_code, 0x200);
+    EXPECT_EQ(slaves[0].properties.name, "Slave1");
+    EXPECT_EQ(slaves[1].properties.position, 1);
+    EXPECT_EQ(slaves[2].properties.position, 2);
 }
 
 TEST_F(MasterTest, SlaveStateQueriesBeforeActivation) {
@@ -194,17 +194,15 @@ TEST_F(MasterTest, PDOOffsetLookup) {
                      .name = "Input2",
                      .data_type = telem::INT32_T},
                 },
-            .output_pdos =
-                {
-                    {.pdo_index = 0x1A00,
-                     .index = 0x7000,
-                     .sub_index = 1,
-                     .bit_length = 16,
-                     .is_input = false,
-                     .name = "Output1",
-                     .data_type = telem::INT16_T},
-                },
-            .pdos_discovered = true,
+            .output_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x7000,
+                 .sub_index = 1,
+                 .bit_length = 16,
+                 .is_input = false,
+                 .name = "Output1",
+                 .data_type = telem::INT16_T},
+            },
         }
     );
     ASSERT_NIL(master->initialize());

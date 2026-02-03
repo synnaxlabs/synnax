@@ -297,15 +297,15 @@ TEST_F(EngineReadValueTest, ReadValueInt16) {
             .vendor_id = 0x1,
             .product_code = 0x2,
             .name = "Slave1",
-            .input_pdos =
-                {{.pdo_index = 0x1A00,
-                  .index = 0x6000,
-                  .sub_index = 1,
-                  .bit_length = 16,
-                  .is_input = true,
-                  .name = "status_word",
-                  .data_type = telem::INT16_T}},
-            .pdos_discovered = true,
+            .input_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 16,
+                 .is_input = true,
+                 .name = "status_word",
+                 .data_type = telem::INT16_T}
+            },
         }
     );
     this->create_engine();
@@ -334,15 +334,15 @@ TEST_F(EngineReadValueTest, ReadValueInt32) {
             .vendor_id = 0x1,
             .product_code = 0x2,
             .name = "Slave1",
-            .input_pdos =
-                {{.pdo_index = 0x1A00,
-                  .index = 0x6000,
-                  .sub_index = 1,
-                  .bit_length = 32,
-                  .is_input = true,
-                  .name = "position",
-                  .data_type = telem::INT32_T}},
-            .pdos_discovered = true,
+            .input_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 32,
+                 .is_input = true,
+                 .name = "position",
+                 .data_type = telem::INT32_T}
+            },
         }
     );
     this->create_engine();
@@ -371,24 +371,22 @@ TEST_F(EngineReadValueTest, ReadValueMultiplePDOs) {
             .vendor_id = 0x1,
             .product_code = 0x2,
             .name = "Slave1",
-            .input_pdos =
-                {
-                    {.pdo_index = 0x1A00,
-                     .index = 0x6000,
-                     .sub_index = 1,
-                     .bit_length = 16,
-                     .is_input = true,
-                     .name = "status_word",
-                     .data_type = telem::INT16_T},
-                    {.pdo_index = 0x1A00,
-                     .index = 0x6000,
-                     .sub_index = 2,
-                     .bit_length = 32,
-                     .is_input = true,
-                     .name = "position",
-                     .data_type = telem::INT32_T},
-                },
-            .pdos_discovered = true,
+            .input_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 16,
+                 .is_input = true,
+                 .name = "status_word",
+                 .data_type = telem::INT16_T},
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 2,
+                 .bit_length = 32,
+                 .is_input = true,
+                 .name = "position",
+                 .data_type = telem::INT32_T},
+            },
         }
     );
     this->create_engine();
@@ -423,15 +421,15 @@ TEST_F(EngineReadValueTest, ReadValue24BitPositive) {
             .vendor_id = 0x1,
             .product_code = 0x2,
             .name = "Slave1",
-            .input_pdos =
-                {{.pdo_index = 0x1A00,
-                  .index = 0x6000,
-                  .sub_index = 1,
-                  .bit_length = 24,
-                  .is_input = true,
-                  .name = "position_24bit",
-                  .data_type = telem::INT32_T}},
-            .pdos_discovered = true,
+            .input_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 24,
+                 .is_input = true,
+                 .name = "position_24bit",
+                 .data_type = telem::INT32_T}
+            },
         }
     );
     this->create_engine();
@@ -462,15 +460,15 @@ TEST_F(EngineReadValueTest, ReadValue24BitNegative) {
             .vendor_id = 0x1,
             .product_code = 0x2,
             .name = "Slave1",
-            .input_pdos =
-                {{.pdo_index = 0x1A00,
-                  .index = 0x6000,
-                  .sub_index = 1,
-                  .bit_length = 24,
-                  .is_input = true,
-                  .name = "position_24bit",
-                  .data_type = telem::INT32_T}},
-            .pdos_discovered = true,
+            .input_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 24,
+                 .is_input = true,
+                 .name = "position_24bit",
+                 .data_type = telem::INT32_T}
+            },
         }
     );
     this->create_engine();
@@ -501,15 +499,15 @@ TEST_F(EngineReadValueTest, ReadValueSubByte4Bit) {
             .vendor_id = 0x1,
             .product_code = 0x2,
             .name = "Slave1",
-            .input_pdos =
-                {{.pdo_index = 0x1A00,
-                  .index = 0x6000,
-                  .sub_index = 1,
-                  .bit_length = 4,
-                  .is_input = true,
-                  .name = "nibble",
-                  .data_type = telem::UINT8_T}},
-            .pdos_discovered = true,
+            .input_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 4,
+                 .is_input = true,
+                 .name = "nibble",
+                 .data_type = telem::UINT8_T}
+            },
         }
     );
     this->create_engine();
@@ -560,8 +558,8 @@ TEST_F(EngineTest, SlavesReturnsDiscoveredSlaves) {
 
     auto slaves = multi_engine->slaves();
     ASSERT_EQ(slaves.size(), 2);
-    EXPECT_EQ(slaves[0].position, 0);
-    EXPECT_EQ(slaves[1].position, 1);
+    EXPECT_EQ(slaves[0].properties.position, 0);
+    EXPECT_EQ(slaves[1].properties.position, 1);
 }
 
 TEST_F(EngineTest, InterfaceNameReturnsCorrect) {
@@ -594,8 +592,8 @@ TEST(PoolTest, DiscoverSlavesCreatesEngine) {
 
     auto slaves = ASSERT_NIL_P(pool.discover_slaves("eth0"));
     ASSERT_EQ(slaves.size(), 2);
-    EXPECT_EQ(slaves[0].position, 0);
-    EXPECT_EQ(slaves[1].position, 1);
+    EXPECT_EQ(slaves[0].properties.position, 0);
+    EXPECT_EQ(slaves[1].properties.position, 1);
 }
 
 TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
@@ -632,8 +630,8 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
 
     auto slaves = ASSERT_NIL_P(pool.discover_slaves("eth0"));
     ASSERT_EQ(slaves.size(), 2);
-    EXPECT_EQ(slaves[0].position, 0);
-    EXPECT_EQ(slaves[1].position, 1);
+    EXPECT_EQ(slaves[0].properties.position, 0);
+    EXPECT_EQ(slaves[1].properties.position, 1);
 }
 
 TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {

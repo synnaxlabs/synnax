@@ -204,7 +204,7 @@ public:
     [[nodiscard]] xerrors::Error ensure_initialized() const;
 
     /// @brief returns discovered slaves.
-    [[nodiscard]] std::vector<slave::Properties> slaves() const;
+    [[nodiscard]] std::vector<slave::DiscoveryResult> slaves() const;
 
     /// @brief returns the interface name.
     [[nodiscard]] std::string interface_name() const;
