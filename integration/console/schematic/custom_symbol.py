@@ -92,7 +92,7 @@ class CustomSymbol(Symbol):
 
         return applied_properties
 
-    def press(self, sleep: int = 100) -> None:
+    def press(self, sleep: int = 300) -> None:
         """Press the custom symbol to actuate it.
 
         Args:

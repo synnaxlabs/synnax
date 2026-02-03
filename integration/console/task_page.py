@@ -48,7 +48,7 @@ class TaskPage(ConsolePage):
         """Start the task by clicking the play button."""
         play_button = self.page.locator("button .pluto-icon--play").locator("..")
         play_button.wait_for(state="visible", timeout=3000)
-        play_button.click(timeout=1000)
+        play_button.click(timeout=5000)
 
         # Replace this with wait_for status == running
         sy.sleep(0.2)

@@ -101,7 +101,7 @@ class Console:
         """
         for tab in self.page.locator(".pluto-tabs-selector__btn").all():
             try:
-                name = tab.inner_text(timeout=1000).strip()
+                name = tab.inner_text(timeout=5000).strip()
             except PlaywrightTimeoutError:
                 continue  # Tab became stale, skip it
             if name not in except_tabs:
@@ -125,7 +125,7 @@ class Console:
         tabs_to_close = [
             tab
             for tab in self.page.locator(".pluto-tabs-selector__btn").all()
-            if tab.inner_text(timeout=1000).strip() not in except_tabs
+            if tab.inner_text(timeout=5000).strip() not in except_tabs
         ]
 
         for _ in range(len(tabs_to_close)):

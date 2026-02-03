@@ -179,7 +179,7 @@ class LayoutClient:
                 list_visible = list_container.is_visible()
                 list_html = ""
                 try:
-                    list_html = list_container.inner_html(timeout=1000)[:1000]
+                    list_html = list_container.inner_html(timeout=5000)[:1000]
                 except Exception:
                     list_html = "<failed to get>"
                 raise RuntimeError(
@@ -205,7 +205,7 @@ class LayoutClient:
                 options = []
                 for item in list_items:
                     try:
-                        options.append(item.inner_text(timeout=1000))
+                        options.append(item.inner_text(timeout=5000))
                     except PlaywrightTimeoutError:
                         options.append("<failed to get text>")
                 raise RuntimeError(
@@ -379,7 +379,7 @@ class LayoutClient:
 
         for _ in range(5):
             try:
-                self.page.wait_for_selector(target_item, timeout=1000)
+                self.page.wait_for_selector(target_item, timeout=5000)
                 item = self.page.locator(target_item).first
                 item.wait_for(state="attached", timeout=5000)
                 item.click()

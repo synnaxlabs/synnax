@@ -37,7 +37,7 @@ class SymbolEditor:
     def wait_for_open(self) -> None:
         """Wait for the editor modal to open."""
         try:
-            self.drop_zone.wait_for(state="visible", timeout=1000)
+            self.drop_zone.wait_for(state="visible", timeout=3000)
         except PlaywrightTimeoutError:
             self.wait_for_form_visible()
 

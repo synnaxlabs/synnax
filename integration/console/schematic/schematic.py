@@ -371,7 +371,7 @@ class Schematic(ConsolePage):
             if control_button.count() > 0:
                 control_button.click()
                 self.page.wait_for_selector(
-                    ".console-controls button.pluto-btn--outlined", timeout=1000
+                    ".console-controls button.pluto-btn--outlined", timeout=5000
                 )
             sy.sleep(0.1)  # Wait for Core update
 

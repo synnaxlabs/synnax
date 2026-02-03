@@ -311,7 +311,7 @@ class ChannelClient(BaseClient):
         save_btn.click()
 
         try:
-            name_input.wait_for(state="hidden", timeout=1000)
+            name_input.wait_for(state="hidden", timeout=3000)
             return None
         except PlaywrightTimeoutError:
             modal = self.layout.page.locator(self.MODAL_SELECTOR)

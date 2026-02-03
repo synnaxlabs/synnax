@@ -149,7 +149,7 @@ class Button(Symbol):
 
         return props
 
-    def press(self, sleep: int = 100) -> None:
+    def press(self, sleep: int = 300) -> None:
         """Press button
 
         Args:

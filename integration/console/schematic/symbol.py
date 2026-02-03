@@ -113,6 +113,9 @@ class Symbol(ABC):
         edit_off_icon = self.page.get_by_label("pluto-icon--edit-off")
         if edit_off_icon.count() > 0:
             edit_off_icon.click()
+            self.page.get_by_label("pluto-icon--edit").wait_for(
+                state="visible", timeout=3000
+            )
 
     def _enable_edit_mode(self) -> None:
         self.notifications.close_all()
