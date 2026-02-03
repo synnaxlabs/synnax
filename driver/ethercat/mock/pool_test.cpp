@@ -9,8 +9,9 @@
 
 #include <gtest/gtest.h>
 
-#include "driver/ethercat/mock/pool.h"
 #include "x/cpp/xtest/xtest.h"
+
+#include "driver/ethercat/mock/pool.h"
 
 namespace ethercat::mock {
 
@@ -93,16 +94,12 @@ TEST(PoolGetSlaves, ReturnsEmptyForUnconfigured) {
 TEST(PoolGetSlaves, ReturnsMasterSlaves) {
     Pool pool;
     auto master = std::make_shared<Master>("eth0");
-    master->add_slave(slave::Properties{
-        .position = 0,
-        .vendor_id = 0x100,
-        .name = "Slave0"
-    });
-    master->add_slave(slave::Properties{
-        .position = 1,
-        .vendor_id = 0x101,
-        .name = "Slave1"
-    });
+    master->add_slave(
+        slave::Properties{.position = 0, .vendor_id = 0x100, .name = "Slave0"}
+    );
+    master->add_slave(
+        slave::Properties{.position = 1, .vendor_id = 0x101, .name = "Slave1"}
+    );
     pool.configure_master("eth0", master);
 
     auto slaves = pool.get_slaves("eth0");

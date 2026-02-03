@@ -1,8 +1,3 @@
-config_setting(
-    name = "linux",
-    constraint_values = ["@platforms//os:linux"],
-)
-
 # Vendored IgH EtherCAT Master header (ecrt.h)
 # Source: https://gitlab.com/etherlab.org/ethercat (stable-1.6)
 # License: LGPL-2.1
@@ -14,54 +9,36 @@ cc_library(
 
 cc_library(
     name = "igh_api",
-    hdrs = select({
-        ":linux": ["api.h"],
-        "//conditions:default": [],
-    }),
+    hdrs = ["api.h"],
     visibility = ["//driver/ethercat:__pkg__"],
-    deps = select({
-        ":linux": [
-            ":ecrt_official",
-            "//driver/errors",
-            "//x/cpp/xlib",
-        ],
-        "//conditions:default": [],
-    }),
+    deps = [
+        ":ecrt_official",
+        "//driver/errors",
+        "//x/cpp/xlib",
+    ],
 )
 
 cc_library(
     name = "igh",
-    srcs = select({
-        ":linux": ["master.cpp"],
-        "//conditions:default": [],
-    }),
-    hdrs = select({
-        ":linux": ["master.h"],
-        "//conditions:default": [],
-    }),
+    srcs = ["master.cpp"],
+    hdrs = ["master.h"],
     visibility = ["//driver/ethercat:__pkg__"],
-    deps = select({
-        ":linux": [
-            ":ecrt_official",
-            ":igh_api",
-            "//driver/ethercat/errors",
-            "//driver/ethercat/esi",
-            "//driver/ethercat/master",
-            "//driver/ethercat/telem",
-            "//x/cpp/xlib",
-            "//x/cpp/xerrors",
-            "@glog",
-        ],
-        "//conditions:default": [],
-    }),
+    deps = [
+        ":ecrt_official",
+        ":igh_api",
+        "//driver/ethercat/errors",
+        "//driver/ethercat/esi",
+        "//driver/ethercat/master",
+        "//driver/ethercat/telem",
+        "//x/cpp/xlib",
+        "//x/cpp/xerrors",
+        "@glog",
+    ],
 )
 
 cc_test(
     name = "igh_test",
-    srcs = select({
-        ":linux": ["master_test.cpp"],
-        "//conditions:default": [],
-    }),
+    srcs = ["master_test.cpp"],
     tags = [
         "linux-only",
         "manual",
@@ -69,13 +46,10 @@ cc_test(
         "requires-root",
     ],
     target_compatible_with = ["@platforms//os:linux"],
-    deps = select({
-        ":linux": [
-            ":igh",
-            ":igh_api",
-            "//x/cpp/xtest",
-            "@googletest//:gtest_main",
-        ],
-        "//conditions:default": [],
-    }),
+    deps = [
+        ":igh",
+        ":igh_api",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
 )

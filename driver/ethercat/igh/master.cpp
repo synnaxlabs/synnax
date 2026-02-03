@@ -352,7 +352,7 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
         int result = this->api->slave_config_reg_pdo_entry(
             sc,
             pdo.index,
-            pdo.subindex,
+            pdo.sub_index,
             this->input_domain,
             nullptr
         );

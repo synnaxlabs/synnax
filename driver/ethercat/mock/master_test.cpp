@@ -9,8 +9,9 @@
 
 #include <gtest/gtest.h>
 
-#include "driver/ethercat/mock/master.h"
 #include "x/cpp/xtest/xtest.h"
+
+#include "driver/ethercat/mock/master.h"
 
 namespace ethercat::mock {
 
@@ -49,18 +50,22 @@ TEST(MasterSlaveManagement, AddSlaveSetsDiscoveredTrue) {
 
 TEST(MasterSlaveManagement, SlavesReturnsAddedSlaves) {
     Master master;
-    master.add_slave(slave::Properties{
-        .position = 0,
-        .vendor_id = 0x100,
-        .product_code = 0x200,
-        .name = "Slave0"
-    });
-    master.add_slave(slave::Properties{
-        .position = 1,
-        .vendor_id = 0x101,
-        .product_code = 0x201,
-        .name = "Slave1"
-    });
+    master.add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x100,
+            .product_code = 0x200,
+            .name = "Slave0"
+        }
+    );
+    master.add_slave(
+        slave::Properties{
+            .position = 1,
+            .vendor_id = 0x101,
+            .product_code = 0x201,
+            .name = "Slave1"
+        }
+    );
 
     auto slaves = master.slaves();
     ASSERT_EQ(slaves.size(), 2);
@@ -173,25 +178,26 @@ TEST(MasterActivation, ActivateWithTransitionFailure) {
 
 TEST(MasterActivation, ActivateAllocatesIoMaps) {
     Master master;
-    master.add_slave(slave::Properties{
-        .position = 0,
-        .input_pdos = {{
-            .pdo_index = 0x1A00,
-            .index = 0x6000,
-            .sub_index = 1,
-            .bit_length = 16,
-            .is_input = true,
-            .data_type = telem::INT16_T
-        }},
-        .output_pdos = {{
-            .pdo_index = 0x1600,
-            .index = 0x7000,
-            .sub_index = 1,
-            .bit_length = 32,
-            .is_input = false,
-            .data_type = telem::INT32_T
-        }}
-    });
+    master.add_slave(
+        slave::Properties{
+            .position = 0,
+            .input_pdos =
+                {{.pdo_index = 0x1A00,
+                  .index = 0x6000,
+                  .sub_index = 1,
+                  .bit_length = 16,
+                  .is_input = true,
+                  .data_type = telem::INT16_T}},
+            .output_pdos = {
+                {.pdo_index = 0x1600,
+                 .index = 0x7000,
+                 .sub_index = 1,
+                 .bit_length = 32,
+                 .is_input = false,
+                 .data_type = telem::INT32_T}
+            }
+        }
+    );
     ASSERT_NIL(master.initialize());
     ASSERT_NIL(master.activate());
     EXPECT_GE(master.input_data().size(), 2);
