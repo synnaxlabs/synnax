@@ -13,6 +13,23 @@ cc_library(
 )
 
 cc_library(
+    name = "igh_api",
+    hdrs = select({
+        ":linux": ["api.h"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//driver/ethercat:__pkg__"],
+    deps = select({
+        ":linux": [
+            ":ecrt_official",
+            "//driver/errors",
+            "//x/cpp/xlib",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_library(
     name = "igh",
     srcs = select({
         ":linux": ["master.cpp"],
@@ -22,21 +39,16 @@ cc_library(
         ":linux": ["master.h"],
         "//conditions:default": [],
     }),
-    linkopts = select({
-        ":linux": [
-            "-L/opt/etherlab/lib",
-            "-lethercat",
-        ],
-        "//conditions:default": [],
-    }),
     visibility = ["//driver/ethercat:__pkg__"],
     deps = select({
         ":linux": [
             ":ecrt_official",
+            ":igh_api",
             "//driver/ethercat/errors",
             "//driver/ethercat/esi",
             "//driver/ethercat/master",
             "//driver/ethercat/telem",
+            "//x/cpp/xlib",
             "//x/cpp/xerrors",
             "@glog",
         ],
@@ -60,6 +72,7 @@ cc_test(
     deps = select({
         ":linux": [
             ":igh",
+            ":igh_api",
             "//x/cpp/xtest",
             "@googletest//:gtest_main",
         ],

@@ -18,8 +18,10 @@
 #include <vector>
 
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include "driver/ethercat/errors/errors.h"
+#include "driver/ethercat/igh/api.h"
 #include "driver/ethercat/igh/ecrt.h"
 #include "driver/ethercat/master/master.h"
 
@@ -51,6 +53,8 @@ struct PDOEntryKeyHash {
 
 /// @brief IgH EtherLab implementation of the Master interface.
 class Master final : public ethercat::master::Master {
+    /// @brief API wrapper for dynamic library loading.
+    std::shared_ptr<API> api;
     /// @brief IgH master index (typically 0, configured in /etc/ethercat.conf).
     unsigned int master_index;
 
@@ -89,8 +93,8 @@ class Master final : public ethercat::master::Master {
     ec_domain_state_t output_domain_state;
 
 public:
-    /// @brief constructs an IgH master for the specified master index.
-    explicit Master(unsigned int master_index = 0);
+    /// @brief constructs an IgH master with the given API and master index.
+    explicit Master(std::shared_ptr<API> api, unsigned int master_index = 0);
 
     ~Master() override;
 
@@ -144,9 +148,6 @@ private:
     read_pdo_entry_name(uint16_t slave_pos, uint16_t index, uint8_t subindex);
 };
 
-/// @brief checks if the IgH EtherCAT master kernel module is available.
-bool igh_available();
-
 /// @brief sysfs path where IgH EtherCAT masters are exposed.
 /// The IgH EtherCAT master kernel module exposes masters as
 /// /sys/class/EtherCAT/EtherCAT<n>.
@@ -155,9 +156,28 @@ const std::string SYSFS_ETHERCAT_PATH = "/sys/class/EtherCAT";
 /// @brief length of "EtherCAT" prefix in sysfs device names.
 constexpr size_t IGH_SYSFS_PREFIX_LEN = 8;
 
+/// @brief device path for the first IgH EtherCAT master kernel module device.
+const std::string IGH_DEVICE_PATH = "/dev/EtherCAT0";
+
 /// @brief IgH-based implementation of master::Manager.
 class Manager final : public master::Manager {
+    /// @brief API instance loaded during open().
+    std::shared_ptr<API> api;
+
+    explicit Manager(std::shared_ptr<API> api): api(std::move(api)) {}
+
 public:
+    /// @brief opens the IgH manager, checking device availability and loading the API.
+    /// @return pair of manager instance and error (nil on success).
+    static std::pair<std::unique_ptr<Manager>, xerrors::Error> open() {
+        struct stat st;
+        if (stat(IGH_DEVICE_PATH.c_str(), &st) != 0)
+            return {nullptr, xerrors::Error(MASTER_INIT_ERROR, "IgH device not found")};
+        auto [api, err] = API::load();
+        if (err) return {nullptr, err};
+        return {std::unique_ptr<Manager>(new Manager(std::move(api))), xerrors::NIL};
+    }
+
     [[nodiscard]] std::vector<master::Info> enumerate() override {
         std::vector<master::Info> masters;
         DIR *dir = opendir(SYSFS_ETHERCAT_PATH.c_str());
@@ -192,9 +212,10 @@ public:
                     "invalid IgH master key '" + key + "': expected format 'igh:N'"
                 )
             };
+
         try {
             const int index = std::stoi(key.substr(4));
-            return {std::make_shared<Master>(index), xerrors::NIL};
+            return {std::make_shared<Master>(this->api, index), xerrors::NIL};
         } catch (const std::exception &) {
             return {
                 nullptr,
