@@ -77,7 +77,7 @@ public:
         const std::shared_ptr<task::Context> &ctx
     ) override;
 
-    /// @brief handles device updates to sync passive flag to engine.
+    /// @brief handles device updates to sync enabled flag to engine.
     void on_device_set(const synnax::Device &dev) override;
 
 private:

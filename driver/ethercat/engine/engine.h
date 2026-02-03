@@ -209,7 +209,7 @@ public:
     /// @brief returns the interface name.
     [[nodiscard]] std::string interface_name() const;
 
-    /// @brief marks a slave as passive, excluding it from cyclic exchange.
-    void set_passive_slave(uint16_t position, bool passive);
+    /// @brief sets whether a slave is enabled for cyclic exchange.
+    void set_slave_enabled(uint16_t position, bool enabled);
 };
 }

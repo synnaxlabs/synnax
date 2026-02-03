@@ -82,8 +82,8 @@ class Master final : public ethercat::master::Master {
     std::vector<SlaveInfo> cached_slaves;
     /// @brief lazily configured slave handles (position -> slave_config).
     std::unordered_map<uint16_t, ec_slave_config_t *> slave_configs;
-    /// @brief slaves marked as passive (excluded from cyclic exchange).
-    std::unordered_set<uint16_t> passive_slaves;
+    /// @brief slaves that are disabled (excluded from cyclic exchange).
+    std::unordered_set<uint16_t> disabled_slaves;
     /// @brief protects slave state queries and configuration.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -108,7 +108,7 @@ public:
 
     xerrors::Error register_pdos(const std::vector<PDOEntry> &entries) override;
 
-    void set_passive_slave(uint16_t position, bool passive) override;
+    void set_slave_enabled(uint16_t position, bool enabled) override;
 
     xerrors::Error activate() override;
 

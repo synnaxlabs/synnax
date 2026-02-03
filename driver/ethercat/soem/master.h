@@ -67,8 +67,8 @@ class Master final : public master::Master {
         pdo_offset_cache;
     /// @brief cached slave information populated during initialization.
     std::vector<SlaveInfo> slave_list;
-    /// @brief slave positions marked as passive (excluded from cyclic exchange).
-    std::set<uint16_t> passive_slaves;
+    /// @brief slave positions that are disabled (excluded from cyclic exchange).
+    std::set<uint16_t> disabled_slaves;
     /// @brief protects slave state queries.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -91,7 +91,7 @@ public:
 
     xerrors::Error register_pdos(const std::vector<PDOEntry> &entries) override;
 
-    void set_passive_slave(uint16_t position, bool passive) override;
+    void set_slave_enabled(uint16_t position, bool enabled) override;
 
     xerrors::Error activate() override;
 
