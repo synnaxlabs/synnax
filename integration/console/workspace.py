@@ -22,7 +22,6 @@ from .context_menu import ContextMenu
 from .layout import LayoutClient
 from .log import Log
 from .notifications import NotificationsClient
-from .tree import Tree
 from .page import ConsolePage, PageType
 from .plot import Plot
 from .schematic import Schematic
@@ -31,6 +30,7 @@ from .task.analog_read import AnalogRead
 from .task.analog_write import AnalogWrite
 from .task.counter_read import CounterRead
 from .task_page import TaskPage
+from .tree import Tree
 
 __all__ = ["WorkspaceClient", "PageType"]
 

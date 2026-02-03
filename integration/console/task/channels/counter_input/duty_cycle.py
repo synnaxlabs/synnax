@@ -42,22 +42,6 @@ class DutyCycle(Counter):
             chan_type="Duty Cycle",
             **kwargs,
         )
-        layout = self.layout
 
-        # Active Edge
-        if edge is not None:
-            layout.click_btn("Active Edge")
-            layout.select_from_dropdown(edge)
-            self.form_values["Active Edge"] = edge
-        else:
-            self.form_values["Active Edge"] = layout.get_dropdown_value("Active Edge")
-
-        # Terminal
-        if terminal is not None:
-            layout.click_btn("Input Terminal")
-            layout.select_from_dropdown(terminal)
-            self.form_values["Input Terminal"] = terminal
-        else:
-            self.form_values["Input Terminal"] = layout.get_dropdown_value(
-                "Input Terminal"
-            )
+        self._configure_dropdown("Active Edge", edge)
+        self._configure_dropdown("Input Terminal", terminal)

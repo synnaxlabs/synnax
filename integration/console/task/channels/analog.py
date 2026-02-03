@@ -87,23 +87,25 @@ class Analog:
                 "Terminal Configuration"
             )
 
+        no_min_max_types = ("Microphone", "Temperature Built-In Sensor", "Thermocouple")
         if min_val is not None:
             layout.fill_input_field("Minimum Value", str(min_val))
             values["Minimum Value"] = str(min_val)
-        elif chan_type != "Microphone":
+        elif chan_type not in no_min_max_types:
             values["Minimum Value"] = layout.get_input_field("Minimum Value")
 
         if max_val is not None:
             layout.fill_input_field("Maximum Value", str(max_val))
             values["Maximum Value"] = str(max_val)
-        elif chan_type != "Microphone":
+        elif chan_type not in no_min_max_types:
             values["Maximum Value"] = layout.get_input_field("Maximum Value")
 
+        no_custom_scale_types = ("RTD", "Temperature Built-In Sensor", "Thermocouple")
         if custom_scale is not None:
             layout.click_btn("Custom Scaling")
             layout.select_from_dropdown(custom_scale)
             values["Custom Scaling"] = custom_scale
-        elif chan_type != "RTD":
+        elif chan_type not in no_custom_scale_types:
             values["Custom Scaling"] = layout.get_dropdown_value("Custom Scaling")
 
         self.form_values = values
@@ -134,3 +136,71 @@ class Analog:
             return count > 0
         except Exception:
             return False
+
+    def _configure_dropdown(
+        self,
+        label: str,
+        value: str | None,
+        *,
+        track: bool = True,
+    ) -> None:
+        """Configure a dropdown field.
+
+        Args:
+            label: The UI label for the dropdown
+            value: The value to select, or None to read current value
+            track: Whether to track the value in form_values
+        """
+        if value is not None:
+            self.layout.click_btn(label)
+            self.layout.select_from_dropdown(value)
+            if track:
+                self.form_values[label] = value
+        elif track:
+            self.form_values[label] = self.layout.get_dropdown_value(label)
+
+    def _configure_input(
+        self,
+        label: str,
+        value: str | float | int | None,
+        *,
+        track: bool = True,
+    ) -> None:
+        """Configure an input field.
+
+        Args:
+            label: The UI label for the input field
+            value: The value to set, or None to read current value
+            track: Whether to track the value in form_values
+        """
+        if value is not None:
+            self.layout.fill_input_field(label, str(value))
+            # Blur the input to trigger UI normalization (e.g., "4.0" -> "4")
+            self.layout.press_key("Tab")
+            if track:
+                self.form_values[label] = self.layout.get_input_field(label)
+        elif track:
+            self.form_values[label] = self.layout.get_input_field(label)
+
+    def _configure_toggle(
+        self,
+        label: str,
+        value: bool | None,
+        *,
+        track: bool = True,
+    ) -> None:
+        """Configure a toggle/checkbox field.
+
+        Args:
+            label: The UI label for the toggle
+            value: The desired state, or None to read current value
+            track: Whether to track the value in form_values
+        """
+        if value is not None:
+            current = self.layout.get_toggle(label)
+            if current != value:
+                self.layout.click_checkbox(label)
+            if track:
+                self.form_values[label] = value
+        elif track:
+            self.form_values[label] = self.layout.get_toggle(label)

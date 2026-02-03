@@ -39,7 +39,6 @@ class Current(Analog):
         **kwargs: Any,
     ) -> None:
 
-        # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             layout=layout,
             name=name,
@@ -47,11 +46,6 @@ class Current(Analog):
             chan_type="Current",
             **kwargs,
         )
-        layout = self.layout
 
-        if shunt_resistor is not None:
-            layout.click_btn("Shunt Resistor Location")
-            layout.select_from_dropdown(shunt_resistor)
-
-        if resistance is not None:
-            layout.fill_input_field("Shunt Resistance", str(resistance))
+        self._configure_dropdown("Shunt Resistor Location", shunt_resistor)
+        self._configure_input("Shunt Resistance", resistance)

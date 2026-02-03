@@ -47,7 +47,6 @@ class Bridge(Analog):
         **kwargs: Any,
     ) -> None:
 
-        # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             layout=layout,
             name=name,
@@ -55,23 +54,9 @@ class Bridge(Analog):
             chan_type="Bridge",
             **kwargs,
         )
-        layout = self.layout
 
-        # Bridge-specific configurations:
-        if units is not None:
-            layout.click_btn("Electrical Units")
-            layout.select_from_dropdown(units)
-
-        if configuration is not None:
-            layout.click_btn("Bridge Configuration")
-            layout.select_from_dropdown(configuration)
-
-        if resistance is not None:
-            layout.fill_input_field("Nominal Bridge Resistance", str(resistance))
-
-        if excitation_source is not None:
-            layout.click_btn("Voltage Excitation Source")
-            layout.select_from_dropdown(excitation_source)
-
-        if excitation_value is not None:
-            layout.fill_input_field("Voltage Excitation Value", str(excitation_value))
+        self._configure_dropdown("Electrical Units", units)
+        self._configure_dropdown("Bridge Configuration", configuration)
+        self._configure_input("Nominal Bridge Resistance", resistance)
+        self._configure_dropdown("Voltage Excitation Source", excitation_source)
+        self._configure_input("Voltage Excitation Value", excitation_value)

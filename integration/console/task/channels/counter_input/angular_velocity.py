@@ -48,49 +48,9 @@ class AngularVelocity(Counter):
             chan_type="Velocity Angular",
             **kwargs,
         )
-        layout = self.layout
 
-        # Units
-        if units is not None:
-            layout.click_btn("Scaled Units")
-            layout.select_from_dropdown(units)
-            self.form_values["Scaled Units"] = units
-        else:
-            self.form_values["Scaled Units"] = layout.get_dropdown_value("Scaled Units")
-
-        # Pulses per Revolution
-        if pulses_per_rev is not None:
-            layout.fill_input_field("Pulses / Rev", str(pulses_per_rev))
-            self.form_values["Pulses / Rev"] = str(pulses_per_rev)
-        else:
-            self.form_values["Pulses / Rev"] = layout.get_input_field("Pulses / Rev")
-
-        # Decoding Type
-        if decoding_type is not None:
-            layout.click_btn("Decoding Type")
-            layout.select_from_dropdown(decoding_type)
-            self.form_values["Decoding Type"] = decoding_type
-        else:
-            self.form_values["Decoding Type"] = layout.get_dropdown_value(
-                "Decoding Type"
-            )
-
-        # Input Terminal A
-        if terminal_a is not None:
-            layout.click_btn("Input Terminal A")
-            layout.select_from_dropdown(terminal_a)
-            self.form_values["Input Terminal A"] = terminal_a
-        else:
-            self.form_values["Input Terminal A"] = layout.get_dropdown_value(
-                "Input Terminal A"
-            )
-
-        # Input Terminal B
-        if terminal_b is not None:
-            layout.click_btn("Input Terminal B")
-            layout.select_from_dropdown(terminal_b)
-            self.form_values["Input Terminal B"] = terminal_b
-        else:
-            self.form_values["Input Terminal B"] = layout.get_dropdown_value(
-                "Input Terminal B"
-            )
+        self._configure_dropdown("Scaled Units", units)
+        self._configure_input("Pulses / Rev", pulses_per_rev)
+        self._configure_dropdown("Decoding Type", decoding_type)
+        self._configure_dropdown("Input Terminal A", terminal_a)
+        self._configure_dropdown("Input Terminal B", terminal_b)

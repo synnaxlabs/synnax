@@ -44,32 +44,7 @@ class PulseWidth(Counter):
             chan_type="Pulse Width",
             **kwargs,
         )
-        layout = self.layout
 
-        # Starting Edge
-        if starting_edge is not None:
-            layout.click_btn("Starting Edge")
-            layout.select_from_dropdown(starting_edge)
-            self.form_values["Starting Edge"] = starting_edge
-        else:
-            self.form_values["Starting Edge"] = layout.get_dropdown_value(
-                "Starting Edge"
-            )
-
-        # Scaled Units
-        if units is not None:
-            layout.click_btn("Scaled Units")
-            layout.select_from_dropdown(units)
-            self.form_values["Scaled Units"] = units
-        else:
-            self.form_values["Scaled Units"] = layout.get_dropdown_value("Scaled Units")
-
-        # Terminal
-        if terminal is not None:
-            layout.click_btn("Input Terminal")
-            layout.select_from_dropdown(terminal)
-            self.form_values["Input Terminal"] = terminal
-        else:
-            self.form_values["Input Terminal"] = layout.get_dropdown_value(
-                "Input Terminal"
-            )
+        self._configure_dropdown("Starting Edge", starting_edge)
+        self._configure_dropdown("Scaled Units", units)
+        self._configure_dropdown("Input Terminal", terminal)

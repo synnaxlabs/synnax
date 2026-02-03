@@ -63,34 +63,11 @@ class TorqueBridgeTable(Analog):
             chan_type="Torque Bridge Table",
             **kwargs,
         )
-        layout = self.layout
 
-        if torque_units is not None:
-            layout.click_btn("Torque Units")
-            layout.select_from_dropdown(torque_units)
-
-        if bridge_configuration is not None:
-            layout.click_btn("Bridge Configuration")
-            layout.select_from_dropdown(bridge_configuration)
-
-        if nominal_bridge_resistance is not None:
-            layout.fill_input_field(
-                "Nominal Bridge Resistance", str(nominal_bridge_resistance)
-            )
-
-        if voltage_excitation_source is not None:
-            layout.click_btn("Voltage Excitation Source")
-            layout.select_from_dropdown(voltage_excitation_source)
-
-        if voltage_excitation_value is not None:
-            layout.fill_input_field(
-                "Voltage Excitation Value", str(voltage_excitation_value)
-            )
-
-        if physical_units is not None:
-            layout.click_btn("Physical Units")
-            layout.select_from_dropdown(physical_units)
-
-        if electrical_units is not None:
-            layout.click_btn("Electrical Units")
-            layout.select_from_dropdown(electrical_units)
+        self._configure_dropdown("Torque Units", torque_units)
+        self._configure_dropdown("Bridge Configuration", bridge_configuration)
+        self._configure_input("Nominal Bridge Resistance", nominal_bridge_resistance)
+        self._configure_dropdown("Voltage Excitation Source", voltage_excitation_source)
+        self._configure_input("Voltage Excitation Value", voltage_excitation_value)
+        self._configure_dropdown("Physical Units", physical_units)
+        self._configure_dropdown("Electrical Units", electrical_units)

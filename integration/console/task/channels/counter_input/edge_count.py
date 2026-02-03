@@ -46,39 +46,8 @@ class EdgeCount(Counter):
             chan_type="Edge Count",
             **kwargs,
         )
-        layout = self.layout
 
-        # Active Edge
-        if active_edge is not None:
-            layout.click_btn("Active Edge")
-            layout.select_from_dropdown(active_edge)
-            self.form_values["Active Edge"] = active_edge
-        else:
-            self.form_values["Active Edge"] = layout.get_dropdown_value("Active Edge")
-
-        # Count Direction
-        if count_direction is not None:
-            layout.click_btn("Count Direction")
-            layout.select_from_dropdown(count_direction)
-            self.form_values["Count Direction"] = count_direction
-        else:
-            self.form_values["Count Direction"] = layout.get_dropdown_value(
-                "Count Direction"
-            )
-
-        # Terminal
-        if terminal is not None:
-            layout.click_btn("Input Terminal")
-            layout.select_from_dropdown(terminal)
-            self.form_values["Input Terminal"] = terminal
-        else:
-            self.form_values["Input Terminal"] = layout.get_dropdown_value(
-                "Input Terminal"
-            )
-
-        # Initial Count
-        if initial_count is not None:
-            layout.fill_input_field("Initial Count", str(initial_count))
-            self.form_values["Initial Count"] = str(initial_count)
-        else:
-            self.form_values["Initial Count"] = layout.get_input_field("Initial Count")
+        self._configure_dropdown("Active Edge", active_edge)
+        self._configure_dropdown("Count Direction", count_direction)
+        self._configure_dropdown("Input Terminal", terminal)
+        self._configure_input("Initial Count", initial_count)

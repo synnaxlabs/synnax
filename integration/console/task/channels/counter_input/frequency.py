@@ -53,42 +53,8 @@ class Frequency(Counter):
             chan_type="Frequency",
             **kwargs,
         )
-        layout = self.layout
 
-        # Starting Edge
-        if edge is not None:
-            layout.click_btn("Starting Edge")
-            layout.select_from_dropdown(edge)
-            self.form_values["Starting Edge"] = edge
-        else:
-            self.form_values["Starting Edge"] = layout.get_dropdown_value(
-                "Starting Edge"
-            )
-
-        # Units
-        if units is not None:
-            layout.click_btn("Units")
-            layout.select_from_dropdown(units)
-            self.form_values["Units"] = units
-        else:
-            self.form_values["Units"] = layout.get_dropdown_value("Units")
-
-        # Terminal
-        if terminal is not None:
-            layout.click_btn("Input Terminal")
-            layout.select_from_dropdown(terminal)
-            self.form_values["Input Terminal"] = terminal
-        else:
-            self.form_values["Input Terminal"] = layout.get_dropdown_value(
-                "Input Terminal"
-            )
-
-        # Measurement Method
-        if meas_method is not None:
-            layout.click_btn("Measurement Method")
-            layout.select_from_dropdown(meas_method)
-            self.form_values["Measurement Method"] = meas_method
-        else:
-            self.form_values["Measurement Method"] = layout.get_dropdown_value(
-                "Measurement Method"
-            )
+        self._configure_dropdown("Starting Edge", edge)
+        self._configure_dropdown("Units", units)
+        self._configure_dropdown("Input Terminal", terminal)
+        self._configure_dropdown("Measurement Method", meas_method)

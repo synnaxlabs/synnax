@@ -53,7 +53,6 @@ class RTD(Analog):
         **kwargs: Any,
     ) -> None:
 
-        # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             layout=layout,
             name=name,
@@ -61,29 +60,10 @@ class RTD(Analog):
             chan_type="RTD",
             **kwargs,
         )
-        layout = self.layout
 
-        # RTD-specific configurations:
-        if temperature_units is not None:
-            layout.click_btn("Temperature Units")
-            layout.select_from_dropdown(temperature_units)
-
-        if rtd_type is not None:
-            layout.click_btn("RTD Type")
-            layout.select_from_dropdown(rtd_type)
-
-        if resistance_configuration is not None:
-            layout.click_btn("Resistance Configuration")
-            layout.select_from_dropdown(resistance_configuration)
-
-        if current_excitation_source is not None:
-            layout.click_btn("Current Excitation Source")
-            layout.select_from_dropdown(current_excitation_source)
-
-        if current_excitation_value is not None:
-            layout.fill_input_field(
-                "Current Excitation Value", str(current_excitation_value)
-            )
-
-        if r0_resistance is not None:
-            layout.fill_input_field("R0 Resistance", str(r0_resistance))
+        self._configure_dropdown("Temperature Units", temperature_units)
+        self._configure_dropdown("RTD Type", rtd_type)
+        self._configure_dropdown("Resistance Configuration", resistance_configuration)
+        self._configure_dropdown("Current Excitation Source", current_excitation_source)
+        self._configure_input("Current Excitation Value", current_excitation_value)
+        self._configure_input("R0 Resistance", r0_resistance)

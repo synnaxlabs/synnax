@@ -47,7 +47,6 @@ class ForceIEPE(Analog):
         **kwargs: Any,
     ) -> None:
 
-        # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             layout=layout,
             name=name,
@@ -55,27 +54,18 @@ class ForceIEPE(Analog):
             chan_type="Force IEPE",
             **kwargs,
         )
-        layout = self.layout
 
-        # Force IEPE-specific configurations:
-        if force_units is not None:
-            layout.click_btn("Force Units")
-            layout.select_from_dropdown(force_units)
+        self._configure_dropdown("Force Units", force_units)
+        self._configure_input("Sensitivity", sensitivity)
 
-        if sensitivity is not None:
-            layout.fill_input_field("Sensitivity", str(sensitivity))
-
+        # Custom handling for sensitivity units (button text contains special chars)
         if sensitivity_units is not None:
-            layout.page.locator("button.pluto-dialog__trigger:has-text('V/')").click()
-            layout.page.locator(".pluto-list__item").get_by_text(
+            self.layout.page.locator(
+                "button.pluto-dialog__trigger:has-text('V/')"
+            ).click()
+            self.layout.page.locator(".pluto-list__item").get_by_text(
                 sensitivity_units, exact=True
             ).click()
 
-        if current_excitation_source is not None:
-            layout.click_btn("Current Excitation Source")
-            layout.select_from_dropdown(current_excitation_source)
-
-        if current_excitation_value is not None:
-            layout.fill_input_field(
-                "Current Excitation Value", str(current_excitation_value)
-            )
+        self._configure_dropdown("Current Excitation Source", current_excitation_source)
+        self._configure_input("Current Excitation Value", current_excitation_value)

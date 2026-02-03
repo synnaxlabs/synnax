@@ -47,7 +47,6 @@ class Microphone(Analog):
         **kwargs: Any,
     ) -> None:
 
-        # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             layout=layout,
             name=name,
@@ -55,26 +54,9 @@ class Microphone(Analog):
             chan_type="Microphone",
             **kwargs,
         )
-        layout = self.layout
 
-        # Microphone-specific configurations:
-        if sound_pressure_units is not None:
-            layout.click_btn("Sound Pressure Units")
-            layout.select_from_dropdown(sound_pressure_units)
-
-        if sensitivity is not None:
-            layout.fill_input_field("Microphone Sensitivity", str(sensitivity))
-
-        if max_sound_pressure_level is not None:
-            layout.fill_input_field(
-                "Max Sound Pressure Level", str(max_sound_pressure_level)
-            )
-
-        if current_excitation_source is not None:
-            layout.click_btn("Current Excitation Source")
-            layout.select_from_dropdown(current_excitation_source)
-
-        if current_excitation_value is not None:
-            layout.fill_input_field(
-                "Current Excitation Value", str(current_excitation_value)
-            )
+        self._configure_dropdown("Sound Pressure Units", sound_pressure_units)
+        self._configure_input("Microphone Sensitivity", sensitivity)
+        self._configure_input("Max Sound Pressure Level", max_sound_pressure_level)
+        self._configure_dropdown("Current Excitation Source", current_excitation_source)
+        self._configure_input("Current Excitation Value", current_excitation_value)

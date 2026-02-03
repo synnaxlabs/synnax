@@ -43,7 +43,6 @@ class Accelerometer(Analog):
         **kwargs: Any,
     ) -> None:
 
-        # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             layout=layout,
             name=name,
@@ -51,23 +50,17 @@ class Accelerometer(Analog):
             chan_type="Accelerometer",
             **kwargs,
         )
-        layout = self.layout
 
-        # Accelerometer-specific configurations:
-        if sensitivity is not None:
-            layout.fill_input_field("Sensitivity", str(sensitivity))
+        self._configure_input("Sensitivity", sensitivity)
 
+        # Custom handling for sensitivity units (button text contains special chars)
         if units is not None:
-            layout.page.locator("button.pluto-dialog__trigger:has-text('V/g')").click()
-            layout.page.locator(".pluto-list__item").get_by_text(
+            self.layout.page.locator(
+                "button.pluto-dialog__trigger:has-text('V/g')"
+            ).click()
+            self.layout.page.locator(".pluto-list__item").get_by_text(
                 units, exact=True
             ).click()
 
-        if excitation_source is not None:
-            layout.click_btn("Current Excitation Source")
-            layout.select_from_dropdown(excitation_source)
-
-        if current_excitation_value is not None:
-            layout.fill_input_field(
-                "Current Excitation Value", str(current_excitation_value)
-            )
+        self._configure_dropdown("Current Excitation Source", excitation_source)
+        self._configure_input("Current Excitation Value", current_excitation_value)

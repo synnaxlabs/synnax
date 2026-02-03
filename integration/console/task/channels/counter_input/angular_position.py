@@ -59,90 +59,14 @@ class AngularPosition(Counter):
             chan_type="Position Angular",
             **kwargs,
         )
-        layout = self.layout
 
-        # Units
-        if units is not None:
-            layout.click_btn("Units")
-            layout.select_from_dropdown(units)
-            self.form_values["Units"] = units
-        else:
-            self.form_values["Units"] = layout.get_dropdown_value("Units")
-
-        # Initial Angle
-        if initial_angle is not None:
-            layout.fill_input_field("Initial Angle", str(initial_angle))
-            self.form_values["Initial Angle"] = str(initial_angle)
-        else:
-            self.form_values["Initial Angle"] = layout.get_input_field("Initial Angle")
-
-        # Pulses per Revolution
-        if pulses_per_rev is not None:
-            layout.fill_input_field("Pulses / Rev", str(pulses_per_rev))
-            self.form_values["Pulses / Rev"] = str(pulses_per_rev)
-        else:
-            self.form_values["Pulses / Rev"] = layout.get_input_field("Pulses / Rev")
-
-        # Decoding Type
-        if decoding_type is not None:
-            layout.click_btn("Decoding Type")
-            layout.select_from_dropdown(decoding_type)
-            self.form_values["Decoding Type"] = decoding_type
-        else:
-            self.form_values["Decoding Type"] = layout.get_dropdown_value(
-                "Decoding Type"
-            )
-
-        # Z Index Enable
-        if z_index_enable is not None:
-            current_state = layout.get_toggle("Z Index Enable")
-            if current_state != z_index_enable:
-                layout.click_checkbox("Z Index Enable")
-            self.form_values["Z Index Enable"] = z_index_enable
-        else:
-            self.form_values["Z Index Enable"] = layout.get_toggle("Z Index Enable")
-
-        # Z Index Value
-        if z_index_val is not None:
-            layout.fill_input_field("Value", str(z_index_val))
-            self.form_values["Value"] = str(z_index_val)
-        else:
-            self.form_values["Value"] = layout.get_input_field("Value")
-
-        # Z Index Phase
-        if z_index_phase is not None:
-            layout.click_btn("Phase")
-            layout.select_from_dropdown(z_index_phase)
-            self.form_values["Phase"] = z_index_phase
-        else:
-            self.form_values["Phase"] = layout.get_dropdown_value("Phase")
-
-        # Input Terminal A
-        if terminal_a is not None:
-            layout.click_btn("Input Terminal A")
-            layout.select_from_dropdown(terminal_a)
-            self.form_values["Input Terminal A"] = terminal_a
-        else:
-            self.form_values["Input Terminal A"] = layout.get_dropdown_value(
-                "Input Terminal A"
-            )
-
-        # Input Terminal B
-        if terminal_b is not None:
-            layout.click_btn("Input Terminal B")
-            layout.select_from_dropdown(terminal_b)
-            self.form_values["Input Terminal B"] = terminal_b
-        else:
-            self.form_values["Input Terminal B"] = layout.get_dropdown_value(
-                "Input Terminal B"
-            )
-
-        # Input Terminal Z
-        if terminal_z is not None:
-            layout.click_btn("Input Terminal Z")
-            layout.select_from_dropdown(terminal_z)
-            self.form_values["Input Terminal Z"] = terminal_z
-        else:
-            self.form_values["Input Terminal Z"] = layout.get_dropdown_value(
-                "Input Terminal Z"
-            )
+        self._configure_dropdown("Units", units)
+        self._configure_input("Initial Angle", initial_angle)
+        self._configure_input("Pulses / Rev", pulses_per_rev)
+        self._configure_dropdown("Decoding Type", decoding_type)
+        self._configure_toggle("Z Index Enable", z_index_enable)
+        self._configure_input("Value", z_index_val)
+        self._configure_dropdown("Phase", z_index_phase)
+        self._configure_dropdown("Input Terminal A", terminal_a)
+        self._configure_dropdown("Input Terminal B", terminal_b)
+        self._configure_dropdown("Input Terminal Z", terminal_z)

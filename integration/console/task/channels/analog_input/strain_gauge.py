@@ -61,7 +61,6 @@ class StrainGauge(Analog):
         **kwargs: Any,
     ) -> None:
 
-        # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
             layout=layout,
             name=name,
@@ -69,35 +68,12 @@ class StrainGauge(Analog):
             chan_type="Strain Gauge",
             **kwargs,
         )
-        layout = self.layout
 
-        # Strain Gauge-specific configurations:
-        if strain_configuration is not None:
-            layout.click_btn("Strain Configuration")
-            layout.select_from_dropdown(strain_configuration)
-
-        if excitation_source is not None:
-            layout.click_btn("Voltage Excitation Source")
-            layout.select_from_dropdown(excitation_source)
-
-        if excitation_value is not None:
-            layout.fill_input_field("Voltage Excitation Value", str(excitation_value))
-
-        if gage_factor is not None:
-            layout.fill_input_field("Gage Factor", str(gage_factor))
-
-        if initial_bridge_voltage is not None:
-            layout.fill_input_field(
-                "Initial Bridge Voltage", str(initial_bridge_voltage)
-            )
-
-        if nominal_gage_resistance is not None:
-            layout.fill_input_field(
-                "Nominal Gage Resistance", str(nominal_gage_resistance)
-            )
-
-        if poisson_ratio is not None:
-            layout.fill_input_field("Poisson's Ratio", str(poisson_ratio))
-
-        if lead_wire_resistance is not None:
-            layout.fill_input_field("Lead Wire Resistance", str(lead_wire_resistance))
+        self._configure_dropdown("Strain Configuration", strain_configuration)
+        self._configure_dropdown("Voltage Excitation Source", excitation_source)
+        self._configure_input("Voltage Excitation Value", excitation_value)
+        self._configure_input("Gage Factor", gage_factor)
+        self._configure_input("Initial Bridge Voltage", initial_bridge_voltage)
+        self._configure_input("Nominal Gage Resistance", nominal_gage_resistance)
+        self._configure_input("Poisson's Ratio", poisson_ratio)
+        self._configure_input("Lead Wire Resistance", lead_wire_resistance)

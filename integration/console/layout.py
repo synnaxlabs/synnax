@@ -19,7 +19,6 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from .context_menu import ContextMenu
 
-
 AriaRole = Literal[
     "alert",
     "alertdialog",
