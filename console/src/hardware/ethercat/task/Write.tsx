@@ -159,7 +159,6 @@ const getInitialValues: Common.Task.GetInitialValues<
 const checkOrCreateStateIndex = async (
   client: Parameters<Common.Task.OnConfigure<typeof writeConfigZ>>[0],
   slave: Device.SlaveDevice,
-  networkSafeName: string,
 ): Promise<boolean> => {
   let shouldCreate = primitive.isZero(slave.properties.writeStateIndex);
   if (!shouldCreate)
@@ -171,9 +170,9 @@ const checkOrCreateStateIndex = async (
     }
 
   if (shouldCreate) {
-    const slaveSafeName = channel.escapeInvalidName(slave.properties.name);
+    const identifier = channel.escapeInvalidName(slave.properties.identifier);
     const idx = await client.channels.create({
-      name: `${networkSafeName}_s${slave.properties.position}_${slaveSafeName}_state_time`,
+      name: `${identifier}_state_time`,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -197,6 +196,8 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
     Device.SlaveModel
   >({ keys: slaveKeys });
 
+  for (const slave of slaves) Common.Device.checkConfigured(slave);
+
   const networks = [...new Set(slaves.map((s) => s.properties.network))];
   if (networks.length > 1)
     throw new Error(
@@ -205,8 +206,6 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   if (networks.length === 0 || !networks[0])
     throw new Error("No valid network found for selected slaves");
 
-  const network = networks[0];
-  const networkSafeName = channel.escapeInvalidName(network);
   const rack = slaves[0].rack;
 
   const channelsBySlaveKey = new Map<string, OutputChannel[]>();
@@ -219,7 +218,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
 
-    let modified = await checkOrCreateStateIndex(client, slave, networkSafeName);
+    let modified = await checkOrCreateStateIndex(client, slave);
 
     const toCreate: OutputChannel[] = [];
     for (const ch of channels) {
@@ -239,7 +238,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
 
     if (toCreate.length > 0) {
       modified = true;
-      const slaveSafeName = channel.escapeInvalidName(slave.properties.name);
+      const identifier = channel.escapeInvalidName(slave.properties.identifier);
 
       // Pre-compute derived values once per channel
       const channelData = toCreate.map((ch) => ({
@@ -255,7 +254,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
         channelData.map(({ ch, pdoName }) => ({
           name: primitive.isNonZero(ch.cmdChannelName)
             ? `${ch.cmdChannelName}_cmd_time`
-            : `${networkSafeName}_s${slave.properties.position}_${slaveSafeName}_${pdoName}_cmd_time`,
+            : `${identifier}_${pdoName}_cmd_time`,
           dataType: "timestamp",
           isIndex: true,
         })),
@@ -265,7 +264,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
         channelData.map(({ ch, pdoName, dataType }, i) => ({
           name: primitive.isNonZero(ch.cmdChannelName)
             ? ch.cmdChannelName
-            : `${networkSafeName}_s${slave.properties.position}_${slaveSafeName}_${pdoName}_cmd`,
+            : `${identifier}_${pdoName}_cmd`,
           dataType,
           index: cmdIndexes[i].key,
         })),
@@ -275,7 +274,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
         channelData.map(({ ch, pdoName, dataType }) => ({
           name: primitive.isNonZero(ch.stateChannelName)
             ? ch.stateChannelName
-            : `${networkSafeName}_s${slave.properties.position}_${slaveSafeName}_${pdoName}_state`,
+            : `${identifier}_${pdoName}_state`,
           dataType,
           index: slave.properties.writeStateIndex,
         })),

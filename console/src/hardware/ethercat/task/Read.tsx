@@ -155,7 +155,6 @@ const getInitialValues: Common.Task.GetInitialValues<
 const checkOrCreateIndex = async (
   client: Parameters<Common.Task.OnConfigure<typeof readConfigZ>>[0],
   slave: Device.SlaveDevice,
-  networkSafeName: string,
 ): Promise<boolean> => {
   let shouldCreate = primitive.isZero(slave.properties.readIndex);
   if (!shouldCreate)
@@ -167,9 +166,9 @@ const checkOrCreateIndex = async (
     }
 
   if (shouldCreate) {
-    const slaveSafeName = channel.escapeInvalidName(slave.properties.name);
+    const identifier = channel.escapeInvalidName(slave.properties.identifier);
     const idx = await client.channels.create({
-      name: `${networkSafeName}_s${slave.properties.position}_${slaveSafeName}_time`,
+      name: `${identifier}_time`,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -193,6 +192,8 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     Device.SlaveModel
   >({ keys: slaveKeys });
 
+  for (const slave of slaves) Common.Device.checkConfigured(slave);
+
   const networks = [...new Set(slaves.map((s) => s.properties.network))];
   if (networks.length > 1)
     throw new Error(
@@ -201,8 +202,6 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   if (networks.length === 0 || !networks[0])
     throw new Error("No valid network found for selected slaves");
 
-  const network = networks[0];
-  const networkSafeName = channel.escapeInvalidName(network);
   const rack = slaves[0].rack;
 
   const channelsBySlaveKey = new Map<string, InputChannel[]>();
@@ -215,7 +214,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
 
-    let modified = await checkOrCreateIndex(client, slave, networkSafeName);
+    let modified = await checkOrCreateIndex(client, slave);
 
     const toCreate: InputChannel[] = [];
     for (const ch of channels) {
@@ -235,7 +234,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
 
     if (toCreate.length > 0) {
       modified = true;
-      const slaveSafeName = channel.escapeInvalidName(slave.properties.name);
+      const identifier = channel.escapeInvalidName(slave.properties.identifier);
       const created = await client.channels.create(
         toCreate.map((ch) => {
           const dataType =
@@ -245,7 +244,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
           return {
             name: primitive.isNonZero(ch.name)
               ? ch.name
-              : `${networkSafeName}_s${slave.properties.position}_${slaveSafeName}_${getPDOName(ch)}`,
+              : `${identifier}_${getPDOName(ch)}`,
             dataType,
             index: slave.properties.readIndex,
           };

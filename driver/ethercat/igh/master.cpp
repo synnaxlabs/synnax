@@ -524,6 +524,8 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
         VLOG(1) << "[ethercat.igh] slave " << props.position
                 << " PDOs discovered via ESI: " << props.input_pdos.size()
                 << " inputs, " << props.output_pdos.size() << " outputs";
+        slave.status.pdos_discovered = true;
+        props.coe_pdo_order_reliable = true;
         return;
     }
 

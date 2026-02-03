@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Device, Form } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
+import { Common } from "@/hardware/common";
+import { CONFIGURE_LAYOUT } from "@/hardware/ethercat/device/Configure";
 import { useCommonNetwork } from "@/hardware/ethercat/device/queries";
 import {
   MAKE,
@@ -26,32 +28,28 @@ export interface SelectSlaveProps {
   channelsPath?: string;
 }
 
-const filter = (d: device.Device, network: string) =>
-  d.make === MAKE &&
-  d.model === SLAVE_MODEL &&
-  (network === "" ||
-    (d.properties as SlaveProperties | undefined)?.network === network);
+const filterByNetwork = (d: device.Device, network: string) =>
+  network === "" || (d.properties as SlaveProperties | undefined)?.network === network;
 
 export const SelectSlave = ({
   path,
   channelsPath = "config.channels",
 }: SelectSlaveProps): ReactElement => {
-  const channels = Form.useFieldValue<Array<Channel>>(channelsPath) ?? [];
+  const channels = Form.useFieldValue<Channel[]>(channelsPath) ?? [];
   const network = useCommonNetwork(channels);
-  const onFilter = useCallback((d: device.Device) => filter(d, network), [network]);
+  const filter = useCallback(
+    (d: device.Device) => filterByNetwork(d, network),
+    [network],
+  );
   return (
-    <Form.Field<string> path={path} label="Slave Device" grow>
-      {({ value, onChange, variant }) => (
-        <Device.SelectSingle
-          value={value}
-          onChange={onChange}
-          initialQuery={{ makes: [MAKE] }}
-          filter={onFilter}
-          emptyContent="No EtherCAT slaves discovered."
-          grow
-          variant={variant}
-        />
-      )}
-    </Form.Field>
+    <Common.Device.Select
+      path={path}
+      label="Slave Device"
+      configureLayout={CONFIGURE_LAYOUT}
+      emptyContent="No EtherCAT slaves discovered."
+      make={MAKE}
+      model={SLAVE_MODEL}
+      filter={filter}
+    />
   );
 };

@@ -128,11 +128,9 @@ synnax::Device Scanner::create_slave_device(
     nlohmann::json json_props = get_existing_properties(key, scan_ctx);
     auto slave_props = props.to_json();
     for (auto &[k, v]: slave_props.items())
-        json_props[k] = v;
+        if (k != "enabled" || !json_props.contains("enabled")) json_props[k] = v;
 
-    bool is_enabled = true;
-    if (json_props.contains("enabled") && json_props["enabled"].is_boolean())
-        is_enabled = json_props["enabled"].get<bool>();
+    const bool is_enabled = json_props["enabled"].get<bool>();
 
     std::string status_msg;
     std::string status_variant;

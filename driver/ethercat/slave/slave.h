@@ -75,7 +75,7 @@ struct Properties {
     /// @brief true if PDOs were discovered via CoE assignment objects.
     bool coe_pdo_order_reliable;
     /// @brief whether the device is enabled or not.
-    bool enabled;
+    bool enabled = true;
 
     /// @brief returns the total number of discovered PDO entries.
     [[nodiscard]] size_t pdo_count() const {
