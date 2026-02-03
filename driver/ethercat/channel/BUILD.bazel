@@ -9,3 +9,12 @@ cc_library(
         "//x/cpp/xjson",
     ],
 )
+
+cc_test(
+    name = "channel_test",
+    srcs = ["channel_test.cpp"],
+    deps = [
+        ":channel",
+        "@googletest//:gtest_main",
+    ],
+)

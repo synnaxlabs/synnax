@@ -7,3 +7,13 @@ cc_library(
         "//x/cpp/xjson",
     ],
 )
+
+cc_test(
+    name = "pdo_test",
+    srcs = ["pdo_test.cpp"],
+    deps = [
+        ":pdo",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)
