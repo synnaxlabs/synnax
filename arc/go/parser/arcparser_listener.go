@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
@@ -63,6 +54,9 @@ type ArcParserListener interface {
 
 	// EnterSingleInvocation is called when entering the singleInvocation production.
 	EnterSingleInvocation(c *SingleInvocationContext)
+
+	// EnterGlobalConstant is called when entering the globalConstant production.
+	EnterGlobalConstant(c *GlobalConstantContext)
 
 	// EnterFlowStatement is called when entering the flowStatement production.
 	EnterFlowStatement(c *FlowStatementContext)
@@ -261,6 +255,9 @@ type ArcParserListener interface {
 
 	// ExitSingleInvocation is called when exiting the singleInvocation production.
 	ExitSingleInvocation(c *SingleInvocationContext)
+
+	// ExitGlobalConstant is called when exiting the globalConstant production.
+	ExitGlobalConstant(c *GlobalConstantContext)
 
 	// ExitFlowStatement is called when exiting the flowStatement production.
 	ExitFlowStatement(c *FlowStatementContext)

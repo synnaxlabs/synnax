@@ -314,6 +314,42 @@ var _ = Describe("Text", func() {
 					Expect(cfg.Value).To(Equal(configValues[cfg.Name]), "config[%d] '%s' value mismatch", i, cfg.Name)
 				}
 			})
+
+			It("Should handle config values using global constants", func() {
+				source := `
+				A := 10
+				B := 20
+				C := 30
+
+				func calculator{
+					a i64,
+					b i64,
+					c i64
+				} () i64 {
+					return a + b + c
+				}
+
+				func print{} () {
+				}
+
+				calculator{a=A, b=B, c=C} -> print{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "calculator_0")
+				Expect(node.Type).To(Equal("calculator"))
+				Expect(node.Config).To(HaveLen(3))
+
+				configValues := map[string]int64{
+					"a": 10, "b": 20, "c": 30,
+				}
+				for i, cfg := range node.Config {
+					Expect(cfg.Type).To(Equal(types.I64()))
+					Expect(cfg.Value).To(Equal(configValues[cfg.Name]), "config[%d] '%s' value mismatch", i, cfg.Name)
+				}
+			})
 		})
 
 		Context("Edge Parameter Validation", func() {

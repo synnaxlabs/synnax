@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
@@ -124,6 +115,12 @@ func (s *BaseArcParserListener) EnterSingleInvocation(ctx *SingleInvocationConte
 
 // ExitSingleInvocation is called when production singleInvocation is exited.
 func (s *BaseArcParserListener) ExitSingleInvocation(ctx *SingleInvocationContext) {}
+
+// EnterGlobalConstant is called when production globalConstant is entered.
+func (s *BaseArcParserListener) EnterGlobalConstant(ctx *GlobalConstantContext) {}
+
+// ExitGlobalConstant is called when production globalConstant is exited.
+func (s *BaseArcParserListener) ExitGlobalConstant(ctx *GlobalConstantContext) {}
 
 // EnterFlowStatement is called when production flowStatement is entered.
 func (s *BaseArcParserListener) EnterFlowStatement(ctx *FlowStatementContext) {}

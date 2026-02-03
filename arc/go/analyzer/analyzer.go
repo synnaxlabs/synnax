@@ -11,6 +11,7 @@ package analyzer
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/constant"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
@@ -42,6 +43,7 @@ func substituteTypeMap(ctx acontext.Context[parser.IProgramContext]) {
 }
 
 func collectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
+	constant.CollectDeclarations(ctx)
 	function.CollectDeclarations(ctx)
 	sequence.CollectDeclarations(ctx)
 }
