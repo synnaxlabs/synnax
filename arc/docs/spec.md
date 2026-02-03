@@ -673,7 +673,8 @@ These simplify implementation while maintaining expressiveness:
    instantiated at compile time
 3. **No assignment in expressions**: Separate statements required
 4. **No partial function application**: Must provide all required arguments
-5. **Config = compile-time constants**: Only literals, global constants, or channel IDs in config blocks
+5. **Config = compile-time constants**: Only literals, global constants, or channel IDs
+   in config blocks
 6. **No closures**: Functions cannot capture variables from enclosing scope
 7. **No nested functions**: Functions cannot be defined inside other functions
 8. **No loops**: Use reactive patterns with stateful variables instead
