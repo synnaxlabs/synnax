@@ -48,7 +48,7 @@ func compileStringLiteral(
 	// call $string_from_literal  ; returns handle (i32)
 	ctx.Writer.WriteI32Const(int32(offset))
 	ctx.Writer.WriteI32Const(int32(len(strBytes)))
-	ctx.Writer.WriteCall(ctx.Imports.StringFromLiteral)
+	ctx.Writer.WriteCall(ctx.Imports.StringFromLiteral())
 	return types.String(), nil
 }
 
@@ -85,25 +85,17 @@ func compileSeriesLiteral(
 
 	// Create the series: push length and call series_create_empty_<type>
 	ctx.Writer.WriteI32Const(int32(length))
-	createIdx, err := ctx.Imports.GetSeriesCreateEmpty(*elemType)
-	if err != nil {
-		return types.Type{}, err
-	}
-	ctx.Writer.WriteCall(createIdx)
+	ctx.Writer.WriteCall(ctx.Imports.SeriesCreateEmpty(*elemType))
 
 	// SetElement returns the handle, so we can chain calls directly on the stack.
 	// Stack after create: [handle]
 	// For each element: push index, push value, call SetElement -> [handle]
 	for i, expr := range expressions {
 		ctx.Writer.WriteI32Const(int32(i))
-		if _, err = Compile(context.Child(ctx, expr).WithHint(*elemType)); err != nil {
+		if _, err := Compile(context.Child(ctx, expr).WithHint(*elemType)); err != nil {
 			return types.Type{}, err
 		}
-		setIdx, err := ctx.Imports.GetSeriesSetElement(*elemType)
-		if err != nil {
-			return types.Type{}, err
-		}
-		ctx.Writer.WriteCall(setIdx)
+		ctx.Writer.WriteCall(ctx.Imports.SeriesSetElement(*elemType))
 	}
 
 	// Handle is already on stack as the expression result

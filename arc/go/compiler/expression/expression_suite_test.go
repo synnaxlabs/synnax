@@ -77,7 +77,7 @@ func compileWithAnalyzer(exprSource string, resolver symbol.Resolver) ([]byte, t
 }
 
 // testImports provides function indices for test assertions
-var testImports *bindings.ImportIndex
+var testImports *bindings.ImportRegistry
 
 func init() {
 	m := wasm.NewModule()
@@ -108,25 +108,25 @@ func seriesSymbol(name string, elemType types.Type, id int) symbol.Symbol {
 
 // seriesArithmeticIdx returns the function index for series arithmetic operations
 func seriesArithmeticIdx(op string, elemType types.Type, isScalar bool) uint32 {
-	return MustSucceed(testImports.GetSeriesArithmetic(op, elemType, isScalar))
+	return testImports.GetSeriesArithmetic(op, elemType, isScalar)
 }
 
 // seriesReverseArithmeticIdx returns the function index for reverse arithmetic operations (scalar op series)
 func seriesReverseArithmeticIdx(op string, elemType types.Type) uint32 {
-	return MustSucceed(testImports.GetSeriesReverseArithmetic(op, elemType))
+	return testImports.GetSeriesReverseArithmetic(op, elemType)
 }
 
 // seriesComparisonIdx returns the function index for series-series comparison operations
 func seriesComparisonIdx(op string, elemType types.Type) uint32 {
-	return MustSucceed(testImports.GetSeriesComparison(op, elemType))
+	return testImports.GetSeriesComparison(op, elemType)
 }
 
 func seriesCreateEmptyIdx(elemType types.Type) uint32 {
-	return MustSucceed(testImports.GetSeriesCreateEmpty(elemType))
+	return testImports.SeriesCreateEmpty(elemType)
 }
 
 func seriesSetElementIdx(elemType types.Type) uint32 {
-	return MustSucceed(testImports.GetSeriesSetElement(elemType))
+	return testImports.SeriesSetElement(elemType)
 }
 
 func scalarSymbol(name string, t types.Type, id int) symbol.Symbol {

@@ -124,7 +124,7 @@ var _ = Describe("Identifier Compilation", func() {
 			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.I32())}))
 			Expect(scope).ToNot(BeNil())
 			byteCode, exprType := compileWithCtx(ctx, "x")
-			i := ctx.Imports.ChannelRead["i32"]
+			i := ctx.Imports.ChannelRead(types.I32())
 			Expect(exprType).To(Equal(types.I32()))
 			Expect(byteCode).To(MatchOpcodes(
 				OpI32Const,
@@ -139,7 +139,7 @@ var _ = Describe("Identifier Compilation", func() {
 			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.I32())}))
 			Expect(scope).ToNot(BeNil())
 			byteCode, exprType := compileWithCtx(ctx, "x + 1")
-			i := ctx.Imports.ChannelRead["i32"]
+			i := ctx.Imports.ChannelRead(types.I32())
 			Expect(exprType).To(Equal(types.I32()))
 			Expect(byteCode).To(MatchOpcodes(
 				OpI32Const,
@@ -156,7 +156,7 @@ var _ = Describe("Identifier Compilation", func() {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "press_pt", Kind: symbol.KindChannel, Type: types.Chan(types.I32())}))
 			byteCode, exprType := compileWithCtx(ctx, "press_pt > 1")
-			i := ctx.Imports.ChannelRead["i32"]
+			i := ctx.Imports.ChannelRead(types.I32())
 			Expect(exprType).To(Equal(types.U8()))
 			Expect(byteCode).To(MatchOpcodes(
 				OpI32Const,

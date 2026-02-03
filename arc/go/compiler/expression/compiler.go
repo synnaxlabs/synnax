@@ -11,7 +11,6 @@ package expression
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/compiler/bindings"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
@@ -147,45 +146,18 @@ func compilePower(
 	var importIdx uint32
 	if baseType.IsInteger() && exponentType.IsInteger() {
 		// Both operands are integers, use IntPow
-		importIdx, err = getIntPowImport(ctx.Imports, baseType)
-		if err != nil {
-			return types.Type{}, err
-		}
+		importIdx = ctx.Imports.MathPowInt(baseType)
 	} else {
 		// At least one float, use math.Pow
 		if baseType.Is64Bit() || exponentType.Is64Bit() {
-			importIdx = ctx.Imports.MathPowF64
+			importIdx = ctx.Imports.MathPow()
 		} else {
-			importIdx = ctx.Imports.MathPowF32
+			importIdx = ctx.Imports.MathPowF32()
 		}
 	}
 
 	ctx.Writer.WriteCall(importIdx)
 	return baseType, nil
-}
-
-// getIntPowImport returns the appropriate IntPow import index for the given type
-func getIntPowImport(imports *bindings.ImportIndex, t types.Type) (uint32, error) {
-	switch t.Kind {
-	case types.KindI8:
-		return imports.MathIntPowI8, nil
-	case types.KindI16:
-		return imports.MathIntPowI16, nil
-	case types.KindI32:
-		return imports.MathIntPowI32, nil
-	case types.KindI64:
-		return imports.MathIntPowI64, nil
-	case types.KindU8:
-		return imports.MathIntPowU8, nil
-	case types.KindU16:
-		return imports.MathIntPowU16, nil
-	case types.KindU32:
-		return imports.MathIntPowU32, nil
-	case types.KindU64:
-		return imports.MathIntPowU64, nil
-	default:
-		return 0, errors.Newf("no IntPow import for type %s", t)
-	}
 }
 
 func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (types.Type, error) {
@@ -303,11 +275,7 @@ func compileIndexOrSlice(
 			return types.Type{}, err
 		}
 		t := operandType.Unwrap()
-		funcIdx, err := ctx.Imports.GetSeriesIndex(t)
-		if err != nil {
-			return types.Type{}, err
-		}
-		ctx.Writer.WriteCall(funcIdx)
+		ctx.Writer.WriteCall(ctx.Imports.SeriesIndex(t))
 		return t, nil
 	}
 
@@ -351,7 +319,7 @@ func compileIndexOrSlice(
 	}
 
 	// Call SeriesSlice(handle, start, end) → new handle
-	ctx.Writer.WriteCall(ctx.Imports.SeriesSlice)
+	ctx.Writer.WriteCall(ctx.Imports.SeriesSlice())
 
 	return operandType, nil
 }
@@ -442,7 +410,7 @@ func emitDefaultValue[T antlr.ParserRuleContext](
 		offset := ctx.Module.AddData(strBytes)
 		ctx.Writer.WriteI32Const(int32(offset))
 		ctx.Writer.WriteI32Const(int32(len(strBytes)))
-		ctx.Writer.WriteCall(ctx.Imports.StringFromLiteral)
+		ctx.Writer.WriteCall(ctx.Imports.StringFromLiteral())
 	default:
 		return errors.Newf("unsupported default value type: %s", paramType)
 	}
@@ -485,10 +453,10 @@ func compileBuiltinLen(
 
 	switch argType.Kind {
 	case types.KindSeries:
-		ctx.Writer.WriteCall(ctx.Imports.SeriesLen)
+		ctx.Writer.WriteCall(ctx.Imports.SeriesLen())
 		return types.I64(), true, nil
 	case types.KindString:
-		ctx.Writer.WriteCall(ctx.Imports.StringLen)
+		ctx.Writer.WriteCall(ctx.Imports.StringLen())
 		return types.I32(), true, nil
 	default:
 		return types.Type{}, true, errors.Newf("argument 1 of len: expected series or str, got %s", argType)
@@ -496,6 +464,6 @@ func compileBuiltinLen(
 }
 
 func compileBuiltinNow(ctx context.Context[parser.IPostfixExpressionContext]) (types.Type, bool, error) {
-	ctx.Writer.WriteCall(ctx.Imports.Now)
+	ctx.Writer.WriteCall(ctx.Imports.TimeNow())
 	return types.TimeStamp(), true, nil
 }

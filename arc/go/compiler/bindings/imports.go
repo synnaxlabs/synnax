@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:generate go run gen/main.go
-
 package bindings
 
 import (
@@ -18,453 +16,514 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// ImportIndex tracks the indices of all host functions that the runtime must provide.
-// This defines the contract between compiled arc WASM modules and the host runtime.
-type ImportIndex struct {
-	SeriesCompareLEScalar map[string]uint32
-	SeriesElementMod      map[string]uint32
-	SeriesCreateEmpty     map[string]uint32
-	SeriesSetElement      map[string]uint32
-	SeriesIndex           map[string]uint32
-	SeriesElementAdd      map[string]uint32
-	SeriesElementMul      map[string]uint32
-	SeriesElementSub      map[string]uint32
-	SeriesElementDiv      map[string]uint32
-	SeriesCompareNEScalar map[string]uint32
-	SeriesElementRSub     map[string]uint32
-	SeriesElementRDiv     map[string]uint32
-	SeriesElementRAdd     map[string]uint32
-	SeriesElementRMul     map[string]uint32
-	SeriesElementRMod     map[string]uint32
-	SeriesSeriesAdd       map[string]uint32
-	SeriesSeriesMul       map[string]uint32
-	SeriesSeriesSub       map[string]uint32
-	SeriesSeriesDiv       map[string]uint32
-	SeriesSeriesMod       map[string]uint32
-	SeriesCompareGT       map[string]uint32
-	SeriesCompareLT       map[string]uint32
-	SeriesCompareGE       map[string]uint32
-	SeriesCompareLE       map[string]uint32
-	SeriesCompareEQ       map[string]uint32
-	SeriesCompareNE       map[string]uint32
-	SeriesCompareGTScalar map[string]uint32
-	SeriesCompareLTScalar map[string]uint32
-	SeriesCompareGEScalar map[string]uint32
-	ChannelWrite          map[string]uint32
-	SeriesCompareEQScalar map[string]uint32
-	ChannelRead           map[string]uint32
-	SeriesNegate          map[string]uint32
-	StateLoad             map[string]uint32
-	StateStore            map[string]uint32
-	StateLoadSeries       map[string]uint32
-	StateStoreSeries      map[string]uint32
-	MathPowF64            uint32
-	SeriesSlice           uint32
-	SeriesNotU8           uint32
-	StringFromLiteral     uint32
-	StringConcat          uint32
-	StringEqual           uint32
-	StringLen             uint32
-	Now                   uint32
-	SeriesLen             uint32
-	Len                   uint32
-	MathIntPowU16         uint32
-	MathPowF32            uint32
-	MathIntPowU8          uint32
-	MathIntPowU32         uint32
-	MathIntPowU64         uint32
-	MathIntPowI8          uint32
-	MathIntPowI16         uint32
-	MathIntPowI32         uint32
-	MathIntPowI64         uint32
-	Panic                 uint32
-}
-
-// NewImportIndex creates a new import index with initialized maps
-func NewImportIndex() *ImportIndex {
-	return &ImportIndex{
-		ChannelRead:           make(map[string]uint32),
-		ChannelWrite:          make(map[string]uint32),
-		SeriesCreateEmpty:     make(map[string]uint32),
-		SeriesSetElement:      make(map[string]uint32),
-		SeriesIndex:           make(map[string]uint32),
-		SeriesElementAdd:      make(map[string]uint32),
-		SeriesElementMul:      make(map[string]uint32),
-		SeriesElementSub:      make(map[string]uint32),
-		SeriesElementDiv:      make(map[string]uint32),
-		SeriesElementMod:      make(map[string]uint32),
-		SeriesElementRSub:     make(map[string]uint32),
-		SeriesElementRDiv:     make(map[string]uint32),
-		SeriesElementRAdd:     make(map[string]uint32),
-		SeriesElementRMul:     make(map[string]uint32),
-		SeriesElementRMod:     make(map[string]uint32),
-		SeriesSeriesAdd:       make(map[string]uint32),
-		SeriesSeriesMul:       make(map[string]uint32),
-		SeriesSeriesSub:       make(map[string]uint32),
-		SeriesSeriesDiv:       make(map[string]uint32),
-		SeriesSeriesMod:       make(map[string]uint32),
-		SeriesCompareGT:       make(map[string]uint32),
-		SeriesCompareLT:       make(map[string]uint32),
-		SeriesCompareGE:       make(map[string]uint32),
-		SeriesCompareLE:       make(map[string]uint32),
-		SeriesCompareEQ:       make(map[string]uint32),
-		SeriesCompareNE:       make(map[string]uint32),
-		SeriesCompareGTScalar: make(map[string]uint32),
-		SeriesCompareLTScalar: make(map[string]uint32),
-		SeriesCompareGEScalar: make(map[string]uint32),
-		SeriesCompareLEScalar: make(map[string]uint32),
-		SeriesCompareEQScalar: make(map[string]uint32),
-		SeriesCompareNEScalar: make(map[string]uint32),
-		SeriesNegate:          make(map[string]uint32),
-		StateLoad:             make(map[string]uint32),
-		StateStore:            make(map[string]uint32),
-		StateLoadSeries:       make(map[string]uint32),
-		StateStoreSeries:      make(map[string]uint32),
-	}
-}
+// Module names for the Arc module system.
+// These define the WASM import module names that the runtime must provide.
+const (
+	ModuleCore   = "arc.core"   // Channel I/O, panic
+	ModuleSeries = "arc.series" // Series operations
+	ModuleState  = "arc.state"  // Stateful variable persistence
+	ModuleString = "arc.string" // String operations
+	ModuleMath   = "math"       // Math stdlib
+	ModuleTime   = "time"       // Time stdlib
+)
 
 // SetupImports registers all host function imports with the WASM module.
-// This defines the complete host interface that runtimes must implement.
-func SetupImports(m *wasm.Module) *ImportIndex {
-	idx := NewImportIndex()
-	// register channel operations for each type
-	for _, typ := range types.Numerics {
-		setupChannelOps(m, idx, typ)
-	}
-	setupChannelOps(m, idx, types.String())
-	for _, typ := range types.Numerics {
-		setupSeriesOps(m, idx, typ)
-	}
-	setupSeriesUnaryOps(m, idx)
-	for _, typ := range types.Numerics {
-		setupStateOps(m, idx, typ)
-	}
-	setupStateOps(m, idx, types.String())
-	setupGenericOps(m, idx)
-	return idx
+// Returns the ImportRegistry which can be used for name-based lookups during compilation.
+func SetupImports(m *wasm.Module) *ImportRegistry {
+	r := NewImportRegistry()
+
+	// Register all modules
+	RegisterCoreImports(r)
+	RegisterSeriesImports(r)
+	RegisterStateImports(r)
+	RegisterStringImports(r)
+	RegisterMathImports(r)
+	RegisterTimeImports(r)
+
+	// Write imports to module
+	r.WriteToModule(m)
+
+	return r
 }
 
-// setupChannelOps registers channel operations for a specific type
-func setupChannelOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
+// RegisterCoreImports registers arc.core module functions (channel operations, panic).
+func RegisterCoreImports(r *ImportRegistry) {
+	// Channel operations for each type
+	for _, typ := range types.Numerics {
+		registerChannelOps(r, typ)
+	}
+	registerChannelOps(r, types.String())
+
+	// Panic
+	r.Register(ModuleCore, "panic", wasm.FunctionType{
+		Params: []wasm.ValueType{wasm.I32, wasm.I32}, // ptr, len
+	})
+}
+
+func registerChannelOps(r *ImportRegistry, t types.Type) {
 	wasmType := wasm.ConvertType(t)
-	funcName := fmt.Sprintf("channel_read_%s", t)
-	idx.ChannelRead[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32}, // channel ID
-		Results: []wasm.ValueType{wasmType}, // value or handle
+
+	r.Register(ModuleCore, fmt.Sprintf("channel_read_%s", t), wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32},
+		Results: []wasm.ValueType{wasmType},
 	})
 
-	funcName = fmt.Sprintf("channel_write_%s", t)
-	idx.ChannelWrite[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasmType}, // channel ID, value
+	r.Register(ModuleCore, fmt.Sprintf("channel_write_%s", t), wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasmType},
 		Results: []wasm.ValueType{},
 	})
 }
 
-// setupSeriesOps registers series operations for a specific type
-func setupSeriesOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
+// RegisterSeriesImports registers arc.series module functions.
+func RegisterSeriesImports(r *ImportRegistry) {
+	for _, typ := range types.Numerics {
+		registerSeriesOps(r, typ)
+	}
+	registerSeriesUnaryOps(r)
+}
+
+func registerSeriesOps(r *ImportRegistry, t types.Type) {
 	wasmType := wasm.ConvertType(t)
+	typeName := t.String()
 
 	// Create empty series
-	funcName := fmt.Sprintf("series_create_empty_%s", t)
-	idx.SeriesCreateEmpty[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32}, // length
-		Results: []wasm.ValueType{wasm.I32}, // series handle
+	r.Register(ModuleSeries, fmt.Sprintf("create_empty_%s", typeName), wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32},
+		Results: []wasm.ValueType{wasm.I32},
 	})
 
-	// Set element - returns handle for stack-based chaining
-	funcName = fmt.Sprintf("series_set_element_%s", t)
-	idx.SeriesSetElement[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType}, // series, index, value
-		Results: []wasm.ValueType{wasm.I32},                     // returns series handle
+	// Set element
+	r.Register(ModuleSeries, fmt.Sprintf("set_element_%s", typeName), wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType},
+		Results: []wasm.ValueType{wasm.I32},
 	})
 
-	// Resolve element (indexing)
-	funcName = fmt.Sprintf("series_index_%s", t)
-	idx.SeriesIndex[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // series, index
+	// Index element
+	r.Register(ModuleSeries, fmt.Sprintf("index_%s", typeName), wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32},
 		Results: []wasm.ValueType{wasmType},
 	})
 
 	// Arithmetic operations
-	setupSeriesArithmetic(m, idx, t, wasmType)
+	registerSeriesArithmetic(r, t, wasmType)
 
-	// Comparison operations (only for numeric types)
-	setupSeriesComparison(m, idx, t)
+	// Comparison operations
+	registerSeriesComparison(r, t, wasmType)
 
-	// Series state operations (must come after comparison for index alignment)
-	setupSeriesStateOps(m, idx, t)
+	// Series state operations
+	registerSeriesStateOps(r, t)
 }
 
-// setupSeriesArithmetic registers arithmetic operations for series
-func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, wasmType wasm.ValueType) {
-	// Scalar operations: series op scalar -> (handle, scalar)
-	ops := []struct {
-		idx  *map[string]uint32
-		name string
-	}{
-		{name: "add", idx: &idx.SeriesElementAdd},
-		{name: "mul", idx: &idx.SeriesElementMul},
-		{name: "sub", idx: &idx.SeriesElementSub},
-		{name: "div", idx: &idx.SeriesElementDiv},
-		{name: "mod", idx: &idx.SeriesElementMod},
-	}
+func registerSeriesArithmetic(r *ImportRegistry, typ types.Type, wasmType wasm.ValueType) {
+	typeName := typ.String()
 
-	for _, op := range ops {
-		funcName := fmt.Sprintf("series_element_%s_%s", op.name, typ)
-		(*op.idx)[typ.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-			Params:  []wasm.ValueType{wasm.I32, wasmType}, // series, scalar
-			Results: []wasm.ValueType{wasm.I32},           // new series
+	// Scalar operations: series op scalar
+	for _, op := range []string{"add", "mul", "sub", "div", "mod"} {
+		r.Register(ModuleSeries, fmt.Sprintf("element_%s_%s", op, typeName), wasm.FunctionType{
+			Params:  []wasm.ValueType{wasm.I32, wasmType},
+			Results: []wasm.ValueType{wasm.I32},
 		})
 	}
 
-	// Reverse operations: scalar op series -> (scalar, handle)
-	// For `scalar - series`, stack is [scalar, handle], so signature is (scalar, handle)
-	reverseOps := []struct {
-		idx  *map[string]uint32
-		name string
-	}{
-		{name: "rsub", idx: &idx.SeriesElementRSub},
-		{name: "rdiv", idx: &idx.SeriesElementRDiv},
-		{name: "radd", idx: &idx.SeriesElementRAdd},
-		{name: "rmul", idx: &idx.SeriesElementRMul},
-		{name: "rmod", idx: &idx.SeriesElementRMod},
-	}
-
-	for _, op := range reverseOps {
-		funcName := fmt.Sprintf("series_element_%s_%s", op.name, typ)
-		(*op.idx)[typ.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-			Params:  []wasm.ValueType{wasmType, wasm.I32}, // scalar, series
-			Results: []wasm.ValueType{wasm.I32},           // new series
+	// Reverse operations: scalar op series
+	for _, op := range []string{"rsub", "rdiv", "radd", "rmul", "rmod"} {
+		r.Register(ModuleSeries, fmt.Sprintf("element_%s_%s", op, typeName), wasm.FunctionType{
+			Params:  []wasm.ValueType{wasmType, wasm.I32},
+			Results: []wasm.ValueType{wasm.I32},
 		})
 	}
 
 	// Series-to-series operations
-	seriesOps := []struct {
-		idx  *map[string]uint32
-		name string
-	}{
-		{name: "add", idx: &idx.SeriesSeriesAdd},
-		{name: "mul", idx: &idx.SeriesSeriesMul},
-		{name: "sub", idx: &idx.SeriesSeriesSub},
-		{name: "div", idx: &idx.SeriesSeriesDiv},
-		{name: "mod", idx: &idx.SeriesSeriesMod},
-	}
-
-	for _, op := range seriesOps {
-		funcName := fmt.Sprintf("series_series_%s_%s", op.name, typ)
-		(*op.idx)[typ.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-			Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // series1, series2
-			Results: []wasm.ValueType{wasm.I32},           // new series
+	for _, op := range []string{"add", "mul", "sub", "div", "mod"} {
+		r.Register(ModuleSeries, fmt.Sprintf("series_%s_%s", op, typeName), wasm.FunctionType{
+			Params:  []wasm.ValueType{wasm.I32, wasm.I32},
+			Results: []wasm.ValueType{wasm.I32},
 		})
 	}
 }
 
-// setupSeriesComparison registers comparison operations for series
-func setupSeriesComparison(m *wasm.Module, idx *ImportIndex, typ types.Type) {
-	wasmType := wasm.ConvertType(typ)
+func registerSeriesComparison(r *ImportRegistry, typ types.Type, wasmType wasm.ValueType) {
+	typeName := typ.String()
 
-	// Series-to-series comparison operations
-	ops := []struct {
-		idx  *map[string]uint32
-		name string
-	}{
-		{name: "gt", idx: &idx.SeriesCompareGT},
-		{name: "lt", idx: &idx.SeriesCompareLT},
-		{name: "ge", idx: &idx.SeriesCompareGE},
-		{name: "le", idx: &idx.SeriesCompareLE},
-		{name: "eq", idx: &idx.SeriesCompareEQ},
-		{name: "ne", idx: &idx.SeriesCompareNE},
-	}
-
-	for _, op := range ops {
-		funcName := fmt.Sprintf("series_compare_%s_%s", op.name, typ)
-		(*op.idx)[typ.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-			Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // series1, series2
-			Results: []wasm.ValueType{wasm.I32},           // series u8 (boolean mask)
+	// Series-to-series comparison
+	for _, op := range []string{"gt", "lt", "ge", "le", "eq", "ne"} {
+		r.Register(ModuleSeries, fmt.Sprintf("compare_%s_%s", op, typeName), wasm.FunctionType{
+			Params:  []wasm.ValueType{wasm.I32, wasm.I32},
+			Results: []wasm.ValueType{wasm.I32},
 		})
 	}
 
-	// Series-to-scalar comparison operations
-	scalarOps := []struct {
-		idx  *map[string]uint32
-		name string
-	}{
-		{name: "gt_scalar", idx: &idx.SeriesCompareGTScalar},
-		{name: "lt_scalar", idx: &idx.SeriesCompareLTScalar},
-		{name: "ge_scalar", idx: &idx.SeriesCompareGEScalar},
-		{name: "le_scalar", idx: &idx.SeriesCompareLEScalar},
-		{name: "eq_scalar", idx: &idx.SeriesCompareEQScalar},
-		{name: "ne_scalar", idx: &idx.SeriesCompareNEScalar},
-	}
-
-	for _, op := range scalarOps {
-		funcName := fmt.Sprintf("series_compare_%s_%s", op.name, typ)
-		(*op.idx)[typ.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-			Params:  []wasm.ValueType{wasm.I32, wasmType}, // series, scalar
-			Results: []wasm.ValueType{wasm.I32},           // series u8 (boolean mask)
+	// Series-to-scalar comparison
+	for _, op := range []string{"gt", "lt", "ge", "le", "eq", "ne"} {
+		r.Register(ModuleSeries, fmt.Sprintf("compare_%s_scalar_%s", op, typeName), wasm.FunctionType{
+			Params:  []wasm.ValueType{wasm.I32, wasmType},
+			Results: []wasm.ValueType{wasm.I32},
 		})
 	}
 }
 
-// setupSeriesUnaryOps registers unary operations for series (negate, not)
-func setupSeriesUnaryOps(m *wasm.Module, idx *ImportIndex) {
-	// Negate for signed types (floats and signed integers)
+func registerSeriesUnaryOps(r *ImportRegistry) {
+	// Negate for signed types
 	signedTypes := []types.Type{
 		types.F64(), types.F32(),
 		types.I64(), types.I32(), types.I16(), types.I8(),
 	}
 	for _, typ := range signedTypes {
-		funcName := fmt.Sprintf("series_negate_%s", typ)
-		idx.SeriesNegate[typ.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-			Params:  []wasm.ValueType{wasm.I32}, // series handle
-			Results: []wasm.ValueType{wasm.I32}, // new series handle
+		r.Register(ModuleSeries, fmt.Sprintf("negate_%s", typ), wasm.FunctionType{
+			Params:  []wasm.ValueType{wasm.I32},
+			Results: []wasm.ValueType{wasm.I32},
 		})
 	}
 
-	// Logical NOT for boolean series (u8)
-	idx.SeriesNotU8 = m.AddImport("env", "series_not_u8", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32}, // series handle
-		Results: []wasm.ValueType{wasm.I32}, // new series handle
+	// Logical NOT for u8 (boolean)
+	r.Register(ModuleSeries, "not_u8", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32},
+		Results: []wasm.ValueType{wasm.I32},
+	})
+
+	// Series length
+	r.Register(ModuleSeries, "len", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32},
+		Results: []wasm.ValueType{wasm.I64},
+	})
+
+	// Series slice
+	r.Register(ModuleSeries, "slice", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasm.I32},
+		Results: []wasm.ValueType{wasm.I32},
 	})
 }
 
-// setupStateOps registers state persistence operations
-func setupStateOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
-	wasmType := wasm.ConvertType(t)
+func registerSeriesStateOps(r *ImportRegistry, t types.Type) {
+	typeName := t.String()
 
-	// Load state (with initialization value)
-	funcName := fmt.Sprintf("state_load_%s", t)
-	idx.StateLoad[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType}, // func ID, var ID, init value
+	// Load series state
+	r.Register(ModuleState, fmt.Sprintf("load_series_%s", typeName), wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasm.I32},
+		Results: []wasm.ValueType{wasm.I32},
+	})
+
+	// Store series state
+	r.Register(ModuleState, fmt.Sprintf("store_series_%s", typeName), wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasm.I32},
+		Results: []wasm.ValueType{},
+	})
+}
+
+// RegisterStateImports registers arc.state module functions.
+func RegisterStateImports(r *ImportRegistry) {
+	for _, typ := range types.Numerics {
+		registerStateOps(r, typ)
+	}
+	registerStateOps(r, types.String())
+}
+
+func registerStateOps(r *ImportRegistry, t types.Type) {
+	wasmType := wasm.ConvertType(t)
+	typeName := t.String()
+
+	// Load state
+	r.Register(ModuleState, fmt.Sprintf("load_%s", typeName), wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType},
 		Results: []wasm.ValueType{wasmType},
 	})
 
 	// Store state
-	funcName = fmt.Sprintf("state_store_%s", t)
-	idx.StateStore[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType}, // func ID, var ID, value
+	r.Register(ModuleState, fmt.Sprintf("store_%s", typeName), wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType},
 		Results: []wasm.ValueType{},
 	})
 }
 
-// setupSeriesStateOps registers state persistence operations for series types.
-// Series state uses handles (i32) for both input and output, not actual values.
-func setupSeriesStateOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
-	// Load series state (with initialization handle)
-	funcName := fmt.Sprintf("state_load_series_%s", t)
-	idx.StateLoadSeries[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasm.I32}, // func ID, var ID, init handle
-		Results: []wasm.ValueType{wasm.I32},                     // result handle
+// RegisterStringImports registers arc.string module functions.
+func RegisterStringImports(r *ImportRegistry) {
+	r.Register(ModuleString, "from_literal", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32},
+		Results: []wasm.ValueType{wasm.I32},
 	})
 
-	// Store series state
-	funcName = fmt.Sprintf("state_store_series_%s", t)
-	idx.StateStoreSeries[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasm.I32}, // func ID, var ID, handle
-		Results: []wasm.ValueType{},
+	r.Register(ModuleString, "concat", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32},
+		Results: []wasm.ValueType{wasm.I32},
+	})
+
+	r.Register(ModuleString, "equal", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32},
+		Results: []wasm.ValueType{wasm.I32},
+	})
+
+	r.Register(ModuleString, "len", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32},
+		Results: []wasm.ValueType{wasm.I32},
 	})
 }
 
-// setupGenericOps registers type-agnostic operations
-func setupGenericOps(m *wasm.Module, idx *ImportIndex) {
-	// Series operations
-	idx.SeriesLen = m.AddImport("env", "series_len", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32}, // series handle
-		Results: []wasm.ValueType{wasm.I64}, // length
-	})
+// RegisterMathImports registers math stdlib module functions.
+func RegisterMathImports(r *ImportRegistry) {
+	// f64 -> f64 functions
+	for _, name := range []string{"sqrt", "sin", "cos", "tan", "asin", "acos", "atan",
+		"abs", "floor", "ceil", "round", "exp", "log", "log10"} {
+		r.Register(ModuleMath, name, wasm.FunctionType{
+			Params:  []wasm.ValueType{wasm.F64},
+			Results: []wasm.ValueType{wasm.F64},
+		})
+	}
 
-	idx.SeriesSlice = m.AddImport("env", "series_slice", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasm.I32}, // series, start, end
-		Results: []wasm.ValueType{wasm.I32},                     // new series handle
-	})
+	// (f64, f64) -> f64 functions
+	for _, name := range []string{"pow", "min", "max", "atan2"} {
+		r.Register(ModuleMath, name, wasm.FunctionType{
+			Params:  []wasm.ValueType{wasm.F64, wasm.F64},
+			Results: []wasm.ValueType{wasm.F64},
+		})
+	}
 
-	// String operations
-	idx.StringFromLiteral = m.AddImport("env", "string_from_literal", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // ptr, len
-		Results: []wasm.ValueType{wasm.I32},           // string handle
-	})
-
-	idx.StringConcat = m.AddImport("env", "string_concat", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // string1, string2
-		Results: []wasm.ValueType{wasm.I32},           // new string handle
-	})
-
-	idx.StringEqual = m.AddImport("env", "string_equal", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // string1, string2
-		Results: []wasm.ValueType{wasm.I32},           // u8 result (0 or 1)
-	})
-
-	idx.StringLen = m.AddImport("env", "string_len", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32}, // string handle
-		Results: []wasm.ValueType{wasm.I32}, // length
-	})
-
-	// Built-in functions
-	idx.Now = m.AddImport("env", "now", wasm.FunctionType{
-		Params:  []wasm.ValueType{},
-		Results: []wasm.ValueType{wasm.I64}, // timestamp
-	})
-
-	idx.Len = m.AddImport("env", "len", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32}, // series handle
-		Results: []wasm.ValueType{wasm.I64}, // length
-	})
-
-	// Math operations
-	idx.MathPowF32 = m.AddImport("env", "math_pow_f32", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.F32, wasm.F32}, // base, exponent
+	// Integer power operations (for the ^ operator)
+	r.Register(ModuleMath, "pow_f32", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.F32, wasm.F32},
 		Results: []wasm.ValueType{wasm.F32},
 	})
 
-	idx.MathPowF64 = m.AddImport("env", "math_pow_f64", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.F64, wasm.F64}, // base, exponent
+	// Integer power for all integer types
+	for _, typ := range []struct {
+		name    string
+		wasmTyp wasm.ValueType
+	}{
+		{"u8", wasm.I32}, {"u16", wasm.I32}, {"u32", wasm.I32}, {"u64", wasm.I64},
+		{"i8", wasm.I32}, {"i16", wasm.I32}, {"i32", wasm.I32}, {"i64", wasm.I64},
+	} {
+		r.Register(ModuleMath, fmt.Sprintf("pow_%s", typ.name), wasm.FunctionType{
+			Params:  []wasm.ValueType{typ.wasmTyp, typ.wasmTyp},
+			Results: []wasm.ValueType{typ.wasmTyp},
+		})
+	}
+
+	// Constants
+	r.Register(ModuleMath, "pi", wasm.FunctionType{
 		Results: []wasm.ValueType{wasm.F64},
 	})
-
-	// Integer power operations
-	idx.MathIntPowU8 = m.AddImport("env", "math_pow_u8", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // base, exponent (u8 represented as i32)
-		Results: []wasm.ValueType{wasm.I32},
+	r.Register(ModuleMath, "e", wasm.FunctionType{
+		Results: []wasm.ValueType{wasm.F64},
 	})
+}
 
-	idx.MathIntPowU16 = m.AddImport("env", "math_pow_u16", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // base, exponent (u16 represented as i32)
-		Results: []wasm.ValueType{wasm.I32},
-	})
-
-	idx.MathIntPowU32 = m.AddImport("env", "math_pow_u32", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // base, exponent
-		Results: []wasm.ValueType{wasm.I32},
-	})
-
-	idx.MathIntPowU64 = m.AddImport("env", "math_pow_u64", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I64, wasm.I64}, // base, exponent
+// RegisterTimeImports registers time stdlib module functions.
+func RegisterTimeImports(r *ImportRegistry) {
+	r.Register(ModuleTime, "now", wasm.FunctionType{
 		Results: []wasm.ValueType{wasm.I64},
 	})
 
-	idx.MathIntPowI8 = m.AddImport("env", "math_pow_i8", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // base, exponent (i8 represented as i32)
-		Results: []wasm.ValueType{wasm.I32},
-	})
-
-	idx.MathIntPowI16 = m.AddImport("env", "math_pow_i16", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // base, exponent (i16 represented as i32)
-		Results: []wasm.ValueType{wasm.I32},
-	})
-
-	idx.MathIntPowI32 = m.AddImport("env", "math_pow_i32", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // base, exponent
-		Results: []wasm.ValueType{wasm.I32},
-	})
-
-	idx.MathIntPowI64 = m.AddImport("env", "math_pow_i64", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I64, wasm.I64}, // base, exponent
+	r.Register(ModuleTime, "elapsed", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I64},
 		Results: []wasm.ValueType{wasm.I64},
 	})
+}
 
-	// Error handling
-	idx.Panic = m.AddImport("env", "panic", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // ptr, len
-		Results: []wasm.ValueType{},
-	})
+// Convenience lookup functions for common operations.
+// These provide type-safe access to import indices.
+
+// ChannelRead returns the index for channel_read_<type>.
+func (r *ImportRegistry) ChannelRead(t types.Type) uint32 {
+	return r.MustLookup(ModuleCore, fmt.Sprintf("channel_read_%s", t))
+}
+
+// ChannelWrite returns the index for channel_write_<type>.
+func (r *ImportRegistry) ChannelWrite(t types.Type) uint32 {
+	return r.MustLookup(ModuleCore, fmt.Sprintf("channel_write_%s", t))
+}
+
+// SeriesCreateEmpty returns the index for series_create_empty_<type>.
+func (r *ImportRegistry) SeriesCreateEmpty(t types.Type) uint32 {
+	return r.MustLookup(ModuleSeries, fmt.Sprintf("create_empty_%s", t))
+}
+
+// SeriesSetElement returns the index for series_set_element_<type>.
+func (r *ImportRegistry) SeriesSetElement(t types.Type) uint32 {
+	return r.MustLookup(ModuleSeries, fmt.Sprintf("set_element_%s", t))
+}
+
+// SeriesIndex returns the index for series_index_<type>.
+func (r *ImportRegistry) SeriesIndex(t types.Type) uint32 {
+	return r.MustLookup(ModuleSeries, fmt.Sprintf("index_%s", t))
+}
+
+// SeriesElementOp returns the index for series_element_<op>_<type>.
+func (r *ImportRegistry) SeriesElementOp(op string, t types.Type) uint32 {
+	return r.MustLookup(ModuleSeries, fmt.Sprintf("element_%s_%s", op, t))
+}
+
+// SeriesSeriesOp returns the index for series_series_<op>_<type>.
+func (r *ImportRegistry) SeriesSeriesOp(op string, t types.Type) uint32 {
+	return r.MustLookup(ModuleSeries, fmt.Sprintf("series_%s_%s", op, t))
+}
+
+// SeriesCompare returns the index for series_compare_<op>_<type>.
+func (r *ImportRegistry) SeriesCompare(op string, t types.Type) uint32 {
+	return r.MustLookup(ModuleSeries, fmt.Sprintf("compare_%s_%s", op, t))
+}
+
+// SeriesCompareScalar returns the index for series_compare_<op>_scalar_<type>.
+func (r *ImportRegistry) SeriesCompareScalar(op string, t types.Type) uint32 {
+	return r.MustLookup(ModuleSeries, fmt.Sprintf("compare_%s_scalar_%s", op, t))
+}
+
+// SeriesNegate returns the index for series_negate_<type>.
+func (r *ImportRegistry) SeriesNegate(t types.Type) uint32 {
+	return r.MustLookup(ModuleSeries, fmt.Sprintf("negate_%s", t))
+}
+
+// SeriesNotU8 returns the index for series_not_u8.
+func (r *ImportRegistry) SeriesNotU8() uint32 {
+	return r.MustLookup(ModuleSeries, "not_u8")
+}
+
+// SeriesLen returns the index for series_len.
+func (r *ImportRegistry) SeriesLen() uint32 {
+	return r.MustLookup(ModuleSeries, "len")
+}
+
+// SeriesSlice returns the index for series_slice.
+func (r *ImportRegistry) SeriesSlice() uint32 {
+	return r.MustLookup(ModuleSeries, "slice")
+}
+
+// StateLoad returns the index for state_load_<type>.
+func (r *ImportRegistry) StateLoad(t types.Type) uint32 {
+	return r.MustLookup(ModuleState, fmt.Sprintf("load_%s", t))
+}
+
+// StateStore returns the index for state_store_<type>.
+func (r *ImportRegistry) StateStore(t types.Type) uint32 {
+	return r.MustLookup(ModuleState, fmt.Sprintf("store_%s", t))
+}
+
+// StateLoadSeries returns the index for state_load_series_<type>.
+func (r *ImportRegistry) StateLoadSeries(t types.Type) uint32 {
+	return r.MustLookup(ModuleState, fmt.Sprintf("load_series_%s", t))
+}
+
+// StateStoreSeries returns the index for state_store_series_<type>.
+func (r *ImportRegistry) StateStoreSeries(t types.Type) uint32 {
+	return r.MustLookup(ModuleState, fmt.Sprintf("store_series_%s", t))
+}
+
+// StringFromLiteral returns the index for string_from_literal.
+func (r *ImportRegistry) StringFromLiteral() uint32 {
+	return r.MustLookup(ModuleString, "from_literal")
+}
+
+// StringConcat returns the index for string_concat.
+func (r *ImportRegistry) StringConcat() uint32 {
+	return r.MustLookup(ModuleString, "concat")
+}
+
+// StringEqual returns the index for string_equal.
+func (r *ImportRegistry) StringEqual() uint32 {
+	return r.MustLookup(ModuleString, "equal")
+}
+
+// StringLen returns the index for string_len.
+func (r *ImportRegistry) StringLen() uint32 {
+	return r.MustLookup(ModuleString, "len")
+}
+
+// MathPow returns the index for math.pow (f64 version).
+func (r *ImportRegistry) MathPow() uint32 {
+	return r.MustLookup(ModuleMath, "pow")
+}
+
+// MathPowF32 returns the index for math.pow_f32.
+func (r *ImportRegistry) MathPowF32() uint32 {
+	return r.MustLookup(ModuleMath, "pow_f32")
+}
+
+// MathPowInt returns the index for math.pow_<type> for integer types.
+func (r *ImportRegistry) MathPowInt(t types.Type) uint32 {
+	return r.MustLookup(ModuleMath, fmt.Sprintf("pow_%s", t))
+}
+
+// TimeNow returns the index for time.now.
+func (r *ImportRegistry) TimeNow() uint32 {
+	return r.MustLookup(ModuleTime, "now")
+}
+
+// Panic returns the index for panic.
+func (r *ImportRegistry) Panic() uint32 {
+	return r.MustLookup(ModuleCore, "panic")
+}
+
+// Len returns the index for the builtin len function (series length).
+func (r *ImportRegistry) Len() uint32 {
+	return r.MustLookup(ModuleSeries, "len")
+}
+
+// operatorToOpName converts an operator symbol to its import name.
+func operatorToOpName(op string) string {
+	switch op {
+	case "+":
+		return "add"
+	case "-":
+		return "sub"
+	case "*":
+		return "mul"
+	case "/":
+		return "div"
+	case "%":
+		return "mod"
+	default:
+		panic(fmt.Sprintf("unknown arithmetic operator: %s", op))
+	}
+}
+
+// comparisonOpName converts a comparison operator to its import name.
+func comparisonOpName(op string) string {
+	switch op {
+	case ">":
+		return "gt"
+	case "<":
+		return "lt"
+	case ">=":
+		return "ge"
+	case "<=":
+		return "le"
+	case "==":
+		return "eq"
+	case "!=":
+		return "ne"
+	default:
+		panic(fmt.Sprintf("unknown comparison operator: %s", op))
+	}
+}
+
+// GetSeriesArithmetic returns the import index for series arithmetic operations.
+// For scalar operations (series op scalar), uses element_<op>_<type>.
+// For series-to-series operations, uses series_<op>_<type>.
+func (r *ImportRegistry) GetSeriesArithmetic(op string, t types.Type, isScalar bool) uint32 {
+	opName := operatorToOpName(op)
+	typeName := t.Unwrap().String()
+	if isScalar {
+		return r.MustLookup(ModuleSeries, fmt.Sprintf("element_%s_%s", opName, typeName))
+	}
+	return r.MustLookup(ModuleSeries, fmt.Sprintf("series_%s_%s", opName, typeName))
+}
+
+// GetSeriesReverseArithmetic returns the import index for reverse scalar arithmetic
+// operations (scalar op series instead of series op scalar).
+func (r *ImportRegistry) GetSeriesReverseArithmetic(op string, t types.Type) uint32 {
+	opName := "r" + operatorToOpName(op) // radd, rsub, etc.
+	typeName := t.Unwrap().String()
+	return r.MustLookup(ModuleSeries, fmt.Sprintf("element_%s_%s", opName, typeName))
+}
+
+// GetSeriesComparison returns the import index for series-to-series comparison.
+func (r *ImportRegistry) GetSeriesComparison(op string, t types.Type) uint32 {
+	opName := comparisonOpName(op)
+	typeName := t.Unwrap().String()
+	return r.MustLookup(ModuleSeries, fmt.Sprintf("compare_%s_%s", opName, typeName))
+}
+
+// GetSeriesScalarComparison returns the import index for series-to-scalar comparison.
+func (r *ImportRegistry) GetSeriesScalarComparison(op string, t types.Type) uint32 {
+	opName := comparisonOpName(op)
+	typeName := t.Unwrap().String()
+	return r.MustLookup(ModuleSeries, fmt.Sprintf("compare_%s_scalar_%s", opName, typeName))
 }

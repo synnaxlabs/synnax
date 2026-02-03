@@ -11,7 +11,6 @@ package expression
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -54,14 +53,11 @@ func emitStatefulLoad[ASTNode antlr.ParserRuleContext](
 	ctx.Writer.WriteI32Const(0)
 	ctx.Writer.WriteI32Const(int32(idx))
 	emitZeroValue(ctx, t)
-	stateLoadF := lo.Ternary(
-		t.Kind == types.KindSeries,
-		ctx.Imports.GetStateLoadSeries,
-		ctx.Imports.GetStateLoad,
-	)
-	importIdx, err := stateLoadF(t.Unwrap())
-	if err != nil {
-		return err
+	var importIdx uint32
+	if t.Kind == types.KindSeries {
+		importIdx = ctx.Imports.StateLoadSeries(t.Unwrap())
+	} else {
+		importIdx = ctx.Imports.StateLoad(t.Unwrap())
 	}
 	ctx.Writer.WriteCall(importIdx)
 	return nil
@@ -91,10 +87,6 @@ func emitChannelRead[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	t types.Type,
 ) error {
-	importIdx, err := ctx.Imports.GetChannelRead(t)
-	if err != nil {
-		return err
-	}
-	ctx.Writer.WriteCall(importIdx)
+	ctx.Writer.WriteCall(ctx.Imports.ChannelRead(t.UnwrapChan()))
 	return nil
 }

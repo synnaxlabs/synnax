@@ -10,7 +10,6 @@
 package statement
 
 import (
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
 	"github.com/synnaxlabs/arc/compiler/wasm"
@@ -97,13 +96,10 @@ func compileStatefulVariable(
 	var importIdx uint32
 	if varType.Kind == types.KindSeries {
 		// Series types use handle-based state operations
-		importIdx, err = ctx.Imports.GetStateLoadSeries(*varType.Elem)
+		importIdx = ctx.Imports.StateLoadSeries(*varType.Elem)
 	} else {
 		// Primitive types use value-based state operations
-		importIdx, err = ctx.Imports.GetStateLoad(varType)
-	}
-	if err != nil {
-		return err
+		importIdx = ctx.Imports.StateLoad(varType)
 	}
 	ctx.Writer.WriteCall(importIdx)
 
@@ -141,11 +137,7 @@ func compileIndexedAssignment(
 
 	// Stack is now: [series_handle, index, value]
 	// Step 4: Call series_set_element_<type>(handle, index, value) -> handle
-	importIdx, err := ctx.Imports.GetSeriesSetElement(elemType)
-	if err != nil {
-		return err
-	}
-	ctx.Writer.WriteCall(importIdx)
+	ctx.Writer.WriteCall(ctx.Imports.SeriesSetElement(elemType))
 
 	// Drop the returned handle since we don't need it for assignment
 	ctx.Writer.WriteOpcode(wasm.OpDrop)
@@ -182,11 +174,7 @@ func compileIndexedCompoundAssignment(
 	); err != nil {
 		return errors.Wrap(err, "failed to compile index expression")
 	}
-	indexImport, err := ctx.Imports.GetSeriesIndex(elemType)
-	if err != nil {
-		return err
-	}
-	ctx.Writer.WriteCall(indexImport)
+	ctx.Writer.WriteCall(ctx.Imports.SeriesIndex(elemType))
 	// Stack: [handle, index, current_value]
 
 	// Step 3: Compile RHS expression
@@ -205,7 +193,7 @@ func compileIndexedCompoundAssignment(
 
 	// Step 4: Apply binary operation
 	if elemType.Kind == types.KindString && op == "+" {
-		ctx.Writer.WriteCall(ctx.Imports.StringConcat)
+		ctx.Writer.WriteCall(ctx.Imports.StringConcat())
 	} else {
 		if err = ctx.Writer.WriteBinaryOpInferred(op, elemType); err != nil {
 			return err
@@ -214,11 +202,7 @@ func compileIndexedCompoundAssignment(
 	// Stack: [handle, index, new_value]
 
 	// Step 5: Call series_set_element and drop result
-	setImport, err := ctx.Imports.GetSeriesSetElement(elemType)
-	if err != nil {
-		return err
-	}
-	ctx.Writer.WriteCall(setImport)
+	ctx.Writer.WriteCall(ctx.Imports.SeriesSetElement(elemType))
 	ctx.Writer.WriteOpcode(wasm.OpDrop)
 	// Stack: []
 
@@ -247,10 +231,7 @@ func compileSeriesCompoundAssignment(
 	}
 
 	isScalar := exprType.Kind != types.KindSeries
-	funcIdx, err := ctx.Imports.GetSeriesArithmetic(op, elemType, isScalar)
-	if err != nil {
-		return err
-	}
+	funcIdx := ctx.Imports.GetSeriesArithmetic(op, elemType, isScalar)
 	ctx.Writer.WriteCall(funcIdx)
 
 	switch sym.Kind {
@@ -261,11 +242,7 @@ func compileSeriesCompoundAssignment(
 		ctx.Writer.WriteI32Const(0)
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
-		importIdx, err := ctx.Imports.GetStateStoreSeries(elemType)
-		if err != nil {
-			return err
-		}
-		ctx.Writer.WriteCall(importIdx)
+		ctx.Writer.WriteCall(ctx.Imports.StateStoreSeries(elemType))
 	default:
 		return errors.Newf("compound assignment not supported for %v", sym.Kind)
 	}
@@ -306,7 +283,7 @@ func compileCompoundAssignment(
 	}
 
 	if varType.Kind == types.KindString && op == "+" {
-		ctx.Writer.WriteCall(ctx.Imports.StringConcat)
+		ctx.Writer.WriteCall(ctx.Imports.StringConcat())
 	} else {
 		if err = ctx.Writer.WriteBinaryOpInferred(op, varType); err != nil {
 			return err
@@ -321,14 +298,11 @@ func compileCompoundAssignment(
 		ctx.Writer.WriteI32Const(0)
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
-		resolveImportF := lo.Ternary(
-			varType.Kind == types.KindSeries,
-			ctx.Imports.GetStateStoreSeries,
-			ctx.Imports.GetStateStore,
-		)
-		importIdx, err := resolveImportF(varType.Unwrap())
-		if err != nil {
-			return err
+		var importIdx uint32
+		if varType.Kind == types.KindSeries {
+			importIdx = ctx.Imports.StateStoreSeries(varType.Unwrap())
+		} else {
+			importIdx = ctx.Imports.StateStore(varType.Unwrap())
 		}
 		ctx.Writer.WriteCall(importIdx)
 	default:
@@ -386,23 +360,16 @@ func compileAssignment(
 		ctx.Writer.WriteI32Const(0)
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
-		resolveImportF := lo.Ternary(
-			varType.Kind == types.KindSeries,
-			ctx.Imports.GetStateStoreSeries,
-			ctx.Imports.GetStateStore,
-		)
-		importIdx, err := resolveImportF(varType.Unwrap())
-		if err != nil {
-			return err
+		var importIdx uint32
+		if varType.Kind == types.KindSeries {
+			importIdx = ctx.Imports.StateStoreSeries(varType.Unwrap())
+		} else {
+			importIdx = ctx.Imports.StateStore(varType.Unwrap())
 		}
 		ctx.Writer.WriteCall(importIdx)
 	case symbol.KindChannel, symbol.KindConfig:
 		// Stack is already [channelID, value] from pushing ID before expression
-		importIdx, err := ctx.Imports.GetChannelWrite(varType.Unwrap())
-		if err != nil {
-			return err
-		}
-		ctx.Writer.WriteCall(importIdx)
+		ctx.Writer.WriteCall(ctx.Imports.ChannelWrite(varType.Unwrap()))
 	case symbol.KindOutput:
 		// Named output - needs special handling for multi-output routing
 		if err := compileOutputAssignment(ctx, name, scope); err != nil {

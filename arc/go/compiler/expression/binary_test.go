@@ -455,7 +455,7 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(3),
 			OpCall,
-			testImports.MathIntPowI32,
+			testImports.MathPowInt(types.I32()),
 		),
 
 		Entry(
@@ -467,7 +467,7 @@ var _ = Describe("Binary Operations", func() {
 			OpI64Const,
 			int64(10),
 			OpCall,
-			testImports.MathIntPowI64,
+			testImports.MathPowInt(types.I64()),
 		),
 
 		Entry(
@@ -479,7 +479,7 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(4),
 			OpCall,
-			testImports.MathIntPowU32,
+			testImports.MathPowInt(types.U32()),
 		),
 
 		Entry(
@@ -491,7 +491,7 @@ var _ = Describe("Binary Operations", func() {
 			OpI64Const,
 			int64(3),
 			OpCall,
-			testImports.MathIntPowU64,
+			testImports.MathPowInt(types.U64()),
 		),
 
 		Entry(
@@ -503,7 +503,7 @@ var _ = Describe("Binary Operations", func() {
 			OpF32Const,
 			float32(3.0),
 			OpCall,
-			testImports.MathPowF32,
+			testImports.MathPowF32(),
 		),
 
 		Entry(
@@ -515,7 +515,7 @@ var _ = Describe("Binary Operations", func() {
 			OpF64Const,
 			2.0,
 			OpCall,
-			testImports.MathPowF64,
+			testImports.MathPow(),
 		),
 
 		Entry(
@@ -529,9 +529,9 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(2),
 			OpCall,
-			testImports.MathIntPowI32, // for 3^2
+			testImports.MathPowInt(types.I32()), // for 3^2
 			OpCall,
-			testImports.MathIntPowI32, // for 2^9
+			testImports.MathPowInt(types.I32()), // for 2^9
 		),
 
 		Entry(
@@ -545,7 +545,7 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(2),
 			OpCall,
-			testImports.MathIntPowI32, // for 3^2
+			testImports.MathPowInt(types.I32()), // for 3^2
 			OpI32Add,                  // then add
 		),
 
@@ -561,7 +561,7 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(2),
 			OpCall,
-			testImports.MathIntPowI32,
+			testImports.MathPowInt(types.I32()),
 		),
 	)
 

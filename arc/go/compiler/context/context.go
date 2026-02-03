@@ -23,7 +23,7 @@ import (
 type Context[ASTNode antlr.ParserRuleContext] struct {
 	context.Context
 	AST     ASTNode
-	Imports *bindings.ImportIndex
+	Imports *bindings.ImportRegistry
 	Scope   *symbol.Scope
 	Writer  *wasm.Writer
 	Module  *wasm.Module

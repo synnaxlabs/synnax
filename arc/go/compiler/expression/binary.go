@@ -67,26 +67,20 @@ func compileBinaryAdditive(
 		if firstIsSeries {
 			// series op scalar or series op series
 			isScalar := !secondIsSeries
-			funcIdx, err := ctx.Imports.GetSeriesArithmetic(operators[i-1], elemType, isScalar)
-			if err != nil {
-				return types.Type{}, err
-			}
+			funcIdx := ctx.Imports.GetSeriesArithmetic(operators[i-1], elemType, isScalar)
 			ctx.Writer.WriteCall(funcIdx)
 		} else if secondIsSeries {
 			// scalar op series - use reverse arithmetic to match stack order [scalar, handle]
 			secondElemType := *operandType.Elem
 			op := operators[i-1]
-			funcIdx, err := ctx.Imports.GetSeriesReverseArithmetic(op, secondElemType)
-			if err != nil {
-				return types.Type{}, err
-			}
+			funcIdx := ctx.Imports.GetSeriesReverseArithmetic(op, secondElemType)
 			ctx.Writer.WriteCall(funcIdx)
 			// Update state to reflect we now have a series result
 			resultType = operandType
 			elemType = secondElemType
 			firstIsSeries = true
 		} else if hintType.Kind == types.KindString && operators[i-1] == "+" {
-			ctx.Writer.WriteCall(ctx.Imports.StringConcat)
+			ctx.Writer.WriteCall(ctx.Imports.StringConcat())
 		} else {
 			if err = ctx.Writer.WriteBinaryOpInferred(operators[i-1], hintType); err != nil {
 				return types.Type{}, err
@@ -157,19 +151,13 @@ func compileBinaryMultiplicative(
 		if firstIsSeries {
 			// series op scalar or series op series
 			isScalar := !secondIsSeries
-			funcIdx, err := ctx.Imports.GetSeriesArithmetic(operators[i-1], elemType, isScalar)
-			if err != nil {
-				return types.Type{}, err
-			}
+			funcIdx := ctx.Imports.GetSeriesArithmetic(operators[i-1], elemType, isScalar)
 			ctx.Writer.WriteCall(funcIdx)
 		} else if secondIsSeries {
 			// scalar op series - use reverse arithmetic to match stack order [scalar, handle]
 			secondElemType := *operandType.Elem
 			op := operators[i-1]
-			funcIdx, err := ctx.Imports.GetSeriesReverseArithmetic(op, secondElemType)
-			if err != nil {
-				return types.Type{}, err
-			}
+			funcIdx := ctx.Imports.GetSeriesReverseArithmetic(op, secondElemType)
 			ctx.Writer.WriteCall(funcIdx)
 			// Update state to reflect we now have a series result
 			resultType = operandType
@@ -231,10 +219,7 @@ func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionCon
 	}
 
 	if isSeries {
-		funcIdx, err := ctx.Imports.GetSeriesComparison(op, elemType)
-		if err != nil {
-			return types.Type{}, err
-		}
+		funcIdx := ctx.Imports.GetSeriesComparison(op, elemType)
 		ctx.Writer.WriteCall(funcIdx)
 		// Series comparison returns a boolean series (series u8)
 		return types.Series(types.U8()), nil
@@ -284,17 +269,14 @@ func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext
 	}
 
 	if isSeries {
-		funcIdx, err := ctx.Imports.GetSeriesComparison(op, elemType)
-		if err != nil {
-			return types.Type{}, err
-		}
+		funcIdx := ctx.Imports.GetSeriesComparison(op, elemType)
 		ctx.Writer.WriteCall(funcIdx)
 		// Series comparison returns a boolean series (series u8)
 		return types.Series(types.U8()), nil
 	}
 
 	if hintType.Kind == types.KindString {
-		ctx.Writer.WriteCall(ctx.Imports.StringEqual)
+		ctx.Writer.WriteCall(ctx.Imports.StringEqual())
 		if op == "!=" {
 			ctx.Writer.WriteI32Eqz()
 		}
