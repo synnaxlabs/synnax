@@ -15,6 +15,7 @@
 #include <span>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <dirent.h>
@@ -81,6 +82,8 @@ class Master final : public ethercat::master::Master {
     std::vector<SlaveInfo> cached_slaves;
     /// @brief lazily configured slave handles (position -> slave_config).
     std::unordered_map<uint16_t, ec_slave_config_t *> slave_configs;
+    /// @brief slaves marked as passive (excluded from cyclic exchange).
+    std::unordered_set<uint16_t> passive_slaves;
     /// @brief protects slave state queries and configuration.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -104,6 +107,8 @@ public:
     xerrors::Error initialize() override;
 
     xerrors::Error register_pdos(const std::vector<PDOEntry> &entries) override;
+
+    void set_passive_slave(uint16_t position, bool passive) override;
 
     xerrors::Error activate() override;
 
