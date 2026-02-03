@@ -147,7 +147,7 @@ var _ = Describe("Literal Type Inference", func() {
 				}
 			`))
 			ctx := acontext.CreateRoot(bCtx, program, testResolver)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			errorMsg := ctx.Diagnostics.Error()
 			Expect(errorMsg).To(Or(

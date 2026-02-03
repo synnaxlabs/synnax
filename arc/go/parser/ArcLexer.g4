@@ -5,6 +5,7 @@ lexer grammar ArcLexer;
 // =============================================================================
 
 IMPORT      : 'import';
+AS          : 'as';
 FUNC        : 'func';
 IF          : 'if';
 ELSE        : 'else';

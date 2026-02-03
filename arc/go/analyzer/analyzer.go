@@ -15,6 +15,7 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/analyzer/function"
+	"github.com/synnaxlabs/arc/analyzer/imports"
 	"github.com/synnaxlabs/arc/analyzer/sequence"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/diagnostics"
@@ -22,7 +23,15 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 )
 
-func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
+// AnalyzeProgram performs semantic analysis on a parsed Arc program.
+// The modules parameter provides standard library module definitions.
+func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext], modules map[string]symbol.Resolver) {
+	// Process imports first - adds module symbols to scope
+	imps, ok := imports.Analyze(ctx, modules)
+	if !ok {
+		return
+	}
+
 	collectDeclarations(ctx)
 	analyzeDeclarations(ctx)
 	if ctx.Constraints.HasTypeVariables() {
@@ -33,6 +42,9 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 		applyTypeSubstitutionsToSymbols(ctx, ctx.Scope)
 		substituteTypeMap(ctx)
 	}
+
+	// Check for unused imports after all analysis is complete
+	imps.CheckUnused(ctx)
 }
 
 func substituteTypeMap(ctx acontext.Context[parser.IProgramContext]) {

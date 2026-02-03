@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
@@ -40,6 +31,24 @@ func (s *BaseArcParserListener) EnterTopLevelItem(ctx *TopLevelItemContext) {}
 
 // ExitTopLevelItem is called when production topLevelItem is exited.
 func (s *BaseArcParserListener) ExitTopLevelItem(ctx *TopLevelItemContext) {}
+
+// EnterImportBlock is called when production importBlock is entered.
+func (s *BaseArcParserListener) EnterImportBlock(ctx *ImportBlockContext) {}
+
+// ExitImportBlock is called when production importBlock is exited.
+func (s *BaseArcParserListener) ExitImportBlock(ctx *ImportBlockContext) {}
+
+// EnterImportItem is called when production importItem is entered.
+func (s *BaseArcParserListener) EnterImportItem(ctx *ImportItemContext) {}
+
+// ExitImportItem is called when production importItem is exited.
+func (s *BaseArcParserListener) ExitImportItem(ctx *ImportItemContext) {}
+
+// EnterModulePath is called when production modulePath is entered.
+func (s *BaseArcParserListener) EnterModulePath(ctx *ModulePathContext) {}
+
+// ExitModulePath is called when production modulePath is exited.
+func (s *BaseArcParserListener) ExitModulePath(ctx *ModulePathContext) {}
 
 // EnterFunctionDeclaration is called when production functionDeclaration is entered.
 func (s *BaseArcParserListener) EnterFunctionDeclaration(ctx *FunctionDeclarationContext) {}
@@ -376,6 +385,12 @@ func (s *BaseArcParserListener) EnterPostfixExpression(ctx *PostfixExpressionCon
 
 // ExitPostfixExpression is called when production postfixExpression is exited.
 func (s *BaseArcParserListener) ExitPostfixExpression(ctx *PostfixExpressionContext) {}
+
+// EnterMemberAccess is called when production memberAccess is entered.
+func (s *BaseArcParserListener) EnterMemberAccess(ctx *MemberAccessContext) {}
+
+// ExitMemberAccess is called when production memberAccess is exited.
+func (s *BaseArcParserListener) ExitMemberAccess(ctx *MemberAccessContext) {}
 
 // EnterIndexOrSlice is called when production indexOrSlice is entered.
 func (s *BaseArcParserListener) EnterIndexOrSlice(ctx *IndexOrSliceContext) {}

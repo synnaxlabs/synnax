@@ -27,7 +27,7 @@ importBlock
     ;
 
 importItem
-    : modulePath
+    : modulePath (AS IDENTIFIER)?
     ;
 
 modulePath

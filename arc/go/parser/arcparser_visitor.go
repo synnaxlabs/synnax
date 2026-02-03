@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
@@ -21,6 +12,15 @@ type ArcParserVisitor interface {
 
 	// Visit a parse tree produced by ArcParser#topLevelItem.
 	VisitTopLevelItem(ctx *TopLevelItemContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#importBlock.
+	VisitImportBlock(ctx *ImportBlockContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#importItem.
+	VisitImportItem(ctx *ImportItemContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#modulePath.
+	VisitModulePath(ctx *ModulePathContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#functionDeclaration.
 	VisitFunctionDeclaration(ctx *FunctionDeclarationContext) interface{}
@@ -189,6 +189,9 @@ type ArcParserVisitor interface {
 
 	// Visit a parse tree produced by ArcParser#postfixExpression.
 	VisitPostfixExpression(ctx *PostfixExpressionContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#memberAccess.
+	VisitMemberAccess(ctx *MemberAccessContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#indexOrSlice.
 	VisitIndexOrSlice(ctx *IndexOrSliceContext) interface{}

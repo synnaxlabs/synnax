@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/errors"
@@ -36,12 +37,12 @@ func (t *TrackedResolver) Resolve(ctx context.Context, name string) (symbol.Symb
 	return t.Resolver.Resolve(ctx, name)
 }
 
-// ResolvePrefix delegates to the wrapped resolver and marks as used.
-func (t *TrackedResolver) ResolvePrefix(ctx context.Context, prefix string) ([]symbol.Symbol, error) {
+// Search delegates to the wrapped resolver and marks as used.
+func (t *TrackedResolver) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
 	t.mu.Lock()
 	t.used = true
 	t.mu.Unlock()
-	return t.Resolver.ResolvePrefix(ctx, prefix)
+	return t.Resolver.Search(ctx, term)
 }
 
 // Used returns whether this resolver was accessed.
@@ -55,6 +56,7 @@ func (t *TrackedResolver) Used() bool {
 type Import struct {
 	Path      string
 	Qualifier string
+	Alias     string // non-empty if the import uses "as alias" syntax
 	Resolver  *TrackedResolver
 	AST       parser.IImportItemContext
 }
@@ -84,22 +86,31 @@ func Analyze(
 			continue
 		}
 
-		// Build full path and get qualifier (last segment)
+		// Build full path from module path identifiers
 		identifiers := modulePath.AllIDENTIFIER()
 		var pathParts []string
 		for _, id := range identifiers {
 			pathParts = append(pathParts, id.GetText())
 		}
 		fullPath := strings.Join(pathParts, ".")
-		qualifier := pathParts[len(pathParts)-1]
+
+		// Get qualifier - use alias if provided, otherwise last segment of path
+		var qualifier string
+		var alias string
+		if item.AS() != nil && item.IDENTIFIER() != nil {
+			alias = item.IDENTIFIER().GetText()
+			qualifier = alias
+		} else {
+			qualifier = pathParts[len(pathParts)-1]
+		}
 
 		// Check for duplicate qualifiers
 		if existingPath, ok := seen[qualifier]; ok {
-			ctx.Diagnostics.AddError(
+			ctx.Diagnostics.Add(diagnostics.Error(
 				errors.Newf("duplicate import: %q conflicts with %q (both use qualifier %q)",
 					fullPath, existingPath, qualifier),
 				item,
-			)
+			))
 			return imports, false
 		}
 		seen[qualifier] = fullPath
@@ -107,10 +118,10 @@ func Analyze(
 		// Look up module in registry
 		resolver, ok := modules[fullPath]
 		if !ok {
-			ctx.Diagnostics.AddError(
+			ctx.Diagnostics.Add(diagnostics.Error(
 				errors.Newf("unknown module %q", fullPath),
 				item,
-			)
+			))
 			return imports, false
 		}
 
@@ -124,13 +135,14 @@ func Analyze(
 			Resolver: tracked,
 			AST:      item,
 		}); err != nil {
-			ctx.Diagnostics.AddError(err, item)
+			ctx.Diagnostics.Add(diagnostics.Error(err, item))
 			return imports, false
 		}
 
 		imports.imports = append(imports.imports, &Import{
 			Path:      fullPath,
 			Qualifier: qualifier,
+			Alias:     alias,
 			Resolver:  tracked,
 			AST:       item,
 		})
@@ -143,10 +155,10 @@ func Analyze(
 func (i *Imports) CheckUnused(ctx acontext.Context[parser.IProgramContext]) {
 	for _, imp := range i.imports {
 		if !imp.Resolver.Used() {
-			ctx.Diagnostics.AddWarning(
-				errors.Newf("imported %q but never used", imp.Path),
+			ctx.Diagnostics.Add(diagnostics.Warningf(
 				imp.AST,
-			)
+				"imported %q but never used", imp.Path,
+			))
 		}
 	}
 }

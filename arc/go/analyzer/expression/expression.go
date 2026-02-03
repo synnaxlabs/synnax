@@ -355,6 +355,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 	}
 
 	funcCalls := ctx.AST.AllFunctionCallSuffix()
+	memberAccess := ctx.AST.AllMemberAccess()
 
 	for _, funcCall := range funcCalls {
 		if argList := funcCall.ArgumentList(); argList != nil {
@@ -369,17 +370,50 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 	}
 	primary := ctx.AST.PrimaryExpression()
 	if id := primary.IDENTIFIER(); id != nil {
-		funcName := id.GetText()
-		scope, err := ctx.Scope.Resolve(ctx, funcName)
+		baseName := id.GetText()
+		scope, err := ctx.Scope.Resolve(ctx, baseName)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, primary))
 			return
 		}
+
+		// Handle module member access: math.sqrt(16.0)
+		if scope.Kind == symbol.KindModule && len(memberAccess) > 0 {
+			memberName := memberAccess[0].IDENTIFIER().GetText()
+			if scope.Resolver == nil {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					memberAccess[0], "module %s has no members", baseName,
+				))
+				return
+			}
+			memberSym, err := scope.Resolver.Resolve(ctx, memberName)
+			if err != nil {
+				if errors.Is(err, query.ErrNotFound) {
+					ctx.Diagnostics.Add(diagnostics.Errorf(
+						memberAccess[0], "module %q has no member %q", baseName, memberName,
+					))
+				} else {
+					ctx.Diagnostics.Add(diagnostics.Error(err, memberAccess[0]))
+				}
+				return
+			}
+			if memberSym.Kind != symbol.KindFunction {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					funcCalls[0], "cannot call non-function %s.%s", baseName, memberName,
+				))
+				return
+			}
+			fullName := baseName + "." + memberName
+			validateFunctionCall(ctx, memberSym.Type, fullName, funcCalls[0])
+			return
+		}
+
+		// Regular function call
 		if scope.Kind == symbol.KindFunction {
-			validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
+			validateFunctionCall(ctx, scope.Type, baseName, funcCalls[0])
 		} else {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
-				funcCalls[0], "cannot call non-function %s of type %s", funcName, scope.Type,
+				funcCalls[0], "cannot call non-function %s of type %s", baseName, scope.Type,
 			))
 		}
 	}

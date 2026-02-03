@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/runtime/stage"
+	"github.com/synnaxlabs/arc/stdlib"
 	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -300,7 +301,7 @@ func Analyze(
 		aCtx = acontext.CreateRoot(ctx, t.AST, resolver)
 		i    = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
 	)
-	analyzer.AnalyzeProgram(aCtx)
+	analyzer.AnalyzeProgram(aCtx, stdlib.Modules)
 	if !aCtx.Diagnostics.Ok() {
 		return i, aCtx.Diagnostics
 	}

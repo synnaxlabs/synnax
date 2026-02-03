@@ -27,7 +27,7 @@ import (
 func expectOperatorTypeError(code string, typeName, operator string) {
 	ast := MustSucceed(parser.Parse(code))
 	ctx := context.CreateRoot(bCtx, ast, nil)
-	analyzer.AnalyzeProgram(ctx)
+	analyzer.AnalyzeProgram(ctx, nil)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 	Expect(*ctx.Diagnostics).To(HaveLen(1))
 	Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityError))
@@ -598,7 +598,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cannot use str"))
@@ -848,7 +848,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: undefinedVar"))
@@ -865,7 +865,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("name x conflicts with existing symbol"))
@@ -942,7 +942,7 @@ var _ = Describe("Expressions", func() {
 				},
 			}
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
@@ -965,7 +965,7 @@ var _ = Describe("Expressions", func() {
 				},
 			}
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot use i32 and f32 in + operation"))
@@ -985,7 +985,7 @@ var _ = Describe("Expressions", func() {
 				},
 			}
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
@@ -1388,7 +1388,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
@@ -1400,7 +1400,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
@@ -1412,7 +1412,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
@@ -1425,7 +1425,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
@@ -1438,7 +1438,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("literal integer exponent"))
@@ -1453,7 +1453,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("dimensionless"))
@@ -1467,7 +1467,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("literal integer exponent"))
@@ -1481,7 +1481,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("dimensionless"))

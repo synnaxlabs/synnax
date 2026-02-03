@@ -25,7 +25,7 @@ import (
 func analyzeAndExpect(source string) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(source))
 	ctx := context.CreateRoot(bCtx, prog, nil)
-	analyzer.AnalyzeProgram(ctx)
+	analyzer.AnalyzeProgram(ctx, nil)
 	Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 	return ctx
 }
@@ -40,7 +40,7 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, prog, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			diagnostic := (*ctx.Diagnostics)[0]
@@ -213,7 +213,7 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, prog, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: unknownFunc"))
@@ -310,7 +310,7 @@ var _ = Describe("Analyzer Integration", func() {
 				func b() { y := undefined2 }
 			`))
 			ctx := context.CreateRoot(bCtx, prog, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(2))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined1"))
@@ -325,7 +325,7 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, prog, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			// Only the original error - no "undefined x" cascade
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -340,7 +340,7 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, prog, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			// Only the original error - no type mismatch cascade
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -358,7 +358,7 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, prog, nil)
-			analyzer.AnalyzeProgram(ctx)
+			analyzer.AnalyzeProgram(ctx, nil)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(2))
 		})

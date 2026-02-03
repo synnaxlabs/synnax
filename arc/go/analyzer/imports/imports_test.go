@@ -29,7 +29,7 @@ func hasErrors(diag *diagnostics.Diagnostics) bool {
 		return false
 	}
 	for _, d := range *diag {
-		if d.Severity == diagnostics.Error {
+		if d.Severity == diagnostics.SeverityError {
 			return true
 		}
 	}
@@ -41,7 +41,7 @@ func hasWarnings(diag *diagnostics.Diagnostics) bool {
 		return false
 	}
 	for _, d := range *diag {
-		if d.Severity == diagnostics.Warning {
+		if d.Severity == diagnostics.SeverityWarning {
 			return true
 		}
 	}
@@ -157,6 +157,98 @@ func main() f64 {
 			_, diag = text.Analyze(context.Background(), t, nil)
 			Expect(hasErrors(diag)).To(BeFalse())
 			// time is imported but not used
+			Expect(hasWarnings(diag)).To(BeTrue())
+		})
+	})
+
+	Describe("Import Aliases", func() {
+		It("Should allow import with alias", func() {
+			src := `
+import (
+	math as m
+)
+
+func main() f64 {
+	x := m.sqrt(16.0)
+	return x
+}
+`
+			t, diag := text.Parse(text.Text{Raw: src})
+			Expect(diag).To(BeNil())
+			_, diag = text.Analyze(context.Background(), t, nil)
+			Expect(hasErrors(diag)).To(BeFalse())
+			Expect(hasWarnings(diag)).To(BeFalse()) // m is used
+		})
+
+		It("Should reject using original name when alias is provided", func() {
+			src := `
+import (
+	math as m
+)
+
+func main() f64 {
+	x := math.sqrt(16.0)
+	return x
+}
+`
+			t, diag := text.Parse(text.Text{Raw: src})
+			Expect(diag).To(BeNil())
+			_, diag = text.Analyze(context.Background(), t, nil)
+			// math is not defined (only m is), and m is unused
+			Expect(hasErrors(diag)).To(BeTrue())
+		})
+
+		It("Should reject duplicate aliases", func() {
+			src := `
+import (
+	math as m
+	time as m
+)
+
+func main() f64 {
+	return 1.0
+}
+`
+			t, diag := text.Parse(text.Text{Raw: src})
+			Expect(diag).To(BeNil())
+			_, diag = text.Analyze(context.Background(), t, nil)
+			Expect(hasErrors(diag)).To(BeTrue())
+		})
+
+		It("Should reject alias conflicting with non-aliased import", func() {
+			src := `
+import (
+	time
+	math as time
+)
+
+func main() f64 {
+	return 1.0
+}
+`
+			t, diag := text.Parse(text.Text{Raw: src})
+			Expect(diag).To(BeNil())
+			_, diag = text.Analyze(context.Background(), t, nil)
+			Expect(hasErrors(diag)).To(BeTrue())
+		})
+
+		It("Should handle multiple imports with different aliases", func() {
+			src := `
+import (
+	math as m
+	time as t
+)
+
+func main() f64 {
+	x := m.sqrt(16.0)
+	return x
+}
+`
+			t, diag := text.Parse(text.Text{Raw: src})
+			Expect(diag).To(BeNil())
+			_, diag = text.Analyze(context.Background(), t, nil)
+			Expect(hasErrors(diag)).To(BeFalse())
+			// t (time) is imported but not used
 			Expect(hasWarnings(diag)).To(BeTrue())
 		})
 	})

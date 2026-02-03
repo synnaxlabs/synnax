@@ -1,150 +1,211 @@
-# Arc Module System - Next Steps
+# Arc Module System - Implementation Status & Next Steps
 
-## Context
+## Current Status Summary
 
-Branch `sy-3495-arc-modules` implements the front-end of the Arc module system:
-- Grammar for `import ( math time )` syntax
-- Member access expressions like `math.sqrt(x)`
-- Import validation (duplicate/unknown module errors)
-- Unused import warnings
-- Modules as first-class `Symbol` objects with a `Resolver` field
+| Component | Status | Notes |
+|-----------|--------|-------|
+| **Grammar** | ✓ | Complete with imports and aliases |
+| **Parser** | ✓ | Regenerated with import/alias support |
+| **Analyzer** | ✓ | Fully integrated with import analysis |
+| **Stdlib Definitions** | ✓ | math and time modules defined |
+| **Compiler** | 0% | No module call support |
+| **Runtime** | 0% | No stdlib host functions |
 
-**All analyzer tests pass.** The module system works through type-checking.
+## Completed Work
 
-## What's Missing
+### Phase 1: Analyzer Integration ✓
 
-The compiler and runtime don't handle module function calls yet. When you write:
+1. **Fixed imports.go API mismatches:**
+   - Changed `AddError`/`AddWarning` to use `Add(diagnostics.Error(...))`
+   - Changed `ResolvePrefix` to `Search` method
+   - Fixed test file to use `SeverityError`/`SeverityWarning`
 
-```arc
-import ( math )
+2. **Created stdlib module definitions:**
+   - Created `arc/go/stdlib/stdlib.go` with math and time modules
+   - Defined function signatures matching spec
 
-func main() f64 {
-    return math.sqrt(16.0)
+3. **Integrated into AnalyzeProgram:**
+   - Import the imports package in analyzer.go
+   - Call `imports.Analyze()` before declaration collection
+   - Pass stdlib modules map
+
+4. **Added module member access support:**
+   - Updated expression analyzer to handle `math.sqrt(16.0)` style calls
+   - Resolves module symbol, then member via module's Resolver
+   - Validates function call arguments against member's type
+
+5. **All tests pass:** 850+ tests across 49 suites
+
+### Phase 2: Grammar Enhancement ✓
+
+1. **Added alias syntax to grammar:**
+   ```antlr
+   importItem : modulePath (AS IDENTIFIER)?
+   ```
+
+2. **Added AS token to lexer:**
+   ```antlr
+   AS : 'as' ;
+   ```
+
+3. **Regenerated parser** with alias support
+
+4. **Updated imports.go to handle aliases:**
+   - Detects `AS` token and uses alias identifier as qualifier
+   - Original module name not accessible when alias provided
+   - Duplicate alias detection works correctly
+
+5. **Added comprehensive alias tests:**
+   - `import ( math as m )` - use alias to access members
+   - Reject using original name when alias is provided
+   - Reject duplicate aliases
+   - Reject alias conflicting with non-aliased import
+
+## Remaining Work
+
+### Phase 3: Compiler Support (Priority: High)
+
+The compiler needs to:
+
+1. **Detect Module Member Calls** - When compiling a function call, check if the callee is a module member:
+   ```go
+   // In compiler/expression/expression.go
+   // When we see: math.sqrt(x)
+   // 1. Resolve "math" -> symbol with Kind == KindModule
+   // 2. Resolve "sqrt" via module's Resolver
+   // 3. Emit WASM import call instead of local function call
+   ```
+
+2. **Emit WASM Imports** - Add imported functions to the WASM module:
+   ```go
+   // Naming convention: module_function
+   // math.sqrt -> import "env" "math_sqrt"
+   // time.now  -> import "env" "time_now"
+   ```
+
+3. **Track Import Dependencies** - Ensure only used imports are declared in WASM
+
+**Key Files:**
+- `compiler/expression/expression.go` - Expression compilation
+- `compiler/bindings/imports.go` - WASM import declarations
+- `compiler/wasm/module.go` - WASM module structure
+
+### Phase 4: Runtime Implementation (Priority: High)
+
+The C++ runtime needs host functions for all stdlib operations.
+
+**Location:** `arc/cpp/runtime/wasm/bindings.cpp`
+
+**Math Functions (all f64 -> f64):**
+```cpp
+double math_sqrt(double x) { return std::sqrt(x); }
+double math_sin(double x)  { return std::sin(x); }
+double math_cos(double x)  { return std::cos(x); }
+double math_tan(double x)  { return std::tan(x); }
+double math_abs(double x)  { return std::abs(x); }
+double math_floor(double x) { return std::floor(x); }
+double math_ceil(double x)  { return std::ceil(x); }
+double math_pow(double base, double exp) { return std::pow(base, exp); }
+double math_min(double a, double b) { return std::min(a, b); }
+double math_max(double a, double b) { return std::max(a, b); }
+```
+
+**Time Functions:**
+```cpp
+int64_t time_now() {
+    using namespace std::chrono;
+    return duration_cast<nanoseconds>(
+        system_clock::now().time_since_epoch()
+    ).count();
+}
+
+int64_t time_elapsed(int64_t since) {
+    return time_now() - since;
 }
 ```
 
-This parses and type-checks correctly, but compilation will fail or produce incorrect WASM because:
-1. The compiler doesn't recognize `math.sqrt` as a stdlib call
-2. The runtime doesn't provide host functions for math operations
+These need to be registered with Wasmtime in `create_imports()`.
 
-## Task 1: Compiler Support for Module Calls
+### Phase 5: End-to-End Testing (Priority: Medium)
 
-Location: `arc/go/compiler/`
+1. **Create integration tests:**
+   ```arc
+   import ( math )
 
-When compiling a function call expression, check if it's a module member call (e.g., `math.sqrt`). If so, emit a call to an imported host function instead of a local function.
+   func main() f64 {
+       return math.sqrt(16.0)  // Should return 4.0
+   }
+   ```
 
-### Key Files
-- `compiler/expression/expression.go` - Expression compilation
-- `compiler/wasm/wasm.go` - WASM generation
+2. **Test unused import warnings**
+3. **Test unknown module errors**
+4. **Test unknown member errors**
 
-### Approach
-1. In expression compilation, detect when a `postfixExpression` has:
-   - A `primaryExpression` that's an identifier resolving to `KindModule`
-   - A `memberAccess` suffix
-   - A `functionCallSuffix`
+## Spec Compliance Checklist
 
-2. Look up the member in the module's resolver to get its type signature
+| Spec Feature | Grammar | Analyzer | Compiler | Runtime |
+|--------------|---------|----------|----------|---------|
+| `import ( math )` | ✓ | ✓ | ✗ | ✗ |
+| `import ( math as m )` | ✓ | ✓ | ✗ | ✗ |
+| `import ( math.trig )` | ✓ | ✓ | ✗ | ✗ |
+| Module member access | ✓ | ✓ | ✗ | ✗ |
+| Duplicate import error | ✓ | ✓ | N/A | N/A |
+| Unknown module error | ✓ | ✓ | N/A | N/A |
+| Unused import warning | ✓ | ✓ | N/A | N/A |
+| Ambiguous qualifier error | ✓ | ✓ | N/A | N/A |
+| Alias conflict error | ✓ | ✓ | N/A | N/A |
+| Import position error | ✓ | ✓ | N/A | N/A |
+| Unknown member error | ✓ | ✓ | N/A | N/A |
+| `math.sqrt(x)` | ✓ | ✓ | ✗ | ✗ |
+| `time.now()` | ✓ | ✓ | ✗ | ✗ |
+| `len(x)` builtin | N/A | ✓ | ✓ | ✓ |
 
-3. Emit a WASM `call` instruction to an imported function with a naming convention like:
-   - `math.sqrt` → import `"env" "math_sqrt"`
-   - `time.now` → import `"env" "time_now"`
+## Running Tests
 
-4. Ensure the WASM module's import section declares these functions
+```bash
+# Import tests only
+cd arc/go
+ginkgo -v ./analyzer/imports/...
 
-### Reference
-See how the compiler handles regular function calls in `compiler/expression/expression.go` and adapt for external calls.
+# Full test suite
+ginkgo -r
 
-## Task 2: Runtime Host Functions
-
-Location: `arc/cpp/runtime/` (C++ WASM runtime)
-
-The C++ runtime that executes Arc WASM modules needs to provide host functions that implement stdlib operations.
-
-### Key Files
-- `arc/cpp/runtime/wasm/bindings.cpp` - Host function bindings
-- `arc/cpp/runtime/wasm/module.cpp` - WASM module loading
-
-### Functions to Implement
-
-**Math module:**
-```cpp
-// All take f64, return f64
-double math_sqrt(double x);
-double math_pow(double base, double exp);
-double math_abs(double x);
-double math_sin(double x);
-double math_cos(double x);
-double math_tan(double x);
-double math_floor(double x);
-double math_ceil(double x);
-double math_min(double a, double b);
-double math_max(double a, double b);
-```
-
-**Time module:**
-```cpp
-// Returns nanoseconds since epoch
-int64_t time_now();
-// Returns nanoseconds elapsed
-int64_t time_elapsed(int64_t since);
-```
-
-### Approach
-1. Add the host functions to the Wasmtime linker in `bindings.cpp`
-2. Use standard C++ `<cmath>` for math functions
-3. Use `std::chrono` for time functions
-4. Follow the existing pattern for how other host functions are registered
-
-## Task 3: Integration Test
-
-Create an end-to-end test that:
-1. Compiles Arc code using `math.sqrt`
-2. Executes the WASM with the runtime
-3. Verifies the result is correct
-
-Location: `arc/go/text/text_test.go` or create a new integration test file.
-
-## Module Definitions Reference
-
-The stdlib modules are defined in `arc/go/text/text.go` in the `defaultModules()` function:
-
-```go
-"math": symbol.MapResolver{
-    "sqrt": symbol.Symbol{
-        Name: "sqrt",
-        Kind: symbol.KindFunction,
-        Type: types.Function(types.FunctionProperties{
-            Inputs:  types.Params{{Name: "x", Type: types.F64()}},
-            Outputs: types.Params{{Name: "output", Type: types.F64()}},
-        }),
-    },
-    // ... more functions
-},
-"time": symbol.MapResolver{
-    "now": symbol.Symbol{...},
-    "elapsed": symbol.Symbol{...},
-},
+# Specific tests
+ginkgo -r --focus "import"
 ```
 
 ## Architecture Notes
 
 - Modules are `Symbol` objects with `Kind == symbol.KindModule`
 - Module symbols have a `Resolver` field containing their members
-- Member access resolves through: scope.Resolve("math") → symbol.Resolver.Resolve("sqrt")
-- The type system already validates argument types for stdlib calls
+- Member access resolves through: `scope.Resolve("math")` → `symbol.Resolver.Resolve("sqrt")`
+- The type system validates argument types for stdlib calls
+- Aliases work by registering the module under the alias name instead of original name
+- When an alias is used, the original module name is not accessible
 
-## Running Tests
+## Files Modified/Created
 
-```bash
-cd arc/go
-ginkgo -r  # Run all tests
-ginkgo -r --focus "math.sqrt"  # Run specific tests
-```
+### Phase 1
+- `arc/go/symbol/symbol.go` - Fixed duplicate DefaultValue field
+- `arc/go/analyzer/imports/imports.go` - Fixed API mismatches
+- `arc/go/analyzer/imports/imports_test.go` - Fixed type mismatches
+- `arc/go/stdlib/stdlib.go` - **NEW** - Module definitions
+- `arc/go/analyzer/analyzer.go` - Integrated imports.Analyze
+- `arc/go/text/analyze.go` - Pass stdlib modules
+- `arc/go/analyzer/expression/expression.go` - Module member access
+- Multiple test files - Updated AnalyzeProgram calls
 
-## Future Work (Lower Priority)
+### Phase 2
+- `arc/go/parser/ArcLexer.g4` - Added AS token
+- `arc/go/parser/ArcParser.g4` - Added alias syntax
+- `arc/go/parser/*.go` - Regenerated
+- `arc/go/analyzer/imports/imports.go` - Alias handling
+- `arc/go/analyzer/imports/imports_test.go` - Alias tests
 
-After compiler/runtime support:
-- Import aliases: `import ( m = math )`
-- Hierarchical modules: `import ( math.fft )`
+## Future Considerations (Lower Priority)
+
+- Selective imports: `import ( sqrt from math )` - spec says not supported
+- User-defined modules: `module filters { ... }` - spec says not supported
+- Hierarchical modules: `import ( math.trig )`
 - LSP autocomplete for module members
 - Additional stdlib modules (io, string, etc.)

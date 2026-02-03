@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
@@ -21,6 +12,15 @@ type ArcParserListener interface {
 
 	// EnterTopLevelItem is called when entering the topLevelItem production.
 	EnterTopLevelItem(c *TopLevelItemContext)
+
+	// EnterImportBlock is called when entering the importBlock production.
+	EnterImportBlock(c *ImportBlockContext)
+
+	// EnterImportItem is called when entering the importItem production.
+	EnterImportItem(c *ImportItemContext)
+
+	// EnterModulePath is called when entering the modulePath production.
+	EnterModulePath(c *ModulePathContext)
 
 	// EnterFunctionDeclaration is called when entering the functionDeclaration production.
 	EnterFunctionDeclaration(c *FunctionDeclarationContext)
@@ -190,6 +190,9 @@ type ArcParserListener interface {
 	// EnterPostfixExpression is called when entering the postfixExpression production.
 	EnterPostfixExpression(c *PostfixExpressionContext)
 
+	// EnterMemberAccess is called when entering the memberAccess production.
+	EnterMemberAccess(c *MemberAccessContext)
+
 	// EnterIndexOrSlice is called when entering the indexOrSlice production.
 	EnterIndexOrSlice(c *IndexOrSliceContext)
 
@@ -219,6 +222,15 @@ type ArcParserListener interface {
 
 	// ExitTopLevelItem is called when exiting the topLevelItem production.
 	ExitTopLevelItem(c *TopLevelItemContext)
+
+	// ExitImportBlock is called when exiting the importBlock production.
+	ExitImportBlock(c *ImportBlockContext)
+
+	// ExitImportItem is called when exiting the importItem production.
+	ExitImportItem(c *ImportItemContext)
+
+	// ExitModulePath is called when exiting the modulePath production.
+	ExitModulePath(c *ModulePathContext)
 
 	// ExitFunctionDeclaration is called when exiting the functionDeclaration production.
 	ExitFunctionDeclaration(c *FunctionDeclarationContext)
@@ -387,6 +399,9 @@ type ArcParserListener interface {
 
 	// ExitPostfixExpression is called when exiting the postfixExpression production.
 	ExitPostfixExpression(c *PostfixExpressionContext)
+
+	// ExitMemberAccess is called when exiting the memberAccess production.
+	ExitMemberAccess(c *MemberAccessContext)
 
 	// ExitIndexOrSlice is called when exiting the indexOrSlice production.
 	ExitIndexOrSlice(c *IndexOrSliceContext)
