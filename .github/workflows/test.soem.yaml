@@ -37,4 +37,4 @@ jobs:
           repository-cache: false
 
       - name: Test
-        run: bazel test --test_output=all //vendor/soem/...
+        run: bazel test --test_output=all //vendor/soem:all

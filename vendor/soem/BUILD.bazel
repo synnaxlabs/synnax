@@ -3,9 +3,6 @@
 #
 # This builds SOEM (Simple Open EtherCAT Master) from source for Linux, macOS,
 # and Windows. Platform-specific OSAL and OSHW layers are selected via Bazel.
-#
-# macOS platform files have their own BUILD.bazel files in macos/osal and
-# macos/oshw subdirectories.
 ###############################################################################
 
 # Core SOEM sources (platform-independent)
@@ -23,26 +20,6 @@ SOEM_CORE_SRCS = [
 
 # Core SOEM headers
 SOEM_HDRS = glob(["SOEM/include/soem/*.h"])
-
-# Header-only target for OSAL interface (used by platform implementations)
-cc_library(
-    name = "osal_header",
-    hdrs = ["SOEM/osal/osal.h"],
-    includes = ["SOEM/osal"],
-    visibility = ["//vendor/soem:__subpackages__"],
-)
-
-# Header-only target for SOEM core headers (used by OSHW implementations)
-cc_library(
-    name = "soem_headers",
-    hdrs = SOEM_HDRS + [":generate_ec_options_h"],
-    includes = [
-        ".",
-        "SOEM/include",
-    ],
-    visibility = ["//vendor/soem:__subpackages__"],
-    deps = [":osal_header"],
-)
 
 # Linux OSAL + OSHW
 LINUX_OSAL_SRCS = ["SOEM/osal/linux/osal.c"]
@@ -71,6 +48,20 @@ WIN32_PLATFORM_HDRS = [
     "SOEM/oshw/win32/nicdrv.h",
     "SOEM/oshw/win32/oshw.h",
 ] + glob(["SOEM/oshw/win32/wpcap/Include/**/*.h"])
+
+# macOS OSAL + OSHW (custom platform files using pcap)
+MACOS_OSAL_SRCS = ["macos/osal/osal.c"]
+
+MACOS_OSHW_SRCS = [
+    "macos/oshw/nicdrv.c",
+    "macos/oshw/oshw.c",
+]
+
+MACOS_PLATFORM_HDRS = [
+    "macos/osal/osal_defs.h",
+    "macos/oshw/nicdrv.h",
+    "macos/oshw/oshw.h",
+]
 
 # Generate ec_options.h with complete configuration
 genrule(
@@ -254,4 +245,42 @@ cc_library(
         ],
     }),
     visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "osal_test",
+    srcs = select({
+        "@platforms//os:macos": ["macos/osal/osal_test.cpp"],
+        "//conditions:default": [],
+    }),
+    target_compatible_with = select({
+        "@platforms//os:macos": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = select({
+        "@platforms//os:macos": [
+            ":soem",
+            "@googletest//:gtest_main",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_test(
+    name = "oshw_test",
+    srcs = select({
+        "@platforms//os:macos": ["macos/oshw/oshw_test.cpp"],
+        "//conditions:default": [],
+    }),
+    target_compatible_with = select({
+        "@platforms//os:macos": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = select({
+        "@platforms//os:macos": [
+            ":soem",
+            "@googletest//:gtest_main",
+        ],
+        "//conditions:default": [],
+    }),
 )

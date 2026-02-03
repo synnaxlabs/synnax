@@ -10,8 +10,11 @@
 extern "C" {
 #endif
 
-#include "nicdrv.h"
+// clang-format off
+// Order matters: soem.h defines types used by nicdrv.h
 #include "soem/soem.h"
+#include "nicdrv.h"
+// clang-format on
 
 uint16 oshw_htons(uint16 hostshort);
 uint16 oshw_ntohs(uint16 networkshort);
