@@ -100,10 +100,13 @@ public:
             return;
         }
         while (this->breaker.running()) {
-            this->loop->wait(this->breaker);
+            const auto wake_reason = this->loop->wait(this->breaker);
+            const bool is_timer = (wake_reason == loop::WakeReason::Timer);
             telem::Frame frame;
             bool first = true;
             while (this->inputs.try_pop(frame) || first) {
+                const auto reason = (first && is_timer) ? node::RunReason::TimerTick
+                                                        : node::RunReason::ChannelInput;
                 first = false;
                 this->state->ingest(frame);
                 const auto now_steady = std::chrono::steady_clock::now();
@@ -113,7 +116,7 @@ public:
                     )
                         .count()
                 );
-                this->scheduler->next(elapsed);
+                this->scheduler->next(elapsed, reason);
                 if (auto writes = this->state->flush(); !writes.empty()) {
                     telem::Frame out_frame(writes.size());
                     for (auto &[key, series]: writes)

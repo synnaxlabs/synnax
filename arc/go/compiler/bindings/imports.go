@@ -335,14 +335,14 @@ func setupStateOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 	// Load state (with initialization value)
 	funcName := fmt.Sprintf("state_load_%s", t)
 	idx.StateLoad[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType}, // func ID, var ID, init value
+		Params:  []wasm.ValueType{wasm.I32, wasmType}, // var ID, init value
 		Results: []wasm.ValueType{wasmType},
 	})
 
 	// Store state
 	funcName = fmt.Sprintf("state_store_%s", t)
 	idx.StateStore[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType}, // func ID, var ID, value
+		Params:  []wasm.ValueType{wasm.I32, wasmType}, // var ID, value
 		Results: []wasm.ValueType{},
 	})
 }
@@ -353,14 +353,14 @@ func setupSeriesStateOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 	// Load series state (with initialization handle)
 	funcName := fmt.Sprintf("state_load_series_%s", t)
 	idx.StateLoadSeries[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasm.I32}, // func ID, var ID, init handle
-		Results: []wasm.ValueType{wasm.I32},                     // result handle
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // var ID, init handle
+		Results: []wasm.ValueType{wasm.I32},           // result handle
 	})
 
 	// Store series state
 	funcName = fmt.Sprintf("state_store_series_%s", t)
 	idx.StateStoreSeries[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasm.I32}, // func ID, var ID, handle
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // var ID, handle
 		Results: []wasm.ValueType{},
 	})
 }
