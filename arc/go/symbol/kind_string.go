@@ -28,11 +28,12 @@ func _() {
 	_ = x[KindSequence-8]
 	_ = x[KindStage-9]
 	_ = x[KindConstant-10]
+	_ = x[KindGlobalConstant-11]
 }
 
-const _Kind_name = "KindVariableKindStatefulVariableKindChannelKindFunctionKindBlockKindConfigKindInputKindOutputKindSequenceKindStageKindConstant"
+const _Kind_name = "KindVariableKindStatefulVariableKindChannelKindFunctionKindBlockKindConfigKindInputKindOutputKindSequenceKindStageKindConstantKindGlobalConstant"
 
-var _Kind_index = [...]uint8{0, 12, 32, 43, 55, 64, 74, 83, 93, 105, 114, 126}
+var _Kind_index = [...]uint8{0, 12, 32, 43, 55, 64, 74, 83, 93, 105, 114, 126, 144}
 
 func (i Kind) String() string {
 	idx := int(i) - 0

@@ -242,7 +242,7 @@ func analyzeFunctionNode(
 		Inputs:   slices.Clone(sym.Type.Inputs),
 	}
 	var ok bool
-	n.Config, ok = extractConfigValues(acontext.Child(ctx, ctx.AST.ConfigValues()), n.Config, n)
+	n.Config, ok = extractConfigValues(acontext.Child(ctx, ctx.AST.ConfigValues()), n.Config, n, sym)
 	if !ok {
 		return nodeResult{}, false
 	}
@@ -534,6 +534,7 @@ func extractConfigValues(
 	ctx acontext.Context[parser.IConfigValuesContext],
 	config types.Params,
 	node ir.Node,
+	fnSym *symbol.Scope,
 ) (types.Params, bool) {
 	if ctx.AST == nil {
 		return config, true
@@ -552,14 +553,27 @@ func extractConfigValues(
 				return nil, false
 			}
 			channelKey := uint32(sym.ID)
-			node.Channels.Read[channelKey] = sym.Name
+			node.Channels.ResolveConfigChannel(fnSym, paramName, channelKey, sym.Name)
 			return channelKey, true
+		}
+
+		if primary := parser.GetPrimaryExpression(expr); primary != nil {
+			if id := primary.IDENTIFIER(); id != nil {
+				sym, err := ctx.Scope.Resolve(ctx, id.GetText())
+				if err != nil {
+					ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+					return nil, false
+				}
+				if sym.Kind == symbol.KindGlobalConstant {
+					return sym.DefaultValue, true
+				}
+			}
 		}
 
 		if !parser.IsLiteral(expr) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				expr,
-				"config value for '%s' must be a literal",
+				"config value for '%s' must be a literal or global constant",
 				paramName,
 			))
 			return nil, false

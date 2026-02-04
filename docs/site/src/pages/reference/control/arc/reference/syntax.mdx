@@ -138,9 +138,29 @@ empty series f64 := []
 
 ## Variables
 
+### Constants
+
+Top-level declarations are compile-time constants. Use them for configuration values and
+to avoid magic numbers.
+
+```arc
+MAX_PRESSURE := 500.0       // f64 constant
+SAMPLE_COUNT := 100         // i64 constant
+TIMEOUT := 30s              // with unit suffix
+SCALE f32 := 2.5            // explicit type
+```
+
+Constants can be used in expressions and function config parameters:
+
+```arc
+pressure > MAX_PRESSURE -> alarm{}
+
+sensor -> scale{gain=SCALE, offset=0.1} -> output
+```
+
 ### Local Variables
 
-Local variables are declared with `:=` and reset each function invocation.
+Local variables are declared with `:=` inside functions and reset each invocation.
 
 ```arc
 x := 42                  // type inferred as i64

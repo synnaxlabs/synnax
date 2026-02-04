@@ -185,6 +185,269 @@ var _ = Describe("Identifier Compilation", func() {
 		})
 	})
 
+	Context("Global Constants", func() {
+		It("Should compile i32 global constant", func() {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name:         "MAX",
+				Kind:         symbol.KindGlobalConstant,
+				Type:         types.I32(),
+				DefaultValue: int32(100),
+			}))
+			bytecode, exprType := compileWithCtx(ctx, "MAX")
+			Expect(bytecode).To(MatchOpcodes(OpI32Const, int32(100)))
+			Expect(exprType).To(Equal(types.I32()))
+		})
+
+		It("Should compile i64 global constant", func() {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name:         "LIMIT",
+				Kind:         symbol.KindGlobalConstant,
+				Type:         types.I64(),
+				DefaultValue: int64(999999),
+			}))
+			bytecode, exprType := compileWithCtx(ctx, "LIMIT")
+			Expect(bytecode).To(MatchOpcodes(OpI64Const, int64(999999)))
+			Expect(exprType).To(Equal(types.I64()))
+		})
+
+		It("Should compile f32 global constant", func() {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name:         "RATE",
+				Kind:         symbol.KindGlobalConstant,
+				Type:         types.F32(),
+				DefaultValue: float32(3.14),
+			}))
+			bytecode, exprType := compileWithCtx(ctx, "RATE")
+			Expect(bytecode).To(MatchOpcodes(OpF32Const, float32(3.14)))
+			Expect(exprType).To(Equal(types.F32()))
+		})
+
+		It("Should compile f64 global constant", func() {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name:         "PI",
+				Kind:         symbol.KindGlobalConstant,
+				Type:         types.F64(),
+				DefaultValue: float64(3.14159265359),
+			}))
+			bytecode, exprType := compileWithCtx(ctx, "PI")
+			Expect(bytecode).To(MatchOpcodes(OpF64Const, float64(3.14159265359)))
+			Expect(exprType).To(Equal(types.F64()))
+		})
+
+		It("Should compile global constant in binary expression", func() {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name:         "OFFSET",
+				Kind:         symbol.KindGlobalConstant,
+				Type:         types.I64(),
+				DefaultValue: int64(10),
+			}))
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindVariable,
+				Type: types.I64(),
+			}))
+			bytecode, exprType := compileWithCtx(ctx, "x + OFFSET")
+			Expect(bytecode).To(MatchOpcodes(
+				OpLocalGet, 0,
+				OpI64Const, int64(10),
+				OpI64Add,
+			))
+			Expect(exprType).To(Equal(types.I64()))
+		})
+
+		It("Should compile multiple global constants in expression", func() {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name:         "A",
+				Kind:         symbol.KindGlobalConstant,
+				Type:         types.I64(),
+				DefaultValue: int64(5),
+			}))
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name:         "B",
+				Kind:         symbol.KindGlobalConstant,
+				Type:         types.I64(),
+				DefaultValue: int64(3),
+			}))
+			bytecode, exprType := compileWithCtx(ctx, "A * B")
+			Expect(bytecode).To(MatchOpcodes(
+				OpI64Const, int64(5),
+				OpI64Const, int64(3),
+				OpI64Mul,
+			))
+			Expect(exprType).To(Equal(types.I64()))
+		})
+
+		It("Should compile global constant in comparison", func() {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name:         "THRESHOLD",
+				Kind:         symbol.KindGlobalConstant,
+				Type:         types.I64(),
+				DefaultValue: int64(100),
+			}))
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "value",
+				Kind: symbol.KindVariable,
+				Type: types.I64(),
+			}))
+			bytecode, exprType := compileWithCtx(ctx, "value > THRESHOLD")
+			Expect(bytecode).To(MatchOpcodes(
+				OpLocalGet, 0,
+				OpI64Const, int64(100),
+				OpI64GtS,
+			))
+			Expect(exprType).To(Equal(types.U8()))
+		})
+	})
+
+	Context("Stateful Variables", func() {
+		It("Should compile i32 stateful variable load", func() {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "counter",
+				Kind: symbol.KindStatefulVariable,
+				Type: types.I32(),
+			}))
+			bytecode, exprType := compileWithCtx(ctx, "counter")
+			i := ctx.Imports.StateLoad["i32"]
+			Expect(bytecode).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpCall, uint64(i),
+			))
+			Expect(exprType).To(Equal(types.I32()))
+		})
+
+		It("Should compile i64 stateful variable load", func() {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "total",
+				Kind: symbol.KindStatefulVariable,
+				Type: types.I64(),
+			}))
+			bytecode, exprType := compileWithCtx(ctx, "total")
+			i := ctx.Imports.StateLoad["i64"]
+			Expect(bytecode).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpI64Const, int64(0),
+				OpCall, uint64(i),
+			))
+			Expect(exprType).To(Equal(types.I64()))
+		})
+
+		It("Should compile f32 stateful variable load", func() {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "rate",
+				Kind: symbol.KindStatefulVariable,
+				Type: types.F32(),
+			}))
+			bytecode, exprType := compileWithCtx(ctx, "rate")
+			i := ctx.Imports.StateLoad["f32"]
+			Expect(bytecode).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpF32Const, float32(0),
+				OpCall, uint64(i),
+			))
+			Expect(exprType).To(Equal(types.F32()))
+		})
+
+		It("Should compile f64 stateful variable load", func() {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "accumulator",
+				Kind: symbol.KindStatefulVariable,
+				Type: types.F64(),
+			}))
+			bytecode, exprType := compileWithCtx(ctx, "accumulator")
+			i := ctx.Imports.StateLoad["f64"]
+			Expect(bytecode).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpF64Const, float64(0),
+				OpCall, uint64(i),
+			))
+			Expect(exprType).To(Equal(types.F64()))
+		})
+
+		It("Should compile stateful variable in binary expression", func() {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "count",
+				Kind: symbol.KindStatefulVariable,
+				Type: types.I64(),
+			}))
+			bytecode, exprType := compileWithCtx(ctx, "count + 1")
+			i := ctx.Imports.StateLoad["i64"]
+			Expect(bytecode).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpI64Const, int64(0),
+				OpCall, uint64(i),
+				OpI64Const, int64(1),
+				OpI64Add,
+			))
+			Expect(exprType).To(Equal(types.I64()))
+		})
+
+		It("Should compile multiple stateful variables with correct IDs", func() {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "first",
+				Kind: symbol.KindStatefulVariable,
+				Type: types.I64(),
+			}))
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "second",
+				Kind: symbol.KindStatefulVariable,
+				Type: types.I64(),
+			}))
+			bytecode, exprType := compileWithCtx(ctx, "first + second")
+			i := ctx.Imports.StateLoad["i64"]
+			Expect(bytecode).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpI64Const, int64(0),
+				OpCall, uint64(i),
+				OpI32Const, int32(0),
+				OpI32Const, int32(1),
+				OpI64Const, int64(0),
+				OpCall, uint64(i),
+				OpI64Add,
+			))
+			Expect(exprType).To(Equal(types.I64()))
+		})
+
+		It("Should compile stateful variable in comparison", func() {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "iterations",
+				Kind: symbol.KindStatefulVariable,
+				Type: types.I64(),
+			}))
+			bytecode, exprType := compileWithCtx(ctx, "iterations > 10")
+			i := ctx.Imports.StateLoad["i64"]
+			Expect(bytecode).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpI64Const, int64(0),
+				OpCall, uint64(i),
+				OpI64Const, int64(10),
+				OpI64GtS,
+			))
+			Expect(exprType).To(Equal(types.U8()))
+		})
+	})
+
 	Context("User-Defined Function Calls", func() {
 		It("Should compile a simple function call with no arguments", func() {
 			ctx := NewContext(bCtx)
