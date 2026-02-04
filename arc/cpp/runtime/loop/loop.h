@@ -88,6 +88,18 @@ enum class ExecutionMode {
     EVENT_DRIVEN,
 };
 
+/// @brief Indicates what caused the loop to wake from wait().
+enum class WakeReason {
+    /// @brief Timer interval expired.
+    Timer,
+    /// @brief External input/notifier signaled.
+    Input,
+    /// @brief Wait timed out (no specific event).
+    Timeout,
+    /// @brief Breaker stopped or wake() called.
+    Shutdown,
+};
+
 inline std::ostream &operator<<(std::ostream &os, ExecutionMode mode) {
     switch (mode) {
         case ExecutionMode::AUTO:
@@ -238,7 +250,8 @@ struct Loop {
     /// @brief Block until timer/external event or breaker stops.
     /// Must be called from the runtime thread only.
     /// @param breaker Controls loop termination; wait() returns when breaker stops.
-    virtual void wait(breaker::Breaker &breaker) = 0;
+    /// @return WakeReason indicating why wait() returned.
+    virtual WakeReason wait(breaker::Breaker &breaker) = 0;
 
     /// @brief Initialize loop resources. Must be called before wait().
     /// Applies RT configuration (priority, affinity, memory lock) if configured.

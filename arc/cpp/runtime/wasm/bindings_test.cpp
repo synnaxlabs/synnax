@@ -508,18 +508,18 @@ TEST_F(BindingsTest, StateLoadStoreSeriesF64) {
     bindings->series_set_element_f64(h1, 2, 3.0);
 
     // First load returns init_handle since nothing stored yet
-    const uint32_t loaded1 = bindings->state_load_series_f64(1, 1, h1);
+    const uint32_t loaded1 = bindings->state_load_series_f64(1, h1);
     EXPECT_EQ(loaded1, h1);
 
     // Store the series
-    bindings->state_store_series_f64(1, 1, h1);
+    bindings->state_store_series_f64(1, h1);
 
     // Create a different series as init value
     const uint32_t h2 = bindings->series_create_empty_f64(1);
     bindings->series_set_element_f64(h2, 0, 999.0);
 
     // Load should return stored series, not init
-    const uint32_t loaded2 = bindings->state_load_series_f64(1, 1, h2);
+    const uint32_t loaded2 = bindings->state_load_series_f64(1, h2);
     EXPECT_NE(loaded2, h2); // Should not be init value
     EXPECT_EQ(bindings->series_len(loaded2), 3);
     EXPECT_DOUBLE_EQ(bindings->series_index_f64(loaded2, 0), 1.0);
@@ -532,10 +532,10 @@ TEST_F(BindingsTest, StateLoadStoreSeriesI32) {
     bindings->series_set_element_i32(h1, 0, 42);
     bindings->series_set_element_i32(h1, 1, -42);
 
-    bindings->state_store_series_i32(2, 2, h1);
+    bindings->state_store_series_i32(2, h1);
 
     const uint32_t dummy = bindings->series_create_empty_i32(1);
-    const uint32_t loaded = bindings->state_load_series_i32(2, 2, dummy);
+    const uint32_t loaded = bindings->state_load_series_i32(2, dummy);
 
     EXPECT_EQ(bindings->series_len(loaded), 2);
     EXPECT_EQ(bindings->series_index_i32(loaded, 0), 42);
@@ -1016,14 +1016,14 @@ TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulSeries) {
     const uint32_t h1 = bindings->series_create_empty_f64(2);
     bindings->series_set_element_f64(h1, 0, 100.0);
     bindings->series_set_element_f64(h1, 1, 200.0);
-    bindings->state_store_series_f64(1, 1, h1);
+    bindings->state_store_series_f64(1, h1);
 
     state->flush();
 
     EXPECT_EQ(bindings->series_len(h1), 0);
 
     const uint32_t dummy = bindings->series_create_empty_f64(1);
-    const uint32_t loaded = bindings->state_load_series_f64(1, 1, dummy);
+    const uint32_t loaded = bindings->state_load_series_f64(1, dummy);
 
     EXPECT_EQ(bindings->series_len(loaded), 2);
     EXPECT_DOUBLE_EQ(bindings->series_index_f64(loaded, 0), 100.0);
@@ -1032,28 +1032,260 @@ TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulSeries) {
 
 TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulStrings) {
     const uint32_t h1 = bindings->string_create("persistent");
-    bindings->state_store_str(2, 2, h1);
+    bindings->state_store_str(2, h1);
 
     state->flush();
 
     EXPECT_EQ(bindings->string_get(h1), "");
 
     const uint32_t dummy = bindings->string_create("dummy");
-    const uint32_t loaded = bindings->state_load_str(2, 2, dummy);
+    const uint32_t loaded = bindings->state_load_str(2, dummy);
 
     EXPECT_EQ(bindings->string_get(loaded), "persistent");
 }
 
 TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulPrimitives) {
-    bindings->state_store_f64(1, 1, 3.14159);
-    bindings->state_store_i32(1, 2, -42);
-    bindings->state_store_u64(1, 3, 9999999999ULL);
+    bindings->state_store_f64(1, 3.14159);
+    bindings->state_store_i32(2, -42);
+    bindings->state_store_u64(3, 9999999999ULL);
 
     state->flush();
 
-    EXPECT_DOUBLE_EQ(bindings->state_load_f64(1, 1, 0.0), 3.14159);
-    EXPECT_EQ(bindings->state_load_i32(1, 2, 0), -42);
-    EXPECT_EQ(bindings->state_load_u64(1, 3, 0), 9999999999ULL);
+    EXPECT_DOUBLE_EQ(bindings->state_load_f64(1, 0.0), 3.14159);
+    EXPECT_EQ(bindings->state_load_i32(2, 0), -42);
+    EXPECT_EQ(bindings->state_load_u64(3, 0), 9999999999ULL);
+}
+
+TEST_F(BindingsTest, StateLoadStoreU8) {
+    EXPECT_EQ(bindings->state_load_u8(1, 100), 100);
+    bindings->state_store_u8(1, 255);
+    EXPECT_EQ(bindings->state_load_u8(1, 0), 255);
+}
+
+TEST_F(BindingsTest, StateLoadStoreU16) {
+    EXPECT_EQ(bindings->state_load_u16(1, 1000), 1000);
+    bindings->state_store_u16(1, 65535);
+    EXPECT_EQ(bindings->state_load_u16(1, 0), 65535);
+}
+
+TEST_F(BindingsTest, StateLoadStoreU32) {
+    EXPECT_EQ(bindings->state_load_u32(1, 50000), 50000);
+    bindings->state_store_u32(1, 4294967295U);
+    EXPECT_EQ(bindings->state_load_u32(1, 0), 4294967295U);
+}
+
+TEST_F(BindingsTest, StateLoadStoreI8) {
+    EXPECT_EQ(bindings->state_load_i8(1, 50), 50);
+    bindings->state_store_i8(1, -128);
+    EXPECT_EQ(bindings->state_load_i8(1, 0), -128);
+}
+
+TEST_F(BindingsTest, StateLoadStoreI16) {
+    EXPECT_EQ(bindings->state_load_i16(1, 1000), 1000);
+    bindings->state_store_i16(1, -32768);
+    EXPECT_EQ(bindings->state_load_i16(1, 0), -32768);
+}
+
+TEST_F(BindingsTest, StateLoadStoreI64) {
+    EXPECT_EQ(bindings->state_load_i64(1, 1000000), 1000000);
+    bindings->state_store_i64(1, -9223372036854775807LL);
+    EXPECT_EQ(bindings->state_load_i64(1, 0), -9223372036854775807LL);
+}
+
+TEST_F(BindingsTest, StateLoadStoreF32) {
+    EXPECT_FLOAT_EQ(bindings->state_load_f32(1, 1.5f), 1.5f);
+    bindings->state_store_f32(1, 3.14159f);
+    EXPECT_FLOAT_EQ(bindings->state_load_f32(1, 0.0f), 3.14159f);
+}
+
+TEST_F(BindingsTest, StateLoadStoreSeriesU8) {
+    const uint32_t h1 = bindings->series_create_empty_u8(3);
+    bindings->series_set_element_u8(h1, 0, 100);
+    bindings->series_set_element_u8(h1, 1, 200);
+    bindings->series_set_element_u8(h1, 2, 255);
+    bindings->state_store_series_u8(1, h1);
+
+    const uint32_t dummy = bindings->series_create_empty_u8(1);
+    const uint32_t loaded = bindings->state_load_series_u8(1, dummy);
+
+    EXPECT_EQ(bindings->series_len(loaded), 3);
+    EXPECT_EQ(bindings->series_index_u8(loaded, 0), 100);
+    EXPECT_EQ(bindings->series_index_u8(loaded, 1), 200);
+    EXPECT_EQ(bindings->series_index_u8(loaded, 2), 255);
+}
+
+TEST_F(BindingsTest, StateLoadStoreSeriesU16) {
+    const uint32_t h1 = bindings->series_create_empty_u16(3);
+    bindings->series_set_element_u16(h1, 0, 1000);
+    bindings->series_set_element_u16(h1, 1, 30000);
+    bindings->series_set_element_u16(h1, 2, 65535);
+    bindings->state_store_series_u16(1, h1);
+
+    const uint32_t dummy = bindings->series_create_empty_u16(1);
+    const uint32_t loaded = bindings->state_load_series_u16(1, dummy);
+
+    EXPECT_EQ(bindings->series_len(loaded), 3);
+    EXPECT_EQ(bindings->series_index_u16(loaded, 0), 1000);
+    EXPECT_EQ(bindings->series_index_u16(loaded, 1), 30000);
+    EXPECT_EQ(bindings->series_index_u16(loaded, 2), 65535);
+}
+
+TEST_F(BindingsTest, StateLoadStoreSeriesU32) {
+    const uint32_t h1 = bindings->series_create_empty_u32(3);
+    bindings->series_set_element_u32(h1, 0, 100000);
+    bindings->series_set_element_u32(h1, 1, 2000000);
+    bindings->series_set_element_u32(h1, 2, 4294967295U);
+    bindings->state_store_series_u32(1, h1);
+
+    const uint32_t dummy = bindings->series_create_empty_u32(1);
+    const uint32_t loaded = bindings->state_load_series_u32(1, dummy);
+
+    EXPECT_EQ(bindings->series_len(loaded), 3);
+    EXPECT_EQ(bindings->series_index_u32(loaded, 0), 100000);
+    EXPECT_EQ(bindings->series_index_u32(loaded, 1), 2000000);
+    EXPECT_EQ(bindings->series_index_u32(loaded, 2), 4294967295U);
+}
+
+TEST_F(BindingsTest, StateLoadStoreSeriesU64) {
+    const uint32_t h1 = bindings->series_create_empty_u64(3);
+    bindings->series_set_element_u64(h1, 0, 1000000000ULL);
+    bindings->series_set_element_u64(h1, 1, 5000000000ULL);
+    bindings->series_set_element_u64(h1, 2, 18446744073709551615ULL);
+    bindings->state_store_series_u64(1, h1);
+
+    const uint32_t dummy = bindings->series_create_empty_u64(1);
+    const uint32_t loaded = bindings->state_load_series_u64(1, dummy);
+
+    EXPECT_EQ(bindings->series_len(loaded), 3);
+    EXPECT_EQ(bindings->series_index_u64(loaded, 0), 1000000000ULL);
+    EXPECT_EQ(bindings->series_index_u64(loaded, 1), 5000000000ULL);
+    EXPECT_EQ(bindings->series_index_u64(loaded, 2), 18446744073709551615ULL);
+}
+
+TEST_F(BindingsTest, StateLoadStoreSeriesI8) {
+    const uint32_t h1 = bindings->series_create_empty_i8(3);
+    bindings->series_set_element_i8(h1, 0, -128);
+    bindings->series_set_element_i8(h1, 1, 0);
+    bindings->series_set_element_i8(h1, 2, 127);
+    bindings->state_store_series_i8(1, h1);
+
+    const uint32_t dummy = bindings->series_create_empty_i8(1);
+    const uint32_t loaded = bindings->state_load_series_i8(1, dummy);
+
+    EXPECT_EQ(bindings->series_len(loaded), 3);
+    EXPECT_EQ(bindings->series_index_i8(loaded, 0), -128);
+    EXPECT_EQ(bindings->series_index_i8(loaded, 1), 0);
+    EXPECT_EQ(bindings->series_index_i8(loaded, 2), 127);
+}
+
+TEST_F(BindingsTest, StateLoadStoreSeriesI16) {
+    const uint32_t h1 = bindings->series_create_empty_i16(3);
+    bindings->series_set_element_i16(h1, 0, -32768);
+    bindings->series_set_element_i16(h1, 1, 0);
+    bindings->series_set_element_i16(h1, 2, 32767);
+    bindings->state_store_series_i16(1, h1);
+
+    const uint32_t dummy = bindings->series_create_empty_i16(1);
+    const uint32_t loaded = bindings->state_load_series_i16(1, dummy);
+
+    EXPECT_EQ(bindings->series_len(loaded), 3);
+    EXPECT_EQ(bindings->series_index_i16(loaded, 0), -32768);
+    EXPECT_EQ(bindings->series_index_i16(loaded, 1), 0);
+    EXPECT_EQ(bindings->series_index_i16(loaded, 2), 32767);
+}
+
+TEST_F(BindingsTest, StateLoadStoreSeriesI64) {
+    const uint32_t h1 = bindings->series_create_empty_i64(3);
+    bindings->series_set_element_i64(h1, 0, -9223372036854775807LL);
+    bindings->series_set_element_i64(h1, 1, 0);
+    bindings->series_set_element_i64(h1, 2, 9223372036854775807LL);
+    bindings->state_store_series_i64(1, h1);
+
+    const uint32_t dummy = bindings->series_create_empty_i64(1);
+    const uint32_t loaded = bindings->state_load_series_i64(1, dummy);
+
+    EXPECT_EQ(bindings->series_len(loaded), 3);
+    EXPECT_EQ(bindings->series_index_i64(loaded, 0), -9223372036854775807LL);
+    EXPECT_EQ(bindings->series_index_i64(loaded, 1), 0);
+    EXPECT_EQ(bindings->series_index_i64(loaded, 2), 9223372036854775807LL);
+}
+
+TEST_F(BindingsTest, StateLoadStoreSeriesF32) {
+    const uint32_t h1 = bindings->series_create_empty_f32(3);
+    bindings->series_set_element_f32(h1, 0, -3.14159f);
+    bindings->series_set_element_f32(h1, 1, 0.0f);
+    bindings->series_set_element_f32(h1, 2, 2.71828f);
+    bindings->state_store_series_f32(1, h1);
+
+    const uint32_t dummy = bindings->series_create_empty_f32(1);
+    const uint32_t loaded = bindings->state_load_series_f32(1, dummy);
+
+    EXPECT_EQ(bindings->series_len(loaded), 3);
+    EXPECT_FLOAT_EQ(bindings->series_index_f32(loaded, 0), -3.14159f);
+    EXPECT_FLOAT_EQ(bindings->series_index_f32(loaded, 1), 0.0f);
+    EXPECT_FLOAT_EQ(bindings->series_index_f32(loaded, 2), 2.71828f);
+}
+
+TEST_F(BindingsTest, NodeKeyIsolatesPrimitiveState) {
+    state->set_current_node_key("node_a");
+    bindings->state_store_f64(1, 100.0);
+
+    state->set_current_node_key("node_b");
+    bindings->state_store_f64(1, 200.0);
+
+    state->set_current_node_key("node_a");
+    EXPECT_DOUBLE_EQ(bindings->state_load_f64(1, 0.0), 100.0);
+
+    state->set_current_node_key("node_b");
+    EXPECT_DOUBLE_EQ(bindings->state_load_f64(1, 0.0), 200.0);
+}
+
+TEST_F(BindingsTest, NodeKeyIsolatesSeriesState) {
+    state->set_current_node_key("node_a");
+    const uint32_t ha = bindings->series_create_empty_f64(2);
+    bindings->series_set_element_f64(ha, 0, 1.0);
+    bindings->series_set_element_f64(ha, 1, 2.0);
+    bindings->state_store_series_f64(1, ha);
+
+    state->set_current_node_key("node_b");
+    const uint32_t hb = bindings->series_create_empty_f64(3);
+    bindings->series_set_element_f64(hb, 0, 10.0);
+    bindings->series_set_element_f64(hb, 1, 20.0);
+    bindings->series_set_element_f64(hb, 2, 30.0);
+    bindings->state_store_series_f64(1, hb);
+
+    state->set_current_node_key("node_a");
+    const uint32_t dummy = bindings->series_create_empty_f64(1);
+    const uint32_t loaded_a = bindings->state_load_series_f64(1, dummy);
+    EXPECT_EQ(bindings->series_len(loaded_a), 2);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(loaded_a, 0), 1.0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(loaded_a, 1), 2.0);
+
+    state->set_current_node_key("node_b");
+    const uint32_t loaded_b = bindings->state_load_series_f64(1, dummy);
+    EXPECT_EQ(bindings->series_len(loaded_b), 3);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(loaded_b, 0), 10.0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(loaded_b, 1), 20.0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(loaded_b, 2), 30.0);
+}
+
+TEST_F(BindingsTest, NodeKeyIsolatesStringState) {
+    state->set_current_node_key("node_a");
+    const uint32_t str_a = bindings->string_create("hello from node_a");
+    bindings->state_store_str(1, str_a);
+
+    state->set_current_node_key("node_b");
+    const uint32_t str_b = bindings->string_create("hello from node_b");
+    bindings->state_store_str(1, str_b);
+
+    state->set_current_node_key("node_a");
+    const uint32_t dummy = bindings->string_create("dummy");
+    const uint32_t loaded_a = bindings->state_load_str(1, dummy);
+    EXPECT_EQ(bindings->string_get(loaded_a), "hello from node_a");
+
+    state->set_current_node_key("node_b");
+    const uint32_t loaded_b = bindings->state_load_str(1, dummy);
+    EXPECT_EQ(bindings->string_get(loaded_b), "hello from node_b");
 }
 
 TEST_F(BindingsTest, MultipleClearCycles) {

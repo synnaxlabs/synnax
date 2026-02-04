@@ -314,6 +314,240 @@ var _ = Describe("Text", func() {
 					Expect(cfg.Value).To(Equal(configValues[cfg.Name]), "config[%d] '%s' value mismatch", i, cfg.Name)
 				}
 			})
+
+			It("Should resolve channel name to channel ID in config parameter", func() {
+				resolver := symbol.MapResolver{
+					"temp_sensor": {Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 42},
+				}
+				source := `
+				func reader{
+					channel chan f64
+				} () f64 {
+					return channel
+				}
+
+				func display{} (value f64) {
+				}
+
+				reader{channel=temp_sensor} -> display{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				readerNode := findNodeByKey(inter.Nodes, "reader_0")
+				Expect(readerNode.Config).To(HaveLen(1))
+				Expect(readerNode.Config[0].Name).To(Equal("channel"))
+				Expect(readerNode.Config[0].Type).To(Equal(types.Chan(types.F64())))
+				Expect(readerNode.Config[0].Value).To(Equal(uint32(42)))
+				Expect(readerNode.Channels.Read.Contains(uint32(42))).To(BeTrue())
+			})
+
+			It("Should produce diagnostic error when channel config type mismatches", func() {
+				resolver := symbol.MapResolver{
+					"temp_sensor": {Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 42},
+				}
+				source := `
+				func reader{
+					channel chan f64
+				} () f64 {
+					return channel
+				}
+
+				func display{} (value f64) {
+				}
+
+				reader{channel=temp_sensor} -> display{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				diagStr := diagnostics.String()
+				Expect(diagStr).To(ContainSubstring("type mismatch"))
+				Expect(diagStr).To(ContainSubstring("channel"))
+				Expect(diagStr).To(ContainSubstring("chan f64"))
+				Expect(diagStr).To(ContainSubstring("chan i32"))
+			})
+
+			It("Should produce diagnostic error when channel name is not found in resolver", func() {
+				resolver := symbol.MapResolver{}
+				source := `
+				func reader{
+					channel chan f64
+				} () f64 {
+					return channel
+				}
+
+				func display{} (value f64) {
+				}
+
+				reader{channel=unknown_sensor} -> display{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				diagStr := diagnostics.String()
+				Expect(diagStr).To(ContainSubstring("undefined symbol"))
+				Expect(diagStr).To(ContainSubstring("unknown_sensor"))
+			})
+
+			It("Should resolve channel name for write operations and add to Channels.Write", func() {
+				resolver := symbol.MapResolver{
+					"output_channel": {Name: "output_channel", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 55},
+				}
+				source := `
+				func writer{
+					channel chan f64
+				} (value f64) {
+					channel = value
+				}
+
+				func source{} () f64 {
+					return 1.0
+				}
+
+				source{} -> writer{channel=output_channel}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				writerNode := findNodeByKey(inter.Nodes, "writer_0")
+				Expect(writerNode.Config).To(HaveLen(1))
+				Expect(writerNode.Config[0].Name).To(Equal("channel"))
+				Expect(writerNode.Config[0].Type).To(Equal(types.Chan(types.F64())))
+				Expect(writerNode.Config[0].Value).To(Equal(uint32(55)))
+				Expect(writerNode.Channels.Write.Contains(uint32(55))).To(BeTrue())
+				Expect(writerNode.Channels.Read.Contains(uint32(55))).To(BeFalse())
+			})
+
+			It("Should handle config values using global constants", func() {
+				source := `
+				A := 10
+				B := 20
+				C := 30
+
+				func calculator{
+					a i64,
+					b i64,
+					c i64
+				} () i64 {
+					return a + b + c
+				}
+
+				func print{} () {
+				}
+
+				calculator{a=A, b=B, c=C} -> print{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "calculator_0")
+				Expect(node.Type).To(Equal("calculator"))
+				Expect(node.Config).To(HaveLen(3))
+
+				configValues := map[string]int64{
+					"a": 10, "b": 20, "c": 30,
+				}
+				for i, cfg := range node.Config {
+					Expect(cfg.Type).To(Equal(types.I64()))
+					Expect(cfg.Value).To(Equal(configValues[cfg.Name]), "config[%d] '%s' value mismatch", i, cfg.Name)
+				}
+			})
+
+			It("Should handle f64 global constants in config", func() {
+				source := `
+				SCALE := 2.5
+				OFFSET := 0.1
+
+				func transform{
+					scale f64,
+					offset f64
+				} (x f64) f64 {
+					return x * scale + offset
+				}
+
+				func sink{} () {
+				}
+
+				transform{scale=SCALE, offset=OFFSET} -> sink{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "transform_0")
+				Expect(node.Config).To(HaveLen(2))
+
+				configValues := map[string]float64{
+					"scale": 2.5, "offset": 0.1,
+				}
+				for _, cfg := range node.Config {
+					Expect(cfg.Type).To(Equal(types.F64()))
+					Expect(cfg.Value).To(Equal(configValues[cfg.Name]))
+				}
+			})
+
+			It("Should handle mixed literal and constant config values", func() {
+				source := `
+				THRESHOLD := 100
+
+				func filter{
+					threshold i64,
+					enabled i64
+				} (x i64) i64 {
+					return x
+				}
+
+				func sink{} () {
+				}
+
+				filter{threshold=THRESHOLD, enabled=1} -> sink{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "filter_0")
+				Expect(node.Config).To(HaveLen(2))
+
+				for _, cfg := range node.Config {
+					switch cfg.Name {
+					case "threshold":
+						Expect(cfg.Value).To(Equal(int64(100)))
+					case "enabled":
+						Expect(cfg.Value).To(Equal(int64(1)))
+					}
+				}
+			})
+
+			It("Should handle typed global constants in config", func() {
+				source := `
+				MAX_VALUE i32 := 255
+
+				func clamp{
+					max i32
+				} (x i32) i32 {
+					return x
+				}
+
+				func sink{} () {
+				}
+
+				clamp{max=MAX_VALUE} -> sink{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "clamp_0")
+				Expect(node.Config).To(HaveLen(1))
+				Expect(node.Config[0].Name).To(Equal("max"))
+				Expect(node.Config[0].Type).To(Equal(types.I32()))
+				Expect(node.Config[0].Value).To(Equal(int32(255)))
+			})
 		})
 
 		Context("Edge Parameter Validation", func() {
@@ -1270,6 +1504,155 @@ var _ = Describe("Text", func() {
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			ir, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			module := MustSucceed(text.Compile(ctx, ir))
+			Expect(module.Output.WASM).ToNot(BeEmpty())
+		})
+
+		It("Should compile function with channel config param assigned to intermediate variable", func() {
+			// This is the exact user pattern that was failing:
+			// sp := set_point (where set_point is a chan f32 config param)
+			resolver := symbol.MapResolver{
+				"virt_1": {
+					Name: "virt_1",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   25,
+				},
+			}
+			source := `
+			func tolerance_alarm{
+				tolerance_upper f32,
+				tolerance_lower f32,
+				set_point chan f32,
+				samples i64
+			} (value f32) u8 {
+				count i64 $= 0
+				sp := set_point
+
+				if value >= (sp + tolerance_upper) {
+					count = count + 1
+				} else if value <= (sp - tolerance_lower) {
+					count = count + 1
+				} else {
+					count = 0
+				}
+
+				if count >= samples {
+					return 1
+				}
+				return 0
+			}
+
+			virt_1 -> tolerance_alarm{tolerance_upper=200.0, tolerance_lower=0.0, set_point=virt_1, samples=10} -> virt_1
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(ir.Nodes).To(HaveLen(3))
+			Expect(ir.Nodes[1].Channels.Read).To(HaveLen(1))
+			Expect(ir.Nodes[1].Channels.Read.Contains(25)).To(BeTrue())
+
+			module := MustSucceed(text.Compile(ctx, ir))
+			Expect(module.Output.WASM).ToNot(BeEmpty())
+			Expect(module.Output)
+		})
+
+		It("Should compile function with channel config param assigned to intermediate variable and written to", func() {
+			// Test that writing to an intermediate variable correctly tracks the channel
+			// out := output (config param with channel type)
+			// out = value * 2.0 (write to channel through intermediate variable)
+			resolver := symbol.MapResolver{
+				"input_ch": {
+					Name: "input_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"write_target": {
+					Name: "write_target",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   200,
+				},
+				"sink_ch": {
+					Name: "sink_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   300,
+				},
+			}
+			source := `
+			func writer{
+				output chan f32
+			} (value f32) u8 {
+				out := output
+				out = value * 2.0
+				return 0
+			}
+
+			input_ch -> writer{output=write_target} -> sink_ch
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(ir.Nodes).To(HaveLen(3))
+
+			// The writer function node should have write_target (200) in Channels.Write
+			// NOT the intermediate variable's ID
+			writerNode := ir.Nodes[1]
+			Expect(writerNode.Type).To(Equal("writer"))
+			Expect(writerNode.Channels.Write).To(HaveLen(1))
+			Expect(writerNode.Channels.Write.Contains(200)).To(BeTrue())
+
+			module := MustSucceed(text.Compile(ctx, ir))
+			Expect(module.Output.WASM).ToNot(BeEmpty())
+		})
+
+		It("Should compile function with global channel assigned to intermediate variable and written to", func() {
+			// Test that writing through an alias of a global channel correctly tracks the channel
+			// out := output (global channel)
+			// out = value * 3.0 (write to channel through alias)
+			resolver := symbol.MapResolver{
+				"input_ch": {
+					Name: "input_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"output_ch": {
+					Name: "output_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   200,
+				},
+				"sink_ch": {
+					Name: "sink_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   300,
+				},
+			}
+			source := `
+			func writer{} (value f32) u8 {
+				out := output_ch
+				out = value * 3.0
+				return 0
+			}
+
+			input_ch -> writer{} -> sink_ch
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(ir.Nodes).To(HaveLen(3))
+
+			// The writer function node should have output_ch (200) in Channels.Write
+			// NOT the intermediate variable's ID
+			writerNode := ir.Nodes[1]
+			Expect(writerNode.Type).To(Equal("writer"))
+			Expect(writerNode.Channels.Write).To(HaveLen(1))
+			Expect(writerNode.Channels.Write.Contains(200)).To(BeTrue())
 
 			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())

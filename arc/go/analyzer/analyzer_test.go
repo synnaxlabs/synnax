@@ -303,6 +303,39 @@ var _ = Describe("Analyzer Integration", func() {
 		})
 	})
 
+	Describe("Global Constants", func() {
+		It("Should analyze a constant with inferred type", func() {
+			ctx := analyzeAndExpect(`
+				MAX_VALUE := 100
+			`)
+			constScope := MustSucceed(ctx.Scope.Resolve(ctx, "MAX_VALUE"))
+			Expect(constScope.Kind).To(Equal(symbol.KindGlobalConstant))
+			Expect(constScope.Type).To(Equal(types.I64()))
+		})
+
+		It("Should analyze a constant with explicit type", func() {
+			ctx := analyzeAndExpect(`
+				THRESHOLD f32 := 50.5
+			`)
+			constScope := MustSucceed(ctx.Scope.Resolve(ctx, "THRESHOLD"))
+			Expect(constScope.Kind).To(Equal(symbol.KindGlobalConstant))
+			Expect(constScope.Type).To(Equal(types.F32()))
+		})
+
+		It("Should allow using a constant inside a function", func() {
+			ctx := analyzeAndExpect(`
+				LIMIT := 10
+
+				func check(x i64) i64 {
+					return x + LIMIT
+				}
+			`)
+			constScope := MustSucceed(ctx.Scope.Resolve(ctx, "LIMIT"))
+			Expect(constScope.Kind).To(Equal(symbol.KindGlobalConstant))
+			Expect(constScope.Type).To(Equal(types.I64()))
+		})
+	})
+
 	Describe("Complete Analysis", func() {
 		It("Should report multiple independent errors in different functions", func() {
 			prog := MustSucceed(parser.Parse(`

@@ -124,20 +124,21 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 
 	if expr != nil && ctx.AST.Type_() == nil {
 		childCtx := context.Child(ctx, expr)
-		if isChannelIdentifier(childCtx) {
-			chanType := getChannelType(childCtx)
-			if chanType.IsValid() {
-				_, err := childCtx.Scope.Add(ctx, symbol.Symbol{
-					Name: name,
-					Kind: symbol.KindChannel,
-					Type: chanType.Unwrap(),
-					AST:  ctx.AST,
-				})
-				if err != nil {
-					ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-				}
-				return
+		if chanSym := getChannelSymbol(childCtx); chanSym != nil {
+			// Global channel - create a variable that holds the channel key
+			// Use KindVariable so it gets a WASM local assigned
+			sourceID := chanSym.ID
+			_, err := childCtx.Scope.Add(ctx, symbol.Symbol{
+				Name:     name,
+				Kind:     symbol.KindVariable,
+				Type:     chanSym.Type, // Keep Chan(F32) type
+				AST:      ctx.AST,
+				SourceID: &sourceID,
+			})
+			if err != nil {
+				ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			}
+			return
 		}
 	}
 
@@ -158,38 +159,67 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 		})
 		return
 	}
+
+	// If assigning from a symbol with channel type, propagate its SourceID
+	var sourceID *int
+	if varType.Kind == types.KindChan && expr != nil {
+		sourceID = getChannelSourceFromExpr(ctx, expr)
+	}
+
 	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
-		Name: name,
-		Type: varType,
-		AST:  ctx.AST,
+		Name:     name,
+		Type:     varType,
+		AST:      ctx.AST,
+		SourceID: sourceID,
 	})
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 	}
 }
 
-func isChannelIdentifier(ctx context.Context[parser.IExpressionContext]) bool {
+// getChannelSymbol checks if an expression is a simple identifier referencing
+// a global channel symbol (KindChannel). Returns the symbol if so, nil otherwise.
+func getChannelSymbol(ctx context.Context[parser.IExpressionContext]) *symbol.Symbol {
 	primary := parser.GetPrimaryExpression(ctx.AST)
 	if primary == nil || primary.IDENTIFIER() == nil {
-		return false
+		return nil
 	}
 	sym, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
 	if err != nil {
-		return false
+		return nil
 	}
-	return sym.Type.Kind == types.KindChan
+	// Must be an actual channel symbol (KindChannel), not just a symbol with channel type.
+	// Config params with channel type (KindConfig) should be read from, not aliased.
+	if sym.Kind == symbol.KindChannel && sym.Type.Kind == types.KindChan {
+		return &sym.Symbol
+	}
+	return nil
 }
 
-func getChannelType(ctx context.Context[parser.IExpressionContext]) types.Type {
-	primary := parser.GetPrimaryExpression(ctx.AST)
+// getChannelSourceFromExpr extracts the source ID from an expression that references
+// a symbol with channel type. Returns a pointer to the source ID, or nil if not found.
+func getChannelSourceFromExpr[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	expr parser.IExpressionContext,
+) *int {
+	primary := parser.GetPrimaryExpression(expr)
 	if primary == nil || primary.IDENTIFIER() == nil {
-		return types.Type{}
+		return nil
 	}
 	sym, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
 	if err != nil {
-		return types.Type{}
+		return nil
 	}
-	return sym.Type
+	if sym.Type.Kind != types.KindChan {
+		return nil
+	}
+	// If the symbol already has a SourceID, propagate it
+	if sym.SourceID != nil {
+		return sym.SourceID
+	}
+	// Otherwise, this symbol IS the source (e.g., a config param)
+	id := sym.ID
+	return &id
 }
 
 func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext]) {
@@ -345,7 +375,13 @@ func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], ch
 		return
 	}
 	if fn != nil {
-		fn.Channels.Write.Add(uint32(channelSym.ID))
+		// Use SourceID if available (for variables assigned from config params),
+		// otherwise use the symbol's own ID
+		writeID := uint32(channelSym.ID)
+		if channelSym.SourceID != nil {
+			writeID = uint32(*channelSym.SourceID)
+		}
+		fn.Channels.Write.Add(writeID)
 	}
 
 	// Track this as a channel write in the function
