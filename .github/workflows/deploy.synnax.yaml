@@ -176,6 +176,7 @@ jobs:
       packages: write
     uses: ./.github/workflows/build.synnax.yaml
     with:
+      debug: ${{ github.event_name != 'push' }}
       windows: true
       macos: true
       ubuntu: true

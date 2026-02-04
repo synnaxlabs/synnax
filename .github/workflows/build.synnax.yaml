@@ -6,6 +6,10 @@ run-name:
 on:
   workflow_dispatch:
     inputs:
+      debug:
+        description: "Build: Driver with Debug Symbols"
+        type: boolean
+        default: false
       windows:
         description: "Platform: Windows"
         type: boolean
@@ -58,6 +62,9 @@ on:
 
   workflow_call:
     inputs:
+      debug:
+        type: boolean
+        default: false
       windows:
         type: boolean
         default: false
@@ -160,7 +167,9 @@ jobs:
             "${{ inputs.driver }}" \
             "${{ inputs.console }}" \
             "${{ inputs.console_tauri }}" \
-            "${{ inputs.core }}"
+            "${{ inputs.core }}" \
+            "${{ inputs.debug }}" \
+            "${{ inputs.sign_binaries }}"
 
       - name: Generate Go Build Tags
         id: go-tags
@@ -184,7 +193,7 @@ jobs:
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       GH_TOKEN: ${{ github.token }}
       BAZEL_BUILD_FLAGS:
-        --enable_platform_specific_config --config=opt --announce_rc --verbose_failures
+        --enable_platform_specific_config ${{ inputs.debug && '-c dbg' || '--config=opt' }} --announce_rc --verbose_failures
       BAZEL_REMOTE_CACHE_FLAGS: --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_URL }}
     strategy:
       fail-fast: false
@@ -234,18 +243,64 @@ jobs:
           bazel --output_user_root=C:/tmp build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
             --config=opt-windows //driver
 
+      - name: Upload Windows Debug Symbols
+        if: inputs.driver && inputs.debug && matrix.os == 'windows-build-bot'
+        uses: actions/upload-artifact@v6
+        with:
+          name:
+            ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-windows'
+            || format('synnax-driver-debug-symbols-v{0}-windows',
+            needs.setup.outputs.VERSION) }}
+          path: bazel-bin/driver/driver.pdb
+          retention-days: 7
+          if-no-files-found: error
+
       - name: Build Driver (macOS)
         if: inputs.driver && matrix.os == 'macos-build-bot'
         run: |
           bazel build $BAZEL_BUILD_FLAGS \
-            --config=opt-unix --config=hide_symbols //driver
+            --config=opt-unix ${{ !inputs.debug && '--config=hide_symbols' || '' }} //driver
+
+      - name: Extract Debug Symbols (macOS)
+        if: inputs.driver && inputs.debug && matrix.os == 'macos-build-bot'
+        run: |
+          dsymutil bazel-bin/driver/driver -o bazel-bin/driver/driver.dSYM
+
+      - name: Upload macOS Debug Symbols
+        if: inputs.driver && inputs.debug && matrix.os == 'macos-build-bot'
+        uses: actions/upload-artifact@v6
+        with:
+          name:
+            ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-macos'
+            || format('synnax-driver-debug-symbols-v{0}-macos',
+            needs.setup.outputs.VERSION) }}
+          path: bazel-bin/driver/driver.dSYM
+          retention-days: 7
+          if-no-files-found: error
 
       - name: Build Driver (NI Linux RT)
         if: inputs.driver && matrix.os == 'ubuntu-build-bot'
         run: |
           bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
-            --config=opt-unix --config=hide_symbols --define=platform=nilinuxrt //driver
+            --config=opt-unix ${{ !inputs.debug && '--config=hide_symbols' || '' }} --define=platform=nilinuxrt //driver
           mv bazel-bin/driver/driver bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
+
+      - name: Extract Debug Symbols (NI Linux RT)
+        if: inputs.driver && inputs.debug && matrix.os == 'ubuntu-build-bot'
+        run: |
+          objcopy --only-keep-debug bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt bazel-bin/driver/driver-nilinuxrt.debug
+
+      - name: Upload NI Linux RT Debug Symbols
+        if: inputs.driver && inputs.debug && matrix.os == 'ubuntu-build-bot'
+        uses: actions/upload-artifact@v6
+        with:
+          name:
+            ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-nilinuxrt'
+            || format('synnax-driver-debug-symbols-v{0}-nilinuxrt',
+            needs.setup.outputs.VERSION) }}
+          path: bazel-bin/driver/driver-nilinuxrt.debug
+          retention-days: 7
+          if-no-files-found: error
 
       - name: Upload NI Linux RT Driver as Artifact
         if: inputs.driver && matrix.os == 'ubuntu-build-bot'
@@ -276,7 +331,24 @@ jobs:
         if: inputs.driver && matrix.os == 'ubuntu-build-bot'
         run: |
           bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
-            --config=opt-unix --config=hide_symbols //driver
+            --config=opt-unix ${{ !inputs.debug && '--config=hide_symbols' || '' }} //driver
+
+      - name: Extract Debug Symbols (Linux)
+        if: inputs.driver && inputs.debug && matrix.os == 'ubuntu-build-bot'
+        run: |
+          objcopy --only-keep-debug bazel-bin/driver/driver bazel-bin/driver/driver.debug
+
+      - name: Upload Linux Debug Symbols
+        if: inputs.driver && inputs.debug && matrix.os == 'ubuntu-build-bot'
+        uses: actions/upload-artifact@v6
+        with:
+          name:
+            ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-linux'
+            || format('synnax-driver-debug-symbols-v{0}-linux',
+            needs.setup.outputs.VERSION) }}
+          path: bazel-bin/driver/driver.debug
+          retention-days: 7
+          if-no-files-found: error
 
       - name: Import Apple Developer Certificate
         if: inputs.sign_binaries && matrix.os == 'macos-build-bot'
