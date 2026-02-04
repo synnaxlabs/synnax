@@ -97,7 +97,6 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	if len(n.ir.Inputs) > 0 {
 		longestInputTime = n.InputTime(longestInputIdx)
 	}
-	// Set current node key for stateful variable isolation
 	n.runtime.SetCurrentNodeKey(n.ir.Key)
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {

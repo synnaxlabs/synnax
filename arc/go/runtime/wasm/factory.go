@@ -17,7 +17,7 @@ import (
 
 	node2 "github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	runtimebindings "github.com/synnaxlabs/arc/runtime/wasm/bindings"
+	"github.com/synnaxlabs/arc/runtime/wasm/bindings"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero/api"
@@ -25,7 +25,7 @@ import (
 
 type factory struct {
 	wasm    api.Module
-	runtime *runtimebindings.Runtime
+	runtime *bindings.Runtime
 }
 
 func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error) {
