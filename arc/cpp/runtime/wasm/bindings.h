@@ -66,12 +66,8 @@ public:
     void channel_write_str(uint32_t channel_id, uint32_t str_handle);
 
 #define DECLARE_STATE_OPS(suffix, cpptype)                                             \
-    cpptype state_load_##suffix(                                                       \
-        uint32_t func_id,                                                              \
-        uint32_t var_id,                                                               \
-        cpptype init_value                                                             \
-    );                                                                                 \
-    void state_store_##suffix(uint32_t func_id, uint32_t var_id, cpptype value);
+    cpptype state_load_##suffix(uint32_t var_id, cpptype init_value);                  \
+    void state_store_##suffix(uint32_t var_id, cpptype value);
 
     DECLARE_STATE_OPS(u8, uint8_t)
     DECLARE_STATE_OPS(u16, uint16_t)
@@ -86,8 +82,8 @@ public:
 
 #undef DECLARE_STATE_OPS
 
-    uint32_t state_load_str(uint32_t func_id, uint32_t var_id, uint32_t init_handle);
-    void state_store_str(uint32_t func_id, uint32_t var_id, uint32_t str_handle);
+    uint32_t state_load_str(uint32_t var_id, uint32_t init_handle);
+    void state_store_str(uint32_t var_id, uint32_t str_handle);
 
 // Series element operations (per type) - using macro with proper C++ types
 #define DECLARE_SERIES_OPS(suffix, cpptype)                                            \
@@ -125,16 +121,8 @@ public:
     uint32_t series_compare_le_scalar_##suffix(uint32_t handle, cpptype value);        \
     uint32_t series_compare_eq_scalar_##suffix(uint32_t handle, cpptype value);        \
     uint32_t series_compare_ne_scalar_##suffix(uint32_t handle, cpptype value);        \
-    uint32_t state_load_series_##suffix(                                               \
-        uint32_t func_id,                                                              \
-        uint32_t var_id,                                                               \
-        uint32_t init_handle                                                           \
-    );                                                                                 \
-    void state_store_series_##suffix(                                                  \
-        uint32_t func_id,                                                              \
-        uint32_t var_id,                                                               \
-        uint32_t handle                                                                \
-    );
+    uint32_t state_load_series_##suffix(uint32_t var_id, uint32_t init_handle);        \
+    void state_store_series_##suffix(uint32_t var_id, uint32_t handle);
 
     DECLARE_SERIES_OPS(u8, uint8_t)
     DECLARE_SERIES_OPS(u16, uint16_t)

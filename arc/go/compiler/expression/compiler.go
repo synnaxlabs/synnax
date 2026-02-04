@@ -274,7 +274,7 @@ func compileFunctionCallExpr(
 	// Emit default values for missing optional arguments
 	for i := actualCount; i < totalCount; i++ {
 		param := funcType.Inputs[i]
-		if err := emitDefaultValue(ctx, param.Type, param.Value); err != nil {
+		if err := emitLiteralValue(ctx, param.Type, param.Value); err != nil {
 			return types.Type{}, errors.Wrapf(err, "default value for parameter %s", param.Name)
 		}
 	}
@@ -382,8 +382,9 @@ func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (type
 	return types.Type{}, errors.New("unknown primary expression")
 }
 
-// emitDefaultValue emits WASM bytecode for a default parameter value.
-func emitDefaultValue[T antlr.ParserRuleContext](
+// emitLiteralValue emits WASM bytecode for a literal value (used for default
+// parameters and global constants).
+func emitLiteralValue[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	paramType types.Type,
 	defaultVal any,

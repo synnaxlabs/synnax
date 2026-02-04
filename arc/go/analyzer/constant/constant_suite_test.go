@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package analyzer_test
+package constant_test
 
 import (
 	"context"
@@ -23,7 +23,7 @@ var _ = BeforeEach(func() {
 	bCtx = context.Background()
 })
 
-func TestAnalyzer(t *testing.T) {
+func TestConstant(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Analyzer Suite")
+	RunSpecs(t, "Constant Analyzer Suite")
 }
