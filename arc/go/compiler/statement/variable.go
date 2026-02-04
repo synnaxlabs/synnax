@@ -62,15 +62,16 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 	//   sp2 := sp        (where sp is a variable with chan f32)
 	//   alias := channel (where channel is a global KindChannel)
 	if varType.Kind == types.KindChan || varScope.Kind == symbol.KindChannel {
-		if rhsScope := getSymbolWithChanType(ctx, ctx.AST.Expression()); rhsScope != nil {
-			// Config params and variables have WASM locals holding the channel key
-			ctx.Writer.WriteLocalGet(rhsScope.ID)
-			ctx.Writer.WriteLocalSet(varScope.ID)
-			return nil
-		}
-		if rhsScope := getGlobalChannelSymbol(ctx, ctx.AST.Expression()); rhsScope != nil {
-			// Global channels don't have locals - their ID IS the channel key
-			ctx.Writer.WriteI32Const(int32(rhsScope.ID))
+		if rhsScope, kind := resolveChannelSource(ctx, ctx.AST.Expression()); kind != channelSourceNone {
+			switch kind {
+			case channelSourceLocal:
+				// Config params and variables have WASM locals holding the channel key
+				ctx.Writer.WriteLocalGet(rhsScope.ID)
+			case channelSourceGlobal:
+				// Global channels don't have locals - their ID IS the channel key
+				ctx.Writer.WriteI32Const(int32(rhsScope.ID))
+			default:
+			}
 			ctx.Writer.WriteLocalSet(varScope.ID)
 			return nil
 		}
@@ -90,48 +91,39 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 	return nil
 }
 
-// getSymbolWithChanType checks if an expression is a simple identifier
-// referencing a symbol (config param or variable) with channel type.
-// Returns the scope if so, nil otherwise.
-func getSymbolWithChanType(
+// channelSourceKind indicates the type of channel source found in an expression.
+type channelSourceKind int
+
+const (
+	channelSourceNone   channelSourceKind = iota // Not a channel source
+	channelSourceLocal                           // Config param or variable with chan type (has WASM local)
+	channelSourceGlobal                          // Global channel (ID is the channel key)
+)
+
+// resolveChannelSource checks if an expression is a simple identifier referencing
+// a channel-related symbol. Returns the scope and what kind of channel source it is.
+func resolveChannelSource(
 	ctx context.Context[parser.ILocalVariableContext],
 	expr parser.IExpressionContext,
-) *symbol.Scope {
+) (*symbol.Scope, channelSourceKind) {
 	primary := parser.GetPrimaryExpression(expr)
 	if primary == nil || primary.IDENTIFIER() == nil {
-		return nil
+		return nil, channelSourceNone
 	}
 	scope, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
 	if err != nil {
-		return nil
+		return nil, channelSourceNone
 	}
-	// Handle config params and variables with channel type
+	// Global channel - ID is the channel key directly
+	if scope.Kind == symbol.KindChannel {
+		return scope, channelSourceGlobal
+	}
+	// Config param or variable with channel type - has a WASM local holding the key
 	if scope.Type.Kind == types.KindChan &&
 		(scope.Kind == symbol.KindConfig || scope.Kind == symbol.KindVariable) {
-		return scope
+		return scope, channelSourceLocal
 	}
-	return nil
-}
-
-// getGlobalChannelSymbol checks if an expression is a simple identifier
-// referencing a global channel symbol (KindChannel).
-// Returns the scope if so, nil otherwise.
-func getGlobalChannelSymbol(
-	ctx context.Context[parser.ILocalVariableContext],
-	expr parser.IExpressionContext,
-) *symbol.Scope {
-	primary := parser.GetPrimaryExpression(expr)
-	if primary == nil || primary.IDENTIFIER() == nil {
-		return nil
-	}
-	scope, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
-	if err != nil {
-		return nil
-	}
-	if scope.Kind == symbol.KindChannel {
-		return scope
-	}
-	return nil
+	return nil, channelSourceNone
 }
 
 // compileStatefulVariable handles stateful variable declarations (x $= expr)

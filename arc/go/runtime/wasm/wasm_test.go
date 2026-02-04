@@ -2366,5 +2366,181 @@ input_ch -> writer{} -> sink_ch
 			Expect(fr.Get(200).Series).To(HaveLen(1))
 			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0))
 		})
+
+		It("Should handle triple nested aliases from global channel", func() {
+			// Test deeply nested alias chain:
+			// a := global_ch
+			// b := a
+			// c := b
+			// c = value * 5.0
+			resolver := symbol.MapResolver{
+				"input_ch": {
+					Name: "input_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"output_ch": {
+					Name: "output_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   200,
+				},
+				"sink_ch": {
+					Name: "sink_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   300,
+				},
+			}
+
+			source := `
+func writer{} (value f32) u8 {
+    a := output_ch
+    b := a
+    c := b
+    c = value * 5.0
+    return 0
+}
+
+input_ch -> writer{} -> sink_ch
+`
+			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+				{Key: 200, DataType: telem.Float32T},
+				{Key: 300, DataType: telem.Uint8T},
+			})
+			defer h.Close()
+
+			// Set input value to 4.0, expect output_ch to receive 20.0 (4 * 5)
+			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](4.0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "writer_0")
+
+			fr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(fr.Get(200).Series).To(HaveLen(1))
+			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0))
+		})
+
+		It("Should handle multiple aliases to same global channel", func() {
+			// Test multiple independent aliases to the same channel:
+			// out1 := output_ch
+			// out2 := output_ch
+			// out1 = value * 2.0  (first write)
+			// out2 = value * 3.0  (second write, overwrites)
+			resolver := symbol.MapResolver{
+				"input_ch": {
+					Name: "input_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"output_ch": {
+					Name: "output_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   200,
+				},
+				"sink_ch": {
+					Name: "sink_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   300,
+				},
+			}
+
+			source := `
+func writer{} (value f32) u8 {
+    out1 := output_ch
+    out2 := output_ch
+    out1 = value * 2.0
+    out2 = value * 3.0
+    return 0
+}
+
+input_ch -> writer{} -> sink_ch
+`
+			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+				{Key: 200, DataType: telem.Float32T},
+				{Key: 300, DataType: telem.Uint8T},
+			})
+			defer h.Close()
+
+			// Set input value to 10.0
+			// First write: 10 * 2 = 20
+			// Second write: 10 * 3 = 30
+			// Both writes go to the same channel - the runtime coalesces them
+			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](10.0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "writer_0")
+
+			fr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			// The last write (30.0) is the final value
+			Expect(fr.Get(200).Series).To(HaveLen(1))
+			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](30.0))
+		})
+
+		It("Should handle reading from global channel alias", func() {
+			// Test reading through a global channel alias:
+			// sp := set_point_ch  (alias to global channel)
+			// threshold := sp     (read from the channel through alias)
+			resolver := symbol.MapResolver{
+				"input_ch": {
+					Name: "input_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"set_point_ch": {
+					Name: "set_point_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   200,
+				},
+				"output_ch": {
+					Name: "output_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   300,
+				},
+			}
+
+			source := `
+func checker{} (value f32) u8 {
+    sp := set_point_ch
+    threshold := sp
+    if (value > threshold) {
+        return 1
+    }
+    return 0
+}
+
+input_ch -> checker{} -> output_ch
+`
+			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+				{Key: 200, DataType: telem.Float32T},
+				{Key: 300, DataType: telem.Uint8T},
+			})
+			defer h.Close()
+
+			// Set set_point_ch to 50.0
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(200, telem.NewSeriesV[float32](50.0))
+			h.state.Ingest(fr)
+
+			// Test with value=60 (above threshold), should return 1
+			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](60.0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "checker_0")
+			result := h.Output("checker_0", 0)
+			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
+
+			// Test with value=40 (below threshold), should return 0
+			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](40.0), telem.NewSeriesSecondsTSV(2))
+			h.Execute(ctx, "checker_0")
+			result = h.Output("checker_0", 0)
+			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+		})
 	})
 })
