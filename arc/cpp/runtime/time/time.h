@@ -62,6 +62,7 @@ public:
         state(std::move(state)), cfg(cfg), last_fired(-1 * this->cfg.interval) {}
 
     xerrors::Error next(node::Context &ctx) override {
+        if (ctx.reason != node::RunReason::TimerTick) return xerrors::NIL;
         if (ctx.elapsed - this->last_fired < this->cfg.interval - ctx.tolerance)
             return xerrors::NIL;
         this->last_fired = ctx.elapsed;
@@ -104,13 +105,14 @@ public:
         state(std::move(state)), cfg(cfg) {}
 
     xerrors::Error next(node::Context &ctx) override {
+        if (ctx.reason != node::RunReason::TimerTick) return xerrors::NIL;
         if (this->fired) return xerrors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
-        if (ctx.elapsed - start_time < cfg.duration - ctx.tolerance)
+        if (ctx.elapsed - this->start_time < this->cfg.duration - ctx.tolerance)
             return xerrors::NIL;
         this->fired = true;
-        const auto &o = state.output(0);
-        const auto &o_time = state.output_time(0);
+        const auto &o = this->state.output(0);
+        const auto &o_time = this->state.output_time(0);
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));

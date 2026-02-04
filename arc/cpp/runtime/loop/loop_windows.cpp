@@ -34,27 +34,23 @@ public:
 
     ~WindowsLoop() override { this->close_handles(); }
 
-    void wait(breaker::Breaker &breaker) override {
-        if (this->wake_event_ == NULL) return;
+    WakeReason wait(breaker::Breaker &breaker) override {
+        if (this->wake_event_ == NULL) return WakeReason::Shutdown;
 
         switch (this->config_.mode) {
             case ExecutionMode::BUSY_WAIT:
-                this->busy_wait(breaker);
-                break;
+                return this->busy_wait(breaker);
             case ExecutionMode::HIGH_RATE:
-                this->high_rate_wait(breaker);
-                break;
+                return this->high_rate_wait(breaker);
             case ExecutionMode::RT_EVENT:
-                this->event_driven_wait(false);
-                break;
+                return this->event_driven_wait(false);
             case ExecutionMode::HYBRID:
-                this->hybrid_wait(breaker);
-                break;
+                return this->hybrid_wait(breaker);
             case ExecutionMode::AUTO:
             case ExecutionMode::EVENT_DRIVEN:
-                this->event_driven_wait(true);
-                break;
+                return this->event_driven_wait(true);
         }
+        return WakeReason::Shutdown;
     }
 
     xerrors::Error start() override {
@@ -157,31 +153,34 @@ private:
         this->timer_enabled_ = false;
     }
 
-    void busy_wait(breaker::Breaker &breaker) {
+    WakeReason busy_wait(breaker::Breaker &breaker) {
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
-        if (count == 0) return;
+        if (count == 0) return WakeReason::Shutdown;
 
         while (breaker.running()) {
             const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
-            if (result < WAIT_OBJECT_0 + count) return;
+            if (result < WAIT_OBJECT_0 + count)
+                return this->classify_result(result, handles);
             if (result == WAIT_FAILED) {
                 LOG(ERROR) << "[loop] WaitForMultipleObjects failed: "
                            << GetLastError();
-                return;
+                return WakeReason::Shutdown;
             }
         }
+        return WakeReason::Shutdown;
     }
 
-    void high_rate_wait(breaker::Breaker &breaker) { this->timer_->wait(breaker); }
+    WakeReason high_rate_wait(breaker::Breaker &breaker) {
+        this->timer_->wait(breaker);
+        return WakeReason::Timer;
+    }
 
-    void event_driven_wait(bool blocking) {
+    WakeReason event_driven_wait(bool blocking) {
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
-        if (count == 0) return;
+        if (count == 0) return WakeReason::Shutdown;
 
-        // Use timeout to ensure we periodically check breaker.running()
-        // in the caller's loop.
         const DWORD timeout_ms = blocking
                                    ? static_cast<DWORD>(
                                          timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
@@ -191,14 +190,18 @@ private:
                                      );
 
         const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
-        if (result == WAIT_FAILED)
+        if (result == WAIT_TIMEOUT) return WakeReason::Timeout;
+        if (result == WAIT_FAILED) {
             LOG(ERROR) << "[loop] WaitForMultipleObjects failed: " << GetLastError();
+            return WakeReason::Shutdown;
+        }
+        return this->classify_result(result, handles);
     }
 
-    void hybrid_wait(breaker::Breaker &breaker) {
+    WakeReason hybrid_wait(breaker::Breaker &breaker) {
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
-        if (count == 0) return;
+        if (count == 0) return WakeReason::Shutdown;
 
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
@@ -206,16 +209,30 @@ private:
         );
 
         while (std::chrono::steady_clock::now() - spin_start < spin_duration) {
-            if (!breaker.running()) return;
+            if (!breaker.running()) return WakeReason::Shutdown;
 
             const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
-            if (result < WAIT_OBJECT_0 + count) return;
+            if (result < WAIT_OBJECT_0 + count)
+                return this->classify_result(result, handles);
         }
 
         const DWORD timeout_ms = static_cast<DWORD>(
             timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
         );
-        WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
+        const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
+        if (result == WAIT_TIMEOUT) return WakeReason::Timeout;
+        if (result < WAIT_OBJECT_0 + count)
+            return this->classify_result(result, handles);
+        return WakeReason::Shutdown;
+    }
+
+    /// @brief Classifies which handle was signaled to determine wake reason.
+    WakeReason classify_result(const DWORD result, const HANDLE *handles) const {
+        const DWORD index = result - WAIT_OBJECT_0;
+        if (this->timer_enabled_ && handles[index] == this->timer_event_)
+            return WakeReason::Timer;
+        if (handles[index] == this->watched_handle_) return WakeReason::Input;
+        return WakeReason::Shutdown;
     }
 
     DWORD build_handles(HANDLE *handles) const {

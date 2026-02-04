@@ -242,7 +242,7 @@ func analyzeFunctionNode(
 		Inputs:   slices.Clone(sym.Type.Inputs),
 	}
 	var ok bool
-	n.Config, ok = extractConfigValues(acontext.Child(ctx, ctx.AST.ConfigValues()), n.Config, n)
+	n.Config, ok = extractConfigValues(acontext.Child(ctx, ctx.AST.ConfigValues()), n.Config, n, sym)
 	if !ok {
 		return nodeResult{}, false
 	}
@@ -534,6 +534,7 @@ func extractConfigValues(
 	ctx acontext.Context[parser.IConfigValuesContext],
 	config types.Params,
 	node ir.Node,
+	fnSym *symbol.Scope,
 ) (types.Params, bool) {
 	if ctx.AST == nil {
 		return config, true
@@ -552,7 +553,7 @@ func extractConfigValues(
 				return nil, false
 			}
 			channelKey := uint32(sym.ID)
-			node.Channels.Read[channelKey] = sym.Name
+			node.Channels.ResolveConfigChannel(fnSym, paramName, channelKey, sym.Name)
 			return channelKey, true
 		}
 
