@@ -14,7 +14,7 @@ cc_library(
     textual_hdrs = [":registry_blob"],
     visibility = ["//driver/ethercat:__subpackages__"],
     deps = [
-        "//driver/ethercat/master",
+        "//driver/ethercat/slave",
         "//x/cpp/telem",
     ],
 )

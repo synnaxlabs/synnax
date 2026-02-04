@@ -27,8 +27,30 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		return types.Type{}, err
 	}
 	switch scope.Kind {
-	case symbol.KindVariable, symbol.KindInput, symbol.KindConfig:
+	case symbol.KindVariable, symbol.KindInput:
 		ctx.Writer.WriteLocalGet(scope.ID)
+		if scope.Type.Kind == types.KindChan {
+			if err = emitChannelRead(ctx, scope.Type); err != nil {
+				return types.Type{}, err
+			}
+			return scope.Type.Unwrap(), nil
+		}
+		return scope.Type, nil
+	case symbol.KindConfig:
+		// Config params may have channel types - if so, read from the channel
+		if scope.Type.Kind == types.KindChan {
+			ctx.Writer.WriteLocalGet(scope.ID)
+			if err = emitChannelRead(ctx, scope.Type); err != nil {
+				return types.Type{}, err
+			}
+			return scope.Type.Unwrap(), nil
+		}
+		ctx.Writer.WriteLocalGet(scope.ID)
+		return scope.Type, nil
+	case symbol.KindGlobalConstant:
+		if err := emitLiteralValue(ctx, scope.Type, scope.DefaultValue); err != nil {
+			return types.Type{}, err
+		}
 		return scope.Type, nil
 	case symbol.KindStatefulVariable:
 		if err = emitStatefulLoad(ctx, scope.ID, scope.Type); err != nil {
@@ -51,7 +73,6 @@ func emitStatefulLoad[ASTNode antlr.ParserRuleContext](
 	idx int,
 	t types.Type,
 ) error {
-	ctx.Writer.WriteI32Const(0)
 	ctx.Writer.WriteI32Const(int32(idx))
 	emitZeroValue(ctx, t)
 	stateLoadF := lo.Ternary(

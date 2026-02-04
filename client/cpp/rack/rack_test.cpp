@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <sstream>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
@@ -96,5 +98,13 @@ TEST(RackStatusDetailsTests, testRoundTrip) {
     const auto recovered = RackStatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(recovered.rack, original.rack);
+}
+
+/// @brief it should correctly stream output a rack.
+TEST(RackTests, testStreamOutput) {
+    auto r = Rack(12345, "my_rack");
+    std::ostringstream oss;
+    oss << r;
+    ASSERT_EQ(oss.str(), "my_rack (12345)");
 }
 }

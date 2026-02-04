@@ -271,14 +271,14 @@ public:
     [[nodiscard]] int slave_config_reg_pdo_entry(
         ec_slave_config_t *sc,
         uint16_t entry_index,
-        uint8_t entry_subindex,
+        uint8_t entry_sub_index,
         ec_domain_t *domain,
         unsigned int *bit_position
     ) const {
         return this->func_ptrs.slave_config_reg_pdo_entry(
             sc,
             entry_index,
-            entry_subindex,
+            entry_sub_index,
             domain,
             bit_position
         );

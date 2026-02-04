@@ -289,13 +289,17 @@ inline std::unique_ptr<InputChan> parse_input_chan(xjson::Parser &cfg) {
 struct ReadTaskConfig : common::BaseReadTaskConfig {
     const std::string device_key;
     /// @brief the connection method used to communicate with the device.
+    /// Dynamically populated by querying the core.
     std::string conn_method;
+    /// @brief the indexes of the channels in the task.
+    /// Dynamically populated by querying the core.
     std::set<synnax::ChannelKey> indexes;
     /// @brief the number of samples per channel to connect on each call to read.
     const std::size_t samples_per_chan;
     /// @brief the configurations for each channel in the task.
     std::vector<std::unique_ptr<InputChan>> channels;
     /// @brief the model of device being read from.
+    /// Dynamically populated by querying the core.
     std::string dev_model;
     /// @brief a set of transforms to apply to the frame after reading. Applies
     /// scaling information to channels.

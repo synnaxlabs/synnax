@@ -125,6 +125,12 @@ func (s *BaseArcParserListener) EnterSingleInvocation(ctx *SingleInvocationConte
 // ExitSingleInvocation is called when production singleInvocation is exited.
 func (s *BaseArcParserListener) ExitSingleInvocation(ctx *SingleInvocationContext) {}
 
+// EnterGlobalConstant is called when production globalConstant is entered.
+func (s *BaseArcParserListener) EnterGlobalConstant(ctx *GlobalConstantContext) {}
+
+// ExitGlobalConstant is called when production globalConstant is exited.
+func (s *BaseArcParserListener) ExitGlobalConstant(ctx *GlobalConstantContext) {}
+
 // EnterFlowStatement is called when production flowStatement is entered.
 func (s *BaseArcParserListener) EnterFlowStatement(ctx *FlowStatementContext) {}
 

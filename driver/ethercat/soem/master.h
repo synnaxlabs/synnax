@@ -10,6 +10,7 @@
 #pragma once
 
 #include <mutex>
+#include <set>
 #include <span>
 #include <unordered_map>
 #include <vector>
@@ -22,33 +23,9 @@ extern "C" {
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/master/master.h"
+#include "driver/ethercat/pdo/pdo.h"
 
 namespace ethercat::soem {
-/// @brief key for PDO offset cache lookup.
-struct PDOEntryKey {
-    uint16_t slave_position;
-    uint16_t index;
-    uint8_t subindex;
-    bool is_input;
-
-    bool operator==(const PDOEntryKey &other) const {
-        return slave_position == other.slave_position && index == other.index &&
-               subindex == other.subindex && is_input == other.is_input;
-    }
-};
-
-/// @brief hash function for PDOEntryKey.
-struct PDOEntryKeyHash {
-    size_t operator()(const PDOEntryKey &key) const {
-        return std::hash<uint64_t>()(
-            (static_cast<uint64_t>(key.slave_position) << 32) |
-            (static_cast<uint64_t>(key.index) << 16) |
-            (static_cast<uint64_t>(key.subindex) << 8) |
-            static_cast<uint64_t>(key.is_input)
-        );
-    }
-};
-
 /// @brief SOEM-based implementation of the Master interface.
 class Master final : public master::Master {
     /// @brief the network interface name (e.g., "eth0", "enp3s0").
@@ -62,10 +39,11 @@ class Master final : public master::Master {
     /// @brief output size in bytes (RxPDO, master→slave).
     size_t output_sz;
     /// @brief cached PDO offsets computed at activation time.
-    std::unordered_map<PDOEntryKey, master::PDOOffset, PDOEntryKeyHash>
-        pdo_offset_cache;
+    pdo::Offsets pdo_offsets;
     /// @brief cached slave information populated during initialization.
-    std::vector<SlaveInfo> slave_list;
+    std::vector<slave::DiscoveryResult> slave_list;
+    /// @brief slave positions that are disabled (excluded from cyclic exchange).
+    std::set<uint16_t> disabled_slaves;
     /// @brief protects slave state queries.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -86,7 +64,9 @@ public:
 
     xerrors::Error initialize() override;
 
-    xerrors::Error register_pdos(const std::vector<PDOEntry> &entries) override;
+    xerrors::Error register_pdos(const std::vector<pdo::Entry> &entries) override;
+
+    void set_slave_enabled(uint16_t position, bool enabled) override;
 
     xerrors::Error activate() override;
 
@@ -100,19 +80,19 @@ public:
 
     std::span<uint8_t> output_data() override;
 
-    master::PDOOffset pdo_offset(const PDOEntry &entry) const override;
+    pdo::Offset pdo_offset(const pdo::Entry &entry) const override;
 
-    std::vector<SlaveInfo> slaves() const override;
+    std::vector<slave::DiscoveryResult> slaves() const override;
 
-    SlaveState slave_state(uint16_t position) const override;
+    slave::State slave_state(uint16_t position) const override;
 
     bool all_slaves_operational() const override;
 
     std::string interface_name() const override;
 
 private:
-    /// @brief converts SOEM slave state to our SlaveState enum.
-    static SlaveState convert_state(uint16_t soem_state);
+    /// @brief converts SOEM slave state to our slave::State enum.
+    static slave::State convert_state(uint16_t soem_state);
 
     /// @brief populates the cached slave list from SOEM's slavelist.
     void populate_slaves();
@@ -121,20 +101,20 @@ private:
     void cache_pdo_offsets();
 
     /// @brief discovers PDO entries for a slave and populates its PDO lists.
-    void discover_slave_pdos(SlaveInfo &slave);
+    void discover_slave_pdos(slave::DiscoveryResult &slave);
 
     /// @brief discovers PDOs using CoE SDO reads (primary method).
-    bool discover_pdos_coe(SlaveInfo &slave);
+    bool discover_pdos_coe(slave::DiscoveryResult &slave);
 
     /// @brief discovers PDOs from SII EEPROM (fallback method).
-    void discover_pdos_sii(SlaveInfo &slave);
+    void discover_pdos_sii(slave::DiscoveryResult &slave);
 
     /// @brief reads PDO assignment object to get list of assigned PDOs.
     xerrors::Error read_pdo_assign(
         uint16_t slave_pos,
         uint16_t assign_index,
         bool is_input,
-        SlaveInfo &slave
+        slave::DiscoveryResult &slave
     );
 
     /// @brief reads PDO mapping entries from a specific PDO.
@@ -142,15 +122,16 @@ private:
         uint16_t slave_pos,
         uint16_t pdo_index,
         bool is_input,
-        SlaveInfo &slave
+        slave::DiscoveryResult &slave
     );
 
     /// @brief reads the name of a PDO entry from the CoE object dictionary.
     std::string
-    read_pdo_entry_name(uint16_t slave_pos, uint16_t index, uint8_t subindex);
+    read_pdo_entry_name(uint16_t slave_pos, uint16_t index, uint8_t sub_index);
 
     /// @brief scans the CoE object dictionary to find PDO mapping indices.
-    bool scan_object_dictionary_for_pdos(uint16_t slave_pos, SlaveInfo &slave);
+    bool
+    scan_object_dictionary_for_pdos(uint16_t slave_pos, slave::DiscoveryResult &slave);
 
     /// @brief transitions all slaves to the specified state.
     xerrors::Error request_state(uint16_t state, int timeout);

@@ -23,39 +23,45 @@ SOEM_HDRS = glob(["SOEM/include/soem/*.h"])
 
 # Linux OSAL + OSHW
 LINUX_OSAL_SRCS = ["SOEM/osal/linux/osal.c"]
+
 LINUX_OSHW_SRCS = [
     "SOEM/oshw/linux/nicdrv.c",
     "SOEM/oshw/linux/oshw.c",
 ]
+
 LINUX_PLATFORM_HDRS = [
     "SOEM/osal/linux/osal_defs.h",
     "SOEM/oshw/linux/nicdrv.h",
     "SOEM/oshw/linux/oshw.h",
 ]
 
-# macOS OSAL + OSHW (uses pcap) - custom platform files outside submodule
-MACOS_OSAL_SRCS = ["macos/osal/osal.c"]
-MACOS_OSHW_SRCS = [
-    "macos/oshw/nicdrv.c",
-    "macos/oshw/oshw.c",
-]
-MACOS_PLATFORM_HDRS = [
-    "macos/osal/osal_defs.h",
-    "macos/oshw/nicdrv.h",
-    "macos/oshw/oshw.h",
-]
-
 # Windows OSAL + OSHW
 WIN32_OSAL_SRCS = ["SOEM/osal/win32/osal.c"]
+
 WIN32_OSHW_SRCS = [
     "SOEM/oshw/win32/nicdrv.c",
     "SOEM/oshw/win32/oshw.c",
 ]
+
 WIN32_PLATFORM_HDRS = [
     "SOEM/osal/win32/osal_defs.h",
     "SOEM/oshw/win32/nicdrv.h",
     "SOEM/oshw/win32/oshw.h",
 ] + glob(["SOEM/oshw/win32/wpcap/Include/**/*.h"])
+
+# macOS OSAL + OSHW (custom platform files using pcap)
+MACOS_OSAL_SRCS = ["macos/osal/osal.c"]
+
+MACOS_OSHW_SRCS = [
+    "macos/oshw/nicdrv.c",
+    "macos/oshw/oshw.c",
+]
+
+MACOS_PLATFORM_HDRS = [
+    "macos/osal/osal_defs.h",
+    "macos/oshw/nicdrv.h",
+    "macos/oshw/oshw.h",
+]
 
 # Generate ec_options.h with complete configuration
 genrule(
@@ -227,7 +233,10 @@ cc_library(
     }),
     linkopts = select({
         "@platforms//os:linux": ["-lpthread"],
-        "@platforms//os:macos": ["-lpthread", "-lpcap"],
+        "@platforms//os:macos": [
+            "-lpthread",
+            "-lpcap",
+        ],
         "@platforms//os:windows": [
             "Packet.lib",
             "wpcap.lib",
@@ -236,4 +245,42 @@ cc_library(
         ],
     }),
     visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "osal_test",
+    srcs = select({
+        "@platforms//os:macos": ["macos/osal/osal_test.cpp"],
+        "//conditions:default": [],
+    }),
+    target_compatible_with = select({
+        "@platforms//os:macos": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = select({
+        "@platforms//os:macos": [
+            ":soem",
+            "@googletest//:gtest_main",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_test(
+    name = "oshw_test",
+    srcs = select({
+        "@platforms//os:macos": ["macos/oshw/oshw_test.cpp"],
+        "//conditions:default": [],
+    }),
+    target_compatible_with = select({
+        "@platforms//os:macos": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = select({
+        "@platforms//os:macos": [
+            ":soem",
+            "@googletest//:gtest_main",
+        ],
+        "//conditions:default": [],
+    }),
 )

@@ -29,7 +29,11 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var bCtx = context.Background()
+var bCtx context.Context
+
+var _ = BeforeEach(func() {
+	bCtx = context.Background()
+})
 
 func expectExpression(expression string, expectedType types.Type, expectedOpcodes ...any) {
 	bytecode, exprType := compileExpression(expression)

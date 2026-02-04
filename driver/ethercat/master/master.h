@@ -17,7 +17,8 @@
 
 #include "x/cpp/xerrors/errors.h"
 
-#include "driver/ethercat/master/slave_info.h"
+#include "driver/ethercat/pdo/pdo.h"
+#include "driver/ethercat/slave/slave.h"
 
 namespace ethercat::master {
 
@@ -27,14 +28,6 @@ struct Info {
     std::string key;
     /// @brief human-readable description.
     std::string description;
-};
-
-/// @brief byte and bit offset for a PDO entry in the process data buffer.
-struct PDOOffset {
-    /// @brief byte offset into the appropriate buffer (input_data or output_data).
-    size_t byte = 0;
-    /// @brief bit offset within the byte for sub-byte entries (0-7).
-    uint8_t bit = 0;
 };
 
 /// @brief abstract interface for an EtherCAT master.
@@ -47,7 +40,11 @@ public:
 
     /// @brief registers PDO entries for process data exchange.
     [[nodiscard]] virtual xerrors::Error
-    register_pdos(const std::vector<PDOEntry> &entries) = 0;
+    register_pdos(const std::vector<pdo::Entry> &entries) = 0;
+
+    /// @brief sets whether a slave is enabled for cyclic exchange.
+    /// Must be called after initialize() and before activate().
+    virtual void set_slave_enabled(uint16_t position, bool enabled) = 0;
 
     /// @brief activates the master and transitions slaves to OPERATIONAL state.
     [[nodiscard]] virtual xerrors::Error activate() = 0;
@@ -68,15 +65,15 @@ public:
     [[nodiscard]] virtual std::span<uint8_t> output_data() = 0;
 
     /// @brief returns the byte and bit offset for a PDO entry.
-    [[nodiscard]] virtual PDOOffset pdo_offset(const PDOEntry &entry) const = 0;
+    [[nodiscard]] virtual pdo::Offset pdo_offset(const pdo::Entry &entry) const = 0;
 
     /// @brief returns information about all slaves discovered during initialization.
-    [[nodiscard]] virtual std::vector<SlaveInfo> slaves() const = 0;
+    [[nodiscard]] virtual std::vector<slave::DiscoveryResult> slaves() const = 0;
 
     /// @brief returns the current state of a specific slave.
     /// @note Not safe to call while receive()/send() are actively cycling. Use only
     /// for pre-activation verification or post-deactivation diagnostics.
-    [[nodiscard]] virtual SlaveState slave_state(uint16_t position) const = 0;
+    [[nodiscard]] virtual slave::State slave_state(uint16_t position) const = 0;
 
     /// @brief checks if all configured slaves are in OPERATIONAL state.
     /// @note Not safe to call while receive()/send() are actively cycling. Use only

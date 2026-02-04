@@ -17,31 +17,33 @@
 #include "x/cpp/xjson/xjson.h"
 
 #include "driver/ethercat/channel/channel.h"
-#include "driver/ethercat/device/device.h"
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/topology/topology.h"
 #include "driver/task/common/write_task.h"
 
 namespace ethercat {
 /// @brief configuration for EtherCAT write tasks.
-struct WriteTaskConfig : common::BaseWriteTaskConfig {
+struct WriteTaskConfig : common::BaseTaskConfig {
     /// @brief network interface name for the EtherCAT master.
+    /// Dynamically populated from device properties.
     std::string interface_name;
     /// @brief configured output channels.
     std::vector<std::unique_ptr<channel::Output>> channels;
     /// @brief state feedback channels.
+    /// Dynamically populated by querying the core.
     std::vector<synnax::Channel> state_channels;
     /// @brief index channel keys for state timestamps.
+    /// Dynamically populated by querying the core.
     std::set<synnax::ChannelKey> state_indexes;
     /// @brief rate at which state feedback is published.
     telem::Rate state_rate;
     /// @brief rate at which write commands are executed.
     telem::Rate execution_rate;
     /// @brief cached device properties for topology validation.
-    std::unordered_map<std::string, device::SlaveProperties> device_cache;
+    std::unordered_map<std::string, slave::Properties> device_cache;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
-        BaseWriteTaskConfig(std::move(other)),
+        BaseTaskConfig(std::move(other)),
         interface_name(std::move(other.interface_name)),
         channels(std::move(other.channels)),
         state_channels(std::move(other.state_channels)),
@@ -57,10 +59,10 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &cfg
     ):
-        BaseWriteTaskConfig(cfg),
+        BaseTaskConfig(cfg),
         state_rate(telem::Rate(cfg.field<float>("state_rate", 1.0f))),
         execution_rate(telem::Rate(cfg.field<float>("execution_rate", 1000.0f))) {
-        std::unordered_map<std::string, device::SlaveProperties> slave_cache;
+        std::unordered_map<std::string, slave::Properties> slave_cache;
         std::string first_network;
 
         cfg.iter("channels", [&](xjson::Parser &ch) {
@@ -73,7 +75,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
                     return;
                 }
                 auto props_parser = xjson::Parser(slave_dev.properties);
-                slave_cache.emplace(slave_key, device::SlaveProperties(props_parser));
+                slave_cache.emplace(slave_key, slave::Properties::parse(props_parser));
                 if (props_parser.error()) {
                     ch.field_err("device", props_parser.error().message());
                     return;
@@ -150,16 +152,17 @@ public:
         engine(std::move(eng)) {}
 
     xerrors::Error start() override {
+        if (auto err = this->engine->ensure_initialized(); err) return err;
         if (auto err = topology::validate(
-                this->engine->slaves(),
+                slave::discovered_properties(this->engine->slaves()),
                 this->cfg.device_cache
             ))
             return err;
 
-        std::vector<PDOEntry> entries;
+        std::vector<pdo::Entry> entries;
         entries.reserve(this->cfg.channels.size());
         for (const auto &ch: this->cfg.channels)
-            entries.push_back(ch->to_pdo_entry(false));
+            entries.push_back(*ch);
         auto [wtr, err] = this->engine->open_writer(
             std::move(entries),
             this->cfg.execution_rate

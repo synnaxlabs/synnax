@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <ranges>
 #include <utility>
 
 #include "glog/logging.h"
@@ -21,7 +22,7 @@ namespace {
 std::string get_pdo_error_guidance(const std::string &error) {
     if (error.find("CoE") != std::string::npos ||
         error.find("mailbox") != std::string::npos)
-        return "Use manual channel configuration with explicit index/subindex values.";
+        return "Use manual channel configuration with explicit index/sub_index values.";
     if (error.find("SII") != std::string::npos ||
         error.find("fallback") != std::string::npos)
         return "PDO order may be unreliable. Verify data correctness after configuration.";
@@ -65,6 +66,21 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::Device> devices;
     if (this->pool == nullptr) return {devices, xerrors::NIL};
 
+    if (scan_ctx.count == 0 && scan_ctx.devices != nullptr) {
+        for (const auto &dev: *scan_ctx.devices | std::views::values) {
+            auto props_parser = xjson::Parser(dev.properties);
+            auto props = slave::Properties::parse(props_parser);
+            if (props_parser.error() || props.enabled) continue;
+
+            auto [engine, err] = this->pool->acquire(props.network);
+            if (err) continue;
+
+            LOG(INFO) << SCAN_LOG_PREFIX << "initializing slave " << props.position
+                      << " on " << props.network << " as disabled";
+            engine->set_slave_enabled(props.position, props.enabled);
+        }
+    }
+
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
@@ -100,29 +116,38 @@ bool Scanner::exec(
 }
 
 synnax::Device Scanner::create_slave_device(
-    const SlaveInfo &slave,
+    const slave::DiscoveryResult &slave,
     const std::string &master_key,
     const common::ScannerContext &scan_ctx
 ) const {
+    const auto &props = slave.properties;
+    const auto &sts = slave.status;
     const auto rack_key = synnax::rack_key_from_task_key(this->task.key);
-    const std::string key = this->generate_slave_key(slave, master_key);
+    const std::string key = this->generate_slave_key(props, master_key);
 
-    nlohmann::json props = get_existing_properties(key, scan_ctx);
-    auto slave_props = slave.to_device_properties(master_key);
+    nlohmann::json json_props = get_existing_properties(key, scan_ctx);
+    auto slave_props = props.to_json();
     for (auto &[k, v]: slave_props.items())
-        props[k] = v;
+        json_props[k] = v;
+
+    bool is_enabled = true;
+    if (json_props.contains("enabled") && json_props["enabled"].is_boolean())
+        is_enabled = json_props["enabled"].get<bool>();
 
     std::string status_msg;
     std::string status_variant;
-    if (slave.pdos_discovered) {
-        if (slave.pdo_discovery_error.empty()) {
-            status_msg = "Discovered (" + std::to_string(slave.input_pdos.size()) +
-                         " inputs, " + std::to_string(slave.output_pdos.size()) +
+    if (!is_enabled) {
+        status_msg = "Device disabled";
+        status_variant = status::variant::DISABLED;
+    } else if (sts.pdos_discovered) {
+        if (sts.pdo_discovery_error.empty()) {
+            status_msg = "Discovered (" + std::to_string(props.input_pdos.size()) +
+                         " inputs, " + std::to_string(props.output_pdos.size()) +
                          " outputs)";
             status_variant = status::variant::SUCCESS;
         } else {
-            status_msg = "Discovered with warning: " + slave.pdo_discovery_error +
-                         ". " + get_pdo_error_guidance(slave.pdo_discovery_error);
+            status_msg = "Discovered with warning: " + sts.pdo_discovery_error + ". " +
+                         get_pdo_error_guidance(sts.pdo_discovery_error);
             status_variant = status::variant::WARNING;
         }
     } else {
@@ -132,13 +157,13 @@ synnax::Device Scanner::create_slave_device(
 
     synnax::Device dev;
     dev.key = key;
-    dev.name = slave.name.empty() ? "EtherCAT Slave " + std::to_string(slave.position)
-                                  : slave.name;
+    dev.name = props.name.empty() ? "EtherCAT Slave " + std::to_string(props.position)
+                                  : props.name;
     dev.make = DEVICE_MAKE;
     dev.model = SLAVE_DEVICE_MODEL;
-    dev.location = master_key + ".Slot " + std::to_string(slave.position);
+    dev.location = master_key + ".Slot " + std::to_string(props.position);
     dev.rack = rack_key;
-    dev.properties = props.dump();
+    dev.properties = json_props.dump();
     dev.status = synnax::DeviceStatus{
         .key = dev.status_key(),
         .name = dev.name,
@@ -164,8 +189,10 @@ nlohmann::json Scanner::get_existing_properties(
     } catch (const nlohmann::json::parse_error &) { return nlohmann::json::object(); }
 }
 
-std::string
-Scanner::generate_slave_key(const SlaveInfo &slave, const std::string &master_key) {
+std::string Scanner::generate_slave_key(
+    const slave::Properties &slave,
+    const std::string &master_key
+) {
     if (slave.serial != 0)
         return "ethercat_" + std::to_string(slave.vendor_id) + "_" +
                std::to_string(slave.product_code) + "_" + std::to_string(slave.serial);
@@ -173,6 +200,31 @@ Scanner::generate_slave_key(const SlaveInfo &slave, const std::string &master_ke
     std::replace(safe_key.begin(), safe_key.end(), ':', '_');
     return "ethercat_" + safe_key + "_" + std::to_string(slave.vendor_id) + "_" +
            std::to_string(slave.product_code) + "_" + std::to_string(slave.position);
+}
+
+void Scanner::on_device_set(const synnax::Device &dev) {
+    auto props_parser = xjson::Parser(dev.properties);
+    auto props = slave::Properties::parse(props_parser);
+    if (props_parser.error()) return;
+
+    auto [engine, err] = this->pool->acquire(props.network);
+    if (err) return;
+
+    LOG(INFO) << SCAN_LOG_PREFIX << "setting slave " << props.position << " on "
+              << props.network << " enabled=" << (props.enabled ? "true" : "false");
+    engine->set_slave_enabled(props.position, props.enabled);
+
+    synnax::DeviceStatus status{
+        .key = dev.status_key(),
+        .name = dev.name,
+        .variant = props.enabled ? status::variant::SUCCESS : status::variant::DISABLED,
+        .message = props.enabled ? "Device enabled" : "Device disabled",
+        .time = telem::TimeStamp::now(),
+        .details = {.rack = dev.rack, .device = dev.key},
+    };
+    if (auto status_err = this->ctx->client->statuses.set(status); status_err)
+        LOG(WARNING) << SCAN_LOG_PREFIX
+                     << "failed to update device status: " << status_err;
 }
 
 void Scanner::test_interface(const task::Command &cmd) const {
