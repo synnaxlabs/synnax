@@ -10,7 +10,7 @@
 import "@/arc/editor/Controls.css";
 
 import { type rack, task } from "@synnaxlabs/client";
-import { Arc, Button, Flex, Icon, Rack, Status } from "@synnaxlabs/pluto";
+import { Arc, Button, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useState } from "react";
 
@@ -18,6 +18,7 @@ import { useTask } from "@/arc/hooks";
 import { type State } from "@/arc/slice";
 import { translateGraphToServer } from "@/arc/types/translate";
 import { CSS } from "@/css";
+import { Controls as TaskControls } from "@/hardware/common/task/task-controls";
 import { Layout } from "@/layout";
 
 interface ControlsProps {
@@ -29,9 +30,12 @@ export const Controls = ({ state }: ControlsProps) => {
   const { running, onStartStop, taskStatus, taskKey } = useTask(state.key, name);
   const taskKeyDefined = primitive.isNonZero(taskKey);
   const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>();
+  const [expanded, setExpanded] = useState(false);
+  const [hovered, setHovered] = useState(false);
+
   useEffect(() => {
     if (taskKeyDefined) setSelectedRack(task.rackKey(taskKey));
-  }, [taskKey]);
+  }, [taskKey, taskKeyDefined]);
   const { update } = Arc.useCreate();
 
   const handleConfigure = useCallback(() => {
@@ -45,19 +49,27 @@ export const Controls = ({ state }: ControlsProps) => {
       rack: selectedRack,
     });
   }, [state, update, name, selectedRack]);
+
+  const handleToggle = useCallback(() => {
+    setExpanded((prev) => !prev);
+    setHovered(false);
+  }, []);
+
   return (
-    <Flex.Box
+    <TaskControls.Frame
       className={CSS.BE("arc-editor", "controls")}
-      justify="between"
-      grow
-      x
-      background={0}
-      borderColor={5}
-      bordered
-      rounded={1}
+      expanded={expanded}
+      hovered={hovered}
     >
-      <Status.Summary variant="disabled" message="Not deployed" status={taskStatus} />
-      <Flex.Box x gap="small" align="center">
+      <TaskControls.ExpandableStatus
+        status={taskStatus}
+        expanded={expanded}
+        hovered={hovered}
+        onToggle={handleToggle}
+        onHoverChange={setHovered}
+        fallbackMessage="Not deployed"
+      />
+      <TaskControls.Actions>
         <Rack.SelectSingle
           className={CSS.B("rack-select")}
           value={selectedRack}
@@ -68,18 +80,17 @@ export const Controls = ({ state }: ControlsProps) => {
         <Button.Button
           onClick={handleConfigure}
           variant="outlined"
+          size="medium"
           disabled={selectedRack === undefined}
         >
           Configure
         </Button.Button>
-        <Button.Button
+        <TaskControls.StartStopButton
+          running={running}
           onClick={onStartStop}
-          variant="filled"
           disabled={selectedRack === undefined}
-        >
-          {running ? <Icon.Pause /> : <Icon.Play />}
-        </Button.Button>
-      </Flex.Box>
-    </Flex.Box>
+        />
+      </TaskControls.Actions>
+    </TaskControls.Frame>
   );
 };

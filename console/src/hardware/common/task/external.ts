@@ -20,6 +20,7 @@ export * from "@/hardware/common/task/getChannelNameID";
 export * from "@/hardware/common/task/layouts";
 export * from "@/hardware/common/task/ReadChannelContextMenuItem";
 export * from "@/hardware/common/task/TareButton";
+export { Controls as TaskControls } from "@/hardware/common/task/task-controls";
 export * from "@/hardware/common/task/types";
 export * from "@/hardware/common/task/useTare";
 export * from "@/hardware/common/task/WriteChannelContextMenuItems";

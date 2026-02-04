@@ -1,0 +1,110 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-task-controls {
+    border-radius: 1rem;
+    border-color: var(--pluto-gray-l6);
+    background-color: var(--pluto-gray-l1);
+    transition: all 0.15s ease-out;
+
+    .console-task-state {
+        position: relative;
+        flex-grow: 1;
+        border-right: var(--pluto-border);
+        padding: 2rem;
+        cursor: pointer;
+        transition: all 0.15s ease-out;
+        min-height: 4rem;
+
+        &:hover {
+            background-color: var(--pluto-gray-l2);
+        }
+    }
+
+    .console-task-state__collapsed {
+        align-items: center;
+
+        .console-task-state__message {
+            flex: 1;
+            min-width: 0;
+        }
+    }
+
+    .console-task-state__expand-indicator {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        color: var(--pluto-gray-l8);
+        font-size: 2rem;
+        transition: color 0.15s ease-out;
+    }
+
+    .console-task-state:hover .console-task-state__expand-indicator {
+        color: var(--pluto-gray-l10);
+    }
+
+    .console-task-state__expanded {
+        width: 100%;
+        padding: 1rem;
+    }
+
+    .console-task-state__description {
+        max-height: 150px;
+        overflow-y: auto;
+    }
+
+    .console-task-controls__actions {
+        padding: 2rem;
+        gap: 1rem;
+    }
+
+    /* Expanded state */
+    &.console-task-controls--expanded,
+    &.console-task-controls--hovered {
+        flex-direction: column !important;
+
+        .console-task-state {
+            border-right: none;
+            border-bottom: var(--pluto-border);
+            min-height: auto;
+        }
+
+        .console-task-controls__actions {
+            align-self: flex-end;
+        }
+    }
+
+    /* Hovered preview state - subtle visual difference */
+    &.console-task-controls--hovered:not(.console-task-controls--expanded) {
+        box-shadow: var(--pluto-shadow-v1);
+
+        .console-task-state {
+            background-color: var(--pluto-gray-l2);
+        }
+    }
+}
+
+/* Container query for narrow widths */
+@container (max-width: 600px) {
+    .console-task-controls {
+        flex-direction: column !important;
+
+        .console-task-state {
+            min-height: 10rem;
+            border-right: none !important;
+            border-bottom: var(--pluto-border);
+        }
+
+        .console-task-controls__actions {
+            align-self: flex-end;
+        }
+    }
+}

@@ -9,10 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-arc-editor__controls {
+/* Arc editor specific positioning and sizing overrides */
+.console-arc-editor__controls.console-task-controls {
     max-width: 700px;
     width: 100%;
-    padding: 2rem;
     position: absolute;
     bottom: 2rem;
     right: 2rem;

@@ -7,21 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Button,
-  Flex,
-  type Flux,
-  Form,
-  Icon,
-  Status,
-  Synnax,
-  Text,
-  Triggers,
-} from "@synnaxlabs/pluto";
+import { type Flex, type Flux, Form, Status, Synnax } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 
-import { CSS } from "@/css";
+import { Controls as ControlsNS } from "@/hardware/common/task/task-controls";
 import { useKey } from "@/hardware/common/task/useKey";
 import { useStatus } from "@/hardware/common/task/useStatus";
 import { Layout } from "@/layout";
@@ -32,8 +22,10 @@ export interface ControlsProps extends Flex.BoxProps {
   onConfigure: () => void;
 }
 
-const CONFIGURE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
-
+/**
+ * Task controls component that wires up the presentational controls
+ * with task-specific data from Form context.
+ */
 export const Controls = ({
   layoutKey,
   onConfigure,
@@ -43,11 +35,17 @@ export const Controls = ({
   const taskStatus = useStatus();
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
   const handleError = Status.useErrorHandler();
-  let stat: status.Status = taskStatus;
-  if (formStatus.variant !== "success") stat = formStatus;
-  const hasTriggers = Layout.useSelectActiveMosaicTabKeyAndNotBlurred() != null;
   const client = Synnax.use();
   const key = useKey();
+  const hasTriggers = Layout.useSelectActiveMosaicTabKeyAndNotBlurred() != null;
+
+  const [expanded, setExpanded] = useState(false);
+  const [hovered, setHovered] = useState(false);
+
+  // Compute effective status (form errors take precedence)
+  let effectiveStatus: status.Status = taskStatus;
+  if (formStatus.variant !== "success") effectiveStatus = formStatus;
+
   const handleStartStop = useCallback(() => {
     if (key == null) return;
     const command = taskStatus.details.running ? "stop" : "start";
@@ -55,49 +53,40 @@ export const Controls = ({
       async () => await client?.tasks.executeCommand({ task: key, type: command }),
       `Failed to ${command} task`,
     );
-  }, [taskStatus]);
+  }, [taskStatus, key, client, handleError]);
+
+  const handleToggle = useCallback(() => {
+    setExpanded((prev) => !prev);
+    setHovered(false);
+  }, []);
+
   return (
-    <Flex.Box
-      className={CSS.B("task-controls")}
-      x
-      justify="between"
-      empty
-      bordered
-      {...props}
-    >
-      <Flex.Box className={CSS.B("task-state")} x>
-        <Status.Summary status={stat} justify="center" align="center" center={false} />
-      </Flex.Box>
+    <ControlsNS.Frame expanded={expanded} hovered={hovered} {...props}>
+      <ControlsNS.ExpandableStatus
+        status={effectiveStatus}
+        expanded={expanded}
+        hovered={hovered}
+        onToggle={handleToggle}
+        onHoverChange={setHovered}
+      />
       {!isSnapshot && (
-        <Flex.Box align="center" x justify="end">
-          <Button.Button
+        <ControlsNS.Actions>
+          <ControlsNS.ConfigureButton
             onClick={onConfigure}
-            status={status.keepVariants(formStatus.variant, ["loading", "disabled"])}
-            size="medium"
-            tooltip={
-              hasTriggers ? (
-                <Flex.Box x align="center" gap="small">
-                  <Triggers.Text level="small" trigger={CONFIGURE_TRIGGER} />
-                  <Text.Text level="small">To Configure</Text.Text>
-                </Flex.Box>
-              ) : undefined
-            }
-            trigger={hasTriggers ? CONFIGURE_TRIGGER : undefined}
-            variant="outlined"
-          >
-            Configure
-          </Button.Button>
-          <Button.Button
-            disabled={formStatus.variant !== "success"}
-            status={status.keepVariants(taskStatus.variant, "loading")}
+            showTrigger={hasTriggers}
+            statusVariant={status.keepVariants(formStatus.variant, [
+              "loading",
+              "disabled",
+            ])}
+          />
+          <ControlsNS.StartStopButton
+            running={taskStatus.details.running}
             onClick={handleStartStop}
-            size="medium"
-            variant="filled"
-          >
-            {taskStatus.details.running ? <Icon.Pause /> : <Icon.Play />}
-          </Button.Button>
-        </Flex.Box>
+            disabled={formStatus.variant !== "success"}
+            statusVariant={status.keepVariants(taskStatus.variant, "loading")}
+          />
+        </ControlsNS.Actions>
       )}
-    </Flex.Box>
+    </ControlsNS.Frame>
   );
 };
