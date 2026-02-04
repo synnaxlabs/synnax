@@ -308,7 +308,7 @@ export const getPortLabel = (ch: InputChannel | OutputChannel): string =>
 /** Generates a safe name for a PDO channel. */
 export const getPDOName = (ch: InputChannel | OutputChannel): string =>
   channel.escapeInvalidName(
-    ch.type === AUTOMATIC_TYPE ? ch.pdo : `_0x${ch.index.toString(16)}_${ch.subindex}`,
+    ch.type === AUTOMATIC_TYPE ? ch.pdo : `0x${ch.index.toString(16)}_${ch.subindex}`,
   );
 
 export type Channel = InputChannel | OutputChannel;

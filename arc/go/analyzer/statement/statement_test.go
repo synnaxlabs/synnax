@@ -307,8 +307,9 @@ var _ = Describe("Statement", func() {
 					varScope := MustSucceed(ctx.Scope.Resolve(ctx, "current"))
 					Expect(varScope.Type).To(Equal(expectedType))
 				},
-				Entry("f64 channel", "sensor", types.F64()),
-				Entry("i32 channel", "int_chan", types.I32()),
+				Entry("f64 channel", "sensor", types.Chan(types.F64())),
+				Entry("i32 channel", "int_chan", types.Chan(types.I32())),
+				Entry("i32 channel addition", "int_chan + 1", types.I32()),
 			)
 		})
 	})

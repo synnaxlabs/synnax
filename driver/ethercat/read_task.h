@@ -17,7 +17,6 @@
 #include "x/cpp/xjson/xjson.h"
 
 #include "driver/ethercat/channel/channel.h"
-#include "driver/ethercat/device/device.h"
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/topology/topology.h"
 #include "driver/task/common/read_task.h"
@@ -27,15 +26,17 @@ namespace ethercat {
 /// @brief configuration for EtherCAT read tasks.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief network interface name for the EtherCAT master.
+    /// Dynamically populated from device properties.
     std::string interface_name;
     /// @brief index channel keys for timestamp generation.
+    /// Dynamically populated by querying the core.
     std::set<synnax::ChannelKey> indexes;
     /// @brief configured input channels.
     std::vector<std::unique_ptr<channel::Input>> channels;
     /// @brief number of samples per channel per batch.
     size_t samples_per_chan;
     /// @brief cached device properties for topology validation.
-    std::unordered_map<std::string, device::SlaveProperties> device_cache;
+    std::unordered_map<std::string, slave::Properties> device_cache;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         BaseReadTaskConfig(std::move(other)),
@@ -63,7 +64,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
 
-        std::unordered_map<std::string, device::SlaveProperties> slave_cache;
+        std::unordered_map<std::string, slave::Properties> slave_cache;
         std::string first_network;
 
         cfg.iter("channels", [&](xjson::Parser &ch) {
@@ -76,7 +77,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                     return;
                 }
                 auto props_parser = xjson::Parser(slave_dev.properties);
-                slave_cache.emplace(slave_key, device::SlaveProperties(props_parser));
+                slave_cache.emplace(slave_key, slave::Properties::parse(props_parser));
                 if (props_parser.error()) {
                     ch.field_err("device", props_parser.error().message());
                     return;
@@ -167,16 +168,16 @@ public:
     xerrors::Error start() override {
         if (auto err = this->engine->ensure_initialized(); err) return err;
         if (auto err = topology::validate(
-                this->engine->slaves(),
+                slave::discovered_properties(this->engine->slaves()),
                 this->cfg.device_cache
             );
             err)
             return err;
 
-        std::vector<PDOEntry> entries;
+        std::vector<pdo::Entry> entries;
         entries.reserve(this->cfg.channels.size());
         for (const auto &ch: this->cfg.channels)
-            entries.push_back(ch->to_pdo_entry(true));
+            entries.push_back(*ch);
 
         auto [rdr, err] = this->engine->open_reader(
             std::move(entries),

@@ -24,7 +24,14 @@ protected:
 };
 
 TEST_F(MasterTest, InitializeSuccess) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
     ASSERT_NIL(master->initialize());
     EXPECT_TRUE(master->is_initialized());
     EXPECT_TRUE(master->was_called("initialize"));
@@ -37,7 +44,14 @@ TEST_F(MasterTest, InitializeFailure) {
 }
 
 TEST_F(MasterTest, ActivateSuccess) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
     EXPECT_TRUE(master->is_activated());
@@ -46,7 +60,14 @@ TEST_F(MasterTest, ActivateSuccess) {
 }
 
 TEST_F(MasterTest, ActivateFailure) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
     ASSERT_NIL(master->initialize());
     master->inject_activate_error(xerrors::Error(ACTIVATION_ERROR, "failed to map IO"));
     ASSERT_OCCURRED_AS(master->activate(), ACTIVATION_ERROR);
@@ -58,88 +79,138 @@ TEST_F(MasterTest, ActivateWithoutInitializeFails) {
 }
 
 TEST_F(MasterTest, SlaveDiscovery) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x100, 0x200, "Slave1"));
-    master->add_slave(mock::MockSlaveConfig(1, 0x100, 0x201, "Slave2"));
-    master->add_slave(mock::MockSlaveConfig(2, 0x100, 0x202, "Slave3"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x100,
+            .product_code = 0x200,
+            .name = "Slave1"
+        }
+    );
+    master->add_slave(
+        slave::Properties{
+            .position = 1,
+            .vendor_id = 0x100,
+            .product_code = 0x201,
+            .name = "Slave2"
+        }
+    );
+    master->add_slave(
+        slave::Properties{
+            .position = 2,
+            .vendor_id = 0x100,
+            .product_code = 0x202,
+            .name = "Slave3"
+        }
+    );
 
     ASSERT_NIL(master->initialize());
 
     auto slaves = master->slaves();
     ASSERT_EQ(slaves.size(), 3);
-    EXPECT_EQ(slaves[0].position, 0);
-    EXPECT_EQ(slaves[0].vendor_id, 0x100);
-    EXPECT_EQ(slaves[0].product_code, 0x200);
-    EXPECT_EQ(slaves[0].name, "Slave1");
-    EXPECT_EQ(slaves[1].position, 1);
-    EXPECT_EQ(slaves[2].position, 2);
+    EXPECT_EQ(slaves[0].properties.position, 0);
+    EXPECT_EQ(slaves[0].properties.vendor_id, 0x100);
+    EXPECT_EQ(slaves[0].properties.product_code, 0x200);
+    EXPECT_EQ(slaves[0].properties.name, "Slave1");
+    EXPECT_EQ(slaves[1].properties.position, 1);
+    EXPECT_EQ(slaves[2].properties.position, 2);
 }
 
 TEST_F(MasterTest, SlaveStateQueriesBeforeActivation) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
     ASSERT_NIL(master->initialize());
 
-    EXPECT_EQ(master->slave_state(0), SlaveState::INIT);
+    EXPECT_EQ(master->slave_state(0), slave::State::INIT);
     EXPECT_FALSE(master->all_slaves_operational());
 }
 
 TEST_F(MasterTest, SlaveStateQueriesAfterActivation) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    master->add_slave(mock::MockSlaveConfig(1, 0x1, 0x3, "Slave2"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
+    master->add_slave(
+        slave::Properties{
+            .position = 1,
+            .vendor_id = 0x1,
+            .product_code = 0x3,
+            .name = "Slave2"
+        }
+    );
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
 
-    EXPECT_EQ(master->slave_state(0), SlaveState::OP);
-    EXPECT_EQ(master->slave_state(1), SlaveState::OP);
+    EXPECT_EQ(master->slave_state(0), slave::State::OP);
+    EXPECT_EQ(master->slave_state(1), slave::State::OP);
     EXPECT_TRUE(master->all_slaves_operational());
 }
 
 TEST_F(MasterTest, SlaveStateQueryUnknownPosition) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
     ASSERT_NIL(master->initialize());
 
-    EXPECT_EQ(master->slave_state(99), SlaveState::UNKNOWN);
+    EXPECT_EQ(master->slave_state(99), slave::State::UNKNOWN);
 }
 
 TEST_F(MasterTest, PDOOffsetLookup) {
-    auto cfg = mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1")
-                   .with_input_pdos({
-                       PDOEntryInfo(
-                           0x1600,
-                           0x6000,
-                           1,
-                           16,
-                           true,
-                           "Input1",
-                           telem::INT16_T
-                       ),
-                       PDOEntryInfo(
-                           0x1600,
-                           0x6000,
-                           2,
-                           32,
-                           true,
-                           "Input2",
-                           telem::INT32_T
-                       ),
-                   })
-                   .with_output_pdos({
-                       PDOEntryInfo(
-                           0x1A00,
-                           0x7000,
-                           1,
-                           16,
-                           false,
-                           "Output1",
-                           telem::INT16_T
-                       ),
-                   });
-    master->add_slave(cfg);
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1",
+            .input_pdos =
+                {
+                    {.pdo_index = 0x1600,
+                     .index = 0x6000,
+                     .sub_index = 1,
+                     .bit_length = 16,
+                     .is_input = true,
+                     .name = "Input1",
+                     .data_type = telem::INT16_T},
+                    {.pdo_index = 0x1600,
+                     .index = 0x6000,
+                     .sub_index = 2,
+                     .bit_length = 32,
+                     .is_input = true,
+                     .name = "Input2",
+                     .data_type = telem::INT32_T},
+                },
+            .output_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x7000,
+                 .sub_index = 1,
+                 .bit_length = 16,
+                 .is_input = false,
+                 .name = "Output1",
+                 .data_type = telem::INT16_T},
+            },
+        }
+    );
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
 
-    PDOEntry input1(0, 0x6000, 1, 16, true);
-    PDOEntry input2(0, 0x6000, 2, 32, true);
-    PDOEntry output1(0, 0x7000, 1, 16, false);
+    pdo::Entry input1(0, 0x6000, 1, 16, true);
+    pdo::Entry input2(0, 0x6000, 2, 32, true);
+    pdo::Entry output1(0, 0x7000, 1, 16, false);
 
     auto offset1 = this->master->pdo_offset(input1);
     auto offset2 = this->master->pdo_offset(input2);
@@ -151,7 +222,14 @@ TEST_F(MasterTest, PDOOffsetLookup) {
 }
 
 TEST_F(MasterTest, BufferAccessAfterActivation) {
-    this->master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    this->master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
     ASSERT_NIL(this->master->initialize());
     ASSERT_NIL(this->master->activate());
 
@@ -162,7 +240,14 @@ TEST_F(MasterTest, BufferAccessAfterActivation) {
 }
 
 TEST_F(MasterTest, BufferAccessBeforeActivation) {
-    this->master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    this->master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
     ASSERT_NIL(this->master->initialize());
 
     EXPECT_TRUE(this->master->input_data().empty());
@@ -172,46 +257,81 @@ TEST_F(MasterTest, BufferAccessBeforeActivation) {
 }
 
 TEST_F(MasterTest, StateTransitionsOnActivation) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
     ASSERT_NIL(master->initialize());
 
-    EXPECT_EQ(master->slave_state(0), SlaveState::INIT);
+    EXPECT_EQ(master->slave_state(0), slave::State::INIT);
 
     ASSERT_NIL(master->activate());
 
-    EXPECT_EQ(master->slave_state(0), SlaveState::OP);
+    EXPECT_EQ(master->slave_state(0), slave::State::OP);
 }
 
 TEST_F(MasterTest, PartialStateTransition) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    master->add_slave(mock::MockSlaveConfig(1, 0x1, 0x3, "Slave2"));
-    master->add_slave(mock::MockSlaveConfig(2, 0x1, 0x4, "Slave3"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
+    master->add_slave(
+        slave::Properties{
+            .position = 1,
+            .vendor_id = 0x1,
+            .product_code = 0x3,
+            .name = "Slave2"
+        }
+    );
+    master->add_slave(
+        slave::Properties{
+            .position = 2,
+            .vendor_id = 0x1,
+            .product_code = 0x4,
+            .name = "Slave3"
+        }
+    );
 
-    master->set_slave_transition_failure(1, SlaveState::OP);
+    master->set_slave_transition_failure(1, slave::State::OP);
 
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
 
-    EXPECT_EQ(master->slave_state(0), SlaveState::OP);
-    EXPECT_EQ(master->slave_state(1), SlaveState::SAFE_OP);
-    EXPECT_EQ(master->slave_state(2), SlaveState::OP);
+    EXPECT_EQ(master->slave_state(0), slave::State::OP);
+    EXPECT_EQ(master->slave_state(1), slave::State::SAFE_OP);
+    EXPECT_EQ(master->slave_state(2), slave::State::OP);
     EXPECT_FALSE(master->all_slaves_operational());
-    EXPECT_EQ(master->slaves_in_state(SlaveState::OP), 2);
-    EXPECT_EQ(master->slaves_in_state(SlaveState::SAFE_OP), 1);
+    EXPECT_EQ(master->slaves_in_state(slave::State::OP), 2);
+    EXPECT_EQ(master->slaves_in_state(slave::State::SAFE_OP), 1);
 }
 
 TEST_F(MasterTest, GracefulDeactivation) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
 
     EXPECT_TRUE(master->is_activated());
-    EXPECT_EQ(master->slave_state(0), SlaveState::OP);
+    EXPECT_EQ(master->slave_state(0), slave::State::OP);
 
     master->deactivate();
 
     EXPECT_FALSE(master->is_activated());
-    EXPECT_EQ(master->slave_state(0), SlaveState::INIT);
+    EXPECT_EQ(master->slave_state(0), slave::State::INIT);
     EXPECT_TRUE(master->was_called("deactivate"));
 }
 
@@ -220,7 +340,14 @@ TEST_F(MasterTest, InterfaceNameAccessor) {
 }
 
 TEST_F(MasterTest, ReceiveErrorInjection) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
 
@@ -229,7 +356,14 @@ TEST_F(MasterTest, ReceiveErrorInjection) {
 }
 
 TEST_F(MasterTest, SendErrorInjection) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
 
@@ -244,7 +378,14 @@ TEST_F(MasterTest, ClearInjectedErrors) {
     master->inject_send_error(xerrors::Error(CYCLIC_ERROR, "error"));
 
     master->clear_injected_errors();
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
 
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
@@ -253,7 +394,14 @@ TEST_F(MasterTest, ClearInjectedErrors) {
 }
 
 TEST_F(MasterTest, CallLogTracking) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
 
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
@@ -271,7 +419,14 @@ TEST_F(MasterTest, CallLogTracking) {
 }
 
 TEST_F(MasterTest, CallLogClear) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
     ASSERT_NIL(master->initialize());
 
     EXPECT_TRUE(master->was_called("initialize"));
@@ -283,44 +438,86 @@ TEST_F(MasterTest, CallLogClear) {
 }
 
 TEST_F(MasterTest, SetSlaveStateDirectly) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
     ASSERT_NIL(master->initialize());
 
-    EXPECT_EQ(master->slave_state(0), SlaveState::INIT);
+    EXPECT_EQ(master->slave_state(0), slave::State::INIT);
 
-    master->set_slave_state(0, SlaveState::PRE_OP);
-    EXPECT_EQ(master->slave_state(0), SlaveState::PRE_OP);
+    master->set_slave_state(0, slave::State::PRE_OP);
+    EXPECT_EQ(master->slave_state(0), slave::State::PRE_OP);
 
-    master->set_slave_state(0, SlaveState::SAFE_OP);
-    EXPECT_EQ(master->slave_state(0), SlaveState::SAFE_OP);
+    master->set_slave_state(0, slave::State::SAFE_OP);
+    EXPECT_EQ(master->slave_state(0), slave::State::SAFE_OP);
 }
 
 TEST_F(MasterTest, SlaveCountAccessor) {
     EXPECT_EQ(master->slave_count(), 0);
 
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
     EXPECT_EQ(master->slave_count(), 1);
 
-    master->add_slave(mock::MockSlaveConfig(1, 0x1, 0x3, "Slave2"));
+    master->add_slave(
+        slave::Properties{
+            .position = 1,
+            .vendor_id = 0x1,
+            .product_code = 0x3,
+            .name = "Slave2"
+        }
+    );
     EXPECT_EQ(master->slave_count(), 2);
 }
 
 TEST_F(MasterTest, HasSlaveInState) {
-    master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
-    master->add_slave(mock::MockSlaveConfig(1, 0x1, 0x3, "Slave2"));
+    master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
+    master->add_slave(
+        slave::Properties{
+            .position = 1,
+            .vendor_id = 0x1,
+            .product_code = 0x3,
+            .name = "Slave2"
+        }
+    );
     ASSERT_NIL(master->initialize());
 
-    EXPECT_TRUE(master->has_slave_in_state(SlaveState::INIT));
-    EXPECT_FALSE(master->has_slave_in_state(SlaveState::OP));
+    EXPECT_TRUE(master->has_slave_in_state(slave::State::INIT));
+    EXPECT_FALSE(master->has_slave_in_state(slave::State::OP));
 
     ASSERT_NIL(master->activate());
 
-    EXPECT_FALSE(master->has_slave_in_state(SlaveState::INIT));
-    EXPECT_TRUE(master->has_slave_in_state(SlaveState::OP));
+    EXPECT_FALSE(master->has_slave_in_state(slave::State::INIT));
+    EXPECT_TRUE(master->has_slave_in_state(slave::State::OP));
 }
 
 TEST_F(MasterTest, InputOutputDataReadWrite) {
-    this->master->add_slave(mock::MockSlaveConfig(0, 0x1, 0x2, "Slave1"));
+    this->master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1"
+        }
+    );
     ASSERT_NIL(this->master->initialize());
     ASSERT_NIL(this->master->activate());
 

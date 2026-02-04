@@ -22,11 +22,13 @@ using namespace arc::runtime;
 namespace {
 node::Context make_context(
     const telem::TimeSpan elapsed,
-    const telem::TimeSpan tolerance = telem::TimeSpan(0)
+    const telem::TimeSpan tolerance = telem::TimeSpan(0),
+    const node::RunReason reason = node::RunReason::TimerTick
 ) {
     return node::Context{
         .elapsed = elapsed,
         .tolerance = tolerance,
+        .reason = reason,
         .mark_changed = [](const std::string &) {},
         .report_error = [](const xerrors::Error &) {},
         .activate_stage = [] {},
@@ -298,6 +300,38 @@ TEST(IntervalTest, ResetAllowsImmediateFiring) {
     EXPECT_EQ(output->size(), 1);
 }
 
+TEST(IntervalTest, OnlyFiresOnTimerTick) {
+    TestSetup setup("interval", "period", telem::SECOND.nanoseconds());
+    const time::IntervalConfig cfg(setup.ir.nodes[0].config);
+    time::Interval node(cfg, setup.make_node());
+
+    bool changed_called = false;
+    node::Context ctx;
+    ctx.elapsed = telem::SECOND;
+    ctx.tolerance = telem::TimeSpan(0);
+    ctx.mark_changed = [&changed_called](const std::string &) {
+        changed_called = true;
+    };
+    ctx.report_error = [](const xerrors::Error &) {};
+    ctx.activate_stage = []() {};
+
+    ctx.reason = node::RunReason::TimerTick;
+    ASSERT_NIL(node.next(ctx));
+    ASSERT_TRUE(changed_called);
+
+    changed_called = false;
+    ctx.elapsed = telem::SECOND + telem::MILLISECOND * 500;
+    ctx.reason = node::RunReason::ChannelInput;
+    ASSERT_NIL(node.next(ctx));
+    ASSERT_FALSE(changed_called);
+
+    changed_called = false;
+    ctx.reason = node::RunReason::TimerTick;
+    ctx.elapsed = telem::SECOND * 2;
+    ASSERT_NIL(node.next(ctx));
+    ASSERT_TRUE(changed_called);
+}
+
 /// @brief Test that Wait does not fire before the duration elapses.
 TEST(WaitTest, DoesNotFireBeforeDurationElapses) {
     TestSetup setup("wait", "duration", telem::SECOND.nanoseconds());
@@ -381,6 +415,40 @@ TEST(WaitTest, ResetAllowsFiringAgain) {
 
     EXPECT_EQ(output->size(), 1);
     EXPECT_EQ(output->at<uint8_t>(0), 1);
+}
+
+TEST(WaitTest, OnlyFiresOnTimerTick) {
+    TestSetup setup("wait", "duration", telem::SECOND.nanoseconds());
+    const time::WaitConfig cfg(setup.ir.nodes[0].config);
+    time::Wait node(cfg, setup.make_node());
+
+    bool changed_called = false;
+    node::Context ctx;
+    ctx.elapsed = telem::TimeSpan(0);
+    ctx.tolerance = telem::TimeSpan(0);
+    ctx.mark_changed = [&changed_called](const std::string &) {
+        changed_called = true;
+    };
+    ctx.report_error = [](const xerrors::Error &) {};
+    ctx.activate_stage = []() {};
+
+    ctx.reason = node::RunReason::TimerTick;
+    ASSERT_NIL(node.next(ctx));
+    ASSERT_FALSE(changed_called);
+
+    ctx.elapsed = telem::MILLISECOND * 500;
+    ctx.reason = node::RunReason::ChannelInput;
+    ASSERT_NIL(node.next(ctx));
+    ASSERT_FALSE(changed_called);
+
+    ctx.elapsed = telem::SECOND;
+    ctx.reason = node::RunReason::ChannelInput;
+    ASSERT_NIL(node.next(ctx));
+    ASSERT_FALSE(changed_called);
+
+    ctx.reason = node::RunReason::TimerTick;
+    ASSERT_NIL(node.next(ctx));
+    ASSERT_TRUE(changed_called);
 }
 
 /// @brief Test that Wait measures duration from first next() call, not construction.

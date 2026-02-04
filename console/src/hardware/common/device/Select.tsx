@@ -10,11 +10,11 @@
 import { type device } from "@synnaxlabs/client";
 import { Device, Form, type Icon, Status, Synnax } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type JSX, useCallback } from "react";
+import { type JSX, useCallback, useMemo } from "react";
 
 import { Layout } from "@/layout";
 
-export interface SelectProps {
+export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
   configureLayout: Layout.BaseState;
   emptyContent?: string | JSX.Element;
   label?: string;
@@ -27,6 +27,7 @@ export interface SelectProps {
 export const Select = ({
   configureLayout,
   emptyContent = "No devices connected.",
+  filter: filterProp,
   label = "Device",
   make,
   model,
@@ -48,20 +49,20 @@ export const Select = ({
     },
     [client, placeLayout, configureLayout, handleError],
   );
+  const filter = useMemo(() => {
+    const baseFilter = (d: device.Device) =>
+      d.make === make && (model == null || d.model === model);
+    if (filterProp == null) return baseFilter;
+    return (d: device.Device) => baseFilter(d) && filterProp(d);
+  }, [make, model, filterProp]);
   return (
-    <Form.Field<string>
-      grow
-      label={label}
-      onChange={handleDeviceChange}
-      path={path}
-      style={{ flexBasis: 150 }}
-    >
+    <Form.Field<string> grow label={label} onChange={handleDeviceChange} path={path}>
       {({ value, onChange, variant }) => (
         <Device.SelectSingle
           value={value}
           onChange={onChange}
           initialQuery={{ makes: [make] }}
-          filter={(p) => p.make === make && (model == null || p.model === model)}
+          filter={filter}
           emptyContent={emptyContent}
           grow
           icon={icon}

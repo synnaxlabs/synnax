@@ -107,7 +107,13 @@ TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
 TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
     auto mock_master = std::make_shared<ethercat::mock::Master>("eth0");
     mock_master->add_slave(
-        ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, 12345, "Test Slave")
+        ethercat::slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .serial = 12345,
+            .name = "Test Slave",
+        }
     );
 
     auto manager = std::make_unique<ethercat::mock::Manager>();
@@ -134,13 +140,31 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     auto mock_master = std::make_shared<ethercat::mock::Master>("enp3s0");
     mock_master->add_slave(
-        ethercat::mock::MockSlaveConfig(0, 0x1, 0x2, 11111, "Slave 1")
+        ethercat::slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .serial = 11111,
+            .name = "Slave 1",
+        }
     );
     mock_master->add_slave(
-        ethercat::mock::MockSlaveConfig(1, 0x1, 0x3, 22222, "Slave 2")
+        ethercat::slave::Properties{
+            .position = 1,
+            .vendor_id = 0x1,
+            .product_code = 0x3,
+            .serial = 22222,
+            .name = "Slave 2",
+        }
     );
     mock_master->add_slave(
-        ethercat::mock::MockSlaveConfig(2, 0x1, 0x4, 33333, "Slave 3")
+        ethercat::slave::Properties{
+            .position = 2,
+            .vendor_id = 0x1,
+            .product_code = 0x4,
+            .serial = 33333,
+            .name = "Slave 3",
+        }
     );
 
     auto manager = std::make_unique<ethercat::mock::Manager>();

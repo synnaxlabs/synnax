@@ -15,8 +15,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { type SlaveProperties } from "@/hardware/ethercat/device/types";
 import { type Channel } from "@/hardware/ethercat/task/types";
 
-export const { useRetrieve: useRetrieveSlave, useRetrieveObservable } =
-  Device.createRetrieve<SlaveProperties>();
+export const {
+  useRetrieve: useRetrieveSlave,
+  useRetrieveObservable,
+  useRetrieveStateful: useRetrieveSlaveStateful,
+} = Device.createRetrieve<SlaveProperties>();
 
 export const useCommonNetwork = (channels: Channel[]) => {
   const firstDeviceKey = useMemo(() => {

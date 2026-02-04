@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
+	runtimebindings "github.com/synnaxlabs/arc/runtime/wasm/bindings"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -21,6 +22,7 @@ type nodeImpl struct {
 	*state.Node
 	ir          ir.Node
 	wasm        *Function
+	runtime     *runtimebindings.Runtime
 	params      []uint64
 	configCount int
 	offsets     []int
@@ -95,6 +97,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	if len(n.ir.Inputs) > 0 {
 		longestInputTime = n.InputTime(longestInputIdx)
 	}
+	n.runtime.SetCurrentNodeKey(n.ir.Key)
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
 			inputLen := n.Input(j).Len()

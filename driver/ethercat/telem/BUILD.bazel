@@ -2,7 +2,10 @@ cc_library(
     name = "telem",
     hdrs = ["telem.h"],
     visibility = ["//driver/ethercat:__subpackages__"],
-    deps = ["//x/cpp/telem"],
+    deps = [
+        "//x/cpp/telem",
+        "@glog",
+    ],
 )
 
 cc_test(

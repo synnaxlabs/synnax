@@ -112,7 +112,7 @@ xerrors::Error Engine::reconfigure() {
         this->master->deactivate();
     }
 
-    std::vector<PDOEntry> all_entries;
+    std::vector<pdo::Entry> all_entries;
     for (const auto &reg: this->read_registrations)
         all_entries.insert(all_entries.end(), reg.entries.begin(), reg.entries.end());
     for (const auto &reg: this->write_registrations)
@@ -292,7 +292,7 @@ Engine::~Engine() {
 }
 
 std::pair<std::unique_ptr<Engine::Reader>, xerrors::Error> Engine::open_reader(
-    const std::vector<PDOEntry> &entries,
+    const std::vector<pdo::Entry> &entries,
     const telem::Rate sample_rate
 ) {
     size_t total_size = 0;
@@ -344,7 +344,7 @@ std::pair<std::unique_ptr<Engine::Reader>, xerrors::Error> Engine::open_reader(
 }
 
 std::pair<std::unique_ptr<Engine::Writer>, xerrors::Error> Engine::open_writer(
-    const std::vector<PDOEntry> &entries,
+    const std::vector<pdo::Entry> &entries,
     const telem::Rate execution_rate
 ) {
     const size_t reg_id = this->next_id.fetch_add(1, std::memory_order_relaxed);
@@ -388,7 +388,7 @@ xerrors::Error Engine::ensure_initialized() const {
     return this->master->initialize();
 }
 
-std::vector<SlaveInfo> Engine::slaves() const {
+std::vector<slave::DiscoveryResult> Engine::slaves() const {
     return this->master->slaves();
 }
 

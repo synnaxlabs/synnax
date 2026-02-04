@@ -80,7 +80,7 @@ public:
     bool is_interface_active(const std::string &key) const;
 
     /// @brief returns cached slaves for a master.
-    std::vector<SlaveInfo> get_cached_slaves(const std::string &key) const;
+    std::vector<slave::Properties> get_cached_slaves(const std::string &key) const;
 };
 
 }

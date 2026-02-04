@@ -69,7 +69,6 @@ export interface UseObservableBaseRetrieveParams<
   Data extends state.State,
 > {
   addStatusOnFailure?: boolean;
-  skip?: (q: Query) => boolean;
   beforeRetrieve?: (Params: BeforeRetrieveParams<Query>) => Data | boolean;
   onChange: (result: state.SetArg<Result<Data>>, query: Query) => void;
   scope?: string;
@@ -103,7 +102,7 @@ export interface UseDirectRetrieveParams<
   Data extends state.State,
 > extends Pick<
   UseObservableBaseRetrieveParams<Query, Data>,
-  "scope" | "beforeRetrieve" | "addStatusOnFailure" | "skip"
+  "scope" | "beforeRetrieve" | "addStatusOnFailure"
 > {
   query: Query;
 }
@@ -188,7 +187,6 @@ const useObservableBase = <
   onChange,
   scope,
   beforeRetrieve,
-  skip,
   addStatusOnFailure = true,
   allowDisconnected = false as AllowDisconnected,
 }: UseObservableBaseRetrieveParams<Query, Data> &
@@ -226,7 +224,6 @@ const useObservableBase = <
       );
       queryRef.current = query;
       try {
-        if (skip != null && skip(query)) return;
         if (beforeRetrieve != null) {
           const result = beforeRetrieve({ query });
           if (result == false) return;
@@ -256,7 +253,7 @@ const useObservableBase = <
         onChange(res, query);
       }
     },
-    [client, name, beforeRetrieve, addStatusOnFailure, onChange, skip],
+    [client, name, beforeRetrieve, addStatusOnFailure, onChange],
   );
   const retrieveSync = useCallback(
     (query: state.SetArg<Query, Partial<Query>>, options?: base.FetchOptions) =>

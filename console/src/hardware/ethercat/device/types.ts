@@ -42,6 +42,7 @@ export const ZERO_PDOS: PDOs = {
 
 /** Slave device properties schema. */
 export const slavePropertiesZ = z.object({
+  identifier: z.string(),
   serial: z.number(),
   vendorId: z.number(),
   productCode: z.number(),
@@ -63,6 +64,7 @@ export const slavePropertiesZ = z.object({
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
 
 export const ZERO_SLAVE_PROPERTIES: SlaveProperties = {
+  identifier: "",
   serial: 0,
   vendorId: 0,
   productCode: 0,

@@ -61,22 +61,25 @@ MAKE = "EtherCAT"
 MODEL = "Slave"
 
 
-class PDOInfo(BaseModel):
+class PDOEntry(BaseModel):
     """Information about a single PDO entry from device discovery.
 
-    This model represents PDO (Process Data Object) information stored in
-    slave device properties after scanning.
+    This model represents a PDO (Process Data Object) entry stored in
+    slave device properties after scanning. Note that this represents an
+    individual entry within a PDO, not the PDO container itself.
 
-    :param name: Human-readable name of the PDO (e.g., "Position actual value").
+    :param name: Human-readable name of the PDO entry (e.g., "Position actual value").
+    :param pdo_index: Parent PDO index (e.g., 0x1A00 for TxPDO, 0x1600 for RxPDO).
     :param index: CoE object dictionary index (e.g., 0x6064 = 24676).
-    :param subindex: CoE object dictionary subindex.
+    :param sub_index: CoE object dictionary subindex.
     :param bit_length: Size of the data in bits.
     :param data_type: Data type string (e.g., "uint16", "int32", "float32").
     """
 
     name: str
+    pdo_index: int = Field(default=0, ge=0, le=65535)
     index: int = Field(ge=0, le=65535)
-    subindex: int = Field(ge=0, le=255)
+    sub_index: int = Field(ge=0, le=255)
     bit_length: int = Field(ge=1, le=64)
     data_type: str
 
@@ -137,11 +140,11 @@ class ManualInputChan(BaseChan):
     populated PDO names.
 
     Example:
-        >>> # Read a PDO at index 0x6064, subindex 0
+        >>> # Read a PDO at index 0x6064, sub_index 0
         >>> position_ch = ManualInputChan(
         ...     device="servo-drive-key",
         ...     index=0x6064,
-        ...     subindex=0,
+        ...     sub_index=0,
         ...     bit_length=32,
         ...     data_type="int32",
         ...     channel=position_channel.key,
@@ -149,7 +152,7 @@ class ManualInputChan(BaseChan):
 
     :param device: The key of the Synnax slave device this channel belongs to.
     :param index: CoE object dictionary index (0-65535).
-    :param subindex: CoE object dictionary subindex (0-255).
+    :param sub_index: CoE object dictionary subindex (0-255).
     :param bit_length: Size of the data in bits (1-64).
     :param data_type: Data type string (e.g., "uint16", "int32", "float32").
     :param channel: The Synnax channel key that data will be written to.
@@ -160,7 +163,7 @@ class ManualInputChan(BaseChan):
     type: Literal["manual"] = "manual"
     index: int = Field(ge=0, le=65535)
     "CoE object dictionary index (e.g., 0x6064 = 24676)."
-    subindex: int = Field(ge=0, le=255)
+    sub_index: int = Field(ge=0, le=255)
     "CoE object dictionary subindex."
     bit_length: int = Field(ge=1, le=64)
     "Size of the data in bits."
@@ -214,11 +217,11 @@ class ManualOutputChan(BaseChan):
     PDO names.
 
     Example:
-        >>> # Write to a PDO at index 0x60FF, subindex 0
+        >>> # Write to a PDO at index 0x60FF, sub_index 0
         >>> velocity_cmd = ManualOutputChan(
         ...     device="servo-drive-key",
         ...     index=0x60FF,
-        ...     subindex=0,
+        ...     sub_index=0,
         ...     bit_length=32,
         ...     data_type="int32",
         ...     cmd_channel=velocity_command.key,
@@ -226,7 +229,7 @@ class ManualOutputChan(BaseChan):
 
     :param device: The key of the Synnax slave device this channel belongs to.
     :param index: CoE object dictionary index (0-65535).
-    :param subindex: CoE object dictionary subindex (0-255).
+    :param sub_index: CoE object dictionary subindex (0-255).
     :param bit_length: Size of the data in bits (1-64).
     :param data_type: Data type string (e.g., "uint16", "int32", "float32").
     :param cmd_channel: The Synnax channel key to receive command values from.
@@ -238,7 +241,7 @@ class ManualOutputChan(BaseChan):
     type: Literal["manual"] = "manual"
     index: int = Field(ge=0, le=65535)
     "CoE object dictionary index (e.g., 0x60FF = 24831)."
-    subindex: int = Field(ge=0, le=255)
+    sub_index: int = Field(ge=0, le=255)
     "CoE object dictionary subindex."
     bit_length: int = Field(ge=1, le=64)
     "Size of the data in bits."
@@ -516,19 +519,19 @@ class Device(device.Device):
         ...     serial=12345,
         ...     rack=rack.key,
         ...     input_pdos=[
-        ...         ethercat.PDOInfo(
+        ...         ethercat.PDOEntry(
         ...             name="Position actual value",
         ...             index=0x6064,
-        ...             subindex=0,
+        ...             sub_index=0,
         ...             bit_length=32,
         ...             data_type="int32",
         ...         ),
         ...     ],
         ...     output_pdos=[
-        ...         ethercat.PDOInfo(
+        ...         ethercat.PDOEntry(
         ...             name="Target velocity",
         ...             index=0x60FF,
-        ...             subindex=0,
+        ...             sub_index=0,
         ...             bit_length=32,
         ...             data_type="int32",
         ...         ),
@@ -544,10 +547,11 @@ class Device(device.Device):
     :param revision: Hardware/firmware revision number.
     :param serial: Unique serial number from device EEPROM.
     :param rack: Rack key this device belongs to.
-    :param input_pdos: List of input PDO definitions (TxPDO, slave->master).
-    :param output_pdos: List of output PDO definitions (RxPDO, master->slave).
+    :param input_pdos: List of input PDO entry definitions (TxPDO, slave->master).
+    :param output_pdos: List of output PDO entry definitions (RxPDO, master->slave).
     :param key: Unique key for the device (auto-generated if empty).
     :param configured: Whether the device has been configured.
+    :param enabled: Whether the device is enabled for operation.
     """
 
     def __init__(
@@ -561,10 +565,11 @@ class Device(device.Device):
         revision: int = 0,
         serial: int = 0,
         rack: int = 0,
-        input_pdos: list[PDOInfo] | None = None,
-        output_pdos: list[PDOInfo] | None = None,
+        input_pdos: list[PDOEntry] | None = None,
+        output_pdos: list[PDOEntry] | None = None,
         key: str = "",
         configured: bool = False,
+        enabled: bool = True,
     ):
         """Initialize an EtherCAT slave device."""
         if not key:
@@ -578,6 +583,7 @@ class Device(device.Device):
             "revision": revision,
             "serial": serial,
             "name": name,
+            "enabled": enabled,
             "pdos": {
                 "inputs": [p.model_dump() for p in (input_pdos or [])],
                 "outputs": [p.model_dump() for p in (output_pdos or [])],

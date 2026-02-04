@@ -13,16 +13,15 @@
 #include <optional>
 #include <string_view>
 
-#include "driver/ethercat/master/slave_info.h"
+#include "driver/ethercat/slave/slave.h"
 
 namespace ethercat::esi {
-
 /// @brief looks up PDO definitions for a device in the ESI registry.
 bool lookup_device_pdos(
     uint32_t vendor_id,
     uint32_t product_code,
     uint32_t revision,
-    SlaveInfo &slave
+    slave::Properties &slave
 );
 
 /// @brief returns the vendor name for a given vendor ID.

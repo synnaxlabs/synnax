@@ -10,5 +10,5 @@
     "declaration": false,
     "declarationMap": false
   },
-  "include": ["src/**/*", "eslint.config.ts"]
+  "include": ["src/**/*", "eslint.config.ts", "stylelint.config.ts"]
 }

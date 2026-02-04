@@ -15,13 +15,14 @@ namespace ethercat::esi {
 
 class KnownDevicesTest : public ::testing::Test {
 protected:
-    SlaveInfo slave;
+    slave::Properties slave;
 };
 
 TEST_F(KnownDevicesTest, LookupUnknownDeviceReturnsFalse) {
     bool found = lookup_device_pdos(0xDEADBEEF, 0x12345678, 0x00000001, slave);
     EXPECT_FALSE(found);
-    EXPECT_FALSE(slave.pdos_discovered);
+    EXPECT_TRUE(slave.input_pdos.empty());
+    EXPECT_TRUE(slave.output_pdos.empty());
 }
 
 TEST_F(KnownDevicesTest, IsDeviceKnownReturnsFalseForUnknown) {
@@ -38,7 +39,7 @@ TEST_F(KnownDevicesTest, VendorNameReturnsNulloptForUnknown) {
 class BeckhoffDevicesTest : public ::testing::Test {
 protected:
     static constexpr uint32_t BECKHOFF_VENDOR_ID = 0x00000002;
-    SlaveInfo slave;
+    slave::Properties slave;
 };
 
 TEST_F(BeckhoffDevicesTest, VendorNameReturnsBeckhoff) {
@@ -51,7 +52,7 @@ TEST_F(BeckhoffDevicesTest, VendorNameReturnsBeckhoff) {
 class DEWESoftDevicesTest : public ::testing::Test {
 protected:
     static constexpr uint32_t DEWESOFT_VENDOR_ID = 0xDEBE50F7;
-    SlaveInfo slave;
+    slave::Properties slave;
 };
 
 TEST_F(DEWESoftDevicesTest, VendorNameReturnsDEWESoft) {
@@ -92,7 +93,6 @@ TEST_F(DEWESoftDevicesTest, LookupPopulatesPDOs) {
         this->slave
     );
     EXPECT_TRUE(found);
-    EXPECT_TRUE(this->slave.pdos_discovered);
 
     size_t total_pdos = this->slave.input_pdos.size() + this->slave.output_pdos.size();
     EXPECT_GT(total_pdos, 0);
@@ -115,7 +115,6 @@ TEST_F(DEWESoftDevicesTest, RevisionFallbackWorks) {
         this->slave
     );
     EXPECT_TRUE(found) << "Revision fallback should work";
-    EXPECT_TRUE(this->slave.pdos_discovered);
 }
 
 }

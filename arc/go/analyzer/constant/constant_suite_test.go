@@ -7,6 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import synnaxConfig from "stylelint-config-synnaxlabs";
+package constant_test
 
-export default synnaxConfig;
+import (
+	"context"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+var bCtx context.Context
+
+var _ = BeforeEach(func() {
+	bCtx = context.Background()
+})
+
+func TestConstant(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Constant Analyzer Suite")
+}

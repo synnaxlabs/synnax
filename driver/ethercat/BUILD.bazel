@@ -20,7 +20,6 @@ cc_library(
         "//client/cpp:synnax",
         "//driver/errors",
         "//driver/ethercat/channel",
-        "//driver/ethercat/device",
         "//driver/ethercat/engine",
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
