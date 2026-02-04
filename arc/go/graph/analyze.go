@@ -126,7 +126,12 @@ func Analyze(
 						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 						return ir.IR{}, aCtx.Diagnostics
 					}
-					node.Channels.ResolveConfigChannel(fnSym, configParam.Name, k, channelSym.Name)
+					node.Channels.ResolveConfigChannel(
+						fnSym,
+						configParam.Name,
+						k,
+						channelSym.Name,
+					)
 				}
 			}
 			node.Config[j].Value = configValue
