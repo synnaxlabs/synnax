@@ -16,7 +16,7 @@
 
 /* Monaco editor on windows does a bad job of dealing with custom fonts, so we're just
 using the default for now.  */
-.console-main--macos .monaco-editor *:not(.codicon) {
+.console--os-macos .monaco-editor *:not(.codicon) {
     font-family: "Geist Mono" !important;
 }
 

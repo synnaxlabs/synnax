@@ -9,16 +9,31 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-arc-editor__controls {
-    max-width: 700px;
-    width: 100%;
-    padding: 2rem;
-    position: absolute;
-    bottom: 2rem;
-    right: 2rem;
-    box-shadow: var(--pluto-shadow-v2);
+.console-arc-editor {
+    .console-editor {
+        padding-bottom: 11rem;
 
-    & .console-rack-select {
-        min-width: 225px;
+        &::after {
+            content: "";
+            position: absolute;
+            bottom: 10rem;
+            left: 0;
+            right: 0;
+            height: 5rem;
+            background: linear-gradient(to bottom, transparent, var(--pluto-gray-l1));
+        }
+    }
+
+    .console-arc-editor__controls {
+        padding: 2rem;
+        position: absolute;
+        bottom: 2rem;
+        left: 2rem;
+        right: 2rem;
+        box-shadow: var(--pluto-shadow-v2);
+
+        & .console-rack-select {
+            min-width: 225px;
+        }
     }
 }
