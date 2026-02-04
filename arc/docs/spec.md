@@ -174,6 +174,29 @@ area := distance ^ 2         // f64 m^2 (literal exponent required)
 
 ## Variables
 
+### Constants
+
+Top-level declarations using `:=` are compile-time constants. Values are inlined at each
+reference site with no runtime overhead.
+
+```
+GlobalConstant ::= Identifier ':=' Literal
+                 | Identifier Type ':=' Literal
+```
+
+Only literal values are allowed (no expressions). Constants can be used in expressions
+and function config parameters.
+
+```arc
+MAX_PRESSURE := 500.0       // f64 constant
+SAMPLE_COUNT := 100         // i64 constant
+TIMEOUT := 30s              // with unit suffix
+SCALE f32 := 2.5            // explicit type
+
+pressure > MAX_PRESSURE -> alarm{}
+sensor -> scale{gain=SCALE} -> output
+```
+
 ### Declaration and Assignment
 
 ```
@@ -186,8 +209,8 @@ StatefulVariable ::= Identifier '$=' Expression
 Assignment ::= Identifier '=' Expression
 ```
 
-**Local variables** (`:=`) reset on each function invocation. **Stateful variables**
-(`$=`) persist across function invocations.
+**Local variables** (`:=`) inside functions reset on each invocation. **Stateful
+variables** (`$=`) persist across function invocations.
 
 ```arc
 count := 0           // local
@@ -650,7 +673,8 @@ These simplify implementation while maintaining expressiveness:
    instantiated at compile time
 3. **No assignment in expressions**: Separate statements required
 4. **No partial function application**: Must provide all required arguments
-5. **Config = compile-time constants**: Only literals/channel IDs in config blocks
+5. **Config = compile-time constants**: Only literals, global constants, or channel IDs
+   in config blocks
 6. **No closures**: Functions cannot capture variables from enclosing scope
 7. **No nested functions**: Functions cannot be defined inside other functions
 8. **No loops**: Use reactive patterns with stateful variables instead

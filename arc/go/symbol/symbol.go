@@ -84,6 +84,9 @@ const (
 	KindStage
 	// KindConstant represents a pure literal value in a flow statement.
 	KindConstant
+	// KindGlobalConstant represents a compile-time constant declared at global scope.
+	// Values are inlined at each reference site with no runtime overhead.
+	KindGlobalConstant
 )
 
 // Symbol represents a named entity in an Arc program.
