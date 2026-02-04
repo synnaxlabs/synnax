@@ -27,7 +27,18 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		return types.Type{}, err
 	}
 	switch scope.Kind {
-	case symbol.KindVariable, symbol.KindInput, symbol.KindConfig:
+	case symbol.KindVariable, symbol.KindInput:
+		ctx.Writer.WriteLocalGet(scope.ID)
+		return scope.Type, nil
+	case symbol.KindConfig:
+		// Config params may have channel types - if so, read from the channel
+		if scope.Type.Kind == types.KindChan {
+			ctx.Writer.WriteLocalGet(scope.ID)
+			if err = emitChannelRead(ctx, scope.Type); err != nil {
+				return types.Type{}, err
+			}
+			return scope.Type.Unwrap(), nil
+		}
 		ctx.Writer.WriteLocalGet(scope.ID)
 		return scope.Type, nil
 	case symbol.KindStatefulVariable:

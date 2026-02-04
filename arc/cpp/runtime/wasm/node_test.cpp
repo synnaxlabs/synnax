@@ -934,13 +934,24 @@ TEST(NodeTest, StatefulVariablesAreIsolatedBetweenNodeInstances) {
     auto index_ch = synnax::Channel(idx_name, telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(index_ch));
 
-    auto trigger_ch = synnax::Channel(trigger_name, telem::INT64_T, index_ch.key, false);
+    auto
+        trigger_ch = synnax::Channel(trigger_name, telem::INT64_T, index_ch.key, false);
     ASSERT_NIL(client.channels.create(trigger_ch));
 
-    auto output_a_ch = synnax::Channel(output_a_name, telem::INT64_T, index_ch.key, false);
+    auto output_a_ch = synnax::Channel(
+        output_a_name,
+        telem::INT64_T,
+        index_ch.key,
+        false
+    );
     ASSERT_NIL(client.channels.create(output_a_ch));
 
-    auto output_b_ch = synnax::Channel(output_b_name, telem::INT64_T, index_ch.key, false);
+    auto output_b_ch = synnax::Channel(
+        output_b_name,
+        telem::INT64_T,
+        index_ch.key,
+        false
+    );
     ASSERT_NIL(client.channels.create(output_b_ch));
 
     const std::string source = R"(
@@ -949,8 +960,9 @@ func counter(trigger i64) i64 {
     count = count + 1
     return count
 }
-)" + trigger_name + " -> counter{} -> " + output_a_name + "\n" +
-                               trigger_name + " -> counter{} -> " + output_b_name;
+)" + trigger_name + " -> counter{} -> " +
+                               output_a_name + "\n" + trigger_name +
+                               " -> counter{} -> " + output_b_name;
 
     auto mod = compile_arc(client, source);
 
@@ -972,7 +984,9 @@ func counter(trigger i64) i64 {
         arc::runtime::errors::noop_handler
     );
 
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod, .bindings = bindings}));
+    auto wasm_mod = ASSERT_NIL_P(
+        wasm::Module::open({.module = mod, .bindings = bindings})
+    );
 
     // Find the two counter nodes
     std::vector<const arc::ir::Node *> counter_nodes;
@@ -991,7 +1005,9 @@ func counter(trigger i64) i64 {
         on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
             std::move(on_data)
         );
-        auto on_time = telem::Series(std::vector{telem::TimeStamp(1 * telem::MICROSECOND)});
+        auto on_time = telem::Series(
+            std::vector{telem::TimeStamp(1 * telem::MICROSECOND)}
+        );
         on_time.alignment = telem::Alignment(1, 0);
         on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
             std::move(on_time)

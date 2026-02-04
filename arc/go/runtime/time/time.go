@@ -80,10 +80,8 @@ func (i *Interval) Init(_ node.Context) {}
 // Next checks if the period has elapsed and fires if so.
 // Only fires on timer ticks (not channel inputs) to prevent timing drift.
 func (i *Interval) Next(ctx node.Context) {
-	if ctx.Reason != node.ReasonTimerTick {
-		return
-	}
-	if ctx.Elapsed-i.lastFired < i.period-ctx.Tolerance {
+	if ctx.Reason != node.ReasonTimerTick ||
+		ctx.Elapsed-i.lastFired < i.period-ctx.Tolerance {
 		return
 	}
 	i.lastFired = ctx.Elapsed
@@ -111,10 +109,7 @@ func (w *Wait) Init(_ node.Context) {}
 // Next checks if the duration has elapsed and fires if so (only once).
 // Only fires on timer ticks (not channel inputs) to prevent timing drift.
 func (w *Wait) Next(ctx node.Context) {
-	if ctx.Reason != node.ReasonTimerTick {
-		return
-	}
-	if w.fired {
+	if ctx.Reason != node.ReasonTimerTick || w.fired {
 		return
 	}
 	if w.startTime < 0 {

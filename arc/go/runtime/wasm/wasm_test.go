@@ -1544,4 +1544,154 @@ var _ = Describe("WASM", func() {
 			Expect(telem.UnmarshalSeries[int64](h.Output("expr_0", 0))[0]).To(Equal(int64(1)))
 		})
 	})
+
+	Describe("Channel Config Parameter Arithmetic", func() {
+		// Regression test for: "cannot pop the 2nd f32 operand for f32.add:
+		// type mismatch: expected f32, but was i32"
+		// Bug occurred when reading from a channel config parameter and performing arithmetic.
+		It("Should read from channel config param and perform f32 arithmetic", func() {
+			resolver := symbol.MapResolver{
+				"do_0_counter": {
+					Name: "do_0_counter",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+			}
+
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "increment_counter",
+						Config:  types.Params{{Name: "counter", Type: types.Chan(types.F32())}},
+						Inputs:  types.Params{},
+						Outputs: types.Params{},
+						Body: ir.Body{Raw: `{
+							counter = counter + 1.0
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "increment_counter", Type: "increment_counter", Config: map[string]any{"counter": uint32(100)}},
+				},
+				Edges: []graph.Edge{},
+			}
+
+			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+			})
+			defer h.Close()
+
+			// Ingest initial channel value (5.0), execute, expect write (6.0)
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(100, telem.NewSeriesV[float32](5.0))
+			h.state.Ingest(fr)
+			h.Execute(ctx, "increment_counter")
+			outFr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(outFr.Get(100).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0]).To(Equal(float32(6.0)))
+		})
+
+		// Test matching the user's original example with stateful variable and conditional
+		It("Should handle channel config param with stateful variable and conditional", func() {
+			resolver := symbol.MapResolver{
+				"do_0_counter": {
+					Name: "do_0_counter",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+			}
+
+			// Original example: func count_rising{counter chan f32}(input u8) {
+			//     prev u8 $= input
+			//     if input != 0 && prev == 0 { counter = counter + 1.0 }
+			//     prev = input
+			// }
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "count_rising",
+						Config:  types.Params{{Name: "counter", Type: types.Chan(types.F32())}},
+						Inputs:  types.Params{{Name: "input", Type: types.U8()}},
+						Outputs: types.Params{},
+						Body: ir.Body{Raw: `{
+							prev u8 $= input
+							if input != 0 and prev == 0 {
+								counter = counter + 1.0
+							}
+							prev = input
+						}`},
+					},
+					{
+						Key:     "input_source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+						Body:    ir.Body{Raw: `{ return 0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "input_source", Type: "input_source"},
+					{Key: "count_rising", Type: "count_rising", Config: map[string]any{"counter": uint32(100)}},
+				},
+				Edges: []graph.Edge{
+					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "count_rising", Param: "input"}},
+				},
+			}
+
+			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+			})
+			defer h.Close()
+
+			// Initial state: counter=0, input=0, prev initializes to 0
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(100, telem.NewSeriesV[float32](0.0))
+			h.state.Ingest(fr)
+			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "count_rising")
+			outFr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeFalse()) // input=0, no rising edge
+
+			// Rising edge: input goes 0->1, prev=0, should increment
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(100, telem.NewSeriesV[float32](0.0))
+			h.state.Ingest(fr)
+			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(2))
+			h.Execute(ctx, "count_rising")
+			outFr, changed = h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(outFr.Get(100).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0]).To(Equal(float32(1.0)))
+
+			// Stay high: input=1, prev=1, no rising edge
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(100, telem.NewSeriesV[float32](1.0))
+			h.state.Ingest(fr)
+			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(3))
+			h.Execute(ctx, "count_rising")
+			outFr, changed = h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeFalse()) // No rising edge
+
+			// Falling edge then rising: input 1->0->1
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(100, telem.NewSeriesV[float32](1.0))
+			h.state.Ingest(fr)
+			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](0), telem.NewSeriesSecondsTSV(4))
+			h.Execute(ctx, "count_rising")
+			outFr, changed = h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeFalse()) // Falling edge, no increment
+
+			// Another rising edge
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(100, telem.NewSeriesV[float32](1.0))
+			h.state.Ingest(fr)
+			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(5))
+			h.Execute(ctx, "count_rising")
+			outFr, changed = h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(outFr.Get(100).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0]).To(Equal(float32(2.0)))
+		})
+	})
 })

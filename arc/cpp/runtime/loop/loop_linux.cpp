@@ -283,11 +283,10 @@ private:
                     if (val > 1)
                         LOG(WARNING) << "[loop] timer drift detected: " << val
                                      << " expirations in single read";
-                } else if (events[i].data.fd == this->event_fd_) {
-                    // wake() was called - treat as shutdown signal
-                } else {
+                } else if (events[i].data.fd != this->event_fd_) {
                     input_fired = true;
                 }
+                // event_fd_ fires when wake() is called - falls through to Shutdown
             }
         }
         if (timer_fired) return WakeReason::Timer;

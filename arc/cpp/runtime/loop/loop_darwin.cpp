@@ -273,10 +273,14 @@ private:
 
     /// @brief Classifies kqueue events to determine wake reason.
     WakeReason classify_events(struct kevent *events, const int n) const {
+        bool input_fired = false;
         for (int i = 0; i < n; i++) {
             if (events[i].ident == TIMER_EVENT_IDENT) return WakeReason::Timer;
+            if (events[i].ident != USER_EVENT_IDENT) input_fired = true;
+            // USER_EVENT_IDENT fires when wake() is called - falls through to Shutdown
         }
-        return WakeReason::Input;
+        if (input_fired) return WakeReason::Input;
+        return WakeReason::Shutdown;
     }
 
     Config config_;
