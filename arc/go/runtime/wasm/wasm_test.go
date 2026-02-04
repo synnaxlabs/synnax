@@ -355,6 +355,61 @@ var _ = Describe("WASM", func() {
 			n2.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("c2", 0))[0]).To(Equal(int64(20)))
 		})
+
+		It("Should isolate stateful variables between nodes of the same function", func() {
+			// This test verifies that two node instances of the same function type
+			// have separate state storage (important fix for node instance isolation)
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "counter",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body: ir.Body{Raw: `{
+							count i64 $= 0
+							count = count + 1
+							return count
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "counter_a", Type: "counter"},
+					{Key: "counter_b", Type: "counter"},
+				},
+			}
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n1 := h.CreateNode(ctx, "counter_a")
+			n2 := h.CreateNode(ctx, "counter_b")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			// First execution of counter_a should return 1
+			n1.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0]).To(Equal(int64(1)))
+
+			// First execution of counter_b should ALSO return 1 (not 2!)
+			// because it has its own separate state
+			n2.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0]).To(Equal(int64(1)))
+
+			// Second execution of counter_a should return 2
+			n1.Reset()
+			n1.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0]).To(Equal(int64(2)))
+
+			// Second execution of counter_b should return 2 (its own count)
+			n2.Reset()
+			n2.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0]).To(Equal(int64(2)))
+
+			// Third execution of counter_a should return 3
+			n1.Reset()
+			n1.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0]).To(Equal(int64(3)))
+
+			// counter_b should still be at 2 (we didn't call it again)
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0]).To(Equal(int64(2)))
+		})
 	})
 
 	Describe("Optional Parameters", func() {

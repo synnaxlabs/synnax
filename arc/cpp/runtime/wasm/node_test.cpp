@@ -920,3 +920,105 @@ func multi_config{a i32, b i32}(c i32) i32 {
     ASSERT_EQ(output->size(), 1);
     EXPECT_EQ(output->at<int32_t>(0), 18);
 }
+
+/// @brief Regression test: Two node instances of the same function type should
+/// have independent stateful variable storage.
+TEST(NodeTest, StatefulVariablesAreIsolatedBetweenNodeInstances) {
+    const auto client = new_test_client();
+
+    auto idx_name = random_name("time");
+    auto trigger_name = random_name("trigger");
+    auto output_a_name = random_name("output_a");
+    auto output_b_name = random_name("output_b");
+
+    auto index_ch = synnax::Channel(idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(index_ch));
+
+    auto trigger_ch = synnax::Channel(trigger_name, telem::INT64_T, index_ch.key, false);
+    ASSERT_NIL(client.channels.create(trigger_ch));
+
+    auto output_a_ch = synnax::Channel(output_a_name, telem::INT64_T, index_ch.key, false);
+    ASSERT_NIL(client.channels.create(output_a_ch));
+
+    auto output_b_ch = synnax::Channel(output_b_name, telem::INT64_T, index_ch.key, false);
+    ASSERT_NIL(client.channels.create(output_b_ch));
+
+    const std::string source = R"(
+func counter(trigger i64) i64 {
+    count i64 $= 0
+    count = count + 1
+    return count
+}
+)" + trigger_name + " -> counter{} -> " + output_a_name + "\n" +
+                               trigger_name + " -> counter{} -> " + output_b_name;
+
+    auto mod = compile_arc(client, source);
+
+    auto state = std::make_shared<state::State>(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels =
+                {{index_ch.key, telem::TIMESTAMP_T, 0},
+                 {trigger_ch.key, telem::INT64_T, index_ch.key},
+                 {output_a_ch.key, telem::INT64_T, index_ch.key},
+                 {output_b_ch.key, telem::INT64_T, index_ch.key}}
+        },
+        arc::runtime::errors::noop_handler
+    );
+
+    auto bindings = std::make_shared<wasm::Bindings>(
+        state,
+        nullptr,
+        arc::runtime::errors::noop_handler
+    );
+
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod, .bindings = bindings}));
+
+    // Find the two counter nodes
+    std::vector<const arc::ir::Node *> counter_nodes;
+    for (const auto &node: mod.nodes)
+        if (node.type == "counter") counter_nodes.push_back(&node);
+    ASSERT_EQ(counter_nodes.size(), 2);
+    const auto *counter_a_node = counter_nodes[0];
+    const auto *counter_b_node = counter_nodes[1];
+
+    // Each pipeline has its own on_trigger node. Find and set up all of them.
+    for (const auto &node: mod.nodes) {
+        if (node.type != "on") continue;
+        auto on_node_state = ASSERT_NIL_P(state->node(node.key));
+        auto on_data = telem::Series(std::vector<int64_t>{1});
+        on_data.alignment = telem::Alignment(1, 0);
+        on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
+            std::move(on_data)
+        );
+        auto on_time = telem::Series(std::vector{telem::TimeStamp(1 * telem::MICROSECOND)});
+        on_time.alignment = telem::Alignment(1, 0);
+        on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+            std::move(on_time)
+        );
+    }
+
+    // Create state and function objects for both counter nodes
+    auto node_a_state = ASSERT_NIL_P(state->node(counter_a_node->key));
+    auto node_b_state = ASSERT_NIL_P(state->node(counter_b_node->key));
+    auto func_a = ASSERT_NIL_P(wasm_mod->func("counter"));
+    auto func_b = ASSERT_NIL_P(wasm_mod->func("counter"));
+
+    wasm::Node node_a(mod, *counter_a_node, std::move(node_a_state), func_a);
+    wasm::Node node_b(mod, *counter_b_node, std::move(node_b_state), func_b);
+
+    auto ctx = make_context();
+
+    // Execute counter_a - should return 1
+    ASSERT_NIL(node_a.next(ctx));
+    auto result_a = ASSERT_NIL_P(state->node(counter_a_node->key));
+    ASSERT_EQ(result_a.output(0)->size(), 1);
+    EXPECT_EQ(result_a.output(0)->at<int64_t>(0), 1);
+
+    // Execute counter_b - should also return 1 (not 2!), proving isolation
+    ASSERT_NIL(node_b.next(ctx));
+    auto result_b = ASSERT_NIL_P(state->node(counter_b_node->key));
+    ASSERT_EQ(result_b.output(0)->size(), 1);
+    EXPECT_EQ(result_b.output(0)->at<int64_t>(0), 1)
+        << "counter_b should have its own independent state, returning 1 not 2";
+}

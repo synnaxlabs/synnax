@@ -51,7 +51,6 @@ func emitStatefulLoad[ASTNode antlr.ParserRuleContext](
 	idx int,
 	t types.Type,
 ) error {
-	ctx.Writer.WriteI32Const(int32(ctx.CurrentFunctionIndex))
 	ctx.Writer.WriteI32Const(int32(idx))
 	emitZeroValue(ctx, t)
 	stateLoadF := lo.Ternary(

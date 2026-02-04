@@ -104,7 +104,6 @@ var _ = Describe("Statement Compiler", func() {
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID (first stateful var)
 				OpI64Const, int64(0), // init value
 				OpCall, uint64(stateLoadIdx),
@@ -123,7 +122,6 @@ var _ = Describe("Statement Compiler", func() {
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
 				OpI64Const, int64(0), // init value
 				OpCall, uint64(stateLoadIdx),
@@ -147,7 +145,6 @@ var _ = Describe("Statement Compiler", func() {
 			stateStoreIdx := ctx.Imports.StateStore["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				// Declaration: count $= 0
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
 				OpI64Const, int64(0), // init value
 				OpCall, uint64(stateLoadIdx),
@@ -155,7 +152,6 @@ var _ = Describe("Statement Compiler", func() {
 				// Assignment: count = 5
 				OpI64Const, int64(5), // new value
 				OpLocalSet, 0, // store temporarily
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
 				OpLocalGet, 0, // get value back
 				OpCall, uint64(stateStoreIdx),
@@ -177,13 +173,11 @@ var _ = Describe("Statement Compiler", func() {
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				// Declaration: count $= 0
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
 				OpI64Const, int64(0), // init value
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 0, // store in local
 				// Expression: count + 1
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
 				OpI64Const, int64(0), // dummy init value
 				OpCall, uint64(stateLoadIdx),
@@ -209,23 +203,19 @@ var _ = Describe("Statement Compiler", func() {
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				// Declaration: a $= 10
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID for a
 				OpI64Const, int64(10), // init value
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 0, // store in a's local
 				// Declaration: b $= 20
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(1), // var ID for b
 				OpI64Const, int64(20), // init value
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 1, // store in b's local
 				// Expression: a + b
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID for a
 				OpI64Const, int64(0), // dummy init value
 				OpCall, uint64(stateLoadIdx),
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(1), // var ID for b
 				OpI64Const, int64(0), // dummy init value
 				OpCall, uint64(stateLoadIdx),
@@ -245,7 +235,6 @@ var _ = Describe("Statement Compiler", func() {
 
 			stateLoadIdx := ctx.Imports.StateLoad["f64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
 				OpF64Const, 20.5, // init value
 				OpCall, uint64(stateLoadIdx),
@@ -269,7 +258,6 @@ var _ = Describe("Statement Compiler", func() {
 			stateStoreIdx := ctx.Imports.StateStore["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				OpI32Const, int32(0),
-				OpI32Const, int32(0),
 				OpI64Const, int64(10),
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 0,
@@ -278,7 +266,6 @@ var _ = Describe("Statement Compiler", func() {
 				OpI64Const, int64(5),
 				OpI64Add,
 				OpLocalSet, 0,
-				OpI32Const, int32(0),
 				OpI32Const, int32(0),
 				OpLocalGet, 0,
 				OpCall, uint64(stateStoreIdx),
@@ -301,7 +288,6 @@ var _ = Describe("Statement Compiler", func() {
 			stateStoreIdx := ctx.Imports.StateStore["f64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				OpI32Const, int32(0),
-				OpI32Const, int32(0),
 				OpF64Const, 100.0,
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 0,
@@ -310,7 +296,6 @@ var _ = Describe("Statement Compiler", func() {
 				OpF64Const, 25.5,
 				OpF64Sub,
 				OpLocalSet, 0,
-				OpI32Const, int32(0),
 				OpI32Const, int32(0),
 				OpLocalGet, 0,
 				OpCall, uint64(stateStoreIdx),
@@ -334,7 +319,6 @@ var _ = Describe("Statement Compiler", func() {
 			stateStoreIdx := ctx.Imports.StateStore["i32"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				OpI32Const, int32(0),
-				OpI32Const, int32(0),
 				OpI32Const, int32(1),
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 0,
@@ -344,7 +328,6 @@ var _ = Describe("Statement Compiler", func() {
 				OpI32Mul,
 				OpLocalSet, 0,
 				OpI32Const, int32(0),
-				OpI32Const, int32(0),
 				OpLocalGet, 0,
 				OpCall, uint64(stateStoreIdx),
 
@@ -353,29 +336,8 @@ var _ = Describe("Statement Compiler", func() {
 				OpI32Mul,
 				OpLocalSet, 0,
 				OpI32Const, int32(0),
-				OpI32Const, int32(0),
 				OpLocalGet, 0,
 				OpCall, uint64(stateStoreIdx),
-			))
-		})
-
-		It("Should use CurrentFunctionIndex in stateful variable opcodes", func() {
-			stmt := MustSucceed(parser.ParseStatement("count i64 $= 0"))
-			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
-			analyzer.AnalyzeStatement(aCtx)
-			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
-			ctx.CurrentFunctionIndex = 42
-			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
-			Expect(diverged).To(BeFalse())
-
-			stateLoadIdx := ctx.Imports.StateLoad["i64"]
-			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
-				OpI32Const, int32(42),
-				OpI32Const, int32(0),
-				OpI64Const, int64(0),
-				OpCall, uint64(stateLoadIdx),
-				OpLocalSet, 0,
 			))
 		})
 	})

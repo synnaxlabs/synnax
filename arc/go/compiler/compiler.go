@@ -130,8 +130,7 @@ func compileItem(
 	if results.IsValid() {
 		wasmResults = append(wasmResults, wasm.ConvertType(results))
 	}
-	wasmFuncIdx := rootCtx.FunctionIndices[key]
-	ctx := ccontext.Child(rootCtx, body).WithScope(scope).WithNewWriter().WithFunctionIndex(wasmFuncIdx)
+	ctx := ccontext.Child(rootCtx, body).WithScope(scope).WithNewWriter()
 	ctx.Outputs = outputs
 	ctx.OutputMemoryBase = outputMemoryBase
 

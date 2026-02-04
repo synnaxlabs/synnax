@@ -508,18 +508,18 @@ TEST_F(BindingsTest, StateLoadStoreSeriesF64) {
     bindings->series_set_element_f64(h1, 2, 3.0);
 
     // First load returns init_handle since nothing stored yet
-    const uint32_t loaded1 = bindings->state_load_series_f64(1, 1, h1);
+    const uint32_t loaded1 = bindings->state_load_series_f64(1, h1);
     EXPECT_EQ(loaded1, h1);
 
     // Store the series
-    bindings->state_store_series_f64(1, 1, h1);
+    bindings->state_store_series_f64(1, h1);
 
     // Create a different series as init value
     const uint32_t h2 = bindings->series_create_empty_f64(1);
     bindings->series_set_element_f64(h2, 0, 999.0);
 
     // Load should return stored series, not init
-    const uint32_t loaded2 = bindings->state_load_series_f64(1, 1, h2);
+    const uint32_t loaded2 = bindings->state_load_series_f64(1, h2);
     EXPECT_NE(loaded2, h2); // Should not be init value
     EXPECT_EQ(bindings->series_len(loaded2), 3);
     EXPECT_DOUBLE_EQ(bindings->series_index_f64(loaded2, 0), 1.0);
@@ -532,10 +532,10 @@ TEST_F(BindingsTest, StateLoadStoreSeriesI32) {
     bindings->series_set_element_i32(h1, 0, 42);
     bindings->series_set_element_i32(h1, 1, -42);
 
-    bindings->state_store_series_i32(2, 2, h1);
+    bindings->state_store_series_i32(2, h1);
 
     const uint32_t dummy = bindings->series_create_empty_i32(1);
-    const uint32_t loaded = bindings->state_load_series_i32(2, 2, dummy);
+    const uint32_t loaded = bindings->state_load_series_i32(2, dummy);
 
     EXPECT_EQ(bindings->series_len(loaded), 2);
     EXPECT_EQ(bindings->series_index_i32(loaded, 0), 42);
@@ -1016,14 +1016,14 @@ TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulSeries) {
     const uint32_t h1 = bindings->series_create_empty_f64(2);
     bindings->series_set_element_f64(h1, 0, 100.0);
     bindings->series_set_element_f64(h1, 1, 200.0);
-    bindings->state_store_series_f64(1, 1, h1);
+    bindings->state_store_series_f64(1, h1);
 
     state->flush();
 
     EXPECT_EQ(bindings->series_len(h1), 0);
 
     const uint32_t dummy = bindings->series_create_empty_f64(1);
-    const uint32_t loaded = bindings->state_load_series_f64(1, 1, dummy);
+    const uint32_t loaded = bindings->state_load_series_f64(1, dummy);
 
     EXPECT_EQ(bindings->series_len(loaded), 2);
     EXPECT_DOUBLE_EQ(bindings->series_index_f64(loaded, 0), 100.0);
@@ -1032,28 +1032,28 @@ TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulSeries) {
 
 TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulStrings) {
     const uint32_t h1 = bindings->string_create("persistent");
-    bindings->state_store_str(2, 2, h1);
+    bindings->state_store_str(2, h1);
 
     state->flush();
 
     EXPECT_EQ(bindings->string_get(h1), "");
 
     const uint32_t dummy = bindings->string_create("dummy");
-    const uint32_t loaded = bindings->state_load_str(2, 2, dummy);
+    const uint32_t loaded = bindings->state_load_str(2, dummy);
 
     EXPECT_EQ(bindings->string_get(loaded), "persistent");
 }
 
 TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulPrimitives) {
-    bindings->state_store_f64(1, 1, 3.14159);
-    bindings->state_store_i32(1, 2, -42);
-    bindings->state_store_u64(1, 3, 9999999999ULL);
+    bindings->state_store_f64(1, 3.14159);
+    bindings->state_store_i32(2, -42);
+    bindings->state_store_u64(3, 9999999999ULL);
 
     state->flush();
 
-    EXPECT_DOUBLE_EQ(bindings->state_load_f64(1, 1, 0.0), 3.14159);
-    EXPECT_EQ(bindings->state_load_i32(1, 2, 0), -42);
-    EXPECT_EQ(bindings->state_load_u64(1, 3, 0), 9999999999ULL);
+    EXPECT_DOUBLE_EQ(bindings->state_load_f64(1, 0.0), 3.14159);
+    EXPECT_EQ(bindings->state_load_i32(2, 0), -42);
+    EXPECT_EQ(bindings->state_load_u64(3, 0), 9999999999ULL);
 }
 
 TEST_F(BindingsTest, MultipleClearCycles) {
