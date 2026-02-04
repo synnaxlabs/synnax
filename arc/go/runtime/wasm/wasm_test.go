@@ -1693,5 +1693,249 @@ var _ = Describe("WASM", func() {
 			Expect(outFr.Get(100).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0]).To(Equal(float32(2.0)))
 		})
+
+		It("Should handle multiple channel config parameters", func() {
+			resolver := symbol.MapResolver{
+				"temp_sensor": {
+					Name: "temp_sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"pressure_sensor": {
+					Name: "pressure_sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   101,
+				},
+				"output_sum": {
+					Name: "output_sum",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   102,
+				},
+			}
+
+			// Function that reads from two channel config params and writes their sum to a third
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "combine_sensors",
+						Config: types.Params{
+							{Name: "temp", Type: types.Chan(types.F32())},
+							{Name: "pressure", Type: types.Chan(types.F32())},
+							{Name: "result", Type: types.Chan(types.F32())},
+						},
+						Inputs:  types.Params{},
+						Outputs: types.Params{},
+						Body: ir.Body{Raw: `{
+							result = temp + pressure
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:  "combine_sensors",
+						Type: "combine_sensors",
+						Config: map[string]any{
+							"temp":     uint32(100),
+							"pressure": uint32(101),
+							"result":   uint32(102),
+						},
+					},
+				},
+				Edges: []graph.Edge{},
+			}
+
+			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+				{Key: 101, DataType: telem.Float32T},
+				{Key: 102, DataType: telem.Float32T},
+			})
+			defer h.Close()
+
+			// Test: temp=25.5, pressure=101.3, expect result=126.8
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(100, telem.NewSeriesV[float32](25.5))
+			fr = fr.Append(101, telem.NewSeriesV[float32](101.3))
+			h.state.Ingest(fr)
+			h.Execute(ctx, "combine_sensors")
+			outFr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(outFr.Get(102).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float32](outFr.Get(102).Series[0])[0]).To(BeNumerically("~", float32(126.8), 0.01))
+		})
+
+		It("Should handle multiple channel config params with different operations", func() {
+			resolver := symbol.MapResolver{
+				"input_a": {
+					Name: "input_a",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   200,
+				},
+				"input_b": {
+					Name: "input_b",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   201,
+				},
+				"out_sum": {
+					Name: "out_sum",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   202,
+				},
+				"out_diff": {
+					Name: "out_diff",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   203,
+				},
+				"out_product": {
+					Name: "out_product",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   204,
+				},
+			}
+
+			// Function that performs multiple operations on channel config params
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "multi_op",
+						Config: types.Params{
+							{Name: "a", Type: types.Chan(types.F64())},
+							{Name: "b", Type: types.Chan(types.F64())},
+							{Name: "sum", Type: types.Chan(types.F64())},
+							{Name: "diff", Type: types.Chan(types.F64())},
+							{Name: "product", Type: types.Chan(types.F64())},
+						},
+						Inputs:  types.Params{},
+						Outputs: types.Params{},
+						Body: ir.Body{Raw: `{
+							sum = a + b
+							diff = a - b
+							product = a * b
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:  "multi_op",
+						Type: "multi_op",
+						Config: map[string]any{
+							"a":       uint32(200),
+							"b":       uint32(201),
+							"sum":     uint32(202),
+							"diff":    uint32(203),
+							"product": uint32(204),
+						},
+					},
+				},
+				Edges: []graph.Edge{},
+			}
+
+			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				{Key: 200, DataType: telem.Float64T},
+				{Key: 201, DataType: telem.Float64T},
+				{Key: 202, DataType: telem.Float64T},
+				{Key: 203, DataType: telem.Float64T},
+				{Key: 204, DataType: telem.Float64T},
+			})
+			defer h.Close()
+
+			// Test: a=10.0, b=3.0
+			// Expected: sum=13.0, diff=7.0, product=30.0
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(200, telem.NewSeriesV[float64](10.0))
+			fr = fr.Append(201, telem.NewSeriesV[float64](3.0))
+			h.state.Ingest(fr)
+			h.Execute(ctx, "multi_op")
+			outFr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+
+			Expect(outFr.Get(202).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float64](outFr.Get(202).Series[0])[0]).To(Equal(float64(13.0)))
+
+			Expect(outFr.Get(203).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float64](outFr.Get(203).Series[0])[0]).To(Equal(float64(7.0)))
+
+			Expect(outFr.Get(204).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float64](outFr.Get(204).Series[0])[0]).To(Equal(float64(30.0)))
+		})
+
+		It("Should handle channel config param used multiple times in expression", func() {
+			resolver := symbol.MapResolver{
+				"value_ch": {
+					Name: "value_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   300,
+				},
+				"squared_ch": {
+					Name: "squared_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   301,
+				},
+			}
+
+			// Function that reads from a channel config param twice (squaring it)
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "square_value",
+						Config: types.Params{
+							{Name: "value", Type: types.Chan(types.F32())},
+							{Name: "squared", Type: types.Chan(types.F32())},
+						},
+						Inputs:  types.Params{},
+						Outputs: types.Params{},
+						Body: ir.Body{Raw: `{
+							squared = value * value
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:  "square_value",
+						Type: "square_value",
+						Config: map[string]any{
+							"value":   uint32(300),
+							"squared": uint32(301),
+						},
+					},
+				},
+				Edges: []graph.Edge{},
+			}
+
+			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				{Key: 300, DataType: telem.Float32T},
+				{Key: 301, DataType: telem.Float32T},
+			})
+			defer h.Close()
+
+			// Test: value=7.0, expect squared=49.0
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(300, telem.NewSeriesV[float32](7.0))
+			h.state.Ingest(fr)
+			h.Execute(ctx, "square_value")
+			outFr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(outFr.Get(301).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float32](outFr.Get(301).Series[0])[0]).To(Equal(float32(49.0)))
+
+			// Test: value=0.5, expect squared=0.25
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(300, telem.NewSeriesV[float32](0.5))
+			h.state.Ingest(fr)
+			h.Execute(ctx, "square_value")
+			outFr, changed = h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(outFr.Get(301).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float32](outFr.Get(301).Series[0])[0]).To(Equal(float32(0.25)))
+		})
 	})
 })
