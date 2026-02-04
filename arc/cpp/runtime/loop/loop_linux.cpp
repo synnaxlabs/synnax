@@ -11,33 +11,18 @@
 #include <thread>
 
 #include "glog/logging.h"
-#include <sched.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
-#include <sys/mman.h>
 #include <sys/timerfd.h>
 #include <unistd.h>
 
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/xthread/rt.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 
 namespace arc::runtime::loop {
-
-bool has_rt_scheduling() {
-    struct sched_param param;
-    param.sched_priority = 1;
-    const int orig_policy = sched_getscheduler(0);
-    struct sched_param orig_param;
-    sched_getparam(0, &orig_param);
-
-    if (sched_setscheduler(0, SCHED_FIFO, &param) == 0) {
-        sched_setscheduler(0, orig_policy, &orig_param);
-        return true;
-    }
-    return false;
-}
 
 class LinuxLoop final : public Loop {
 public:
@@ -45,27 +30,23 @@ public:
 
     ~LinuxLoop() override { this->close_fds(); }
 
-    void wait(breaker::Breaker &breaker) override {
-        if (this->epoll_fd_ == -1) return;
+    WakeReason wait(breaker::Breaker &breaker) override {
+        if (this->epoll_fd_ == -1) return WakeReason::Shutdown;
 
         switch (this->config_.mode) {
             case ExecutionMode::BUSY_WAIT:
-                this->busy_wait(breaker);
-                break;
+                return this->busy_wait(breaker);
             case ExecutionMode::HIGH_RATE:
-                this->high_rate_wait(breaker);
-                break;
+                return this->high_rate_wait(breaker);
             case ExecutionMode::RT_EVENT:
-                this->event_driven_wait(true);
-                break;
+                return this->event_driven_wait(true);
             case ExecutionMode::HYBRID:
-                this->hybrid_wait(breaker);
-                break;
+                return this->hybrid_wait(breaker);
             case ExecutionMode::AUTO:
             case ExecutionMode::EVENT_DRIVEN:
-                this->event_driven_wait(true);
-                break;
+                return this->event_driven_wait(true);
         }
+        return WakeReason::Shutdown;
     }
 
     xerrors::Error start() override {
@@ -142,23 +123,10 @@ public:
             }
         }
 
-        if (this->config_.rt_priority > 0) {
-            if (auto err = this->set_rt_priority(this->config_.rt_priority); err) {
-                LOG(WARNING) << "[loop] Failed to set RT priority: " << err.message();
-            }
-        }
-
-        if (this->config_.cpu_affinity >= 0) {
-            if (auto err = this->set_cpu_affinity(this->config_.cpu_affinity); err) {
-                LOG(WARNING) << "[loop] Failed to set CPU affinity: " << err.message();
-            }
-        }
-
-        if (this->config_.lock_memory) {
-            if (auto err = this->lock_memory(); err) {
-                LOG(WARNING) << "[loop] Failed to lock memory: " << err.message();
-            }
-        }
+        auto rt_cfg = this->config_.rt();
+        rt_cfg.prefer_deadline_scheduler = true;
+        if (auto err = xthread::apply_rt_config(rt_cfg); err)
+            LOG(WARNING) << "[loop] Failed to apply RT config: " << err.message();
 
         return xerrors::NIL;
     }
@@ -218,44 +186,42 @@ private:
         this->timer_enabled_ = false;
     }
 
-    void busy_wait(breaker::Breaker &breaker) {
+    WakeReason busy_wait(breaker::Breaker &breaker) {
         struct epoll_event events[2];
 
         while (breaker.running()) {
             const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
-            if (n > 0) {
-                this->consume_events(events, n);
-                return;
-            }
+            if (n > 0) return this->consume_events(events, n);
             if (n == -1 && errno != EINTR) {
                 LOG(ERROR) << "[loop] epoll_wait error: " << strerror(errno);
-                return;
+                return WakeReason::Shutdown;
             }
         }
+        return WakeReason::Shutdown;
     }
 
-    void high_rate_wait(breaker::Breaker &breaker) {
+    WakeReason high_rate_wait(breaker::Breaker &breaker) {
         this->timer_->wait(breaker);
         struct epoll_event events[2];
         const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
         if (n > 0) this->drain_events(events, n);
+        return WakeReason::Timer;
     }
 
-    void event_driven_wait(bool blocking) {
+    WakeReason event_driven_wait(bool blocking) {
         struct epoll_event events[2];
-        // Use a short timeout to ensure we periodically check breaker.running()
-        // in the caller's loop.
         const int timeout_ms = blocking ? timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
                                         : timing::POLL_TIMEOUT.milliseconds();
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
 
-        if (n > 0)
-            this->consume_events(events, n);
-        else if (n == -1 && errno != EINTR)
+        if (n > 0) return this->consume_events(events, n);
+        if (n == 0) return WakeReason::Timeout;
+        if (errno != EINTR)
             LOG(ERROR) << "[loop] epoll_wait error: " << strerror(errno);
+        return WakeReason::Shutdown;
     }
 
-    void hybrid_wait(const breaker::Breaker &breaker) {
+    WakeReason hybrid_wait(const breaker::Breaker &breaker) {
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
             this->config_.spin_duration.nanoseconds()
@@ -264,34 +230,40 @@ private:
         struct epoll_event events[2];
 
         while (std::chrono::steady_clock::now() - spin_start < spin_duration) {
-            if (!breaker.running()) return;
+            if (!breaker.running()) return WakeReason::Shutdown;
 
             const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
-            if (n > 0) {
-                this->consume_events(events, n);
-                return;
-            }
+            if (n > 0) return this->consume_events(events, n);
         }
 
         const int timeout_ms = timing::HYBRID_BLOCK_TIMEOUT.milliseconds();
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
-        if (n > 0) this->consume_events(events, n);
+        if (n > 0) return this->consume_events(events, n);
+        return WakeReason::Timeout;
     }
 
-    /// @brief Consumes events from epoll, returning total timer expirations.
-    uint64_t consume_events(struct epoll_event *events, const int n) {
-        uint64_t total_expirations = 0;
+    /// @brief Consumes events from epoll, returning the wake reason.
+    WakeReason consume_events(struct epoll_event *events, const int n) {
+        bool timer_fired = false;
+        bool input_fired = false;
         for (int i = 0; i < n; i++) {
             uint64_t val;
             const ssize_t ret = read(events[i].data.fd, &val, sizeof(val));
-            if (ret == sizeof(val) && events[i].data.fd == this->timer_fd_) {
-                total_expirations += val;
-                if (val > 1)
-                    LOG(WARNING) << "[loop] timer drift detected: " << val
-                                 << " expirations in single read";
+            if (ret == sizeof(val)) {
+                if (events[i].data.fd == this->timer_fd_) {
+                    timer_fired = true;
+                    if (val > 1)
+                        LOG(WARNING) << "[loop] timer drift detected: " << val
+                                     << " expirations in single read";
+                } else if (events[i].data.fd != this->event_fd_) {
+                    input_fired = true;
+                }
+                // event_fd_ fires when wake() is called - falls through to Shutdown
             }
         }
-        return total_expirations;
+        if (timer_fired) return WakeReason::Timer;
+        if (input_fired) return WakeReason::Input;
+        return WakeReason::Shutdown;
     }
 
     /// @brief Drains pending events without tracking expirations.
@@ -304,45 +276,6 @@ private:
                 sizeof(val)
             );
         }
-    }
-
-    xerrors::Error set_rt_priority(const int priority) {
-        struct sched_param param;
-        param.sched_priority = priority;
-
-        if (sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
-            return xerrors::Error(
-                "Failed to set SCHED_FIFO priority (requires CAP_SYS_NICE): " +
-                std::string(strerror(errno))
-            );
-        }
-
-        return xerrors::NIL;
-    }
-
-    xerrors::Error set_cpu_affinity(int cpu) {
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(cpu, &cpuset);
-
-        if (sched_setaffinity(0, sizeof(cpuset), &cpuset) == -1) {
-            return xerrors::Error(
-                "Failed to set CPU affinity: " + std::string(strerror(errno))
-            );
-        }
-
-        return xerrors::NIL;
-    }
-
-    xerrors::Error lock_memory() {
-        if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1) {
-            return xerrors::Error(
-                "Failed to lock memory (requires CAP_IPC_LOCK): " +
-                std::string(strerror(errno))
-            );
-        }
-
-        return xerrors::NIL;
     }
 
     Config config_;
