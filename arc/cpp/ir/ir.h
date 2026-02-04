@@ -16,7 +16,6 @@
 #include <ostream>
 #include <sstream>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -29,10 +28,10 @@
 #include "arc/go/symbol/arc/go/symbol/symbol.pb.h"
 
 namespace arc::ir {
-constexpr std::string_view default_output_param = "output";
-constexpr std::string_view default_input_param = "input";
-constexpr std::string_view lhs_input_param = "lhs_input";
-constexpr std::string_view rhs_input_param = "rhs_input";
+inline const std::string default_output_param = "output";
+inline const std::string default_input_param = "input";
+inline const std::string lhs_input_param = "lhs_input";
+inline const std::string rhs_input_param = "rhs_input";
 
 enum class EdgeKind { Unspecified = 0, Continuous = 1, OneShot = 2 };
 
