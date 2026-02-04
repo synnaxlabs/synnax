@@ -55,7 +55,7 @@ class TestEtherCATReadTask:
                             "enabled": True,
                             "device": "slave-device-key",
                             "index": 0x6064,
-                            "subindex": 0,
+                            "sub_index": 0,
                             "bit_length": 32,
                             "data_type": "int32",
                             "channel": 5678,
@@ -85,7 +85,7 @@ class TestEtherCATReadTask:
                             "enabled": True,
                             "device": "slave-2",
                             "index": 0x6077,
-                            "subindex": 0,
+                            "sub_index": 0,
                             "bit_length": 16,
                             "data_type": "int16",
                             "channel": 2000,
@@ -154,7 +154,7 @@ class TestEtherCATReadTask:
         sy.ethercat.ManualInputChan(
             device="slave-key",
             index=0,
-            subindex=0,
+            sub_index=0,
             bit_length=16,
             data_type="uint16",
             channel=1234,
@@ -162,7 +162,7 @@ class TestEtherCATReadTask:
         sy.ethercat.ManualInputChan(
             device="slave-key",
             index=65535,
-            subindex=0,
+            sub_index=0,
             bit_length=16,
             data_type="uint16",
             channel=1234,
@@ -173,7 +173,7 @@ class TestEtherCATReadTask:
             sy.ethercat.ManualInputChan(
                 device="slave-key",
                 index=-1,
-                subindex=0,
+                sub_index=0,
                 bit_length=16,
                 data_type="uint16",
                 channel=1234,
@@ -182,19 +182,19 @@ class TestEtherCATReadTask:
             sy.ethercat.ManualInputChan(
                 device="slave-key",
                 index=65536,
-                subindex=0,
+                sub_index=0,
                 bit_length=16,
                 data_type="uint16",
                 channel=1234,
             )
 
-    def test_manual_input_subindex_bounds(self):
-        """Test that subindex validation works (0-255)."""
-        # Valid subindex
+    def test_manual_input_sub_index_bounds(self):
+        """Test that sub_index validation works (0-255)."""
+        # Valid sub_index
         sy.ethercat.ManualInputChan(
             device="slave-key",
             index=0x6064,
-            subindex=0,
+            sub_index=0,
             bit_length=32,
             data_type="int32",
             channel=1234,
@@ -202,18 +202,18 @@ class TestEtherCATReadTask:
         sy.ethercat.ManualInputChan(
             device="slave-key",
             index=0x6064,
-            subindex=255,
+            sub_index=255,
             bit_length=32,
             data_type="int32",
             channel=1234,
         )
 
-        # Invalid subindex
+        # Invalid sub_index
         with pytest.raises(ValidationError):
             sy.ethercat.ManualInputChan(
                 device="slave-key",
                 index=0x6064,
-                subindex=-1,
+                sub_index=-1,
                 bit_length=32,
                 data_type="int32",
                 channel=1234,
@@ -222,7 +222,7 @@ class TestEtherCATReadTask:
             sy.ethercat.ManualInputChan(
                 device="slave-key",
                 index=0x6064,
-                subindex=256,
+                sub_index=256,
                 bit_length=32,
                 data_type="int32",
                 channel=1234,
@@ -234,7 +234,7 @@ class TestEtherCATReadTask:
         sy.ethercat.ManualInputChan(
             device="slave-key",
             index=0x6064,
-            subindex=0,
+            sub_index=0,
             bit_length=1,
             data_type="bool",
             channel=1234,
@@ -242,7 +242,7 @@ class TestEtherCATReadTask:
         sy.ethercat.ManualInputChan(
             device="slave-key",
             index=0x6064,
-            subindex=0,
+            sub_index=0,
             bit_length=64,
             data_type="float64",
             channel=1234,
@@ -253,7 +253,7 @@ class TestEtherCATReadTask:
             sy.ethercat.ManualInputChan(
                 device="slave-key",
                 index=0x6064,
-                subindex=0,
+                sub_index=0,
                 bit_length=0,
                 data_type="uint8",
                 channel=1234,
@@ -262,7 +262,7 @@ class TestEtherCATReadTask:
             sy.ethercat.ManualInputChan(
                 device="slave-key",
                 index=0x6064,
-                subindex=0,
+                sub_index=0,
                 bit_length=65,
                 data_type="uint8",
                 channel=1234,
@@ -287,7 +287,7 @@ class TestEtherCATReadTask:
                     key="manual-input-1",
                     device="slave-device-key",
                     index=0x6077,
-                    subindex=0,
+                    sub_index=0,
                     bit_length=16,
                     data_type="int16",
                     channel=5678,
@@ -345,7 +345,7 @@ class TestEtherCATWriteTask:
                             "enabled": True,
                             "device": "slave-device-key",
                             "index": 0x60FF,
-                            "subindex": 0,
+                            "sub_index": 0,
                             "bit_length": 32,
                             "data_type": "int32",
                             "cmd_channel": 1234,
@@ -378,7 +378,7 @@ class TestEtherCATWriteTask:
                             "enabled": True,
                             "device": "slave-2",
                             "index": 0x6040,
-                            "subindex": 0,
+                            "sub_index": 0,
                             "bit_length": 16,
                             "data_type": "uint16",
                             "cmd_channel": 2000,
@@ -490,7 +490,7 @@ class TestEtherCATWriteTask:
                     key="manual-output-1",
                     device="slave-device-key",
                     index=0x6040,
-                    subindex=0,
+                    sub_index=0,
                     bit_length=16,
                     data_type="uint16",
                     cmd_channel=9012,
@@ -525,7 +525,7 @@ class TestEtherCATWriteTask:
                     key="manual-1",
                     device="slave-2",
                     index=0x6040,
-                    subindex=0,
+                    sub_index=0,
                     bit_length=16,
                     data_type="uint16",
                     cmd_channel=9012,
@@ -585,26 +585,26 @@ class TestEtherCATDevice:
             serial=12345,
             rack=rack.key,
             input_pdos=[
-                sy.ethercat.PDOInfo(
+                sy.ethercat.PDOEntry(
                     name="Position actual value",
                     index=0x6064,
-                    subindex=0,
+                    sub_index=0,
                     bit_length=32,
                     data_type="int32",
                 ),
-                sy.ethercat.PDOInfo(
+                sy.ethercat.PDOEntry(
                     name="Velocity actual value",
                     index=0x606C,
-                    subindex=0,
+                    sub_index=0,
                     bit_length=32,
                     data_type="int32",
                 ),
             ],
             output_pdos=[
-                sy.ethercat.PDOInfo(
+                sy.ethercat.PDOEntry(
                     name="Target velocity",
                     index=0x60FF,
-                    subindex=0,
+                    sub_index=0,
                     bit_length=32,
                     data_type="int32",
                 ),
@@ -649,92 +649,92 @@ class TestEtherCATDevice:
 
 
 @pytest.mark.ethercat
-class TestPDOInfo:
-    """Tests for PDOInfo validation."""
+class TestPDOEntry:
+    """Tests for PDOEntry validation."""
 
-    def test_pdo_info_valid(self):
-        """Test valid PDOInfo creation."""
-        pdo = sy.ethercat.PDOInfo(
+    def test_pdo_entry_valid(self):
+        """Test valid PDOEntry creation."""
+        pdo = sy.ethercat.PDOEntry(
             name="Position actual value",
             index=0x6064,
-            subindex=0,
+            sub_index=0,
             bit_length=32,
             data_type="int32",
         )
         assert pdo.name == "Position actual value"
         assert pdo.index == 0x6064
-        assert pdo.subindex == 0
+        assert pdo.sub_index == 0
         assert pdo.bit_length == 32
         assert pdo.data_type == "int32"
 
-    def test_pdo_info_index_bounds(self):
-        """Test PDOInfo index validation."""
+    def test_pdo_entry_index_bounds(self):
+        """Test PDOEntry index validation."""
         # Valid
-        sy.ethercat.PDOInfo(
+        sy.ethercat.PDOEntry(
             name="Test",
             index=0,
-            subindex=0,
+            sub_index=0,
             bit_length=8,
             data_type="uint8",
         )
-        sy.ethercat.PDOInfo(
+        sy.ethercat.PDOEntry(
             name="Test",
             index=65535,
-            subindex=0,
+            sub_index=0,
             bit_length=8,
             data_type="uint8",
         )
 
         # Invalid
         with pytest.raises(ValidationError):
-            sy.ethercat.PDOInfo(
+            sy.ethercat.PDOEntry(
                 name="Test",
                 index=-1,
-                subindex=0,
+                sub_index=0,
                 bit_length=8,
                 data_type="uint8",
             )
         with pytest.raises(ValidationError):
-            sy.ethercat.PDOInfo(
+            sy.ethercat.PDOEntry(
                 name="Test",
                 index=65536,
-                subindex=0,
+                sub_index=0,
                 bit_length=8,
                 data_type="uint8",
             )
 
-    def test_pdo_info_bit_length_bounds(self):
-        """Test PDOInfo bit_length validation."""
+    def test_pdo_entry_bit_length_bounds(self):
+        """Test PDOEntry bit_length validation."""
         # Valid
-        sy.ethercat.PDOInfo(
+        sy.ethercat.PDOEntry(
             name="Test",
             index=0x6000,
-            subindex=0,
+            sub_index=0,
             bit_length=1,
             data_type="bool",
         )
-        sy.ethercat.PDOInfo(
+        sy.ethercat.PDOEntry(
             name="Test",
             index=0x6000,
-            subindex=0,
+            sub_index=0,
             bit_length=64,
             data_type="float64",
         )
 
         # Invalid
         with pytest.raises(ValidationError):
-            sy.ethercat.PDOInfo(
+            sy.ethercat.PDOEntry(
                 name="Test",
                 index=0x6000,
-                subindex=0,
+                sub_index=0,
                 bit_length=0,
                 data_type="uint8",
             )
         with pytest.raises(ValidationError):
-            sy.ethercat.PDOInfo(
+            sy.ethercat.PDOEntry(
                 name="Test",
                 index=0x6000,
-                subindex=0,
+                sub_index=0,
                 bit_length=65,
                 data_type="uint8",
             )

@@ -1,6 +1,0 @@
-cc_library(
-    name = "device",
-    hdrs = ["device.h"],
-    visibility = ["//driver/ethercat:__subpackages__"],
-    deps = ["//x/cpp/xjson"],
-)
