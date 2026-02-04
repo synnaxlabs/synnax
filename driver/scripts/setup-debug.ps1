@@ -26,17 +26,22 @@ Write-Host "Downloading artifacts from run $RunId..."
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 $TempDir = Join-Path $OutputDir "tmp"
 
-# Download artifacts
-try {
+# Download artifacts (try simple names first, then versioned names)
+$ErrorActionPreference = "SilentlyContinue"
+gh run download $RunId `
+    --repo synnaxlabs/synnax `
+    --name synnax-driver-windows `
+    --name synnax-driver-debug-symbols-windows `
+    --dir $TempDir 2>&1 | Out-Null
+$ErrorActionPreference = "Stop"
+
+# Check if download succeeded, if not try versioned names
+$hasFiles = (Get-ChildItem -Path $TempDir -Filter "*.exe" -Recurse -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0
+if (-not $hasFiles) {
     gh run download $RunId `
         --repo synnaxlabs/synnax `
-        --name synnax-driver-windows `
-        --name synnax-driver-debug-symbols-windows `
-        --dir $TempDir
-} catch {
-    gh run download $RunId `
-        --repo synnaxlabs/synnax `
-        --pattern "*driver*windows*" `
+        --pattern "synnax-driver-v*-windows" `
+        --pattern "synnax-driver-debug-symbols-v*-windows" `
         --dir $TempDir
 }
 
