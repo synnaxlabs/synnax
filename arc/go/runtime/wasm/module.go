@@ -24,7 +24,7 @@ import (
 type Module struct {
 	wasmRuntime wazero.Runtime
 	wasmModule  api.Module
-	arcRuntime  *runtimebindings.Runtime
+	runtime     *runtimebindings.Runtime
 }
 
 func (m *Module) Close() error {
@@ -59,6 +59,6 @@ func OpenModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 	return &Module{
 		wasmModule:  wasmModule,
 		wasmRuntime: wasmRuntime,
-		arcRuntime:  arcRuntime,
+		runtime:     arcRuntime,
 	}, nil
 }
