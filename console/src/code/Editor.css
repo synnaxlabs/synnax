@@ -14,12 +14,6 @@
     --editor-token-delimiter-parenthesis: #cc255f;
 }
 
-/* Monaco editor on windows does a bad job of dealing with custom fonts, so we're just
-using the default for now.  */
-.console--os-macos .monaco-editor *:not(.codicon) {
-    font-family: "Geist Mono" !important;
-}
-
 .mtk1 {
     color: var(--pluto-gray-l11) !important;
 }
