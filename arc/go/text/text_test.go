@@ -1380,5 +1380,154 @@ var _ = Describe("Text", func() {
 			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())
 		})
+
+		It("Should compile function with channel config param assigned to intermediate variable", func() {
+			// This is the exact user pattern that was failing:
+			// sp := set_point (where set_point is a chan f32 config param)
+			resolver := symbol.MapResolver{
+				"virt_1": {
+					Name: "virt_1",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   25,
+				},
+			}
+			source := `
+			func tolerance_alarm{
+				tolerance_upper f32,
+				tolerance_lower f32,
+				set_point chan f32,
+				samples i64
+			} (value f32) u8 {
+				count i64 $= 0
+				sp := set_point
+
+				if value >= (sp + tolerance_upper) {
+					count = count + 1
+				} else if value <= (sp - tolerance_lower) {
+					count = count + 1
+				} else {
+					count = 0
+				}
+
+				if count >= samples {
+					return 1
+				}
+				return 0
+			}
+
+			virt_1 -> tolerance_alarm{tolerance_upper=200.0, tolerance_lower=0.0, set_point=virt_1, samples=10} -> virt_1
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(ir.Nodes).To(HaveLen(3))
+			Expect(ir.Nodes[1].Channels.Read).To(HaveLen(1))
+			Expect(ir.Nodes[1].Channels.Read.Contains(25)).To(BeTrue())
+
+			module := MustSucceed(text.Compile(ctx, ir))
+			Expect(module.Output.WASM).ToNot(BeEmpty())
+			Expect(module.Output)
+		})
+
+		It("Should compile function with channel config param assigned to intermediate variable and written to", func() {
+			// Test that writing to an intermediate variable correctly tracks the channel
+			// out := output (config param with channel type)
+			// out = value * 2.0 (write to channel through intermediate variable)
+			resolver := symbol.MapResolver{
+				"input_ch": {
+					Name: "input_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"write_target": {
+					Name: "write_target",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   200,
+				},
+				"sink_ch": {
+					Name: "sink_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   300,
+				},
+			}
+			source := `
+			func writer{
+				output chan f32
+			} (value f32) u8 {
+				out := output
+				out = value * 2.0
+				return 0
+			}
+
+			input_ch -> writer{output=write_target} -> sink_ch
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(ir.Nodes).To(HaveLen(3))
+
+			// The writer function node should have write_target (200) in Channels.Write
+			// NOT the intermediate variable's ID
+			writerNode := ir.Nodes[1]
+			Expect(writerNode.Type).To(Equal("writer"))
+			Expect(writerNode.Channels.Write).To(HaveLen(1))
+			Expect(writerNode.Channels.Write.Contains(200)).To(BeTrue())
+
+			module := MustSucceed(text.Compile(ctx, ir))
+			Expect(module.Output.WASM).ToNot(BeEmpty())
+		})
+
+		It("Should compile function with global channel assigned to intermediate variable and written to", func() {
+			// Test that writing through an alias of a global channel correctly tracks the channel
+			// out := output (global channel)
+			// out = value * 3.0 (write to channel through alias)
+			resolver := symbol.MapResolver{
+				"input_ch": {
+					Name: "input_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"output_ch": {
+					Name: "output_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   200,
+				},
+				"sink_ch": {
+					Name: "sink_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   300,
+				},
+			}
+			source := `
+			func writer{} (value f32) u8 {
+				out := output_ch
+				out = value * 3.0
+				return 0
+			}
+
+			input_ch -> writer{} -> sink_ch
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(ir.Nodes).To(HaveLen(3))
+
+			// The writer function node should have output_ch (200) in Channels.Write
+			// NOT the intermediate variable's ID
+			writerNode := ir.Nodes[1]
+			Expect(writerNode.Type).To(Equal("writer"))
+			Expect(writerNode.Channels.Write).To(HaveLen(1))
+			Expect(writerNode.Channels.Write.Contains(200)).To(BeTrue())
+
+			module := MustSucceed(text.Compile(ctx, ir))
+			Expect(module.Output.WASM).ToNot(BeEmpty())
+		})
 	})
 })

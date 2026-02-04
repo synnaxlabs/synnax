@@ -54,6 +54,28 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 		return err
 	}
 	varType := varScope.Type
+
+	// Special case: if LHS has channel type and RHS is a symbol with channel type,
+	// just copy the channel key instead of reading from the channel.
+	// This handles patterns like:
+	//   sp := set_point  (where set_point is a config param with chan f32)
+	//   sp2 := sp        (where sp is a variable with chan f32)
+	//   alias := channel (where channel is a global KindChannel)
+	if varType.Kind == types.KindChan || varScope.Kind == symbol.KindChannel {
+		if rhsScope := getSymbolWithChanType(ctx, ctx.AST.Expression()); rhsScope != nil {
+			// Config params and variables have WASM locals holding the channel key
+			ctx.Writer.WriteLocalGet(rhsScope.ID)
+			ctx.Writer.WriteLocalSet(varScope.ID)
+			return nil
+		}
+		if rhsScope := getGlobalChannelSymbol(ctx, ctx.AST.Expression()); rhsScope != nil {
+			// Global channels don't have locals - their ID IS the channel key
+			ctx.Writer.WriteI32Const(int32(rhsScope.ID))
+			ctx.Writer.WriteLocalSet(varScope.ID)
+			return nil
+		}
+	}
+
 	exprCtx := context.Child(ctx, ctx.AST.Expression()).WithHint(varType)
 	exprType, err := expression.Compile(exprCtx)
 	if err != nil {
@@ -65,6 +87,50 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 		}
 	}
 	ctx.Writer.WriteLocalSet(varScope.ID)
+	return nil
+}
+
+// getSymbolWithChanType checks if an expression is a simple identifier
+// referencing a symbol (config param or variable) with channel type.
+// Returns the scope if so, nil otherwise.
+func getSymbolWithChanType(
+	ctx context.Context[parser.ILocalVariableContext],
+	expr parser.IExpressionContext,
+) *symbol.Scope {
+	primary := parser.GetPrimaryExpression(expr)
+	if primary == nil || primary.IDENTIFIER() == nil {
+		return nil
+	}
+	scope, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	if err != nil {
+		return nil
+	}
+	// Handle config params and variables with channel type
+	if scope.Type.Kind == types.KindChan &&
+		(scope.Kind == symbol.KindConfig || scope.Kind == symbol.KindVariable) {
+		return scope
+	}
+	return nil
+}
+
+// getGlobalChannelSymbol checks if an expression is a simple identifier
+// referencing a global channel symbol (KindChannel).
+// Returns the scope if so, nil otherwise.
+func getGlobalChannelSymbol(
+	ctx context.Context[parser.ILocalVariableContext],
+	expr parser.IExpressionContext,
+) *symbol.Scope {
+	primary := parser.GetPrimaryExpression(expr)
+	if primary == nil || primary.IDENTIFIER() == nil {
+		return nil
+	}
+	scope, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	if err != nil {
+		return nil
+	}
+	if scope.Kind == symbol.KindChannel {
+		return scope
+	}
 	return nil
 }
 
@@ -357,11 +423,22 @@ func compileAssignment(
 	// For channel writes, push the channel ID before compiling the expression.
 	// This avoids needing a temporary local variable to rearrange the stack.
 	if sym.Kind == symbol.KindChannel {
-		// For direct channel references, scope.ID is the Synnax channel key
-		ctx.Writer.WriteI32Const(int32(scope.ID))
+		// For channel aliases, SourceID points to the original channel key.
+		// For direct channel references (not aliases), use scope.ID directly.
+		if sym.SourceID != nil {
+			// Alias: the channel key is stored in a WASM local
+			ctx.Writer.WriteLocalGet(scope.ID)
+		} else {
+			// Direct reference: scope.ID is the Synnax channel key
+			ctx.Writer.WriteI32Const(int32(scope.ID))
+		}
 	} else if sym.Kind == symbol.KindConfig && varType.Kind == types.KindChan {
 		// For config params with channel type, scope.ID is a WASM local index
 		// that holds the channel key at runtime - read it from the local
+		ctx.Writer.WriteLocalGet(scope.ID)
+	} else if sym.Kind == symbol.KindVariable && varType.Kind == types.KindChan {
+		// For variables with channel type (e.g., out := output where output is chan f32),
+		// the variable holds the channel key - read it from the local
 		ctx.Writer.WriteLocalGet(scope.ID)
 	}
 
@@ -377,7 +454,19 @@ func compileAssignment(
 	}
 
 	switch sym.Kind {
-	case symbol.KindVariable, symbol.KindInput:
+	case symbol.KindVariable:
+		// Variables with channel type need to emit channel write
+		if varType.Kind == types.KindChan {
+			// Stack is already [channelID, value] from pushing ID before expression
+			importIdx, err := ctx.Imports.GetChannelWrite(varType.Unwrap())
+			if err != nil {
+				return err
+			}
+			ctx.Writer.WriteCall(importIdx)
+		} else {
+			ctx.Writer.WriteLocalSet(scope.ID)
+		}
+	case symbol.KindInput:
 		ctx.Writer.WriteLocalSet(scope.ID)
 	case symbol.KindStatefulVariable:
 		// Stack: [value]
