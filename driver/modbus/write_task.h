@@ -137,7 +137,8 @@ public:
 struct WriteTaskConfig {
     /// @brief the key of the device to read from.
     std::string device_key;
-    // @brief the connection configuration for the device.
+    /// @brief the connection configuration for the device.
+    /// Dynamically populated from device properties.
     device::ConnectionConfig conn;
     /// @brief the list of writers to use for writing data to the device.
     std::vector<std::unique_ptr<Writer>> writers;
