@@ -242,7 +242,7 @@ jobs:
         run: |
           export MSYS_NO_PATHCONV=1
           bazel --output_user_root=C:/tmp build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
-            --config=opt-windows //driver
+            ${{ !inputs.debug && '--config=opt-windows' || '' }} //driver
 
       - name: Upload Windows Debug Symbols
         if: inputs.driver && inputs.debug && matrix.os == 'windows-build-bot'
