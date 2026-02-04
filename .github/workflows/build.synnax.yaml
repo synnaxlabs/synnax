@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       debug:
-        description: "Build: Driver with Debug Symbols"
+        description: "BDEBUG: Build Driver with Debug Symbols"
         type: boolean
         default: false
       windows:
@@ -193,7 +193,8 @@ jobs:
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       GH_TOKEN: ${{ github.token }}
       BAZEL_BUILD_FLAGS:
-        --enable_platform_specific_config ${{ inputs.debug && '-c dbg' || '--config=opt' }} --announce_rc --verbose_failures
+        --enable_platform_specific_config ${{ inputs.debug && '-c dbg' || '--config=opt'
+        }} --announce_rc --verbose_failures
       BAZEL_REMOTE_CACHE_FLAGS: --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_URL }}
     strategy:
       fail-fast: false
@@ -248,8 +249,9 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name:
-            ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-windows'
-            || format('synnax-driver-debug-symbols-v{0}-windows',
+            ${{ inputs.use_simple_artifact_names &&
+            'synnax-driver-debug-symbols-windows' ||
+            format('synnax-driver-debug-symbols-v{0}-windows',
             needs.setup.outputs.VERSION) }}
           path: bazel-bin/driver/driver.pdb
           retention-days: 7
@@ -295,8 +297,9 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name:
-            ${{ inputs.use_simple_artifact_names && 'synnax-driver-debug-symbols-nilinuxrt'
-            || format('synnax-driver-debug-symbols-v{0}-nilinuxrt',
+            ${{ inputs.use_simple_artifact_names &&
+            'synnax-driver-debug-symbols-nilinuxrt' ||
+            format('synnax-driver-debug-symbols-v{0}-nilinuxrt',
             needs.setup.outputs.VERSION) }}
           path: bazel-bin/driver/driver-nilinuxrt.debug
           retention-days: 7
