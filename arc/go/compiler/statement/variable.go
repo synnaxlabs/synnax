@@ -80,9 +80,7 @@ func compileStatefulVariable(
 	varType := scope.Type
 
 	// Emit state load-or-initialize operation
-	// Push func ID (0 for now - runtime will provide actual ID)
-	ctx.Writer.WriteI32Const(0)
-	// Push state key
+	// Push state key (variable ID)
 	ctx.Writer.WriteI32Const(int32(scope.ID))
 
 	// Compile the initialization expression (analyzer guarantees type correctness)
@@ -92,7 +90,7 @@ func compileStatefulVariable(
 		return errors.Wrapf(err, "failed to compile initialization for stateful variable '%s'", name)
 	}
 
-	// Stack is now: [funcID, varID, initValue/initHandle]
+	// Stack is now: [varID, initValue/initHandle]
 	// Call appropriate state load function based on type
 	var importIdx uint32
 	if varType.Kind == types.KindSeries {
@@ -258,7 +256,6 @@ func compileSeriesCompoundAssignment(
 		ctx.Writer.WriteLocalSet(scope.ID)
 	case symbol.KindStatefulVariable:
 		ctx.Writer.WriteLocalSet(scope.ID)
-		ctx.Writer.WriteI32Const(0)
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
 		importIdx, err := ctx.Imports.GetStateStoreSeries(elemType)
@@ -318,7 +315,6 @@ func compileCompoundAssignment(
 		ctx.Writer.WriteLocalSet(scope.ID)
 	case symbol.KindStatefulVariable:
 		ctx.Writer.WriteLocalSet(scope.ID)
-		ctx.Writer.WriteI32Const(0)
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
 		resolveImportF := lo.Ternary(
@@ -360,9 +356,13 @@ func compileAssignment(
 
 	// For channel writes, push the channel ID before compiling the expression.
 	// This avoids needing a temporary local variable to rearrange the stack.
-	// The channel's scope.ID is the Synnax channel key (not a WASM local index).
-	if sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindConfig {
+	if sym.Kind == symbol.KindChannel {
+		// For direct channel references, scope.ID is the Synnax channel key
 		ctx.Writer.WriteI32Const(int32(scope.ID))
+	} else if sym.Kind == symbol.KindConfig && varType.Kind == types.KindChan {
+		// For config params with channel type, scope.ID is a WASM local index
+		// that holds the channel key at runtime - read it from the local
+		ctx.Writer.WriteLocalGet(scope.ID)
 	}
 
 	targetType := varType.UnwrapChan()
@@ -381,9 +381,8 @@ func compileAssignment(
 		ctx.Writer.WriteLocalSet(scope.ID)
 	case symbol.KindStatefulVariable:
 		// Stack: [value]
-		// Need: [funcID, varID, value]
+		// Need: [varID, value]
 		ctx.Writer.WriteLocalSet(scope.ID)
-		ctx.Writer.WriteI32Const(0)
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
 		resolveImportF := lo.Ternary(
@@ -396,13 +395,26 @@ func compileAssignment(
 			return err
 		}
 		ctx.Writer.WriteCall(importIdx)
-	case symbol.KindChannel, symbol.KindConfig:
+	case symbol.KindChannel:
 		// Stack is already [channelID, value] from pushing ID before expression
 		importIdx, err := ctx.Imports.GetChannelWrite(varType.Unwrap())
 		if err != nil {
 			return err
 		}
 		ctx.Writer.WriteCall(importIdx)
+	case symbol.KindConfig:
+		// Config params may have channel types - if so, write to the channel
+		if varType.Kind == types.KindChan {
+			// Stack is already [channelID, value] from pushing ID before expression
+			importIdx, err := ctx.Imports.GetChannelWrite(varType.Unwrap())
+			if err != nil {
+				return err
+			}
+			ctx.Writer.WriteCall(importIdx)
+		} else {
+			// Non-channel config param - just set the local
+			ctx.Writer.WriteLocalSet(scope.ID)
+		}
 	case symbol.KindOutput:
 		// Named output - needs special handling for multi-output routing
 		if err := compileOutputAssignment(ctx, name, scope); err != nil {

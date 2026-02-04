@@ -291,3 +291,23 @@ TEST(RuntimeLifecycleTest, DoubleStopReturnsFalse) {
     ASSERT_TRUE(runtime->stop());
     EXPECT_FALSE(runtime->stop()) << "Second stop should return false";
 }
+
+TEST(MockLoopTest, WakeReasonIsConfigurable) {
+    testutil::MockLoop loop;
+    breaker::Breaker breaker(breaker::Config{});
+    breaker.start();
+
+    loop.wake_reason = loop::WakeReason::Timer;
+    ASSERT_EQ(loop.wait(breaker), loop::WakeReason::Timer);
+
+    loop.wake_reason = loop::WakeReason::Input;
+    ASSERT_EQ(loop.wait(breaker), loop::WakeReason::Input);
+
+    loop.wake_reason = loop::WakeReason::Timeout;
+    ASSERT_EQ(loop.wait(breaker), loop::WakeReason::Timeout);
+
+    loop.wake_reason = loop::WakeReason::Shutdown;
+    ASSERT_EQ(loop.wait(breaker), loop::WakeReason::Shutdown);
+
+    breaker.stop();
+}
