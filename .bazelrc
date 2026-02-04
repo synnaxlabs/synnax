@@ -84,6 +84,7 @@ build:windows --copt=/wd4435  # object layout under /vd2 will change due to virt
 build:windows --copt=/wd4589  # constructor ignores initializer for virtual base class (NI channel hierarchy)
 build:windows --copt=/wd4201  # nonstandard extension used: nameless struct/union (wasmtime headers)
 build:windows --copt=/wd4324  # structure was padded due to alignment specifier (queue/spsc.h)
+build:windows --copt=/wd4005  # macro redefinition (SOEM wpcap headers vs Windows SDK)
 build:windows --per_file_copt=external/.*@/WX-,/w
 build:windows --per_file_copt=vendor/.*@/WX-,/w
 
