@@ -17,10 +17,13 @@ import { CSS } from "@/css";
 export interface FrameProps extends PropsWithChildren, Flex.BoxProps {
   /** Whether the controls are in expanded state */
   expanded?: boolean;
+  /** Callback when the frame is clicked to contract (only when expanded) */
+  onContract?: () => void;
 }
 
 export const Frame = ({
   expanded = false,
+  onContract,
   children,
   className,
   ...props
@@ -40,6 +43,7 @@ export const Frame = ({
     rounded={1}
     borderColor={6}
     background={1}
+    onClick={expanded ? onContract : undefined}
     {...props}
   >
     {children}

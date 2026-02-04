@@ -49,12 +49,15 @@ export const Controls = ({ state }: ControlsProps) => {
     });
   }, [state, update, name, selectedRack]);
 
-  const handleToggle = useCallback(() => {
-    setExpanded((prev) => !prev);
-  }, []);
+  const handleToggle = useCallback(() => setExpanded((prev) => !prev), []);
+  const handleContract = useCallback(() => setExpanded(false), []);
 
   return (
-    <Base.Frame className={CSS.BE("arc-editor", "controls")} expanded={expanded}>
+    <Base.Frame
+      className={CSS.BE("arc-editor", "controls")}
+      expanded={expanded}
+      onContract={handleContract}
+    >
       <Base.Status
         status={taskStatus}
         expanded={expanded}

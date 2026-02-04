@@ -32,6 +32,8 @@ export interface ControlsProps extends Flex.BoxProps {
   onConfigure: () => void;
 }
 
+const EXCLUDE_STATUS_VARIANTS: status.Variant[] = ["loading", "disabled"] as const;
+
 /**
  * Task controls component that wires up the presentational controls
  * with task-specific data from Form context.
@@ -64,22 +66,21 @@ export const Controls = ({
     );
   }, [taskStatus, key, client, handleError]);
 
-  const handleToggle = useCallback(() => {
-    setExpanded((prev) => !prev);
-  }, []);
+  const handleToggle = useCallback(() => setExpanded((prev) => !prev), []);
+  const handleContract = useCallback(() => setExpanded(false), []);
 
   return (
-    <Frame expanded={expanded} {...props}>
+    <Frame expanded={expanded} onContract={handleContract} {...props}>
       <Status status={effectiveStatus} expanded={expanded} onToggle={handleToggle} />
       {!isSnapshot && (
         <Actions>
           <ConfigureButton
             onClick={onConfigure}
             showTrigger={hasTriggers}
-            statusVariant={status.keepVariants(formStatus.variant, [
-              "loading",
-              "disabled",
-            ])}
+            statusVariant={status.keepVariants(
+              formStatus.variant,
+              EXCLUDE_STATUS_VARIANTS,
+            )}
           />
           <StartStopButton
             running={taskStatus.details.running}

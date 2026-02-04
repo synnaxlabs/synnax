@@ -8,25 +8,33 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/pluto";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type MouseEvent, type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/css";
 
-export interface ActionsProps
-  extends PropsWithChildren, Omit<Flex.BoxProps, "children"> {}
+export interface ActionsProps extends Flex.BoxProps {}
 
 export const Actions = ({
-  children,
   className,
+  onClick,
   ...props
-}: ActionsProps): ReactElement => (
-  <Flex.Box
-    className={CSS(CSS.BE("task-controls", "actions"), className)}
-    align="center"
-    x
-    justify="end"
-    {...props}
-  >
-    {children}
-  </Flex.Box>
-);
+}: ActionsProps): ReactElement => {
+  const handleClick = useCallback(
+    (e: MouseEvent<HTMLDivElement>) => {
+      e.stopPropagation();
+      onClick?.(e);
+    },
+    [onClick],
+  );
+
+  return (
+    <Flex.Box
+      className={CSS(CSS.BE("task-controls", "actions"), className)}
+      align="center"
+      x
+      justify="end"
+      onClick={handleClick}
+      {...props}
+    />
+  );
+};
