@@ -553,21 +553,7 @@ func extractConfigValues(
 				return nil, false
 			}
 			channelKey := uint32(sym.ID)
-
-			// Find the config param symbol to get its internal ID
-			configParamSym := fnSym.FindChildByName(paramName)
-			if configParamSym != nil {
-				configParamID := uint32(configParamSym.ID)
-				// Replace internal config param ID with actual Synnax channel ID
-				if fnSym.Channels.Write.Contains(configParamID) {
-					delete(node.Channels.Write, configParamID)
-					node.Channels.Write[channelKey] = sym.Name
-				}
-				if fnSym.Channels.Read.Contains(configParamID) {
-					delete(node.Channels.Read, configParamID)
-					node.Channels.Read[channelKey] = sym.Name
-				}
-			}
+			node.Channels.ResolveConfigChannel(fnSym, paramName, channelKey, sym.Name)
 			return channelKey, true
 		}
 

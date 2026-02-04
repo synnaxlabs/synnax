@@ -281,7 +281,6 @@ func (d *dataRuntime) next(
 	d.scheduler.Next(ctx, telem.Since(d.startTime), reason)
 	d.state.ClearReads()
 	if fr, changed := d.state.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
-		fmt.Println(fr)
 		req := framer.WriterRequest{
 			Frame:   frame.NewFromStorage(fr),
 			Command: writer.CommandWrite,
@@ -313,25 +312,25 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}
 	sCtx.Go(func(ctx context.Context) error {
 		var (
-			ticker = stdtime.NewTicker(r.interval.Duration())
-			res    framer.StreamerResponse
-			ok     bool
+			runReason node.RunReason
+			ticker    = stdtime.NewTicker(r.interval.Duration())
+			res       framer.StreamerResponse
+			ok        bool
 		)
 		defer ticker.Stop()
 		for {
-			var reason node.RunReason
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-ticker.C:
-				reason = node.ReasonTimerTick
+				runReason = node.ReasonTimerTick
 			case res, ok = <-r.In.Outlet():
 				if !ok {
 					return nil
 				}
-				reason = node.ReasonChannelInput
+				runReason = node.ReasonChannelInput
 			}
-			if err := r.next(ctx, res, reason); err != nil {
+			if err := r.next(ctx, res, runReason); err != nil {
 				return err
 			}
 		}

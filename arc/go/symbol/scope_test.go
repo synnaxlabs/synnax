@@ -473,5 +473,74 @@ var _ = Describe("Scope", func() {
 				Expect(copied.Read).ToNot(HaveKey(uint32(3)))
 			})
 		})
+		Describe("ResolveConfigChannel", func() {
+			It("Should fall back to Read when fnSym has no children (built-in functions)", func() {
+				fnSym := &symbol.Scope{Symbol: symbol.Symbol{Name: "on", Kind: symbol.KindFunction}}
+				nodeChannels := symbol.NewChannels()
+				nodeChannels.ResolveConfigChannel(fnSym, "channel", 42, "my_sensor")
+				Expect(nodeChannels.Read).To(HaveLen(1))
+				Expect(nodeChannels.Read[42]).To(Equal("my_sensor"))
+				Expect(nodeChannels.Write).To(BeEmpty())
+			})
+
+			It("Should replace internal Read ID with actual channel ID for user-defined functions", func() {
+				fnSym := symbol.CreateRootScope(nil)
+				fnSym.Kind = symbol.KindFunction
+				fnSym.Channels = symbol.NewChannels()
+				configParam := MustSucceed(fnSym.Add(bCtx, symbol.Symbol{
+					Name: "channel",
+					Kind: symbol.KindConfig,
+					Type: types.Chan(types.F64()),
+				}))
+				internalID := uint32(configParam.ID)
+				fnSym.Channels.Read[internalID] = "channel"
+				nodeChannels := fnSym.Channels.Copy()
+				Expect(nodeChannels.Read).To(HaveKey(internalID))
+				nodeChannels.ResolveConfigChannel(fnSym, "channel", 42, "my_sensor")
+				Expect(nodeChannels.Read).ToNot(HaveKey(internalID))
+				Expect(nodeChannels.Read).To(HaveLen(1))
+				Expect(nodeChannels.Read[42]).To(Equal("my_sensor"))
+			})
+
+			It("Should replace internal Write ID with actual channel ID for user-defined functions", func() {
+				fnSym := symbol.CreateRootScope(nil)
+				fnSym.Kind = symbol.KindFunction
+				fnSym.Channels = symbol.NewChannels()
+				configParam := MustSucceed(fnSym.Add(bCtx, symbol.Symbol{
+					Name: "channel",
+					Kind: symbol.KindConfig,
+					Type: types.Chan(types.F64()),
+				}))
+				internalID := uint32(configParam.ID)
+				fnSym.Channels.Write[internalID] = "channel"
+				nodeChannels := fnSym.Channels.Copy()
+				Expect(nodeChannels.Write).To(HaveKey(internalID))
+				nodeChannels.ResolveConfigChannel(fnSym, "channel", 55, "output_channel")
+				Expect(nodeChannels.Write).ToNot(HaveKey(internalID))
+				Expect(nodeChannels.Write).To(HaveLen(1))
+				Expect(nodeChannels.Write[55]).To(Equal("output_channel"))
+				Expect(nodeChannels.Read).To(BeEmpty())
+			})
+
+			It("Should handle param that is both read and written", func() {
+				fnSym := symbol.CreateRootScope(nil)
+				fnSym.Kind = symbol.KindFunction
+				fnSym.Channels = symbol.NewChannels()
+				configParam := MustSucceed(fnSym.Add(bCtx, symbol.Symbol{
+					Name: "channel",
+					Kind: symbol.KindConfig,
+					Type: types.Chan(types.F64()),
+				}))
+				internalID := uint32(configParam.ID)
+				fnSym.Channels.Read[internalID] = "channel"
+				fnSym.Channels.Write[internalID] = "channel"
+				nodeChannels := fnSym.Channels.Copy()
+				nodeChannels.ResolveConfigChannel(fnSym, "channel", 100, "bidirectional_channel")
+				Expect(nodeChannels.Read).To(HaveLen(1))
+				Expect(nodeChannels.Read[100]).To(Equal("bidirectional_channel"))
+				Expect(nodeChannels.Write).To(HaveLen(1))
+				Expect(nodeChannels.Write[100]).To(Equal("bidirectional_channel"))
+			})
+		})
 	})
 })
