@@ -358,6 +358,26 @@ var _ = Describe("Statement Compiler", func() {
 				OpCall, uint64(stateStoreIdx),
 			))
 		})
+
+		It("Should use CurrentFunctionIndex in stateful variable opcodes", func() {
+			stmt := MustSucceed(parser.ParseStatement("count i64 $= 0"))
+			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
+			analyzer.AnalyzeStatement(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			ctx.CurrentFunctionIndex = 42
+			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			Expect(diverged).To(BeFalse())
+
+			stateLoadIdx := ctx.Imports.StateLoad["i64"]
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				OpI32Const, int32(42),
+				OpI32Const, int32(0),
+				OpI64Const, int64(0),
+				OpCall, uint64(stateLoadIdx),
+				OpLocalSet, 0,
+			))
+		})
 	})
 
 	DescribeTable("Multi Statement Bytecode Values", func(source string, instructions ...any) {

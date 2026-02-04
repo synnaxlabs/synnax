@@ -45,27 +45,23 @@ public:
 
     ~LinuxLoop() override { this->close_fds(); }
 
-    void wait(breaker::Breaker &breaker) override {
-        if (this->epoll_fd_ == -1) return;
+    WakeReason wait(breaker::Breaker &breaker) override {
+        if (this->epoll_fd_ == -1) return WakeReason::Shutdown;
 
         switch (this->config_.mode) {
             case ExecutionMode::BUSY_WAIT:
-                this->busy_wait(breaker);
-                break;
+                return this->busy_wait(breaker);
             case ExecutionMode::HIGH_RATE:
-                this->high_rate_wait(breaker);
-                break;
+                return this->high_rate_wait(breaker);
             case ExecutionMode::RT_EVENT:
-                this->event_driven_wait(true);
-                break;
+                return this->event_driven_wait(true);
             case ExecutionMode::HYBRID:
-                this->hybrid_wait(breaker);
-                break;
+                return this->hybrid_wait(breaker);
             case ExecutionMode::AUTO:
             case ExecutionMode::EVENT_DRIVEN:
-                this->event_driven_wait(true);
-                break;
+                return this->event_driven_wait(true);
         }
+        return WakeReason::Shutdown;
     }
 
     xerrors::Error start() override {
@@ -218,44 +214,42 @@ private:
         this->timer_enabled_ = false;
     }
 
-    void busy_wait(breaker::Breaker &breaker) {
+    WakeReason busy_wait(breaker::Breaker &breaker) {
         struct epoll_event events[2];
 
         while (breaker.running()) {
             const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
-            if (n > 0) {
-                this->consume_events(events, n);
-                return;
-            }
+            if (n > 0) return this->consume_events(events, n);
             if (n == -1 && errno != EINTR) {
                 LOG(ERROR) << "[loop] epoll_wait error: " << strerror(errno);
-                return;
+                return WakeReason::Shutdown;
             }
         }
+        return WakeReason::Shutdown;
     }
 
-    void high_rate_wait(breaker::Breaker &breaker) {
+    WakeReason high_rate_wait(breaker::Breaker &breaker) {
         this->timer_->wait(breaker);
         struct epoll_event events[2];
         const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
         if (n > 0) this->drain_events(events, n);
+        return WakeReason::Timer;
     }
 
-    void event_driven_wait(bool blocking) {
+    WakeReason event_driven_wait(bool blocking) {
         struct epoll_event events[2];
-        // Use a short timeout to ensure we periodically check breaker.running()
-        // in the caller's loop.
         const int timeout_ms = blocking ? timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
                                         : timing::POLL_TIMEOUT.milliseconds();
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
 
-        if (n > 0)
-            this->consume_events(events, n);
-        else if (n == -1 && errno != EINTR)
+        if (n > 0) return this->consume_events(events, n);
+        if (n == 0) return WakeReason::Timeout;
+        if (errno != EINTR)
             LOG(ERROR) << "[loop] epoll_wait error: " << strerror(errno);
+        return WakeReason::Shutdown;
     }
 
-    void hybrid_wait(const breaker::Breaker &breaker) {
+    WakeReason hybrid_wait(const breaker::Breaker &breaker) {
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
             this->config_.spin_duration.nanoseconds()
@@ -264,34 +258,41 @@ private:
         struct epoll_event events[2];
 
         while (std::chrono::steady_clock::now() - spin_start < spin_duration) {
-            if (!breaker.running()) return;
+            if (!breaker.running()) return WakeReason::Shutdown;
 
             const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
-            if (n > 0) {
-                this->consume_events(events, n);
-                return;
-            }
+            if (n > 0) return this->consume_events(events, n);
         }
 
         const int timeout_ms = timing::HYBRID_BLOCK_TIMEOUT.milliseconds();
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
-        if (n > 0) this->consume_events(events, n);
+        if (n > 0) return this->consume_events(events, n);
+        return WakeReason::Timeout;
     }
 
-    /// @brief Consumes events from epoll, returning total timer expirations.
-    uint64_t consume_events(struct epoll_event *events, const int n) {
-        uint64_t total_expirations = 0;
+    /// @brief Consumes events from epoll, returning the wake reason.
+    WakeReason consume_events(struct epoll_event *events, const int n) {
+        bool timer_fired = false;
+        bool input_fired = false;
         for (int i = 0; i < n; i++) {
             uint64_t val;
             const ssize_t ret = read(events[i].data.fd, &val, sizeof(val));
-            if (ret == sizeof(val) && events[i].data.fd == this->timer_fd_) {
-                total_expirations += val;
-                if (val > 1)
-                    LOG(WARNING) << "[loop] timer drift detected: " << val
-                                 << " expirations in single read";
+            if (ret == sizeof(val)) {
+                if (events[i].data.fd == this->timer_fd_) {
+                    timer_fired = true;
+                    if (val > 1)
+                        LOG(WARNING) << "[loop] timer drift detected: " << val
+                                     << " expirations in single read";
+                } else if (events[i].data.fd == this->event_fd_) {
+                    // wake() was called - treat as shutdown signal
+                } else {
+                    input_fired = true;
+                }
             }
         }
-        return total_expirations;
+        if (timer_fired) return WakeReason::Timer;
+        if (input_fired) return WakeReason::Input;
+        return WakeReason::Shutdown;
     }
 
     /// @brief Drains pending events without tracking expirations.

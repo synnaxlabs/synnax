@@ -306,6 +306,55 @@ var _ = Describe("WASM", func() {
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(3)))
 		})
+
+		It("Should isolate stateful variables between different functions", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "counter1",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body: ir.Body{Raw: `{
+							count i64 $= 0
+							count = count + 1
+							return count
+						}`},
+					},
+					{
+						Key:     "counter2",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body: ir.Body{Raw: `{
+							count i64 $= 0
+							count = count + 10
+							return count
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "c1", Type: "counter1"},
+					{Key: "c2", Type: "counter2"},
+				},
+			}
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n1 := h.CreateNode(ctx, "c1")
+			n2 := h.CreateNode(ctx, "c2")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			n1.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("c1", 0))[0]).To(Equal(int64(1)))
+
+			n2.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("c2", 0))[0]).To(Equal(int64(10)))
+
+			n1.Reset()
+			n1.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("c1", 0))[0]).To(Equal(int64(2)))
+
+			n2.Reset()
+			n2.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("c2", 0))[0]).To(Equal(int64(20)))
+		})
 	})
 
 	Describe("Optional Parameters", func() {

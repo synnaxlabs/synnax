@@ -103,6 +103,7 @@ var _ = Describe("Time", func() {
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: 0,
+				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(output string) {
 					changedOutputs = append(changedOutputs, output)
 				},
@@ -130,6 +131,7 @@ var _ = Describe("Time", func() {
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: 0,
+				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(output string) {
 					changedOutputs = append(changedOutputs, output)
 				},
@@ -141,6 +143,7 @@ var _ = Describe("Time", func() {
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: 500 * telem.Millisecond,
+				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(output string) {
 					changedOutputs = append(changedOutputs, output)
 				},
@@ -166,6 +169,7 @@ var _ = Describe("Time", func() {
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: 0,
+				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(output string) {
 					changedOutputs = append(changedOutputs, output)
 				},
@@ -177,6 +181,7 @@ var _ = Describe("Time", func() {
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: telem.Second,
+				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(output string) {
 					changedOutputs = append(changedOutputs, output)
 				},
@@ -258,6 +263,7 @@ var _ = Describe("Time", func() {
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: 500 * telem.Millisecond,
+				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(output string) {
 					changedOutputs = append(changedOutputs, output)
 				},
@@ -283,6 +289,7 @@ var _ = Describe("Time", func() {
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: 0,
+				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(output string) {
 					changedOutputs = append(changedOutputs, output)
 				},
@@ -293,6 +300,7 @@ var _ = Describe("Time", func() {
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: telem.Second,
+				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(output string) {
 					changedOutputs = append(changedOutputs, output)
 				},
@@ -319,6 +327,7 @@ var _ = Describe("Time", func() {
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: 0,
+				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(output string) {
 					changedOutputs = append(changedOutputs, output)
 				},
@@ -328,6 +337,7 @@ var _ = Describe("Time", func() {
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: telem.Second,
+				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(output string) {
 					changedOutputs = append(changedOutputs, output)
 				},
@@ -339,6 +349,7 @@ var _ = Describe("Time", func() {
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: 2 * telem.Second,
+				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(output string) {
 					changedOutputs = append(changedOutputs, output)
 				},
@@ -364,6 +375,7 @@ var _ = Describe("Time", func() {
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: 0,
+				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(output string) {
 					changedOutputs = append(changedOutputs, output)
 				},
@@ -373,6 +385,7 @@ var _ = Describe("Time", func() {
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: telem.Second,
+				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(output string) {
 					changedOutputs = append(changedOutputs, output)
 				},
@@ -387,6 +400,7 @@ var _ = Describe("Time", func() {
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: 1500 * telem.Millisecond,
+				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(output string) {
 					changedOutputs = append(changedOutputs, output)
 				},
@@ -397,6 +411,7 @@ var _ = Describe("Time", func() {
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: 2500 * telem.Millisecond,
+				Reason:  node.ReasonTimerTick,
 				MarkChanged: func(output string) {
 					changedOutputs = append(changedOutputs, output)
 				},
@@ -546,6 +561,7 @@ var _ = Describe("Time", func() {
 					Context:   ctx,
 					Elapsed:   0,
 					Tolerance: tolerance,
+					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(output string) {
 						changedOutputs = append(changedOutputs, output)
 					},
@@ -557,6 +573,7 @@ var _ = Describe("Time", func() {
 					Context:   ctx,
 					Elapsed:   telem.TimeSpan(99500 * telem.Microsecond),
 					Tolerance: tolerance,
+					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(output string) {
 						changedOutputs = append(changedOutputs, output)
 					},
@@ -583,6 +600,7 @@ var _ = Describe("Time", func() {
 					Context:   ctx,
 					Elapsed:   0,
 					Tolerance: tolerance,
+					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(output string) {
 						changedOutputs = append(changedOutputs, output)
 					},
@@ -594,6 +612,7 @@ var _ = Describe("Time", func() {
 					Context:   ctx,
 					Elapsed:   40 * telem.Millisecond,
 					Tolerance: tolerance,
+					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(output string) {
 						changedOutputs = append(changedOutputs, output)
 					},
@@ -630,6 +649,7 @@ var _ = Describe("Time", func() {
 						Context:   ctx,
 						Elapsed:   elapsed,
 						Tolerance: tolerance,
+						Reason:    node.ReasonTimerTick,
 						MarkChanged: func(output string) {
 							fireCount++
 						},
@@ -657,6 +677,7 @@ var _ = Describe("Time", func() {
 					Context:   ctx,
 					Elapsed:   0,
 					Tolerance: tolerance,
+					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(output string) {
 						changedOutputs = append(changedOutputs, output)
 					},
@@ -668,6 +689,7 @@ var _ = Describe("Time", func() {
 					Context:   ctx,
 					Elapsed:   96 * telem.Millisecond,
 					Tolerance: tolerance,
+					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(output string) {
 						changedOutputs = append(changedOutputs, output)
 					},
@@ -721,6 +743,7 @@ var _ = Describe("Time", func() {
 					Context:   ctx,
 					Elapsed:   0,
 					Tolerance: tolerance,
+					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(output string) {
 						waitChangedOutputs = append(waitChangedOutputs, output)
 					},
@@ -731,6 +754,7 @@ var _ = Describe("Time", func() {
 					Context:   ctx,
 					Elapsed:   telem.TimeSpan(99500 * telem.Microsecond),
 					Tolerance: tolerance,
+					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(output string) {
 						waitChangedOutputs = append(waitChangedOutputs, output)
 					},

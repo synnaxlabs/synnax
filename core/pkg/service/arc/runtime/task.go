@@ -275,11 +275,13 @@ type dataRuntime struct {
 func (d *dataRuntime) next(
 	ctx context.Context,
 	res framer.StreamerResponse,
+	reason node.RunReason,
 ) error {
 	d.state.Ingest(res.Frame.ToStorage())
-	d.scheduler.Next(ctx, telem.Since(d.startTime))
+	d.scheduler.Next(ctx, telem.Since(d.startTime), reason)
 	d.state.ClearReads()
 	if fr, changed := d.state.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
+		fmt.Println(fr)
 		req := framer.WriterRequest{
 			Frame:   frame.NewFromStorage(fr),
 			Command: writer.CommandWrite,
@@ -294,7 +296,9 @@ func (d *dataRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	if d.Out != nil {
 		o.AttachClosables(d.Out)
 	}
-	signal.GoRange(sCtx, d.In.Outlet(), d.next, o.Signal...)
+	signal.GoRange(sCtx, d.In.Outlet(), func(ctx context.Context, res framer.StreamerResponse) error {
+		return d.next(ctx, res, node.ReasonChannelInput)
+	}, o.Signal...)
 }
 
 type tickerRuntime struct {
@@ -315,16 +319,19 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 		)
 		defer ticker.Stop()
 		for {
+			var reason node.RunReason
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-ticker.C:
+				reason = node.ReasonTimerTick
 			case res, ok = <-r.In.Outlet():
 				if !ok {
 					return nil
 				}
+				reason = node.ReasonChannelInput
 			}
-			if err := r.next(ctx, res); err != nil {
+			if err := r.next(ctx, res, reason); err != nil {
 				return err
 			}
 		}

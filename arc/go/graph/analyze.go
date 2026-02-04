@@ -126,7 +126,20 @@ func Analyze(
 						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 						return ir.IR{}, aCtx.Diagnostics
 					}
-					node.Channels.Read.Add(k)
+					// Find the config param symbol to get its internal ID
+					configParamSym := fnSym.FindChildByName(configParam.Name)
+					if configParamSym != nil {
+						configParamID := uint32(configParamSym.ID)
+						// Replace internal config param ID with actual Synnax channel ID
+						if fnSym.Channels.Write.Contains(configParamID) {
+							node.Channels.Write.Remove(configParamID)
+							node.Channels.Write[k] = channelSym.Name
+						}
+						if fnSym.Channels.Read.Contains(configParamID) {
+							node.Channels.Read.Remove(configParamID)
+							node.Channels.Read[k] = channelSym.Name
+						}
+					}
 				}
 			}
 			node.Config[j].Value = configValue

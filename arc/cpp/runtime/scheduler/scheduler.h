@@ -142,9 +142,13 @@ public:
     }
 
     /// @brief Advances the scheduler by executing global and stage strata.
-    void next(const telem::TimeSpan elapsed) {
+    /// @param elapsed Time elapsed since runtime start.
+    /// @param reason Why this scheduler run was triggered (timer tick or channel
+    /// input).
+    void next(const telem::TimeSpan elapsed, const node::RunReason reason) {
         this->ctx.elapsed = elapsed;
         this->ctx.tolerance = this->tolerance_;
+        this->ctx.reason = reason;
         this->curr_seq_idx = NO_INDEX;
         this->curr_stage_idx = NO_INDEX;
         this->execute_strata(this->global_strata);

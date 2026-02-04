@@ -30,6 +30,9 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	TypeMap map[antlr.ParserRuleContext]types.Type
 	// FunctionIndices maps function names to their WASM function indices for call resolution
 	FunctionIndices map[string]uint32
+	// CurrentFunctionIndex is the WASM function index of the function currently being compiled.
+	// Used to generate unique state keys for stateful variables across different functions.
+	CurrentFunctionIndex uint32
 	// Outputs and OutputMemoryBase are set for multi-output functions
 	Outputs          types.Params
 	Hint             types.Type
@@ -38,17 +41,18 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 
 func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Context[ASTNode] {
 	return Context[ASTNode]{
-		Context:          ctx.Context,
-		Imports:          ctx.Imports,
-		Scope:            ctx.Scope,
-		Writer:           ctx.Writer,
-		Module:           ctx.Module,
-		TypeMap:          ctx.TypeMap,
-		AST:              node,
-		Hint:             ctx.Hint,
-		Outputs:          ctx.Outputs,
-		OutputMemoryBase: ctx.OutputMemoryBase,
-		FunctionIndices:  ctx.FunctionIndices,
+		Context:              ctx.Context,
+		Imports:              ctx.Imports,
+		Scope:                ctx.Scope,
+		Writer:               ctx.Writer,
+		Module:               ctx.Module,
+		TypeMap:              ctx.TypeMap,
+		AST:                  node,
+		Hint:                 ctx.Hint,
+		Outputs:              ctx.Outputs,
+		OutputMemoryBase:     ctx.OutputMemoryBase,
+		FunctionIndices:      ctx.FunctionIndices,
+		CurrentFunctionIndex: ctx.CurrentFunctionIndex,
 	}
 }
 func (c Context[AstNode]) WithHint(hint types.Type) Context[AstNode] {
@@ -63,6 +67,11 @@ func (c Context[AstNode]) WithScope(scope *symbol.Scope) Context[AstNode] {
 
 func (c Context[ASTNode]) WithNewWriter() Context[ASTNode] {
 	c.Writer = wasm.NewWriter()
+	return c
+}
+
+func (c Context[ASTNode]) WithFunctionIndex(idx uint32) Context[ASTNode] {
+	c.CurrentFunctionIndex = idx
 	return c
 }
 

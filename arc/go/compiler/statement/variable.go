@@ -80,8 +80,8 @@ func compileStatefulVariable(
 	varType := scope.Type
 
 	// Emit state load-or-initialize operation
-	// Push func ID (0 for now - runtime will provide actual ID)
-	ctx.Writer.WriteI32Const(0)
+	// Push func ID for state key isolation between functions
+	ctx.Writer.WriteI32Const(int32(ctx.CurrentFunctionIndex))
 	// Push state key
 	ctx.Writer.WriteI32Const(int32(scope.ID))
 
@@ -258,7 +258,7 @@ func compileSeriesCompoundAssignment(
 		ctx.Writer.WriteLocalSet(scope.ID)
 	case symbol.KindStatefulVariable:
 		ctx.Writer.WriteLocalSet(scope.ID)
-		ctx.Writer.WriteI32Const(0)
+		ctx.Writer.WriteI32Const(int32(ctx.CurrentFunctionIndex))
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
 		importIdx, err := ctx.Imports.GetStateStoreSeries(elemType)
@@ -318,7 +318,7 @@ func compileCompoundAssignment(
 		ctx.Writer.WriteLocalSet(scope.ID)
 	case symbol.KindStatefulVariable:
 		ctx.Writer.WriteLocalSet(scope.ID)
-		ctx.Writer.WriteI32Const(0)
+		ctx.Writer.WriteI32Const(int32(ctx.CurrentFunctionIndex))
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
 		resolveImportF := lo.Ternary(
@@ -383,7 +383,7 @@ func compileAssignment(
 		// Stack: [value]
 		// Need: [funcID, varID, value]
 		ctx.Writer.WriteLocalSet(scope.ID)
-		ctx.Writer.WriteI32Const(0)
+		ctx.Writer.WriteI32Const(int32(ctx.CurrentFunctionIndex))
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
 		resolveImportF := lo.Ternary(
