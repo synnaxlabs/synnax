@@ -10,55 +10,49 @@
  */
 
 .console-task-controls {
-    border-radius: 1rem;
     border-color: var(--pluto-gray-l6);
     background-color: var(--pluto-gray-l1);
-    transition: all 0.15s ease-out;
 
-    .console-task-state {
+    > .console-task-status {
         position: relative;
-        flex-grow: 1;
+        flex: 1 1 auto;
+        height: auto;
+        min-height: 100%;
+        width: 100%;
         border-right: var(--pluto-border);
         padding: 2rem;
         cursor: pointer;
-        transition: all 0.15s ease-out;
-        min-height: 4rem;
-
-        &:hover {
-            background-color: var(--pluto-gray-l2);
-        }
+        transition: none !important;
     }
 
-    .console-task-state__collapsed {
-        align-items: center;
-
-        .console-task-state__message {
-            flex: 1;
-            min-width: 0;
-        }
-    }
-
-    .console-task-state__expand-indicator {
+    .console-task-status__expand-indicator {
         position: absolute;
         top: 1.5rem;
         right: 1.5rem;
         color: var(--pluto-gray-l8);
         font-size: 2rem;
-        transition: color 0.15s ease-out;
     }
 
-    .console-task-state:hover .console-task-state__expand-indicator {
-        color: var(--pluto-gray-l10);
-    }
-
-    .console-task-state__expanded {
+    .console-task-status__message {
         width: 100%;
-        padding: 1rem;
+        padding-right: 4rem;
     }
 
-    .console-task-state__description {
+    .console-task-status__description {
         max-height: 150px;
         overflow-y: auto;
+        overflow-x: hidden;
+        white-space: pre-wrap;
+        word-break: break-word;
+        user-select: text !important;
+        -webkit-user-select: text !important;
+        padding: 1rem;
+        background: var(--pluto-gray-l0);
+        border-radius: var(--pluto-border-radius);
+        font-size: calc(var(--pluto-p-size) * 0.9);
+        border: var(--pluto-border);
+        width: 100%;
+        display: block;
     }
 
     .console-task-controls__actions {
@@ -66,41 +60,31 @@
         gap: 1rem;
     }
 
-    /* Expanded state */
-    &.console-task-controls--expanded,
-    &.console-task-controls--hovered {
-        flex-direction: column !important;
-
-        .console-task-state {
+    &.console-task-controls--expanded {
+        .console-task-status {
             border-right: none;
             border-bottom: var(--pluto-border);
             min-height: auto;
+            &:hover {
+                background: var(--pluto-gray-l1);
+            }
         }
 
         .console-task-controls__actions {
             align-self: flex-end;
         }
     }
-
-    /* Hovered preview state - subtle visual difference */
-    &.console-task-controls--hovered:not(.console-task-controls--expanded) {
-        box-shadow: var(--pluto-shadow-v1);
-
-        .console-task-state {
-            background-color: var(--pluto-gray-l2);
-        }
-    }
 }
 
-/* Container query for narrow widths */
 @container (max-width: 600px) {
     .console-task-controls {
         flex-direction: column !important;
 
-        .console-task-state {
+        .console-task-status {
             min-height: 10rem;
             border-right: none !important;
             border-bottom: var(--pluto-border);
+            border-bottom-left-radius: 0 !important;
         }
 
         .console-task-controls__actions {

@@ -7,23 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/hardware/common/task/controls/Controls.css";
+
 import { Flex } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 
-export interface ActionsProps extends PropsWithChildren, Omit<Flex.BoxProps, "children"> {}
+export interface FrameProps extends PropsWithChildren, Flex.BoxProps {
+  /** Whether the controls are in expanded state */
+  expanded?: boolean;
+}
 
-export const Actions = ({
+export const Frame = ({
+  expanded = false,
   children,
   className,
   ...props
-}: ActionsProps): ReactElement => (
+}: FrameProps): ReactElement => (
   <Flex.Box
-    className={CSS(CSS.BE("task-controls", "actions"), className)}
-    align="center"
-    x
-    justify="end"
+    className={CSS(
+      CSS.B("task-controls"),
+      expanded && CSS.BM("task-controls", "expanded"),
+      className,
+    )}
+    direction={expanded ? "y" : "x"}
+    justify="between"
+    align="stretch"
+    empty
+    bordered
+    pack
+    rounded={1}
+    borderColor={6}
+    background={1}
     {...props}
   >
     {children}

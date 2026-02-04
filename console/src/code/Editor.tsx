@@ -100,6 +100,7 @@ const forwardGlobalTriggers = (
 interface UseProps extends Input.Control<string> {
   language: string;
   isBlock?: boolean;
+  scrollBeyondLastLine?: boolean;
   openContextMenu?: PMenu.ContextMenuProps["open"];
 }
 
@@ -138,6 +139,7 @@ const use = ({
   onChange,
   language,
   isBlock = false,
+  scrollBeyondLastLine = false,
   openContextMenu,
 }: UseProps): UseReturn => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -175,6 +177,7 @@ const use = ({
       language: customURI != null ? undefined : language,
       theme,
       ...ZERO_OPTIONS,
+      scrollBeyondLastLine,
     });
 
     triggerSmallModelChangeToActiveLanguageServerFeatures(editorRef.current, value);
@@ -215,6 +218,7 @@ export interface EditorProps
   extends Input.Control<string>, Omit<Flex.BoxProps, "value" | "onChange"> {
   language: string;
   isBlock?: boolean;
+  scrollBeyondLastLine?: boolean;
 }
 
 const MENU_EDITOR_ACTIONS: Record<string, string> = {
@@ -231,6 +235,7 @@ export const Editor = ({
   className,
   language,
   isBlock,
+  scrollBeyondLastLine,
   ...rest
 }: EditorProps) => {
   const { className: menuClassName, ...menuProps } = PMenu.useContextMenu();
@@ -239,6 +244,7 @@ export const Editor = ({
     onChange,
     language,
     isBlock,
+    scrollBeyondLastLine,
     openContextMenu: menuProps.open,
   });
 

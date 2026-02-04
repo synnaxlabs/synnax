@@ -11,12 +11,7 @@ import "@/errors/Fallback.css";
 
 import { Logo } from "@synnaxlabs/media";
 import { primitive, type record } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useState,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useCallback } from "react";
 
 import { Breadcrumb } from "@/breadcrumb";
 import { Button } from "@/button";
@@ -64,24 +59,15 @@ export const Fallback = ({
   children = <DefaultChild resetErrorBoundary={resetErrorBoundary} />,
   extraInfo,
 }: FallbackProps): ReactElement => {
-  const [diagnosticsCopied, setDiagnosticsCopied] = useState<boolean>(false);
-  const handleCopy = useCallback(() => {
-    void (async () => {
-      try {
-        const sections: string[] = [];
-        sections.push(`Error: ${error.name}`);
-        sections.push(`Message: ${error.message}`);
-        if (error.stack) sections.push(`\nStack Trace:\n${error.stack}\n`);
-        if (componentStack) sections.push(`\nComponent Stack:\n${componentStack}`);
-        if (extraInfo && Object.keys(extraInfo).length > 0)
-          sections.push(`\nAdditional Info:\n${JSON.stringify(extraInfo, null, 2)}`);
-        await navigator.clipboard.writeText(sections.join("\n"));
-        setDiagnosticsCopied(true);
-        setTimeout(() => setDiagnosticsCopied(false), 3000);
-      } catch (err) {
-        console.error(err);
-      }
-    })();
+  const getCopyText = useCallback(() => {
+    const sections: string[] = [];
+    sections.push(`Error: ${error.name}`);
+    sections.push(`Message: ${error.message}`);
+    if (error.stack) sections.push(`\nStack Trace:\n${error.stack}\n`);
+    if (componentStack) sections.push(`\nComponent Stack:\n${componentStack}`);
+    if (extraInfo && Object.keys(extraInfo).length > 0)
+      sections.push(`\nAdditional Info:\n${JSON.stringify(extraInfo, null, 2)}`);
+    return sections.join("\n");
   }, [error, componentStack, extraInfo]);
 
   return (
@@ -151,10 +137,9 @@ export const Fallback = ({
           </Flex.Box>
           <Divider.Divider x />
           <Flex.Box justify="between" x>
-            <Button.Button variant="outlined" size="small" onClick={handleCopy}>
-              {diagnosticsCopied ? <Icon.Check /> : <Icon.Copy />}
-              Copy diagnostics
-            </Button.Button>
+            <Button.Copy text={getCopyText} textColor={10}>
+              Copy Diagnostics
+            </Button.Copy>
             <Flex.Box x>{children}</Flex.Box>
           </Flex.Box>
         </Flex.Box>

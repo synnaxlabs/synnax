@@ -7,11 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Flex, type Flux, Form, Status, Synnax } from "@synnaxlabs/pluto";
+import {
+  type Flex,
+  type Flux,
+  Form,
+  Status as BaseStatus,
+  Synnax,
+} from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
-import { Controls as ControlsNS } from "@/hardware/common/task/task-controls";
+import { Actions } from "@/hardware/common/task/controls/Actions";
+import { ConfigureButton } from "@/hardware/common/task/controls/ConfigureButton";
+import { Frame } from "@/hardware/common/task/controls/Frame";
+import { StartStopButton } from "@/hardware/common/task/controls/StartStopButton";
+import { Status } from "@/hardware/common/task/controls/Status";
 import { useKey } from "@/hardware/common/task/useKey";
 import { useStatus } from "@/hardware/common/task/useStatus";
 import { Layout } from "@/layout";
@@ -34,13 +44,12 @@ export const Controls = ({
 }: ControlsProps) => {
   const taskStatus = useStatus();
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
-  const handleError = Status.useErrorHandler();
+  const handleError = BaseStatus.useErrorHandler();
   const client = Synnax.use();
   const key = useKey();
   const hasTriggers = Layout.useSelectActiveMosaicTabKeyAndNotBlurred() != null;
 
   const [expanded, setExpanded] = useState(false);
-  const [hovered, setHovered] = useState(false);
 
   // Compute effective status (form errors take precedence)
   let effectiveStatus: status.Status = taskStatus;
@@ -57,21 +66,14 @@ export const Controls = ({
 
   const handleToggle = useCallback(() => {
     setExpanded((prev) => !prev);
-    setHovered(false);
   }, []);
 
   return (
-    <ControlsNS.Frame expanded={expanded} hovered={hovered} {...props}>
-      <ControlsNS.ExpandableStatus
-        status={effectiveStatus}
-        expanded={expanded}
-        hovered={hovered}
-        onToggle={handleToggle}
-        onHoverChange={setHovered}
-      />
+    <Frame expanded={expanded} {...props}>
+      <Status status={effectiveStatus} expanded={expanded} onToggle={handleToggle} />
       {!isSnapshot && (
-        <ControlsNS.Actions>
-          <ControlsNS.ConfigureButton
+        <Actions>
+          <ConfigureButton
             onClick={onConfigure}
             showTrigger={hasTriggers}
             statusVariant={status.keepVariants(formStatus.variant, [
@@ -79,14 +81,14 @@ export const Controls = ({
               "disabled",
             ])}
           />
-          <ControlsNS.StartStopButton
+          <StartStopButton
             running={taskStatus.details.running}
             onClick={handleStartStop}
             disabled={formStatus.variant !== "success"}
             statusVariant={status.keepVariants(taskStatus.variant, "loading")}
           />
-        </ControlsNS.Actions>
+        </Actions>
       )}
-    </ControlsNS.Frame>
+    </Frame>
   );
 };

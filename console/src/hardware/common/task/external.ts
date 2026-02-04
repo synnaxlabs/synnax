@@ -9,7 +9,8 @@
 
 export * from "@/hardware/common/task/ChannelList";
 export * from "@/hardware/common/task/ChannelName";
-export * from "@/hardware/common/task/Controls";
+export { Controls as TaskControls } from "@/hardware/common/task/controls";
+export { Controls } from "@/hardware/common/task/controls/Controls";
 export * from "@/hardware/common/task/createIngestor";
 export * from "@/hardware/common/task/CreateMenuItem";
 export * from "@/hardware/common/task/EnableDisableButton";
@@ -20,7 +21,6 @@ export * from "@/hardware/common/task/getChannelNameID";
 export * from "@/hardware/common/task/layouts";
 export * from "@/hardware/common/task/ReadChannelContextMenuItem";
 export * from "@/hardware/common/task/TareButton";
-export { Controls as TaskControls } from "@/hardware/common/task/task-controls";
 export * from "@/hardware/common/task/types";
 export * from "@/hardware/common/task/useTare";
 export * from "@/hardware/common/task/WriteChannelContextMenuItems";

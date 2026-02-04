@@ -10,7 +10,7 @@
 import "@/arc/editor/Controls.css";
 
 import { type rack, task } from "@synnaxlabs/client";
-import { Arc, Button, Rack } from "@synnaxlabs/pluto";
+import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useState } from "react";
 
@@ -18,7 +18,7 @@ import { useTask } from "@/arc/hooks";
 import { type State } from "@/arc/slice";
 import { translateGraphToServer } from "@/arc/types/translate";
 import { CSS } from "@/css";
-import { Controls as TaskControls } from "@/hardware/common/task/task-controls";
+import { Controls as Base } from "@/hardware/common/task/controls";
 import { Layout } from "@/layout";
 
 interface ControlsProps {
@@ -31,7 +31,6 @@ export const Controls = ({ state }: ControlsProps) => {
   const taskKeyDefined = primitive.isNonZero(taskKey);
   const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>();
   const [expanded, setExpanded] = useState(false);
-  const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
     if (taskKeyDefined) setSelectedRack(task.rackKey(taskKey));
@@ -52,24 +51,17 @@ export const Controls = ({ state }: ControlsProps) => {
 
   const handleToggle = useCallback(() => {
     setExpanded((prev) => !prev);
-    setHovered(false);
   }, []);
 
   return (
-    <TaskControls.Frame
-      className={CSS.BE("arc-editor", "controls")}
-      expanded={expanded}
-      hovered={hovered}
-    >
-      <TaskControls.ExpandableStatus
+    <Base.Frame className={CSS.BE("arc-editor", "controls")} expanded={expanded}>
+      <Base.Status
         status={taskStatus}
         expanded={expanded}
-        hovered={hovered}
         onToggle={handleToggle}
-        onHoverChange={setHovered}
         fallbackMessage="Not deployed"
       />
-      <TaskControls.Actions>
+      <Base.Actions>
         <Rack.SelectSingle
           className={CSS.B("rack-select")}
           value={selectedRack}
@@ -77,20 +69,16 @@ export const Controls = ({ state }: ControlsProps) => {
           allowNone
           location="top"
         />
-        <Button.Button
+        <Base.ConfigureButton
           onClick={handleConfigure}
-          variant="outlined"
-          size="medium"
           disabled={selectedRack === undefined}
-        >
-          Configure
-        </Button.Button>
-        <TaskControls.StartStopButton
+        />
+        <Base.StartStopButton
           running={running}
           onClick={onStartStop}
           disabled={selectedRack === undefined}
         />
-      </TaskControls.Actions>
-    </TaskControls.Frame>
+      </Base.Actions>
+    </Base.Frame>
   );
 };

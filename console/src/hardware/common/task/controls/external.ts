@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hardware/common/task/task-controls/Actions";
-export * from "@/hardware/common/task/task-controls/ConfigureButton";
-export * from "@/hardware/common/task/task-controls/ExpandableStatus";
-export * from "@/hardware/common/task/task-controls/Frame";
-export * from "@/hardware/common/task/task-controls/StartStopButton";
+export * from "@/hardware/common/task/controls/Actions";
+export * from "@/hardware/common/task/controls/ConfigureButton";
+export * from "@/hardware/common/task/controls/Controls";
+export * from "@/hardware/common/task/controls/Frame";
+export * from "@/hardware/common/task/controls/StartStopButton";
+export * from "@/hardware/common/task/controls/Status";
