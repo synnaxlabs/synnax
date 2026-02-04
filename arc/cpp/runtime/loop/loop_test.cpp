@@ -266,7 +266,7 @@ TEST(ConfigTest, AutoModeResolvesToRTEventGetsCpuPinning) {
     cfg.mode = ExecutionMode::AUTO;
     cfg.cpu_affinity = CPU_AFFINITY_AUTO;
     const auto resolved = cfg.apply_defaults(500 * telem::MICROSECOND);
-    if (has_rt_scheduling() && std::thread::hardware_concurrency() > 1) {
+    if (xthread::has_rt_support() && std::thread::hardware_concurrency() > 1) {
         EXPECT_GE(resolved.cpu_affinity, 0);
     }
 }
@@ -734,4 +734,74 @@ TEST(WakeTest, Wake_UnblocksWait) {
 
     EXPECT_TRUE(woke_up.load());
     EXPECT_LE(sw.elapsed(), test_timing::THREAD_STARTUP);
+}
+
+TEST(WakeReasonTest, ReturnsTimerOnTimerFire) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = 10 * telem::MILLISECOND;
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    breaker::Breaker breaker;
+    breaker.start();
+
+    const auto reason = loop->wait(breaker);
+    ASSERT_EQ(reason, WakeReason::Timer);
+
+    breaker.stop();
+}
+
+TEST(WakeReasonTest, ReturnsInputOnNotifierSignal) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = telem::TimeSpan(0);
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    auto notifier = notify::create();
+    ASSERT_TRUE(loop->watch(*notifier));
+
+    breaker::Breaker breaker;
+    breaker.start();
+
+    std::atomic<WakeReason> reason{WakeReason::Shutdown};
+    std::thread waiter([&]() { reason.store(loop->wait(breaker)); });
+
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
+    notifier->signal();
+    waiter.join();
+
+    ASSERT_EQ(reason.load(), WakeReason::Input);
+
+    breaker.stop();
+}
+
+TEST(WakeReasonTest, DistinguishesTimerFromInputWhenBothConfigured) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = 100 * telem::MILLISECOND;
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    auto notifier = notify::create();
+    ASSERT_TRUE(loop->watch(*notifier));
+
+    breaker::Breaker breaker;
+    breaker.start();
+
+    std::atomic<WakeReason> reason{WakeReason::Shutdown};
+    std::thread waiter([&]() { reason.store(loop->wait(breaker)); });
+
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
+    notifier->signal();
+    waiter.join();
+
+    ASSERT_EQ(reason.load(), WakeReason::Input);
+
+    reason.store(WakeReason::Shutdown);
+    const auto wait_reason = loop->wait(breaker);
+    ASSERT_EQ(wait_reason, WakeReason::Timer);
+
+    breaker.stop();
 }
