@@ -317,9 +317,8 @@ var _ = Describe("Identifier Compilation", func() {
 			bytecode, exprType := compileWithCtx(ctx, "counter")
 			i := ctx.Imports.StateLoad["i32"]
 			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0),
-				OpI32Const, int32(0),
-				OpI32Const, int32(0),
+				OpI32Const, int32(0), // var ID
+				OpI32Const, int32(0), // init value
 				OpCall, uint64(i),
 			))
 			Expect(exprType).To(Equal(types.I32()))
@@ -335,9 +334,8 @@ var _ = Describe("Identifier Compilation", func() {
 			bytecode, exprType := compileWithCtx(ctx, "total")
 			i := ctx.Imports.StateLoad["i64"]
 			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0),
-				OpI32Const, int32(0),
-				OpI64Const, int64(0),
+				OpI32Const, int32(0), // var ID
+				OpI64Const, int64(0), // init value
 				OpCall, uint64(i),
 			))
 			Expect(exprType).To(Equal(types.I64()))
@@ -353,9 +351,8 @@ var _ = Describe("Identifier Compilation", func() {
 			bytecode, exprType := compileWithCtx(ctx, "rate")
 			i := ctx.Imports.StateLoad["f32"]
 			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0),
-				OpI32Const, int32(0),
-				OpF32Const, float32(0),
+				OpI32Const, int32(0), // var ID
+				OpF32Const, float32(0), // init value
 				OpCall, uint64(i),
 			))
 			Expect(exprType).To(Equal(types.F32()))
@@ -371,9 +368,8 @@ var _ = Describe("Identifier Compilation", func() {
 			bytecode, exprType := compileWithCtx(ctx, "accumulator")
 			i := ctx.Imports.StateLoad["f64"]
 			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0),
-				OpI32Const, int32(0),
-				OpF64Const, float64(0),
+				OpI32Const, int32(0), // var ID
+				OpF64Const, float64(0), // init value
 				OpCall, uint64(i),
 			))
 			Expect(exprType).To(Equal(types.F64()))
@@ -389,9 +385,8 @@ var _ = Describe("Identifier Compilation", func() {
 			bytecode, exprType := compileWithCtx(ctx, "count + 1")
 			i := ctx.Imports.StateLoad["i64"]
 			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0),
-				OpI32Const, int32(0),
-				OpI64Const, int64(0),
+				OpI32Const, int32(0), // var ID
+				OpI64Const, int64(0), // init value
 				OpCall, uint64(i),
 				OpI64Const, int64(1),
 				OpI64Add,
@@ -414,13 +409,11 @@ var _ = Describe("Identifier Compilation", func() {
 			bytecode, exprType := compileWithCtx(ctx, "first + second")
 			i := ctx.Imports.StateLoad["i64"]
 			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0),
-				OpI32Const, int32(0),
-				OpI64Const, int64(0),
+				OpI32Const, int32(0), // first var ID
+				OpI64Const, int64(0), // init value
 				OpCall, uint64(i),
-				OpI32Const, int32(0),
-				OpI32Const, int32(1),
-				OpI64Const, int64(0),
+				OpI32Const, int32(1), // second var ID
+				OpI64Const, int64(0), // init value
 				OpCall, uint64(i),
 				OpI64Add,
 			))
@@ -437,9 +430,8 @@ var _ = Describe("Identifier Compilation", func() {
 			bytecode, exprType := compileWithCtx(ctx, "iterations > 10")
 			i := ctx.Imports.StateLoad["i64"]
 			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0),
-				OpI32Const, int32(0),
-				OpI64Const, int64(0),
+				OpI32Const, int32(0), // var ID
+				OpI64Const, int64(0), // init value
 				OpCall, uint64(i),
 				OpI64Const, int64(10),
 				OpI64GtS,
