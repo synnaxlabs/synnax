@@ -90,6 +90,7 @@ class SymbolEditor:
             for word in name_without_ext.replace("_", " ").replace("-", " ").split()
         )
 
+        # SY-3670: Bug: Unable to upload SVG in browser
         self.page.evaluate(
             """([svgContent, properName]) => {
                 // Access React fiber to call FileDrop's onContentsChange prop directly
