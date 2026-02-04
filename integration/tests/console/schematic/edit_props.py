@@ -21,13 +21,13 @@ def assert_properties(
     schematic: Schematic, control_authority: int = 1, show_control_legend: bool = True
 ) -> None:
     """Assert the schematic properties match expected values."""
-    actual_authority, actual_legend = schematic.get_properties()
+    props = schematic.get_properties()
     assert (
-        actual_authority == control_authority
-    ), f"Control Authority mismatch! Actual: {actual_authority}, Expected: {control_authority}"
+        props["control_authority"] == control_authority
+    ), f"Control Authority mismatch! Actual: {props['control_authority']}, Expected: {control_authority}"
     assert (
-        actual_legend == show_control_legend
-    ), f"Show Control Legend mismatch! Actual: {actual_legend}, Expected: {show_control_legend}"
+        props["show_control_legend"] == show_control_legend
+    ), f"Show Control Legend mismatch! Actual: {props['show_control_legend']}, Expected: {show_control_legend}"
 
 
 def assert_symbol_properties(symbol: Symbol, expected_props: PropertyDict) -> None:

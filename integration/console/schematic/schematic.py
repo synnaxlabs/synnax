@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 import synnax as sy
 from playwright.sync_api import Locator
@@ -26,6 +26,12 @@ from .symbol import (
 )
 
 PropertyDict = dict[str, float | str | bool]
+
+
+class SchematicProperties(TypedDict):
+    control_authority: int
+    show_control_legend: bool
+
 
 SCHEMATIC_VERSION = "5.0.0"
 
@@ -427,11 +433,11 @@ class Schematic(ConsolePage):
                 )
         sy.sleep(0.1)
 
-    def get_properties(self) -> tuple[int, bool]:
+    def get_properties(self) -> SchematicProperties:
         """Get the current properties of the schematic.
 
         Returns:
-            Tuple of (control_authority, show_control_legend)
+            Dict with control_authority and show_control_legend keys.
         """
         self.notifications.close_all()
         self.layout.show_visualization_toolbar()
@@ -444,7 +450,10 @@ class Schematic(ConsolePage):
         except PlaywrightTimeoutError:
             show_control_legend = True
 
-        return (control_authority, show_control_legend)
+        return {
+            "control_authority": control_authority,
+            "show_control_legend": show_control_legend,
+        }
 
     @property
     def control_legend_visible(self) -> bool:

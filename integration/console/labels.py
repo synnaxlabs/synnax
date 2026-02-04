@@ -193,8 +193,6 @@ class LabelClient(BaseClient):
 
         color_swatch = label_item.locator(".pluto-color-swatch").first
         self._set_color_via_picker(color_swatch, new_color)
-        self.layout.page.wait_for_load_state("networkidle", timeout=5000)
-
         self._close_edit_modal()
 
     def _set_color_via_picker(self, swatch: Locator, hex_color: str) -> None:
