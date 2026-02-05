@@ -78,7 +78,7 @@ export const Status = ({
               size="small"
               textColor={10}
             >
-              Copy Diagnostics
+              Copy diagnostics
             </Button.Copy>
           )}
         </Flex.Box>

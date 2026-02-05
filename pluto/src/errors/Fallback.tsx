@@ -138,7 +138,7 @@ export const Fallback = ({
           <Divider.Divider x />
           <Flex.Box justify="between" x>
             <Button.Copy text={getCopyText} textColor={10}>
-              Copy Diagnostics
+              Copy diagnostics
             </Button.Copy>
             <Flex.Box x>{children}</Flex.Box>
           </Flex.Box>
