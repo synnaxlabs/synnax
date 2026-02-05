@@ -16,7 +16,7 @@ import { Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
 
 const shouldShowConfigureButton = (make: Make): boolean =>
-  make === "NI" || make === "LabJack";
+  make === "NI" || make === "LabJack" || make === "ethercat";
 
 const notificationAdapter: Notifications.Adapter<typeof device.deviceZ> = (status) => {
   const key = getKeyFromStatus(status);

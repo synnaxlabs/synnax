@@ -15,6 +15,7 @@
 #include <unordered_set>
 
 #include "glog/logging.h"
+#include "nlohmann/json.hpp"
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
@@ -29,6 +30,36 @@
 namespace common {
 /// @brief the default rate to scan for devices.
 const auto DEFAULT_SCAN_RATE = telem::Rate(telem::SECOND * 5);
+
+/// @brief Merges scanner-discovered properties with existing remote properties.
+/// Scanner properties take precedence on conflicts, but remote properties are preserved
+/// if the scanner doesn't specify them.
+/// @param remote_props JSON string of properties from the remote/cluster.
+/// @param scanned_props JSON string of properties from the scanner.
+/// @return Merged JSON string with scanner properties overriding remote on conflicts.
+inline std::string merge_device_properties(
+    const std::string &remote_props,
+    const std::string &scanned_props
+) {
+    nlohmann::json merged = nlohmann::json::object();
+    if (!remote_props.empty()) {
+        try {
+            merged = nlohmann::json::parse(remote_props);
+        } catch (const nlohmann::json::parse_error &e) {
+            LOG(WARNING) << "failed to parse remote device properties: " << e.what();
+        }
+    }
+    if (!scanned_props.empty()) {
+        try {
+            auto scanned = nlohmann::json::parse(scanned_props);
+            for (auto &[k, v]: scanned.items())
+                merged[k] = v;
+        } catch (const nlohmann::json::parse_error &e) {
+            LOG(WARNING) << "failed to parse scanned device properties: " << e.what();
+        }
+    }
+    return merged.empty() ? "" : merged.dump();
+}
 
 /// @brief Base configuration for scan tasks with rate and enabled settings.
 struct ScanTaskConfig {
@@ -89,6 +120,9 @@ struct Scanner {
     ) {
         return false;
     }
+
+    /// @brief Called when a device is set/updated via the signal channel.
+    virtual void on_device_set(const synnax::Device &dev) {}
 };
 
 struct ClusterAPI {
@@ -260,8 +294,8 @@ class ScanTask final : public task::Task, public pipeline::Base {
                         }
                         if (dev.make != make || dev.rack != rack_key) continue;
                         std::lock_guard lock(this->mu);
-                        if (this->dev_states.find(dev.key) == this->dev_states.end())
-                            this->dev_states[dev.key] = dev;
+                        this->dev_states[dev.key] = dev;
+                        this->scanner->on_device_set(dev);
                     }
                 } else if (ch_key == this->device_delete_channel.key)
                     for (const auto &dev_key: series.strings()) {
@@ -449,13 +483,21 @@ public:
                     needs_update = true;
                 }
 
-                if (needs_update) {
-                    // Preserve user-configured properties
-                    scanned_dev.properties = remote_dev.properties;
-                    scanned_dev.name = remote_dev.name;
-                    scanned_dev.configured = remote_dev.configured;
-                    to_create.push_back(scanned_dev);
+                auto merged_props = merge_device_properties(
+                    remote_dev.properties,
+                    scanned_dev.properties
+                );
+                if (merged_props != remote_dev.properties) {
+                    VLOG(1) << this->log_prefix << "device properties changed for "
+                            << scanned_dev.key;
+                    needs_update = true;
                 }
+                scanned_dev.properties = merged_props;
+                scanned_dev.name = remote_dev.name;
+                scanned_dev.configured = remote_dev.configured;
+
+                if (needs_update) to_create.push_back(scanned_dev);
+
                 scanned_dev.status.time = last_available;
                 this->dev_states[scanned_dev.key] = scanned_dev;
             }
@@ -467,7 +509,7 @@ public:
             }
 
             statuses.reserve(this->dev_states.size());
-            for (auto &[key, info]: this->dev_states)
+            for (auto &info: this->dev_states | std::views::values)
                 statuses.push_back(info.status);
         }
 

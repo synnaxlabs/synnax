@@ -1,0 +1,35 @@
+cc_library(
+    name = "engine",
+    srcs = [
+        "engine.cpp",
+        "pool.cpp",
+        "reader.cpp",
+        "writer.cpp",
+    ],
+    hdrs = [
+        "engine.h",
+        "pool.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/ethercat/errors",
+        "//driver/ethercat/master",
+        "//driver/ethercat/telem",
+        "//x/cpp/breaker",
+        "//x/cpp/loop",
+        "//x/cpp/telem",
+        "//x/cpp/xthread",
+    ],
+)
+
+cc_test(
+    name = "engine_test",
+    srcs = ["engine_test.cpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/ethercat/engine",
+        "//driver/ethercat/mock",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

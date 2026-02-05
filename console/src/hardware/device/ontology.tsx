@@ -19,7 +19,7 @@ import {
   Text,
   Tree,
 } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, status } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { Menu } from "@/components";
@@ -193,6 +193,7 @@ const Item = ({ id, resource, className, ...rest }: Ontology.TreeItemProps) => {
           value={resource.name}
           onChange
           overflow="ellipsis"
+          status={status.keepVariants(devStatus?.variant, "disabled")}
         />
         <Text.Text
           level="small"

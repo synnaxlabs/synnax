@@ -1,0 +1,27 @@
+cc_library(
+    name = "mock",
+    hdrs = [
+        "master.h",
+        "pool.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/ethercat/engine",
+        "//driver/ethercat/errors",
+        "//driver/ethercat/master",
+        "//x/cpp/xerrors",
+    ],
+)
+
+cc_test(
+    name = "mock_test",
+    srcs = [
+        "master_test.cpp",
+        "pool_test.cpp",
+    ],
+    deps = [
+        ":mock",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

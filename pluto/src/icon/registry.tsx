@@ -20,12 +20,11 @@ import {
   AiOutlineBorder,
   AiOutlineCheck,
   AiOutlineClose,
-  AiOutlineExpand,
   AiOutlineLoading,
   AiOutlineMinus,
   AiOutlineSync,
 } from "react-icons/ai";
-import { BiLinkExternal, BiRename } from "react-icons/bi";
+import { BiCollapseAlt, BiExpandAlt, BiLinkExternal, BiRename } from "react-icons/bi";
 import {
   BsBorderWidth,
   BsFillInfoSquareFill,
@@ -223,6 +222,7 @@ import {
 } from "react-icons/vsc";
 
 import { CSS } from "@/css";
+import { EtherCAT } from "@/icon/EtherCAT";
 import { Fitting } from "@/icon/Fitting";
 import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
 import { LabJack } from "@/icon/LabJack";
@@ -256,7 +256,8 @@ export const Analyze = wrapSVGIcon(FaBezierCurve, "analyze");
 export const Concepts = wrapSVGIcon(BsLightbulbFill, "concepts");
 export const Visualize = wrapSVGIcon(MdAreaChart, "visualize");
 export const LinePlot = wrapSVGIcon(MdAreaChart, "line-plot");
-export const Expand = wrapSVGIcon(AiOutlineExpand, "expand");
+export const Expand = wrapSVGIcon(BiExpandAlt, "expand");
+export const Collapse = wrapSVGIcon(BiCollapseAlt, "collapse");
 export const Cluster = wrapSVGIcon(HiSquare3Stack3D, "cluster");
 export const Loading = wrapSVGIcon(AiOutlineLoading, "loading", {
   className: CSS.M("spin"),
@@ -302,6 +303,7 @@ export const Logo = {
   NI,
   OPC,
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
+  EtherCAT,
 };
 export const Arrow = {
   Right: wrapSVGIcon(TbArrowRight, "arrow-right"),
@@ -507,6 +509,7 @@ const icons = {
   Visualize,
   LinePlot,
   Expand,
+  Collapse,
   Cluster,
   Loading,
   Schematic,

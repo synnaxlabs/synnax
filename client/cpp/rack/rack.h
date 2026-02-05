@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 
@@ -127,6 +128,15 @@ public:
     /// @param rack The rack to compare with.
     /// @returns True if the racks have the same key.
     bool operator==(const Rack &rack) const { return rack.key == key; }
+
+    /// @brief Stream output operator for racks.
+    /// @param os The output stream.
+    /// @param rack The rack to output.
+    /// @returns The output stream.
+    friend std::ostream &operator<<(std::ostream &os, const Rack &rack) {
+        os << rack.name << " (" << rack.key << ")";
+        return os;
+    }
 
 private:
     /// @brief Converts the rack to its protobuf representation.

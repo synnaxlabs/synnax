@@ -1,0 +1,2 @@
+# This BUILD file exists to make vendor/ a Bazel package,
+# allowing vendor/esi.bzl to be loaded as a module extension.

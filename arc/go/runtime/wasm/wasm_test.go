@@ -2542,5 +2542,148 @@ input_ch -> checker{} -> output_ch
 			result = h.Output("checker_0", 0)
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
 		})
+
+		It("Should write to separate channels when function with channel config is used multiple times", func() {
+			resolver := symbol.MapResolver{
+				"input_1": {
+					Name: "input_1",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   101,
+				},
+				"input_2": {
+					Name: "input_2",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   102,
+				},
+				"counter_1": {
+					Name: "counter_1",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   201,
+				},
+				"counter_2": {
+					Name: "counter_2",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   202,
+				},
+				"sink_1": {
+					Name: "sink_1",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   301,
+				},
+				"sink_2": {
+					Name: "sink_2",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   302,
+				},
+			}
+
+			source := `
+func increment{
+    counter chan f32
+} (trigger u8) u8 {
+    if trigger != 0 {
+        counter = counter + 1.0
+    }
+    return 0
+}
+
+input_1 -> increment{counter=counter_1} -> sink_1
+input_2 -> increment{counter=counter_2} -> sink_2
+`
+			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+				{Key: 101, DataType: telem.Uint8T},
+				{Key: 102, DataType: telem.Uint8T},
+				{Key: 201, DataType: telem.Float32T},
+				{Key: 202, DataType: telem.Float32T},
+				{Key: 301, DataType: telem.Uint8T},
+				{Key: 302, DataType: telem.Uint8T},
+			})
+			defer h.Close()
+
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(201, telem.NewSeriesV[float32](0.0))
+			fr = fr.Append(202, telem.NewSeriesV[float32](0.0))
+			h.state.Ingest(fr)
+
+			h.SetInput("on_input_1_0", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
+			h.SetInput("on_input_2_0", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "increment_0")
+			h.Execute(ctx, "increment_1")
+
+			outFr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(outFr.Get(201).Series).To(HaveLen(1), "counter_1 should have been written")
+			Expect(telem.UnmarshalSeries[float32](outFr.Get(201).Series[0])[0]).To(Equal(float32(1.0)))
+			Expect(outFr.Get(202).Series).To(HaveLen(1), "counter_2 should have been written")
+			Expect(telem.UnmarshalSeries[float32](outFr.Get(202).Series[0])[0]).To(Equal(float32(1.0)))
+		})
+
+		It("Should not write to channel when stateful variable initialized from channel is modified", func() {
+			resolver := symbol.MapResolver{
+				"input_ch": {
+					Name: "input_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   100,
+				},
+				"counter_ch": {
+					Name: "counter_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   200,
+				},
+				"sink_ch": {
+					Name: "sink_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   300,
+				},
+			}
+
+			source := `
+func count_local (trigger u8) u8 {
+    counter $= counter_ch
+    prev $= trigger
+    if trigger != 0 and prev == 0 {
+        counter = counter + 1.0
+    }
+    prev = trigger
+    return 0
+}
+
+input_ch -> count_local{} -> sink_ch
+`
+			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Uint8T},
+				{Key: 200, DataType: telem.Float32T},
+				{Key: 300, DataType: telem.Uint8T},
+			})
+			defer h.Close()
+
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(200, telem.NewSeriesV[float32](5.0))
+			h.state.Ingest(fr)
+
+			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[uint8](0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "count_local_0")
+
+			outFr, _ := h.state.Flush(telem.Frame[uint32]{})
+			Expect(outFr.Get(200).Series).To(BeEmpty())
+
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(200, telem.NewSeriesV[float32](5.0))
+			h.state.Ingest(fr)
+			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(2))
+			h.Execute(ctx, "count_local_0")
+
+			outFr, _ = h.state.Flush(telem.Frame[uint32]{})
+			Expect(outFr.Get(200).Series).To(BeEmpty())
+		})
 	})
 })
