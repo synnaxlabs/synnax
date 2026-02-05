@@ -125,12 +125,11 @@ func (c *Cluster) WaitForTopologyToStabilize() {
 }
 
 func (b *Cluster) Close() error {
-	var a errors.Accumulator
+	var err error
 	for _, node := range b.Nodes {
-		a.Exec(node.Close)
+		err = errors.Join(err, node.Close())
 	}
-	a.Exec(b.storage.Close)
-	return a.Error()
+	return errors.Join(err, b.storage.Close())
 }
 
 type mockFramerTransport struct {

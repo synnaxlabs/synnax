@@ -42,11 +42,11 @@ func newCalculationTransform(
 }
 
 func (t *calculationTransform) close() error {
-	var a errors.Accumulator
+	var err error
 	for _, calc := range t.calculators {
-		a.Exec(calc.Close)
+		err = errors.Join(err, calc.Close())
 	}
-	return a.Error()
+	return err
 }
 
 func (t *calculationTransform) Flow(sCtx signal.Context, opts ...confluence.Option) {

@@ -111,11 +111,11 @@ func (s MapTargetedSender[M]) Send(_ context.Context, target address.Address, ms
 }
 
 func (s MapTargetedSender[M]) Close() error {
-	var a errors.Accumulator
+	var err error
 	for _, s := range s {
-		a.Exec(s.CloseSend)
+		err = errors.Join(err, s.CloseSend())
 	}
-	return a.Error()
+	return err
 }
 
 // BatchSwitchSender wraps a map of freighter.StreamSenderCloser to provide a confluence
@@ -226,9 +226,9 @@ o:
 }
 
 func (m *MultiTransformSender[I, M]) closeSenders() error {
-	var a errors.Accumulator
+	var err error
 	for _, s := range m.Senders {
-		a.Exec(s.CloseSend)
+		err = errors.Join(err, s.CloseSend())
 	}
-	return a.Error()
+	return err
 }

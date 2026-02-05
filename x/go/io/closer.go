@@ -48,10 +48,9 @@ type MultiCloser []io.Closer
 var _ io.Closer = MultiCloser(nil)
 
 func (m MultiCloser) Close() error {
-	var a errors.Accumulator
+	var err error
 	for i := len(m) - 1; i >= 0; i-- {
-		closer := m[i]
-		a.Exec(closer.Close)
+		err = errors.Join(err, m[i].Close())
 	}
-	return a.Error()
+	return err
 }

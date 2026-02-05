@@ -302,38 +302,39 @@ func (s *ChannelService) Delete(
 	req ChannelDeleteRequest,
 ) (types.Nil, error) {
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		var a errors.Accumulator
 		w := s.internal.NewWriter(tx)
 		if len(req.Keys) > 0 {
-			a.Exec(func() error {
-				if err := s.access.Enforce(ctx, access.Request{
-					Subject: getSubject(ctx),
-					Action:  access.ActionDelete,
-					Objects: req.Keys.OntologyIDs(),
-				}); err != nil {
-					return err
-				}
-				return w.DeleteMany(ctx, req.Keys, false)
-			})
+			if err := s.access.Enforce(ctx, access.Request{
+				Subject: getSubject(ctx),
+				Action:  access.ActionDelete,
+				Objects: req.Keys.OntologyIDs(),
+			}); err != nil {
+				return err
+			}
+			if err := w.DeleteMany(ctx, req.Keys, false); err != nil {
+				return err
+			}
 		}
 		if len(req.Names) > 0 {
-			a.Exec(func() error {
-				res := make([]channel.Channel, 0, len(req.Names))
-				err := s.internal.NewRetrieve().WhereNames(req.Names...).Entries(&res).Exec(ctx, tx)
-				if err != nil {
-					return err
-				}
-				if err = s.access.Enforce(ctx, access.Request{
-					Subject: getSubject(ctx),
-					Action:  access.ActionDelete,
-					Objects: channel.OntologyIDsFromChannels(res),
-				}); err != nil {
-					return err
-				}
-				return w.DeleteManyByNames(ctx, req.Names, false)
-			})
+			res := make([]channel.Channel, 0, len(req.Names))
+			if err := s.
+				internal.
+				NewRetrieve().
+				WhereNames(req.Names...).
+				Entries(&res).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
+			if err := s.access.Enforce(ctx, access.Request{
+				Subject: getSubject(ctx),
+				Action:  access.ActionDelete,
+				Objects: channel.OntologyIDsFromChannels(res),
+			}); err != nil {
+				return err
+			}
+			return w.DeleteManyByNames(ctx, req.Names, false)
 		}
-		return a.Error()
+		return nil
 	})
 }
 

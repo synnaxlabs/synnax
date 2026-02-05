@@ -437,29 +437,26 @@ func (fc *fileController) close() error {
 		fc.readers.RUnlock()
 		fc.writers.RUnlock()
 	}()
-	var a errors.Accumulator
+	var err error
 	for _, w := range fc.writers.open {
-		a.Exec(func() error {
-			if !w.tryAcquire() {
-				return newResourceInUseError("writer", w.fileKey)
-			}
-			return w.HardClose()
-		})
+		if !w.tryAcquire() {
+			err = errors.Join(err, newResourceInUseError("writer", w.fileKey))
+		} else {
+			err = errors.Join(err, w.HardClose())
+		}
 	}
 	for _, f := range fc.readers.files {
 		f.Lock()
 		for _, r := range f.open {
-			a.Exec(func() error {
-				if !r.tryAcquire() {
-					return newResourceInUseError("reader", r.fileKey)
-				}
-				return r.HardClose()
-			})
+			if !r.tryAcquire() {
+				err = errors.Join(err, newResourceInUseError("reader", r.fileKey))
+			} else {
+				err = errors.Join(err, r.HardClose())
+			}
 		}
 		f.Unlock()
 	}
-	a.Exec(fc.counterFile.Close)
-	return a.Error()
+	return errors.Join(err, fc.counterFile.Close())
 }
 
 type controlledWriter struct {

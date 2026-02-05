@@ -20,10 +20,16 @@ import (
 
 type Validator struct {
 	scope string
-	errors.Accumulator
+	err   error
 }
 
 func New(scope string) *Validator { return &Validator{scope: scope} }
+
+// Error returns the accumulated validation errors.
+func (v *Validator) Error() error { return v.err }
+
+// Exec runs a function and joins any error it returns with the accumulated errors.
+func (v *Validator) Exec(fn func() error) { v.err = errors.Join(v.err, fn()) }
 
 // Ternary adds the error with the given message to the validator if the condition is
 // true.

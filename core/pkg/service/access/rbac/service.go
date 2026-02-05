@@ -63,10 +63,7 @@ type Service struct {
 }
 
 func (s *Service) Close() error {
-	var a errors.Accumulator
-	a.Exec(s.Policy.Close)
-	a.Exec(s.Role.Close)
-	return a.Error()
+	return errors.Join(s.Policy.Close(), s.Role.Close())
 }
 
 func (s *Service) Enforce(ctx context.Context, req access.Request) error {
