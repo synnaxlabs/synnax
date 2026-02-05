@@ -67,6 +67,36 @@ func NewChannels() Channels {
 	}
 }
 
+// ResolveConfigChannel replaces an internal config param ID with the actual channel ID.
+// For user-defined functions, the analyzer populates fnSym.Channels with internal param
+// IDs when processing the function body, so we replace those with actual channel IDs.
+// For built-in functions (resolved from MapResolver), fnSym has no children or channels,
+// so we fall back to adding the channel to Read.
+func (c *Channels) ResolveConfigChannel(
+	fnSym *Scope,
+	paramName string,
+	channelKey uint32,
+	channelName string,
+) {
+	replaced := false
+	if configParamSym := fnSym.FindChildByName(paramName); configParamSym != nil {
+		configParamID := uint32(configParamSym.ID)
+		if fnSym.Channels.Write.Contains(configParamID) {
+			c.Write.Remove(configParamID)
+			c.Write[channelKey] = channelName
+			replaced = true
+		}
+		if fnSym.Channels.Read.Contains(configParamID) {
+			c.Read.Remove(configParamID)
+			c.Read[channelKey] = channelName
+			replaced = true
+		}
+	}
+	if !replaced {
+		c.Read[channelKey] = channelName
+	}
+}
+
 // Scope represents a symbol scope in the hierarchical scope tree.
 //
 // Scopes form a tree structure where each scope can have a parent and multiple children.
@@ -91,8 +121,6 @@ type Scope struct {
 	Parent *Scope
 	// Counter is the ID counter for variable kinds. Functions create new counters.
 	Counter *int
-	// OnResolve is an optional callback invoked when symbols are resolved from this scope.
-	OnResolve func(ctx context.Context, s *Scope) error
 	// Children are nested scopes within this scope.
 	Children []*Scope
 	Symbol
@@ -170,6 +198,9 @@ func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 	if sym.Kind == KindFunction || sym.Kind == KindSequence {
 		child.Counter = new(int)
 	}
+	if sym.Kind == KindFunction {
+		child.Channels = NewChannels()
+	}
 	if sym.Kind == KindVariable ||
 		sym.Kind == KindStatefulVariable ||
 		sym.Kind == KindInput ||
@@ -201,35 +232,20 @@ func (s *Scope) Root() *Scope {
 // Resolve looks up a symbol by name using lexical scoping rules.
 //
 // The search proceeds in order: direct children of this scope, the GlobalResolver
-// (if present), and then the parent scope (recursively). If OnResolve is set, it
-// is invoked with the resolved scope before returning.
+// (if present), and then the parent scope (recursively).
 //
 // Returns an error if the symbol is not found in any scope.
 func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 	if child := s.FindChildByName(name); child != nil {
-		if s.OnResolve != nil {
-			return child, s.OnResolve(ctx, child)
-		}
 		return child, nil
 	}
 	if s.GlobalResolver != nil {
 		if sym, err := s.GlobalResolver.Resolve(ctx, name); err == nil {
-			scope := &Scope{Symbol: sym}
-			if s.OnResolve != nil {
-				return scope, s.OnResolve(ctx, scope)
-			}
-			return scope, nil
+			return &Scope{Symbol: sym}, nil
 		}
 	}
 	if s.Parent != nil {
-		scope, err := s.Parent.Resolve(ctx, name)
-		if err != nil {
-			return nil, err
-		}
-		if s.OnResolve != nil {
-			return scope, s.OnResolve(ctx, scope)
-		}
-		return scope, nil
+		return s.Parent.Resolve(ctx, name)
 	}
 	suggestions := s.SuggestSimilar(ctx, name, 2)
 	if len(suggestions) > 0 {
@@ -336,18 +352,4 @@ func (s *Scope) stringWithIndent(indent string) string {
 		}
 	}
 	return builder.String()
-}
-
-// AccumulateReadChannels initializes channel tracking for this scope.
-// It sets up an OnResolve callback that records any channel references
-// in the Channels.Read map. This is used by functions and expressions
-// to track their channel dependencies.
-func (s *Scope) AccumulateReadChannels() {
-	s.Channels = NewChannels()
-	s.OnResolve = func(_ context.Context, resolved *Scope) error {
-		if resolved.Kind == KindChannel || resolved.Type.Kind == types.KindChan {
-			s.Channels.Read[uint32(resolved.ID)] = resolved.Name
-		}
-		return nil
-	}
 }

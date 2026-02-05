@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/runtime/wasm"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -104,6 +105,36 @@ func (h *testHarness) Output(nodeKey string, idx int) telem.Series {
 
 func (h *testHarness) OutputTime(nodeKey string, idx int) telem.Series {
 	return *h.state.Node(nodeKey).OutputTime(idx)
+}
+
+// newTextHarness creates a test harness from text source code.
+func newTextHarness(
+	ctx context.Context,
+	source string,
+	resolver symbol.Resolver,
+	channelDigests []state.ChannelDigest,
+) *testHarness {
+	parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+	analyzed, diagnostics := text.Analyze(ctx, parsedText, resolver)
+	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+	mod := MustSucceed(text.Compile(ctx, analyzed))
+	cfg := state.Config{IR: analyzed}
+	if len(channelDigests) > 0 {
+		cfg.ChannelDigests = channelDigests
+	}
+	s := state.New(cfg)
+	wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+		Module: mod,
+		State:  s,
+	}))
+	factory := MustSucceed(wasm.NewFactory(wasmMod))
+	return &testHarness{
+		mod:      mod,
+		analyzed: analyzed,
+		state:    s,
+		wasmMod:  wasmMod,
+		factory:  factory,
+	}
 }
 
 // singleFunctionGraph creates a simple graph with one function and one node.
@@ -305,6 +336,110 @@ var _ = Describe("WASM", func() {
 			n.Reset()
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(3)))
+		})
+
+		It("Should isolate stateful variables between different functions", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "counter1",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body: ir.Body{Raw: `{
+							count i64 $= 0
+							count = count + 1
+							return count
+						}`},
+					},
+					{
+						Key:     "counter2",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body: ir.Body{Raw: `{
+							count i64 $= 0
+							count = count + 10
+							return count
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "c1", Type: "counter1"},
+					{Key: "c2", Type: "counter2"},
+				},
+			}
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n1 := h.CreateNode(ctx, "c1")
+			n2 := h.CreateNode(ctx, "c2")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			n1.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("c1", 0))[0]).To(Equal(int64(1)))
+
+			n2.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("c2", 0))[0]).To(Equal(int64(10)))
+
+			n1.Reset()
+			n1.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("c1", 0))[0]).To(Equal(int64(2)))
+
+			n2.Reset()
+			n2.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("c2", 0))[0]).To(Equal(int64(20)))
+		})
+
+		It("Should isolate stateful variables between nodes of the same function", func() {
+			// This test verifies that two node instances of the same function type
+			// have separate state storage (important fix for node instance isolation)
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "counter",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body: ir.Body{Raw: `{
+							count i64 $= 0
+							count = count + 1
+							return count
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "counter_a", Type: "counter"},
+					{Key: "counter_b", Type: "counter"},
+				},
+			}
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n1 := h.CreateNode(ctx, "counter_a")
+			n2 := h.CreateNode(ctx, "counter_b")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			// First execution of counter_a should return 1
+			n1.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0]).To(Equal(int64(1)))
+
+			// First execution of counter_b should ALSO return 1 (not 2!)
+			// because it has its own separate state
+			n2.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0]).To(Equal(int64(1)))
+
+			// Second execution of counter_a should return 2
+			n1.Reset()
+			n1.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0]).To(Equal(int64(2)))
+
+			// Second execution of counter_b should return 2 (its own count)
+			n2.Reset()
+			n2.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0]).To(Equal(int64(2)))
+
+			// Third execution of counter_a should return 3
+			n1.Reset()
+			n1.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0]).To(Equal(int64(3)))
+
+			// counter_b should still be at 2 (we didn't call it again)
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0]).To(Equal(int64(2)))
 		})
 	})
 
@@ -945,7 +1080,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "write_test")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(100).Series).To(HaveLen(1))
 				Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](42))
@@ -974,7 +1109,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "write_indexed")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(100).Series).To(HaveLen(1))
 				Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](99))
@@ -1007,7 +1142,7 @@ var _ = Describe("WASM", func() {
 				h.Execute(ctx, "write_ts")
 				after := telem.Now()
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(201).Series).To(HaveLen(1))
 				ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(201).Series[0])
@@ -1044,7 +1179,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "multi_write")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(10).Series).To(HaveLen(1))
 				Expect(fr.Get(10).Series[0]).To(telem.MatchSeriesDataV[int32](15))
@@ -1083,7 +1218,7 @@ var _ = Describe("WASM", func() {
 				for i := range 3 {
 					n.Reset()
 					n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
-					fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+					fr, changed := h.state.Flush(telem.Frame[uint32]{})
 					Expect(changed).To(BeTrue())
 					ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(301).Series[0])
 					timestamps[i] = ts[0]
@@ -1116,7 +1251,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "i32_write")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(700).Series).To(HaveLen(1))
 				Expect(fr.Get(700).Series[0]).To(telem.MatchSeriesDataV[int32](-50000))
@@ -1144,7 +1279,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "u8_write")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(800).Series).To(HaveLen(1))
 				Expect(fr.Get(800).Series[0]).To(telem.MatchSeriesDataV[uint8](255))
@@ -1174,7 +1309,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "f64_write")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(1100).Series).To(HaveLen(1))
 				Expect(fr.Get(1100).Series[0]).To(telem.MatchSeriesDataV(3.14159))
@@ -1202,7 +1337,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "f32_write")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(1200).Series).To(HaveLen(1))
 				Expect(fr.Get(1200).Series[0]).To(telem.MatchSeriesDataV[float32](2.718))
@@ -1218,7 +1353,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "no_write")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeFalse())
 				Expect(fr.RawKeys()).To(BeEmpty())
 			})
@@ -1244,7 +1379,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "zero_idx")
 
-				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, changed := h.state.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(900).Series).To(HaveLen(1))
 				Expect(fr.Get(0).Series).To(BeEmpty())
@@ -1273,7 +1408,7 @@ var _ = Describe("WASM", func() {
 
 				h.Execute(ctx, "imperative_vs_decl")
 
-				fr, _ := h.state.FlushWrites(telem.Frame[uint32]{})
+				fr, _ := h.state.Flush(telem.Frame[uint32]{})
 				dataKeys := make(set.Set[uint32])
 				for _, key := range fr.RawKeys() {
 					dataKeys.Add(key)
@@ -1281,6 +1416,96 @@ var _ = Describe("WASM", func() {
 				Expect(dataKeys.Contains(1000)).To(BeTrue())
 				Expect(dataKeys.Contains(1001)).To(BeTrue())
 			})
+		})
+	})
+
+	Describe("Void Functions (No Outputs)", func() {
+		It("Should execute without panic when function has no outputs", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "void_func",
+						Inputs:  types.Params{{Name: "trigger", Type: types.U8()}},
+						Outputs: types.Params{},
+						Body:    ir.Body{Raw: `{}`},
+					},
+					{
+						Key:     "trigger_source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+						Body:    ir.Body{Raw: `{ return 1 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "trigger_source", Type: "trigger_source"},
+					{Key: "void_func", Type: "void_func"},
+				},
+				Edges: []graph.Edge{
+					{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_func", Param: "trigger"}},
+				},
+			}
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			h.SetInput("trigger_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
+
+			changed := h.Execute(ctx, "void_func")
+			Expect(changed).To(BeEmpty())
+		})
+
+		It("Should execute void function with stateful variables", func() {
+			resolver := symbol.MapResolver{
+				"output_ch": {
+					Name: "output_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I32()),
+					ID:   100,
+				},
+			}
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "void_with_state",
+						Inputs:  types.Params{{Name: "trigger", Type: types.U8()}},
+						Outputs: types.Params{},
+						Body: ir.Body{Raw: `{
+							count i32 $= 0
+							count = count + 1
+							output_ch = count
+						}`},
+					},
+					{
+						Key:     "trigger_source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+						Body:    ir.Body{Raw: `{ return 1 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "trigger_source", Type: "trigger_source"},
+					{Key: "void_with_state", Type: "void_with_state"},
+				},
+				Edges: []graph.Edge{
+					{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_with_state", Param: "trigger"}},
+				},
+			}
+			h := newHarness(ctx, g, resolver, []state.ChannelDigest{{Key: 100, DataType: telem.Int32T}})
+			defer h.Close()
+
+			h.SetInput("trigger_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
+
+			n := h.CreateNode(ctx, "void_with_state")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			n.Reset()
+			n.Next(nCtx)
+			fr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](1))
+
+			h.SetInput("trigger_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(2))
+			n.Next(nCtx)
+			fr, changed = h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](2))
 		})
 	})
 
@@ -1348,6 +1573,974 @@ var _ = Describe("WASM", func() {
 
 			n.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("expr_0", 0))[0]).To(Equal(int64(1)))
+		})
+	})
+
+	Describe("Channel Config Parameter Arithmetic", func() {
+		// Regression test for: "cannot pop the 2nd f32 operand for f32.add:
+		// type mismatch: expected f32, but was i32"
+		// Bug occurred when reading from a channel config parameter and performing arithmetic.
+		It("Should read from channel config param and perform f32 arithmetic", func() {
+			resolver := symbol.MapResolver{
+				"do_0_counter": {
+					Name: "do_0_counter",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+			}
+
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "increment_counter",
+						Config:  types.Params{{Name: "counter", Type: types.Chan(types.F32())}},
+						Inputs:  types.Params{},
+						Outputs: types.Params{},
+						Body: ir.Body{Raw: `{
+							counter = counter + 1.0
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "increment_counter", Type: "increment_counter", Config: map[string]any{"counter": uint32(100)}},
+				},
+				Edges: []graph.Edge{},
+			}
+
+			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+			})
+			defer h.Close()
+
+			// Ingest initial channel value (5.0), execute, expect write (6.0)
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(100, telem.NewSeriesV[float32](5.0))
+			h.state.Ingest(fr)
+			h.Execute(ctx, "increment_counter")
+			outFr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(outFr.Get(100).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0]).To(Equal(float32(6.0)))
+		})
+
+		// Test matching the user's original example with stateful variable and conditional
+		It("Should handle channel config param with stateful variable and conditional", func() {
+			resolver := symbol.MapResolver{
+				"do_0_counter": {
+					Name: "do_0_counter",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+			}
+
+			// Original example: func count_rising{counter chan f32}(input u8) {
+			//     prev u8 $= input
+			//     if input != 0 && prev == 0 { counter = counter + 1.0 }
+			//     prev = input
+			// }
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "count_rising",
+						Config:  types.Params{{Name: "counter", Type: types.Chan(types.F32())}},
+						Inputs:  types.Params{{Name: "input", Type: types.U8()}},
+						Outputs: types.Params{},
+						Body: ir.Body{Raw: `{
+							prev u8 $= input
+							if input != 0 and prev == 0 {
+								counter = counter + 1.0
+							}
+							prev = input
+						}`},
+					},
+					{
+						Key:     "input_source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+						Body:    ir.Body{Raw: `{ return 0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "input_source", Type: "input_source"},
+					{Key: "count_rising", Type: "count_rising", Config: map[string]any{"counter": uint32(100)}},
+				},
+				Edges: []graph.Edge{
+					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "count_rising", Param: "input"}},
+				},
+			}
+
+			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+			})
+			defer h.Close()
+
+			// Initial state: counter=0, input=0, prev initializes to 0
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(100, telem.NewSeriesV[float32](0.0))
+			h.state.Ingest(fr)
+			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "count_rising")
+			outFr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeFalse()) // input=0, no rising edge
+			Expect(outFr.Get(100).Series).To(HaveLen(0))
+
+			// Rising edge: input goes 0->1, prev=0, should increment
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(100, telem.NewSeriesV[float32](0.0))
+			h.state.Ingest(fr)
+			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(2))
+			h.Execute(ctx, "count_rising")
+			outFr, changed = h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(outFr.Get(100).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0]).To(Equal(float32(1.0)))
+
+			// Stay high: input=1, prev=1, no rising edge
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(100, telem.NewSeriesV[float32](1.0))
+			h.state.Ingest(fr)
+			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(3))
+			h.Execute(ctx, "count_rising")
+			outFr, changed = h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeFalse()) // No rising edge
+			Expect(outFr.Get(100).Series).To(HaveLen(0))
+
+			// Falling edge then rising: input 1->0->1
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(100, telem.NewSeriesV[float32](1.0))
+			h.state.Ingest(fr)
+			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](0), telem.NewSeriesSecondsTSV(4))
+			h.Execute(ctx, "count_rising")
+			outFr, changed = h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeFalse()) // Falling edge, no increment
+			Expect(outFr.Get(100).Series).To(HaveLen(0))
+
+			// Another rising edge
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(100, telem.NewSeriesV[float32](1.0))
+			h.state.Ingest(fr)
+			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(5))
+			h.Execute(ctx, "count_rising")
+			outFr, changed = h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(outFr.Get(100).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0]).To(Equal(float32(2.0)))
+		})
+
+		It("Should handle multiple channel config parameters", func() {
+			resolver := symbol.MapResolver{
+				"temp_sensor": {
+					Name: "temp_sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"pressure_sensor": {
+					Name: "pressure_sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   101,
+				},
+				"output_sum": {
+					Name: "output_sum",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   102,
+				},
+			}
+
+			// Function that reads from two channel config params and writes their sum to a third
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "combine_sensors",
+						Config: types.Params{
+							{Name: "temp", Type: types.Chan(types.F32())},
+							{Name: "pressure", Type: types.Chan(types.F32())},
+							{Name: "result", Type: types.Chan(types.F32())},
+						},
+						Inputs:  types.Params{},
+						Outputs: types.Params{},
+						Body: ir.Body{Raw: `{
+							result = temp + pressure
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:  "combine_sensors",
+						Type: "combine_sensors",
+						Config: map[string]any{
+							"temp":     uint32(100),
+							"pressure": uint32(101),
+							"result":   uint32(102),
+						},
+					},
+				},
+				Edges: []graph.Edge{},
+			}
+
+			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+				{Key: 101, DataType: telem.Float32T},
+				{Key: 102, DataType: telem.Float32T},
+			})
+			defer h.Close()
+
+			// Test: temp=25.5, pressure=101.3, expect result=126.8
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(100, telem.NewSeriesV[float32](25.5))
+			fr = fr.Append(101, telem.NewSeriesV[float32](101.3))
+			h.state.Ingest(fr)
+			h.Execute(ctx, "combine_sensors")
+			outFr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(outFr.Get(102).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float32](outFr.Get(102).Series[0])[0]).To(BeNumerically("~", float32(126.8), 0.01))
+		})
+
+		It("Should handle multiple channel config params with different operations", func() {
+			resolver := symbol.MapResolver{
+				"input_a": {
+					Name: "input_a",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   200,
+				},
+				"input_b": {
+					Name: "input_b",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   201,
+				},
+				"out_sum": {
+					Name: "out_sum",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   202,
+				},
+				"out_diff": {
+					Name: "out_diff",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   203,
+				},
+				"out_product": {
+					Name: "out_product",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   204,
+				},
+			}
+
+			// Function that performs multiple operations on channel config params
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "multi_op",
+						Config: types.Params{
+							{Name: "a", Type: types.Chan(types.F64())},
+							{Name: "b", Type: types.Chan(types.F64())},
+							{Name: "sum", Type: types.Chan(types.F64())},
+							{Name: "diff", Type: types.Chan(types.F64())},
+							{Name: "product", Type: types.Chan(types.F64())},
+						},
+						Inputs:  types.Params{},
+						Outputs: types.Params{},
+						Body: ir.Body{Raw: `{
+							sum = a + b
+							diff = a - b
+							product = a * b
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:  "multi_op",
+						Type: "multi_op",
+						Config: map[string]any{
+							"a":       uint32(200),
+							"b":       uint32(201),
+							"sum":     uint32(202),
+							"diff":    uint32(203),
+							"product": uint32(204),
+						},
+					},
+				},
+				Edges: []graph.Edge{},
+			}
+
+			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				{Key: 200, DataType: telem.Float64T},
+				{Key: 201, DataType: telem.Float64T},
+				{Key: 202, DataType: telem.Float64T},
+				{Key: 203, DataType: telem.Float64T},
+				{Key: 204, DataType: telem.Float64T},
+			})
+			defer h.Close()
+
+			// Test: a=10.0, b=3.0
+			// Expected: sum=13.0, diff=7.0, product=30.0
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(200, telem.NewSeriesV[float64](10.0))
+			fr = fr.Append(201, telem.NewSeriesV[float64](3.0))
+			h.state.Ingest(fr)
+			h.Execute(ctx, "multi_op")
+			outFr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+
+			Expect(outFr.Get(202).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float64](outFr.Get(202).Series[0])[0]).To(Equal(float64(13.0)))
+
+			Expect(outFr.Get(203).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float64](outFr.Get(203).Series[0])[0]).To(Equal(float64(7.0)))
+
+			Expect(outFr.Get(204).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float64](outFr.Get(204).Series[0])[0]).To(Equal(float64(30.0)))
+		})
+
+		It("Should handle channel config param used multiple times in expression", func() {
+			resolver := symbol.MapResolver{
+				"value_ch": {
+					Name: "value_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   300,
+				},
+				"squared_ch": {
+					Name: "squared_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   301,
+				},
+			}
+
+			// Function that reads from a channel config param twice (squaring it)
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "square_value",
+						Config: types.Params{
+							{Name: "value", Type: types.Chan(types.F32())},
+							{Name: "squared", Type: types.Chan(types.F32())},
+						},
+						Inputs:  types.Params{},
+						Outputs: types.Params{},
+						Body: ir.Body{Raw: `{
+							squared = value * value
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:  "square_value",
+						Type: "square_value",
+						Config: map[string]any{
+							"value":   uint32(300),
+							"squared": uint32(301),
+						},
+					},
+				},
+				Edges: []graph.Edge{},
+			}
+
+			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				{Key: 300, DataType: telem.Float32T},
+				{Key: 301, DataType: telem.Float32T},
+			})
+			defer h.Close()
+
+			// Test: value=7.0, expect squared=49.0
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(300, telem.NewSeriesV[float32](7.0))
+			h.state.Ingest(fr)
+			h.Execute(ctx, "square_value")
+			outFr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(outFr.Get(301).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float32](outFr.Get(301).Series[0])[0]).To(Equal(float32(49.0)))
+
+			// Test: value=0.5, expect squared=0.25
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(300, telem.NewSeriesV[float32](0.5))
+			h.state.Ingest(fr)
+			h.Execute(ctx, "square_value")
+			outFr, changed = h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(outFr.Get(301).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[float32](outFr.Get(301).Series[0])[0]).To(Equal(float32(0.25)))
+		})
+
+		It("Should handle mixed channel and non-channel config params", func() {
+			// This tests the tolerance_alarm pattern: some config params are channels,
+			// others are plain values (f32, i64)
+			resolver := symbol.MapResolver{
+				"set_point_ch": {
+					Name: "set_point_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   400,
+				},
+			}
+
+			// Simplified tolerance alarm: checks if value is above set_point + tolerance
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "tolerance_check",
+						Config: types.Params{
+							{Name: "tolerance_upper", Type: types.F32()},
+							{Name: "tolerance_lower", Type: types.F32()},
+							{Name: "set_point", Type: types.Chan(types.F32())},
+							{Name: "samples", Type: types.I64()},
+						},
+						Inputs:  types.Params{{Name: "value", Type: types.F32()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+						Body: ir.Body{Raw: `{
+							count i64 $= 0
+							upper_limit f32 := set_point + tolerance_upper
+							lower_limit f32 := set_point - tolerance_lower
+							if value >= upper_limit {
+								count = count + 1
+							} else if value <= lower_limit {
+								count = count + 1
+							} else {
+								count = 0
+							}
+							if count >= samples {
+								return 1
+							}
+							return 0
+						}`},
+					},
+					{
+						Key:     "value_source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+						Body:    ir.Body{Raw: `{ return 0.0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "value_source", Type: "value_source"},
+					{
+						Key:  "tolerance_check",
+						Type: "tolerance_check",
+						Config: map[string]any{
+							"tolerance_upper": float32(10.0),
+							"tolerance_lower": float32(5.0),
+							"set_point":       uint32(400),
+							"samples":         int64(3),
+						},
+					},
+				},
+				Edges: []graph.Edge{
+					{Source: ir.Handle{Node: "value_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "tolerance_check", Param: "value"}},
+				},
+			}
+
+			h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+				{Key: 400, DataType: telem.Float32T},
+			})
+			defer h.Close()
+
+			// set_point=100.0, tolerance_upper=10.0, tolerance_lower=5.0
+			// upper_limit = 110.0, lower_limit = 95.0
+			// samples=3 means we need 3 consecutive violations to alarm
+
+			// Test 1: value=105 (within limits), should return 0
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(400, telem.NewSeriesV[float32](100.0))
+			h.state.Ingest(fr)
+			h.SetInput("value_source", 0, telem.NewSeriesV[float32](105.0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "tolerance_check")
+			result := h.Output("tolerance_check", 0)
+			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+
+			// Test 2: value=115 (above upper limit), count=1, should return 0
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(400, telem.NewSeriesV[float32](100.0))
+			h.state.Ingest(fr)
+			h.SetInput("value_source", 0, telem.NewSeriesV[float32](115.0), telem.NewSeriesSecondsTSV(2))
+			h.Execute(ctx, "tolerance_check")
+			result = h.Output("tolerance_check", 0)
+			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+
+			// Test 3: value=115 again, count=2, should return 0
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(400, telem.NewSeriesV[float32](100.0))
+			h.state.Ingest(fr)
+			h.SetInput("value_source", 0, telem.NewSeriesV[float32](115.0), telem.NewSeriesSecondsTSV(3))
+			h.Execute(ctx, "tolerance_check")
+			result = h.Output("tolerance_check", 0)
+			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+
+			// Test 4: value=115 again, count=3 >= samples, should return 1 (alarm!)
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(400, telem.NewSeriesV[float32](100.0))
+			h.state.Ingest(fr)
+			h.SetInput("value_source", 0, telem.NewSeriesV[float32](115.0), telem.NewSeriesSecondsTSV(4))
+			h.Execute(ctx, "tolerance_check")
+			result = h.Output("tolerance_check", 0)
+			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
+		})
+
+		It("Should handle intermediate variable assignment from channel config param", func() {
+			// This is the EXACT user code that was failing.
+			// The key pattern is: sp := set_point (where set_point is chan f32)
+			resolver := symbol.MapResolver{
+				"input_val": {
+					Name: "input_val",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"set_point_ch": {
+					Name: "set_point_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   200,
+				},
+				"output_ch": {
+					Name: "output_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   300,
+				},
+			}
+
+			source := `
+func tolerance_alarm{
+    tolerance_upper f32,
+    tolerance_lower f32,
+    set_point chan f32,
+    samples i64
+} (value f32) u8 {
+    count i64 $= 0
+    sp := set_point
+
+    if value >= (sp + tolerance_upper) {
+        count = count + 1
+    } else if value <= (sp - tolerance_lower) {
+        count = count + 1
+    } else {
+        count = 0
+    }
+
+    if count >= samples {
+        return 1
+    }
+    return 0
+}
+
+input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_point=set_point_ch, samples=3} -> output_ch
+`
+			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+				{Key: 200, DataType: telem.Float32T},
+				{Key: 300, DataType: telem.Uint8T},
+			})
+			defer h.Close()
+
+			// set_point_ch has value 100.0
+			// tolerance_upper=10.0, tolerance_lower=5.0, samples=3
+			// upper = sp + tolerance_upper = 100.0 + 10.0 = 110.0
+			// lower = sp - tolerance_lower = 100.0 - 5.0 = 95.0
+
+			// Test 1: value=105 (within limits), should return 0
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(200, telem.NewSeriesV[float32](100.0)) // set_point_ch = 100.0
+			h.state.Ingest(fr)
+			h.SetInput("on_input_val_0", 0, telem.NewSeriesV[float32](105.0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "tolerance_alarm_0")
+			result := h.Output("tolerance_alarm_0", 0)
+			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+
+			// Test 2: value=115 (above upper=110), count=1, should return 0
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(200, telem.NewSeriesV[float32](100.0))
+			h.state.Ingest(fr)
+			h.SetInput("on_input_val_0", 0, telem.NewSeriesV[float32](115.0), telem.NewSeriesSecondsTSV(2))
+			h.Execute(ctx, "tolerance_alarm_0")
+			result = h.Output("tolerance_alarm_0", 0)
+			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+
+			// Test 3: value=115 again, count=2, should return 0
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(200, telem.NewSeriesV[float32](100.0))
+			h.state.Ingest(fr)
+			h.SetInput("on_input_val_0", 0, telem.NewSeriesV[float32](115.0), telem.NewSeriesSecondsTSV(3))
+			h.Execute(ctx, "tolerance_alarm_0")
+			result = h.Output("tolerance_alarm_0", 0)
+			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+
+			// Test 4: value=115 again, count=3 >= samples, should return 1 (alarm!)
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(200, telem.NewSeriesV[float32](100.0))
+			h.state.Ingest(fr)
+			h.SetInput(
+				"on_input_val_0",
+				0,
+				telem.NewSeriesV[float32](115.0),
+				telem.NewSeriesSecondsTSV(4),
+			)
+			h.Execute(ctx, "tolerance_alarm_0")
+			result = h.Output("tolerance_alarm_0", 0)
+			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
+
+			// Test 5: Change set_point to 200.0, value=198 now within limits
+			// upper = 200.0 + 10.0 = 210.0
+			// lower = 200.0 - 5.0 = 195.0
+			// value = 198.0 is between 195 and 210, so count resets to 0
+			fr = telem.Frame[uint32]{}
+			fr = fr.Append(200, telem.NewSeriesV[float32](200.0)) // set_point_ch = 200.0
+			h.state.Ingest(fr)
+			h.SetInput(
+				"on_input_val_0",
+				0,
+				telem.NewSeriesV[float32](198.0),
+				telem.NewSeriesSecondsTSV(5),
+			)
+			h.Execute(ctx, "tolerance_alarm_0")
+			result = h.Output("tolerance_alarm_0", 0)
+			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+		})
+
+		It("Should handle writing to channel through intermediate variable", func() {
+			// Test that writing to an intermediate variable correctly writes to the channel
+			// out := output (config param with channel type)
+			// out = value * 2.0 (write to channel through intermediate variable)
+			resolver := symbol.MapResolver{
+				"input_ch": {
+					Name: "input_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"write_target": {
+					Name: "write_target",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   200,
+				},
+				"sink_ch": {
+					Name: "sink_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   300,
+				},
+			}
+
+			source := `
+func writer{
+    output chan f32
+} (value f32) u8 {
+    out := output
+    out = value * 2.0
+    return 0
+}
+
+input_ch -> writer{output=write_target} -> sink_ch
+`
+			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+				{Key: 200, DataType: telem.Float32T},
+				{Key: 300, DataType: telem.Uint8T},
+			})
+			defer h.Close()
+
+			// Set input value to 25.0, expect write_target to receive 50.0 (25 * 2)
+			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](25.0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "writer_0")
+
+			// Check that the channel was written to with the correct value
+			fr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(fr.Get(200).Series).To(HaveLen(1))
+			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](50.0))
+		})
+
+		It("Should handle nested intermediate variable assignments from channel config param", func() {
+			// Test that we can chain intermediate variable assignments:
+			// out := output      (from config param)
+			// out2 := out        (from intermediate variable)
+			// out2 = value * 3.0 (write through second intermediate)
+			resolver := symbol.MapResolver{
+				"input_ch": {
+					Name: "input_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"write_target": {
+					Name: "write_target",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   200,
+				},
+				"sink_ch": {
+					Name: "sink_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   300,
+				},
+			}
+
+			source := `
+func writer{
+    output chan f32
+} (value f32) u8 {
+    out := output
+    out2 := out
+    out2 = value * 3.0
+    return 0
+}
+
+input_ch -> writer{output=write_target} -> sink_ch
+`
+			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+				{Key: 200, DataType: telem.Float32T},
+				{Key: 300, DataType: telem.Uint8T},
+			})
+			defer h.Close()
+
+			// Set input value to 10.0, expect write_target to receive 30.0 (10 * 3)
+			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](10.0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "writer_0")
+
+			// Check that the channel was written to with the correct value
+			fr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(fr.Get(200).Series).To(HaveLen(1))
+			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](30.0))
+		})
+
+		It("Should handle writing to channel through global channel alias", func() {
+			// Test that writing through an alias of a global channel works correctly
+			// out := output_ch   (global channel alias)
+			// out = value * 4.0  (write to channel through alias)
+			resolver := symbol.MapResolver{
+				"input_ch": {
+					Name: "input_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"output_ch": {
+					Name: "output_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   200,
+				},
+				"sink_ch": {
+					Name: "sink_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   300,
+				},
+			}
+
+			source := `
+func writer{} (value f32) u8 {
+    out := output_ch
+    out = value * 4.0
+    return 0
+}
+
+input_ch -> writer{} -> sink_ch
+`
+			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+				{Key: 200, DataType: telem.Float32T},
+				{Key: 300, DataType: telem.Uint8T},
+			})
+			defer h.Close()
+
+			// Set input value to 5.0, expect output_ch to receive 20.0 (5 * 4)
+			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](5.0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "writer_0")
+
+			// Check that the channel was written to with the correct value
+			fr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(fr.Get(200).Series).To(HaveLen(1))
+			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0))
+		})
+
+		It("Should handle triple nested aliases from global channel", func() {
+			// Test deeply nested alias chain:
+			// a := global_ch
+			// b := a
+			// c := b
+			// c = value * 5.0
+			resolver := symbol.MapResolver{
+				"input_ch": {
+					Name: "input_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"output_ch": {
+					Name: "output_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   200,
+				},
+				"sink_ch": {
+					Name: "sink_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   300,
+				},
+			}
+
+			source := `
+func writer{} (value f32) u8 {
+    a := output_ch
+    b := a
+    c := b
+    c = value * 5.0
+    return 0
+}
+
+input_ch -> writer{} -> sink_ch
+`
+			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+				{Key: 200, DataType: telem.Float32T},
+				{Key: 300, DataType: telem.Uint8T},
+			})
+			defer h.Close()
+
+			// Set input value to 4.0, expect output_ch to receive 20.0 (4 * 5)
+			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](4.0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "writer_0")
+
+			fr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(fr.Get(200).Series).To(HaveLen(1))
+			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0))
+		})
+
+		It("Should handle multiple aliases to same global channel", func() {
+			// Test multiple independent aliases to the same channel:
+			// out1 := output_ch
+			// out2 := output_ch
+			// out1 = value * 2.0  (first write)
+			// out2 = value * 3.0  (second write, overwrites)
+			resolver := symbol.MapResolver{
+				"input_ch": {
+					Name: "input_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"output_ch": {
+					Name: "output_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   200,
+				},
+				"sink_ch": {
+					Name: "sink_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   300,
+				},
+			}
+
+			source := `
+func writer{} (value f32) u8 {
+    out1 := output_ch
+    out2 := output_ch
+    out1 = value * 2.0
+    out2 = value * 3.0
+    return 0
+}
+
+input_ch -> writer{} -> sink_ch
+`
+			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+				{Key: 200, DataType: telem.Float32T},
+				{Key: 300, DataType: telem.Uint8T},
+			})
+			defer h.Close()
+
+			// Set input value to 10.0
+			// First write: 10 * 2 = 20
+			// Second write: 10 * 3 = 30
+			// Both writes go to the same channel - the runtime coalesces them
+			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](10.0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "writer_0")
+
+			fr, changed := h.state.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			// The last write (30.0) is the final value
+			Expect(fr.Get(200).Series).To(HaveLen(1))
+			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](30.0))
+		})
+
+		It("Should handle reading from global channel alias", func() {
+			// Test reading through a global channel alias:
+			// sp := set_point_ch  (alias to global channel)
+			// threshold := sp     (read from the channel through alias)
+			resolver := symbol.MapResolver{
+				"input_ch": {
+					Name: "input_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+				"set_point_ch": {
+					Name: "set_point_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   200,
+				},
+				"output_ch": {
+					Name: "output_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   300,
+				},
+			}
+
+			source := `
+func checker{} (value f32) u8 {
+    sp := set_point_ch
+    threshold := sp
+    if (value > threshold) {
+        return 1
+    }
+    return 0
+}
+
+input_ch -> checker{} -> output_ch
+`
+			h := newTextHarness(ctx, source, resolver, []state.ChannelDigest{
+				{Key: 100, DataType: telem.Float32T},
+				{Key: 200, DataType: telem.Float32T},
+				{Key: 300, DataType: telem.Uint8T},
+			})
+			defer h.Close()
+
+			// Set set_point_ch to 50.0
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(200, telem.NewSeriesV[float32](50.0))
+			h.state.Ingest(fr)
+
+			// Test with value=60 (above threshold), should return 1
+			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](60.0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "checker_0")
+			result := h.Output("checker_0", 0)
+			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
+
+			// Test with value=40 (below threshold), should return 0
+			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](40.0), telem.NewSeriesSecondsTSV(2))
+			h.Execute(ctx, "checker_0")
+			result = h.Output("checker_0", 0)
+			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
 		})
 	})
 })

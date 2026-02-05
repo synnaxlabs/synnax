@@ -24,7 +24,7 @@ import (
 type Module struct {
 	wasmRuntime wazero.Runtime
 	wasmModule  api.Module
-	arcRuntime  *runtimebindings.Runtime
+	runtime     *runtimebindings.Runtime
 }
 
 func (m *Module) Close() error {
@@ -36,12 +36,6 @@ func (m *Module) Close() error {
 	c.Exec(func() error { return m.wasmModule.Close(ctx) })
 	c.Exec(func() error { return m.wasmRuntime.Close(ctx) })
 	return c.Error()
-}
-
-// OnCycleEnd implements scheduler.CycleCallback to clear temporary series handles.
-// This should be called at the end of each scheduler cycle to prevent memory leaks.
-func (m *Module) OnCycleEnd() {
-	m.arcRuntime.ClearTemporarySeries()
 }
 
 type ModuleConfig struct {
@@ -65,6 +59,6 @@ func OpenModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 	return &Module{
 		wasmModule:  wasmModule,
 		wasmRuntime: wasmRuntime,
-		arcRuntime:  arcRuntime,
+		runtime:     arcRuntime,
 	}, nil
 }

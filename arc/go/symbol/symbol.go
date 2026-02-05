@@ -109,4 +109,10 @@ type Symbol struct {
 	// to KindVariable, KindStatefulVariable, KindInput, KindOutput, KindChannel, and
 	// KindConfig.
 	ID int
+	// SourceID tracks the ID of the source symbol for channel type propagation.
+	// When a variable or config param holds a channel reference, this field stores
+	// the ID of the original source (config param or global channel) so that
+	// Channels.Read/Write can be correctly resolved at instantiation time.
+	// A nil value means this symbol is the original source (e.g., a config param).
+	SourceID *int
 }

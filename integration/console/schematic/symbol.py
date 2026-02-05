@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import synnax as sy
 from playwright.sync_api import FloatRect, Locator, Page
@@ -119,6 +119,19 @@ class Symbol(ABC):
 
     def _enable_edit_mode(self) -> None:
         self.notifications.close_all()
+        enable_editing_link = self.page.get_by_text("enable editing", exact=False)
+        if enable_editing_link.count() > 0:
+            enable_editing_link.click()
+            self.page.get_by_label("pluto-icon--edit-off").wait_for(
+                state="visible", timeout=2000
+            )
+            return
+        edit_icon = self.page.get_by_label("pluto-icon--edit")
+        if edit_icon.count() > 0:
+            edit_icon.click()
+
+    def _enable_edit_mode(self) -> None:
+        self.console.notifications.close_all()
         enable_editing_link = self.page.get_by_text("enable editing", exact=False)
         if enable_editing_link.count() > 0:
             enable_editing_link.click()

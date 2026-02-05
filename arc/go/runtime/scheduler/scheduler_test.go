@@ -96,7 +96,7 @@ var _ = Describe("Scheduler", func() {
 	}
 
 	build := func(prog ir.IR) *scheduler.Scheduler {
-		return scheduler.New(prog, nodes)
+		return scheduler.New(prog, nodes, 0)
 	}
 
 	BeforeEach(func() {
@@ -109,7 +109,7 @@ var _ = Describe("Scheduler", func() {
 		It("Should construct with empty program", func() {
 			prog := ir.IR{}
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 		})
 
 		It("Should construct with single stratum", func() {
@@ -123,7 +123,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(mocks["A"].NextCalled).To(Equal(1))
 			Expect(mocks["B"].NextCalled).To(Equal(1))
@@ -159,7 +159,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			// If transition table built correctly, stage_a should be active
 			Expect(mocks["A"].NextCalled).To(Equal(1))
@@ -177,9 +177,9 @@ var _ = Describe("Scheduler", func() {
 
 			s := build(prog)
 
-			s.Next(ctx, telem.Microsecond)
-			s.Next(ctx, 2*telem.Microsecond)
-			s.Next(ctx, 3*telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeA.NextCalled).To(Equal(3))
 		})
@@ -196,7 +196,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeA.NextCalled).To(Equal(1))
 			Expect(nodeB.NextCalled).To(Equal(0))
@@ -212,8 +212,8 @@ var _ = Describe("Scheduler", func() {
 
 			s := build(prog)
 
-			s.Next(ctx, 5*telem.Microsecond)
-			s.Next(ctx, 10*telem.Microsecond)
+			s.Next(ctx, 5*telem.Microsecond, node.ReasonTimerTick)
+			s.Next(ctx, 10*telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeA.ElapsedValues).To(HaveLen(2))
 			Expect(nodeA.ElapsedValues[0]).To(Equal(5 * telem.Microsecond))
@@ -231,7 +231,7 @@ var _ = Describe("Scheduler", func() {
 			s := build(prog)
 
 			for i := 0; i < 100; i++ {
-				s.Next(ctx, telem.TimeSpan(i)*telem.Microsecond)
+				s.Next(ctx, telem.TimeSpan(i)*telem.Microsecond, node.ReasonTimerTick)
 			}
 
 			Expect(nodeA.NextCalled).To(Equal(100))
@@ -248,7 +248,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(mocks["A"].NextCalled).To(Equal(1))
 			Expect(mocks["B"].NextCalled).To(Equal(0))
@@ -277,10 +277,10 @@ var _ = Describe("Scheduler", func() {
 
 			s := build(prog)
 
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(1))
 
-			s.Next(ctx, 2*telem.Microsecond)
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 	})
@@ -300,7 +300,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeA.NextCalled).To(Equal(1))
 			Expect(nodeB.NextCalled).To(Equal(1))
@@ -319,7 +319,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeA.NextCalled).To(Equal(1))
 			Expect(nodeB.NextCalled).To(Equal(0))
@@ -342,7 +342,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeB.NextCalled).To(Equal(1))
 			Expect(nodeC.NextCalled).To(Equal(0))
@@ -366,7 +366,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeC.NextCalled).To(Equal(1))
 		})
@@ -388,7 +388,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeB.NextCalled).To(Equal(1))
 			Expect(nodeC.NextCalled).To(Equal(0))
@@ -412,7 +412,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeA.NextCalled).To(Equal(1))
 			Expect(nodeB.NextCalled).To(Equal(1))
@@ -442,7 +442,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeD.NextCalled).To(Equal(1))
 		})
@@ -464,7 +464,7 @@ var _ = Describe("Scheduler", func() {
 			prog := builder.Strata([][]string{stratum0}).Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			for i := 0; i < 10; i++ {
 				Expect(mocks[fmt.Sprintf("N%d", i)].NextCalled).To(Equal(1))
@@ -488,7 +488,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
@@ -508,7 +508,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeB.NextCalled).To(Equal(0))
 		})
@@ -540,10 +540,10 @@ var _ = Describe("Scheduler", func() {
 
 			s := build(prog)
 
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(1))
 
-			s.Next(ctx, 2*telem.Microsecond)
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 
@@ -563,13 +563,13 @@ var _ = Describe("Scheduler", func() {
 
 			s := build(prog)
 
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(1))
 
-			s.Next(ctx, 2*telem.Microsecond)
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(1))
 
-			s.Next(ctx, 3*telem.Microsecond)
+			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 
@@ -602,12 +602,12 @@ var _ = Describe("Scheduler", func() {
 
 			s := build(prog)
 
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(1))
 			Expect(nodeA.ResetCalled).To(Equal(1))
 
 			// Stage re-activates via continuous edge, clearing fired_one_shots
-			s.Next(ctx, 2*telem.Microsecond)
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(2))
 			Expect(nodeA.ResetCalled).To(Equal(2))
 		})
@@ -627,7 +627,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
@@ -648,7 +648,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeB.NextCalled).To(Equal(0))
 		})
@@ -674,7 +674,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeA.NextCalled).To(Equal(1))
 		})
@@ -702,7 +702,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeA.NextCalled).To(Equal(1)) // Global
 			Expect(nodeB.NextCalled).To(Equal(1)) // Stage
@@ -730,7 +730,7 @@ var _ = Describe("Scheduler", func() {
 
 			s := build(prog)
 			Expect(nodeA.NextCalled).To(Equal(0))
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(1))
 		})
 
@@ -764,13 +764,13 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeA.NextCalled).To(Equal(1))
 			Expect(nodeB.NextCalled).To(Equal(1))
 
 			// Stage_b remains active, stage_a deactivated
-			s.Next(ctx, 2*telem.Microsecond)
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(1))
 			Expect(nodeB.NextCalled).To(Equal(2))
 		})
@@ -798,7 +798,7 @@ var _ = Describe("Scheduler", func() {
 			s := build(prog)
 
 			Expect(nodeA.ResetCalled).To(Equal(0))
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeA.ResetCalled).To(Equal(1))
 		})
 
@@ -836,7 +836,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeA.NextCalled).To(Equal(1))
 			Expect(nodeB.NextCalled).To(Equal(1))
@@ -883,7 +883,7 @@ var _ = Describe("Scheduler", func() {
 			s := build(prog)
 
 			// Single next() cascades through all stages: A→B→C
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(1))
 			Expect(nodeB.NextCalled).To(Equal(1))
 			Expect(nodeC.NextCalled).To(Equal(1))
@@ -912,7 +912,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(1))
 		})
 
@@ -953,7 +953,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeA.NextCalled).To(Equal(1))
 			Expect(nodeB.NextCalled).To(Equal(1))
@@ -981,8 +981,8 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
-			s.Next(ctx, 2*telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(2))
 		})
 
@@ -1012,7 +1012,7 @@ var _ = Describe("Scheduler", func() {
 
 			s := build(prog)
 			// Should not hang
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(true).To(BeTrue())
 		})
 
@@ -1045,7 +1045,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(1))
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
@@ -1065,7 +1065,7 @@ var _ = Describe("Scheduler", func() {
 			s := build(prog)
 			handler := &MockErrorHandler{}
 			s.SetErrorHandler(handler)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(handler.Errors).To(HaveLen(1))
 			Expect(handler.Errors[0].NodeKey).To(Equal("A"))
@@ -1089,7 +1089,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 
@@ -1104,7 +1104,7 @@ var _ = Describe("Scheduler", func() {
 
 			s := build(prog)
 			// Should not panic
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(1))
 		})
 	})
@@ -1134,7 +1134,7 @@ var _ = Describe("Scheduler", func() {
 
 			prog := builder.Strata(strata).Build()
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			for i := 0; i < 10; i++ {
 				Expect(mocks[fmt.Sprintf("N%d", i)].NextCalled).To(Equal(1))
@@ -1160,7 +1160,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(nodeA.NextCalled).To(Equal(1))
 			Expect(nodeB.NextCalled).To(Equal(1))
@@ -1192,7 +1192,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(globalNode.NextCalled).To(Equal(1))
 			Expect(stagedNode.NextCalled).To(Equal(1))
@@ -1237,7 +1237,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 
 			Expect(globalNode.NextCalled).To(Equal(1))
 			Expect(staged1.NextCalled).To(Equal(1))
@@ -1255,7 +1255,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, 0)
+			s.Next(ctx, 0, node.ReasonTimerTick)
 
 			Expect(nodeA.NextCalled).To(Equal(1))
 			Expect(nodeA.ElapsedValues[0]).To(Equal(telem.TimeSpan(0)))
@@ -1272,7 +1272,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(1))
 		})
 
@@ -1286,7 +1286,7 @@ var _ = Describe("Scheduler", func() {
 				Build()
 
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(mocks["A"].NextCalled).To(Equal(1))
 		})
 	})

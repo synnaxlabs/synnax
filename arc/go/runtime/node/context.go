@@ -15,6 +15,17 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// RunReason indicates what triggered the current scheduler run.
+type RunReason int
+
+//go:generate stringer -type=RunReason
+const (
+	// ReasonTimerTick indicates the scheduler ran due to timer expiration.
+	ReasonTimerTick RunReason = iota
+	// ReasonChannelInput indicates the scheduler ran due to input data arrival.
+	ReasonChannelInput
+)
+
 // Context carries runtime execution state and callbacks for node execution.
 // It embeds context.Context for cancellation, deadlines, and values.
 type Context struct {
@@ -32,4 +43,10 @@ type Context struct {
 	// Elapsed is the time elapsed since the runtime started.
 	// Used by time-based nodes (interval, wait) to track timing.
 	Elapsed telem.TimeSpan
+	// Tolerance is the timing tolerance for interval/wait comparisons.
+	// Allows firing up to this amount early to handle OS scheduling jitter.
+	Tolerance telem.TimeSpan
+	// Reason indicates what triggered this scheduler run (timer tick or channel input).
+	// Time-based nodes should only fire when Reason is ReasonTimerTick.
+	Reason RunReason
 }

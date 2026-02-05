@@ -14,6 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/runtime/wasm/bindings"
 )
 
@@ -47,8 +49,8 @@ type typeOps[T any] struct {
 	seriesAdd   func(ctx context.Context, a, b uint32) uint32
 	scalarEQ    func(ctx context.Context, handle uint32, value T) uint32
 	scalarNE    func(ctx context.Context, handle uint32, value T) uint32
-	stateLoad   func(ctx context.Context, funcID, varID, initHandle uint32) uint32
-	stateStore  func(ctx context.Context, funcID, varID, handle uint32)
+	stateLoad   func(ctx context.Context, varID, initHandle uint32) uint32
+	stateStore  func(ctx context.Context, varID, handle uint32)
 	createEmpty func(ctx context.Context, length uint32) uint32
 	elementRSub func(ctx context.Context, value T, handle uint32) uint32
 	elementMod  func(ctx context.Context, handle uint32, value T) uint32
@@ -289,12 +291,12 @@ func testAllOps[T comparable](ops typeOps[T], rt *bindings.Runtime, ctx context.
 	hs := ops.createEmpty(ctx, 2)
 	ops.setElement(ctx, hs, 0, ops.v1)
 	ops.setElement(ctx, hs, 1, ops.v2)
-	loaded1 := ops.stateLoad(ctx, 1, 1, hs)
+	loaded1 := ops.stateLoad(ctx, 1, hs)
 	Expect(loaded1).To(Equal(hs))
-	ops.stateStore(ctx, 1, 1, hs)
+	ops.stateStore(ctx, 1, hs)
 	hInit := ops.createEmpty(ctx, 1)
 	ops.setElement(ctx, hInit, 0, ops.v3)
-	loaded2 := ops.stateLoad(ctx, 1, 1, hInit)
+	loaded2 := ops.stateLoad(ctx, 1, hInit)
 	Expect(loaded2).ToNot(Equal(hInit))
 	Expect(rt.SeriesLen(ctx, loaded2)).To(Equal(uint64(2)))
 }
@@ -304,7 +306,8 @@ var _ = Describe("Runtime Series Operations", func() {
 	var ctx context.Context
 
 	BeforeEach(func() {
-		rt = bindings.NewRuntime(nil, nil)
+		st := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+		rt = bindings.NewRuntime(st, nil)
 		ctx = context.Background()
 	})
 

@@ -11,10 +11,11 @@ package runtime
 
 import (
 	"context"
+	"fmt"
 	"io"
-	"slices"
+	"math"
+	stdtime "time"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
@@ -24,9 +25,8 @@ import (
 	"github.com/synnaxlabs/arc/runtime/stage"
 	"github.com/synnaxlabs/arc/runtime/state"
 	arctelem "github.com/synnaxlabs/arc/runtime/telem"
-	"github.com/synnaxlabs/arc/runtime/time"
+	arctime "github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/runtime/wasm"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -46,36 +46,21 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	streamerAddr address.Address = "streamer"
+	writerAddr   address.Address = "writer"
+	runtimeAddr  address.Address = "runtime"
+)
+
 // taskImpl implements the driver.Task interface and manages Arc program execution.
 type taskImpl struct {
 	ctx        driver.Context
-	closer     io.Closer
-	scheduler  *scheduler.Scheduler
-	streamer   *streamerSeg
-	writer     *writerSeg
-	state      *state.State
 	factoryCfg FactoryConfig
 	task       task.Task
 	cfg        TaskConfig
 	prog       arc.Arc
-	startTime  telem.TimeStamp
-	running    bool
-}
 
-func newTask(
-	tsk task.Task,
-	prog arc.Arc,
-	cfg TaskConfig,
-	ctx driver.Context,
-	factoryCfg FactoryConfig,
-) *taskImpl {
-	return &taskImpl{
-		task:       tsk,
-		prog:       prog,
-		cfg:        cfg,
-		ctx:        ctx,
-		factoryCfg: factoryCfg,
-	}
+	closer io.Closer
 }
 
 func (t *taskImpl) Exec(ctx context.Context, cmd task.Command) error {
@@ -89,32 +74,40 @@ func (t *taskImpl) Exec(ctx context.Context, cmd task.Command) error {
 	}
 }
 
+func (t *taskImpl) isRunning() bool {
+	return t.closer != nil
+}
+
 func (t *taskImpl) start(ctx context.Context) error {
-	if t.running {
+	if t.isRunning() {
 		return nil
 	}
-	mod := t.prog.Module
-	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel, mod)
+	drt := dataRuntime{}
+	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel, t.prog.Module)
 	if err != nil {
 		t.setStatus(status.VariantError, false, err.Error())
 		return err
 	}
-	t.state = state.New(stateCfg.State)
+	drt.state = state.New(stateCfg.State)
+	timeFactory := arctime.NewFactory()
 	f := node.MultiFactory{
 		arctelem.NewTelemFactory(),
 		selector.NewFactory(),
 		constant.NewFactory(),
 		op.NewFactory(),
 		stage.NewFactory(),
-		time.NewFactory(),
+		timeFactory,
 		stable.NewFactory(stable.FactoryConfig{}),
 		arcstatus.NewFactory(t.factoryCfg.Status),
 	}
 	var closers xio.MultiCloser
-	if len(mod.WASM) > 0 {
-		wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
-			Module: mod,
-			State:  t.state,
+	var wasmMod *wasm.Module
+
+	if len(t.prog.Module.WASM) > 0 {
+		var err error
+		wasmMod, err = wasm.OpenModule(ctx, wasm.ModuleConfig{
+			Module: t.prog.Module,
+			State:  drt.state,
 		})
 		if err != nil {
 			t.setStatus(status.VariantError, false, err.Error())
@@ -130,11 +123,11 @@ func (t *taskImpl) start(ctx context.Context) error {
 	}
 
 	nodes := make(map[string]node.Node)
-	for _, irNode := range mod.Nodes {
+	for _, irNode := range t.prog.Module.Nodes {
 		n, err := f.Create(ctx, node.Config{
 			Node:   irNode,
-			Module: mod,
-			State:  t.state.Node(irNode.Key),
+			Module: t.prog.Module,
+			State:  drt.state.Node(irNode.Key),
 		})
 		if err != nil {
 			t.setStatus(status.VariantError, false, err.Error())
@@ -143,88 +136,86 @@ func (t *taskImpl) start(ctx context.Context) error {
 		nodes[irNode.Key] = n
 	}
 
-	t.scheduler = scheduler.New(mod.IR, nodes)
-	t.startTime = telem.Now()
+	tolerance := arctime.CalculateTolerance(timeFactory.BaseInterval)
+	drt.scheduler = scheduler.New(t.prog.Module.IR, nodes, tolerance)
 
-	var streamPipeline confluence.Flow
+	drt.scheduler.SetErrorHandler(scheduler.ErrorHandlerFunc(func(nodeKey string, err error) {
+		t.factoryCfg.L.Warn("runtime error in arc node",
+			zap.String("node", nodeKey),
+			zap.Uint64("task", uint64(t.task.Key)),
+			zap.Error(err),
+		)
+		t.setRuntimeError(nodeKey, err)
+	}))
+
+	drt.startTime = telem.Now()
+
+	pipeline := plumber.New()
+
+	var runtime confluence.Segment[framer.StreamerResponse, framer.WriterRequest] = &drt
+	if hasIntervals := timeFactory.BaseInterval != telem.TimeSpan(math.MaxInt64); hasIntervals {
+		runtime = &tickerRuntime{dataRuntime: drt, interval: timeFactory.BaseInterval}
+	}
+	plumber.SetSegment(pipeline, runtimeAddr, runtime)
+
+	var (
+		streamerRequests    = confluence.NewStream[framer.StreamerRequest]()
+		streamerCloseSignal io.Closer
+	)
 	if len(stateCfg.Reads) > 0 {
-		t.streamer = &streamerSeg{}
-		streamPipeline, t.streamer.requests, err = createStreamPipeline(
-			ctx, t, t.factoryCfg.Framer, stateCfg.Reads.Keys(),
+		streamer, err := t.factoryCfg.Framer.NewStreamer(
+			ctx,
+			framer.StreamerConfig{Keys: stateCfg.Reads.Keys()},
 		)
 		if err != nil {
 			t.setStatus(status.VariantError, false, err.Error())
 			return err
 		}
+		plumber.SetSegment(pipeline, streamerAddr, streamer)
+		plumber.MustConnect[framer.StreamerResponse](pipeline, streamerAddr, runtimeAddr, 10)
+		streamer.InFrom(streamerRequests)
+		streamerCloseSignal = xio.NoFailCloserFunc(streamerRequests.Close)
+	} else {
+		streamerResponses := confluence.NewStream[framer.StreamerResponse]()
+		runtime.InFrom(streamerResponses)
+		streamerCloseSignal = xio.NoFailCloserFunc(streamerResponses.Close)
 	}
 
-	var writePipeline confluence.Flow
 	if len(stateCfg.Writes) > 0 {
-		t.writer = &writerSeg{}
-		writePipeline, err = createWritePipeline(
-			ctx, t.prog.Name, t, t.factoryCfg.Framer, stateCfg.Writes.Keys(),
+		wrt, err := t.factoryCfg.Framer.NewStreamWriter(
+			ctx,
+			framer.WriterConfig{
+				ControlSubject: control.Subject{Name: t.prog.Name},
+				Start:          drt.startTime,
+				Keys:           stateCfg.Writes.Keys(),
+			},
 		)
 		if err != nil {
 			t.setStatus(status.VariantError, false, err.Error())
 			return err
 		}
+		plumber.SetSegment(pipeline, writerAddr, wrt)
+		plumber.MustConnect[framer.WriterRequest](pipeline, runtimeAddr, writerAddr, 10)
+		wrt.OutTo(confluence.NewStream[framer.WriterResponse]())
 	}
-
-	if writePipeline != nil || streamPipeline != nil {
-		sCtx, cancel := signal.Isolated()
-		if streamPipeline != nil {
-			streamPipeline.Flow(
-				sCtx,
-				confluence.CloseOutputInletsOnExit(),
-				confluence.RecoverWithErrOnPanic(),
-			)
-		}
-		if writePipeline != nil {
-			writePipeline.Flow(
-				sCtx,
-				confluence.CloseOutputInletsOnExit(),
-				confluence.RecoverWithErrOnPanic(),
-			)
-		}
-		t.closer = append(closers, signal.NewGracefulShutdown(sCtx, cancel))
-	}
-	t.running = true
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.factoryCfg.Instrumentation))
+	t.closer = append(
+		closers,
+		signal.NewGracefulShutdown(sCtx, cancel),
+		streamerCloseSignal,
+	)
+	pipeline.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
 	t.setStatus(status.VariantSuccess, true, "Task started successfully")
 	return nil
 }
 
-// processFrame is the core reactive loop: ingests telemetry, schedules nodes, flushes writes.
-func (t *taskImpl) processFrame(ctx context.Context, res framer.StreamerResponse) error {
-	t.state.Ingest(res.Frame.ToStorage())
-	t.scheduler.Next(ctx, telem.Since(t.startTime))
-	fr, changed := t.state.FlushWrites(telem.Frame[uint32]{})
-	if !changed || t.writer == nil {
-		return nil
-	}
-	return t.writer.Write(ctx, frame.NewFromStorage(fr))
-}
-
 func (t *taskImpl) stop() error {
-	if !t.running {
+	if !t.isRunning() {
 		return nil
 	}
-	c := errors.NewCatcher(errors.WithAggregation())
-	if t.streamer != nil {
-		c.Exec(t.streamer.Close)
-	}
-	if t.writer != nil {
-		c.Exec(t.writer.Close)
-	}
-	if t.closer != nil {
-		c.Exec(t.closer.Close)
-	}
-	t.scheduler = nil
-	t.streamer = nil
-	t.writer = nil
-	t.state = nil
+	err := t.closer.Close()
 	t.closer = nil
-	t.running = false
-	if err := c.Error(); err != nil {
+	if err != nil {
 		t.setStatus(status.VariantError, false, err.Error())
 		return err
 	}
@@ -244,10 +235,7 @@ func (t *taskImpl) setStatus(variant status.Variant, running bool, message strin
 		Variant: variant,
 		Message: message,
 		Time:    telem.Now(),
-		Details: task.StatusDetails{
-			Task:    t.task.Key,
-			Running: running,
-		},
+		Details: task.StatusDetails{Task: t.task.Key, Running: running},
 	}
 	if err := t.ctx.SetStatus(stat); err != nil {
 		t.factoryCfg.L.Error(
@@ -259,120 +247,92 @@ func (t *taskImpl) setStatus(variant status.Variant, running bool, message strin
 	}
 }
 
-type streamerSeg struct {
-	confluence.UnarySink[framer.StreamerResponse]
-	requests confluence.Inlet[framer.StreamerRequest]
+func (t *taskImpl) setRuntimeError(nodeKey string, err error) {
+	nodeType := nodeKey
+	if n, ok := t.prog.Module.Nodes.Find(nodeKey); ok {
+		nodeType = n.Type
+	}
+	stat := task.Status{
+		Key:         task.OntologyID(t.task.Key).String(),
+		Variant:     status.VariantWarning,
+		Message:     fmt.Sprintf("Runtime error in %s", nodeType),
+		Description: err.Error(),
+		Time:        telem.Now(),
+		Details:     task.StatusDetails{Task: t.task.Key, Running: true},
+	}
+	if setErr := t.ctx.SetStatus(stat); setErr != nil {
+		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
+	}
 }
 
-func (s *streamerSeg) Close() error {
-	s.requests.Close()
-	confluence.Drain(s.In)
+type dataRuntime struct {
+	confluence.AbstractLinear[framer.StreamerResponse, framer.WriterRequest]
+	startTime telem.TimeStamp
+	scheduler *scheduler.Scheduler
+	state     *state.State
+}
+
+func (d *dataRuntime) next(
+	ctx context.Context,
+	res framer.StreamerResponse,
+	reason node.RunReason,
+) error {
+	d.state.Ingest(res.Frame.ToStorage())
+	d.scheduler.Next(ctx, telem.Since(d.startTime), reason)
+	d.state.ClearReads()
+	if fr, changed := d.state.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
+		req := framer.WriterRequest{
+			Frame:   frame.NewFromStorage(fr),
+			Command: writer.CommandWrite,
+		}
+		return signal.SendUnderContext(ctx, d.Out.Inlet(), req)
+	}
 	return nil
 }
 
-type writerSeg struct {
-	confluence.UnarySink[framer.WriterResponse]
-	confluence.AbstractUnarySource[framer.WriterRequest]
-}
-
-func (w *writerSeg) sink(_ context.Context, res framer.WriterResponse) error {
-	return nil
-}
-
-func (w *writerSeg) Write(ctx context.Context, fr framer.Frame) error {
-	return signal.SendUnderContext(
-		ctx,
-		w.Out.Inlet(),
-		framer.WriterRequest{Frame: fr, Command: writer.CommandWrite},
-	)
-}
-
-func (w *writerSeg) Close() error {
-	if w.Out != nil {
-		w.Out.Close()
-		confluence.Drain(w.In)
+func (d *dataRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
+	o := confluence.NewOptions(opts)
+	if d.Out != nil {
+		o.AttachClosables(d.Out)
 	}
-	return nil
+	signal.GoRange(sCtx, d.In.Outlet(), func(ctx context.Context, res framer.StreamerResponse) error {
+		return d.next(ctx, res, node.ReasonChannelInput)
+	}, o.Signal...)
 }
 
-func retrieveChannels(
-	ctx context.Context,
-	channelSvc *channel.Service,
-	keys []channel.Key,
-) ([]channel.Channel, error) {
-	channels := make([]channel.Channel, 0, len(keys))
-	if err := channelSvc.NewRetrieve().
-		WhereKeys(keys...).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	indexes := lo.FilterMap(channels, func(item channel.Channel, index int) (channel.Key, bool) {
-		return item.Index(), !item.Virtual
-	})
-	indexChannels := make([]channel.Channel, 0, len(indexes))
-	if err := channelSvc.NewRetrieve().
-		WhereKeys(indexes...).
-		Entries(&indexChannels).Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	return slices.Concat(channels, indexChannels), nil
+type tickerRuntime struct {
+	dataRuntime
+	interval telem.TimeSpan
 }
 
-var (
-	streamerAddr address.Address = "streamerSeg"
-	writerAddr   address.Address = "writer"
-	runtimeAddr  address.Address = "runtime"
-)
-
-func createStreamPipeline(
-	ctx context.Context,
-	t *taskImpl,
-	frameSvc *framer.Service,
-	readChannelKeys []channel.Key,
-) (confluence.Flow, confluence.Inlet[framer.StreamerRequest], error) {
-	p := plumber.New()
-	streamer, err := frameSvc.NewStreamer(
-		ctx,
-		framer.StreamerConfig{Keys: readChannelKeys},
-	)
-	if err != nil {
-		return nil, nil, err
+func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
+	o := confluence.NewOptions(opts)
+	if r.Out != nil {
+		o.AttachClosables(r.Out)
 	}
-	plumber.SetSegment(p, streamerAddr, streamer)
-	t.streamer.Sink = t.processFrame
-	plumber.SetSink[framer.StreamerResponse](p, runtimeAddr, t.streamer)
-	streamer.InFrom(confluence.NewStream[framer.StreamerRequest]())
-	plumber.MustConnect[framer.StreamerResponse](p, streamerAddr, runtimeAddr, 10)
-	requests := confluence.NewStream[framer.StreamerRequest]()
-	streamer.InFrom(requests)
-	return p, requests, nil
-}
-
-func createWritePipeline(
-	ctx context.Context,
-	name string,
-	t *taskImpl,
-	frameSvc *framer.Service,
-	writeChannelKeys []channel.Key,
-) (confluence.Flow, error) {
-	p := plumber.New()
-	w, err := frameSvc.NewStreamWriter(
-		ctx,
-		framer.WriterConfig{
-			ControlSubject: control.Subject{Name: name},
-			Start:          telem.Now(),
-			Keys:           writeChannelKeys,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	t.writer.Sink = t.writer.sink
-	plumber.SetSegment(p, writerAddr, w)
-	plumber.SetSegment[framer.WriterResponse, framer.WriterRequest](p, runtimeAddr, t.writer)
-	plumber.MustConnect[framer.WriterResponse](p, writerAddr, runtimeAddr, 10)
-	plumber.MustConnect[framer.WriterRequest](p, runtimeAddr, writerAddr, 10)
-	return p, nil
-
+	sCtx.Go(func(ctx context.Context) error {
+		var (
+			runReason node.RunReason
+			ticker    = stdtime.NewTicker(r.interval.Duration())
+			res       framer.StreamerResponse
+			ok        bool
+		)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+				runReason = node.ReasonTimerTick
+			case res, ok = <-r.In.Outlet():
+				if !ok {
+					return nil
+				}
+				runReason = node.ReasonChannelInput
+			}
+			if err := r.next(ctx, res, runReason); err != nil {
+				return err
+			}
+		}
+	}, o.Signal...)
 }

@@ -811,6 +811,8 @@ class WorkspaceClient:
         Returns:
             Log instance for the opened log.
         """
+        from .log import Log
+
         self.drag_page_to_mosaic(name)
         return Log.from_open_page(self.layout, self.client, name)
 

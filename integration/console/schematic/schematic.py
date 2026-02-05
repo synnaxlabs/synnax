@@ -15,6 +15,9 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from ..layout import LayoutClient
 from ..page import ConsolePage
+
+if TYPE_CHECKING:
+    from console.console import Console
 from .symbol import (
     Symbol,
     box_bottom,
