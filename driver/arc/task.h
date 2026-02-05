@@ -23,6 +23,7 @@
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/arc.h"
+#include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/common/common.h"
@@ -80,7 +81,7 @@ class Task final : public task::Task {
 
         xerrors::Error read(breaker::Breaker &breaker, telem::Frame &data) override {
             if (!this->task.runtime->read(data))
-                return xerrors::Error("runtime closed");
+                return driver::NOMINAL_SHUTDOWN_ERROR;
             return xerrors::NIL;
         }
 

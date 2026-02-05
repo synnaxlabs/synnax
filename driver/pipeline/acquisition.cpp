@@ -94,8 +94,9 @@ void Acquisition::run() {
 
         if (auto source_err_i = this->source->read(this->breaker, frame)) {
             source_err = source_err_i;
-            LOG(ERROR) << "[acquisition] failed to read source: "
-                       << source_err.message();
+            if (!source_err.matches(driver::NOMINAL_SHUTDOWN_ERROR))
+                LOG(ERROR) << "[acquisition] failed to read source: "
+                           << source_err.message();
             // With a temporary error, we just continue the loop. With any other
             // error we break and shut things down.
             if (source_err.matches(driver::TEMPORARY_HARDWARE_ERROR) &&
