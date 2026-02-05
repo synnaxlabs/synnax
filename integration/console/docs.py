@@ -35,6 +35,7 @@ class DocsClient:
     def close(self) -> None:
         self.console.layout.close_tab("Documentation")
 
+    @property
     def is_open(self) -> bool:
         return self.console.layout.get_tab("Documentation").count() > 0
 

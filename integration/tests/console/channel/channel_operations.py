@@ -434,7 +434,7 @@ class ChannelOperations(ConsoleCase):
         """Test opening a channel plot by searching its name in the command palette."""
         self.log("Testing open channel plot by name via command palette")
 
-        plot = Plot.open_from_search(self.client, self.console, self.shared_data)
+        plot = Plot.open_from_search(self.console, self.shared_data)
         plot.close()
 
     def test_open_create_channel_modal(self) -> None:
@@ -459,7 +459,7 @@ class ChannelOperations(ConsoleCase):
 
         client = self.client
 
-        plot = Plot(client, self.console, f"Nested Calc Plot {self.suffix}")
+        plot = Plot(self.console, f"Nested Calc Plot {self.suffix}")
         plot.add_channels("Y1", [SRC_CH, self.calc_x2, self.calc_x6])
         csv_content = plot.download_csv()
 

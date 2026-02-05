@@ -109,7 +109,7 @@ class ArcConsoleCase(SimDaqTestCase, ConsoleCase):
             except Exception as e:
                 self.fail(f"Failed to delete Arc program: {e}")
 
-        if hasattr(self, "end_cmd_channel") and self.end_cmd_channel:
+        if self.end_cmd_channel:
             self.log(f"Signaling simulator to stop via {self.end_cmd_channel}")
             try:
                 with self.client.open_writer(
