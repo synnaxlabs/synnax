@@ -10,6 +10,7 @@
 import { Icon } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 
+import { EtherCAT } from "@/hardware/ethercat";
 import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
@@ -17,6 +18,7 @@ import { OPC } from "@/hardware/opc";
 import { Sequence } from "@/hardware/task/sequence";
 
 const PREFIXES = [
+  EtherCAT.Task.PREFIX,
   LabJack.Task.PREFIX,
   Modbus.Task.PREFIX,
   NI.Task.PREFIX,
@@ -26,6 +28,7 @@ const PREFIXES = [
 type Prefix = (typeof PREFIXES)[number];
 
 const ICONS: Record<Prefix, Icon.ReactElement> = {
+  [EtherCAT.Task.PREFIX]: <Icon.Device />,
   [LabJack.Task.PREFIX]: <Icon.Logo.LabJack />,
   [Modbus.Task.PREFIX]: <Icon.Logo.Modbus />,
   [NI.Task.PREFIX]: <Icon.Logo.NI />,
@@ -39,6 +42,7 @@ export const getIcon = (type: string): Icon.ReactElement => {
 };
 
 const PREFIX_NAMES: Record<Prefix, string> = {
+  [EtherCAT.Task.PREFIX]: "EtherCAT",
   [LabJack.Task.PREFIX]: "LabJack",
   [Modbus.Task.PREFIX]: "Modbus",
   [NI.Task.PREFIX]: "NI",

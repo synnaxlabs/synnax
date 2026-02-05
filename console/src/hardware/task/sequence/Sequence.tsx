@@ -254,7 +254,7 @@ const Internal = ({
             )}
           </Form.Field>
         </Flex.Box>
-        <Common.Task.Controls
+        <Common.Task.Controls.Controls
           layoutKey={layoutKey}
           formStatus={status}
           onConfigure={onConfigure}

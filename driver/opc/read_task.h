@@ -67,8 +67,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief array_size;
     const size_t array_size;
     /// @brief the config for connecting to the OPC UA server.
+    /// Dynamically populated from device properties.
     opc::connection::Config connection;
     /// @brief keys of the index channels for the input channels.
+    /// Dynamically populated by querying the core.
     std::set<synnax::ChannelKey> index_keys;
     /// @brief the list of channels to read from the server.
     std::vector<std::unique_ptr<InputChan>> channels;

@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/button/Button";
+export * from "@/button/Copy";
 export * from "@/button/Toggle";
