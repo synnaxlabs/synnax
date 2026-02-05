@@ -254,6 +254,7 @@ var _ = Describe("Metrics", func() {
 			Expect(dist.Ontology.NewRetrieve().
 				WhereIDs(cpuChannel.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
+				WhereTypes(group.OntologyType).
 				Entries(&parents).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -280,6 +281,7 @@ var _ = Describe("Metrics", func() {
 			Expect(dist.Ontology.NewRetrieve().
 				WhereIDs(cpuChannel.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
+				WhereTypes(group.OntologyType).
 				Entries(&parentsAfterReopen).
 				Exec(ctx, nil),
 			).To(Succeed())
