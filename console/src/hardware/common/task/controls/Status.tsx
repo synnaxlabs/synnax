@@ -46,8 +46,7 @@ export const Status = ({
       className={CSS(CSS.B("task-status"), className)}
       el="div"
       variant="text"
-      x={!expanded}
-      y={expanded}
+      direction={expanded ? "y" : "x"}
       onClick={onToggle}
       {...props}
     >

@@ -9,8 +9,7 @@
 
 export * from "@/hardware/common/task/ChannelList";
 export * from "@/hardware/common/task/ChannelName";
-export { Controls as TaskControls } from "@/hardware/common/task/controls";
-export { Controls } from "@/hardware/common/task/controls/Controls";
+export * from "@/hardware/common/task/controls";
 export * from "@/hardware/common/task/createIngestor";
 export * from "@/hardware/common/task/CreateMenuItem";
 export * from "@/hardware/common/task/EnableDisableButton";
