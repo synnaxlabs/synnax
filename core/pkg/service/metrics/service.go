@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
@@ -245,6 +246,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 				channel.KeysFromChannels(metricsChannels),
 				c.idx.Key(),
 			),
+			ControlSubject: control.Subject{
+				Name: fmt.Sprintf("sy_node_%s_metrics", cfg.HostProvider.HostKey()),
+			},
 			Start:                    telem.Now(),
 			AutoIndexPersistInterval: telem.Second * 30,
 		},

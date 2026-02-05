@@ -22,6 +22,7 @@ import {
   Schematic as Base,
   Theming,
   usePrevious,
+  User,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
@@ -368,6 +369,18 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     region: ref,
   });
 
+  const user = User.useRetrieve({});
+
+  let writerName = name;
+  if (user.data != null) {
+    const { firstName, lastName, username } = user.data;
+    let displayName = "";
+    if (firstName != "") {
+      displayName += firstName;
+      if (lastName != "") displayName += " ";
+    } else displayName = username;
+    if (displayName !== "") writerName += ` (${displayName})`;
+  }
   return (
     <div
       ref={ref}
@@ -375,7 +388,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       style={{ width: "inherit", height: "inherit", position: "relative" }}
     >
       <Control.Controller
-        name={name}
+        name={writerName}
         authority={state.authority}
         onStatusChange={handleControlStatusChange}
       >

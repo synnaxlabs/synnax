@@ -11,12 +11,12 @@ package signals
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/change"
@@ -103,6 +103,9 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 	}
 	keys := channel.KeysFromChannels(channels)
 	w, err := s.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+		ControlSubject: control.Subject{
+			Name: fmt.Sprintf("sy_node_%s_signals", "" /*TODO: add host key here*/),
+		},
 		Keys:        keys,
 		Start:       telem.Now(),
 		Authorities: []control.Authority{255},

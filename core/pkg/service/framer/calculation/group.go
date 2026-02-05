@@ -11,6 +11,7 @@ package calculation
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -42,6 +44,7 @@ type OnStatusChange = func(ctx context.Context, stats ...calculator.Status)
 
 type groupConfig struct {
 	alamos.Instrumentation
+	key            int
 	Framer         *framer.Service
 	OnStatusChange OnStatusChange
 	Calculators    calculator.Group
@@ -56,6 +59,7 @@ func (c groupConfig) Override(other groupConfig) groupConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Calculators = override.Slice(c.Calculators, other.Calculators)
 	c.OnStatusChange = override.Nil(c.OnStatusChange, other.OnStatusChange)
+	c.key = override.Numeric(c.key, other.key)
 	return c
 }
 
@@ -64,6 +68,7 @@ func (c groupConfig) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotEmptySlice(v, "calculators", c.Calculators)
 	validate.NotNil(v, "on_status_change", c.OnStatusChange)
+	validate.NonZero(v, "key", c.key)
 	return v.Error()
 }
 
@@ -98,7 +103,10 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 	}
 
 	wrt, err := cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
-		Keys:  writeKeys,
+		Keys: writeKeys,
+		ControlSubject: control.Subject{
+			Name: fmt.Sprintf("sy_node_%s_calculation_group_%d", "" /*TODO: add host key here*/, cfg.key),
+		},
 		Start: telem.Now(),
 	})
 	if err != nil {

@@ -268,6 +268,7 @@ func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Modu
 	g, err := openGroup(
 		ctx,
 		groupConfig{
+			key:             key,
 			Instrumentation: s.cfg.Child("group"),
 			Calculators:     calculators,
 			OnStatusChange:  s.setStatus,
