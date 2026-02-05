@@ -736,7 +736,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 	expression.Analyze(context.Child(ctx, expr))
-	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
+	exprType := atypes.InferFromExpression(context.Child(ctx, expr)).UnwrapChan()
 	if !exprType.IsValid() || !varScope.Type.IsValid() {
 		return
 	}
