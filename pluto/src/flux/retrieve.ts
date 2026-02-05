@@ -121,10 +121,7 @@ export interface UseRetrieveEffectParams<
 export interface UseRetrieve<Query extends base.Shape, Data extends state.State> {
   (
     params: Query,
-    opts?: Pick<
-      UseDirectRetrieveParams<Query, Data>,
-      "beforeRetrieve" | "addStatusOnFailure"
-    >,
+    opts?: Omit<UseDirectRetrieveParams<Query, Data>, "query">,
   ): UseDirectRetrieveReturn<Data>;
 }
 
@@ -368,7 +365,7 @@ export const createRetrieve = <
 ): CreateRetrieveReturn<Query, Data> => ({
   useRetrieve: (
     query: Query,
-    opts?: Pick<UseDirectRetrieveParams<Query, Data>, "beforeRetrieve">,
+    opts?: Omit<UseDirectRetrieveParams<Query, Data>, "query">,
   ) => useDirect({ ...createParams, query, ...opts }),
   useRetrieveStateful: () => useStateful(createParams),
   useRetrieveEffect: (Params: UseRetrieveEffectParams<Query, Data>) =>

@@ -298,56 +298,20 @@ I can successfully:
 
 - **Visualization**
   - [ ] Display live data on a value.
-  - [ ] View the list of writers in control on the schematic.
-  - [ ] Copy a link.
-  - [ ] Export a schematic.
-- **Resources Toolbar**
-  - [ ] Double-click a schematic to load it.
-  - [ ] Drag a schematic onto the mosaic to load it.
-  - **Context Menu**
-    - [ ] Export a schematic.
-    - [ ] Rename a schematic.
-    - [ ] Delete a schematic.
-    - [ ] Delete multiple schematics.
-    - [ ] Snapshot a schematic to the active range.
-    - [ ] Snapshot multiple schematics to the active range.
-    - [ ] Make a copy of a schematic.
-    - [ ] Copy multiple schematics.
-    - [ ] Copy a link to a schematic.
 - **Search and Command Palette**
   - [ ] Import a schematic from a file.
-- [ ] Rename a schematic snapshot and ensure synchronization across:
-  - Mosaic Tab
-  - Resources Toolbar
-  - Visualization Toolbar
-  - Range Details Overview
 
 ### Schematic Symbols
 
 I can successfully:
 
-- [ ] Use custom symbols in a schematic.
-- [ ] Use custom symbols as actuators in a schematic.
 - **Symbol Editor**
-  - [ ] Create a new symbol.
-  - [ ] Rename a symbol.
-  - [ ] Add handles to a symbol.
-  - [ ] Add default scaling to a symbol.
-  - [ ] Select color and color regions for the symbol.
   - [ ] Have multiple color regions for an actuator.
 - **Schematic Symbols Toolbar**
-  - [ ] Add a symbol to a symbol group.
   - [ ] Import a symbol group.
   - [ ] Import a symbol to a symbol group.
-  - [ ] Create a new symbol group.
     - **Context Menu**
-      - [ ] Rename a symbol group.
-      - [ ] Delete a symbol group.
       - [ ] Export a symbol group.
-      - [ ] Delete a symbol.
-      - [ ] Export a symbol.
-      - [ ] Edit a symbol.
-      - [ ] Rename a symbol.
 
 ### Tables
 

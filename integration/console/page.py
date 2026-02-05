@@ -7,15 +7,20 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 import os
 import re
 import time
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, Self, cast
 
 import synnax as sy
 from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 
-from .console import Console, PageType
+if TYPE_CHECKING:
+    from .console import Console
+
+from .console import PageType
 
 
 class ConsolePage:
@@ -23,7 +28,7 @@ class ConsolePage:
 
     client: sy.Synnax
     page: Page
-    console: Console
+    console: "Console"
     page_name: str
     page_type: str
     pluto_label: str
@@ -31,34 +36,53 @@ class ConsolePage:
     pane_locator: Locator | None = None
     id: str | None = None
 
+    @classmethod
+    def from_open_page(cls, console: "Console", name: str) -> Self:
+        """Create instance from an already-opened page.
+
+        Use this factory method when a page has already been opened (e.g., via
+        drag_page_to_mosaic or open_page) and you need to create a typed wrapper.
+
+        Args:
+            console: Console instance
+            name: Name of the page
+
+        Returns:
+            Instance of the page class
+        """
+        pane = console.page.locator(cls.pluto_label)
+        pane.first.wait_for(state="visible", timeout=5000)
+
+        instance = cls(console, name, _skip_create=True)
+        instance.pane_locator = pane.first
+        return instance
+
     def __init__(
         self,
-        client: sy.Synnax,
         console: Console,
         page_name: str,
+        *,
+        _skip_create: bool = False,
     ) -> None:
         """
         Initialize a ConsolePage.
 
         Args:
-            client: Synnax client instance
             console: Console instance
             page_name: Name for the page
+            _skip_create: Internal flag to skip page creation (used by factory methods)
         """
-        self.client = client
+        self.client = console.client
         self.page = console.page
         self.console = console
         self.page_name = page_name
 
-        self.new()
+        if not _skip_create:
+            self.new()
 
     def _get_tab(self) -> Locator:
         """Get the tab locator for this page."""
-        return (
-            self.page.locator("div")
-            .filter(has_text=re.compile(f"^{re.escape(self.page_name)}$"))
-            .first
-        )
+        return self.console.layout.get_tab(self.page_name)
 
     def close(self) -> None:
         """
@@ -75,10 +99,16 @@ class ConsolePage:
             self.page.get_by_role("button", name="Confirm").click()
         tab.wait_for(state="hidden", timeout=5000)
 
+    @property
     def is_open(self) -> bool:
         """Check if the page tab is visible."""
         tab = self.console.layout.get_tab(self.page_name)
         return tab.count() > 0 and tab.is_visible()
+
+    @property
+    def is_pane_visible(self) -> bool:
+        """Check if the page pane content is visible."""
+        return self.pane_locator is not None and self.pane_locator.is_visible()
 
     def rename(self, new_name: str) -> None:
         """Rename the page by double-clicking the tab name.

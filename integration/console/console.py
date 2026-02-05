@@ -62,6 +62,7 @@ class Console:
     arc: ArcClient
     channels: ChannelClient
     devices: DevicesClient
+    client: sy.Synnax
     docs: DocsClient
     labels: LabelClient
     layout: LayoutClient
@@ -71,9 +72,10 @@ class Console:
     workspace: WorkspaceClient
     page: Page
 
-    def __init__(self, page: Page):
+    def __init__(self, page: Page, client: sy.Synnax):
         # Playwright
         self.page = page
+        self.client = client
         self.access = AccessClient(page, self)
         self.arc = ArcClient(page, self)
         self.channels = ChannelClient(page, self)

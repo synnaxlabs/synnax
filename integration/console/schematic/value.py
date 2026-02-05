@@ -16,6 +16,8 @@ from .symbol import Symbol
 class Value(Symbol):
     """Schematic value/telemetry symbol"""
 
+    _symbol_group = "General"
+
     def __init__(
         self,
         *,
