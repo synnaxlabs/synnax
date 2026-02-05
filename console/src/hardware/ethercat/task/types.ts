@@ -239,14 +239,8 @@ export const SCAN_SCHEMAS: task.Schemas<
   statusDataSchema: scanStatusDataZ,
 };
 
-/** Generates a unique map key for a read channel configuration within a slave. */
-export const readMapKey = (ch: InputChannel): string => {
-  if (ch.type === AUTOMATIC_TYPE) return `auto_${ch.pdo}`;
-  return `manual_${ch.index}_${ch.subindex}`;
-};
-
-/** Generates a unique map key for a write channel configuration within a slave. */
-export const writeMapKey = (ch: OutputChannel): string => {
+/** Generates a unique map key for a channel configuration within a slave. */
+export const channelMapKey = (ch: InputChannel | OutputChannel): string => {
   if (ch.type === AUTOMATIC_TYPE) return `auto_${ch.pdo}`;
   return `manual_${ch.index}_${ch.subindex}`;
 };

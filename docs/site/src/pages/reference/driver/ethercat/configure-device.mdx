@@ -56,16 +56,17 @@ The scan task runs periodically to detect new devices and update device informat
 
 When a device is discovered, Synnax stores the following properties:
 
-| Property      | Type   | Description                                                    |
-| ------------- | ------ | -------------------------------------------------------------- |
-| `name`        | string | Human-readable device name from ESI file                       |
-| `serial`      | string | Unique device serial number                                    |
-| `vendorId`    | number | EtherCAT vendor ID                                             |
-| `productCode` | number | Device model/product identifier                                |
-| `revision`    | number | Hardware/firmware revision number                              |
-| `network`     | string | Network interface name (e.g., `eth0`, `enp3s0`)                |
-| `position`    | number | Slave position on the EtherCAT bus (1-indexed)                 |
-| `pdos`        | object | Available PDO mappings (TxPDOs for inputs, RxPDOs for outputs) |
+| Property      | Type    | Description                                                               |
+| ------------- | ------- | ------------------------------------------------------------------------- |
+| `name`        | string  | Human-readable device name from ESI file                                  |
+| `serial`      | string  | Unique device serial number                                               |
+| `vendorId`    | number  | EtherCAT vendor ID                                                        |
+| `productCode` | number  | Device model/product identifier                                           |
+| `revision`    | number  | Hardware/firmware revision number                                         |
+| `network`     | string  | Network interface name (e.g., `eth0`, `enp3s0`)                           |
+| `position`    | number  | Slave position on the EtherCAT bus (0-indexed)                            |
+| `enabled`     | boolean | Whether the device participates in cyclic data exchange (default: `true`) |
+| `pdos`        | object  | Available PDO mappings (TxPDOs for inputs, RxPDOs for outputs)            |
 
 <Divider.Divider x />
 
@@ -92,9 +93,154 @@ Each PDO entry has the following properties:
 | ----------- | ------ | ----------------------------------------------- |
 | `name`      | string | Human-readable entry name (e.g., `status_word`) |
 | `index`     | number | CoE object index (hexadecimal, e.g., `0x6041`)  |
-| `subindex`  | number | CoE object subindex                             |
+| `subIndex`  | number | CoE object subindex                             |
 | `bitLength` | number | Data width in bits (e.g., 8, 16, 32)            |
 | `dataType`  | string | Data type (e.g., `uint16`, `int32`, `float32`)  |
+
+<Divider.Divider x />
+
+## Enabling and Disabling Devices
+
+The `enabled` property controls whether a device participates in cyclic PDO exchange. By
+default, all discovered devices are enabled.
+
+### What Happens When a Device is Disabled
+
+When you disable a device:
+
+- The device is **excluded from cyclic PDO exchange**. The EtherCAT master skips the
+  device during the process data cycle.
+- The device status changes to **Disabled** in the Console.
+- The device **must still be physically present** on the bus. EtherCAT topology
+  validation requires all configured devices to be connected.
+- **Tasks cannot read from or write to** PDOs on disabled devices. Channels associated
+  with disabled devices will not receive data.
+
+### Common Use Cases
+
+- **Troubleshooting**: Isolate a problematic device without physically disconnecting it
+  from the bus.
+- **Maintenance**: Temporarily disable a device undergoing maintenance or calibration.
+- **Staged commissioning**: Enable devices incrementally during system setup and
+  testing.
+- **Fault isolation**: Disable a device that's causing bus errors to keep other devices
+  operational.
+- **Reducing cycle time**: Exclude unused devices to minimize PDO exchange overhead.
+
+### Disabling a Device
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+
+To disable an EtherCAT device:
+
+1. Open the Devices Toolbar by clicking the device icon (<Icon.Device />) on the left
+   side of the screen.
+2. Right-click on the device you want to disable.
+3. Select **Disable** from the context menu.
+
+The device status will update immediately. You can also select multiple devices and
+disable them all at once.
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+import json
+
+client = sy.Synnax()
+
+# Retrieve the device
+device = client.devices.retrieve(name="EL3102")
+
+# Parse properties (stored as JSON string in Python client)
+props = json.loads(device.properties)
+
+# Disable the device
+props["enabled"] = False
+device.properties = json.dumps(props)
+
+# Update the device
+client.devices.create(device)
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve the device
+const device = await client.devices.retrieve({ name: "EL3102" });
+
+// Disable the device
+device.properties.enabled = false;
+
+// Update the device
+await client.devices.create(device);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Re-enabling a Device
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+
+To re-enable a disabled EtherCAT device:
+
+1. Open the Devices Toolbar by clicking the device icon (<Icon.Device />) on the left
+   side of the screen.
+2. Right-click on the disabled device.
+3. Select **Enable** from the context menu.
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+import json
+
+client = sy.Synnax()
+
+# Retrieve the device
+device = client.devices.retrieve(name="EL3102")
+
+# Parse properties
+props = json.loads(device.properties)
+
+# Re-enable the device
+props["enabled"] = True
+device.properties = json.dumps(props)
+
+# Update the device
+client.devices.create(device)
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve the device
+const device = await client.devices.retrieve({ name: "EL3102" });
+
+// Re-enable the device
+device.properties.enabled = true;
+
+// Update the device
+await client.devices.create(device);
+```
+
+  </Fragment>
+</Client.Tabs>
 
 <Divider.Divider x />
 
@@ -140,18 +286,18 @@ device = client.devices.retrieve(name="EK1100")
 
 # Access PDO information
 pdos = device.properties.get("pdos", {})
-tx_pdos = pdos.get("tx", [])  # Input PDOs (device -> Synnax)
-rx_pdos = pdos.get("rx", [])  # Output PDOs (Synnax -> device)
+tx_pdos = pdos.get("inputs", [])  # Input PDOs (device -> Synnax)
+rx_pdos = pdos.get("outputs", [])  # Output PDOs (Synnax -> device)
 
 print(f"\nTxPDOs (inputs) for {device.name}:")
 for pdo in tx_pdos:
     print(f"  {pdo['name']}: index=0x{pdo['index']:04X}, "
-          f"subindex={pdo['subindex']}, type={pdo['dataType']}")
+          f"subindex={pdo['subIndex']}, type={pdo['dataType']}")
 
 print(f"\nRxPDOs (outputs) for {device.name}:")
 for pdo in rx_pdos:
     print(f"  {pdo['name']}: index=0x{pdo['index']:04X}, "
-          f"subindex={pdo['subindex']}, type={pdo['dataType']}")
+          f"subindex={pdo['subIndex']}, type={pdo['dataType']}")
 ```
 
   </Fragment>
@@ -183,14 +329,14 @@ const device = await client.devices.retrieve({ name: "EK1100" });
 
 // Access PDO information
 const pdos = device.properties?.pdos ?? {};
-const txPdos = pdos.tx ?? []; // Input PDOs (device -> Synnax)
-const rxPdos = pdos.rx ?? []; // Output PDOs (Synnax -> device)
+const txPdos = pdos.inputs ?? []; // Input PDOs (device -> Synnax)
+const rxPdos = pdos.outputs ?? []; // Output PDOs (Synnax -> device)
 
 console.log(`\nTxPDOs (inputs) for ${device.name}:`);
 for (const pdo of txPdos) {
   console.log(
     `  ${pdo.name}: index=0x${pdo.index.toString(16).padStart(4, "0")}, ` +
-      `subindex=${pdo.subindex}, type=${pdo.dataType}`,
+      `subindex=${pdo.subIndex}, type=${pdo.dataType}`,
   );
 }
 
@@ -198,7 +344,7 @@ console.log(`\nRxPDOs (outputs) for ${device.name}:`);
 for (const pdo of rxPdos) {
   console.log(
     `  ${pdo.name}: index=0x${pdo.index.toString(16).padStart(4, "0")}, ` +
-      `subindex=${pdo.subindex}, type=${pdo.dataType}`,
+      `subindex=${pdo.subIndex}, type=${pdo.dataType}`,
   );
 }
 ```

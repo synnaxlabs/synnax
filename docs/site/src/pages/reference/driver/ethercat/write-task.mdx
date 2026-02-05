@@ -56,7 +56,7 @@ Before creating a write task, ensure you have:
 | ---------------- | ------- | -------- | ------- | ------------------------------------------------ |
 | `name`           | string  | Yes      | -       | Human-readable task name                         |
 | `execution_rate` | number  | Yes      | -       | Rate (Hz) at which commands are sent to hardware |
-| `state_rate`     | number  | No       | `20`    | Rate (Hz) at which state channels are updated    |
+| `state_rate`     | number  | No       | `1`     | Rate (Hz) at which state channels are updated    |
 | `data_saving`    | boolean | No       | `false` | Enable permanent storage in Synnax               |
 | `auto_start`     | boolean | No       | `false` | Automatically start task after configuration     |
 | `channels`       | array   | Yes      | -       | List of output channel configurations            |
@@ -115,7 +115,7 @@ Writes data to an RxPDO using explicit CoE addressing.
 | `type`          | string | Yes      | -       | Must be `"manual"`                                   |
 | `device`        | string | Yes      | -       | Device key                                           |
 | `index`         | number | Yes      | -       | CoE object index (e.g., `0x6040`)                    |
-| `subindex`      | number | Yes      | -       | CoE object subindex (typically `0`)                  |
+| `subIndex`      | number | Yes      | -       | CoE object subindex (typically `0`)                  |
 | `bitLength`     | number | Yes      | -       | Data width in bits (8, 16, 32, 64)                   |
 | `dataType`      | string | Yes      | -       | Synnax data type (`uint8`, `int16`, `float32`, etc.) |
 | `cmd_channel`   | number | Yes      | -       | Synnax command channel key                           |
@@ -319,7 +319,7 @@ task = ethercat.WriteTask(
         ethercat.ManualOutputChan(
             device=dev.key,
             index=0x6040,      # Control word (CiA 402)
-            subindex=0,
+            sub_index=0,
             bit_length=16,
             data_type="uint16",
             cmd_channel=control_cmd.key,
@@ -541,7 +541,7 @@ const task = await client.tasks.create({
         type: "manual",
         device: dev.key,
         index: 0x6040, // Control word (CiA 402)
-        subindex: 0,
+        subIndex: 0,
         bitLength: 16,
         dataType: "uint16",
         cmd_channel: controlCmd.key,

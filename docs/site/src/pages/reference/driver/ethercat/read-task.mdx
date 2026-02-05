@@ -102,7 +102,7 @@ Reads data from a TxPDO using explicit CoE addressing.
 | `type`      | string | Yes      | -       | Must be `"manual"`                                   |
 | `device`    | string | Yes      | -       | Device key                                           |
 | `index`     | number | Yes      | -       | CoE object index (e.g., `0x6041`)                    |
-| `subindex`  | number | Yes      | -       | CoE object subindex (typically `0`)                  |
+| `subIndex`  | number | Yes      | -       | CoE object subindex (typically `0`)                  |
 | `bitLength` | number | Yes      | -       | Data width in bits (8, 16, 32, 64)                   |
 | `dataType`  | string | Yes      | -       | Synnax data type (`uint8`, `int16`, `float32`, etc.) |
 | `channel`   | number | Yes      | -       | Synnax channel key                                   |
@@ -277,7 +277,7 @@ task = client.tasks.create({
                 "type": "manual",
                 "device": dev.key,
                 "index": 0x6041,      # Status word
-                "subindex": 0,
+                "subIndex": 0,
                 "bitLength": 16,
                 "dataType": "uint16",
                 "channel": status.key,
@@ -286,7 +286,7 @@ task = client.tasks.create({
                 "type": "manual",
                 "device": dev.key,
                 "index": 0x6064,      # Position actual value
-                "subindex": 0,
+                "subIndex": 0,
                 "bitLength": 32,
                 "dataType": "int32",
                 "channel": position.key,
@@ -483,7 +483,7 @@ const task = await client.tasks.create({
         type: "manual",
         device: dev.key,
         index: 0x6041, // Status word
-        subindex: 0,
+        subIndex: 0,
         bitLength: 16,
         dataType: "uint16",
         channel: status.key,
@@ -492,7 +492,7 @@ const task = await client.tasks.create({
         type: "manual",
         device: dev.key,
         index: 0x6064, // Position actual value
-        subindex: 0,
+        subIndex: 0,
         bitLength: 32,
         dataType: "int32",
         channel: position.key,
