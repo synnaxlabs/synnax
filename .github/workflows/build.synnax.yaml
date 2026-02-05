@@ -363,10 +363,17 @@ jobs:
         run: |
           # Unique keychain per workflow run, which allows multiple runner instances
           # on the same machine to run simultaneously without conflicts.
+
+          # Clean up stale build keychains from previous runs (older than 1 day)
+          find ~/Library/Keychains -name "build-*.keychain*" -mtime +1 -exec security delete-keychain {} \; 2>/dev/null || true
+
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
           security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          security list-keychains -d user -s $KEYCHAIN_NAME $(security list-keychains -d user | tr -d '"')
+          # Set keychain list: login + any current build keychains + new keychain
+          # This preserves concurrent runners' keychains while cleanup removes old ones
+          CURRENT_BUILD_KEYCHAINS=$(security list-keychains -d user | grep "build-" | tr -d '"' | tr '\n' ' ' || true)
+          security list-keychains -d user -s ~/Library/Keychains/login.keychain-db $CURRENT_BUILD_KEYCHAINS $KEYCHAIN_NAME
           security default-keychain -s $KEYCHAIN_NAME
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
           security set-keychain-settings -t 3600 -u $KEYCHAIN_NAME
@@ -728,10 +735,16 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           KEYCHAIN_NAME: build-${{ github.run_id }}.keychain
         run: |
+          # Clean up stale build keychains from previous runs (older than 1 day)
+          find ~/Library/Keychains -name "build-*.keychain*" -mtime +1 -exec security delete-keychain {} \; 2>/dev/null || true
+
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
           security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          security list-keychains -d user -s $KEYCHAIN_NAME $(security list-keychains -d user | tr -d '"')
+          # Set keychain list: login + any current build keychains + new keychain
+          # This preserves concurrent runners' keychains while cleanup removes old ones
+          CURRENT_BUILD_KEYCHAINS=$(security list-keychains -d user | grep "build-" | tr -d '"' | tr '\n' ' ' || true)
+          security list-keychains -d user -s ~/Library/Keychains/login.keychain-db $CURRENT_BUILD_KEYCHAINS $KEYCHAIN_NAME
           security default-keychain -s $KEYCHAIN_NAME
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
           security set-keychain-settings -t 3600 -u $KEYCHAIN_NAME
