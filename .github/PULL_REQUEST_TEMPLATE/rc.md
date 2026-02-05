@@ -297,29 +297,8 @@ I can successfully:
 
 - **Visualization**
   - [ ] Display live data on a value.
-  - [ ] View the list of writers in control on the schematic.
-  - [ ] Copy a link.
-  - [ ] Export a schematic.
-- **Resources Toolbar**
-  - [ ] Double-click a schematic to load it.
-  - [ ] Drag a schematic onto the mosaic to load it.
-  - **Context Menu**
-    - [ ] Export a schematic.
-    - [ ] Rename a schematic.
-    - [ ] Delete a schematic.
-    - [ ] Delete multiple schematics.
-    - [ ] Snapshot a schematic to the active range.
-    - [ ] Snapshot multiple schematics to the active range.
-    - [ ] Make a copy of a schematic.
-    - [ ] Copy multiple schematics.
-    - [ ] Copy a link to a schematic.
 - **Search and Command Palette**
   - [ ] Import a schematic from a file.
-- [ ] Rename a schematic snapshot and ensure synchronization across:
-  - Mosaic Tab
-  - Resources Toolbar
-  - Visualization Toolbar
-  - Range Details Overview
 
 ### Schematic Symbols
 
