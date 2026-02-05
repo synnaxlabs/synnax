@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <ranges>
 #include <set>
@@ -60,7 +61,7 @@ class Runtime {
     std::unique_ptr<loop::Loop> loop;
     queue::SPSC<telem::Frame> inputs;
     queue::SPSC<telem::Frame> outputs;
-    telem::TimeStamp start_time = telem::TimeStamp(0);
+    std::chrono::steady_clock::time_point start_time_steady_;
     errors::Handler error_handler;
 
 public:
@@ -90,7 +91,7 @@ public:
         write_channels(std::move(write_channels)) {}
 
     void run() {
-        this->start_time = telem::TimeStamp::now();
+        this->start_time_steady_ = std::chrono::steady_clock::now();
         xthread::set_name("runtime");
         this->loop->start();
         if (!this->loop->watch(this->inputs.notifier())) {
@@ -99,14 +100,23 @@ public:
             return;
         }
         while (this->breaker.running()) {
-            this->loop->wait(this->breaker);
+            const auto wake_reason = this->loop->wait(this->breaker);
+            const bool is_timer = (wake_reason == loop::WakeReason::Timer);
             telem::Frame frame;
             bool first = true;
             while (this->inputs.try_pop(frame) || first) {
+                const auto reason = (first && is_timer) ? node::RunReason::TimerTick
+                                                        : node::RunReason::ChannelInput;
                 first = false;
                 this->state->ingest(frame);
-                const auto elapsed = telem::TimeStamp::now() - this->start_time;
-                this->scheduler->next(elapsed);
+                const auto now_steady = std::chrono::steady_clock::now();
+                const auto elapsed = telem::TimeSpan(
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        now_steady - this->start_time_steady_
+                    )
+                        .count()
+                );
+                this->scheduler->next(elapsed, reason);
                 if (auto writes = this->state->flush(); !writes.empty()) {
                     telem::Frame out_frame(writes.size());
                     for (auto &[key, series]: writes)
@@ -217,8 +227,18 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         if (err) return {nullptr, err};
         nodes[mod_node.key] = std::move(node);
     }
-    auto sched = std::make_unique<scheduler::Scheduler>(cfg.mod, nodes, error_handler);
-    auto [loop, err] = loop::create(cfg.loop.apply_defaults(time_factory->timing_base));
+    const auto loop_cfg = cfg.loop.apply_defaults(time_factory->base_interval);
+    const auto tolerance = time::calculate_tolerance(
+        loop_cfg.mode,
+        time_factory->base_interval
+    );
+    auto sched = std::make_unique<scheduler::Scheduler>(
+        cfg.mod,
+        nodes,
+        tolerance,
+        error_handler
+    );
+    auto [loop, err] = loop::create(loop_cfg);
     if (err) return {nullptr, err};
     return {
         std::make_shared<Runtime>(

@@ -68,7 +68,6 @@ func Analyze(
 			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
 			return ir.IR{}, aCtx.Diagnostics
 		}
-		funcScope.AccumulateReadChannels()
 		if fn.Body.Raw != "" {
 			blockCtx, ok := fn.Body.AST.(parser.IBlockContext)
 			if !ok {
@@ -127,7 +126,12 @@ func Analyze(
 						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 						return ir.IR{}, aCtx.Diagnostics
 					}
-					node.Channels.Read.Add(k)
+					node.Channels.ResolveConfigChannel(
+						fnSym,
+						configParam.Name,
+						k,
+						channelSym.Name,
+					)
 				}
 			}
 			node.Config[j].Value = configValue

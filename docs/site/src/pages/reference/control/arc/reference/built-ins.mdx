@@ -1,0 +1,330 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Built-In Functions"
+description:
+  "Arc built-in function reference for timing, statistics, I/O, signal processing, and
+  utility functions"
+prev: "Sequences"
+prevURL: "/reference/control/arc/reference/sequences"
+next: "Errors"
+nextURL: "/reference/control/arc/reference/errors"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+<Note.Note variant="info">
+  Arc's standard library is focused on core timing, statistics, and I/O operations.
+  Functions like `sqrt`, `abs`, and trigonometric functions are planned for future
+  releases.
+</Note.Note>
+
+## Core Functions
+
+### len
+
+Returns the length of a series or string.
+
+```arc
+data := [1.0, 2.0, 3.0]
+length := len(data)      // 3 (i64)
+
+msg := "hello"
+chars := len(msg)        // 5 (i64)
+```
+
+| Parameter   | Type              | Description                 |
+| ----------- | ----------------- | --------------------------- |
+| input       | `series` or `str` | Value to measure            |
+| **Returns** | `i64`             | Number of elements or bytes |
+
+### now
+
+Returns the current timestamp in nanoseconds.
+
+```arc
+current := now()         // i64 ns
+```
+
+| Parameter   | Type  | Description                     |
+| ----------- | ----- | ------------------------------- |
+| **Returns** | `i64` | Current timestamp (nanoseconds) |
+
+<Divider.Divider x />
+
+## Timing Nodes
+
+Timing nodes create periodic and delayed behaviors in the reactive scope.
+
+### interval
+
+Fires repeatedly at a specified period.
+
+```arc
+interval{period=50ms} -> controller{}
+interval{period=1s} -> logger{}
+```
+
+| Config     | Type     | Description                    |
+| ---------- | -------- | ------------------------------ |
+| `period`   | TimeSpan | Time between firings           |
+| **Output** | `u8`     | `1` when firing, `0` otherwise |
+
+The first tick fires immediately at t=0. Subsequent ticks fire when
+`elapsed - lastFired >= period`.
+
+```arc
+// 20Hz control loop
+interval{period=50ms} -> pressure_controller{}
+
+// 1Hz data logging
+interval{period=1s} -> log_all_sensors{}
+```
+
+### wait
+
+Fires once after a specified duration. Resets when the stage is re-entered.
+
+```arc
+wait{duration=5s} => next
+```
+
+| Config     | Type     | Description                              |
+| ---------- | -------- | ---------------------------------------- |
+| `duration` | TimeSpan | Time to wait                             |
+| **Output** | `u8`     | `1` when duration elapsed, `0` otherwise |
+
+```arc
+sequence test {
+    stage hold {
+        // Wait 30 seconds before proceeding
+        wait{duration=30s} => next
+    }
+    stage proceed {
+        // continue
+    }
+}
+```
+
+<Note.Note variant="info">
+  `wait` resets when re-entering a stage, allowing it to be used in loops.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Statistical Functions
+
+Statistical functions operate on streaming data with optional reset conditions.
+
+### avg
+
+Computes a running average with optional reset.
+
+```arc
+sensor -> avg{duration=10s} -> avg_display
+sensor -> avg{count=100} -> avg_display
+```
+
+| Config     | Type     | Description                              |
+| ---------- | -------- | ---------------------------------------- |
+| `duration` | TimeSpan | Reset after this duration (optional)     |
+| `count`    | `i64`    | Reset after this many samples (optional) |
+| **Input**  | numeric  | Value to average                         |
+| **Output** | `f64`    | Running average                          |
+
+### min
+
+Computes a running minimum with optional reset.
+
+```arc
+sensor -> min{duration=1min} -> min_display
+sensor -> min{count=50} -> min_display
+```
+
+| Config     | Type          | Description                              |
+| ---------- | ------------- | ---------------------------------------- |
+| `duration` | TimeSpan      | Reset after this duration (optional)     |
+| `count`    | `i64`         | Reset after this many samples (optional) |
+| **Input**  | numeric       | Value to track                           |
+| **Output** | same as input | Running minimum                          |
+
+### max
+
+Computes a running maximum with optional reset.
+
+```arc
+sensor -> max{duration=1min} -> max_display
+sensor -> max{count=50} -> max_display
+```
+
+| Config     | Type          | Description                              |
+| ---------- | ------------- | ---------------------------------------- |
+| `duration` | TimeSpan      | Reset after this duration (optional)     |
+| `count`    | `i64`         | Reset after this many samples (optional) |
+| **Input**  | numeric       | Value to track                           |
+| **Output** | same as input | Running maximum                          |
+
+All statistical functions support a `reset` input signal (`u8`) for manual reset.
+
+<Divider.Divider x />
+
+## I/O Nodes
+
+### on
+
+Reads from a Synnax channel (source node).
+
+```arc
+on{channel=ox_pt_1} -> processor{}
+```
+
+| Config     | Type                 | Description          |
+| ---------- | -------------------- | -------------------- |
+| `channel`  | channel reference    | Channel to read from |
+| **Output** | channel element type | Latest channel value |
+
+### write
+
+Writes to a Synnax channel (sink node).
+
+```arc
+processor{} -> write{channel=ox_pt_cmd}
+```
+
+| Config    | Type                 | Description         |
+| --------- | -------------------- | ------------------- |
+| `channel` | channel reference    | Channel to write to |
+| **Input** | channel element type | Value to write      |
+
+<Note.Note variant="info">
+  In most cases, you can reference channels directly by name without using `on` or
+  `write` explicitly.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Signal Processing Nodes
+
+### select
+
+Routes a signal based on a boolean condition.
+
+```arc
+condition -> select{} -> {
+    true: handler_a{},
+    false: handler_b{}
+}
+```
+
+| Input       | Type | Description                    |
+| ----------- | ---- | ------------------------------ |
+| condition   | `u8` | Routing condition              |
+| **Outputs** |      |                                |
+| `true`      | any  | Value when condition is truthy |
+| `false`     | any  | Value when condition is falsy  |
+
+### stable_for
+
+Outputs only when the input value has been stable for a specified duration. Useful for
+debouncing noisy signals.
+
+```arc
+noisy_sensor -> stable_for{duration=100ms} -> stable_output
+```
+
+| Config     | Type          | Description                           |
+| ---------- | ------------- | ------------------------------------- |
+| `duration` | TimeSpan      | Required stability period             |
+| **Input**  | any           | Signal to debounce                    |
+| **Output** | same as input | Stable value (or nothing if unstable) |
+
+<Divider.Divider x />
+
+## Status Node
+
+### set_status
+
+Updates a status that triggers notifications in Console.
+
+```arc
+ox_pt_1 > 500 -> set_status{
+    statusKey="overpressure",
+    variant="error",
+    message="Pressure exceeded limit"
+}
+```
+
+| Config      | Type  | Description                                      |
+| ----------- | ----- | ------------------------------------------------ |
+| `statusKey` | `str` | Name of status to update                         |
+| `variant`   | `str` | Severity: `"success"`, `"warning"`, or `"error"` |
+| `message`   | `str` | Notification message                             |
+| **Input**   | `u8`  | Trigger condition                                |
+
+**Workflow:**
+
+1. Create a status in Synnax Console
+2. Reference that status in Arc using `statusKey`
+3. When the input is truthy, Arc updates the status and sends a notification
+
+<Divider.Divider x />
+
+## Utility Nodes
+
+### constant
+
+Outputs a static value.
+
+```arc
+constant{value=100.0} -> setpoint
+```
+
+| Config     | Type          | Description        |
+| ---------- | ------------- | ------------------ |
+| `value`    | any           | Value to output    |
+| **Output** | same as value | The constant value |
+
+<Divider.Divider x />
+
+## Math Operations
+
+Arc provides the `^` operator for exponentiation:
+
+```arc
+result := 2 ^ 8          // 256
+square := value ^ 2      // value squared
+```
+
+<Note.Note variant="warning">
+  Arc does not currently include `abs`, `sqrt`, or trigonometric functions. Use
+  conditional logic for absolute value:
+</Note.Note>
+
+```arc
+// Absolute value workaround
+if x < 0 {
+    x = 0.0 - x
+}
+```
+
+<Divider.Divider x />
+
+## Summary Table
+
+| Function     | Category   | Description                |
+| ------------ | ---------- | -------------------------- |
+| `len`        | Core       | Length of series or string |
+| `now`        | Core       | Current timestamp (ns)     |
+| `interval`   | Timing     | Periodic trigger           |
+| `wait`       | Timing     | One-shot delay             |
+| `avg`        | Statistics | Running average            |
+| `min`        | Statistics | Running minimum            |
+| `max`        | Statistics | Running maximum            |
+| `on`         | I/O        | Read from channel          |
+| `write`      | I/O        | Write to channel           |
+| `select`     | Signal     | Route by condition         |
+| `stable_for` | Signal     | Debounce filter            |
+| `set_status` | Status     | Update Console status      |
+| `constant`   | Utility    | Static value output        |

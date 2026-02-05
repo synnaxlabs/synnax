@@ -1,0 +1,63 @@
+---
+import { List as ListComponent } from "@/components/releases/List";
+const { headings } = Astro.props;
+---
+
+<ListComponent client:idle headings={headings} />
+
+<style is:global>
+    .release-list {
+        position: sticky;
+        top: 25rem;
+        align-self: flex-start;
+        width: 80px;
+
+        @media (max-width: 1000px) {
+            display: none;
+        }
+
+        flex-shrink: 0;
+        & h5 {
+            font-weight: 500;
+        }
+
+        .release-menu {
+            position: relative;
+        }
+
+        .release-indicator {
+            position: absolute;
+            right: 0;
+            width: 2px;
+            background: var(--pluto-primary-z);
+            transition:
+                transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                height 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.15s ease;
+            pointer-events: none;
+        }
+
+        .release-item {
+            display: block;
+            padding: 0.75rem 2rem;
+            font-size: var(--pluto-small-size);
+            font-family: var(--pluto-font-family);
+            color: var(--pluto-gray-l8);
+            text-decoration: none;
+            font-weight: 400;
+            box-shadow: inset -1px 0 0 0 var(--pluto-border-color);
+            transition:
+                color 0.15s ease,
+                font-weight 0.15s ease;
+
+            &:hover {
+                color: var(--pluto-text-color);
+            }
+
+            &.active {
+                color: var(--pluto-text-color);
+                font-weight: 500;
+            }
+        }
+    }
+</style>

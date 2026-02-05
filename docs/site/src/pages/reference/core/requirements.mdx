@@ -2,6 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "Requirements"
 heading: "Deployment Requirements"
+description:
+  "Hardware and software requirements for deploying a Synnax Core to production."
 next: "CLI Reference"
 nextURL: "/reference/core/cli-reference"
 prev: "Production"
@@ -10,13 +12,8 @@ prevURL: "/reference/core/production"
 
 import { Divider, Note } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import Table from "@/components/Table.astro";
+import { Table } from "@/components";
 export const components = mdxOverrides;
-
-This page lists the hardware and software requirements for deploying a Synnax Core to
-production.
-
-<Divider.Divider x />
 
 ## Operating System
 
@@ -33,14 +30,47 @@ or [CentOS](https://www.centos.org/centos-stream/).
 If you plan on using the Synnax Driver to integrate directly with your hardware, only
 certain operating systems are supported.
 
-- [National Instruments](https://docs.synnaxlabs.com/reference/driver/ni) - Windows,
-  Linux
-- [LabJack](https://docs.synnaxlabs.com/reference/driver/labjack) - Windows, Linux,
-  macOS
-- [OPC UA](https://docs.synnaxlabs.com/reference/driver/opc-ua) - Windows, Linux, macOS,
-  or a containerized environment
-- [Modbus](https://docs.synnaxlabs.com/reference/driver/modbus) - Windows, Linux, macOS,
-  or a containerized environment
+<table>
+  <thead>
+    <tr>
+      <th>Driver</th>
+      <th>Windows</th>
+      <th>Linux</th>
+      <th>macOS</th>
+      <th>Container</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>[National Instruments](/reference/driver/ni)</td>
+      <td>✓</td>
+      <td>✓</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>[LabJack](/reference/driver/labjack)</td>
+      <td>✓</td>
+      <td>✓</td>
+      <td>✓</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>[OPC UA](/reference/driver/opc-ua)</td>
+      <td>✓</td>
+      <td>✓</td>
+      <td>✓</td>
+      <td>✓</td>
+    </tr>
+    <tr>
+      <td>[Modbus](/reference/driver/modbus)</td>
+      <td>✓</td>
+      <td>✓</td>
+      <td>✓</td>
+      <td>✓</td>
+    </tr>
+  </tbody>
+</table>
 
 <Divider.Divider x />
 
@@ -74,7 +104,7 @@ The total throughput for our Core is 250k + 10k + 1k = 261k samples/s.
 Once you've calculated your total throughput, use the following table to determine the
 _minimum_ hardware requirements for your Core.
 
-<Table>
+<table>
   <thead>
     <th>Throughput (samples/s)</th>
     <th>CPU (Cores) </th>
@@ -119,7 +149,7 @@ _minimum_ hardware requirements for your Core.
       <td>2400</td>
     </tr>
   </tbody>
-</Table>
+</table>
 
 <Note.Note variant="info">
   When operating Synnax in mission critical environments, we recommend provisioning
@@ -217,11 +247,11 @@ For optimal performance, especially over longer distances:
 
 For production control environments:
 
-- **Isolated Networks**: Deploy Synnax Cores on dedicated, air-gapped networks separate
-  from corporate IT infrastructure.
-- **Network Segmentation**: Use VLANs or physical separation to isolate control traffic
-  from data acquisition traffic.
-- **Firewall Protection**: Implement network firewalls with strict access control
+- **Isolated Networks** -> Deploy Synnax Cores on dedicated, air-gapped networks
+  separate from corporate IT infrastructure.
+- **Network Segmentation** -> Use VLANs or physical separation to isolate control
+  traffic from data acquisition traffic.
+- **Firewall Protection** -> Implement network firewalls with strict access control
   policies.
-- **VPN Access**: When remote access is required, use industrial-grade VPN solutions
+- **VPN Access** -> When remote access is required, use industrial-grade VPN solutions
   with multi-factor authentication.

@@ -14,7 +14,6 @@ package time
 
 import (
 	"context"
-	"math"
 	"reflect"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -34,6 +33,14 @@ const (
 	periodConfigParam   = "period"
 	durationConfigParam = "duration"
 )
+
+// MinTolerance is the minimum tolerance for timing comparisons,
+// handling OS scheduling jitter even when BaseInterval is very small.
+const MinTolerance = 5 * telem.Millisecond
+
+// unsetBaseInterval is the sentinel value indicating BaseInterval hasn't been set yet.
+// Using TimeSpanMax ensures any real interval will be smaller and will replace it.
+const unsetBaseInterval = telem.TimeSpanMax
 
 var (
 	intervalSymbol = symbol.Symbol{
@@ -71,8 +78,10 @@ type Interval struct {
 func (i *Interval) Init(_ node.Context) {}
 
 // Next checks if the period has elapsed and fires if so.
+// Only fires on timer ticks (not channel inputs) to prevent timing drift.
 func (i *Interval) Next(ctx node.Context) {
-	if ctx.Elapsed-i.lastFired < i.period {
+	if ctx.Reason != node.ReasonTimerTick ||
+		ctx.Elapsed-i.lastFired < i.period-ctx.Tolerance {
 		return
 	}
 	i.lastFired = ctx.Elapsed
@@ -98,21 +107,17 @@ type Wait struct {
 func (w *Wait) Init(_ node.Context) {}
 
 // Next checks if the duration has elapsed and fires if so (only once).
+// Only fires on timer ticks (not channel inputs) to prevent timing drift.
 func (w *Wait) Next(ctx node.Context) {
-	// One-shot: if already fired, do nothing
-	if w.fired {
+	if ctx.Reason != node.ReasonTimerTick || w.fired {
 		return
 	}
-
 	if w.startTime < 0 {
 		w.startTime = ctx.Elapsed
 	}
-
-	// Check if duration has elapsed
-	if ctx.Elapsed-w.startTime < w.duration {
+	if ctx.Elapsed-w.startTime < w.duration-ctx.Tolerance {
 		return
 	}
-
 	w.fired = true
 	output := w.Output(0)
 	outputTime := w.OutputTime(0)
@@ -134,13 +139,25 @@ func (w *Wait) Reset() {
 
 // Factory creates Interval and Wait nodes.
 type Factory struct {
-	// TimingBase is the GCD of all timer periods, used for scheduler loop timing.
-	TimingBase telem.TimeSpan
+	// BaseInterval is the GCD of all timer periods, used for scheduler timing.
+	BaseInterval telem.TimeSpan
 }
 
 // NewFactory creates a new time Factory.
 func NewFactory() *Factory {
-	return &Factory{TimingBase: telem.TimeSpan(math.MaxInt64)}
+	return &Factory{BaseInterval: unsetBaseInterval}
+}
+
+// CalculateTolerance returns the timing tolerance for the given base interval.
+func CalculateTolerance(baseInterval telem.TimeSpan) telem.TimeSpan {
+	if baseInterval == unsetBaseInterval {
+		return MinTolerance
+	}
+	halfInterval := baseInterval / 2
+	if halfInterval < MinTolerance {
+		return MinTolerance
+	}
+	return halfInterval
 }
 
 // Create constructs an Interval or Wait node from the given configuration.
@@ -156,7 +173,7 @@ func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) 
 		if err != nil {
 			return nil, err
 		}
-		f.updateTimingBase(period)
+		f.updateBaseInterval(period)
 		return &Interval{
 			Node:      cfg.State,
 			period:    period,
@@ -172,7 +189,7 @@ func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) 
 		if err != nil {
 			return nil, err
 		}
-		f.updateTimingBase(duration)
+		f.updateBaseInterval(duration)
 		return &Wait{
 			Node:      cfg.State,
 			duration:  duration,
@@ -185,12 +202,12 @@ func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) 
 	}
 }
 
-// updateTimingBase updates the timing base to be the GCD of all timer periods.
-func (f *Factory) updateTimingBase(span telem.TimeSpan) {
-	if f.TimingBase == telem.TimeSpan(math.MaxInt64) {
-		f.TimingBase = span
+// updateBaseInterval updates the base interval to be the GCD of all timer periods.
+func (f *Factory) updateBaseInterval(span telem.TimeSpan) {
+	if f.BaseInterval == unsetBaseInterval {
+		f.BaseInterval = span
 	} else {
-		f.TimingBase = telem.TimeSpan(gcd(int64(f.TimingBase), int64(span)))
+		f.BaseInterval = telem.TimeSpan(gcd(int64(f.BaseInterval), int64(span)))
 	}
 }
 

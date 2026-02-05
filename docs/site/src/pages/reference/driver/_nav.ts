@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/PageNav/PageNav";
+import { type PageNavNode } from "@/components/nav/Page";
 import { LABJACK_NAV } from "@/pages/reference/driver/labjack/_nav";
 import { MODBUS_NAV } from "@/pages/reference/driver/modbus/_nav";
 import { NI_NAV } from "@/pages/reference/driver/ni/_nav";
@@ -15,7 +15,8 @@ import { OPC_UA_NAV } from "@/pages/reference/driver/opc-ua/_nav";
 
 export const DRIVER_NAV: PageNavNode = {
   key: "driver",
-  name: "Driver",
+  name: "Device Drivers",
+  icon: "Device",
   children: [
     {
       key: "/reference/driver/get-started",

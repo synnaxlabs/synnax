@@ -62,32 +62,24 @@ type Runtime struct {
 	state *state.State
 	memory api.Memory  // WASM memory for reading string literals
 
-	// String storage - handle to string mapping
-	strings map[uint32]string
-	stringHandleCounter uint32
-
-	// Series storage - handle to series mapping
-	series map[uint32]telem.Series
-	seriesHandleCounter uint32
+	// currentNodeKey is the key of the node currently executing WASM.
+	// This is set before each WASM call to ensure stateful variables are isolated per node instance.
+	currentNodeKey string
 
 	// State storage for stateful variables
-	// Key: (funcID << 32) | varID
-{{range .NumericTypes}}	state{{.IRType | title}} map[uint64]{{.GoType}}
-{{end}}	stateString map[uint64]string
-	stateSeries map[uint64]telem.Series
+	// Outer map key: node key, inner map key: variable ID
+{{range .NumericTypes}}	state{{.IRType | title}} map[string]map[uint32]{{.GoType}}
+{{end}}	stateString map[string]map[uint32]string
+	stateSeries map[string]map[uint32]telem.Series
 }
 
 func NewRuntime(state *state.State, memory api.Memory) *Runtime {
 	return &Runtime{
 		state: state,
 		memory: memory,
-		strings: make(map[uint32]string),
-		stringHandleCounter: 1, // Start at 1, 0 is reserved for empty/null
-		series: make(map[uint32]telem.Series),
-		seriesHandleCounter: 1, // Start at 1, 0 is reserved for empty/null
-{{range .NumericTypes}}		state{{.IRType | title}}: make(map[uint64]{{.GoType}}),
-{{end}}		stateString: make(map[uint64]string),
-		stateSeries: make(map[uint64]telem.Series),
+{{range .NumericTypes}}		state{{.IRType | title}}: make(map[string]map[uint32]{{.GoType}}),
+{{end}}		stateString: make(map[string]map[uint32]string),
+		stateSeries: make(map[string]map[uint32]telem.Series),
 	}
 }
 
@@ -96,24 +88,18 @@ func (r *Runtime) SetMemory(memory api.Memory) {
 	r.memory = memory
 }
 
-// ClearTemporarySeries resets series storage for a new execution cycle.
-// Called at the start of each reactive execution. stateSeries is NOT cleared.
-func (r *Runtime) ClearTemporarySeries() {
-	r.series = make(map[uint32]telem.Series)
-	r.seriesHandleCounter = 1
-}
-
 // GetString returns the string value for a handle (used for testing).
 func (r *Runtime) GetString(handle uint32) string {
-	if str, ok := r.strings[handle]; ok {
+	if str, ok := r.state.StringGet(handle); ok {
 		return str
 	}
 	return ""
 }
 
-// stateKey combines funcID and varID into a single key for state storage.
-func stateKey(funcID uint32, varID uint32) uint64 {
-	return (uint64(funcID) << 32) | uint64(varID)
+// SetCurrentNodeKey sets the current node key for state isolation.
+// This must be called before each WASM function invocation.
+func (r *Runtime) SetCurrentNodeKey(key string) {
+	r.currentNodeKey = key
 }
 
 {{range .Types}}{{if ne .IRType "str"}}
@@ -140,20 +126,29 @@ func (r *Runtime) ChannelWrite{{.IRType | title}}(ctx context.Context, channelID
 
 {{range .Types}}{{if ne .IRType "str"}}
 // StateLoad{{.IRType | title}} loads a stateful variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoad{{.IRType | title}}(ctx context.Context, funcID uint32, varID uint32, initValue {{.GoType}}) {{.GoType}} {
-	key := stateKey(funcID, varID)
-	if value, ok := r.state{{.IRType | title}}[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoad{{.IRType | title}}(ctx context.Context, varID uint32, initValue {{.GoType}}) {{.GoType}} {
+	inner, ok := r.state{{.IRType | title}}[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]{{.GoType}})
+		r.state{{.IRType | title}}[r.currentNodeKey] = inner
+	}
+	if value, ok := inner[varID]; ok {
 		return value
 	}
-	// Not found - initialize and return
-	r.state{{.IRType | title}}[key] = initValue
+	inner[varID] = initValue
 	return initValue
 }
 
 // StateStore{{.IRType | title}} stores a stateful variable's value.
-func (r *Runtime) StateStore{{.IRType | title}}(ctx context.Context, funcID uint32, varID uint32, value {{.GoType}}) {
-	key := stateKey(funcID, varID)
-	r.state{{.IRType | title}}[key] = value
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStore{{.IRType | title}}(ctx context.Context, varID uint32, value {{.GoType}}) {
+	inner, ok := r.state{{.IRType | title}}[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]{{.GoType}})
+		r.state{{.IRType | title}}[r.currentNodeKey] = inner
+	}
+	inner[varID] = value
 }
 {{end}}{{end}}
 
@@ -197,19 +192,13 @@ func (r *Runtime) StringFromLiteral(ctx context.Context, ptr uint32, length uint
 		return 0 // Return null handle on failure
 	}
 
-	// generate new handle
-	handle := r.stringHandleCounter
-	r.stringHandleCounter++
-
-	// Store string
-	r.strings[handle] = string(data)
-
-	return handle
+	// Store string in state and return handle
+	return r.state.StringCreate(string(data))
 }
 
 // StringLen returns the length of a string.
 func (r *Runtime) StringLen(ctx context.Context, handle uint32) uint32 {
-	if str, ok := r.strings[handle]; ok {
+	if str, ok := r.state.StringGet(handle); ok {
 		return uint32(len(str))
 	}
 	return 0
@@ -217,8 +206,8 @@ func (r *Runtime) StringLen(ctx context.Context, handle uint32) uint32 {
 
 // StringEqual compares two strings for equality.
 func (r *Runtime) StringEqual(ctx context.Context, handle1 uint32, handle2 uint32) uint32 {
-	str1, ok1 := r.strings[handle1]
-	str2, ok2 := r.strings[handle2]
+	str1, ok1 := r.state.StringGet(handle1)
+	str2, ok2 := r.state.StringGet(handle2)
 
 	if ok1 && ok2 && str1 == str2 {
 		return 1
@@ -228,22 +217,15 @@ func (r *Runtime) StringEqual(ctx context.Context, handle1 uint32, handle2 uint3
 
 // StringConcat concatenates two strings and returns a new handle.
 func (r *Runtime) StringConcat(ctx context.Context, handle1 uint32, handle2 uint32) uint32 {
-	str1, ok1 := r.strings[handle1]
-	str2, ok2 := r.strings[handle2]
+	str1, ok1 := r.state.StringGet(handle1)
+	str2, ok2 := r.state.StringGet(handle2)
 
 	if !ok1 || !ok2 {
 		return 0 // Return null handle if either string doesn't exist
 	}
 
-	// Concatenate strings
-	result := str1 + str2
-
-	// Generate new handle and store
-	handle := r.stringHandleCounter
-	r.stringHandleCounter++
-	r.strings[handle] = result
-
-	return handle
+	// Concatenate strings and store result
+	return r.state.StringCreate(str1 + str2)
 }
 
 // ChannelReadStr reads the latest string from a channel and returns a handle.
@@ -259,21 +241,14 @@ func (r *Runtime) ChannelReadStr(ctx context.Context, channelID uint32) uint32 {
 		return 0
 	}
 
-	// Get the last (most recent) string
-	str := strings[len(strings)-1]
-
-	// generate handle and store
-	handle := r.stringHandleCounter
-	r.stringHandleCounter++
-	r.strings[handle] = str
-
-	return handle
+	// Get the last (most recent) string and store it
+	return r.state.StringCreate(strings[len(strings)-1])
 }
 
 // ChannelWriteStr writes a string to a channel (queued for flush).
 func (r *Runtime) ChannelWriteStr(ctx context.Context, channelID uint32, handle uint32) {
 	// Look up string by handle
-	str, ok := r.strings[handle]
+	str, ok := r.state.StringGet(handle)
 	if !ok {
 		return // Invalid handle, do nothing
 	}
@@ -290,49 +265,52 @@ func (r *Runtime) ChannelWriteStr(ctx context.Context, channelID uint32, handle 
 }
 
 // StateLoadStr loads a stateful string variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoadStr(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	key := stateKey(funcID, varID)
-	str, ok := r.stateString[key]
-	if ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadStr(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+	inner, ok := r.stateString[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]string)
+		r.stateString[r.currentNodeKey] = inner
+	}
+	if str, ok := inner[varID]; ok {
 		// Exists - create a new handle for the stored string
-		handle := r.stringHandleCounter
-		r.stringHandleCounter++
-		r.strings[handle] = str
-		return handle
+		return r.state.StringCreate(str)
 	}
 
 	// Not found - store the init string and return the same handle
-	if initStr, ok := r.strings[initHandle]; ok {
-		r.stateString[key] = initStr
+	if initStr, ok := r.state.StringGet(initHandle); ok {
+		inner[varID] = initStr
 	}
 	return initHandle
 }
 
 // StateStoreStr stores a stateful string variable's value.
-func (r *Runtime) StateStoreStr(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreStr(ctx context.Context, varID uint32, handle uint32) {
 	// Look up string by handle
-	str, ok := r.strings[handle]
+	str, ok := r.state.StringGet(handle)
 	if !ok {
 		return // Invalid handle, do nothing
 	}
 
-	key := stateKey(funcID, varID)
-	r.stateString[key] = str
+	inner, ok := r.stateString[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]string)
+		r.stateString[r.currentNodeKey] = inner
+	}
+	inner[varID] = str
 }
 
 {{range .NumericTypes}}
 // SeriesCreateEmpty{{.IRType | title}} creates an empty series of the given length.
 func (r *Runtime) SeriesCreateEmpty{{.IRType | title}}(ctx context.Context, length uint32) uint32 {
 	s := telem.MakeSeries(telem.{{.DataType}}, int(length))
-	handle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[handle] = s
-	return handle
+	return r.state.SeriesStore(s)
 }
 
 // SeriesSetElement{{.IRType | title}} sets an element in a series at the given index and returns the handle.
 func (r *Runtime) SeriesSetElement{{.IRType | title}}(ctx context.Context, handle uint32, index uint32, value {{.GoType}}) uint32 {
-	if s, ok := r.series[handle]; ok {
+	if s, ok := r.state.SeriesGet(handle); ok {
 		if int64(index) < s.Len() {
 			telem.SetValueAt[{{.GoType}}](s, int(index), value)
 		}
@@ -342,7 +320,7 @@ func (r *Runtime) SeriesSetElement{{.IRType | title}}(ctx context.Context, handl
 
 // SeriesIndex{{.IRType | title}} gets an element from a series at the given index.
 func (r *Runtime) SeriesIndex{{.IRType | title}}(ctx context.Context, handle uint32, index uint32) {{.GoType}} {
-	if s, ok := r.series[handle]; ok {
+	if s, ok := r.state.SeriesGet(handle); ok {
 		if int64(index) < s.Len() {
 			return telem.ValueAt[{{.GoType}}](s, int(index))
 		}
@@ -352,155 +330,125 @@ func (r *Runtime) SeriesIndex{{.IRType | title}}(ctx context.Context, handle uin
 
 // SeriesElementAdd{{.IRType | title}} adds a scalar to all elements of a series.
 func (r *Runtime) SeriesElementAdd{{.IRType | title}}(ctx context.Context, handle uint32, scalar {{.GoType}}) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.AddScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesElementSub{{.IRType | title}} subtracts a scalar from all elements of a series.
 func (r *Runtime) SeriesElementSub{{.IRType | title}}(ctx context.Context, handle uint32, scalar {{.GoType}}) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.SubtractScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesElementMul{{.IRType | title}} multiplies all elements of a series by a scalar.
 func (r *Runtime) SeriesElementMul{{.IRType | title}}(ctx context.Context, handle uint32, scalar {{.GoType}}) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.MultiplyScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesElementDiv{{.IRType | title}} divides all elements of a series by a scalar.
 func (r *Runtime) SeriesElementDiv{{.IRType | title}}(ctx context.Context, handle uint32, scalar {{.GoType}}) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.DivideScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesElementMod{{.IRType | title}} computes modulo of all elements of a series by a scalar.
 func (r *Runtime) SeriesElementMod{{.IRType | title}}(ctx context.Context, handle uint32, scalar {{.GoType}}) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.ModuloScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesElementRSub{{.IRType | title}} computes scalar - series (reverse subtract).
 // Note: signature is (scalar, handle) to match WASM stack order for 'scalar - series'.
 func (r *Runtime) SeriesElementRSub{{.IRType | title}}(ctx context.Context, scalar {{.GoType}}, handle uint32) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.ReverseSubtractScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesElementRDiv{{.IRType | title}} computes scalar / series (reverse divide).
 // Note: signature is (scalar, handle) to match WASM stack order for 'scalar / series'.
 func (r *Runtime) SeriesElementRDiv{{.IRType | title}}(ctx context.Context, scalar {{.GoType}}, handle uint32) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.ReverseDivideScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesElementRAdd{{.IRType | title}} computes scalar + series (reverse add).
 // Since addition is commutative, this is equivalent to series + scalar.
 // Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
 func (r *Runtime) SeriesElementRAdd{{.IRType | title}}(ctx context.Context, scalar {{.GoType}}, handle uint32) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.AddScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesElementRMul{{.IRType | title}} computes scalar * series (reverse multiply).
 // Since multiplication is commutative, this is equivalent to series * scalar.
 // Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
 func (r *Runtime) SeriesElementRMul{{.IRType | title}}(ctx context.Context, scalar {{.GoType}}, handle uint32) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.MultiplyScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesElementRMod{{.IRType | title}} computes scalar % series (reverse modulo).
 // Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
 func (r *Runtime) SeriesElementRMod{{.IRType | title}}(ctx context.Context, scalar {{.GoType}}, handle uint32) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.ReverseModuloScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesSeriesAdd{{.IRType | title}} adds two series element-wise.
 func (r *Runtime) SeriesSeriesAdd{{.IRType | title}}(ctx context.Context, h1 uint32, h2 uint32) uint32 {
-	s1, ok1 := r.series[h1]
-	s2, ok2 := r.series[h2]
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
 	if !ok1 || !ok2 {
 		return 0
 	}
@@ -509,16 +457,13 @@ func (r *Runtime) SeriesSeriesAdd{{.IRType | title}}(ctx context.Context, h1 uin
 	}
 	result := telem.Series{DataType: s1.DataType}
 	op.Add{{.IRType | title}}(s1, s2, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesSeriesSub{{.IRType | title}} subtracts two series element-wise.
 func (r *Runtime) SeriesSeriesSub{{.IRType | title}}(ctx context.Context, h1 uint32, h2 uint32) uint32 {
-	s1, ok1 := r.series[h1]
-	s2, ok2 := r.series[h2]
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
 	if !ok1 || !ok2 {
 		return 0
 	}
@@ -527,16 +472,13 @@ func (r *Runtime) SeriesSeriesSub{{.IRType | title}}(ctx context.Context, h1 uin
 	}
 	result := telem.Series{DataType: s1.DataType}
 	op.Subtract{{.IRType | title}}(s1, s2, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesSeriesMul{{.IRType | title}} multiplies two series element-wise.
 func (r *Runtime) SeriesSeriesMul{{.IRType | title}}(ctx context.Context, h1 uint32, h2 uint32) uint32 {
-	s1, ok1 := r.series[h1]
-	s2, ok2 := r.series[h2]
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
 	if !ok1 || !ok2 {
 		return 0
 	}
@@ -545,16 +487,13 @@ func (r *Runtime) SeriesSeriesMul{{.IRType | title}}(ctx context.Context, h1 uin
 	}
 	result := telem.Series{DataType: s1.DataType}
 	op.Multiply{{.IRType | title}}(s1, s2, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesSeriesDiv{{.IRType | title}} divides two series element-wise.
 func (r *Runtime) SeriesSeriesDiv{{.IRType | title}}(ctx context.Context, h1 uint32, h2 uint32) uint32 {
-	s1, ok1 := r.series[h1]
-	s2, ok2 := r.series[h2]
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
 	if !ok1 || !ok2 {
 		return 0
 	}
@@ -563,16 +502,13 @@ func (r *Runtime) SeriesSeriesDiv{{.IRType | title}}(ctx context.Context, h1 uin
 	}
 	result := telem.Series{DataType: s1.DataType}
 	op.Divide{{.IRType | title}}(s1, s2, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesSeriesMod{{.IRType | title}} computes modulo of two series element-wise.
 func (r *Runtime) SeriesSeriesMod{{.IRType | title}}(ctx context.Context, h1 uint32, h2 uint32) uint32 {
-	s1, ok1 := r.series[h1]
-	s2, ok2 := r.series[h2]
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
 	if !ok1 || !ok2 {
 		return 0
 	}
@@ -581,16 +517,13 @@ func (r *Runtime) SeriesSeriesMod{{.IRType | title}}(ctx context.Context, h1 uin
 	}
 	result := telem.Series{DataType: s1.DataType}
 	op.Modulo{{.IRType | title}}(s1, s2, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesCompareGT{{.IRType | title}} compares two series element-wise (greater than).
 func (r *Runtime) SeriesCompareGT{{.IRType | title}}(ctx context.Context, h1 uint32, h2 uint32) uint32 {
-	s1, ok1 := r.series[h1]
-	s2, ok2 := r.series[h2]
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
 	if !ok1 || !ok2 {
 		return 0
 	}
@@ -599,16 +532,13 @@ func (r *Runtime) SeriesCompareGT{{.IRType | title}}(ctx context.Context, h1 uin
 	}
 	result := telem.Series{DataType: telem.Uint8T}
 	op.GreaterThan{{.IRType | title}}(s1, s2, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesCompareLT{{.IRType | title}} compares two series element-wise (less than).
 func (r *Runtime) SeriesCompareLT{{.IRType | title}}(ctx context.Context, h1 uint32, h2 uint32) uint32 {
-	s1, ok1 := r.series[h1]
-	s2, ok2 := r.series[h2]
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
 	if !ok1 || !ok2 {
 		return 0
 	}
@@ -617,16 +547,13 @@ func (r *Runtime) SeriesCompareLT{{.IRType | title}}(ctx context.Context, h1 uin
 	}
 	result := telem.Series{DataType: telem.Uint8T}
 	op.LessThan{{.IRType | title}}(s1, s2, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesCompareGE{{.IRType | title}} compares two series element-wise (greater or equal).
 func (r *Runtime) SeriesCompareGE{{.IRType | title}}(ctx context.Context, h1 uint32, h2 uint32) uint32 {
-	s1, ok1 := r.series[h1]
-	s2, ok2 := r.series[h2]
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
 	if !ok1 || !ok2 {
 		return 0
 	}
@@ -635,16 +562,13 @@ func (r *Runtime) SeriesCompareGE{{.IRType | title}}(ctx context.Context, h1 uin
 	}
 	result := telem.Series{DataType: telem.Uint8T}
 	op.GreaterThanOrEqual{{.IRType | title}}(s1, s2, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesCompareLE{{.IRType | title}} compares two series element-wise (less or equal).
 func (r *Runtime) SeriesCompareLE{{.IRType | title}}(ctx context.Context, h1 uint32, h2 uint32) uint32 {
-	s1, ok1 := r.series[h1]
-	s2, ok2 := r.series[h2]
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
 	if !ok1 || !ok2 {
 		return 0
 	}
@@ -653,16 +577,13 @@ func (r *Runtime) SeriesCompareLE{{.IRType | title}}(ctx context.Context, h1 uin
 	}
 	result := telem.Series{DataType: telem.Uint8T}
 	op.LessThanOrEqual{{.IRType | title}}(s1, s2, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesCompareEQ{{.IRType | title}} compares two series element-wise (equal).
 func (r *Runtime) SeriesCompareEQ{{.IRType | title}}(ctx context.Context, h1 uint32, h2 uint32) uint32 {
-	s1, ok1 := r.series[h1]
-	s2, ok2 := r.series[h2]
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
 	if !ok1 || !ok2 {
 		return 0
 	}
@@ -671,16 +592,13 @@ func (r *Runtime) SeriesCompareEQ{{.IRType | title}}(ctx context.Context, h1 uin
 	}
 	result := telem.Series{DataType: telem.Uint8T}
 	op.Equal{{.IRType | title}}(s1, s2, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesCompareNE{{.IRType | title}} compares two series element-wise (not equal).
 func (r *Runtime) SeriesCompareNE{{.IRType | title}}(ctx context.Context, h1 uint32, h2 uint32) uint32 {
-	s1, ok1 := r.series[h1]
-	s2, ok2 := r.series[h2]
+	s1, ok1 := r.state.SeriesGet(h1)
+	s2, ok2 := r.state.SeriesGet(h2)
 	if !ok1 || !ok2 {
 		return 0
 	}
@@ -689,116 +607,103 @@ func (r *Runtime) SeriesCompareNE{{.IRType | title}}(ctx context.Context, h1 uin
 	}
 	result := telem.Series{DataType: telem.Uint8T}
 	op.NotEqual{{.IRType | title}}(s1, s2, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesCompareGTScalar{{.IRType | title}} compares series > scalar.
 func (r *Runtime) SeriesCompareGTScalar{{.IRType | title}}(ctx context.Context, handle uint32, scalar {{.GoType}}) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: telem.Uint8T}
 	op.GreaterThanScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesCompareLTScalar{{.IRType | title}} compares series < scalar.
 func (r *Runtime) SeriesCompareLTScalar{{.IRType | title}}(ctx context.Context, handle uint32, scalar {{.GoType}}) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: telem.Uint8T}
 	op.LessThanScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesCompareGEScalar{{.IRType | title}} compares series >= scalar.
 func (r *Runtime) SeriesCompareGEScalar{{.IRType | title}}(ctx context.Context, handle uint32, scalar {{.GoType}}) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: telem.Uint8T}
 	op.GreaterThanOrEqualScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesCompareLEScalar{{.IRType | title}} compares series <= scalar.
 func (r *Runtime) SeriesCompareLEScalar{{.IRType | title}}(ctx context.Context, handle uint32, scalar {{.GoType}}) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: telem.Uint8T}
 	op.LessThanOrEqualScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesCompareEQScalar{{.IRType | title}} compares series == scalar.
 func (r *Runtime) SeriesCompareEQScalar{{.IRType | title}}(ctx context.Context, handle uint32, scalar {{.GoType}}) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: telem.Uint8T}
 	op.EqualScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesCompareNEScalar{{.IRType | title}} compares series != scalar.
 func (r *Runtime) SeriesCompareNEScalar{{.IRType | title}}(ctx context.Context, handle uint32, scalar {{.GoType}}) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: telem.Uint8T}
 	op.NotEqualScalar{{.IRType | title}}(s, scalar, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // StateLoadSeries{{.IRType | title}} loads a persisted series, returns new handle.
-func (r *Runtime) StateLoadSeries{{.IRType | title}}(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	key := stateKey(funcID, varID)
-	if s, ok := r.stateSeries[key]; ok {
-		handle := r.seriesHandleCounter
-		r.seriesHandleCounter++
-		r.series[handle] = s
-		return handle
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadSeries{{.IRType | title}}(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
+	if s, ok := inner[varID]; ok {
+		return r.state.SeriesStore(s)
 	}
 	// Initialize from provided handle
-	if initS, ok := r.series[initHandle]; ok {
-		r.stateSeries[key] = initS
+	if initS, ok := r.state.SeriesGet(initHandle); ok {
+		inner[varID] = initS
 	}
 	return initHandle
 }
 
 // StateStoreSeries{{.IRType | title}} persists a series to state.
-func (r *Runtime) StateStoreSeries{{.IRType | title}}(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
-	if s, ok := r.series[handle]; ok {
-		r.stateSeries[stateKey(funcID, varID)] = s
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreSeries{{.IRType | title}}(ctx context.Context, varID uint32, handle uint32) {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
+	if s, ok := r.state.SeriesGet(handle); ok {
+		inner[varID] = s
 	}
 }
 {{end}}
@@ -806,36 +711,30 @@ func (r *Runtime) StateStoreSeries{{.IRType | title}}(ctx context.Context, funcI
 {{range .SignedTypes}}
 // SeriesNegate{{.IRType | title}} negates all elements of a series.
 func (r *Runtime) SeriesNegate{{.IRType | title}}(ctx context.Context, handle uint32) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.Negate{{.IRType | title}}(s, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 {{end}}
 
 // SeriesNotU8 performs logical NOT on a boolean series.
 func (r *Runtime) SeriesNotU8(ctx context.Context, handle uint32) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
 	result := telem.Series{DataType: telem.Uint8T}
 	op.NotU8(s, &result)
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = result
-	return newHandle
+	return r.state.SeriesStore(result)
 }
 
 // SeriesLen returns the length of a series.
 func (r *Runtime) SeriesLen(ctx context.Context, handle uint32) uint64 {
-	if s, ok := r.series[handle]; ok {
+	if s, ok := r.state.SeriesGet(handle); ok {
 		return uint64(s.Len())
 	}
 	return 0
@@ -843,7 +742,7 @@ func (r *Runtime) SeriesLen(ctx context.Context, handle uint32) uint64 {
 
 // SeriesSlice returns a slice of a series.
 func (r *Runtime) SeriesSlice(ctx context.Context, handle uint32, start uint32, end uint32) uint32 {
-	s, ok := r.series[handle]
+	s, ok := r.state.SeriesGet(handle)
 	if !ok {
 		return 0
 	}
@@ -864,10 +763,7 @@ func (r *Runtime) SeriesSlice(ctx context.Context, handle uint32, start uint32, 
 		DataType: s.DataType,
 		Data:     s.Data[startIdx*density : endIdx*density],
 	}
-	newHandle := r.seriesHandleCounter
-	r.seriesHandleCounter++
-	r.series[newHandle] = sliced
-	return newHandle
+	return r.state.SeriesStore(sliced)
 }
 `
 

@@ -57,7 +57,11 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
     auto state = std::make_shared<state::State>(state_cfg);
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> node_impls;
-    auto scheduler = std::make_unique<scheduler::Scheduler>(arc::ir::IR{}, node_impls);
+    auto scheduler = std::make_unique<scheduler::Scheduler>(
+        arc::ir::IR{},
+        node_impls,
+        telem::TimeSpan(0)
+    );
 
     Config cfg{
         .mod = {},
@@ -286,4 +290,24 @@ TEST(RuntimeLifecycleTest, DoubleStopReturnsFalse) {
     ASSERT_TRUE(runtime->start());
     ASSERT_TRUE(runtime->stop());
     EXPECT_FALSE(runtime->stop()) << "Second stop should return false";
+}
+
+TEST(MockLoopTest, WakeReasonIsConfigurable) {
+    testutil::MockLoop loop;
+    breaker::Breaker breaker(breaker::Config{});
+    breaker.start();
+
+    loop.wake_reason = loop::WakeReason::Timer;
+    ASSERT_EQ(loop.wait(breaker), loop::WakeReason::Timer);
+
+    loop.wake_reason = loop::WakeReason::Input;
+    ASSERT_EQ(loop.wait(breaker), loop::WakeReason::Input);
+
+    loop.wake_reason = loop::WakeReason::Timeout;
+    ASSERT_EQ(loop.wait(breaker), loop::WakeReason::Timeout);
+
+    loop.wake_reason = loop::WakeReason::Shutdown;
+    ASSERT_EQ(loop.wait(breaker), loop::WakeReason::Shutdown);
+
+    breaker.stop();
 }
