@@ -54,7 +54,16 @@ export default defineConfig({
       },
     },
     rollupOptions: {
-      external: ["react", "react-dom", "react-hook-form", "zod"],
+      external: [
+        "react",
+        "react-dom",
+        "react-hook-form",
+        "zod",
+        "@synnaxlabs/x",
+        "@synnaxlabs/client",
+        "@synnaxlabs/alamos",
+        "@synnaxlabs/freighter",
+      ],
       output: {
         globals: {
           react: "React",
