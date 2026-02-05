@@ -83,7 +83,7 @@ public:
                 err)
                 LOG(ERROR) << "[rack_status] error updating status: " << err;
             else
-                VLOG(1) << "[rack_status] successfully set status" << this->rack.key;
+                VLOG(1) << "[rack_status] successfully set status for " << this->rack;
         }
     };
 };

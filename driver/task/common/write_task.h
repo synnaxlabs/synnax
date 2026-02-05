@@ -33,6 +33,7 @@ struct BaseWriteTaskConfig : BaseTaskConfig {
     explicit BaseWriteTaskConfig(xjson::Parser &cfg):
         BaseTaskConfig(cfg), device_key(cfg.field<std::string>("device")) {}
 };
+
 class Sink : public pipeline::Sink, public pipeline::Source {
     /// @brief the vector of channels to stream for commands.
     const std::vector<synnax::ChannelKey> cmd_channels;

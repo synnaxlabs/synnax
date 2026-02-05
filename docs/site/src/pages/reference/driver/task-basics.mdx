@@ -20,6 +20,7 @@ export const components = mdxOverrides;
 Before creating any tasks, you'll need to have connected and configured a hardware
 device:
 
+- [EtherCAT](/reference/driver/ethercat/configure-device)
 - [LabJack](/reference/driver/labjack/configure-device)
 - [National Instruments](/reference/driver/ni/configure-device)
 - [OPC UA](/reference/driver/opc-ua/connect-server)
@@ -174,6 +175,7 @@ for task in all_tasks:
 analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
 
 # Available task types:
+#   ethercat_read, ethercat_write,
 #   ni_analog_read, ni_analog_write,
 #   ni_counter_read,
 #   ni_digital_read, ni_digital_write,
@@ -301,6 +303,7 @@ allTasks.forEach((task) => {
 const analogReadTasks = allTasks.filter((t) => t.type === "ni_analog_read");
 
 // Available task types:
+//   ethercat_read, ethercat_write,
 //   ni_analog_read, ni_analog_write,
 //   ni_counter_read,
 //   ni_digital_read, ni_digital_write,
@@ -373,6 +376,12 @@ await client.tasks.delete(task.key);
 
 Now that you understand the basics of working with tasks, you can learn how to configure
 a specific task type:
+
+### EtherCAT
+
+- [Read Task](/reference/driver/ethercat/read-task) - Acquire data from EtherCAT devices
+- [Write Task](/reference/driver/ethercat/write-task) - Send commands to EtherCAT
+  devices
 
 ### LabJack
 

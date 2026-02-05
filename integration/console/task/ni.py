@@ -32,19 +32,20 @@ class NITask(ConsolePage):
 
     def __init__(
         self,
-        client: sy.Synnax,
         console: Console,
         page_name: str,
+        *,
+        _skip_create: bool = False,
     ) -> None:
         """
         Initialize an NITask page.
 
         Args:
-            client: Synnax client instance
             console: Console instance
             page_name: Name for the page
+            _skip_create: Internal flag to skip page creation (used by factory methods)
         """
-        super().__init__(client, console, page_name)
+        super().__init__(console, page_name, _skip_create=_skip_create)
         self.channels: list[NIChannel] = []
         self.channels_by_name: list[str] = []
 
