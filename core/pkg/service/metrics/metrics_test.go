@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	distFramer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/x/confluence"
@@ -198,6 +200,168 @@ var _ = Describe("Metrics", func() {
 			).To(Succeed())
 			Expect(channels).To(HaveLen(len(names)))
 			Expect(svc2.Close()).To(Succeed())
+		})
+	})
+	Describe("Group Relationship Persistence", func() {
+		It("Should not re-attach a channel to the metrics group if it was moved to a different group", func() {
+			names := getNames(dist.Cluster.HostKey())
+			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Channel:            dist.Channel,
+				Group:              dist.Group,
+				Ontology:           dist.Ontology,
+				Framer:             framerSvc,
+				HostProvider:       dist.Cluster,
+				DB:                 dist.DB,
+				Storage:            dist.Storage,
+				CollectionInterval: 100 * time.Millisecond,
+			}))
+
+			// Get one of the metrics channels (CPU channel)
+			var cpuChannel channel.Channel
+			Expect(dist.Channel.NewRetrieve().
+				WhereNames(names[1]).
+				Entry(&cpuChannel).
+				Exec(ctx, nil),
+			).To(Succeed())
+
+			// Create a new group to move the channel to
+			newGroup := MustSucceed(dist.Group.CreateOrRetrieve(
+				ctx, "Custom Metrics Group", dist.Channel.Group().OntologyID(),
+			))
+
+			// Delete the relationship from the metrics group to the channel
+			metricsGroup := MustSucceed(dist.Group.CreateOrRetrieve(
+				ctx, "Metrics", dist.Channel.Group().OntologyID(),
+			))
+			otgWriter := dist.Ontology.NewWriter(nil)
+			Expect(otgWriter.DeleteRelationship(
+				ctx,
+				metricsGroup.OntologyID(),
+				ontology.RelationshipTypeParentOf,
+				cpuChannel.OntologyID(),
+			)).To(Succeed())
+
+			// Create a new relationship from the new group to the channel
+			Expect(otgWriter.DefineRelationship(
+				ctx,
+				newGroup.OntologyID(),
+				ontology.RelationshipTypeParentOf,
+				cpuChannel.OntologyID(),
+			)).To(Succeed())
+
+			// Verify the channel is now under the new group
+			var parents []ontology.Resource
+			Expect(dist.Ontology.NewRetrieve().
+				WhereIDs(cpuChannel.OntologyID()).
+				TraverseTo(ontology.ParentsTraverser).
+				Entries(&parents).
+				Exec(ctx, nil),
+			).To(Succeed())
+			Expect(parents).To(HaveLen(1))
+			Expect(parents[0].ID).To(Equal(newGroup.OntologyID()))
+
+			// Close the service
+			Expect(svc.Close()).To(Succeed())
+
+			// Reopen the service
+			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Channel:            dist.Channel,
+				Group:              dist.Group,
+				Ontology:           dist.Ontology,
+				Framer:             framerSvc,
+				HostProvider:       dist.Cluster,
+				DB:                 dist.DB,
+				Storage:            dist.Storage,
+				CollectionInterval: 100 * time.Millisecond,
+			}))
+
+			// Verify the channel is still under the new group (not re-attached to metrics)
+			var parentsAfterReopen []ontology.Resource
+			Expect(dist.Ontology.NewRetrieve().
+				WhereIDs(cpuChannel.OntologyID()).
+				TraverseTo(ontology.ParentsTraverser).
+				Entries(&parentsAfterReopen).
+				Exec(ctx, nil),
+			).To(Succeed())
+			Expect(parentsAfterReopen).To(HaveLen(1))
+			Expect(parentsAfterReopen[0].ID).To(Equal(newGroup.OntologyID()))
+
+			Expect(svc.Close()).To(Succeed())
+		})
+		It("Should attach channels to the metrics group if they have no group relationship", func() {
+			names := getNames(dist.Cluster.HostKey())
+			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Channel:            dist.Channel,
+				Group:              dist.Group,
+				Ontology:           dist.Ontology,
+				Framer:             framerSvc,
+				HostProvider:       dist.Cluster,
+				DB:                 dist.DB,
+				Storage:            dist.Storage,
+				CollectionInterval: 100 * time.Millisecond,
+			}))
+
+			// Get the memory channel
+			var memChannel channel.Channel
+			Expect(dist.Channel.NewRetrieve().
+				WhereNames(names[2]).
+				Entry(&memChannel).
+				Exec(ctx, nil),
+			).To(Succeed())
+
+			// Get the metrics group
+			metricsGroup := MustSucceed(dist.Group.CreateOrRetrieve(
+				ctx, "Metrics", dist.Channel.Group().OntologyID(),
+			))
+
+			// Delete the relationship from the metrics group (simulating a channel without a group)
+			otgWriter := dist.Ontology.NewWriter(nil)
+			Expect(otgWriter.DeleteRelationship(
+				ctx,
+				metricsGroup.OntologyID(),
+				ontology.RelationshipTypeParentOf,
+				memChannel.OntologyID(),
+			)).To(Succeed())
+
+			// Verify the channel has no group parent
+			var parentsBefore []ontology.Resource
+			Expect(dist.Ontology.NewRetrieve().
+				WhereIDs(memChannel.OntologyID()).
+				TraverseTo(ontology.ParentsTraverser).
+				WhereTypes(group.OntologyType).
+				Entries(&parentsBefore).
+				Exec(ctx, nil),
+			).To(Succeed())
+			Expect(parentsBefore).To(BeEmpty())
+
+			// Close the service
+			Expect(svc.Close()).To(Succeed())
+
+			// Reopen the service
+			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Channel:            dist.Channel,
+				Group:              dist.Group,
+				Ontology:           dist.Ontology,
+				Framer:             framerSvc,
+				HostProvider:       dist.Cluster,
+				DB:                 dist.DB,
+				Storage:            dist.Storage,
+				CollectionInterval: 100 * time.Millisecond,
+			}))
+
+			// Verify the channel is now attached to the metrics group
+			var parentsAfterReopen []ontology.Resource
+			Expect(dist.Ontology.NewRetrieve().
+				WhereIDs(memChannel.OntologyID()).
+				TraverseTo(ontology.ParentsTraverser).
+				WhereTypes(group.OntologyType).
+				Entries(&parentsAfterReopen).
+				Exec(ctx, nil),
+			).To(Succeed())
+			Expect(parentsAfterReopen).To(HaveLen(1))
+			Expect(parentsAfterReopen[0].ID).To(Equal(metricsGroup.OntologyID()))
+
+			Expect(svc.Close()).To(Succeed())
 		})
 	})
 	Describe("Metric Collection", func() {
