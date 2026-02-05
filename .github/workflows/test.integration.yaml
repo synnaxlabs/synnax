@@ -183,6 +183,7 @@ jobs:
       packages: write
     uses: ./.github/workflows/build.synnax.yaml
     with:
+      debug: true
       windows: true
       ubuntu: true
       docker: false

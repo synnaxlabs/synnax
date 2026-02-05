@@ -236,7 +236,7 @@ func analyzeFunctionNode(
 	n := ir.Node{
 		Key:      key,
 		Type:     name,
-		Channels: sym.Channels,
+		Channels: sym.Channels.Copy(),
 		Config:   slices.Clone(sym.Type.Config),
 		Outputs:  slices.Clone(sym.Type.Outputs),
 		Inputs:   slices.Clone(sym.Type.Inputs),

@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import time
 from re import search as re_search
 from typing import TYPE_CHECKING
 
@@ -50,12 +51,7 @@ class LabelClient:
 
         if color is not None:
             color_swatch = create_form.locator(".pluto-color-swatch").first
-            color_swatch.click()
-            hex_input = self.page.locator(".sketch-picker input").first
-            hex_input.click()
-            hex_input.fill(color.lstrip("#"))
-            self.page.keyboard.press("Enter")
-            self.page.keyboard.press("Escape")
+            self._set_color_via_picker(color_swatch, color)
 
         name_input = create_form.locator("input[placeholder='Label Name']")
         name_input.fill(name)
@@ -116,11 +112,7 @@ class LabelClient:
 
         name_input = label_item.locator("input[placeholder='Label Name']").first
 
-        name_input.click()
-        self.console.select_all()
-
-        self.page.keyboard.type(new_name)
-
+        name_input.fill(new_name)
         name_input.press("Enter")
 
         self.page.wait_for_load_state("networkidle", timeout=5000)
@@ -207,14 +199,27 @@ class LabelClient:
             raise ValueError(f"Label '{name}' not found")
 
         color_swatch = label_item.locator(".pluto-color-swatch").first
-        color_swatch.click()
+        self._set_color_via_picker(color_swatch, new_color)
+        self.page.wait_for_load_state("networkidle", timeout=5000)
 
-        hex_input = self.page.locator(".sketch-picker input").first
+        self._close_edit_modal()
+
+    def _set_color_via_picker(self, swatch: Locator, hex_color: str) -> None:
+        """Set a color using the color picker.
+
+        Args:
+            swatch: The color swatch locator to click.
+            hex_color: The hex color code (e.g., "#FF0000").
+        """
+        swatch.click()
+        color_picker = self.page.locator(".sketch-picker")
+        color_picker.wait_for(state="visible", timeout=2000)
+        hex_input = color_picker.locator("input").first
         hex_input.click()
-        hex_input.fill(new_color.lstrip("#"))
+        hex_input.fill(hex_color.lstrip("#"))
         self.page.keyboard.press("Enter")
         self.page.keyboard.press("Escape")
-        self._close_edit_modal()
+        color_picker.wait_for(state="hidden", timeout=2000)
 
     def _open_edit_modal(self) -> None:
         self.console.command_palette("Edit Labels")
@@ -230,16 +235,19 @@ class LabelClient:
         modal.wait_for(state="hidden", timeout=5000)
 
     def _find_label_item(self, name: str) -> Locator | None:
-        for item in self._find_label_items():
-            if not item.is_visible():
-                continue
-            name_input = item.locator("input[placeholder='Label Name']").first
-            if name_input.count() == 0:
-                continue
-            if name_input.input_value() != name:
-                continue
-            element_id = item.get_attribute("id")
-            return self.page.locator(f"[id='{element_id}']")
+        for attempt in range(5):
+            for item in self._find_label_items():
+                if not item.is_visible():
+                    continue
+                name_input = item.locator("input[placeholder='Label Name']").first
+                if name_input.count() == 0:
+                    continue
+                if name_input.input_value().strip() != name.strip():
+                    continue
+                element_id = item.get_attribute("id")
+                return self.page.locator(f"[id='{element_id}']")
+            if attempt < 2:
+                time.sleep(0.2)
         return None
 
     def _find_label_items(self) -> list[Locator]:

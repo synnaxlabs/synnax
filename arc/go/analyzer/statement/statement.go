@@ -240,6 +240,11 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 		})
 		return
 	}
+	// Stateful variables store VALUES, not channel references.
+	// If initialized from a channel, unwrap to get the value type.
+	if varType.Kind == types.KindChan {
+		varType = varType.Unwrap()
+	}
 	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindStatefulVariable,
