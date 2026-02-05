@@ -75,6 +75,7 @@
     .console-task-controls__actions {
         padding: 2rem;
         gap: 1rem;
+        flex-shrink: 0;
     }
 
     &.console-task-controls--expanded {
