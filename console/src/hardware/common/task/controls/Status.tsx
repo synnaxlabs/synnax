@@ -66,12 +66,19 @@ export const Status = ({
             {message}
           </Text.Text>
         </Flex.Box>
-        <Flex.Box x>
-          <Telem.Text.TimeStamp level="small" color={8} format="time" displayTZ="local">
-            {stat.time}
-          </Telem.Text.TimeStamp>
-          {expanded && (
+        {expanded && (
+          <Flex.Box x>
+            <Telem.Text.TimeStamp
+              className={CSS.BE("task-status", "time-stamp")}
+              level="small"
+              color={8}
+              format="time"
+              displayTZ="local"
+            >
+              {stat.time}
+            </Telem.Text.TimeStamp>
             <Button.Copy
+              className={CSS.BE("task-status", "copy-button")}
               text={getCopyText}
               variant="outlined"
               size="small"
@@ -79,8 +86,8 @@ export const Status = ({
             >
               Copy diagnostics
             </Button.Copy>
-          )}
-        </Flex.Box>
+          </Flex.Box>
+        )}
       </Flex.Box>
       <ExpansionIcon className={CSS.BE("task-status", "expand-indicator")} />
       {expanded && hasDescription && (

@@ -79,6 +79,23 @@
 @container (max-width: 600px) {
     .console-task-controls {
         flex-direction: column !important;
+        overflow: hidden;
+
+        .console-task-status__time-stamp {
+            display: none;
+        }
+
+        .console-task-controls__actions {
+            width: 100%;
+        }
+
+        .console-task-status__copy-button {
+            font-size: 0;
+            gap: 0;
+            & svg {
+                font-size: 2rem;
+            }
+        }
 
         .console-task-status {
             min-height: 10rem;
