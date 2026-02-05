@@ -200,7 +200,12 @@ describe("EtherCAT Device queries", () => {
         result.current.retrieve({ key: dev.key });
       });
 
-      await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+      await waitFor(() => {
+        const lastCall = onChange.mock.calls.at(-1);
+        expect(lastCall?.[0]?.variant).toEqual("success");
+      });
+
+      const callCountAfterInitial = onChange.mock.calls.length;
 
       await act(async () => {
         await client.devices.create({
@@ -209,7 +214,9 @@ describe("EtherCAT Device queries", () => {
         });
       });
 
-      await waitFor(() => expect(onChange.mock.calls.length).toBeGreaterThanOrEqual(2));
+      await waitFor(() =>
+        expect(onChange.mock.calls.length).toBeGreaterThan(callCountAfterInitial),
+      );
     });
   });
 
