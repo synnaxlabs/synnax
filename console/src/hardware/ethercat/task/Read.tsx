@@ -7,19 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon, Telem } from "@synnaxlabs/pluto";
+import { channel } from "@synnaxlabs/client";
+import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
-import { type Device } from "@/hardware/ethercat/device";
-import { SelectSlave } from "@/hardware/ethercat/device/SelectSlave";
-import { SelectChannelModeField } from "@/hardware/ethercat/task/SelectChannelModeField";
-import { SelectPDOField } from "@/hardware/ethercat/task/SelectPDOField";
+import { ReadChannelDetails } from "@/hardware/ethercat/task/ChannelDetails";
+import {
+  checkOrCreateIndex,
+  findChannelsToCreate,
+  retrieveAndValidateSlaves,
+} from "@/hardware/ethercat/task/configure";
 import {
   AUTOMATIC_TYPE,
-  type ChannelMode,
+  channelMapKey,
   createReadChannel,
   getChannelByMapKey,
   getPDOName,
@@ -28,11 +30,9 @@ import {
   READ_SCHEMAS,
   READ_TYPE,
   readConfigZ,
-  readMapKey,
   type readStatusDataZ,
   type readTypeZ,
   resolvePDODataType,
-  ZERO_READ_CHANNELS,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/ethercat/task/types";
 import { Selector } from "@/selector";
@@ -77,54 +77,7 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   );
 };
 
-const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
-  const channelMode = PForm.useFieldValue<ChannelMode>(`${path}.type`);
-  return (
-    <Flex.Box y gap="medium" style={{ padding: "1rem" }}>
-      <SelectSlave path={`${path}.device`} />
-      <SelectChannelModeField path={path} zeroChannels={ZERO_READ_CHANNELS} />
-      {channelMode === AUTOMATIC_TYPE ? (
-        <SelectPDOField path={path} pdoType="inputs" />
-      ) : (
-        <>
-          <Flex.Box x gap="small">
-            <PForm.NumericField
-              path={`${path}.index`}
-              label="Index (hex)"
-              inputProps={{ showDragHandle: false }}
-              grow
-            />
-            <PForm.NumericField
-              path={`${path}.subindex`}
-              label="Subindex"
-              inputProps={{ showDragHandle: false }}
-              grow
-            />
-          </Flex.Box>
-          <Flex.Box x gap="small">
-            <PForm.NumericField
-              path={`${path}.bitLength`}
-              label="Bit Length"
-              inputProps={{ showDragHandle: false }}
-              grow
-            />
-            <PForm.Field<string> path={`${path}.dataType`} label="Data Type" grow>
-              {({ value, onChange }) => (
-                <Telem.SelectDataType
-                  value={value}
-                  onChange={onChange}
-                  hideVariableDensity
-                />
-              )}
-            </PForm.Field>
-          </Flex.Box>
-        </>
-      )}
-    </Flex.Box>
-  );
-};
-
-const channelDetails = Component.renderProp(ChannelDetails);
+const channelDetails = Component.renderProp(ReadChannelDetails);
 
 const listItem = Component.renderProp(ChannelListItem);
 
@@ -152,114 +105,56 @@ const getInitialValues: Common.Task.GetInitialValues<
   return { ...ZERO_READ_PAYLOAD };
 };
 
-const checkOrCreateIndex = async (
-  client: Parameters<Common.Task.OnConfigure<typeof readConfigZ>>[0],
-  slave: Device.SlaveDevice,
-): Promise<boolean> => {
-  let shouldCreate = primitive.isZero(slave.properties.readIndex);
-  if (!shouldCreate)
-    try {
-      await client.channels.retrieve(slave.properties.readIndex);
-    } catch (e) {
-      if (NotFoundError.matches(e)) shouldCreate = true;
-      else throw e;
-    }
-
-  if (shouldCreate) {
-    const identifier = channel.escapeInvalidName(slave.properties.identifier);
-    const idx = await client.channels.create({
-      name: `${identifier}_time`,
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    slave.properties.readIndex = idx.key;
-    slave.properties.read.channels = {};
-    return true;
-  }
-  return false;
+const READ_INDEX_OPTIONS = {
+  indexProperty: "readIndex" as const,
+  channelsProperty: "read" as const,
+  nameSuffix: "_time" as const,
 };
 
 const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   client,
   config,
 ) => {
-  const slaveKeys = [...new Set(config.channels.map((ch) => ch.device))];
-  if (slaveKeys.length === 0) throw new Error("No channels configured");
-
-  const slaves = await client.devices.retrieve<
-    Device.SlaveProperties,
-    Device.Make,
-    Device.SlaveModel
-  >({ keys: slaveKeys });
-
-  for (const slave of slaves) Common.Device.checkConfigured(slave);
-
-  const networks = [...new Set(slaves.map((s) => s.properties.network))];
-  if (networks.length > 1)
-    throw new Error(
-      `All slaves must be on the same network. Found: ${networks.join(", ")}`,
-    );
-  if (networks.length === 0 || !networks[0])
-    throw new Error("No valid network found for selected slaves");
-
-  const rack = slaves[0].rack;
-
-  const channelsBySlaveKey = new Map<string, InputChannel[]>();
-  for (const ch of config.channels) {
-    const existing = channelsBySlaveKey.get(ch.device) ?? [];
-    existing.push(ch);
-    channelsBySlaveKey.set(ch.device, existing);
-  }
+  const { slaves, rack, channelsBySlaveKey } =
+    await retrieveAndValidateSlaves<InputChannel>(client, config.channels);
 
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
-
-    let modified = await checkOrCreateIndex(client, slave);
-
-    const toCreate: InputChannel[] = [];
-    for (const ch of channels) {
-      const mapKey = readMapKey(ch);
-      const existing = getChannelByMapKey(slave.properties.read.channels, mapKey);
-      if (existing === 0) {
-        toCreate.push(ch);
-        continue;
-      }
-      try {
-        await client.channels.retrieve(existing);
-      } catch (e) {
-        if (NotFoundError.matches(e)) toCreate.push(ch);
-        else throw e;
-      }
-    }
+    let modified = await checkOrCreateIndex(client, slave, READ_INDEX_OPTIONS);
+    const toCreate = await findChannelsToCreate(
+      client,
+      channels,
+      slave.properties.read.channels,
+    );
 
     if (toCreate.length > 0) {
       modified = true;
       const identifier = channel.escapeInvalidName(slave.properties.identifier);
       const created = await client.channels.create(
-        toCreate.map((ch) => {
-          const dataType =
+        toCreate.map((ch) => ({
+          name: primitive.isNonZero(ch.name)
+            ? ch.name
+            : `${identifier}_${getPDOName(ch)}`,
+          dataType:
             ch.type === AUTOMATIC_TYPE
               ? resolvePDODataType(slave, ch.pdo, "inputs")
-              : ch.dataType;
-          return {
-            name: primitive.isNonZero(ch.name)
-              ? ch.name
-              : `${identifier}_${getPDOName(ch)}`,
-            dataType,
-            index: slave.properties.readIndex,
-          };
-        }),
+              : ch.dataType,
+          index: slave.properties.readIndex,
+        })),
       );
 
       created.forEach((c, i) => {
-        slave.properties.read.channels[readMapKey(toCreate[i])] = c.key;
+        slave.properties.read.channels[channelMapKey(toCreate[i])] = c.key;
       });
     }
 
     if (modified) await client.devices.create(slave);
 
     channels.forEach((ch) => {
-      ch.channel = getChannelByMapKey(slave.properties.read.channels, readMapKey(ch));
+      ch.channel = getChannelByMapKey(
+        slave.properties.read.channels,
+        channelMapKey(ch),
+      );
     });
   }
 
