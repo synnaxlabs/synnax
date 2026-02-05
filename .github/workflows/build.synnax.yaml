@@ -365,7 +365,7 @@ jobs:
           # on the same machine to run simultaneously without conflicts.
 
           # Clean up stale build keychains from previous runs (older than 1 day)
-          find ~/Library/Keychains -name "build-*.keychain*" -mtime +1 -exec security delete-keychain {} \; 2>/dev/null || true
+          find ~/Library/Keychains -name "build-*.keychain*" -mtime +1 -exec security delete-keychain "{}" \; 2>/dev/null || true
 
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
           security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
@@ -736,7 +736,7 @@ jobs:
           KEYCHAIN_NAME: build-${{ github.run_id }}.keychain
         run: |
           # Clean up stale build keychains from previous runs (older than 1 day)
-          find ~/Library/Keychains -name "build-*.keychain*" -mtime +1 -exec security delete-keychain {} \; 2>/dev/null || true
+          find ~/Library/Keychains -name "build-*.keychain*" -mtime +1 -exec security delete-keychain "{}" \; 2>/dev/null || true
 
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
           security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
