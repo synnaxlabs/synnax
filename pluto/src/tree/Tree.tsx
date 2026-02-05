@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type compare, type record, unique } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { memo, type ReactElement, useCallback, useMemo } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
@@ -145,7 +145,7 @@ export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
   shape: Shape<K>;
 }
 
-export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
+const BaseTree = <K extends record.Key, E extends record.Keyed<K>>({
   shape,
   children,
   selected,
@@ -187,3 +187,5 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
     </Context>
   );
 };
+
+export const Tree = memo(BaseTree) as typeof BaseTree;

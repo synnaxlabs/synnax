@@ -10,7 +10,7 @@
 import "@/flex/Box.css";
 
 import { type color, direction } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import { type CSSProperties, memo, type ReactElement } from "react";
 import z from "zod";
 
 import { type Component } from "@/component";
@@ -174,7 +174,7 @@ const parseFull = (full?: boolean | direction.Direction): string | false => {
  * A flexible container component that arranges its children using CSS flexbox.
  * See {@link BoxProps} for all available props and examples.
  */
-export const Box = <E extends Generic.ElementType = "div">({
+const BaseBox = <E extends Generic.ElementType = "div">({
   style,
   align,
   className,
@@ -255,3 +255,5 @@ export const Box = <E extends Generic.ElementType = "div">({
     />
   );
 };
+
+export const Box = memo(BaseBox) as typeof BaseBox;

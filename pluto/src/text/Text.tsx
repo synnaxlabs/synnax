@@ -13,6 +13,7 @@ import { type status } from "@synnaxlabs/x";
 import {
   Children,
   type ComponentPropsWithoutRef,
+  memo,
   type ReactElement,
   type ReactNode,
 } from "react";
@@ -118,7 +119,7 @@ const formatStyle = (
   return style;
 };
 
-export const Text = <E extends Generic.ElementType = "p">({
+const BaseText = <E extends Generic.ElementType = "p">({
   level = "p",
   className,
   style,
@@ -152,3 +153,5 @@ export const Text = <E extends Generic.ElementType = "p">({
     {...(rest as Flex.BoxProps<E>)}
   />
 );
+
+export const Text = memo(BaseText) as typeof BaseText;

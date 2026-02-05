@@ -11,6 +11,7 @@ import {
   type ComponentPropsWithRef,
   createElement,
   type JSX,
+  memo,
   type ReactElement,
 } from "react";
 
@@ -33,8 +34,10 @@ export type OptionalElementProps<E extends keyof JSX.IntrinsicElements> = {
  * the underlying element.
  * @param props.el - The element type to render.
  */
-export const Element = <E extends keyof JSX.IntrinsicElements>({
+const BaseElement = <E extends keyof JSX.IntrinsicElements>({
   el,
   children,
   ...rest
 }: ElementProps<E>): ReactElement => createElement(el, rest, children);
+
+export const Element = memo(BaseElement) as typeof BaseElement;

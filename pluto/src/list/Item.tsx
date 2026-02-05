@@ -10,7 +10,7 @@
 import "@/list/Item.css";
 
 import { type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { memo, type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
@@ -40,7 +40,7 @@ export type ItemProps<
 
 export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
 
-export const Item = <K extends record.Key, E extends Button.ElementType = "div">({
+const BaseItem = <K extends record.Key, E extends Button.ElementType = "div">({
   itemKey,
   className,
   index,
@@ -86,3 +86,5 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
     {...rest}
   />
 );
+
+export const Item = memo(BaseItem) as typeof BaseItem;
