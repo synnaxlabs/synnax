@@ -540,6 +540,26 @@ TEST(WatchTest, WatchMultipleNotifiers) {
     EXPECT_TRUE(woke_up.load());
 }
 
+#endif // defined(__linux__) || defined(__APPLE__)
+
+#if defined(_WIN32)
+
+/// @brief watch() should fail for a second notifier on Windows (only one supported).
+TEST(WatchTest, WatchSecondNotifierFails_Windows) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = telem::TimeSpan(0);
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    auto notifier1 = notify::create();
+    auto notifier2 = notify::create();
+    EXPECT_TRUE(loop->watch(*notifier1));
+    EXPECT_FALSE(loop->watch(*notifier2));
+}
+
+#endif // defined(_WIN32)
+
 /// @brief watch() should be idempotent - calling twice with same notifier succeeds.
 TEST(WatchTest, WatchSameNotifierTwice_Succeeds) {
     Config config;
@@ -550,7 +570,7 @@ TEST(WatchTest, WatchSameNotifierTwice_Succeeds) {
 
     auto notifier = notify::create();
     EXPECT_TRUE(loop->watch(*notifier));
-    EXPECT_TRUE(loop->watch(*notifier)); // Should succeed, not fail with EEXIST
+    EXPECT_TRUE(loop->watch(*notifier));
 }
 
 /// @brief watch() called twice should still allow notifier to wake wait().
@@ -563,7 +583,7 @@ TEST(WatchTest, WatchSameNotifierTwice_StillWakes) {
 
     auto notifier = notify::create();
     ASSERT_TRUE(loop->watch(*notifier));
-    ASSERT_TRUE(loop->watch(*notifier)); // Re-register
+    ASSERT_TRUE(loop->watch(*notifier));
 
     std::atomic<bool> woke_up{false};
     breaker::Breaker breaker;
@@ -590,7 +610,6 @@ TEST(WatchTest, WatchAfterSimulatedRestart_Works) {
 
     auto notifier = notify::create();
 
-    // First "run" - watch and use
     ASSERT_TRUE(loop->watch(*notifier));
     breaker::Breaker breaker1;
     std::thread t1([&]() { loop->wait(breaker1); });
@@ -598,7 +617,6 @@ TEST(WatchTest, WatchAfterSimulatedRestart_Works) {
     loop->wake();
     t1.join();
 
-    // Second "run" - watch same notifier again (simulates restart scenario)
     ASSERT_TRUE(loop->watch(*notifier));
     breaker::Breaker breaker2;
     std::atomic<bool> woke{false};
@@ -612,26 +630,6 @@ TEST(WatchTest, WatchAfterSimulatedRestart_Works) {
 
     EXPECT_TRUE(woke.load());
 }
-
-#endif // defined(__linux__) || defined(__APPLE__)
-
-#if defined(_WIN32)
-
-/// @brief watch() should fail for a second notifier on Windows (only one supported).
-TEST(WatchTest, WatchSecondNotifierFails_Windows) {
-    Config config;
-    config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::TimeSpan(0);
-
-    const auto loop = ASSERT_NIL_P(create(config));
-
-    auto notifier1 = notify::create();
-    auto notifier2 = notify::create();
-    EXPECT_TRUE(loop->watch(*notifier1));
-    EXPECT_FALSE(loop->watch(*notifier2));
-}
-
-#endif // defined(_WIN32)
 
 //
 // Breaker Cancellation Tests
