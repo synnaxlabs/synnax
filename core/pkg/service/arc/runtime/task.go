@@ -274,6 +274,7 @@ func (d *dataRuntime) next(
 	d.scheduler.Next(ctx, telem.Since(d.startTime), reason)
 	d.state.ClearReads()
 	if fr, changed := d.state.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
+		fmt.Println(fr)
 		req := framer.WriterRequest{
 			Frame:   frame.NewFromStorage(fr),
 			Command: writer.CommandWrite,

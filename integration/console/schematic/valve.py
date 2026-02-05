@@ -17,6 +17,8 @@ from .symbol import Symbol
 class Valve(Symbol):
     """Schematic valve symbol"""
 
+    _symbol_group = "Valves"
+
     def __init__(
         self,
         *,
@@ -24,7 +26,7 @@ class Valve(Symbol):
         state_channel: str,
         command_channel: str,
         show_control_chip: bool = True,
-        symbol_type: str = "Valve",
+        symbol_type: str = "Generic",
         rotatable: bool = True,
     ):
         """Initialize a valve symbol with configuration.
@@ -41,25 +43,6 @@ class Valve(Symbol):
         self.state_channel = state_channel
         self.command_channel = command_channel
         self.show_control_chip = show_control_chip
-
-    def _add_symbol_to_schematic(self, symbol_type: str) -> str:
-        """Add a valve symbol using the Valves menu."""
-        if self.page is None or self.console is None:
-            raise RuntimeError("Symbol not attached to schematic")
-
-        self.console.notifications.close_all()
-        self.console.click("Symbols")
-        initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())
-
-        self.console.click("Valves")
-        self.console.click("Generic")
-
-        self.page.wait_for_function(
-            f"document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > {initial_count}"
-        )
-
-        all_symbols = self.page.locator("[data-testid^='rf__node-']").all()
-        return all_symbols[-1].get_attribute("data-testid") or "unknown"
 
     def _apply_properties(self) -> None:
         """Apply valve configuration after being added to schematic."""

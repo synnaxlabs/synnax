@@ -210,24 +210,34 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
     ],
   });
 
-export interface RetrieveMultipleParams {
+export interface RetrieveMultipleQuery {
   keys: status.Key[];
 }
 
+export const retrieveMultiple = async ({
+  client,
+  store,
+  query: { keys },
+}: Flux.RetrieveParams<RetrieveMultipleQuery, FluxSubStore>): Promise<
+  status.Status[]
+> => {
+  if (keys.length === 0) return [];
+  const cached = store.statuses.get(keys);
+  const cachedKeys = new Set(cached.map((s) => s.key));
+  const missing = keys.filter((k) => !cachedKeys.has(k));
+  if (missing.length === 0) return cached;
+  const retrieved = await client.statuses.retrieve({ keys: missing });
+  store.statuses.set(retrieved);
+  return [...cached, ...retrieved];
+};
+
 export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
-  RetrieveMultipleParams,
+  RetrieveMultipleQuery,
   status.Status[],
   FluxSubStore
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { keys }, store }) => {
-    const cached = store.statuses.get(keys);
-    const missing = keys.filter((k) => !store.statuses.has(k));
-    if (missing.length === 0) return cached;
-    const retrieved = await client.statuses.retrieve({ keys: missing });
-    store.statuses.set(retrieved);
-    return [...cached, ...retrieved];
-  },
+  retrieve: retrieveMultiple,
   mountListeners: ({ client, store, onChange, query: { keys } }) => {
     const keysSet = new Set(keys);
     return [

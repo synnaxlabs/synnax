@@ -56,11 +56,12 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     const telem::Rate state_rate;
     /// @brief the connection method to the device.
     const std::string conn_method;
-    /// @brief the model of the device.
+    /// @brief the model of the device. Dynamically populated by querying the core.
     std::string dev_model;
     /// @brief configurations for the enabled channels on the device.
     std::map<synnax::ChannelKey, std::unique_ptr<OutputChan>> channels;
     /// @brief the set of index channel keys for the state channels.
+    /// Dynamically populated by querying the core.
     std::set<synnax::ChannelKey> state_index_keys;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:

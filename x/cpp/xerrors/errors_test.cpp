@@ -279,3 +279,34 @@ TEST(testXErrors, testStringConstructorWithDelimiter) {
     ASSERT_EQ(multiple_delimiters.type, "error");
     ASSERT_EQ(multiple_delimiters.data, "data---more");
 }
+
+/// @brief it should not match when the pattern is longer than the error type.
+/// Regression test for bug where std::mismatch would read past the end of type.
+TEST(testXErrors, testMatchesPatternLongerThanType) {
+    const auto short_err = xerrors::Error("nil", "");
+    ASSERT_FALSE(short_err.matches("sy.auth.invalid_token"));
+    ASSERT_FALSE(short_err.matches("some.very.long.error.type.that.exceeds"));
+
+    const auto nil_err = xerrors::NIL;
+    ASSERT_FALSE(nil_err.matches("sy.validation.error"));
+    ASSERT_FALSE(nil_err.matches("any.longer.string"));
+}
+
+/// @brief it should handle empty strings in matches correctly.
+TEST(testXErrors, testMatchesEmptyStrings) {
+    const auto empty_type = xerrors::Error("", "data");
+    ASSERT_TRUE(empty_type.matches(""));
+    ASSERT_FALSE(empty_type.matches("any"));
+
+    const auto normal_err = xerrors::Error("test.error", "");
+    ASSERT_TRUE(normal_err.matches(""));
+}
+
+/// @brief it should handle exact length matches correctly.
+TEST(testXErrors, testMatchesExactLength) {
+    const auto err = xerrors::Error("test", "");
+    ASSERT_TRUE(err.matches("test"));
+    ASSERT_FALSE(err.matches("test."));
+    ASSERT_FALSE(err.matches("tests"));
+    ASSERT_FALSE(err.matches("test.more"));
+}

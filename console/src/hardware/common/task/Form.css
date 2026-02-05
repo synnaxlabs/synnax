@@ -63,19 +63,6 @@
         }
     }
 
-    .console-task-controls {
-        border-radius: 1rem;
-        border-color: var(--pluto-gray-l6);
-        background-color: var(--pluto-gray-l1);
-        .console-task-state {
-            flex-grow: 1;
-            border-right: var(--pluto-border);
-        }
-        > div {
-            padding: 2rem;
-        }
-    }
-
     .console-task__channel-name {
         max-width: 100%;
     }
@@ -101,7 +88,7 @@
 
     .console-task-controls {
         flex-direction: column !important;
-        .console-task-state {
+        .console-task-status {
             min-height: 10rem;
             border-right: none !important;
             border-bottom: var(--pluto-border);

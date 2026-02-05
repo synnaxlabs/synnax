@@ -34,10 +34,10 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     std::map<synnax::ChannelKey, std::unique_ptr<channel::Output>> channels;
     /// @brief the index channel keys for all the state channels. This is used
     /// to make sure we write correct timestamps for each state channel.
+    /// Dynamically populated by querying the core.
     std::set<synnax::ChannelKey> state_index_keys;
     /// @brief a map of channel keys to their index positions within the tasks
-    /// write buffer. This map is only valid after apply() has been called on the
-    /// configuration.
+    /// write buffer. Dynamically populated during parsing.
     std::unordered_map<synnax::ChannelKey, std::size_t> buf_indexes;
 
     /// @brief move constructor to deal with output channel unique pointers.

@@ -112,7 +112,13 @@ func (c Config) format() map[string]any {
 var (
 	_               config.Config[Config] = Config{}
 	AllIntegrations                       = []string{
-		"arc", "labjack", "modbus", "ni", "opc", "sequence",
+		"arc",
+		"labjack",
+		"modbus",
+		"ni",
+		"opc",
+		"sequence",
+		"ethercat",
 	}
 	DefaultConfig = Config{
 		Integrations:        []string{},
