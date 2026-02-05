@@ -1,0 +1,111 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-task-controls {
+    border-color: var(--pluto-gray-l6);
+    background-color: var(--pluto-gray-l1);
+
+    > .console-task-status {
+        position: relative;
+        flex: 1 1 auto;
+        height: auto;
+        min-height: 100%;
+        width: 100%;
+        border-right: var(--pluto-border);
+        padding: 2rem;
+        cursor: pointer;
+        transition: none !important;
+    }
+
+    .console-task-status__expand-indicator {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        color: var(--pluto-gray-l8);
+        font-size: 2rem;
+    }
+
+    .console-task-status__message {
+        width: 100%;
+        padding-right: 4rem;
+    }
+
+    .console-task-status__description {
+        max-height: 150px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        white-space: pre-wrap;
+        word-break: break-word;
+        user-select: text !important;
+        -webkit-user-select: text !important;
+        padding: 1rem;
+        background: var(--pluto-gray-l0);
+        border-radius: var(--pluto-border-radius);
+        font-size: calc(var(--pluto-p-size) * 0.9);
+        border: var(--pluto-border);
+        width: 100%;
+        display: block;
+    }
+
+    .console-task-controls__actions {
+        padding: 2rem;
+        gap: 1rem;
+    }
+
+    &.console-task-controls--expanded {
+        .console-task-status {
+            border-right: none;
+            border-bottom: var(--pluto-border);
+            min-height: auto;
+            &:hover {
+                background: var(--pluto-gray-l1);
+            }
+        }
+
+        .console-task-controls__actions {
+            align-self: flex-end;
+        }
+    }
+}
+
+@container (max-width: 600px) {
+    .console-task-controls {
+        flex-direction: column !important;
+        overflow: hidden;
+
+        .console-task-status__time-stamp {
+            display: none;
+        }
+
+        .console-task-controls__actions {
+            width: 100%;
+        }
+
+        .console-task-status__copy-button {
+            font-size: 0;
+            gap: 0;
+            & svg {
+                font-size: 2rem;
+            }
+        }
+
+        .console-task-status {
+            min-height: 10rem;
+            border-right: none !important;
+            border-bottom: var(--pluto-border);
+            border-bottom-left-radius: 0 !important;
+        }
+
+        .console-task-controls__actions {
+            align-self: flex-end;
+        }
+    }
+}

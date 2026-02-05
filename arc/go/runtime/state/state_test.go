@@ -260,6 +260,51 @@ var _ = Describe("State", func() {
 			})
 		})
 
+		Describe("ReadChannelValue", func() {
+			It("Should return the last series when multiple series exist", func() {
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+				fr1 := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](1, 2))
+				s.Ingest(fr1)
+				fr2 := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](3, 4))
+				s.Ingest(fr2)
+				series, ok := s.ReadChannelValue(10)
+				Expect(ok).To(BeTrue())
+				Expect(series).To(telem.MatchSeries(telem.NewSeriesV[float32](3, 4)))
+			})
+
+			It("Should return the only series when single series exists", func() {
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+				fr := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](1, 2, 3))
+				s.Ingest(fr)
+				series, ok := s.ReadChannelValue(10)
+				Expect(ok).To(BeTrue())
+				Expect(series).To(telem.MatchSeries(telem.NewSeriesV[float32](1, 2, 3)))
+			})
+
+			It("Should return false for non-existent channel", func() {
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+				_, ok := s.ReadChannelValue(999)
+				Expect(ok).To(BeFalse())
+			})
+
+			It("Should return false when channel has empty MultiSeries", func() {
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+				_, ok := s.ReadChannelValue(10)
+				Expect(ok).To(BeFalse())
+			})
+
+			It("Should handle many ingested frames without panic", func() {
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+				for i := 0; i < 10; i++ {
+					fr := telem.UnaryFrame[uint32](5, telem.NewSeriesV[int32](int32(i*10), int32(i*10+1)))
+					s.Ingest(fr)
+				}
+				series, ok := s.ReadChannelValue(5)
+				Expect(ok).To(BeTrue())
+				Expect(series).To(telem.MatchSeries(telem.NewSeriesV[int32](90, 91)))
+			})
+		})
+
 		Describe("ClearReads", func() {
 			It("Should preserve the latest series for a channel", func() {
 				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})

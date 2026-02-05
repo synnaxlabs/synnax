@@ -7,6 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/button/Button";
-export * from "@/button/Copy";
-export * from "@/button/Toggle";
+export * as Controls from "@/hardware/common/task/controls/external";
