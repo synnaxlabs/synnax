@@ -52,17 +52,23 @@ export const Status = ({
     >
       <Flex.Box
         x
-        align="center"
+        align="start"
         gap="small"
         justify="between"
         grow
         className={CSS.BE("task-status", "message")}
       >
-        <Flex.Box x align="center" gap="small">
+        <Flex.Box x gap="small" className={CSS.BE("task-status", "message-content")}>
           <Text.Text level="p" status={stat.variant}>
             {statusIcon}
           </Text.Text>
-          <Text.Text level="p" status={stat.variant} weight={500}>
+          <Text.Text
+            level="p"
+            status={stat.variant}
+            weight={500}
+            overflow="wrap"
+            className={CSS.BE("task-status", "message-text")}
+          >
             {message}
           </Text.Text>
         </Flex.Box>

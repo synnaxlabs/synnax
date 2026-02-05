@@ -38,6 +38,23 @@
         padding-right: 4rem;
     }
 
+    .console-task-status__message-content {
+        min-width: 0;
+    }
+
+    .console-task-status__message-text {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    &.console-task-controls--expanded .console-task-status__message-text {
+        display: block;
+        -webkit-line-clamp: unset;
+        overflow: visible;
+    }
+
     .console-task-status__description {
         max-height: 150px;
         overflow-y: auto;
