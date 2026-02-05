@@ -10,6 +10,8 @@
  */
 
 .console-arc-editor {
+    container-type: inline-size;
+
     .console-editor {
         padding-bottom: 11rem;
 
@@ -32,7 +34,15 @@
         box-shadow: var(--pluto-shadow-v2);
 
         & .console-rack-select {
-            min-width: 225px;
+            flex-grow: 1;
+        }
+    }
+}
+
+@container (max-width: 400px) {
+    .console-arc-editor {
+        .console-rack-select {
+            display: none;
         }
     }
 }
