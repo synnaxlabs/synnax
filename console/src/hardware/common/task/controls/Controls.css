@@ -81,6 +81,10 @@
         flex-direction: column !important;
         overflow: hidden;
 
+        .console-task-status__time-stamp {
+            display: none;
+        }
+
         .console-task-controls__actions {
             width: 100%;
         }
