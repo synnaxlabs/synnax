@@ -24,6 +24,9 @@ class Factory final : public task::Factory {
 public:
     Factory(): devices(std::make_shared<device::Manager>()) {}
 
+    /// Returns the integration name for logging.
+    std::string name() override { return INTEGRATION_NAME; }
+
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task

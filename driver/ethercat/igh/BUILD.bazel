@@ -1,0 +1,55 @@
+# Vendored IgH EtherCAT Master header (ecrt.h)
+# Source: https://gitlab.com/etherlab.org/ethercat (stable-1.6)
+# License: LGPL-2.1
+cc_library(
+    name = "ecrt_official",
+    hdrs = ["ecrt.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "igh_api",
+    hdrs = ["api.h"],
+    visibility = ["//driver/ethercat:__pkg__"],
+    deps = [
+        ":ecrt_official",
+        "//driver/errors",
+        "//x/cpp/xlib",
+    ],
+)
+
+cc_library(
+    name = "igh",
+    srcs = ["master.cpp"],
+    hdrs = ["master.h"],
+    visibility = ["//driver/ethercat:__pkg__"],
+    deps = [
+        ":ecrt_official",
+        ":igh_api",
+        "//driver/ethercat/errors",
+        "//driver/ethercat/esi",
+        "//driver/ethercat/master",
+        "//driver/ethercat/telem",
+        "//x/cpp/xlib",
+        "//x/cpp/xerrors",
+        "@glog",
+    ],
+)
+
+cc_test(
+    name = "igh_test",
+    srcs = ["master_test.cpp"],
+    tags = [
+        "linux-only",
+        "manual",
+        "requires-hardware",
+        "requires-root",
+    ],
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        ":igh",
+        ":igh_api",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

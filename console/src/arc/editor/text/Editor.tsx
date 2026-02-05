@@ -27,7 +27,12 @@ export const Editor: Layout.Renderer = ({ layoutKey }) => {
   );
   return (
     <>
-      <BaseEditor value={state.text.raw} onChange={onChange} language="arc" />
+      <BaseEditor
+        value={state.text.raw}
+        onChange={onChange}
+        language="arc"
+        scrollBeyondLastLine
+      />
       <Controls state={state} />
     </>
   );

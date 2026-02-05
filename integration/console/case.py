@@ -91,7 +91,7 @@ class ConsoleCase(TestCase):
         self.page.wait_for_load_state("networkidle")
 
         # Initialize Console interface & Workspace
-        self.console = Console(self.page)
+        self.console = Console(self.page, self.client)
         self.page.wait_for_selector("text=Get Started", timeout=5000)
         self.console.workspace.ensure_selected("TestSpace")
         self.log("Selected default workspace 'TestSpace'")
