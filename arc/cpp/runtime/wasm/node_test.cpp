@@ -1038,3 +1038,133 @@ func counter(trigger i64) i64 {
     EXPECT_EQ(result_b.output(0)->at<int64_t>(0), 1)
         << "counter_b should have its own independent state, returning 1 not 2";
 }
+
+/// @brief Regression test: channel-typed config params should correctly read
+/// channel data via the WASM channel_read host function.
+TEST(NodeTest, ChannelConfigParamReadsChannelData) {
+    const auto client = new_test_client();
+
+    auto trigger_idx_name = random_name("trigger_idx");
+    auto trigger_name = random_name("trigger");
+    auto data_idx_name = random_name("data_idx");
+    auto data_name = random_name("data");
+    auto output_idx_name = random_name("output_idx");
+    auto output_name = random_name("output");
+
+    auto trigger_idx = synnax::Channel(trigger_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(trigger_idx));
+    auto data_idx = synnax::Channel(data_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(data_idx));
+    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(output_idx));
+
+    auto trigger_ch = synnax::Channel(
+        trigger_name,
+        telem::UINT8_T,
+        trigger_idx.key,
+        false
+    );
+    ASSERT_NIL(client.channels.create(trigger_ch));
+    auto data_ch = synnax::Channel(data_name, telem::FLOAT32_T, data_idx.key, false);
+    ASSERT_NIL(client.channels.create(data_ch));
+    auto output_ch = synnax::Channel(
+        output_name,
+        telem::FLOAT32_T,
+        output_idx.key,
+        false
+    );
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    // Function with a channel-typed config param.
+    // 'ch + f32(0.0)' forces a channel read (rather than a channel alias).
+    const std::string source = R"(
+func read_chan{ch chan f32}(trigger u8) f32 {
+    return ch + f32(0.0)
+}
+)" + trigger_name +
+                               " -> read_chan{ch=" + data_name + "} -> " + output_name;
+
+    auto mod = compile_arc(client, source);
+
+    // Verify the node's channels.read includes the config param channel.
+    const auto *func_node = find_node_by_type(mod, "read_chan");
+    ASSERT_NE(func_node, nullptr);
+    EXPECT_TRUE(func_node->channels.read.contains(data_ch.key))
+        << "Node channels.read should include the config param channel (key="
+        << data_ch.key << "). IR:\n"
+        << mod.to_string();
+
+    // Verify the config param has the correct channel ID value.
+    ASSERT_EQ(func_node->config.size(), 1);
+    ASSERT_TRUE(func_node->config[0].value.has_value());
+    EXPECT_EQ(
+        static_cast<int32_t>(telem::cast<double>(*func_node->config[0].value)),
+        static_cast<int32_t>(data_ch.key)
+    ) << "Config param value should be the channel ID";
+
+    auto state = std::make_shared<state::State>(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels =
+                {{trigger_idx.key, telem::TIMESTAMP_T, 0},
+                 {trigger_ch.key, telem::UINT8_T, trigger_idx.key},
+                 {data_idx.key, telem::TIMESTAMP_T, 0},
+                 {data_ch.key, telem::FLOAT32_T, data_idx.key},
+                 {output_idx.key, telem::TIMESTAMP_T, 0},
+                 {output_ch.key, telem::FLOAT32_T, output_idx.key}}
+        },
+        arc::runtime::errors::noop_handler
+    );
+
+    auto bindings = std::make_shared<wasm::Bindings>(
+        state,
+        nullptr,
+        arc::runtime::errors::noop_handler
+    );
+
+    auto wasm_mod = ASSERT_NIL_P(
+        wasm::Module::open({.module = mod, .bindings = bindings})
+    );
+
+    // Ingest data for the config param channel so channel_read_f32 can find it.
+    auto data_series = telem::Series(std::vector{42.5f});
+    state->ingest(telem::Frame(data_ch.key, std::move(data_series)));
+
+    // Set up the 'on' node that reads the trigger channel.
+    const auto *on_node = find_node_by_type(mod, "on");
+    ASSERT_NE(on_node, nullptr);
+
+    auto on_node_state = ASSERT_NIL_P(state->node(on_node->key));
+    auto on_data = telem::Series(std::vector<uint8_t>{1});
+    on_data.alignment = telem::Alignment(1, 0);
+    on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_data)
+    );
+    auto on_time = telem::Series(std::vector{telem::TimeStamp(1 * telem::MICROSECOND)});
+    on_time.alignment = telem::Alignment(1, 0);
+    on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_time)
+    );
+
+    // Set up the function node with config param.
+    auto node_state = ASSERT_NIL_P(state->node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("read_chan", func_node->config));
+
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
+
+    auto ctx = make_context();
+    std::vector<std::string> changed_outputs;
+    ctx.mark_changed = [&](const std::string &name) {
+        changed_outputs.push_back(name);
+    };
+
+    ASSERT_NIL(node.next(ctx));
+    ASSERT_EQ(changed_outputs.size(), 1);
+
+    // Verify the output reads the channel value (42.5 + 0.0 = 42.5).
+    auto result_state = ASSERT_NIL_P(state->node(func_node->key));
+    const auto &output = result_state.output(0);
+    ASSERT_EQ(output->size(), 1);
+    EXPECT_FLOAT_EQ(output->at<float>(0), 42.5f)
+        << "Channel config param should read the channel value, not the channel ID";
+}
