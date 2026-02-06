@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <format>
 #include "x/cpp/xjson/convert.h"
 
 namespace xjson {
@@ -163,12 +164,15 @@ from_sample_value(const telem::SampleValue &value, xjson::Type target) {
                     case xjson::Type::Number:
                         return {nlohmann::json(v), xerrors::NIL};
                     case xjson::Type::String: {
-                        auto s = nlohmann::json(v).dump();
+                        std::string s;
                         if constexpr (std::is_floating_point_v<T>) {
+                            s = std::to_string(v);
                             if (s.find('.') != std::string::npos) {
                                 s.erase(s.find_last_not_of('0') + 1);
                                 if (s.back() == '.') s.pop_back();
                             }
+                        } else {
+                            s = std::format("{}", v);
                         }
                         return {nlohmann::json(s), xerrors::NIL};
                     }

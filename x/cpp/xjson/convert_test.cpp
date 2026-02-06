@@ -513,7 +513,35 @@ TEST(FromSampleValue, StringToBooleanError) {
     );
 }
 
-// --- from_timestamp: UnixNanosecond ---
+TEST(FromSampleValue, TimeStampToNumberError) {
+    ASSERT_OCCURRED_AS_P(
+        xjson::from_sample_value(
+            telem::SampleValue(telem::TimeStamp(1000000000)),
+            xjson::Type::Number
+        ),
+        xjson::UNSUPPORTED_ERR
+    );
+}
+
+TEST(FromSampleValue, TimeStampToStringError) {
+    ASSERT_OCCURRED_AS_P(
+        xjson::from_sample_value(
+            telem::SampleValue(telem::TimeStamp(1000000000)),
+            xjson::Type::String
+        ),
+        xjson::UNSUPPORTED_ERR
+    );
+}
+
+TEST(FromSampleValue, TimeStampToBooleanError) {
+    ASSERT_OCCURRED_AS_P(
+        xjson::from_sample_value(
+            telem::SampleValue(telem::TimeStamp(1000000000)),
+            xjson::Type::Boolean
+        ),
+        xjson::UNSUPPORTED_ERR
+    );
+}
 
 TEST(FromTimestamp, UnixNanosecond) {
     // 10^9 seconds since epoch in nanoseconds
@@ -556,7 +584,6 @@ TEST(FromTimestamp, UnixNanosecondNegative) {
     );
 }
 
-// --- from_timestamp: UnixMicrosecond ---
 
 TEST(FromTimestamp, UnixMicrosecond) {
     const auto value = int64_t(1000000000000000000);
@@ -592,7 +619,6 @@ TEST(FromTimestamp, UnixMicrosecondNegativeFloors) {
     );
 }
 
-// --- from_timestamp: UnixMillisecond ---
 
 TEST(FromTimestamp, UnixMillisecond) {
     const int64_t value = 1000000000000000000;
@@ -628,7 +654,6 @@ TEST(FromTimestamp, UnixMillisecondNegativeFloors) {
     );
 }
 
-// --- from_timestamp: UnixSecondInt ---
 
 TEST(FromTimestamp, UnixSecondInt) {
     const int64_t value = 1000000000000000000;
@@ -663,7 +688,6 @@ TEST(FromTimestamp, UnixSecondIntNegativeFloors) {
     );
 }
 
-// --- from_timestamp: UnixSecondFloat ---
 
 TEST(FromTimestamp, UnixSecondFloat) {
     const auto ts = telem::TimeStamp(int64_t(1000000000000000000));
@@ -697,7 +721,6 @@ TEST(FromTimestamp, UnixSecondFloatNegative) {
     );
 }
 
-// --- from_timestamp: ISO8601 ---
 
 TEST(FromTimestamp, ISO8601Epoch) {
     ASSERT_EQ(
@@ -741,7 +764,6 @@ TEST(FromTimestamp, ISO8601WithNanosecondPrecision) {
     );
 }
 
-// --- check_from_sample_value ---
 
 TEST(CheckFromSampleValue, Float64ToNumberOK) {
     ASSERT_FALSE(xjson::check_from_sample_value(telem::FLOAT64_T, xjson::Type::Number));
@@ -879,6 +901,27 @@ TEST(CheckFromSampleValue, UnknownToStringError) {
 TEST(CheckFromSampleValue, UnknownToBooleanError) {
     ASSERT_OCCURRED_AS(
         xjson::check_from_sample_value(telem::UNKNOWN_T, xjson::Type::Boolean),
+        xjson::UNSUPPORTED_ERR
+    );
+}
+
+TEST(CheckFromSampleValue, JSONToNumberError) {
+    ASSERT_OCCURRED_AS(
+        xjson::check_from_sample_value(telem::JSON_T, xjson::Type::Number),
+        xjson::UNSUPPORTED_ERR
+    );
+}
+
+TEST(CheckFromSampleValue, JSONToStringError) {
+    ASSERT_OCCURRED_AS(
+        xjson::check_from_sample_value(telem::JSON_T, xjson::Type::String),
+        xjson::UNSUPPORTED_ERR
+    );
+}
+
+TEST(CheckFromSampleValue, JSONToBooleanError) {
+    ASSERT_OCCURRED_AS(
+        xjson::check_from_sample_value(telem::JSON_T, xjson::Type::Boolean),
         xjson::UNSUPPORTED_ERR
     );
 }
