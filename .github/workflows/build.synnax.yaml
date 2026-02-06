@@ -374,11 +374,10 @@ jobs:
 
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
 
-          # Only create keychain if it doesn't exist
+          # Create keychain if it doesn't exist
           if ! security list-keychains -d user | grep -q "$KEYCHAIN_NAME"; then
             echo "✓ Creating new keychain: $KEYCHAIN_NAME"
             security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-            # Add to keychain list only if newly created
             CURRENT_KEYCHAINS=$(security list-keychains -d user | tr -d '"' | tr '\n' ' ')
             security list-keychains -d user -s $CURRENT_KEYCHAINS $KEYCHAIN_NAME
           else
@@ -642,6 +641,14 @@ jobs:
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
+      - name: Cleanup Keychain
+        if: always() && matrix.os == 'macos-build-bot'
+        env:
+          KEYCHAIN_NAME: build-${{ runner.name }}.keychain
+        run: |
+          echo "Cleaning up keychain: $KEYCHAIN_NAME"
+          security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
+
   docker:
     name: Build Docker Image
     needs: [setup, build]
@@ -774,11 +781,10 @@ jobs:
 
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
 
-          # Only create keychain if it doesn't exist
+          # Create keychain if it doesn't exist
           if ! security list-keychains -d user | grep -q "$KEYCHAIN_NAME"; then
             echo "✓ Creating new keychain: $KEYCHAIN_NAME"
             security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-            # Add to keychain list only if newly created
             CURRENT_KEYCHAINS=$(security list-keychains -d user | tr -d '"' | tr '\n' ' ')
             security list-keychains -d user -s $CURRENT_KEYCHAINS $KEYCHAIN_NAME
           else
@@ -923,3 +929,11 @@ jobs:
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64_en-US.msi.sig
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.exe
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.exe.sig
+
+      - name: Cleanup Keychain
+        if: always() && matrix.os == 'macos-build-bot'
+        env:
+          KEYCHAIN_NAME: build-${{ runner.name }}.keychain
+        run: |
+          echo "Cleaning up keychain: $KEYCHAIN_NAME"
+          security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
