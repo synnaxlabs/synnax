@@ -374,8 +374,8 @@ var _ = Describe("Function Analyzer", func() {
 	Describe("Channel Binding", func() {
 		It("should bind global channels used in function body", func() {
 			resolver := symbol.MapResolver{
-				"ox_pt_1": {Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 12},
-				"ox_pt_2": {Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 13},
+				"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 12},
+				"ox_pt_2": {Name: "ox_pt_2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 13},
 			}
 			ctx := analyzeExpectSuccess(`
 				func add() f32 {
@@ -386,8 +386,25 @@ var _ = Describe("Function Analyzer", func() {
 			f := MustSucceed(ctx.Scope.Resolve(ctx, "add"))
 			Expect(f.Channels.Read).To(HaveLen(2))
 			Expect(f.Channels.Write).To(BeEmpty())
-			Expect(f.Channels.Read.Contains(12)).To(BeTrue())
-			Expect(f.Channels.Read.Contains(13)).To(BeTrue())
+			Expect(f.Channels.Read[12]).To(Equal("ox_pt_1"))
+			Expect(f.Channels.Read[13]).To(Equal("ox_pt_2"))
+		})
+
+		It("should bind channel name when writing to a global channel", func() {
+			resolver := symbol.MapResolver{
+				"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 12},
+				"valve":   {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+			}
+			ctx := analyzeExpectSuccess(`
+				func setValve() {
+					valve = ox_pt_1 * 2
+				}
+			`, resolver)
+			f := MustSucceed(ctx.Scope.Resolve(ctx, "setValve"))
+			Expect(f.Channels.Read).To(HaveLen(1))
+			Expect(f.Channels.Read[12]).To(Equal("ox_pt_1"))
+			Expect(f.Channels.Write).To(HaveLen(1))
+			Expect(f.Channels.Write[20]).To(Equal("valve"))
 		})
 	})
 

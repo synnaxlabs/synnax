@@ -133,7 +133,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 			Expect(fnSym.Channels.Read).To(HaveLen(1))
-			Expect(fnSym.Channels.Read).To(HaveKey(uint32(12)))
+			Expect(fnSym.Channels.Read[12]).To(Equal("ox_pt_1"))
 		})
 
 		It("should accumulate multiple channels from arithmetic expression", func() {
@@ -143,8 +143,8 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 			Expect(fnSym.Channels.Read).To(HaveLen(2))
-			Expect(fnSym.Channels.Read).To(HaveKey(uint32(12)))
-			Expect(fnSym.Channels.Read).To(HaveKey(uint32(13)))
+			Expect(fnSym.Channels.Read[12]).To(Equal("ox_pt_1"))
+			Expect(fnSym.Channels.Read[13]).To(Equal("ox_pt_2"))
 		})
 
 		It("should create KindFunction for logical AND expression", func() {
