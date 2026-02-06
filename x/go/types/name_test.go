@@ -48,7 +48,9 @@ var _ = Describe("Name", func() {
 		It("Should return the custom name for a type implementing CustomTypeName", func() {
 			Expect(types.Name[customNamed]()).To(Equal("CustomName"))
 		})
-
+		It("should work with slices", func() {
+			Expect(types.Name[[]int]()).To(Equal("[]int"))
+		})
 		It("Should work with built-in types", func() {
 			Expect(types.Name[string]()).To(Equal("string"))
 			Expect(types.Name[int]()).To(Equal("int"))

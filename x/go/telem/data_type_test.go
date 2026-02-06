@@ -10,9 +10,9 @@
 package telem_test
 
 import (
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -36,11 +36,11 @@ var _ = Describe("DataType", func() {
 		Specify("uint16", DataTypeInferTest[uint16](telem.Uint16T))
 		Specify("uint8", DataTypeInferTest[uint8](telem.Uint8T))
 		Specify("string", DataTypeInferTest[string](telem.StringT))
-
+		Specify("[]byte", DataTypeInferTest[[]byte](telem.BytesT))
+		Specify("uuid", DataTypeInferTest[uuid.UUID](telem.UUIDT))
+		Specify("timestamp", DataTypeInferTest[telem.TimeStamp](telem.TimeStampT))
 		It("Should panic if a a struct if provided", func() {
-			Expect(func() {
-				telem.InferDataType[struct{}]()
-			}).To(Panic())
+			Expect(func() { telem.InferDataType[struct{}]() }).To(Panic())
 		})
 	})
 
@@ -58,8 +58,9 @@ var _ = Describe("DataType", func() {
 		Entry("uint16", telem.Uint16T, telem.Bit16),
 		Entry("uint8", telem.Uint8T, telem.Bit8),
 		Entry("string", telem.StringT, telem.UnknownDensity),
+		Entry("json", telem.JSONT, telem.UnknownDensity),
+		Entry("bytes", telem.BytesT, telem.UnknownDensity),
 		Entry("timestamp", telem.TimeStampT, telem.Bit64),
 		Entry("uuid", telem.UUIDT, telem.Bit128),
-		Entry("random", telem.DataType("random"), telem.UnknownDensity),
 	)
 })

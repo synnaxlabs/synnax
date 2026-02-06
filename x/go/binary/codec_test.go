@@ -206,22 +206,6 @@ var _ = Describe("Codec", func() {
 			Entry("invalid json", `{invalid}`, uint64(0), true),
 		)
 	})
-	Describe("MustEncodeJSONToString", func() {
-		It("Should encode valid values to JSON string", func() {
-			type testStruct struct {
-				Value string `json:"value"`
-			}
-			str := binary.MustEncodeJSONToString(testStruct{Value: "test"})
-			Expect(str).To(Equal(`{"value":"test"}`))
-		})
-
-		It("Should panic on unencodable values", func() {
-			Expect(func() {
-				binary.MustEncodeJSONToString(make(chan int))
-			}).To(Panic())
-		})
-	})
-
 	Describe("MarshalStringInt64", func() {
 		It("Should encode an int64 value as a string", func() {
 			Expect(binary.MarshalStringInt64(12)).To(Equal([]byte("\"12\"")))

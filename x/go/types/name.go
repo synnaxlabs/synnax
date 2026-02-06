@@ -30,7 +30,11 @@ func Name[T any]() string {
 	if ct, ok := any(t).(CustomTypeName); ok {
 		return ct.CustomTypeName()
 	}
-	return reflect.TypeOf(*new(T)).Name()
+	typ := reflect.TypeOf((*T)(nil)).Elem()
+	if n := typ.Name(); n != "" {
+		return n
+	}
+	return typ.String()
 }
 
 // PluralName returns the plural form of the type name for T. It handles common English

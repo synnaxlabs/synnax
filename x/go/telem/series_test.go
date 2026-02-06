@@ -50,7 +50,7 @@ var _ = Describe("Series", func() {
 			Expect(s.Len()).To(Equal(int64(3)))
 		})
 		It("Should correctly return the number of samples in a series with a variable length data type", func() {
-			s := telem.NewSeriesStringsV("bob", "alice", "charlie")
+			s := telem.NewSeriesVariableV("bob", "alice", "charlie")
 			Expect(s.Len()).To(Equal(int64(3)))
 		})
 	})
@@ -159,15 +159,55 @@ var _ = Describe("Series", func() {
 			})
 		})
 
-		Describe("StaticJSONV", func() {
+		Describe("String", func() {
+			It("Should correctly marshal a static string data structure", func() {
+				data := "hello"
+				s := telem.NewSeriesVariableV(data)
+				Expect(string(s.At(0))).To(Equal("hello"))
+				Expect(s.Len()).To(BeEquivalentTo(1))
+				unmarshalled := telem.UnmarshalVariable[string](s.Data)
+				Expect(unmarshalled).To(Equal([]string{"hello"}))
+			})
+			It("Should correctly marshal empty strings", func() {
+				s := telem.NewSeriesVariableV("", "", "")
+				v := s.At(0)
+				Expect(string(v)).To(Equal(""))
+				Expect(s.Len()).To(BeEquivalentTo(3))
+				unmarshalled := telem.UnmarshalVariable[string](s.Data)
+				Expect(unmarshalled).To(Equal([]string{"", "", ""}))
+			})
+			It("Should correctly marshal and unmarshal byte slices", func() {
+				data := [][]byte{{1, 2, 3}, {4, 5, 6}}
+				s := telem.NewSeriesVariable(data)
+				Expect(s.At(0)).To(Equal([]byte{1, 2, 3}))
+				Expect(s.Len()).To(BeEquivalentTo(2))
+				unmarshalled := telem.UnmarshalVariable[[]byte](s.Data)
+				Expect(unmarshalled).To(Equal([][]byte{{1, 2, 3}, {4, 5, 6}}))
+			})
+		})
+
+		Describe("JSON", func() {
 			It("Should correctly marshal a static JSON data structure", func() {
 				data := map[string]any{
 					"cat": map[string]any{
 						"one": "two",
 					},
 				}
-				s := telem.NewSeriesStaticJSONV(data)
+				s := telem.NewSeriesJSONV(data)
+				v := s.At(0)
+				Expect(string(v)).To(Equal(`{"cat":{"one":"two"}}`))
 				Expect(s.Len()).To(Equal(int64(1)))
+				unmarshalled := telem.UnmarshalVariable[string](s.Data)
+				Expect(unmarshalled).To(Equal([]string{`{"cat":{"one":"two"}}`}))
+			})
+			It("Should correctly marshal a slice of JSON values", func() {
+				data := []int{1, 2, 3}
+				s := telem.NewSeriesJSONV(data)
+				v := s.At(0)
+				Expect(string(v)).To(Equal(`[1,2,3]`))
+				Expect(s.Len()).To(Equal(int64(1)))
+				unmarshalled := telem.UnmarshalJSON[[]int](s.Data)
+				Expect(unmarshalled).To(Equal([][]int{{1, 2, 3}}))
 			})
 		})
 
@@ -237,14 +277,14 @@ var _ = Describe("Series", func() {
 
 		Context("Variable Density", func() {
 			It("Should return the value at the given index", func() {
-				s := telem.NewSeriesStringsV("a", "b", "c")
+				s := telem.NewSeriesVariableV("a", "b", "c")
 				Expect(s.At(0)).To(Equal([]byte("a")))
 				Expect(s.At(1)).To(Equal([]byte("b")))
 				Expect(s.At(2)).To(Equal([]byte("c")))
 			})
 
 			It("Should panic when the index is out of bounds", func() {
-				s := telem.NewSeriesStringsV("a", "b", "c")
+				s := telem.NewSeriesVariableV("a", "b", "c")
 				Expect(func() {
 					s.At(5)
 				}).To(Panic())
@@ -328,7 +368,7 @@ var _ = Describe("Series", func() {
 			})
 
 			It("Should properly format string values", func() {
-				s := telem.NewSeriesStringsV("a", "b", "c")
+				s := telem.NewSeriesVariableV("a", "b", "c")
 				str := s.String()
 				Expect(str).To(ContainSubstring("DataType: string"))
 				Expect(str).To(ContainSubstring("[a b c]"))
@@ -348,8 +388,8 @@ var _ = Describe("Series", func() {
 			Entry("int64", telem.NewSeriesV[int64](1, 2, 3), "[1 2 3]"),
 			Entry("float32", telem.NewSeriesV[float32](1.0, 2.0, 3.0), "[1 2 3]"),
 			Entry("float64", telem.NewSeriesV(1.0, 2.0, 3.0), "[1 2 3]"),
-			Entry("string", telem.NewSeriesStringsV("a", "b", "c"), "[a b c]"),
-			Entry("json", telem.NewSeriesStaticJSONV(map[string]any{"a": 1, "b": 2, "c": 3}), `[{"a":1,"b":2,"c":3}]`),
+			Entry("string", telem.NewSeriesVariableV("a", "b", "c"), "[a b c]"),
+			Entry("json", telem.NewSeriesJSONV(map[string]any{"a": 1, "b": 2, "c": 3}), `[{"a":1,"b":2,"c":3}]`),
 			Entry("timestamp", telem.NewSeriesSecondsTSV(1, 2, 3), "[1970-01-01T00:00:01Z +1s +2s]"),
 		)
 
@@ -377,7 +417,7 @@ var _ = Describe("Series", func() {
 
 			It("Should truncate long string series", func() {
 				values := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"}
-				s := telem.NewSeriesStringsV(values...)
+				s := telem.NewSeriesVariableV(values...)
 				str := s.String()
 				Expect(str).To(ContainSubstring("[a b c d e f ... i j k l m n]"))
 			})
@@ -459,11 +499,11 @@ var _ = Describe("Series", func() {
 
 		Context("Variable Length Data Types", func() {
 			It("Should correctly down sample a string series", func() {
-				original := telem.NewSeriesStringsV("a", "b", "c", "d", "e", "f")
+				original := telem.NewSeriesVariableV("a", "b", "c", "d", "e", "f")
 				downsampled := original.Downsample(2)
 
 				Expect(downsampled.Len()).To(Equal(int64(3)))
-				Expect(telem.UnmarshalStrings(downsampled.Data)).To(Equal([]string{"a", "c", "e"}))
+				Expect(telem.UnmarshalVariable[string](downsampled.Data)).To(Equal([]string{"a", "c", "e"}))
 			})
 
 			It("Should correctly down sample a JSON series", func() {
@@ -474,7 +514,7 @@ var _ = Describe("Series", func() {
 					{"id": 4},
 				}
 
-				s := telem.NewSeriesStaticJSONV(data...)
+				s := telem.NewSeriesJSONV(data...)
 				downsampled := s.Downsample(2)
 				Expect(downsampled.Len()).To(Equal(int64(2)))
 				split := bytes.Split(downsampled.Data, []byte("\n"))
@@ -600,12 +640,12 @@ var _ = Describe("Series", func() {
 
 		Context("Variable Length Data Types", func() {
 			It("Should panic when trying to resize a string series", func() {
-				s := telem.NewSeriesStringsV("a", "b", "c")
+				s := telem.NewSeriesVariableV("a", "b", "c")
 				Expect(func() { s.Resize(5) }).To(Panic())
 			})
 
 			It("Should panic when trying to resize a JSON series", func() {
-				s := telem.NewSeriesStaticJSONV(map[string]any{"a": 1})
+				s := telem.NewSeriesJSONV(map[string]any{"a": 1})
 				Expect(func() { s.Resize(3) }).To(Panic())
 			})
 		})
@@ -627,7 +667,7 @@ var _ = Describe("Series", func() {
 			})
 
 			It("Should panic with a meaningful message for variable-density types", func() {
-				s := telem.NewSeriesStringsV("a", "b", "c")
+				s := telem.NewSeriesVariableV("a", "b", "c")
 				defer func() {
 					if r := recover(); r != nil {
 						Expect(r).To(Equal("cannot resize variable-density series"))
@@ -657,7 +697,7 @@ var _ = Describe("Series", func() {
 			})
 			It("Should panic when trying to construct the series out of different data types", func() {
 				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
-				s2 := telem.NewSeriesStringsV("a", "b", "c")
+				s2 := telem.NewSeriesVariableV("a", "b", "c")
 				Expect(func() { telem.NewMultiSeriesV(s1, s2) }).To(Panic())
 			})
 		})
@@ -839,7 +879,7 @@ var _ = Describe("Series", func() {
 		})
 
 		It("iterates variable length correctly", func() {
-			s := telem.NewSeriesStringsV("foo", "bar", "baz")
+			s := telem.NewSeriesVariableV("foo", "bar", "baz")
 			values := make([]string, 0, 3)
 			for sample := range s.Samples() {
 				values = append(values, string(sample))
@@ -862,7 +902,7 @@ var _ = Describe("Series", func() {
 		})
 
 		It("Should allow for early termination in variable length series", func() {
-			s := telem.NewSeriesStringsV("foo", "bar", "baz")
+			s := telem.NewSeriesVariableV("foo", "bar", "baz")
 			values := make([]string, 0, 3)
 			count := 0
 			for sample := range s.Samples() {
@@ -1033,19 +1073,19 @@ var _ = Describe("Series", func() {
 				s := telem.NewSeriesFromAny("hello", telem.StringT)
 				Expect(s.DataType).To(Equal(telem.StringT))
 				Expect(s.Len()).To(Equal(int64(1)))
-				Expect(telem.UnmarshalStrings(s.Data)).To(Equal([]string{"hello"}))
+				Expect(telem.UnmarshalVariable[string](s.Data)).To(Equal([]string{"hello"}))
 			})
 
 			It("Should convert int to string", func() {
 				s := telem.NewSeriesFromAny(42, telem.StringT)
 				Expect(s.DataType).To(Equal(telem.StringT))
-				Expect(telem.UnmarshalStrings(s.Data)).To(Equal([]string{"42"}))
+				Expect(telem.UnmarshalVariable[string](s.Data)).To(Equal([]string{"42"}))
 			})
 
 			It("Should convert float to string", func() {
 				s := telem.NewSeriesFromAny(3.14, telem.StringT)
 				Expect(s.DataType).To(Equal(telem.StringT))
-				Expect(telem.UnmarshalStrings(s.Data)[0]).To(ContainSubstring("3.14"))
+				Expect(telem.UnmarshalVariable[string](s.Data)[0]).To(ContainSubstring("3.14"))
 			})
 
 			It("Should panic when converting string to numeric type", func() {
@@ -1061,7 +1101,7 @@ var _ = Describe("Series", func() {
 				s := telem.NewSeriesFromAny(jsonStr, telem.JSONT)
 				Expect(s.DataType).To(Equal(telem.JSONT))
 				Expect(s.Len()).To(Equal(int64(1)))
-				Expect(telem.UnmarshalStrings(s.Data)).To(Equal([]string{jsonStr}))
+				Expect(telem.UnmarshalVariable[string](s.Data)).To(Equal([]string{jsonStr}))
 			})
 
 			It("Should convert struct to JSON", func() {
@@ -1069,7 +1109,7 @@ var _ = Describe("Series", func() {
 				s := telem.NewSeriesFromAny(data, telem.JSONT)
 				Expect(s.DataType).To(Equal(telem.JSONT))
 				Expect(s.Len()).To(Equal(int64(1)))
-				jsonStr := telem.UnmarshalStrings(s.Data)[0]
+				jsonStr := telem.UnmarshalVariable[string](s.Data)[0]
 				Expect(jsonStr).To(ContainSubstring("name"))
 				Expect(jsonStr).To(ContainSubstring("test"))
 			})
@@ -1078,13 +1118,13 @@ var _ = Describe("Series", func() {
 				jsonBytes := []byte(`{"test":true}`)
 				s := telem.NewSeriesFromAny(jsonBytes, telem.JSONT)
 				Expect(s.DataType).To(Equal(telem.JSONT))
-				Expect(telem.UnmarshalStrings(s.Data)).To(Equal([]string{`{"test":true}`}))
+				Expect(telem.UnmarshalVariable[string](s.Data)).To(Equal([]string{`{"test":true}`}))
 			})
 
 			It("Should convert numeric types to JSON", func() {
 				s := telem.NewSeriesFromAny(42, telem.JSONT)
 				Expect(s.DataType).To(Equal(telem.JSONT))
-				Expect(telem.UnmarshalStrings(s.Data)).To(Equal([]string{"42"}))
+				Expect(telem.UnmarshalVariable[string](s.Data)).To(Equal([]string{"42"}))
 			})
 		})
 
@@ -1242,8 +1282,8 @@ var _ = Describe("Series", func() {
 		})
 
 		It("Should panic when source is variable density", func() {
-			src := telem.NewSeriesStringsV("a", "b", "c")
-			dst := telem.NewSeriesStringsV("x", "y", "z")
+			src := telem.NewSeriesVariableV("a", "b", "c")
+			dst := telem.NewSeriesVariableV("x", "y", "z")
 			Expect(func() {
 				telem.CopyValue(dst, src, 0, 0)
 			}).To(Panic())
@@ -1251,7 +1291,7 @@ var _ = Describe("Series", func() {
 
 		It("Should panic when destination is variable density", func() {
 			src := telem.NewSeriesV[int64](1, 2, 3)
-			dst := telem.NewSeriesStringsV("x", "y", "z")
+			dst := telem.NewSeriesVariableV("x", "y", "z")
 			Expect(func() {
 				telem.CopyValue(dst, src, 0, 0)
 			}).To(Panic())
@@ -1292,7 +1332,7 @@ var _ = Describe("Series", func() {
 		})
 
 		It("Should work with variable density types", func() {
-			original := telem.NewSeriesStringsV("foo", "bar", "baz")
+			original := telem.NewSeriesVariableV("foo", "bar", "baz")
 			original.TimeRange = telem.TimeRange{Start: 10, End: 20}
 			original.Alignment = telem.NewAlignment(2, 3)
 
@@ -1302,7 +1342,7 @@ var _ = Describe("Series", func() {
 			Expect(copied.Len()).To(Equal(int64(3)))
 			Expect(copied.TimeRange).To(Equal(original.TimeRange))
 			Expect(copied.Alignment).To(Equal(original.Alignment))
-			Expect(telem.UnmarshalStrings(copied.Data)).To(Equal([]string{"foo", "bar", "baz"}))
+			Expect(telem.UnmarshalVariable[string](copied.Data)).To(Equal([]string{"foo", "bar", "baz"}))
 		})
 
 		It("Should work with empty series", func() {
