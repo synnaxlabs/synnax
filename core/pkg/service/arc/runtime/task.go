@@ -188,17 +188,18 @@ func (t *taskImpl) start(ctx context.Context) error {
 	}
 
 	if len(stateCfg.Writes) > 0 {
+		writeKeys := stateCfg.Writes.Keys()
 		writerCfg := framer.WriterConfig{
 			ControlSubject: control.Subject{
 				Name: t.prog.Name,
 				Key:  t.task.Key.String(),
 			},
 			Start: drt.startTime,
-			Keys:  stateCfg.Writes.Keys(),
+			Keys:  writeKeys,
 		}
 		if authorities := buildAuthorities(
 			t.prog.Module.Authority,
-			stateCfg.Writes.Keys(),
+			writeKeys,
 			t.prog.Module.Nodes,
 		); len(authorities) > 0 {
 			writerCfg.Authorities = authorities
