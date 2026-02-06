@@ -108,13 +108,9 @@ func analyzeEntry(
 		}
 		seenChannels[name] = true
 		if config.Channels == nil {
-			config.Channels = make(map[string]uint8)
+			config.Channels = make(map[uint32]uint8)
 		}
-		config.Channels[name] = v
-		if config.Keys == nil {
-			config.Keys = make(map[uint32]string)
-		}
-		config.Keys[uint32(sym.ID)] = name
+		config.Channels[uint32(sym.ID)] = v
 	} else {
 		if *hasDefault {
 			ctx.Diagnostics.Add(diagnostics.Errorf(

@@ -180,32 +180,20 @@ public:
 };
 
 /// @brief Builds a per-channel authority vector from the static AuthorityConfig
-/// in the IR. Maps channel names to keys using node channel maps and returns
-/// authorities aligned with write_keys.
+/// in the IR. Maps channel keys to authority values and returns authorities
+/// aligned with write_keys.
 inline std::vector<telem::Authority> build_authorities(
     const ir::AuthorityConfig &auth,
-    const std::vector<types::ChannelKey> &write_keys,
-    const std::vector<ir::Node> &nodes
+    const std::vector<types::ChannelKey> &write_keys
 ) {
     if (!auth.default_authority.has_value() && auth.channels.empty()) return {};
-    std::map<std::string, types::ChannelKey> name_to_key;
-    for (const auto &n: nodes) {
-        for (const auto &[key, name]: n.channels.read)
-            name_to_key[name] = key;
-        for (const auto &[key, name]: n.channels.write)
-            name_to_key[name] = key;
-    }
-    for (const auto &[key, name]: auth.keys)
-        name_to_key[name] = key;
     std::vector<telem::Authority> authorities(write_keys.size());
     for (size_t i = 0; i < write_keys.size(); i++)
         authorities[i] = auth.default_authority.has_value() ? *auth.default_authority
                                                             : telem::AUTH_ABSOLUTE;
-    for (const auto &[name, value]: auth.channels) {
-        auto it = name_to_key.find(name);
-        if (it == name_to_key.end()) continue;
+    for (const auto &[key, value]: auth.channels) {
         for (size_t i = 0; i < write_keys.size(); i++) {
-            if (write_keys[i] == it->second) {
+            if (write_keys[i] == key) {
                 authorities[i] = value;
                 break;
             }
@@ -224,7 +212,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         const auto write_keys = std::views::keys(n.channels.write);
         writes.insert(write_keys.begin(), write_keys.end());
     }
-    for (const auto &[key, name]: cfg.mod.authority.keys)
+    for (const auto &[key, val]: cfg.mod.authority.channels)
         writes.insert(key);
 
     std::vector<types::ChannelKey> keys;

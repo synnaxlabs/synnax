@@ -188,6 +188,8 @@ func (t *taskImpl) start(ctx context.Context) error {
 	}
 
 	if len(stateCfg.Writes) > 0 {
+		// Critical: Keys is extracted from a map, so we need to convert it to a
+		// slice ONCE in order go guarantee stable order.
 		writeKeys := stateCfg.Writes.Keys()
 		writerCfg := framer.WriterConfig{
 			ControlSubject: control.Subject{
@@ -200,7 +202,6 @@ func (t *taskImpl) start(ctx context.Context) error {
 		if authorities := buildAuthorities(
 			t.prog.Module.Authority,
 			writeKeys,
-			t.prog.Module.Nodes,
 		); len(authorities) > 0 {
 			writerCfg.Authorities = authorities
 		}
@@ -411,29 +412,14 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 }
 
 // buildAuthorities constructs a per-channel authority slice from the static
-// AuthorityConfig in the IR. It maps channel names to keys using the node
-// channel maps and returns the authorities array aligned with writeKeys.
+// AuthorityConfig in the IR. It maps channel keys to authority values and
+// returns the authorities array aligned with writeKeys.
 func buildAuthorities(
 	auth ir.AuthorityConfig,
 	writeKeys channel.Keys,
-	nodes ir.Nodes,
 ) []control.Authority {
 	if auth.Default == nil && len(auth.Channels) == 0 {
 		return nil
-	}
-	// Build channel name -> key mapping from IR node channel maps and
-	// authority keys (for channels only in authority block, not in any node).
-	nameToKey := make(map[string]channel.Key)
-	for _, n := range nodes {
-		for key, name := range n.Channels.Read {
-			nameToKey[name] = channel.Key(key)
-		}
-		for key, name := range n.Channels.Write {
-			nameToKey[name] = channel.Key(key)
-		}
-	}
-	for key, name := range auth.Keys {
-		nameToKey[name] = channel.Key(key)
 	}
 	authorities := make([]control.Authority, len(writeKeys))
 	for i := range writeKeys {
@@ -443,13 +429,9 @@ func buildAuthorities(
 			authorities[i] = control.AuthorityAbsolute
 		}
 	}
-	for name, value := range auth.Channels {
-		key, ok := nameToKey[name]
-		if !ok {
-			continue
-		}
+	for key, value := range auth.Channels {
 		for i, wk := range writeKeys {
-			if wk == key {
+			if wk == channel.Key(key) {
 				authorities[i] = control.Authority(value)
 				break
 			}

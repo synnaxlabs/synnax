@@ -85,13 +85,8 @@ type AuthorityConfig struct {
 	// Default is the default authority for all write channels not explicitly listed.
 	// If nil, the system default (AuthorityAbsolute, 255) is used.
 	Default *uint8 `json:"default,omitempty" msgpack:"default,omitempty"`
-	// Channels maps channel names to their specific authority values.
-	Channels map[string]uint8 `json:"channels,omitempty" msgpack:"channels,omitempty"`
-	// Keys maps resolved channel keys to their names for every channel explicitly
-	// listed in the authority block. This is populated during analysis when the
-	// symbol resolver is available, enabling the runtime to include authority-only
-	// channels in the writer's key set even if they aren't referenced in any node.
-	Keys map[uint32]string `json:"keys,omitempty" msgpack:"keys,omitempty"`
+	// Channels maps channel keys to their specific authority values.
+	Channels map[uint32]uint8 `json:"channels,omitempty" msgpack:"channels,omitempty"`
 }
 
 // IR is the intermediate representation of an Arc program. It contains function

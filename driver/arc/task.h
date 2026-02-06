@@ -170,8 +170,7 @@ public:
             );
         auto initial_authorities = runtime::build_authorities(
             cfg.module.authority,
-            task->runtime->write_channels,
-            cfg.module.nodes
+            task->runtime->write_channels
         );
         task->acquisition = std::make_unique<pipeline::Acquisition>(
             writer_factory,

@@ -67,7 +67,7 @@ func NewStateConfig(
 			writes.Add(channel.Key(chanKey))
 		}
 	}
-	for key := range module.Authority.Keys {
+	for key := range module.Authority.Channels {
 		writes.Add(channel.Key(key))
 	}
 	channels, err := retrieveChannels(ctx, channelSvc, slices.Concat(reads.Keys(), writes.Keys()))

@@ -798,9 +798,9 @@ func translateIRToPB(ir arcir.IR) (*arcir.PBIR, error) {
 			authorityPb.Default = &v
 		}
 		if len(ir.Authority.Channels) > 0 {
-			authorityPb.Channels = make(map[string]uint32, len(ir.Authority.Channels))
-			for name, val := range ir.Authority.Channels {
-				authorityPb.Channels[name] = uint32(val)
+			authorityPb.Channels = make(map[uint32]uint32, len(ir.Authority.Channels))
+			for key, val := range ir.Authority.Channels {
+				authorityPb.Channels[key] = uint32(val)
 			}
 		}
 	}
@@ -861,9 +861,9 @@ func translateIRFromPB(pb *arcir.PBIR) (arcir.IR, error) {
 			authority.Default = &v
 		}
 		if len(pb.Authority.Channels) > 0 {
-			authority.Channels = make(map[string]uint8, len(pb.Authority.Channels))
-			for name, val := range pb.Authority.Channels {
-				authority.Channels[name] = uint8(val)
+			authority.Channels = make(map[uint32]uint8, len(pb.Authority.Channels))
+			for key, val := range pb.Authority.Channels {
+				authority.Channels[key] = uint8(val)
 			}
 		}
 	}

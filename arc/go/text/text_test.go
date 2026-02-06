@@ -1667,8 +1667,8 @@ var _ = Describe("Text", func() {
 			Expect(inter.Authority.Default).ToNot(BeNil())
 			Expect(*inter.Authority.Default).To(Equal(uint8(200)))
 			Expect(inter.Authority.Channels).To(HaveLen(2))
-			Expect(inter.Authority.Channels["valve"]).To(Equal(uint8(100)))
-			Expect(inter.Authority.Channels["vent"]).To(Equal(uint8(150)))
+			Expect(inter.Authority.Channels[100]).To(Equal(uint8(100)))
+			Expect(inter.Authority.Channels[200]).To(Equal(uint8(150)))
 		})
 
 		It("Should report error for authority after function", func() {

@@ -63,8 +63,9 @@ message PBNode {
 
 message PBAuthorityConfig {
   optional uint32 default = 1;
-  map<string, uint32> channels = 2;
-  map<uint32, string> keys = 3;
+  map<uint32, uint32> channels = 2;
+  reserved 3;
+  reserved "keys";
 }
 
 message PBIR {

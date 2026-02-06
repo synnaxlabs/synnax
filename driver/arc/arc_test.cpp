@@ -1720,8 +1720,8 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
 
     ASSERT_TRUE(task_cfg.module.authority.default_authority.has_value());
     EXPECT_EQ(*task_cfg.module.authority.default_authority, 100);
-    ASSERT_EQ(task_cfg.module.authority.channels.count(out_a_name), 1);
-    EXPECT_EQ(task_cfg.module.authority.channels.at(out_a_name), 200);
+    ASSERT_EQ(task_cfg.module.authority.channels.count(out_a_ch.key), 1);
+    EXPECT_EQ(task_cfg.module.authority.channels.at(out_a_ch.key), 200);
 
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
 

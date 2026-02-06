@@ -421,11 +421,8 @@ var _ = Describe("StateConfig", Ordered, func() {
 			module := arc.Module{
 				IR: ir.IR{
 					Authority: ir.AuthorityConfig{
-						Keys: map[uint32]string{
-							uint32(authOnlyCh.Key()): "authority_only_ch",
-						},
-						Channels: map[string]uint8{
-							"authority_only_ch": 100,
+						Channels: map[uint32]uint8{
+							uint32(authOnlyCh.Key()): 100,
 						},
 					},
 					Nodes: []ir.Node{},

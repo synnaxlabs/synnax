@@ -295,8 +295,7 @@ TEST(RuntimeLifecycleTest, DoubleStopReturnsFalse) {
 TEST(BuildAuthoritiesTest, ReturnsEmptyWhenNoConfig) {
     arc::ir::AuthorityConfig auth;
     std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};
-    std::vector<arc::ir::Node> nodes;
-    auto result = build_authorities(auth, write_keys, nodes);
+    auto result = build_authorities(auth, write_keys);
     EXPECT_TRUE(result.empty());
 }
 
@@ -304,8 +303,7 @@ TEST(BuildAuthoritiesTest, DefaultAuthorityAppliesToAllKeys) {
     arc::ir::AuthorityConfig auth;
     auth.default_authority = 100;
     std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};
-    std::vector<arc::ir::Node> nodes;
-    auto result = build_authorities(auth, write_keys, nodes);
+    auto result = build_authorities(auth, write_keys);
     ASSERT_EQ(result.size(), 3);
     for (const auto &a: result)
         EXPECT_EQ(a, 100);
@@ -314,16 +312,10 @@ TEST(BuildAuthoritiesTest, DefaultAuthorityAppliesToAllKeys) {
 TEST(BuildAuthoritiesTest, PerChannelOverridesDefault) {
     arc::ir::AuthorityConfig auth;
     auth.default_authority = 100;
-    auth.channels["sensor"] = 200;
-
-    arc::ir::Node n;
-    n.key = "n";
-    n.type = "test";
-    n.channels.write[2] = "sensor";
-    std::vector<arc::ir::Node> nodes = {n};
+    auth.channels[2] = 200;
 
     std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};
-    auto result = build_authorities(auth, write_keys, nodes);
+    auto result = build_authorities(auth, write_keys);
     ASSERT_EQ(result.size(), 3);
     EXPECT_EQ(result[0], 100);
     EXPECT_EQ(result[1], 200);
@@ -332,16 +324,10 @@ TEST(BuildAuthoritiesTest, PerChannelOverridesDefault) {
 
 TEST(BuildAuthoritiesTest, NoDefaultUsesAbsolute) {
     arc::ir::AuthorityConfig auth;
-    auth.channels["sensor"] = 50;
-
-    arc::ir::Node n;
-    n.key = "n";
-    n.type = "test";
-    n.channels.write[1] = "sensor";
-    std::vector<arc::ir::Node> nodes = {n};
+    auth.channels[1] = 50;
 
     std::vector<arc::types::ChannelKey> write_keys = {1, 2};
-    auto result = build_authorities(auth, write_keys, nodes);
+    auto result = build_authorities(auth, write_keys);
     ASSERT_EQ(result.size(), 2);
     EXPECT_EQ(result[0], 50);
     EXPECT_EQ(result[1], telem::AUTH_ABSOLUTE);
