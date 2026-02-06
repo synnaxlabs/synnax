@@ -13,12 +13,7 @@
 #include <sstream>
 
 #include "x/cpp/xjson/convert.h"
-
-namespace {
-int64_t floor_div(const int64_t a, const int64_t b) {
-    return a / b - (a % b != 0 && (a ^ b) < 0);
-}
-}
+#include "x/cpp/xmath/xmath.h"
 
 namespace xjson {
 
@@ -213,15 +208,15 @@ nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format) {
         case TimeFormat::UnixNanosecond:
             return ns;
         case TimeFormat::UnixMicrosecond:
-            return floor_div(ns, 1000);
+            return xmath::floor_div(ns, int64_t(1000));
         case TimeFormat::UnixMillisecond:
-            return floor_div(ns, 1000000);
+            return xmath::floor_div(ns, int64_t(1000000));
         case TimeFormat::UnixSecondInt:
-            return floor_div(ns, 1000000000);
+            return xmath::floor_div(ns, int64_t(1000000000));
         case TimeFormat::UnixSecondFloat:
             return static_cast<double>(ns) / 1e9;
         case TimeFormat::ISO8601: {
-            const int64_t sec = floor_div(ns, int64_t(1000000000));
+            const int64_t sec = xmath::floor_div(ns, int64_t(1000000000));
             const int64_t frac_ns = ns - sec * int64_t(1000000000);
             const time_t t = static_cast<time_t>(sec);
             struct tm utc{};
