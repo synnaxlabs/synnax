@@ -199,17 +199,17 @@ func (t *taskImpl) start(ctx context.Context) error {
 		plumber.MustConnect[framer.WriterRequest](pipeline, runtimeAddr, writerAddr, 10)
 		writerResponses := &confluence.UnarySink[framer.WriterResponse]{
 			Sink: func(ctx context.Context, res framer.WriterResponse) error {
-				if !res.Authorized {
-					t.factoryCfg.L.Warn("unauthorized writer response",
-						zap.Uint64("task", uint64(t.task.Key)),
+				if res.Err != nil {
+					t.factoryCfg.L.Error("unexpected writer response error",
+						zap.Stringer("task", t.task),
 						zap.Int("seqNum", res.SeqNum),
-						zap.Stringer("command", res.Command),
 						zap.Error(res.Err),
 					)
-				} else if res.Err != nil {
-					t.factoryCfg.L.Error("unexpected writer response error",
-						zap.Uint64("task", uint64(t.task.Key)),
+				} else if !res.Authorized {
+					t.factoryCfg.L.Warn("unauthorized writer response",
+						zap.Stringer("task", t.task),
 						zap.Int("seqNum", res.SeqNum),
+						zap.Stringer("command", res.Command),
 						zap.Error(res.Err),
 					)
 				}
