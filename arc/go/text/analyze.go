@@ -300,6 +300,7 @@ func Analyze(
 		aCtx = acontext.CreateRoot(ctx, t.AST, resolver)
 		i    = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
 	)
+
 	analyzer.AnalyzeProgram(aCtx)
 	if !aCtx.Diagnostics.Ok() {
 		return i, aCtx.Diagnostics
@@ -326,7 +327,6 @@ func Analyze(
 			})
 		}
 	}
-
 	kg := newKeyGenerator()
 	for _, item := range t.AST.AllTopLevelItem() {
 		if flow := item.FlowStatement(); flow != nil {
@@ -346,7 +346,6 @@ func Analyze(
 			i.Edges = append(i.Edges, edges...)
 		}
 	}
-
 	if len(i.Nodes) > 0 {
 		strata, diag := stratifier.Stratify(ctx, i.Nodes, i.Edges, i.Sequences, aCtx.Diagnostics)
 		if diag != nil && !diag.Ok() {
@@ -355,7 +354,6 @@ func Analyze(
 		}
 		i.Strata = strata
 	}
-
 	return i, aCtx.Diagnostics
 }
 
