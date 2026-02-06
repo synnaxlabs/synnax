@@ -387,7 +387,7 @@ jobs:
 
           security default-keychain -s $KEYCHAIN_NAME
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          security set-keychain-settings -lut $KEYCHAIN_NAME
+          security set-keychain-settings $KEYCHAIN_NAME
 
           # Import certificate (may already exist in keychain, that's ok)
           echo "Importing certificate into $KEYCHAIN_NAME..."
@@ -787,7 +787,7 @@ jobs:
 
           security default-keychain -s $KEYCHAIN_NAME
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          security set-keychain-settings -lut $KEYCHAIN_NAME
+          security set-keychain-settings $KEYCHAIN_NAME
 
           # Import certificate (may already exist in keychain, that's ok)
           echo "Importing certificate into $KEYCHAIN_NAME..."
