@@ -9,12 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  type Cluster,
-  reducer,
-  set,
-  ZERO_SLICE_STATE,
-} from "@/cluster/slice";
+import { type Cluster, reducer, set, ZERO_SLICE_STATE } from "@/cluster/slice";
 
 const TEMP_KEY = "temp-uuid-1234";
 const REAL_KEY = "real-cluster-key-5678";
@@ -47,18 +42,18 @@ describe("purgeDuplicateClusters", () => {
       state,
       set({ ...BASE_CLUSTER, key: REAL_KEY, username: "synnax", password: "seldon" }),
     );
-    expect(Object.keys(state.clusters).filter(
-      (k) => state.clusters[k].host === "example.com" && state.clusters[k].port === 9090,
-    )).toHaveLength(1);
+    expect(
+      Object.keys(state.clusters).filter(
+        (k) =>
+          state.clusters[k].host === "example.com" && state.clusters[k].port === 9090,
+      ),
+    ).toHaveLength(1);
     expect(state.clusters[REAL_KEY].username).toBe("synnax");
   });
 
   it("should not purge clusters with different host/port", () => {
     let state = reducer(ZERO_SLICE_STATE, set(BASE_CLUSTER));
-    state = reducer(
-      state,
-      set({ ...BASE_CLUSTER, key: REAL_KEY, host: "other.com" }),
-    );
+    state = reducer(state, set({ ...BASE_CLUSTER, key: REAL_KEY, host: "other.com" }));
     expect(state.clusters[TEMP_KEY]).toBeDefined();
     expect(state.clusters[REAL_KEY]).toBeDefined();
   });
