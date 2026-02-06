@@ -79,9 +79,9 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// AuthorityConfig holds the static authority declarations from an Arc program.
+// Authorities holds the static authority declarations from an Arc program.
 // It captures both the default authority for all channels and per-channel overrides.
-type AuthorityConfig struct {
+type Authorities struct {
 	// Default is the default authority for all write channels not explicitly listed.
 	// If nil, the system default (AuthorityAbsolute, 255) is used.
 	Default *uint8 `json:"default,omitempty" msgpack:"default,omitempty"`
@@ -97,8 +97,8 @@ type IR struct {
 	Symbols *symbol.Scope `json:"-"`
 	// TypeMap contains inferred types from the analyzer.
 	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
-	// Authority contains the static authority declarations for this program.
-	Authority AuthorityConfig `json:"authority,omitempty" msgpack:"authority,omitempty"`
+	// Authorities contains the static authority declarations for this program.
+	Authorities Authorities `json:"authorities,omitempty" msgpack:"authorities,omitempty"`
 	// Functions contains all function and stage definitions in the program.
 	Functions Functions `json:"functions"`
 	// Sequences contains all sequence (state machine) definitions in the program.

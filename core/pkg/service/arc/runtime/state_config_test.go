@@ -420,7 +420,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 
 			module := arc.Module{
 				IR: ir.IR{
-					Authority: ir.AuthorityConfig{
+					Authorities: ir.Authorities{
 						Channels: map[uint32]uint8{
 							uint32(authOnlyCh.Key()): 100,
 						},

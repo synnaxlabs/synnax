@@ -19,6 +19,10 @@ import (
 
 var bCtx = context.Background()
 
+var _ = BeforeEach(func() {
+	bCtx = context.Background()
+})
+
 func TestAuthority(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Authority Analyzer Suite")

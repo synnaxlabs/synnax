@@ -200,7 +200,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 			Keys:  writeKeys,
 		}
 		if authorities := buildAuthorities(
-			t.prog.Module.Authority,
+			t.prog.Module.Authorities,
 			writeKeys,
 		); len(authorities) > 0 {
 			writerCfg.Authorities = authorities
@@ -412,10 +412,10 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 }
 
 // buildAuthorities constructs a per-channel authority slice from the static
-// AuthorityConfig in the IR. It maps channel keys to authority values and
+// Authorities in the IR. It maps channel keys to authority values and
 // returns the authorities array aligned with writeKeys.
 func buildAuthorities(
-	auth ir.AuthorityConfig,
+	auth ir.Authorities,
 	writeKeys channel.Keys,
 ) []control.Authority {
 	if auth.Default == nil && len(auth.Channels) == 0 {

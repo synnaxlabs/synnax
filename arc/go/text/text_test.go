@@ -1645,8 +1645,8 @@ var _ = Describe("Text", func() {
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			Expect(inter.Authority.Default).ToNot(BeNil())
-			Expect(*inter.Authority.Default).To(Equal(uint8(200)))
+			Expect(inter.Authorities.Default).ToNot(BeNil())
+			Expect(*inter.Authorities.Default).To(Equal(uint8(200)))
 		})
 
 		It("Should include per-channel authority overrides", func() {
@@ -1664,11 +1664,11 @@ var _ = Describe("Text", func() {
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			Expect(inter.Authority.Default).ToNot(BeNil())
-			Expect(*inter.Authority.Default).To(Equal(uint8(200)))
-			Expect(inter.Authority.Channels).To(HaveLen(2))
-			Expect(inter.Authority.Channels[100]).To(Equal(uint8(100)))
-			Expect(inter.Authority.Channels[200]).To(Equal(uint8(150)))
+			Expect(inter.Authorities.Default).ToNot(BeNil())
+			Expect(*inter.Authorities.Default).To(Equal(uint8(200)))
+			Expect(inter.Authorities.Channels).To(HaveLen(2))
+			Expect(inter.Authorities.Channels[100]).To(Equal(uint8(100)))
+			Expect(inter.Authorities.Channels[200]).To(Equal(uint8(150)))
 		})
 
 		It("Should report error for authority after function", func() {

@@ -293,14 +293,14 @@ TEST(RuntimeLifecycleTest, DoubleStopReturnsFalse) {
 }
 
 TEST(BuildAuthoritiesTest, ReturnsEmptyWhenNoConfig) {
-    arc::ir::AuthorityConfig auth;
+    arc::ir::Authorities auth;
     std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};
     auto result = build_authorities(auth, write_keys);
     EXPECT_TRUE(result.empty());
 }
 
 TEST(BuildAuthoritiesTest, DefaultAuthorityAppliesToAllKeys) {
-    arc::ir::AuthorityConfig auth;
+    arc::ir::Authorities auth;
     auth.default_authority = 100;
     std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};
     auto result = build_authorities(auth, write_keys);
@@ -310,7 +310,7 @@ TEST(BuildAuthoritiesTest, DefaultAuthorityAppliesToAllKeys) {
 }
 
 TEST(BuildAuthoritiesTest, PerChannelOverridesDefault) {
-    arc::ir::AuthorityConfig auth;
+    arc::ir::Authorities auth;
     auth.default_authority = 100;
     auth.channels[2] = 200;
 
@@ -323,7 +323,7 @@ TEST(BuildAuthoritiesTest, PerChannelOverridesDefault) {
 }
 
 TEST(BuildAuthoritiesTest, NoDefaultUsesAbsolute) {
-    arc::ir::AuthorityConfig auth;
+    arc::ir::Authorities auth;
     auth.channels[1] = 50;
 
     std::vector<arc::types::ChannelKey> write_keys = {1, 2};

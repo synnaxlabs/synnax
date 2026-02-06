@@ -169,7 +169,7 @@ public:
                 ctx->client
             );
         auto initial_authorities = runtime::build_authorities(
-            cfg.module.authority,
+            cfg.module.authorities,
             task->runtime->write_channels
         );
         task->acquisition = std::make_unique<pipeline::Acquisition>(

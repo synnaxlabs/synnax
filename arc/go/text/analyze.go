@@ -302,7 +302,7 @@ func Analyze(
 		i    = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
 	)
 	analyzer.AnalyzeProgram(aCtx)
-	i.Authority = authority.Analyze(aCtx)
+	i.Authorities = authority.Analyze(aCtx)
 	if !aCtx.Diagnostics.Ok() {
 		return i, aCtx.Diagnostics
 	}

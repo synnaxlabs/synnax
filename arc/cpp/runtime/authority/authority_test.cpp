@@ -16,11 +16,9 @@
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
 
-using namespace arc::runtime;
-
-namespace {
+namespace arc::runtime {
 struct TestSetup {
-    arc::ir::IR ir;
+    ir::IR ir;
     std::shared_ptr<state::State> state;
 
     TestSetup(const uint8_t auth_value, const uint32_t channel):
@@ -28,34 +26,36 @@ struct TestSetup {
         state(
             std::make_shared<state::State>(
                 state::Config{.ir = ir, .channels = {}},
-                arc::runtime::errors::noop_handler
+                runtime::errors::noop_handler
             )
         ) {}
 
-    state::Node make_node() { return ASSERT_NIL_P(this->state->node("set_auth")); }
+    state::Node make_node() const {
+        return ASSERT_NIL_P(this->state->node("set_auth"));
+    }
 
 private:
-    static arc::ir::IR build_ir(const uint8_t auth_value, const uint32_t channel) {
-        arc::ir::Param authority_param;
+    static ir::IR build_ir(const uint8_t auth_value, const uint32_t channel) {
+        ir::Param authority_param;
         authority_param.name = "value";
-        authority_param.type = arc::types::Type(arc::types::Kind::U8);
+        authority_param.type = types::Type(types::Kind::U8);
         authority_param.value = auth_value;
 
-        arc::ir::Param channel_param;
+        ir::Param channel_param;
         channel_param.name = "channel";
-        channel_param.type = arc::types::Type(arc::types::Kind::U32);
+        channel_param.type = types::Type(types::Kind::U32);
         channel_param.value = channel;
 
-        arc::ir::Node ir_node;
+        ir::Node ir_node;
         ir_node.key = "set_auth";
         ir_node.type = "set_authority";
         ir_node.config.params.push_back(authority_param);
         ir_node.config.params.push_back(channel_param);
 
-        arc::ir::Function fn;
+        ir::Function fn;
         fn.key = "test";
 
-        arc::ir::IR ir;
+        ir::IR ir;
         ir.nodes.push_back(ir_node);
         ir.functions.push_back(fn);
         return ir;
@@ -69,7 +69,6 @@ node::Context make_context() {
         .report_error = [](const xerrors::Error &) {},
         .activate_stage = [] {},
     };
-}
 }
 
 TEST(SetAuthorityFactoryTest, ReturnsNotFoundForWrongType) {
@@ -159,4 +158,5 @@ TEST(SetAuthorityTest, ResetAllowsRefire) {
     auto changes = setup.state->flush_authority_changes();
     ASSERT_EQ(changes.size(), 1);
     EXPECT_EQ(changes[0].authority, 200);
+}
 }

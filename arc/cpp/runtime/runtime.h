@@ -179,11 +179,11 @@ public:
     bool read(Output &out) { return this->outputs.pop(out); }
 };
 
-/// @brief Builds a per-channel authority vector from the static AuthorityConfig
+/// @brief Builds a per-channel authority vector from the static Authorities
 /// in the IR. Maps channel keys to authority values and returns authorities
 /// aligned with write_keys.
 inline std::vector<telem::Authority> build_authorities(
-    const ir::AuthorityConfig &auth,
+    const ir::Authorities &auth,
     const std::vector<types::ChannelKey> &write_keys
 ) {
     if (!auth.default_authority.has_value() && auth.channels.empty()) return {};
@@ -212,7 +212,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         const auto write_keys = std::views::keys(n.channels.write);
         writes.insert(write_keys.begin(), write_keys.end());
     }
-    for (const auto &[key, val]: cfg.mod.authority.channels)
+    for (const auto &[key, val]: cfg.mod.authorities.channels)
         writes.insert(key);
 
     std::vector<types::ChannelKey> keys;

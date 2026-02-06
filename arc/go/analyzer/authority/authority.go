@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 )
 
-// Analyze validates authority blocks in a program and returns the AuthorityConfig.
+// Analyze validates authority blocks in a program and returns the Authorities.
 // It checks:
 //  1. Authority values are in range 0-255
 //  2. At most one bare numeric default
@@ -29,9 +29,9 @@ import (
 //  5. Authority blocks appear before function/flow/sequence declarations
 func Analyze(
 	ctx acontext.Context[parser.IProgramContext],
-) ir.AuthorityConfig {
+) ir.Authorities {
 	var (
-		config          ir.AuthorityConfig
+		config          ir.Authorities
 		seenDeclaration bool
 		hasDefault      bool
 		seenChannels    = make(map[string]bool)
@@ -79,7 +79,7 @@ func Analyze(
 func analyzeEntry(
 	ctx acontext.Context[parser.IProgramContext],
 	entry parser.IAuthorityEntryContext,
-	config *ir.AuthorityConfig,
+	config *ir.Authorities,
 	hasDefault *bool,
 	seenChannels map[string]bool,
 ) {
