@@ -209,7 +209,6 @@ nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format) {
         case TimeFormat::ISO8601:
             return ts.iso8601();
     }
-    return nullptr;
 }
 
 nlohmann::json zero_value(xjson::Type format) {
@@ -221,7 +220,6 @@ nlohmann::json zero_value(xjson::Type format) {
         case xjson::Type::Boolean:
             return false;
     }
-    return nullptr;
 }
 
 }
