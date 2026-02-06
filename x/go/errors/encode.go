@@ -14,8 +14,8 @@ import (
 	"strings"
 )
 
-// Payload is a typed payload for transporting an error OVER a NETWORK.
-// It includes type information as well as encoded error data.
+// Payload is a typed payload for transporting an error OVER a NETWORK. It includes type
+// information as well as encoded error data.
 type Payload struct {
 	// Type is the type of the error.
 	Type string `json:"type" msgpack:"type"`
@@ -24,9 +24,7 @@ type Payload struct {
 }
 
 // Error implements the error interface.
-func (p Payload) Error() string {
-	return string(p.Type) + "---" + p.Data
-}
+func (p Payload) Error() string { return string(p.Type) + "---" + p.Data }
 
 func (p *Payload) Unmarshal(d string) {
 	a := strings.Split(d, "---")
@@ -47,8 +45,8 @@ func Register(encode EncodeFunc, decode DecodeFunc) {
 }
 
 // Encode encodes an error into a payload. If the type of the error cannot be
-// determined, returns a payload with type TypeUnknown and the error message. If
-// the error is nil, returns a payload with type TypeNil.
+// determined, returns a payload with type TypeUnknown and the error message. If the
+// error is nil, returns a payload with type TypeNil.
 func Encode(ctx context.Context, e error, internal bool) Payload {
 	pld, ok := e.(Payload)
 	if ok {
@@ -57,9 +55,9 @@ func Encode(ctx context.Context, e error, internal bool) Payload {
 	return _registry.encode(ctx, e, internal)
 }
 
-// Decode decodes a payload into an error. If the payload's type is TypeUnknown,
-// returns an error with the payload's data as the message. If the payload's
-// type is TypeNil, returns nil.
+// Decode decodes a payload into an error. If the payload's type is TypeUnknown, returns
+// an error with the payload's data as the message. If the payload's type is TypeNil,
+// returns nil.
 func Decode(ctx context.Context, p Payload) error { return _registry.decode(ctx, p) }
 
 type EncodeFunc func(context.Context, error) (Payload, bool)
@@ -73,17 +71,11 @@ type provider struct {
 
 // registry is a registry of error providers. It is used to encode and decode errors
 // into payloads for transport over the network.
-type registry struct {
-	providers []provider
-}
+type registry struct{ providers []provider }
 
-func newRegistry() *registry {
-	return &registry{providers: make([]provider, 0)}
-}
+func newRegistry() *registry { return &registry{providers: make([]provider, 0)} }
 
-func (r *registry) register(e provider) {
-	r.providers = append(r.providers, e)
-}
+func (r *registry) register(e provider) { r.providers = append(r.providers, e) }
 
 func (r *registry) encode(ctx context.Context, e error, internal bool) Payload {
 	// If the error is nil, return a standardized payload.

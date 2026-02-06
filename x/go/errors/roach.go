@@ -22,8 +22,8 @@ func roachEncode(ctx context.Context, err error) Payload {
 	// go-to-go transport.
 	encoded := errors.EncodeError(ctx, err)
 	b, err := encoded.Marshal()
-	// If we couldn't encode the error, return a standardized unknown
-	// payload along with the error string.
+	// If we couldn't encode the error, return a standardized unknown payload along with
+	// the error string.
 	if err != nil {
 		return Payload{Type: TypeUnknown, Data: err.Error()}
 	}
