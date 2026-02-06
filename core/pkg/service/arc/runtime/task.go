@@ -17,6 +17,7 @@ import (
 	stdtime "time"
 
 	"github.com/synnaxlabs/arc/ir"
+	arcauthority "github.com/synnaxlabs/arc/runtime/authority"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
@@ -33,7 +34,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	arcauthority "github.com/synnaxlabs/arc/runtime/authority"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -50,10 +50,10 @@ import (
 )
 
 const (
-	streamerAddr         address.Address = "streamer"
-	writerAddr           address.Address = "writer"
-	writer_responses_addr address.Address = "writer_responses"
-	runtimeAddr          address.Address = "runtime"
+	streamerAddr        address.Address = "streamer"
+	writerAddr          address.Address = "writer"
+	writerResponsesAddr address.Address = "writer_responses"
+	runtimeAddr         address.Address = "runtime"
 )
 
 // taskImpl implements the driver.Task interface and manages Arc program execution.
@@ -209,13 +209,14 @@ func (t *taskImpl) start(ctx context.Context) error {
 		plumber.MustConnect[framer.WriterRequest](pipeline, runtimeAddr, writerAddr, 10)
 		writerResponses := &confluence.UnarySink[framer.WriterResponse]{
 			Sink: func(ctx context.Context, res framer.WriterResponse) error {
-				if res.Command == writer.CommandSetAuthority && !res.Authorized {
-					t.factoryCfg.L.Warn("failed to set authority on arc task writer",
+				if !res.Authorized {
+					t.factoryCfg.L.Warn("unauthorized writer response",
 						zap.Uint64("task", uint64(t.task.Key)),
+						zap.Int("seqNum", res.SeqNum),
+						zap.Stringer("command", res.Command),
 						zap.Error(res.Err),
 					)
-				}
-				if res.Err != nil {
+				} else if res.Err != nil {
 					t.factoryCfg.L.Error("unexpected writer response error",
 						zap.Uint64("task", uint64(t.task.Key)),
 						zap.Int("seqNum", res.SeqNum),
@@ -225,8 +226,8 @@ func (t *taskImpl) start(ctx context.Context) error {
 				return nil
 			},
 		}
-		plumber.SetSink(pipeline, writer_responses_addr, writerResponses)
-		plumber.MustConnect[framer.WriterResponse](pipeline, writerAddr, writer_responses_addr, 10)
+		plumber.SetSink(pipeline, writerResponsesAddr, writerResponses)
+		plumber.MustConnect[framer.WriterResponse](pipeline, writerAddr, writerResponsesAddr, 10)
 	}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.factoryCfg.Instrumentation))
 	t.closer = append(
@@ -409,7 +410,8 @@ func buildAuthorities(
 	if auth.Default == nil && len(auth.Channels) == 0 {
 		return nil
 	}
-	// Build channel name -> key mapping from IR node channel maps.
+	// Build channel name -> key mapping from IR node channel maps and
+	// authority keys (for channels only in authority block, not in any node).
 	nameToKey := make(map[string]channel.Key)
 	for _, n := range nodes {
 		for key, name := range n.Channels.Read {
@@ -418,6 +420,9 @@ func buildAuthorities(
 		for key, name := range n.Channels.Write {
 			nameToKey[name] = channel.Key(key)
 		}
+	}
+	for key, name := range auth.Keys {
+		nameToKey[name] = channel.Key(key)
 	}
 	authorities := make([]control.Authority, len(writeKeys))
 	for i := range writeKeys {

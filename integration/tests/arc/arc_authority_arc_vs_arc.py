@@ -35,9 +35,14 @@ start_high_cmd => main
 sequence main {
     stage active {
         1 -> press_vlv_cmd,
+        wait{duration=100ms} => active_hold
+    }
+    stage active_hold {
+        1 -> press_vlv_cmd,
         wait{duration=5s} => done
     }
     stage done {
+        set_authority{value=0}
     }
 }
 """
@@ -110,10 +115,14 @@ class ArcAuthorityArcVsArc(SimDaqTestCase, ConsoleCase):
         self.log(f"Creating Arc B (high priority): {self.arc_b_name}")
         self.console.arc.create(self.arc_b_name, ARC_HIGH_PRIORITY_SOURCE, mode="Text")
         self._arc_b_created = True
+        self.log("Selecting rack for Arc B")
         self.console.arc.select_rack(rack.name)
+        self.log("Configuring Arc B")
         self.console.arc.configure()
+        self.log("Starting Arc B")
         self.console.arc.start()
         self._arc_b_started = True
+        self.log(f"Arc B is running: {self.console.arc.is_running()}")
 
         self.log("Triggering Arc B sequence")
         with self.client.open_writer(sy.TimeStamp.now(), "start_high_cmd") as w:

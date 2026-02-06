@@ -84,7 +84,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "write_node",
 							Type: "write",
 							Channels: arcsymbol.Channels{
-								Read: set.Mapped[uint32, string]{uint32(ch.Key()): "actuator_1"},
+								Write: set.Mapped[uint32, string]{uint32(ch.Key()): "actuator_1"},
 							},
 						},
 					},
@@ -184,7 +184,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "write_node",
 							Type: "write",
 							Channels: arcsymbol.Channels{
-								Read: set.Mapped[uint32, string]{uint32(dataCh.Key()): "write_data_with_index"},
+								Write: set.Mapped[uint32, string]{uint32(dataCh.Key()): "write_data_with_index"},
 							},
 						},
 					},
@@ -376,6 +376,68 @@ var _ = Describe("StateConfig", Ordered, func() {
 			Expect(cfg.State.ChannelDigests[0].DataType).To(Equal(telem.Float32T))
 		})
 
+		It("Should add dynamic set_authority channel to writes even if never written to", func() {
+			triggerCh := &channel.Channel{
+				Name:     "dyn_auth_trigger",
+				Virtual:  true,
+				DataType: telem.Uint8T,
+			}
+			Expect(dist.Channel.Create(ctx, triggerCh)).To(Succeed())
+
+			valveCh := &channel.Channel{
+				Name:     "dyn_auth_valve",
+				Virtual:  true,
+				DataType: telem.Uint8T,
+			}
+			Expect(dist.Channel.Create(ctx, valveCh)).To(Succeed())
+
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					sequence seq {
+						stage claim {
+							1 -> set_authority{value=100, channel=%s}
+						}
+					}
+					%s => seq
+				`, valveCh.Name, triggerCh.Name),
+			}
+
+			resolver := symbol.CreateResolver(dist.Channel)
+			module := MustSucceed(arc.CompileText(ctx, prog, arc.WithResolver(resolver)))
+
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			Expect(cfg.Writes.Contains(valveCh.Key())).To(BeTrue(),
+				"channel referenced only in set_authority config should be in writes")
+		})
+
+		It("Should add authority-declared channels to writes even if not in any node", func() {
+			authOnlyCh := &channel.Channel{
+				Name:     "authority_only_ch",
+				Virtual:  true,
+				DataType: telem.Float64T,
+			}
+			Expect(dist.Channel.Create(ctx, authOnlyCh)).To(Succeed())
+
+			module := arc.Module{
+				IR: ir.IR{
+					Authority: ir.AuthorityConfig{
+						Keys: map[uint32]string{
+							uint32(authOnlyCh.Key()): "authority_only_ch",
+						},
+						Channels: map[string]uint8{
+							"authority_only_ch": 100,
+						},
+					},
+					Nodes: []ir.Node{},
+				},
+			}
+
+			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, module))
+			Expect(cfg.Writes.Contains(authOnlyCh.Key())).To(BeTrue())
+			Expect(cfg.State.ChannelDigests).To(HaveLen(1))
+			Expect(cfg.State.ChannelDigests[0].Key).To(Equal(uint32(authOnlyCh.Key())))
+		})
+
 		It("Should build complete config with complex module", func() {
 			indexCh := &channel.Channel{
 				Name:     "complex_index",
@@ -425,8 +487,10 @@ var _ = Describe("StateConfig", Ordered, func() {
 							Key:  "write_node",
 							Type: "write",
 							Channels: arcsymbol.Channels{
-								Read:  set.Mapped[uint32, string]{uint32(readCh1.Key()): "complex_read_1"},
-								Write: set.Mapped[uint32, string]{uint32(writeCh.Key()): "complex_write"},
+								Write: set.Mapped[uint32, string]{
+									uint32(readCh1.Key()): "complex_read_1",
+									uint32(writeCh.Key()): "complex_write",
+								},
 							},
 						},
 					},

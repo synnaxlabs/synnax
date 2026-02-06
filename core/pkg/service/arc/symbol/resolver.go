@@ -15,6 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
+	arcauthority "github.com/synnaxlabs/arc/runtime/authority"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/op"
 	"github.com/synnaxlabs/arc/runtime/selector"
@@ -25,7 +26,6 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	arcauthority "github.com/synnaxlabs/arc/runtime/authority"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
 )
 

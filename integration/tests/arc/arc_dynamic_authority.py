@@ -23,7 +23,7 @@ sequence main {
     }
 
     stage escalate {
-        1 -> set_authority{value=200},
+        set_authority{value=200},
         0 -> press_vlv_cmd,
         wait{duration=500ms} => vent
     }

@@ -71,7 +71,7 @@ bool Frame::empty() const {
     return this->series == nullptr || this->series->empty();
 }
 
-telem::SampleValue Frame::at(const std::uint32_t &key, const int &index) const {
+SampleValue Frame::at(const std::uint32_t &key, const int &index) const {
     for (size_t i = 0; i < this->channels->size(); i++)
         if (this->channels->at(i) == key) return this->series->at(i).at(index);
     throw std::runtime_error("channel not found");

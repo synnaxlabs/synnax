@@ -83,14 +83,14 @@ class Task final : public task::Task {
             telem::Frame &fr,
             pipeline::Authorities &authorities
         ) override {
-            if (!this->task.runtime->read(fr)) return xerrors::Error("runtime closed");
-            std::vector<runtime::state::AuthorityChange> changes;
-            while (this->task.runtime->read_authority_changes(changes)) {
-                for (auto &c: changes) {
-                    if (c.channel_key.has_value())
-                        authorities.keys.push_back(*c.channel_key);
-                    authorities.authorities.push_back(c.authority);
-                }
+            runtime::Output out;
+            if (!this->task.runtime->read(out))
+                return xerrors::Error("runtime closed");
+            fr = std::move(out.frame);
+            for (auto &c: out.authority_changes) {
+                if (c.channel_key.has_value())
+                    authorities.keys.push_back(*c.channel_key);
+                authorities.authorities.push_back(c.authority);
             }
             return xerrors::NIL;
         }

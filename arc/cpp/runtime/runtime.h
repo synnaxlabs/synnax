@@ -37,6 +37,13 @@
 #include "arc/cpp/runtime/wasm/module.h"
 
 namespace arc::runtime {
+/// @brief combines data frames and authority changes into a single output
+/// so that authority-only changes (with no channel writes) are not starved.
+struct Output {
+    telem::Frame frame;
+    std::vector<state::AuthorityChange> authority_changes;
+};
+
 struct Config {
     module::Module mod;
     breaker::Config breaker;
@@ -62,8 +69,7 @@ class Runtime {
     std::unique_ptr<scheduler::Scheduler> scheduler;
     std::unique_ptr<loop::Loop> loop;
     queue::SPSC<telem::Frame> inputs;
-    queue::SPSC<telem::Frame> outputs;
-    queue::SPSC<std::vector<state::AuthorityChange>> authority_outputs;
+    queue::SPSC<Output> outputs;
     std::chrono::steady_clock::time_point start_time_steady_;
     errors::Handler error_handler;
 
@@ -88,8 +94,7 @@ public:
         scheduler(std::move(scheduler)),
         loop(std::move(loop)),
         inputs(queue::SPSC<telem::Frame>(cfg.input_queue_capacity)),
-        outputs(queue::SPSC<telem::Frame>(cfg.output_queue_capacity)),
-        authority_outputs(queue::SPSC<std::vector<state::AuthorityChange>>(64)),
+        outputs(queue::SPSC<Output>(cfg.output_queue_capacity)),
         error_handler(std::move(error_handler)),
         read_channels(read_channels),
         write_channels(std::move(write_channels)) {}
@@ -121,16 +126,19 @@ public:
                         .count()
                 );
                 this->scheduler->next(elapsed, reason);
-                if (auto writes = this->state->flush(); !writes.empty()) {
-                    telem::Frame out_frame(writes.size());
-                    for (auto &[key, series]: writes)
-                        out_frame.emplace(key, series->deep_copy());
-                    if (!this->outputs.push(std::move(out_frame)))
+                auto writes = this->state->flush();
+                auto changes = this->state->flush_authority_changes();
+                if (!writes.empty() || !changes.empty()) {
+                    Output out;
+                    out.authority_changes = std::move(changes);
+                    if (!writes.empty()) {
+                        out.frame = telem::Frame(writes.size());
+                        for (auto &[key, series]: writes)
+                            out.frame.emplace(key, series->deep_copy());
+                    }
+                    if (!this->outputs.push(std::move(out)))
                         this->error_handler(errors::QUEUE_FULL_OUTPUT);
                 }
-                if (auto changes = this->state->flush_authority_changes();
-                    !changes.empty())
-                    this->authority_outputs.push(std::move(changes));
             }
         }
     }
@@ -168,11 +176,7 @@ public:
         return xerrors::NIL;
     }
 
-    bool read(telem::Frame &frame) { return this->outputs.pop(frame); }
-
-    bool read_authority_changes(std::vector<state::AuthorityChange> &changes) {
-        return this->authority_outputs.try_pop(changes);
-    }
+    bool read(Output &out) { return this->outputs.pop(out); }
 };
 
 /// @brief Builds a per-channel authority vector from the static AuthorityConfig
@@ -189,6 +193,7 @@ inline std::vector<telem::Authority> build_authorities(
         for (const auto &[key, name]: n.channels.read) name_to_key[name] = key;
         for (const auto &[key, name]: n.channels.write) name_to_key[name] = key;
     }
+    for (const auto &[key, name]: auth.keys) name_to_key[name] = key;
     std::vector<telem::Authority> authorities(write_keys.size());
     for (size_t i = 0; i < write_keys.size(); i++)
         authorities[i] = auth.default_authority.has_value()
@@ -217,6 +222,8 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         const auto write_keys = std::views::keys(n.channels.write);
         writes.insert(write_keys.begin(), write_keys.end());
     }
+    for (const auto &[key, name]: cfg.mod.authority.keys)
+        writes.insert(key);
 
     std::vector<types::ChannelKey> keys;
     keys.reserve(reads.size() + writes.size());

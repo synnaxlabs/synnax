@@ -560,6 +560,7 @@ struct Sequence {
 struct AuthorityConfig {
     std::optional<uint8_t> default_authority;
     std::map<std::string, uint8_t> channels;
+    std::map<uint32_t, std::string> keys;
 
     AuthorityConfig() = default;
 
@@ -567,6 +568,8 @@ struct AuthorityConfig {
         if (pb.has_default_()) default_authority = static_cast<uint8_t>(pb.default_());
         for (const auto &[name, val]: pb.channels())
             channels[name] = static_cast<uint8_t>(val);
+        for (const auto &[key, name]: pb.keys())
+            keys[key] = name;
     }
 
     void to_proto(v1::ir::PBAuthorityConfig *pb) const {
@@ -574,6 +577,9 @@ struct AuthorityConfig {
         auto *ch_map = pb->mutable_channels();
         for (const auto &[name, val]: channels)
             (*ch_map)[name] = val;
+        auto *keys_map = pb->mutable_keys();
+        for (const auto &[key, name]: keys)
+            (*keys_map)[key] = name;
     }
 };
 

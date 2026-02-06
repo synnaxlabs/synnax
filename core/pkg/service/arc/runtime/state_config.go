@@ -60,18 +60,15 @@ func NewStateConfig(
 		writes = make(set.Set[channel.Key])
 	)
 	for _, n := range module.Nodes {
-		isWrite := n.Type == "write"
 		for rawChanKey := range n.Channels.Read {
-			chanKey := channel.Key(rawChanKey)
-			if isWrite {
-				writes.Add(chanKey)
-			} else {
-				reads.Add(chanKey)
-			}
+			reads.Add(channel.Key(rawChanKey))
 		}
 		for chanKey := range n.Channels.Write {
 			writes.Add(channel.Key(chanKey))
 		}
+	}
+	for key := range module.Authority.Keys {
+		writes.Add(channel.Key(key))
 	}
 	channels, err := retrieveChannels(ctx, channelSvc, slices.Concat(reads.Keys(), writes.Keys()))
 	if err != nil {

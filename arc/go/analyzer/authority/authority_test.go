@@ -48,6 +48,7 @@ var _ = Describe("Authority Analyzer", func() {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(config.Default).ToNot(BeNil())
 			Expect(*config.Default).To(Equal(uint8(200)))
+			Expect(config.Keys).To(BeNil())
 		})
 
 		It("Should accept authority 0", func() {
@@ -97,6 +98,9 @@ var _ = Describe("Authority Analyzer", func() {
 			Expect(config.Channels).To(HaveLen(2))
 			Expect(config.Channels["valve"]).To(Equal(uint8(100)))
 			Expect(config.Channels["vent"]).To(Equal(uint8(150)))
+			Expect(config.Keys).To(HaveLen(2))
+			Expect(config.Keys[100]).To(Equal("valve"))
+			Expect(config.Keys[200]).To(Equal("vent"))
 		})
 
 		It("Should parse grouped authority with channel overrides only", func() {
@@ -107,6 +111,8 @@ var _ = Describe("Authority Analyzer", func() {
 			Expect(config.Default).To(BeNil())
 			Expect(config.Channels).To(HaveLen(1))
 			Expect(config.Channels["valve"]).To(Equal(uint8(100)))
+			Expect(config.Keys).To(HaveLen(1))
+			Expect(config.Keys[100]).To(Equal("valve"))
 		})
 
 		It("Should parse empty grouped authority", func() {
@@ -116,6 +122,7 @@ var _ = Describe("Authority Analyzer", func() {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(config.Default).To(BeNil())
 			Expect(config.Channels).To(BeNil())
+			Expect(config.Keys).To(BeNil())
 		})
 	})
 
@@ -147,9 +154,10 @@ var _ = Describe("Authority Analyzer", func() {
 		It("Should reject non-existent channel", func() {
 			prog := MustSucceed(parser.Parse(`authority (nonexistent 100)`))
 			ctx := acontext.CreateRoot(bCtx, prog, channelResolver)
-			authority.Analyze(ctx)
+			config := authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring("not found"))
+			Expect(config.Keys).To(BeNil())
 		})
 
 		It("Should reject authority block after function declaration", func() {

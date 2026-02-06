@@ -94,7 +94,7 @@ func analyzeEntry(
 			))
 			return
 		}
-		_, err := ctx.Scope.Resolve(ctx, name)
+		sym, err := ctx.Scope.Resolve(ctx, name)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				entry,
@@ -112,6 +112,10 @@ func analyzeEntry(
 			config.Channels = make(map[string]uint8)
 		}
 		config.Channels[name] = v
+		if config.Keys == nil {
+			config.Keys = make(map[uint32]string)
+		}
+		config.Keys[uint32(sym.ID)] = name
 	} else {
 		if *hasDefault {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
