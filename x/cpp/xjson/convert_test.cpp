@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
 #include "gtest/gtest.h"
 #include "x/cpp/xjson/convert.h"
 #include "x/cpp/xtest/xtest.h"
@@ -568,6 +569,229 @@ TEST(FromSampleValue, StringToBooleanError) {
     );
 }
 
+// --- from_timestamp: UnixNanosecond ---
+
+TEST(FromTimestamp, UnixNanosecond) {
+    // 10^9 seconds since epoch in nanoseconds
+    const int64_t value = 1000000000000000000;
+    const auto ts = telem::TimeStamp(value);
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::UnixNanosecond),
+        json(value)
+    );
+}
+
+TEST(FromTimestamp, UnixNanosecondZero) {
+    const int64_t value = 0;
+    ASSERT_EQ(
+        xjson::from_timestamp(telem::TimeStamp(value), xjson::TimeFormat::UnixNanosecond),
+        json(value)
+    );
+}
+
+TEST(FromTimestamp, UnixNanosecondSubSecond) {
+    const int64_t value = 1000000000123456789;
+    const auto ts = telem::TimeStamp(value);
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::UnixNanosecond),
+        json(value)
+    );
+}
+
+TEST(FromTimestamp, UnixNanosecondNegative) {
+    const int64_t value = -1500000001;
+    ASSERT_EQ(
+        xjson::from_timestamp(telem::TimeStamp(value), xjson::TimeFormat::UnixNanosecond),
+        json(value)
+    );
+}
+
+// --- from_timestamp: UnixMicrosecond ---
+
+TEST(FromTimestamp, UnixMicrosecond) {
+    const auto value = int64_t(1000000000000000000);
+    const auto ts = telem::TimeStamp(value);
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::UnixMicrosecond),
+        json(value / 1000)
+    );
+}
+
+TEST(FromTimestamp, UnixMicrosecondZero) {
+    ASSERT_EQ(
+        xjson::from_timestamp(telem::TimeStamp(0), xjson::TimeFormat::UnixMicrosecond),
+        json(int64_t(0))
+    );
+}
+
+TEST(FromTimestamp, UnixMicrosecondFloorsSubMicrosecond) {
+    // 789 nanoseconds floored away
+    const auto ts = telem::TimeStamp(int64_t(1000000000123456789));
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::UnixMicrosecond),
+        json(int64_t(1000000000123456))
+    );
+}
+
+TEST(FromTimestamp, UnixMicrosecondNegativeFloors) {
+    // -1500000001 ns → floor(-1500000.001) = -1500001 (not -1500000)
+    const auto ts = telem::TimeStamp(int64_t(-1500000001));
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::UnixMicrosecond),
+        json(int64_t(-1500001))
+    );
+}
+
+// --- from_timestamp: UnixMillisecond ---
+
+TEST(FromTimestamp, UnixMillisecond) {
+    const int64_t value = 1000000000000000000;
+    const auto ts = telem::TimeStamp(value);
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::UnixMillisecond),
+        json(value / 1000000)
+    );
+}
+
+TEST(FromTimestamp, UnixMillisecondZero) {
+    ASSERT_EQ(
+        xjson::from_timestamp(telem::TimeStamp(0), xjson::TimeFormat::UnixMillisecond),
+        json(int64_t(0))
+    );
+}
+
+TEST(FromTimestamp, UnixMillisecondFloorsSubMillisecond) {
+    // 456789 nanoseconds floored away
+    const auto ts = telem::TimeStamp(int64_t(1000000000123456789));
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::UnixMillisecond),
+        json(int64_t(1000000000123))
+    );
+}
+
+TEST(FromTimestamp, UnixMillisecondNegativeFloors) {
+    // -1500000001 ns → floor(-1500.000001) = -1501 (not -1500)
+    const auto ts = telem::TimeStamp(int64_t(-1500000001));
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::UnixMillisecond),
+        json(int64_t(-1501))
+    );
+}
+
+// --- from_timestamp: UnixSecondInt ---
+
+TEST(FromTimestamp, UnixSecondInt) {
+    const int64_t value = 1000000000000000000;
+    const auto ts = telem::TimeStamp(value);
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::UnixSecondInt),
+        json(value / 1000000000)
+    );
+}
+
+TEST(FromTimestamp, UnixSecondIntZero) {
+    ASSERT_EQ(
+        xjson::from_timestamp(telem::TimeStamp(0), xjson::TimeFormat::UnixSecondInt),
+        json(int64_t(0))
+    );
+}
+
+TEST(FromTimestamp, UnixSecondIntFloorsSubSecond) {
+    const auto ts = telem::TimeStamp(int64_t(1000000000500000000));
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::UnixSecondInt),
+        json(int64_t(1000000000))
+    );
+}
+
+TEST(FromTimestamp, UnixSecondIntNegativeFloors) {
+    // -1500000001 ns → floor(-1.500000001) = -2 (not -1)
+    const auto ts = telem::TimeStamp(int64_t(-1500000001));
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::UnixSecondInt),
+        json(int64_t(-2))
+    );
+}
+
+// --- from_timestamp: UnixSecondFloat ---
+
+TEST(FromTimestamp, UnixSecondFloat) {
+    const auto ts = telem::TimeStamp(int64_t(1000000000000000000));
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::UnixSecondFloat),
+        json(1000000000)
+    );
+}
+
+TEST(FromTimestamp, UnixSecondFloatZero) {
+    ASSERT_EQ(
+        xjson::from_timestamp(telem::TimeStamp(0), xjson::TimeFormat::UnixSecondFloat),
+        json(0.0)
+    );
+}
+
+TEST(FromTimestamp, UnixSecondFloatPreservesSubSecond) {
+    // 0.5 seconds preserved as float
+    const auto ts = telem::TimeStamp(int64_t(1000000000500000000));
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::UnixSecondFloat),
+        json(1000000000.5)
+    );
+}
+
+TEST(FromTimestamp, UnixSecondFloatNegative) {
+    const auto ts = telem::TimeStamp(int64_t(-1500000000));
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::UnixSecondFloat),
+        json(-1.5)
+    );
+}
+
+// --- from_timestamp: ISO8601 ---
+
+TEST(FromTimestamp, ISO8601Epoch) {
+    ASSERT_EQ(
+        xjson::from_timestamp(telem::TimeStamp(0), xjson::TimeFormat::ISO8601),
+        json("1970-01-01T00:00:00Z")
+    );
+}
+
+TEST(FromTimestamp, ISO8601) {
+    // 10^9 seconds = 2001-09-09T01:46:40Z
+    const auto ts = telem::TimeStamp(int64_t(1000000000000000000));
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::ISO8601),
+        json("2001-09-09T01:46:40Z")
+    );
+}
+
+TEST(FromTimestamp, ISO8601WithSubSecond) {
+    // 10^9 seconds + 500ms
+    const auto ts = telem::TimeStamp(int64_t(1000000000500000000));
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::ISO8601),
+        json("2001-09-09T01:46:40.5Z")
+    );
+}
+
+TEST(FromTimestamp, ISO8601Negative) {
+    // -10^9 seconds from epoch = 1938-04-24T22:13:20Z
+    const auto ts = telem::TimeStamp(int64_t(-1000000000000000000));
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::ISO8601),
+        json("1938-04-24T22:13:20Z")
+    );
+}
+
+TEST(FromTimestamp, ISO8601WithNanosecondPrecision) {
+    const auto ts = telem::TimeStamp(int64_t(1000000000000000001));
+    ASSERT_EQ(
+        xjson::from_timestamp(ts, xjson::TimeFormat::ISO8601),
+        json("2001-09-09T01:46:40.000000001Z")
+    );
+}
+
+
 // --- check_from_sample_value ---
 
 TEST(CheckFromSampleValue, Float64ToNumberOK) {
@@ -620,6 +844,27 @@ TEST(CheckFromSampleValue, StringToNumberError) {
 TEST(CheckFromSampleValue, StringToBooleanError) {
     ASSERT_OCCURRED_AS(
         xjson::check_from_sample_value(telem::STRING_T, xjson::Type::Boolean),
+        xjson::UNSUPPORTED_ERR
+    );
+}
+
+TEST(CheckFromSampleValue, TimestampToNumberError) {
+    ASSERT_OCCURRED_AS(
+        xjson::check_from_sample_value(telem::TIMESTAMP_T, xjson::Type::Number),
+        xjson::UNSUPPORTED_ERR
+    );
+}
+
+TEST(CheckFromSampleValue, TimestampToStringError) {
+    ASSERT_OCCURRED_AS(
+        xjson::check_from_sample_value(telem::TIMESTAMP_T, xjson::Type::String),
+        xjson::UNSUPPORTED_ERR
+    );
+}
+
+TEST(CheckFromSampleValue, TimestampToBooleanError) {
+    ASSERT_OCCURRED_AS(
+        xjson::check_from_sample_value(telem::TIMESTAMP_T, xjson::Type::Boolean),
         xjson::UNSUPPORTED_ERR
     );
 }

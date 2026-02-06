@@ -29,6 +29,15 @@ enum class Type {
     Boolean
 };
 
+enum class TimeFormat {
+    ISO8601,
+    UnixSecondFloat,
+    UnixSecondInt,
+    UnixMillisecond,
+    UnixMicrosecond,
+    UnixNanosecond,
+};
+
 /// Resolved read converter. Takes a JSON value extracted from a response and returns a
 /// single-sample Series containing the converted value.
 using ReadConverter = std::function<
@@ -54,6 +63,9 @@ from_sample_value(const telem::SampleValue &value, Type target);
 /// Config-time check that a DataType can be converted to the given JSON type.
 /// Returns UNSUPPORTED_ERR if the conversion is not supported.
 xerrors::Error check_from_sample_value(const telem::DataType &type, Type target);
+
+/// Convert a TimeStamp to a JSON value using the given time format.
+nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format);
 
 /// Get zero value for a JSON format type.
 ///

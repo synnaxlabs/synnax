@@ -8,7 +8,17 @@
 // included in the file licenses/APL.txt.
 
 
+#include <ctime>
+#include <iomanip>
+#include <sstream>
+
 #include "x/cpp/xjson/convert.h"
+
+namespace {
+int64_t floor_div(const int64_t a, const int64_t b) {
+    return a / b - (a % b != 0 && (a ^ b) < 0);
+}
+}
 
 namespace xjson {
 
@@ -16,8 +26,7 @@ template<typename T>
 ReadConverter make_number_reader() {
     return [](const nlohmann::json &value)
                -> std::pair<telem::Series, xerrors::Error> {
-        const auto series = telem::Series(static_cast<T>(value.get<double>()));
-        return std::pair<telem::Series, xerrors::Error>(series, xerrors::NIL);
+        return {telem::Series(static_cast<T>(value.get<double>())), xerrors::NIL};
     };
 }
 
@@ -196,6 +205,40 @@ check_from_sample_value(const telem::DataType &type, xjson::Type target) {
         type == telem::UINT16_T || type == telem::UINT8_T)
         return xerrors::NIL;
     return UNSUPPORTED_ERR;
+}
+
+nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format) {
+    const int64_t ns = ts.nanoseconds();
+    switch (format) {
+        case TimeFormat::UnixNanosecond:
+            return ns;
+        case TimeFormat::UnixMicrosecond:
+            return floor_div(ns, 1000);
+        case TimeFormat::UnixMillisecond:
+            return floor_div(ns, 1000000);
+        case TimeFormat::UnixSecondInt:
+            return floor_div(ns, 1000000000);
+        case TimeFormat::UnixSecondFloat:
+            return static_cast<double>(ns) / 1e9;
+        case TimeFormat::ISO8601: {
+            const int64_t sec = floor_div(ns, int64_t(1000000000));
+            const int64_t frac_ns = ns - sec * int64_t(1000000000);
+            const time_t t = static_cast<time_t>(sec);
+            struct tm utc{};
+            gmtime_r(&t, &utc);
+            std::ostringstream oss;
+            oss << std::put_time(&utc, "%Y-%m-%dT%H:%M:%S");
+            if (frac_ns > 0) {
+                auto frac = std::to_string(frac_ns);
+                frac = std::string(9 - frac.size(), '0') + frac;
+                frac.erase(frac.find_last_not_of('0') + 1);
+                oss << '.' << frac;
+            }
+            oss << 'Z';
+            return oss.str();
+        }
+    }
+    return nullptr;
 }
 
 nlohmann::json zero_value(xjson::Type format) {
