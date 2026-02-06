@@ -192,7 +192,7 @@ void Acquisition::run() {
     if (writer_err.matches(freighter::UNREACHABLE) &&
         this->breaker.wait(writer_err.message()))
         return this->run();
-    if (source_err)
+    if (source_err && !source_err.matches(driver::NOMINAL_SHUTDOWN_ERROR))
         this->source->stopped_with_err(source_err);
     else if (writer_err)
         this->source->stopped_with_err(writer_err);
