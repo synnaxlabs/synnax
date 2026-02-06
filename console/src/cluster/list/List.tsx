@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { checkConnection } from "@synnaxlabs/client";
 import {
   Button,
   Flex,
@@ -18,13 +19,13 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { CONNECT_LAYOUT } from "@/cluster/Connect";
+import { CONNECT_LAYOUT, CONNECT_LAYOUT_TYPE } from "@/cluster/Connect";
 import { Item } from "@/cluster/list/Item";
 import { useSelectMany } from "@/cluster/selectors";
-import { remove } from "@/cluster/slice";
+import { changeKey, remove } from "@/cluster/slice";
 import { Menu } from "@/components";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
@@ -37,7 +38,9 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const dispatch = useDispatch();
   const allClusters = useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
   const keys = useMemo(() => allClusters.map((c) => c.key), [allClusters]);
+  const [testing, setTesting] = useState<string | null>(null);
   const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
 
   const validateName = useCallback(
     (name: string): boolean => {
@@ -65,6 +68,43 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
 
   const handleLink = Link.useCopyToClipboard();
 
+  const placeLayout = Layout.usePlacer();
+
+  const handleRetest = (key: string): void => {
+    const cluster = allClusters.find((c) => c.key === key);
+    if (cluster == null) return;
+    handleError(async () => {
+      try {
+        setTesting(key);
+        const state = await checkConnection({
+          host: cluster.host,
+          port: cluster.port,
+          secure: cluster.secure,
+          name: cluster.name,
+        });
+        if (state.status === "connected") {
+          addStatus({
+            variant: "success",
+            message: `Connected to ${cluster.name}`,
+          });
+          if (state.clusterKey && state.clusterKey !== key)
+            dispatch(changeKey({ oldKey: key, newKey: state.clusterKey }));
+        } else
+          addStatus({
+            variant: "error",
+            message: `Failed to connect to ${cluster.name}`,
+            description: state.message,
+          });
+      } finally {
+        setTesting(null);
+      }
+    }, `Failed to connect to ${cluster.name}`);
+  };
+
+  const handleEdit = (key: string): void => {
+    placeLayout({ ...CONNECT_LAYOUT, key, type: CONNECT_LAYOUT_TYPE });
+  };
+
   const contextMenu = useCallback(
     ({ keys: [key] }: PMenu.ContextMenuMenuProps): ReactElement => {
       if (key == null) return <Layout.DefaultContextMenu />;
@@ -80,12 +120,25 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
           }
           case "rename":
             return handleRename(key);
+          case "retest":
+            return handleRetest(key);
+          case "edit":
+            return handleEdit(key);
         }
       };
 
       return (
         <PMenu.Menu level="small" onChange={handleSelect}>
           <Menu.RenameItem />
+          <PMenu.Item size="small" itemKey="edit">
+            <Icon.Edit />
+            Edit
+          </PMenu.Item>
+          <PMenu.Divider />
+          <PMenu.Item size="small" itemKey="retest">
+            <Icon.Refresh />
+            Refresh Connection
+          </PMenu.Item>
           <PMenu.Divider />
           <PMenu.Item size="small" itemKey="remove">
             <Icon.Delete />
@@ -97,10 +150,8 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
         </PMenu.Menu>
       );
     },
-    [handleRemove],
+    [handleRemove, handleRetest, handleEdit],
   );
-
-  const placeLayout = Layout.usePlacer();
 
   return (
     <Select.Frame data={keys} value={value} onChange={onChange} itemHeight={54}>
@@ -117,7 +168,13 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
         </Header.Header>
         <Flex.Box empty onContextMenu={menuProps.open} grow>
           {keys.map((key, i) => (
-            <Item key={key} index={i} itemKey={key} validateName={validateName} />
+            <Item
+              key={key}
+              index={i}
+              itemKey={key}
+              validateName={validateName}
+              loading={testing === key}
+            />
           ))}
         </Flex.Box>
       </Flex.Box>

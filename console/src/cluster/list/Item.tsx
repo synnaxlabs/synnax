@@ -30,9 +30,15 @@ import { CSS } from "@/css";
 interface ListItemProps extends BaseList.ItemProps<string> {
   validateName: (name: string) => boolean;
   item: Cluster;
+  loading: boolean;
 }
 
-const Base = ({ validateName, item, ...rest }: ListItemProps): ReactElement | null => {
+const Base = ({
+  validateName,
+  item,
+  loading,
+  ...rest
+}: ListItemProps): ReactElement | null => {
   const dispatch = useDispatch();
   const { selected, onSelect } = Select.useItemState(rest.itemKey);
   const handleChange = (value: string) => {
@@ -41,6 +47,12 @@ const Base = ({ validateName, item, ...rest }: ListItemProps): ReactElement | nu
   };
   const { data } = PCluster.useConnectionState(item);
   const status = data?.status ?? "disconnected";
+  let statusVariant = Synnax.CONNECTION_STATE_VARIANTS[status];
+  let statusMessage: string = status;
+  if (loading) {
+    statusMessage = "connecting";
+    statusVariant = "loading";
+  }
   return (
     <BaseList.Item
       className={CSS(CSS.B("cluster-list-item"))}
@@ -75,10 +87,10 @@ const Base = ({ validateName, item, ...rest }: ListItemProps): ReactElement | nu
       </Flex.Box>
       <Tooltip.Dialog>
         <Text.Text level="h5">{data?.message}</Text.Text>
-        <Text.Text size="small" status={Synnax.CONNECTION_STATE_VARIANTS[status]}>
-          <Status.Indicator />
-          {caseconv.capitalize(status)}
-        </Text.Text>
+        <Status.Summary
+          variant={statusVariant}
+          message={caseconv.capitalize(statusMessage)}
+        />
       </Tooltip.Dialog>
     </BaseList.Item>
   );
