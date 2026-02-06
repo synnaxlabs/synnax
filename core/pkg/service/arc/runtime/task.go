@@ -191,10 +191,10 @@ func (t *taskImpl) start(ctx context.Context) error {
 		writerCfg := framer.WriterConfig{
 			ControlSubject: control.Subject{
 				Name: t.prog.Name,
-				Key: t.task.Key.String(),
+				Key:  t.task.Key.String(),
 			},
-			Start:          drt.startTime,
-			Keys:           stateCfg.Writes.Keys(),
+			Start: drt.startTime,
+			Keys:  stateCfg.Writes.Keys(),
 		}
 		if authorities := buildAuthorities(
 			t.prog.Module.Authority,
