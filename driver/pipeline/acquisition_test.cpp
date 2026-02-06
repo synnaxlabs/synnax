@@ -28,13 +28,15 @@ public:
     ):
         start_ts(start_ts), read_err(read_err) {}
 
-    std::pair<pipeline::ReadResult, xerrors::Error>
-    read(breaker::Breaker &breaker) override {
-        if (read_err != xerrors::NIL) return {{}, read_err};
+    xerrors::Error read(
+        breaker::Breaker &breaker,
+        telem::Frame &fr,
+        pipeline::Authorities &authorities
+    ) override {
+        if (read_err != xerrors::NIL) return read_err;
         std::this_thread::sleep_for(std::chrono::microseconds(100));
-        telem::Frame fr(0);
         fr.emplace(1, telem::Series(start_ts));
-        return {{.frame = std::move(fr)}, xerrors::NIL};
+        return xerrors::NIL;
     }
 
     void stopped_with_err(const xerrors::Error &err) override {
@@ -248,17 +250,19 @@ public:
     ):
         timestamps(std::move(timestamps)), read_err(read_err) {}
 
-    std::pair<pipeline::ReadResult, xerrors::Error>
-    read(breaker::Breaker &breaker) override {
-        if (read_err != xerrors::NIL) return {{}, read_err};
+    xerrors::Error read(
+        breaker::Breaker &breaker,
+        telem::Frame &fr,
+        pipeline::Authorities &authorities
+    ) override {
+        if (read_err != xerrors::NIL) return read_err;
         std::this_thread::sleep_for(std::chrono::microseconds(100));
-        telem::Frame fr(0);
 
         for (size_t i = 0; i < timestamps.size(); i++) {
             fr.emplace(i + 1, telem::Series(timestamps[i]));
         }
 
-        return {{.frame = std::move(fr)}, xerrors::NIL};
+        return xerrors::NIL;
     }
 
     void stopped_with_err(const xerrors::Error &err) override {}
@@ -267,12 +271,14 @@ public:
 /// @brief MockSource that returns frames with non-timestamp data
 class NonTimestampSource final : public pipeline::Source {
 public:
-    std::pair<pipeline::ReadResult, xerrors::Error>
-    read(breaker::Breaker &breaker) override {
+    xerrors::Error read(
+        breaker::Breaker &breaker,
+        telem::Frame &fr,
+        pipeline::Authorities &authorities
+    ) override {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
-        telem::Frame fr(0);
         fr.emplace(1, telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
-        return {{.frame = std::move(fr)}, xerrors::NIL};
+        return xerrors::NIL;
     }
 
     void stopped_with_err(const xerrors::Error &err) override {}
@@ -281,12 +287,14 @@ public:
 /// @brief MockSource that returns frames with empty timestamp series
 class EmptyTimestampSource final : public pipeline::Source {
 public:
-    std::pair<pipeline::ReadResult, xerrors::Error>
-    read(breaker::Breaker &breaker) override {
+    xerrors::Error read(
+        breaker::Breaker &breaker,
+        telem::Frame &fr,
+        pipeline::Authorities &authorities
+    ) override {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
-        telem::Frame fr(0);
         fr.emplace(1, telem::Series(telem::TIMESTAMP_T, 0));
-        return {{.frame = std::move(fr)}, xerrors::NIL};
+        return xerrors::NIL;
     }
 
     void stopped_with_err(const xerrors::Error &err) override {}
@@ -381,17 +389,18 @@ public:
     ):
         start_ts(start_ts), auth(std::move(auth)) {}
 
-    std::pair<pipeline::ReadResult, xerrors::Error>
-    read(breaker::Breaker &breaker) override {
+    xerrors::Error read(
+        breaker::Breaker &breaker,
+        telem::Frame &fr,
+        pipeline::Authorities &authorities
+    ) override {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
-        telem::Frame fr(0);
         fr.emplace(1, telem::Series(this->start_ts));
-        pipeline::ReadResult result{.frame = std::move(fr)};
         if (!this->sent_auth) {
-            result.authorities = this->auth;
+            authorities = this->auth;
             this->sent_auth = true;
         }
-        return {std::move(result), xerrors::NIL};
+        return xerrors::NIL;
     }
 
     void stopped_with_err(const xerrors::Error &err) override {}
@@ -407,7 +416,8 @@ TEST(AcquisitionPipeline, testAuthorityForwarding) {
         .authorities = {100, 200},
     };
     const auto source = std::make_shared<AuthoritySource>(
-        telem::TimeStamp::now(), auth
+        telem::TimeStamp::now(),
+        auth
     );
 
     auto pipe = pipeline::Acquisition(
@@ -428,4 +438,319 @@ TEST(AcquisitionPipeline, testAuthorityForwarding) {
     ASSERT_EQ(change.authorities.size(), 2);
     EXPECT_EQ(change.authorities[0], 100);
     EXPECT_EQ(change.authorities[1], 200);
+}
+
+class MultiAuthoritySource final : public pipeline::Source {
+    telem::TimeStamp start_ts;
+    std::vector<pipeline::Authorities> pending;
+    std::atomic<size_t> read_count{0};
+
+public:
+    explicit MultiAuthoritySource(
+        const telem::TimeStamp start_ts,
+        std::vector<pipeline::Authorities> pending
+    ):
+        start_ts(start_ts), pending(std::move(pending)) {}
+
+    xerrors::Error read(
+        breaker::Breaker &breaker,
+        telem::Frame &fr,
+        pipeline::Authorities &authorities
+    ) override {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        fr.emplace(1, telem::Series(this->start_ts));
+        auto idx = this->read_count.fetch_add(1);
+        if (idx < this->pending.size()) authorities = this->pending[idx];
+        return xerrors::NIL;
+    }
+
+    void stopped_with_err(const xerrors::Error &err) override {}
+};
+
+/// @brief it should forward multiple sequential authority changes across reads.
+TEST(AcquisitionPipeline, testMultipleAuthorityChanges) {
+    auto writes = std::make_shared<std::vector<telem::Frame>>();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+
+    std::vector<pipeline::Authorities> changes = {
+        {.keys = {1}, .authorities = {100}},
+        {.keys = {2}, .authorities = {200}},
+        {.keys = {3}, .authorities = {50}},
+    };
+    const auto source = std::make_shared<MultiAuthoritySource>(
+        telem::TimeStamp::now(),
+        changes
+    );
+
+    auto pipe = pipeline::Acquisition(
+        mock_factory,
+        synnax::WriterConfig(),
+        source,
+        breaker::Config()
+    );
+
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(mock_factory->authority_changes->size(), 3);
+    ASSERT_TRUE(pipe.stop());
+
+    EXPECT_EQ(mock_factory->authority_changes->at(0).keys[0], 1);
+    EXPECT_EQ(mock_factory->authority_changes->at(0).authorities[0], 100);
+    EXPECT_EQ(mock_factory->authority_changes->at(1).keys[0], 2);
+    EXPECT_EQ(mock_factory->authority_changes->at(1).authorities[0], 200);
+    EXPECT_EQ(mock_factory->authority_changes->at(2).keys[0], 3);
+    EXPECT_EQ(mock_factory->authority_changes->at(2).authorities[0], 50);
+}
+
+/// @brief it should forward global authority changes (empty keys) correctly.
+TEST(AcquisitionPipeline, testGlobalAuthorityForwarding) {
+    auto writes = std::make_shared<std::vector<telem::Frame>>();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+
+    pipeline::Authorities auth{
+        .keys = {},
+        .authorities = {150},
+    };
+    const auto source = std::make_shared<AuthoritySource>(
+        telem::TimeStamp::now(),
+        auth
+    );
+
+    auto pipe = pipeline::Acquisition(
+        mock_factory,
+        synnax::WriterConfig(),
+        source,
+        breaker::Config()
+    );
+
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(mock_factory->authority_changes->size(), 1);
+    ASSERT_TRUE(pipe.stop());
+
+    const auto &change = mock_factory->authority_changes->at(0);
+    EXPECT_TRUE(change.keys.empty());
+    ASSERT_EQ(change.authorities.size(), 1);
+    EXPECT_EQ(change.authorities[0], 150);
+}
+
+/// @brief it should forward authority changes from the very first read that also
+/// triggers the writer to open.
+TEST(AcquisitionPipeline, testAuthorityOnFirstFrame) {
+    auto writes = std::make_shared<std::vector<telem::Frame>>();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+
+    pipeline::Authorities auth{
+        .keys = {42},
+        .authorities = {250},
+    };
+    const auto source = std::make_shared<AuthoritySource>(
+        telem::TimeStamp::now(),
+        auth
+    );
+
+    auto pipe = pipeline::Acquisition(
+        mock_factory,
+        synnax::WriterConfig(),
+        source,
+        breaker::Config()
+    );
+
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(mock_factory->authority_changes->size(), 1);
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipe.stop());
+
+    const auto &change = mock_factory->authority_changes->at(0);
+    ASSERT_EQ(change.keys.size(), 1);
+    EXPECT_EQ(change.keys[0], 42);
+    EXPECT_EQ(change.authorities[0], 250);
+}
+
+class EmptyFrameAuthoritySource final : public pipeline::Source {
+    telem::TimeStamp start_ts;
+    pipeline::Authorities auth;
+    std::atomic<size_t> read_count{0};
+
+public:
+    explicit EmptyFrameAuthoritySource(
+        const telem::TimeStamp start_ts,
+        pipeline::Authorities auth
+    ):
+        start_ts(start_ts), auth(std::move(auth)) {}
+
+    xerrors::Error read(
+        breaker::Breaker &breaker,
+        telem::Frame &fr,
+        pipeline::Authorities &authorities
+    ) override {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        auto idx = this->read_count.fetch_add(1);
+        if (idx == 0) {
+            fr.emplace(1, telem::Series(this->start_ts));
+            return xerrors::NIL;
+        }
+        if (idx == 1) authorities = this->auth;
+        return xerrors::NIL;
+    }
+
+    void stopped_with_err(const xerrors::Error &err) override {}
+};
+
+/// @brief it should forward authority changes even when the frame is empty.
+TEST(AcquisitionPipeline, testAuthorityWithEmptyFrame) {
+    auto writes = std::make_shared<std::vector<telem::Frame>>();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+
+    pipeline::Authorities auth{
+        .keys = {10},
+        .authorities = {200},
+    };
+    const auto source = std::make_shared<EmptyFrameAuthoritySource>(
+        telem::TimeStamp::now(),
+        auth
+    );
+
+    auto pipe = pipeline::Acquisition(
+        mock_factory,
+        synnax::WriterConfig(),
+        source,
+        breaker::Config()
+    );
+
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(mock_factory->authority_changes->size(), 1);
+    ASSERT_TRUE(pipe.stop());
+
+    const auto &change = mock_factory->authority_changes->at(0);
+    ASSERT_EQ(change.keys.size(), 1);
+    EXPECT_EQ(change.keys[0], 10);
+    EXPECT_EQ(change.authorities[0], 200);
+}
+
+class PreWriterAuthoritySource final : public pipeline::Source {
+    telem::TimeStamp start_ts;
+    std::vector<pipeline::Authorities> pre_writer_auths;
+    std::atomic<size_t> read_count{0};
+
+public:
+    explicit PreWriterAuthoritySource(
+        const telem::TimeStamp start_ts,
+        std::vector<pipeline::Authorities> pre_writer_auths
+    ):
+        start_ts(start_ts), pre_writer_auths(std::move(pre_writer_auths)) {}
+
+    xerrors::Error read(
+        breaker::Breaker &breaker,
+        telem::Frame &fr,
+        pipeline::Authorities &authorities
+    ) override {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        auto idx = this->read_count.fetch_add(1);
+        if (idx < this->pre_writer_auths.size()) {
+            authorities = this->pre_writer_auths[idx];
+            return xerrors::NIL;
+        }
+        fr.emplace(1, telem::Series(this->start_ts));
+        return xerrors::NIL;
+    }
+
+    void stopped_with_err(const xerrors::Error &err) override {}
+};
+
+/// @brief it should buffer authority changes that arrive before the writer opens
+/// and apply them once the first frame opens the writer.
+TEST(AcquisitionPipeline, testAuthorityBufferedBeforeWriter) {
+    auto writes = std::make_shared<std::vector<telem::Frame>>();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+
+    std::vector<pipeline::Authorities> pre_auths = {
+        {.keys = {1}, .authorities = {100}},
+    };
+    const auto source = std::make_shared<PreWriterAuthoritySource>(
+        telem::TimeStamp::now(),
+        pre_auths
+    );
+
+    auto pipe = pipeline::Acquisition(
+        mock_factory,
+        synnax::WriterConfig(),
+        source,
+        breaker::Config()
+    );
+
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(mock_factory->authority_changes->size(), 1);
+    ASSERT_TRUE(pipe.stop());
+
+    const auto &change = mock_factory->authority_changes->at(0);
+    ASSERT_EQ(change.keys.size(), 1);
+    EXPECT_EQ(change.keys[0], 1);
+    EXPECT_EQ(change.authorities[0], 100);
+}
+
+/// @brief it should dedupe per-channel authority changes buffered before the writer
+/// opens, keeping only the last value for each channel.
+TEST(AcquisitionPipeline, testAuthorityBufferDedupes) {
+    auto writes = std::make_shared<std::vector<telem::Frame>>();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+
+    std::vector<pipeline::Authorities> pre_auths = {
+        {.keys = {1, 2}, .authorities = {100, 200}},
+        {.keys = {1}, .authorities = {50}},
+    };
+    const auto source = std::make_shared<PreWriterAuthoritySource>(
+        telem::TimeStamp::now(),
+        pre_auths
+    );
+
+    auto pipe = pipeline::Acquisition(
+        mock_factory,
+        synnax::WriterConfig(),
+        source,
+        breaker::Config()
+    );
+
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(mock_factory->authority_changes->size(), 1);
+    ASSERT_TRUE(pipe.stop());
+
+    const auto &change = mock_factory->authority_changes->at(0);
+    ASSERT_EQ(change.keys.size(), 2);
+    std::map<synnax::ChannelKey, telem::Authority> merged;
+    for (size_t i = 0; i < change.keys.size(); i++)
+        merged[change.keys[i]] = change.authorities[i];
+    EXPECT_EQ(merged[1], 50);
+    EXPECT_EQ(merged[2], 200);
+}
+
+/// @brief a global authority change buffered before the writer opens should clear
+/// any previously buffered per-channel changes.
+TEST(AcquisitionPipeline, testAuthorityBufferGlobalClearsChannels) {
+    auto writes = std::make_shared<std::vector<telem::Frame>>();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+
+    std::vector<pipeline::Authorities> pre_auths = {
+        {.keys = {1, 2}, .authorities = {100, 200}},
+        {.keys = {}, .authorities = {75}},
+    };
+    const auto source = std::make_shared<PreWriterAuthoritySource>(
+        telem::TimeStamp::now(),
+        pre_auths
+    );
+
+    auto pipe = pipeline::Acquisition(
+        mock_factory,
+        synnax::WriterConfig(),
+        source,
+        breaker::Config()
+    );
+
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(mock_factory->authority_changes->size(), 1);
+    ASSERT_TRUE(pipe.stop());
+
+    ASSERT_EQ(mock_factory->authority_changes->size(), 1);
+    const auto &change = mock_factory->authority_changes->at(0);
+    EXPECT_TRUE(change.keys.empty());
+    ASSERT_EQ(change.authorities.size(), 1);
+    EXPECT_EQ(change.authorities[0], 75);
 }

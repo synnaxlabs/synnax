@@ -48,7 +48,8 @@ public:
 
     common::ReadResult read(breaker::Breaker &breaker, telem::Frame &data) override {
         common::ReadResult res;
-        res.error = this->wrapped.read(breaker, data);
+        pipeline::Authorities authorities;
+        res.error = this->wrapped.read(breaker, data, authorities);
         return res;
     }
 };

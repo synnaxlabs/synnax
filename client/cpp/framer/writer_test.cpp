@@ -256,6 +256,62 @@ TEST(WriterTests, testSetAuthorityFireAndForget) {
     ASSERT_NIL(writer.close());
 }
 
+/// @brief it should allow a second writer to gain control after the first drops
+/// authority via fire-and-forget.
+TEST(WriterTests, testSetAuthorityFireAndForgetTakesEffect) {
+    auto client = new_test_client();
+    auto time = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("ff_effect_time"),
+        telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto data = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("ff_effect_data"),
+        telem::UINT8_T,
+        time.key,
+        false
+    ));
+
+    auto w1 = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::WriterConfig{
+            .channels = std::vector{time.key, data.key},
+            .start = telem::TimeStamp::now(),
+            .authorities = std::vector{telem::AUTH_ABSOLUTE, telem::AUTH_ABSOLUTE},
+            .subject = telem::ControlSubject{"writer_1"},
+            .err_on_unauthorized = true
+        }
+    ));
+
+    ASSERT_NIL(w1.set_authority(
+        std::vector{time.key, data.key},
+        std::vector<telem::Authority>{0, 0},
+        false
+    ));
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    auto w2 = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::WriterConfig{
+            .channels = std::vector{time.key, data.key},
+            .start = telem::TimeStamp::now(),
+            .authorities = std::vector{telem::AUTH_ABSOLUTE, telem::AUTH_ABSOLUTE},
+            .subject = telem::ControlSubject{"writer_2"},
+            .err_on_unauthorized = true
+        }
+    ));
+
+    auto now = telem::TimeStamp::now();
+    auto frame = telem::Frame(2);
+    frame.emplace(time.key, telem::Series(now + telem::SECOND));
+    frame.emplace(data.key, telem::Series(std::vector<uint8_t>{42}));
+    ASSERT_NIL(w2.write(frame));
+    ASSERT_NIL_P(w2.commit());
+
+    ASSERT_NIL(w2.close());
+    ASSERT_NIL(w1.close());
+}
+
 /// @brief close can be called as many times as desired and should not return an error
 /// when the writer has a nominal shutdown.
 TEST(WriterTests, testCloseIdempotency) {

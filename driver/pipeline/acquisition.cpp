@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <exception>
+#include <map>
+#include <optional>
 #include <stdexcept>
 #include <thread>
 
@@ -27,11 +29,8 @@ xerrors::Error SynnaxWriter::write(const telem::Frame &fr) {
 }
 
 xerrors::Error SynnaxWriter::set_authority(const Authorities &authorities) {
-    return this->internal.set_authority(
-        authorities.keys,
-        authorities.authorities,
-        false
-    );
+    return this->internal
+        .set_authority(authorities.keys, authorities.authorities, false);
 }
 
 xerrors::Error SynnaxWriter::close() {
@@ -94,11 +93,18 @@ telem::TimeStamp resolve_start(const telem::Frame &frame) {
 void Acquisition::run() {
     std::unique_ptr<Writer> writer;
     bool writer_opened = false;
+    std::optional<telem::Authority> pending_global_auth;
+    std::map<synnax::ChannelKey, telem::Authority> pending_channel_auths;
     xerrors::Error writer_err;
     xerrors::Error source_err;
+    telem::Frame fr(0);
+    Authorities authorities;
     // A running breaker means the pipeline user has not called stop.
     while (this->breaker.running()) {
-        auto [result, source_err_i] = this->source->read(this->breaker);
+        fr.clear();
+        authorities.keys.clear();
+        authorities.authorities.clear();
+        auto source_err_i = this->source->read(this->breaker, fr, authorities);
         if (source_err_i) {
             source_err = source_err_i;
             LOG(ERROR) << "[acquisition] failed to read source: "
@@ -111,35 +117,70 @@ void Acquisition::run() {
             break;
         }
         if (source_err) source_err = xerrors::NIL;
-        if (result.frame.empty()) continue;
-        // Open the writer after receiving the first frame so we can resolve the
-        // start timestamp from the data. This helps to account for clock drift
-        // between the source we're recording data from and the system clock.
-        if (!writer_opened) {
-            this->writer_config.start = resolve_start(result.frame);
-            // There are no scenarios where an acquisition task would want control
-            // handoff between different levels of authorization, so we just reject
-            // unauthorized writes.
-            this->writer_config.err_on_unauthorized = true;
-            auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
-            writer_err = writer_err_i;
-            if (writer_err) {
-                LOG(ERROR) << "[acquisition] failed to open writer: "
-                           << writer_err.message();
+        if (fr.empty() && authorities.empty()) continue;
+        if (!fr.empty()) {
+            // Open the writer after receiving the first frame so we can resolve the
+            // start timestamp from the data. This helps to account for clock drift
+            // between the source we're recording data from and the system clock.
+            if (!writer_opened) {
+                this->writer_config.start = resolve_start(fr);
+                // There are no scenarios where an acquisition task would want control
+                // handoff between different levels of authorization, so we just reject
+                // unauthorized writes.
+                this->writer_config.err_on_unauthorized = true;
+                auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
+                writer_err = writer_err_i;
+                if (writer_err) {
+                    LOG(ERROR) << "[acquisition] failed to open writer: "
+                               << writer_err.message();
+                    break;
+                }
+                writer = std::move(writer_i);
+                writer_opened = true;
+                if (pending_global_auth.has_value()) {
+                    Authorities auth{.authorities = {*pending_global_auth}};
+                    if (auto err = writer->set_authority(auth)) {
+                        LOG(ERROR) << "[acquisition] failed to set authority: "
+                                   << err.message();
+                        break;
+                    }
+                    pending_global_auth.reset();
+                }
+                if (!pending_channel_auths.empty()) {
+                    Authorities auth;
+                    for (const auto &[k, v]: pending_channel_auths) {
+                        auth.keys.push_back(k);
+                        auth.authorities.push_back(v);
+                    }
+                    if (auto err = writer->set_authority(auth)) {
+                        LOG(ERROR) << "[acquisition] failed to set authority: "
+                                   << err.message();
+                        break;
+                    }
+                    pending_channel_auths.clear();
+                }
+            }
+            if (auto err = writer->write(fr)) {
+                LOG(ERROR) << "[acquisition] failed to write frame" << err;
                 break;
             }
-            writer = std::move(writer_i);
-            writer_opened = true;
         }
-        if (auto err = writer->write(result.frame)) {
-            LOG(ERROR) << "[acquisition] failed to write frame" << err;
-            break;
-        }
-        if (writer_opened && !result.authorities.empty()) {
-            if (auto err = writer->set_authority(result.authorities)) {
-                LOG(ERROR) << "[acquisition] failed to set authority: "
-                           << err.message();
-                break;
+        if (!authorities.empty()) {
+            if (writer_opened) {
+                if (auto err = writer->set_authority(authorities)) {
+                    LOG(ERROR)
+                        << "[acquisition] failed to set authority: " << err.message();
+                    break;
+                }
+            } else {
+                if (authorities.keys.empty()) {
+                    pending_global_auth = authorities.authorities[0];
+                    pending_channel_auths.clear();
+                } else {
+                    for (size_t i = 0; i < authorities.keys.size(); i++)
+                        pending_channel_auths
+                            [authorities.keys[i]] = authorities.authorities[i];
+                }
             }
         }
         this->breaker.reset();

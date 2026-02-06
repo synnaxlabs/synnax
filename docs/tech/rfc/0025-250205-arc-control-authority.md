@@ -275,8 +275,8 @@ built-in function:
 ```arc
 sequence abort {
     stage escalate {
-        set_authority{channel=valve, authority=254}
-        set_authority{channel=vent, authority=254}
+        set_authority{value=254, channel=valve}
+        set_authority{value=254, channel=vent}
         valve = 0
         vent = 1
     }
@@ -288,7 +288,7 @@ sequence abort {
 ```
 SetAuthority ::= 'set_authority' '{' SetAuthorityParams '}'
 
-SetAuthorityParams ::= 'authority' '=' NumericLiteral (',' 'channel' '=' Identifier)?
+SetAuthorityParams ::= 'value' '=' NumericLiteral (',' 'channel' '=' Identifier)?
 ```
 
 ### 4.1.2 - Function Signature
@@ -297,18 +297,18 @@ Following Arc's node instantiation pattern (like `wait{}`, `interval{}`,
 `set_status{}`), `set_authority{}` is a **runtime node** (not a WASM host function):
 
 ```arc
-set_authority{authority=<0-255>}
-set_authority{authority=<0-255>, channel=<channel_name>}
+set_authority{value=<0-255>}
+set_authority{value=<0-255>, channel=<channel_name>}
 ```
 
 Parameters:
 
-- `authority` - Integer literal in range 0-255 (required)
+- `value` - Integer literal in range 0-255 (required)
 - `channel` - Channel identifier (optional). If absent, applies to all write channels.
   Compile-time validated against the bound channel set.
 
 `set_authority{}` is a void sink with no output parameters. It has a trigger input
-(`u8`) so it works in flow statements: `condition => set_authority{authority=254}`. As a
+(`u8`) so it works in flow statements: `condition => set_authority{value=254}`. As a
 standalone invocation in a stage body, it fires once on stage entry.
 
 ### 4.1.3 - Usage Patterns
@@ -316,27 +316,27 @@ standalone invocation in a stage body, it fires once on stage entry.
 **All channels:**
 
 ```arc
-set_authority{authority=254}
+set_authority{value=254}
 ```
 
 **Single channel:**
 
 ```arc
-set_authority{authority=254, channel=valve}
+set_authority{value=254, channel=valve}
 ```
 
 **Multiple channels (requires multiple calls):**
 
 ```arc
-set_authority{authority=254, channel=valve}
-set_authority{authority=254, channel=vent}
-set_authority{authority=254, channel=pressure}
+set_authority{value=254, channel=valve}
+set_authority{value=254, channel=vent}
+set_authority{value=254, channel=pressure}
 ```
 
 **In flow statements:**
 
 ```arc
-abort_condition => set_authority{authority=254}
+abort_condition => set_authority{value=254}
 ```
 
 ### 4.1.4 - Example: Abort Pattern
@@ -353,7 +353,7 @@ sequence main {
 
 sequence abort {
     stage escalate {
-        set_authority{authority=254}
+        set_authority{value=254}
     }
 
     stage safed {
@@ -560,8 +560,8 @@ var symbolDef = symbol.Symbol{
     Kind: symbol.KindFunction,
     Type: types.Function(types.FunctionProperties{
         Config: types.Params{
-            {Name: "authority", Type: types.U8()},
-            {Name: "channel", Type: types.Chan(types.U8()), Value: nil},
+            {Name: "value", Type: types.U8()},
+            {Name: "channel", Type: types.Chan(types.U8()), Value: uint32(0)},
         },
         Inputs: types.Params{
             {Name: ir.DefaultOutputParam, Type: types.U8()},

@@ -50,9 +50,10 @@ import (
 )
 
 const (
-	streamerAddr address.Address = "streamer"
-	writerAddr   address.Address = "writer"
-	runtimeAddr  address.Address = "runtime"
+	streamerAddr         address.Address = "streamer"
+	writerAddr           address.Address = "writer"
+	writer_responses_addr address.Address = "writer_responses"
+	runtimeAddr          address.Address = "runtime"
 )
 
 // taskImpl implements the driver.Task interface and manages Arc program execution.
@@ -206,7 +207,26 @@ func (t *taskImpl) start(ctx context.Context) error {
 		}
 		plumber.SetSegment(pipeline, writerAddr, wrt)
 		plumber.MustConnect[framer.WriterRequest](pipeline, runtimeAddr, writerAddr, 10)
-		wrt.OutTo(confluence.NewStream[framer.WriterResponse]())
+		writerResponses := &confluence.UnarySink[framer.WriterResponse]{
+			Sink: func(ctx context.Context, res framer.WriterResponse) error {
+				if res.Command == writer.CommandSetAuthority && !res.Authorized {
+					t.factoryCfg.L.Warn("failed to set authority on arc task writer",
+						zap.Uint64("task", uint64(t.task.Key)),
+						zap.Error(res.Err),
+					)
+				}
+				if res.Err != nil {
+					t.factoryCfg.L.Error("unexpected writer response error",
+						zap.Uint64("task", uint64(t.task.Key)),
+						zap.Int("seqNum", res.SeqNum),
+						zap.Error(res.Err),
+					)
+				}
+				return nil
+			},
+		}
+		plumber.SetSink(pipeline, writer_responses_addr, writerResponses)
+		plumber.MustConnect[framer.WriterResponse](pipeline, writerAddr, writer_responses_addr, 10)
 	}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.factoryCfg.Instrumentation))
 	t.closer = append(

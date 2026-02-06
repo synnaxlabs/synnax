@@ -78,12 +78,12 @@ class Task final : public task::Task {
     public:
         explicit Source(Task &task): task(task) {}
 
-        std::pair<pipeline::ReadResult, xerrors::Error>
-        read(breaker::Breaker &breaker) override {
-            telem::Frame data;
-            if (!this->task.runtime->read(data))
-                return {{}, xerrors::Error("runtime closed")};
-            pipeline::Authorities authorities;
+        xerrors::Error read(
+            breaker::Breaker &breaker,
+            telem::Frame &fr,
+            pipeline::Authorities &authorities
+        ) override {
+            if (!this->task.runtime->read(fr)) return xerrors::Error("runtime closed");
             std::vector<runtime::state::AuthorityChange> changes;
             while (this->task.runtime->read_authority_changes(changes)) {
                 for (auto &c: changes) {
@@ -92,10 +92,7 @@ class Task final : public task::Task {
                     authorities.authorities.push_back(c.authority);
                 }
             }
-            return {
-                {.frame = std::move(data), .authorities = std::move(authorities)},
-                xerrors::NIL,
-            };
+            return xerrors::NIL;
         }
 
         void stopped_with_err(const xerrors::Error &err) override {

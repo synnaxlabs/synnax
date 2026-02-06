@@ -197,9 +197,7 @@ public:
         std::vector<int> return_false_ok_on = {}
     ):
         writes(std::move(writes)),
-        authority_changes(
-            std::make_shared<std::vector<pipeline::Authorities>>()
-        ),
+        authority_changes(std::make_shared<std::vector<pipeline::Authorities>>()),
         open_errors(std::move(open_errors)),
         close_errors(std::move(close_errors)),
         return_false_ok_on(std::move(return_false_ok_on)),
@@ -297,17 +295,19 @@ public:
     ):
         reads(std::move(reads)), read_errors(std::move(read_errors)) {}
 
-    std::pair<pipeline::ReadResult, xerrors::Error>
-    read(breaker::Breaker &breaker) override {
+    xerrors::Error read(
+        breaker::Breaker &breaker,
+        telem::Frame &fr,
+        pipeline::Authorities &authorities
+    ) override {
         read_count++;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
         if (current_read >= reads->size()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            return {{}, xerrors::NIL};
+            return xerrors::NIL;
         }
 
-        telem::Frame fr(0);
         const auto &curr_read = reads->at(current_read);
         for (auto [k, s]: curr_read)
             fr.emplace(k, std::move(s));
@@ -315,7 +315,7 @@ public:
         if (read_errors != nullptr && read_errors->size() > current_read)
             err = read_errors->at(current_read);
         current_read++;
-        return {{.frame = std::move(fr)}, err};
+        return err;
     }
 
     void stopped_with_err(const xerrors::Error &err) override { this->stop_err = err; }

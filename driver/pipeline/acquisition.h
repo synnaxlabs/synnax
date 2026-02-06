@@ -26,13 +26,6 @@ struct Authorities {
     [[nodiscard]] bool empty() const { return authorities.empty(); }
 };
 
-/// @brief the result of a source read operation, containing both a frame of
-/// telemetry data and an optional batch of authority changes.
-struct ReadResult {
-    telem::Frame frame;
-    Authorities authorities;
-};
-
 /// @brief an object that reads data from an acquisition computer or another source,
 /// returning data as frames.
 class Source {
@@ -46,8 +39,8 @@ public:
     /// pipeline will exit. It's recommended that the caller return a sub-error of
     /// driver::CRITICAL_HARDWARE_ERROR for any error that is not recoverable, as
     /// this improved traceability.
-    [[nodiscard]] virtual std::pair<ReadResult, xerrors::Error>
-    read(breaker::Breaker &breaker) = 0;
+    [[nodiscard]] virtual xerrors::Error
+    read(breaker::Breaker &breaker, telem::Frame &fr, Authorities &authorities) = 0;
 
     /// @brief communicates an error encountered by the acquisition pipeline that
     /// caused it to shut down or occurred during commanded shutdown. Note that this
@@ -74,8 +67,9 @@ public:
 
     /// @brief sets the authority for channels on this writer. If
     /// authorities.keys is empty, the authority applies to all channels.
-    [[nodiscard]] virtual xerrors::Error
-    set_authority(const Authorities &authorities) { return xerrors::NIL; }
+    [[nodiscard]] virtual xerrors::Error set_authority(const Authorities &authorities) {
+        return xerrors::NIL;
+    }
 
     /// @brief closes the writer, returning any error that occurred during normal
     /// operation. If the returned error is of type freighter::UNREACHABLE, the
@@ -116,8 +110,7 @@ public:
     [[nodiscard]] xerrors::Error write(const telem::Frame &fr) override;
 
     /// @brief implements pipeline::Writer to set authority.
-    [[nodiscard]] xerrors::Error
-    set_authority(const Authorities &authorities) override;
+    [[nodiscard]] xerrors::Error set_authority(const Authorities &authorities) override;
 
     /// @brief implements pipeline::Writer to close the writer.
     [[nodiscard]] xerrors::Error close() override;

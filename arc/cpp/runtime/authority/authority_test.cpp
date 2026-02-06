@@ -131,3 +131,42 @@ TEST(SetAuthorityTest, NextBuffersGlobalAuthorityChange) {
     ASSERT_FALSE(changes[0].channel_key.has_value());
     EXPECT_EQ(changes[0].authority, 150);
 }
+
+TEST(SetAuthorityTest, NextFiresOnceBeforeReset) {
+    TestSetup setup(200, 42);
+    authority::Factory factory(setup.state);
+    auto node = ASSERT_NIL_P(
+        factory.create(
+            node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
+        )
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+    ASSERT_NIL(node->next(ctx));
+    ASSERT_NIL(node->next(ctx));
+
+    auto changes = setup.state->flush_authority_changes();
+    ASSERT_EQ(changes.size(), 1);
+}
+
+TEST(SetAuthorityTest, ResetAllowsRefire) {
+    TestSetup setup(200, 42);
+    authority::Factory factory(setup.state);
+    auto node = ASSERT_NIL_P(
+        factory.create(
+            node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
+        )
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+    setup.state->flush_authority_changes();
+
+    node->reset();
+    ASSERT_NIL(node->next(ctx));
+
+    auto changes = setup.state->flush_authority_changes();
+    ASSERT_EQ(changes.size(), 1);
+    EXPECT_EQ(changes[0].authority, 200);
+}

@@ -112,7 +112,11 @@ public:
         }
     }
 
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+    xerrors::Error read(
+        breaker::Breaker &breaker,
+        telem::Frame &fr,
+        pipeline::Authorities &authorities
+    ) override {
         std::unique_lock lock(chan_state_lock);
         this->chan_state_cv.wait_for(lock, this->state_rate.period().chrono());
         fr.clear();
@@ -146,8 +150,12 @@ class WriteTask final : public task::Task {
             this->p.stop("", true);
         }
 
-        xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
-            return this->internal->read(breaker, fr);
+        xerrors::Error read(
+            breaker::Breaker &breaker,
+            telem::Frame &fr,
+            pipeline::Authorities &authorities
+        ) override {
+            return this->internal->read(breaker, fr, authorities);
         }
 
         xerrors::Error write(telem::Frame &frame) override {

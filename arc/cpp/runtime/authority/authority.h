@@ -26,6 +26,7 @@ class SetAuthority : public node::Node {
     state::State &state;
     uint8_t authority_value;
     std::optional<types::ChannelKey> channel_key;
+    bool initialized = false;
 
 public:
     SetAuthority(
@@ -38,11 +39,13 @@ public:
         channel_key(std::move(channel_key)) {}
 
     xerrors::Error next(node::Context & /*ctx*/) override {
-        state.set_authority(channel_key, authority_value);
+        if (this->initialized) return xerrors::NIL;
+        this->initialized = true;
+        this->state.set_authority(this->channel_key, this->authority_value);
         return xerrors::NIL;
     }
 
-    void reset() override {}
+    void reset() override { this->initialized = false; }
 
     [[nodiscard]] bool is_output_truthy(const std::string &) const override {
         return false;

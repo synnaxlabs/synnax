@@ -33,7 +33,7 @@ var (
 				{Name: "channel", Type: types.Chan(types.U8()), Value: uint32(0)},
 			},
 			Inputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.U8()},
+				{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
 			},
 		}),
 	}
@@ -42,16 +42,21 @@ var (
 )
 
 type setAuthority struct {
-	state      *state.State
-	authority  uint8
-	channelKey *uint32
+	state       *state.State
+	authority   uint8
+	channelKey  *uint32
+	initialized bool
 }
 
-func (s *setAuthority) Reset() {}
+func (s *setAuthority) Reset() { s.initialized = false }
 
 func (s *setAuthority) IsOutputTruthy(string) bool { return false }
 
 func (s *setAuthority) Next(node.Context) {
+	if s.initialized {
+		return
+	}
+	s.initialized = true
 	s.state.SetAuthority(s.channelKey, s.authority)
 }
 
