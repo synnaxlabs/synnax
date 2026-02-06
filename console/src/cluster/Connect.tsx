@@ -11,7 +11,7 @@ import "@/cluster/Connect.css";
 
 import { checkConnection, type connection } from "@synnaxlabs/client";
 import { Button, Flex, Form, type Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
+import { caseconv, uuid } from "@synnaxlabs/x";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod";
@@ -85,7 +85,8 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
       const state = await checkConnection(data);
       setLoading(null);
       setConnState(state);
-      dispatch(set({ ...data, key: state.clusterKey, username: "", password: "" }));
+      const key = state.clusterKey || uuid.create();
+      dispatch(set({ ...data, key, username: "", password: "" }));
       onClose();
     }, "Failed to connect to cluster");
 
