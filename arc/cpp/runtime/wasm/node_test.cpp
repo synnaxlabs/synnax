@@ -1128,9 +1128,7 @@ func read_chan{ch chan f32}(trigger u8) f32 {
 
     // Ingest data for the config param channel so channel_read_f32 can find it.
     auto data_series = telem::Series(std::vector{42.5f});
-    telem::Frame data_frame;
-    data_frame.emplace(data_ch.key, std::move(data_series));
-    state->ingest(data_frame);
+    state->ingest(telem::Frame(data_ch.key, std::move(data_series)));
 
     // Set up the 'on' node that reads the trigger channel.
     const auto *on_node = find_node_by_type(mod, "on");
