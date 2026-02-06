@@ -16,7 +16,8 @@ template<typename T>
 ReadConverter make_number_reader() {
     return [](const nlohmann::json &value)
                -> std::pair<telem::Series, xerrors::Error> {
-        return {telem::Series(static_cast<T>(value.get<double>())), xerrors::NIL};
+        const auto series = telem::Series(static_cast<T>(value.get<double>()));
+        return std::pair<telem::Series, xerrors::Error>(series, xerrors::NIL);
     };
 }
 

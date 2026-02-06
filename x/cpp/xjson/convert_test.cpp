@@ -57,61 +57,6 @@ using json = nlohmann::json;
 // --- Unsupported conversions ---
 // [x] resolve (Number, UUID) returns error at resolve time
 // [x] resolve (Number, JSON) returns error at resolve time
-//
-// ========================== from_sample_value ==========================
-//
-// --- Synnax Numeric → JSON Number ---
-// [x] double(42.5) → json 42.5
-// [x] double(1.2345689012) → json 1.2345689012
-// [x] int64_t(-743984) → json -743984
-// [x] uint8_t(255) → json 255
-//
-// --- Synnax Numeric → JSON String ---
-// [x] double(42.5) → json "42.5"
-// [x] double(1.2345689012) → json "1.2345689012"
-// [x] double(42.0) → json "42"
-// [x] int64_t(7) → json "7"
-// [x] int64_t(-743984) → json "-743984"
-//
-// --- Synnax Numeric → JSON Boolean ---
-// [x] int64_t(0) → json false
-// [x] int64_t(1) → json true
-// [x] int64_t(-743984) → json true
-// [x] double(0.0) → json false
-// [x] double(42.5) → json true
-// [x] double(-743984.0) → json true
-// [x] uint8_t(0) → json false
-// [x] uint8_t(255) → json true
-//
-// --- Synnax String → JSON String ---
-// [x] "hello" → json "hello"
-// [x] "" → json ""
-//
-// --- Unsupported from_sample_value conversions ---
-// [x] string → Number returns error
-// [x] string → Boolean returns error
-//
-// ========================== check_from_sample_value ==========================
-//
-// [x] (float64, Number) → OK
-// [x] (string, String) → OK
-// [x] (string, Number) → UNSUPPORTED_ERR
-// [x] (string, Boolean) → UNSUPPORTED_ERR
-// [x] (UUID, Number) → UNSUPPORTED_ERR
-// [x] (UUID, String) → UNSUPPORTED_ERR
-// [x] (UUID, Boolean) → UNSUPPORTED_ERR
-// [x] (BYTES, Number) → UNSUPPORTED_ERR
-// [x] (BYTES, String) → UNSUPPORTED_ERR
-// [x] (BYTES, Boolean) → UNSUPPORTED_ERR
-// [x] (UNKNOWN, Number) → UNSUPPORTED_ERR
-// [x] (UNKNOWN, String) → UNSUPPORTED_ERR
-// [x] (UNKNOWN, Boolean) → UNSUPPORTED_ERR
-//
-// ========================== zero_value ==========================
-//
-// [x] Number → json 0
-// [x] String → json ""
-// [x] Boolean → json false
 
 // --- Number → Numeric ---
 
@@ -131,7 +76,8 @@ TEST(ResolveReadConverter, NumberToFloat32) {
             xjson::Type::Number, telem::FLOAT32_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(42.5)));
+    const auto [series, err] = converter(json(42.5));
+    ASSERT_NIL(err);
     ASSERT_FLOAT_EQ(series.at<float>(0), 42.5f);
 }
 
@@ -141,7 +87,8 @@ TEST(ResolveReadConverter, NumberToInt64) {
             xjson::Type::Number, telem::INT64_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(7)));
+    const auto [series, err] = converter(json(7));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<int64_t>(0), 7);
 }
 
@@ -151,7 +98,8 @@ TEST(ResolveReadConverter, NumberToInt32) {
             xjson::Type::Number, telem::INT32_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(7)));
+    const auto [series, err] = converter(json(7));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<int32_t>(0), 7);
 }
 
@@ -161,7 +109,8 @@ TEST(ResolveReadConverter, NumberToInt16) {
             xjson::Type::Number, telem::INT16_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(7)));
+    const auto [series, err] = converter(json(7));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<int16_t>(0), 7);
 }
 
@@ -171,7 +120,8 @@ TEST(ResolveReadConverter, NumberToInt8) {
             xjson::Type::Number, telem::INT8_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(7)));
+    const auto [series, err] = converter(json(7));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<int8_t>(0), 7);
 }
 
@@ -181,7 +131,8 @@ TEST(ResolveReadConverter, NumberToUint64) {
             xjson::Type::Number, telem::UINT64_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(7)));
+    const auto [series, err] = converter(json(7));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<uint64_t>(0), 7);
 }
 
@@ -191,7 +142,8 @@ TEST(ResolveReadConverter, NumberToUint32) {
             xjson::Type::Number, telem::UINT32_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(7)));
+    const auto [series, err] = converter(json(7));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<uint32_t>(0), 7);
 }
 
@@ -201,7 +153,8 @@ TEST(ResolveReadConverter, NumberToUint16) {
             xjson::Type::Number, telem::UINT16_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(7)));
+    const auto [series, err] = converter(json(7));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<uint16_t>(0), 7);
 }
 
@@ -211,7 +164,8 @@ TEST(ResolveReadConverter, NumberToUint8) {
             xjson::Type::Number, telem::UINT8_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(7)));
+    const auto [series, err] = converter(json(7));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<uint8_t>(0), 7);
 }
 
@@ -223,7 +177,8 @@ TEST(ResolveReadConverter, NumberToInt64NonStrictTruncation) {
             xjson::Type::Number, telem::INT64_T, false
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(3.7)));
+    const auto [series, err] = converter(json(3.7));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<int64_t>(0), 3);
 }
 
@@ -265,7 +220,8 @@ TEST(ResolveReadConverter, NumberToStringDecimal) {
             xjson::Type::Number, telem::STRING_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(42.5)));
+    const auto [series, err] = converter(json(42.5));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<std::string>(0), "42.5");
 }
 
@@ -275,7 +231,8 @@ TEST(ResolveReadConverter, NumberToStringInteger) {
             xjson::Type::Number, telem::STRING_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(7)));
+    const auto [series, err] = converter(json(7));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<std::string>(0), "7");
 }
 
@@ -287,7 +244,8 @@ TEST(ResolveReadConverter, StringToString) {
             xjson::Type::String, telem::STRING_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json("hello")));
+    const auto [series, err] = converter(json("hello"));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<std::string>(0), "hello");
 }
 
@@ -308,7 +266,8 @@ TEST(ResolveReadConverter, BooleanTrueToInt64) {
             xjson::Type::Boolean, telem::INT64_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(true)));
+    const auto [series, err] = converter(json(true));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<int64_t>(0), 1);
 }
 
@@ -318,7 +277,8 @@ TEST(ResolveReadConverter, BooleanFalseToInt64) {
             xjson::Type::Boolean, telem::INT64_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(false)));
+    const auto [series, err] = converter(json(false));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<int64_t>(0), 0);
 }
 
@@ -328,7 +288,8 @@ TEST(ResolveReadConverter, BooleanTrueToFloat64) {
             xjson::Type::Boolean, telem::FLOAT64_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(true)));
+    const auto [series, err] = converter(json(true));
+    ASSERT_NIL(err);
     ASSERT_DOUBLE_EQ(series.at<double>(0), 1.0);
 }
 
@@ -338,7 +299,8 @@ TEST(ResolveReadConverter, BooleanFalseToUint8) {
             xjson::Type::Boolean, telem::UINT8_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(false)));
+    const auto [series, err] = converter(json(false));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<uint8_t>(0), 0);
 }
 
@@ -350,7 +312,8 @@ TEST(ResolveReadConverter, BooleanTrueToString) {
             xjson::Type::Boolean, telem::STRING_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(true)));
+    const auto [series, err] = converter(json(true));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<std::string>(0), "true");
 }
 
@@ -360,7 +323,8 @@ TEST(ResolveReadConverter, BooleanFalseToString) {
             xjson::Type::Boolean, telem::STRING_T
         )
     );
-    const auto series = ASSERT_NIL_P(converter(json(false)));
+    const auto [series, err] = converter(json(false));
+    ASSERT_NIL(err);
     ASSERT_EQ(series.at<std::string>(0), "false");
 }
 
