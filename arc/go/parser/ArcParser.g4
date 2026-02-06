@@ -58,7 +58,7 @@ configList
     ;
 
 config
-    : IDENTIFIER type
+    : IDENTIFIER type (ASSIGN literal)?
     ;
 
 // =============================================================================
