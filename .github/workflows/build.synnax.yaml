@@ -364,8 +364,8 @@ jobs:
           # Unique keychain per workflow run, which allows multiple runner instances
           # on the same machine to run simultaneously without conflicts.
 
-          # Clean up stale build keychains from previous runs (older than 1 day)
-          find ~/Library/Keychains -name "build-*.keychain*" -mtime +1 -exec security delete-keychain "{}" \; 2>/dev/null || true
+          # Clean up stale build keychains from previous runs (older than 2 hours)
+          find ~/Library/Keychains -name "build-*.keychain*" -mmin +120 -exec security delete-keychain "{}" \; 2>/dev/null || true
 
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
           security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
@@ -616,6 +616,12 @@ jobs:
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
+      - name: Cleanup Build Keychain
+        if: always() && matrix.os == 'macos-build-bot'
+        run: |
+          # Delete this run's keychain when job completes
+          security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
+
   docker:
     name: Build Docker Image
     needs: [setup, build]
@@ -735,8 +741,8 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           KEYCHAIN_NAME: build-${{ github.run_id }}.keychain
         run: |
-          # Clean up stale build keychains from previous runs (older than 1 day)
-          find ~/Library/Keychains -name "build-*.keychain*" -mtime +1 -exec security delete-keychain "{}" \; 2>/dev/null || true
+          # Clean up stale build keychains from previous runs (older than 2 hours)
+          find ~/Library/Keychains -name "build-*.keychain*" -mmin +120 -exec security delete-keychain "{}" \; 2>/dev/null || true
 
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
           security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
@@ -880,3 +886,9 @@ jobs:
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64_en-US.msi.sig
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.exe
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.exe.sig
+
+      - name: Cleanup Build Keychain
+        if: always() && matrix.os == 'macos-build-bot'
+        run: |
+          # Delete this run's keychain when job completes
+          security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
