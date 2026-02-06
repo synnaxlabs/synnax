@@ -168,7 +168,7 @@ TEST(FrameTests, testIteration) {
 
     auto empty_frame = telem::Frame(0);
     count = 0;
-    for ([[maybe_unused]] auto pair: empty_frame)
+    for (auto it = empty_frame.begin(); it != empty_frame.end(); ++it)
         count++;
     ASSERT_EQ(count, 0);
     ASSERT_TRUE(empty_frame.begin() == empty_frame.end());
@@ -359,7 +359,7 @@ TEST(FrameTests, testDefaultConstructedIteration) {
     auto f = telem::Frame();
     ASSERT_TRUE(f.begin() == f.end());
     size_t count = 0;
-    for ([[maybe_unused]] auto pair: f)
+    for (auto it = f.begin(); it != f.end(); ++it)
         count++;
     ASSERT_EQ(count, 0);
 }
@@ -377,15 +377,6 @@ TEST(FrameTests, testDefaultConstructedDeepCopy) {
     auto f2 = f.deep_copy();
     ASSERT_TRUE(f2.empty());
     ASSERT_EQ(f2.size(), 0);
-}
-
-/// @brief it should add a series to a default constructed frame.
-TEST(FrameTests, testDefaultConstructedAdd) {
-    auto f = telem::Frame();
-    auto s = telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f});
-    f.add(65537, s);
-    ASSERT_EQ(f.size(), 1);
-    ASSERT_EQ(f.channels->at(0), 65537);
 }
 
 /// @brief it should emplace multiple series onto a default constructed frame.
@@ -464,7 +455,7 @@ TEST(FrameTests, testMovedFromIteration) {
     auto f2 = std::move(f1);
     ASSERT_TRUE(f1.begin() == f1.end());
     size_t count = 0;
-    for ([[maybe_unused]] auto pair: f1)
+    for (auto it = f1.begin(); it != f1.end(); ++it)
         count++;
     ASSERT_EQ(count, 0);
 }

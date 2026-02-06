@@ -64,14 +64,7 @@ public:
     /// @param f the protobuf representation to bind to. This pb must be non-null.
     void to_proto(PBFrame *f) const;
 
-    /// @brief adds a channel and series to the frame.
-    /// @param chan the channel key to add.
-    /// @param ser the series to add for the channel key.
-    void add(const std::uint32_t &chan, telem::Series &ser);
-
-    /// @brief adds the given series to the frame for the given channel key. Unlike
-    /// add,
-    ///  this method moves the series into the frame, rather than copying it.
+    /// @brief adds the given channel and series to the frame, moving the series.
     /// @param chan the channel key to add.
     /// @param ser the series to add for the channel key.
     void emplace(const std::uint32_t &chan, telem::Series &&ser);
