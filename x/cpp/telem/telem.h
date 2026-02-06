@@ -729,7 +729,8 @@ const std::string UINT64_T = "uint64";
 const std::string UUID_T = "uuid";
 const std::string STRING_T = "string";
 const std::string JSON_T = "json";
-const std::vector VARIABLE_TYPES = {JSON_T, STRING_T};
+const std::string BYTES_T = "bytes";
+const std::vector VARIABLE_TYPES = {JSON_T, STRING_T, BYTES_T};
 }
 
 /// @brief Holds the name and properties of a datatype.
@@ -1064,6 +1065,10 @@ const DataType STRING_T(_priv::STRING_T);
 /// Synnax cluster. Note that variable-length data types have reduced performance
 /// and restricted use within a Synnax cluster.
 const DataType JSON_T(_priv::JSON_T);
+/// @brief identifier for a newline separated, variable-length bytes data type in a
+/// Synnax cluster. Note that variable-length data types have reduced performance
+/// and restricted use within a Synnax cluster.
+const DataType BYTES_T(_priv::BYTES_T);
 }
 
 // Add hash specialization in std namespace

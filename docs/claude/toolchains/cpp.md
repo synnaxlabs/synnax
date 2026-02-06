@@ -217,10 +217,18 @@ ASSERT_EVENTUALLY_NIL(error)
 **Error Handling:**
 
 ```cpp
-ASSERT_NIL(error)                    // Assert xerrors::Error is nil
-ASSERT_NIL_P(pair)                   // Assert pair's error is nil and return value
-ASSERT_OCCURRED_AS(error, expected)  // Match specific error
-ASSERT_MATCHES(error, expected)      // Error pattern matching
+// Success path — use ASSERT_NIL_P to unwrap pair<T, Error> results:
+const auto val = ASSERT_NIL_P(some_fn_returning_pair());
+
+// Error path — use ASSERT_OCCURRED_AS_P for pair returns (no structured bindings needed):
+ASSERT_OCCURRED_AS_P(some_fn_returning_pair(), EXPECTED_ERR);
+
+// Error path — use ASSERT_OCCURRED_AS for bare Error values:
+auto [val, err] = some_fn();
+ASSERT_OCCURRED_AS(err, EXPECTED_ERR);
+
+// Always verify the specific error type, not just that an error occurred.
+// Prefer ASSERT_OCCURRED_AS / ASSERT_OCCURRED_AS_P over ASSERT_TRUE(err).
 ```
 
 ## Common Patterns
