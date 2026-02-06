@@ -12,12 +12,11 @@ package lsp
 import (
 	"context"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/x/debounce"
 	"go.lsp.dev/protocol"
 )
 
@@ -39,12 +38,7 @@ type Document struct {
 	IR          ir.IR
 	Diagnostics diagnostics.Diagnostics
 	Version     int32
-
-	// debounce fields - protected by dMu
-	dMu            sync.Mutex
-	debounceTimer  *time.Timer
-	cancelAnalysis context.CancelFunc
-	firstChangeAt  time.Time
+	debouncer   *debounce.Debouncer
 }
 
 func (d *Document) isBlock() bool {
@@ -164,19 +158,6 @@ func (d *Document) resolveSymbolAtPosition(ctx context.Context, pos protocol.Pos
 		return nil, nil
 	}
 	return scope.Resolve(ctx, word)
-}
-
-func (d *Document) stopDebounce() {
-	d.dMu.Lock()
-	defer d.dMu.Unlock()
-	if d.debounceTimer != nil {
-		d.debounceTimer.Stop()
-		d.debounceTimer = nil
-	}
-	if d.cancelAnalysis != nil {
-		d.cancelAnalysis()
-		d.cancelAnalysis = nil
-	}
 }
 
 // PositionToOffset converts an LSP line/character position to a byte offset

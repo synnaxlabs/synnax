@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"go.lsp.dev/protocol"
@@ -210,7 +211,7 @@ func (s *Server) Shutdown(_ context.Context) error {
 	}
 	s.mu.RUnlock()
 	for _, doc := range docs {
-		doc.stopDebounce()
+		doc.debouncer.Stop()
 	}
 	return nil
 }
@@ -224,13 +225,17 @@ func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocume
 		zap.String("uri", string(uri)),
 		zap.Bool("hasMetadata", metadata != nil),
 		zap.Bool("isBlock", metadata != nil && metadata.isFunctionBlock))
-	s.mu.Lock()
-	s.documents[uri] = &Document{
+	doc := &Document{
 		URI:      uri,
 		Version:  params.TextDocument.Version,
 		Content:  params.TextDocument.Text,
 		metadata: metadata,
 	}
+	doc.debouncer = debounce.New(s.cfg.DebounceDelay, s.cfg.MaxDebounceDelay, func(ctx context.Context) {
+		s.runAnalysis(ctx, doc, uri)
+	})
+	s.mu.Lock()
+	s.documents[uri] = doc
 	s.mu.Unlock()
 
 	s.publishDiagnostics(ctx, uri, params.TextDocument.Text)
@@ -259,7 +264,7 @@ func (s *Server) DidChange(_ context.Context, params *protocol.DidChangeTextDocu
 	doc.Version = params.TextDocument.Version
 	s.mu.Unlock()
 
-	s.scheduleDiagnostics(doc, uri)
+	doc.debouncer.Trigger()
 	return nil
 }
 
@@ -277,7 +282,7 @@ func (s *Server) DidSave(ctx context.Context, params *protocol.DidSaveTextDocume
 	content := doc.Content
 	s.mu.RUnlock()
 
-	doc.stopDebounce()
+	doc.debouncer.Stop()
 	s.publishDiagnostics(ctx, uri, content)
 	return nil
 }
@@ -293,64 +298,13 @@ func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocu
 	s.mu.Unlock()
 
 	if ok {
-		doc.stopDebounce()
+		doc.debouncer.Stop()
 	}
 
 	return s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         uri,
 		Diagnostics: []protocol.Diagnostic{},
 	})
-}
-
-// scheduleDiagnostics debounces analysis for a document. Each keystroke
-// resets the trailing-edge timer, but a max-delay cap ensures periodic
-// updates during sustained typing.
-func (s *Server) scheduleDiagnostics(
-	doc *Document,
-	uri protocol.DocumentURI,
-) {
-	doc.dMu.Lock()
-	defer doc.dMu.Unlock()
-
-	if doc.cancelAnalysis != nil {
-		doc.cancelAnalysis()
-		doc.cancelAnalysis = nil
-	}
-	if doc.debounceTimer != nil {
-		doc.debounceTimer.Stop()
-	}
-
-	now := time.Now()
-	if doc.firstChangeAt.IsZero() {
-		doc.firstChangeAt = now
-	}
-
-	delay := s.cfg.DebounceDelay
-	elapsed := now.Sub(doc.firstChangeAt)
-	if maxRemaining := s.cfg.MaxDebounceDelay - elapsed; maxRemaining < delay {
-		delay = maxRemaining
-	}
-	if delay <= 0 {
-		doc.firstChangeAt = time.Time{}
-		s.startAnalysis(doc, uri)
-		return
-	}
-
-	doc.debounceTimer = time.AfterFunc(delay, func() {
-		doc.dMu.Lock()
-		doc.firstChangeAt = time.Time{}
-		doc.dMu.Unlock()
-		s.startAnalysis(doc, uri)
-	})
-}
-
-func (s *Server) startAnalysis(
-	doc *Document,
-	uri protocol.DocumentURI,
-) {
-	ctx, cancel := context.WithCancel(context.Background())
-	doc.cancelAnalysis = cancel
-	go s.runAnalysis(ctx, doc, uri)
 }
 
 func (s *Server) runAnalysis(
