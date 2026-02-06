@@ -16,10 +16,16 @@
 
 namespace driver {
 const xerrors::Error BASE_ERROR = xerrors::SY.sub("driver");
+/// @brief a general hardware error for a device.
 const xerrors::Error HARDWARE_ERROR = BASE_ERROR.sub("hardware");
+/// @brief a critical hardware error for a device that should not be retried.
 const xerrors::Error CRITICAL_HARDWARE_ERROR = HARDWARE_ERROR.sub("critical");
+/// @brief a temporary hardware error for a device that should be retried.
 const xerrors::Error TEMPORARY_HARDWARE_ERROR = HARDWARE_ERROR.sub("temporary");
+/// @brief a configuration error for a device, task, integration, etc.
 const xerrors::Error CONFIGURATION_ERROR = BASE_ERROR.sub("configuration");
+/// @brief sentinel indicating expected shutdown, not an error condition.
+const xerrors::Error NOMINAL_SHUTDOWN_ERROR = BASE_ERROR.sub("nominal_shutdown");
 
 /// Vendor library definitions
 struct LibraryInfo {
