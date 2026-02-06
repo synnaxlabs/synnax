@@ -387,7 +387,7 @@ jobs:
 
           security default-keychain -s $KEYCHAIN_NAME
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          security set-keychain-settings -t 3600 -u $KEYCHAIN_NAME
+          security set-keychain-settings -lut $KEYCHAIN_NAME
 
           # Import certificate (may already exist in keychain, that's ok)
           echo "Importing certificate into $KEYCHAIN_NAME..."
@@ -397,6 +397,8 @@ jobs:
 
       - name: Sign Driver (macOS)
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-build-bot'
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           cat > driver-entitlements.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -416,6 +418,10 @@ jobs:
           CERT_INFO=$(security find-identity -v -p codesigning $KEYCHAIN_NAME | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           codesign --force --options runtime --timestamp --entitlements driver-entitlements.plist --sign "$CERT_ID" bazel-bin/driver/driver
+
+          # Unlock keychain before verification (in case it locked)
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+
           codesign --verify --verbose bazel-bin/driver/driver
 
       - name: Notarize macOS Driver Binary
@@ -558,6 +564,8 @@ jobs:
       - name: Sign macOS Core Binary
         if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-build-bot'
         working-directory: core
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           cat > server-entitlements.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -577,6 +585,10 @@ jobs:
           codesign --force --options runtime --timestamp \
             --entitlements server-entitlements.plist \
             --sign "$CERT_ID" ./synnax-v${{ needs.setup.outputs.VERSION }}
+
+          # Unlock keychain before verification (in case it locked)
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+
           codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}
 
       - name: Notarize macOS Core Binary
@@ -775,7 +787,7 @@ jobs:
 
           security default-keychain -s $KEYCHAIN_NAME
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          security set-keychain-settings -t 3600 -u $KEYCHAIN_NAME
+          security set-keychain-settings -lut $KEYCHAIN_NAME
 
           # Import certificate (may already exist in keychain, that's ok)
           echo "Importing certificate into $KEYCHAIN_NAME..."
