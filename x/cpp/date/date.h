@@ -20,6 +20,22 @@ struct Date {
     uint8_t day;    ///< day of month [1, 31].
 };
 
+/// @brief converts civil date components to a day count (days since 1970-01-01) using
+/// Howard Hinnant's proleptic Gregorian algorithm. Inverse of civil_from_days.
+/// @param d the civil date components.
+/// @returns days since Unix epoch (negative for dates before 1970).
+[[nodiscard]] inline constexpr int32_t days_from_civil(const Date &d) {
+    int32_t y = d.year;
+    const uint32_t m = d.month;
+    const uint32_t day = d.day;
+    y -= (m <= 2);
+    const int32_t era = (y >= 0 ? y : y - 399) / 400;
+    const uint32_t yoe = static_cast<uint32_t>(y - era * 400);
+    const uint32_t doy = (153 * (m > 2 ? m - 3 : m + 9) + 2) / 5 + day - 1;
+    const uint32_t doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    return era * 146097 + static_cast<int32_t>(doe) - 719468;
+}
+
 /// @brief converts a day count (days since 1970-01-01) into civil date components using
 /// Howard Hinnant's proleptic Gregorian algorithm. Constant time, integer-only
 /// arithmetic with no loops.

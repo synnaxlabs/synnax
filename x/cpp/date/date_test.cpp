@@ -49,3 +49,30 @@ TEST(CivilFromDays, Year2100NotLeap) {
     ASSERT_EQ(dt.month, 3);
     ASSERT_EQ(dt.day, 1);
 }
+
+TEST(DaysFromCivil, Epoch) {
+    ASSERT_EQ(date::days_from_civil({1970, 1, 1}), 0);
+}
+
+TEST(DaysFromCivil, LeapYearFeb29) {
+    ASSERT_EQ(date::days_from_civil({2000, 2, 29}), 11016);
+}
+
+TEST(DaysFromCivil, LeapYearMar1) {
+    ASSERT_EQ(date::days_from_civil({2000, 3, 1}), 11017);
+}
+
+TEST(DaysFromCivil, PreEpoch) {
+    ASSERT_EQ(date::days_from_civil({1969, 12, 31}), -1);
+}
+
+TEST(DaysFromCivil, Year2100NotLeap) {
+    ASSERT_EQ(date::days_from_civil({2100, 3, 1}), 47541);
+}
+
+TEST(DaysFromCivil, RoundTrip) {
+    for (int32_t d = -50000; d <= 50000; d += 137) {
+        const auto dt = date::civil_from_days(d);
+        ASSERT_EQ(date::days_from_civil(dt), d);
+    }
+}
