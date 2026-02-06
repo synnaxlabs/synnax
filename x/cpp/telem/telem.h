@@ -315,30 +315,38 @@ public:
     /// nanosecond-precision UTC timestamp.
     explicit TimeStamp(const std::int64_t value): value(value) {}
 
-    /// @brief returns the number of nanoseconds in the timestamp.
+    /// @brief returns the number of nanoseconds since Unix epoch.
+    /// @returns the number of nanoseconds since Unix epoch.
     [[nodiscard]] std::int64_t nanoseconds() const { return this->value; }
 
-    /// @brief returns the timestamp as microseconds (floor toward -inf).
+    /// @brief returns the number of microseconds since Unix epoch, floored toward
+    /// negative infinity.
+    /// @returns the number of microseconds since Unix epoch.
     [[nodiscard]] std::int64_t microseconds() const {
         return xmath::floor_div(value, 1000);
     }
 
-    /// @brief returns the timestamp as milliseconds (floor toward -inf).
+    /// @brief returns the number of milliseconds since Unix epoch.
+    /// @returns the number of milliseconds since Unix epoch.
     [[nodiscard]] std::int64_t milliseconds() const {
         return xmath::floor_div(value, 1000000);
     }
 
-    /// @brief returns the timestamp as whole seconds (floor toward -inf).
+    /// @brief returns the number of seconds since Unix epoch, floored toward negative
+    /// infinity.
+    /// @returns the number of seconds since Unix epoch.
     [[nodiscard]] std::int64_t seconds() const {
         return xmath::floor_div(value, 1000000000);
     }
 
     /// @brief returns the timestamp as fractional seconds.
+    /// @returns seconds since Unix epoch as a double.
     [[nodiscard]] double seconds_double() const {
         return static_cast<double>(value) / 1e9;
     }
 
     /// @brief returns the timestamp as an ISO 8601 UTC string.
+    /// @returns a string like "2001-09-09T01:46:40.000000001Z".
     [[nodiscard]] std::string iso8601() const {
         const int64_t sec = seconds();
         const int64_t frac_ns = value - sec * 1000000000;

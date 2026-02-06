@@ -13,20 +13,18 @@
 
 namespace date {
 
-/// Civil date components.
+/// @brief civil date components.
 struct Date {
-    uint16_t year;
-    uint8_t month; // 1-12
-    uint8_t day; // 1-31
+    uint16_t year;  ///< calendar year.
+    uint8_t month;  ///< month of year [1, 12].
+    uint8_t day;    ///< day of month [1, 31].
 };
 
-/// Converts a day count (days since 1970-01-01) into civil date components using Howard
-/// Hinnant’s proleptic Gregorian algorithm.
-///
-/// - Works for negative and positive day counts
-/// - No loops, constant time
-/// - Integer-only arithmetic
-/// - Valid for the full int64 nanosecond Unix timestamp range
+/// @brief converts a day count (days since 1970-01-01) into civil date components using
+/// Howard Hinnant's proleptic Gregorian algorithm. Constant time, integer-only
+/// arithmetic with no loops.
+/// @param day_count days since Unix epoch (negative for dates before 1970).
+/// @returns the civil date components.
 [[nodiscard]] inline constexpr Date civil_from_days(const int32_t day_count) {
     // Shift to civil-from-days epoch (0000-03-01)
     int32_t z = day_count + 719468;

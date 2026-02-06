@@ -126,6 +126,27 @@ clang-format -i file.cpp
 - **Constants**: `UPPER_CASE` or `kPascalCase`
 - **Namespaces**: `lowercase`
 
+### Documentation Style
+
+Use Doxygen-style `///` comments with `@brief`, `@param`, and `@returns` tags:
+
+```cpp
+/// @brief computes floor division, rounding toward negative infinity.
+/// @param a the dividend.
+/// @param b the divisor.
+/// @returns the quotient rounded toward negative infinity.
+[[nodiscard]] inline constexpr int64_t floor_div(int64_t a, int64_t b);
+```
+
+For struct/class members, use `///<` trailing comments:
+
+```cpp
+struct Date {
+    uint16_t year;  ///< calendar year.
+    uint8_t month;  ///< month of year [1, 12].
+};
+```
+
 ## Memory Management
 
 ### RAII Pattern

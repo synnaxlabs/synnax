@@ -13,7 +13,11 @@
 
 namespace xmath {
 
-/// Floor division: rounds toward negative infinity instead of toward zero.
+/// @brief computes floor division, rounding toward negative infinity instead of toward
+/// zero.
+/// @param a the dividend.
+/// @param b the divisor.
+/// @returns the quotient rounded toward negative infinity.
 [[nodiscard]] inline constexpr int64_t floor_div(const int64_t a, const int64_t b) {
     return a / b - (a % b != 0 && (a ^ b) < 0);
 }
