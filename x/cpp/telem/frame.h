@@ -23,6 +23,11 @@ class Frame {
     /// @brief private copy constructor that deep copies the frame.
     Frame(const Frame &other);
 
+    /// @brief ensures the internal vectors are allocated with at least the given
+    /// capacity. No-op if already allocated.
+    /// @param size the minimum capacity to reserve.
+    void ensure_reserved(size_t size);
+
 public:
     /// @brief the channels in the frame.
     std::unique_ptr<std::vector<std::uint32_t>> channels;
@@ -59,17 +64,10 @@ public:
     /// @param f the protobuf representation to bind to. This pb must be non-null.
     void to_proto(PBFrame *f) const;
 
-    /// @brief adds a channel and series to the frame.
+    /// @brief adds the given channel and series to the frame, moving the series.
     /// @param chan the channel key to add.
     /// @param ser the series to add for the channel key.
-    void add(const std::uint32_t &chan, telem::Series &ser) const;
-
-    /// @brief adds the given series to the frame for the given channel key. Unlike
-    /// add,
-    ///  this method moves the series into the frame, rather than copying it.
-    /// @param chan the channel key to add.
-    /// @param ser the series to add for the channel key.
-    void emplace(const std::uint32_t &chan, telem::Series &&ser) const;
+    void emplace(const std::uint32_t &chan, telem::Series &&ser);
 
     /// @brief returns true if the frame has no series.
     [[nodiscard]] bool empty() const;
@@ -79,8 +77,10 @@ public:
     /// @brief returns the sample for the given channel and index.
     template<typename NumericType>
     NumericType at(const std::uint32_t &key, const int &index) const {
-        for (size_t i = 0; i < channels->size(); i++)
-            if (channels->at(i) == key) return series->at(i).at<NumericType>(index);
+        if (this->channels != nullptr && this->series != nullptr)
+            for (size_t i = 0; i < this->channels->size(); i++)
+                if (this->channels->at(i) == key)
+                    return this->series->at(i).at<NumericType>(index);
         throw std::runtime_error("channel not found");
     }
 
@@ -96,7 +96,9 @@ public:
     }
 
     [[nodiscard]] bool contains(const std::uint32_t &key) const {
-        return std::find(channels->begin(), channels->end(), key) != channels->end();
+        if (this->channels == nullptr) return false;
+        return std::find(this->channels->begin(), this->channels->end(), key) !=
+               this->channels->end();
     }
 
     /// @brief returns the number of channel-series pairs that the frame can hold
@@ -155,10 +157,20 @@ public:
         size_t pos;
     };
 
-    [[nodiscard]] Iterator begin() const { return {*channels, *series, 0}; }
+    [[nodiscard]] Iterator begin() const {
+        if (this->channels == nullptr || this->series == nullptr)
+            return {empty_channels, empty_series, 0};
+        return {*this->channels, *this->series, 0};
+    }
 
     [[nodiscard]] Iterator end() const {
-        return {*channels, *series, channels->size()};
+        if (this->channels == nullptr || this->series == nullptr)
+            return {empty_channels, empty_series, 0};
+        return {*this->channels, *this->series, this->channels->size()};
     }
+
+private:
+    static inline std::vector<std::uint32_t> empty_channels{};
+    static inline std::vector<Series> empty_series{};
 };
 };

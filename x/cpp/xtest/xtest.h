@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// GTest
 #include <chrono>
 #include <functional>
 #include <sstream>

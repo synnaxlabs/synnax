@@ -138,7 +138,7 @@ public:
             LOG(ERROR) << "[loop] Notifier has no native handle";
             return false;
         }
-        if (this->watched_handle_ != NULL) {
+        if (this->watched_handle_ != NULL && this->watched_handle_ != handle) {
             LOG(ERROR) << "[loop] Only one external notifier can be watched";
             return false;
         }
