@@ -167,17 +167,15 @@ The syntax is designed to accommodate future extensions:
 
 ## 4.0 - Static Authority Declarations
 
-### 4.0.0 - The `authority()` Block
+### 4.0.0 - The `authority` Declaration
 
-A new top-level `authority()` block declares the initial authorities for channels when
-the Arc program's writer is acquired at startup:
+A new top-level `authority` declaration sets the initial authorities for channels when
+the Arc program's writer is acquired at startup. It supports two forms:
+
+**Simple form** (single default for all channels):
 
 ```arc
-authority (
-    * 200
-    valve 100
-    vent 150
-)
+authority 200
 
 func controller{...} (...) { ... }
 
@@ -186,22 +184,35 @@ sequence main {
 }
 ```
 
+**Grouped form** (default with per-channel overrides):
+
+```arc
+authority (
+    200
+    valve 100
+    vent 150
+)
+```
+
 ### 4.0.1 - Syntax
 
 ```
-AuthorityBlock ::= 'authority' '(' AuthorityEntry* ')'
+AuthorityBlock ::= 'authority' NumericLiteral
+                 | 'authority' '(' AuthorityEntry* ')'
 
-AuthorityEntry ::= '*' NumericLiteral
+AuthorityEntry ::= NumericLiteral
                  | Identifier NumericLiteral
 ```
 
-- `*` specifies the default authority for all channels not explicitly listed
-- `Identifier` specifies a channel name with its authority value
+- A bare `NumericLiteral` specifies the default authority for all channels not
+  explicitly listed
+- `Identifier NumericLiteral` specifies a channel name with its authority value
 - `NumericLiteral` must be an integer in the range 0-255
+- At most one bare numeric literal (default) is allowed per authority block
 
 ### 4.0.2 - Placement Rules
 
-The `authority()` block must appear **before** any:
+The `authority` declaration must appear **before** any:
 
 - Function declarations (`func`)
 - Flow statements (`->`, `=>`)
@@ -211,44 +222,25 @@ This ensures authority is established before any program logic is defined.
 
 ### 4.0.3 - Default Behavior
 
-- If no `authority()` block is present, all channels use a system default (currently
+- If no `authority` declaration is present, all channels use a system default (currently
   `AuthorityAbsolute`, 255)
-- If `authority()` is present but no `*` entry exists, unlisted channels use
+- If `authority(...)` is present but no bare number exists, unlisted channels use
   `AuthorityAbsolute` (255)
-- The `authority()` block is optional for backwards compatibility
+- The `authority` declaration is optional for backwards compatibility
 
-### 4.0.4 - The `*` Wildcard
-
-The `*` symbol is reserved for "all channels" semantics:
-
-```arc
-authority (
-    * 200        // default for all channels
-    valve 100    // override for specific channel
-)
-```
-
-Currently, `*` only supports the exact "match all" meaning. Future versions may extend
-this to pattern matching (e.g., `*_valve`, `press_*`), but v1 only supports:
-
-- `*` for default authority
-- Exact channel names for overrides
-
-### 4.0.5 - Examples
+### 4.0.4 - Examples
 
 **Simple default for all channels:**
 
 ```arc
-authority (
-    * 200
-)
+authority 200
 ```
 
 **Default with per-channel overrides:**
 
 ```arc
 authority (
-    * 200
+    200
     safety_valve 255
     diagnostic_output 50
 )
@@ -262,6 +254,15 @@ authority (
     vent 150
 )
 // All other channels get authority 255
+```
+
+**Multiple defaults are a compile error:**
+
+```arc
+authority (
+    200
+    100  // ERROR: multiple default authority values
+)
 ```
 
 ## 4.1 - Dynamic Authority Changes
@@ -287,63 +288,61 @@ sequence abort {
 ```
 SetAuthority ::= 'set_authority' '{' SetAuthorityParams '}'
 
-SetAuthorityParams ::= 'channel' '=' ChannelRef ',' 'authority' '=' NumericLiteral
-
-ChannelRef ::= Identifier    // specific channel
-             | '*'           // all channels
+SetAuthorityParams ::= 'authority' '=' NumericLiteral (',' 'channel' '=' Identifier)?
 ```
 
 ### 4.1.2 - Function Signature
 
-Following Arc's node instantiation pattern (like `wait{}`, `interval{}`):
+Following Arc's node instantiation pattern (like `wait{}`, `interval{}`,
+`set_status{}`), `set_authority{}` is a **runtime node** (not a WASM host function):
 
 ```arc
-set_authority{channel=<channel_or_*>, authority=<0-255>}
+set_authority{authority=<0-255>}
+set_authority{authority=<0-255>, channel=<channel_name>}
 ```
 
 Parameters:
 
-- `channel` - Either a channel identifier or `*` for all write channels
-- `authority` - Integer literal in range 0-255
+- `authority` - Integer literal in range 0-255 (required)
+- `channel` - Channel identifier (optional). If absent, applies to all write channels.
+  Compile-time validated against the bound channel set.
+
+`set_authority{}` is a void sink with no output parameters. It has a trigger input
+(`u8`) so it works in flow statements: `condition => set_authority{authority=254}`. As a
+standalone invocation in a stage body, it fires once on stage entry.
 
 ### 4.1.3 - Usage Patterns
-
-**Single channel:**
-
-```arc
-set_authority{channel=valve, authority=254}
-```
 
 **All channels:**
 
 ```arc
-set_authority{channel=*, authority=254}
+set_authority{authority=254}
+```
+
+**Single channel:**
+
+```arc
+set_authority{authority=254, channel=valve}
 ```
 
 **Multiple channels (requires multiple calls):**
 
 ```arc
-set_authority{channel=valve, authority=254}
-set_authority{channel=vent, authority=254}
-set_authority{channel=pressure, authority=254}
+set_authority{authority=254, channel=valve}
+set_authority{authority=254, channel=vent}
+set_authority{authority=254, channel=pressure}
 ```
 
-### 4.1.4 - Return Value
-
-The `set_authority{}` function returns a boolean (`u8`):
-
-- `1` (true) if the authority change was acknowledged by the server
-- `0` (false) if the change failed
-
-The exact semantics of the return value and how it integrates with Arc's reactive model
-are to be determined during implementation.
-
-### 4.1.5 - Example: Abort Pattern
+**In flow statements:**
 
 ```arc
-authority (
-    * 100        // start with low authority
-)
+abort_condition => set_authority{authority=254}
+```
+
+### 4.1.4 - Example: Abort Pattern
+
+```arc
+authority 100
 
 sequence main {
     stage nominal {
@@ -354,8 +353,7 @@ sequence main {
 
 sequence abort {
     stage escalate {
-        // Escalate to take control from nominal
-        set_authority{channel=*, authority=254}
+        set_authority{authority=254}
     }
 
     stage safed {
@@ -408,12 +406,12 @@ The Arc analyzer performs the following validations on authority declarations:
 
 ### 4.3.0 - Channel Existence
 
-All channel identifiers in `authority()` and `set_authority{}` must exist in the bound
-channel set:
+All channel identifiers in `authority(...)` and `set_authority{}` must exist in the
+bound channel set:
 
 ```arc
 authority (
-    * 200
+    200
     nonexistent_channel 100  // ERROR: channel not found
 )
 ```
@@ -424,19 +422,30 @@ Authority values must be in the range 0-255:
 
 ```arc
 authority (
-    * 300  // ERROR: authority must be 0-255
+    300  // ERROR: authority must be 0-255
 )
 ```
 
 ### 4.3.2 - Duplicate Detection
 
-The same channel cannot be declared twice in the `authority()` block:
+The same channel cannot be declared twice in the `authority(...)` block:
 
 ```arc
 authority (
-    * 200
+    200
     valve 100
     valve 150  // ERROR: duplicate authority for 'valve'
+)
+```
+
+### 4.3.3 - Single Default
+
+At most one bare numeric literal (default) is allowed per authority block:
+
+```arc
+authority (
+    200
+    100  // ERROR: multiple default authority values
 )
 ```
 
@@ -507,10 +516,10 @@ Extend the symbol table to track:
 
 ## 5.2 - IR Extension
 
-Extend the IR to include authority metadata:
+Extend `ir.IR` to include authority metadata:
 
 ```go
-type Package struct {
+type IR struct {
     // ... existing fields
     Authority AuthorityConfig `json:"authority,omitempty"`
 }
@@ -523,54 +532,66 @@ type AuthorityConfig struct {
 
 ## 5.3 - Runtime Changes
 
-### 5.3.0 - Writer Configuration
+### 5.3.0 - Writer Configuration (Static Authority)
 
-Modify the Arc runtime to use authority config when opening writers:
+Modify the Arc runtime to use authority config from IR when opening writers:
 
 ```go
-// Before (hardcoded)
-Authorities: []control.Authority{control.AuthorityAbsolute}
+// Before (hardcoded default to AuthorityAbsolute)
+ControlSubject: control.Subject{Name: t.prog.Name},
+Start:          drt.startTime,
+Keys:           stateCfg.Writes.Keys(),
 
 // After (from IR)
-Authorities: buildAuthorities(program.Authority, channels)
+Authorities: buildAuthorities(program.Authority, stateCfg.Writes.Keys())
 ```
 
-### 5.3.1 - WASM Host Bindings
+### 5.3.1 - `set_authority{}` Runtime Node
 
-Add new host function for `set_authority`:
+`set_authority{}` is implemented as a **runtime node factory** following the same
+pattern as `set_status{}` (not as a WASM host function). The implementation lives in
+`core/pkg/service/arc/authority/authority.go`.
+
+**Symbol definition:**
 
 ```go
-// bindings.go
-func (r *Runtime) SetAuthority(channelID int32, authority uint8) uint8 {
-    err := r.writer.SetAuthority(control.Config{
-        Keys:        []channel.Key{channel.Key(channelID)},
-        Authorities: []control.Authority{control.Authority(authority)},
-    })
-    if err != nil {
-        return 0
-    }
-    return 1
+var symbolDef = symbol.Symbol{
+    Name: "set_authority",
+    Kind: symbol.KindFunction,
+    Type: types.Function(types.FunctionProperties{
+        Config: types.Params{
+            {Name: "authority", Type: types.U8()},
+            {Name: "channel", Type: types.Chan(types.U8()), Value: nil},
+        },
+        Inputs: types.Params{
+            {Name: ir.DefaultOutputParam, Type: types.U8()},
+        },
+    }),
 }
 ```
 
-### 5.3.2 - "All Channels" Support
+The `channel` config param has type `chan<T>`, which triggers the graph analyzer's
+channel resolution pipeline. At runtime, the factory extracts the resolved channel key.
+If `channel` is absent, the node applies to all write channels.
 
-Implement `*` handling in `set_authority{}`:
+### 5.3.2 - Authority Change Propagation
+
+Authority changes are buffered in the runtime state system and flushed alongside
+channel writes. The `State.Flush()` method returns both channel write frames and
+authority changes:
 
 ```go
-func (r *Runtime) SetAuthorityAll(authority uint8) uint8 {
-    err := r.writer.SetAuthority(control.Config{
-        Keys:        r.allWriteChannels,
-        Authorities: []control.Authority{control.Authority(authority)},
-    })
-    // ...
-}
+func (s *State) Flush(fr) (telem.Frame, []AuthorityChange, bool)
 ```
 
-## 5.4 - Compiler Changes
+The `dataRuntime.next()` method sends `CommandSetAuthority` requests to the writer
+pipeline before sending channel writes.
 
-Generate WASM code that calls the `set_authority` host function when
-`set_authority{}` nodes are executed.
+### 5.3.3 - No Compiler Changes Required
+
+Since `set_authority{}` is a runtime node (not a WASM function), no changes to the
+WebAssembly compiler or host bindings are needed. The node executes as part of the
+reactive scheduler like any other runtime node.
 
 # 6 - Future Extensions
 
@@ -664,10 +685,11 @@ Existing Arc programs continue to work unchanged:
 
 This RFC introduces control authority mechanisms to Arc through:
 
-1. **`authority()` block** - Top-level static declaration of initial authorities
-2. **`set_authority{}`** - Runtime authority changes within sequences
-3. **`*` wildcard** - Default authority for all channels
-4. **Silent skip** - Graceful handling of authority conflicts
+1. **`authority` declaration** - Top-level static declaration of initial authorities
+   (bare number for default, `identifier number` for per-channel overrides)
+2. **`set_authority{}`** - Runtime node for dynamic authority changes within sequences
+   (optional `channel` param; absent = all write channels)
+3. **Silent skip** - Graceful handling of authority conflicts
 
 The design prioritizes simplicity for v1 while leaving room for future extensions like
 pattern matching, groups, and authority detection.

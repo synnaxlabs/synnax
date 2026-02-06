@@ -32,6 +32,17 @@ type value struct {
 	time telem.Series
 }
 
+// AuthorityChange represents a buffered authority change request.
+// It is produced by set_authority nodes during reactive execution and consumed
+// by the runtime task when flushing state.
+type AuthorityChange struct {
+	// ChannelKey is the specific channel to change authority for.
+	// If nil, the change applies to all write channels.
+	ChannelKey *uint32
+	// Authority is the new authority value (0-255).
+	Authority uint8
+}
+
 // State manages runtime data for an arc program.
 // It stores node outputs, channel I/O buffers, and index relationships.
 type State struct {
@@ -39,9 +50,10 @@ type State struct {
 		reads  map[uint32]telem.MultiSeries
 		writes map[uint32]telem.Series
 	}
-	outputs map[ir.Handle]*value
-	indexes map[uint32]uint32
-	cfg     Config
+	outputs          map[ir.Handle]*value
+	indexes          map[uint32]uint32
+	cfg              Config
+	authorityChanges []AuthorityChange
 
 	series              map[uint32]telem.Series
 	seriesHandleCounter uint32
@@ -117,6 +129,25 @@ func (s *State) Flush(fr telem.Frame[uint32]) (telem.Frame[uint32], bool) {
 	}
 	clear(s.channel.writes)
 	return fr, true
+}
+
+// SetAuthority buffers an authority change request for later flushing.
+// If channelKey is nil, the change applies to all write channels.
+func (s *State) SetAuthority(channelKey *uint32, authority uint8) {
+	s.authorityChanges = append(s.authorityChanges, AuthorityChange{
+		ChannelKey: channelKey,
+		Authority:  authority,
+	})
+}
+
+// FlushAuthorityChanges returns and clears all buffered authority changes.
+func (s *State) FlushAuthorityChanges() []AuthorityChange {
+	if len(s.authorityChanges) == 0 {
+		return nil
+	}
+	changes := s.authorityChanges
+	s.authorityChanges = nil
+	return changes
 }
 
 func (s *State) readChannel(key uint32) (telem.MultiSeries, bool) {

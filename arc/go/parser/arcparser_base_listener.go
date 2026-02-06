@@ -41,6 +41,18 @@ func (s *BaseArcParserListener) EnterTopLevelItem(ctx *TopLevelItemContext) {}
 // ExitTopLevelItem is called when production topLevelItem is exited.
 func (s *BaseArcParserListener) ExitTopLevelItem(ctx *TopLevelItemContext) {}
 
+// EnterAuthorityBlock is called when production authorityBlock is entered.
+func (s *BaseArcParserListener) EnterAuthorityBlock(ctx *AuthorityBlockContext) {}
+
+// ExitAuthorityBlock is called when production authorityBlock is exited.
+func (s *BaseArcParserListener) ExitAuthorityBlock(ctx *AuthorityBlockContext) {}
+
+// EnterAuthorityEntry is called when production authorityEntry is entered.
+func (s *BaseArcParserListener) EnterAuthorityEntry(ctx *AuthorityEntryContext) {}
+
+// ExitAuthorityEntry is called when production authorityEntry is exited.
+func (s *BaseArcParserListener) ExitAuthorityEntry(ctx *AuthorityEntryContext) {}
+
 // EnterFunctionDeclaration is called when production functionDeclaration is entered.
 func (s *BaseArcParserListener) EnterFunctionDeclaration(ctx *FunctionDeclarationContext) {}
 

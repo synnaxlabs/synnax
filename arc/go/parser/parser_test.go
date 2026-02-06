@@ -183,6 +183,64 @@ var _ = Describe("Parser", func() {
 		})
 	})
 
+	Describe("Authority", func() {
+		It("Should parse simple authority declaration", func() {
+			prog := mustParseProgram(`authority 200`)
+			Expect(prog.AllTopLevelItem()).To(HaveLen(1))
+			authBlock := prog.TopLevelItem(0).AuthorityBlock()
+			Expect(authBlock).NotTo(BeNil())
+			Expect(authBlock.INTEGER_LITERAL()).NotTo(BeNil())
+			Expect(authBlock.INTEGER_LITERAL().GetText()).To(Equal("200"))
+		})
+
+		It("Should parse grouped authority with default only", func() {
+			prog := mustParseProgram(`authority (200)`)
+			Expect(prog.AllTopLevelItem()).To(HaveLen(1))
+			authBlock := prog.TopLevelItem(0).AuthorityBlock()
+			Expect(authBlock).NotTo(BeNil())
+			entries := authBlock.AllAuthorityEntry()
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0].IDENTIFIER()).To(BeNil())
+			Expect(entries[0].INTEGER_LITERAL().GetText()).To(Equal("200"))
+		})
+
+		It("Should parse grouped authority with channel overrides", func() {
+			prog := mustParseProgram(`authority (200 valve 100 vent 150)`)
+			Expect(prog.AllTopLevelItem()).To(HaveLen(1))
+			authBlock := prog.TopLevelItem(0).AuthorityBlock()
+			Expect(authBlock).NotTo(BeNil())
+			entries := authBlock.AllAuthorityEntry()
+			Expect(entries).To(HaveLen(3))
+			// Default
+			Expect(entries[0].IDENTIFIER()).To(BeNil())
+			Expect(entries[0].INTEGER_LITERAL().GetText()).To(Equal("200"))
+			// valve 100
+			Expect(entries[1].IDENTIFIER()).NotTo(BeNil())
+			Expect(entries[1].IDENTIFIER().GetText()).To(Equal("valve"))
+			Expect(entries[1].INTEGER_LITERAL().GetText()).To(Equal("100"))
+			// vent 150
+			Expect(entries[2].IDENTIFIER()).NotTo(BeNil())
+			Expect(entries[2].IDENTIFIER().GetText()).To(Equal("vent"))
+			Expect(entries[2].INTEGER_LITERAL().GetText()).To(Equal("150"))
+		})
+
+		It("Should parse authority before function declarations", func() {
+			prog := mustParseProgram(`
+authority 200
+func test{} () {}`)
+			Expect(prog.AllTopLevelItem()).To(HaveLen(2))
+			Expect(prog.TopLevelItem(0).AuthorityBlock()).NotTo(BeNil())
+			Expect(prog.TopLevelItem(1).FunctionDeclaration()).NotTo(BeNil())
+		})
+
+		It("Should parse empty grouped authority", func() {
+			prog := mustParseProgram(`authority ()`)
+			authBlock := prog.TopLevelItem(0).AuthorityBlock()
+			Expect(authBlock).NotTo(BeNil())
+			Expect(authBlock.AllAuthorityEntry()).To(HaveLen(0))
+		})
+	})
+
 	Describe("Functions", func() {
 		It("Should parse basic function declaration", func() {
 			prog := mustParseProgram(`

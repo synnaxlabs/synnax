@@ -16,6 +16,7 @@ import (
 	"math"
 	stdtime "time"
 
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
@@ -27,10 +28,12 @@ import (
 	arctelem "github.com/synnaxlabs/arc/runtime/telem"
 	arctime "github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/runtime/wasm"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arcauthority "github.com/synnaxlabs/arc/runtime/authority"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -99,6 +102,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 		timeFactory,
 		stable.NewFactory(stable.FactoryConfig{}),
 		arcstatus.NewFactory(t.factoryCfg.Status),
+		arcauthority.NewFactory(drt.state),
 	}
 	var closers xio.MultiCloser
 	var wasmMod *wasm.Module
@@ -149,6 +153,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 	}))
 
 	drt.startTime = telem.Now()
+	drt.writeKeys = stateCfg.Writes.Keys()
 
 	pipeline := plumber.New()
 
@@ -182,14 +187,19 @@ func (t *taskImpl) start(ctx context.Context) error {
 	}
 
 	if len(stateCfg.Writes) > 0 {
-		wrt, err := t.factoryCfg.Framer.NewStreamWriter(
-			ctx,
-			framer.WriterConfig{
-				ControlSubject: control.Subject{Name: t.prog.Name},
-				Start:          drt.startTime,
-				Keys:           stateCfg.Writes.Keys(),
-			},
-		)
+		writerCfg := framer.WriterConfig{
+			ControlSubject: control.Subject{Name: t.prog.Name},
+			Start:          drt.startTime,
+			Keys:           stateCfg.Writes.Keys(),
+		}
+		if authorities := buildAuthorities(
+			t.prog.Module.Authority,
+			stateCfg.Writes.Keys(),
+			t.prog.Module.Nodes,
+		); len(authorities) > 0 {
+			writerCfg.Authorities = authorities
+		}
+		wrt, err := t.factoryCfg.Framer.NewStreamWriter(ctx, writerCfg)
 		if err != nil {
 			t.setStatus(status.VariantError, false, err.Error())
 			return err
@@ -270,6 +280,7 @@ type dataRuntime struct {
 	startTime telem.TimeStamp
 	scheduler *scheduler.Scheduler
 	state     *state.State
+	writeKeys channel.Keys
 }
 
 func (d *dataRuntime) next(
@@ -280,13 +291,42 @@ func (d *dataRuntime) next(
 	d.state.Ingest(res.Frame.ToStorage())
 	d.scheduler.Next(ctx, telem.Since(d.startTime), reason)
 	d.state.ClearReads()
+	if d.Out != nil {
+		if err := d.flushAuthorityChanges(ctx); err != nil {
+			return err
+		}
+	}
 	if fr, changed := d.state.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
-		fmt.Println(fr)
 		req := framer.WriterRequest{
 			Frame:   frame.NewFromStorage(fr),
 			Command: writer.CommandWrite,
 		}
 		return signal.SendUnderContext(ctx, d.Out.Inlet(), req)
+	}
+	return nil
+}
+
+func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
+	changes := d.state.FlushAuthorityChanges()
+	for _, change := range changes {
+		cfg := writer.Config{}
+		if change.ChannelKey != nil {
+			cfg.Keys = channel.Keys{channel.Key(*change.ChannelKey)}
+			cfg.Authorities = []control.Authority{control.Authority(change.Authority)}
+		} else {
+			cfg.Keys = d.writeKeys
+			cfg.Authorities = make([]control.Authority, len(d.writeKeys))
+			for i := range cfg.Authorities {
+				cfg.Authorities[i] = control.Authority(change.Authority)
+			}
+		}
+		req := framer.WriterRequest{
+			Command: writer.CommandSetAuthority,
+			Config:  cfg,
+		}
+		if err := signal.SendUnderContext(ctx, d.Out.Inlet(), req); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -336,4 +376,48 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			}
 		}
 	}, o.Signal...)
+}
+
+// buildAuthorities constructs a per-channel authority slice from the static
+// AuthorityConfig in the IR. It maps channel names to keys using the node
+// channel maps and returns the authorities array aligned with writeKeys.
+func buildAuthorities(
+	auth ir.AuthorityConfig,
+	writeKeys channel.Keys,
+	nodes ir.Nodes,
+) []control.Authority {
+	if auth.Default == nil && len(auth.Channels) == 0 {
+		return nil
+	}
+	// Build channel name -> key mapping from IR node channel maps.
+	nameToKey := make(map[string]channel.Key)
+	for _, n := range nodes {
+		for key, name := range n.Channels.Read {
+			nameToKey[name] = channel.Key(key)
+		}
+		for key, name := range n.Channels.Write {
+			nameToKey[name] = channel.Key(key)
+		}
+	}
+	authorities := make([]control.Authority, len(writeKeys))
+	for i := range writeKeys {
+		if auth.Default != nil {
+			authorities[i] = control.Authority(*auth.Default)
+		} else {
+			authorities[i] = control.AuthorityAbsolute
+		}
+	}
+	for name, value := range auth.Channels {
+		key, ok := nameToKey[name]
+		if !ok {
+			continue
+		}
+		for i, wk := range writeKeys {
+			if wk == key {
+				authorities[i] = control.Authority(value)
+				break
+			}
+		}
+	}
+	return authorities
 }

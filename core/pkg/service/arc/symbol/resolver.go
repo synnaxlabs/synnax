@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	arcauthority "github.com/synnaxlabs/arc/runtime/authority"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
 )
 
@@ -76,6 +77,7 @@ func CreateResolver(channelSvc *channel.Service) arc.SymbolResolver {
 		selector.SymbolResolver,
 		stable.SymbolResolver,
 		status.SymbolResolver,
+		arcauthority.SymbolResolver,
 		telem.SymbolResolver,
 		stat.SymbolResolver,
 		time.SymbolResolver,

@@ -1426,6 +1426,61 @@ var _ = Describe("Text", func() {
 		})
 	})
 
+	Describe("Authority Analysis", func() {
+		It("Should include authority config in IR with simple form", func() {
+			resolver := symbol.MapResolver{
+				"valve": {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+			}
+			source := `
+			authority 200
+
+			func a{} () {}
+			func b{} () {}
+			a{} -> b{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.Authority.Default).ToNot(BeNil())
+			Expect(*inter.Authority.Default).To(Equal(uint8(200)))
+		})
+
+		It("Should include per-channel authority overrides", func() {
+			resolver := symbol.MapResolver{
+				"valve": {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+				"vent":  {Name: "vent", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 200},
+			}
+			source := `
+			authority (200 valve 100 vent 150)
+
+			func a{} () {}
+			func b{} () {}
+			a{} -> b{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.Authority.Default).ToNot(BeNil())
+			Expect(*inter.Authority.Default).To(Equal(uint8(200)))
+			Expect(inter.Authority.Channels).To(HaveLen(2))
+			Expect(inter.Authority.Channels["valve"]).To(Equal(uint8(100)))
+			Expect(inter.Authority.Channels["vent"]).To(Equal(uint8(150)))
+		})
+
+		It("Should report error for authority after function", func() {
+			source := `
+			func a{} () {}
+			authority 200
+			func b{} () {}
+			a{} -> b{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, nil)
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("before"))
+		})
+	})
+
 	Describe("Compile", func() {
 		It("Should compile a simple arc program to WebAssembly", func() {
 			source := `

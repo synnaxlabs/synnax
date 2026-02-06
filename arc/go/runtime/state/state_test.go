@@ -1844,4 +1844,65 @@ var _ = Describe("State", func() {
 			})
 		})
 	})
+
+	Describe("Authority Changes", func() {
+		var s *state.State
+
+		BeforeEach(func() {
+			g := graph.Graph{
+				Nodes:     []graph.Node{{Key: "test", Type: "test"}},
+				Functions: []graph.Function{{Key: "test"}},
+			}
+			testIR, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s = state.New(state.Config{IR: testIR})
+		})
+
+		It("Should buffer and flush authority changes", func() {
+			channelKey := uint32(42)
+			s.SetAuthority(&channelKey, 200)
+			changes := s.FlushAuthorityChanges()
+			Expect(changes).To(HaveLen(1))
+			Expect(changes[0].ChannelKey).ToNot(BeNil())
+			Expect(*changes[0].ChannelKey).To(Equal(uint32(42)))
+			Expect(changes[0].Authority).To(Equal(uint8(200)))
+		})
+
+		It("Should return nil when no authority changes", func() {
+			changes := s.FlushAuthorityChanges()
+			Expect(changes).To(BeNil())
+		})
+
+		It("Should buffer authority change for all channels", func() {
+			s.SetAuthority(nil, 254)
+			changes := s.FlushAuthorityChanges()
+			Expect(changes).To(HaveLen(1))
+			Expect(changes[0].ChannelKey).To(BeNil())
+			Expect(changes[0].Authority).To(Equal(uint8(254)))
+		})
+
+		It("Should clear authority changes after flush", func() {
+			s.SetAuthority(nil, 200)
+			changes := s.FlushAuthorityChanges()
+			Expect(changes).To(HaveLen(1))
+			changes = s.FlushAuthorityChanges()
+			Expect(changes).To(BeNil())
+		})
+
+		It("Should buffer multiple authority changes", func() {
+			k1 := uint32(10)
+			k2 := uint32(20)
+			s.SetAuthority(&k1, 100)
+			s.SetAuthority(&k2, 200)
+			s.SetAuthority(nil, 254)
+			changes := s.FlushAuthorityChanges()
+			Expect(changes).To(HaveLen(3))
+			Expect(*changes[0].ChannelKey).To(Equal(uint32(10)))
+			Expect(changes[0].Authority).To(Equal(uint8(100)))
+			Expect(*changes[1].ChannelKey).To(Equal(uint32(20)))
+			Expect(changes[1].Authority).To(Equal(uint8(200)))
+			Expect(changes[2].ChannelKey).To(BeNil())
+			Expect(changes[2].Authority).To(Equal(uint8(254)))
+		})
+	})
 })
