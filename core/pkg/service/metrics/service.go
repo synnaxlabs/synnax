@@ -117,6 +117,7 @@ type Service struct {
 	shutdown      io.Closer
 	stopCollector chan struct{}
 	cfg           ServiceConfig
+	group         group.Group
 }
 
 const (
@@ -135,13 +136,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	metricsGroup, err := cfg.Group.CreateOrRetrieve(
+	s := &Service{cfg: cfg, stopCollector: make(chan struct{})}
+	if s.group, err = cfg.Group.CreateOrRetrieve(
 		ctx, "Metrics", cfg.Channel.Group().OntologyID(),
-	)
-	if err != nil {
+	); err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, stopCollector: make(chan struct{})}
 	namePrefix := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostProvider.HostKey())
 	c := &collector{
 		ins:      cfg.Child("collector"),
@@ -165,11 +165,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 			return err
 		}
 		otgWriter := cfg.Ontology.NewWriter(tx)
-		if err := otgWriter.DefineRelationship(
+		if err := s.maybeDefineGroupRelationship(
 			ctx,
-			metricsGroup.OntologyID(),
-			ontology.RelationshipTypeParentOf,
-			c.idx.OntologyID(),
+			tx,
+			[]ontology.ID{c.idx.OntologyID()},
 		); err != nil {
 			return err
 		}
@@ -201,10 +200,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 			metrics[i].ch = ch
 		}
 		c.metrics = metrics
-		if err := otgWriter.DefineFromOneToManyRelationships(
+		if err := s.maybeDefineGroupRelationship(
 			ctx,
-			metricsGroup.OntologyID(),
-			ontology.RelationshipTypeParentOf,
+			tx,
 			channel.OntologyIDsFromChannels(metricsChannels),
 		); err != nil {
 			return err
@@ -226,10 +224,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		); err != nil {
 			return err
 		}
-		if err := cfg.Ontology.NewWriter(tx).DefineFromOneToManyRelationships(
+		if err := s.maybeDefineGroupRelationship(
 			ctx,
-			metricsGroup.OntologyID(),
-			ontology.RelationshipTypeParentOf,
+			tx,
 			channel.OntologyIDsFromChannels(calculatedChannels),
 		); err != nil {
 			return err
@@ -283,3 +280,37 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 // Close gracefully stops the service, waiting for all internal goroutines to exit.
 func (s *Service) Close() error { close(s.stopCollector); return s.shutdown.Close() }
+
+// maybeDefineGroupRelationship checks each channel for an existing parent group
+// relationship. If a channel already has a parent group, it is skipped. If a channel
+// doesn't have a parent group, it is attached to the service's metrics group.
+func (s *Service) maybeDefineGroupRelationship(
+	ctx context.Context,
+	tx gorp.Tx,
+	channelIDs []ontology.ID,
+) error {
+	otgWriter := s.cfg.Ontology.NewWriter(tx)
+	for _, chID := range channelIDs {
+		var parents []ontology.Resource
+		if err := s.cfg.Ontology.NewRetrieve().
+			WhereIDs(chID).
+			TraverseTo(ontology.ParentsTraverser).
+			WhereTypes(group.OntologyType).
+			Entries(&parents).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		if len(parents) > 0 {
+			continue
+		}
+		if err := otgWriter.DefineRelationship(
+			ctx,
+			s.group.OntologyID(),
+			ontology.RelationshipTypeParentOf,
+			chID,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}

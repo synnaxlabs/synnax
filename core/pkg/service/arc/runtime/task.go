@@ -47,9 +47,10 @@ import (
 )
 
 const (
-	streamerAddr address.Address = "streamer"
-	writerAddr   address.Address = "writer"
-	runtimeAddr  address.Address = "runtime"
+	streamerAddr        address.Address = "streamer"
+	writerAddr          address.Address = "writer"
+	writerResponsesAddr address.Address = "writer_responses"
+	runtimeAddr         address.Address = "runtime"
 )
 
 // taskImpl implements the driver.Task interface and manages Arc program execution.
@@ -185,9 +186,12 @@ func (t *taskImpl) start(ctx context.Context) error {
 		wrt, err := t.factoryCfg.Framer.NewStreamWriter(
 			ctx,
 			framer.WriterConfig{
-				ControlSubject: control.Subject{Name: t.prog.Name},
-				Start:          drt.startTime,
-				Keys:           stateCfg.Writes.Keys(),
+				ControlSubject: control.Subject{
+					Name: t.prog.Name,
+					Key:  t.task.Key.String(),
+				},
+				Start: drt.startTime,
+				Keys:  stateCfg.Writes.Keys(),
 			},
 		)
 		if err != nil {
@@ -196,7 +200,29 @@ func (t *taskImpl) start(ctx context.Context) error {
 		}
 		plumber.SetSegment(pipeline, writerAddr, wrt)
 		plumber.MustConnect[framer.WriterRequest](pipeline, runtimeAddr, writerAddr, 10)
-		wrt.OutTo(confluence.NewStream[framer.WriterResponse]())
+		writerResponses := &confluence.UnarySink[framer.WriterResponse]{
+			Sink: func(ctx context.Context, res framer.WriterResponse) error {
+				if res.Err != nil {
+					t.factoryCfg.L.Error("unexpected writer response error",
+						zap.Stringer("task", t.task),
+						zap.Int("seqNum", res.SeqNum),
+						zap.Error(res.Err),
+					)
+					t.setStatus(status.VariantError, false, res.Err.Error())
+					return res.Err
+				} else if !res.Authorized {
+					t.factoryCfg.L.Warn("unauthorized writer response",
+						zap.Stringer("task", t.task),
+						zap.Int("seqNum", res.SeqNum),
+						zap.Stringer("command", res.Command),
+						zap.Error(res.Err),
+					)
+				}
+				return nil
+			},
+		}
+		plumber.SetSink(pipeline, writerResponsesAddr, writerResponses)
+		plumber.MustConnect[framer.WriterResponse](pipeline, writerAddr, writerResponsesAddr, 10)
 	}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.factoryCfg.Instrumentation))
 	t.closer = append(
@@ -204,7 +230,12 @@ func (t *taskImpl) start(ctx context.Context) error {
 		signal.NewGracefulShutdown(sCtx, cancel),
 		streamerCloseSignal,
 	)
-	pipeline.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
+	pipeline.Flow(
+		sCtx,
+		confluence.CloseOutputInletsOnExit(),
+		confluence.RecoverWithErrOnPanic(),
+		confluence.CancelOnFail(),
+	)
 	t.setStatus(status.VariantSuccess, true, "Task started successfully")
 	return nil
 }
@@ -281,7 +312,6 @@ func (d *dataRuntime) next(
 	d.scheduler.Next(ctx, telem.Since(d.startTime), reason)
 	d.state.ClearReads()
 	if fr, changed := d.state.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
-		fmt.Println(fr)
 		req := framer.WriterRequest{
 			Frame:   frame.NewFromStorage(fr),
 			Command: writer.CommandWrite,
