@@ -119,53 +119,49 @@ void Acquisition::run() {
         }
         if (source_err) source_err = xerrors::NIL;
         if (fr.empty() && authorities.empty()) continue;
-        if (!fr.empty()) {
-            // Open the writer after receiving the first frame so we can resolve the
-            // start timestamp from the data. This helps to account for clock drift
-            // between the source we're recording data from and the system clock.
-            if (!writer_opened) {
-                this->writer_config.start = resolve_start(fr);
-                // There are no scenarios where an acquisition task would want control
-                // handoff between different levels of authorization, so we just reject
-                // unauthorized writes.
-                this->writer_config.err_on_unauthorized = true;
-                auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
-                writer_err = writer_err_i;
-                if (writer_err) {
-                    LOG(ERROR) << "[acquisition] failed to open writer: "
-                               << writer_err.message();
-                    break;
-                }
-                writer = std::move(writer_i);
-                writer_opened = true;
-                if (pending_global_auth.has_value()) {
-                    Authorities auth{.authorities = {*pending_global_auth}};
-                    if (auto err = writer->set_authority(auth)) {
-                        LOG(ERROR) << "[acquisition] failed to set authority: "
-                                   << err.message();
-                        break;
-                    }
-                    pending_global_auth.reset();
-                }
-                if (!pending_channel_auths.empty()) {
-                    Authorities auth;
-                    for (const auto &[k, v]: pending_channel_auths) {
-                        auth.keys.push_back(k);
-                        auth.authorities.push_back(v);
-                    }
-                    if (auto err = writer->set_authority(auth)) {
-                        LOG(ERROR) << "[acquisition] failed to set authority: "
-                                   << err.message();
-                        break;
-                    }
-                    pending_channel_auths.clear();
-                }
-            }
-            if (auto err = writer->write(fr)) {
-                LOG(ERROR) << "[acquisition] failed to write frame" << err;
+        // Open the writer after receiving the first frame so we can resolve the
+        // start timestamp from the data. This helps to account for clock drift
+        // between the source we're recording data from and the system clock.
+        if (!fr.empty() && !writer_opened) {
+            this->writer_config.start = resolve_start(fr);
+            // There are no scenarios where an acquisition task would want control
+            // handoff between different levels of authorization, so we just reject
+            // unauthorized writes.
+            this->writer_config.err_on_unauthorized = true;
+            auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
+            writer_err = writer_err_i;
+            if (writer_err) {
+                LOG(ERROR) << "[acquisition] failed to open writer: "
+                           << writer_err.message();
                 break;
             }
+            writer = std::move(writer_i);
+            writer_opened = true;
+            if (pending_global_auth.has_value()) {
+                Authorities auth{.authorities = {*pending_global_auth}};
+                if (auto err = writer->set_authority(auth)) {
+                    LOG(ERROR)
+                        << "[acquisition] failed to set authority: " << err.message();
+                    break;
+                }
+                pending_global_auth.reset();
+            }
+            if (!pending_channel_auths.empty()) {
+                Authorities auth;
+                for (const auto &[k, v]: pending_channel_auths) {
+                    auth.keys.push_back(k);
+                    auth.authorities.push_back(v);
+                }
+                if (auto err = writer->set_authority(auth)) {
+                    LOG(ERROR)
+                        << "[acquisition] failed to set authority: " << err.message();
+                    break;
+                }
+                pending_channel_auths.clear();
+            }
         }
+        // Apply authority changes before writing the frame so the frame
+        // is sent at the correct authority level.
         if (!authorities.empty()) {
             if (writer_opened) {
                 if (auto err = writer->set_authority(authorities)) {
@@ -182,6 +178,12 @@ void Acquisition::run() {
                         pending_channel_auths
                             [authorities.keys[i]] = authorities.authorities[i];
                 }
+            }
+        }
+        if (!fr.empty()) {
+            if (auto err = writer->write(fr)) {
+                LOG(ERROR) << "[acquisition] failed to write frame" << err;
+                break;
             }
         }
         this->breaker.reset();

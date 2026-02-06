@@ -122,6 +122,8 @@ inline std::shared_ptr<pipeline::mock::StreamerFactory> simple_streamer_factory(
     return factory;
 }
 
+enum class OpType { Write, SetAuthority };
+
 // Mock implementation of pipeline::Writer for testing.
 class Writer final : public pipeline::Writer {
 public:
@@ -130,6 +132,9 @@ public:
 
     /// Stores all authority changes forwarded to this writer.
     std::shared_ptr<std::vector<pipeline::Authorities>> authority_changes;
+
+    /// Tracks the order of write() and set_authority() calls.
+    std::shared_ptr<std::vector<OpType>> ops;
 
     /// Error to return when close() is called.
     xerrors::Error close_err;
@@ -143,14 +148,18 @@ public:
         const xerrors::Error &close_err = xerrors::NIL,
         const int return_false_ok_on = -1,
         std::shared_ptr<std::vector<pipeline::Authorities>> authority_changes =
-            std::make_shared<std::vector<pipeline::Authorities>>()
+            std::make_shared<std::vector<pipeline::Authorities>>(),
+        std::shared_ptr<std::vector<OpType>> ops =
+            std::make_shared<std::vector<OpType>>()
     ):
         writes(std::move(writes)),
         authority_changes(std::move(authority_changes)),
+        ops(std::move(ops)),
         close_err(close_err),
         return_false_ok_on(return_false_ok_on) {}
 
     xerrors::Error write(const telem::Frame &fr) override {
+        this->ops->push_back(OpType::Write);
         if (this->return_false_ok_on != -1 &&
             this->writes->size() == static_cast<size_t>(this->return_false_ok_on))
             return xerrors::VALIDATION;
@@ -159,6 +168,7 @@ public:
     }
 
     xerrors::Error set_authority(const pipeline::Authorities &authorities) override {
+        this->ops->push_back(OpType::SetAuthority);
         this->authority_changes->push_back(authorities);
         return xerrors::NIL;
     }
@@ -173,6 +183,9 @@ public:
 
     /// Stores all authority changes forwarded through this factory's writers.
     std::shared_ptr<std::vector<pipeline::Authorities>> authority_changes;
+
+    /// Tracks the order of write() and set_authority() calls across all writers.
+    std::shared_ptr<std::vector<OpType>> ops;
 
     /// A queue of errors to return when opening writers.
     std::vector<xerrors::Error> open_errors;
@@ -198,6 +211,7 @@ public:
     ):
         writes(std::move(writes)),
         authority_changes(std::make_shared<std::vector<pipeline::Authorities>>()),
+        ops(std::make_shared<std::vector<OpType>>()),
         open_errors(std::move(open_errors)),
         close_errors(std::move(close_errors)),
         return_false_ok_on(std::move(return_false_ok_on)),
@@ -224,7 +238,8 @@ public:
             this->writes,
             close_err,
             return_false_ok_on,
-            this->authority_changes
+            this->authority_changes,
+            this->ops
         );
         return {std::move(writer), err};
     }

@@ -85,8 +85,7 @@ class Task final : public task::Task {
             pipeline::Authorities &authorities
         ) override {
             runtime::Output out;
-            if (!this->task.runtime->read(out))
-                return driver::NOMINAL_SHUTDOWN_ERROR;
+            if (!this->task.runtime->read(out)) return driver::NOMINAL_SHUTDOWN_ERROR;
             fr = std::move(out.frame);
             for (auto &c: out.authority_changes) {
                 if (c.channel_key.has_value())

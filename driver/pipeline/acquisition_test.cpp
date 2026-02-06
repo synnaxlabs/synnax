@@ -722,6 +722,53 @@ TEST(AcquisitionPipeline, testAuthorityBufferDedupes) {
     EXPECT_EQ(merged[2], 200);
 }
 
+/// @brief when a source returns both a frame and authority changes in the same
+/// read, set_authority must be called BEFORE write so the frame is sent at the
+/// new authority level.
+TEST(AcquisitionPipeline, testAuthorityAppliedBeforeWrite) {
+    auto writes = std::make_shared<std::vector<telem::Frame>>();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+
+    pipeline::Authorities auth{
+        .keys = {1},
+        .authorities = {250},
+    };
+    const auto source = std::make_shared<AuthoritySource>(
+        telem::TimeStamp::now(),
+        auth
+    );
+
+    auto pipe = pipeline::Acquisition(
+        mock_factory,
+        synnax::WriterConfig(),
+        source,
+        breaker::Config()
+    );
+
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(mock_factory->authority_changes->size(), 1);
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipe.stop());
+
+    // Find the first SetAuthority and first Write in the ops log.
+    // SetAuthority must come before Write.
+    size_t first_set_auth = SIZE_MAX;
+    size_t first_write = SIZE_MAX;
+    for (size_t i = 0; i < mock_factory->ops->size(); i++) {
+        if (mock_factory->ops->at(i) == pipeline::mock::OpType::SetAuthority &&
+            first_set_auth == SIZE_MAX)
+            first_set_auth = i;
+        if (mock_factory->ops->at(i) == pipeline::mock::OpType::Write &&
+            first_write == SIZE_MAX)
+            first_write = i;
+    }
+    ASSERT_NE(first_set_auth, SIZE_MAX);
+    ASSERT_NE(first_write, SIZE_MAX);
+    EXPECT_LT(first_set_auth, first_write)
+        << "set_authority (index " << first_set_auth
+        << ") must be called before write (index " << first_write << ")";
+}
+
 /// @brief a global authority change buffered before the writer opens should clear
 /// any previously buffered per-channel changes.
 TEST(AcquisitionPipeline, testAuthorityBufferGlobalClearsChannels) {
