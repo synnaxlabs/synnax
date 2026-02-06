@@ -18,10 +18,10 @@
 
 namespace xjson {
 
-const xerrors::Error BASE_ERR = xerrors::Error("xjson.conversion", "");
-const xerrors::Error UNSUPPORTED_ERR = BASE_ERR.sub("unsupported");
-const xerrors::Error TRUNCATION_ERR = BASE_ERR.sub("truncation");
-const xerrors::Error OVERFLOW_ERR = BASE_ERR.sub("overflow");
+const xerrors::Error BASE_ERROR = xerrors::Error("xjson.conversion", "");
+const xerrors::Error UNSUPPORTED_ERROR = BASE_ERROR.sub("unsupported");
+const xerrors::Error TRUNCATION_ERROR = BASE_ERROR.sub("truncation");
+const xerrors::Error OVERFLOW_ERROR = BASE_ERROR.sub("overflow");
 
 enum class Type { Number, String, Boolean };
 

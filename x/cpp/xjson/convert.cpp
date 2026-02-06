@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <format>
+
 #include "x/cpp/xjson/convert.h"
 
 namespace xjson {
@@ -145,7 +146,7 @@ std::pair<ReadConverter, xerrors::Error> resolve_read_converter(
                 return {make_number_reader<uint8_t>(), xerrors::NIL};
         }
     }
-    return {nullptr, UNSUPPORTED_ERR};
+    return {nullptr, UNSUPPORTED_ERROR};
 }
 
 std::pair<nlohmann::json, xerrors::Error>
@@ -156,9 +157,9 @@ from_sample_value(const telem::SampleValue &value, xjson::Type target) {
             if constexpr (std::is_same_v<T, std::string>) {
                 if (target == xjson::Type::String)
                     return {nlohmann::json(v), xerrors::NIL};
-                return {nlohmann::json(), UNSUPPORTED_ERR};
+                return {nlohmann::json(), UNSUPPORTED_ERROR};
             } else if constexpr (std::is_same_v<T, telem::TimeStamp>) {
-                return {nlohmann::json(), UNSUPPORTED_ERR};
+                return {nlohmann::json(), UNSUPPORTED_ERROR};
             } else {
                 switch (target) {
                     case xjson::Type::Number:
@@ -169,7 +170,7 @@ from_sample_value(const telem::SampleValue &value, xjson::Type target) {
                     case xjson::Type::Boolean:
                         return {nlohmann::json(v != 0), xerrors::NIL};
                 }
-                return {nlohmann::json(), UNSUPPORTED_ERR};
+                return {nlohmann::json(), UNSUPPORTED_ERROR};
             }
         },
         value
@@ -179,13 +180,13 @@ from_sample_value(const telem::SampleValue &value, xjson::Type target) {
 xerrors::Error
 check_from_sample_value(const telem::DataType &type, xjson::Type target) {
     if (type == telem::STRING_T)
-        return target == xjson::Type::String ? xerrors::NIL : UNSUPPORTED_ERR;
+        return target == xjson::Type::String ? xerrors::NIL : UNSUPPORTED_ERROR;
     if (type == telem::FLOAT64_T || type == telem::FLOAT32_T ||
         type == telem::INT64_T || type == telem::INT32_T || type == telem::INT16_T ||
         type == telem::INT8_T || type == telem::UINT64_T || type == telem::UINT32_T ||
         type == telem::UINT16_T || type == telem::UINT8_T)
         return xerrors::NIL;
-    return UNSUPPORTED_ERR;
+    return UNSUPPORTED_ERROR;
 }
 
 nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format) {
