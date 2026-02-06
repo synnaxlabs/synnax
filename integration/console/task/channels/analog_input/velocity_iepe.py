@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
+from console.layout import LayoutClient
 from console.task.channels.analog import Analog
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 
 class VelocityIEPE(Analog):
@@ -36,7 +34,7 @@ class VelocityIEPE(Analog):
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         velocity_units: Literal["m/s", "in/s"] | None = None,
@@ -49,31 +47,24 @@ class VelocityIEPE(Analog):
         **kwargs: Any,
     ) -> None:
         super().__init__(
-            console=console,
+            layout=layout,
             name=name,
             device=device,
             chan_type="Velocity IEPE",
             **kwargs,
         )
 
-        if velocity_units is not None:
-            console.click_btn("Velocity Units")
-            console.select_from_dropdown(velocity_units)
+        self._configure_dropdown("Velocity Units", velocity_units)
+        self._configure_input("Sensitivity", sensitivity)
 
-        if sensitivity is not None:
-            console.fill_input_field("Sensitivity", str(sensitivity))
-
+        # Custom handling for sensitivity units (button text contains special chars)
         if sensitivity_units is not None:
-            console.page.locator("button.pluto-dialog__trigger:has-text('mV/')").click()
-            console.page.locator(f".pluto-list__item").get_by_text(
+            self.layout.page.locator(
+                "button.pluto-dialog__trigger:has-text('mV/')"
+            ).click()
+            self.layout.page.locator(".pluto-list__item").get_by_text(
                 sensitivity_units, exact=True
             ).click()
 
-        if current_excitation_source is not None:
-            console.click_btn("Current Excitation Source")
-            console.select_from_dropdown(current_excitation_source)
-
-        if current_excitation_value is not None:
-            console.fill_input_field(
-                "Current Excitation Value", str(current_excitation_value)
-            )
+        self._configure_dropdown("Current Excitation Source", current_excitation_source)
+        self._configure_input("Current Excitation Value", current_excitation_value)

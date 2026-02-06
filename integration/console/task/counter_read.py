@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Type
+from typing import Any, Type
 
 from playwright.sync_api import Page
 
@@ -25,11 +25,7 @@ from console.task.channels.counter_input import (
     SemiPeriod,
     TwoEdgeSeparation,
 )
-
-from .ni import NIChannel, NITask
-
-if TYPE_CHECKING:
-    from console.console import Console
+from console.task.ni import NIChannel, NITask
 
 # Valid channel types for NI Counter Read tasks
 COUNTER_READ_CHANNEL_TYPES: dict[str, Type[Counter]] = {
@@ -93,6 +89,7 @@ class CounterRead(NITask):
 
     def set_parameters(
         self,
+        *,
         task_name: str | None = None,
         data_saving: bool | None = None,
         auto_start: bool | None = None,
@@ -120,7 +117,7 @@ class CounterRead(NITask):
         )
 
         if sample_rate is not None:
-            self.console.fill_input_field("Sample Rate", str(sample_rate))
+            self.layout.fill_input_field("Sample Rate", str(sample_rate))
 
         if stream_rate is not None:
-            self.console.fill_input_field("Stream Rate", str(stream_rate))
+            self.layout.fill_input_field("Stream Rate", str(stream_rate))

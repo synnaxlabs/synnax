@@ -7,8 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .console import Console
-from .page import ConsolePage
+import synnax as sy
+from playwright.sync_api import Locator
+
+from console.layout import LayoutClient
+from console.page import ConsolePage
 
 
 class Table(ConsolePage):
@@ -19,20 +22,14 @@ class Table(ConsolePage):
 
     def __init__(
         self,
-        console: Console,
+        layout: LayoutClient,
+        client: sy.Synnax,
         page_name: str,
         *,
-        _skip_create: bool = False,
+        pane_locator: Locator,
     ) -> None:
-        """
-        Initialize a Table page.
-
-        Args:
-            console: Console instance
-            page_name: Name for the page
-            _skip_create: Internal flag to skip page creation (used by factory methods)
-        """
-        super().__init__(console, page_name, _skip_create=_skip_create)
+        """Initialize a Table page wrapper (see ConsolePage.__init__ for details)."""
+        super().__init__(layout, client, page_name, pane_locator=pane_locator)
 
     def set_cell_channel(self, channel_name: str, row: int = 0, col: int = 0) -> None:
         """Set a cell to display a channel's telemetry value.
@@ -43,12 +40,12 @@ class Table(ConsolePage):
             col: Column index (0-based)
         """
         self._click_cell(row, col)
-        self.console.layout.show_visualization_toolbar()
-        self.console.click_btn("Variant")
-        self.console.select_from_dropdown("Value")
+        self.layout.show_visualization_toolbar()
+        self.layout.click_btn("Variant")
+        self.layout.select_from_dropdown("Value")
         self.page.get_by_text("Telemetry").click()
-        self.console.click_btn("Input Channel")
-        self.console.select_from_dropdown(channel_name)
+        self.layout.click_btn("Input Channel")
+        self.layout.select_from_dropdown(channel_name)
 
     def get_cell_channel(self, row: int = 0, col: int = 0) -> str:
         """Get the channel name displayed in a cell.
@@ -60,9 +57,9 @@ class Table(ConsolePage):
         Returns:
             The channel name or empty string if not set
         """
-        self.console.layout.get_tab(self.page_name).click()
+        self.layout.get_tab(self.page_name).click()
         self._click_cell(row, col)
-        self.console.layout.show_visualization_toolbar()
+        self.layout.show_visualization_toolbar()
         self.page.get_by_text("Telemetry").click()
         channel_btn = (
             self.page.locator("text=Input Channel")

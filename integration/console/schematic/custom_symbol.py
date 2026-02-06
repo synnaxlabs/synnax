@@ -11,7 +11,7 @@
 
 from typing import Any
 
-from .symbol import Symbol
+from console.schematic.symbol import Symbol
 
 
 class CustomSymbol(Symbol):
@@ -77,6 +77,7 @@ class CustomSymbol(Symbol):
         self.page.locator(".react-flow__node.selected").wait_for(
             state="visible", timeout=2000
         )
+        self.layout.show_visualization_toolbar()
 
         self.page.get_by_text("Properties").click()
         control_tab = self.page.locator("#control").nth(1)
@@ -91,11 +92,7 @@ class CustomSymbol(Symbol):
 
         return applied_properties
 
-    def press(self, sleep: int = 100) -> None:
-        """Press the custom symbol to actuate it.
-
-        Args:
-            sleep: Time in milliseconds to wait after pressing.
-        """
+    def press(self) -> None:
+        """Press the custom symbol to actuate it."""
         self._disable_edit_mode()
-        self.click(sleep=sleep)
+        self.click()

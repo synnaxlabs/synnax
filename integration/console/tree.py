@@ -33,22 +33,47 @@ class Tree:
         :param prefix: The ID prefix (e.g., 'role:', 'user:', 'channel:').
         :returns: List of visible Locator elements.
         """
-        elements = self.page.locator(f"div[id^='{prefix}']").all()
+        locator = self.page.locator(f"div[id^='{prefix}']")
+        elements = locator.all()
         return [el for el in elements if el.is_visible()]
 
-    def find_by_name(self, prefix: str, name: str) -> Locator | None:
+    def find_by_name(
+        self, prefix: str, name: str, *, exact: bool = True
+    ) -> Locator | None:
         """Find a tree item by its ID prefix and display name.
 
         :param prefix: The ID prefix (e.g., 'role:', 'user:', 'channel:').
         :param name: The display name of the item.
+        :param exact: If True, match full text exactly. If False, use substring match.
         :returns: The Locator if found, None otherwise.
         """
-        elements = self.find_by_prefix(prefix)
-        for element in elements:
-            text = element.inner_text().strip()
-            if text == name:
-                return element
-        return None
+        if exact:
+            elements = self.find_by_prefix(prefix)
+            for element in elements:
+                text = element.inner_text().strip()
+                if text == name:
+                    return element
+            return None
+        else:
+            items = self.page.locator(f"div[id^='{prefix}']").filter(has_text=name)
+            if items.count() == 0:
+                return None
+            return items.first
+
+    def wait_for_removal(self, prefix: str, name: str, *, exact: bool = True) -> None:
+        """Wait for a tree item to be removed.
+
+        :param prefix: The ID prefix (e.g., 'role:', 'user:', 'channel:').
+        :param name: The display name of the item.
+        :param exact: If True, match full text exactly. If False, use substring match.
+        """
+        if exact:
+            item = self.page.locator(f"div[id^='{prefix}']").filter(
+                has=self.page.get_by_text(name, exact=True)
+            )
+        else:
+            item = self.page.locator(f"div[id^='{prefix}']").filter(has_text=name)
+        item.first.wait_for(state="hidden", timeout=5000)
 
     def list_names(self, prefix: str) -> list[str]:
         """List all visible item names with the given ID prefix.
@@ -115,14 +140,6 @@ class Tree:
             return False
         class_attr = expand_icon.get_attribute("class") or ""
         return "pluto-tree__expansion-indicator--expanded" in class_attr
-
-    def right_click(self, item: Locator) -> None:
-        """Right-click on a tree item to open context menu.
-
-        :param item: The Locator for the tree item.
-        """
-        item.click(button="right")
-        sy.sleep(0.2)
 
     def get_editable_text(self, item: Locator) -> str:
         """Get the editable text content from a tree item.

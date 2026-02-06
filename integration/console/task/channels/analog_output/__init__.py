@@ -9,7 +9,7 @@
 
 """Analog output channel types for NI tasks."""
 
-from .current import Current
-from .voltage import Voltage
+from console.task.channels.analog_output.current import Current
+from console.task.channels.analog_output.voltage import Voltage
 
 __all__ = ["Current", "Voltage"]

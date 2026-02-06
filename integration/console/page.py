@@ -7,20 +7,37 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from __future__ import annotations
-
+import json
 import os
 import re
 import time
-from typing import TYPE_CHECKING, Literal, Self, cast
+from typing import Any, Literal, Self, cast
 
 import synnax as sy
 from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 
-if TYPE_CHECKING:
-    from .console import Console
+from console.context_menu import ContextMenu
+from console.layout import LayoutClient
+from console.notifications import NotificationsClient
+from console.tree import Tree
+from framework.utils import get_results_path
 
-from .console import PageType
+PageType = Literal[
+    "Control Sequence",
+    "Line Plot",
+    "Schematic",
+    "Log",
+    "Table",
+    "NI Analog Read Task",
+    "NI Analog Write Task",
+    "NI Counter Read Task",
+    "NI Digital Read Task",
+    "NI Digital Write Task",
+    "LabJack Read Task",
+    "LabJack Write Task",
+    "OPC UA Read Task",
+    "OPC UA Write Task",
+]
 
 
 class ConsolePage:
@@ -28,7 +45,7 @@ class ConsolePage:
 
     client: sy.Synnax
     page: Page
-    console: "Console"
+    layout: LayoutClient
     page_name: str
     page_type: str
     pluto_label: str
@@ -37,52 +54,72 @@ class ConsolePage:
     id: str | None = None
 
     @classmethod
-    def from_open_page(cls, console: "Console", name: str) -> Self:
+    def from_open_page(
+        cls,
+        layout: LayoutClient,
+        client: sy.Synnax,
+        name: str,
+    ) -> Self:
         """Create instance from an already-opened page.
 
         Use this factory method when a page has already been opened (e.g., via
         drag_page_to_mosaic or open_page) and you need to create a typed wrapper.
 
         Args:
-            console: Console instance
+            layout: LayoutClient instance
+            client: Synnax client instance
             name: Name of the page
 
         Returns:
             Instance of the page class
         """
-        pane = console.page.locator(cls.pluto_label)
+        pane = layout.page.locator(cls.pluto_label)
         pane.first.wait_for(state="visible", timeout=5000)
 
-        instance = cls(console, name, _skip_create=True)
-        instance.pane_locator = pane.first
-        return instance
+        return cls(layout, client, name, pane_locator=pane.first)
 
     def __init__(
         self,
-        console: Console,
+        layout: LayoutClient,
+        client: sy.Synnax,
         page_name: str,
         *,
-        _skip_create: bool = False,
+        pane_locator: Locator,
     ) -> None:
-        """
-        Initialize a ConsolePage.
+        """Initialize a page wrapper around an existing UI page.
+
+        IMPORTANT: This constructor wraps an existing page that has already been created
+        in the Console UI via Playwright automation. It does NOT create a new page.
+
+        The separation exists because:
+        - UI page creation: Handled by workspace.create_page() which clicks buttons
+          and interacts with the Console UI via Playwright
+        - Python wrapper creation: This constructor creates a Python object that
+          provides programmatic access to the already-existing UI page
+
+        Think of this as "wrapping" or "binding" to an existing UI element, similar to
+        how Playwright locators bind to DOM elements.
 
         Args:
-            console: Console instance
-            page_name: Name for the page
-            _skip_create: Internal flag to skip page creation (used by factory methods)
+            layout: LayoutClient for UI operations (includes notifications)
+            client: Synnax client instance
+            page_name: Name of the existing page to wrap
+            pane_locator: Playwright locator for the page's pane element.
+                This locator identifies which UI page this Python object represents.
+                Must be provided when creating the wrapper.
         """
-        self.client = console.client
-        self.page = console.page
-        self.console = console
+        self.client = client
+        self.page = layout.page
+        self.layout = layout
         self.page_name = page_name
-
-        if not _skip_create:
-            self.new()
+        self.pane_locator = pane_locator
+        self.ctx_menu = ContextMenu(layout.page)
+        self.notifications = NotificationsClient(layout.page)
+        self.tree = Tree(layout.page)
 
     def _get_tab(self) -> Locator:
         """Get the tab locator for this page."""
-        return self.console.layout.get_tab(self.page_name)
+        return self.layout.get_tab(self.page_name)
 
     def close(self) -> None:
         """
@@ -102,7 +139,7 @@ class ConsolePage:
     @property
     def is_open(self) -> bool:
         """Check if the page tab is visible."""
-        tab = self.console.layout.get_tab(self.page_name)
+        tab = self.layout.get_tab(self.page_name)
         return tab.count() > 0 and tab.is_visible()
 
     @property
@@ -116,7 +153,7 @@ class ConsolePage:
         Args:
             new_name: The new name for the page
         """
-        self.console.layout.rename_tab(old_name=self.page_name, new_name=new_name)
+        self.layout.rename_tab(old_name=self.page_name, new_name=new_name)
         self.page_name = new_name
 
     def _dblclick_canvas(self) -> None:
@@ -129,14 +166,16 @@ class ConsolePage:
         if self.pane_locator and self.pane_locator.count() > 0:
             self.pane_locator.click()
 
-    def new(self) -> str:
-        self.tab_locator, self.id = self.console.create_page(
-            cast(PageType, self.page_type), self.page_name
-        )
+    def _initialize_from_workspace(self, tab_locator: Locator, page_id: str) -> None:
+        """Initialize page after workspace creates it.
+
+        This is called by workspace after create_page() to set up the page instance.
+        """
+        self.tab_locator = tab_locator
+        self.id = page_id
         if self.pluto_label:
             self.pane_locator = self.page.locator(self.pluto_label)
         self._dblclick_canvas()
-        return self.id or ""
 
     def screenshot(self, path: str | None = None) -> None:
         """Save a screenshot of the pane area with margin."""
@@ -248,9 +287,42 @@ class ConsolePage:
         Returns:
             The current page title
         """
-        self.console.notifications.close_all()
         self.page.locator("#properties").click(timeout=5000)
-        return self.console.get_input_field("Title")
+        return self.layout.get_input_field("Title")
+
+    def copy_link(self) -> str:
+        """Copy link to the page via the toolbar link button.
+
+        Returns:
+            The copied link from clipboard (empty string if clipboard access fails).
+        """
+        self.notifications.close_all()
+        self.layout.show_visualization_toolbar()
+        link_button = self.page.locator(".pluto-icon--link").locator("..")
+        link_button.click(timeout=5000)
+        return self.layout.read_clipboard()
+
+    def export_json(self) -> dict[str, Any]:
+        """Export the page as a JSON file via the toolbar export button.
+
+        The file is saved to the tests/results directory with the page name.
+
+        Returns:
+            The exported JSON content as a dictionary.
+        """
+        self.layout.show_visualization_toolbar()
+        export_button = self.page.locator(".pluto-icon--export").locator("..")
+        self.page.evaluate("delete window.showSaveFilePicker")
+
+        with self.page.expect_download(timeout=5000) as download_info:
+            export_button.click()
+
+        download = download_info.value
+        save_path = get_results_path(f"{self.page_name}.json")
+        download.save_as(save_path)
+        with open(save_path, "r") as f:
+            result: dict[str, Any] = json.load(f)
+            return result
 
     def get_value(self, channel_name: str) -> float | None:
         """Get the latest data value for any channel using the synnax client"""

@@ -62,7 +62,7 @@ class RoleOperatorPermissions(ConsoleCase):
             self.log("PASS: Users toolbar is hidden for operator")
 
         # Press escape to close any open panels
-        self.console.ESCAPE
+        self.console.layout.press_escape()
         sy.sleep(0.3)
 
         # Test 2: Try to create a workspace via command palette
@@ -80,7 +80,7 @@ class RoleOperatorPermissions(ConsoleCase):
         workspace_cmd = self.page.get_by_text("Create a Workspace", exact=True)
         workspace_cmd_exists = workspace_cmd.count() > 0
 
-        self.console.ESCAPE
+        self.console.layout.press_escape()
         sy.sleep(0.2)
 
         if workspace_cmd_exists:
@@ -102,7 +102,7 @@ class RoleOperatorPermissions(ConsoleCase):
         schematic_cmd = self.page.get_by_text("Create a Schematic", exact=True)
         schematic_cmd_exists = schematic_cmd.count() > 0
 
-        self.console.ESCAPE
+        self.console.layout.press_escape()
 
         if schematic_cmd_exists:
             self.log("WARNING: Create Schematic command exists for operator")

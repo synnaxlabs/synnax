@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
+from console.layout import LayoutClient
 from console.task.channels.analog import Analog
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 
 class Resistance(Analog):
@@ -34,7 +32,7 @@ class Resistance(Analog):
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         resistance_configuration: Literal["2-Wire", "3-Wire", "4-Wire"] | None = None,
@@ -45,25 +43,14 @@ class Resistance(Analog):
         **kwargs: Any,
     ) -> None:
 
-        # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
-            console=console,
+            layout=layout,
             name=name,
             device=device,
             chan_type="Resistance",
             **kwargs,
         )
 
-        # Resistance-specific configurations:
-        if resistance_configuration is not None:
-            console.click_btn("Resistance Configuration")
-            console.select_from_dropdown(resistance_configuration)
-
-        if current_excitation_source is not None:
-            console.click_btn("Current Excitation Source")
-            console.select_from_dropdown(current_excitation_source)
-
-        if current_excitation_value is not None:
-            console.fill_input_field(
-                "Current Excitation Value", str(current_excitation_value)
-            )
+        self._configure_dropdown("Resistance Configuration", resistance_configuration)
+        self._configure_dropdown("Current Excitation Source", current_excitation_source)
+        self._configure_input("Current Excitation Value", current_excitation_value)

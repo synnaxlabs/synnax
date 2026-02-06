@@ -21,13 +21,13 @@ def assert_properties(
     schematic: Schematic, control_authority: int = 1, show_control_legend: bool = True
 ) -> None:
     """Assert the schematic properties match expected values."""
-    actual_authority, actual_legend = schematic.get_properties()
+    props = schematic.get_properties()
     assert (
-        actual_authority == control_authority
-    ), f"Control Authority mismatch! Actual: {actual_authority}, Expected: {control_authority}"
+        props["control_authority"] == control_authority
+    ), f"Control Authority mismatch! Actual: {props['control_authority']}, Expected: {control_authority}"
     assert (
-        actual_legend == show_control_legend
-    ), f"Show Control Legend mismatch! Actual: {actual_legend}, Expected: {show_control_legend}"
+        props["show_control_legend"] == show_control_legend
+    ), f"Show Control Legend mismatch! Actual: {props['show_control_legend']}, Expected: {show_control_legend}"
 
 
 def assert_symbol_properties(symbol: Symbol, expected_props: PropertyDict) -> None:
@@ -59,7 +59,7 @@ class EditProps(ConsoleCase):
             retrieve_if_name_exists=True,
         )
 
-        schematic = Schematic(self.console, "edit_symbol_props")
+        schematic = self.console.workspace.create_schematic("edit_symbol_props")
         self.test_schematic_props(schematic)
         self.test_value_props(schematic)
         self.test_button_props(schematic)

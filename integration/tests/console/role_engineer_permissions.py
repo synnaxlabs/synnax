@@ -60,7 +60,7 @@ class RoleEngineerPermissions(ConsoleCase):
         else:
             self.log("PASS: Users toolbar is hidden for engineer")
 
-        self.console.ESCAPE
+        self.console.layout.press_escape()
         sy.sleep(0.3)
 
         # Test 2: Engineer SHOULD be able to create workspace
@@ -77,7 +77,7 @@ class RoleEngineerPermissions(ConsoleCase):
         workspace_cmd = self.page.get_by_text("Create a Workspace", exact=True)
         workspace_cmd_exists = workspace_cmd.count() > 0
 
-        self.console.ESCAPE
+        self.console.layout.press_escape()
         sy.sleep(0.2)
 
         if workspace_cmd_exists:
@@ -100,7 +100,7 @@ class RoleEngineerPermissions(ConsoleCase):
         schematic_cmd = self.page.get_by_text("Create a Schematic", exact=True)
         schematic_cmd_exists = schematic_cmd.count() > 0
 
-        self.console.ESCAPE
+        self.console.layout.press_escape()
         sy.sleep(0.2)
 
         if schematic_cmd_exists:
@@ -123,7 +123,7 @@ class RoleEngineerPermissions(ConsoleCase):
         channel_cmd = self.page.get_by_text("Create a Channel", exact=True)
         channel_cmd_exists = channel_cmd.count() > 0
 
-        self.console.ESCAPE
+        self.console.layout.press_escape()
 
         if channel_cmd_exists:
             self.log("PASS: Create Channel command available for engineer")

@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
+from console.layout import LayoutClient
 from console.task.channels.analog import Analog
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 
 class ForceBridgeTable(Analog):
@@ -38,7 +36,7 @@ class ForceBridgeTable(Analog):
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         force_units: Literal["Newtons", "Pounds", "Kilograms"] | None = None,
@@ -53,38 +51,18 @@ class ForceBridgeTable(Analog):
         **kwargs: Any,
     ) -> None:
 
-        # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
-            console=console,
+            layout=layout,
             name=name,
             device=device,
             chan_type="Force Bridge Table",
             **kwargs,
         )
 
-        # Force Bridge Table-specific configurations:
-        if force_units is not None:
-            console.click_btn("Force Units")
-            console.select_from_dropdown(force_units)
-
-        if bridge_configuration is not None:
-            console.click_btn("Bridge Configuration")
-            console.select_from_dropdown(bridge_configuration)
-
-        if resistance is not None:
-            console.fill_input_field("Nominal Bridge Resistance", str(resistance))
-
-        if excitation_source is not None:
-            console.click_btn("Voltage Excitation Source")
-            console.select_from_dropdown(excitation_source)
-
-        if excitation_value is not None:
-            console.fill_input_field("Voltage Excitation Value", str(excitation_value))
-
-        if physical_units is not None:
-            console.click_btn("Physical Units")
-            console.select_from_dropdown(physical_units)
-
-        if electrical_units is not None:
-            console.click_btn("Electrical Units")
-            console.select_from_dropdown(electrical_units)
+        self._configure_dropdown("Force Units", force_units)
+        self._configure_dropdown("Bridge Configuration", bridge_configuration)
+        self._configure_input("Nominal Bridge Resistance", resistance)
+        self._configure_dropdown("Voltage Excitation Source", excitation_source)
+        self._configure_input("Voltage Excitation Value", excitation_value)
+        self._configure_dropdown("Physical Units", physical_units)
+        self._configure_dropdown("Electrical Units", electrical_units)
