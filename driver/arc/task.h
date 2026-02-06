@@ -80,8 +80,7 @@ class Task final : public task::Task {
         explicit Source(Task &task): task(task) {}
 
         xerrors::Error read(breaker::Breaker &breaker, telem::Frame &data) override {
-            if (!this->task.runtime->read(data))
-                return driver::NOMINAL_SHUTDOWN_ERROR;
+            if (!this->task.runtime->read(data)) return driver::NOMINAL_SHUTDOWN_ERROR;
             return xerrors::NIL;
         }
 
