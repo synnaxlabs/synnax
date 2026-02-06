@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <functional>
 #include <iostream>
 #include <string>
@@ -21,6 +22,9 @@
 #include <vector>
 
 #include <google/protobuf/struct.pb.h>
+
+#include "x/cpp/date/date.h"
+#include "x/cpp/xmath/xmath.h"
 
 namespace telem {
 // private namespace for internal constants
@@ -32,6 +36,25 @@ constexpr int64_t SECOND = MILLISECOND * 1e3;
 constexpr int64_t MINUTE = SECOND * 60;
 constexpr int64_t HOUR = MINUTE * 60;
 constexpr int64_t DAY = HOUR * 24;
+
+inline void put2(char *p, int v) noexcept {
+    p[0] = char('0' + (v / 10));
+    p[1] = char('0' + (v % 10));
+}
+
+inline void put4(char *p, int v) noexcept {
+    p[0] = char('0' + (v / 1000));
+    p[1] = char('0' + ((v / 100) % 10));
+    p[2] = char('0' + ((v / 10) % 10));
+    p[3] = char('0' + (v % 10));
+}
+
+inline void put9(char *p, int v) noexcept {
+    for (int i = 8; i >= 0; --i) {
+        p[i] = char('0' + (v % 10));
+        v /= 10;
+    }
+}
 }
 
 /// @brief timespan is a nanosecond-precision time duration.
@@ -294,6 +317,74 @@ public:
 
     /// @brief returns the number of nanoseconds in the timestamp.
     [[nodiscard]] std::int64_t nanoseconds() const { return this->value; }
+
+    /// @brief returns the timestamp as microseconds (floor toward -inf).
+    [[nodiscard]] std::int64_t microseconds() const {
+        return xmath::floor_div(value, 1000);
+    }
+
+    /// @brief returns the timestamp as milliseconds (floor toward -inf).
+    [[nodiscard]] std::int64_t milliseconds() const {
+        return xmath::floor_div(value, 1000000);
+    }
+
+    /// @brief returns the timestamp as whole seconds (floor toward -inf).
+    [[nodiscard]] std::int64_t seconds() const {
+        return xmath::floor_div(value, 1000000000);
+    }
+
+    /// @brief returns the timestamp as fractional seconds.
+    [[nodiscard]] double seconds_double() const {
+        return static_cast<double>(value) / 1e9;
+    }
+
+    /// @brief returns the timestamp as an ISO 8601 UTC string.
+    [[nodiscard]] std::string iso8601() const {
+        const int64_t sec = seconds();
+        const int64_t frac_ns = value - sec * 1000000000;
+        const int64_t day = xmath::floor_div(sec, 86400);
+        const int64_t sod = sec - day * 86400;
+        const date::Date d = date::civil_from_days(day);
+        const auto hh = sod / 3600;
+        const auto mm = (sod / 60) % 60;
+        const auto ss = sod % 60;
+
+        char buf[30];
+        _priv::put4(buf + 0, d.year);
+        buf[4] = '-';
+        _priv::put2(buf + 5, d.month);
+        buf[7] = '-';
+        _priv::put2(buf + 8, d.day);
+        buf[10] = 'T';
+        _priv::put2(buf + 11, hh);
+        buf[13] = ':';
+        _priv::put2(buf + 14, mm);
+        buf[16] = ':';
+        _priv::put2(buf + 17, ss);
+
+        int len = 19;
+
+        if (frac_ns != 0) {
+            buf[len++] = '.';
+
+            // write 9 digits then trim without looping over the whole tail
+            char frac[9];
+            _priv::put9(frac, frac_ns);
+
+            // find last non-zero digit (at most 9 checks, but no while on the main
+            // buffer)
+            uint8_t last = 8;
+            while (last >= 0 && frac[last] == '0')
+                --last;
+
+            // copy only needed digits
+            for (int i = 0; i <= last; ++i)
+                buf[len++] = frac[i];
+        }
+
+        buf[len++] = 'Z';
+        return std::string(buf, (size_t) len);
+    }
 
     /// @brief interprets the given TimeSpan as a TimeStamp.
     explicit TimeStamp(const TimeSpan ts): value(ts.nanoseconds()) {}

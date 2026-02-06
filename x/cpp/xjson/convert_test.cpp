@@ -8,10 +8,12 @@
 // included in the file licenses/APL.txt.
 
 #include <cstdint>
+
 #include "gtest/gtest.h"
+
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/xjson/convert.h"
 #include "x/cpp/xtest/xtest.h"
-#include "x/cpp/telem/telem.h"
 
 using json = nlohmann::json;
 
@@ -63,9 +65,7 @@ using json = nlohmann::json;
 
 TEST(ResolveReadConverter, NumberToFloat64) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::FLOAT64_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::FLOAT64_T)
     );
     const auto series = ASSERT_NIL_P(converter(json(42.5)));
     ASSERT_DOUBLE_EQ(series.at<double>(0), 42.5);
@@ -73,9 +73,7 @@ TEST(ResolveReadConverter, NumberToFloat64) {
 
 TEST(ResolveReadConverter, NumberToFloat32) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::FLOAT32_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::FLOAT32_T)
     );
     const auto [series, err] = converter(json(42.5));
     ASSERT_NIL(err);
@@ -84,9 +82,7 @@ TEST(ResolveReadConverter, NumberToFloat32) {
 
 TEST(ResolveReadConverter, NumberToInt64) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::INT64_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::INT64_T)
     );
     const auto [series, err] = converter(json(7));
     ASSERT_NIL(err);
@@ -95,9 +91,7 @@ TEST(ResolveReadConverter, NumberToInt64) {
 
 TEST(ResolveReadConverter, NumberToInt32) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::INT32_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::INT32_T)
     );
     const auto [series, err] = converter(json(7));
     ASSERT_NIL(err);
@@ -106,9 +100,7 @@ TEST(ResolveReadConverter, NumberToInt32) {
 
 TEST(ResolveReadConverter, NumberToInt16) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::INT16_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::INT16_T)
     );
     const auto [series, err] = converter(json(7));
     ASSERT_NIL(err);
@@ -117,9 +109,7 @@ TEST(ResolveReadConverter, NumberToInt16) {
 
 TEST(ResolveReadConverter, NumberToInt8) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::INT8_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::INT8_T)
     );
     const auto [series, err] = converter(json(7));
     ASSERT_NIL(err);
@@ -128,9 +118,7 @@ TEST(ResolveReadConverter, NumberToInt8) {
 
 TEST(ResolveReadConverter, NumberToUint64) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::UINT64_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::UINT64_T)
     );
     const auto [series, err] = converter(json(7));
     ASSERT_NIL(err);
@@ -139,9 +127,7 @@ TEST(ResolveReadConverter, NumberToUint64) {
 
 TEST(ResolveReadConverter, NumberToUint32) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::UINT32_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::UINT32_T)
     );
     const auto [series, err] = converter(json(7));
     ASSERT_NIL(err);
@@ -150,9 +136,7 @@ TEST(ResolveReadConverter, NumberToUint32) {
 
 TEST(ResolveReadConverter, NumberToUint16) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::UINT16_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::UINT16_T)
     );
     const auto [series, err] = converter(json(7));
     ASSERT_NIL(err);
@@ -161,9 +145,7 @@ TEST(ResolveReadConverter, NumberToUint16) {
 
 TEST(ResolveReadConverter, NumberToUint8) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::UINT8_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::UINT8_T)
     );
     const auto [series, err] = converter(json(7));
     ASSERT_NIL(err);
@@ -174,9 +156,7 @@ TEST(ResolveReadConverter, NumberToUint8) {
 
 TEST(ResolveReadConverter, NumberToInt64NonStrictTruncation) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::INT64_T, false
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::INT64_T, false)
     );
     const auto [series, err] = converter(json(3.7));
     ASSERT_NIL(err);
@@ -185,9 +165,7 @@ TEST(ResolveReadConverter, NumberToInt64NonStrictTruncation) {
 
 TEST(ResolveReadConverter, NumberToInt64StrictTruncationError) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::INT64_T, true
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::INT64_T, true)
     );
     auto [series, write_err] = converter(json(3.7));
     ASSERT_OCCURRED_AS(write_err, xjson::TRUNCATION_ERR);
@@ -195,9 +173,7 @@ TEST(ResolveReadConverter, NumberToInt64StrictTruncationError) {
 
 TEST(ResolveReadConverter, NumberToUint8StrictOverflow) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::UINT8_T, true
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::UINT8_T, true)
     );
     auto [series, write_err] = converter(json(300));
     ASSERT_OCCURRED_AS(write_err, xjson::OVERFLOW_ERR);
@@ -205,9 +181,7 @@ TEST(ResolveReadConverter, NumberToUint8StrictOverflow) {
 
 TEST(ResolveReadConverter, NumberToUint8StrictUnderflow) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::UINT8_T, true
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::UINT8_T, true)
     );
     auto [series, write_err] = converter(json(-1));
     ASSERT_OCCURRED_AS(write_err, xjson::OVERFLOW_ERR);
@@ -217,9 +191,7 @@ TEST(ResolveReadConverter, NumberToUint8StrictUnderflow) {
 
 TEST(ResolveReadConverter, NumberToStringDecimal) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::STRING_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::STRING_T)
     );
     const auto [series, err] = converter(json(42.5));
     ASSERT_NIL(err);
@@ -228,9 +200,7 @@ TEST(ResolveReadConverter, NumberToStringDecimal) {
 
 TEST(ResolveReadConverter, NumberToStringInteger) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Number, telem::STRING_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Number, telem::STRING_T)
     );
     const auto [series, err] = converter(json(7));
     ASSERT_NIL(err);
@@ -241,9 +211,7 @@ TEST(ResolveReadConverter, NumberToStringInteger) {
 
 TEST(ResolveReadConverter, StringToString) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::String, telem::STRING_T
-        )
+        xjson::resolve_read_converter(xjson::Type::String, telem::STRING_T)
     );
     const auto [series, err] = converter(json("hello"));
     ASSERT_NIL(err);
@@ -263,9 +231,7 @@ TEST(ResolveReadConverter, StringToFloat64Error) {
 
 TEST(ResolveReadConverter, BooleanTrueToInt64) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Boolean, telem::INT64_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Boolean, telem::INT64_T)
     );
     const auto [series, err] = converter(json(true));
     ASSERT_NIL(err);
@@ -274,9 +240,7 @@ TEST(ResolveReadConverter, BooleanTrueToInt64) {
 
 TEST(ResolveReadConverter, BooleanFalseToInt64) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Boolean, telem::INT64_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Boolean, telem::INT64_T)
     );
     const auto [series, err] = converter(json(false));
     ASSERT_NIL(err);
@@ -285,9 +249,7 @@ TEST(ResolveReadConverter, BooleanFalseToInt64) {
 
 TEST(ResolveReadConverter, BooleanTrueToFloat64) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Boolean, telem::FLOAT64_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Boolean, telem::FLOAT64_T)
     );
     const auto [series, err] = converter(json(true));
     ASSERT_NIL(err);
@@ -296,9 +258,7 @@ TEST(ResolveReadConverter, BooleanTrueToFloat64) {
 
 TEST(ResolveReadConverter, BooleanFalseToUint8) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Boolean, telem::UINT8_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Boolean, telem::UINT8_T)
     );
     const auto [series, err] = converter(json(false));
     ASSERT_NIL(err);
@@ -309,9 +269,7 @@ TEST(ResolveReadConverter, BooleanFalseToUint8) {
 
 TEST(ResolveReadConverter, BooleanTrueToString) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Boolean, telem::STRING_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Boolean, telem::STRING_T)
     );
     const auto [series, err] = converter(json(true));
     ASSERT_NIL(err);
@@ -320,9 +278,7 @@ TEST(ResolveReadConverter, BooleanTrueToString) {
 
 TEST(ResolveReadConverter, BooleanFalseToString) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(
-            xjson::Type::Boolean, telem::STRING_T
-        )
+        xjson::resolve_read_converter(xjson::Type::Boolean, telem::STRING_T)
     );
     const auto [series, err] = converter(json(false));
     ASSERT_NIL(err);
@@ -413,9 +369,7 @@ TEST(FromSampleValue, Float64ToString) {
 
 TEST(FromSampleValue, Float64WithLongDecimalToString) {
     const auto result = ASSERT_NIL_P(
-        xjson::from_sample_value(
-            telem::SampleValue(1.2345689012), xjson::Type::String
-        )
+        xjson::from_sample_value(telem::SampleValue(1.2345689012), xjson::Type::String)
     );
     ASSERT_EQ(result, json("1.2345689012"));
 }
@@ -429,9 +383,7 @@ TEST(FromSampleValue, Float64WithoutDecimalToString) {
 
 TEST(FromSampleValue, Int64ToString) {
     const auto result = ASSERT_NIL_P(
-        xjson::from_sample_value(
-            telem::SampleValue(int64_t(7)), xjson::Type::String
-        )
+        xjson::from_sample_value(telem::SampleValue(int64_t(7)), xjson::Type::String)
     );
     ASSERT_EQ(result, json("7"));
 }
@@ -439,7 +391,8 @@ TEST(FromSampleValue, Int64ToString) {
 TEST(FromSampleValue, Int64NegativeToString) {
     const auto result = ASSERT_NIL_P(
         xjson::from_sample_value(
-            telem::SampleValue(int64_t(-743984)), xjson::Type::String
+            telem::SampleValue(int64_t(-743984)),
+            xjson::Type::String
         )
     );
     ASSERT_EQ(result, json("-743984"));
@@ -447,9 +400,7 @@ TEST(FromSampleValue, Int64NegativeToString) {
 
 TEST(FromSampleValue, Uint8ToString) {
     const auto result = ASSERT_NIL_P(
-        xjson::from_sample_value(
-            telem::SampleValue(uint8_t(255)), xjson::Type::String
-        )
+        xjson::from_sample_value(telem::SampleValue(uint8_t(255)), xjson::Type::String)
     );
     ASSERT_EQ(result, json("255"));
 }
@@ -465,18 +416,14 @@ TEST(FromSampleValue, Uint8ZeroToString) {
 
 TEST(FromSampleValue, Int64ZeroToBoolean) {
     const auto result = ASSERT_NIL_P(
-        xjson::from_sample_value(
-            telem::SampleValue(int64_t(0)), xjson::Type::Boolean
-        )
+        xjson::from_sample_value(telem::SampleValue(int64_t(0)), xjson::Type::Boolean)
     );
     ASSERT_EQ(result, json(false));
 }
 
 TEST(FromSampleValue, Int64OneToBoolean) {
     const auto result = ASSERT_NIL_P(
-        xjson::from_sample_value(
-            telem::SampleValue(int64_t(1)), xjson::Type::Boolean
-        )
+        xjson::from_sample_value(telem::SampleValue(int64_t(1)), xjson::Type::Boolean)
     );
     ASSERT_EQ(result, json(true));
 }
@@ -484,7 +431,8 @@ TEST(FromSampleValue, Int64OneToBoolean) {
 TEST(FromSampleValue, Int64NegativeToBoolean) {
     const auto result = ASSERT_NIL_P(
         xjson::from_sample_value(
-            telem::SampleValue(int64_t(-743984)), xjson::Type::Boolean
+            telem::SampleValue(int64_t(-743984)),
+            xjson::Type::Boolean
         )
     );
     ASSERT_EQ(result, json(true));
@@ -506,27 +454,21 @@ TEST(FromSampleValue, Float64PositiveToBoolean) {
 
 TEST(FromSampleValue, Float64NegativeToBoolean) {
     const auto result = ASSERT_NIL_P(
-        xjson::from_sample_value(
-            telem::SampleValue(-743984.0), xjson::Type::Boolean
-        )
+        xjson::from_sample_value(telem::SampleValue(-743984.0), xjson::Type::Boolean)
     );
     ASSERT_EQ(result, json(true));
 }
 
 TEST(FromSampleValue, Uint8ZeroToBoolean) {
     const auto result = ASSERT_NIL_P(
-        xjson::from_sample_value(
-            telem::SampleValue(uint8_t(0)), xjson::Type::Boolean
-        )
+        xjson::from_sample_value(telem::SampleValue(uint8_t(0)), xjson::Type::Boolean)
     );
     ASSERT_EQ(result, json(false));
 }
 
 TEST(FromSampleValue, Uint8NonZeroToBoolean) {
     const auto result = ASSERT_NIL_P(
-        xjson::from_sample_value(
-            telem::SampleValue(uint8_t(255)), xjson::Type::Boolean
-        )
+        xjson::from_sample_value(telem::SampleValue(uint8_t(255)), xjson::Type::Boolean)
     );
     ASSERT_EQ(result, json(true));
 }
@@ -554,7 +496,8 @@ TEST(FromSampleValue, StringWithZeroLengthToString) {
 TEST(FromSampleValue, StringToNumberError) {
     ASSERT_OCCURRED_AS_P(
         xjson::from_sample_value(
-            telem::SampleValue(std::string("hello")), xjson::Type::Number
+            telem::SampleValue(std::string("hello")),
+            xjson::Type::Number
         ),
         xjson::UNSUPPORTED_ERR
     );
@@ -563,7 +506,8 @@ TEST(FromSampleValue, StringToNumberError) {
 TEST(FromSampleValue, StringToBooleanError) {
     ASSERT_OCCURRED_AS_P(
         xjson::from_sample_value(
-            telem::SampleValue(std::string("hello")), xjson::Type::Boolean
+            telem::SampleValue(std::string("hello")),
+            xjson::Type::Boolean
         ),
         xjson::UNSUPPORTED_ERR
     );
@@ -584,7 +528,10 @@ TEST(FromTimestamp, UnixNanosecond) {
 TEST(FromTimestamp, UnixNanosecondZero) {
     const int64_t value = 0;
     ASSERT_EQ(
-        xjson::from_timestamp(telem::TimeStamp(value), xjson::TimeFormat::UnixNanosecond),
+        xjson::from_timestamp(
+            telem::TimeStamp(value),
+            xjson::TimeFormat::UnixNanosecond
+        ),
         json(value)
     );
 }
@@ -601,7 +548,10 @@ TEST(FromTimestamp, UnixNanosecondSubSecond) {
 TEST(FromTimestamp, UnixNanosecondNegative) {
     const int64_t value = -1500000001;
     ASSERT_EQ(
-        xjson::from_timestamp(telem::TimeStamp(value), xjson::TimeFormat::UnixNanosecond),
+        xjson::from_timestamp(
+            telem::TimeStamp(value),
+            xjson::TimeFormat::UnixNanosecond
+        ),
         json(value)
     );
 }
@@ -791,7 +741,6 @@ TEST(FromTimestamp, ISO8601WithNanosecondPrecision) {
     );
 }
 
-
 // --- check_from_sample_value ---
 
 TEST(CheckFromSampleValue, Float64ToNumberOK) {
@@ -803,7 +752,9 @@ TEST(CheckFromSampleValue, Float64ToStringOK) {
 }
 
 TEST(CheckFromSampleValue, Float64ToBooleanOK) {
-    ASSERT_FALSE(xjson::check_from_sample_value(telem::FLOAT64_T, xjson::Type::Boolean));
+    ASSERT_FALSE(
+        xjson::check_from_sample_value(telem::FLOAT64_T, xjson::Type::Boolean)
+    );
 }
 
 TEST(CheckFromSampleValue, Int64ToNumberOK) {
@@ -937,15 +888,9 @@ TEST(ZeroValue, Number) {
 }
 
 TEST(ZeroValue, String) {
-    ASSERT_EQ(
-        xjson::zero_value(xjson::Type::String),
-        ""
-    );
+    ASSERT_EQ(xjson::zero_value(xjson::Type::String), "");
 }
 
 TEST(ZeroValue, Boolean) {
-    ASSERT_EQ(
-        xjson::zero_value(xjson::Type::Boolean),
-        false
-    );
+    ASSERT_EQ(xjson::zero_value(xjson::Type::Boolean), false);
 }

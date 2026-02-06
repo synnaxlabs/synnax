@@ -7,28 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
-#include <ctime>
-#include <iomanip>
-#include <sstream>
-
 #include "x/cpp/xjson/convert.h"
-#include "x/cpp/xmath/xmath.h"
 
 namespace xjson {
 
 template<typename T>
 ReadConverter make_number_reader() {
-    return [](const nlohmann::json &value)
-               -> std::pair<telem::Series, xerrors::Error> {
+    return [](const nlohmann::json &value) -> std::pair<telem::Series, xerrors::Error> {
         return {telem::Series(static_cast<T>(value.get<double>())), xerrors::NIL};
     };
 }
 
 template<typename T>
 ReadConverter make_strict_number_reader() {
-    return [](const nlohmann::json &value)
-               -> std::pair<telem::Series, xerrors::Error> {
+    return [](const nlohmann::json &value) -> std::pair<telem::Series, xerrors::Error> {
         const double v = value.get<double>();
         if constexpr (std::is_integral_v<T>) {
             if (v != std::trunc(v))
@@ -43,17 +35,12 @@ ReadConverter make_strict_number_reader() {
 
 template<typename T>
 ReadConverter make_bool_numeric_reader() {
-    return [](const nlohmann::json &value)
-               -> std::pair<telem::Series, xerrors::Error> {
-        return {
-            telem::Series(static_cast<T>(value.get<bool>() ? 1 : 0)),
-            xerrors::NIL
-        };
+    return [](const nlohmann::json &value) -> std::pair<telem::Series, xerrors::Error> {
+        return {telem::Series(static_cast<T>(value.get<bool>() ? 1 : 0)), xerrors::NIL};
     };
 }
 
-std::pair<ReadConverter, xerrors::Error>
-resolve_read_converter(
+std::pair<ReadConverter, xerrors::Error> resolve_read_converter(
     xjson::Type json_type,
     const telem::DataType &target_type,
     bool strict
@@ -61,28 +48,34 @@ resolve_read_converter(
     // Any → String
     if (target_type == telem::STRING_T) {
         if (json_type == xjson::Type::Number)
-            return {[](const nlohmann::json &value)
-                        -> std::pair<telem::Series, xerrors::Error> {
-                return {telem::Series(value.dump()), xerrors::NIL};
-            }, xerrors::NIL};
+            return {
+                [](const nlohmann::json &value)
+                    -> std::pair<telem::Series, xerrors::Error> {
+                    return {telem::Series(value.dump()), xerrors::NIL};
+                },
+                xerrors::NIL
+            };
         if (json_type == xjson::Type::String)
-            return {[](const nlohmann::json &value)
-                        -> std::pair<telem::Series, xerrors::Error> {
-                return {
-                    telem::Series(value.get<std::string>()),
-                    xerrors::NIL
-                };
-            }, xerrors::NIL};
+            return {
+                [](const nlohmann::json &value)
+                    -> std::pair<telem::Series, xerrors::Error> {
+                    return {telem::Series(value.get<std::string>()), xerrors::NIL};
+                },
+                xerrors::NIL
+            };
         if (json_type == xjson::Type::Boolean)
-            return {[](const nlohmann::json &value)
-                        -> std::pair<telem::Series, xerrors::Error> {
-                return {
-                    telem::Series(
-                        std::string(value.get<bool>() ? "true" : "false")
-                    ),
-                    xerrors::NIL
-                };
-            }, xerrors::NIL};
+            return {
+                [](const nlohmann::json &value)
+                    -> std::pair<telem::Series, xerrors::Error> {
+                    return {
+                        telem::Series(
+                            std::string(value.get<bool>() ? "true" : "false")
+                        ),
+                        xerrors::NIL
+                    };
+                },
+                xerrors::NIL
+            };
     }
 
     // Boolean → Numeric
@@ -194,53 +187,39 @@ check_from_sample_value(const telem::DataType &type, xjson::Type target) {
     if (type == telem::STRING_T)
         return target == xjson::Type::String ? xerrors::NIL : UNSUPPORTED_ERR;
     if (type == telem::FLOAT64_T || type == telem::FLOAT32_T ||
-        type == telem::INT64_T || type == telem::INT32_T ||
-        type == telem::INT16_T || type == telem::INT8_T ||
-        type == telem::UINT64_T || type == telem::UINT32_T ||
+        type == telem::INT64_T || type == telem::INT32_T || type == telem::INT16_T ||
+        type == telem::INT8_T || type == telem::UINT64_T || type == telem::UINT32_T ||
         type == telem::UINT16_T || type == telem::UINT8_T)
         return xerrors::NIL;
     return UNSUPPORTED_ERR;
 }
 
 nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format) {
-    const int64_t ns = ts.nanoseconds();
     switch (format) {
         case TimeFormat::UnixNanosecond:
-            return ns;
+            return ts.nanoseconds();
         case TimeFormat::UnixMicrosecond:
-            return xmath::floor_div(ns, int64_t(1000));
+            return ts.microseconds();
         case TimeFormat::UnixMillisecond:
-            return xmath::floor_div(ns, int64_t(1000000));
+            return ts.milliseconds();
         case TimeFormat::UnixSecondInt:
-            return xmath::floor_div(ns, int64_t(1000000000));
+            return ts.seconds();
         case TimeFormat::UnixSecondFloat:
-            return static_cast<double>(ns) / 1e9;
-        case TimeFormat::ISO8601: {
-            const int64_t sec = xmath::floor_div(ns, int64_t(1000000000));
-            const int64_t frac_ns = ns - sec * int64_t(1000000000);
-            const time_t t = static_cast<time_t>(sec);
-            struct tm utc{};
-            gmtime_r(&t, &utc);
-            std::ostringstream oss;
-            oss << std::put_time(&utc, "%Y-%m-%dT%H:%M:%S");
-            if (frac_ns > 0) {
-                auto frac = std::to_string(frac_ns);
-                frac = std::string(9 - frac.size(), '0') + frac;
-                frac.erase(frac.find_last_not_of('0') + 1);
-                oss << '.' << frac;
-            }
-            oss << 'Z';
-            return oss.str();
-        }
+            return ts.seconds_double();
+        case TimeFormat::ISO8601:
+            return ts.iso8601();
     }
     return nullptr;
 }
 
 nlohmann::json zero_value(xjson::Type format) {
     switch (format) {
-        case xjson::Type::Number: return 0;
-        case xjson::Type::String: return "";
-        case xjson::Type::Boolean: return false;
+        case xjson::Type::Number:
+            return 0;
+        case xjson::Type::String:
+            return "";
+        case xjson::Type::Boolean:
+            return false;
     }
     return nullptr;
 }

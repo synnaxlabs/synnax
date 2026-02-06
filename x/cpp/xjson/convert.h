@@ -23,11 +23,7 @@ const xerrors::Error UNSUPPORTED_ERR = BASE_ERR.sub("unsupported");
 const xerrors::Error TRUNCATION_ERR = BASE_ERR.sub("truncation");
 const xerrors::Error OVERFLOW_ERR = BASE_ERR.sub("overflow");
 
-enum class Type {
-    Number,
-    String,
-    Boolean
-};
+enum class Type { Number, String, Boolean };
 
 enum class TimeFormat {
     ISO8601,
@@ -41,16 +37,12 @@ enum class TimeFormat {
 /// Resolved read converter. Takes a JSON value extracted from a response and returns a
 /// single-sample Series containing the converted value.
 using ReadConverter = std::function<
-    std::pair<telem::Series, xerrors::Error>(
-        const nlohmann::json &value
-    )
->;
+    std::pair<telem::Series, xerrors::Error>(const nlohmann::json &value)>;
 
 /// Resolve a read converter for a specific (Type, DataType, strict) combination.
 /// The returned function captures the exact C++ types — no branching on DataType at
 /// runtime. Returns an error if the conversion is unsupported.
-std::pair<ReadConverter, xerrors::Error>
-resolve_read_converter(
+std::pair<ReadConverter, xerrors::Error> resolve_read_converter(
     Type json_type,
     const telem::DataType &target_type,
     bool strict = false

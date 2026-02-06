@@ -142,6 +142,108 @@ TEST(TimeStampTests, testModuloAssignment) {
     ASSERT_EQ(ts.nanoseconds(), 1);
 }
 
+/// @brief it should return microseconds since epoch.
+TEST(TimeStampTests, testMicroseconds) {
+    const auto ts = TimeStamp(1234567890000000000LL);
+    ASSERT_EQ(ts.microseconds(), 1234567890000000LL);
+}
+
+/// @brief it should floor toward negative infinity for microseconds.
+TEST(TimeStampTests, testMicrosecondsNegative) {
+    const auto ts = TimeStamp(-1);
+    ASSERT_EQ(ts.microseconds(), -1);
+}
+
+/// @brief it should return zero microseconds for epoch.
+TEST(TimeStampTests, testMicrosecondsZero) {
+    const auto ts = TimeStamp(0);
+    ASSERT_EQ(ts.microseconds(), 0);
+}
+
+/// @brief it should return milliseconds since epoch.
+TEST(TimeStampTests, testMilliseconds) {
+    const auto ts = TimeStamp(1234567890000000000LL);
+    ASSERT_EQ(ts.milliseconds(), 1234567890000LL);
+}
+
+/// @brief it should floor toward negative infinity for milliseconds.
+TEST(TimeStampTests, testMillisecondsNegative) {
+    const auto ts = TimeStamp(-1);
+    ASSERT_EQ(ts.milliseconds(), -1);
+}
+
+/// @brief it should return zero milliseconds for epoch.
+TEST(TimeStampTests, testMillisecondsZero) {
+    const auto ts = TimeStamp(0);
+    ASSERT_EQ(ts.milliseconds(), 0);
+}
+
+/// @brief it should return seconds since epoch.
+TEST(TimeStampTests, testSeconds) {
+    const auto ts = TimeStamp(1234567890000000000LL);
+    ASSERT_EQ(ts.seconds(), 1234567890LL);
+}
+
+/// @brief it should floor toward negative infinity for seconds.
+TEST(TimeStampTests, testSecondsNegative) {
+    const auto ts = TimeStamp(-1);
+    ASSERT_EQ(ts.seconds(), -1);
+}
+
+/// @brief it should return zero seconds for epoch.
+TEST(TimeStampTests, testSecondsZero) {
+    const auto ts = TimeStamp(0);
+    ASSERT_EQ(ts.seconds(), 0);
+}
+
+/// @brief it should return seconds as a double with sub-second precision.
+TEST(TimeStampTests, testSecondsDouble) {
+    const auto ts = TimeStamp(1500000000LL);
+    ASSERT_DOUBLE_EQ(ts.seconds_double(), 1.5);
+}
+
+/// @brief it should return zero seconds as a double for epoch.
+TEST(TimeStampTests, testSecondsDoubleZero) {
+    const auto ts = TimeStamp(0);
+    ASSERT_DOUBLE_EQ(ts.seconds_double(), 0.0);
+}
+
+/// @brief it should return negative seconds as a double.
+TEST(TimeStampTests, testSecondsDoubleNegative) {
+    const auto ts = TimeStamp(-500000000LL);
+    ASSERT_DOUBLE_EQ(ts.seconds_double(), -0.5);
+}
+
+/// @brief it should return ISO 8601 string for epoch.
+TEST(TimeStampTests, testISO8601Epoch) {
+    const auto ts = TimeStamp(0);
+    ASSERT_EQ(ts.iso8601(), "1970-01-01T00:00:00Z");
+}
+
+/// @brief it should return ISO 8601 string for a known date.
+TEST(TimeStampTests, testISO8601KnownDate) {
+    const auto ts = TimeStamp(1000000000000000000LL);
+    ASSERT_EQ(ts.iso8601(), "2001-09-09T01:46:40Z");
+}
+
+/// @brief it should include fractional seconds in ISO 8601 output.
+TEST(TimeStampTests, testISO8601Fractional) {
+    const auto ts = TimeStamp(1500000000LL);
+    ASSERT_EQ(ts.iso8601(), "1970-01-01T00:00:01.5Z");
+}
+
+/// @brief it should preserve nanosecond precision in ISO 8601 output.
+TEST(TimeStampTests, testISO8601Nanoseconds) {
+    const auto ts = TimeStamp(1000000001);
+    ASSERT_EQ(ts.iso8601(), "1970-01-01T00:00:01.000000001Z");
+}
+
+/// @brief it should return ISO 8601 string for a negative timestamp.
+TEST(TimeStampTests, testISO8601Negative) {
+    const auto ts = TimeStamp(-1000000000000000000LL);
+    ASSERT_EQ(ts.iso8601(), "1938-04-24T22:13:20Z");
+}
+
 /// @brief it should initialize a timespan from a long.
 TEST(TimeSpanTests, testConstructor) {
     const auto ts = TimeSpan(5);
