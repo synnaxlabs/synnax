@@ -1,9 +1,7 @@
 # 25 - Arc Control Authority
 
-**Feature Name**: Arc Control Authority <br />
-**Status**: Draft <br />
-**Start Date**: 2025-02-05 <br />
-**Authors**: Emiliano Bonilla <br />
+**Feature Name**: Arc Control Authority <br /> **Status**: Draft <br /> **Start Date**:
+2025-02-05 <br /> **Authors**: Emiliano Bonilla <br />
 
 # 0 - Summary
 
@@ -462,8 +460,8 @@ the normal Synnax authority system:
 
 ### 4.4.1 - Console Operators
 
-Operators can take control via Console schematics with their own authority level.
-The same rules apply:
+Operators can take control via Console schematics with their own authority level. The
+same rules apply:
 
 - Higher authority wins
 - Arc sequence's writes silently fail when outranked
@@ -576,9 +574,9 @@ If `channel` is absent, the node applies to all write channels.
 
 ### 5.3.2 - Authority Change Propagation
 
-Authority changes are buffered in the runtime state system and flushed alongside
-channel writes. The `State.Flush()` method returns both channel write frames and
-authority changes:
+Authority changes are buffered in the runtime state system and flushed alongside channel
+writes. The `State.Flush()` method returns both channel write frames and authority
+changes:
 
 ```go
 func (s *State) Flush(fr) (telem.Frame, []AuthorityChange, bool)

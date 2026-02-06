@@ -25,14 +25,14 @@ struct TestSetup {
 
     TestSetup(const uint8_t auth_value, const uint32_t channel):
         ir(build_ir(auth_value, channel)),
-        state(std::make_shared<state::State>(
-            state::Config{.ir = ir, .channels = {}},
-            arc::runtime::errors::noop_handler
-        )) {}
+        state(
+            std::make_shared<state::State>(
+                state::Config{.ir = ir, .channels = {}},
+                arc::runtime::errors::noop_handler
+            )
+        ) {}
 
-    state::Node make_node() {
-        return ASSERT_NIL_P(this->state->node("set_auth"));
-    }
+    state::Node make_node() { return ASSERT_NIL_P(this->state->node("set_auth")); }
 
 private:
     static arc::ir::IR build_ir(const uint8_t auth_value, const uint32_t channel) {
@@ -88,9 +88,7 @@ TEST(SetAuthorityFactoryTest, CreatesNode) {
     TestSetup setup(100, 42);
     authority::Factory factory(setup.state);
     auto node = ASSERT_NIL_P(
-        factory.create(
-            node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
-        )
+        factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
     );
     ASSERT_NE(node, nullptr);
 }
@@ -99,9 +97,7 @@ TEST(SetAuthorityTest, NextBuffersChannelAuthorityChange) {
     TestSetup setup(200, 42);
     authority::Factory factory(setup.state);
     auto node = ASSERT_NIL_P(
-        factory.create(
-            node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
-        )
+        factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
     );
 
     auto ctx = make_context();
@@ -118,9 +114,7 @@ TEST(SetAuthorityTest, NextBuffersGlobalAuthorityChange) {
     TestSetup setup(150, 0);
     authority::Factory factory(setup.state);
     auto node = ASSERT_NIL_P(
-        factory.create(
-            node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
-        )
+        factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
     );
 
     auto ctx = make_context();
@@ -136,9 +130,7 @@ TEST(SetAuthorityTest, NextFiresOnceBeforeReset) {
     TestSetup setup(200, 42);
     authority::Factory factory(setup.state);
     auto node = ASSERT_NIL_P(
-        factory.create(
-            node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
-        )
+        factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
     );
 
     auto ctx = make_context();
@@ -154,9 +146,7 @@ TEST(SetAuthorityTest, ResetAllowsRefire) {
     TestSetup setup(200, 42);
     authority::Factory factory(setup.state);
     auto node = ASSERT_NIL_P(
-        factory.create(
-            node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
-        )
+        factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
     );
 
     auto ctx = make_context();

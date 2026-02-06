@@ -54,7 +54,7 @@ class ArcAuthorityEmergency(ArcConsoleCase):
     sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
-        self._override_writer = None
+        self._override_writer: sy.Writer | None = None
         super().setup()
         self.set_manual_timeout(120)
 

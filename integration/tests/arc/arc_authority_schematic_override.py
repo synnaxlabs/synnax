@@ -64,9 +64,7 @@ class ArcAuthoritySchematicOverride(SimDaqTestCase, ConsoleCase):
 
         # Create and start Arc program (authority 200, writes 1 to press_vlv_cmd)
         self.log(f"Creating Arc program: {self.arc_name}")
-        self.console.arc.create(
-            self.arc_name, ARC_CONTINUOUS_PRESS_SOURCE, mode="Text"
-        )
+        self.console.arc.create(self.arc_name, ARC_CONTINUOUS_PRESS_SOURCE, mode="Text")
         self._arc_created = True
         self.console.arc.select_rack(rack.name)
         self.console.arc.configure()
@@ -140,12 +138,8 @@ class ArcAuthoritySchematicOverride(SimDaqTestCase, ConsoleCase):
                 # Find the schematic pane and release control
                 self.page.locator(".react-flow__pane").first.click()
                 control_button = (
-                    self.page.locator(
-                        ".console-controls button.pluto-btn--filled"
-                    )
-                    .filter(
-                        has=self.page.locator("svg.pluto-icon--circle")
-                    )
+                    self.page.locator(".console-controls button.pluto-btn--filled")
+                    .filter(has=self.page.locator("svg.pluto-icon--circle"))
                     .first
                 )
                 if control_button.count() > 0:

@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/symbol"
 )
 
 // Analyze validates authority blocks in a program and returns the AuthorityConfig.
@@ -131,21 +130,6 @@ func analyzeEntry(
 		*hasDefault = true
 		config.Default = &v
 	}
-}
-
-// ResolveChannelKey resolves a channel name to its key using the symbol resolver.
-func ResolveChannelKey(
-	ctx acontext.Context[parser.IProgramContext],
-	name string,
-) (uint32, bool) {
-	sym, err := ctx.Scope.Resolve(ctx, name)
-	if err != nil {
-		return 0, false
-	}
-	if sym.Kind != symbol.KindChannel {
-		return 0, false
-	}
-	return uint32(sym.ID), true
 }
 
 func parseAuthorityValue(

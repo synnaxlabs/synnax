@@ -190,15 +190,17 @@ inline std::vector<telem::Authority> build_authorities(
     if (!auth.default_authority.has_value() && auth.channels.empty()) return {};
     std::map<std::string, types::ChannelKey> name_to_key;
     for (const auto &n: nodes) {
-        for (const auto &[key, name]: n.channels.read) name_to_key[name] = key;
-        for (const auto &[key, name]: n.channels.write) name_to_key[name] = key;
+        for (const auto &[key, name]: n.channels.read)
+            name_to_key[name] = key;
+        for (const auto &[key, name]: n.channels.write)
+            name_to_key[name] = key;
     }
-    for (const auto &[key, name]: auth.keys) name_to_key[name] = key;
+    for (const auto &[key, name]: auth.keys)
+        name_to_key[name] = key;
     std::vector<telem::Authority> authorities(write_keys.size());
     for (size_t i = 0; i < write_keys.size(); i++)
-        authorities[i] = auth.default_authority.has_value()
-                            ? *auth.default_authority
-                            : telem::AUTH_ABSOLUTE;
+        authorities[i] = auth.default_authority.has_value() ? *auth.default_authority
+                                                            : telem::AUTH_ABSOLUTE;
     for (const auto &[name, value]: auth.channels) {
         auto it = name_to_key.find(name);
         if (it == name_to_key.end()) continue;

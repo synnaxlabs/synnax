@@ -278,8 +278,8 @@ TEST(RuntimeLifecycleTest, ReadReturnsFalseAfterStop) {
     ASSERT_TRUE(runtime->start());
     ASSERT_TRUE(runtime->stop());
 
-    telem::Frame frame;
-    EXPECT_FALSE(runtime->read(frame)) << "Read should return false when stopped";
+    Output out;
+    EXPECT_FALSE(runtime->read(out)) << "Read should return false when stopped";
 }
 
 /// @brief Test that double stop returns false on second call.
@@ -307,7 +307,8 @@ TEST(BuildAuthoritiesTest, DefaultAuthorityAppliesToAllKeys) {
     std::vector<arc::ir::Node> nodes;
     auto result = build_authorities(auth, write_keys, nodes);
     ASSERT_EQ(result.size(), 3);
-    for (const auto &a: result) EXPECT_EQ(a, 100);
+    for (const auto &a: result)
+        EXPECT_EQ(a, 100);
 }
 
 TEST(BuildAuthoritiesTest, PerChannelOverridesDefault) {

@@ -34,9 +34,7 @@ public:
         const uint8_t authority,
         std::optional<types::ChannelKey> channel_key
     ):
-        state(state),
-        authority_value(authority),
-        channel_key(std::move(channel_key)) {}
+        state(state), authority_value(authority), channel_key(std::move(channel_key)) {}
 
     xerrors::Error next(node::Context & /*ctx*/) override {
         if (this->initialized) return xerrors::NIL;
@@ -56,8 +54,7 @@ class Factory : public node::Factory {
     std::shared_ptr<state::State> state;
 
 public:
-    explicit Factory(std::shared_ptr<state::State> state):
-        state(std::move(state)) {}
+    explicit Factory(std::shared_ptr<state::State> state): state(std::move(state)) {}
 
     bool handles(const std::string &node_type) const override {
         return node_type == "set_authority";
