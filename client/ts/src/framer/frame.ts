@@ -95,7 +95,7 @@ export type CrudeFrame =
  * and array can be square.
  */
 export class Frame {
-  readonly columns: channel.Keys | channel.Names = [];
+  readonly columns: channel.KeysOrNames = [];
   readonly series: Series[] = [];
 
   constructor(
@@ -140,7 +140,7 @@ export class Frame {
       ["string", "number"].includes(typeof columnsOrData)
     ) {
       const data_ = array.toArray(series);
-      const cols = array.toArray(columnsOrData) as channel.Keys | channel.Names;
+      const cols = array.toArray(columnsOrData) as channel.KeysOrNames;
       validateMatchedColsAndSeries(cols, data_);
       data_.forEach((d, i) => this.push(cols[i], d));
       return;
@@ -184,23 +184,23 @@ export class Frame {
    * @returns the channel names if the frame is keyed by channel name, and throws an error
    * otherwise.
    */
-  get names(): channel.Names {
+  get names(): string[] {
     if (this.colType === "key") throw new UnexpectedError("colType is not name");
-    return (this.columns as channel.Names) ?? [];
+    return (this.columns as string[]) ?? [];
   }
 
   /**
    * @returns the unique channel names if the frame is keyed by channel name, and throws an
    * otherwise.
    */
-  get uniqueNames(): channel.Names {
+  get uniqueNames(): string[] {
     return unique.unique(this.names);
   }
 
   /**
    * @returns the unique columns in the frame.
    */
-  get uniqueColumns(): channel.Keys | channel.Names {
+  get uniqueColumns(): channel.KeysOrNames {
     return this.colType === "key" ? this.uniqueKeys : this.uniqueNames;
   }
 
@@ -280,9 +280,9 @@ export class Frame {
    * @returns a frame with the given channel keys or names.
    * @param keys the channel keys or names.
    */
-  get(keys: channel.Keys | channel.Names): Frame;
+  get(keys: channel.KeysOrNames): Frame;
 
-  get(key: channel.KeyOrName | channel.Keys | channel.Names): MultiSeries | Frame {
+  get(key: channel.PrimitiveParams): MultiSeries | Frame {
     if (Array.isArray(key))
       return this.filter((k) => (key as channel.Keys).includes(k as channel.Key));
     return new MultiSeries(this.series.filter((_, i) => this.columns[i] === key));

@@ -1,0 +1,72 @@
+name: Test - Go
+
+on:
+  workflow_call:
+    inputs:
+      directory:
+        description: The directory containing the Go module to test
+        required: true
+        type: string
+      ginkgo_flags:
+        description: Additional flags to pass to Ginkgo (e.g., --race, --fail-on-empty)
+        required: false
+        type: string
+        default: ""
+      coverage_flag:
+        description: The codecov flag for this module
+        required: true
+        type: string
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            fmt: true
+        exclude:
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'macos-latest' }}
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'windows-latest' }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.work
+          cache-dependency-path: |
+            go.work.sum
+            **/go.sum
+
+      - name: Check formatting
+        if: matrix.fmt
+        run: scripts/check_gofmt.sh ${{ inputs.directory }}
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          working-directory: ${{ inputs.directory }}
+
+      - name: Test
+        run: >-
+          go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-suites
+          --fail-on-pending --cover --coverprofile=cover.out --keep-going --trace
+          --github-output ${{ inputs.ginkgo_flags }}
+        working-directory: ${{ inputs.directory }}
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: ${{ inputs.coverage_flag }}
+          directory: ${{ inputs.directory }}

@@ -17,6 +17,7 @@ topLevelItem
     | functionDeclaration
     | flowStatement
     | sequenceDeclaration
+    | globalConstant
     ;
 
 // =============================================================================
@@ -72,7 +73,7 @@ configList
     ;
 
 config
-    : IDENTIFIER type
+    : IDENTIFIER type (ASSIGN literal)?
     ;
 
 // =============================================================================
@@ -102,6 +103,17 @@ stageItem
 singleInvocation
     : function
     | expression
+    ;
+
+// =============================================================================
+// Global Constants
+// =============================================================================
+
+// Top-level variable declarations are compile-time constants.
+// Only literals are allowed (no expressions), and stateful declarations ($=) are prohibited.
+globalConstant
+    : IDENTIFIER DECLARE literal
+    | IDENTIFIER type DECLARE literal
     ;
 
 // =============================================================================

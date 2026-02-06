@@ -559,10 +559,23 @@ func extractConfigValues(
 			return channelKey, true
 		}
 
+		if primary := parser.GetPrimaryExpression(expr); primary != nil {
+			if id := primary.IDENTIFIER(); id != nil {
+				sym, err := ctx.Scope.Resolve(ctx, id.GetText())
+				if err != nil {
+					ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+					return nil, false
+				}
+				if sym.Kind == symbol.KindGlobalConstant {
+					return sym.DefaultValue, true
+				}
+			}
+		}
+
 		if !parser.IsLiteral(expr) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				expr,
-				"config value for '%s' must be a literal",
+				"config value for '%s' must be a literal or global constant",
 				paramName,
 			))
 			return nil, false

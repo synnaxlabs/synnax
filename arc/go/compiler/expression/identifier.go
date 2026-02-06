@@ -47,6 +47,11 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		}
 		ctx.Writer.WriteLocalGet(scope.ID)
 		return scope.Type, nil
+	case symbol.KindGlobalConstant:
+		if err := emitLiteralValue(ctx, scope.Type, scope.DefaultValue); err != nil {
+			return types.Type{}, err
+		}
+		return scope.Type, nil
 	case symbol.KindStatefulVariable:
 		if err = emitStatefulLoad(ctx, scope.ID, scope.Type); err != nil {
 			return types.Type{}, err

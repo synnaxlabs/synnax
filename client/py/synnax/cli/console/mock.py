@@ -123,14 +123,12 @@ class MockPrompt:
         )
         e.response = self.responses.pop(0) if len(self.responses) > 0 else default
         if type(e.response) != e.type_:
-            raise TypeError(
-                f"""
+            raise TypeError(f"""
                 Mock Prompt: Invalid response type
                 Question: {question}
                 Expected type: {type_}
                 Actual response: {e.response}
-                """
-            )
+                """)
         return e.response
 
 

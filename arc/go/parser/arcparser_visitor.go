@@ -70,6 +70,9 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#singleInvocation.
 	VisitSingleInvocation(ctx *SingleInvocationContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#globalConstant.
+	VisitGlobalConstant(ctx *GlobalConstantContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#flowStatement.
 	VisitFlowStatement(ctx *FlowStatementContext) interface{}
 

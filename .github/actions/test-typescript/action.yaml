@@ -1,0 +1,80 @@
+name: Test TypeScript
+description: Common steps for testing TypeScript packages
+
+inputs:
+  package:
+    description: The package name (e.g., x, pluto, drift)
+    required: true
+  test:
+    description: Whether to run tests (with coverage)
+    required: false
+    default: "true"
+  coverage_flag:
+    description: The codecov flag for this package
+    required: false
+    default: ""
+  directory:
+    description: The directory containing coverage files
+    required: false
+    default: ""
+  lint:
+    description: Whether to run linting checks (types, circular deps, ESLint)
+    required: false
+    default: "true"
+  knip:
+    description: Whether to check for unused code with Knip
+    required: false
+    default: "false"
+  test_args:
+    description: Additional arguments to pass to the test command
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Set up pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version-file: package.json
+        cache: pnpm
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install
+
+    - name: Check types
+      if: inputs.lint == 'true'
+      shell: bash
+      run: pnpm check-types:${{ inputs.package }}
+
+    - name: Check circular dependencies
+      if: inputs.lint == 'true'
+      shell: bash
+      run: pnpm madge:${{ inputs.package }}
+
+    - name: Lint
+      if: inputs.lint == 'true'
+      shell: bash
+      run: pnpm lint:${{ inputs.package }}
+
+    - name: Check unused code
+      if: inputs.knip == 'true'
+      shell: bash
+      run: pnpm knip:${{ inputs.package }}
+
+    - name: Test
+      if: inputs.test == 'true'
+      shell: bash
+      run: pnpm cov:${{ inputs.package }} ${{ inputs.test_args }}
+
+    - name: Upload coverage
+      if: inputs.test == 'true'
+      uses: codecov/codecov-action@v5
+      with:
+        fail_ci_if_error: true
+        flags: ${{ inputs.coverage_flag }}
+        directory: ${{ inputs.directory }}
