@@ -47,10 +47,10 @@ import (
 )
 
 const (
-	streamerAddr          address.Address = "streamer"
-	writerAddr            address.Address = "writer"
-	writerResponsesAddr   address.Address = "writer_responses"
-	runtimeAddr           address.Address = "runtime"
+	streamerAddr        address.Address = "streamer"
+	writerAddr          address.Address = "writer"
+	writerResponsesAddr address.Address = "writer_responses"
+	runtimeAddr         address.Address = "runtime"
 )
 
 // taskImpl implements the driver.Task interface and manages Arc program execution.
