@@ -359,25 +359,39 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          KEYCHAIN_NAME: build-${{ github.run_id }}.keychain
+          KEYCHAIN_NAME: build-${{ runner.name }}.keychain
         run: |
-          # Unique keychain per workflow run, which allows multiple runner instances
-          # on the same machine to run simultaneously without conflicts.
+          # Permanent keychain per runner (build-actions-runner-1 or build-actions-runner-2)
+          # Create if doesn't exist, reuse if it does (manual cleanup only)
 
-          # Clean up stale build keychains from previous runs (older than 2 hours)
-          find ~/Library/Keychains -name "build-*.keychain*" -mmin +120 -exec security delete-keychain "{}" \; 2>/dev/null || true
+          echo "=== Keychain Debug Info ==="
+          echo "Target keychain: $KEYCHAIN_NAME"
+          echo "Current keychains:"
+          security list-keychains -d user
+          KEYCHAIN_COUNT=$(security list-keychains -d user | wc -l | tr -d ' ')
+          echo "Total keychains: $KEYCHAIN_COUNT"
+          echo "=========================="
 
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-          security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          # Set keychain list: login + any current build keychains + new keychain
-          # This preserves concurrent runners' keychains while cleanup removes old ones
-          CURRENT_BUILD_KEYCHAINS=$(security list-keychains -d user | grep "build-" | tr -d '"' | tr '\n' ' ' || true)
-          security list-keychains -d user -s ~/Library/Keychains/login.keychain-db $CURRENT_BUILD_KEYCHAINS $KEYCHAIN_NAME
+
+          # Only create keychain if it doesn't exist
+          if ! security list-keychains -d user | grep -q "$KEYCHAIN_NAME"; then
+            echo "✓ Creating new keychain: $KEYCHAIN_NAME"
+            security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+            # Add to keychain list only if newly created
+            CURRENT_KEYCHAINS=$(security list-keychains -d user | tr -d '"' | tr '\n' ' ')
+            security list-keychains -d user -s $CURRENT_KEYCHAINS $KEYCHAIN_NAME
+          else
+            echo "✓ Found existing keychain: $KEYCHAIN_NAME (reusing)"
+          fi
+
           security default-keychain -s $KEYCHAIN_NAME
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
           security set-keychain-settings -t 3600 -u $KEYCHAIN_NAME
-          security import certificate.p12 -k $KEYCHAIN_NAME -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+
+          # Import certificate (may already exist in keychain, that's ok)
+          echo "Importing certificate into $KEYCHAIN_NAME..."
+          security import certificate.p12 -k $KEYCHAIN_NAME -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign 2>/dev/null || true
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
           echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
 
@@ -616,12 +630,6 @@ jobs:
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
-      - name: Cleanup Build Keychain
-        if: always() && matrix.os == 'macos-build-bot'
-        run: |
-          # Delete this run's keychain when job completes
-          security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
-
   docker:
     name: Build Docker Image
     needs: [setup, build]
@@ -739,22 +747,39 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          KEYCHAIN_NAME: build-${{ github.run_id }}.keychain
+          KEYCHAIN_NAME: build-${{ runner.name }}.keychain
         run: |
-          # Clean up stale build keychains from previous runs (older than 2 hours)
-          find ~/Library/Keychains -name "build-*.keychain*" -mmin +120 -exec security delete-keychain "{}" \; 2>/dev/null || true
+          # Permanent keychain per runner (build-actions-runner-1 or build-actions-runner-2)
+          # Create if doesn't exist, reuse if it does (manual cleanup only)
+
+          echo "=== Keychain Debug Info ==="
+          echo "Target keychain: $KEYCHAIN_NAME"
+          echo "Current keychains:"
+          security list-keychains -d user
+          KEYCHAIN_COUNT=$(security list-keychains -d user | wc -l | tr -d ' ')
+          echo "Total keychains: $KEYCHAIN_COUNT"
+          echo "=========================="
 
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-          security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          # Set keychain list: login + any current build keychains + new keychain
-          # This preserves concurrent runners' keychains while cleanup removes old ones
-          CURRENT_BUILD_KEYCHAINS=$(security list-keychains -d user | grep "build-" | tr -d '"' | tr '\n' ' ' || true)
-          security list-keychains -d user -s ~/Library/Keychains/login.keychain-db $CURRENT_BUILD_KEYCHAINS $KEYCHAIN_NAME
+
+          # Only create keychain if it doesn't exist
+          if ! security list-keychains -d user | grep -q "$KEYCHAIN_NAME"; then
+            echo "✓ Creating new keychain: $KEYCHAIN_NAME"
+            security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+            # Add to keychain list only if newly created
+            CURRENT_KEYCHAINS=$(security list-keychains -d user | tr -d '"' | tr '\n' ' ')
+            security list-keychains -d user -s $CURRENT_KEYCHAINS $KEYCHAIN_NAME
+          else
+            echo "✓ Found existing keychain: $KEYCHAIN_NAME (reusing)"
+          fi
+
           security default-keychain -s $KEYCHAIN_NAME
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
           security set-keychain-settings -t 3600 -u $KEYCHAIN_NAME
-          security import certificate.p12 -k $KEYCHAIN_NAME -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+
+          # Import certificate (may already exist in keychain, that's ok)
+          echo "Importing certificate into $KEYCHAIN_NAME..."
+          security import certificate.p12 -k $KEYCHAIN_NAME -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign 2>/dev/null || true
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
           security find-identity -v -p codesigning $KEYCHAIN_NAME
           echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
@@ -886,9 +911,3 @@ jobs:
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64_en-US.msi.sig
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.exe
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.exe.sig
-
-      - name: Cleanup Build Keychain
-        if: always() && matrix.os == 'macos-build-bot'
-        run: |
-          # Delete this run's keychain when job completes
-          security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
