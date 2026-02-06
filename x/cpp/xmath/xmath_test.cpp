@@ -7,94 +7,57 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <cstdint>
 
 #include "gtest/gtest.h"
 #include "x/cpp/xmath/xmath.h"
 
 
-TEST(FloorDivInt64, PositiveExact) {
-    ASSERT_EQ(xmath::floor_div(int64_t(10), int64_t(5)), 2);
+TEST(FloorDiv, PositiveExact) {
+    ASSERT_EQ(xmath::floor_div(10, 5), 2);
 }
 
-TEST(FloorDivInt64, PositiveWithRemainder) {
-    ASSERT_EQ(xmath::floor_div(int64_t(7), int64_t(3)), 2);
+TEST(FloorDiv, PositiveWithRemainder) {
+    ASSERT_EQ(xmath::floor_div(7, 3), 2);
 }
 
-
-TEST(FloorDivInt64, NegativeExact) {
-    ASSERT_EQ(xmath::floor_div(int64_t(-10), int64_t(5)), -2);
+TEST(FloorDiv, NegativeExact) {
+    ASSERT_EQ(xmath::floor_div(-10, 5), -2);
 }
 
-TEST(FloorDivInt64, NegativeWithRemainder) {
+TEST(FloorDiv, NegativeWithRemainder) {
     // C++ truncation: -7/3 = -2, but floor is -3
-    ASSERT_EQ(xmath::floor_div(int64_t(-7), int64_t(3)), -3);
+    ASSERT_EQ(xmath::floor_div(-7, 3), -3);
 }
 
-TEST(FloorDivInt64, NegativeOneRemainder) {
+TEST(FloorDiv, NegativeOneRemainder) {
     // -1/3 truncates to 0 in C++, but floor is -1
-    ASSERT_EQ(xmath::floor_div(int64_t(-1), int64_t(3)), -1);
+    ASSERT_EQ(xmath::floor_div(-1, 3), -1);
 }
 
-
-TEST(FloorDivInt64, PositiveDividedByNegative) {
+TEST(FloorDiv, PositiveDividedByNegative) {
     // 7 / -3 truncates to -2 in C++, but floor is -3
-    ASSERT_EQ(xmath::floor_div(int64_t(7), int64_t(-3)), -3);
+    ASSERT_EQ(xmath::floor_div(7, -3), -3);
 }
 
-
-TEST(FloorDivInt64, NegativeDividedByNegative) {
+TEST(FloorDiv, NegativeDividedByNegative) {
     // -7 / -3 truncates to 2 in C++, floor is also 2
-    ASSERT_EQ(xmath::floor_div(int64_t(-7), int64_t(-3)), 2);
+    ASSERT_EQ(xmath::floor_div(-7, -3), 2);
 }
 
-
-TEST(FloorDivInt64, ZeroDividend) {
-    ASSERT_EQ(xmath::floor_div(int64_t(0), int64_t(5)), 0);
+TEST(FloorDiv, ZeroDividend) {
+    ASSERT_EQ(xmath::floor_div(0, 5), 0);
 }
 
-TEST(FloorDivInt64, ZeroDividendNegativeDivisor) {
-    ASSERT_EQ(xmath::floor_div(int64_t(0), int64_t(-5)), 0);
+TEST(FloorDiv, ZeroDividendNegativeDivisor) {
+    ASSERT_EQ(xmath::floor_div(0, -5), 0);
 }
 
-
-TEST(FloorDivInt64, DivideBySelf) {
-    ASSERT_EQ(xmath::floor_div(int64_t(7), int64_t(7)), 1);
-    ASSERT_EQ(xmath::floor_div(int64_t(-7), int64_t(-7)), 1);
+TEST(FloorDiv, DivideBySelf) {
+    ASSERT_EQ(xmath::floor_div(7, 7), 1);
+    ASSERT_EQ(xmath::floor_div(-7, -7), 1);
 }
 
-TEST(FloorDivInt64, DivideByOne) {
-    ASSERT_EQ(xmath::floor_div(int64_t(7), int64_t(1)), 7);
-    ASSERT_EQ(xmath::floor_div(int64_t(-7), int64_t(1)), -7);
-}
-
-
-TEST(FloorDivInt32, PositiveWithRemainder) {
-    ASSERT_EQ(xmath::floor_div(int32_t(7), int32_t(3)), 2);
-}
-
-TEST(FloorDivInt32, NegativeWithRemainder) {
-    ASSERT_EQ(xmath::floor_div(int32_t(-7), int32_t(3)), -3);
-}
-
-TEST(FloorDivInt32, PositiveDividedByNegative) {
-    ASSERT_EQ(xmath::floor_div(int32_t(7), int32_t(-3)), -3);
-}
-
-
-TEST(FloorDivInt16, NegativeWithRemainder) {
-    ASSERT_EQ(xmath::floor_div(int16_t(-7), int16_t(3)), int16_t(-3));
-}
-
-TEST(FloorDivInt16, PositiveDividedByNegative) {
-    ASSERT_EQ(xmath::floor_div(int16_t(7), int16_t(-3)), int16_t(-3));
-}
-
-
-TEST(FloorDivInt8, NegativeWithRemainder) {
-    ASSERT_EQ(xmath::floor_div(int8_t(-7), int8_t(3)), int8_t(-3));
-}
-
-TEST(FloorDivInt8, PositiveDividedByNegative) {
-    ASSERT_EQ(xmath::floor_div(int8_t(7), int8_t(-3)), int8_t(-3));
+TEST(FloorDiv, DivideByOne) {
+    ASSERT_EQ(xmath::floor_div(7, 1), 7);
+    ASSERT_EQ(xmath::floor_div(-7, 1), -7);
 }

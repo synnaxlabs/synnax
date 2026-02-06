@@ -9,15 +9,12 @@
 
 #pragma once
 
-#include <type_traits>
+#include <cstdint>
 
 namespace xmath {
 
 /// Floor division: rounds toward negative infinity instead of toward zero.
-template<typename T>
-constexpr T floor_div(const T a, const T b) {
-    static_assert(std::is_integral_v<T> && std::is_signed_v<T>,
-                  "floor_div requires a signed integer type");
+[[nodiscard]] inline constexpr int64_t floor_div(const int64_t a, const int64_t b) {
     return a / b - (a % b != 0 && (a ^ b) < 0);
 }
 
