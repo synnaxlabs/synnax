@@ -293,11 +293,11 @@ func inferSeriesLiteralType(ctx context.Context[parser.ISeriesLiteralContext]) t
 	}
 
 	firstExpr := exprs[0]
-	elemType := InferFromExpression(context.Child(ctx, firstExpr))
+	elemType := InferFromExpression(context.Child(ctx, firstExpr)).UnwrapChan()
 	allLiterals := parser.IsNumericLiteral(firstExpr)
 
 	for i := 1; i < len(exprs); i++ {
-		nextType := InferFromExpression(context.Child(ctx, exprs[i]))
+		nextType := InferFromExpression(context.Child(ctx, exprs[i])).UnwrapChan()
 		thisIsLiteral := parser.IsNumericLiteral(exprs[i])
 		// Literals can unify across int/float (like Go), but variables cannot
 		if allLiterals && thisIsLiteral {
