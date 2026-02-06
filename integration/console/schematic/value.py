@@ -10,7 +10,7 @@
 import re
 from typing import Any
 
-from .symbol import Symbol
+from console.schematic.symbol import Symbol
 
 
 class Value(Symbol):

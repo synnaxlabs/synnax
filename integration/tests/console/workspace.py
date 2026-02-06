@@ -58,7 +58,7 @@ class Workspace(ConsoleCase):
         self.console.workspace.rename(
             old_name="RenamedWorkspace", new_name="WorkspaceA"
         )
-        self.console.layout.close_nav_drawer()
+        self.console.layout.close_left_toolbar()
 
     def test_clear_workspace_from_selector(self) -> None:
         """Test clearing workspaces from the selector (switching to no workspace)."""
@@ -79,7 +79,7 @@ class Workspace(ConsoleCase):
             "button", name="No workspace"
         ).is_visible(), "No workspace should be active after clearing"
 
-        self.console.layout.close_nav_drawer()
+        self.console.layout.close_left_toolbar()
 
     def test_delete_workspace(self) -> None:
         """Test deleting a workspace via context menu."""

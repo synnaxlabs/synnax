@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING, Any
 import synnax as sy
 from playwright.sync_api import FloatRect, Locator, Page
 
-from ..layout import LayoutClient
-from ..notifications import NotificationsClient
+from console.layout import LayoutClient
+from console.notifications import NotificationsClient
 
 """ Symbol Box helpers """
 
@@ -88,7 +88,7 @@ class Symbol(ABC):
         Args:
             layout: LayoutClient for UI interactions (includes notifications)
         """
-        from .symbol_toolbar import SymbolToolbar
+        from console.schematic.symbol_toolbar import SymbolToolbar
 
         self.page = layout.page
         self.layout = layout
@@ -130,37 +130,13 @@ class Symbol(ABC):
         if edit_icon.count() > 0:
             edit_icon.click()
 
-    def _enable_edit_mode(self) -> None:
-        self.console.notifications.close_all()
-        enable_editing_link = self.page.get_by_text("enable editing", exact=False)
-        if enable_editing_link.count() > 0:
-            enable_editing_link.click()
-            self.page.get_by_label("pluto-icon--edit-off").wait_for(
-                state="visible", timeout=2000
-            )
-            return
-        edit_icon = self.page.get_by_label("pluto-icon--edit")
-        if edit_icon.count() > 0:
-            edit_icon.click()
+    def click(self) -> None:
+        """Click the symbol to select it."""
+        self.layout.click(self.locator)
 
-    def click(self, sleep: int = 100) -> None:
-        """Click the symbol to select it.
-
-        Args:
-            sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
-        """
-
-        self.layout.click(self.locator, sleep=sleep)
-
-    def meta_click(self, sleep: int = 0) -> None:
-        """
-        Click the symbol with the platform-appropriate modifier key (Cmd/Ctrl) held down.
-
-        Args:
-            sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
-        """
-
-        self.layout.meta_click(self.locator, sleep=sleep)
+    def meta_click(self) -> None:
+        """Click the symbol with the platform-appropriate modifier key (Cmd/Ctrl) held down."""
+        self.layout.meta_click(self.locator)
 
     def set_label(self, label: str) -> None:
         self.click()
@@ -198,12 +174,8 @@ class Symbol(ABC):
         """Set the symbol's value if applicable. Default implementation does nothing."""
         pass
 
-    def press(self, sleep: int = 100) -> None:
-        """Press/activate the symbol if applicable. Default implementation does nothing.
-
-        Args:
-            sleep: Time in milliseconds to wait after pressing. Buffer for network delays and slow animations.
-        """
+    def press(self) -> None:
+        """Press/activate the symbol if applicable. Default implementation does nothing."""
         pass
 
     def move(self, *, delta_x: int, delta_y: int) -> None:

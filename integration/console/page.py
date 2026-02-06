@@ -16,12 +16,11 @@ from typing import Any, Literal, Self, cast
 import synnax as sy
 from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 
+from console.context_menu import ContextMenu
+from console.layout import LayoutClient
+from console.notifications import NotificationsClient
+from console.tree import Tree
 from framework.utils import get_results_path
-
-from .context_menu import ContextMenu
-from .layout import LayoutClient
-from .notifications import NotificationsClient
-from .tree import Tree
 
 PageType = Literal[
     "Control Sequence",

@@ -11,18 +11,17 @@ import synnax as sy
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from console.access import AccessClient
+from console.arc import ArcClient
+from console.channels import ChannelClient
+from console.docs import DocsClient
+from console.labels import LabelClient
+from console.layout import LayoutClient
+from console.notifications import NotificationsClient
+from console.rack import RackClient
+from console.ranges import RangesClient
+from console.workspace import WorkspaceClient
 from framework.utils import get_results_path
-
-from .access import AccessClient
-from .arc import ArcClient
-from .channels import ChannelClient
-from .docs import DocsClient
-from .labels import LabelClient
-from .layout import LayoutClient
-from .notifications import NotificationsClient
-from .rack import RackClient
-from .ranges import RangesClient
-from .workspace import WorkspaceClient
 
 
 class Console:
@@ -120,7 +119,7 @@ class Console:
         if except_tabs is None:
             except_tabs = ["Get Started"]
 
-        self.layout.close_nav_drawer()
+        self.layout.close_left_toolbar()
 
         tabs_to_close = [
             tab

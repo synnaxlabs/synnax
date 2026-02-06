@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Context menu helper using proven BaseClient patterns."""
+"""Context menu helper for Console UI automation."""
 
 import synnax as sy
 from playwright.sync_api import Locator, Page
@@ -16,8 +16,8 @@ from playwright.sync_api import Locator, Page
 class ContextMenu:
     """Context menu helper for right-click operations.
 
-    This class consolidates context menu logic from BaseClient, using the proven
-    patterns that search the entire page for menu options (not scoped to a menu element).
+    Provides patterns for opening context menus and clicking options,
+    searching the entire page for menu options (not scoped to a menu element).
     """
 
     def __init__(self, page: Page):
@@ -30,8 +30,6 @@ class ContextMenu:
 
     def open_on(self, element: Locator) -> "ContextMenu":
         """Right-click to open context menu.
-
-        Matches the proven BaseClient._right_click pattern.
 
         Args:
             element: The Playwright Locator to right-click on.
@@ -51,8 +49,7 @@ class ContextMenu:
 
         Args:
             text: The text of the menu option to click.
-            exact: Whether to match text exactly. Default True for BaseClient
-                compatibility, but layout.py tab methods use False.
+            exact: Whether to match text exactly.
         """
         menu = self.page.locator(".pluto-menu-context")
         option = menu.get_by_text(text, exact=exact).first
@@ -65,8 +62,7 @@ class ContextMenu:
         Args:
             element: The Playwright Locator to right-click on.
             action_text: The text of the menu action to click.
-            exact: Whether to match text exactly. Default True for BaseClient
-                compatibility, but layout.py tab methods use False.
+            exact: Whether to match text exactly.
         """
         self.open_on(element)
         self.click_option(action_text, exact=exact)

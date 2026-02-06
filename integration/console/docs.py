@@ -10,15 +10,20 @@
 from playwright.sync_api import FrameLocator, Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from .base import BaseClient
-from .layout import LayoutClient
+from console.context_menu import ContextMenu
+from console.layout import LayoutClient
+from console.notifications import NotificationsClient
+from console.tree import Tree
 
 
-class DocsClient(BaseClient):
+class DocsClient:
     """Documentation client for Console UI automation."""
 
     def __init__(self, layout: LayoutClient):
-        super().__init__(layout)
+        self.layout = layout
+        self.ctx_menu = ContextMenu(layout.page)
+        self.notifications = NotificationsClient(layout.page)
+        self.tree = Tree(layout.page)
 
     def open_via_command_palette(self) -> None:
         """Open the documentation page via the command palette."""

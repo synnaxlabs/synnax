@@ -10,8 +10,8 @@
 import synnax as sy
 from playwright.sync_api import Locator
 
-from .layout import LayoutClient
-from .page import ConsolePage
+from console.layout import LayoutClient
+from console.page import ConsolePage
 
 
 class TaskPage(ConsolePage):
@@ -39,19 +39,16 @@ class TaskPage(ConsolePage):
 
     def configure(self) -> None:
         """Configure the task by clicking the Configure button."""
-        self.page.get_by_role("button", name="Configure", exact=True).click(force=True)
-
-        # Replace this with wait_for status == configured
-        sy.sleep(0.2)
+        configure_button = self.page.get_by_role("button", name="Configure", exact=True)
+        configure_button.click(force=True)
+        configure_button.wait_for(state="hidden")
 
     def run(self) -> None:
         """Start the task by clicking the play button."""
         play_button = self.page.locator("button .pluto-icon--play").locator("..")
         play_button.wait_for(state="visible", timeout=3000)
         play_button.click(timeout=5000)
-
-        # Replace this with wait_for status == running
-        sy.sleep(0.2)
+        play_button.wait_for(state="hidden")
 
     def status(self) -> dict[str, str]:
         """Get the current status information from the task status box.
@@ -82,6 +79,7 @@ class TaskPage(ConsolePage):
 
     def set_parameters(
         self,
+        *,
         task_name: str | None = None,
         data_saving: bool | None = None,
         auto_start: bool | None = None,

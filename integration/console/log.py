@@ -12,8 +12,8 @@ from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from synnax.channel.payload import ChannelName
 
-from .layout import LayoutClient
-from .page import ConsolePage
+from console.layout import LayoutClient
+from console.page import ConsolePage
 
 
 class Log(ConsolePage):

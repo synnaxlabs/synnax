@@ -13,12 +13,9 @@ import synnax as sy
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from ..layout import LayoutClient
-from ..page import ConsolePage
-
-if TYPE_CHECKING:
-    from console.console import Console
-from .symbol import (
+from console.layout import LayoutClient
+from console.page import ConsolePage
+from console.schematic.symbol import (
     Symbol,
     box_bottom,
     box_center_x,

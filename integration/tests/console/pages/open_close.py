@@ -39,13 +39,13 @@ class OpenClose(ConsoleCase):
 
         self.log("(1/2) Create pages by cmd palette")
         for page_type, page_name in pages_renamed:
-            console.workspace._create_page_by_command_palette(page_type, page_name)
+            console.workspace.create_page_by_command_palette(page_type, page_name)
         for page_type, page_name in pages_renamed:
             console.workspace.close_page(page_name)
 
         self.log("(2/2) Create pages by (+) button")
         for page_type, page_name in pages_renamed:
-            console.workspace._create_page_by_new_page_button(page_type, page_name)
+            console.workspace.create_page_by_new_page_button(page_type, page_name)
         for page_type, page_name in pages_renamed:
             console.workspace.close_page(page_name)
 

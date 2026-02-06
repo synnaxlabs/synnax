@@ -12,7 +12,7 @@
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from ..layout import LayoutClient
+from console.layout import LayoutClient
 
 
 class SymbolEditor:

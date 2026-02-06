@@ -9,11 +9,13 @@
 
 from playwright.sync_api import Locator
 
-from .base import BaseClient
-from .layout import LayoutClient
+from console.context_menu import ContextMenu
+from console.layout import LayoutClient
+from console.notifications import NotificationsClient
+from console.tree import Tree
 
 
-class ArcClient(BaseClient):
+class ArcClient:
     """Arc automation management for Console UI automation."""
 
     ICON_NAME = "arc"
@@ -22,7 +24,10 @@ class ArcClient(BaseClient):
     LIST_ITEM_CLASS = ".pluto-list__item"
 
     def __init__(self, layout: LayoutClient):
-        super().__init__(layout)
+        self.layout = layout
+        self.ctx_menu = ContextMenu(layout.page)
+        self.notifications = NotificationsClient(layout.page)
+        self.tree = Tree(layout.page)
 
     def _show_arc_panel(self) -> None:
         """Show the Arc panel in the navigation drawer.
@@ -212,4 +217,4 @@ class ArcClient(BaseClient):
         self._show_arc_panel()
         item = self.get_item(name)
         item.wait_for(state="visible", timeout=5000)
-        self._delete_with_confirmation(item)
+        self.layout.delete_with_confirmation(item)

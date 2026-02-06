@@ -21,11 +21,13 @@ from synnax.telem import (
     DataType,
 )
 
-from .base import BaseClient
-from .layout import LayoutClient
+from console.context_menu import ContextMenu
+from console.layout import LayoutClient
+from console.notifications import NotificationsClient
+from console.tree import Tree
 
 
-class ChannelClient(BaseClient):
+class ChannelClient:
     """Console channel client for managing channels via the UI.
 
     Provides methods for creating, renaming, deleting, and organizing channels
@@ -40,7 +42,10 @@ class ChannelClient(BaseClient):
         layout: LayoutClient,
         client: sy.Synnax,
     ):
-        super().__init__(layout)
+        self.layout = layout
+        self.ctx_menu = ContextMenu(layout.page)
+        self.notifications = NotificationsClient(layout.page)
+        self.tree = Tree(layout.page)
         self.client = client
 
     def _get_channels_button(self) -> Locator:
@@ -147,7 +152,7 @@ class ChannelClient(BaseClient):
             self.layout.select_from_dropdown(index, "Search Channels")
 
         self.layout.page.get_by_role("button", name="Create", exact=True).click()
-        modal = self.layout.page.locator(self.MODAL_SELECTOR)
+        modal = self.layout.page.locator(self.layout.MODAL_SELECTOR)
         modal.wait_for(state="hidden", timeout=5000)
         self.show_channels()
         for _ in range(20):
@@ -194,11 +199,11 @@ class ChannelClient(BaseClient):
                 self.layout.command_palette("Create a Channel")
                 # Wait for modal to appear
                 self.layout.page.wait_for_selector(
-                    self.MODAL_SELECTOR,
+                    self.layout.MODAL_SELECTOR,
                     timeout=5000,
                 )
             else:
-                modal = self.layout.page.locator(self.MODAL_SELECTOR)
+                modal = self.layout.page.locator(self.layout.MODAL_SELECTOR)
                 modal_count = modal.count()
                 if modal_count == 0:
                     raise RuntimeError(
@@ -256,7 +261,7 @@ class ChannelClient(BaseClient):
             created_channels.append(name)
 
             if not is_last:
-                modal = self.layout.page.locator(self.MODAL_SELECTOR)
+                modal = self.layout.page.locator(self.layout.MODAL_SELECTOR)
                 modal_count = modal.count()
                 if modal_count == 0:
                     raise RuntimeError(
@@ -314,7 +319,7 @@ class ChannelClient(BaseClient):
             name_input.wait_for(state="hidden", timeout=3000)
             return None
         except PlaywrightTimeoutError:
-            modal = self.layout.page.locator(self.MODAL_SELECTOR)
+            modal = self.layout.page.locator(self.layout.MODAL_SELECTOR)
             modal_count = modal.count()
 
             if modal_count > 0:
@@ -573,7 +578,7 @@ class ChannelClient(BaseClient):
         if item is None:
             raise ValueError(f"Channel {name} not found")
 
-        self._delete_with_confirmation(item)
+        self.layout.delete_with_confirmation(item)
 
         for i, notification in enumerate(self.notifications.check()):
             message = notification.get("message", "")
@@ -601,7 +606,7 @@ class ChannelClient(BaseClient):
         ).first
         close_button.click(timeout=2000)
 
-        modal = self.layout.page.locator(self.MODAL_SELECTOR)
+        modal = self.layout.page.locator(self.layout.MODAL_SELECTOR)
         modal.wait_for(state="hidden", timeout=2000)
 
     def open_create_modal(self) -> None:
@@ -612,7 +617,7 @@ class ChannelClient(BaseClient):
         """
         self.layout.command_palette("Create a Channel")
 
-        modal = self.layout.page.locator(self.MODAL_SELECTOR)
+        modal = self.layout.page.locator(self.layout.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
 
         name_input = self.layout.page.locator("input[placeholder='Name']")
@@ -626,7 +631,7 @@ class ChannelClient(BaseClient):
         """
         self.layout.command_palette("Create a Calculated Channel")
 
-        modal = self.layout.page.locator(self.MODAL_SELECTOR)
+        modal = self.layout.page.locator(self.layout.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
 
         name_input = self.layout.page.locator("input[placeholder='Name']")

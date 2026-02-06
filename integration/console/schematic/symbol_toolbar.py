@@ -15,12 +15,11 @@ from typing import Any
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from console.context_menu import ContextMenu
+from console.layout import LayoutClient
+from console.notifications import NotificationsClient
+from console.schematic.symbol_editor import SymbolEditor
 from framework.utils import get_results_path
-
-from ..context_menu import ContextMenu
-from ..layout import LayoutClient
-from ..notifications import NotificationsClient
-from .symbol_editor import SymbolEditor
 
 
 class SymbolToolbar:

@@ -12,11 +12,10 @@ from typing import Any, Literal
 import synnax as sy
 from playwright.sync_api import Locator
 
+from console.channels import ChannelClient
+from console.layout import LayoutClient
+from console.page import ConsolePage
 from framework.utils import get_results_path
-
-from .channels import ChannelClient  # For dragging channels onto the plot
-from .layout import LayoutClient
-from .page import ConsolePage
 
 Axis = Literal["Y1", "Y2", "X1"]
 

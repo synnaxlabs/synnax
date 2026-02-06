@@ -11,13 +11,14 @@ from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import expect
 
+from console.context_menu import ContextMenu
+from console.layout import LayoutClient
+from console.notifications import NotificationsClient
+from console.tree import Tree
 from framework.utils import get_results_path, rgb_to_hex
 
-from .base import BaseClient
-from .layout import LayoutClient
 
-
-class RangesClient(BaseClient):
+class RangesClient:
     """Console ranges client for managing ranges via the UI.
 
     The ranges toolbar shows only favorited ranges.
@@ -35,7 +36,10 @@ class RangesClient(BaseClient):
         self,
         layout: LayoutClient,
     ):
-        super().__init__(layout)
+        self.layout = layout
+        self.ctx_menu = ContextMenu(layout.page)
+        self.notifications = NotificationsClient(layout.page)
+        self.tree = Tree(layout.page)
 
     def open_from_search(self, name: str) -> None:
         """Open a range overview by searching its name in the command palette.
@@ -60,7 +64,7 @@ class RangesClient(BaseClient):
 
     def hide_toolbar(self) -> None:
         """Hide the ranges toolbar."""
-        self.layout.close_nav_drawer()
+        self.layout.close_left_toolbar()
 
     def open_explorer(self) -> None:
         """Open the Range Explorer page (shows all ranges)."""

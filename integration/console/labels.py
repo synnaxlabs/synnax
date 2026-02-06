@@ -12,20 +12,24 @@ from re import search as re_search
 
 from playwright.sync_api import Locator
 
+from console.context_menu import ContextMenu
+from console.layout import LayoutClient
+from console.notifications import NotificationsClient
+from console.tree import Tree
 from framework.utils import rgb_to_hex
-
-from .base import BaseClient
-from .layout import LayoutClient
 
 _MODAL_SELECTOR = ".console-label__edit"
 _LABEL_ITEM_SELECTOR = ".console-label__list-item"
 
 
-class LabelClient(BaseClient):
+class LabelClient:
     """Console label client for managing labels via the UI."""
 
     def __init__(self, layout: LayoutClient):
-        super().__init__(layout)
+        self.layout = layout
+        self.ctx_menu = ContextMenu(layout.page)
+        self.notifications = NotificationsClient(layout.page)
+        self.tree = Tree(layout.page)
 
     def create(self, name: str, *, color: str | None = None) -> None:
         """Create a new label.
@@ -213,10 +217,10 @@ class LabelClient(BaseClient):
         color_picker.wait_for(state="hidden", timeout=2000)
 
     def _open_edit_modal(self) -> None:
-        self._open_modal("Edit Labels", _MODAL_SELECTOR)
+        self.layout.open_modal("Edit Labels", _MODAL_SELECTOR)
 
     def _close_edit_modal(self) -> None:
-        self._close_modal(_MODAL_SELECTOR)
+        self.layout.close_modal(_MODAL_SELECTOR)
 
     def _find_label_item(self, name: str) -> Locator | None:
         for attempt in range(5):

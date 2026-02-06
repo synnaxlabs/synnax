@@ -10,8 +10,8 @@
 import synnax as sy
 from playwright.sync_api import Locator
 
-from .layout import LayoutClient
-from .page import ConsolePage
+from console.layout import LayoutClient
+from console.page import ConsolePage
 
 
 class Table(ConsolePage):

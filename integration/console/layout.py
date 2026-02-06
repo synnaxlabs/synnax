@@ -17,7 +17,8 @@ import synnax as sy
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from .context_menu import ContextMenu
+from console.context_menu import ContextMenu
+from console.notifications import NotificationsClient
 
 AriaRole = Literal[
     "alert",
@@ -118,6 +119,7 @@ class LayoutClient:
     def __init__(self, page: Page):
         self.page = page
         self.ctx_menu = ContextMenu(self.page)  # For internal tab operations
+        self.notifications = NotificationsClient(self.page)
 
     def command_palette(self, command: str, retries: int = 3) -> None:
         """Execute a command via the command palette."""
@@ -141,6 +143,7 @@ class LayoutClient:
 
     def _palette(
         self,
+        *,
         query: str,
         input_text: str,
         empty_message: str,
@@ -220,6 +223,19 @@ class LayoutClient:
         """Check if a modal dialog is currently open."""
         return self.page.locator(self.MODAL_SELECTOR).count() > 0
 
+    def check_for_errors(self) -> bool:
+        """Check notifications for errors.
+
+        Returns:
+            True if errors were found, False otherwise.
+        """
+        for notification in self.notifications.check():
+            message = notification.get("message", "")
+            if "Failed" in message or "Error" in message:
+                self.notifications.close(0)
+                return True
+        return False
+
     def show_resource_toolbar(self, resource: str) -> None:
         """Show a resource toolbar by clicking its icon in the sidebar."""
         nav_drawer = self.page.locator(
@@ -240,7 +256,7 @@ class LayoutClient:
             button.click(timeout=5000)
         nav_drawer.wait_for(state="visible", timeout=5000)
 
-    def close_nav_drawer(self) -> None:
+    def close_left_toolbar(self) -> None:
         """Close any open side nav drawer (left/right, not bottom visualization toolbar)."""
         nav_drawer = self.page.locator(
             ".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"
@@ -345,7 +361,7 @@ class LayoutClient:
             .locator("button")
             .first
         )
-        dropdown_button.wait_for(state="attached", timeout=300)
+        dropdown_button.wait_for(state="attached", timeout=5000)
         return dropdown_button.inner_text().strip()
 
     def get_selected_button(self, button_options: list[str]) -> str:
@@ -353,7 +369,7 @@ class LayoutClient:
         for option in button_options:
             button = self.page.get_by_text(option).first
             if button.count() > 0:
-                button.wait_for(state="attached", timeout=300)
+                button.wait_for(state="attached", timeout=5000)
                 class_name = button.get_attribute("class") or ""
                 if "pluto-btn--filled" in class_name:
                     return option
@@ -395,55 +411,45 @@ class LayoutClient:
             f"Could not find item '{text}' in dropdown. Available items: {items}"
         )
 
-    def click(
-        self, selector: str | Locator, timeout: int = 500, sleep: int = 100
-    ) -> None:
-        """
-        Click an element by text selector or Locator.
-
-        When clicking a Locator, uses bring_to_front wrapper for robustness.
+    def click(self, selector: str | Locator) -> None:
+        """Click an element by text selector or Locator.
 
         Args:
             selector: Either a text string to search for, or a Playwright Locator
-            timeout: Maximum time in milliseconds to wait for actionability.
-            sleep: Time in milliseconds to wait after clicking.
         """
         if isinstance(selector, str):
             element = self.page.get_by_text(selector, exact=True).first
-            element.click(timeout=timeout)
+            element.click(timeout=500)
         else:
-            with self.bring_to_front(selector) as el:
-                el.click(timeout=timeout)
+            with self._bring_to_front(selector) as el:
+                el.click(timeout=500)
 
-        sy.sleep(sleep / 1000)
+        sy.sleep(0.1)
 
-    def meta_click(
-        self, selector: str | Locator, timeout: int = 500, sleep: int = 100
-    ) -> None:
-        """
-        Click an element with platform-appropriate modifier key held.
+    def meta_click(self, selector: str | Locator) -> None:
+        """Click an element with platform-appropriate modifier key held.
 
         Args:
             selector: Either a text string to search for, or a Playwright Locator
-            timeout: Maximum time in milliseconds to wait for actionability.
-            sleep: Time in milliseconds to wait after clicking.
         """
         if isinstance(selector, str):
             element = self.page.get_by_text(selector, exact=True).first
-            element.click(timeout=timeout, modifiers=["ControlOrMeta"])
+            element.click(timeout=500, modifiers=["ControlOrMeta"])
         else:
-            with self.bring_to_front(selector) as el:
-                el.click(timeout=timeout, modifiers=["ControlOrMeta"])
+            with self._bring_to_front(selector) as el:
+                el.click(timeout=500, modifiers=["ControlOrMeta"])
 
-        sy.sleep(sleep / 1000)
+        sy.sleep(0.1)
 
     @contextmanager
-    def bring_to_front(self, element: Locator) -> Generator[Locator, None, None]:
-        """
-        Context manager that temporarily brings an element to the front by setting z-index.
+    def _bring_to_front(self, element: Locator) -> Generator[Locator, None, None]:
+        """Context manager that temporarily brings an element to the front.
 
-        This ensures the element is clickable even if other elements are overlapping it.
-        The original z-index is restored when exiting the context.
+        Sets z-index to 9999 to ensure the element is clickable even if other
+        elements are overlapping it. Restores the original z-index on exit.
+
+        TODO: This is a workaround for overlapping elements in the Console UI.
+        Once the underlying z-index bug is fixed, this method should be removed.
 
         Args:
             element: The Playwright Locator to bring to front
@@ -451,12 +457,12 @@ class LayoutClient:
         Yields:
             The same element, now with z-index set to 9999
         """
-        original_z_index = element.evaluate("element => element.style.zIndex || 'auto'")
-        element.evaluate("element => element.style.zIndex = '9999'")
+        original_z_index = element.evaluate("el => el.style.zIndex || 'auto'")
+        element.evaluate("el => el.style.zIndex = '9999'")
         try:
             yield element
         finally:
-            element.evaluate(f"element => element.style.zIndex = '{original_z_index}'")
+            element.evaluate(f"el => el.style.zIndex = '{original_z_index}'")
 
     def get_tab(self, name: str) -> Locator:
         """Get a tab locator by its name.
@@ -493,7 +499,7 @@ class LayoutClient:
         Args:
             name: Name of the tab to close
         """
-        self.close_nav_drawer()
+        self.close_left_toolbar()
         tab = self.get_tab(name)
         tab.wait_for(state="visible", timeout=5000)
 
@@ -517,7 +523,7 @@ class LayoutClient:
             old_name: Current name of the tab
             new_name: New name for the tab
         """
-        self.close_nav_drawer()
+        self.close_left_toolbar()
         tab = self.get_tab(old_name)
         tab.wait_for(state="visible", timeout=5000)
 
@@ -598,7 +604,7 @@ class LayoutClient:
         try:
             bottom_drawer.wait_for(state="hidden", timeout=2000)
         except PlaywrightTimeoutError:
-            self.close_nav_drawer()
+            self.close_left_toolbar()
             self.page.locator(".pluto-tabs-selector__btn").first.click()
             self.page.keyboard.press("V")
             bottom_drawer.wait_for(state="hidden", timeout=5000)
@@ -745,9 +751,58 @@ class LayoutClient:
         """Read text from the clipboard.
 
         Returns:
-            The clipboard text, or empty string if clipboard access fails.
+            The clipboard text.
         """
-        try:
-            return str(self.page.evaluate("navigator.clipboard.readText()"))
-        except Exception:
-            return ""
+        return str(self.page.evaluate("navigator.clipboard.readText()"))
+
+    def context_menu_action(self, item: Locator, action: str) -> None:
+        """Perform a context menu action on an item.
+
+        Args:
+            item: The Locator for the element to right-click.
+            action: The exact text of the menu action to click.
+        """
+        self.ctx_menu.action(item, action)
+
+    def show_toolbar(self, shortcut_key: str, item_prefix: str) -> None:
+        """Show a navigation toolbar using keyboard shortcut.
+
+        Args:
+            shortcut_key: The keyboard shortcut (e.g., "d", "u", "r").
+            item_prefix: The ID prefix of items in the panel (e.g., "rack:", "role:").
+        """
+        items = self.page.locator(f"div[id^='{item_prefix}']")
+        if items.count() > 0 and items.first.is_visible():
+            return
+        self.press_key(shortcut_key)
+        items.first.wait_for(state="visible", timeout=5000)
+
+    def delete_with_confirmation(self, item: Locator) -> None:
+        """Delete an item via context menu with confirmation modal."""
+        self.ctx_menu.action(item, "Delete")
+        modal = self.page.locator(self.MODAL_SELECTOR)
+        modal.wait_for(state="visible", timeout=5000)
+        modal.get_by_role("button", name="Delete", exact=True).click()
+        modal.wait_for(state="hidden", timeout=5000)
+
+    def open_modal(self, command: str, selector: str) -> None:
+        """Open a modal via command palette.
+
+        Args:
+            command: The command to execute in the palette.
+            selector: CSS selector for the modal to wait for.
+        """
+        self.command_palette(command)
+        self.page.locator(selector).wait_for(state="visible", timeout=5000)
+
+    def close_modal(self, selector: str) -> None:
+        """Close a modal via close button.
+
+        Args:
+            selector: CSS selector for the modal to wait for hidden.
+        """
+        close_btn = self.page.locator(
+            ".pluto-dialog__dialog button:has(svg.pluto-icon--close)"
+        ).first
+        close_btn.click()
+        self.page.locator(selector).wait_for(state="hidden", timeout=5000)

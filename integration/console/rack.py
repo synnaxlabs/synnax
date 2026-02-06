@@ -9,22 +9,27 @@
 
 from playwright.sync_api import Locator
 
-from .base import BaseClient
-from .layout import LayoutClient
+from console.context_menu import ContextMenu
+from console.layout import LayoutClient
+from console.notifications import NotificationsClient
+from console.tree import Tree
 
 
-class RackClient(BaseClient):
+class RackClient:
     """Rack management for Console UI automation."""
 
     ITEM_PREFIX = "rack:"
     SHORTCUT_KEY = "d"
 
     def __init__(self, layout: LayoutClient):
-        super().__init__(layout)
+        self.layout = layout
+        self.ctx_menu = ContextMenu(layout.page)
+        self.notifications = NotificationsClient(layout.page)
+        self.tree = Tree(layout.page)
 
     def _show_devices_panel(self) -> None:
         """Show the devices panel in the navigation drawer."""
-        self._show_toolbar(self.SHORTCUT_KEY, self.ITEM_PREFIX)
+        self.layout.show_toolbar(self.SHORTCUT_KEY, self.ITEM_PREFIX)
 
     def find_item(self, name: str) -> Locator | None:
         """Find a rack item in the devices panel by name."""
@@ -71,7 +76,7 @@ class RackClient(BaseClient):
         """Rename a rack via context menu."""
         self._show_devices_panel()
         rack_item = self.get_item(old_name)
-        self._context_menu_action(rack_item, "Rename")
+        self.layout.context_menu_action(rack_item, "Rename")
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
         new_item = self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
@@ -84,7 +89,7 @@ class RackClient(BaseClient):
         """Delete a rack via context menu."""
         self._show_devices_panel()
         rack_item = self.get_item(name)
-        self._delete_with_confirmation(rack_item)
+        self.layout.delete_with_confirmation(rack_item)
         self.wait_for_rack_removed(name)
 
     def copy_key(self, name: str) -> str:
@@ -93,5 +98,5 @@ class RackClient(BaseClient):
         rack_item = self.get_item(name)
         element_id = rack_item.get_attribute("id")
         rack_key = element_id.split(":")[1] if element_id else ""
-        self._context_menu_action(rack_item, "Copy properties")
+        self.layout.context_menu_action(rack_item, "Copy properties")
         return rack_key

@@ -245,7 +245,7 @@ class LogLifecycle(ConsoleCase):
     def test_ctx_rename_log(self) -> None:
         """Test renaming a log via context menu in the workspace resources toolbar."""
         self.log("Testing rename log via context menu")
-        self.console.layout.close_nav_drawer()
+        self.console.layout.close_left_toolbar()
 
         suffix = get_random_name()
         log = self.console.workspace.create_log(f"Rename Test {suffix}")
@@ -266,7 +266,7 @@ class LogLifecycle(ConsoleCase):
     def test_ctx_delete_log(self) -> None:
         """Test deleting a log via context menu in the workspace resources toolbar."""
         self.log("Testing delete log via context menu")
-        self.console.layout.close_nav_drawer()
+        self.console.layout.close_left_toolbar()
 
         suffix = get_random_name()
         log = self.console.workspace.create_log(f"Delete Test {suffix}")
@@ -283,7 +283,7 @@ class LogLifecycle(ConsoleCase):
     def test_ctx_delete_multiple_logs(self) -> None:
         """Test deleting multiple logs via multi-select and context menu."""
         self.log("Testing delete multiple logs via context menu")
-        self.console.layout.close_nav_drawer()
+        self.console.layout.close_left_toolbar()
 
         suffix = get_random_name()
         log_names = []
@@ -304,7 +304,7 @@ class LogLifecycle(ConsoleCase):
     def test_ctx_group_logs(self) -> None:
         """Test grouping multiple logs via multi-select and context menu."""
         self.log("Testing group logs via context menu")
-        self.console.layout.close_nav_drawer()
+        self.console.layout.close_left_toolbar()
 
         suffix = get_random_name()
         log_names = []
@@ -328,7 +328,7 @@ class LogLifecycle(ConsoleCase):
     def test_ctx_export_json(self) -> None:
         """Test exporting a log as JSON via context menu."""
         self.log("Testing export log via context menu")
-        self.console.layout.close_nav_drawer()
+        self.console.layout.close_left_toolbar()
 
         suffix = get_random_name()
         log = self.console.workspace.create_log(f"Export Test {suffix}")
@@ -346,7 +346,7 @@ class LogLifecycle(ConsoleCase):
     def test_ctx_copy_link(self) -> None:
         """Test copying a link to a log via context menu."""
         self.log("Testing copy link via context menu")
-        self.console.layout.close_nav_drawer()
+        self.console.layout.close_left_toolbar()
 
         suffix = get_random_name()
         log = self.console.workspace.create_log(f"Copy Link Test {suffix}")

@@ -13,11 +13,10 @@ from typing import Any, TypeVar, cast
 import synnax as sy
 from playwright.sync_api import Locator
 
+from console.layout import LayoutClient
 from console.task.channels.analog import Analog
 from console.task.channels.counter import Counter
-
-from ..layout import LayoutClient
-from ..task_page import TaskPage
+from console.task_page import TaskPage
 
 # Union type for all NI channel types
 NIChannel = Analog | Counter
@@ -140,12 +139,11 @@ class NITask(TaskPage):
 
         Returns: None
         """
-        layout = self.layout
         names = [name] if isinstance(name, str) else name
 
         for channel_name in names:
             idx = self.channels_by_name.index(channel_name)
-            layout.page.locator(".pluto-list__item").nth(idx).click()
+            self.layout.page.locator(".pluto-list__item").nth(idx).click()
             channel = self.channels[idx]
             sy.sleep(0.1)
             channel.assert_form()
