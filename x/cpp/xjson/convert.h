@@ -12,7 +12,8 @@
 #include <functional>
 #include <utility>
 
-#include "x/cpp/telem/series.h"
+#include <nlohmann/json.hpp>
+
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 
@@ -34,32 +35,37 @@ enum class TimeFormat {
     UnixNanosecond,
 };
 
-/// Resolved read converter. Takes a JSON value extracted from a response and returns a
-/// single-sample Series containing the converted value.
+/// Resolved read converter. Takes a JSON value extracted from a response and returns
+/// a SampleValue containing the converted value.
 using ReadConverter = std::function<
-    std::pair<telem::Series, xerrors::Error>(const nlohmann::json &value)>;
+    std::pair<telem::SampleValue, xerrors::Error>(const nlohmann::json &value)>;
 
-/// Resolve a read converter for a specific (Type, DataType, strict) combination.
+struct ReadOptions {
+    bool strict = false;
+    TimeFormat time_format = TimeFormat::UnixNanosecond;
+};
+
+/// Resolve a read converter for a specific (Type, DataType) combination.
 /// The returned function captures the exact C++ types — no branching on DataType at
 /// runtime. Returns an error if the conversion is unsupported.
 std::pair<ReadConverter, xerrors::Error> resolve_read_converter(
     Type json_type,
     const telem::DataType &target_type,
-    bool strict = false
+    const ReadOptions &opts = {}
 );
 
 /// Convert a SampleValue to a JSON value of the given target type.
 std::pair<nlohmann::json, xerrors::Error>
 from_sample_value(const telem::SampleValue &value, Type target);
 
-/// Config-time check that a DataType can be converted to the given JSON type.
-/// Returns UNSUPPORTED_ERR if the conversion is not supported.
+/// Config-time check that a `DataType` can be converted to the given JSON `Type`.
+/// Returns `UNSUPPORTED_ERROR` if the conversion is not supported.
 xerrors::Error check_from_sample_value(const telem::DataType &type, Type target);
 
-/// Convert a TimeStamp to a JSON value using the given time format.
+/// Convert a `TimeStamp` to a JSON value using the given `TimeFormat`.
 nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format);
 
-/// Get zero value for a JSON format type.
+/// Get zero value for a JSON `Type`.
 ///
 /// Type::Number → 0, Type::String → "", Type::Boolean → false
 nlohmann::json zero_value(Type format);

@@ -15,62 +15,116 @@ namespace xjson {
 
 template<typename T>
 ReadConverter make_number_reader() {
-    return [](const nlohmann::json &value) -> std::pair<telem::Series, xerrors::Error> {
-        return {telem::Series(static_cast<T>(value.get<double>())), xerrors::NIL};
+    return [](const nlohmann::json &value)
+               -> std::pair<telem::SampleValue, xerrors::Error> {
+        return {telem::SampleValue(static_cast<T>(value.get<double>())), xerrors::NIL};
     };
 }
 
 template<typename T>
 ReadConverter make_strict_number_reader() {
-    return [](const nlohmann::json &value) -> std::pair<telem::Series, xerrors::Error> {
+    return [](const nlohmann::json &value)
+               -> std::pair<telem::SampleValue, xerrors::Error> {
         const double v = value.get<double>();
         if constexpr (std::is_integral_v<T>) {
             if (v != std::trunc(v))
-                return {telem::Series(static_cast<T>(0)), TRUNCATION_ERR};
+                return {telem::SampleValue(static_cast<T>(0)), TRUNCATION_ERROR};
             if (v < static_cast<double>(std::numeric_limits<T>::min()) ||
                 v > static_cast<double>(std::numeric_limits<T>::max()))
-                return {telem::Series(static_cast<T>(0)), OVERFLOW_ERR};
+                return {telem::SampleValue(static_cast<T>(0)), OVERFLOW_ERROR};
         }
-        return {telem::Series(static_cast<T>(v)), xerrors::NIL};
+        return {telem::SampleValue(static_cast<T>(v)), xerrors::NIL};
     };
 }
 
 template<typename T>
 ReadConverter make_bool_numeric_reader() {
-    return [](const nlohmann::json &value) -> std::pair<telem::Series, xerrors::Error> {
-        return {telem::Series(static_cast<T>(value.get<bool>() ? 1 : 0)), xerrors::NIL};
+    return [](const nlohmann::json &value)
+               -> std::pair<telem::SampleValue, xerrors::Error> {
+        return {
+            telem::SampleValue(static_cast<T>(value.get<bool>() ? 1 : 0)),
+            xerrors::NIL
+        };
+    };
+}
+
+ReadConverter make_timestamp_reader(const int64_t multiplier) {
+    return [multiplier](const nlohmann::json &value)
+               -> std::pair<telem::SampleValue, xerrors::Error> {
+        return {
+            telem::SampleValue(telem::TimeStamp(value.get<int64_t>() * multiplier)),
+            xerrors::NIL
+        };
     };
 }
 
 std::pair<ReadConverter, xerrors::Error> resolve_read_converter(
     xjson::Type json_type,
     const telem::DataType &target_type,
-    bool strict
+    const ReadOptions &opts
 ) {
+    // Number/String → TimeStamp
+    if (target_type == telem::TIMESTAMP_T) {
+        if (json_type == xjson::Type::Number) {
+            switch (opts.time_format) {
+                case TimeFormat::UnixNanosecond:
+                    return {make_timestamp_reader(1), xerrors::NIL};
+                case TimeFormat::UnixMicrosecond:
+                    return {make_timestamp_reader(1000), xerrors::NIL};
+                case TimeFormat::UnixMillisecond:
+                    return {make_timestamp_reader(1000000), xerrors::NIL};
+                case TimeFormat::UnixSecondInt:
+                    return {make_timestamp_reader(1000000000), xerrors::NIL};
+                case TimeFormat::UnixSecondFloat:
+                    return {
+                        [](const nlohmann::json &value)
+                            -> std::pair<telem::SampleValue, xerrors::Error> {
+                            return {
+                                telem::SampleValue(telem::TimeStamp(
+                                    static_cast<int64_t>(
+                                        value.get<double>() * 1e9
+                                    )
+                                )),
+                                xerrors::NIL
+                            };
+                        },
+                        xerrors::NIL
+                    };
+                case TimeFormat::ISO8601:
+                    return {nullptr, UNSUPPORTED_ERROR};
+            }
+        }
+        // TODO: String + ISO8601 → TimeStamp (requires ISO8601 parser)
+        return {nullptr, UNSUPPORTED_ERROR};
+    }
+
     // Any → String
     if (target_type == telem::STRING_T) {
         if (json_type == xjson::Type::Number)
             return {
                 [](const nlohmann::json &value)
-                    -> std::pair<telem::Series, xerrors::Error> {
-                    return {telem::Series(value.dump()), xerrors::NIL};
+                    -> std::pair<telem::SampleValue, xerrors::Error> {
+                    return {telem::SampleValue(value.dump()), xerrors::NIL};
                 },
                 xerrors::NIL
             };
         if (json_type == xjson::Type::String)
             return {
                 [](const nlohmann::json &value)
-                    -> std::pair<telem::Series, xerrors::Error> {
-                    return {telem::Series(value.get<std::string>()), xerrors::NIL};
+                    -> std::pair<telem::SampleValue, xerrors::Error> {
+                    return {
+                        telem::SampleValue(value.get<std::string>()),
+                        xerrors::NIL
+                    };
                 },
                 xerrors::NIL
             };
         if (json_type == xjson::Type::Boolean)
             return {
                 [](const nlohmann::json &value)
-                    -> std::pair<telem::Series, xerrors::Error> {
+                    -> std::pair<telem::SampleValue, xerrors::Error> {
                     return {
-                        telem::Series(
+                        telem::SampleValue(
                             std::string(value.get<bool>() ? "true" : "false")
                         ),
                         xerrors::NIL
@@ -110,7 +164,7 @@ std::pair<ReadConverter, xerrors::Error> resolve_read_converter(
             return {make_number_reader<double>(), xerrors::NIL};
         if (target_type == telem::FLOAT32_T)
             return {make_number_reader<float>(), xerrors::NIL};
-        if (strict) {
+        if (opts.strict) {
             if (target_type == telem::INT64_T)
                 return {make_strict_number_reader<int64_t>(), xerrors::NIL};
             if (target_type == telem::INT32_T)

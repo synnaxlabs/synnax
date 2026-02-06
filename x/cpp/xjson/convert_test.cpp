@@ -20,16 +20,16 @@ using json = nlohmann::json;
 // ========================== resolve_read_converter ==========================
 //
 // --- JSON Number → Synnax Numeric ---
-// [x] resolved (Number, float64) converts json 42.5 → Series with double
-// [x] resolved (Number, float32) converts json 42.5 → Series with float
-// [x] resolved (Number, int64) converts json 7 → Series with int64_t
-// [x] resolved (Number, int32) converts json 7 → Series with int32_t
-// [x] resolved (Number, int16) converts json 7 → Series with int16_t
-// [x] resolved (Number, int8) converts json 7 → Series with int8_t
-// [x] resolved (Number, uint64) converts json 7 → Series with uint64_t
-// [x] resolved (Number, uint32) converts json 7 → Series with uint32_t
-// [x] resolved (Number, uint16) converts json 7 → Series with uint16_t
-// [x] resolved (Number, uint8) converts json 7 → Series with uint8_t
+// [x] resolved (Number, float64) converts json 42.5 → SampleValue with double
+// [x] resolved (Number, float32) converts json 42.5 → SampleValue with float
+// [x] resolved (Number, int64) converts json 7 → SampleValue with int64_t
+// [x] resolved (Number, int32) converts json 7 → SampleValue with int32_t
+// [x] resolved (Number, int16) converts json 7 → SampleValue with int16_t
+// [x] resolved (Number, int8) converts json 7 → SampleValue with int8_t
+// [x] resolved (Number, uint64) converts json 7 → SampleValue with uint64_t
+// [x] resolved (Number, uint32) converts json 7 → SampleValue with uint32_t
+// [x] resolved (Number, uint16) converts json 7 → SampleValue with uint16_t
+// [x] resolved (Number, uint8) converts json 7 → SampleValue with uint8_t
 //
 // --- JSON Number → Synnax Numeric (strict truncation) ---
 // [x] resolved (Number, int64, strict=false) with json 3.7 succeeds, writes 3
@@ -38,24 +38,24 @@ using json = nlohmann::json;
 // [x] resolved (Number, uint8, strict=true) with json -1 returns error (underflow)
 //
 // --- JSON Number → Synnax String ---
-// [x] resolved (Number, string) converts json 42.5 → Series with "42.5"
-// [x] resolved (Number, string) converts json 7 → Series with "7"
+// [x] resolved (Number, string) converts json 42.5 → SampleValue with "42.5"
+// [x] resolved (Number, string) converts json 7 → SampleValue with "7"
 //
 // --- JSON String → Synnax String ---
-// [x] resolved (String, string) converts json "hello" → Series with "hello"
+// [x] resolved (String, string) converts json "hello" → SampleValue with "hello"
 //
 // --- JSON String → Synnax Numeric ---
 // [x] resolve (String, float64) returns error at resolve time
 //
 // --- JSON Boolean → Synnax Numeric ---
-// [x] resolved (Boolean, int64) converts json true → Series with int64_t(1)
-// [x] resolved (Boolean, int64) converts json false → Series with int64_t(0)
-// [x] resolved (Boolean, float64) converts json true → Series with double(1.0)
-// [x] resolved (Boolean, uint8) converts json false → Series with uint8_t(0)
+// [x] resolved (Boolean, int64) converts json true → SampleValue with int64_t(1)
+// [x] resolved (Boolean, int64) converts json false → SampleValue with int64_t(0)
+// [x] resolved (Boolean, float64) converts json true → SampleValue with double(1.0)
+// [x] resolved (Boolean, uint8) converts json false → SampleValue with uint8_t(0)
 //
 // --- JSON Boolean → Synnax String ---
-// [x] resolved (Boolean, string) converts json true → Series with "true"
-// [x] resolved (Boolean, string) converts json false → Series with "false"
+// [x] resolved (Boolean, string) converts json true → SampleValue with "true"
+// [x] resolved (Boolean, string) converts json false → SampleValue with "false"
 //
 // --- Unsupported conversions ---
 // [x] resolve (Number, UUID) returns error at resolve time
@@ -67,123 +67,123 @@ TEST(ResolveReadConverter, NumberToFloat64) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::FLOAT64_T)
     );
-    const auto series = ASSERT_NIL_P(converter(json(42.5)));
-    ASSERT_DOUBLE_EQ(series.at<double>(0), 42.5);
+    const auto sv = ASSERT_NIL_P(converter(json(42.5)));
+    ASSERT_DOUBLE_EQ(std::get<double>(sv), 42.5);
 }
 
 TEST(ResolveReadConverter, NumberToFloat32) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::FLOAT32_T)
     );
-    const auto [series, err] = converter(json(42.5));
+    const auto [sv, err] = converter(json(42.5));
     ASSERT_NIL(err);
-    ASSERT_FLOAT_EQ(series.at<float>(0), 42.5f);
+    ASSERT_FLOAT_EQ(std::get<float>(sv), 42.5f);
 }
 
 TEST(ResolveReadConverter, NumberToInt64) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::INT64_T)
     );
-    const auto [series, err] = converter(json(7));
+    const auto [sv, err] = converter(json(7));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<int64_t>(0), 7);
+    ASSERT_EQ(std::get<int64_t>(sv), 7);
 }
 
 TEST(ResolveReadConverter, NumberToInt32) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::INT32_T)
     );
-    const auto [series, err] = converter(json(7));
+    const auto [sv, err] = converter(json(7));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<int32_t>(0), 7);
+    ASSERT_EQ(std::get<int32_t>(sv), 7);
 }
 
 TEST(ResolveReadConverter, NumberToInt16) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::INT16_T)
     );
-    const auto [series, err] = converter(json(7));
+    const auto [sv, err] = converter(json(7));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<int16_t>(0), 7);
+    ASSERT_EQ(std::get<int16_t>(sv), 7);
 }
 
 TEST(ResolveReadConverter, NumberToInt8) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::INT8_T)
     );
-    const auto [series, err] = converter(json(7));
+    const auto [sv, err] = converter(json(7));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<int8_t>(0), 7);
+    ASSERT_EQ(std::get<int8_t>(sv), 7);
 }
 
 TEST(ResolveReadConverter, NumberToUint64) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::UINT64_T)
     );
-    const auto [series, err] = converter(json(7));
+    const auto [sv, err] = converter(json(7));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<uint64_t>(0), 7);
+    ASSERT_EQ(std::get<uint64_t>(sv), 7);
 }
 
 TEST(ResolveReadConverter, NumberToUint32) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::UINT32_T)
     );
-    const auto [series, err] = converter(json(7));
+    const auto [sv, err] = converter(json(7));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<uint32_t>(0), 7);
+    ASSERT_EQ(std::get<uint32_t>(sv), 7);
 }
 
 TEST(ResolveReadConverter, NumberToUint16) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::UINT16_T)
     );
-    const auto [series, err] = converter(json(7));
+    const auto [sv, err] = converter(json(7));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<uint16_t>(0), 7);
+    ASSERT_EQ(std::get<uint16_t>(sv), 7);
 }
 
 TEST(ResolveReadConverter, NumberToUint8) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::UINT8_T)
     );
-    const auto [series, err] = converter(json(7));
+    const auto [sv, err] = converter(json(7));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<uint8_t>(0), 7);
+    ASSERT_EQ(std::get<uint8_t>(sv), 7);
 }
 
 // --- Strict truncation ---
 
 TEST(ResolveReadConverter, NumberToInt64NonStrictTruncation) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(xjson::Type::Number, telem::INT64_T, false)
+        xjson::resolve_read_converter(xjson::Type::Number, telem::INT64_T, {.strict = false})
     );
-    const auto [series, err] = converter(json(3.7));
+    const auto [sv, err] = converter(json(3.7));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<int64_t>(0), 3);
+    ASSERT_EQ(std::get<int64_t>(sv), 3);
 }
 
 TEST(ResolveReadConverter, NumberToInt64StrictTruncationError) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(xjson::Type::Number, telem::INT64_T, true)
+        xjson::resolve_read_converter(xjson::Type::Number, telem::INT64_T, {.strict = true})
     );
-    auto [series, write_err] = converter(json(3.7));
+    auto [sv, write_err] = converter(json(3.7));
     ASSERT_OCCURRED_AS(write_err, xjson::TRUNCATION_ERROR);
 }
 
 TEST(ResolveReadConverter, NumberToUint8StrictOverflow) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(xjson::Type::Number, telem::UINT8_T, true)
+        xjson::resolve_read_converter(xjson::Type::Number, telem::UINT8_T, {.strict = true})
     );
-    auto [series, write_err] = converter(json(300));
+    auto [sv, write_err] = converter(json(300));
     ASSERT_OCCURRED_AS(write_err, xjson::OVERFLOW_ERROR);
 }
 
 TEST(ResolveReadConverter, NumberToUint8StrictUnderflow) {
     const auto converter = ASSERT_NIL_P(
-        xjson::resolve_read_converter(xjson::Type::Number, telem::UINT8_T, true)
+        xjson::resolve_read_converter(xjson::Type::Number, telem::UINT8_T, {.strict = true})
     );
-    auto [series, write_err] = converter(json(-1));
+    auto [sv, write_err] = converter(json(-1));
     ASSERT_OCCURRED_AS(write_err, xjson::OVERFLOW_ERROR);
 }
 
@@ -193,18 +193,18 @@ TEST(ResolveReadConverter, NumberToStringDecimal) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::STRING_T)
     );
-    const auto [series, err] = converter(json(42.5));
+    const auto [sv, err] = converter(json(42.5));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<std::string>(0), "42.5");
+    ASSERT_EQ(std::get<std::string>(sv), "42.5");
 }
 
 TEST(ResolveReadConverter, NumberToStringInteger) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::STRING_T)
     );
-    const auto [series, err] = converter(json(7));
+    const auto [sv, err] = converter(json(7));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<std::string>(0), "7");
+    ASSERT_EQ(std::get<std::string>(sv), "7");
 }
 
 // --- String → String ---
@@ -213,9 +213,9 @@ TEST(ResolveReadConverter, StringToString) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::String, telem::STRING_T)
     );
-    const auto [series, err] = converter(json("hello"));
+    const auto [sv, err] = converter(json("hello"));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<std::string>(0), "hello");
+    ASSERT_EQ(std::get<std::string>(sv), "hello");
 }
 
 // --- String → Numeric (unsupported) ---
@@ -233,36 +233,36 @@ TEST(ResolveReadConverter, BooleanTrueToInt64) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Boolean, telem::INT64_T)
     );
-    const auto [series, err] = converter(json(true));
+    const auto [sv, err] = converter(json(true));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<int64_t>(0), 1);
+    ASSERT_EQ(std::get<int64_t>(sv), 1);
 }
 
 TEST(ResolveReadConverter, BooleanFalseToInt64) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Boolean, telem::INT64_T)
     );
-    const auto [series, err] = converter(json(false));
+    const auto [sv, err] = converter(json(false));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<int64_t>(0), 0);
+    ASSERT_EQ(std::get<int64_t>(sv), 0);
 }
 
 TEST(ResolveReadConverter, BooleanTrueToFloat64) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Boolean, telem::FLOAT64_T)
     );
-    const auto [series, err] = converter(json(true));
+    const auto [sv, err] = converter(json(true));
     ASSERT_NIL(err);
-    ASSERT_DOUBLE_EQ(series.at<double>(0), 1.0);
+    ASSERT_DOUBLE_EQ(std::get<double>(sv), 1.0);
 }
 
 TEST(ResolveReadConverter, BooleanFalseToUint8) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Boolean, telem::UINT8_T)
     );
-    const auto [series, err] = converter(json(false));
+    const auto [sv, err] = converter(json(false));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<uint8_t>(0), 0);
+    ASSERT_EQ(std::get<uint8_t>(sv), 0);
 }
 
 // --- Boolean → String ---
@@ -271,18 +271,18 @@ TEST(ResolveReadConverter, BooleanTrueToString) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Boolean, telem::STRING_T)
     );
-    const auto [series, err] = converter(json(true));
+    const auto [sv, err] = converter(json(true));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<std::string>(0), "true");
+    ASSERT_EQ(std::get<std::string>(sv), "true");
 }
 
 TEST(ResolveReadConverter, BooleanFalseToString) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Boolean, telem::STRING_T)
     );
-    const auto [series, err] = converter(json(false));
+    const auto [sv, err] = converter(json(false));
     ASSERT_NIL(err);
-    ASSERT_EQ(series.at<std::string>(0), "false");
+    ASSERT_EQ(std::get<std::string>(sv), "false");
 }
 
 // --- Unsupported target types ---
@@ -297,6 +297,80 @@ TEST(ResolveReadConverter, NumberToUUIDError) {
 TEST(ResolveReadConverter, NumberToJSONError) {
     ASSERT_OCCURRED_AS_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::JSON_T),
+        xjson::UNSUPPORTED_ERROR
+    );
+}
+
+// --- Number → TimeStamp ---
+
+TEST(ResolveReadConverter, NumberToTimestampNanosecond) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::Number, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::UnixNanosecond}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json(int64_t(1000000000000000000))));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000000000000));
+}
+
+TEST(ResolveReadConverter, NumberToTimestampMicrosecond) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::Number, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::UnixMicrosecond}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json(int64_t(1000000))));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000));
+}
+
+TEST(ResolveReadConverter, NumberToTimestampMillisecond) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::Number, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::UnixMillisecond}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json(int64_t(1500))));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1500000000));
+}
+
+TEST(ResolveReadConverter, NumberToTimestampSecondInt) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::Number, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::UnixSecondInt}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json(int64_t(1000000000))));
+    ASSERT_EQ(
+        std::get<telem::TimeStamp>(sv),
+        telem::TimeStamp(1000000000000000000)
+    );
+}
+
+TEST(ResolveReadConverter, NumberToTimestampSecondFloat) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::Number, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::UnixSecondFloat}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json(1.5)));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1500000000));
+}
+
+TEST(ResolveReadConverter, NumberToTimestampISO8601Error) {
+    ASSERT_OCCURRED_AS_P(
+        xjson::resolve_read_converter(
+            xjson::Type::Number, telem::TIMESTAMP_T,
+            {.time_format = xjson::TimeFormat::ISO8601}
+        ),
+        xjson::UNSUPPORTED_ERROR
+    );
+}
+
+TEST(ResolveReadConverter, StringToTimestampError) {
+    ASSERT_OCCURRED_AS_P(
+        xjson::resolve_read_converter(xjson::Type::String, telem::TIMESTAMP_T),
+        xjson::UNSUPPORTED_ERROR
+    );
+}
+
+TEST(ResolveReadConverter, BooleanToTimestampError) {
+    ASSERT_OCCURRED_AS_P(
+        xjson::resolve_read_converter(xjson::Type::Boolean, telem::TIMESTAMP_T),
         xjson::UNSUPPORTED_ERROR
     );
 }
