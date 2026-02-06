@@ -22,11 +22,16 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-var ctx = context.Background()
-
 var _ = Describe("Authority", func() {
+	var ctx = context.Background()
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
 	Describe("NewFactory", func() {
 		It("Should create factory with state", func() {
 			g := graph.Graph{
@@ -97,8 +102,8 @@ var _ = Describe("Authority", func() {
 			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			changes := s.FlushAuthorityChanges()
 			Expect(changes).To(HaveLen(1))
-			Expect(changes[0].ChannelKey).ToNot(BeNil())
-			Expect(*changes[0].ChannelKey).To(Equal(uint32(42)))
+			Expect(changes[0].Channel).ToNot(BeNil())
+			Expect(*changes[0].Channel).To(Equal(uint32(42)))
 		})
 		It("Should parse channel config with zero (global)", func() {
 			cfg := node.Config{
@@ -118,7 +123,7 @@ var _ = Describe("Authority", func() {
 			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			changes := s.FlushAuthorityChanges()
 			Expect(changes).To(HaveLen(1))
-			Expect(changes[0].ChannelKey).To(BeNil())
+			Expect(changes[0].Channel).To(BeNil())
 		})
 	})
 
@@ -151,13 +156,13 @@ var _ = Describe("Authority", func() {
 				},
 				State: s.Node("set_auth"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			changes := s.FlushAuthorityChanges()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Authority).To(Equal(uint8(200)))
-			Expect(changes[0].ChannelKey).ToNot(BeNil())
-			Expect(*changes[0].ChannelKey).To(Equal(uint32(42)))
+			Expect(changes[0].Channel).ToNot(BeNil())
+			Expect(*changes[0].Channel).To(Equal(uint32(42)))
 		})
 
 		It("Should buffer global authority change", func() {
@@ -171,12 +176,12 @@ var _ = Describe("Authority", func() {
 				},
 				State: s.Node("set_auth"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			changes := s.FlushAuthorityChanges()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Authority).To(Equal(uint8(150)))
-			Expect(changes[0].ChannelKey).To(BeNil())
+			Expect(changes[0].Channel).To(BeNil())
 		})
 
 		It("Should fire only once before Reset", func() {
@@ -190,7 +195,7 @@ var _ = Describe("Authority", func() {
 				},
 				State: s.Node("set_auth"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
 			n.Next(nCtx)
 			n.Next(nCtx)
@@ -210,7 +215,7 @@ var _ = Describe("Authority", func() {
 				},
 				State: s.Node("set_auth"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {
 				outputs = append(outputs, output)
 			}})
@@ -245,15 +250,11 @@ var _ = Describe("Authority", func() {
 				},
 				State: s.Node("set_auth"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
-
-			// First fire
 			n.Next(nCtx)
 			changes := s.FlushAuthorityChanges()
 			Expect(changes).To(HaveLen(1))
-
-			// Reset and fire again
 			n.Reset()
 			n.Next(nCtx)
 			changes = s.FlushAuthorityChanges()
@@ -271,22 +272,17 @@ var _ = Describe("Authority", func() {
 				},
 				State: s.Node("set_auth"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
-
-			// First fire
 			n.Next(nCtx)
 			first := s.FlushAuthorityChanges()
 			Expect(first).To(HaveLen(1))
-
-			// Reset and fire again
 			n.Reset()
 			n.Next(nCtx)
 			second := s.FlushAuthorityChanges()
 			Expect(second).To(HaveLen(1))
-
 			Expect(second[0].Authority).To(Equal(first[0].Authority))
-			Expect(*second[0].ChannelKey).To(Equal(*first[0].ChannelKey))
+			Expect(*second[0].Channel).To(Equal(*first[0].Channel))
 		})
 	})
 
@@ -310,7 +306,7 @@ var _ = Describe("Authority", func() {
 				},
 				State: s.Node("set_auth"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n.IsOutputTruthy("")).To(BeFalse())
 			Expect(n.IsOutputTruthy("output")).To(BeFalse())
 			Expect(n.IsOutputTruthy("anything")).To(BeFalse())

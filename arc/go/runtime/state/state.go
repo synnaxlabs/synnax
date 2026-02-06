@@ -36,9 +36,9 @@ type value struct {
 // It is produced by set_authority nodes during reactive execution and consumed
 // by the runtime task when flushing state.
 type AuthorityChange struct {
-	// ChannelKey is the specific channel to change authority for.
+	// Channel is the specific channel to change authority for.
 	// If nil, the change applies to all write channels.
-	ChannelKey *uint32
+	Channel *uint32
 	// Authority is the new authority value (0-255).
 	Authority uint8
 }
@@ -135,8 +135,8 @@ func (s *State) Flush(fr telem.Frame[uint32]) (telem.Frame[uint32], bool) {
 // If channelKey is nil, the change applies to all write channels.
 func (s *State) SetAuthority(channelKey *uint32, authority uint8) {
 	s.authorityChanges = append(s.authorityChanges, AuthorityChange{
-		ChannelKey: channelKey,
-		Authority:  authority,
+		Channel:   channelKey,
+		Authority: authority,
 	})
 }
 

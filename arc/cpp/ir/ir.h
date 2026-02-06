@@ -601,7 +601,7 @@ struct IR {
         sequences.reserve(pb.sequences_size());
         for (const auto &seq_pb: pb.sequences())
             sequences.emplace_back(seq_pb);
-        if (pb.has_authority()) authorities = Authorities(pb.authority());
+        if (pb.has_authorities()) authorities = Authorities(pb.authorities());
     }
 
     void to_proto(arc::v1::ir::PBIR *pb) const {
@@ -618,7 +618,7 @@ struct IR {
         pb->mutable_sequences()->Reserve(static_cast<int>(sequences.size()));
         for (const auto &seq: sequences)
             seq.to_proto(pb->add_sequences());
-        authorities.to_proto(pb->mutable_authority());
+        authorities.to_proto(pb->mutable_authorities());
     }
 
     /// @brief Returns the node with the given key.

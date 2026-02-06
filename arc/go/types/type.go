@@ -75,10 +75,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// ChanDirection is a bitmask indicating whether a channel-typed config parameter
-// is used for reading, writing, or both. This metadata drives the fallback path
-// in ResolveConfigChannel so that built-in functions correctly populate the
-// read/write sets without node-type special-casing.
+// ChanDirection is a bitmask indicating whether a channel is used for reading,
+// writing, or both.
 type ChanDirection int
 
 const (

@@ -6,19 +6,19 @@
       "tests": [
         {
           "case": "arc/arc_press_sequence",
-          "parameters": { "rack_key": [65537] }
+          "parameters": { "rack_key": [65537, 65538] }
         },
         {
           "case": "arc/arc_thermal_monitor",
-          "parameters": { "rack_key": [65537] }
+          "parameters": { "rack_key": [65537, 65538] }
         },
         {
           "case": "arc/arc_tpc_cold_flow",
-          "parameters": { "rack_key": [65537] }
+          "parameters": { "rack_key": [65537, 65538] }
         },
         {
           "case": "arc/arc_interval_press",
-          "parameters": { "rack_key": [65537] }
+          "parameters": { "rack_key": [65537, 65538] }
         }
       ]
     },
@@ -27,27 +27,27 @@
       "tests": [
         {
           "case": "arc/arc_static_authority",
-          "parameters": { "rack_key": [65537] }
+          "parameters": { "rack_key": [65537, 65538] }
         },
         {
           "case": "arc/arc_dynamic_authority",
-          "parameters": { "rack_key": [65537] }
+          "parameters": { "rack_key": [65537, 65538] }
         },
         {
           "case": "arc/arc_authority_python_override",
-          "parameters": { "rack_key": [65537] }
+          "parameters": { "rack_key": [65537, 65538] }
         },
         {
           "case": "arc/arc_authority_arc_vs_arc",
-          "parameters": { "rack_key": [65537] }
+          "parameters": { "rack_key": [65537, 65538] }
         },
         {
           "case": "arc/arc_authority_schematic_override",
-          "parameters": { "rack_key": [65537] }
+          "parameters": { "rack_key": [65537, 65538] }
         },
         {
           "case": "arc/arc_authority_emergency",
-          "parameters": { "rack_key": [65537] }
+          "parameters": { "rack_key": [65537, 65538] }
         }
       ]
     }

@@ -211,14 +211,11 @@ var _ = Describe("Parser", func() {
 			Expect(authBlock).NotTo(BeNil())
 			entries := authBlock.AllAuthorityEntry()
 			Expect(entries).To(HaveLen(3))
-			// Default
 			Expect(entries[0].IDENTIFIER()).To(BeNil())
 			Expect(entries[0].INTEGER_LITERAL().GetText()).To(Equal("200"))
-			// valve 100
 			Expect(entries[1].IDENTIFIER()).NotTo(BeNil())
 			Expect(entries[1].IDENTIFIER().GetText()).To(Equal("valve"))
 			Expect(entries[1].INTEGER_LITERAL().GetText()).To(Equal("100"))
-			// vent 150
 			Expect(entries[2].IDENTIFIER()).NotTo(BeNil())
 			Expect(entries[2].IDENTIFIER().GetText()).To(Equal("vent"))
 			Expect(entries[2].INTEGER_LITERAL().GetText()).To(Equal("150"))

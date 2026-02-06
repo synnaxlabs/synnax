@@ -343,8 +343,8 @@ func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
 	changes := d.state.FlushAuthorityChanges()
 	for _, change := range changes {
 		cfg := writer.Config{}
-		if change.ChannelKey != nil {
-			cfg.Keys = channel.Keys{channel.Key(*change.ChannelKey)}
+		if change.Channel != nil {
+			cfg.Keys = channel.Keys{channel.Key(*change.Channel)}
 			cfg.Authorities = []control.Authority{control.Authority(change.Authority)}
 		} else {
 			cfg.Keys = d.writeKeys

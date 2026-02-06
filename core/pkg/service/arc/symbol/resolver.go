@@ -15,7 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
-	arcauthority "github.com/synnaxlabs/arc/runtime/authority"
+	"github.com/synnaxlabs/arc/runtime/authority"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/op"
 	"github.com/synnaxlabs/arc/runtime/selector"
@@ -77,7 +77,7 @@ func CreateResolver(channelSvc *channel.Service) arc.SymbolResolver {
 		selector.SymbolResolver,
 		stable.SymbolResolver,
 		status.SymbolResolver,
-		arcauthority.SymbolResolver,
+		authority.SymbolResolver,
 		telem.SymbolResolver,
 		stat.SymbolResolver,
 		time.SymbolResolver,

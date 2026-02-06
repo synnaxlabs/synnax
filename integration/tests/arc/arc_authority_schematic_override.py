@@ -85,7 +85,6 @@ class ArcAuthoritySchematicOverride(SimDaqTestCase, ConsoleCase):
             self.fail("Arc should open valve at authority 200")
             return
 
-        # Create schematic with valve
         self.log("Creating schematic with valve")
         schematic = Schematic(self.console, "authority_test_schematic")
         schematic.move("left")
