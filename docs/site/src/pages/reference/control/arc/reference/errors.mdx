@@ -76,10 +76,10 @@ result := add(5.0)
 
 ### Symbol Errors (ARC4xxx)
 
-| Code    | Name            | Description                         |
-| ------- | --------------- | ----------------------------------- |
-| ARC4001 | SymbolUndefined | Referenced symbol not found         |
-| ARC4002 | SymbolRedefined | Symbol declared twice in same scope |
+| Code    | Name            | Description                                                  |
+| ------- | --------------- | ------------------------------------------------------------ |
+| ARC4001 | SymbolUndefined | Referenced symbol not found                                  |
+| ARC4002 | SymbolRedefined | Symbol conflicts with declaration in same or enclosing scope |
 
 **Example: SymbolUndefined**
 
@@ -93,6 +93,15 @@ value := ox_pt_1    // channel doesn't exist in cluster
 ```arc
 x := 42
 x := 100    // Error: x already declared
+```
+
+```arc
+func example() {
+    x := 10
+    if x > 0 {
+        x := 20  // Error: conflicts with outer x
+    }
+}
 ```
 
 <Divider.Divider x />

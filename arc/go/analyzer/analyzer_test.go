@@ -69,6 +69,62 @@ var _ = Describe("Analyzer Integration", func() {
 		})
 	})
 
+	Describe("Global Shadowing Resolution", func() {
+		It("Should allow shadowing built-in function names", func() {
+			globalResolver := symbol.MapResolver{
+				"min": symbol.Symbol{Name: "min", Kind: symbol.KindFunction, Type: types.F64()},
+			}
+			prog := MustSucceed(parser.Parse(`
+				func test() i64 {
+					min i64 := 10
+					return min
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, globalResolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
+		})
+
+		It("Should resolve to local variable when shadowing global", func() {
+			globalResolver := symbol.MapResolver{
+				"value": symbol.Symbol{Name: "value", Kind: symbol.KindConfig, Type: types.F64()},
+			}
+			prog := MustSucceed(parser.Parse(`
+				func test() i32 {
+					value i32 := 42
+					return value
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, globalResolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
+			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "test"))
+			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
+			varScope := MustSucceed(blockScope.Resolve(ctx, "value"))
+			Expect(varScope.Type).To(Equal(types.I32()))
+		})
+
+		It("Should use shadowed local in expressions", func() {
+			globalResolver := symbol.MapResolver{
+				"x": symbol.Symbol{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
+			}
+			prog := MustSucceed(parser.Parse(`
+				func test() i64 {
+					x i64 := 5
+					y := x + 10
+					return y
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, globalResolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
+			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "test"))
+			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
+			yScope := MustSucceed(blockScope.Resolve(ctx, "y"))
+			Expect(yScope.Type).To(Equal(types.I64()))
+		})
+	})
+
 	Describe("Type Unification Results", func() {
 		type unificationCase struct {
 			source       string

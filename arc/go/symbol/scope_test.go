@@ -135,6 +135,28 @@ var _ = Describe("Scope", func() {
 			scope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(scope).ToNot(BeNil())
 		})
+		It("Should resolve to local symbol when shadowing global", func() {
+			globalResolver := symbol.MapResolver{
+				"x": symbol.Symbol{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
+			}
+			rootScope := symbol.CreateRootScope(globalResolver)
+			localScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
+			resolved := MustSucceed(rootScope.Resolve(bCtx, "x"))
+			Expect(resolved).To(Equal(localScope))
+			Expect(resolved.Kind).To(Equal(symbol.KindVariable))
+			Expect(resolved.Type).To(Equal(types.I32()))
+		})
+		It("Should resolve to local symbol when shadowing global in nested scope", func() {
+			globalResolver := symbol.MapResolver{
+				"x": symbol.Symbol{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
+			}
+			rootScope := symbol.CreateRootScope(globalResolver)
+			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
+			localScope := MustSucceed(funcScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
+			resolved := MustSucceed(funcScope.Resolve(bCtx, "x"))
+			Expect(resolved).To(Equal(localScope))
+			Expect(resolved.Type).To(Equal(types.I32()))
+		})
 		It("Should allow symbols with empty names", func() {
 			rootScope := symbol.CreateRootScope(nil)
 			child := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "", Kind: symbol.KindBlock}))

@@ -194,6 +194,55 @@ ratio /= 4       // ratio = ratio / 4
 remainder %= 3   // remainder = remainder % 3
 ```
 
+### Variable Scope
+
+Variables are visible from their declaration point to the end of their enclosing block.
+Nested blocks can access variables from enclosing scopes.
+
+```arc
+func example() {
+    x := 10              // visible for rest of function
+    if x > 5 {
+        y := x + 1       // visible only inside if block
+    }
+    // y is not visible here
+}
+```
+
+### No Shadowing
+
+Arc does not allow shadowing. A variable cannot have the same name as one in an
+enclosing scope:
+
+```arc
+func example() {
+    x i32 := 10
+    if x > 0 {
+        x i32 := 20      // Error: conflicts with outer x
+    }
+}
+```
+
+Use a different name or reassign the existing variable:
+
+```arc
+func example() {
+    x i32 := 10
+    if x > 0 {
+        inner_x i32 := 20    // different name
+        x = 20               // reassign existing
+    }
+}
+```
+
+Local variables can shadow built-in functions and constants:
+
+```arc
+func example() {
+    min := 10    // shadows built-in min function
+}
+```
+
 <Divider.Divider x />
 
 ## Statements
