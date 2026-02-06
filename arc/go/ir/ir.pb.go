@@ -561,6 +561,58 @@ func (x *PBNode) GetChannels() *symbol.PBChannels {
 	return nil
 }
 
+type PBAuthorities struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Default       *uint32                `protobuf:"varint,1,opt,name=default,proto3,oneof" json:"default,omitempty"`
+	Channels      map[uint32]uint32      `protobuf:"bytes,2,rep,name=channels,proto3" json:"channels,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PBAuthorities) Reset() {
+	*x = PBAuthorities{}
+	mi := &file_arc_go_ir_ir_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PBAuthorities) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PBAuthorities) ProtoMessage() {}
+
+func (x *PBAuthorities) ProtoReflect() protoreflect.Message {
+	mi := &file_arc_go_ir_ir_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PBAuthorities.ProtoReflect.Descriptor instead.
+func (*PBAuthorities) Descriptor() ([]byte, []int) {
+	return file_arc_go_ir_ir_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *PBAuthorities) GetDefault() uint32 {
+	if x != nil && x.Default != nil {
+		return *x.Default
+	}
+	return 0
+}
+
+func (x *PBAuthorities) GetChannels() map[uint32]uint32 {
+	if x != nil {
+		return x.Channels
+	}
+	return nil
+}
+
 type PBIR struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Functions     []*PBFunction          `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`
@@ -568,13 +620,14 @@ type PBIR struct {
 	Edges         []*PBEdge              `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
 	Strata        []*PBStratum           `protobuf:"bytes,4,rep,name=strata,proto3" json:"strata,omitempty"`
 	Sequences     []*PBSequence          `protobuf:"bytes,5,rep,name=sequences,proto3" json:"sequences,omitempty"`
+	Authorities   *PBAuthorities         `protobuf:"bytes,6,opt,name=authorities,proto3" json:"authorities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PBIR) Reset() {
 	*x = PBIR{}
-	mi := &file_arc_go_ir_ir_proto_msgTypes[8]
+	mi := &file_arc_go_ir_ir_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -586,7 +639,7 @@ func (x *PBIR) String() string {
 func (*PBIR) ProtoMessage() {}
 
 func (x *PBIR) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_ir_proto_msgTypes[8]
+	mi := &file_arc_go_ir_ir_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -599,7 +652,7 @@ func (x *PBIR) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PBIR.ProtoReflect.Descriptor instead.
 func (*PBIR) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_ir_proto_rawDescGZIP(), []int{8}
+	return file_arc_go_ir_ir_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *PBIR) GetFunctions() []*PBFunction {
@@ -633,6 +686,13 @@ func (x *PBIR) GetStrata() []*PBStratum {
 func (x *PBIR) GetSequences() []*PBSequence {
 	if x != nil {
 		return x.Sequences
+	}
+	return nil
+}
+
+func (x *PBIR) GetAuthorities() *PBAuthorities {
+	if x != nil {
+		return x.Authorities
 	}
 	return nil
 }
@@ -675,13 +735,22 @@ const file_arc_go_ir_ir_proto_rawDesc = "" +
 	"\x06config\x18\x03 \x03(\v2\x15.arc.v1.types.PBParamR\x06config\x12-\n" +
 	"\x06inputs\x18\x04 \x03(\v2\x15.arc.v1.types.PBParamR\x06inputs\x12/\n" +
 	"\aoutputs\x18\x05 \x03(\v2\x15.arc.v1.types.PBParamR\aoutputs\x125\n" +
-	"\bchannels\x18\x06 \x01(\v2\x19.arc.v1.symbol.PBChannelsR\bchannels\"\xf0\x01\n" +
+	"\bchannels\x18\x06 \x01(\v2\x19.arc.v1.symbol.PBChannelsR\bchannels\"\xc7\x01\n" +
+	"\rPBAuthorities\x12\x1d\n" +
+	"\adefault\x18\x01 \x01(\rH\x00R\adefault\x88\x01\x01\x12B\n" +
+	"\bchannels\x18\x02 \x03(\v2&.arc.v1.ir.PBAuthorities.ChannelsEntryR\bchannels\x1a;\n" +
+	"\rChannelsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\rR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01B\n" +
+	"\n" +
+	"\b_defaultJ\x04\b\x03\x10\x04R\x04keys\"\xac\x02\n" +
 	"\x04PBIR\x123\n" +
 	"\tfunctions\x18\x01 \x03(\v2\x15.arc.v1.ir.PBFunctionR\tfunctions\x12'\n" +
 	"\x05nodes\x18\x02 \x03(\v2\x11.arc.v1.ir.PBNodeR\x05nodes\x12'\n" +
 	"\x05edges\x18\x03 \x03(\v2\x11.arc.v1.ir.PBEdgeR\x05edges\x12,\n" +
 	"\x06strata\x18\x04 \x03(\v2\x14.arc.v1.ir.PBStratumR\x06strata\x123\n" +
-	"\tsequences\x18\x05 \x03(\v2\x15.arc.v1.ir.PBSequenceR\tsequences*b\n" +
+	"\tsequences\x18\x05 \x03(\v2\x15.arc.v1.ir.PBSequenceR\tsequences\x12:\n" +
+	"\vauthorities\x18\x06 \x01(\v2\x18.arc.v1.ir.PBAuthoritiesR\vauthorities*b\n" +
 	"\n" +
 	"PBEdgeKind\x12\x1c\n" +
 	"\x18PB_EDGE_KIND_UNSPECIFIED\x10\x00\x12\x1b\n" +
@@ -702,7 +771,7 @@ func file_arc_go_ir_ir_proto_rawDescGZIP() []byte {
 }
 
 var file_arc_go_ir_ir_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_arc_go_ir_ir_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_arc_go_ir_ir_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_arc_go_ir_ir_proto_goTypes = []any{
 	(PBEdgeKind)(0),           // 0: arc.v1.ir.PBEdgeKind
 	(*PBHandle)(nil),          // 1: arc.v1.ir.PBHandle
@@ -713,9 +782,11 @@ var file_arc_go_ir_ir_proto_goTypes = []any{
 	(*PBFunction)(nil),        // 6: arc.v1.ir.PBFunction
 	(*PBStratum)(nil),         // 7: arc.v1.ir.PBStratum
 	(*PBNode)(nil),            // 8: arc.v1.ir.PBNode
-	(*PBIR)(nil),              // 9: arc.v1.ir.PBIR
-	(*types.PBParam)(nil),     // 10: arc.v1.types.PBParam
-	(*symbol.PBChannels)(nil), // 11: arc.v1.symbol.PBChannels
+	(*PBAuthorities)(nil),     // 9: arc.v1.ir.PBAuthorities
+	(*PBIR)(nil),              // 10: arc.v1.ir.PBIR
+	nil,                       // 11: arc.v1.ir.PBAuthorities.ChannelsEntry
+	(*types.PBParam)(nil),     // 12: arc.v1.types.PBParam
+	(*symbol.PBChannels)(nil), // 13: arc.v1.symbol.PBChannels
 }
 var file_arc_go_ir_ir_proto_depIdxs = []int32{
 	1,  // 0: arc.v1.ir.PBEdge.source:type_name -> arc.v1.ir.PBHandle
@@ -724,24 +795,26 @@ var file_arc_go_ir_ir_proto_depIdxs = []int32{
 	7,  // 3: arc.v1.ir.PBStage.strata:type_name -> arc.v1.ir.PBStratum
 	3,  // 4: arc.v1.ir.PBSequence.stages:type_name -> arc.v1.ir.PBStage
 	5,  // 5: arc.v1.ir.PBFunction.body:type_name -> arc.v1.ir.PBBody
-	10, // 6: arc.v1.ir.PBFunction.config:type_name -> arc.v1.types.PBParam
-	10, // 7: arc.v1.ir.PBFunction.inputs:type_name -> arc.v1.types.PBParam
-	10, // 8: arc.v1.ir.PBFunction.outputs:type_name -> arc.v1.types.PBParam
-	11, // 9: arc.v1.ir.PBFunction.channels:type_name -> arc.v1.symbol.PBChannels
-	10, // 10: arc.v1.ir.PBNode.config:type_name -> arc.v1.types.PBParam
-	10, // 11: arc.v1.ir.PBNode.inputs:type_name -> arc.v1.types.PBParam
-	10, // 12: arc.v1.ir.PBNode.outputs:type_name -> arc.v1.types.PBParam
-	11, // 13: arc.v1.ir.PBNode.channels:type_name -> arc.v1.symbol.PBChannels
-	6,  // 14: arc.v1.ir.PBIR.functions:type_name -> arc.v1.ir.PBFunction
-	8,  // 15: arc.v1.ir.PBIR.nodes:type_name -> arc.v1.ir.PBNode
-	2,  // 16: arc.v1.ir.PBIR.edges:type_name -> arc.v1.ir.PBEdge
-	7,  // 17: arc.v1.ir.PBIR.strata:type_name -> arc.v1.ir.PBStratum
-	4,  // 18: arc.v1.ir.PBIR.sequences:type_name -> arc.v1.ir.PBSequence
-	19, // [19:19] is the sub-list for method output_type
-	19, // [19:19] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	12, // 6: arc.v1.ir.PBFunction.config:type_name -> arc.v1.types.PBParam
+	12, // 7: arc.v1.ir.PBFunction.inputs:type_name -> arc.v1.types.PBParam
+	12, // 8: arc.v1.ir.PBFunction.outputs:type_name -> arc.v1.types.PBParam
+	13, // 9: arc.v1.ir.PBFunction.channels:type_name -> arc.v1.symbol.PBChannels
+	12, // 10: arc.v1.ir.PBNode.config:type_name -> arc.v1.types.PBParam
+	12, // 11: arc.v1.ir.PBNode.inputs:type_name -> arc.v1.types.PBParam
+	12, // 12: arc.v1.ir.PBNode.outputs:type_name -> arc.v1.types.PBParam
+	13, // 13: arc.v1.ir.PBNode.channels:type_name -> arc.v1.symbol.PBChannels
+	11, // 14: arc.v1.ir.PBAuthorities.channels:type_name -> arc.v1.ir.PBAuthorities.ChannelsEntry
+	6,  // 15: arc.v1.ir.PBIR.functions:type_name -> arc.v1.ir.PBFunction
+	8,  // 16: arc.v1.ir.PBIR.nodes:type_name -> arc.v1.ir.PBNode
+	2,  // 17: arc.v1.ir.PBIR.edges:type_name -> arc.v1.ir.PBEdge
+	7,  // 18: arc.v1.ir.PBIR.strata:type_name -> arc.v1.ir.PBStratum
+	4,  // 19: arc.v1.ir.PBIR.sequences:type_name -> arc.v1.ir.PBSequence
+	9,  // 20: arc.v1.ir.PBIR.authorities:type_name -> arc.v1.ir.PBAuthorities
+	21, // [21:21] is the sub-list for method output_type
+	21, // [21:21] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_ir_ir_proto_init() }
@@ -749,13 +822,14 @@ func file_arc_go_ir_ir_proto_init() {
 	if File_arc_go_ir_ir_proto != nil {
 		return
 	}
+	file_arc_go_ir_ir_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_arc_go_ir_ir_proto_rawDesc), len(file_arc_go_ir_ir_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

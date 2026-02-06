@@ -17,6 +17,9 @@ NEXT        : 'next';
 // Channel keywords
 CHAN        : 'chan';
 
+// Authority keywords
+AUTHORITY   : 'authority';
+
 // Primitive types
 I8          : 'i8';
 I16         : 'i16';

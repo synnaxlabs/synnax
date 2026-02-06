@@ -125,7 +125,11 @@ class ReadTask final : public task::Task {
             this->p.stop("", true);
         }
 
-        xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+        xerrors::Error read(
+            breaker::Breaker &breaker,
+            telem::Frame &fr,
+            pipeline::Authorities &authorities
+        ) override {
             auto [err, warning] = this->internal->read(breaker, fr);
             // Three cases.
             // 1. We have an error, but it's temporary, so we trigger the breaker
@@ -146,7 +150,8 @@ class ReadTask final : public task::Task {
                 this->p.state.send_warning(warning);
             } else
                 this->p.state.clear_warning();
-            return this->p.tare.transform(fr);
+            if (auto tare_err = this->p.tare.transform(fr)) return tare_err;
+            return xerrors::NIL;
         }
 
         [[nodiscard]] synnax::WriterConfig writer_config() const {

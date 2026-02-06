@@ -15,11 +15,22 @@
 #include "driver/pipeline/base.h"
 
 namespace pipeline {
+/// @brief a batch of authority changes to apply to a writer.
+struct Authorities {
+    /// @brief the channel keys to set authority for. If empty, the authority
+    /// applies to all channels on the writer.
+    std::vector<synnax::ChannelKey> keys;
+    /// @brief the authority levels corresponding to each key.
+    std::vector<telem::Authority> authorities;
+
+    [[nodiscard]] bool empty() const { return authorities.empty(); }
+};
+
 /// @brief an object that reads data from an acquisition computer or another source,
 /// returning data as frames.
 class Source {
 public:
-    /// @brief reads the next frame from the source, returning an error if
+    /// @brief reads the next result from the source, returning an error if
     /// encountered. The source is in charge of regulating the rate at which frames
     /// are read. It should block using sleep or a similar mechanism. If the source
     /// returns an error matching driver::TEMPORARY_HARDWARE_ERROR, the acquisition
@@ -29,7 +40,7 @@ public:
     /// driver::CRITICAL_HARDWARE_ERROR for any error that is not recoverable, as
     /// this improved traceability.
     [[nodiscard]] virtual xerrors::Error
-    read(breaker::Breaker &breaker, telem::Frame &data) = 0;
+    read(breaker::Breaker &breaker, telem::Frame &fr, Authorities &authorities) = 0;
 
     /// @brief communicates an error encountered by the acquisition pipeline that
     /// caused it to shut down or occurred during commanded shutdown. Note that this
@@ -53,6 +64,12 @@ public:
     /// error if the write fails, at which point the acquisition pipeline will
     /// close the writer and conditionally trigger a retry (see the close method).
     [[nodiscard]] virtual xerrors::Error write(const telem::Frame &fr) = 0;
+
+    /// @brief sets the authority for channels on this writer. If
+    /// authorities.keys is empty, the authority applies to all channels.
+    [[nodiscard]] virtual xerrors::Error set_authority(const Authorities &authorities) {
+        return xerrors::NIL;
+    }
 
     /// @brief closes the writer, returning any error that occurred during normal
     /// operation. If the returned error is of type freighter::UNREACHABLE, the
@@ -91,6 +108,9 @@ public:
 
     /// @brief implements pipeline::Writer to write the frame to Synnax.
     [[nodiscard]] xerrors::Error write(const telem::Frame &fr) override;
+
+    /// @brief implements pipeline::Writer to set authority.
+    [[nodiscard]] xerrors::Error set_authority(const Authorities &authorities) override;
 
     /// @brief implements pipeline::Writer to close the writer.
     [[nodiscard]] xerrors::Error close() override;

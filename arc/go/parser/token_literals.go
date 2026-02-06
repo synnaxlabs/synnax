@@ -18,6 +18,7 @@ const (
 	LiteralSTAGE         = "stage"
 	LiteralNEXT          = "next"
 	LiteralCHAN          = "chan"
+	LiteralAUTHORITY     = "authority"
 	LiteralI8            = "i8"
 	LiteralI16           = "i16"
 	LiteralI32           = "i32"

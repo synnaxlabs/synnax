@@ -79,8 +79,19 @@ class Task final : public task::Task {
     public:
         explicit Source(Task &task): task(task) {}
 
-        xerrors::Error read(breaker::Breaker &breaker, telem::Frame &data) override {
-            if (!this->task.runtime->read(data)) return driver::NOMINAL_SHUTDOWN_ERROR;
+        xerrors::Error read(
+            breaker::Breaker &breaker,
+            telem::Frame &fr,
+            pipeline::Authorities &authorities
+        ) override {
+            runtime::Output out;
+            if (!this->task.runtime->read(out)) return driver::NOMINAL_SHUTDOWN_ERROR;
+            fr = std::move(out.frame);
+            for (auto &c: out.authority_changes) {
+                if (c.channel_key.has_value())
+                    authorities.keys.push_back(*c.channel_key);
+                authorities.authorities.push_back(c.authority);
+            }
             return xerrors::NIL;
         }
 
@@ -157,11 +168,16 @@ public:
             streamer_factory = std::make_shared<pipeline::SynnaxStreamerFactory>(
                 ctx->client
             );
+        auto initial_authorities = runtime::build_authorities(
+            cfg.module.authorities,
+            task->runtime->write_channels
+        );
         task->acquisition = std::make_unique<pipeline::Acquisition>(
             writer_factory,
             synnax::WriterConfig{
                 .channels = task->runtime->write_channels,
                 .start = telem::TimeStamp::now(),
+                .authorities = std::move(initial_authorities),
                 .subject =
                     telem::ControlSubject{
                         .name = task_meta.name,

@@ -13,10 +13,25 @@ program
     ;
 
 topLevelItem
-    : functionDeclaration
+    : authorityBlock
+    | functionDeclaration
     | flowStatement
     | sequenceDeclaration
     | globalConstant
+    ;
+
+// =============================================================================
+// Authority Declarations
+// =============================================================================
+
+authorityBlock
+    : AUTHORITY INTEGER_LITERAL
+    | AUTHORITY LPAREN authorityEntry* RPAREN
+    ;
+
+authorityEntry
+    : INTEGER_LITERAL
+    | IDENTIFIER INTEGER_LITERAL
     ;
 
 // =============================================================================

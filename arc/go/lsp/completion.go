@@ -230,6 +230,15 @@ var completions = []completionInfo{
 		Category: categoryUnit | categoryValue,
 	},
 	{
+		Label:        parser.LiteralAUTHORITY,
+		Detail:       "authority declaration",
+		Doc:          "Sets control authority for output channels",
+		Insert:       "authority ${1:255}",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     categoryKeyword,
+	},
+	{
 		Label:        parser.LiteralFUNC,
 		Detail:       "func declaration",
 		Doc:          "Declares a function",
@@ -321,6 +330,10 @@ func (s *Server) getCompletionItems(
 		return []protocol.CompletionItem{}
 	}
 
+	if completionCtx == ContextAuthorityEntry {
+		return s.getAuthorityEntryCompletions(ctx, doc, prefix, pos)
+	}
+
 	if completionCtx == ContextConfigParamName || completionCtx == ContextConfigParamValue {
 		configInfo := extractConfigContext(doc.displayContent(), pos)
 		if configInfo != nil {
@@ -408,6 +421,51 @@ func symbolCompletionItem(name string, t types.Type) protocol.CompletionItem {
 		Kind:   kind,
 		Detail: detail,
 	}
+}
+
+func (s *Server) getAuthorityEntryCompletions(
+	ctx context.Context,
+	doc *Document,
+	prefix string,
+	pos protocol.Position,
+) []protocol.CompletionItem {
+	existing := extractAuthorityExistingChannels(doc.displayContent(), pos)
+	existingSet := make(map[string]bool, len(existing))
+	for _, name := range existing {
+		existingSet[name] = true
+	}
+	var items []protocol.CompletionItem
+	if s.cfg.GlobalResolver != nil {
+		symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
+		if err == nil {
+			for _, sym := range symbols {
+				if sym.Type.Kind != types.KindChan || existingSet[sym.Name] {
+					continue
+				}
+				items = append(items, protocol.CompletionItem{
+					Label:  sym.Name,
+					Kind:   protocol.CompletionItemKindVariable,
+					Detail: sym.Type.String(),
+				})
+			}
+		}
+	}
+	if doc.IR.Symbols != nil {
+		scopes, err := doc.IR.Symbols.Search(ctx, prefix)
+		if err == nil {
+			for _, scope := range scopes {
+				if scope.Type.Kind != types.KindChan || existingSet[scope.Name] {
+					continue
+				}
+				items = append(items, protocol.CompletionItem{
+					Label:  scope.Name,
+					Kind:   protocol.CompletionItemKindVariable,
+					Detail: scope.Type.String(),
+				})
+			}
+		}
+	}
+	return items
 }
 
 func (s *Server) resolveFunctionType(

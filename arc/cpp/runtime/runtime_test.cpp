@@ -278,8 +278,8 @@ TEST(RuntimeLifecycleTest, ReadReturnsFalseAfterStop) {
     ASSERT_TRUE(runtime->start());
     ASSERT_TRUE(runtime->stop());
 
-    telem::Frame frame;
-    EXPECT_FALSE(runtime->read(frame)) << "Read should return false when stopped";
+    Output out;
+    EXPECT_FALSE(runtime->read(out)) << "Read should return false when stopped";
 }
 
 /// @brief Test that double stop returns false on second call.
@@ -290,6 +290,47 @@ TEST(RuntimeLifecycleTest, DoubleStopReturnsFalse) {
     ASSERT_TRUE(runtime->start());
     ASSERT_TRUE(runtime->stop());
     EXPECT_FALSE(runtime->stop()) << "Second stop should return false";
+}
+
+TEST(BuildAuthoritiesTest, ReturnsEmptyWhenNoConfig) {
+    arc::ir::Authorities auth;
+    std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};
+    auto result = build_authorities(auth, write_keys);
+    EXPECT_TRUE(result.empty());
+}
+
+TEST(BuildAuthoritiesTest, DefaultAuthorityAppliesToAllKeys) {
+    arc::ir::Authorities auth;
+    auth.default_authority = 100;
+    std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};
+    auto result = build_authorities(auth, write_keys);
+    ASSERT_EQ(result.size(), 3);
+    for (const auto &a: result)
+        EXPECT_EQ(a, 100);
+}
+
+TEST(BuildAuthoritiesTest, PerChannelOverridesDefault) {
+    arc::ir::Authorities auth;
+    auth.default_authority = 100;
+    auth.channels[2] = 200;
+
+    std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};
+    auto result = build_authorities(auth, write_keys);
+    ASSERT_EQ(result.size(), 3);
+    EXPECT_EQ(result[0], 100);
+    EXPECT_EQ(result[1], 200);
+    EXPECT_EQ(result[2], 100);
+}
+
+TEST(BuildAuthoritiesTest, NoDefaultUsesAbsolute) {
+    arc::ir::Authorities auth;
+    auth.channels[1] = 50;
+
+    std::vector<arc::types::ChannelKey> write_keys = {1, 2};
+    auto result = build_authorities(auth, write_keys);
+    ASSERT_EQ(result.size(), 2);
+    EXPECT_EQ(result[0], 50);
+    EXPECT_EQ(result[1], telem::AUTH_ABSOLUTE);
 }
 
 TEST(MockLoopTest, WakeReasonIsConfigurable) {

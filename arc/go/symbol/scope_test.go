@@ -541,6 +541,57 @@ var _ = Describe("Scope", func() {
 				Expect(nodeChannels.Write).To(HaveLen(1))
 				Expect(nodeChannels.Write[100]).To(Equal("bidirectional_channel"))
 			})
+
+			It("Should use WriteChan access for built-in with WriteChan config param", func() {
+				fnSym := &symbol.Scope{Symbol: symbol.Symbol{
+					Name: "set_authority",
+					Kind: symbol.KindFunction,
+					Type: types.Function(types.FunctionProperties{
+						Config: types.Params{
+							{Name: "channel", Type: types.WriteChan(types.U8())},
+						},
+					}),
+				}}
+				nodeChannels := symbol.NewChannels()
+				nodeChannels.ResolveConfigChannel(fnSym, "channel", 42, "valve")
+				Expect(nodeChannels.Write).To(HaveLen(1))
+				Expect(nodeChannels.Write[42]).To(Equal("valve"))
+				Expect(nodeChannels.Read).To(BeEmpty())
+			})
+
+			It("Should use ReadChan access for built-in with ReadChan config param", func() {
+				fnSym := &symbol.Scope{Symbol: symbol.Symbol{
+					Name: "on",
+					Kind: symbol.KindFunction,
+					Type: types.Function(types.FunctionProperties{
+						Config: types.Params{
+							{Name: "channel", Type: types.ReadChan(types.F64())},
+						},
+					}),
+				}}
+				nodeChannels := symbol.NewChannels()
+				nodeChannels.ResolveConfigChannel(fnSym, "channel", 10, "sensor")
+				Expect(nodeChannels.Read).To(HaveLen(1))
+				Expect(nodeChannels.Read[10]).To(Equal("sensor"))
+				Expect(nodeChannels.Write).To(BeEmpty())
+			})
+
+			It("Should default to Read for built-in with plain Chan config param", func() {
+				fnSym := &symbol.Scope{Symbol: symbol.Symbol{
+					Name: "custom",
+					Kind: symbol.KindFunction,
+					Type: types.Function(types.FunctionProperties{
+						Config: types.Params{
+							{Name: "channel", Type: types.Chan(types.F64())},
+						},
+					}),
+				}}
+				nodeChannels := symbol.NewChannels()
+				nodeChannels.ResolveConfigChannel(fnSym, "channel", 99, "ch")
+				Expect(nodeChannels.Read).To(HaveLen(1))
+				Expect(nodeChannels.Read[99]).To(Equal("ch"))
+				Expect(nodeChannels.Write).To(BeEmpty())
+			})
 		})
 	})
 })

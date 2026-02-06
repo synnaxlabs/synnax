@@ -29,7 +29,7 @@ var (
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)}},
-			Config:  types.Params{{Name: "channel", Type: types.Chan(types.Variable("T", nil))}},
+			Config:  types.Params{{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))}},
 		}),
 	}
 	sinkSymbolName = "write"
@@ -38,7 +38,7 @@ var (
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
-			Config: types.Params{{Name: "channel", Type: types.Chan(types.Variable("T", nil))}},
+			Config: types.Params{{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))}},
 		}),
 	}
 	SymbolResolver = symbol.MapResolver{

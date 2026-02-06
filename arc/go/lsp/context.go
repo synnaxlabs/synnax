@@ -25,6 +25,7 @@ const (
 	ContextStatementStart
 	ContextConfigParamName
 	ContextConfigParamValue
+	ContextAuthorityEntry
 )
 
 type configContextInfo struct {
@@ -92,6 +93,9 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 		return ContextStatementStart
 	}
 	lastToken := tokensBeforeCursor[len(tokensBeforeCursor)-1]
+	if isAuthorityEntryContext(tokensBeforeCursor) {
+		return ContextAuthorityEntry
+	}
 	if configCtx := detectConfigContext(tokensBeforeCursor); configCtx != ContextUnknown {
 		return configCtx
 	}
@@ -287,6 +291,63 @@ func isStatementStartContext(tokens []antlr.Token, lastToken antlr.Token, pos pr
 		}
 	}
 	return false
+}
+
+// isAuthorityEntryContext checks if the cursor is inside an authority(...) block.
+func isAuthorityEntryContext(tokens []antlr.Token) bool {
+	parenDepth := 0
+	for i := len(tokens) - 1; i >= 0; i-- {
+		tokenType := tokens[i].GetTokenType()
+		switch tokenType {
+		case parser.ArcLexerRPAREN:
+			parenDepth++
+		case parser.ArcLexerLPAREN:
+			if parenDepth > 0 {
+				parenDepth--
+			} else {
+				return i > 0 && tokens[i-1].GetTokenType() == parser.ArcLexerAUTHORITY
+			}
+		}
+	}
+	return false
+}
+
+// extractAuthorityExistingChannels returns channel names already listed in the
+// authority block before the cursor position.
+func extractAuthorityExistingChannels(content string, pos protocol.Position) []string {
+	tokens := tokenizeContent(content)
+	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
+	// Find the opening paren of the authority block.
+	parenDepth := 0
+	parenIdx := -1
+	for i := len(tokensBeforeCursor) - 1; i >= 0; i-- {
+		tokenType := tokensBeforeCursor[i].GetTokenType()
+		switch tokenType {
+		case parser.ArcLexerRPAREN:
+			parenDepth++
+		case parser.ArcLexerLPAREN:
+			if parenDepth > 0 {
+				parenDepth--
+			} else {
+				parenIdx = i
+			}
+		}
+		if parenIdx >= 0 {
+			break
+		}
+	}
+	if parenIdx < 0 {
+		return nil
+	}
+	// Collect identifiers inside the block — these are channel names in entries
+	// like `valve 100`.
+	var existing []string
+	for i := parenIdx + 1; i < len(tokensBeforeCursor); i++ {
+		if tokensBeforeCursor[i].GetTokenType() == parser.ArcLexerIDENTIFIER {
+			existing = append(existing, tokensBeforeCursor[i].GetText())
+		}
+	}
+	return existing
 }
 
 func detectConfigContext(tokens []antlr.Token) CompletionContext {

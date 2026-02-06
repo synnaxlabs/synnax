@@ -1044,4 +1044,48 @@ var _ = Describe("Types", func() {
 			Entry("channel to series", types.Chan(types.I32()), types.Series(types.I32())),
 		)
 	})
+
+	Describe("ChanDirection", func() {
+		Describe("IsRead", func() {
+			It("Should return true for ChanDirectionRead", func() {
+				Expect(types.ChanDirectionRead.IsRead()).To(BeTrue())
+			})
+			It("Should return false for ChanDirectionWrite", func() {
+				Expect(types.ChanDirectionWrite.IsRead()).To(BeFalse())
+			})
+			It("Should return false for ChanDirectionNone", func() {
+				Expect(types.ChanDirectionNone.IsRead()).To(BeFalse())
+			})
+			It("Should return true for combined read+write", func() {
+				combined := types.ChanDirectionRead | types.ChanDirectionWrite
+				Expect(combined.IsRead()).To(BeTrue())
+			})
+		})
+		Describe("IsWrite", func() {
+			It("Should return true for ChanDirectionWrite", func() {
+				Expect(types.ChanDirectionWrite.IsWrite()).To(BeTrue())
+			})
+			It("Should return false for ChanDirectionRead", func() {
+				Expect(types.ChanDirectionRead.IsWrite()).To(BeFalse())
+			})
+			It("Should return false for ChanDirectionNone", func() {
+				Expect(types.ChanDirectionNone.IsWrite()).To(BeFalse())
+			})
+			It("Should return true for combined read+write", func() {
+				combined := types.ChanDirectionRead | types.ChanDirectionWrite
+				Expect(combined.IsWrite()).To(BeTrue())
+			})
+		})
+		Describe("IsSet", func() {
+			It("Should return false for ChanDirectionNone", func() {
+				Expect(types.ChanDirectionNone.IsSet()).To(BeFalse())
+			})
+			It("Should return true for ChanDirectionRead", func() {
+				Expect(types.ChanDirectionRead.IsSet()).To(BeTrue())
+			})
+			It("Should return true for ChanDirectionWrite", func() {
+				Expect(types.ChanDirectionWrite.IsSet()).To(BeTrue())
+			})
+		})
+	})
 })
