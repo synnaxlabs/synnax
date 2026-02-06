@@ -26,11 +26,11 @@
       "sequence_name": "arc_authority",
       "tests": [
         {
-          "case": "arc/arc_static_authority",
+          "case": "arc/arc_authority_static",
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
-          "case": "arc/arc_dynamic_authority",
+          "case": "arc/arc_authority_dynamic",
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
