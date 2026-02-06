@@ -1161,6 +1161,249 @@ TEST(ArcEdgeCases, StopWithoutStart) {
     task->stop("final_stop", true);
 }
 
+TEST(ArcTests, testChannelConfigParam) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    // Trigger channel (u8)
+    auto trigger_idx_name = make_unique_channel_name("cfg_ch_trigger_idx");
+    auto trigger_name = make_unique_channel_name("cfg_ch_trigger");
+    auto trigger_idx = synnax::Channel(trigger_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client->channels.create(trigger_idx));
+    auto trigger_ch = synnax::Channel(
+        trigger_name,
+        telem::UINT8_T,
+        trigger_idx.key,
+        false
+    );
+    ASSERT_NIL(client->channels.create(trigger_ch));
+
+    // Data channel that the config param refers to (f32)
+    auto data_idx_name = make_unique_channel_name("cfg_ch_data_idx");
+    auto data_name = make_unique_channel_name("cfg_ch_data");
+    auto data_idx = synnax::Channel(data_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client->channels.create(data_idx));
+    auto data_ch = synnax::Channel(data_name, telem::FLOAT32_T, data_idx.key, false);
+    ASSERT_NIL(client->channels.create(data_ch));
+
+    // Output channel (f32)
+    auto output_idx_name = make_unique_channel_name("cfg_ch_output_idx");
+    auto output_name = make_unique_channel_name("cfg_ch_output");
+    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client->channels.create(output_idx));
+    auto output_ch = synnax::Channel(
+        output_name,
+        telem::FLOAT32_T,
+        output_idx.key,
+        false
+    );
+    ASSERT_NIL(client->channels.create(output_ch));
+
+    // Arc program: function with channel-typed config param
+    synnax::Arc arc_prog(make_unique_channel_name("cfg_ch_test"));
+    arc_prog.text = arc::text::Text(
+        "func read_data{ch chan f32}(trigger u8) f32 {\n"
+        "    return ch + f32(0.0)\n"
+        "}\n" +
+        trigger_name + " -> read_data{ch=" + data_name + "} -> " + output_name + "\n"
+    );
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_cfg_ch_test_rack"))
+    );
+
+    synnax::Task task_meta(rack.key, "arc_cfg_ch_test", "arc_runtime", "");
+    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    task_meta.config = nlohmann::to_string(cfg);
+
+    auto parser = xjson::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+
+    // Build input frames: trigger + data channel values in same frame
+    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
+    telem::Frame input_fr(6);
+    auto now = telem::TimeStamp::now();
+
+    auto trigger_idx_series = telem::Series(now);
+    trigger_idx_series.alignment = telem::Alignment(1, 0);
+    auto trigger_val_series = telem::Series(static_cast<uint8_t>(1));
+    trigger_val_series.alignment = telem::Alignment(1, 0);
+    input_fr.emplace(trigger_idx.key, std::move(trigger_idx_series));
+    input_fr.emplace(trigger_ch.key, std::move(trigger_val_series));
+
+    auto data_idx_series = telem::Series(now);
+    data_idx_series.alignment = telem::Alignment(1, 0);
+    auto data_val_series = telem::Series(42.5f);
+    data_val_series.alignment = telem::Alignment(1, 0);
+    input_fr.emplace(data_idx.key, std::move(data_idx_series));
+    input_fr.emplace(data_ch.key, std::move(data_val_series));
+
+    input_frames->push_back(std::move(input_fr));
+
+    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+        {trigger_idx.key, trigger_ch.key, data_idx.key, data_ch.key},
+        input_frames
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(client);
+
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+    );
+
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
+
+    bool found_output = false;
+    for (const auto &output_fr: *mock_writer->writes) {
+        if (output_fr.contains(output_ch.key)) {
+            auto output_val = output_fr.at<float>(output_ch.key, 0);
+            EXPECT_FLOAT_EQ(output_val, 42.5f)
+                << "Channel config param should read the data channel value (42.5)";
+            found_output = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(
+        found_output
+    ) << "Output channel should have been written with the config param channel value";
+
+    task->stop("test_stop", true);
+}
+
+TEST(ArcTests, testChannelConfigParamReadWrite) {
+    // Reproducer for the real-world count_rising pattern:
+    // func with two chan config params - one read, one write.
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    // Input trigger channel (u8)
+    auto input_idx_name = make_unique_channel_name("crw_input_idx");
+    auto input_name = make_unique_channel_name("crw_input");
+    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client->channels.create(input_idx));
+    auto input_ch = synnax::Channel(input_name, telem::UINT8_T, input_idx.key, false);
+    ASSERT_NIL(client->channels.create(input_ch));
+
+    // Counter max channel - READ only config param (f32)
+    auto max_idx_name = make_unique_channel_name("crw_max_idx");
+    auto max_name = make_unique_channel_name("crw_max");
+    auto max_idx = synnax::Channel(max_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client->channels.create(max_idx));
+    auto max_ch = synnax::Channel(max_name, telem::FLOAT32_T, max_idx.key, false);
+    ASSERT_NIL(client->channels.create(max_ch));
+
+    // Counter output channel - WRITE config param (f32)
+    auto counter_idx_name = make_unique_channel_name("crw_counter_idx");
+    auto counter_name = make_unique_channel_name("crw_counter");
+    auto counter_idx = synnax::Channel(counter_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client->channels.create(counter_idx));
+    auto counter_ch = synnax::Channel(
+        counter_name,
+        telem::FLOAT32_T,
+        counter_idx.key,
+        false
+    );
+    ASSERT_NIL(client->channels.create(counter_ch));
+
+    // Arc program mimicking count_rising:
+    // counter_ch is a WRITE config param (channel_write_f32)
+    // max_ch is a READ config param (channel_read_f32)
+    synnax::Arc arc_prog(make_unique_channel_name("crw_test"));
+    arc_prog.text = arc::text::Text(
+        "func count_rising_test{counter_ch chan f32, max_ch chan f32}(input u8) {\n"
+        "    prev u8 $= input\n"
+        "    counter f32 $= 0.0\n"
+        "    read_val := max_ch + f32(0.0)\n"
+        "    if counter < read_val {\n"
+        "        counter = read_val\n"
+        "    }\n"
+        "    if input and not prev {\n"
+        "        counter = counter + 1.0\n"
+        "    }\n"
+        "    counter_ch = counter\n"
+        "    prev = input\n"
+        "}\n" +
+        input_name + " -> count_rising_test{counter_ch=" + counter_name +
+        ", max_ch=" + max_name + "}\n"
+    );
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_crw_test_rack"))
+    );
+
+    synnax::Task task_meta(rack.key, "arc_crw_test", "arc_runtime", "");
+    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    task_meta.config = nlohmann::to_string(cfg);
+
+    auto parser = xjson::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+
+    // Frame: trigger=1 (rising edge from 0), max_ch=100.0
+    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
+    telem::Frame input_fr(6);
+    auto now = telem::TimeStamp::now();
+
+    auto in_idx_s = telem::Series(now);
+    in_idx_s.alignment = telem::Alignment(1, 0);
+    auto in_val_s = telem::Series(static_cast<uint8_t>(1));
+    in_val_s.alignment = telem::Alignment(1, 0);
+    input_fr.emplace(input_idx.key, std::move(in_idx_s));
+    input_fr.emplace(input_ch.key, std::move(in_val_s));
+
+    auto max_idx_s = telem::Series(now);
+    max_idx_s.alignment = telem::Alignment(1, 0);
+    auto max_val_s = telem::Series(100.0f);
+    max_val_s.alignment = telem::Alignment(1, 0);
+    input_fr.emplace(max_idx.key, std::move(max_idx_s));
+    input_fr.emplace(max_ch.key, std::move(max_val_s));
+
+    input_frames->push_back(std::move(input_fr));
+
+    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+        {input_idx.key, input_ch.key, max_idx.key, max_ch.key},
+        input_frames
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(client);
+
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+    );
+
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
+
+    // counter should be 100: prev $= input initializes prev=1, so no rising
+    // edge. But counter < read_val (0 < 100) → counter = 100.
+    // This proves the config param channel read returned 100 (not 0).
+    bool found_output = false;
+    for (const auto &output_fr: *mock_writer->writes) {
+        if (output_fr.contains(counter_ch.key)) {
+            auto output_val = output_fr.at<float>(counter_ch.key, 0);
+            EXPECT_FLOAT_EQ(output_val, 100.0f)
+                << "counter should be 100 (read from max_ch config param channel)";
+            found_output = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(
+        found_output
+    ) << "counter_ch should have been written with the counter value";
+
+    task->stop("test_stop", true);
+}
+
 TEST(ArcEdgeCases, DoubleStart) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 

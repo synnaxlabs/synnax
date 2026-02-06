@@ -1059,15 +1059,19 @@ TEST(NodeTest, ChannelConfigParamReadsChannelData) {
     ASSERT_NIL(client.channels.create(output_idx));
 
     auto trigger_ch = synnax::Channel(
-        trigger_name, telem::UINT8_T, trigger_idx.key, false
+        trigger_name,
+        telem::UINT8_T,
+        trigger_idx.key,
+        false
     );
     ASSERT_NIL(client.channels.create(trigger_ch));
-    auto data_ch = synnax::Channel(
-        data_name, telem::FLOAT32_T, data_idx.key, false
-    );
+    auto data_ch = synnax::Channel(data_name, telem::FLOAT32_T, data_idx.key, false);
     ASSERT_NIL(client.channels.create(data_ch));
     auto output_ch = synnax::Channel(
-        output_name, telem::FLOAT32_T, output_idx.key, false
+        output_name,
+        telem::FLOAT32_T,
+        output_idx.key,
+        false
     );
     ASSERT_NIL(client.channels.create(output_ch));
 
@@ -1077,8 +1081,8 @@ TEST(NodeTest, ChannelConfigParamReadsChannelData) {
 func read_chan{ch chan f32}(trigger u8) f32 {
     return ch + f32(0.0)
 }
-)" + trigger_name + " -> read_chan{ch=" +
-                               data_name + "} -> " + output_name;
+)" + trigger_name +
+                               " -> read_chan{ch=" + data_name + "} -> " + output_name;
 
     auto mod = compile_arc(client, source);
 
@@ -1123,8 +1127,7 @@ func read_chan{ch chan f32}(trigger u8) f32 {
     );
 
     // Ingest data for the config param channel so channel_read_f32 can find it.
-    auto data_series = telem::Series(telem::FLOAT32_T, 1);
-    data_series.write(42.5f);
+    auto data_series = telem::Series(std::vector{42.5f});
     state->ingest(telem::Frame(data_ch.key, std::move(data_series)));
 
     // Set up the 'on' node that reads the trigger channel.

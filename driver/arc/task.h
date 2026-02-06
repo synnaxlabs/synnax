@@ -23,6 +23,7 @@
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/arc.h"
+#include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/common/common.h"
@@ -85,7 +86,7 @@ class Task final : public task::Task {
         ) override {
             runtime::Output out;
             if (!this->task.runtime->read(out))
-                return xerrors::Error("runtime closed");
+                return driver::NOMINAL_SHUTDOWN_ERROR;
             fr = std::move(out.frame);
             for (auto &c: out.authority_changes) {
                 if (c.channel_key.has_value())

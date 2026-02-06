@@ -189,7 +189,10 @@ func (t *taskImpl) start(ctx context.Context) error {
 
 	if len(stateCfg.Writes) > 0 {
 		writerCfg := framer.WriterConfig{
-			ControlSubject: control.Subject{Name: t.prog.Name},
+			ControlSubject: control.Subject{
+				Name: t.prog.Name,
+				Key: t.task.Key.String(),
+			},
 			Start:          drt.startTime,
 			Keys:           stateCfg.Writes.Keys(),
 		}
@@ -209,17 +212,19 @@ func (t *taskImpl) start(ctx context.Context) error {
 		plumber.MustConnect[framer.WriterRequest](pipeline, runtimeAddr, writerAddr, 10)
 		writerResponses := &confluence.UnarySink[framer.WriterResponse]{
 			Sink: func(ctx context.Context, res framer.WriterResponse) error {
-				if !res.Authorized {
-					t.factoryCfg.L.Warn("unauthorized writer response",
-						zap.Uint64("task", uint64(t.task.Key)),
+				if res.Err != nil {
+					t.factoryCfg.L.Error("unexpected writer response error",
+						zap.Stringer("task", t.task),
 						zap.Int("seqNum", res.SeqNum),
-						zap.Stringer("command", res.Command),
 						zap.Error(res.Err),
 					)
-				} else if res.Err != nil {
-					t.factoryCfg.L.Error("unexpected writer response error",
-						zap.Uint64("task", uint64(t.task.Key)),
+					t.setStatus(status.VariantError, false, res.Err.Error())
+					return res.Err
+				} else if !res.Authorized {
+					t.factoryCfg.L.Warn("unauthorized writer response",
+						zap.Stringer("task", t.task),
 						zap.Int("seqNum", res.SeqNum),
+						zap.Stringer("command", res.Command),
 						zap.Error(res.Err),
 					)
 				}
@@ -235,7 +240,12 @@ func (t *taskImpl) start(ctx context.Context) error {
 		signal.NewGracefulShutdown(sCtx, cancel),
 		streamerCloseSignal,
 	)
-	pipeline.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
+	pipeline.Flow(
+		sCtx,
+		confluence.CloseOutputInletsOnExit(),
+		confluence.RecoverWithErrOnPanic(),
+		confluence.CancelOnFail(),
+	)
 	t.setStatus(status.VariantSuccess, true, "Task started successfully")
 	return nil
 }

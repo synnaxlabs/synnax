@@ -1028,6 +1028,80 @@ var _ = Describe("Task", Ordered, func() {
 			}).Should(Succeed())
 		})
 
+		It("Should read config param channel value correctly", func() {
+			inputCh := createVirtualCh("cfg_read_input", telem.Uint8T)
+			maxCh := createVirtualCh("cfg_read_max", telem.Float32T)
+			counterCh := createVirtualCh("cfg_read_counter", telem.Float32T)
+
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					func count_rising_test{counter_ch chan f32, max_ch chan f32}(input u8) {
+						prev $= input
+						counter f32 $= 0
+						read_val := max_ch + f32(0.0)
+
+						if counter < read_val {
+							counter = read_val
+						}
+
+						if input and not prev {
+							counter = counter + 1.0
+						}
+
+						counter_ch = counter
+						prev = input
+					}
+
+					%s -> count_rising_test{counter_ch=%s, max_ch=%s}
+				`, inputCh.Name, counterCh.Name, maxCh.Name),
+			}
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{counterCh.Key()}, 10)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			time.Sleep(20 * time.Millisecond)
+
+			// Write max value of 5.0 to the max channel
+			wMax := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  []channel.Key{maxCh.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(wMax.Write(frame.NewUnary(maxCh.Key(), telem.NewSeriesV[float32](5.0)))).To(BeTrue())
+			Expect(wMax.Close()).To(Succeed())
+
+			time.Sleep(20 * time.Millisecond)
+
+			// Write a rising edge (0 -> 1) to the input channel
+			wInput := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  []channel.Key{inputCh.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(wInput.Write(frame.NewUnary(inputCh.Key(), telem.NewSeriesV[uint8](0)))).To(BeTrue())
+			time.Sleep(20 * time.Millisecond)
+			Expect(wInput.Write(frame.NewUnary(inputCh.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(wInput.Close()).To(Succeed())
+
+			// The counter should have picked up the max value (5.0) and then
+			// incremented to 6.0 on the rising edge
+			var foundExpected bool
+			for i := 0; i < 10 && !foundExpected; i++ {
+				var fr framer.StreamerResponse
+				Eventually(responses).Should(Receive(&fr))
+				series := fr.Frame.Get(counterCh.Key())
+				if series.Len() > 0 {
+					val := telem.ValueAt[float32](series.Series[0], -1)
+					if val >= 5.0 {
+						foundExpected = true
+					}
+				}
+			}
+			Expect(foundExpected).To(BeTrue(), "Expected counter to reflect max_ch value (>= 5.0)")
+		})
+
 		It("Should continue execution after runtime error", func() {
 			inputCh := createVirtualCh("recover_input", telem.Int32T)
 			outputCh := createVirtualCh("recover_output", telem.Int32T)
