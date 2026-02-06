@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/x/debounce"
 	"go.lsp.dev/protocol"
 )
 
@@ -37,6 +38,7 @@ type Document struct {
 	IR          ir.IR
 	Diagnostics diagnostics.Diagnostics
 	Version     int32
+	debouncer   *debounce.Debouncer
 }
 
 func (d *Document) isBlock() bool {
@@ -44,9 +46,6 @@ func (d *Document) isBlock() bool {
 }
 
 func (d *Document) displayContent() string {
-	if d.isBlock() && len(d.Content) >= 2 {
-		return d.Content[1 : len(d.Content)-1]
-	}
 	return d.Content
 }
 
@@ -159,4 +158,48 @@ func (d *Document) resolveSymbolAtPosition(ctx context.Context, pos protocol.Pos
 		return nil, nil
 	}
 	return scope.Resolve(ctx, word)
+}
+
+// PositionToOffset converts an LSP line/character position to a byte offset
+// within the given content string.
+func PositionToOffset(content string, pos protocol.Position) int {
+	line := int(pos.Line)
+	char := int(pos.Character)
+	offset := 0
+	for i := 0; i < line; i++ {
+		idx := strings.IndexByte(content[offset:], '\n')
+		if idx < 0 {
+			return len(content)
+		}
+		offset += idx + 1
+	}
+	offset += char
+	if offset > len(content) {
+		return len(content)
+	}
+	return offset
+}
+
+// IsFullReplacement detects whether a content change event represents a
+// full-document replacement (no range specified).
+func IsFullReplacement(
+	change protocol.TextDocumentContentChangeEvent,
+) bool {
+	return change.Range == (protocol.Range{}) && change.RangeLength == 0
+}
+
+// ApplyIncrementalChange splices a single incremental change into the
+// document content and returns the updated string.
+func ApplyIncrementalChange(
+	content string,
+	change protocol.TextDocumentContentChangeEvent,
+) string {
+	start := PositionToOffset(content, change.Range.Start)
+	end := PositionToOffset(content, change.Range.End)
+	var b strings.Builder
+	b.Grow(start + len(change.Text) + len(content) - end)
+	b.WriteString(content[:start])
+	b.WriteString(change.Text)
+	b.WriteString(content[end:])
+	return b.String()
 }

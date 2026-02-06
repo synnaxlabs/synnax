@@ -116,3 +116,22 @@ func HasCompletion(items []protocol.CompletionItem, label string) bool {
 	_, found := FindCompletion(items, label)
 	return found
 }
+
+// ChangeDocument sends a full-content DidChange to the server.
+func ChangeDocument(
+	server *lsp.Server,
+	ctx context.Context,
+	uri protocol.DocumentURI,
+	content string,
+	version int32,
+) {
+	gomega.Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
+		TextDocument: protocol.VersionedTextDocumentIdentifier{
+			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+			Version:                version,
+		},
+		ContentChanges: []protocol.TextDocumentContentChangeEvent{
+			{Text: content},
+		},
+	})).To(gomega.Succeed())
+}
