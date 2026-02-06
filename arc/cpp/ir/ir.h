@@ -557,12 +557,33 @@ struct Sequence {
     }
 };
 
+struct AuthorityConfig {
+    std::optional<uint8_t> default_authority;
+    std::map<std::string, uint8_t> channels;
+
+    AuthorityConfig() = default;
+
+    explicit AuthorityConfig(const v1::ir::PBAuthorityConfig &pb) {
+        if (pb.has_default_()) default_authority = static_cast<uint8_t>(pb.default_());
+        for (const auto &[name, val]: pb.channels())
+            channels[name] = static_cast<uint8_t>(val);
+    }
+
+    void to_proto(v1::ir::PBAuthorityConfig *pb) const {
+        if (default_authority.has_value()) pb->set_default_(*default_authority);
+        auto *ch_map = pb->mutable_channels();
+        for (const auto &[name, val]: channels)
+            (*ch_map)[name] = val;
+    }
+};
+
 struct IR {
     std::vector<Function> functions;
     std::vector<Node> nodes;
     std::vector<Edge> edges;
     Strata strata;
     std::vector<Sequence> sequences;
+    AuthorityConfig authority;
 
     IR() = default;
 
@@ -580,6 +601,7 @@ struct IR {
         sequences.reserve(pb.sequences_size());
         for (const auto &seq_pb: pb.sequences())
             sequences.emplace_back(seq_pb);
+        if (pb.has_authority()) authority = AuthorityConfig(pb.authority());
     }
 
     void to_proto(arc::v1::ir::PBIR *pb) const {
@@ -596,6 +618,7 @@ struct IR {
         pb->mutable_sequences()->Reserve(static_cast<int>(sequences.size()));
         for (const auto &seq: sequences)
             seq.to_proto(pb->add_sequences());
+        authority.to_proto(pb->mutable_authority());
     }
 
     /// @brief Returns the node with the given key.

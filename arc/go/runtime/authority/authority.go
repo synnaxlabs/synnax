@@ -29,7 +29,7 @@ var (
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
 			Config: types.Params{
-				{Name: "authority", Type: types.U8()},
+				{Name: "value", Type: types.U8()},
 				{Name: "channel", Type: types.Chan(types.U8()), Value: uint32(0)},
 			},
 			Inputs: types.Params{
@@ -60,13 +60,13 @@ type setAuthorityFactory struct {
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
-	"authority": zyn.Number().Uint8(),
-	"channel":   zyn.Number().Uint32(),
+	"value":   zyn.Number().Uint8(),
+	"channel": zyn.Number().Uint32(),
 })
 
 type nodeConfig struct {
-	Authority uint8  `json:"authority"`
-	Channel   uint32 `json:"channel"`
+	Value   uint8  `json:"value"`
+	Channel uint32 `json:"channel"`
 }
 
 func (f *setAuthorityFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
@@ -83,7 +83,7 @@ func (f *setAuthorityFactory) Create(_ context.Context, cfg node.Config) (node.N
 	}
 	return &setAuthority{
 		state:      f.state,
-		authority:  nodeCfg.Authority,
+		authority:  nodeCfg.Value,
 		channelKey: channelKey,
 	}, nil
 }

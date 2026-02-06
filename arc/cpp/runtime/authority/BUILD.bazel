@@ -1,0 +1,22 @@
+cc_library(
+    name = "authority",
+    hdrs = ["authority.h"],
+    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    deps = [
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/xerrors",
+    ],
+)
+
+cc_test(
+    name = "authority_test",
+    srcs = ["authority_test.cpp"],
+    deps = [
+        ":authority",
+        "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

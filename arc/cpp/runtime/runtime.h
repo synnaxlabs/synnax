@@ -18,9 +18,11 @@
 #include "glog/logging.h"
 
 #include "x/cpp/queue/spsc.h"
+#include "x/cpp/telem/control.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/xthread/xthread.h"
 
+#include "arc/cpp/runtime/authority/authority.h"
 #include "arc/cpp/runtime/constant/constant.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
@@ -61,6 +63,7 @@ class Runtime {
     std::unique_ptr<loop::Loop> loop;
     queue::SPSC<telem::Frame> inputs;
     queue::SPSC<telem::Frame> outputs;
+    queue::SPSC<std::vector<state::AuthorityChange>> authority_outputs;
     std::chrono::steady_clock::time_point start_time_steady_;
     errors::Handler error_handler;
 
@@ -86,6 +89,7 @@ public:
         loop(std::move(loop)),
         inputs(queue::SPSC<telem::Frame>(cfg.input_queue_capacity)),
         outputs(queue::SPSC<telem::Frame>(cfg.output_queue_capacity)),
+        authority_outputs(queue::SPSC<std::vector<state::AuthorityChange>>(64)),
         error_handler(std::move(error_handler)),
         read_channels(read_channels),
         write_channels(std::move(write_channels)) {}
@@ -124,6 +128,9 @@ public:
                     if (!this->outputs.push(std::move(out_frame)))
                         this->error_handler(errors::QUEUE_FULL_OUTPUT);
                 }
+                if (auto changes = this->state->flush_authority_changes();
+                    !changes.empty())
+                    this->authority_outputs.push(std::move(changes));
             }
         }
     }
@@ -162,7 +169,43 @@ public:
     }
 
     bool read(telem::Frame &frame) { return this->outputs.pop(frame); }
+
+    bool read_authority_changes(std::vector<state::AuthorityChange> &changes) {
+        return this->authority_outputs.try_pop(changes);
+    }
 };
+
+/// @brief Builds a per-channel authority vector from the static AuthorityConfig
+/// in the IR. Maps channel names to keys using node channel maps and returns
+/// authorities aligned with write_keys.
+inline std::vector<telem::Authority> build_authorities(
+    const ir::AuthorityConfig &auth,
+    const std::vector<types::ChannelKey> &write_keys,
+    const std::vector<ir::Node> &nodes
+) {
+    if (!auth.default_authority.has_value() && auth.channels.empty()) return {};
+    std::map<std::string, types::ChannelKey> name_to_key;
+    for (const auto &n: nodes) {
+        for (const auto &[key, name]: n.channels.read) name_to_key[name] = key;
+        for (const auto &[key, name]: n.channels.write) name_to_key[name] = key;
+    }
+    std::vector<telem::Authority> authorities(write_keys.size());
+    for (size_t i = 0; i < write_keys.size(); i++)
+        authorities[i] = auth.default_authority.has_value()
+                            ? *auth.default_authority
+                            : telem::AUTH_ABSOLUTE;
+    for (const auto &[name, value]: auth.channels) {
+        auto it = name_to_key.find(name);
+        if (it == name_to_key.end()) continue;
+        for (size_t i = 0; i < write_keys.size(); i++) {
+            if (write_keys[i] == it->second) {
+                authorities[i] = value;
+                break;
+            }
+        }
+    }
+    return authorities;
+}
 
 inline std::pair<std::shared_ptr<Runtime>, xerrors::Error>
 load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
@@ -206,6 +249,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     auto stage_factory = std::make_shared<stage::Factory>();
     auto io_factory = std::make_shared<io::Factory>();
     auto constant_factory = std::make_shared<constant::Factory>();
+    auto authority_factory = std::make_shared<authority::Factory>(state);
     node::MultiFactory fact(
         std::vector<std::shared_ptr<node::Factory>>{
             wasm_factory,
@@ -213,6 +257,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
             stage_factory,
             io_factory,
             constant_factory,
+            authority_factory,
         }
     );
 

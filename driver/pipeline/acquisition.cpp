@@ -26,6 +26,14 @@ xerrors::Error SynnaxWriter::write(const telem::Frame &fr) {
     return this->internal.write(fr);
 }
 
+xerrors::Error SynnaxWriter::set_authority(const Authorities &authorities) {
+    return this->internal.set_authority(
+        authorities.keys,
+        authorities.authorities,
+        false
+    );
+}
+
 xerrors::Error SynnaxWriter::close() {
     return this->internal.close();
 }
@@ -89,10 +97,9 @@ void Acquisition::run() {
     xerrors::Error writer_err;
     xerrors::Error source_err;
     // A running breaker means the pipeline user has not called stop.
-    telem::Frame frame(0);
     while (this->breaker.running()) {
-
-        if (auto source_err_i = this->source->read(this->breaker, frame)) {
+        auto [result, source_err_i] = this->source->read(this->breaker);
+        if (source_err_i) {
             source_err = source_err_i;
             LOG(ERROR) << "[acquisition] failed to read source: "
                        << source_err.message();
@@ -104,12 +111,12 @@ void Acquisition::run() {
             break;
         }
         if (source_err) source_err = xerrors::NIL;
-        if (frame.empty()) continue;
+        if (result.frame.empty()) continue;
         // Open the writer after receiving the first frame so we can resolve the
         // start timestamp from the data. This helps to account for clock drift
         // between the source we're recording data from and the system clock.
         if (!writer_opened) {
-            this->writer_config.start = resolve_start(frame);
+            this->writer_config.start = resolve_start(result.frame);
             // There are no scenarios where an acquisition task would want control
             // handoff between different levels of authorization, so we just reject
             // unauthorized writes.
@@ -124,9 +131,16 @@ void Acquisition::run() {
             writer = std::move(writer_i);
             writer_opened = true;
         }
-        if (auto err = writer->write(frame)) {
+        if (auto err = writer->write(result.frame)) {
             LOG(ERROR) << "[acquisition] failed to write frame" << err;
             break;
+        }
+        if (writer_opened && !result.authorities.empty()) {
+            if (auto err = writer->set_authority(result.authorities)) {
+                LOG(ERROR) << "[acquisition] failed to set authority: "
+                           << err.message();
+                break;
+            }
         }
         this->breaker.reset();
     }

@@ -790,12 +790,28 @@ func translateIRToPB(ir arcir.IR) (*arcir.PBIR, error) {
 		sequencesPb[i] = translateSequenceToPB(seq)
 	}
 
+	var authorityPb *arcir.PBAuthorityConfig
+	if ir.Authority.Default != nil || len(ir.Authority.Channels) > 0 {
+		authorityPb = &arcir.PBAuthorityConfig{}
+		if ir.Authority.Default != nil {
+			v := uint32(*ir.Authority.Default)
+			authorityPb.Default = &v
+		}
+		if len(ir.Authority.Channels) > 0 {
+			authorityPb.Channels = make(map[string]uint32, len(ir.Authority.Channels))
+			for name, val := range ir.Authority.Channels {
+				authorityPb.Channels[name] = uint32(val)
+			}
+		}
+	}
+
 	return &arcir.PBIR{
 		Functions: functionsPb,
 		Nodes:     nodesPb,
 		Edges:     edgesPb,
 		Strata:    strataPb,
 		Sequences: sequencesPb,
+		Authority: authorityPb,
 	}, nil
 }
 
@@ -838,12 +854,27 @@ func translateIRFromPB(pb *arcir.PBIR) (arcir.IR, error) {
 		sequences[i] = translateSequenceFromPB(seqPb)
 	}
 
+	var authority arcir.AuthorityConfig
+	if pb.Authority != nil {
+		if pb.Authority.Default != nil {
+			v := uint8(*pb.Authority.Default)
+			authority.Default = &v
+		}
+		if len(pb.Authority.Channels) > 0 {
+			authority.Channels = make(map[string]uint8, len(pb.Authority.Channels))
+			for name, val := range pb.Authority.Channels {
+				authority.Channels[name] = uint8(val)
+			}
+		}
+	}
+
 	return arcir.IR{
 		Functions: functions,
 		Nodes:     nodes,
 		Edges:     edges,
 		Strata:    strata,
 		Sequences: sequences,
+		Authority: authority,
 	}, nil
 }
 

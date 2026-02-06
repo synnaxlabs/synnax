@@ -61,10 +61,16 @@ message PBNode {
   symbol.PBChannels channels = 6;
 }
 
+message PBAuthorityConfig {
+  optional uint32 default = 1;
+  map<string, uint32> channels = 2;
+}
+
 message PBIR {
   repeated PBFunction functions = 1;
   repeated PBNode nodes = 2;
   repeated PBEdge edges = 3;
   repeated PBStratum strata = 4;
   repeated PBSequence sequences = 5;
+  PBAuthorityConfig authority = 6;
 }

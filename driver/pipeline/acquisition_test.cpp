@@ -28,12 +28,13 @@ public:
     ):
         start_ts(start_ts), read_err(read_err) {}
 
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
-        if (read_err != xerrors::NIL) return read_err;
+    std::pair<pipeline::ReadResult, xerrors::Error>
+    read(breaker::Breaker &breaker) override {
+        if (read_err != xerrors::NIL) return {{}, read_err};
         std::this_thread::sleep_for(std::chrono::microseconds(100));
-        fr.clear();
+        telem::Frame fr(0);
         fr.emplace(1, telem::Series(start_ts));
-        return xerrors::NIL;
+        return {{.frame = std::move(fr)}, xerrors::NIL};
     }
 
     void stopped_with_err(const xerrors::Error &err) override {
@@ -247,16 +248,17 @@ public:
     ):
         timestamps(std::move(timestamps)), read_err(read_err) {}
 
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
-        if (read_err != xerrors::NIL) return read_err;
+    std::pair<pipeline::ReadResult, xerrors::Error>
+    read(breaker::Breaker &breaker) override {
+        if (read_err != xerrors::NIL) return {{}, read_err};
         std::this_thread::sleep_for(std::chrono::microseconds(100));
-        fr.clear();
+        telem::Frame fr(0);
 
         for (size_t i = 0; i < timestamps.size(); i++) {
             fr.emplace(i + 1, telem::Series(timestamps[i]));
         }
 
-        return xerrors::NIL;
+        return {{.frame = std::move(fr)}, xerrors::NIL};
     }
 
     void stopped_with_err(const xerrors::Error &err) override {}
@@ -265,11 +267,12 @@ public:
 /// @brief MockSource that returns frames with non-timestamp data
 class NonTimestampSource final : public pipeline::Source {
 public:
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+    std::pair<pipeline::ReadResult, xerrors::Error>
+    read(breaker::Breaker &breaker) override {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
-        fr.clear();
+        telem::Frame fr(0);
         fr.emplace(1, telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
-        return xerrors::NIL;
+        return {{.frame = std::move(fr)}, xerrors::NIL};
     }
 
     void stopped_with_err(const xerrors::Error &err) override {}
@@ -278,11 +281,12 @@ public:
 /// @brief MockSource that returns frames with empty timestamp series
 class EmptyTimestampSource final : public pipeline::Source {
 public:
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+    std::pair<pipeline::ReadResult, xerrors::Error>
+    read(breaker::Breaker &breaker) override {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
-        fr.clear();
+        telem::Frame fr(0);
         fr.emplace(1, telem::Series(telem::TIMESTAMP_T, 0));
-        return xerrors::NIL;
+        return {{.frame = std::move(fr)}, xerrors::NIL};
     }
 
     void stopped_with_err(const xerrors::Error &err) override {}
@@ -363,4 +367,65 @@ TEST(AcquisitionPipeline, testStartResolutionEmptyTimestamps) {
 
     ASSERT_GE(mock_factory->config.start, before);
     ASSERT_LE(mock_factory->config.start, after);
+}
+
+class AuthoritySource final : public pipeline::Source {
+    telem::TimeStamp start_ts;
+    pipeline::Authorities auth;
+    bool sent_auth = false;
+
+public:
+    explicit AuthoritySource(
+        const telem::TimeStamp start_ts,
+        pipeline::Authorities auth
+    ):
+        start_ts(start_ts), auth(std::move(auth)) {}
+
+    std::pair<pipeline::ReadResult, xerrors::Error>
+    read(breaker::Breaker &breaker) override {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        telem::Frame fr(0);
+        fr.emplace(1, telem::Series(this->start_ts));
+        pipeline::ReadResult result{.frame = std::move(fr)};
+        if (!this->sent_auth) {
+            result.authorities = this->auth;
+            this->sent_auth = true;
+        }
+        return {std::move(result), xerrors::NIL};
+    }
+
+    void stopped_with_err(const xerrors::Error &err) override {}
+};
+
+/// @brief it should forward authority changes from Source to Writer
+TEST(AcquisitionPipeline, testAuthorityForwarding) {
+    auto writes = std::make_shared<std::vector<telem::Frame>>();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+
+    pipeline::Authorities auth{
+        .keys = {1, 2},
+        .authorities = {100, 200},
+    };
+    const auto source = std::make_shared<AuthoritySource>(
+        telem::TimeStamp::now(), auth
+    );
+
+    auto pipe = pipeline::Acquisition(
+        mock_factory,
+        synnax::WriterConfig(),
+        source,
+        breaker::Config()
+    );
+
+    ASSERT_TRUE(pipe.start());
+    ASSERT_EVENTUALLY_GE(mock_factory->authority_changes->size(), 1);
+    ASSERT_TRUE(pipe.stop());
+
+    const auto &change = mock_factory->authority_changes->at(0);
+    ASSERT_EQ(change.keys.size(), 2);
+    EXPECT_EQ(change.keys[0], 1);
+    EXPECT_EQ(change.keys[1], 2);
+    ASSERT_EQ(change.authorities.size(), 2);
+    EXPECT_EQ(change.authorities[0], 100);
+    EXPECT_EQ(change.authorities[1], 200);
 }

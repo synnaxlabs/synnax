@@ -203,6 +203,59 @@ TEST(WriterTests, testSetAuthority) {
     ASSERT_NIL(writer.close());
 }
 
+/// @brief it should correctly set authority without waiting for acknowledgement.
+TEST(WriterTests, testSetAuthorityFireAndForget) {
+    auto client = new_test_client();
+    auto time = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("set_authority_ff_time"),
+        telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto data1 = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("set_authority_ff_data1"),
+        telem::UINT8_T,
+        time.key,
+        false
+    ));
+    auto data2 = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("set_authority_ff_data2"),
+        telem::UINT8_T,
+        time.key,
+        false
+    ));
+
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::WriterConfig{
+            .channels = std::vector{time.key, data1.key, data2.key},
+            .start = telem::TimeStamp::now(),
+            .authorities =
+                std::vector{
+                    telem::AUTH_ABSOLUTE,
+                    telem::AUTH_ABSOLUTE,
+                    telem::AUTH_ABSOLUTE
+                },
+            .subject = telem::ControlSubject{"test_writer_ff"},
+            .err_on_unauthorized = true
+        }
+    ));
+
+    ASSERT_NIL(writer.set_authority(
+        std::vector{data1.key, data2.key},
+        std::vector<telem::Authority>{200, 200},
+        false
+    ));
+
+    auto now = telem::TimeStamp::now();
+    auto frame = telem::Frame(3);
+    frame.emplace(time.key, telem::Series(now + telem::SECOND));
+    frame.emplace(data1.key, telem::Series(std::vector<uint8_t>{1}));
+    frame.emplace(data2.key, telem::Series(std::vector<uint8_t>{2}));
+    ASSERT_NIL(writer.write(frame));
+    ASSERT_NIL_P(writer.commit());
+    ASSERT_NIL(writer.close());
+}
+
 /// @brief close can be called as many times as desired and should not return an error
 /// when the writer has a nominal shutdown.
 TEST(WriterTests, testCloseIdempotency) {

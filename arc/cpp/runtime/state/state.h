@@ -28,6 +28,11 @@
 namespace arc::runtime::state {
 using Series = xmemory::local_shared<telem::Series>;
 
+struct AuthorityChange {
+    std::optional<types::ChannelKey> channel_key;
+    uint8_t authority;
+};
+
 struct Value {
     Series data;
     Series time;
@@ -188,6 +193,9 @@ class State {
     /// @brief Callback for reporting warnings (e.g., data drops).
     errors::Handler error_handler;
 
+    /// @brief Buffered authority changes from set_authority nodes.
+    std::vector<AuthorityChange> authority_changes;
+
 public:
     void write_channel(types::ChannelKey key, const Series &data, const Series &time);
     std::pair<telem::MultiSeries, bool> read_channel(types::ChannelKey key);
@@ -198,6 +206,13 @@ public:
     std::pair<Node, xerrors::Error> node(const std::string &key);
     void ingest(const telem::Frame &frame);
     std::vector<std::pair<types::ChannelKey, Series>> flush();
+
+    /// @brief Buffers an authority change request for later flushing.
+    /// If channel_key is nullopt, the change applies to all write channels.
+    void set_authority(std::optional<types::ChannelKey> channel_key, uint8_t authority);
+
+    /// @brief Returns and clears all buffered authority changes.
+    std::vector<AuthorityChange> flush_authority_changes();
 
     /// @brief Clears all persistent state, resetting the runtime to initial conditions.
     void reset();

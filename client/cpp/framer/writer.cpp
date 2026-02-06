@@ -79,14 +79,15 @@ Writer::set_authority(const ChannelKey &key, const telem::Authority &authority) 
 
 xerrors::Error Writer::set_authority(
     const std::vector<ChannelKey> &keys,
-    const std::vector<telem::Authority> &authorities
+    const std::vector<telem::Authority> &authorities,
+    const bool ack
 ) {
     if (this->close_err) return this->close_err;
     const WriterConfig config{.channels = keys, .authorities = authorities};
     api::v1::FrameWriterRequest req;
     req.set_command(SET_AUTHORITY);
     config.to_proto(req.mutable_config());
-    return this->exec(req, true).second;
+    return this->exec(req, ack).second;
 }
 
 xerrors::Error Writer::close() {

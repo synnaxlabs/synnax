@@ -78,10 +78,24 @@ class Task final : public task::Task {
     public:
         explicit Source(Task &task): task(task) {}
 
-        xerrors::Error read(breaker::Breaker &breaker, telem::Frame &data) override {
+        std::pair<pipeline::ReadResult, xerrors::Error>
+        read(breaker::Breaker &breaker) override {
+            telem::Frame data;
             if (!this->task.runtime->read(data))
-                return xerrors::Error("runtime closed");
-            return xerrors::NIL;
+                return {{}, xerrors::Error("runtime closed")};
+            pipeline::Authorities authorities;
+            std::vector<runtime::state::AuthorityChange> changes;
+            while (this->task.runtime->read_authority_changes(changes)) {
+                for (auto &c: changes) {
+                    if (c.channel_key.has_value())
+                        authorities.keys.push_back(*c.channel_key);
+                    authorities.authorities.push_back(c.authority);
+                }
+            }
+            return {
+                {.frame = std::move(data), .authorities = std::move(authorities)},
+                xerrors::NIL,
+            };
         }
 
         void stopped_with_err(const xerrors::Error &err) override {
@@ -157,11 +171,17 @@ public:
             streamer_factory = std::make_shared<pipeline::SynnaxStreamerFactory>(
                 ctx->client
             );
+        auto initial_authorities = runtime::build_authorities(
+            cfg.module.authority,
+            task->runtime->write_channels,
+            cfg.module.nodes
+        );
         task->acquisition = std::make_unique<pipeline::Acquisition>(
             writer_factory,
             synnax::WriterConfig{
                 .channels = task->runtime->write_channels,
                 .start = telem::TimeStamp::now(),
+                .authorities = std::move(initial_authorities),
                 .subject =
                     telem::ControlSubject{
                         .name = task_meta.name,

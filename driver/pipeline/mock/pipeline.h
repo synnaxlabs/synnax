@@ -125,22 +125,28 @@ inline std::shared_ptr<pipeline::mock::StreamerFactory> simple_streamer_factory(
 // Mock implementation of pipeline::Writer for testing.
 class Writer final : public pipeline::Writer {
 public:
-    // Stores all frames written through this writer
+    /// Stores all frames written through this writer.
     std::shared_ptr<std::vector<telem::Frame>> writes;
 
-    // Error to return when close() is called
+    /// Stores all authority changes forwarded to this writer.
+    std::shared_ptr<std::vector<pipeline::Authorities>> authority_changes;
+
+    /// Error to return when close() is called.
     xerrors::Error close_err;
 
-    // Index at which write() should return false to simulate failure
-    // -1 means never return false
+    /// Index at which write() should return false to simulate failure.
+    /// -1 means never return false.
     int return_false_ok_on;
 
     explicit Writer(
         std::shared_ptr<std::vector<telem::Frame>> writes,
         const xerrors::Error &close_err = xerrors::NIL,
-        const int return_false_ok_on = -1
+        const int return_false_ok_on = -1,
+        std::shared_ptr<std::vector<pipeline::Authorities>> authority_changes =
+            std::make_shared<std::vector<pipeline::Authorities>>()
     ):
         writes(std::move(writes)),
+        authority_changes(std::move(authority_changes)),
         close_err(close_err),
         return_false_ok_on(return_false_ok_on) {}
 
@@ -152,35 +158,35 @@ public:
         return xerrors::NIL;
     }
 
+    xerrors::Error set_authority(const pipeline::Authorities &authorities) override {
+        this->authority_changes->push_back(authorities);
+        return xerrors::NIL;
+    }
+
     xerrors::Error close() override { return this->close_err; }
 };
 
 class WriterFactory final : public pipeline::WriterFactory {
 public:
-    // Stores all frames written through this factory's writers. Shared across all
-    // writers created by this factory to allow test verification of written data.
+    /// Stores all frames written through this factory's writers.
     std::shared_ptr<std::vector<telem::Frame>> writes;
 
-    // A queue of errors to return when opening writers. Each call to open_writer
-    // will consume and return the next error in this vector. Empty vector means no
-    // errors.
+    /// Stores all authority changes forwarded through this factory's writers.
+    std::shared_ptr<std::vector<pipeline::Authorities>> authority_changes;
+
+    /// A queue of errors to return when opening writers.
     std::vector<xerrors::Error> open_errors;
 
-    // A queue of errors for writers to return when closed. Each new writer created
-    // will consume and use the next error in this vector for its close() method.
+    /// A queue of errors for writers to return when closed.
     std::vector<xerrors::Error> close_errors;
 
-    // A queue of indices at which writers should return false for write operations.
-    // Each new writer will consume the next value. When a writer's writes->size()
-    // equals this value, its write() method will return false, simulating a write
-    // failure. A value of -1 (default) means never return false.
+    /// A queue of indices at which writers should return false for write operations.
     std::vector<int> return_false_ok_on;
 
-    // Stores the most recent writer configuration passed to open_writer
+    /// Stores the most recent writer configuration passed to open_writer.
     synnax::WriterConfig config;
 
-    // Counts how many times open_writer has been called, useful for testing retry
-    // behavior
+    /// Counts how many times open_writer has been called.
     size_t writer_opens;
 
     explicit WriterFactory(
@@ -191,6 +197,9 @@ public:
         std::vector<int> return_false_ok_on = {}
     ):
         writes(std::move(writes)),
+        authority_changes(
+            std::make_shared<std::vector<pipeline::Authorities>>()
+        ),
         open_errors(std::move(open_errors)),
         close_errors(std::move(close_errors)),
         return_false_ok_on(std::move(return_false_ok_on)),
@@ -216,7 +225,8 @@ public:
         auto writer = std::make_unique<Writer>(
             this->writes,
             close_err,
-            return_false_ok_on
+            return_false_ok_on,
+            this->authority_changes
         );
         return {std::move(writer), err};
     }
@@ -287,16 +297,17 @@ public:
     ):
         reads(std::move(reads)), read_errors(std::move(read_errors)) {}
 
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+    std::pair<pipeline::ReadResult, xerrors::Error>
+    read(breaker::Breaker &breaker) override {
         read_count++;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
         if (current_read >= reads->size()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            return xerrors::NIL;
+            return {{}, xerrors::NIL};
         }
 
-        fr.clear();
+        telem::Frame fr(0);
         const auto &curr_read = reads->at(current_read);
         for (auto [k, s]: curr_read)
             fr.emplace(k, std::move(s));
@@ -304,7 +315,7 @@ public:
         if (read_errors != nullptr && read_errors->size() > current_read)
             err = read_errors->at(current_read);
         current_read++;
-        return err;
+        return {{.frame = std::move(fr)}, err};
     }
 
     void stopped_with_err(const xerrors::Error &err) override { this->stop_err = err; }
