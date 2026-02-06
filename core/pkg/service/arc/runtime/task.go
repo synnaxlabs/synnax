@@ -186,9 +186,12 @@ func (t *taskImpl) start(ctx context.Context) error {
 		wrt, err := t.factoryCfg.Framer.NewStreamWriter(
 			ctx,
 			framer.WriterConfig{
-				ControlSubject: control.Subject{Name: t.prog.Name},
-				Start:          drt.startTime,
-				Keys:           stateCfg.Writes.Keys(),
+				ControlSubject: control.Subject{
+					Name: t.prog.Name,
+					Key:  t.task.Key.String(),
+				},
+				Start: drt.startTime,
+				Keys:  stateCfg.Writes.Keys(),
 			},
 		)
 		if err != nil {
@@ -205,6 +208,8 @@ func (t *taskImpl) start(ctx context.Context) error {
 						zap.Int("seqNum", res.SeqNum),
 						zap.Error(res.Err),
 					)
+					t.setStatus(status.VariantError, false, res.Err.Error())
+					return res.Err
 				} else if !res.Authorized {
 					t.factoryCfg.L.Warn("unauthorized writer response",
 						zap.Stringer("task", t.task),
@@ -225,7 +230,12 @@ func (t *taskImpl) start(ctx context.Context) error {
 		signal.NewGracefulShutdown(sCtx, cancel),
 		streamerCloseSignal,
 	)
-	pipeline.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
+	pipeline.Flow(
+		sCtx,
+		confluence.CloseOutputInletsOnExit(),
+		confluence.RecoverWithErrOnPanic(),
+		confluence.CancelOnFail(),
+	)
 	t.setStatus(status.VariantSuccess, true, "Task started successfully")
 	return nil
 }
