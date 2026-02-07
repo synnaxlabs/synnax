@@ -1,0 +1,27 @@
+cc_library(
+    name = "stage",
+    hdrs = ["stage.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/stl",
+        "//x/cpp/xerrors",
+    ],
+)
+
+cc_test(
+    name = "stage_test",
+    srcs = ["stage_test.cpp"],
+    deps = [
+        ":stage",
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -1,0 +1,30 @@
+cc_library(
+    name = "variables",
+    hdrs = ["variables.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/stl/series:state",
+        "//arc/cpp/stl/str:state",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_library(
+    name = "vars",
+    hdrs = ["vars.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":variables",
+        "//arc/cpp/stl",
+        "//arc/cpp/stl/series:state",
+        "//arc/cpp/stl/str:state",
+    ],
+)

@@ -9,12 +9,23 @@
 
 package compiler
 
+import "github.com/synnaxlabs/arc/symbol"
+
 type options struct {
 	disableHostImports bool
+	hostSymbols        symbol.Resolver
 }
 
 type Option func(o *options)
 
 func DisableHostImport() Option {
 	return func(o *options) { o.disableHostImports = true }
+}
+
+// WithHostSymbols provides a custom symbol resolver for host function type
+// definitions. When set, the compiler uses this resolver instead of the default
+// stdlib resolver. This allows the STL modules to serve as the single source of
+// truth for host function signatures.
+func WithHostSymbols(r symbol.Resolver) Option {
+	return func(o *options) { o.hostSymbols = r }
 }

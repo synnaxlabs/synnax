@@ -22,6 +22,13 @@
 #include "arc/cpp/runtime/wasm/factory.h"
 #include "arc/cpp/runtime/wasm/module.h"
 #include "arc/cpp/runtime/wasm/node.h"
+#include "arc/cpp/stl/channel/channel.h"
+#include "arc/cpp/stl/error/error.h"
+#include "arc/cpp/stl/math/math.h"
+#include "arc/cpp/stl/series/series.h"
+#include "arc/cpp/stl/str/str.h"
+#include "arc/cpp/stl/time/time.h"
+#include "arc/cpp/stl/vars/vars.h"
 
 using namespace arc::runtime;
 
@@ -62,6 +69,23 @@ node::Context make_context() {
         .mark_changed = [](const std::string &) {},
         .report_error = [](const xerrors::Error &) {},
         .activate_stage = [] {},
+    };
+}
+
+/// @brief Builds a set of STL modules from the given state.
+std::vector<std::shared_ptr<stl::Module>>
+build_stl_modules(const std::shared_ptr<state::State> &state) {
+    auto series_st = state->get_series_state();
+    auto str_st = state->get_str_state();
+    auto var_st = state->get_variables();
+    return {
+        std::make_shared<stl::channel::Module>(state, str_st),
+        std::make_shared<stl::vars::Module>(var_st, series_st, str_st),
+        std::make_shared<stl::series::Module>(series_st),
+        std::make_shared<stl::str::Module>(str_st),
+        std::make_shared<stl::math::Module>(),
+        std::make_shared<stl::time::Module>(),
+        std::make_shared<stl::error::Module>(arc::runtime::errors::noop_handler),
     };
 }
 }
@@ -978,14 +1002,8 @@ func counter(trigger i64) i64 {
         arc::runtime::errors::noop_handler
     );
 
-    auto bindings = std::make_shared<wasm::Bindings>(
-        state,
-        nullptr,
-        arc::runtime::errors::noop_handler
-    );
-
     auto wasm_mod = ASSERT_NIL_P(
-        wasm::Module::open({.module = mod, .bindings = bindings})
+        wasm::Module::open({.module = mod, .modules = build_stl_modules(state)})
     );
 
     // Find the two counter nodes
@@ -1116,14 +1134,8 @@ func read_chan{ch chan f32}(trigger u8) f32 {
         arc::runtime::errors::noop_handler
     );
 
-    auto bindings = std::make_shared<wasm::Bindings>(
-        state,
-        nullptr,
-        arc::runtime::errors::noop_handler
-    );
-
     auto wasm_mod = ASSERT_NIL_P(
-        wasm::Module::open({.module = mod, .bindings = bindings})
+        wasm::Module::open({.module = mod, .modules = build_stl_modules(state)})
     );
 
     // Ingest data for the config param channel so channel_read_f32 can find it.

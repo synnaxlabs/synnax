@@ -15,18 +15,26 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/runtime/authority"
-	"github.com/synnaxlabs/arc/runtime/constant"
-	"github.com/synnaxlabs/arc/runtime/op"
-	"github.com/synnaxlabs/arc/runtime/selector"
-	"github.com/synnaxlabs/arc/runtime/stable"
-	"github.com/synnaxlabs/arc/runtime/stat"
-	"github.com/synnaxlabs/arc/runtime/telem"
-	"github.com/synnaxlabs/arc/runtime/time"
+	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/stl/authority"
+	stlchannel "github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/constant"
+	"github.com/synnaxlabs/arc/stl/errors"
+	"github.com/synnaxlabs/arc/stl/math"
+	stlop "github.com/synnaxlabs/arc/stl/op"
+	"github.com/synnaxlabs/arc/stl/selector"
+	"github.com/synnaxlabs/arc/stl/series"
+	"github.com/synnaxlabs/arc/stl/stable"
+	"github.com/synnaxlabs/arc/stl/stage"
+	"github.com/synnaxlabs/arc/stl/stat"
+	"github.com/synnaxlabs/arc/stl/strings"
+	"github.com/synnaxlabs/arc/stl/telem"
+	"github.com/synnaxlabs/arc/stl/time"
+	"github.com/synnaxlabs/arc/stl/vars"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 )
 
 type channelResolver struct{ *channel.Service }
@@ -70,17 +78,36 @@ func (r *channelResolver) Search(ctx context.Context, name string) ([]arc.Symbol
 	}), nil
 }
 
-func CreateResolver(channelSvc *channel.Service) arc.SymbolResolver {
-	return symbol.CompoundResolver{
-		constant.SymbolResolver,
-		op.SymbolResolver,
-		selector.SymbolResolver,
-		stable.SymbolResolver,
-		status.SymbolResolver,
-		authority.SymbolResolver,
-		telem.SymbolResolver,
-		stat.SymbolResolver,
-		time.SymbolResolver,
-		&channelResolver{Service: channelSvc},
+// DefaultResolverModules returns the default set of STL modules used for symbol
+// resolution by the analyzer and LSP. These modules only need static symbol
+// definitions and do not require runtime state.
+// DefaultResolverModules returns the default set of STL modules used for symbol
+// resolution by the analyzer and LSP. These modules only need static symbol
+// definitions and do not require runtime state.
+func DefaultResolverModules() []stl.Module {
+	return []stl.Module{
+		stlchannel.NewModule(nil, nil),
+		vars.NewModule(nil, nil),
+		series.NewModule(nil),
+		strings.NewModule(nil),
+		math.NewModule(),
+		errors.NewModule(),
+		constant.NewModule(),
+		stlop.NewModule(),
+		selector.NewModule(),
+		stable.NewModule(),
+		authority.NewModule(nil),
+		telem.NewModule(),
+		stat.NewModule(),
+		time.NewModule(),
+		stage.NewModule(),
 	}
+}
+
+func CreateResolver(channelSvc *channel.Service, modules ...stl.Module) arc.SymbolResolver {
+	if len(modules) == 0 {
+		modules = DefaultResolverModules()
+	}
+	resolvers := stl.CompoundResolver(modules...)
+	return append(resolvers, arcstatus.SymbolResolver, &channelResolver{Service: channelSvc})
 }

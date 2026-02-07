@@ -17,7 +17,6 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xtest/xtest.h"
 
-#include "arc/cpp/runtime/wasm/bindings.h"
 #include "arc/cpp/runtime/wasm/module.h"
 
 using namespace arc::runtime::wasm;

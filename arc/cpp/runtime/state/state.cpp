@@ -56,7 +56,11 @@ Series parse_default_value(
 }
 
 State::State(const Config &cfg, errors::Handler error_handler):
-    cfg(cfg), error_handler(std::move(error_handler)) {
+    cfg(cfg),
+    str_state(std::make_shared<stl::str::State>()),
+    series_state(std::make_shared<stl::series::State>()),
+    variables(std::make_shared<stl::vars::Variables>()),
+    error_handler(std::move(error_handler)) {
     size_t total = 0;
     for (const auto &node: cfg.ir.nodes)
         total += node.outputs.size();
@@ -175,17 +179,12 @@ void State::ingest(const telem::Frame &frame) {
 std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
     for (auto &series_vec: reads | std::views::values) {
         if (series_vec.size() <= 1) continue;
-        // Keep only the last series to preserve the latest value for each channel.
-        // This allows channel_read_* calls to return the most recent value even if
-        // new frames for that channel haven't arrived yet.
         auto last = std::move(series_vec.back());
         series_vec.clear();
         series_vec.push_back(std::move(last));
     }
-    this->series_handles.clear();
-    this->series_handle_counter = 1;
-    this->strings.clear();
-    this->string_handle_counter = 1;
+    this->series_state->clear();
+    this->str_state->clear();
 
     std::vector<std::pair<types::ChannelKey, Series>> result;
     result.reserve(writes.size());
@@ -198,22 +197,9 @@ std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
 void State::reset() {
     this->reads.clear();
     this->writes.clear();
-    this->strings.clear();
-    this->series_handles.clear();
-    this->string_handle_counter = 1;
-    this->series_handle_counter = 1;
-    this->var_u8.clear();
-    this->var_u16.clear();
-    this->var_u32.clear();
-    this->var_u64.clear();
-    this->var_i8.clear();
-    this->var_i16.clear();
-    this->var_i32.clear();
-    this->var_i64.clear();
-    this->var_f32.clear();
-    this->var_f64.clear();
-    this->var_string.clear();
-    this->var_series.clear();
+    this->str_state->clear();
+    this->series_state->clear();
+    this->variables->reset();
 }
 
 void State::set_authority(
@@ -325,117 +311,4 @@ void Node::set_current_node_key(const std::string &key) {
     this->state.set_current_node_key(key);
 }
 
-uint32_t State::string_from_memory(const uint8_t *data, const uint32_t len) {
-    const std::string str(reinterpret_cast<const char *>(data), len);
-    const uint32_t handle = this->string_handle_counter++;
-    this->strings[handle] = str;
-    return handle;
-}
-
-uint32_t State::string_create(const std::string &str) {
-    const uint32_t handle = this->string_handle_counter++;
-    this->strings[handle] = str;
-    return handle;
-}
-
-std::string State::string_get(const uint32_t handle) const {
-    const auto it = this->strings.find(handle);
-    if (it == this->strings.end()) return "";
-    return it->second;
-}
-
-bool State::string_exists(const uint32_t handle) const {
-    return this->strings.contains(handle);
-}
-
-telem::Series *State::series_get(const uint32_t handle) {
-    const auto it = this->series_handles.find(handle);
-    if (it == this->series_handles.end()) return nullptr;
-    return &it->second;
-}
-
-const telem::Series *State::series_get(const uint32_t handle) const {
-    const auto it = this->series_handles.find(handle);
-    if (it == this->series_handles.end()) return nullptr;
-    return &it->second;
-}
-
-uint32_t State::series_store(telem::Series series) {
-    const uint32_t handle = this->series_handle_counter++;
-    this->series_handles.emplace(handle, std::move(series));
-    return handle;
-}
-
-#define IMPL_VAR_OPS(suffix, cpptype)                                                  \
-    cpptype State::var_load_##suffix(                                                  \
-        const uint32_t var_id,                                                         \
-        const cpptype init_value                                                       \
-    ) {                                                                                \
-        auto &inner = this->var_##suffix[this->current_node_key];                      \
-        const auto it = inner.find(var_id);                                            \
-        if (it != inner.end()) return it->second;                                      \
-        inner[var_id] = init_value;                                                    \
-        return init_value;                                                             \
-    }                                                                                  \
-    void State::var_store_##suffix(const uint32_t var_id, const cpptype value) {       \
-        this->var_##suffix[this->current_node_key][var_id] = value;                    \
-    }
-
-IMPL_VAR_OPS(u8, uint8_t)
-IMPL_VAR_OPS(u16, uint16_t)
-IMPL_VAR_OPS(u32, uint32_t)
-IMPL_VAR_OPS(u64, uint64_t)
-IMPL_VAR_OPS(i8, int8_t)
-IMPL_VAR_OPS(i16, int16_t)
-IMPL_VAR_OPS(i32, int32_t)
-IMPL_VAR_OPS(i64, int64_t)
-IMPL_VAR_OPS(f32, float)
-IMPL_VAR_OPS(f64, double)
-
-#undef IMPL_VAR_OPS
-
-uint32_t State::var_load_str(const uint32_t var_id, const uint32_t init_handle) {
-    auto &inner = this->var_string[this->current_node_key];
-    if (const auto it = inner.find(var_id); it != inner.end()) {
-        this->strings[this->string_handle_counter] = it->second;
-        return this->string_handle_counter++;
-    }
-    if (const auto init_it = this->strings.find(init_handle);
-        init_it != this->strings.end())
-        inner[var_id] = init_it->second;
-    else
-        inner[var_id] = "";
-    this->strings[this->string_handle_counter] = inner[var_id];
-    return this->string_handle_counter++;
-}
-
-void State::var_store_str(const uint32_t var_id, const uint32_t str_handle) {
-    if (const auto it = this->strings.find(str_handle); it != this->strings.end())
-        this->var_string[this->current_node_key][var_id] = it->second;
-}
-
-uint32_t State::var_load_series(const uint32_t var_id, const uint32_t init_handle) {
-    auto &inner = this->var_series[this->current_node_key];
-    if (const auto state_it = inner.find(var_id); state_it != inner.end()) {
-        auto copy = state_it->second.deep_copy();
-        const uint32_t handle = this->series_handle_counter++;
-        this->series_handles.emplace(handle, std::move(copy));
-        return handle;
-    }
-    if (const auto init_it = this->series_handles.find(init_handle);
-        init_it != this->series_handles.end()) {
-        inner.emplace(var_id, init_it->second.deep_copy());
-    }
-    return init_handle;
-}
-
-void State::var_store_series(const uint32_t var_id, const uint32_t handle) {
-    if (const auto it = this->series_handles.find(handle);
-        it != this->series_handles.end()) {
-        this->var_series[this->current_node_key].insert_or_assign(
-            var_id,
-            it->second.deep_copy()
-        );
-    }
-}
 }

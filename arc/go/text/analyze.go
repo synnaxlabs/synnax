@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/runtime/stage"
+	"github.com/synnaxlabs/arc/stl/stage"
 	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -748,9 +748,9 @@ func analyzeStage(
 
 	entryNode := ir.Node{
 		Key:      kg.entry(seqName, stageName),
-		Type:     stage.EntryNode.Name,
+		Type:     stage.EntryNodeName,
 		Channels: symbol.NewChannels(),
-		Inputs:   stage.EntryNode.Type.Inputs,
+		Inputs:   stage.EntryNodeInputs,
 	}
 	nodes = append(nodes, entryNode)
 

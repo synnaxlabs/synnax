@@ -17,7 +17,7 @@
 
 #include "arc/cpp/module/module.h"
 #include "arc/cpp/runtime/errors/errors.h"
-#include "arc/cpp/runtime/wasm/bindings.h"
+#include "arc/cpp/stl/stl.h"
 #include "arc/cpp/types/types.h"
 #include "wasmtime.hh"
 
@@ -150,7 +150,7 @@ const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 
 struct ModuleConfig {
     module::Module module;
-    std::shared_ptr<Bindings> bindings;
+    std::vector<std::shared_ptr<stl::Module>> modules;
     std::uint32_t stack_size = 2 * 1024 * 1024; // 2MB (Wasmtime default)
     std::uint32_t host_managed_heap_size = 10 * 1024 * 1024; // 10MB
 };
@@ -207,8 +207,26 @@ public:
             };
         }
         const auto mod = mod_result.ok();
-        const auto imports = create_imports(store, cfg.bindings);
-        auto instance = wasmtime::Instance::create(store, mod, imports).unwrap();
+
+        wasmtime::Linker linker(engine);
+        for (auto &m: cfg.modules)
+            m->bind_to(linker, store);
+
+        auto inst_result = linker.instantiate(store, mod);
+        if (!inst_result) {
+            auto trap_err = inst_result.err();
+            auto msg = trap_err.message();
+            return {
+                nullptr,
+                xerrors::Error(
+                    INITIALIZATION_ERROR,
+                    "failed to instantiate module: " +
+                        std::string(msg.data(), msg.size())
+                )
+            };
+        }
+        auto instance = inst_result.ok();
+
         const auto mem_opt = instance.get(store, "memory");
         if (!mem_opt)
             return {
@@ -238,10 +256,8 @@ public:
             std::move(mem),
             std::move(instance)
         );
-        if (cfg.bindings != nullptr) {
-            cfg.bindings->set_memory(&module->memory);
-            cfg.bindings->set_store(&module->store);
-        }
+        for (auto &m: module->cfg.modules)
+            m->set_wasm_context(&module->store, &module->memory);
         return {module, xerrors::NIL};
     }
 

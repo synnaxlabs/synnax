@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/compiler/bindings"
+	"github.com/synnaxlabs/arc/compiler/resolve"
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -22,14 +22,13 @@ import (
 // Context maintains compilation state across all code generation
 type Context[ASTNode antlr.ParserRuleContext] struct {
 	context.Context
-	AST     ASTNode
-	Imports *bindings.ImportIndex
-	Scope   *symbol.Scope
-	Writer  *wasm.Writer
-	Module  *wasm.Module
-	TypeMap map[antlr.ParserRuleContext]types.Type
-	// FunctionIndices maps function names to their WASM function indices for call resolution
-	FunctionIndices map[string]uint32
+	AST      ASTNode
+	Resolver *resolve.Resolver
+	Scope    *symbol.Scope
+	Writer   *wasm.Writer
+	Module   *wasm.Module
+	TypeMap  map[antlr.ParserRuleContext]types.Type
+	WriterID int
 	// Outputs and OutputMemoryBase are set for multi-output functions
 	Outputs          types.Params
 	Hint             types.Type
@@ -39,7 +38,7 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Context[ASTNode] {
 	return Context[ASTNode]{
 		Context:          ctx.Context,
-		Imports:          ctx.Imports,
+		Resolver:         ctx.Resolver,
 		Scope:            ctx.Scope,
 		Writer:           ctx.Writer,
 		Module:           ctx.Module,
@@ -48,7 +47,7 @@ func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Con
 		Hint:             ctx.Hint,
 		Outputs:          ctx.Outputs,
 		OutputMemoryBase: ctx.OutputMemoryBase,
-		FunctionIndices:  ctx.FunctionIndices,
+		WriterID:         ctx.WriterID,
 	}
 }
 func (c Context[AstNode]) WithHint(hint types.Type) Context[AstNode] {
@@ -63,6 +62,9 @@ func (c Context[AstNode]) WithScope(scope *symbol.Scope) Context[AstNode] {
 
 func (c Context[ASTNode]) WithNewWriter() Context[ASTNode] {
 	c.Writer = wasm.NewWriter()
+	if c.Resolver != nil {
+		c.WriterID = c.Resolver.TrackWriter(c.Writer)
+	}
 	return c
 }
 
@@ -70,18 +72,20 @@ func CreateRoot(
 	ctx context.Context,
 	symbols *symbol.Scope,
 	typeMap map[antlr.ParserRuleContext]types.Type,
-	disableHostImports bool,
+	resolver *resolve.Resolver,
 ) Context[antlr.ParserRuleContext] {
-	compCtx := Context[antlr.ParserRuleContext]{
-		Context:         ctx,
-		Module:          wasm.NewModule(),
-		Scope:           symbols,
-		TypeMap:         typeMap,
-		Writer:          wasm.NewWriter(),
-		FunctionIndices: make(map[string]uint32),
+	w := wasm.NewWriter()
+	var writerID int
+	if resolver != nil {
+		writerID = resolver.TrackWriter(w)
 	}
-	if !disableHostImports {
-		compCtx.Imports = bindings.SetupImports(compCtx.Module)
+	return Context[antlr.ParserRuleContext]{
+		Context:  ctx,
+		Module:   wasm.NewModule(),
+		Scope:    symbols,
+		TypeMap:  typeMap,
+		Writer:   w,
+		Resolver: resolver,
+		WriterID: writerID,
 	}
-	return compCtx
 }

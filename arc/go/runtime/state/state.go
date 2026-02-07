@@ -43,22 +43,208 @@ type AuthorityChange struct {
 	Authority uint8
 }
 
-// State manages runtime data for an arc program.
-// It stores node outputs, channel I/O buffers, and index relationships.
-type State struct {
-	channel struct {
-		reads  map[uint32]telem.MultiSeries
-		writes map[uint32]telem.Series
-	}
-	outputs          map[ir.Handle]*value
-	indexes          map[uint32]uint32
-	cfg              Config
-	authorityChanges []AuthorityChange
+// SeriesHandleStore manages transient series handles.
+// Handles are short-lived references used within a single execution cycle
+// and cleared on each flush.
+type SeriesHandleStore struct {
+	series  map[uint32]telem.Series
+	counter uint32
+}
 
-	series              map[uint32]telem.Series
-	seriesHandleCounter uint32
-	strings             map[uint32]string
-	stringHandleCounter uint32
+// NewSeriesHandleStore creates a new SeriesHandleStore.
+func NewSeriesHandleStore() *SeriesHandleStore {
+	return &SeriesHandleStore{
+		series:  make(map[uint32]telem.Series),
+		counter: 1,
+	}
+}
+
+// Store stores a series and returns a handle for later retrieval.
+func (s *SeriesHandleStore) Store(series telem.Series) uint32 {
+	handle := s.counter
+	s.counter++
+	s.series[handle] = series
+	return handle
+}
+
+// Get retrieves a series by its handle.
+func (s *SeriesHandleStore) Get(handle uint32) (telem.Series, bool) {
+	series, ok := s.series[handle]
+	return series, ok
+}
+
+// Clear removes all stored series and resets the counter.
+func (s *SeriesHandleStore) Clear() {
+	clear(s.series)
+	s.counter = 1
+}
+
+// StringHandleStore manages transient string handles.
+// Handles are short-lived references used within a single execution cycle
+// and cleared on each flush.
+type StringHandleStore struct {
+	strings map[uint32]string
+	counter uint32
+}
+
+// NewStringHandleStore creates a new StringHandleStore.
+func NewStringHandleStore() *StringHandleStore {
+	return &StringHandleStore{
+		strings: make(map[uint32]string),
+		counter: 1,
+	}
+}
+
+// Create stores a string and returns a handle for later retrieval.
+func (s *StringHandleStore) Create(str string) uint32 {
+	handle := s.counter
+	s.counter++
+	s.strings[handle] = str
+	return handle
+}
+
+// Get retrieves a string by its handle.
+func (s *StringHandleStore) Get(handle uint32) (string, bool) {
+	str, ok := s.strings[handle]
+	return str, ok
+}
+
+// Clear removes all stored strings and resets the counter.
+func (s *StringHandleStore) Clear() {
+	clear(s.strings)
+	s.counter = 1
+}
+
+// AuthorityBuffer buffers authority change requests produced during
+// reactive execution for later flushing.
+type AuthorityBuffer struct {
+	changes []AuthorityChange
+}
+
+// NewAuthorityBuffer creates a new AuthorityBuffer.
+func NewAuthorityBuffer() *AuthorityBuffer {
+	return &AuthorityBuffer{}
+}
+
+// Set buffers an authority change request.
+// If channelKey is nil, the change applies to all write channels.
+func (b *AuthorityBuffer) Set(channelKey *uint32, authority uint8) {
+	b.changes = append(b.changes, AuthorityChange{
+		Channel:   channelKey,
+		Authority: authority,
+	})
+}
+
+// Flush returns and clears all buffered authority changes.
+func (b *AuthorityBuffer) Flush() []AuthorityChange {
+	if len(b.changes) == 0 {
+		return nil
+	}
+	changes := b.changes
+	b.changes = nil
+	return changes
+}
+
+// ChannelState manages channel I/O buffers and index mapping.
+type ChannelState struct {
+	reads   map[uint32]telem.MultiSeries
+	writes  map[uint32]telem.Series
+	indexes map[uint32]uint32
+}
+
+// NewChannelState creates a new ChannelState from channel digests.
+func NewChannelState(digests []ChannelDigest) *ChannelState {
+	cs := &ChannelState{
+		reads:   make(map[uint32]telem.MultiSeries),
+		writes:  make(map[uint32]telem.Series),
+		indexes: make(map[uint32]uint32),
+	}
+	for _, d := range digests {
+		cs.indexes[d.Key] = d.Index
+	}
+	return cs
+}
+
+// Ingest adds external channel data to the read buffer.
+func (cs *ChannelState) Ingest(fr telem.Frame[uint32]) {
+	for rawI, key := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(rawI) {
+			continue
+		}
+		cs.reads[key] = cs.reads[key].Append(fr.RawSeriesAt(rawI))
+	}
+}
+
+// Flush extracts buffered channel writes into a frame and clears the write buffer.
+func (cs *ChannelState) Flush(fr telem.Frame[uint32]) (telem.Frame[uint32], bool) {
+	if len(cs.writes) == 0 {
+		return fr, false
+	}
+	for key, data := range cs.writes {
+		fr = fr.Append(key, data.DeepCopy())
+	}
+	clear(cs.writes)
+	return fr, true
+}
+
+// ClearReads clears accumulated channel read buffers while preserving the latest
+// series for each channel.
+func (cs *ChannelState) ClearReads() {
+	for key, ser := range cs.reads {
+		if len(ser.Series) <= 1 {
+			continue
+		}
+		last := ser.Series[len(ser.Series)-1]
+		ser.Series = ser.Series[:1]
+		ser.Series[0] = last
+		cs.reads[key] = ser
+	}
+}
+
+// ReadValue reads a single value from a channel (for WASM runtime bindings).
+func (cs *ChannelState) ReadValue(key uint32) (telem.Series, bool) {
+	ms, ok := cs.reads[key]
+	if !ok || len(ms.Series) == 0 {
+		return telem.Series{}, false
+	}
+	return ms.Series[len(ms.Series)-1], ok
+}
+
+// WriteValue writes a single value to a channel (for WASM runtime bindings).
+// For channels with an index, it auto-generates a timestamp using telem.Now()
+// and writes to both the data channel and its index channel.
+func (cs *ChannelState) WriteValue(key uint32, value telem.Series) {
+	cs.writeChannel(key, value, telem.NewSeriesV(telem.Now()))
+}
+
+// ReadChan reads buffered data and time series from a channel.
+func (cs *ChannelState) ReadChan(key uint32) (data telem.MultiSeries, time telem.MultiSeries, ok bool) {
+	data, ok = cs.reads[key]
+	if !ok {
+		return telem.MultiSeries{}, telem.MultiSeries{}, false
+	}
+	indexKey := cs.indexes[key]
+	if indexKey == 0 {
+		return data, telem.MultiSeries{}, len(data.Series) > 0
+	}
+	time, ok = cs.reads[indexKey]
+	if !ok {
+		return telem.MultiSeries{}, telem.MultiSeries{}, false
+	}
+	return data, time, len(time.Series) > 0 && len(data.Series) > 0
+}
+
+// WriteChan buffers data and time series for writing to a channel.
+func (cs *ChannelState) WriteChan(key uint32, value, time telem.Series) {
+	cs.writeChannel(key, value, time)
+}
+
+func (cs *ChannelState) writeChannel(key uint32, data, time telem.Series) {
+	cs.writes[key] = data
+	idx := cs.indexes[key]
+	if idx != 0 {
+		cs.writes[idx] = time
+	}
 }
 
 // ChannelDigest provides metadata about a channel for state initialization.
@@ -74,22 +260,27 @@ type Config struct {
 	ChannelDigests []ChannelDigest
 }
 
+// State manages runtime data for an arc program.
+// It stores node outputs, channel I/O buffers, and index relationships.
+type State struct {
+	Channel *ChannelState
+	Series  *SeriesHandleStore
+	Strings *StringHandleStore
+	Auth    *AuthorityBuffer
+	outputs map[ir.Handle]*value
+	cfg     Config
+}
+
 // New creates a state manager from the given configuration.
 // It initializes output storage for all node outputs and maps channel keys to their indexes.
 func New(cfg Config) *State {
 	s := &State{
-		cfg:                 cfg,
-		outputs:             make(map[ir.Handle]*value),
-		indexes:             make(map[uint32]uint32),
-		series:              make(map[uint32]telem.Series),
-		seriesHandleCounter: 1,
-		strings:             make(map[uint32]string),
-		stringHandleCounter: 1,
-	}
-	s.channel.reads = make(map[uint32]telem.MultiSeries)
-	s.channel.writes = make(map[uint32]telem.Series)
-	for _, d := range cfg.ChannelDigests {
-		s.indexes[d.Key] = d.Index
+		cfg:     cfg,
+		outputs: make(map[ir.Handle]*value),
+		Channel: NewChannelState(cfg.ChannelDigests),
+		Series:  NewSeriesHandleStore(),
+		Strings: NewStringHandleStore(),
+		Auth:    NewAuthorityBuffer(),
 	}
 	for _, node := range cfg.IR.Nodes {
 		for _, p := range node.Outputs {
@@ -100,83 +291,6 @@ func New(cfg Config) *State {
 		}
 	}
 	return s
-}
-
-// Ingest adds external channel data to the read buffer.
-// This is called when new data arrives from external sources (e.g., Synnax channels).
-func (s *State) Ingest(fr telem.Frame[uint32]) {
-	for rawI, key := range fr.RawKeys() {
-		if fr.ShouldExcludeRaw(rawI) {
-			continue
-		}
-		s.channel.reads[key] = s.channel.reads[key].Append(fr.RawSeriesAt(rawI))
-	}
-}
-
-// Flush extracts buffered channel writes into a frame and clears the write buffer.
-// Returns the updated frame and true if any writes were flushed, or the original frame and false otherwise.
-func (s *State) Flush(fr telem.Frame[uint32]) (telem.Frame[uint32], bool) {
-	clear(s.series)
-	s.seriesHandleCounter = 1
-	clear(s.strings)
-	s.stringHandleCounter = 1
-
-	if len(s.channel.writes) == 0 {
-		return fr, false
-	}
-	for key, data := range s.channel.writes {
-		fr = fr.Append(key, data.DeepCopy())
-	}
-	clear(s.channel.writes)
-	return fr, true
-}
-
-// SetAuthority buffers an authority change request for later flushing.
-// If channelKey is nil, the change applies to all write channels.
-func (s *State) SetAuthority(channelKey *uint32, authority uint8) {
-	s.authorityChanges = append(s.authorityChanges, AuthorityChange{
-		Channel:   channelKey,
-		Authority: authority,
-	})
-}
-
-// FlushAuthorityChanges returns and clears all buffered authority changes.
-func (s *State) FlushAuthorityChanges() []AuthorityChange {
-	if len(s.authorityChanges) == 0 {
-		return nil
-	}
-	changes := s.authorityChanges
-	s.authorityChanges = nil
-	return changes
-}
-
-func (s *State) readChannel(key uint32) (telem.MultiSeries, bool) {
-	series, ok := s.channel.reads[key]
-	return series, ok
-}
-
-func (s *State) writeChannel(key uint32, data, time telem.Series) {
-	s.channel.writes[key] = data
-	idx := s.indexes[key]
-	if idx != 0 {
-		s.channel.writes[idx] = time
-	}
-}
-
-// ClearReads clears accumulated channel read buffers while preserving the latest series for each channel.
-// This allows channel_read_* calls to return the most recent value even if new frames for that
-// channel haven't arrived yet in the current cycle.
-func (s *State) ClearReads() {
-	for key, ser := range s.channel.reads {
-		if len(ser.Series) <= 1 {
-			continue
-		}
-		// Keep only the last series to preserve the latest value for each channel.
-		last := ser.Series[len(ser.Series)-1]
-		ser.Series = ser.Series[:1]
-		ser.Series[0] = last
-		s.channel.reads[key] = ser
-	}
 }
 
 // Node creates a node-specific state accessor for the given node key.
@@ -233,7 +347,8 @@ func (s *State) Node(key string) *Node {
 		outputs: lo.Map(n.Outputs, func(item types.Param, _ int) ir.Handle {
 			return ir.Handle{Node: key, Param: item.Name}
 		}),
-		state:        s,
+		channel:      s.Channel,
+		nodeOutputs:  s.outputs,
 		accumulated:  accumulated,
 		alignedData:  alignedData,
 		alignedTime:  alignedTime,
@@ -253,7 +368,8 @@ type inputEntry struct {
 type Node struct {
 	inputs       []ir.Edge
 	outputs      []ir.Handle
-	state        *State
+	channel      *ChannelState
+	nodeOutputs  map[ir.Handle]*value
 	accumulated  []inputEntry
 	alignedData  []telem.Series
 	alignedTime  []telem.Series
@@ -337,7 +453,7 @@ func (n *Node) InputTime(paramIndex int) telem.Series {
 func (n *Node) InitInput(paramIndex int, data, time telem.Series) {
 	if paramIndex >= 0 && paramIndex < len(n.inputs) {
 		sourceHandle := n.inputs[paramIndex].Source
-		if v, ok := n.state.outputs[sourceHandle]; ok {
+		if v, ok := n.nodeOutputs[sourceHandle]; ok {
 			v.data = data
 			v.time = time
 		}
@@ -366,25 +482,13 @@ func (n *Node) OutputTime(paramIndex int) *telem.Series {
 // If the channel has an index, both data and time are returned.
 // Returns ok=false if the channel has no buffered data.
 func (n *Node) ReadChan(key uint32) (data telem.MultiSeries, time telem.MultiSeries, ok bool) {
-	data, ok = n.state.readChannel(key)
-	if !ok {
-		return telem.MultiSeries{}, telem.MultiSeries{}, false
-	}
-	indexKey := n.state.indexes[key]
-	if indexKey == 0 {
-		return data, telem.MultiSeries{}, len(data.Series) > 0
-	}
-	time, ok = n.state.readChannel(indexKey)
-	if !ok {
-		return telem.MultiSeries{}, telem.MultiSeries{}, false
-	}
-	return data, time, len(time.Series) > 0 && len(data.Series) > 0
+	return n.channel.ReadChan(key)
 }
 
 // WriteChan buffers data and time series for writing to a channel.
 // If the channel has an index, the time series is automatically written to the index channel.
 func (n *Node) WriteChan(key uint32, value, time telem.Series) {
-	n.state.writeChannel(key, value, time)
+	n.channel.WriteChan(key, value, time)
 }
 
 // IsOutputTruthy checks if the output at the given param name is truthy.
@@ -436,52 +540,4 @@ func isSeriesTruthy(s telem.Series) bool {
 		// StringT and other types default to falsy
 		return false
 	}
-}
-
-// ReadChannelValue reads a single value from a channel (for WASM runtime bindings).
-func (s *State) ReadChannelValue(key uint32) (telem.Series, bool) {
-	ms, ok := s.channel.reads[key]
-	if !ok || len(ms.Series) == 0 {
-		return telem.Series{}, false
-	}
-	return ms.Series[len(ms.Series)-1], ok
-}
-
-// WriteChannelValue writes a single value to a channel (for WASM runtime bindings).
-// For channels with an index, it auto-generates a timestamp using telem.Now() and writes
-// to both the data channel and its index channel, matching the behavior of writeChannel.
-func (s *State) WriteChannelValue(key uint32, value telem.Series) {
-	s.writeChannel(key, value, telem.NewSeriesV(telem.Now()))
-}
-
-// SeriesStore stores a series and returns a handle for later retrieval.
-// Handles are transient and are cleared on each Flush call.
-func (s *State) SeriesStore(series telem.Series) uint32 {
-	handle := s.seriesHandleCounter
-	s.seriesHandleCounter++
-	s.series[handle] = series
-	return handle
-}
-
-// SeriesGet retrieves a series by its handle.
-// Returns the series and true if found, or an empty series and false if not found.
-func (s *State) SeriesGet(handle uint32) (telem.Series, bool) {
-	series, ok := s.series[handle]
-	return series, ok
-}
-
-// StringCreate stores a string and returns a handle for later retrieval.
-// Handles are transient and are cleared on each Flush call.
-func (s *State) StringCreate(str string) uint32 {
-	handle := s.stringHandleCounter
-	s.stringHandleCounter++
-	s.strings[handle] = str
-	return handle
-}
-
-// StringGet retrieves a string by its handle.
-// Returns the string and true if found, or an empty string and false if not found.
-func (s *State) StringGet(handle uint32) (string, bool) {
-	str, ok := s.strings[handle]
-	return str, ok
 }

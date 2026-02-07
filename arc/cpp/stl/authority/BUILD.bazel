@@ -1,0 +1,28 @@
+cc_library(
+    name = "authority",
+    hdrs = ["authority.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/stl",
+        "//x/cpp/xerrors",
+    ],
+)
+
+cc_test(
+    name = "authority_test",
+    srcs = ["authority_test.cpp"],
+    deps = [
+        ":authority",
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

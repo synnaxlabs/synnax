@@ -1,0 +1,16 @@
+cc_library(
+    name = "channel",
+    hdrs = ["channel.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/stl",
+        "//arc/cpp/stl/str:state",
+        "//x/cpp/telem",
+        "//x/cpp/xmemory",
+    ],
+)

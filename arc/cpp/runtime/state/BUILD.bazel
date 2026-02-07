@@ -6,10 +6,13 @@ cc_library(
     hdrs = [
         "state.h",
     ],
-    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
+        "//arc/cpp/stl/series:state",
+        "//arc/cpp/stl/str:state",
+        "//arc/cpp/stl/vars:variables",
         "//x/cpp/telem",
         "//x/cpp/xerrors",
         "//x/cpp/xmemory",

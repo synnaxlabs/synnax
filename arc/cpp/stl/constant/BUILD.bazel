@@ -1,0 +1,31 @@
+cc_library(
+    name = "constant",
+    hdrs = ["constant.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/stl",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+        "//x/cpp/xmemory",
+    ],
+)
+
+cc_test(
+    name = "constant_test",
+    srcs = ["constant_test.cpp"],
+    deps = [
+        ":constant",
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

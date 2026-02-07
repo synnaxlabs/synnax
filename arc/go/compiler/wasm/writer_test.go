@@ -133,5 +133,52 @@ var _ = Describe("WASM Writer", func() {
 				Expect(encoder.Bytes()).To(Equal([]byte{0x45}))
 			})
 		})
+
+		Context("Call Placeholders", func() {
+			It("Should write call opcode and 5-byte LEB128 operand", func() {
+				offset := encoder.WriteCallPlaceholder(42)
+				Expect(offset).To(Equal(1))
+				bytes := encoder.Bytes()
+				Expect(bytes[0]).To(Equal(byte(0x10)))
+				Expect(bytes).To(HaveLen(6))
+			})
+
+			It("Should patch the operand at the correct offset", func() {
+				encoder.WriteI32Const(0)
+				offset := encoder.WriteCallPlaceholder(0)
+				encoder.WriteEnd()
+
+				encoder.PatchCall(offset, 99)
+
+				bytes := encoder.Bytes()
+				Expect(bytes[0]).To(Equal(byte(0x41)))
+				Expect(bytes[offset-1]).To(Equal(byte(0x10)))
+				lastByte := bytes[offset+4]
+				Expect(lastByte & 0x80).To(Equal(byte(0x00)))
+			})
+
+			It("Should round-trip placeholder and patch correctly", func() {
+				offset := encoder.WriteCallPlaceholder(0)
+				encoder.PatchCall(offset, 7)
+
+				patched := encoder.Bytes()
+				Expect(patched[0]).To(Equal(byte(0x10)))
+				Expect(patched[1]).To(Equal(byte(0x07 | 0x80)))
+				Expect(patched[2]).To(Equal(byte(0x00 | 0x80)))
+				Expect(patched[3]).To(Equal(byte(0x00 | 0x80)))
+				Expect(patched[4]).To(Equal(byte(0x00 | 0x80)))
+				Expect(patched[5]).To(Equal(byte(0x00)))
+			})
+
+			It("Should encode fixed-5 LEB128 for zero", func() {
+				encoder.WriteLEB128Fixed5(0)
+				Expect(encoder.Bytes()).To(Equal([]byte{0x80, 0x80, 0x80, 0x80, 0x00}))
+			})
+
+			It("Should encode fixed-5 LEB128 for a larger value", func() {
+				encoder.WriteLEB128Fixed5(128)
+				Expect(encoder.Bytes()).To(Equal([]byte{0x80, 0x81, 0x80, 0x80, 0x00}))
+			})
+		})
 	})
 })

@@ -37,6 +37,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	ccontext "github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
+	"github.com/synnaxlabs/arc/compiler/resolve"
 	"github.com/synnaxlabs/arc/compiler/statement"
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
@@ -45,6 +46,13 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
+
+type compiledFunction struct {
+	scopeName string
+	typeIdx   uint32
+	locals    []wasm.ValueType
+	writer    *wasm.Writer
+}
 
 // Compile translates an Arc program from intermediate representation (IR) to WebAssembly bytecode.
 //
@@ -68,16 +76,23 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 	for _, opt := range opts {
 		opt(o)
 	}
-	compCtx := ccontext.CreateRoot(ctx, program.Symbols, program.TypeMap, o.disableHostImports)
 
-	importCount := compCtx.Module.ImportCount()
+	var symResolver symbol.Resolver
+	if !o.disableHostImports {
+		symResolver = o.hostSymbols
+	}
+	resolver := resolve.NewResolver(symResolver)
+
+	compCtx := ccontext.CreateRoot(ctx, program.Symbols, program.TypeMap, resolver)
+
 	for i, f := range program.Functions {
-		compCtx.FunctionIndices[f.Key] = importCount + uint32(i)
+		resolver.RegisterLocal(f.Key, uint32(i))
 	}
 
 	outputMemoryCounter := uint32(0x1000)
 	outputMemoryBases := make(map[string]uint32)
 
+	var compiled []compiledFunction
 	for _, i := range program.Functions {
 		params := slices.Concat(i.Config, i.Inputs)
 		var returnType types.Type
@@ -91,16 +106,27 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 		if hasNamedOutputs {
 			outputMemoryBase = outputMemoryCounter
 			outputMemoryBases[i.Key] = outputMemoryBase
-			var size uint32 = 8 // dirty flags
+			var size uint32 = 8
 			for _, oParam := range i.Outputs {
 				size += uint32(oParam.Type.Density())
 			}
 			outputMemoryCounter += size
 		}
 
-		if err := compileItem(compCtx, i.Key, i.Body.AST, params, returnType, i.Outputs, outputMemoryBase); err != nil {
+		cf, err := compileItem(compCtx, i.Key, i.Body.AST, params, returnType, i.Outputs, outputMemoryBase)
+		if err != nil {
 			return Output{}, err
 		}
+		compiled = append(compiled, cf)
+	}
+
+	if err := resolver.FinalizeAndPatch(compCtx.Module); err != nil {
+		return Output{}, err
+	}
+
+	for _, cf := range compiled {
+		funcIdx := compCtx.Module.AddFunction(cf.typeIdx, cf.locals, cf.writer.Bytes())
+		compCtx.Module.AddExport(cf.scopeName, wasm.ExportKindFunc, funcIdx)
 	}
 
 	compCtx.Module.EnableMemory()
@@ -117,10 +143,10 @@ func compileItem(
 	results types.Type,
 	outputs types.Params,
 	outputMemoryBase uint32,
-) error {
+) (compiledFunction, error) {
 	scope, err := rootCtx.Scope.Resolve(rootCtx, key)
 	if err != nil {
-		return err
+		return compiledFunction{}, err
 	}
 	wasmParams := make([]wasm.ValueType, 0, len(params))
 	for _, param := range params {
@@ -146,19 +172,22 @@ func compileItem(
 	if blockCtx, ok := body.(parser.IBlockContext); ok {
 		_, err = statement.CompileBlock(ccontext.Child(ctx, blockCtx))
 		if err != nil {
-			return errors.Wrapf(err, "failed to compile function '%s' body", ctx.Scope.Name)
+			return compiledFunction{}, errors.Wrapf(err, "failed to compile function '%s' body", ctx.Scope.Name)
 		}
 	} else if exprCtx, ok := body.(parser.IExpressionContext); ok {
 		if err = compileExpression(ccontext.Child(ctx, exprCtx)); err != nil {
-			return errors.Wrapf(err, "failed to compile expression '%s'", ctx.Scope.Name)
+			return compiledFunction{}, errors.Wrapf(err, "failed to compile expression '%s'", ctx.Scope.Name)
 		}
 	} else {
-		return errors.Newf("unsupported body type for '%s'", key)
+		return compiledFunction{}, errors.Newf("unsupported body type for '%s'", key)
 	}
 
-	funcIdx := ctx.Module.AddFunction(typeIdx, collectLocals(ctx.Scope), ctx.Writer.Bytes())
-	ctx.Module.AddExport(ctx.Scope.Name, wasm.ExportKindFunc, funcIdx)
-	return nil
+	return compiledFunction{
+		scopeName: ctx.Scope.Name,
+		typeIdx:   typeIdx,
+		locals:    collectLocals(ctx.Scope),
+		writer:    ctx.Writer,
+	}, nil
 }
 
 func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {

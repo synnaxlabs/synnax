@@ -1,0 +1,32 @@
+cc_library(
+    name = "time",
+    hdrs = ["time.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/loop",
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/stl",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+    ],
+)
+
+cc_test(
+    name = "time_test",
+    srcs = ["time_test.cpp"],
+    deps = [
+        ":time",
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/loop",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -4,9 +4,10 @@ cc_library(
         "node.h",
         "factory.h",
     ],
-    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/ir",
+        "//arc/cpp/runtime/state",
         "//x/cpp/queue:SPSC",
         "//x/cpp/telem",
         "//x/cpp/xerrors",

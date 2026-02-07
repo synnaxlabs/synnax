@@ -13,16 +13,17 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/runtime/op"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
-	"github.com/synnaxlabs/arc/runtime/selector"
-	"github.com/synnaxlabs/arc/runtime/stable"
-	"github.com/synnaxlabs/arc/runtime/stat"
 	"github.com/synnaxlabs/arc/runtime/state"
-	ntelem "github.com/synnaxlabs/arc/runtime/telem"
 	"github.com/synnaxlabs/arc/runtime/wasm"
+	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/stl/constant"
+	stlop "github.com/synnaxlabs/arc/stl/op"
+	"github.com/synnaxlabs/arc/stl/selector"
+	"github.com/synnaxlabs/arc/stl/stable"
+	"github.com/synnaxlabs/arc/stl/stat"
+	stltelem "github.com/synnaxlabs/arc/stl/telem"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -81,29 +82,28 @@ func Open(
 	}
 
 	progState := state.New(cfg.Module.StateConfig.State)
-	telemFactory := ntelem.NewTelemFactory()
-	selectFactory := selector.NewFactory()
-	constantFactory := constant.NewFactory()
-	opFactory := op.NewFactory()
-	stableFactory := stable.NewFactory(stable.FactoryConfig{})
-	wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
-		Module: cfg.Module.Module,
-	})
-	if err != nil {
-		return nil, err
+	modules := []stl.Module{
+		stltelem.NewModule(),
+		selector.NewModule(),
+		constant.NewModule(),
+		stlop.NewModule(),
+		stable.NewModule(),
+		stat.NewModule(),
 	}
-	wasmFactory, err := wasm.NewFactory(wasmMod)
-	if err != nil {
-		return nil, err
-	}
-	f := node.MultiFactory{
-		opFactory,
-		telemFactory,
-		selectFactory,
-		constantFactory,
-		stableFactory,
-		wasmFactory,
-		stat.Factory,
+	f := stl.MultiFactory(modules...)
+	if len(cfg.Module.WASM) > 0 {
+		wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
+			Module: cfg.Module.Module,
+			State:  progState,
+		})
+		if err != nil {
+			return nil, err
+		}
+		wasmFactory, err := wasm.NewFactory(wasmMod)
+		if err != nil {
+			return nil, err
+		}
+		f = append(f, wasmFactory)
 	}
 	nodes := make(map[string]node.Node)
 	for _, irNode := range cfg.Module.Nodes {
@@ -166,7 +166,7 @@ func (c *Calculator) Next(
 	input,
 	output framer.Frame,
 ) (framer.Frame, bool, error) {
-	c.state.Ingest(input.ToStorage())
+	c.state.Channel.Ingest(input.ToStorage())
 	var (
 		ofr         = output.ToStorage()
 		currChanged bool
@@ -174,7 +174,7 @@ func (c *Calculator) Next(
 	)
 	for {
 		c.scheduler.Next(ctx, telem.Since(c.start), node.ReasonChannelInput)
-		ofr, currChanged = c.state.Flush(ofr)
+		ofr, currChanged = c.state.Channel.Flush(ofr)
 		if !currChanged {
 			break
 		}
@@ -183,7 +183,7 @@ func (c *Calculator) Next(
 	if !changed {
 		return output, false, nil
 	}
-	c.state.ClearReads()
+	c.state.Channel.ClearReads()
 	return frame.NewFromStorage(ofr), true, nil
 }
 

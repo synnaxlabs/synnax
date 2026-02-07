@@ -1,0 +1,32 @@
+cc_library(
+    name = "io",
+    hdrs = ["io.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/stl",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+        "//x/cpp/xmemory",
+    ],
+)
+
+cc_test(
+    name = "io_test",
+    srcs = ["io_test.cpp"],
+    deps = [
+        ":io",
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/telem",
+        "//x/cpp/xmemory",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -1,0 +1,14 @@
+cc_library(
+    name = "error",
+    hdrs = ["error.h"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/runtime/errors",
+        "//arc/cpp/stl",
+        "//x/cpp/xerrors",
+    ],
+)

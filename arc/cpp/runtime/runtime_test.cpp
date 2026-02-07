@@ -39,7 +39,6 @@ std::shared_ptr<Runtime> create_test_runtime(
         nullptr,
         nullptr,
         nullptr,
-        nullptr,
         std::vector<arc::types::ChannelKey>{},
         std::vector<arc::types::ChannelKey>{},
         std::move(error_handler)
@@ -74,7 +73,6 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
 
     auto runtime = std::make_shared<Runtime>(
         cfg,
-        nullptr,
         nullptr,
         state,
         std::move(scheduler),

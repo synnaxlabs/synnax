@@ -22,19 +22,24 @@
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/xthread/xthread.h"
 
-#include "arc/cpp/runtime/authority/authority.h"
-#include "arc/cpp/runtime/constant/constant.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
-#include "arc/cpp/runtime/stage/stage.h"
 #include "arc/cpp/runtime/state/state.h"
-#include "arc/cpp/runtime/telem/telem.h"
-#include "arc/cpp/runtime/time/time.h"
-#include "arc/cpp/runtime/wasm/bindings.h"
 #include "arc/cpp/runtime/wasm/factory.h"
 #include "arc/cpp/runtime/wasm/module.h"
+#include "arc/cpp/stl/authority/authority.h"
+#include "arc/cpp/stl/channel/channel.h"
+#include "arc/cpp/stl/constant/constant.h"
+#include "arc/cpp/stl/error/error.h"
+#include "arc/cpp/stl/io/io.h"
+#include "arc/cpp/stl/math/math.h"
+#include "arc/cpp/stl/series/series.h"
+#include "arc/cpp/stl/stage/stage.h"
+#include "arc/cpp/stl/str/str.h"
+#include "arc/cpp/stl/time/time.h"
+#include "arc/cpp/stl/vars/vars.h"
 
 namespace arc::runtime {
 /// @brief combines data frames and authority changes into a single output
@@ -64,7 +69,6 @@ class Runtime {
     breaker::Breaker breaker;
     std::thread run_thread;
     std::shared_ptr<wasm::Module> mod;
-    std::shared_ptr<wasm::Bindings> bindings;
     std::shared_ptr<state::State> state;
     std::unique_ptr<scheduler::Scheduler> scheduler;
     std::unique_ptr<loop::Loop> loop;
@@ -79,7 +83,6 @@ public:
     Runtime(
         const Config &cfg,
         std::shared_ptr<wasm::Module> mod,
-        std::shared_ptr<wasm::Bindings> bindings_runtime,
         std::shared_ptr<state::State> state,
         std::unique_ptr<scheduler::Scheduler> scheduler,
         std::unique_ptr<loop::Loop> loop,
@@ -89,7 +92,6 @@ public:
     ):
         breaker(cfg.breaker),
         mod(std::move(mod)),
-        bindings(std::move(bindings_runtime)),
         state(std::move(state)),
         scheduler(std::move(scheduler)),
         loop(std::move(loop)),
@@ -228,35 +230,39 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
 
     state::Config state_cfg{.ir = (static_cast<ir::IR>(cfg.mod)), .channels = digests};
     auto state = std::make_shared<state::State>(state_cfg, error_handler);
-    auto bindings_runtime = std::make_shared<wasm::Bindings>(
-        state,
-        nullptr,
-        error_handler
-    );
+
+    auto series_st = state->get_series_state();
+    auto str_st = state->get_str_state();
+    auto var_st = state->get_variables();
+
+    std::vector<std::shared_ptr<stl::Module>> stl_modules = {
+        std::make_shared<stl::channel::Module>(state, str_st),
+        std::make_shared<stl::vars::Module>(var_st, series_st, str_st),
+        std::make_shared<stl::series::Module>(series_st),
+        std::make_shared<stl::str::Module>(str_st),
+        std::make_shared<stl::math::Module>(),
+        std::make_shared<stl::time::Module>(),
+        std::make_shared<stl::error::Module>(error_handler),
+        std::make_shared<stl::stage::Module>(),
+        std::make_shared<stl::io::Module>(),
+        std::make_shared<stl::constant::Module>(),
+        std::make_shared<stl::authority::Module>(state),
+    };
 
     wasm::ModuleConfig module_cfg{
         .module = cfg.mod,
-        .bindings = bindings_runtime,
+        .modules = stl_modules,
     };
     auto [mod, mod_err] = wasm::Module::open(module_cfg);
     if (mod_err) return {nullptr, mod_err};
 
-    auto wasm_factory = std::make_shared<wasm::Factory>(mod);
-    auto time_factory = std::make_shared<time::Factory>();
-    auto stage_factory = std::make_shared<stage::Factory>();
-    auto io_factory = std::make_shared<io::Factory>();
-    auto constant_factory = std::make_shared<constant::Factory>();
-    auto authority_factory = std::make_shared<authority::Factory>(state);
-    node::MultiFactory fact(
-        std::vector<std::shared_ptr<node::Factory>>{
-            wasm_factory,
-            time_factory,
-            stage_factory,
-            io_factory,
-            constant_factory,
-            authority_factory,
-        }
-    );
+    auto time_factory = std::make_shared<stl::time::Factory>();
+    std::vector<std::shared_ptr<node::Factory>> factories;
+    factories.push_back(std::make_shared<wasm::Factory>(mod));
+    factories.push_back(time_factory);
+    for (auto &m: stl_modules)
+        if (auto f = m->factory()) factories.push_back(f);
+    node::MultiFactory fact(factories);
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
     const ir::IR prog = static_cast<ir::IR>(cfg.mod);
@@ -269,11 +275,9 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         if (err) return {nullptr, err};
         nodes[mod_node.key] = std::move(node);
     }
-    const auto loop_cfg = cfg.loop.apply_defaults(time_factory->base_interval);
-    const auto tolerance = time::calculate_tolerance(
-        loop_cfg.mode,
-        time_factory->base_interval
-    );
+    const auto base_interval = time_factory->base_interval();
+    const auto loop_cfg = cfg.loop.apply_defaults(base_interval);
+    const auto tolerance = stl::time::calculate_tolerance(loop_cfg.mode, base_interval);
     auto sched = std::make_unique<scheduler::Scheduler>(
         cfg.mod,
         nodes,
@@ -286,7 +290,6 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         std::make_shared<Runtime>(
             cfg,
             std::move(mod),
-            bindings_runtime,
             state,
             std::move(sched),
             std::move(loop),

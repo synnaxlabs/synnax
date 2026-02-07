@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/runtime/time"
+	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"

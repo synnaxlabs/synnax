@@ -1,0 +1,168 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#include "gtest/gtest.h"
+
+#include "x/cpp/xtest/xtest.h"
+
+#include "arc/cpp/ir/ir.h"
+#include "arc/cpp/runtime/errors/errors.h"
+#include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/stl/authority/authority.h"
+
+namespace arc::runtime {
+struct TestSetup {
+    ir::IR ir;
+    std::shared_ptr<state::State> state;
+
+    TestSetup(const uint8_t auth_value, const uint32_t channel):
+        ir(build_ir(auth_value, channel)),
+        state(
+            std::make_shared<state::State>(
+                state::Config{.ir = ir, .channels = {}},
+                runtime::errors::noop_handler
+            )
+        ) {}
+
+    state::Node make_node() const {
+        return ASSERT_NIL_P(this->state->node("set_auth"));
+    }
+
+private:
+    static ir::IR build_ir(const uint8_t auth_value, const uint32_t channel) {
+        ir::Param authority_param;
+        authority_param.name = "value";
+        authority_param.type = types::Type(types::Kind::U8);
+        authority_param.value = auth_value;
+
+        ir::Param channel_param;
+        channel_param.name = "channel";
+        channel_param.type = types::Type(types::Kind::U32);
+        channel_param.value = channel;
+
+        ir::Node ir_node;
+        ir_node.key = "set_auth";
+        ir_node.type = "set_authority";
+        ir_node.config.params.push_back(authority_param);
+        ir_node.config.params.push_back(channel_param);
+
+        ir::Function fn;
+        fn.key = "test";
+
+        ir::IR ir;
+        ir.nodes.push_back(ir_node);
+        ir.functions.push_back(fn);
+        return ir;
+    }
+};
+
+node::Context make_context() {
+    return node::Context{
+        .elapsed = telem::SECOND,
+        .mark_changed = [](const std::string &) {},
+        .report_error = [](const xerrors::Error &) {},
+        .activate_stage = [] {},
+    };
+}
+
+TEST(SetAuthorityFactoryTest, ReturnsNotFoundForWrongType) {
+    TestSetup setup(100, 42);
+    auto ir_node = setup.ir.nodes[0];
+    ir_node.type = "not_set_authority";
+
+    stl::authority::Module module(setup.state);
+    auto factory = module.factory();
+    ASSERT_OCCURRED_AS_P(
+        factory->create(node::Config(setup.ir, ir_node, setup.make_node())),
+        xerrors::NOT_FOUND
+    );
+}
+
+TEST(SetAuthorityFactoryTest, CreatesNode) {
+    TestSetup setup(100, 42);
+    stl::authority::Module module(setup.state);
+    auto factory = module.factory();
+    auto node = ASSERT_NIL_P(
+        factory->create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
+    );
+    ASSERT_NE(node, nullptr);
+}
+
+TEST(SetAuthorityTest, NextBuffersChannelAuthorityChange) {
+    TestSetup setup(200, 42);
+    stl::authority::Module module(setup.state);
+    auto factory = module.factory();
+    auto node = ASSERT_NIL_P(
+        factory->create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto changes = setup.state->flush_authority_changes();
+    ASSERT_EQ(changes.size(), 1);
+    ASSERT_TRUE(changes[0].channel_key.has_value());
+    EXPECT_EQ(*changes[0].channel_key, 42);
+    EXPECT_EQ(changes[0].authority, 200);
+}
+
+TEST(SetAuthorityTest, NextBuffersGlobalAuthorityChange) {
+    TestSetup setup(150, 0);
+    stl::authority::Module module(setup.state);
+    auto factory = module.factory();
+    auto node = ASSERT_NIL_P(
+        factory->create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto changes = setup.state->flush_authority_changes();
+    ASSERT_EQ(changes.size(), 1);
+    ASSERT_FALSE(changes[0].channel_key.has_value());
+    EXPECT_EQ(changes[0].authority, 150);
+}
+
+TEST(SetAuthorityTest, NextFiresOnceBeforeReset) {
+    TestSetup setup(200, 42);
+    stl::authority::Module module(setup.state);
+    auto factory = module.factory();
+    auto node = ASSERT_NIL_P(
+        factory->create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+    ASSERT_NIL(node->next(ctx));
+    ASSERT_NIL(node->next(ctx));
+
+    auto changes = setup.state->flush_authority_changes();
+    ASSERT_EQ(changes.size(), 1);
+}
+
+TEST(SetAuthorityTest, ResetAllowsRefire) {
+    TestSetup setup(200, 42);
+    stl::authority::Module module(setup.state);
+    auto factory = module.factory();
+    auto node = ASSERT_NIL_P(
+        factory->create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+    setup.state->flush_authority_changes();
+
+    node->reset();
+    ASSERT_NIL(node->next(ctx));
+
+    auto changes = setup.state->flush_authority_changes();
+    ASSERT_EQ(changes.size(), 1);
+    EXPECT_EQ(changes[0].authority, 200);
+}
+}

@@ -3,13 +3,13 @@ cc_library(
     hdrs = [
         "scheduler.h",
     ],
-    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
-        "//arc/cpp/runtime/time",
+        "//arc/cpp/stl/time",
         "//x/cpp/xerrors",
-        "@glog//:glog",
+        "@glog",
     ],
 )
 
@@ -23,7 +23,7 @@ cc_test(
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
-        "//arc/cpp/runtime/time",
+        "//arc/cpp/stl/time",
         "//x/cpp/telem",
         "//x/cpp/xerrors",
         "//x/cpp/xtest",
