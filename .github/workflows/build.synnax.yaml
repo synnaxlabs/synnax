@@ -224,7 +224,7 @@ jobs:
           sudo apt-get install -y libsystemd-dev autoconf automake libtool
 
       - name: Install Deps on macOS
-        if: matrix.os == 'macos-build-bot'
+        if: startsWith(matrix.os, 'macos-build-bot')
         run: brew install autoconf automake libtool
 
       - name: Setup Bazel
@@ -263,18 +263,18 @@ jobs:
           if-no-files-found: error
 
       - name: Build Driver (macOS)
-        if: inputs.driver && matrix.os == 'macos-build-bot'
+        if: inputs.driver && startsWith(matrix.os, 'macos-build-bot')
         run: |
           bazel build $BAZEL_BUILD_FLAGS \
             --config=opt-unix ${{ !inputs.debug && '--config=hide_symbols' || '' }} //driver
 
       - name: Extract Debug Symbols (macOS)
-        if: inputs.driver && inputs.debug && matrix.os == 'macos-build-bot'
+        if: inputs.driver && inputs.debug && startsWith(matrix.os, 'macos-build-bot')
         run: |
           dsymutil bazel-bin/driver/driver -o bazel-bin/driver/driver.dSYM
 
       - name: Upload macOS Debug Symbols
-        if: inputs.driver && inputs.debug && matrix.os == 'macos-build-bot'
+        if: inputs.driver && inputs.debug && startsWith(matrix.os, 'macos-build-bot')
         uses: actions/upload-artifact@v6
         with:
           name:
@@ -359,7 +359,7 @@ jobs:
           if-no-files-found: error
 
       - name: Import Apple Developer Certificate
-        if: inputs.sign_binaries && matrix.os == 'macos-build-bot'
+        if: inputs.sign_binaries && startsWith(matrix.os, 'macos-build-bot')
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -400,7 +400,7 @@ jobs:
           echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
 
       - name: Sign Driver (macOS)
-        if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-build-bot'
+        if: inputs.sign_binaries && inputs.driver && startsWith(matrix.os, 'macos-build-bot')
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
@@ -429,7 +429,7 @@ jobs:
           codesign --verify --verbose bazel-bin/driver/driver
 
       - name: Notarize macOS Driver Binary
-        if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-build-bot'
+        if: inputs.sign_binaries && inputs.driver && startsWith(matrix.os, 'macos-build-bot')
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
@@ -582,7 +582,7 @@ jobs:
             -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
       - name: Sign macOS Core Binary
-        if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-build-bot'
+        if: inputs.sign_binaries && inputs.core && startsWith(matrix.os, 'macos-build-bot')
         working-directory: core
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
@@ -612,7 +612,7 @@ jobs:
           codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}
 
       - name: Notarize macOS Core Binary
-        if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-build-bot'
+        if: inputs.sign_binaries && inputs.core && startsWith(matrix.os, 'macos-build-bot')
         working-directory: core
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -790,7 +790,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Import Apple Developer Certificate
-        if: matrix.os == 'macos-build-bot' && inputs.sign_binaries
+        if: startsWith(matrix.os, 'macos-build-bot') && inputs.sign_binaries
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -832,7 +832,7 @@ jobs:
           echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
 
       - name: Verify Apple Developer Certificate
-        if: matrix.os == 'macos-build-bot' && inputs.sign_binaries
+        if: startsWith(matrix.os, 'macos-build-bot') && inputs.sign_binaries
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning $KEYCHAIN_NAME | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
@@ -890,7 +890,7 @@ jobs:
         run: pnpm build:console-vite
 
       - name: Pre-sign Embedded lua-language-server
-        if: matrix.os == 'macos-build-bot' && inputs.sign_binaries
+        if: startsWith(matrix.os, 'macos-build-bot') && inputs.sign_binaries
         env:
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
         run: |
@@ -933,19 +933,19 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name:
-            ${{ matrix.os == 'macos-build-bot' && format('synnax-console-v{0}-macos',
+            ${{ startsWith(matrix.os, 'macos-build-bot') && format('synnax-console-v{0}-macos',
             steps.console-version.outputs.VERSION) ||
             format('synnax-console-v{0}-windows', steps.console-version.outputs.VERSION)
             }}
           path: |
-            ${{ matrix.os == 'macos-build-bot' && format('console/src-tauri/target/release/bundle/dmg/Synnax_{0}_aarch64.dmg', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
+            ${{ startsWith(matrix.os, 'macos-build-bot') && format('console/src-tauri/target/release/bundle/dmg/Synnax_{0}_aarch64.dmg', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
             ${{ matrix.os == 'windows-latest' && format('console/src-tauri/target/release/bundle/msi/Synnax_{0}_x64_en-US.msi', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
             ${{ matrix.os == 'windows-latest' && format('console/src-tauri/target/release/bundle/nsis/Synnax_{0}_x64-setup.exe', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
           retention-days: 7
           if-no-files-found: error
 
       - name: Upload macOS Release Assets
-        if: inputs.upload_to_release && matrix.os == 'macos-build-bot'
+        if: inputs.upload_to_release && startsWith(matrix.os, 'macos-build-bot')
         run: |
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
