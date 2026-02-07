@@ -63,10 +63,7 @@ type Service struct {
 }
 
 func (s *Service) Close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
-	c.Exec(s.Policy.Close)
-	c.Exec(s.Role.Close)
-	return c.Error()
+	return errors.Join(s.Policy.Close(), s.Role.Close())
 }
 
 func (s *Service) Enforce(ctx context.Context, req access.Request) error {
