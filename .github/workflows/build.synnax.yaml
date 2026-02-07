@@ -432,11 +432,27 @@ jobs:
         run: |
           # Create a zip for notarization (notarytool requires a container format)
           zip -j driver-notarize.zip bazel-bin/driver/driver
-          xcrun notarytool submit driver-notarize.zip \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
+
+          # Retry logic for notarization (Apple's servers can be flaky)
+          for attempt in 1 2 3; do
+            echo "Notarization attempt $attempt of 3..."
+            if xcrun notarytool submit driver-notarize.zip \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" \
+              --wait; then
+              echo "Notarization succeeded on attempt $attempt"
+              break
+            elif [ $attempt -lt 3 ]; then
+              echo "Notarization attempt $attempt failed, retrying in 10 seconds..."
+              sleep 10
+            else
+              echo "Notarization failed after 3 attempts"
+              rm driver-notarize.zip
+              exit 1
+            fi
+          done
+
           rm driver-notarize.zip
 
       - name: Install trusted-signing-cli
@@ -600,11 +616,27 @@ jobs:
         run: |
           # Create a zip for notarization (notarytool requires a container format)
           zip -j server-notarize.zip ./synnax-v${{ needs.setup.outputs.VERSION }}
-          xcrun notarytool submit server-notarize.zip \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
+
+          # Retry logic for notarization (Apple's servers can be flaky)
+          for attempt in 1 2 3; do
+            echo "Notarization attempt $attempt of 3..."
+            if xcrun notarytool submit server-notarize.zip \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" \
+              --wait; then
+              echo "Notarization succeeded on attempt $attempt"
+              break
+            elif [ $attempt -lt 3 ]; then
+              echo "Notarization attempt $attempt failed, retrying in 10 seconds..."
+              sleep 10
+            else
+              echo "Notarization failed after 3 attempts"
+              rm server-notarize.zip
+              exit 1
+            fi
+          done
+
           rm server-notarize.zip
 
       - name: Sign Windows Core Binary
@@ -640,14 +672,6 @@ jobs:
         if: inputs.core && inputs.upload_to_release
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
-
-      - name: Cleanup Keychain
-        if: always() && matrix.os == 'macos-build-bot'
-        env:
-          KEYCHAIN_NAME: build-${{ runner.name }}.keychain
-        run: |
-          echo "Cleaning up keychain: $KEYCHAIN_NAME"
-          security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
 
   docker:
     name: Build Docker Image
@@ -929,11 +953,3 @@ jobs:
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64_en-US.msi.sig
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.exe
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.exe.sig
-
-      - name: Cleanup Keychain
-        if: always() && matrix.os == 'macos-build-bot'
-        env:
-          KEYCHAIN_NAME: build-${{ runner.name }}.keychain
-        run: |
-          echo "Cleaning up keychain: $KEYCHAIN_NAME"
-          security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
