@@ -100,8 +100,5 @@ func (s *Service) RetrievePoliciesForSubject(
 
 // Close closes the RBAC service and releases any resources that it may have acquired.
 func (s *Service) Close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
-	c.Exec(s.Policy.Close)
-	c.Exec(s.Role.Close)
-	return c.Error()
+	return errors.Join(s.Policy.Close(), s.Role.Close())
 }
