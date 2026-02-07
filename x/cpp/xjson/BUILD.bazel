@@ -36,6 +36,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/date",
         "//x/cpp/telem",
         "//x/cpp/xerrors",
         "@nlohmann_json//:json",

@@ -8,10 +8,91 @@
 // included in the file licenses/APL.txt.
 
 #include <format>
+#include <string>
 
+#include "x/cpp/date/date.h"
 #include "x/cpp/xjson/convert.h"
 
 namespace xjson {
+
+namespace {
+
+std::pair<telem::SampleValue, xerrors::Error>
+parse_rfc3339(const std::string &input) {
+    if (input.size() < 20) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+
+    if (input[4] != '-' || input[7] != '-') return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+    if (input[10] != 'T' && input[10] != 't' && input[10] != ' ')
+        return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+    if (input[13] != ':' || input[16] != ':') return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+
+    auto parse_uint = [&](const size_t start, const size_t len)
+                          -> std::pair<int32_t, bool> {
+        int32_t result = 0;
+        for (size_t i = start; i < start + len; ++i) {
+            if (input[i] < '0' || input[i] > '9') return {0, false};
+            result = result * 10 + (input[i] - '0');
+        }
+        return {result, true};
+    };
+
+    const auto [year, y_ok] = parse_uint(0, 4);
+    const auto [month, mo_ok] = parse_uint(5, 2);
+    const auto [day, d_ok] = parse_uint(8, 2);
+    const auto [hour, h_ok] = parse_uint(11, 2);
+    const auto [minute, mi_ok] = parse_uint(14, 2);
+    const auto [second, s_ok] = parse_uint(17, 2);
+    if (!y_ok || !mo_ok || !d_ok || !h_ok || !mi_ok || !s_ok)
+        return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+    if (month < 1 || month > 12) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+    if (day < 1 || day > 31) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+    if (hour > 23) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+    if (minute > 59) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+    if (second > 60) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+
+    int64_t frac_ns = 0;
+    size_t pos = 19;
+    if (pos < input.size() && input[pos] == '.') {
+        ++pos;
+        int64_t multiplier = 100000000;
+        while (pos < input.size() && input[pos] >= '0' && input[pos] <= '9') {
+            if (multiplier > 0) {
+                frac_ns += (input[pos] - '0') * multiplier;
+                multiplier /= 10;
+            }
+            ++pos;
+        }
+    }
+
+    int32_t tz_offset_seconds = 0;
+    if (pos >= input.size()) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+    if (input[pos] == 'Z' || input[pos] == 'z') {
+        // UTC
+    } else if (input[pos] == '+' || input[pos] == '-') {
+        const bool negative = (input[pos] == '-');
+        ++pos;
+        if (pos + 5 > input.size() || input[pos + 2] != ':')
+            return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+        const auto [tz_hour, tzh_ok] = parse_uint(pos, 2);
+        const auto [tz_min, tzm_ok] = parse_uint(pos + 3, 2);
+        if (!tzh_ok || !tzm_ok) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+        tz_offset_seconds = (tz_hour * 3600 + tz_min * 60) * (negative ? -1 : 1);
+    } else {
+        return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+    }
+
+    const int32_t days = date::days_from_civil(
+        {static_cast<uint16_t>(year),
+         static_cast<uint8_t>(month),
+         static_cast<uint8_t>(day)}
+    );
+    const int64_t total_seconds =
+        static_cast<int64_t>(days) * 86400 + hour * 3600 + minute * 60 + second
+        - tz_offset_seconds;
+    return {telem::SampleValue(telem::TimeStamp(total_seconds * 1000000000 + frac_ns)), xerrors::NIL};
+}
+
+} // namespace
 
 template<typename T>
 ReadConverter make_number_reader() {
@@ -94,7 +175,14 @@ std::pair<ReadConverter, xerrors::Error> resolve_read_converter(
                     return {nullptr, UNSUPPORTED_ERROR};
             }
         }
-        // TODO: String + ISO8601 → TimeStamp (requires ISO8601 parser)
+        if (json_type == xjson::Type::String && opts.time_format == TimeFormat::ISO8601)
+            return {
+                [](const nlohmann::json &value)
+                    -> std::pair<telem::SampleValue, xerrors::Error> {
+                    return parse_rfc3339(value.get<std::string>());
+                },
+                xerrors::NIL
+            };
         return {nullptr, UNSUPPORTED_ERROR};
     }
 

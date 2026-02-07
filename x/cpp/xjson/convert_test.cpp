@@ -17,52 +17,6 @@
 
 using json = nlohmann::json;
 
-// ========================== resolve_read_converter ==========================
-//
-// --- JSON Number → Synnax Numeric ---
-// [x] resolved (Number, float64) converts json 42.5 → SampleValue with double
-// [x] resolved (Number, float32) converts json 42.5 → SampleValue with float
-// [x] resolved (Number, int64) converts json 7 → SampleValue with int64_t
-// [x] resolved (Number, int32) converts json 7 → SampleValue with int32_t
-// [x] resolved (Number, int16) converts json 7 → SampleValue with int16_t
-// [x] resolved (Number, int8) converts json 7 → SampleValue with int8_t
-// [x] resolved (Number, uint64) converts json 7 → SampleValue with uint64_t
-// [x] resolved (Number, uint32) converts json 7 → SampleValue with uint32_t
-// [x] resolved (Number, uint16) converts json 7 → SampleValue with uint16_t
-// [x] resolved (Number, uint8) converts json 7 → SampleValue with uint8_t
-//
-// --- JSON Number → Synnax Numeric (strict truncation) ---
-// [x] resolved (Number, int64, strict=false) with json 3.7 succeeds, writes 3
-// [x] resolved (Number, int64, strict=true) with json 3.7 returns error
-// [x] resolved (Number, uint8, strict=true) with json 300 returns error (overflow)
-// [x] resolved (Number, uint8, strict=true) with json -1 returns error (underflow)
-//
-// --- JSON Number → Synnax String ---
-// [x] resolved (Number, string) converts json 42.5 → SampleValue with "42.5"
-// [x] resolved (Number, string) converts json 7 → SampleValue with "7"
-//
-// --- JSON String → Synnax String ---
-// [x] resolved (String, string) converts json "hello" → SampleValue with "hello"
-//
-// --- JSON String → Synnax Numeric ---
-// [x] resolve (String, float64) returns error at resolve time
-//
-// --- JSON Boolean → Synnax Numeric ---
-// [x] resolved (Boolean, int64) converts json true → SampleValue with int64_t(1)
-// [x] resolved (Boolean, int64) converts json false → SampleValue with int64_t(0)
-// [x] resolved (Boolean, float64) converts json true → SampleValue with double(1.0)
-// [x] resolved (Boolean, uint8) converts json false → SampleValue with uint8_t(0)
-//
-// --- JSON Boolean → Synnax String ---
-// [x] resolved (Boolean, string) converts json true → SampleValue with "true"
-// [x] resolved (Boolean, string) converts json false → SampleValue with "false"
-//
-// --- Unsupported conversions ---
-// [x] resolve (Number, UUID) returns error at resolve time
-// [x] resolve (Number, JSON) returns error at resolve time
-
-// --- Number → Numeric ---
-
 TEST(ResolveReadConverter, NumberToFloat64) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::FLOAT64_T)
@@ -75,8 +29,7 @@ TEST(ResolveReadConverter, NumberToFloat32) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::FLOAT32_T)
     );
-    const auto [sv, err] = converter(json(42.5));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(42.5)));
     ASSERT_FLOAT_EQ(std::get<float>(sv), 42.5f);
 }
 
@@ -84,8 +37,7 @@ TEST(ResolveReadConverter, NumberToInt64) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::INT64_T)
     );
-    const auto [sv, err] = converter(json(7));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(7)));
     ASSERT_EQ(std::get<int64_t>(sv), 7);
 }
 
@@ -93,8 +45,7 @@ TEST(ResolveReadConverter, NumberToInt32) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::INT32_T)
     );
-    const auto [sv, err] = converter(json(7));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(7)));
     ASSERT_EQ(std::get<int32_t>(sv), 7);
 }
 
@@ -102,8 +53,7 @@ TEST(ResolveReadConverter, NumberToInt16) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::INT16_T)
     );
-    const auto [sv, err] = converter(json(7));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(7)));
     ASSERT_EQ(std::get<int16_t>(sv), 7);
 }
 
@@ -111,8 +61,7 @@ TEST(ResolveReadConverter, NumberToInt8) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::INT8_T)
     );
-    const auto [sv, err] = converter(json(7));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(7)));
     ASSERT_EQ(std::get<int8_t>(sv), 7);
 }
 
@@ -120,8 +69,7 @@ TEST(ResolveReadConverter, NumberToUint64) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::UINT64_T)
     );
-    const auto [sv, err] = converter(json(7));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(7)));
     ASSERT_EQ(std::get<uint64_t>(sv), 7);
 }
 
@@ -129,8 +77,7 @@ TEST(ResolveReadConverter, NumberToUint32) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::UINT32_T)
     );
-    const auto [sv, err] = converter(json(7));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(7)));
     ASSERT_EQ(std::get<uint32_t>(sv), 7);
 }
 
@@ -138,8 +85,7 @@ TEST(ResolveReadConverter, NumberToUint16) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::UINT16_T)
     );
-    const auto [sv, err] = converter(json(7));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(7)));
     ASSERT_EQ(std::get<uint16_t>(sv), 7);
 }
 
@@ -147,8 +93,7 @@ TEST(ResolveReadConverter, NumberToUint8) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::UINT8_T)
     );
-    const auto [sv, err] = converter(json(7));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(7)));
     ASSERT_EQ(std::get<uint8_t>(sv), 7);
 }
 
@@ -158,8 +103,7 @@ TEST(ResolveReadConverter, NumberToInt64NonStrictTruncation) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::INT64_T, {.strict = false})
     );
-    const auto [sv, err] = converter(json(3.7));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(3.7)));
     ASSERT_EQ(std::get<int64_t>(sv), 3);
 }
 
@@ -170,6 +114,22 @@ TEST(ResolveReadConverter, NumberToInt64StrictTruncationError) {
     auto [sv, write_err] = converter(json(3.7));
     ASSERT_OCCURRED_AS(write_err, xjson::TRUNCATION_ERROR);
 }
+
+// TEST(ResolveReadConverter, NumberToUint8NonStrictOverflow) {
+//     const auto converter = ASSERT_NIL_P(
+//         xjson::resolve_read_converter(xjson::Type::Number, telem::UINT8_T, {.strict = false})
+//     );
+//     const auto sv = ASSERT_NIL_P(converter(json(300)));
+//     ASSERT_EQ(std::get<uint8_t>(sv), 255);
+// }
+
+// TEST(ResolveReadConverter, NumberToUint8NonStrictUnderflow) {
+//     const auto converter = ASSERT_NIL_P(
+//         xjson::resolve_read_converter(xjson::Type::Number, telem::UINT8_T, {.strict = false})
+//     );
+//     const auto sv = ASSERT_NIL_P(converter(json(-1)));
+//     ASSERT_EQ(std::get<uint8_t>(sv), 0);
+// }
 
 TEST(ResolveReadConverter, NumberToUint8StrictOverflow) {
     const auto converter = ASSERT_NIL_P(
@@ -187,14 +147,11 @@ TEST(ResolveReadConverter, NumberToUint8StrictUnderflow) {
     ASSERT_OCCURRED_AS(write_err, xjson::OVERFLOW_ERROR);
 }
 
-// --- Number → String ---
-
 TEST(ResolveReadConverter, NumberToStringDecimal) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::STRING_T)
     );
-    const auto [sv, err] = converter(json(42.5));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(42.5)));
     ASSERT_EQ(std::get<std::string>(sv), "42.5");
 }
 
@@ -202,23 +159,17 @@ TEST(ResolveReadConverter, NumberToStringInteger) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Number, telem::STRING_T)
     );
-    const auto [sv, err] = converter(json(7));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(7)));
     ASSERT_EQ(std::get<std::string>(sv), "7");
 }
-
-// --- String → String ---
 
 TEST(ResolveReadConverter, StringToString) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::String, telem::STRING_T)
     );
-    const auto [sv, err] = converter(json("hello"));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json("hello")));
     ASSERT_EQ(std::get<std::string>(sv), "hello");
 }
-
-// --- String → Numeric (unsupported) ---
 
 TEST(ResolveReadConverter, StringToFloat64Error) {
     ASSERT_OCCURRED_AS_P(
@@ -227,14 +178,11 @@ TEST(ResolveReadConverter, StringToFloat64Error) {
     );
 }
 
-// --- Boolean → Numeric ---
-
 TEST(ResolveReadConverter, BooleanTrueToInt64) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Boolean, telem::INT64_T)
     );
-    const auto [sv, err] = converter(json(true));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(true)));
     ASSERT_EQ(std::get<int64_t>(sv), 1);
 }
 
@@ -242,8 +190,7 @@ TEST(ResolveReadConverter, BooleanFalseToInt64) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Boolean, telem::INT64_T)
     );
-    const auto [sv, err] = converter(json(false));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(false)));
     ASSERT_EQ(std::get<int64_t>(sv), 0);
 }
 
@@ -251,8 +198,7 @@ TEST(ResolveReadConverter, BooleanTrueToFloat64) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Boolean, telem::FLOAT64_T)
     );
-    const auto [sv, err] = converter(json(true));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(true)));
     ASSERT_DOUBLE_EQ(std::get<double>(sv), 1.0);
 }
 
@@ -260,19 +206,15 @@ TEST(ResolveReadConverter, BooleanFalseToUint8) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Boolean, telem::UINT8_T)
     );
-    const auto [sv, err] = converter(json(false));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(false)));
     ASSERT_EQ(std::get<uint8_t>(sv), 0);
 }
-
-// --- Boolean → String ---
 
 TEST(ResolveReadConverter, BooleanTrueToString) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Boolean, telem::STRING_T)
     );
-    const auto [sv, err] = converter(json(true));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(true)));
     ASSERT_EQ(std::get<std::string>(sv), "true");
 }
 
@@ -280,12 +222,9 @@ TEST(ResolveReadConverter, BooleanFalseToString) {
     const auto converter = ASSERT_NIL_P(
         xjson::resolve_read_converter(xjson::Type::Boolean, telem::STRING_T)
     );
-    const auto [sv, err] = converter(json(false));
-    ASSERT_NIL(err);
+    const auto sv = ASSERT_NIL_P(converter(json(false)));
     ASSERT_EQ(std::get<std::string>(sv), "false");
 }
-
-// --- Unsupported target types ---
 
 TEST(ResolveReadConverter, NumberToUUIDError) {
     ASSERT_OCCURRED_AS_P(
@@ -301,15 +240,21 @@ TEST(ResolveReadConverter, NumberToJSONError) {
     );
 }
 
-// --- Number → TimeStamp ---
+TEST(ResolveReadConverter, NumberToBytesError) {
+    ASSERT_OCCURRED_AS_P(
+        xjson::resolve_read_converter(xjson::Type::Number, telem::BYTES_T),
+        xjson::UNSUPPORTED_ERROR
+    );
+}
 
 TEST(ResolveReadConverter, NumberToTimestampNanosecond) {
     const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
         xjson::Type::Number, telem::TIMESTAMP_T,
         {.time_format = xjson::TimeFormat::UnixNanosecond}
     ));
-    const auto sv = ASSERT_NIL_P(converter(json(int64_t(1000000000000000000))));
-    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000000000000));
+    const int64_t value =1000000000000000000;
+    const auto sv = ASSERT_NIL_P(converter(json(value)));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(value));
 }
 
 TEST(ResolveReadConverter, NumberToTimestampMicrosecond) {
@@ -361,11 +306,342 @@ TEST(ResolveReadConverter, NumberToTimestampISO8601Error) {
     );
 }
 
-TEST(ResolveReadConverter, StringToTimestampError) {
+TEST(ResolveReadConverter, StringToTimestampUnixNanosecondError) {
     ASSERT_OCCURRED_AS_P(
-        xjson::resolve_read_converter(xjson::Type::String, telem::TIMESTAMP_T),
+        xjson::resolve_read_converter(
+            xjson::Type::String, telem::TIMESTAMP_T,
+            {.time_format = xjson::TimeFormat::UnixNanosecond}
+        ),
         xjson::UNSUPPORTED_ERROR
     );
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-09T01:46:40.5Z")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000500000000));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601WithOffset) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    // 02:46:40.5+01:00 = 01:46:40.5 UTC = same instant as .5Z
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-09T02:46:40.5+01:00")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000500000000));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601WithoutSubSecond) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-09T01:46:40Z")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000000000000));
+}
+
+// --- ISO8601 parsing edge cases ---
+
+TEST(ResolveReadConverter, StringToTimestampISO8601Epoch) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json("1970-01-01T00:00:00Z")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(0));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601SubSecondThreeDigits) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-09T01:46:40.123Z")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000123000000));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601SubSecondSixDigits) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-09T01:46:40.123456Z")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000123456000));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601SubSecondNineDigits) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-09T01:46:40.123456789Z")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000123456789));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601ExcessDigitsTruncated) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-09T01:46:40.1234567891111Z")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000123456789));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601NegativeOffset) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    // 00:46:40-01:00 = 01:46:40 UTC
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-09T00:46:40-01:00")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000000000000));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601NegativeOffsetCrossesMidnight) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    // 23:46:40-05:00 on Sep 8 = 04:46:40 UTC on Sep 9
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-08T23:46:40-05:00")));
+    const int64_t expected = 1000000000000000000 + int64_t(3) * 3600 * 1000000000;
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(expected));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601ExplicitPlusZero) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-09T01:46:40+00:00")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000000000000));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601MinusZero) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-09T01:46:40-00:00")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000000000000));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601LowercaseZ) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-09T01:46:40z")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000000000000));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601LowercaseT) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-09t01:46:40Z")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000000000000));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601SpaceSeparator) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-09 01:46:40Z")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000000000000));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601LeapYearFeb29) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json("2000-02-29T00:00:00Z")));
+    ASSERT_EQ(
+        std::get<telem::TimeStamp>(sv),
+        telem::TimeStamp(int64_t(11016) * 86400 * 1000000000)
+    );
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601PreEpoch) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json("1969-12-31T23:59:59Z")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(-1000000000));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601PreEpochWithFraction) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    const auto sv = ASSERT_NIL_P(converter(json("1969-12-31T23:59:59.5Z")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(-500000000));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601HalfHourOffset) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    // India: +05:30
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-09T07:16:40+05:30")));
+    ASSERT_EQ(std::get<telem::TimeStamp>(sv), telem::TimeStamp(1000000000000000000));
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601LeapSecondAllowed) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    // second=60 is allowed per RFC 3339 for leap seconds
+    const auto sv = ASSERT_NIL_P(converter(json("2001-09-09T23:59:60Z")));
+    (void)sv; // just verify it parsed without error
+}
+
+// --- Invalid ISO8601 inputs ---
+
+TEST(ResolveReadConverter, StringToTimestampISO8601EmptyString) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    auto [sv, err] = converter(json(""));
+    ASSERT_OCCURRED_AS(err, xjson::UNSUPPORTED_ERROR);
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601TooShort) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    auto [sv, err] = converter(json("2001-09-09T01:46:4"));
+    ASSERT_OCCURRED_AS(err, xjson::UNSUPPORTED_ERROR);
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601MissingTimezone) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    auto [sv, err] = converter(json("2001-09-09T01:46:40"));
+    ASSERT_OCCURRED_AS(err, xjson::UNSUPPORTED_ERROR);
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601BadSeparator) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    auto [sv, err] = converter(json("2001-09-09X01:46:40Z"));
+    ASSERT_OCCURRED_AS(err, xjson::UNSUPPORTED_ERROR);
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601NonDigitYear) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    auto [sv, err] = converter(json("20X1-09-09T01:46:40Z"));
+    ASSERT_OCCURRED_AS(err, xjson::UNSUPPORTED_ERROR);
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601MonthZero) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    auto [sv, err] = converter(json("2001-00-09T01:46:40Z"));
+    ASSERT_OCCURRED_AS(err, xjson::UNSUPPORTED_ERROR);
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601MonthThirteen) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    auto [sv, err] = converter(json("2001-13-09T01:46:40Z"));
+    ASSERT_OCCURRED_AS(err, xjson::UNSUPPORTED_ERROR);
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601DayZero) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    auto [sv, err] = converter(json("2001-09-00T01:46:40Z"));
+    ASSERT_OCCURRED_AS(err, xjson::UNSUPPORTED_ERROR);
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601HourTwentyFour) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    auto [sv, err] = converter(json("2001-09-09T24:46:40Z"));
+    ASSERT_OCCURRED_AS(err, xjson::UNSUPPORTED_ERROR);
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601MinuteSixty) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    auto [sv, err] = converter(json("2001-09-09T01:60:40Z"));
+    ASSERT_OCCURRED_AS(err, xjson::UNSUPPORTED_ERROR);
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601SecondSixtyOne) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    auto [sv, err] = converter(json("2001-09-09T01:46:61Z"));
+    ASSERT_OCCURRED_AS(err, xjson::UNSUPPORTED_ERROR);
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601InvalidTimezoneChar) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    auto [sv, err] = converter(json("2001-09-09T01:46:40X"));
+    ASSERT_OCCURRED_AS(err, xjson::UNSUPPORTED_ERROR);
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601OffsetMissingColon) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    auto [sv, err] = converter(json("2001-09-09T01:46:40+0100"));
+    ASSERT_OCCURRED_AS(err, xjson::UNSUPPORTED_ERROR);
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601OffsetTruncated) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    auto [sv, err] = converter(json("2001-09-09T01:46:40+01"));
+    ASSERT_OCCURRED_AS(err, xjson::UNSUPPORTED_ERROR);
+}
+
+TEST(ResolveReadConverter, StringToTimestampISO8601JustDate) {
+    const auto converter = ASSERT_NIL_P(xjson::resolve_read_converter(
+        xjson::Type::String, telem::TIMESTAMP_T,
+        {.time_format = xjson::TimeFormat::ISO8601}
+    ));
+    auto [sv, err] = converter(json("2001-09-09"));
+    ASSERT_OCCURRED_AS(err, xjson::UNSUPPORTED_ERROR);
 }
 
 TEST(ResolveReadConverter, BooleanToTimestampError) {
@@ -374,8 +650,6 @@ TEST(ResolveReadConverter, BooleanToTimestampError) {
         xjson::UNSUPPORTED_ERROR
     );
 }
-
-// --- from_sample_value: Numeric → Number ---
 
 TEST(FromSampleValue, Float64ToNumber) {
     const auto value = 42.5;
@@ -432,7 +706,6 @@ TEST(FromSampleValue, Uint8ToNumber) {
     ASSERT_EQ(result, json(value));
 }
 
-// --- Numeric → String ---
 
 TEST(FromSampleValue, Float64ToString) {
     const auto result = ASSERT_NIL_P(
@@ -486,7 +759,6 @@ TEST(FromSampleValue, Uint8ZeroToString) {
     ASSERT_EQ(result, json("0"));
 }
 
-// --- Numeric → Boolean ---
 
 TEST(FromSampleValue, Int64ZeroToBoolean) {
     const auto result = ASSERT_NIL_P(
@@ -547,7 +819,6 @@ TEST(FromSampleValue, Uint8NonZeroToBoolean) {
     ASSERT_EQ(result, json(true));
 }
 
-// --- String → String ---
 
 TEST(FromSampleValue, StringToString) {
     const auto value = std::string("hello");
@@ -564,8 +835,6 @@ TEST(FromSampleValue, StringWithZeroLengthToString) {
     );
     ASSERT_EQ(result, json(value));
 }
-
-// --- Unsupported from_sample_value conversions ---
 
 TEST(FromSampleValue, StringToNumberError) {
     ASSERT_OCCURRED_AS_P(

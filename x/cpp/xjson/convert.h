@@ -53,7 +53,7 @@ struct ReadOptions {
     bool strict = false;
     /// @brief the expected time format for JSON → TimeStamp conversions. Ignored when
     /// the target type is not TIMESTAMP_T.
-    TimeFormat time_format = TimeFormat::UnixNanosecond;
+    TimeFormat time_format = TimeFormat::ISO8601;
 };
 
 /// @brief resolves a read converter for a specific (`Type`, `DataType`) combination.
