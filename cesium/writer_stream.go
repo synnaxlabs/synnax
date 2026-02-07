@@ -278,27 +278,23 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *streamWriter) close(ctx context.Context) error {
-	c := errors.NewCatcher(errors.WithAggregation())
+	var err error
 	parentUpdate := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, idx := range w.internal {
-		c.Exec(func() error {
-			u, err := idx.Close()
-			if err != nil {
-				return err
-			}
+		u, errClose := idx.Close()
+		if errClose != nil {
+			err = errors.Join(err, errClose)
+		} else {
 			parentUpdate.Transfers = append(parentUpdate.Transfers, u.Transfers...)
-			return nil
-		})
+		}
 	}
 	if w.virtual.internal != nil {
-		c.Exec(func() error {
-			u, err := w.virtual.Close()
-			if err != nil {
-				return err
-			}
+		u, errClose := w.virtual.Close()
+		if errClose != nil {
+			err = errors.Join(err, errClose)
+		} else {
 			parentUpdate.Transfers = append(parentUpdate.Transfers, u.Transfers...)
-			return nil
-		})
+		}
 	}
 
 	if len(parentUpdate.Transfers) > 0 {
@@ -307,12 +303,12 @@ func (w *streamWriter) close(ctx context.Context) error {
 
 	if digestWriter, ok := w.virtual.internal[w.virtual.digestKey]; ok {
 		// When digest writer closes, we do not (and cannot) send an update.
-		if _, err := digestWriter.Close(); err != nil {
-			return err
+		if _, digestErr := digestWriter.Close(); digestErr != nil {
+			return digestErr
 		}
 	}
 
-	return c.Error()
+	return err
 }
 
 type unaryWriterState struct {
@@ -404,29 +400,26 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
-	c := errors.NewCatcher(errors.WithAggregation())
 	for _, chW := range w.internal {
-		c.Exec(func() error { return chW.CommitWithEnd(ctx, end.Lower) })
+		err = errors.Join(err, chW.CommitWithEnd(ctx, end.Lower))
 	}
-	return end.Lower, c.Error()
+	return end.Lower, err
 }
 
 func (w *idxWriter) Close() (ControlUpdate, error) {
-	c := errors.NewCatcher(errors.WithAggregation())
+	var err error
 	update := ControlUpdate{
 		Transfers: make([]control.Transfer, 0, len(w.internal)),
 	}
 	for _, unaryWriter := range w.internal {
-		c.Exec(func() error {
-			transfer, err := unaryWriter.Close()
-			if err != nil || !transfer.Occurred() {
-				return err
-			}
+		transfer, closeErr := unaryWriter.Close()
+		if closeErr != nil {
+			err = errors.Join(err, closeErr)
+		} else if transfer.Occurred() {
 			update.Transfers = append(update.Transfers, transfer)
-			return nil
-		})
+		}
 	}
-	return update, c.Error()
+	return update, err
 }
 
 func invalidDataTypeError(expectedCh Channel, received telem.DataType) error {
@@ -615,21 +608,19 @@ func (w virtualWriter) write(filterUnauthorized *[]ChannelKey, fr Frame) (Frame,
 }
 
 func (w virtualWriter) Close() (ControlUpdate, error) {
-	c := errors.NewCatcher(errors.WithAggregation())
+	var err error
 	update := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, chW := range w.internal {
 		// We do not want to clean up the digest channel since we want to use it to send
 		// updates for closures.
 		if chW.Channel.Key != w.digestKey {
-			c.Exec(func() error {
-				transfer, err := chW.Close()
-				if err != nil || !transfer.Occurred() {
-					return err
-				}
+			transfer, closeErr := chW.Close()
+			if closeErr != nil {
+				err = errors.Join(err, closeErr)
+			} else if transfer.Occurred() {
 				update.Transfers = append(update.Transfers, transfer)
-				return nil
-			})
+			}
 		}
 	}
-	return update, c.Error()
+	return update, err
 }

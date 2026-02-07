@@ -54,14 +54,14 @@ func (b *Cluster) Provision(ctx context.Context) (store *storage.Layer) {
 // Close closes all stores provisioned by the Cluster. Close is not safe to call
 // concurrently with any other Cluster or provisioned storage.Layer methods.
 func (b *Cluster) Close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
+	var err error
 	for _, store := range b.Stores {
-		c.Exec(store.Close)
+		err = errors.Join(err, store.Close())
 	}
 	if !*b.cfg.InMemory {
-		c.Exec(func() error { return os.RemoveAll(b.cfg.Dirname) })
+		err = errors.Join(err, os.RemoveAll(b.cfg.Dirname))
 	}
-	return c.Error()
+	return err
 }
 
 func (b *Cluster) newMemBacked(ctx context.Context) *storage.Layer {
