@@ -140,7 +140,7 @@ jobs:
       - name: Generate OS Matrix
         id: set-matrix
         run: |
-          MATRIX=$(scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}")
+          MATRIX=$(scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}" "${{ inputs.sign_binaries }}")
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
       - name: Generate Console Tauri Matrix
@@ -148,7 +148,12 @@ jobs:
         run: |
           OS_LIST=""
           if [ "${{ inputs.macos }}" = "true" ]; then
-            OS_LIST="\"macos-build-bot\""
+            # If signing, use specific runner-2; otherwise any macos-build-bot
+            if [ "${{ inputs.sign_binaries }}" = "true" ]; then
+              OS_LIST="\"macos-build-bot-2\""
+            else
+              OS_LIST="\"macos-build-bot\""
+            fi
           fi
           if [ "${{ inputs.windows }}" = "true" ]; then
             [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
