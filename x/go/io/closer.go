@@ -47,11 +47,10 @@ type MultiCloser []io.Closer
 
 var _ io.Closer = MultiCloser(nil)
 
-func (c MultiCloser) Close() error {
-	ca := errors.NewCatcher(errors.WithAggregation())
-	for i := len(c) - 1; i >= 0; i-- {
-		closer := c[i]
-		ca.Exec(closer.Close)
+func (m MultiCloser) Close() error {
+	var err error
+	for i := len(m) - 1; i >= 0; i-- {
+		err = errors.Join(err, m[i].Close())
 	}
-	return ca.Error()
+	return err
 }
