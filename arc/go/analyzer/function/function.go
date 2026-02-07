@@ -78,13 +78,38 @@ func collectConfig[T antlr.ParserRuleContext](
 	if configBlock == nil || configBlock.ConfigList() == nil {
 		return
 	}
+	seenOptional := false
 	for _, cfg := range configBlock.ConfigList().AllConfig() {
 		configName := cfg.IDENTIFIER().GetText()
 		var configType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
 			configType, _ = atypes.InferFromTypeContext(typeCtx)
 		}
-		*config = append(*config, types.Param{Name: configName, Type: configType})
+
+		var defaultValue any
+		if lit := cfg.Literal(); lit != nil {
+			value, err := literal.Parse(acontext.Child(ctx, lit).AST, configType)
+			if err != nil {
+				ctx.Diagnostics.Add(diagnostics.Error(
+					errors.Wrapf(err, "invalid default value for config parameter %s", configName),
+					lit,
+				))
+				continue
+			}
+			defaultValue = value.Value
+			seenOptional = true
+		} else if seenOptional {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				cfg, "required config parameter %s cannot follow optional config parameters", configName,
+			))
+			continue
+		}
+
+		*config = append(*config, types.Param{
+			Name:  configName,
+			Type:  configType,
+			Value: defaultValue,
+		})
 	}
 }
 
@@ -377,11 +402,26 @@ func addConfigToScope[T antlr.ParserRuleContext](
 		if typeCtx := cfg.Type_(); typeCtx != nil {
 			configType, _ = atypes.InferFromTypeContext(typeCtx)
 		}
+
+		var defaultValue any
+		if lit := cfg.Literal(); lit != nil {
+			value, err := literal.Parse(acontext.Child(ctx, lit).AST, configType)
+			if err != nil {
+				ctx.Diagnostics.Add(diagnostics.Error(
+					errors.Wrapf(err, "invalid default value for config parameter %s", configName),
+					lit,
+				))
+			} else {
+				defaultValue = value.Value
+			}
+		}
+
 		if _, err := scope.Add(ctx, symbol.Symbol{
-			Name: configName,
-			Kind: symbol.KindConfig,
-			Type: configType,
-			AST:  cfg,
+			Name:         configName,
+			Kind:         symbol.KindConfig,
+			Type:         configType,
+			AST:          cfg,
+			DefaultValue: defaultValue,
 		}); err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, cfg))
 		}

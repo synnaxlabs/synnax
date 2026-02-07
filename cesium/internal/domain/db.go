@@ -187,8 +187,5 @@ func (db *DB) Close() error {
 		db.closed.Store(false)
 		return err
 	}
-	w := errors.NewCatcher(errors.WithAggregation())
-	w.Exec(db.fc.close)
-	w.Exec(db.idx.close)
-	return w.Error()
+	return errors.Join(db.fc.close(), db.idx.close())
 }

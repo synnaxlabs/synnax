@@ -322,11 +322,11 @@ func (s *Service) Close() error {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	c := errors.NewCatcher(errors.WithAggregation())
+	var err error
 	for _, g := range s.mu.groups {
-		c.Exec(g.Close)
+		err = errors.Join(err, g.Close())
 	}
-	return c.Error()
+	return err
 }
 
 // Request requests that the Service starts calculation the channel with the provided
