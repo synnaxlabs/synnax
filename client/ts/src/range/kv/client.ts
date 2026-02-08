@@ -12,13 +12,7 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Key } from "@/range/payload";
-import {
-  deleteReqZ,
-  getReqZ,
-  getResZ,
-  type KVPair,
-  setReqZ,
-} from "@/range/kv/payload";
+import { deleteReqZ, getReqZ, getResZ, type KVPair, setReqZ } from "@/range/kv/payload";
 
 export class KV {
   private readonly rangeKey: Key;

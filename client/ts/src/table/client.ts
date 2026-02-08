@@ -59,7 +59,7 @@ export class Client {
     const isMany = Array.isArray(tables);
     const res = await sendRequired(
       this.client,
-      "/workspace/table/create",
+      "/table/create",
       { workspace, tables: array.toArray(tables) },
       createReqZ,
       createResZ,
@@ -70,7 +70,7 @@ export class Client {
   async rename(key: Key, name: string): Promise<void> {
     await sendRequired(
       this.client,
-      "/workspace/table/rename",
+      "/table/rename",
       { key, name },
       renameReqZ,
       emptyResZ,
@@ -80,7 +80,7 @@ export class Client {
   async setData(key: Key, data: record.Unknown): Promise<void> {
     await sendRequired(
       this.client,
-      "/workspace/table/set-data",
+      "/table/set-data",
       { key, data: JSON.stringify(data) },
       setDataReqZ,
       emptyResZ,
@@ -95,7 +95,7 @@ export class Client {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
-      "/workspace/table/retrieve",
+      "/table/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
@@ -107,7 +107,7 @@ export class Client {
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,
-      "/workspace/table/delete",
+      "/table/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,

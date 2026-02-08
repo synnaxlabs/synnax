@@ -77,7 +77,7 @@ export class Client {
     const isMany = Array.isArray(schematics);
     const res = await sendRequired(
       this.client,
-      "/workspace/schematic/create",
+      "/schematic/create",
       { workspace, schematics: array.toArray(schematics) },
       createReqZ,
       createResZ,
@@ -88,7 +88,7 @@ export class Client {
   async rename(key: Key, name: string): Promise<void> {
     await sendRequired(
       this.client,
-      "/workspace/schematic/rename",
+      "/schematic/rename",
       { key, name },
       renameReqZ,
       emptyResZ,
@@ -98,7 +98,7 @@ export class Client {
   async setData(key: Key, data: record.Unknown): Promise<void> {
     await sendRequired(
       this.client,
-      "/workspace/schematic/set-data",
+      "/schematic/set-data",
       { key, data: JSON.stringify(data) },
       setDataReqZ,
       emptyResZ,
@@ -113,7 +113,7 @@ export class Client {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
-      "/workspace/schematic/retrieve",
+      "/schematic/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
@@ -125,7 +125,7 @@ export class Client {
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,
-      "/workspace/schematic/delete",
+      "/schematic/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,
@@ -135,7 +135,7 @@ export class Client {
   async copy(args: CopyArgs): Promise<Schematic> {
     const res = await sendRequired(
       this.client,
-      "/workspace/schematic/copy",
+      "/schematic/copy",
       args,
       copyReqZ,
       copyResZ,

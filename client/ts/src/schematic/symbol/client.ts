@@ -74,7 +74,7 @@ export class Client {
     const symbols = isMany ? options.symbols : [options];
     const res = await sendRequired(
       this.client,
-      "/workspace/schematic/symbol/create",
+      "/schematic/symbol/create",
       { symbols, parent: options.parent },
       createReqZ,
       createResZ,
@@ -85,7 +85,7 @@ export class Client {
   async rename(key: Key, name: string): Promise<void> {
     await sendRequired(
       this.client,
-      "/workspace/schematic/symbol/rename",
+      "/schematic/symbol/rename",
       { key, name },
       renameReqZ,
       emptyResZ,
@@ -98,7 +98,7 @@ export class Client {
     const isSingle = "key" in args;
     const res = await sendRequired(
       this.client,
-      "/workspace/schematic/symbol/retrieve",
+      "/schematic/symbol/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
@@ -110,7 +110,7 @@ export class Client {
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired(
       this.client,
-      "/workspace/schematic/symbol/delete",
+      "/schematic/symbol/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,
@@ -120,7 +120,7 @@ export class Client {
   async retrieveGroup(): Promise<group.Group> {
     const res = await sendRequired(
       this.client,
-      "/workspace/schematic/symbol/retrieve_group",
+      "/schematic/symbol/retrieve_group",
       {},
       retrieveGroupReqZ,
       retrieveGroupResZ,
