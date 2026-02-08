@@ -145,6 +145,7 @@ public:
                     task_ptr->state.send_warning(err);
                 else {
                     task_ptr->state.error(err);
+                    task_ptr->state.send_stop("");
                     task_ptr->runtime->close_outputs();
                 }
             }
