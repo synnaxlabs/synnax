@@ -360,7 +360,11 @@ public:
     std::atomic<bool> read_called{false};
     xerrors::Error stopped_err = xerrors::NIL;
 
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+    xerrors::Error read(
+        breaker::Breaker &breaker,
+        telem::Frame &fr,
+        pipeline::Authorities &authorities
+    ) override {
         read_called.store(true);
         return driver::NOMINAL_SHUTDOWN_ERROR;
     }

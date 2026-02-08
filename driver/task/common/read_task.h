@@ -150,8 +150,7 @@ class ReadTask final : public task::Task {
                 this->p.state.send_warning(warning);
             } else
                 this->p.state.clear_warning();
-            if (auto tare_err = this->p.tare.transform(fr)) return tare_err;
-            return xerrors::NIL;
+            return this->p.tare.transform(fr);
         }
 
         [[nodiscard]] synnax::WriterConfig writer_config() const {

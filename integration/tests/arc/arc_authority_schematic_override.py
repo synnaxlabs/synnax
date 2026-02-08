@@ -134,17 +134,12 @@ class ArcAuthoritySchematicOverride(SimDaqTestCase, ConsoleCase):
     def teardown(self) -> None:
         if self._schematic_controlled:
             try:
-                # Find the schematic pane and release control
-                self.page.locator(".react-flow__pane").first.click()
-                control_button = (
-                    self.page.locator(".console-controls button.pluto-btn--filled")
-                    .filter(has=self.page.locator("svg.pluto-icon--circle"))
-                    .first
+                schematic = Schematic(
+                    self.console, "authority_test_schematic", _skip_create=True
                 )
-                if control_button.count() > 0:
-                    control_button.click()
+                schematic.release_control()
             except Exception as e:
-                self.log(f"Failed to release schematic control: {e}")
+                self.fail(f"Failed to release schematic control: {e}")
 
         if self._arc_started:
             try:
@@ -152,18 +147,18 @@ class ArcAuthoritySchematicOverride(SimDaqTestCase, ConsoleCase):
                 if self.console.arc.is_running():
                     self.console.arc.stop()
             except Exception as e:
-                self.log(f"Failed to stop Arc: {e}")
+                self.fail(f"Failed to stop Arc: {e}")
 
         if self._arc_created:
             try:
                 self.console.arc.delete(self.arc_name)
             except Exception as e:
-                self.log(f"Failed to delete Arc: {e}")
+                self.fail(f"Failed to delete Arc: {e}")
 
         try:
             with self.client.open_writer(sy.TimeStamp.now(), "end_test_cmd") as w:
                 w.write("end_test_cmd", 1)
         except Exception as e:
-            self.log(f"Failed to signal simulator stop: {e}")
+            self.fail(f"Failed to signal simulator stop: {e}")
 
         super().teardown()

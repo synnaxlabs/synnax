@@ -430,6 +430,8 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
+const DefaultAuthority = control.AuthorityAbsolute
+
 // buildAuthorities constructs a per-channel authority slice from the static
 // Authorities in the IR. It maps channel keys to authority values and
 // returns the authorities array aligned with writeKeys.
@@ -438,14 +440,14 @@ func buildAuthorities(
 	writeKeys distchannel.Keys,
 ) []control.Authority {
 	if auth.Default == nil && len(auth.Channels) == 0 {
-		return nil
+		return []control.Authority{DefaultAuthority}
 	}
 	authorities := make([]control.Authority, len(writeKeys))
 	for i := range writeKeys {
 		if auth.Default != nil {
 			authorities[i] = control.Authority(*auth.Default)
 		} else {
-			authorities[i] = control.AuthorityAbsolute
+			authorities[i] = DefaultAuthority
 		}
 	}
 	for key, value := range auth.Channels {

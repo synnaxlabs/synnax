@@ -45,8 +45,7 @@ func Analyze(
 		if seenDeclaration {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				authBlock,
-				"authority declaration must appear before function, "+
-					"flow, and sequence declarations",
+				"authority declaration must appear before function, flow, and sequence declarations",
 			))
 			continue
 		}

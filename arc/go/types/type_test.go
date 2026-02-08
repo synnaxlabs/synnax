@@ -1088,4 +1088,47 @@ var _ = Describe("Types", func() {
 			})
 		})
 	})
+
+	Describe("ReadChan", func() {
+		It("Should return the inner type for read channels", func() {
+			readChan := types.ReadChan(types.I32())
+			Expect(readChan.Unwrap()).To(Equal(types.I32()))
+		})
+
+		It("Should return true on IsRead", func() {
+			readonlyChan := types.ReadChan(types.I32())
+			Expect(readonlyChan.ChanDirection.IsRead()).To(BeTrue())
+		})
+
+		It("Should return false on IsWrite", func() {
+			readonlyChan := types.ReadChan(types.I32())
+			Expect(readonlyChan.ChanDirection.IsWrite()).To(BeFalse())
+		})
+
+		It("Should return true on IsSet", func() {
+			readonlyChan := types.ReadChan(types.I32())
+			Expect(readonlyChan.ChanDirection.IsSet()).To(BeTrue())
+		})
+	})
+	Describe("WriteChan", func() {
+		It("Should return the inner type for write channels", func() {
+			writeChan := types.WriteChan(types.I32())
+			Expect(writeChan.Unwrap()).To(Equal(types.I32()))
+		})
+
+		It("Should return false on IsRead", func() {
+			writeChan := types.WriteChan(types.I32())
+			Expect(writeChan.ChanDirection.IsRead()).To(BeFalse())
+		})
+
+		It("Should return true on IsWrite", func() {
+			writeChan := types.WriteChan(types.I32())
+			Expect(writeChan.ChanDirection.IsWrite()).To(BeTrue())
+		})
+
+		It("Should return true on IsSet", func() {
+			writeChan := types.WriteChan(types.I32())
+			Expect(writeChan.ChanDirection.IsSet()).To(BeTrue())
+		})
+	})
 })
