@@ -63,7 +63,6 @@ class ArcClient:
         create_btn.wait_for(state="visible", timeout=5000)
         create_btn.click()
         name_input.wait_for(state="hidden", timeout=10000)
-        self.page.wait_for_timeout(2000)
 
         if mode == "Text":
             editor = self.page.locator("[data-mode-id='arc']")

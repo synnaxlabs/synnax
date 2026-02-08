@@ -72,17 +72,14 @@ var _ = Describe("Authority", func() {
 				},
 				State: s.Node("set_auth"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(n).ToNot(BeNil())
+			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
 		It("Should return NotFound for unknown type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("set_auth"),
 			}
-			_, err := factory.Create(ctx, cfg)
-			Expect(err).To(MatchError(query.ErrNotFound))
+			Expect(factory.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 		It("Should parse channel config with specific channel", func() {
 			cfg := node.Config{
@@ -95,8 +92,7 @@ var _ = Describe("Authority", func() {
 				},
 				State: s.Node("set_auth"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 			// Verify by exercising the node and checking the authority change
 			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
@@ -116,9 +112,7 @@ var _ = Describe("Authority", func() {
 				},
 				State: s.Node("set_auth"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(n).ToNot(BeNil())
+			n := MustSucceed(factory.Create(ctx, cfg))
 			// Verify by exercising the node and checking the authority change
 			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			changes := s.FlushAuthorityChanges()

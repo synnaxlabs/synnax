@@ -153,13 +153,13 @@ class ArcAuthorityArcVsArc(SimDaqTestCase, ConsoleCase):
             try:
                 self.console.arc.stop()
             except Exception as e:
-                self.log(f"Failed to stop Arc B: {e}")
+                self.fail(f"Failed to stop Arc B: {e}")
 
         if self._arc_b_created:
             try:
                 self.console.arc.delete(self.arc_b_name)
             except Exception as e:
-                self.log(f"Failed to delete Arc B: {e}")
+                self.fail(f"Failed to delete Arc B: {e}")
 
         if self._arc_a_started:
             try:
@@ -167,18 +167,18 @@ class ArcAuthorityArcVsArc(SimDaqTestCase, ConsoleCase):
                 if self.console.arc.is_running():
                     self.console.arc.stop()
             except Exception as e:
-                self.log(f"Failed to stop Arc A: {e}")
+                self.fail(f"Failed to stop Arc A: {e}")
 
         if self._arc_a_created:
             try:
                 self.console.arc.delete(self.arc_a_name)
             except Exception as e:
-                self.log(f"Failed to delete Arc A: {e}")
+                self.fail(f"Failed to delete Arc A: {e}")
 
         try:
             with self.client.open_writer(sy.TimeStamp.now(), "end_test_cmd") as w:
                 w.write("end_test_cmd", 1)
         except Exception as e:
-            self.log(f"Failed to signal simulator stop: {e}")
+            self.fail(f"Failed to signal simulator stop: {e}")
 
         super().teardown()

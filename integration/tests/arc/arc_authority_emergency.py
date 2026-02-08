@@ -65,8 +65,8 @@ class ArcAuthorityEmergency(ArcConsoleCase):
             if self._override_writer is not None:
                 try:
                     self._override_writer.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    self.fail(f"Failed to close override writer: {e}")
                 self._override_writer = None
 
     def _verify(self) -> None:
@@ -137,7 +137,7 @@ class ArcAuthorityEmergency(ArcConsoleCase):
         if self._override_writer is not None:
             try:
                 self._override_writer.close()
-            except Exception:
-                pass
+            except Exception as e:
+                self.fail(f"Failed to close override writer: {e}")
             self._override_writer = None
         super().teardown()
