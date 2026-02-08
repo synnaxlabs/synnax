@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/synnaxlabs/synnax/pkg/driver/internal/log"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/breaker"
@@ -191,11 +193,13 @@ func (d *Driver) start(ctx context.Context) error {
 		isSignal := false
 		if err != nil {
 			isSignal = strings.Contains(err.Error(), "signal") || strings.Contains(err.Error(), "exit status")
-			if bre.Wait() && !isSignal {
+			if !isSignal && bre.Wait() {
+				d.cfg.L.Warn("embedded driver process crashed", zap.Error(err))
 				return mf(ctx)
 			}
 		}
 		if isSignal {
+			d.cfg.L.Warn("embedded driver process exited unexpectedly", zap.Error(err))
 			return nil
 		}
 		return err
@@ -230,6 +234,7 @@ func (d *Driver) close() error {
 	if d.shutdown == nil {
 		return nil
 	}
+	d.cfg.L.Info("stopping embedded driver")
 	if d.cmd != nil && d.cmd.Process != nil {
 		// Best-effort: ask the process to exit gracefully. If the process
 		// already exited (e.g. crash or timeout cleanup race), the pipe is
@@ -242,6 +247,7 @@ func (d *Driver) close() error {
 	case err := <-done:
 		return err
 	case <-time.After(d.cfg.StopTimeout):
+		d.cfg.L.Warn("embedded driver did not stop within grace period, escalating to kill")
 		if d.cmd != nil && d.cmd.Process != nil {
 			_ = d.cmd.Process.Kill()
 		}
