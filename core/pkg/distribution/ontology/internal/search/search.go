@@ -47,6 +47,10 @@ func New(configs ...Config) (*Index, error) {
 	}
 	s := &Index{Config: cfg}
 	s.mapping = bleve.NewIndexMapping()
+	s.mapping.DefaultMapping.Dynamic = false
+	s.mapping.StoreDynamic = false
+	s.mapping.IndexDynamic = false
+	s.mapping.DocValuesDynamic = false
 	if err = registerSeparatorAnalyzer(s.mapping); err != nil {
 		return nil, err
 	}
@@ -71,8 +75,6 @@ func (s *Index) Index(resources []resource.Resource) error {
 	t := s.OpenTx()
 	defer t.Close()
 	for _, r := range resources {
-		// this is where we index
-		// probably where s.config is set
 		if err := t.Index(r); err != nil {
 			return err
 		}
@@ -112,18 +114,20 @@ func (s *Index) Register(
 	ctx context.Context,
 	t resource.Type,
 	sch zyn.Schema,
+	searchableFields ...string,
 ) {
 	s.L.Debug("registering schema", zap.Stringer("type", t))
 	_, span := s.T.Prod(ctx, "register")
 	defer span.End()
-	textFieldMapping := bleve.NewTextFieldMapping()
-	textFieldMapping.Analyzer = separatorAnalyzer
 	dm := bleve.NewDocumentMapping()
-	dm.AddFieldMappingsAt("name", textFieldMapping)
-	for k, fld := range sch.Shape().Fields() {
-		if fMapping, ok := fieldMappings[fld.DataType()]; ok {
-			dm.AddFieldMappingsAt(k, fMapping())
-		}
+	dm.Dynamic = false
+	for _, field := range append([]string{"name"}, searchableFields...) {
+		fm := bleve.NewTextFieldMapping()
+		fm.Analyzer = separatorAnalyzer
+		fm.Store = false
+		fm.IncludeTermVectors = false
+		fm.DocValues = false
+		dm.AddFieldMappingsAt(field, fm)
 	}
 	s.mapping.AddDocumentMapping(t.String(), dm)
 }
@@ -138,7 +142,6 @@ func assembleWordQuery(word string, _ int) query.Query {
 	// Specifies the levenshtein distance for the fuzzy query
 	// https://en.wikipedia.org/wiki/Levenshtein_distance
 	fuzzyQ.SetFuzziness(1)
-	regexQ := bleve.NewRegexpQuery(".*[_\\.-]" + word + ".*")
 	prefixQ := bleve.NewPrefixQuery(word)
 	exactQ := bleve.NewMatchQuery(word)
 	// Specifies the levenshtein distance for the fuzzy query
@@ -146,7 +149,7 @@ func assembleWordQuery(word string, _ int) query.Query {
 	exactQ.SetFuzziness(0)
 	// Makes the exact result the most important. Value chosen arbitrarily.
 	exactQ.SetBoost(100)
-	return bleve.NewDisjunctionQuery(exactQ, prefixQ, regexQ, fuzzyQ)
+	return bleve.NewDisjunctionQuery(exactQ, prefixQ, fuzzyQ)
 }
 
 func (s *Index) execQuery(
@@ -154,7 +157,6 @@ func (s *Index) execQuery(
 	q query.Query,
 ) (*bleve.SearchResult, error) {
 	req := bleve.NewSearchRequest(q)
-	req.Fields = []string{"name"}
 	// Limit search results to 100
 	req.Size = 100
 	req.SortBy([]string{"-_score"})
@@ -189,21 +191,4 @@ func (s *Index) Search(ctx context.Context, req Request) ([]resource.ID, error) 
 		return ids, nil
 	}
 	return lo.Filter(ids, func(id resource.ID, _ int) bool { return id.Type == req.Type }), nil
-}
-
-var fieldMappings = map[zyn.DataType]func() *mapping.FieldMapping{
-	zyn.StringT:  bleve.NewTextFieldMapping,
-	zyn.IntT:     bleve.NewNumericFieldMapping,
-	zyn.Float64T: bleve.NewNumericFieldMapping,
-	zyn.Float32T: bleve.NewNumericFieldMapping,
-	zyn.Int64T:   bleve.NewNumericFieldMapping,
-	zyn.Int32T:   bleve.NewNumericFieldMapping,
-	zyn.Int16T:   bleve.NewNumericFieldMapping,
-	zyn.Int8T:    bleve.NewNumericFieldMapping,
-	zyn.Uint64T:  bleve.NewNumericFieldMapping,
-	zyn.Uint32T:  bleve.NewNumericFieldMapping,
-	zyn.Uint16T:  bleve.NewNumericFieldMapping,
-	zyn.Uint8T:   bleve.NewNumericFieldMapping,
-	zyn.BoolT:    bleve.NewBooleanFieldMapping,
-	zyn.UUIDT:    bleve.NewTextFieldMapping,
 }
