@@ -9,7 +9,7 @@
 
 #include "glog/logging.h"
 
-#include "rt/rt.h"
+#include "x/cpp/thread/rt/rt.h"
 
 namespace x::thread {
 RTCapabilities get_rt_capabilities() {

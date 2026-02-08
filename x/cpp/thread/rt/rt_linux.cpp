@@ -18,7 +18,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#include "rt/rt.h"
+#include "x/cpp/thread/rt/rt.h"
 
 namespace x::thread::rt {
 namespace {
