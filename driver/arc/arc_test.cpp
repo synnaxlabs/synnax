@@ -1756,10 +1756,11 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
     );
     for (size_t i = 0; i < mock_writer->config.channels.size(); i++) {
         auto key = mock_writer->config.channels[i];
-        if (key == out_a_ch.key)
+        if (key == out_a_ch.key) {
             EXPECT_EQ(mock_writer->config.authorities[i], 200);
-        else if (key == out_b_ch.key)
+        } else if (key == out_b_ch.key) {
             EXPECT_EQ(mock_writer->config.authorities[i], 100);
+        }
     }
 
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
