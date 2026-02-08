@@ -10,8 +10,9 @@
 #include <filesystem>
 
 #include "x/cpp/kv/kv.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
+namespace x::kv {
 class JSONTest : public ::testing::Test {
 protected:
     std::string temp_path;
@@ -61,13 +62,13 @@ TEST_F(JSONTest, SetGetDelete) {
     // Test get
     std::string value;
     ASSERT_NIL(kv->get("key1", value));
-    ASSERT_OCCURRED_AS(kv->get("nonexistent", value), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS(kv->get("nonexistent", value), errors::NOT_FOUND);
 
     // Test delete
     ASSERT_NIL(kv->del("key1"));
 
     // Verify key was deleted
-    ASSERT_OCCURRED_AS(kv->get("key1", value), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS(kv->get("key1", value), errors::NOT_FOUND);
 
     // Test delete non-existent key (should not error)
     ASSERT_NIL(kv->del("nonexistent"));
@@ -95,4 +96,5 @@ TEST_F(JSONTest, Persistence) {
         ASSERT_NIL(kv->get("persistent", value));
         ASSERT_EQ(value, "data");
     }
+}
 }

@@ -20,9 +20,9 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-namespace ethercat {
+namespace driver::ethercat::telem {
 /// @brief EtherCAT/CoE data types as defined in ETG.1000.6.
-enum class ECDataType : uint16_t {
+enum class DataType : uint16_t {
     EC_UNKNOWN = 0x0000,
     EC_BOOLEAN = 0x0001,
     EC_INTEGER8 = 0x0002,
@@ -64,73 +64,73 @@ enum class ECDataType : uint16_t {
 };
 
 /// @brief infers a Synnax data type from the bit length when the CoE type is unknown.
-inline telem::DataType
+inline x::telem::DataType
 infer_type_from_bit_length(const uint8_t bit_length, const bool is_signed = false) {
-    if (bit_length == 0) return is_signed ? telem::INT8_T : telem::UINT8_T;
-    if (bit_length == 1) return telem::UINT8_T;
-    if (bit_length <= 8) return is_signed ? telem::INT8_T : telem::UINT8_T;
-    if (bit_length <= 16) return is_signed ? telem::INT16_T : telem::UINT16_T;
-    if (bit_length <= 32) return is_signed ? telem::INT32_T : telem::UINT32_T;
+    if (bit_length == 0) return is_signed ? x::telem::INT8_T : x::telem::UINT8_T;
+    if (bit_length == 1) return x::telem::UINT8_T;
+    if (bit_length <= 8) return is_signed ? x::telem::INT8_T : x::telem::UINT8_T;
+    if (bit_length <= 16) return is_signed ? x::telem::INT16_T : x::telem::UINT16_T;
+    if (bit_length <= 32) return is_signed ? x::telem::INT32_T : x::telem::UINT32_T;
     if (bit_length > 64)
         LOG(WARNING) << "bit length " << static_cast<int>(bit_length)
                      << " exceeds 64 bits, truncating to 64-bit type";
-    return is_signed ? telem::INT64_T : telem::UINT64_T;
+    return is_signed ? x::telem::INT64_T : x::telem::UINT64_T;
 }
 
-/// @brief maps an EtherCAT CoE data type to a Synnax telem::DataType.
-inline telem::DataType
-map_ethercat_to_synnax(const ECDataType ec_type, const uint8_t bit_length) {
+/// @brief maps an EtherCAT CoE data type to a Synnax x::telem::DataType.
+inline x::telem::DataType
+map_ethercat_to_synnax(const DataType ec_type, const uint8_t bit_length) {
     switch (ec_type) {
-        case ECDataType::EC_BOOLEAN:
-        case ECDataType::EC_BIT1:
-        case ECDataType::EC_BIT2:
-        case ECDataType::EC_BIT3:
-        case ECDataType::EC_BIT4:
-        case ECDataType::EC_BIT5:
-        case ECDataType::EC_BIT6:
-        case ECDataType::EC_BIT7:
-        case ECDataType::EC_BIT8:
-        case ECDataType::EC_UNSIGNED8:
-            return telem::UINT8_T;
-        case ECDataType::EC_INTEGER8:
-            return telem::INT8_T;
-        case ECDataType::EC_UNSIGNED16:
-            return telem::UINT16_T;
-        case ECDataType::EC_INTEGER16:
-            return telem::INT16_T;
-        case ECDataType::EC_UNSIGNED24:
-        case ECDataType::EC_UNSIGNED32:
-            return telem::UINT32_T;
-        case ECDataType::EC_INTEGER24:
-        case ECDataType::EC_INTEGER32:
-            return telem::INT32_T;
-        case ECDataType::EC_UNSIGNED40:
-        case ECDataType::EC_UNSIGNED48:
-        case ECDataType::EC_UNSIGNED56:
-        case ECDataType::EC_UNSIGNED64:
-            return telem::UINT64_T;
-        case ECDataType::EC_INTEGER40:
-        case ECDataType::EC_INTEGER48:
-        case ECDataType::EC_INTEGER56:
-        case ECDataType::EC_INTEGER64:
-            return telem::INT64_T;
-        case ECDataType::EC_REAL32:
-            return telem::FLOAT32_T;
-        case ECDataType::EC_REAL64:
-            return telem::FLOAT64_T;
-        case ECDataType::EC_VISIBLE_STRING:
-        case ECDataType::EC_OCTET_STRING:
-        case ECDataType::EC_UNICODE_STRING:
-            return telem::STRING_T;
-        case ECDataType::EC_TIME_OF_DAY:
-        case ECDataType::EC_TIME_DIFFERENCE:
-            return telem::INT64_T;
-        case ECDataType::EC_DOMAIN:
-        case ECDataType::EC_PDO_MAPPING:
-        case ECDataType::EC_IDENTITY:
-        case ECDataType::EC_PDO_PARAMETER:
-        case ECDataType::EC_PDO_COMMUNICATION:
-        case ECDataType::EC_UNKNOWN:
+        case DataType::EC_BOOLEAN:
+        case DataType::EC_BIT1:
+        case DataType::EC_BIT2:
+        case DataType::EC_BIT3:
+        case DataType::EC_BIT4:
+        case DataType::EC_BIT5:
+        case DataType::EC_BIT6:
+        case DataType::EC_BIT7:
+        case DataType::EC_BIT8:
+        case DataType::EC_UNSIGNED8:
+            return x::telem::UINT8_T;
+        case DataType::EC_INTEGER8:
+            return x::telem::INT8_T;
+        case DataType::EC_UNSIGNED16:
+            return x::telem::UINT16_T;
+        case DataType::EC_INTEGER16:
+            return x::telem::INT16_T;
+        case DataType::EC_UNSIGNED24:
+        case DataType::EC_UNSIGNED32:
+            return x::telem::UINT32_T;
+        case DataType::EC_INTEGER24:
+        case DataType::EC_INTEGER32:
+            return x::telem::INT32_T;
+        case DataType::EC_UNSIGNED40:
+        case DataType::EC_UNSIGNED48:
+        case DataType::EC_UNSIGNED56:
+        case DataType::EC_UNSIGNED64:
+            return x::telem::UINT64_T;
+        case DataType::EC_INTEGER40:
+        case DataType::EC_INTEGER48:
+        case DataType::EC_INTEGER56:
+        case DataType::EC_INTEGER64:
+            return x::telem::INT64_T;
+        case DataType::EC_REAL32:
+            return x::telem::FLOAT32_T;
+        case DataType::EC_REAL64:
+            return x::telem::FLOAT64_T;
+        case DataType::EC_VISIBLE_STRING:
+        case DataType::EC_OCTET_STRING:
+        case DataType::EC_UNICODE_STRING:
+            return x::telem::STRING_T;
+        case DataType::EC_TIME_OF_DAY:
+        case DataType::EC_TIME_DIFFERENCE:
+            return x::telem::INT64_T;
+        case DataType::EC_DOMAIN:
+        case DataType::EC_PDO_MAPPING:
+        case DataType::EC_IDENTITY:
+        case DataType::EC_PDO_PARAMETER:
+        case DataType::EC_PDO_COMMUNICATION:
+        case DataType::EC_UNKNOWN:
         default:
             return infer_type_from_bit_length(bit_length);
     }
@@ -142,7 +142,7 @@ inline std::string generate_pdo_entry_name(
     const uint16_t index,
     const uint8_t sub_index,
     const bool is_input,
-    const telem::DataType &data_type
+    const x::telem::DataType &data_type
 ) {
     if (!coe_name.empty()) return coe_name;
 
@@ -173,8 +173,8 @@ inline void read_pdo_to_series(
     const uint8_t *src,
     const uint8_t bit_offset,
     const uint8_t bit_length,
-    const telem::DataType data_type,
-    telem::Series &series
+    const x::telem::DataType data_type,
+    x::telem::Series &series
 ) {
     if (bit_length < 8) {
         uint16_t two_bytes = src[0];
@@ -184,7 +184,7 @@ inline void read_pdo_to_series(
         const uint8_t extracted = static_cast<uint8_t>(
             (two_bytes >> bit_offset) & mask
         );
-        series.write_casted(&extracted, 1, telem::UINT8_T);
+        series.write_casted(&extracted, 1, x::telem::UINT8_T);
         return;
     }
 
@@ -196,14 +196,14 @@ inline void read_pdo_to_series(
             raw = (raw >> bit_offset) |
                   (static_cast<uint32_t>(src[3]) << (24 - bit_offset));
         uint32_t val = raw & 0x00FFFFFF;
-        if (data_type == telem::INT32_T || data_type == telem::INT64_T)
+        if (data_type == x::telem::INT32_T || data_type == x::telem::INT64_T)
             if (val & 0x800000) val |= 0xFF000000;
         series.write_casted(&val, 1, data_type);
         return;
     }
 
-    telem::DataType source_type = data_type;
-    if (source_type == telem::UNKNOWN_T) source_type = series.data_type();
+    x::telem::DataType source_type = data_type;
+    if (source_type == x::telem::UNKNOWN_T) source_type = series.data_type();
     series.write_casted(src, 1, source_type);
 }
 
@@ -218,13 +218,14 @@ inline void write_pdo_from_value(
     uint8_t *dest,
     const uint8_t bit_offset,
     const uint8_t bit_length,
-    const telem::DataType data_type,
-    const telem::SampleValue &value
+    const x::telem::DataType data_type,
+    const x::telem::SampleValue &value
 ) {
-    const auto casted = data_type == telem::UNKNOWN_T ? value : data_type.cast(value);
+    const auto casted = data_type == x::telem::UNKNOWN_T ? value
+                                                         : data_type.cast(value);
 
     if (bit_length < 8) {
-        const auto src_val = telem::cast<uint8_t>(casted);
+        const auto src_val = x::telem::cast<uint8_t>(casted);
         const uint16_t mask = static_cast<uint16_t>((1u << bit_length) - 1);
 
         if (bit_offset + bit_length > 8) {
@@ -250,7 +251,7 @@ inline void write_pdo_from_value(
     }
 
     if (bit_length == 24) {
-        const uint32_t src_val = telem::cast<uint32_t>(casted);
+        const uint32_t src_val = x::telem::cast<uint32_t>(casted);
         const uint32_t masked_val = src_val & 0x00FFFFFF;
 
         if (bit_offset > 0) {
@@ -274,7 +275,7 @@ inline void write_pdo_from_value(
     }
 
     const size_t byte_len = (bit_length + 7) / 8;
-    const void *data = telem::cast_to_void_ptr(casted);
+    const void *data = x::telem::cast_to_void_ptr(casted);
     std::memcpy(dest, data, byte_len);
 }
 

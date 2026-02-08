@@ -9,10 +9,16 @@
 
 #pragma once
 
+#include "driver/errors/errors.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/nisyscfg_errors.h"
 
-namespace syscfg {
+namespace driver::ni::syscfg {
+const LibraryInfo LIBRARY_INFO = {
+    "National Instruments System Configuration",
+    "https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html"
+};
+
 class API {
 public:
     virtual ~API() = default;

@@ -9,7 +9,7 @@ cc_library(
         "//driver/ethercat/master",
         "//driver/ethercat/telem",
         "//vendor/soem",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "@glog",
     ],
 )

@@ -140,7 +140,7 @@ jobs:
       - name: Generate OS Matrix
         id: set-matrix
         run: |
-          MATRIX=$(scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}")
+          MATRIX=$(scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}" "${{ inputs.sign_binaries }}")
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
       - name: Generate Console Tauri Matrix
@@ -148,7 +148,12 @@ jobs:
         run: |
           OS_LIST=""
           if [ "${{ inputs.macos }}" = "true" ]; then
-            OS_LIST="\"macos-build-bot\""
+            # If signing, use specific runner-2; otherwise any macos-build-bot
+            if [ "${{ inputs.sign_binaries }}" = "true" ]; then
+              OS_LIST="\"macos-build-bot-2\""
+            else
+              OS_LIST="\"macos-build-bot\""
+            fi
           fi
           if [ "${{ inputs.windows }}" = "true" ]; then
             [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
@@ -219,7 +224,7 @@ jobs:
           sudo apt-get install -y libsystemd-dev autoconf automake libtool
 
       - name: Install Deps on macOS
-        if: matrix.os == 'macos-build-bot'
+        if: startsWith(matrix.os, 'macos-build-bot')
         run: brew install autoconf automake libtool
 
       - name: Setup Bazel
@@ -258,18 +263,18 @@ jobs:
           if-no-files-found: error
 
       - name: Build Driver (macOS)
-        if: inputs.driver && matrix.os == 'macos-build-bot'
+        if: inputs.driver && startsWith(matrix.os, 'macos-build-bot')
         run: |
           bazel build $BAZEL_BUILD_FLAGS \
             --config=opt-unix ${{ !inputs.debug && '--config=hide_symbols' || '' }} //driver
 
       - name: Extract Debug Symbols (macOS)
-        if: inputs.driver && inputs.debug && matrix.os == 'macos-build-bot'
+        if: inputs.driver && inputs.debug && startsWith(matrix.os, 'macos-build-bot')
         run: |
           dsymutil bazel-bin/driver/driver -o bazel-bin/driver/driver.dSYM
 
       - name: Upload macOS Debug Symbols
-        if: inputs.driver && inputs.debug && matrix.os == 'macos-build-bot'
+        if: inputs.driver && inputs.debug && startsWith(matrix.os, 'macos-build-bot')
         uses: actions/upload-artifact@v6
         with:
           name:
@@ -354,28 +359,20 @@ jobs:
           if-no-files-found: error
 
       - name: Import Apple Developer Certificate
-        if: inputs.sign_binaries && matrix.os == 'macos-build-bot'
+        if: inputs.sign_binaries && startsWith(matrix.os, 'macos-build-bot')
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          KEYCHAIN_NAME: build-${{ github.run_id }}.keychain
-        run: |
-          # Unique keychain per workflow run, which allows multiple runner instances
-          # on the same machine to run simultaneously without conflicts.
-          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-          security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          security list-keychains -d user -s $KEYCHAIN_NAME $(security list-keychains -d user | tr -d '"')
-          security default-keychain -s $KEYCHAIN_NAME
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          security set-keychain-settings -t 3600 -u $KEYCHAIN_NAME
-          security import certificate.p12 -k $KEYCHAIN_NAME -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
+          KEYCHAIN_NAME: build-${{ runner.name }}.keychain
+        run: scripts/import_apple_certificate.sh
 
       - name: Sign Driver (macOS)
-        if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-build-bot'
+        if:
+          inputs.sign_binaries && inputs.driver && startsWith(matrix.os,
+          'macos-build-bot')
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           cat > driver-entitlements.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -395,10 +392,16 @@ jobs:
           CERT_INFO=$(security find-identity -v -p codesigning $KEYCHAIN_NAME | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           codesign --force --options runtime --timestamp --entitlements driver-entitlements.plist --sign "$CERT_ID" bazel-bin/driver/driver
+
+          # Unlock keychain before verification (in case it locked)
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+
           codesign --verify --verbose bazel-bin/driver/driver
 
       - name: Notarize macOS Driver Binary
-        if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-build-bot'
+        if:
+          inputs.sign_binaries && inputs.driver && startsWith(matrix.os,
+          'macos-build-bot')
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
@@ -406,11 +409,27 @@ jobs:
         run: |
           # Create a zip for notarization (notarytool requires a container format)
           zip -j driver-notarize.zip bazel-bin/driver/driver
-          xcrun notarytool submit driver-notarize.zip \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
+
+          # Retry logic for notarization (Apple's servers can be flaky)
+          for attempt in 1 2 3; do
+            echo "Notarization attempt $attempt of 3..."
+            if xcrun notarytool submit driver-notarize.zip \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" \
+              --wait; then
+              echo "Notarization succeeded on attempt $attempt"
+              break
+            elif [ $attempt -lt 3 ]; then
+              echo "Notarization attempt $attempt failed, retrying in 10 seconds..."
+              sleep 10
+            else
+              echo "Notarization failed after 3 attempts"
+              rm driver-notarize.zip
+              exit 1
+            fi
+          done
+
           rm driver-notarize.zip
 
       - name: Install trusted-signing-cli
@@ -535,8 +554,12 @@ jobs:
             -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
       - name: Sign macOS Core Binary
-        if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-build-bot'
+        if:
+          inputs.sign_binaries && inputs.core && startsWith(matrix.os,
+          'macos-build-bot')
         working-directory: core
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           cat > server-entitlements.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -556,10 +579,16 @@ jobs:
           codesign --force --options runtime --timestamp \
             --entitlements server-entitlements.plist \
             --sign "$CERT_ID" ./synnax-v${{ needs.setup.outputs.VERSION }}
+
+          # Unlock keychain before verification (in case it locked)
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+
           codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}
 
       - name: Notarize macOS Core Binary
-        if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-build-bot'
+        if:
+          inputs.sign_binaries && inputs.core && startsWith(matrix.os,
+          'macos-build-bot')
         working-directory: core
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -568,11 +597,27 @@ jobs:
         run: |
           # Create a zip for notarization (notarytool requires a container format)
           zip -j server-notarize.zip ./synnax-v${{ needs.setup.outputs.VERSION }}
-          xcrun notarytool submit server-notarize.zip \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
+
+          # Retry logic for notarization (Apple's servers can be flaky)
+          for attempt in 1 2 3; do
+            echo "Notarization attempt $attempt of 3..."
+            if xcrun notarytool submit server-notarize.zip \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" \
+              --wait; then
+              echo "Notarization succeeded on attempt $attempt"
+              break
+            elif [ $attempt -lt 3 ]; then
+              echo "Notarization attempt $attempt failed, retrying in 10 seconds..."
+              sleep 10
+            else
+              echo "Notarization failed after 3 attempts"
+              rm server-notarize.zip
+              exit 1
+            fi
+          done
+
           rm server-notarize.zip
 
       - name: Sign Windows Core Binary
@@ -721,32 +766,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Import Apple Developer Certificate
-        if: matrix.os == 'macos-build-bot' && inputs.sign_binaries
+        if: startsWith(matrix.os, 'macos-build-bot') && inputs.sign_binaries
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          KEYCHAIN_NAME: build-${{ github.run_id }}.keychain
-        run: |
-          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-          security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          security list-keychains -d user -s $KEYCHAIN_NAME $(security list-keychains -d user | tr -d '"')
-          security default-keychain -s $KEYCHAIN_NAME
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          security set-keychain-settings -t 3600 -u $KEYCHAIN_NAME
-          security import certificate.p12 -k $KEYCHAIN_NAME -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          security find-identity -v -p codesigning $KEYCHAIN_NAME
-          echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
-
-      - name: Verify Apple Developer Certificate
-        if: matrix.os == 'macos-build-bot' && inputs.sign_binaries
-        run: |
-          CERT_INFO=$(security find-identity -v -p codesigning $KEYCHAIN_NAME | grep "Developer ID Application")
-          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
-          echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
-          echo "Certificate imported."
+          KEYCHAIN_NAME: build-${{ runner.name }}.keychain
+        run: scripts/import_apple_certificate.sh
 
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -799,7 +825,7 @@ jobs:
         run: pnpm build:console-vite
 
       - name: Pre-sign Embedded lua-language-server
-        if: matrix.os == 'macos-build-bot' && inputs.sign_binaries
+        if: startsWith(matrix.os, 'macos-build-bot') && inputs.sign_binaries
         env:
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
         run: |
@@ -842,19 +868,19 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name:
-            ${{ matrix.os == 'macos-build-bot' && format('synnax-console-v{0}-macos',
-            steps.console-version.outputs.VERSION) ||
-            format('synnax-console-v{0}-windows', steps.console-version.outputs.VERSION)
-            }}
+            ${{ startsWith(matrix.os, 'macos-build-bot') &&
+            format('synnax-console-v{0}-macos', steps.console-version.outputs.VERSION)
+            || format('synnax-console-v{0}-windows',
+            steps.console-version.outputs.VERSION) }}
           path: |
-            ${{ matrix.os == 'macos-build-bot' && format('console/src-tauri/target/release/bundle/dmg/Synnax_{0}_aarch64.dmg', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
+            ${{ startsWith(matrix.os, 'macos-build-bot') && format('console/src-tauri/target/release/bundle/dmg/Synnax_{0}_aarch64.dmg', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
             ${{ matrix.os == 'windows-latest' && format('console/src-tauri/target/release/bundle/msi/Synnax_{0}_x64_en-US.msi', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
             ${{ matrix.os == 'windows-latest' && format('console/src-tauri/target/release/bundle/nsis/Synnax_{0}_x64-setup.exe', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
           retention-days: 7
           if-no-files-found: error
 
       - name: Upload macOS Release Assets
-        if: inputs.upload_to_release && matrix.os == 'macos-build-bot'
+        if: inputs.upload_to_release && startsWith(matrix.os, 'macos-build-bot')
         run: |
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig

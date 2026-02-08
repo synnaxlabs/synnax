@@ -11,16 +11,14 @@
 
 #include <string>
 
-#include "nlohmann/json.hpp"
-
 #include "client/cpp/synnax.h"
 
 #include "device/device.h"
+#include "driver/common/scan_task.h"
 #include "driver/labjack/labjack.h"
-#include "driver/task/common/scan_task.h"
 #include "ljm/LJM_Utilities.h"
 
-namespace labjack {
+namespace driver::labjack {
 const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
 
 const std::vector SCAN_SKIP_ERRORS = {
@@ -32,14 +30,14 @@ struct ScanTaskConfig : common::ScanTaskConfig {
     /// @brief how often to scan TCP devices relative to USB devices
     const int tcp_scan_multiplier;
 
-    explicit ScanTaskConfig(xjson::Parser &cfg):
+    explicit ScanTaskConfig(x::json::Parser &cfg):
         common::ScanTaskConfig(cfg),
         tcp_scan_multiplier(cfg.field<int>("tcp_scan_multiplier", 10)) {}
 };
 
 class Scanner final : public common::Scanner {
     /// @brief the raw synnax task configuration
-    const synnax::Task task;
+    const synnax::task::Task task;
     /// @brief configuration for the scan task
     const ScanTaskConfig cfg;
     /// @brief the device manager for handling LabJack connections
@@ -50,8 +48,8 @@ class Scanner final : public common::Scanner {
     }
 
     /// @brief scans for devices with the given type and connection
-    xerrors::Error
-    scan_for(int connection_type, std::vector<synnax::Device> &devices) const {
+    x::errors::Error
+    scan_for(int connection_type, std::vector<synnax::device::Device> &devices) const {
         int device_types[LJM_LIST_ALL_SIZE];
         int connection_types[LJM_LIST_ALL_SIZE];
         int serial_numbers[LJM_LIST_ALL_SIZE];
@@ -83,8 +81,8 @@ class Scanner final : public common::Scanner {
                                : serial_str;
             auto name = device_type_str + "-" + last_four;
 
-            auto rack = synnax::rack_key_from_task_key(this->task.key);
-            auto sy_dev = synnax::Device(
+            auto rack = synnax::task::rack_key_from_task_key(this->task.key);
+            auto sy_dev = synnax::device::Device(
                 serial_str,
                 name,
                 rack,
@@ -93,26 +91,26 @@ class Scanner final : public common::Scanner {
                 device_type_str,
                 "" // Properties will be set in Device constructor
             );
-            sy_dev.status = synnax::DeviceStatus{
+            sy_dev.status = synnax::device::Status{
                 .key = sy_dev.status_key(),
                 .name = name,
-                .variant = status::variant::SUCCESS,
+                .variant = x::status::variant::SUCCESS,
                 .message = "Device present",
-                .time = telem::TimeStamp::now(),
-                .details = synnax::DeviceStatusDetails{
+                .time = x::telem::TimeStamp::now(),
+                .details = synnax::device::StatusDetails{
                     .rack = rack,
                     .device = sy_dev.key,
                 }
             };
             devices.push_back(sy_dev);
         }
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    std::pair<std::vector<synnax::Device>, xerrors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &ctx) override {
-        std::vector<synnax::Device> devs;
-        xerrors::Error err;
+        std::vector<synnax::device::Device> devs;
+        x::errors::Error err;
         if (err = this->scan_for(LJM_ctUSB, devs); err) return {devs, err};
         if (ctx.count % this->cfg.tcp_scan_multiplier == 0)
             err = this->scan_for(LJM_ctTCP, devs);
@@ -121,7 +119,7 @@ class Scanner final : public common::Scanner {
 
 public:
     explicit Scanner(
-        synnax::Task task,
+        synnax::task::Task task,
         ScanTaskConfig cfg,
         std::shared_ptr<device::Manager> device_manager
     ):

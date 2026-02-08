@@ -247,11 +247,7 @@ func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 	if s.Parent != nil {
 		return s.Parent.Resolve(ctx, name)
 	}
-	suggestions := s.SuggestSimilar(ctx, name, 2)
-	if len(suggestions) > 0 {
-		return nil, errors.Newf("undefined symbol: %s (did you mean: %s?)", name, strings.Join(suggestions, ", "))
-	}
-	return nil, errors.Newf("undefined symbol: %s", name)
+	return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
 }
 
 func (s *Scope) Search(ctx context.Context, term string) ([]*Scope, error) {

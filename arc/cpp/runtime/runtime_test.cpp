@@ -11,13 +11,12 @@
 
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/testutil/mock_loop.h"
 
-using namespace arc::runtime;
-
+namespace arc::runtime {
 namespace {
 /// @brief Creates a minimal Runtime for testing queue behavior.
 std::shared_ptr<Runtime> create_test_runtime(
@@ -26,7 +25,7 @@ std::shared_ptr<Runtime> create_test_runtime(
 ) {
     Config cfg{
         .mod = {},
-        .breaker = breaker::Config{},
+        .breaker = x::breaker::Config{},
         .retrieve_channels = nullptr,
         .input_queue_capacity = input_capacity,
         .output_queue_capacity = 1,
@@ -60,12 +59,12 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
     auto scheduler = std::make_unique<scheduler::Scheduler>(
         arc::ir::IR{},
         node_impls,
-        telem::TimeSpan(0)
+        x::telem::TimeSpan(0)
     );
 
     Config cfg{
         .mod = {},
-        .breaker = breaker::Config{},
+        .breaker = x::breaker::Config{},
         .retrieve_channels = nullptr,
         .input_queue_capacity = 256,
         .output_queue_capacity = 256,
@@ -90,19 +89,19 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
 /// @brief Test that write() calls error handler with QUEUE_FULL_INPUT when queue is
 /// full.
 TEST(RuntimeTest, WriteCallsErrorHandlerOnQueueFull) {
-    std::vector<xerrors::Error> reported_errors;
-    auto runtime = create_test_runtime(1, [&](const xerrors::Error &err) {
+    std::vector<x::errors::Error> reported_errors;
+    auto runtime = create_test_runtime(1, [&](const x::errors::Error &err) {
         reported_errors.push_back(err);
     });
 
-    auto series1 = telem::Series(telem::FLOAT32_T, 1);
+    auto series1 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series1.write(1.0f);
-    auto series2 = telem::Series(telem::FLOAT32_T, 1);
+    auto series2 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series2.write(2.0f);
 
-    ASSERT_NIL(runtime->write(telem::Frame(1, std::move(series1))));
+    ASSERT_NIL(runtime->write(x::telem::Frame(1, std::move(series1))));
     ASSERT_OCCURRED_AS(
-        runtime->write(telem::Frame(1, std::move(series2))),
+        runtime->write(x::telem::Frame(1, std::move(series2))),
         arc::runtime::errors::QUEUE_FULL_INPUT
     );
 
@@ -112,15 +111,15 @@ TEST(RuntimeTest, WriteCallsErrorHandlerOnQueueFull) {
 
 /// @brief Test that write() returns error and calls handler for each failed write.
 TEST(RuntimeTest, WriteReportsMultipleQueueFullErrors) {
-    std::vector<xerrors::Error> reported_errors;
-    const auto runtime = create_test_runtime(1, [&](const xerrors::Error &err) {
+    std::vector<x::errors::Error> reported_errors;
+    const auto runtime = create_test_runtime(1, [&](const x::errors::Error &err) {
         reported_errors.push_back(err);
     });
 
     for (int i = 0; i < 5; i++) {
-        auto series = telem::Series(telem::FLOAT32_T, 1);
+        auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
         series.write(static_cast<float>(i));
-        runtime->write(telem::Frame(1, std::move(series)));
+        runtime->write(x::telem::Frame(1, std::move(series)));
     }
     ASSERT_EQ(reported_errors.size(), 4);
     for (const auto &err: reported_errors)
@@ -129,14 +128,14 @@ TEST(RuntimeTest, WriteReportsMultipleQueueFullErrors) {
 
 /// @brief Test that write() succeeds when queue has capacity.
 TEST(RuntimeTest, WriteSucceedsWithCapacity) {
-    std::vector<xerrors::Error> reported_errors;
-    const auto runtime = create_test_runtime(10, [&](const xerrors::Error &err) {
+    std::vector<x::errors::Error> reported_errors;
+    const auto runtime = create_test_runtime(10, [&](const x::errors::Error &err) {
         reported_errors.push_back(err);
     });
     for (int i = 0; i < 5; i++) {
-        auto series = telem::Series(telem::FLOAT32_T, 1);
+        auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
         series.write(static_cast<float>(i));
-        ASSERT_NIL(runtime->write(telem::Frame(1, std::move(series))));
+        ASSERT_NIL(runtime->write(x::telem::Frame(1, std::move(series))));
     }
     ASSERT_TRUE(reported_errors.empty());
 }
@@ -192,9 +191,9 @@ TEST(RuntimeLifecycleTest, WriteReturnsClosedErrorAfterStop) {
     ASSERT_TRUE(runtime->start());
     ASSERT_TRUE(runtime->stop());
 
-    auto series = telem::Series(telem::FLOAT32_T, 1);
+    auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
     series.write(1.0f);
-    auto err = runtime->write(telem::Frame(1, std::move(series)));
+    auto err = runtime->write(x::telem::Frame(1, std::move(series)));
     EXPECT_TRUE(err.matches("runtime closed"));
 }
 
@@ -222,16 +221,16 @@ TEST(RuntimeLifecycleTest, WriteSucceedsAfterRestart) {
     ASSERT_TRUE(runtime->start());
     ASSERT_TRUE(runtime->stop());
 
-    auto series = telem::Series(telem::FLOAT32_T, 1);
+    auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
     series.write(1.0f);
-    auto err = runtime->write(telem::Frame(1, std::move(series)));
+    auto err = runtime->write(x::telem::Frame(1, std::move(series)));
     EXPECT_TRUE(err.matches("runtime closed")) << "Write should fail when stopped";
 
     ASSERT_TRUE(runtime->start());
 
-    auto series2 = telem::Series(telem::FLOAT32_T, 1);
+    auto series2 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series2.write(2.0f);
-    ASSERT_NIL(runtime->write(telem::Frame(1, std::move(series2))));
+    ASSERT_NIL(runtime->write(x::telem::Frame(1, std::move(series2))));
 
     ASSERT_TRUE(runtime->stop());
 }
@@ -263,9 +262,9 @@ TEST(RuntimeLifecycleTest, WriteSucceedsWhileRunning) {
     );
     ASSERT_TRUE(runtime->start());
 
-    auto series = telem::Series(telem::FLOAT32_T, 1);
+    auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
     series.write(1.0f);
-    ASSERT_NIL(runtime->write(telem::Frame(1, std::move(series))));
+    ASSERT_NIL(runtime->write(x::telem::Frame(1, std::move(series))));
 
     ASSERT_TRUE(runtime->stop());
 }
@@ -278,7 +277,7 @@ TEST(RuntimeLifecycleTest, ReadReturnsFalseAfterStop) {
     ASSERT_TRUE(runtime->start());
     ASSERT_TRUE(runtime->stop());
 
-    telem::Frame frame;
+    x::telem::Frame frame;
     EXPECT_FALSE(runtime->read(frame)) << "Read should return false when stopped";
 }
 
@@ -294,7 +293,7 @@ TEST(RuntimeLifecycleTest, DoubleStopReturnsFalse) {
 
 TEST(MockLoopTest, WakeReasonIsConfigurable) {
     testutil::MockLoop loop;
-    breaker::Breaker breaker(breaker::Config{});
+    x::breaker::Breaker breaker(x::breaker::Config{});
     breaker.start();
 
     loop.wake_reason = loop::WakeReason::Timer;
@@ -310,4 +309,5 @@ TEST(MockLoopTest, WakeReasonIsConfigurable) {
     ASSERT_EQ(loop.wait(breaker), loop::WakeReason::Shutdown);
 
     breaker.stop();
+}
 }
