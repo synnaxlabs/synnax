@@ -27,31 +27,24 @@ type NumericSample interface {
 }
 
 // FixedSample represents any numeric value that can be stored in a Series and has a
-// known density.
-type FixedSample interface {
-	NumericSample | uuid.UUID
-}
+// fixed density.
+type FixedSample interface{ NumericSample | uuid.UUID }
 
 // VariableSample is a type that can be stored in a variable-density series.
 type VariableSample interface{ []byte | string }
 
 // Sample represents any value that can be stored in a non-JSON Series.
-type Sample2 interface {
-	FixedSample | VariableSample
-}
-
-// TODO: remove this and make Sample2 Sample.
-type Sample = NumericSample
+type Sample interface{ FixedSample | VariableSample }
 
 // NewSeries creates a new Series from a slice of numeric values. It automatically
 // determines the data type from the first element.
-func NewSeries[T Sample](data []T) Series {
+func NewSeries[T FixedSample](data []T) Series {
 	return Series{DataType: InferDataType[T](), Data: MarshalSlice(data)}
 }
 
 // NewSeriesV is a variadic version of NewSeries that creates a new Series from
 // individual numeric values.
-func NewSeriesV[T Sample](data ...T) Series { return NewSeries(data) }
+func NewSeriesV[T FixedSample](data ...T) Series { return NewSeries(data) }
 
 // MakeSeries allocates a new Series with the specified DataType and length. Note that
 // this function allocates a length and not a capacity.
@@ -154,7 +147,7 @@ func UnmarshalJSON[T any](b []byte) ([]T, error) {
 
 // MarshalSlice converts a slice of numeric values into a byte slice according to the
 // specified DataType.
-func MarshalSlice[T Sample](data []T) []byte {
+func MarshalSlice[T FixedSample](data []T) []byte {
 	dt := InferDataType[T]()
 	b := make([]byte, dt.Density().Size(int64(len(data))))
 	typedData := unsafe.CastSlice[byte, T](b)
@@ -163,18 +156,17 @@ func MarshalSlice[T Sample](data []T) []byte {
 }
 
 // UnmarshalSlice converts a byte slice back into a slice of numeric values according to
-// the specified DataType.
-func UnmarshalSlice[T Sample](b []byte, dt DataType) []T {
-	return unsafe.CastSlice[byte, T](b)
-}
+// the specified type T.
+// TODO: remove this and use UnmarshalSeries instead.
+func UnmarshalSlice[T FixedSample](b []byte) []T { return unsafe.CastSlice[byte, T](b) }
 
-// UnmarshalSeries converts a Series' data back into a slice of the original type.
-func UnmarshalSeries[T Sample](series Series) []T {
+// UnmarshalSeries converts a Series' data back into a slice of the specified type T.
+func UnmarshalSeries[T FixedSample](series Series) []T {
 	return unsafe.CastSlice[byte, T](series.Data)
 }
 
-// ByteOrder is the standard order for encoding/decoding numeric values across
-// the Synnax telemetry ecosystem.
+// ByteOrder is the standard order for encoding/decoding numeric values across the
+// Synnax telemetry ecosystem.
 var ByteOrder = binary.LittleEndian
 
 // Arrange creates a new Series containing count values starting from start, with each
@@ -377,6 +369,7 @@ func castToJSON(value any) Series {
 	case []byte:
 		return Series{DataType: JSONT, Data: MarshalVariable([]string{string(v)})}
 	default:
+		// TODO: maybe remove this lo.Must?
 		return Series{DataType: JSONT, Data: lo.Must(MarshalJSON([]any{value}))}
 
 	}

@@ -12,6 +12,7 @@ package telem_test
 import (
 	"bytes"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
@@ -19,7 +20,7 @@ import (
 	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
 
-func marshalSeriesTest[T telem.Sample](data []T, dt telem.DataType) func() {
+func marshalSeriesTest[T telem.FixedSample](data []T, dt telem.DataType) func() {
 	return func() {
 		s := telem.NewSeries(data)
 		ExpectWithOffset(1, s.DataType).To(Equal(dt))
@@ -28,14 +29,14 @@ func marshalSeriesTest[T telem.Sample](data []T, dt telem.DataType) func() {
 	}
 }
 
-func marshalUnmarshalSliceTest[T telem.Sample](data []T, dt telem.DataType) func() {
+func marshalUnmarshalSliceTest[T telem.FixedSample](data []T) func() {
 	return func() {
 		s := telem.MarshalSlice(data)
-		Expect(telem.UnmarshalSlice[T](s, dt)).To(Equal(data))
+		Expect(telem.UnmarshalSlice[T](s)).To(Equal(data))
 	}
 }
 
-func valueAtTest[T telem.Sample](value T, dt telem.DataType) func() {
+func valueAtTest[T telem.FixedSample](value T, dt telem.DataType) func() {
 	return func() {
 		s := telem.NewSeriesV(value)
 		ExpectWithOffset(1, s.DataType).To(Equal(dt))
@@ -71,17 +72,18 @@ var _ = Describe("Series", func() {
 		})
 
 		Describe("MarshalSlice", func() {
-			Specify("float64", marshalUnmarshalSliceTest([]float64{1.0, 2.0, 3.0}, telem.Float64T))
-			Specify("float32", marshalUnmarshalSliceTest([]float32{1.0, 2.0, 3.0}, telem.Float32T))
-			Specify("int64", marshalUnmarshalSliceTest([]int64{1, 2, 3}, telem.Int64T))
-			Specify("int32", marshalUnmarshalSliceTest([]int32{1, 2, 3}, telem.Int32T))
-			Specify("int16", marshalUnmarshalSliceTest([]int16{1, 2, 3}, telem.Int16T))
-			Specify("int8", marshalUnmarshalSliceTest([]int8{1, 2, 3}, telem.Int8T))
-			Specify("uint64", marshalUnmarshalSliceTest([]uint64{1, 2, 3}, telem.Uint64T))
-			Specify("uint32", marshalUnmarshalSliceTest([]uint32{1, 2, 3}, telem.Uint32T))
-			Specify("uint16", marshalUnmarshalSliceTest([]uint16{1, 2, 3}, telem.Uint16T))
-			Specify("uint8", marshalUnmarshalSliceTest([]uint8{1, 2, 3}, telem.Uint8T))
-			Specify("timestamp", marshalUnmarshalSliceTest([]telem.TimeStamp{1, 2, 3}, telem.TimeStampT))
+			Specify("float64", marshalUnmarshalSliceTest([]float64{1.0, 2.0, 3.0}))
+			Specify("float32", marshalUnmarshalSliceTest([]float32{1.0, 2.0, 3.0}))
+			Specify("int64", marshalUnmarshalSliceTest([]int64{1, 2, 3}))
+			Specify("int32", marshalUnmarshalSliceTest([]int32{1, 2, 3}))
+			Specify("int16", marshalUnmarshalSliceTest([]int16{1, 2, 3}))
+			Specify("int8", marshalUnmarshalSliceTest([]int8{1, 2, 3}))
+			Specify("uint64", marshalUnmarshalSliceTest([]uint64{1, 2, 3}))
+			Specify("uint32", marshalUnmarshalSliceTest([]uint32{1, 2, 3}))
+			Specify("uint16", marshalUnmarshalSliceTest([]uint16{1, 2, 3}))
+			Specify("uint8", marshalUnmarshalSliceTest([]uint8{1, 2, 3}))
+			Specify("timestamp", marshalUnmarshalSliceTest([]telem.TimeStamp{1, 2, 3}))
+			Specify("uuid", marshalUnmarshalSliceTest([]uuid.UUID{uuid.New(), uuid.New(), uuid.New()}))
 		})
 
 		Describe("Series ValueAt/SetValueAt", func() {
@@ -115,6 +117,12 @@ var _ = Describe("Series", func() {
 				telem.SetValueAt(s, 0, float32(40))
 				Expect(telem.ValueAt[float32](s, 0)).To(Equal(float32(40)))
 			})
+			Specify("Float64", func() {
+				s := telem.NewSeriesV[float64](8)
+				Expect(telem.ValueAt[float64](s, 0)).To(Equal(float64(8)))
+				telem.SetValueAt(s, 0, float64(80))
+				Expect(telem.ValueAt[float64](s, 0)).To(Equal(float64(80)))
+			})
 			Specify("Int64", func() {
 				s := telem.NewSeriesV[int64](8)
 				Expect(telem.ValueAt[int64](s, 0)).To(Equal(int64(8)))
@@ -144,6 +152,14 @@ var _ = Describe("Series", func() {
 				Expect(telem.ValueAt[telem.TimeStamp](s, 0)).To(Equal(telem.TimeStamp(8)))
 				telem.SetValueAt(s, 0, telem.TimeStamp(80))
 				Expect(telem.ValueAt[telem.TimeStamp](s, 0)).To(Equal(telem.TimeStamp(80)))
+			})
+			Specify("UUID", func() {
+				v1 := uuid.New()
+				s := telem.NewSeriesV(v1)
+				Expect(telem.ValueAt[uuid.UUID](s, 0)).To(Equal(v1))
+				v2 := uuid.New()
+				telem.SetValueAt(s, 0, v2)
+				Expect(telem.ValueAt[uuid.UUID](s, 0)).To(Equal(v2))
 			})
 		})
 
@@ -313,13 +329,16 @@ var _ = Describe("Series", func() {
 			Specify("int64", valueAtTest(int64(1), telem.Int64T))
 			Specify("float32", valueAtTest(float32(1.0), telem.Float32T))
 			Specify("float64", valueAtTest(float64(1.0), telem.Float64T))
+			Specify("timestamp", valueAtTest(telem.TimeStamp(1), telem.TimeStampT))
+			Specify("uuid", valueAtTest(uuid.New(), telem.UUIDT))
 		})
 		Describe("Negative Index", func() {
 			It("Should return a value at the given negative index", func() {
-				s := telem.NewSeriesV[int64](1, 2, 3)
-				Expect(telem.ValueAt[int64](s, -1)).To(Equal(int64(3)))
-				Expect(telem.ValueAt[int64](s, -2)).To(Equal(int64(2)))
-				Expect(telem.ValueAt[int64](s, -3)).To(Equal(int64(1)))
+				data := []int64{1, 2, 3}
+				s := telem.NewSeries(data)
+				Expect(telem.ValueAt[int64](s, -1)).To(Equal(data[2]))
+				Expect(telem.ValueAt[int64](s, -2)).To(Equal(data[1]))
+				Expect(telem.ValueAt[int64](s, -3)).To(Equal(data[0]))
 			})
 		})
 		Describe("Out of Bounds", func() {

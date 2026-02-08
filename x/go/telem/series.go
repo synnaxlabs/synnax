@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/bounds"
 	xslices "github.com/synnaxlabs/x/slices"
 	"github.com/synnaxlabs/x/stringer"
-	"github.com/synnaxlabs/x/types"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
 
@@ -143,7 +142,7 @@ func (s *Series) Resize(length int64) {
 // ValueAt returns the numeric value at the given index in the series. ValueAt supports
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.
-func ValueAt[T Sample](s Series, i int) T {
+func ValueAt[T FixedSample](s Series, i int) T {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	data := xunsafe.CastSlice[byte, T](s.Data)
 	return data[i]
@@ -152,7 +151,7 @@ func ValueAt[T Sample](s Series, i int) T {
 // SetValueAt sets the value at the given index in the series. SetValueAt supports
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.
-func SetValueAt[T types.SizedNumeric](s Series, i int, v T) {
+func SetValueAt[T FixedSample](s Series, i int, v T) {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	data := xunsafe.CastSlice[byte, T](s.Data)
 	data[i] = v
@@ -338,10 +337,7 @@ func NewMultiSeries(series []Series) MultiSeries {
 }
 
 // MultiSeriesAtAlignment returns the value at the given alignment in the MultiSeries.
-func MultiSeriesAtAlignment[T Sample](
-	ms MultiSeries,
-	alignment Alignment,
-) T {
+func MultiSeriesAtAlignment[T FixedSample](ms MultiSeries, alignment Alignment) T {
 	for _, s := range ms.Series {
 		if s.AlignmentBounds().Contains(alignment) {
 			return ValueAt[T](s, int(alignment-s.Alignment))

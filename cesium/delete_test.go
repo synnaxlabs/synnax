@@ -534,13 +534,13 @@ var _ = Describe("Delete", func() {
 						Expect(frame.Count()).To(Equal(2))
 						Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(12 * telem.SecondTS))
 
-						series0Data := telem.UnmarshalSlice[int64](frame.SeriesAt(0).Data, telem.Int64T)
+						series0Data := telem.UnmarshalSlice[int64](frame.SeriesAt(0).Data)
 						Expect(series0Data).To(ContainElement(int64(0)))
 						Expect(series0Data).To(ContainElement(int64(1)))
 						Expect(series0Data).ToNot(ContainElement(int64(2)))
 
 						Expect(frame.SeriesAt(1).TimeRange.Start).To(Equal(17 * telem.SecondTS))
-						series1Data := telem.UnmarshalSlice[int64](frame.SeriesAt(1).Data, telem.Int64T)
+						series1Data := telem.UnmarshalSlice[int64](frame.SeriesAt(1).Data)
 
 						Expect(series1Data).ToNot(ContainElement(int64(6)))
 						Expect(series1Data).To(ContainElement(int64(7)))
@@ -588,13 +588,13 @@ var _ = Describe("Delete", func() {
 						Expect(err).To(BeNil())
 						Expect(frame.Count()).To(Equal(2))
 
-						series0Data := telem.UnmarshalSlice[telem.TimeStamp](frame.SeriesAt(0).Data, telem.TimeStampT)
+						series0Data := telem.UnmarshalSlice[telem.TimeStamp](frame.SeriesAt(0).Data)
 						Expect(series0Data).To(ContainElement(10 * telem.SecondTS))
 						Expect(series0Data).To(ContainElement(11 * telem.SecondTS))
 						Expect(series0Data).ToNot(ContainElement(12 * telem.SecondTS))
 
 						Expect(frame.SeriesAt(1).TimeRange.Start).To(Equal(17 * telem.SecondTS))
-						series1Data := telem.UnmarshalSlice[telem.TimeStamp](frame.SeriesAt(1).Data, telem.TimeStampT)
+						series1Data := telem.UnmarshalSlice[telem.TimeStamp](frame.SeriesAt(1).Data)
 
 						Expect(series1Data).ToNot(ContainElement(16 * telem.SecondTS))
 						Expect(series1Data).To(ContainElement(17 * telem.SecondTS))

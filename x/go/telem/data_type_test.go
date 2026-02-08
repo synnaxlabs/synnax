@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-func DataTypeInferTest[T telem.Sample2](expected telem.DataType) func() {
+func DataTypeInferTest[T telem.Sample](expected telem.DataType) func() {
 	return func() {
 		dt := telem.InferDataType[T]()
 		ExpectWithOffset(1, dt).To(Equal(expected))

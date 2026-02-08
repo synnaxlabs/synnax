@@ -39,7 +39,7 @@ func (dt DataType) IsVariable() bool {
 }
 
 // InferDataType infers the data type of the given Sample.
-func InferDataType[T Sample2]() DataType {
+func InferDataType[T Sample]() DataType {
 	var t T
 	switch any(t).(type) {
 	case uint8:
