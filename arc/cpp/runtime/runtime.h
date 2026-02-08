@@ -33,13 +33,13 @@
 #include "arc/cpp/stl/channel/channel.h"
 #include "arc/cpp/stl/constant/constant.h"
 #include "arc/cpp/stl/error/error.h"
-#include "arc/cpp/stl/io/io.h"
 #include "arc/cpp/stl/math/math.h"
 #include "arc/cpp/stl/series/series.h"
 #include "arc/cpp/stl/stage/stage.h"
+#include "arc/cpp/stl/stateful/stateful.h"
 #include "arc/cpp/stl/str/str.h"
+#include "arc/cpp/stl/telem/telem.h"
 #include "arc/cpp/stl/time/time.h"
-#include "arc/cpp/stl/vars/vars.h"
 
 namespace arc::runtime {
 /// @brief combines data frames and authority changes into a single output
@@ -237,14 +237,14 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
 
     std::vector<std::shared_ptr<stl::Module>> stl_modules = {
         std::make_shared<stl::channel::Module>(state, str_st),
-        std::make_shared<stl::vars::Module>(var_st, series_st, str_st),
+        std::make_shared<stl::stateful::Module>(var_st, series_st, str_st),
         std::make_shared<stl::series::Module>(series_st),
         std::make_shared<stl::str::Module>(str_st),
         std::make_shared<stl::math::Module>(),
         std::make_shared<stl::time::Module>(),
         std::make_shared<stl::error::Module>(error_handler),
         std::make_shared<stl::stage::Module>(),
-        std::make_shared<stl::io::Module>(),
+        std::make_shared<stl::telem::Module>(),
         std::make_shared<stl::constant::Module>(),
         std::make_shared<stl::authority::Module>(state),
     };

@@ -1,6 +1,6 @@
 cc_library(
-    name = "variables",
-    hdrs = ["variables.h"],
+    name = "state",
+    hdrs = ["state.h"],
     copts = select({
         "@platforms//os:windows": ["/wd4201"],
         "//conditions:default": [],
@@ -14,15 +14,15 @@ cc_library(
 )
 
 cc_library(
-    name = "vars",
-    hdrs = ["vars.h"],
+    name = "stateful",
+    hdrs = ["stateful.h"],
     copts = select({
         "@platforms//os:windows": ["/wd4201"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
     deps = [
-        ":variables",
+        ":state",
         "//arc/cpp/stl",
         "//arc/cpp/stl/series:state",
         "//arc/cpp/stl/str:state",

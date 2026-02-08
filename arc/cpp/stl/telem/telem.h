@@ -21,20 +21,20 @@
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/stl/stl.h"
 
-namespace arc::runtime::stl::io {
+namespace arc::stl::telem {
 
 /// @brief Source node that reads from a channel and outputs the data.
 /// Tracks a high water mark to avoid duplicate processing of the same data.
-class On : public node::Node {
-    state::Node state;
+class On : public runtime::node::Node {
+    runtime::state::Node state;
     types::ChannelKey channel_key;
-    telem::Alignment high_water_mark{0};
+    ::telem::Alignment high_water_mark{0};
 
 public:
-    On(state::Node &&state, const types::ChannelKey channel_key):
+    On(runtime::state::Node &&state, const types::ChannelKey channel_key):
         state(std::move(state)), channel_key(channel_key) {}
 
-    xerrors::Error next(node::Context &ctx) override {
+    xerrors::Error next(runtime::node::Context &ctx) override {
         auto [data, index_data, ok] = this->state.read_chan(this->channel_key);
         if (!ok) return xerrors::NIL;
 
@@ -50,30 +50,30 @@ public:
             if (!generate_synthetic && i >= index_data.series.size())
                 return xerrors::NIL;
 
-            telem::Series time_series = generate_synthetic
-                                          ? telem::Series(
-                                                telem::TIMESTAMP_T,
-                                                ser.size()
-                                            )
-                                          : std::move(index_data.series[i]);
+            ::telem::Series time_series = generate_synthetic
+                                            ? ::telem::Series(
+                                                  ::telem::TIMESTAMP_T,
+                                                  ser.size()
+                                              )
+                                            : std::move(index_data.series[i]);
 
             if (generate_synthetic) {
-                const auto now = telem::TimeStamp::now();
+                const auto now = ::telem::TimeStamp::now();
                 for (size_t j = 0; j < ser.size(); j++)
                     time_series.write(
-                        telem::TimeStamp(now.nanoseconds() + static_cast<int64_t>(j))
+                        ::telem::TimeStamp(now.nanoseconds() + static_cast<int64_t>(j))
                     );
                 time_series.alignment = ser.alignment;
             } else if (time_series.alignment != ser.alignment)
                 return xerrors::NIL;
 
-            this->state.output(0) = xmemory::make_local_shared<telem::Series>(
+            this->state.output(0) = xmemory::make_local_shared<::telem::Series>(
                 ser.deep_copy()
             );
-            this->state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+            this->state.output_time(0) = xmemory::make_local_shared<::telem::Series>(
                 std::move(time_series)
             );
-            this->high_water_mark = telem::Alignment(upper_val + 1);
+            this->high_water_mark = ::telem::Alignment(upper_val + 1);
             ctx.mark_changed(ir::default_output_param);
             return xerrors::NIL;
         }
@@ -86,24 +86,24 @@ public:
 };
 
 /// @brief Sink node that writes input data to a channel.
-class Write : public node::Node {
-    state::Node state;
+class Write : public runtime::node::Node {
+    runtime::state::Node state;
     types::ChannelKey channel_key;
 
 public:
-    Write(state::Node &&state, const types::ChannelKey channel_key):
+    Write(runtime::state::Node &&state, const types::ChannelKey channel_key):
         state(std::move(state)), channel_key(channel_key) {}
 
-    xerrors::Error next(node::Context & /*ctx*/) override {
+    xerrors::Error next(runtime::node::Context & /*ctx*/) override {
         if (!this->state.refresh_inputs()) return xerrors::NIL;
         const auto &data = this->state.input(0);
         if (data->empty()) return xerrors::NIL;
         // TODO: Fix this hacky code
-        const auto start = telem::TimeStamp::now();
+        const auto start = ::telem::TimeStamp::now();
         const auto time = xmemory::local_shared(
-            telem::Series::linspace(
+            ::telem::Series::linspace(
                 start,
-                start + 100 * telem::MICROSECOND,
+                start + 100 * ::telem::MICROSECOND,
                 data->size()
             )
         );
@@ -118,19 +118,19 @@ public:
 
 class Module : public stl::Module {
 public:
-    std::shared_ptr<node::Factory> factory() override {
+    std::shared_ptr<runtime::node::Factory> factory() override {
         return std::make_shared<IOFactory>();
     }
 
 private:
-    class IOFactory : public node::Factory {
+    class IOFactory : public runtime::node::Factory {
     public:
         bool handles(const std::string &node_type) const override {
             return node_type == "on" || node_type == "write";
         }
 
-        std::pair<std::unique_ptr<node::Node>, xerrors::Error>
-        create(node::Config &&cfg) override {
+        std::pair<std::unique_ptr<runtime::node::Node>, xerrors::Error>
+        create(runtime::node::Config &&cfg) override {
             if (!this->handles(cfg.node.type)) return {nullptr, xerrors::NOT_FOUND};
             auto channel_key = cfg.node.config["channel"].get<types::ChannelKey>();
             if (cfg.node.type == "on")

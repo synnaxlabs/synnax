@@ -15,7 +15,7 @@
 
 #include "x/cpp/telem/series.h"
 
-namespace arc::runtime::stl::series {
+namespace arc::stl::series {
 
 /// Transient handle store for series created during a single execution cycle.
 /// Handles are uint32_t keys that WASM code uses to reference series objects.

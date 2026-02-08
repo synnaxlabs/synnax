@@ -10,10 +10,28 @@
 package arc_test
 
 import (
+	"encoding/binary"
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/stl/authority"
+	stlchannel "github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/constant"
+	stlerrors "github.com/synnaxlabs/arc/stl/errors"
+	stlmath "github.com/synnaxlabs/arc/stl/math"
+	stlop "github.com/synnaxlabs/arc/stl/op"
+	"github.com/synnaxlabs/arc/stl/selector"
+	"github.com/synnaxlabs/arc/stl/series"
+	"github.com/synnaxlabs/arc/stl/stable"
+	"github.com/synnaxlabs/arc/stl/stage"
+	"github.com/synnaxlabs/arc/stl/stat"
+	"github.com/synnaxlabs/arc/stl/stateful"
+	stlstrings "github.com/synnaxlabs/arc/stl/strings"
+	stltelem "github.com/synnaxlabs/arc/stl/telem"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -300,4 +318,125 @@ sequence main {
 		`, time.SymbolResolver)
 		Expect(mod.Nodes).To(HaveLen(3))
 	})
+
+	It("Should generate typed state imports for stateful variables", func() {
+		// Regression test: stateful variables must produce typed WASM imports
+		// like "state::load_i64", not bare "state::load". This mirrors the
+		// exact program used in the C++ NodeTest.StatefulVariablesAreIsolatedBetweenNodeInstances.
+		modules := []stl.Module{
+			stlchannel.NewModule(nil, nil),
+			stateful.NewModule(nil, nil),
+			series.NewModule(nil),
+			stlstrings.NewModule(nil),
+			stlmath.NewModule(),
+			stlerrors.NewModule(),
+			constant.NewModule(),
+			stlop.NewModule(),
+			selector.NewModule(),
+			stable.NewModule(),
+			authority.NewModule(nil),
+			stltelem.NewModule(),
+			stat.NewModule(),
+			time.NewModule(),
+			stage.NewModule(),
+		}
+		resolver := stl.CompoundResolver(modules...)
+		channelResolver := symbol.MapResolver{
+			"trigger": arc.Symbol{
+				Name: "trigger",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I64()),
+				ID:   1,
+			},
+			"output_a": arc.Symbol{
+				Name: "output_a",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I64()),
+				ID:   2,
+			},
+			"output_b": arc.Symbol{
+				Name: "output_b",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I64()),
+				ID:   3,
+			},
+		}
+		fullResolver := append(resolver, channelResolver)
+
+		mod := compile(`
+func counter(trigger i64) i64 {
+    count i64 $= 0
+    count = count + 1
+    return count
+}
+trigger -> counter{} -> output_a
+trigger -> counter{} -> output_b
+`, fullResolver)
+
+		Expect(mod.WASM).ToNot(BeEmpty())
+
+		imports := parseWASMImports(mod.WASM)
+		Expect(imports).ToNot(BeEmpty())
+
+		for _, imp := range imports {
+			if imp.module == "state" {
+				// Every state import must have a type suffix (e.g., load_i64, store_i64)
+				Expect(imp.name).ToNot(Equal("load"),
+					"state::load should be state::load_i64 (missing type suffix)")
+				Expect(imp.name).ToNot(Equal("store"),
+					"state::store should be state::store_i64 (missing type suffix)")
+				Expect(
+					strings.HasPrefix(imp.name, "load_") || strings.HasPrefix(imp.name, "store_"),
+				).To(BeTrue(), "unexpected state import: %s", imp.name)
+			}
+		}
+	})
 })
+
+// wasmImport represents a parsed WASM import entry.
+type wasmImport struct {
+	module string
+	name   string
+}
+
+// parseWASMImports extracts import entries from raw WASM bytecode.
+func parseWASMImports(wasm []byte) []wasmImport {
+	if len(wasm) < 8 {
+		return nil
+	}
+	// Skip magic (4 bytes) + version (4 bytes)
+	pos := 8
+	for pos < len(wasm) {
+		sectionID := wasm[pos]
+		pos++
+		sectionSize, n := binary.Uvarint(wasm[pos:])
+		pos += n
+		if sectionID != 0x02 {
+			// Not the import section — skip
+			pos += int(sectionSize)
+			continue
+		}
+		// Parse import section
+		sectionEnd := pos + int(sectionSize)
+		count, n := binary.Uvarint(wasm[pos:])
+		pos += n
+		var imports []wasmImport
+		for i := 0; i < int(count) && pos < sectionEnd; i++ {
+			modLen, n := binary.Uvarint(wasm[pos:])
+			pos += n
+			modName := string(wasm[pos : pos+int(modLen)])
+			pos += int(modLen)
+			nameLen, n := binary.Uvarint(wasm[pos:])
+			pos += n
+			funcName := string(wasm[pos : pos+int(nameLen)])
+			pos += int(nameLen)
+			// Skip import kind (1 byte) + type index (LEB128)
+			pos++ // kind
+			_, n = binary.Uvarint(wasm[pos:])
+			pos += n
+			imports = append(imports, wasmImport{module: modName, name: funcName})
+		}
+		return imports
+	}
+	return nil
+}

@@ -16,7 +16,7 @@
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/str/state.h"
 
-namespace arc::runtime::stl::str {
+namespace arc::stl::str {
 
 class Module : public stl::Module {
     std::shared_ptr<State> str_state;

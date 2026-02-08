@@ -60,7 +60,7 @@ cc_test(
         "//arc/cpp/stl/series",
         "//arc/cpp/stl/str",
         "//arc/cpp/stl/time",
-        "//arc/cpp/stl/vars",
+        "//arc/cpp/stl/stateful",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/telem",

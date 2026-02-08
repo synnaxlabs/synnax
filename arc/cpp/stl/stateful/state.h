@@ -18,7 +18,7 @@
 #include "arc/cpp/stl/series/state.h"
 #include "arc/cpp/stl/str/state.h"
 
-namespace arc::runtime::stl::vars {
+namespace arc::stl::stateful {
 
 /// Persistent stateful variable storage. Variables are keyed by (node_key, var_id)
 /// and persist across execution cycles. Each node has its own isolated namespace.

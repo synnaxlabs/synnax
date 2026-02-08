@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package vars_test
+package stateful_test
 
 import (
 	"context"
@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/testutil"
-	"github.com/synnaxlabs/arc/stl/vars"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -29,14 +29,14 @@ var _ = Describe("Vars", func() {
 		rt      *testutil.MockHostRuntime
 		seriesS *state.SeriesHandleStore
 		strS    *state.StringHandleStore
-		mod     *vars.Module
+		mod     *stateful.Module
 	)
 
 	BeforeEach(func() {
 		rt = testutil.NewMockHostRuntime()
 		seriesS = state.NewSeriesHandleStore()
 		strS = state.NewStringHandleStore()
-		mod = vars.NewModule(seriesS, strS)
+		mod = stateful.NewModule(seriesS, strS)
 		Expect(mod.BindTo(ctx, rt)).To(Succeed())
 	})
 

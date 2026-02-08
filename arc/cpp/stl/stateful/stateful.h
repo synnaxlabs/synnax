@@ -13,11 +13,11 @@
 #include <string>
 
 #include "arc/cpp/stl/series/state.h"
+#include "arc/cpp/stl/stateful/state.h"
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/str/state.h"
-#include "arc/cpp/stl/vars/variables.h"
 
-namespace arc::runtime::stl::vars {
+namespace arc::stl::stateful {
 
 class Module : public stl::Module {
     std::shared_ptr<Variables> vars;

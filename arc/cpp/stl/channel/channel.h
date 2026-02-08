@@ -19,14 +19,17 @@
 #include "arc/cpp/stl/str/state.h"
 #include "arc/cpp/types/types.h"
 
-namespace arc::runtime::stl::channel {
+namespace arc::stl::channel {
 
 class Module : public stl::Module {
-    std::shared_ptr<state::State> state;
+    std::shared_ptr<runtime::state::State> state;
     std::shared_ptr<str::State> str_state;
 
 public:
-    Module(std::shared_ptr<state::State> state, std::shared_ptr<str::State> str_state):
+    Module(
+        std::shared_ptr<runtime::state::State> state,
+        std::shared_ptr<str::State> str_state
+    ):
         state(std::move(state)), str_state(std::move(str_state)) {}
 
     void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) override {

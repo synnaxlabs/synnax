@@ -25,8 +25,8 @@
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/stl/series/state.h"
+#include "arc/cpp/stl/stateful/state.h"
 #include "arc/cpp/stl/str/state.h"
-#include "arc/cpp/stl/vars/variables.h"
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
@@ -167,7 +167,7 @@ class State {
     /// @brief Per-module state slices.
     std::shared_ptr<stl::str::State> str_state;
     std::shared_ptr<stl::series::State> series_state;
-    std::shared_ptr<stl::vars::Variables> variables;
+    std::shared_ptr<stl::stateful::Variables> variables;
 
     /// @brief Callback for reporting warnings (e.g., data drops).
     errors::Handler error_handler;
@@ -209,7 +209,7 @@ public:
         return this->series_state;
     }
 
-    std::shared_ptr<stl::vars::Variables> get_variables() const {
+    std::shared_ptr<stl::stateful::Variables> get_variables() const {
         return this->variables;
     }
 };

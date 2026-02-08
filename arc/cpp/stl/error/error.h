@@ -17,15 +17,15 @@
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/stl/stl.h"
 
-namespace arc::runtime::stl::error {
+namespace arc::stl::error {
 
 class Module : public stl::Module {
-    errors::Handler handler;
+    runtime::errors::Handler handler;
     wasmtime::Store *store = nullptr;
     wasmtime::Memory *memory = nullptr;
 
 public:
-    explicit Module(errors::Handler handler): handler(std::move(handler)) {}
+    explicit Module(runtime::errors::Handler handler): handler(std::move(handler)) {}
 
     void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) override {
         auto self = this;
@@ -50,7 +50,7 @@ public:
                             );
                     }
                     std::fprintf(stderr, "WASM panic: %s\n", message.c_str());
-                    self->handler(xerrors::Error(errors::WASM_PANIC, message));
+                    self->handler(xerrors::Error(runtime::errors::WASM_PANIC, message));
                 }
             )
             .unwrap();

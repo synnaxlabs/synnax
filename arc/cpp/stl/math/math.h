@@ -13,7 +13,7 @@
 
 #include "arc/cpp/stl/stl.h"
 
-namespace arc::runtime::stl::math {
+namespace arc::stl::math {
 
 template<typename T>
 T int_pow(T base, T exp) {

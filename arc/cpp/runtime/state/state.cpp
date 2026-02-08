@@ -59,7 +59,7 @@ State::State(const Config &cfg, errors::Handler error_handler):
     cfg(cfg),
     str_state(std::make_shared<stl::str::State>()),
     series_state(std::make_shared<stl::series::State>()),
-    variables(std::make_shared<stl::vars::Variables>()),
+    variables(std::make_shared<stl::stateful::Variables>()),
     error_handler(std::move(error_handler)) {
     size_t total = 0;
     for (const auto &node: cfg.ir.nodes)

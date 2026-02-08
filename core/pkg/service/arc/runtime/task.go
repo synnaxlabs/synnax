@@ -33,10 +33,10 @@ import (
 	"github.com/synnaxlabs/arc/stl/stable"
 	"github.com/synnaxlabs/arc/stl/stage"
 	"github.com/synnaxlabs/arc/stl/stat"
+	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/strings"
 	stltelem "github.com/synnaxlabs/arc/stl/telem"
 	"github.com/synnaxlabs/arc/stl/time"
-	"github.com/synnaxlabs/arc/stl/vars"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -105,7 +105,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 	timeMod := time.NewModule()
 	modules := []stl.Module{
 		channel.NewModule(drt.state.Channel, drt.state.Strings),
-		vars.NewModule(drt.state.Series, drt.state.Strings),
+		stateful.NewModule(drt.state.Series, drt.state.Strings),
 		series.NewModule(drt.state.Series),
 		strings.NewModule(drt.state.Strings),
 		stlmath.NewModule(),

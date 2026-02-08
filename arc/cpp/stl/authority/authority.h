@@ -19,25 +19,25 @@
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stl.h"
 
-namespace arc::runtime::stl::authority {
+namespace arc::stl::authority {
 
 /// @brief Node that buffers an authority change request in the runtime state.
 /// When executed, it calls state.set_authority() to enqueue the change.
-class SetAuthority : public node::Node {
-    state::State &state;
+class SetAuthority : public runtime::node::Node {
+    runtime::state::State &state;
     uint8_t authority_value;
     std::optional<types::ChannelKey> channel_key;
     bool initialized = false;
 
 public:
     SetAuthority(
-        state::State &state,
+        runtime::state::State &state,
         const uint8_t authority,
         std::optional<types::ChannelKey> channel_key
     ):
         state(state), authority_value(authority), channel_key(std::move(channel_key)) {}
 
-    xerrors::Error next(node::Context & /*ctx*/) override {
+    xerrors::Error next(runtime::node::Context & /*ctx*/) override {
         if (this->initialized) return xerrors::NIL;
         this->initialized = true;
         this->state.set_authority(this->channel_key, this->authority_value);
@@ -52,29 +52,30 @@ public:
 };
 
 class Module : public stl::Module {
-    std::shared_ptr<state::State> state;
+    std::shared_ptr<runtime::state::State> state;
 
 public:
-    explicit Module(std::shared_ptr<state::State> state): state(std::move(state)) {}
+    explicit Module(std::shared_ptr<runtime::state::State> state):
+        state(std::move(state)) {}
 
-    std::shared_ptr<node::Factory> factory() override {
+    std::shared_ptr<runtime::node::Factory> factory() override {
         return std::make_shared<AuthorityFactory>(this->state);
     }
 
 private:
-    class AuthorityFactory : public node::Factory {
-        std::shared_ptr<state::State> state;
+    class AuthorityFactory : public runtime::node::Factory {
+        std::shared_ptr<runtime::state::State> state;
 
     public:
-        explicit AuthorityFactory(std::shared_ptr<state::State> state):
+        explicit AuthorityFactory(std::shared_ptr<runtime::state::State> state):
             state(std::move(state)) {}
 
         bool handles(const std::string &node_type) const override {
             return node_type == "set_authority";
         }
 
-        std::pair<std::unique_ptr<node::Node>, xerrors::Error>
-        create(node::Config &&cfg) override {
+        std::pair<std::unique_ptr<runtime::node::Node>, xerrors::Error>
+        create(runtime::node::Config &&cfg) override {
             if (!this->handles(cfg.node.type)) return {nullptr, xerrors::NOT_FOUND};
             const auto auth = cfg.node.config["value"].get<uint8_t>();
             const auto channel = cfg.node.config["channel"].get<types::ChannelKey>();

@@ -9,7 +9,7 @@
 
 #include "arc/cpp/stl/series/series.h"
 
-namespace arc::runtime::stl::series {
+namespace arc::stl::series {
 
 void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
     auto ss = this->series_state;

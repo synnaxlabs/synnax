@@ -26,13 +26,11 @@
 #include "arc/cpp/stl/error/error.h"
 #include "arc/cpp/stl/math/math.h"
 #include "arc/cpp/stl/series/series.h"
+#include "arc/cpp/stl/stateful/stateful.h"
 #include "arc/cpp/stl/str/str.h"
 #include "arc/cpp/stl/time/time.h"
-#include "arc/cpp/stl/vars/vars.h"
 
-using namespace arc::runtime;
-
-namespace {
+namespace arc::runtime {
 std::mt19937 gen_rand = random_generator("Node Tests");
 
 std::string random_name(const std::string &prefix) {
@@ -80,14 +78,13 @@ build_stl_modules(const std::shared_ptr<state::State> &state) {
     auto var_st = state->get_variables();
     return {
         std::make_shared<stl::channel::Module>(state, str_st),
-        std::make_shared<stl::vars::Module>(var_st, series_st, str_st),
+        std::make_shared<stl::stateful::Module>(var_st, series_st, str_st),
         std::make_shared<stl::series::Module>(series_st),
         std::make_shared<stl::str::Module>(str_st),
         std::make_shared<stl::math::Module>(),
         std::make_shared<stl::time::Module>(),
         std::make_shared<stl::error::Module>(arc::runtime::errors::noop_handler),
     };
-}
 }
 
 /// @brief Factory::handles returns true for functions in the module.
@@ -1179,4 +1176,5 @@ func read_chan{ch chan f32}(trigger u8) f32 {
     ASSERT_EQ(output->size(), 1);
     EXPECT_FLOAT_EQ(output->at<float>(0), 42.5f)
         << "Channel config param should read the channel value, not the channel ID";
+}
 }

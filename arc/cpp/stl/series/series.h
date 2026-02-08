@@ -18,7 +18,7 @@
 #include "arc/cpp/stl/series/state.h"
 #include "arc/cpp/stl/stl.h"
 
-namespace arc::runtime::stl::series {
+namespace arc::stl::series {
 
 class Module : public stl::Module {
     std::shared_ptr<State> series_state;

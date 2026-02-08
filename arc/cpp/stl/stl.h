@@ -15,7 +15,7 @@
 #include "arc/cpp/runtime/node/factory.h"
 #include "wasmtime.hh"
 
-namespace arc::runtime::stl {
+namespace arc::stl {
 
 /// WasmType maps C++ types to their WASM-compatible equivalents.
 /// WASM only has i32, i64, f32, f64 - smaller integer types must be widened.
@@ -50,7 +50,7 @@ public:
     virtual void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {}
 
     /// Returns a node factory, or nullptr if this module has none.
-    virtual std::shared_ptr<node::Factory> factory() { return nullptr; }
+    virtual std::shared_ptr<runtime::node::Factory> factory() { return nullptr; }
 
     /// Provides WASM memory and store access after instantiation.
     virtual void set_wasm_context(wasmtime::Store *store, wasmtime::Memory *memory) {}

@@ -13,7 +13,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace arc::runtime::stl::str {
+namespace arc::stl::str {
 
 /// Transient handle store for strings created during a single execution cycle.
 /// Handles are uint32_t keys that WASM code uses to reference string objects.

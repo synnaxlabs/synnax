@@ -27,10 +27,10 @@ import (
 	"github.com/synnaxlabs/arc/stl/stable"
 	"github.com/synnaxlabs/arc/stl/stage"
 	"github.com/synnaxlabs/arc/stl/stat"
+	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/telem"
 	"github.com/synnaxlabs/arc/stl/time"
-	"github.com/synnaxlabs/arc/stl/vars"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -87,7 +87,7 @@ func (r *channelResolver) Search(ctx context.Context, name string) ([]arc.Symbol
 func DefaultResolverModules() []stl.Module {
 	return []stl.Module{
 		stlchannel.NewModule(nil, nil),
-		vars.NewModule(nil, nil),
+		stateful.NewModule(nil, nil),
 		series.NewModule(nil),
 		strings.NewModule(nil),
 		math.NewModule(),

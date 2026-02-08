@@ -20,24 +20,24 @@
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/stl/stl.h"
 
-namespace arc::runtime::stl::constant {
+namespace arc::stl::constant {
 
 /// @brief Node that outputs a constant value once on initialization,
 /// or after reset() has been called.
-class Constant : public node::Node {
-    state::Node state;
+class Constant : public runtime::node::Node {
+    runtime::state::Node state;
     telem::SampleValue value;
     bool initialized = false;
 
 public:
     Constant(
-        state::Node &&state,
+        runtime::state::Node &&state,
         const telem::SampleValue &value,
         const telem::DataType &data_type
     ):
         state(std::move(state)), value(data_type.cast(value)) {}
 
-    xerrors::Error next(node::Context &ctx) override {
+    xerrors::Error next(runtime::node::Context &ctx) override {
         if (this->initialized) return xerrors::NIL;
         this->initialized = true;
         const auto &o = this->state.output(0);
@@ -59,19 +59,19 @@ public:
 
 class Module : public stl::Module {
 public:
-    std::shared_ptr<node::Factory> factory() override {
+    std::shared_ptr<runtime::node::Factory> factory() override {
         return std::make_shared<ConstantFactory>();
     }
 
 private:
-    class ConstantFactory : public node::Factory {
+    class ConstantFactory : public runtime::node::Factory {
     public:
         bool handles(const std::string &node_type) const override {
             return node_type == "constant";
         }
 
-        std::pair<std::unique_ptr<node::Node>, xerrors::Error>
-        create(node::Config &&cfg) override {
+        std::pair<std::unique_ptr<runtime::node::Node>, xerrors::Error>
+        create(runtime::node::Config &&cfg) override {
             if (!this->handles(cfg.node.type)) return {nullptr, xerrors::NOT_FOUND};
             const auto &param = cfg.node.config["value"];
             assert(param.value.has_value() && "constant node requires a value");

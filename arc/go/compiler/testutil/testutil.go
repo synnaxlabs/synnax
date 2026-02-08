@@ -24,9 +24,9 @@ import (
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	"github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/series"
+	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
-	"github.com/synnaxlabs/arc/stl/vars"
 	"github.com/synnaxlabs/arc/symbol"
 	arctypes "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -45,7 +45,7 @@ func FunctionScope(ctx context.Context) *symbol.Scope {
 func NewStdlibResolver() symbol.Resolver {
 	return stl.CompoundResolver(
 		channel.NewModule(nil, nil),
-		vars.NewModule(nil, nil),
+		stateful.NewModule(nil, nil),
 		series.NewModule(nil),
 		stlstrings.NewModule(nil),
 		time.NewModule(),

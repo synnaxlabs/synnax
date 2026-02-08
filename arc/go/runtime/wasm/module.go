@@ -19,9 +19,9 @@ import (
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	"github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/series"
+	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
-	"github.com/synnaxlabs/arc/stl/vars"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
@@ -53,7 +53,7 @@ func DefaultModules(s *state.State) (
 	errMod = stlerrors.NewModule()
 	modules = []stl.Module{
 		channel.NewModule(s.Channel, s.Strings),
-		vars.NewModule(s.Series, s.Strings),
+		stateful.NewModule(s.Series, s.Strings),
 		series.NewModule(s.Series),
 		strMod,
 		math.NewModule(),

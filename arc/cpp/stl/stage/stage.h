@@ -18,13 +18,13 @@
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/stl/stl.h"
 
-namespace arc::runtime::stl::stage {
+namespace arc::stl::stage {
 
 /// @brief StageEntry is a node that triggers stage transitions when it receives
 /// an activation signal (input value of u8(1)).
-class StageEntry : public node::Node {
+class StageEntry : public runtime::node::Node {
 public:
-    xerrors::Error next(node::Context &ctx) override {
+    xerrors::Error next(runtime::node::Context &ctx) override {
         ctx.activate_stage();
         return xerrors::NIL;
     }
@@ -36,19 +36,19 @@ public:
 
 class Module : public stl::Module {
 public:
-    std::shared_ptr<node::Factory> factory() override {
+    std::shared_ptr<runtime::node::Factory> factory() override {
         return std::make_shared<StageFactory>();
     }
 
 private:
-    class StageFactory : public node::Factory {
+    class StageFactory : public runtime::node::Factory {
     public:
         bool handles(const std::string &node_type) const override {
             return node_type == "stage_entry";
         }
 
-        std::pair<std::unique_ptr<node::Node>, xerrors::Error>
-        create(node::Config &&cfg) override {
+        std::pair<std::unique_ptr<runtime::node::Node>, xerrors::Error>
+        create(runtime::node::Config &&cfg) override {
             return {std::make_unique<StageEntry>(), xerrors::NIL};
         }
     };
