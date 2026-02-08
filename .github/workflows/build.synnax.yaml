@@ -365,42 +365,12 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           KEYCHAIN_NAME: build-${{ runner.name }}.keychain
-        run: |
-          # Permanent keychain per runner (build-actions-runner-1 or build-actions-runner-2)
-          # Create if doesn't exist, reuse if it does (manual cleanup only)
-
-          echo "=== Keychain Debug Info ==="
-          echo "Target keychain: $KEYCHAIN_NAME"
-          echo "Current keychains:"
-          security list-keychains -d user
-          KEYCHAIN_COUNT=$(security list-keychains -d user | wc -l | tr -d ' ')
-          echo "Total keychains: $KEYCHAIN_COUNT"
-          echo "=========================="
-
-          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-
-          # Create keychain if it doesn't exist
-          if ! security list-keychains -d user | grep -q "$KEYCHAIN_NAME"; then
-            echo "✓ Creating new keychain: $KEYCHAIN_NAME"
-            security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-            CURRENT_KEYCHAINS=$(security list-keychains -d user | tr -d '"' | tr '\n' ' ')
-            security list-keychains -d user -s $CURRENT_KEYCHAINS $KEYCHAIN_NAME
-          else
-            echo "✓ Found existing keychain: $KEYCHAIN_NAME (reusing)"
-          fi
-
-          security default-keychain -s $KEYCHAIN_NAME
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          security set-keychain-settings $KEYCHAIN_NAME
-
-          # Import certificate (may already exist in keychain, that's ok)
-          echo "Importing certificate into $KEYCHAIN_NAME..."
-          security import certificate.p12 -k $KEYCHAIN_NAME -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign 2>/dev/null || true
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
+        run: scripts/import_apple_certificate.sh
 
       - name: Sign Driver (macOS)
-        if: inputs.sign_binaries && inputs.driver && startsWith(matrix.os, 'macos-build-bot')
+        if:
+          inputs.sign_binaries && inputs.driver && startsWith(matrix.os,
+          'macos-build-bot')
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
@@ -429,7 +399,9 @@ jobs:
           codesign --verify --verbose bazel-bin/driver/driver
 
       - name: Notarize macOS Driver Binary
-        if: inputs.sign_binaries && inputs.driver && startsWith(matrix.os, 'macos-build-bot')
+        if:
+          inputs.sign_binaries && inputs.driver && startsWith(matrix.os,
+          'macos-build-bot')
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
@@ -582,7 +554,9 @@ jobs:
             -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
       - name: Sign macOS Core Binary
-        if: inputs.sign_binaries && inputs.core && startsWith(matrix.os, 'macos-build-bot')
+        if:
+          inputs.sign_binaries && inputs.core && startsWith(matrix.os,
+          'macos-build-bot')
         working-directory: core
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
@@ -612,7 +586,9 @@ jobs:
           codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}
 
       - name: Notarize macOS Core Binary
-        if: inputs.sign_binaries && inputs.core && startsWith(matrix.os, 'macos-build-bot')
+        if:
+          inputs.sign_binaries && inputs.core && startsWith(matrix.os,
+          'macos-build-bot')
         working-directory: core
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -796,48 +772,7 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           KEYCHAIN_NAME: build-${{ runner.name }}.keychain
-        run: |
-          # Permanent keychain per runner (build-actions-runner-1 or build-actions-runner-2)
-          # Create if doesn't exist, reuse if it does (manual cleanup only)
-
-          echo "=== Keychain Debug Info ==="
-          echo "Target keychain: $KEYCHAIN_NAME"
-          echo "Current keychains:"
-          security list-keychains -d user
-          KEYCHAIN_COUNT=$(security list-keychains -d user | wc -l | tr -d ' ')
-          echo "Total keychains: $KEYCHAIN_COUNT"
-          echo "=========================="
-
-          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-
-          # Create keychain if it doesn't exist
-          if ! security list-keychains -d user | grep -q "$KEYCHAIN_NAME"; then
-            echo "✓ Creating new keychain: $KEYCHAIN_NAME"
-            security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-            CURRENT_KEYCHAINS=$(security list-keychains -d user | tr -d '"' | tr '\n' ' ')
-            security list-keychains -d user -s $CURRENT_KEYCHAINS $KEYCHAIN_NAME
-          else
-            echo "✓ Found existing keychain: $KEYCHAIN_NAME (reusing)"
-          fi
-
-          security default-keychain -s $KEYCHAIN_NAME
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          security set-keychain-settings $KEYCHAIN_NAME
-
-          # Import certificate (may already exist in keychain, that's ok)
-          echo "Importing certificate into $KEYCHAIN_NAME..."
-          security import certificate.p12 -k $KEYCHAIN_NAME -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign 2>/dev/null || true
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
-          security find-identity -v -p codesigning $KEYCHAIN_NAME
-          echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
-
-      - name: Verify Apple Developer Certificate
-        if: startsWith(matrix.os, 'macos-build-bot') && inputs.sign_binaries
-        run: |
-          CERT_INFO=$(security find-identity -v -p codesigning $KEYCHAIN_NAME | grep "Developer ID Application")
-          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
-          echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
-          echo "Certificate imported."
+        run: scripts/import_apple_certificate.sh
 
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -933,10 +868,10 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name:
-            ${{ startsWith(matrix.os, 'macos-build-bot') && format('synnax-console-v{0}-macos',
-            steps.console-version.outputs.VERSION) ||
-            format('synnax-console-v{0}-windows', steps.console-version.outputs.VERSION)
-            }}
+            ${{ startsWith(matrix.os, 'macos-build-bot') &&
+            format('synnax-console-v{0}-macos', steps.console-version.outputs.VERSION)
+            || format('synnax-console-v{0}-windows',
+            steps.console-version.outputs.VERSION) }}
           path: |
             ${{ startsWith(matrix.os, 'macos-build-bot') && format('console/src-tauri/target/release/bundle/dmg/Synnax_{0}_aarch64.dmg', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
             ${{ matrix.os == 'windows-latest' && format('console/src-tauri/target/release/bundle/msi/Synnax_{0}_x64_en-US.msi', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
