@@ -77,10 +77,17 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error { return nil }
 
+// Client extends protocol.Client with LSP 3.16+ methods missing from
+// go.lsp.dev/protocol@v0.12.0.
+type Client interface {
+	protocol.Client
+	SemanticTokensRefresh(ctx context.Context) error
+}
+
 // Server implements the Language Server Protocol for arc
 type Server struct {
 	capabilities             protocol.ServerCapabilities
-	client                   protocol.Client
+	client                   Client
 	documents                map[protocol.DocumentURI]*Document
 	cfg                      Config
 	mu                       sync.RWMutex
@@ -135,7 +142,7 @@ func New(cfgs ...Config) (*Server, error) {
 }
 
 // SetClient sets the LSP client for sending notifications
-func (s *Server) SetClient(client protocol.Client) {
+func (s *Server) SetClient(client Client) {
 	s.client = client
 	if s.cfg.OnExternalChange != nil {
 		s.externalChangeDisconnect = s.cfg.OnExternalChange.OnChange(func(ctx context.Context, _ struct{}) {
@@ -343,6 +350,21 @@ func (s *Server) runAnalysis(
 			zap.String("uri", string(uri)),
 		)
 	}
+
+	s.refreshSemanticTokens(ctx, uri)
+}
+
+func (s *Server) refreshSemanticTokens(ctx context.Context, uri protocol.DocumentURI) {
+	if s.client == nil {
+		return
+	}
+	if err := s.client.SemanticTokensRefresh(ctx); err != nil {
+		s.cfg.L.Error(
+			"failed to refresh semantic tokens",
+			zap.Error(err),
+			zap.String("uri", string(uri)),
+		)
+	}
 }
 
 // analyze performs parse+analyze on the given content and returns protocol
@@ -439,6 +461,7 @@ func (s *Server) republishAllDiagnostics(ctx context.Context) {
 	for uri, content := range docs {
 		s.publishDiagnostics(ctx, uri, content)
 	}
+	s.refreshSemanticTokens(ctx, "")
 }
 
 func severity(in diagnostics.Severity) protocol.DiagnosticSeverity {

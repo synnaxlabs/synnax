@@ -191,6 +191,15 @@ var _ = Describe("Debounced Diagnostics", func() {
 		Expect(client.Diagnostics()).To(HaveLen(1))
 	})
 
+	It("Should refresh semantic tokens after debounced analysis", func() {
+		OpenDocument(server, ctx, uri, "func test() {}")
+		baseline := client.SemanticRefreshCount()
+
+		ChangeDocument(server, ctx, uri, "func dog() {}", 2)
+
+		Expect(client.WaitForSemanticRefresh(baseline, 500*time.Millisecond)).To(BeTrue())
+	})
+
 	It("Should cancel stale analysis when new change arrives", func() {
 		OpenDocument(server, ctx, uri, "func test() {}")
 		baseline := client.PublishCount()
@@ -281,6 +290,20 @@ var _ = Describe("External Change Notifications", func() {
 		}
 		observer.Notify(ctx, struct{}{})
 		Eventually(func() []protocol.Diagnostic { return client.Diagnostics() }).Should(BeEmpty())
+	})
+
+	It("Should refresh semantic tokens when external state changes", func() {
+		OpenDocument(server, ctx, uri, "func test() {\n\tx := my_channel\n}")
+		baseline := client.SemanticRefreshCount()
+
+		resolver["my_channel"] = symbol.Symbol{
+			Name: "my_channel",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F32()),
+		}
+		observer.Notify(ctx, struct{}{})
+
+		Eventually(func() int { return client.SemanticRefreshCount() }).Should(BeNumerically(">", baseline))
 	})
 
 	It("Should show errors when a previously valid symbol is removed", func() {

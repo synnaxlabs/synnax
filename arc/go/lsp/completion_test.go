@@ -81,6 +81,9 @@ var _ = Describe("Completion", func() {
 
 			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' keyword in type annotation context")
 			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' keyword in type annotation context")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' keyword in type annotation context")
+			Expect(HasCompletion(completions.Items, "stage")).To(BeFalse(), "Should not show 'stage' keyword in type annotation context")
+			Expect(HasCompletion(completions.Items, "next")).To(BeFalse(), "Should not show 'next' keyword in type annotation context")
 		})
 
 		It("should return types matching prefix in type annotation position", func() {
@@ -105,6 +108,9 @@ var _ = Describe("Completion", func() {
 
 			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' keyword in expression context")
 			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' keyword in expression context")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' keyword in expression context")
+			Expect(HasCompletion(completions.Items, "stage")).To(BeFalse(), "Should not show 'stage' keyword in expression context")
+			Expect(HasCompletion(completions.Items, "next")).To(BeFalse(), "Should not show 'next' keyword in expression context")
 		})
 
 		It("should show functions and values in expression context", func() {
@@ -127,6 +133,31 @@ var _ = Describe("Completion", func() {
 
 			Expect(HasCompletion(completions.Items, "if")).To(BeTrue(), "Should show 'if' keyword at statement start")
 			Expect(HasCompletion(completions.Items, "return")).To(BeTrue(), "Should show 'return' keyword at statement start")
+		})
+
+		It("should show sequence keyword at top level", func() {
+			content := "seq"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 0, 3)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeTrue(), "Should show 'sequence' keyword at top level")
+			Expect(HasCompletion(completions.Items, "i32")).To(BeFalse(), "Should not show 'i32' type at top level")
+			Expect(HasCompletion(completions.Items, "f64")).To(BeFalse(), "Should not show 'f64' type at top level")
+		})
+
+		It("should show stage and next keywords inside a sequence", func() {
+			content := "sequence main {\n    \n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 4)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "stage")).To(BeTrue(), "Should show 'stage' keyword inside sequence")
+			Expect(HasCompletion(completions.Items, "next")).To(BeTrue(), "Should show 'next' keyword inside sequence")
+			Expect(HasCompletion(completions.Items, "i32")).To(BeFalse(), "Should not show 'i32' type inside sequence body")
+			Expect(HasCompletion(completions.Items, "f64")).To(BeFalse(), "Should not show 'f64' type inside sequence body")
 		})
 
 		It("should not show types at statement start", func() {
