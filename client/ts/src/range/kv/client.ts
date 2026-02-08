@@ -11,27 +11,14 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Key, keyZ } from "@/ranger/payload";
-
-export const KV_SET_CHANNEL = "sy_range_kv_set";
-export const KV_DELETE_CHANNEL = "sy_range_kv_delete";
-
-export const kvPairZ = z.object({ range: keyZ, key: z.string(), value: z.string() });
-export interface KVPair extends z.infer<typeof kvPairZ> {}
-
-export const kvPairKey = ({ range, key }: Omit<KVPair, "value">) =>
-  `${range}<--->${key}`;
-
-const getReqZ = z.object({ range: keyZ, keys: z.string().array() });
-export interface GetRequest extends z.infer<typeof getReqZ> {}
-
-const getResZ = z.object({ pairs: array.nullableZ(kvPairZ) });
-
-const setReqZ = z.object({ range: keyZ, pairs: kvPairZ.array() });
-export interface SetRequest extends z.infer<typeof setReqZ> {}
-
-const deleteReqZ = z.object({ range: keyZ, keys: z.string().array() });
-export interface DeleteRequest extends z.infer<typeof deleteReqZ> {}
+import { type Key } from "@/range/payload";
+import {
+  deleteReqZ,
+  getReqZ,
+  getResZ,
+  type KVPair,
+  setReqZ,
+} from "@/range/kv/payload";
 
 export class KV {
   private readonly rangeKey: Key;

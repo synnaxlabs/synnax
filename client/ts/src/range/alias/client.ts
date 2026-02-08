@@ -8,34 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type change } from "@synnaxlabs/x";
-import { z } from "zod";
+import { array } from "@synnaxlabs/x";
 
-import { channel } from "@/channel";
-import { type Key, keyZ } from "@/ranger/payload";
-
-export const SET_ALIAS_CHANNEL_NAME = "sy_range_alias_set";
-export const DELETE_ALIAS_CHANNEL_NAME = "sy_range_alias_delete";
-
-const resolveReqZ = z.object({ range: keyZ, aliases: z.string().array() });
-
-const resolveResZ = z.object({ aliases: z.record(z.string(), channel.keyZ) });
-
-const setReqZ = z.object({ range: keyZ, aliases: z.record(channel.keyZ, z.string()) });
-
-const setResZ = z.unknown();
-
-const deleteReqZ = z.object({ range: keyZ, channels: channel.keyZ.array() });
-
-const deleteResZ = z.unknown();
-
-const listReqZ = z.object({ range: keyZ });
-
-const listResZ = z.object({ aliases: z.record(z.string(), z.string()) });
-
-const retrieveReqZ = z.object({ range: keyZ, channels: channel.keyZ.array() });
-
-const retrieveResZ = z.object({ aliases: z.record(z.string(), z.string()) });
+import { type channel } from "@/channel";
+import { type Key } from "@/range/payload";
+import {
+  deleteReqZ,
+  deleteResZ,
+  listReqZ,
+  listResZ,
+  resolveReqZ,
+  resolveResZ,
+  retrieveReqZ,
+  retrieveResZ,
+  setReqZ,
+  setResZ,
+} from "@/range/alias/payload";
 
 export class Aliaser {
   private readonly cache = new Map<string, channel.Key>();
@@ -129,29 +117,3 @@ export class Aliaser {
     );
   }
 }
-
-export const aliasZ = z.object({
-  alias: z.string().optional(),
-  channel: channel.keyZ,
-  range: keyZ,
-});
-export interface Alias extends z.infer<typeof aliasZ> {}
-
-export type AliasChange = change.Change<string, Alias>;
-
-const SEPARATOR = "---";
-
-export const aliasKey = (alias: Pick<Alias, "range" | "channel">): string =>
-  `${alias.range}${SEPARATOR}${alias.channel}`;
-
-export interface DecodedDeleteAliasChange {
-  range: Key;
-  channel: channel.Key;
-}
-
-export const decodeDeleteAliasChange = (
-  deletedAlias: string,
-): DecodedDeleteAliasChange => {
-  const [range, channel] = deletedAlias.split(SEPARATOR);
-  return { range, channel: Number(channel) };
-};

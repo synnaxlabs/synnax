@@ -41,7 +41,7 @@ export { log } from "@/log";
 export { ontology } from "@/ontology";
 export { group } from "@/ontology/group";
 export { rack } from "@/rack";
-export { ranger } from "@/ranger";
+export { range, ranger } from "@/range";
 export { schematic } from "@/schematic";
 export { status } from "@/status";
 export { table } from "@/table";

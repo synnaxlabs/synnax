@@ -10,50 +10,17 @@
 import uuid
 from typing import overload
 
-from freighter import Payload, UnaryClient, send_required
+from freighter import UnaryClient, send_required
 
-from synnax.exceptions import ValidationError
+from synnax.ranger.kv.payload import (
+    DeleteRequest,
+    EmptyResponse,
+    GetRequest,
+    GetResponse,
+    KVPair,
+    SetRequest,
+)
 from synnax.util.normalize import normalize
-from synnax.util.primitive import is_primitive
-
-
-class KVPair(Payload):
-    range: uuid.UUID
-    key: str
-    value: str
-
-    def __init__(self, **kwargs):
-        value = kwargs.get("value")
-        if not isinstance(value, str):
-            if not is_primitive(value) and type(value).__str__ == object.__str__:
-                raise ValidationError(f"""
-                Synnax has no way of casting {value} to a string when setting metadata
-                on a range. Please convert the value to a string before setting it.
-                """)
-        kwargs["value"] = str(value)
-        super().__init__(**kwargs)
-
-
-class _GetRequest(Payload):
-    range: uuid.UUID
-    keys: list[str]
-
-
-class _GetResponse(Payload):
-    pairs: list[KVPair]
-
-
-class _SetRequest(Payload):
-    range: uuid.UUID
-    pairs: list[KVPair]
-
-
-class _DeleteRequest(Payload):
-    range: uuid.UUID
-    keys: list[str]
-
-
-class _EmptyResponse(Payload): ...
 
 
 class KV:
@@ -68,8 +35,8 @@ class KV:
     def get(self, keys: str) -> str: ...
 
     def get(self, keys: str | list[str]) -> dict[str, str] | str:
-        req = _GetRequest(range=self._rng_key, keys=normalize(keys))
-        res = send_required(self._client, "/range/kv/get", req, _GetResponse)
+        req = GetRequest(range=self._rng_key, keys=normalize(keys))
+        res = send_required(self._client, "/range/kv/get", req, GetResponse)
         if isinstance(keys, str):
             return res.pairs[0].value
         return {pair.key: pair.value for pair in res.pairs}
@@ -87,12 +54,12 @@ class KV:
         else:
             for k, v in key.items():
                 pairs.append(KVPair(range=self._rng_key, key=k, value=v))
-        req = _SetRequest(range=self._rng_key, pairs=pairs)
-        send_required(self._client, "/range/kv/set", req, _EmptyResponse)
+        req = SetRequest(range=self._rng_key, pairs=pairs)
+        send_required(self._client, "/range/kv/set", req, EmptyResponse)
 
     def delete(self, keys: str | list[str]) -> None:
-        req = _DeleteRequest(range=self._rng_key, keys=normalize(keys))
-        send_required(self._client, "/range/kv/delete", req, _EmptyResponse)
+        req = DeleteRequest(range=self._rng_key, keys=normalize(keys))
+        send_required(self._client, "/range/kv/delete", req, EmptyResponse)
 
     def __getitem__(self, key: str) -> str:
         return self.get(key)

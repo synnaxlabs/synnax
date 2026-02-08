@@ -35,8 +35,8 @@ from synnax.framer.frame import CrudeFrame
 from synnax.ni import AnalogReadTask
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.payload import ID
-from synnax.ranger.alias import Aliaser
-from synnax.ranger.kv import KV
+from synnax.ranger.alias.client import Aliaser
+from synnax.ranger.kv.client import KV
 from synnax.ranger.payload import (
     RangeKey,
     RangeKeys,

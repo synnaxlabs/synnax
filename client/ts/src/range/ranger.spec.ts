@@ -11,7 +11,7 @@ import { DataType, id, math, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
-import { ranger } from "@/ranger";
+import { ranger } from "@/range";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();

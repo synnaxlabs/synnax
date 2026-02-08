@@ -16,8 +16,8 @@ import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
-import { Aliaser } from "@/ranger/alias";
-import { KV } from "@/ranger/kv";
+import { Aliaser } from "@/range/alias/client";
+import { KV } from "@/range/kv/client";
 import {
   type Key,
   type Keys,
@@ -28,8 +28,8 @@ import {
   type Params,
   type Payload,
   payloadZ,
-} from "@/ranger/payload";
-import { type CreateOptions, type Writer } from "@/ranger/writer";
+} from "@/range/payload";
+import { type CreateOptions, type Writer } from "@/range/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_range_set";

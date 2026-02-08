@@ -11,7 +11,7 @@ import { TimeRange } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
-import { ranger } from "@/ranger";
+import { ranger } from "@/range";
 import { createTestClientWithPolicy } from "@/testutil/access";
 import { createTestClient } from "@/testutil/client";
 
