@@ -16,6 +16,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
@@ -27,12 +28,13 @@ const StartedMessage = "started successfully"
 // PipeToLogger reads lines from reader and logs them using the provided logger.
 // Each line is expected in the format "L [module] [caller] message" where L is a
 // log level character (D/I/W/E/F). When a line containing StartedMessage is
-// encountered and started is non-nil, the channel is closed to signal startup
-// completion.
+// encountered, startedOnce is used to safely close the started channel exactly
+// once, even when multiple goroutines call PipeToLogger concurrently.
 func PipeToLogger(
 	reader io.ReadCloser,
 	logger *alamos.Logger,
 	started chan<- struct{},
+	startedOnce *sync.Once,
 ) {
 	var caller string
 	scanner := bufio.NewScanner(reader)
@@ -49,8 +51,8 @@ func PipeToLogger(
 		message := original
 		if len(split) >= 3 {
 			callerSplit := strings.Split(split[0], " ")
-			caller = callerSplit[len(callerSplit)-1]
-			first := strings.TrimSpace(split[1])
+			caller = strings.TrimPrefix(callerSplit[len(callerSplit)-1], "[")
+			first := strings.TrimPrefix(strings.TrimSpace(split[1]), "[")
 			namedLogger = logger.Named(first)
 			message = split[2]
 			if len(message) > 1 {
@@ -62,8 +64,8 @@ func PipeToLogger(
 			message = split[1]
 		}
 		message = strings.TrimSpace(message)
-		if started != nil && message == StartedMessage {
-			close(started)
+		if startedOnce != nil && message == StartedMessage {
+			startedOnce.Do(func() { close(started) })
 		}
 		callerField := zap.String("caller", caller)
 		switch level {

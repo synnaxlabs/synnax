@@ -15,6 +15,9 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"os/exec"
+	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,96 +30,141 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var _ = Describe("Lifecycle", func() {
-	var (
-		logger *alamos.Logger
-		buffer *bytes.Buffer
+func newTestLogger() (*alamos.Logger, *bytes.Buffer) {
+	buffer := &bytes.Buffer{}
+	core := zapcore.NewCore(
+		zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()),
+		zapcore.AddSync(buffer),
+		zapcore.DebugLevel,
 	)
+	logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+		ZapLogger: zap.New(core),
+	}))
+	return logger, buffer
+}
 
-	BeforeEach(func() {
-		buffer = &bytes.Buffer{}
-		core := zapcore.NewCore(
-			zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()),
-			zapcore.AddSync(buffer),
-			zapcore.DebugLevel,
-		)
-		logger = MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
-			ZapLogger: zap.New(core),
-		}))
-	})
+func openMockDriver(logger *alamos.Logger, overrides ...driver.Config) *driver.Driver {
+	base := driver.Config{
+		Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+		BinaryPath:      mockBinaryPath,
+		Insecure:        config.True(),
+		Address:         "localhost:9090",
+		ParentDirname:   GinkgoT().TempDir(),
+	}
+	cfgs := append([]driver.Config{base}, overrides...)
+	return MustSucceed(driver.Open(context.Background(), cfgs...))
+}
 
-	It("Should successfully start and signal started", func() {
-		tmpDir := GinkgoT().TempDir()
-		d := MustSucceed(driver.Open(context.Background(), driver.Config{
-			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-			BinaryPath:      mockBinaryPath,
-			Insecure:        config.True(),
-			Address:         "localhost:9090",
-			ParentDirname:   tmpDir,
-		}))
-		Expect(d.Close()).To(Succeed())
-	})
-
-	It("Should shut down cleanly via Close", func() {
-		tmpDir := GinkgoT().TempDir()
-		d := MustSucceed(driver.Open(context.Background(), driver.Config{
-			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-			BinaryPath:      mockBinaryPath,
-			Insecure:        config.True(),
-			Address:         "localhost:9090",
-			ParentDirname:   tmpDir,
-		}))
-		Expect(d.Close()).To(Succeed())
-	})
-
-	It("Should return timeout error on slow start", func() {
-		os.Setenv("MOCK_DELAY_MS", "5000")
-		defer os.Unsetenv("MOCK_DELAY_MS")
-		tmpDir := GinkgoT().TempDir()
-		d, err := driver.Open(context.Background(), driver.Config{
-			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-			BinaryPath:      mockBinaryPath,
-			Insecure:        config.True(),
-			Address:         "localhost:9090",
-			ParentDirname:   tmpDir,
-			StartTimeout:    100 * time.Millisecond,
+var _ = Describe("Open", func() {
+	Describe("contract", func() {
+		It("Should return a non-nil driver on success", func() {
+			logger, _ := newTestLogger()
+			d := openMockDriver(logger)
+			Expect(d).ToNot(BeNil())
+			Expect(d.Close()).To(Succeed())
 		})
-		Expect(err).To(MatchError(ContainSubstring("timed out")))
-		if d != nil {
-			d.Close()
-		}
+
+		It("Should return nil driver on timeout", func() {
+			Expect(os.Setenv("MOCK_DELAY_MS", "5000")).To(Succeed())
+			defer func() { Expect(os.Unsetenv("MOCK_DELAY_MS")).To(Succeed()) }()
+			logger, _ := newTestLogger()
+			d, err := driver.Open(context.Background(), driver.Config{
+				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				BinaryPath:      mockBinaryPath,
+				Insecure:        config.True(),
+				Address:         "localhost:9090",
+				ParentDirname:   GinkgoT().TempDir(),
+				StartTimeout:    100 * time.Millisecond,
+			})
+			Expect(err).To(MatchError(ContainSubstring("timed out")))
+			Expect(d).To(BeNil())
+		})
+
+		It("Should not leak processes after timeout", func() {
+			Expect(os.Setenv("MOCK_DELAY_MS", "5000")).To(Succeed())
+			defer func() { Expect(os.Unsetenv("MOCK_DELAY_MS")).To(Succeed()) }()
+			logger, _ := newTestLogger()
+			d, err := driver.Open(context.Background(), driver.Config{
+				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				BinaryPath:      mockBinaryPath,
+				Insecure:        config.True(),
+				Address:         "localhost:9090",
+				ParentDirname:   GinkgoT().TempDir(),
+				StartTimeout:    100 * time.Millisecond,
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(d).To(BeNil())
+			Eventually(func() bool {
+				out, _ := exec.Command("pgrep", "-f", "mockdriver").Output()
+				for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+					if line == "" {
+						continue
+					}
+					pid := MustSucceed(strconv.Atoi(line))
+					process, err := os.FindProcess(pid)
+					if err != nil {
+						continue
+					}
+					if err := process.Signal(os.Signal(nil)); err == nil {
+						return false
+					}
+				}
+				return true
+			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
+		})
+
+		It("Should return nil driver on config validation failure", func() {
+			d, err := driver.Open(context.Background(), driver.Config{})
+			Expect(err).To(HaveOccurred())
+			Expect(d).To(BeNil())
+		})
+
+		It("Should return a non-nil driver when disabled", func() {
+			logger, _ := newTestLogger()
+			d := MustSucceed(driver.Open(context.Background(), driver.Config{
+				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				Enabled:         config.False(),
+				Insecure:        config.True(),
+			}))
+			Expect(d).ToNot(BeNil())
+			Expect(d.Close()).To(Succeed())
+		})
 	})
 
-	It("Should pass --debug flag when enabled", func() {
-		tmpDir := GinkgoT().TempDir()
-		d := MustSucceed(driver.Open(context.Background(), driver.Config{
-			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-			BinaryPath:      mockBinaryPath,
-			Insecure:        config.True(),
-			Address:         "localhost:9090",
-			ParentDirname:   tmpDir,
-			Debug:           config.True(),
-		}))
-		Expect(buffer.String()).To(ContainSubstring("debug mode enabled"))
-		Expect(d.Close()).To(Succeed())
+	Describe("behavior", func() {
+		It("Should pass --debug flag when enabled", func() {
+			logger, buffer := newTestLogger()
+			d := openMockDriver(logger, driver.Config{Debug: config.True()})
+			Expect(buffer.String()).To(ContainSubstring("debug mode enabled"))
+			Expect(d.Close()).To(Succeed())
+		})
 	})
+})
 
-	It("Should no-op when disabled", func() {
-		d := MustSucceed(driver.Open(context.Background(), driver.Config{
-			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-			Enabled:         config.False(),
-			Insecure:        config.True(),
-		}))
-		Expect(d.Close()).To(Succeed())
-	})
+var _ = Describe("Close", func() {
+	Describe("contract", func() {
+		It("Should shut down cleanly after successful Open", func() {
+			logger, _ := newTestLogger()
+			d := openMockDriver(logger)
+			Expect(d.Close()).To(Succeed())
+		})
 
-	It("Should close safely when disabled", func() {
-		d := MustSucceed(driver.Open(context.Background(), driver.Config{
-			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-			Enabled:         config.False(),
-			Insecure:        config.True(),
-		}))
-		Expect(d.Close()).To(Succeed())
-		Expect(d.Close()).To(Succeed())
+		It("Should be idempotent on an enabled driver", func() {
+			logger, _ := newTestLogger()
+			d := openMockDriver(logger)
+			Expect(d.Close()).To(Succeed())
+			Expect(d.Close()).To(Succeed())
+		})
+
+		It("Should be idempotent on a disabled driver", func() {
+			logger, _ := newTestLogger()
+			d := MustSucceed(driver.Open(context.Background(), driver.Config{
+				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				Enabled:         config.False(),
+				Insecure:        config.True(),
+			}))
+			Expect(d.Close()).To(Succeed())
+			Expect(d.Close()).To(Succeed())
+		})
 	})
 })

@@ -17,6 +17,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -50,6 +51,7 @@ func parseLogEntries(buffer *bytes.Buffer) []map[string]any {
 func pipeAndCollect(
 	logger *alamos.Logger,
 	started chan<- struct{},
+	startedOnce *sync.Once,
 	input string,
 ) []map[string]any {
 	r, w := io.Pipe()
@@ -65,7 +67,7 @@ func pipeAndCollect(
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		log.PipeToLogger(r, logger, started)
+		log.PipeToLogger(r, logger, started, startedOnce)
 	}()
 	MustSucceed(w.Write([]byte(input)))
 	Expect(w.Close()).To(Succeed())
@@ -93,7 +95,7 @@ var _ = Describe("PipeToLogger", func() {
 
 	Describe("glog format", func() {
 		It("Should parse an info line into level, message, and caller", func() {
-			entries := pipeAndCollect(logger, nil,
+			entries := pipeAndCollect(logger, nil, nil,
 				"I20260208 14:34:21.789995 0x1fa2cec40 start.cpp:19] starting Synnax Driver v0.50.6\n",
 			)
 			Expect(entries).To(HaveLen(1))
@@ -107,7 +109,7 @@ var _ = Describe("PipeToLogger", func() {
 		})
 
 		It("Should parse a warning line", func() {
-			entries := pipeAndCollect(logger, nil,
+			entries := pipeAndCollect(logger, nil, nil,
 				"W20260208 14:34:21.000000 0x1fa2cec40 rack.cpp:50] something is off\n",
 			)
 			Expect(entries).To(HaveLen(1))
@@ -119,7 +121,7 @@ var _ = Describe("PipeToLogger", func() {
 		})
 
 		It("Should parse an error line", func() {
-			entries := pipeAndCollect(logger, nil,
+			entries := pipeAndCollect(logger, nil, nil,
 				"E20260208 14:34:21.000000 0x1fa2cec40 rack.cpp:51] something broke\n",
 			)
 			Expect(entries).To(HaveLen(1))
@@ -131,7 +133,7 @@ var _ = Describe("PipeToLogger", func() {
 		})
 
 		It("Should parse a fatal line as error level", func() {
-			entries := pipeAndCollect(logger, nil,
+			entries := pipeAndCollect(logger, nil, nil,
 				"F20260208 14:34:21.000000 0x1fa2cec40 rack.cpp:99] fatal crash\n",
 			)
 			Expect(entries).To(HaveLen(1))
@@ -143,7 +145,7 @@ var _ = Describe("PipeToLogger", func() {
 		})
 
 		It("Should parse a debug line", func() {
-			entries := pipeAndCollect(logger, nil,
+			entries := pipeAndCollect(logger, nil, nil,
 				"D20260208 14:34:21.000000 0x1fa2cec40 opc.cpp:12] connecting to server\n",
 			)
 			Expect(entries).To(HaveLen(1))
@@ -155,7 +157,7 @@ var _ = Describe("PipeToLogger", func() {
 		})
 
 		It("Should handle continuation lines as info with previous caller", func() {
-			entries := pipeAndCollect(logger, nil,
+			entries := pipeAndCollect(logger, nil, nil,
 				"I20260208 14:34:21.790466 0x16d327000 rack.cpp:33] real-time capabilities:\n"+
 					"  priority scheduling: yes\n"+
 					"  deadline scheduling: not supported\n",
@@ -180,7 +182,8 @@ var _ = Describe("PipeToLogger", func() {
 
 		It("Should detect started successfully", func() {
 			started := make(chan struct{})
-			entries := pipeAndCollect(logger, started,
+			once := &sync.Once{}
+			entries := pipeAndCollect(logger, started, once,
 				"I20260208 14:34:22.000000 0x16d327000 rack.cpp:200] started successfully\n",
 			)
 			Expect(started).To(BeClosed())
@@ -192,7 +195,7 @@ var _ = Describe("PipeToLogger", func() {
 		})
 
 		It("Should update caller across consecutive lines", func() {
-			entries := pipeAndCollect(logger, nil,
+			entries := pipeAndCollect(logger, nil, nil,
 				"I20260208 14:34:21.000000 0x16d327000 rack.cpp:33] first\n"+
 					"I20260208 14:34:21.000001 0x16d327000 config.cpp:50] second\n",
 			)
@@ -203,22 +206,23 @@ var _ = Describe("PipeToLogger", func() {
 	})
 
 	Describe("bracketed format", func() {
-		It("Should use second bracket group as named logger", func() {
-			entries := pipeAndCollect(logger, nil,
+		It("Should parse caller and named logger without leading brackets", func() {
+			entries := pipeAndCollect(logger, nil, nil,
 				"I [mock] [main.go] test message\n",
 			)
 			Expect(entries).To(HaveLen(1))
 			Expect(entries[0]).To(And(
 				HaveKeyWithValue("L", "INFO"),
 				HaveKeyWithValue("M", "test message"),
-				HaveKeyWithValue("N", "[main.go"),
-				HaveKeyWithValue("caller", "[mock"),
+				HaveKeyWithValue("N", "main.go"),
+				HaveKeyWithValue("caller", "mock"),
 			))
 		})
 
 		It("Should detect started successfully", func() {
 			started := make(chan struct{})
-			entries := pipeAndCollect(logger, started,
+			once := &sync.Once{}
+			entries := pipeAndCollect(logger, started, once,
 				"I [mock] [main.go] started successfully\n",
 			)
 			Expect(started).To(BeClosed())
@@ -227,8 +231,38 @@ var _ = Describe("PipeToLogger", func() {
 		})
 	})
 
+	Describe("started channel safety", func() {
+		It("Should not panic when started message appears on two concurrent pipes", func() {
+			started := make(chan struct{})
+			once := &sync.Once{}
+			r1, w1 := io.Pipe()
+			r2, w2 := io.Pipe()
+			done1 := make(chan struct{})
+			done2 := make(chan struct{})
+			go func() {
+				defer close(done1)
+				log.PipeToLogger(r1, logger, started, once)
+			}()
+			go func() {
+				defer close(done2)
+				log.PipeToLogger(r2, logger, started, once)
+			}()
+			MustSucceed(w1.Write([]byte(
+				"I20260208 14:34:22.000000 0x16d327000 rack.cpp:200] started successfully\n",
+			)))
+			MustSucceed(w2.Write([]byte(
+				"I20260208 14:34:22.000000 0x16d327000 rack.cpp:200] started successfully\n",
+			)))
+			Expect(w1.Close()).To(Succeed())
+			Expect(w2.Close()).To(Succeed())
+			Eventually(done1).Should(BeClosed())
+			Eventually(done2).Should(BeClosed())
+			Expect(started).To(BeClosed())
+		})
+	})
+
 	It("Should warn on empty lines", func() {
-		entries := pipeAndCollect(logger, nil, "\n")
+		entries := pipeAndCollect(logger, nil, nil, "\n")
 		Expect(entries).To(HaveLen(1))
 		Expect(entries[0]).To(And(
 			HaveKeyWithValue("L", "WARN"),
@@ -242,7 +276,7 @@ var _ = Describe("PipeToLogger", func() {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			log.PipeToLogger(r, logger, nil)
+			log.PipeToLogger(r, logger, nil, nil)
 		}()
 		Expect(w.Close()).To(Succeed())
 		Eventually(done).Should(BeClosed())
@@ -252,7 +286,7 @@ var _ = Describe("PipeToLogger", func() {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			log.PipeToLogger(errClosedReader{}, logger, nil)
+			log.PipeToLogger(errClosedReader{}, logger, nil, nil)
 		}()
 		Eventually(done).Should(BeClosed())
 		Expect(buffer.String()).ToNot(ContainSubstring("ERROR"))

@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/driver/internal/log"
@@ -63,7 +64,10 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	d := &Driver{cfg: cfg, started: make(chan struct{})}
 	ctx, cancel := context.WithTimeout(ctx, cfg.StartTimeout)
 	defer cancel()
-	return d, d.start(ctx)
+	if err := d.start(ctx); err != nil {
+		return nil, err
+	}
+	return d, nil
 }
 
 func (d *Driver) start(ctx context.Context) error {
@@ -149,8 +153,9 @@ func (d *Driver) start(ctx context.Context) error {
 		internalSCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 		defer cancel()
 
+		startedOnce := &sync.Once{}
 		internalSCtx.Go(func(ctx context.Context) error {
-			log.PipeToLogger(stdoutPipe, d.cfg.L, d.started)
+			log.PipeToLogger(stdoutPipe, d.cfg.L, d.started, startedOnce)
 			return nil
 		},
 			signal.WithKey("stdoutPipe"),
@@ -158,7 +163,7 @@ func (d *Driver) start(ctx context.Context) error {
 			signal.WithRetryOnPanic(),
 		)
 		internalSCtx.Go(func(ctx context.Context) error {
-			log.PipeToLogger(stderrPipe, d.cfg.L, d.started)
+			log.PipeToLogger(stderrPipe, d.cfg.L, d.started, startedOnce)
 			return nil
 		},
 			signal.WithKey("stderrPipe"),
@@ -186,10 +191,14 @@ func (d *Driver) start(ctx context.Context) error {
 	}
 	sCtx.Go(mf)
 	if _, err = signal.RecvUnderContext(ctx, d.started); err != nil {
+		closeErr := d.Close()
 		if errors.Is(err, context.DeadlineExceeded) {
-			return errStartTimeout
+			return errors.Combine(errStartTimeout, closeErr)
 		}
-		return errors.Wrap(err, "failed to start Embedded Driver")
+		return errors.Combine(
+			errors.Wrap(err, "failed to start Embedded Driver"),
+			closeErr,
+		)
 	}
 	return nil
 }
@@ -199,12 +208,17 @@ const stopKeyword = "STOP\n"
 func (d *Driver) Close() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if d.shutdown != nil && d.cmd != nil && d.cmd.Process != nil {
-		if _, err := d.stdInPipe.Write([]byte(stopKeyword)); err != nil {
-			return err
-		}
-		err := d.shutdown.Close()
-		return err
+	if d.shutdown == nil {
+		return nil
 	}
-	return nil
+	shutdown := d.shutdown
+	d.shutdown = nil
+	if d.cmd != nil && d.cmd.Process != nil {
+		// Best-effort: ask the process to exit gracefully. If the process
+		// already exited (e.g. crash or timeout cleanup race), the pipe is
+		// closed and the write fails harmlessly. shutdown.Close() below
+		// cancels the signal context, which unwinds goroutines regardless.
+		_, _ = d.stdInPipe.Write([]byte(stopKeyword))
+	}
+	return shutdown.Close()
 }
