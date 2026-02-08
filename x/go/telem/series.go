@@ -253,7 +253,7 @@ func (s Series) DataString() string {
 		return "[]"
 	}
 	if s.DataType.IsVariable() {
-		return truncateAndFormatSlice(UnmarshalVariable[string](s.Data))
+		return truncateAndFormatSlice(UnmarshalSeries[string](s))
 	}
 	switch s.DataType {
 	case Float64T:

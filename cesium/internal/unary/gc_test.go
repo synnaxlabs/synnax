@@ -103,11 +103,11 @@ var _ = Describe("Garbage Collection", func() {
 					Expect(frame.Count()).To(Equal(6))
 
 					Expect(frame.SeriesAt(2).TimeRange.End).To(Equal(33 * telem.SecondTS))
-					series2Data := telem.UnmarshalSlice[int64](frame.SeriesAt(2).Data)
+					series2Data := telem.UnmarshalSeries[int64](frame.SeriesAt(2))
 					Expect(series2Data).To(ConsistOf(int64(30), int64(31), int64(32)))
 
 					Expect(frame.SeriesAt(3).TimeRange.Start).To(Equal(75 * telem.SecondTS))
-					series3Data := telem.UnmarshalSlice[int64](frame.SeriesAt(3).Data)
+					series3Data := telem.UnmarshalSeries[int64](frame.SeriesAt(3))
 					Expect(series3Data).To(ConsistOf(
 						int64(75),
 						int64(76),

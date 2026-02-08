@@ -13,6 +13,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -36,15 +37,46 @@ type VariableSample interface{ []byte | string }
 // Sample represents any value that can be stored in a non-JSON Series.
 type Sample interface{ FixedSample | VariableSample }
 
-// NewSeries creates a new Series from a slice of numeric values. It automatically
-// determines the data type from the first element.
-func NewSeries[T FixedSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: MarshalSlice(data)}
+// NewSeries creates a new Series from a slice of sample values. It automatically
+// determines the data type from the type parameter.
+func NewSeries[T Sample](data []T) Series {
+	var t T
+	switch any(t).(type) {
+	case uint8:
+		return newFixedSeries(any(data).([]uint8))
+	case uint16:
+		return newFixedSeries(any(data).([]uint16))
+	case uint32:
+		return newFixedSeries(any(data).([]uint32))
+	case uint64:
+		return newFixedSeries(any(data).([]uint64))
+	case int8:
+		return newFixedSeries(any(data).([]int8))
+	case int16:
+		return newFixedSeries(any(data).([]int16))
+	case int32:
+		return newFixedSeries(any(data).([]int32))
+	case int64:
+		return newFixedSeries(any(data).([]int64))
+	case float32:
+		return newFixedSeries(any(data).([]float32))
+	case float64:
+		return newFixedSeries(any(data).([]float64))
+	case TimeStamp:
+		return newFixedSeries(any(data).([]TimeStamp))
+	case uuid.UUID:
+		return newFixedSeries(any(data).([]uuid.UUID))
+	case string:
+		return newVariableSeries(any(data).([]string))
+	case []byte:
+		return newVariableSeries(any(data).([][]byte))
+	}
+	// degenerate case, should never hit this path.
+	panic(fmt.Sprintf("unsupported sample type %T", t))
 }
 
-// NewSeriesV is a variadic version of NewSeries that creates a new Series from
-// individual numeric values.
-func NewSeriesV[T FixedSample](data ...T) Series { return NewSeries(data) }
+// NewSeriesV is a variadic version of NewSeries.
+func NewSeriesV[T Sample](data ...T) Series { return NewSeries(data) }
 
 // MakeSeries allocates a new Series with the specified DataType and length. Note that
 // this function allocates a length and not a capacity.
@@ -62,36 +94,32 @@ func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 	return NewSeries(data)
 }
 
-// NewSeriesVariable creates a new Series from a slice of variable-density values,
-// determining the data type from the type of the slice.
-func NewSeriesVariable[T VariableSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: MarshalVariable(data)}
+func newFixedSeries[T FixedSample](data []T) Series {
+	return Series{DataType: InferDataType[T](), Data: marshalFixed(data)}
 }
 
-// NewSeriesVariableV is a variadic version of NewSeriesVariable that creates a new
-// Series from individual variable-density values.
-func NewSeriesVariableV[T VariableSample](data ...T) Series {
-	return NewSeriesVariable(data)
+func newVariableSeries[T VariableSample](data []T) Series {
+	return Series{DataType: InferDataType[T](), Data: marshalVariable(data)}
 }
 
-// NewSeriesJSON creates a new Series from a slice of JSON values.
-func NewSeriesJSON[T any](data []T) (Series, error) {
-	bytes, err := MarshalJSON(data)
+// NewJSONSeries creates a new JSON Series from a slice of JSON values. It returns an
+// error if the data cannot be marshalled into JSON.
+func NewJSONSeries[T any](data []T) (Series, error) {
+	bytes, err := marshalJSON(data)
 	if err != nil {
 		return Series{}, err
 	}
 	return Series{DataType: JSONT, Data: bytes}, nil
 }
 
-// NewSeriesJSONV constructs a new series from an arbitrary set of JSON values,
-// marshaling each one in the process.
-func NewSeriesJSONV[T any](data ...T) (Series, error) { return NewSeriesJSON(data) }
+// NewJSONSeriesV constructs a new JSON Series from an arbitrary set of JSON values,
+// marshaling each one in the process. It returns an error if the data cannot be
+// marshalled into JSON.
+func NewJSONSeriesV[T any](data ...T) (Series, error) { return NewJSONSeries(data) }
 
 const newLine = '\n'
 
-// MarshalJSON marshals a slice of JSON values into a byte slice, returning any errors
-// encountered while marshalling.
-func MarshalJSON[T any](data []T) ([]byte, error) {
+func marshalJSON[T any](data []T) ([]byte, error) {
 	byteSlices := make([][]byte, len(data))
 	var err error
 	for i, v := range data {
@@ -99,11 +127,10 @@ func MarshalJSON[T any](data []T) ([]byte, error) {
 			return nil, err
 		}
 	}
-	return MarshalVariable(byteSlices), nil
+	return marshalVariable(byteSlices), nil
 }
 
-// MarshalVariable marshals a slice of variable-density values into a byte slice.
-func MarshalVariable[T VariableSample](data []T) []byte {
+func marshalVariable[T VariableSample](data []T) []byte {
 	total := lo.SumBy(data, func(v T) int64 { return int64(len(v)) + 1 })
 	b := make([]byte, total)
 	offset := 0
@@ -115,8 +142,56 @@ func MarshalVariable[T VariableSample](data []T) []byte {
 	return b
 }
 
-// UnmarshalVariable unmarshals a byte slice into a slice of variable-density values.
-func UnmarshalVariable[T VariableSample](b []byte) []T {
+func marshalFixed[T FixedSample](data []T) []byte {
+	dt := InferDataType[T]()
+	b := make([]byte, dt.Density().Size(int64(len(data))))
+	typedData := unsafe.CastSlice[byte, T](b)
+	copy(typedData, data)
+	return b
+}
+
+// UnmarshalSeries converts a Series back into a slice of the specified data type. Note
+// that this function does NOT check the Series' DataType, it simply unmarshals the data
+// according to type T.
+func UnmarshalSeries[T Sample](series Series) []T {
+	var t T
+	switch any(t).(type) {
+	case uint8:
+		return any(unmarshalFixed[uint8](series.Data)).([]T)
+	case uint16:
+		return any(unmarshalFixed[uint16](series.Data)).([]T)
+	case uint32:
+		return any(unmarshalFixed[uint32](series.Data)).([]T)
+	case uint64:
+		return any(unmarshalFixed[uint64](series.Data)).([]T)
+	case int8:
+		return any(unmarshalFixed[int8](series.Data)).([]T)
+	case int16:
+		return any(unmarshalFixed[int16](series.Data)).([]T)
+	case int32:
+		return any(unmarshalFixed[int32](series.Data)).([]T)
+	case int64:
+		return any(unmarshalFixed[int64](series.Data)).([]T)
+	case float32:
+		return any(unmarshalFixed[float32](series.Data)).([]T)
+	case float64:
+		return any(unmarshalFixed[float64](series.Data)).([]T)
+	case TimeStamp:
+		return any(unmarshalFixed[TimeStamp](series.Data)).([]T)
+	case uuid.UUID:
+		return any(unmarshalFixed[uuid.UUID](series.Data)).([]T)
+	case string:
+		return any(unmarshalVariable[string](series.Data)).([]T)
+	case []byte:
+		return any(unmarshalVariable[[]byte](series.Data)).([]T)
+	}
+	// degenerate case, should never hit this path.
+	panic(fmt.Sprintf("unsupported sample type %T", t))
+}
+
+func unmarshalFixed[T FixedSample](b []byte) []T { return unsafe.CastSlice[byte, T](b) }
+
+func unmarshalVariable[T VariableSample](b []byte) []T {
 	var (
 		offset int
 		data   []T
@@ -132,10 +207,11 @@ func UnmarshalVariable[T VariableSample](b []byte) []T {
 	return data
 }
 
-// UnmarshalJSON unmarshals a JSON-encoded byte slice into a slice of JSON values of the
-// specified type T. It returns an error encountered during unmarshalling.
-func UnmarshalJSON[T any](b []byte) ([]T, error) {
-	byteSlices := UnmarshalVariable[[]byte](b)
+// UnmarshalJSONSeries unmarshals a JSON-encoded series into a slice of JSON values
+// of the specified type T. This function does NOT check the Series' DataType, it simply
+// unmarshals the data according to type T.
+func UnmarshalJSONSeries[T any](s Series) ([]T, error) {
+	byteSlices := UnmarshalSeries[[]byte](s)
 	data := make([]T, len(byteSlices))
 	for i, b := range byteSlices {
 		if err := json.Unmarshal(b, &data[i]); err != nil {
@@ -143,25 +219,6 @@ func UnmarshalJSON[T any](b []byte) ([]T, error) {
 		}
 	}
 	return data, nil
-}
-
-// MarshalSlice converts a slice of numeric values into a byte slice according to the
-// specified DataType.
-func MarshalSlice[T FixedSample](data []T) []byte {
-	dt := InferDataType[T]()
-	b := make([]byte, dt.Density().Size(int64(len(data))))
-	typedData := unsafe.CastSlice[byte, T](b)
-	copy(typedData, data)
-	return b
-}
-
-// UnmarshalSlice converts a byte slice back into a slice of numeric values according to
-// the specified type T.
-func UnmarshalSlice[T FixedSample](b []byte) []T { return unsafe.CastSlice[byte, T](b) }
-
-// UnmarshalSeries converts a Series' data back into a slice of the specified type T.
-func UnmarshalSeries[T FixedSample](series Series) []T {
-	return UnmarshalSlice[T](series.Data)
 }
 
 // ByteOrder is the standard order for encoding/decoding numeric values across the
@@ -180,204 +237,136 @@ func Arrange[T NumericSample](start T, count int, spacing T) Series {
 }
 
 // NewSeriesFromAny creates a single-value Series from a value of type any, casting it
-// to the specified DataType. This function preserves numeric precision by avoiding
-// unnecessary intermediate conversions. Supports numeric types, strings, TimeStamp,
-// JSON, and bytes. Panics if the value cannot be converted to the target DataType.
+// to the specified DataType. Supports numeric types, strings, TimeStamp, JSON, and
+// bytes. Panics if the value cannot be converted to the target DataType.
 func NewSeriesFromAny(value any, dt DataType) Series {
 	switch dt {
-	case Int64T:
-		return NewSeriesV(castToInt64(value))
-	case Int32T:
-		return NewSeriesV(castToInt32(value))
-	case Int16T:
-		return NewSeriesV(castToInt16(value))
-	case Int8T:
-		return NewSeriesV(castToInt8(value))
-	case Uint64T:
-		return NewSeriesV(castToUint64(value))
-	case Uint32T:
-		return NewSeriesV(castToUint32(value))
-	case Uint16T:
-		return NewSeriesV(castToUint16(value))
 	case Uint8T:
-		return NewSeriesV(castToUint8(value))
-	case Float64T:
-		return NewSeriesV(castToFloat64(value))
+		return NewSeriesV(castNumeric[uint8](value))
+	case Uint16T:
+		return NewSeriesV(castNumeric[uint16](value))
+	case Uint32T:
+		return NewSeriesV(castNumeric[uint32](value))
+	case Uint64T:
+		return NewSeriesV(castNumeric[uint64](value))
+	case Int8T:
+		return NewSeriesV(castNumeric[int8](value))
+	case Int16T:
+		return NewSeriesV(castNumeric[int16](value))
+	case Int32T:
+		return NewSeriesV(castNumeric[int32](value))
+	case Int64T:
+		return NewSeriesV(castNumeric[int64](value))
 	case Float32T:
-		return NewSeriesV(castToFloat32(value))
+		return NewSeriesV(castNumeric[float32](value))
+	case Float64T:
+		return NewSeriesV(castNumeric[float64](value))
 	case TimeStampT:
-		return NewSeriesV(castToTimeStamp(value))
+		return NewSeriesV(castNumeric[TimeStamp](value))
+	case UUIDT:
+		return NewSeriesV(castToUUID(value))
 	case StringT:
-		return NewSeriesVariableV(castToString(value))
-	case JSONT:
-		return castToJSON(value)
+		return NewSeriesV(castToString(value))
 	case BytesT:
-		return NewSeriesVariableV(castToBytes(value))
+		return NewSeriesV(castToBytes(value))
+	case JSONT:
+		return lo.Must(NewJSONSeriesV(value))
 	default:
 		panic(fmt.Sprintf("unsupported data type %s", dt))
 	}
 }
 
-func castToInt64(value any) int64 {
+func castNumeric[T NumericSample](value any) T {
 	switch v := value.(type) {
-	case int:
-		return int64(v)
-	case int64:
-		return v
-	case int32:
-		return int64(v)
-	case int16:
-		return int64(v)
-	case int8:
-		return int64(v)
 	case uint:
-		return int64(v)
-	case uint64:
-		return int64(v)
-	case uint32:
-		return int64(v)
-	case uint16:
-		return int64(v)
+		return T(v)
 	case uint8:
-		return int64(v)
-	case float64:
-		return int64(v)
-	case float32:
-		return int64(v)
-	case TimeStamp:
-		return int64(v)
-	case string:
-		panic("cannot cast string to int64")
-	default:
-		panic(fmt.Sprintf("cannot cast %T to int64", value))
-	}
-}
-
-func castToInt32(value any) int32 { return int32(castToInt64(value)) }
-
-func castToInt16(value any) int16 { return int16(castToInt64(value)) }
-
-func castToInt8(value any) int8 { return int8(castToInt64(value)) }
-
-func castToUint64(value any) uint64 {
-	switch v := value.(type) {
+		return T(v)
+	case uint16:
+		return T(v)
+	case uint32:
+		return T(v)
+	case uint64:
+		return T(v)
 	case int:
-		return uint64(v)
-	case int64:
-		return uint64(v)
-	case int32:
-		return uint64(v)
-	case int16:
-		return uint64(v)
+		return T(v)
 	case int8:
-		return uint64(v)
-	case uint:
-		return uint64(v)
-	case uint64:
-		return v
-	case uint32:
-		return uint64(v)
-	case uint16:
-		return uint64(v)
-	case uint8:
-		return uint64(v)
-	case float64:
-		return uint64(v)
-	case float32:
-		return uint64(v)
-	case TimeStamp:
-		return uint64(v)
-	case string:
-		panic("cannot cast string to uint64")
-	default:
-		panic(fmt.Sprintf("cannot cast %T to uint64", value))
-	}
-}
-
-func castToUint32(value any) uint32 { return uint32(castToUint64(value)) }
-
-func castToUint16(value any) uint16 { return uint16(castToUint64(value)) }
-
-func castToUint8(value any) uint8 { return uint8(castToUint64(value)) }
-
-func castToFloat64(value any) float64 {
-	switch v := value.(type) {
-	case int:
-		return float64(v)
-	case int64:
-		return float64(v)
-	case int32:
-		return float64(v)
+		return T(v)
 	case int16:
-		return float64(v)
-	case int8:
-		return float64(v)
-	case uint:
-		return float64(v)
-	case uint64:
-		return float64(v)
-	case uint32:
-		return float64(v)
-	case uint16:
-		return float64(v)
-	case uint8:
-		return float64(v)
-	case float64:
-		return v
+		return T(v)
+	case int32:
+		return T(v)
+	case int64:
+		return T(v)
 	case float32:
-		return float64(v)
+		return T(v)
+	case float64:
+		return T(v)
 	case TimeStamp:
-		return float64(v)
-	case string:
-		panic("cannot cast string to float64")
+		return T(v)
 	default:
-		panic(fmt.Sprintf("cannot cast %T to float64", value))
-	}
-}
-
-func castToFloat32(value any) float32 { return float32(castToFloat64(value)) }
-
-func castToTimeStamp(value any) TimeStamp {
-	switch v := value.(type) {
-	case TimeStamp:
-		return v
-	case string:
-		panic("cannot cast string to TimeStamp")
-	default:
-		return TimeStamp(castToInt64(value))
+		var t T
+		panic(fmt.Sprintf("cannot cast %T to %T", value, t))
 	}
 }
 
 func castToString(value any) string {
 	switch v := value.(type) {
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, TimeStamp:
+		return fmt.Sprintf("%d", v)
+	case float32, float64:
+		return fmt.Sprintf("%g", v)
 	case string:
 		return v
-	case int, int64, int32, int16, int8, uint, uint64, uint32, uint16, uint8, TimeStamp:
-		return fmt.Sprintf("%d", v)
-	case float64, float32:
-		return fmt.Sprintf("%g", v)
 	default:
 		return fmt.Sprintf("%v", value)
 	}
 }
 
-func castToJSON(value any) Series {
+func castToBytes(value any) []byte {
 	switch v := value.(type) {
+	case uint8:
+		return []byte{v}
+	case uint16:
+		return ByteOrder.AppendUint16(nil, v)
+	case uint32:
+		return ByteOrder.AppendUint32(nil, v)
+	case uint64:
+		return ByteOrder.AppendUint64(nil, v)
+	case int8:
+		return []byte{byte(v)}
+	case int16:
+		return ByteOrder.AppendUint16(nil, uint16(v))
+	case int32:
+		return ByteOrder.AppendUint32(nil, uint32(v))
+	case int64:
+		return ByteOrder.AppendUint64(nil, uint64(v))
+	case float32:
+		return ByteOrder.AppendUint32(nil, math.Float32bits(v))
+	case float64:
+		return ByteOrder.AppendUint64(nil, math.Float64bits(v))
+	case TimeStamp:
+		return ByteOrder.AppendUint64(nil, uint64(v))
+	case uuid.UUID:
+		return v[:]
 	case string:
-		return Series{DataType: JSONT, Data: MarshalVariable([]string{v})}
+		return []byte(v)
 	case []byte:
-		return Series{DataType: JSONT, Data: MarshalVariable([]string{string(v)})}
+		return v
 	default:
-		return Series{DataType: JSONT, Data: lo.Must(MarshalJSON([]any{value}))}
+		panic(fmt.Sprintf("cannot cast %T to []byte", value))
 	}
 }
 
-func castToBytes(value any) []byte {
+func castToUUID(value any) uuid.UUID {
 	switch v := value.(type) {
+	case uuid.UUID:
+		return v
+	case string:
+		return uuid.MustParse(v)
 	case []byte:
-		return append(v, newLine)
+		return lo.Must(uuid.FromBytes(v))
 	default:
-		str := castToString(value)
-		return append([]byte(str), newLine)
+		panic(fmt.Sprintf("cannot cast %T to uuid.UUID", value))
 	}
 }

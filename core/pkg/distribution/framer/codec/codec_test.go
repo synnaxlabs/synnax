@@ -181,8 +181,8 @@ var _ = Describe("Codec", func() {
 				channel.Keys{1, 2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[uint8](1, 2, 3),
-					telem.NewSeriesVariableV("cat", "dog"),
-					MustSucceed(telem.NewSeriesJSONV(
+					telem.NewSeriesV("cat", "dog"),
+					MustSucceed(telem.NewJSONSeriesV(
 						map[string]any{"key": "value"},
 						map[string]any{"key": "value2"},
 					)),
@@ -219,7 +219,7 @@ var _ = Describe("Codec", func() {
 			s2 := telem.NewSeries(float32Data)
 			s2.TimeRange = telem.NewRangeSeconds(3, 5)
 			s2.Alignment = 10
-			s3 := telem.NewSeriesVariableV("cat", "dog", "rabbit", "frog")
+			s3 := telem.NewSeriesV("cat", "dog", "rabbit", "frog")
 			s3.TimeRange = telem.NewRangeSeconds(1, 5)
 			s3.Alignment = 5
 			s4 := telem.MakeSeries(telem.Uint8T, 5000)
@@ -567,7 +567,7 @@ var _ = Describe("Codec", func() {
 			multiFrame := frame.NewMulti(
 				channel.Keys{300, 100, 200},
 				[]telem.Series{
-					telem.NewSeriesVariableV("hello", "world"),
+					telem.NewSeriesV("hello", "world"),
 					telem.NewSeriesV[int64](1000, 2000, 3000),
 					telem.NewSeriesV(1.111, 2.222),
 				},
@@ -818,10 +818,10 @@ var _ = Describe("Codec", func() {
 			dataTypes := []telem.DataType{telem.StringT}
 			codec := codec.NewStatic(keys, dataTypes)
 
-			s1 := telem.NewSeriesVariableV("hello", "world")
+			s1 := telem.NewSeriesV("hello", "world")
 			s1.Alignment = 0
 
-			s2 := telem.NewSeriesVariableV("foo")
+			s2 := telem.NewSeriesV("foo")
 			s2.Alignment = 2
 
 			frame := frame.NewMulti(
@@ -837,7 +837,7 @@ var _ = Describe("Codec", func() {
 			Expect(len(series.Series)).To(Equal(1))
 
 			// Data should be concatenated correctly
-			mergedStrings := telem.UnmarshalVariable[string](series.Series[0].Data)
+			mergedStrings := telem.UnmarshalSeries[string](series.Series[0])
 			Expect(mergedStrings).To(Equal([]string{"hello", "world", "foo"}))
 		})
 	})
