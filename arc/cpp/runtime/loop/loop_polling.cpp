@@ -46,7 +46,7 @@ public:
 
     ~PollingLoop() override { this->timer_.reset(); }
 
-    WakeReason wait(breaker::Breaker &breaker) override {
+    WakeReason wait(x::breaker::Breaker &breaker) override {
         if (!this->started_) return WakeReason::Shutdown;
 
         if (this->config_.interval.nanoseconds() > 0 && this->timer_) {
@@ -79,7 +79,7 @@ public:
             }
         } else {
             if (this->config_.mode == ExecutionMode::BUSY_WAIT) {
-                std::this_thread::sleep_for(telem::MICROSECOND.chrono());
+                std::this_thread::sleep_for(x::telem::MICROSECOND.chrono());
             } else {
                 std::this_thread::sleep_for(timing::HIGH_RATE_POLL_INTERVAL.chrono());
             }
@@ -87,17 +87,17 @@ public:
         return WakeReason::Timer;
     }
 
-    xerrors::Error start() override {
-        if (this->started_) return xerrors::NIL;
+    x::errors::Error start() override {
+        if (this->started_) return x::errors::NIL;
 
         if (this->config_.interval.nanoseconds() > 0) {
-            this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+            this->timer_ = std::make_unique<::x::loop::Timer>(this->config_.interval);
         }
 
         this->last_tick_ = std::chrono::steady_clock::now();
         this->started_ = true;
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void wake() override {
@@ -105,7 +105,7 @@ public:
         // The breaker.running() check in the caller will handle shutdown.
     }
 
-    bool watch(notify::Notifier &notifier) override {
+    bool watch(x::notify::Notifier &notifier) override {
         static bool warned = false;
         if (!warned) {
             LOG(WARNING) << "[loop] watch() not supported in polling mode; "
@@ -117,7 +117,7 @@ public:
     }
 
 private:
-    void busy_wait(uint64_t duration_ns, breaker::Breaker &breaker) {
+    void busy_wait(uint64_t duration_ns, x::breaker::Breaker &breaker) {
         const auto start = std::chrono::steady_clock::now();
         while (breaker.running()) {
             const auto now = std::chrono::steady_clock::now();
@@ -130,15 +130,15 @@ private:
     }
 
     Config config_;
-    std::unique_ptr<::loop::Timer> timer_;
+    std::unique_ptr<::x::loop::Timer> timer_;
     std::chrono::steady_clock::time_point last_tick_;
     bool started_ = false;
 };
 
-std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
     auto loop = std::make_unique<PollingLoop>(cfg);
     if (auto err = loop->start(); err) return {nullptr, err};
-    return {std::move(loop), xerrors::NIL};
+    return {std::move(loop), x::errors::NIL};
 }
 
 }

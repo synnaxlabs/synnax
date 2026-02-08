@@ -9,11 +9,11 @@
 
 #include <gtest/gtest.h>
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/ethercat/mock/pool.h"
 
-namespace ethercat::mock {
+namespace driver::ethercat::mock {
 
 TEST(PoolConfiguration, ConfigureMasterAddsToEnumerate) {
     Pool pool;
@@ -60,16 +60,16 @@ TEST(PoolAcquire, ReturnsSameEngine) {
 
 TEST(PoolAcquire, ReturnsErrorForUnconfigured) {
     Pool pool;
-    ASSERT_OCCURRED_AS_P(pool.acquire("unknown"), MASTER_INIT_ERROR);
+    ASSERT_OCCURRED_AS_P(pool.acquire("unknown"), errors::MASTER_INIT_ERROR);
 }
 
 TEST(PoolAcquire, WithInjectedError) {
     Pool pool;
     auto master = std::make_shared<Master>("eth0");
     pool.configure_master("eth0", master);
-    pool.inject_acquire_error(xerrors::Error(MASTER_INIT_ERROR, "injected"));
+    pool.inject_acquire_error(x::errors::Error(errors::MASTER_INIT_ERROR, "injected"));
 
-    ASSERT_OCCURRED_AS_P(pool.acquire("eth0"), MASTER_INIT_ERROR);
+    ASSERT_OCCURRED_AS_P(pool.acquire("eth0"), errors::MASTER_INIT_ERROR);
 }
 
 TEST(PoolIsActive, ReturnsFalseInitially) {
@@ -145,7 +145,7 @@ TEST(PoolErrorInjection, ClearInjectedErrorsResetsAcquireError) {
     Pool pool;
     auto master = std::make_shared<Master>("eth0");
     pool.configure_master("eth0", master);
-    pool.inject_acquire_error(xerrors::Error(MASTER_INIT_ERROR, "injected"));
+    pool.inject_acquire_error(x::errors::Error(errors::MASTER_INIT_ERROR, "injected"));
     pool.clear_injected_errors();
 
     auto [engine, err] = pool.acquire("eth0");

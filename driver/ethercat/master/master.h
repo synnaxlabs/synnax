@@ -15,12 +15,12 @@
 #include <utility>
 #include <vector>
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/slave/slave.h"
 
-namespace ethercat::master {
+namespace driver::ethercat::master {
 
 /// @brief information about an available EtherCAT master or network.
 struct Info {
@@ -36,10 +36,10 @@ public:
     virtual ~Master() = default;
 
     /// @brief initializes the master and scans the EtherCAT network for slaves.
-    [[nodiscard]] virtual xerrors::Error initialize() = 0;
+    [[nodiscard]] virtual x::errors::Error initialize() = 0;
 
     /// @brief registers PDO entries for process data exchange.
-    [[nodiscard]] virtual xerrors::Error
+    [[nodiscard]] virtual x::errors::Error
     register_pdos(const std::vector<pdo::Entry> &entries) = 0;
 
     /// @brief sets whether a slave is enabled for cyclic exchange.
@@ -47,16 +47,16 @@ public:
     virtual void set_slave_enabled(uint16_t position, bool enabled) = 0;
 
     /// @brief activates the master and transitions slaves to OPERATIONAL state.
-    [[nodiscard]] virtual xerrors::Error activate() = 0;
+    [[nodiscard]] virtual x::errors::Error activate() = 0;
 
     /// @brief deactivates the master and stops cyclic communication.
     virtual void deactivate() = 0;
 
     /// @brief receives and processes input data from the EtherCAT network.
-    [[nodiscard]] virtual xerrors::Error receive() = 0;
+    [[nodiscard]] virtual x::errors::Error receive() = 0;
 
     /// @brief queues output data and sends to the EtherCAT network.
-    [[nodiscard]] virtual xerrors::Error send() = 0;
+    [[nodiscard]] virtual x::errors::Error send() = 0;
 
     /// @brief returns the input data buffer (TxPDO, slave→master).
     [[nodiscard]] virtual std::span<const uint8_t> input_data() = 0;
@@ -93,7 +93,7 @@ public:
     [[nodiscard]] virtual std::vector<Info> enumerate() = 0;
 
     /// @brief creates a master for the given key.
-    [[nodiscard]] virtual std::pair<std::shared_ptr<Master>, xerrors::Error>
+    [[nodiscard]] virtual std::pair<std::shared_ptr<Master>, x::errors::Error>
     create(const std::string &key) = 0;
 };
 

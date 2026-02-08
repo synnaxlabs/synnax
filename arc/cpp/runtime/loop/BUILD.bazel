@@ -41,13 +41,13 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/breaker",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/log",
         "//x/cpp/loop",
         "//x/cpp/notify",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
-        "//x/cpp/xjson",
-        "//x/cpp/xlog",
-        "//x/cpp/xthread",
+        "//x/cpp/thread/rt",
         "@glog",
     ],
 )
@@ -59,7 +59,7 @@ cc_test(
         ":loop",
         "//x/cpp/breaker",
         "//x/cpp/notify",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

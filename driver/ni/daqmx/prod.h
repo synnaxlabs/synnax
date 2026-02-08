@@ -11,20 +11,20 @@
 
 #include <memory>
 
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xlib/xlib.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/lib/lib.h"
 
 #include "driver/ni/daqmx/api.h"
 #include "driver/ni/daqmx/nidaqmx.h"
 
-namespace daqmx {
+namespace driver::ni::daqmx {
 class ProdAPI final : public API {
 public:
-    explicit ProdAPI(std::unique_ptr<xlib::SharedLib> &lib_);
+    explicit ProdAPI(std::unique_ptr<x::lib::SharedLib> &lib_);
 
     ~ProdAPI() override;
 
-    static std::pair<std::shared_ptr<API>, xerrors::Error> load();
+    static std::pair<std::shared_ptr<API>, x::errors::Error> load();
 
     int32 AddCDAQSyncConnection(const char portList[]) override;
 
@@ -5374,6 +5374,6 @@ private:
     } FunctionLoadStatus;
 
     FunctionPointers function_pointers_{};
-    std::unique_ptr<xlib::SharedLib> lib;
+    std::unique_ptr<x::lib::SharedLib> lib;
 };
 }
