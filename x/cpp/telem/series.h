@@ -19,16 +19,15 @@
 #include "nlohmann/json.hpp"
 
 #include "x/cpp/binary/binary.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
 #include "x/go/telem/telem.pb.h"
 
-using json = nlohmann::json;
-
 constexpr char NEWLINE_CHAR = '\n';
 constexpr auto NEWLINE_TERMINATOR = static_cast<std::byte>(NEWLINE_CHAR);
 
-namespace telem {
+namespace x::telem {
 template<typename DestType, typename SrcType>
 static void cast_to_type(std::byte *dest, SrcType *src, const size_t count) {
     auto *typed_dest = reinterpret_cast<DestType *>(dest);
@@ -574,7 +573,7 @@ public:
     }
 
     /// @brief constructs the series from its protobuf representation.
-    explicit Series(const PBSeries &s):
+    explicit Series(const ::telem::PBSeries &s):
         data_type_(s.data_type()),
         cap_(this->size()),
         cached_byte_size(s.data().size()),
@@ -589,7 +588,7 @@ public:
     }
 
     /// @brief constructs the series from the given JSON value.
-    explicit Series(const json &value): Series(value.dump(), JSON_T) {}
+    explicit Series(const json::json &value): Series(value.dump(), JSON_T) {}
 
     /// @brief constructs a series of size 1 from the given SampleValue.
     /// @param v the SampleValue to be used.
@@ -614,7 +613,7 @@ public:
 
     /// @brief constructs the series from a vector of JSON values.
     /// @param values the vector of JSON values to be used.
-    explicit Series(const std::vector<json> &values):
+    explicit Series(const std::vector<json::json> &values):
         data_type_(JSON_T), cap_(values.size()), size_(values.size()) {
         // Calculate the total byte size needed (including newline terminators)
         this->cached_byte_size = 0;
@@ -861,7 +860,7 @@ public:
 
     /// @brief encodes the series' fields into the given protobuf message.
     /// @param pb the protobuf message to encode the fields into.
-    void to_proto(PBSeries *pb) const {
+    void to_proto(::telem::PBSeries *pb) const {
         pb->set_data_type(this->data_type().name());
         pb->set_data(this->data_.get(), byte_size());
     }
@@ -902,14 +901,14 @@ public:
 
     /// @brief returns the data as a vector of JSON values. This method can only be used
     /// if the data type is JSON.
-    [[nodiscard]] std::vector<json> json_values() const {
+    [[nodiscard]] std::vector<json::json> json_values() const {
         if (!this->data_type().matches({JSON_T}))
             throw std::runtime_error("cannot convert a non-JSON series to JSON values");
 
-        std::vector<json> v;
+        std::vector<json::json> v;
         v.reserve(this->size());
         for (const auto &str: this->strings())
-            v.push_back(json::parse(str));
+            v.push_back(json::json::parse(str));
         return v;
     }
 
@@ -981,10 +980,10 @@ public:
     /// @param index the index to get the JSON at. If negative, the index is treated
     /// as an offset from the end of the series.
     /// @param value the json object to bind the value to.
-    void at(const int &index, json &value) const {
+    void at(const int &index, json::json &value) const {
         if (!this->data_type().matches({JSON_T}))
             throw std::runtime_error("cannot bind a JSON value on a non-JSON series");
-        value = json::parse(this->at<std::string>(index));
+        value = json::json::parse(this->at<std::string>(index));
     }
 
     friend std::ostream &operator<<(std::ostream &os, const Series &s) {

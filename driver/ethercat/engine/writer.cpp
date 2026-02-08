@@ -10,7 +10,7 @@
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/telem/telem.h"
 
-namespace ethercat::engine {
+namespace driver::ethercat::engine {
 Engine::Writer::Writer(Engine &eng, const size_t id, std::vector<ResolvedPDO> pdos):
     engine(eng), id(id), pdos(std::move(pdos)) {}
 
@@ -26,14 +26,20 @@ Engine::Writer::Transaction::Transaction(
 
 void Engine::Writer::Transaction::write(
     const size_t pdo_index,
-    const telem::SampleValue &value
+    const x::telem::SampleValue &value
 ) const {
     if (pdo_index >= this->pdos.size()) return;
     const auto &pdo = this->pdos[pdo_index];
-    const size_t required = pdo_required_bytes(pdo.offset.bit, pdo.bit_length);
+    const size_t required = telem::pdo_required_bytes(pdo.offset.bit, pdo.bit_length);
     if (pdo.offset.byte + required > this->engine.write_staging.size()) return;
     uint8_t *dest = this->engine.write_staging.data() + pdo.offset.byte;
-    write_pdo_from_value(dest, pdo.offset.bit, pdo.bit_length, pdo.data_type, value);
+    telem::write_pdo_from_value(
+        dest,
+        pdo.offset.bit,
+        pdo.bit_length,
+        pdo.data_type,
+        value
+    );
 }
 
 Engine::Writer::Transaction Engine::Writer::open_tx() const {
@@ -42,7 +48,7 @@ Engine::Writer::Transaction Engine::Writer::open_tx() const {
 
 void Engine::Writer::write(
     const size_t pdo_index,
-    const telem::SampleValue &value
+    const x::telem::SampleValue &value
 ) const {
     this->open_tx().write(pdo_index, value);
 }

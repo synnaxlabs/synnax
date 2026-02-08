@@ -18,7 +18,7 @@
 
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xthread/rt.h"
+#include "x/cpp/thread/rt/rt.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 
@@ -30,7 +30,7 @@ public:
 
     ~LinuxLoop() override { this->close_fds(); }
 
-    WakeReason wait(breaker::Breaker &breaker) override {
+    WakeReason wait(x::breaker::Breaker &breaker) override {
         if (this->epoll_fd_ == -1) return WakeReason::Shutdown;
 
         switch (this->config_.mode) {
@@ -49,19 +49,19 @@ public:
         return WakeReason::Shutdown;
     }
 
-    xerrors::Error start() override {
-        if (this->epoll_fd_ != -1) return xerrors::NIL;
+    x::errors::Error start() override {
+        if (this->epoll_fd_ != -1) return x::errors::NIL;
 
         this->epoll_fd_ = epoll_create1(0);
         if (this->epoll_fd_ == -1)
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to create epoll: " + std::string(strerror(errno))
             );
 
         this->event_fd_ = eventfd(0, EFD_NONBLOCK);
         if (this->event_fd_ == -1) {
             close(this->epoll_fd_);
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to create eventfd: " + std::string(strerror(errno))
             );
         }
@@ -72,7 +72,7 @@ public:
         if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->event_fd_, &ev) == -1) {
             close(this->event_fd_);
             close(this->epoll_fd_);
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to add eventfd to epoll: " + std::string(strerror(errno))
             );
         }
@@ -85,22 +85,22 @@ public:
                 if (this->timer_fd_ == -1) {
                     close(this->event_fd_);
                     close(this->epoll_fd_);
-                    return xerrors::Error(
+                    return x::errors::Error(
                         "Failed to create timerfd: " + std::string(strerror(errno))
                     );
                 }
 
                 const uint64_t interval_ns = this->config_.interval.nanoseconds();
                 struct itimerspec ts;
-                ts.it_interval.tv_sec = interval_ns / telem::SECOND.nanoseconds();
-                ts.it_interval.tv_nsec = interval_ns % telem::SECOND.nanoseconds();
+                ts.it_interval.tv_sec = interval_ns / x::telem::SECOND.nanoseconds();
+                ts.it_interval.tv_nsec = interval_ns % x::telem::SECOND.nanoseconds();
                 ts.it_value = ts.it_interval;
 
                 if (timerfd_settime(this->timer_fd_, 0, &ts, nullptr) == -1) {
                     close(this->timer_fd_);
                     close(this->event_fd_);
                     close(this->epoll_fd_);
-                    return xerrors::Error(
+                    return x::errors::Error(
                         "Failed to set timerfd interval: " +
                         std::string(strerror(errno))
                     );
@@ -113,7 +113,7 @@ public:
                     close(this->timer_fd_);
                     close(this->event_fd_);
                     close(this->epoll_fd_);
-                    return xerrors::Error(
+                    return x::errors::Error(
                         "Failed to add timerfd to epoll: " +
                         std::string(strerror(errno))
                     );
@@ -125,10 +125,10 @@ public:
 
         auto rt_cfg = this->config_.rt();
         rt_cfg.prefer_deadline_scheduler = true;
-        if (auto err = xthread::apply_rt_config(rt_cfg); err)
+        if (auto err = x::thread::rt::apply_config(rt_cfg); err)
             LOG(WARNING) << "[loop] Failed to apply RT config: " << err.message();
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void wake() override {
@@ -137,7 +137,7 @@ public:
         [[maybe_unused]] auto _ = write(this->event_fd_, &val, sizeof(val));
     }
 
-    bool watch(notify::Notifier &notifier) override {
+    bool watch(x::notify::Notifier &notifier) override {
         const int fd = notifier.fd();
         if (fd == -1 || this->epoll_fd_ == -1) return false;
 
@@ -186,7 +186,7 @@ private:
         this->timer_enabled_ = false;
     }
 
-    WakeReason busy_wait(breaker::Breaker &breaker) {
+    WakeReason busy_wait(x::breaker::Breaker &breaker) {
         struct epoll_event events[2];
 
         while (breaker.running()) {
@@ -200,7 +200,7 @@ private:
         return WakeReason::Shutdown;
     }
 
-    WakeReason high_rate_wait(breaker::Breaker &breaker) {
+    WakeReason high_rate_wait(x::breaker::Breaker &breaker) {
         this->timer_->wait(breaker);
         struct epoll_event events[2];
         const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
@@ -221,7 +221,7 @@ private:
         return WakeReason::Shutdown;
     }
 
-    WakeReason hybrid_wait(const breaker::Breaker &breaker) {
+    WakeReason hybrid_wait(const x::breaker::Breaker &breaker) {
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
             this->config_.spin_duration.nanoseconds()
@@ -286,10 +286,10 @@ private:
     std::unique_ptr<::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
     auto loop = std::make_unique<LinuxLoop>(cfg);
     if (auto err = loop->start(); err) return {nullptr, err};
-    return {std::move(loop), xerrors::NIL};
+    return {std::move(loop), x::errors::NIL};
 }
 
 }

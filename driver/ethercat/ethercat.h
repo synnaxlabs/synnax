@@ -13,11 +13,11 @@
 #include <string>
 #include <vector>
 
+#include "driver/common/common.h"
 #include "driver/ethercat/engine/pool.h"
-#include "driver/task/common/common.h"
 #include "driver/task/task.h"
 
-namespace ethercat {
+namespace driver::ethercat {
 
 /// @brief integration name for EtherCAT.
 const std::string INTEGRATION_NAME = "ethercat";
@@ -38,18 +38,20 @@ std::unique_ptr<master::Manager> default_manager();
 class Factory final : public task::Factory {
     std::shared_ptr<engine::Pool> pool;
 
-    std::pair<common::ConfigureResult, xerrors::Error> configure_read(
+    std::pair<common::ConfigureResult, x::errors::Error> configure_read(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) const;
 
-    std::pair<common::ConfigureResult, xerrors::Error> configure_write(
+    std::pair<common::ConfigureResult, x::errors::Error> configure_write(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) const;
 
-    std::pair<common::ConfigureResult, xerrors::Error>
-    configure_scan(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
+    std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::task::Task &task
+    );
 
 public:
     /// @brief constructs a Factory with default manager.
@@ -67,13 +69,13 @@ public:
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) override;
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Rack &rack
+        const synnax::rack::Rack &rack
     ) override;
 
     /// @brief checks if a master has an active engine.

@@ -9,14 +9,14 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/ni/syscfg/api.h"
 #include "driver/ni/syscfg/sugared.h"
 
-namespace {
+namespace driver::ni::syscfg {
 /// @brief Mock implementation of syscfg::API for testing.
-class MockAPI : public syscfg::API {
+class MockAPI : public API {
 public:
     NISysCfgStatus close_handle_status = NISysCfg_OK;
 
@@ -92,33 +92,30 @@ public:
 
     NISYSCFGCFUNC FreeDetailedStringW(wchar_t[]) override { return NISysCfg_OK; }
 };
-}
 
 /// @brief CloseHandle should return NIL when the underlying API returns OK.
 TEST(SugaredAPITest, CloseHandleReturnsNilOnSuccess) {
-    auto mock = std::make_shared<MockAPI>();
+    const auto mock = std::make_shared<MockAPI>();
     mock->close_handle_status = NISysCfg_OK;
-    syscfg::SugaredAPI api(mock);
-
+    SugaredAPI api(mock);
     ASSERT_NIL(api.CloseHandle(nullptr));
 }
 
 /// @brief CloseHandle should return NIL when the underlying API returns EndOfEnum.
 /// This is the key fix - EndOfEnum is normal when closing an exhausted enumeration.
 TEST(SugaredAPITest, CloseHandleReturnsNilOnEndOfEnum) {
-    auto mock = std::make_shared<MockAPI>();
+    const auto mock = std::make_shared<MockAPI>();
     mock->close_handle_status = NISysCfg_EndOfEnum;
-    syscfg::SugaredAPI api(mock);
-
+    SugaredAPI api(mock);
     ASSERT_NIL(api.CloseHandle(nullptr));
 }
 
 /// @brief CloseHandle should propagate other errors normally.
 TEST(SugaredAPITest, CloseHandlePropagatesOtherErrors) {
-    auto mock = std::make_shared<MockAPI>();
+    const auto mock = std::make_shared<MockAPI>();
     mock->close_handle_status = NISysCfg_InvalidArg;
-    syscfg::SugaredAPI api(mock);
-
-    auto err = api.CloseHandle(nullptr);
+    SugaredAPI api(mock);
+    const auto err = api.CloseHandle(nullptr);
     EXPECT_TRUE(err) << "Expected an error for InvalidArg";
+}
 }

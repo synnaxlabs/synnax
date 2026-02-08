@@ -13,12 +13,12 @@
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/errors/errors.h"
 #include "freighter/cpp/freighter.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
-namespace synnax {
+namespace synnax::channel {
 Channel::Channel(const api::v1::Channel &ch):
     name(ch.name()),
-    data_type(telem::DataType(ch.data_type())),
+    data_type(x::telem::DataType(ch.data_type())),
     key(ch.key()),
     index(ch.index()),
     is_index(ch.is_index()),
@@ -28,8 +28,8 @@ Channel::Channel(const api::v1::Channel &ch):
 
 Channel::Channel(
     std::string name,
-    telem::DataType data_type,
-    const ChannelKey index,
+    x::telem::DataType data_type,
+    const Key index,
     const bool is_index
 ):
     name(std::move(name)),
@@ -37,7 +37,7 @@ Channel::Channel(
     index(index),
     is_index(is_index) {}
 
-Channel::Channel(std::string name, telem::DataType data_type, const bool is_virtual):
+Channel::Channel(std::string name, x::telem::DataType data_type, const bool is_virtual):
     name(std::move(name)), data_type(std::move(data_type)), is_virtual(is_virtual) {}
 
 void Channel::to_proto(api::v1::Channel *ch) const {
@@ -50,27 +50,27 @@ void Channel::to_proto(api::v1::Channel *ch) const {
     ch->set_is_virtual(is_virtual);
 }
 
-xerrors::Error ChannelClient::create(synnax::Channel &channel) const {
+x::errors::Error Client::create(synnax::channel::Channel &channel) const {
     auto req = api::v1::ChannelCreateRequest();
     channel.to_proto(req.add_channels());
     auto [res, err] = create_client->send("/channel/create", req);
     if (err) return err;
-    if (res.channels_size() == 0) return unexpected_missing_error("channel");
+    if (res.channels_size() == 0) return errors::unexpected_missing_error("channel");
     const auto first = res.channels(0);
     channel.key = first.key();
     channel.name = first.name();
-    channel.data_type = telem::DataType(first.data_type());
+    channel.data_type = x::telem::DataType(first.data_type());
     channel.is_index = first.is_index();
     channel.leaseholder = first.leaseholder();
     channel.index = first.index();
     channel.internal = first.internal();
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-std::pair<Channel, xerrors::Error> ChannelClient::create(
+std::pair<Channel, x::errors::Error> Client::create(
     const std::string &name,
-    const telem::DataType &data_type,
-    const ChannelKey index,
+    const x::telem::DataType &data_type,
+    const Key index,
     const bool is_index
 ) const {
     auto ch = Channel(name, data_type, index, is_index);
@@ -78,9 +78,9 @@ std::pair<Channel, xerrors::Error> ChannelClient::create(
     return {ch, err};
 }
 
-std::pair<Channel, xerrors::Error> ChannelClient::create(
+std::pair<Channel, x::errors::Error> Client::create(
     const std::string &name,
-    const telem::DataType &data_type,
+    const x::telem::DataType &data_type,
     const bool is_virtual
 ) const {
     auto ch = Channel(name, data_type, is_virtual);
@@ -88,7 +88,7 @@ std::pair<Channel, xerrors::Error> ChannelClient::create(
     return {ch, err};
 }
 
-xerrors::Error ChannelClient::create(std::vector<Channel> &channels) const {
+x::errors::Error Client::create(std::vector<Channel> &channels) const {
     auto req = api::v1::ChannelCreateRequest();
     req.mutable_channels()->Reserve(static_cast<int>(channels.size()));
     for (const auto &ch: channels)
@@ -99,31 +99,33 @@ xerrors::Error ChannelClient::create(std::vector<Channel> &channels) const {
     return exc;
 }
 
-std::pair<Channel, xerrors::Error> ChannelClient::retrieve(const ChannelKey key) const {
+std::pair<Channel, x::errors::Error> Client::retrieve(const Key key) const {
     auto req = api::v1::ChannelRetrieveRequest();
     req.add_keys(key);
     auto [res, err] = retrieve_client->send("/channel/retrieve", req);
     if (err) return {Channel(), err};
     if (res.channels_size() == 0)
-        return {Channel(), not_found_error("channel", "key " + std::to_string(key))};
+        return {
+            Channel(),
+            errors::not_found_error("channel", "key " + std::to_string(key))
+        };
     return {Channel(res.channels(0)), err};
 }
 
-std::pair<Channel, xerrors::Error>
-ChannelClient::retrieve(const std::string &name) const {
+std::pair<Channel, x::errors::Error> Client::retrieve(const std::string &name) const {
     auto payload = api::v1::ChannelRetrieveRequest();
     payload.add_names(name);
     auto [res, err] = retrieve_client->send("/channel/retrieve", payload);
     if (err) return {Channel(), err};
     if (res.channels_size() == 0)
-        return {Channel(), not_found_error("channel", "name " + name)};
+        return {Channel(), errors::not_found_error("channel", "name " + name)};
     if (res.channels_size() > 1)
-        return {Channel(), multiple_found_error("channels", "name " + name)};
+        return {Channel(), errors::multiple_found_error("channels", "name " + name)};
     return {Channel(res.channels(0)), err};
 }
 
-std::pair<std::vector<Channel>, xerrors::Error>
-ChannelClient::retrieve(const std::vector<ChannelKey> &keys) const {
+std::pair<std::vector<Channel>, x::errors::Error>
+Client::retrieve(const std::vector<Key> &keys) const {
     api::v1::ChannelRetrieveRequest req;
     req.mutable_keys()->Add(keys.begin(), keys.end());
     auto [res, exc] = this->retrieve_client->send("/channel/retrieve", req);
@@ -131,8 +133,8 @@ ChannelClient::retrieve(const std::vector<ChannelKey> &keys) const {
     return {channels, exc};
 }
 
-std::pair<std::vector<Channel>, xerrors::Error>
-ChannelClient::retrieve(const std::vector<std::string> &names) const {
+std::pair<std::vector<Channel>, x::errors::Error>
+Client::retrieve(const std::vector<std::string> &names) const {
     auto req = api::v1::ChannelRetrieveRequest();
     req.mutable_names()->Add(names.begin(), names.end());
     auto [res, err] = retrieve_client->send("/channel/retrieve", req);

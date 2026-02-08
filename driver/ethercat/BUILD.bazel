@@ -18,6 +18,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
+        "//driver/common",
         "//driver/errors",
         "//driver/ethercat/channel",
         "//driver/ethercat/engine",
@@ -28,11 +29,10 @@ cc_library(
         "//driver/ethercat/topology",
         "//driver/pipeline",
         "//driver/task",
-        "//driver/task/common",
         "//x/cpp/breaker",
+        "//x/cpp/errors",
+        "//x/cpp/json",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
-        "//x/cpp/xjson",
         "@glog",
     ] + select({
         ":linux": [
@@ -56,7 +56,7 @@ cc_test(
         "//driver/ethercat",
         "//driver/ethercat/mock",
         "//driver/pipeline/mock",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )
@@ -74,7 +74,7 @@ cc_test(
         "//driver/ethercat",
         "//driver/ethercat/soem",
         "//x/cpp/telem",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

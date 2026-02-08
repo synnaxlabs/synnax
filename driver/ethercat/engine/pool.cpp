@@ -9,7 +9,7 @@
 
 #include "driver/ethercat/engine/pool.h"
 
-namespace ethercat::engine {
+namespace driver::ethercat::engine {
 
 Pool::Pool(std::unique_ptr<master::Manager> manager): manager(std::move(manager)) {}
 
@@ -18,18 +18,18 @@ std::vector<master::Info> Pool::enumerate() const {
     return this->manager->enumerate();
 }
 
-std::pair<std::shared_ptr<Engine>, xerrors::Error>
+std::pair<std::shared_ptr<Engine>, x::errors::Error>
 Pool::acquire_unlocked(const std::string &key) {
     const auto it = this->engines.find(key);
-    if (it != this->engines.end()) return {it->second, xerrors::NIL};
+    if (it != this->engines.end()) return {it->second, x::errors::NIL};
     auto [m, err] = this->manager->create(key);
     if (err) return {nullptr, err};
     auto eng = std::make_shared<Engine>(std::move(m));
     this->engines[key] = eng;
-    return {eng, xerrors::NIL};
+    return {eng, x::errors::NIL};
 }
 
-std::pair<std::shared_ptr<Engine>, xerrors::Error>
+std::pair<std::shared_ptr<Engine>, x::errors::Error>
 Pool::acquire(const std::string &key) {
     std::lock_guard lock(this->mu);
     return this->acquire_unlocked(key);
@@ -48,14 +48,14 @@ std::vector<slave::DiscoveryResult> Pool::get_slaves(const std::string &key) con
     return {};
 }
 
-std::pair<std::vector<slave::DiscoveryResult>, xerrors::Error>
+std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
 Pool::discover_slaves(const std::string &key) {
     std::lock_guard lock(this->mu);
     auto [engine, err] = this->acquire_unlocked(key);
     if (err) return {{}, err};
     if (!engine->running())
         if (auto init_err = engine->ensure_initialized()) return {{}, init_err};
-    return {engine->slaves(), xerrors::NIL};
+    return {engine->slaves(), x::errors::NIL};
 }
 
 }

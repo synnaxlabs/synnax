@@ -25,7 +25,7 @@ extern "C" {
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
 
-namespace ethercat::soem {
+namespace driver::ethercat::soem {
 /// @brief SOEM-based implementation of the Master interface.
 class Master final : public master::Master {
     /// @brief the network interface name (e.g., "eth0", "enp3s0").
@@ -62,19 +62,19 @@ public:
     Master(const Master &) = delete;
     Master &operator=(const Master &) = delete;
 
-    xerrors::Error initialize() override;
+    x::errors::Error initialize() override;
 
-    xerrors::Error register_pdos(const std::vector<pdo::Entry> &entries) override;
+    x::errors::Error register_pdos(const std::vector<pdo::Entry> &entries) override;
 
     void set_slave_enabled(uint16_t position, bool enabled) override;
 
-    xerrors::Error activate() override;
+    x::errors::Error activate() override;
 
     void deactivate() override;
 
-    xerrors::Error receive() override;
+    x::errors::Error receive() override;
 
-    xerrors::Error send() override;
+    x::errors::Error send() override;
 
     std::span<const uint8_t> input_data() override;
 
@@ -110,7 +110,7 @@ private:
     void discover_pdos_sii(slave::DiscoveryResult &slave);
 
     /// @brief reads PDO assignment object to get list of assigned PDOs.
-    xerrors::Error read_pdo_assign(
+    x::errors::Error read_pdo_assign(
         uint16_t slave_pos,
         uint16_t assign_index,
         bool is_input,
@@ -118,7 +118,7 @@ private:
     );
 
     /// @brief reads PDO mapping entries from a specific PDO.
-    xerrors::Error read_pdo_mapping(
+    x::errors::Error read_pdo_mapping(
         uint16_t slave_pos,
         uint16_t pdo_index,
         bool is_input,
@@ -134,7 +134,7 @@ private:
     scan_object_dictionary_for_pdos(uint16_t slave_pos, slave::DiscoveryResult &slave);
 
     /// @brief transitions all slaves to the specified state.
-    xerrors::Error request_state(uint16_t state, int timeout);
+    x::errors::Error request_state(uint16_t state, int timeout);
 };
 
 /// @brief SOEM-based implementation of master::Manager.
@@ -161,19 +161,22 @@ public:
         return masters;
     }
 
-    [[nodiscard]] std::pair<std::shared_ptr<master::Master>, xerrors::Error>
+    [[nodiscard]] std::pair<std::shared_ptr<master::Master>, x::errors::Error>
     create(const std::string &key) override {
         if (key.empty())
-            return {nullptr, xerrors::Error(MASTER_INIT_ERROR, "empty interface name")};
+            return {
+                nullptr,
+                x::errors::Error(errors::MASTER_INIT_ERROR, "empty interface name")
+            };
         if (key.size() >= 4 && key.substr(0, 4) == "igh:")
             return {
                 nullptr,
-                xerrors::Error(
-                    MASTER_INIT_ERROR,
+                x::errors::Error(
+                    errors::MASTER_INIT_ERROR,
                     "invalid SOEM interface '" + key + "': IgH-style keys not supported"
                 )
             };
-        return {std::make_shared<Master>(key), xerrors::NIL};
+        return {std::make_shared<Master>(key), x::errors::NIL};
     }
 
 private:

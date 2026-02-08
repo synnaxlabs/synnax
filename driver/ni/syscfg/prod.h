@@ -9,18 +9,18 @@
 
 #pragma once
 
-#include "x/cpp/xlib/xlib.h"
+#include "x/cpp/lib/lib.h"
 
 #include "driver/ni/syscfg/api.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/nisyscfg_wide.h"
 
-namespace syscfg {
+namespace driver::ni::syscfg {
 class ProdAPI final : public API {
 public:
-    explicit ProdAPI(std::unique_ptr<xlib::SharedLib> &lib_);
+    explicit ProdAPI(std::unique_ptr<x::lib::SharedLib> &lib_);
 
-    static std::pair<std::shared_ptr<API>, xerrors::Error> load();
+    static std::pair<std::shared_ptr<API>, x::errors::Error> load();
 
     NISYSCFGCFUNC InitializeSession(
         const char *targetName,
@@ -114,7 +114,7 @@ private:
         FreeDetailedStringWPtr FreeDetailedStringW;
     } FunctionPointers;
 
-    std::unique_ptr<xlib::SharedLib> lib;
+    std::unique_ptr<x::lib::SharedLib> lib;
     FunctionPointers function_pointers_;
 };
 }

@@ -12,7 +12,7 @@ cc_library(
         "//client/cpp/errors",
         "//core/pkg/api/grpc/v1:api_grpc",
         "//freighter/cpp:freighter",
-        "//freighter/cpp/fgrpc",
+        "//freighter/cpp/grpc",
         "@grpc//:grpc++",
     ],
 )
@@ -24,7 +24,7 @@ cc_test(
         ":arc",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

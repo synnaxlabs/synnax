@@ -13,11 +13,12 @@
 
 #include "x/cpp/defer/defer.h"
 
+namespace x::defer {
 /// @brief it should call the function when the scope ends.
 TEST(DeferTests, BasicFunctionality) {
     bool called = false;
     {
-        x::defer d([&called] { called = true; });
+        defer d([&called] { called = true; });
         ASSERT_FALSE(called);
     }
     ASSERT_TRUE(called);
@@ -27,9 +28,9 @@ TEST(DeferTests, BasicFunctionality) {
 TEST(DeferTests, MultipleDefers) {
     int counter = 0;
     {
-        x::defer d1([&counter] { counter += 1; });
-        x::defer d2([&counter] { counter += 2; });
-        x::defer d3([&counter] { counter += 3; });
+        defer d1([&counter] { counter += 1; });
+        defer d2([&counter] { counter += 2; });
+        defer d3([&counter] { counter += 3; });
         ASSERT_EQ(counter, 0);
     }
     ASSERT_EQ(counter, 6);
@@ -42,7 +43,7 @@ TEST(DeferTests, EarlyReturn) {
 
     {
         auto test_function = [](const bool early_return, bool &called_after) -> bool {
-            x::defer d([&called_after] { called_after = true; });
+            defer d([&called_after] { called_after = true; });
             if (early_return) return false;
             return true;
         };
@@ -51,7 +52,7 @@ TEST(DeferTests, EarlyReturn) {
 
     {
         auto test_function = [](bool early_return, bool &called_after) -> bool {
-            x::defer d([&called_after] { called_after = true; });
+            defer d([&called_after] { called_after = true; });
             if (early_return) return false;
             return true;
         };
@@ -67,7 +68,7 @@ TEST(DeferTests, EarlyReturn) {
 TEST(DeferTests, ExceptionHandling) {
     bool called = false;
     try {
-        x::defer d([&called] { called = true; });
+        defer d([&called] { called = true; });
         throw std::runtime_error("Test exception");
     } catch (const std::exception &) {
         // Exception caught
@@ -81,9 +82,9 @@ TEST(DeferTests, NestedScopes) {
     int inner = 0;
 
     {
-        x::defer d_outer([&outer] { outer++; });
+        defer d_outer([&outer] { outer++; });
         {
-            x::defer d_inner([&inner] { inner++; });
+            defer d_inner([&inner] { inner++; });
             ASSERT_EQ(inner, 0);
         }
 
@@ -99,7 +100,7 @@ TEST(DeferTests, NestedScopes) {
 TEST(DeferTests, ModifyingCapturedVariables) {
     int value = 5;
     {
-        x::defer d([&value] { value *= 2; });
+        defer d([&value] { value *= 2; });
         value += 5;
         ASSERT_EQ(value, 10);
     }
@@ -112,15 +113,16 @@ TEST(DeferTests, ConditionalExecution) {
     bool executed = false;
 
     {
-        if (condition) x::defer d([&executed]() { executed = true; });
+        if (condition) defer d([&executed]() { executed = true; });
     }
 
     ASSERT_FALSE(executed);
 
     condition = true;
     {
-        if (condition) x::defer d([&executed]() { executed = true; });
+        if (condition) defer d([&executed]() { executed = true; });
     }
 
     ASSERT_TRUE(executed);
+}
 }

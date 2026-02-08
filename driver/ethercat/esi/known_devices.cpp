@@ -14,10 +14,8 @@
 
 #include "driver/ethercat/esi/known_devices.h"
 
-namespace ethercat::esi {
-
+namespace driver::ethercat::esi {
 namespace {
-
 // Include the generated binary blob fetched from GitHub releases
 #include "driver/ethercat/esi/registry_blob.inc"
 
@@ -100,30 +98,30 @@ inline const BlobPDO *pdos() {
     );
 }
 
-telem::DataType id_to_data_type(uint8_t id) {
+x::telem::DataType id_to_data_type(uint8_t id) {
     switch (id) {
         case 1:
-            return telem::UINT8_T;
+            return x::telem::UINT8_T;
         case 2:
-            return telem::INT8_T;
+            return x::telem::INT8_T;
         case 3:
-            return telem::INT16_T;
+            return x::telem::INT16_T;
         case 4:
-            return telem::UINT16_T;
+            return x::telem::UINT16_T;
         case 5:
-            return telem::INT32_T;
+            return x::telem::INT32_T;
         case 6:
-            return telem::UINT32_T;
+            return x::telem::UINT32_T;
         case 7:
-            return telem::INT64_T;
+            return x::telem::INT64_T;
         case 8:
-            return telem::UINT64_T;
+            return x::telem::UINT64_T;
         case 9:
-            return telem::FLOAT32_T;
+            return x::telem::FLOAT32_T;
         case 10:
-            return telem::FLOAT64_T;
+            return x::telem::FLOAT64_T;
         default:
-            return telem::UINT8_T;
+            return x::telem::UINT8_T;
     }
 }
 
