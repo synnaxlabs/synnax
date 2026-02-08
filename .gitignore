@@ -93,6 +93,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+!x/cpp/lib
+!x/cpp/env
 lib64/
 parts/
 sdist/
@@ -172,7 +174,6 @@ celerybeat.schematic
 .env
 .env.production
 .venv
-env/
 venv/
 ENV/
 env.bak/
@@ -264,3 +265,4 @@ core/synnax
 .bazelrc.user
 
 .claude
+
