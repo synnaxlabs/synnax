@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/internal/resource"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/zyn"
 	"go.uber.org/zap"
 )
 
@@ -117,7 +116,6 @@ func (t *Tx) Close() { t.idx = nil; t.batch = nil }
 func (s *Index) Register(
 	ctx context.Context,
 	t resource.Type,
-	sch zyn.Schema,
 	searchableFields ...string,
 ) {
 	s.L.Debug("registering schema", zap.Stringer("type", t))

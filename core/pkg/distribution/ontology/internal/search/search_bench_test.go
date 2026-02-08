@@ -16,17 +16,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/internal/resource"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/internal/search"
-	"github.com/synnaxlabs/x/zyn"
 )
-
-var benchSchema = zyn.Object(map[string]zyn.Schema{
-	"key":      zyn.String(),
-	"name":     zyn.String(),
-	"rack":     zyn.Uint32().Coerce(),
-	"location": zyn.String(),
-	"make":     zyn.String(),
-	"model":    zyn.String(),
-})
 
 func makeResources(n int) []resource.Resource {
 	resources := make([]resource.Resource, n)
@@ -50,7 +40,7 @@ func newBenchIndex(b *testing.B) *search.Index {
 	if err != nil {
 		b.Fatal(err)
 	}
-	idx.Register(context.Background(), "bench", benchSchema)
+	idx.Register(context.Background(), "bench")
 	return idx
 }
 

@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/internal/resource"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/internal/search"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/zyn"
 )
 
 var _ = Describe("SearchTerm", func() {
@@ -29,7 +28,7 @@ var _ = Describe("SearchTerm", func() {
 		BeforeEach(func() {
 			idx = MustSucceed(search.New())
 			ctx = context.Background()
-			idx.Register(ctx, "test", zyn.Object(nil))
+			idx.Register(ctx, "test")
 		})
 		DescribeTable("SearchTerm Searching",
 			func(res resource.Resource, term string) {

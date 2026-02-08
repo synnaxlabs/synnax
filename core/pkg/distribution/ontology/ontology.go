@@ -241,7 +241,7 @@ func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 			if provider, ok := svc.(SearchableFieldsProvider); ok {
 				extraFields = provider.SearchableFields()
 			}
-			o.search.Register(ctx, svc.Type(), svc.Schema(), extraFields...)
+			o.search.Register(ctx, svc.Type(), extraFields...)
 		}
 	}
 	for _, svc := range o.registrar {
