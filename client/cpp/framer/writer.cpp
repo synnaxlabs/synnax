@@ -67,18 +67,18 @@ std::pair<x::telem::TimeStamp, x::errors::Error> Writer::commit() {
     return {x::telem::TimeStamp(res.end()), err};
 }
 
-x::errors::Error Writer::set_authority(const x::telem::Authority &auth) {
+x::errors::Error Writer::set_authority(const x::control::Authority &auth) {
     return this->set_authority({}, std::vector{auth});
 }
 
 x::errors::Error
-Writer::set_authority(const channel::Key &key, const x::telem::Authority &authority) {
+Writer::set_authority(const channel::Key &key, const x::control::Authority &authority) {
     return this->set_authority(std::vector{key}, std::vector{authority});
 }
 
 x::errors::Error Writer::set_authority(
     const std::vector<channel::Key> &keys,
-    const std::vector<x::telem::Authority> &authorities
+    const std::vector<x::control::Authority> &authorities
 ) {
     if (this->close_err) return this->close_err;
     const WriterConfig config{.channels = keys, .authorities = authorities};

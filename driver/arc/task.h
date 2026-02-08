@@ -170,7 +170,7 @@ public:
                 .channels = task->runtime->write_channels,
                 .start = x::telem::TimeStamp::now(),
                 .subject =
-                    x::telem::ControlSubject{
+                    x::control::Subject{
                         .name = task_meta.name,
                         .key = std::to_string(task_meta.key),
                     },
