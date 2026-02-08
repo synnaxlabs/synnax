@@ -184,6 +184,8 @@ func (c *Calculator) Next(
 		return output, false, nil
 	}
 	c.state.Channel.ClearReads()
+	c.state.Series.Clear()
+	c.state.Strings.Clear()
 	return frame.NewFromStorage(ofr), true, nil
 }
 

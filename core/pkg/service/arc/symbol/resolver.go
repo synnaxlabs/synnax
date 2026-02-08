@@ -16,9 +16,9 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/stl"
-	"github.com/synnaxlabs/arc/stl/authority"
 	stlchannel "github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/constant"
+	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/stl/errors"
 	"github.com/synnaxlabs/arc/stl/math"
 	stlop "github.com/synnaxlabs/arc/stl/op"
@@ -96,7 +96,7 @@ func DefaultResolverModules() []stl.Module {
 		stlop.NewModule(),
 		selector.NewModule(),
 		stable.NewModule(),
-		authority.NewModule(nil),
+		control.NewModule(nil),
 		telem.NewModule(),
 		stat.NewModule(),
 		time.NewModule(),

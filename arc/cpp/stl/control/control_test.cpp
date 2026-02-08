@@ -14,7 +14,7 @@
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
-#include "arc/cpp/stl/authority/authority.h"
+#include "arc/cpp/stl/control/control.h"
 
 namespace arc::stl {
 struct TestSetup {

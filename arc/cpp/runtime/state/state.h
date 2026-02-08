@@ -165,9 +165,9 @@ class State {
     std::unordered_map<types::ChannelKey, Series> writes;
 
     /// @brief Per-module state slices.
-    std::shared_ptr<stl::str::State> str_state;
-    std::shared_ptr<stl::series::State> series_state;
-    std::shared_ptr<stl::stateful::Variables> variables;
+    std::shared_ptr<stl::str::State> strings;
+    std::shared_ptr<stl::series::State> series;
+    std::shared_ptr<stl::stateful::Variables> vars;
 
     /// @brief Callback for reporting warnings (e.g., data drops).
     errors::Handler error_handler;
@@ -199,18 +199,18 @@ public:
     /// @brief Sets the current node key for stateful variable isolation.
     /// Must be called before each WASM function invocation.
     void set_current_node_key(const std::string &key) {
-        this->variables->set_current_node_key(key);
+        this->vars->set_current_node_key(key);
     }
 
     /// @brief Accessors for per-module state slices.
-    std::shared_ptr<stl::str::State> get_str_state() const { return this->str_state; }
+    std::shared_ptr<stl::str::State> get_str_state() const { return this->strings; }
 
     std::shared_ptr<stl::series::State> get_series_state() const {
-        return this->series_state;
+        return this->series;
     }
 
     std::shared_ptr<stl::stateful::Variables> get_variables() const {
-        return this->variables;
+        return this->vars;
     }
 };
 }

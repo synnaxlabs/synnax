@@ -1,6 +1,6 @@
 cc_library(
-    name = "authority",
-    hdrs = ["authority.h"],
+    name = "control",
+    hdrs = ["control.h"],
     copts = select({
         "@platforms//os:windows": ["/wd4201"],
         "//conditions:default": [],
@@ -15,13 +15,13 @@ cc_library(
 )
 
 cc_test(
-    name = "authority_test",
-    srcs = ["authority_test.cpp"],
+    name = "control_test",
+    srcs = ["control_test.cpp"],
     deps = [
-        ":authority",
         "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/state",
+        "//arc/cpp/stl/control",
         "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],

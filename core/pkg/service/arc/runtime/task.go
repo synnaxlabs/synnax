@@ -22,9 +22,9 @@ import (
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/runtime/wasm"
 	"github.com/synnaxlabs/arc/stl"
-	"github.com/synnaxlabs/arc/stl/authority"
 	"github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/constant"
+	stlcontrol "github.com/synnaxlabs/arc/stl/control"
 	slterrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	stlop "github.com/synnaxlabs/arc/stl/op"
@@ -118,7 +118,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 		stage.NewModule(),
 		stable.NewModule(),
 		arcstatus.NewModule(t.factoryCfg.Status),
-		authority.NewModule(drt.state.Auth),
+		stlcontrol.NewModule(drt.state.Auth),
 		stat.NewModule(),
 	}
 	f := stl.MultiFactory(modules...)

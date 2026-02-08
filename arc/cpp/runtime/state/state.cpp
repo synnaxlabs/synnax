@@ -57,9 +57,9 @@ Series parse_default_value(
 
 State::State(const Config &cfg, errors::Handler error_handler):
     cfg(cfg),
-    str_state(std::make_shared<stl::str::State>()),
-    series_state(std::make_shared<stl::series::State>()),
-    variables(std::make_shared<stl::stateful::Variables>()),
+    strings(std::make_shared<stl::str::State>()),
+    series(std::make_shared<stl::series::State>()),
+    vars(std::make_shared<stl::stateful::Variables>()),
     error_handler(std::move(error_handler)) {
     size_t total = 0;
     for (const auto &node: cfg.ir.nodes)
@@ -183,8 +183,8 @@ std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
         series_vec.clear();
         series_vec.push_back(std::move(last));
     }
-    this->series_state->clear();
-    this->str_state->clear();
+    this->series->clear();
+    this->strings->clear();
 
     std::vector<std::pair<types::ChannelKey, Series>> result;
     result.reserve(writes.size());
@@ -197,9 +197,9 @@ std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
 void State::reset() {
     this->reads.clear();
     this->writes.clear();
-    this->str_state->clear();
-    this->series_state->clear();
-    this->variables->reset();
+    this->strings->clear();
+    this->series->clear();
+    this->vars->reset();
 }
 
 void State::set_authority(

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package authority_test
+package control_test
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/arc/stl/authority"
+	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -38,10 +38,10 @@ var _ = Describe("Authority", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, authority.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			factory := authority.NewModule(s.Auth)
+			factory := control.NewModule(s.Auth)
 			Expect(factory).ToNot(BeNil())
 		})
 	})
@@ -56,10 +56,10 @@ var _ = Describe("Authority", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, authority.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = state.New(state.Config{IR: analyzed})
-			factory = authority.NewModule(s.Auth)
+			factory = control.NewModule(s.Auth)
 		})
 		It("Should create node for set_authority type", func() {
 			cfg := node.Config{
@@ -138,10 +138,10 @@ var _ = Describe("Authority", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, authority.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = state.New(state.Config{IR: analyzed})
-			factory = authority.NewModule(s.Auth)
+			factory = control.NewModule(s.Auth)
 			outputs = []string{}
 		})
 
@@ -233,10 +233,10 @@ var _ = Describe("Authority", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, authority.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = state.New(state.Config{IR: analyzed})
-			factory = authority.NewModule(s.Auth)
+			factory = control.NewModule(s.Auth)
 		})
 
 		It("Should allow re-fire after Reset", func() {
@@ -292,10 +292,10 @@ var _ = Describe("Authority", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, authority.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			factory := authority.NewModule(s.Auth)
+			factory := control.NewModule(s.Auth)
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
@@ -315,19 +315,19 @@ var _ = Describe("Authority", func() {
 
 	Describe("SymbolResolver", func() {
 		It("Should resolve set_authority symbol", func() {
-			sym, ok := authority.SymbolResolver["set_authority"]
+			sym, ok := control.SymbolResolver["set_authority"]
 			Expect(ok).To(BeTrue())
 			Expect(sym.Name).To(Equal("set_authority"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
 		It("Should have optional input", func() {
-			sym := authority.SymbolResolver["set_authority"]
+			sym := control.SymbolResolver["set_authority"]
 			Expect(sym.Type.Inputs).To(HaveLen(1))
 			Expect(sym.Type.Inputs[0].Name).To(Equal(ir.DefaultOutputParam))
 			Expect(sym.Type.Inputs[0].Value).To(Equal(uint8(0)))
 		})
 		It("Should have config params", func() {
-			sym := authority.SymbolResolver["set_authority"]
+			sym := control.SymbolResolver["set_authority"]
 			Expect(sym.Type.Config).To(HaveLen(2))
 			Expect(sym.Type.Config[0].Name).To(Equal("value"))
 			Expect(sym.Type.Config[1].Name).To(Equal("channel"))

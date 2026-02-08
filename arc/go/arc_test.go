@@ -18,9 +18,9 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/stl"
-	"github.com/synnaxlabs/arc/stl/authority"
 	stlchannel "github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/constant"
+	"github.com/synnaxlabs/arc/stl/control"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	stlop "github.com/synnaxlabs/arc/stl/op"
@@ -334,7 +334,7 @@ sequence main {
 			stlop.NewModule(),
 			selector.NewModule(),
 			stable.NewModule(),
-			authority.NewModule(nil),
+			control.NewModule(nil),
 			stltelem.NewModule(),
 			stat.NewModule(),
 			time.NewModule(),
