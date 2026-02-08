@@ -30,7 +30,7 @@ var _ = Describe("Frame", func() {
 
 	Describe("MultiFrame", func() {
 		It("Should construct a frame from multiple keys and series", func() {
-			fr := telem.MultiFrame[int32](
+			fr := telem.MultiFrame(
 				[]int32{1, 2},
 				[]telem.Series{telem.NewSeriesV[int32](1, 2, 3), telem.NewSeriesV[int32](4, 5, 6)})
 			Expect(fr.KeysSlice()).To(Equal([]int32{1, 2}))
@@ -237,7 +237,7 @@ var _ = Describe("Frame", func() {
 				keys[i] = i
 				series[i] = telem.NewSeriesV(i, i+1, i+2)
 			}
-			fr := telem.MultiFrame[int32](keys, series)
+			fr := telem.MultiFrame(keys, series)
 
 			// Exclude all keys except 1, 3, 5, 7, 9
 			excludeKeys := make([]int32, 0, 251)
@@ -376,7 +376,7 @@ var _ = Describe("Frame", func() {
 		})
 
 		It("Should respect masking when excluding keys", func() {
-			fr := telem.MultiFrame[int32](
+			fr := telem.MultiFrame(
 				[]int32{1, 2, 3, 4, 5},
 				[]telem.Series{
 					telem.NewSeriesV[int32](1, 2),
@@ -438,7 +438,7 @@ var _ = Describe("Frame", func() {
 				keys[i] = i
 				series[i] = telem.NewSeriesV(i, i+1, i+2)
 			}
-			fr := telem.MultiFrame[int32](keys, series)
+			fr := telem.MultiFrame(keys, series)
 
 			// Exclude all keys except 1, 3, 5, 7, 9
 			excludeKeys := make([]int32, 0, 251)
@@ -4263,7 +4263,7 @@ var _ = Describe("Frame", func() {
 			series := make([]telem.Series, 10)
 			for i := range int32(10) {
 				keys[i] = i + 1
-				series[i] = telem.NewSeriesV[int32](i + 1)
+				series[i] = telem.NewSeriesV(i + 1)
 			}
 
 			fr := telem.MultiFrame(keys, series)

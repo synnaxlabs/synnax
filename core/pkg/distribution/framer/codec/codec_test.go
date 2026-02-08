@@ -612,7 +612,7 @@ var _ = Describe("Codec", func() {
 			// Verify the data is correct (concatenated)
 			series := decoded.Get(1)
 			Expect(len(series.Series)).To(Equal(1))
-			mergedData := telem.UnmarshalSlice[int32](series.Series[0].Data)
+			mergedData := telem.UnmarshalSeries[int32](series.Series[0])
 			Expect(mergedData).To(Equal([]int32{1, 2, 3, 4, 5}))
 
 			// Verify alignment is from the first series
@@ -642,7 +642,7 @@ var _ = Describe("Codec", func() {
 			Expect(decoded.Count()).To(Equal(1))
 			series := decoded.Get(1)
 			Expect(len(series.Series)).To(Equal(1))
-			mergedData := telem.UnmarshalSlice[uint8](series.Series[0].Data)
+			mergedData := telem.UnmarshalSeries[uint8](series.Series[0])
 			Expect(mergedData).To(Equal([]uint8{1, 2, 3, 4, 5, 6}))
 		})
 
@@ -702,11 +702,11 @@ var _ = Describe("Codec", func() {
 			Expect(len(series.Series)).To(Equal(2))
 
 			// First merged series should be [1, 2, 3, 4]
-			firstData := telem.UnmarshalSlice[int32](series.Series[0].Data)
+			firstData := telem.UnmarshalSeries[int32](series.Series[0])
 			Expect(firstData).To(Equal([]int32{1, 2, 3, 4}))
 
 			// Second merged series should be [5, 6]
-			secondData := telem.UnmarshalSlice[int32](series.Series[1].Data)
+			secondData := telem.UnmarshalSeries[int32](series.Series[1])
 			Expect(secondData).To(Equal([]int32{5, 6}))
 		})
 
@@ -741,13 +741,13 @@ var _ = Describe("Codec", func() {
 			// Channel 1 should have merged series
 			ch1Series := decoded.Get(1)
 			Expect(len(ch1Series.Series)).To(Equal(1))
-			ch1Data := telem.UnmarshalSlice[int32](ch1Series.Series[0].Data)
+			ch1Data := telem.UnmarshalSeries[int32](ch1Series.Series[0])
 			Expect(ch1Data).To(Equal([]int32{1, 2, 3, 4}))
 
 			// Channel 2 should have merged series
 			ch2Series := decoded.Get(2)
 			Expect(len(ch2Series.Series)).To(Equal(1))
-			ch2Data := telem.UnmarshalSlice[float32](ch2Series.Series[0].Data)
+			ch2Data := telem.UnmarshalSeries[float32](ch2Series.Series[0])
 			Expect(ch2Data).To(Equal([]float32{1.1, 2.2, 3.3, 4.4}))
 		})
 

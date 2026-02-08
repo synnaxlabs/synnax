@@ -59,7 +59,7 @@ func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 	for i := range data {
 		data[i] *= SecondTS
 	}
-	return Series{DataType: TimeStampT, Data: MarshalSlice(data)}
+	return NewSeries(data)
 }
 
 // NewSeriesVariable creates a new Series from a slice of variable-density values,
@@ -157,12 +157,11 @@ func MarshalSlice[T FixedSample](data []T) []byte {
 
 // UnmarshalSlice converts a byte slice back into a slice of numeric values according to
 // the specified type T.
-// TODO: remove this and use UnmarshalSeries instead.
 func UnmarshalSlice[T FixedSample](b []byte) []T { return unsafe.CastSlice[byte, T](b) }
 
 // UnmarshalSeries converts a Series' data back into a slice of the specified type T.
 func UnmarshalSeries[T FixedSample](series Series) []T {
-	return unsafe.CastSlice[byte, T](series.Data)
+	return UnmarshalSlice[T](series.Data)
 }
 
 // ByteOrder is the standard order for encoding/decoding numeric values across the
