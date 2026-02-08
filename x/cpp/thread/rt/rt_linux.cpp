@@ -78,7 +78,7 @@ bool test_mlockall() {
     return false;
 }
 
-bool apply_deadline_scheduler(const RTConfig &cfg) {
+bool apply_deadline_scheduler(const Config &cfg) {
     sched_attr attr = {};
     attr.size = sizeof(attr);
     attr.sched_policy = SCHED_DEADLINE;
@@ -106,9 +106,9 @@ void apply_sched_fifo(int priority) {
 }
 }
 
-RTCapabilities get_rt_capabilities() {
-    static RTCapabilities caps = [] {
-        RTCapabilities c;
+Capabilities get_capabilities() {
+    static Capabilities caps = [] {
+        Capabilities c;
         c.priority_scheduling = {true, test_sched_fifo()};
         c.deadline_scheduling = {true, test_sched_deadline()};
         c.cpu_affinity = {true, true};
@@ -118,7 +118,7 @@ RTCapabilities get_rt_capabilities() {
     return caps;
 }
 
-std::string RTCapabilities::permissions_guidance() const {
+std::string Capabilities::permissions_guidance() const {
     std::string guidance;
     if (this->priority_scheduling.missing_permissions()) {
         guidance += "  To enable RT scheduling, either:\n";
@@ -141,10 +141,10 @@ std::string RTCapabilities::permissions_guidance() const {
 }
 
 bool has_support() {
-    return get_rt_capabilities().any();
+    return get_capabilities().any();
 }
 
-errors::Error apply_config(const RTConfig &cfg) {
+errors::Error apply_config(const Config &cfg) {
     if (cfg.enabled) {
         bool used_deadline = false;
         if (cfg.prefer_deadline_scheduler && cfg.has_timing())

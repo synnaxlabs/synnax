@@ -17,7 +17,7 @@
 
 #include "x/cpp/thread/rt/rt.h"
 
-namespace x::thread {
+namespace x::thread::rt {
 namespace {
 using AvSetMmThreadCharacteristicsWFn = HANDLE(WINAPI *)(LPCWSTR, LPDWORD);
 using AvSetMmThreadPriorityFn = BOOL(WINAPI *)(HANDLE, int);
@@ -105,9 +105,9 @@ void apply_thread_priority(int priority) {
 }
 }
 
-RTCapabilities get_rt_capabilities() {
-    static RTCapabilities caps = [] {
-        RTCapabilities c;
+Capabilities get_capabilities() {
+    static Capabilities caps = [] {
+        Capabilities c;
         c.priority_scheduling = {true, true};
         c.mmcss = {true, get_mmcss().available()};
         c.cpu_affinity = {true, true};
@@ -116,7 +116,7 @@ RTCapabilities get_rt_capabilities() {
     return caps;
 }
 
-std::string RTCapabilities::permissions_guidance() const {
+std::string Capabilities::permissions_guidance() const {
     std::string guidance;
     if (this->mmcss.missing_permissions()) {
         guidance += "MMCSS not available. Ensure Windows Multimedia Class Scheduler ";
@@ -125,11 +125,11 @@ std::string RTCapabilities::permissions_guidance() const {
     return guidance;
 }
 
-bool has_rt_support() {
-    return get_rt_capabilities().any();
+bool has_support() {
+    return get_capabilities().any();
 }
 
-errors::Error apply_config(const RTConfig &cfg) {
+errors::Error apply_config(const Config &cfg) {
     if (cfg.enabled) {
         bool used_mmcss = false;
         if (cfg.use_mmcss) used_mmcss = apply_mmcss();

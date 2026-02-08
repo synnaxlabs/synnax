@@ -11,20 +11,20 @@
 
 #include "x/cpp/thread/rt/rt.h"
 
-namespace x::thread {
-RTCapabilities get_rt_capabilities() {
+namespace x::thread::rt {
+Capabilities get_capabilities() {
     return {};
 }
 
-std::string RTCapabilities::permissions_guidance() const {
+std::string Capabilities::permissions_guidance() const {
     return "Real-time scheduling is not supported on this platform.";
 }
 
-bool has_rt_support() {
+bool has_support() {
     return false;
 }
 
-errors::Error apply_config(const RTConfig &cfg) {
+errors::Error apply_config(const Config &cfg) {
     if (cfg.enabled)
         LOG(WARNING) << "[xthread] Real-time scheduling not supported on this platform";
     if (cfg.has_timing())
