@@ -212,7 +212,7 @@ func NewSeriesFromAny(value any, dt DataType) Series {
 	case JSONT:
 		return castToJSON(value)
 	case BytesT:
-		return castToBytes(value)
+		return NewSeriesVariableV(castToBytes(value))
 	default:
 		panic(fmt.Sprintf("unsupported data type %s", dt))
 	}
@@ -368,18 +368,16 @@ func castToJSON(value any) Series {
 	case []byte:
 		return Series{DataType: JSONT, Data: MarshalVariable([]string{string(v)})}
 	default:
-		// TODO: maybe remove this lo.Must?
 		return Series{DataType: JSONT, Data: lo.Must(MarshalJSON([]any{value}))}
-
 	}
 }
 
-func castToBytes(value any) Series {
+func castToBytes(value any) []byte {
 	switch v := value.(type) {
 	case []byte:
-		return Series{DataType: BytesT, Data: append(v, newLine)}
+		return append(v, newLine)
 	default:
 		str := castToString(value)
-		return Series{DataType: BytesT, Data: append([]byte(str), newLine)}
+		return append([]byte(str), newLine)
 	}
 }
