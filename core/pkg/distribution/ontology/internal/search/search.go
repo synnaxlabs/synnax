@@ -47,9 +47,13 @@ func New(configs ...Config) (*Index, error) {
 	}
 	s := &Index{Config: cfg}
 	s.mapping = bleve.NewIndexMapping()
+	// Don't auto-discover and index unmapped fields via reflection.
 	s.mapping.DefaultMapping.Dynamic = false
+	// Don't store unmapped field values (we only use hit.ID, never field contents).
 	s.mapping.StoreDynamic = false
+	// Don't build search indexes for unmapped fields.
 	s.mapping.IndexDynamic = false
+	// Don't generate columnar doc-values for unmapped fields.
 	s.mapping.DocValuesDynamic = false
 	if err = registerSeparatorAnalyzer(s.mapping); err != nil {
 		return nil, err
