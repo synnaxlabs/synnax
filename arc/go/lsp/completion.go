@@ -22,10 +22,13 @@ type completionCategory int
 
 const (
 	categoryType completionCategory = 1 << iota
-	categoryKeyword
+	categoryTopLevelKeyword
+	categoryFunctionKeyword
 	categoryFunction
 	categoryUnit
 	categoryValue
+	categorySequenceKeyword
+	categoryStageKeyword
 )
 
 type completionInfo struct {
@@ -236,7 +239,7 @@ var completions = []completionInfo{
 		Insert:       "sequence ${1:name} {\n\tstage ${2:first} {\n\t\t$0\n\t}\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categoryKeyword,
+		Category:     categoryTopLevelKeyword,
 	},
 	{
 		Label:        parser.LiteralSTAGE,
@@ -245,7 +248,7 @@ var completions = []completionInfo{
 		Insert:       "stage ${1:name} {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categoryKeyword,
+		Category:     categorySequenceKeyword,
 	},
 	{
 		Label:        parser.LiteralNEXT,
@@ -254,7 +257,7 @@ var completions = []completionInfo{
 		Insert:       "next ${1:stage}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categoryKeyword,
+		Category:     categoryStageKeyword,
 	},
 	{
 		Label:        parser.LiteralFUNC,
@@ -263,7 +266,7 @@ var completions = []completionInfo{
 		Insert:       "func ${1:name}($2) $3 {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categoryKeyword,
+		Category:     categoryTopLevelKeyword,
 	},
 	{
 		Label:        parser.LiteralIF,
@@ -272,7 +275,7 @@ var completions = []completionInfo{
 		Insert:       "if ${1:condition} {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categoryKeyword,
+		Category:     categoryFunctionKeyword,
 	},
 	{
 		Label:        parser.LiteralELSE,
@@ -281,7 +284,7 @@ var completions = []completionInfo{
 		Insert:       "else {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categoryKeyword,
+		Category:     categoryFunctionKeyword,
 	},
 	{
 		Label:        parser.LiteralELSE + " " + parser.LiteralIF,
@@ -290,7 +293,7 @@ var completions = []completionInfo{
 		Insert:       "else if ${1:condition} {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categoryKeyword,
+		Category:     categoryFunctionKeyword,
 	},
 	{
 		Label:        parser.LiteralRETURN,
@@ -299,7 +302,7 @@ var completions = []completionInfo{
 		Insert:       "return $0",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categoryKeyword,
+		Category:     categoryFunctionKeyword,
 	},
 }
 
@@ -359,6 +362,24 @@ func (s *Server) getCompletionItems(
 	}
 
 	allowed := getAllowedCategories(completionCtx)
+	tokens := tokenizeContent(doc.displayContent())
+	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
+	nesting := detectNesting(tokensBeforeCursor)
+	if doc.isBlock() && nesting == NestingTopLevel {
+		nesting = NestingFunction
+	}
+	if nesting == NestingSequenceBody {
+		allowed = categorySequenceKeyword
+	} else if completionCtx == ContextStatementStart || completionCtx == ContextUnknown {
+		switch nesting {
+		case NestingTopLevel:
+			allowed |= categoryTopLevelKeyword
+		case NestingFunction:
+			allowed |= categoryFunctionKeyword
+		case NestingStageBody:
+			allowed |= categoryStageKeyword
+		}
+	}
 	items := make([]protocol.CompletionItem, 0, len(completions))
 
 	for _, c := range completions {
@@ -381,7 +402,7 @@ func (s *Server) getCompletionItems(
 		items = append(items, item)
 	}
 
-	if completionCtx != ContextTypeAnnotation && doc.IR.Symbols != nil {
+	if completionCtx != ContextTypeAnnotation && nesting != NestingSequenceBody && doc.IR.Symbols != nil {
 		scopeAtCursor := doc.findScopeAtPosition(pos)
 		if scopeAtCursor != nil {
 			scopes, err := scopeAtCursor.Search(ctx, prefix)
@@ -409,9 +430,9 @@ func getAllowedCategories(ctx CompletionContext) completionCategory {
 	case ContextExpression:
 		return categoryValue | categoryFunction | categoryUnit
 	case ContextStatementStart:
-		return categoryKeyword | categoryValue | categoryFunction
+		return categoryValue | categoryFunction
 	default:
-		return categoryType | categoryKeyword | categoryFunction | categoryUnit | categoryValue
+		return categoryFunction | categoryUnit | categoryValue
 	}
 }
 

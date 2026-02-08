@@ -359,7 +359,7 @@ func (s *Server) refreshSemanticTokens(ctx context.Context, uri protocol.Documen
 		return
 	}
 	if err := s.client.SemanticTokensRefresh(ctx); err != nil {
-		s.cfg.L.Error(
+		s.cfg.L.Warn(
 			"failed to refresh semantic tokens",
 			zap.Error(err),
 			zap.String("uri", string(uri)),

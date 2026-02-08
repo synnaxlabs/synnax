@@ -124,18 +124,22 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "now")).To(BeTrue(), "Should show 'now' function in expression context")
 		})
 
-		It("should show keywords at statement start", func() {
+		It("should show function keywords at statement start inside func body", func() {
 			content := "func foo() { "
 			OpenDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 0, 13)
 			Expect(completions).ToNot(BeNil())
 
-			Expect(HasCompletion(completions.Items, "if")).To(BeTrue(), "Should show 'if' keyword at statement start")
-			Expect(HasCompletion(completions.Items, "return")).To(BeTrue(), "Should show 'return' keyword at statement start")
+			Expect(HasCompletion(completions.Items, "if")).To(BeTrue(), "Should show 'if' keyword at statement start in func body")
+			Expect(HasCompletion(completions.Items, "return")).To(BeTrue(), "Should show 'return' keyword at statement start in func body")
+			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' inside func body")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' inside func body")
+			Expect(HasCompletion(completions.Items, "stage")).To(BeFalse(), "Should not show 'stage' inside func body")
+			Expect(HasCompletion(completions.Items, "next")).To(BeFalse(), "Should not show 'next' inside func body")
 		})
 
-		It("should show sequence keyword at top level", func() {
+		It("should show top-level keywords at top level", func() {
 			content := "seq"
 			OpenDocument(server, ctx, uri, content)
 
@@ -145,19 +149,54 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "sequence")).To(BeTrue(), "Should show 'sequence' keyword at top level")
 			Expect(HasCompletion(completions.Items, "i32")).To(BeFalse(), "Should not show 'i32' type at top level")
 			Expect(HasCompletion(completions.Items, "f64")).To(BeFalse(), "Should not show 'f64' type at top level")
+			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' at top level")
+			Expect(HasCompletion(completions.Items, "return")).To(BeFalse(), "Should not show 'return' at top level")
+			Expect(HasCompletion(completions.Items, "stage")).To(BeFalse(), "Should not show 'stage' at top level")
+			Expect(HasCompletion(completions.Items, "next")).To(BeFalse(), "Should not show 'next' at top level")
 		})
 
-		It("should show stage and next keywords inside a sequence", func() {
+		It("should show func keyword at top level", func() {
+			content := "fu"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 0, 2)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "func")).To(BeTrue(), "Should show 'func' keyword at top level")
+		})
+
+		It("should show only stage keyword inside a sequence body", func() {
 			content := "sequence main {\n    \n}"
 			OpenDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 1, 4)
 			Expect(completions).ToNot(BeNil())
 
-			Expect(HasCompletion(completions.Items, "stage")).To(BeTrue(), "Should show 'stage' keyword inside sequence")
-			Expect(HasCompletion(completions.Items, "next")).To(BeTrue(), "Should show 'next' keyword inside sequence")
+			Expect(HasCompletion(completions.Items, "stage")).To(BeTrue(), "Should show 'stage' keyword inside sequence body")
+			Expect(HasCompletion(completions.Items, "next")).To(BeFalse(), "Should not show 'next' inside sequence body")
+			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' inside sequence body")
+			Expect(HasCompletion(completions.Items, "return")).To(BeFalse(), "Should not show 'return' inside sequence body")
+			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' inside sequence body")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' inside sequence body")
 			Expect(HasCompletion(completions.Items, "i32")).To(BeFalse(), "Should not show 'i32' type inside sequence body")
 			Expect(HasCompletion(completions.Items, "f64")).To(BeFalse(), "Should not show 'f64' type inside sequence body")
+			Expect(HasCompletion(completions.Items, "len")).To(BeFalse(), "Should not show 'len' inside sequence body")
+			Expect(HasCompletion(completions.Items, "now")).To(BeFalse(), "Should not show 'now' inside sequence body")
+		})
+
+		It("should show next keyword inside a stage body", func() {
+			content := "sequence main {\n    stage first {\n        \n    }\n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 2, 8)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "next")).To(BeTrue(), "Should show 'next' keyword inside stage body")
+			Expect(HasCompletion(completions.Items, "stage")).To(BeFalse(), "Should not show 'stage' inside stage body")
+			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' inside stage body")
+			Expect(HasCompletion(completions.Items, "return")).To(BeFalse(), "Should not show 'return' inside stage body")
+			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' inside stage body")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' inside stage body")
 		})
 
 		It("should not show types at statement start", func() {
@@ -168,6 +207,62 @@ var _ = Describe("Completion", func() {
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "i32")).To(BeFalse(), "Should not show 'i32' type at statement start")
+		})
+	})
+
+	Describe("Nested If Inside Function", func() {
+		It("should show function keywords inside nested if block", func() {
+			content := "func foo() {\n    if x > 0 {\n        \n    }\n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 2, 8)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "if")).To(BeTrue(), "Should show 'if' inside nested if block")
+			Expect(HasCompletion(completions.Items, "return")).To(BeTrue(), "Should show 'return' inside nested if block")
+			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' inside nested if block")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' inside nested if block")
+		})
+	})
+
+	Describe("Block Expression Completion", func() {
+		It("should show function keywords in block expression", func() {
+			blockURI := protocol.DocumentURI("arc://block/test")
+			content := ""
+			OpenDocument(server, ctx, blockURI, content)
+
+			completions := Completion(server, ctx, blockURI, 0, 0)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "if")).To(BeTrue(), "Should show 'if' in block expression")
+			Expect(HasCompletion(completions.Items, "return")).To(BeTrue(), "Should show 'return' in block expression")
+			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' in block expression")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' in block expression")
+		})
+	})
+
+	Describe("Sequence Body Suppresses Symbols", func() {
+		It("should not show channel symbols inside sequence body", func() {
+			globalResolver := symbol.MapResolver{
+				"sensor": symbol.Symbol{
+					Name: "sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   1,
+				},
+			}
+
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "sequence main {\n    \n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 4)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "sensor")).To(BeFalse(), "Should not show channel symbols inside sequence body")
+			Expect(HasCompletion(completions.Items, "stage")).To(BeTrue(), "Should show 'stage' inside sequence body")
 		})
 	})
 
