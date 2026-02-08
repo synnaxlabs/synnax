@@ -54,6 +54,9 @@ type Config struct {
 	// directory to extract and execute the driver binary and extract configuration files
 	// into.
 	ParentDirname string `json:"parent_dirname"`
+	// BinaryPath overrides the embedded driver binary with an external path.
+	// Intended for testing only.
+	BinaryPath string `json:"-"`
 	// Integrations define which device integrations are enabled.
 	Integrations []string `json:"integrations"`
 	// StartTimeout sets the maximum acceptable time to wait for the driver to bootup
@@ -149,6 +152,7 @@ func (c Config) Override(other Config) Config {
 	c.Debug = override.Nil(c.Debug, other.Debug)
 	c.StartTimeout = override.Numeric(c.StartTimeout, other.StartTimeout)
 	c.ParentDirname = override.String(c.ParentDirname, other.ParentDirname)
+	c.BinaryPath = override.String(c.BinaryPath, other.BinaryPath)
 	c.TaskOpTimeout = override.Numeric(c.TaskOpTimeout, other.TaskOpTimeout)
 	c.TaskPollInterval = override.Numeric(c.TaskPollInterval, other.TaskPollInterval)
 	c.TaskShutdownTimeout = override.Numeric(c.TaskShutdownTimeout, other.TaskShutdownTimeout)

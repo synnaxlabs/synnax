@@ -12,23 +12,20 @@
 package driver
 
 import (
-	"bufio"
 	"context"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/driver/internal/log"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
-	"go.uber.org/zap"
 )
 
 const (
@@ -38,7 +35,6 @@ const (
 	noColorFlag         = "--no-color"
 	configFlag          = "--config"
 	debugFlag           = "--debug"
-	startedMessage      = "started successfully"
 )
 
 var errStartTimeout = errors.New(
@@ -101,17 +97,24 @@ func (d *Driver) start(ctx context.Context) error {
 		if err = os.WriteFile(cfgFileName, b, xfs.UserRW); err != nil {
 			return err
 		}
-		data, err := executable.ReadFile(embeddedDriverPath)
-		if err != nil {
-			return err
-		}
-		driverFileName := filepath.Join(workDir, driverName)
-		if err = os.WriteFile(driverFileName, data, xfs.UserRWX); err != nil {
-			return err
+		var driverFileName string
+		if d.cfg.BinaryPath != "" {
+			driverFileName = d.cfg.BinaryPath
+		} else {
+			data, err := executable.ReadFile(embeddedDriverPath)
+			if err != nil {
+				return err
+			}
+			driverFileName = filepath.Join(workDir, driverName)
+			if err = os.WriteFile(driverFileName, data, xfs.UserRWX); err != nil {
+				return err
+			}
+			defer func() {
+				err = errors.Combine(err, os.Remove(driverFileName))
+			}()
 		}
 		defer func() {
 			err = errors.Combine(err, os.Remove(cfgFileName))
-			err = errors.Combine(err, os.Remove(driverFileName))
 		}()
 		flags := []string{
 			startCmdName,
@@ -147,7 +150,7 @@ func (d *Driver) start(ctx context.Context) error {
 		defer cancel()
 
 		internalSCtx.Go(func(ctx context.Context) error {
-			pipeOutputToLogger(stdoutPipe, d.cfg.L, d.started)
+			log.PipeToLogger(stdoutPipe, d.cfg.L, d.started)
 			return nil
 		},
 			signal.WithKey("stdoutPipe"),
@@ -155,7 +158,7 @@ func (d *Driver) start(ctx context.Context) error {
 			signal.WithRetryOnPanic(),
 		)
 		internalSCtx.Go(func(ctx context.Context) error {
-			pipeOutputToLogger(stderrPipe, d.cfg.L, d.started)
+			log.PipeToLogger(stderrPipe, d.cfg.L, d.started)
 			return nil
 		},
 			signal.WithKey("stderrPipe"),
@@ -204,59 +207,4 @@ func (d *Driver) Close() error {
 		return err
 	}
 	return nil
-}
-
-func pipeOutputToLogger(
-	reader io.ReadCloser,
-	logger *alamos.Logger,
-	started chan<- struct{},
-) {
-	var caller string
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		// Find the first "]" and remove everything before it
-		// This is to remove the timestamp from the log output
-		b := scanner.Bytes()
-		namedLogger := logger
-		if len(b) == 0 {
-			namedLogger.Warn("received empty log line from driver")
-			continue
-		}
-		level := string(b[0])
-		original := string(b)
-		split := strings.Split(original, "]")
-		message := original
-		if len(split) >= 3 {
-			callerSplit := strings.Split(split[0], " ")
-			caller = callerSplit[len(callerSplit)-1]
-			first := strings.TrimSpace(split[1])
-			namedLogger = logger.Named(first)
-			message = split[2]
-			if len(message) > 1 {
-				message = message[1:]
-			}
-		} else if len(split) == 2 {
-			callerSplit := strings.Split(split[0], " ")
-			caller = callerSplit[len(callerSplit)-1]
-			message = split[1]
-		}
-		message = strings.TrimSpace(message)
-		if started != nil && message == startedMessage {
-			close(started)
-		}
-		callerField := zap.String("caller", caller)
-		switch level {
-		case "D":
-			namedLogger.Debug(message, callerField)
-		case "E", "F":
-			namedLogger.Error(message, callerField)
-		case "W":
-			namedLogger.Warn(message, callerField)
-		default:
-			namedLogger.Info(message, callerField)
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		logger.Error("Error reading from std pipe", zap.Error(err))
-	}
 }
