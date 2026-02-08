@@ -20,7 +20,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   let name = Layout.select(storeState, key)?.name;
   if (state == null || name == null) {
     if (client == null) throw new DisconnectedError();
-    const log = await client.workspaces.logs.retrieve({ key });
+    const log = await client.logs.retrieve({ key });
     state ??= { ...(log.data as State), key: log.key };
     name ??= log.name;
   }

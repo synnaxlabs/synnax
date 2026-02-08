@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -52,6 +53,7 @@ type ChannelService struct {
 	accessProvider
 	internal *channel.Service
 	ranger   *ranger.Service
+	alias    *alias.Service
 }
 
 func NewChannelService(p Provider) *ChannelService {
@@ -59,6 +61,7 @@ func NewChannelService(p Provider) *ChannelService {
 		accessProvider: p.access,
 		internal:       p.Distribution.Channel,
 		ranger:         p.Service.Ranger,
+		alias:          p.Service.Alias,
 		dbProvider:     p.db,
 	}
 }
@@ -174,7 +177,7 @@ func (s *ChannelService) Retrieve(
 		}
 		// We can still do a best effort search without the range even if we don't find it.
 		if !isNotFound && hasSearch {
-			keys, err := resRng.SearchAliases(ctx, req.SearchTerm)
+			keys, err := s.alias.NewReader(nil).Search(ctx, resRng.Key, req.SearchTerm)
 			if err != nil {
 				return ChannelRetrieveResponse{}, err
 			}
@@ -229,8 +232,9 @@ func (s *ChannelService) Retrieve(
 	}
 	oChannels := translateChannelsForward(resChannels)
 	if resRng.Key != uuid.Nil {
+		aliasReader := s.alias.NewReader(nil)
 		for i, ch := range resChannels {
-			al, err := resRng.RetrieveAlias(ctx, ch.Key())
+			al, err := aliasReader.Retrieve(ctx, resRng.Key, ch.Key())
 			if err == nil {
 				oChannels[i].Alias = al
 			}

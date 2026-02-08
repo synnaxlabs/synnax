@@ -20,7 +20,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   let name = Layout.select(storeState, key)?.name;
   if (state == null || name == null) {
     if (client == null) throw new DisconnectedError();
-    const linePlot = await client.workspaces.lineplots.retrieve({ key });
+    const linePlot = await client.lineplots.retrieve({ key });
     state ??= { ...(linePlot.data as State), key: linePlot.key };
     name ??= linePlot.name;
   }
