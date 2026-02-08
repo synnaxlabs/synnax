@@ -182,10 +182,10 @@ var _ = Describe("Codec", func() {
 				[]telem.Series{
 					telem.NewSeriesV[uint8](1, 2, 3),
 					telem.NewSeriesVariableV("cat", "dog"),
-					telem.NewSeriesJSONV(
+					MustSucceed(telem.NewSeriesJSONV(
 						map[string]any{"key": "value"},
 						map[string]any{"key": "value2"},
-					),
+					)),
 				},
 			),
 		),

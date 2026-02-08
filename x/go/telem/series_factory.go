@@ -14,22 +14,39 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
 )
 
-// Sample represents any numeric value that can be stored in a Series.
-// It must satisfy the Sample interface.
-type Sample = types.SizedNumeric
+// NumericSample represents any numeric value that can be stored in a Series and have
+// mathematical operations performed on it.
+type NumericSample interface {
+	uint8 | uint16 | uint32 | uint64 | int8 | int16 | int32 | int64 |
+		float32 | float64 | TimeStamp
+}
+
+// FixedSample represents any numeric value that can be stored in a Series and has a
+// known density.
+type FixedSample interface {
+	NumericSample | uuid.UUID
+}
+
+// VariableSample is a type that can be stored in a variable-density series.
+type VariableSample interface{ []byte | string }
+
+// Sample represents any value that can be stored in a non-JSON Series.
+type Sample2 interface {
+	FixedSample | VariableSample
+}
+
+// TODO: remove this and make Sample2 Sample.
+type Sample = NumericSample
 
 // NewSeries creates a new Series from a slice of numeric values. It automatically
 // determines the data type from the first element.
 func NewSeries[T Sample](data []T) Series {
-	return Series{
-		DataType: InferDataType[T](),
-		Data:     MarshalSlice(data),
-	}
+	return Series{DataType: InferDataType[T](), Data: MarshalSlice(data)}
 }
 
 // NewSeriesV is a variadic version of NewSeries that creates a new Series from
@@ -64,26 +81,35 @@ func NewSeriesVariableV[T VariableSample](data ...T) Series {
 	return NewSeriesVariable(data)
 }
 
-func NewSeriesJSON[T any](data []T) Series {
-	return Series{DataType: JSONT, Data: MarshalJSON(data)}
+// NewSeriesJSON creates a new Series from a slice of JSON values.
+func NewSeriesJSON[T any](data []T) (Series, error) {
+	bytes, err := MarshalJSON(data)
+	if err != nil {
+		return Series{}, err
+	}
+	return Series{DataType: JSONT, Data: bytes}, nil
 }
 
 // NewSeriesJSONV constructs a new series from an arbitrary set of JSON values,
 // marshaling each one in the process.
-func NewSeriesJSONV[T any](data ...T) Series { return NewSeriesJSON(data) }
+func NewSeriesJSONV[T any](data ...T) (Series, error) { return NewSeriesJSON(data) }
 
 const newLine = '\n'
 
-// VariableSample is a type that can be stored in a variable-density series.
-type VariableSample interface{ []byte | string }
-
-func MarshalJSON[T any](data []T) []byte {
-	byteSlices := lo.Map(data, func(v T, _ int) []byte {
-		return lo.Must(json.Marshal(v))
-	})
-	return MarshalVariable(byteSlices)
+// MarshalJSON marshals a slice of JSON values into a byte slice, returning any errors
+// encountered while marshalling.
+func MarshalJSON[T any](data []T) ([]byte, error) {
+	byteSlices := make([][]byte, len(data))
+	var err error
+	for i, v := range data {
+		if byteSlices[i], err = json.Marshal(v); err != nil {
+			return nil, err
+		}
+	}
+	return MarshalVariable(byteSlices), nil
 }
 
+// MarshalVariable marshals a slice of variable-density values into a byte slice.
 func MarshalVariable[T VariableSample](data []T) []byte {
 	total := lo.SumBy(data, func(v T) int64 { return int64(len(v)) + 1 })
 	b := make([]byte, total)
@@ -96,6 +122,7 @@ func MarshalVariable[T VariableSample](data []T) []byte {
 	return b
 }
 
+// UnmarshalVariable unmarshals a byte slice into a slice of variable-density values.
 func UnmarshalVariable[T VariableSample](b []byte) []T {
 	var (
 		offset int
@@ -112,13 +139,17 @@ func UnmarshalVariable[T VariableSample](b []byte) []T {
 	return data
 }
 
-func UnmarshalJSON[T any](b []byte) []T {
+// UnmarshalJSON unmarshals a JSON-encoded byte slice into a slice of JSON values of the
+// specified type T. It returns an error encountered during unmarshalling.
+func UnmarshalJSON[T any](b []byte) ([]T, error) {
 	byteSlices := UnmarshalVariable[[]byte](b)
 	data := make([]T, len(byteSlices))
 	for i, b := range byteSlices {
-		lo.Must0(json.Unmarshal(b, &data[i]))
+		if err := json.Unmarshal(b, &data[i]); err != nil {
+			return nil, err
+		}
 	}
-	return data
+	return data, nil
 }
 
 // MarshalSlice converts a slice of numeric values into a byte slice according to the
@@ -149,7 +180,7 @@ var ByteOrder = binary.LittleEndian
 // Arrange creates a new Series containing count values starting from start, with each
 // subsequent value incremented by spacing. For example, Arrange(0, 5, 2) produces [0,
 // 2, 4, 6, 8]. Panics if count is less than or equal to 0.
-func Arrange[T Sample](start T, count int, spacing T) Series {
+func Arrange[T NumericSample](start T, count int, spacing T) Series {
 	data := make([]T, count)
 	for i := range count {
 		data[i] = start + T(i)*spacing
@@ -346,7 +377,8 @@ func castToJSON(value any) Series {
 	case []byte:
 		return Series{DataType: JSONT, Data: MarshalVariable([]string{string(v)})}
 	default:
-		return Series{DataType: JSONT, Data: MarshalJSON([]any{value})}
+		return Series{DataType: JSONT, Data: lo.Must(MarshalJSON([]any{value}))}
+
 	}
 }
 

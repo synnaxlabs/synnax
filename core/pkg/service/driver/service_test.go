@@ -757,7 +757,7 @@ var _ = Describe("Driver", Ordered, func() {
 			defer func() { Expect(w.Close()).To(Succeed()) }()
 			Expect(w.Write(frame.NewUnary(
 				taskService.CommandChannelKey(),
-				telem.NewSeriesJSONV(cmd),
+				MustSucceed(telem.NewSeriesJSONV(cmd)),
 			))).To(BeTrue())
 		}
 

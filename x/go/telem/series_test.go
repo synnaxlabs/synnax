@@ -68,12 +68,6 @@ var _ = Describe("Series", func() {
 			Specify("uint16", marshalSeriesTest([]uint16{1, 2, 3}, telem.Uint16T))
 			Specify("uint8", marshalSeriesTest([]uint8{1, 2, 3}, telem.Uint8T))
 			Specify("timestamp", marshalSeriesTest([]telem.TimeStamp{1, 2, 3}, telem.TimeStampT))
-			Specify("bad data type", func() {
-				type BadType uint32
-				Expect(func() {
-					telem.NewSeriesV[BadType](1, 2, 3)
-				}).To(Panic())
-			})
 		})
 
 		Describe("MarshalSlice", func() {
@@ -88,12 +82,6 @@ var _ = Describe("Series", func() {
 			Specify("uint16", marshalUnmarshalSliceTest([]uint16{1, 2, 3}, telem.Uint16T))
 			Specify("uint8", marshalUnmarshalSliceTest([]uint8{1, 2, 3}, telem.Uint8T))
 			Specify("timestamp", marshalUnmarshalSliceTest([]telem.TimeStamp{1, 2, 3}, telem.TimeStampT))
-			Specify("bad data type", func() {
-				type BadType uint32
-				Expect(func() {
-					telem.MarshalSlice([]BadType{1, 2, 3})
-				}).To(Panic())
-			})
 		})
 
 		Describe("Series ValueAt/SetValueAt", func() {
@@ -193,7 +181,7 @@ var _ = Describe("Series", func() {
 						"one": "two",
 					},
 				}
-				s := telem.NewSeriesJSONV(data)
+				s := MustSucceed(telem.NewSeriesJSONV(data))
 				v := s.At(0)
 				Expect(string(v)).To(Equal(`{"cat":{"one":"two"}}`))
 				Expect(s.Len()).To(Equal(int64(1)))
@@ -202,12 +190,30 @@ var _ = Describe("Series", func() {
 			})
 			It("Should correctly marshal a slice of JSON values", func() {
 				data := []int{1, 2, 3}
-				s := telem.NewSeriesJSONV(data)
+				s := MustSucceed(telem.NewSeriesJSONV(data))
 				v := s.At(0)
 				Expect(string(v)).To(Equal(`[1,2,3]`))
 				Expect(s.Len()).To(Equal(int64(1)))
-				unmarshalled := telem.UnmarshalJSON[[]int](s.Data)
+				unmarshalled := MustSucceed(telem.UnmarshalJSON[[]int](s.Data))
 				Expect(unmarshalled).To(Equal([][]int{{1, 2, 3}}))
+			})
+			It("should return an error when marshalling invalid JSON", func() {
+				data := []chan int{make(chan int), make(chan int), make(chan int)}
+				Expect(telem.NewSeriesJSONV(data)).Error().
+					To(MatchError(ContainSubstring("json: unsupported type: chan int")))
+			})
+			It("should return an error when marshalling invalid JSON", func() {
+				data := []chan int{make(chan int)}
+				Expect(telem.MarshalJSON(data)).Error().
+					To(MatchError(ContainSubstring("json: unsupported type: chan int")))
+			})
+			It("Should return an error when unmarshalling invalid JSON", func() {
+				data := []int{1, 2, 3}
+				s := MustSucceed(telem.NewSeriesJSONV(data))
+				Expect(telem.UnmarshalJSON[string](s.Data)).Error().
+					To(MatchError(ContainSubstring(
+						"json: cannot unmarshal array into Go value of type string",
+					)))
 			})
 		})
 
@@ -389,7 +395,7 @@ var _ = Describe("Series", func() {
 			Entry("float32", telem.NewSeriesV[float32](1.0, 2.0, 3.0), "[1 2 3]"),
 			Entry("float64", telem.NewSeriesV(1.0, 2.0, 3.0), "[1 2 3]"),
 			Entry("string", telem.NewSeriesVariableV("a", "b", "c"), "[a b c]"),
-			Entry("json", telem.NewSeriesJSONV(map[string]any{"a": 1, "b": 2, "c": 3}), `[{"a":1,"b":2,"c":3}]`),
+			Entry("json", MustSucceed(telem.NewSeriesJSONV(map[string]any{"a": 1, "b": 2, "c": 3})), `[{"a":1,"b":2,"c":3}]`),
 			Entry("timestamp", telem.NewSeriesSecondsTSV(1, 2, 3), "[1970-01-01T00:00:01Z +1s +2s]"),
 		)
 
@@ -514,7 +520,7 @@ var _ = Describe("Series", func() {
 					{"id": 4},
 				}
 
-				s := telem.NewSeriesJSONV(data...)
+				s := MustSucceed(telem.NewSeriesJSONV(data...))
 				downsampled := s.Downsample(2)
 				Expect(downsampled.Len()).To(Equal(int64(2)))
 				split := bytes.Split(downsampled.Data, []byte("\n"))
@@ -645,7 +651,7 @@ var _ = Describe("Series", func() {
 			})
 
 			It("Should panic when trying to resize a JSON series", func() {
-				s := telem.NewSeriesJSONV(map[string]any{"a": 1})
+				s := MustSucceed(telem.NewSeriesJSONV(map[string]any{"a": 1}))
 				Expect(func() { s.Resize(3) }).To(Panic())
 			})
 		})
