@@ -15,9 +15,6 @@ import (
 	"bytes"
 	"context"
 	"os"
-	"os/exec"
-	"strconv"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -64,10 +61,11 @@ var _ = Describe("Open", func() {
 			Expect(d.Close()).To(Succeed())
 		})
 
-		It("Should return nil driver on timeout", func() {
-			Expect(os.Setenv("MOCK_DELAY_MS", "5000")).To(Succeed())
+		It("Should return nil driver and kill the process promptly on timeout", func() {
+			Expect(os.Setenv("MOCK_DELAY_MS", "30000")).To(Succeed())
 			defer func() { Expect(os.Unsetenv("MOCK_DELAY_MS")).To(Succeed()) }()
 			logger, _ := newTestLogger()
+			start := time.Now()
 			d, err := driver.Open(context.Background(), driver.Config{
 				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 				BinaryPath:      mockBinaryPath,
@@ -75,42 +73,32 @@ var _ = Describe("Open", func() {
 				Address:         "localhost:9090",
 				ParentDirname:   GinkgoT().TempDir(),
 				StartTimeout:    100 * time.Millisecond,
+				StopTimeout:     500 * time.Millisecond,
+			})
+			elapsed := time.Since(start)
+			Expect(err).To(MatchError(ContainSubstring("timed out")))
+			Expect(d).To(BeNil())
+			// Open should return within StartTimeout + StopTimeout + some
+			// margin. With a 30s mock delay, exceeding 5s here would indicate
+			// the kill escalation is broken.
+			Expect(elapsed).To(BeNumerically("<", 5*time.Second))
+		})
+
+		It("Should return timeout error when driver crashes on startup", func() {
+			Expect(os.Setenv("MOCK_FAIL_START", "1")).To(Succeed())
+			defer func() { Expect(os.Unsetenv("MOCK_FAIL_START")).To(Succeed()) }()
+			logger, _ := newTestLogger()
+			d, err := driver.Open(context.Background(), driver.Config{
+				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				BinaryPath:      mockBinaryPath,
+				Insecure:        config.True(),
+				Address:         "localhost:9090",
+				ParentDirname:   GinkgoT().TempDir(),
+				StartTimeout:    500 * time.Millisecond,
+				StopTimeout:     500 * time.Millisecond,
 			})
 			Expect(err).To(MatchError(ContainSubstring("timed out")))
 			Expect(d).To(BeNil())
-		})
-
-		It("Should not leak processes after timeout", func() {
-			Expect(os.Setenv("MOCK_DELAY_MS", "5000")).To(Succeed())
-			defer func() { Expect(os.Unsetenv("MOCK_DELAY_MS")).To(Succeed()) }()
-			logger, _ := newTestLogger()
-			d, err := driver.Open(context.Background(), driver.Config{
-				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-				BinaryPath:      mockBinaryPath,
-				Insecure:        config.True(),
-				Address:         "localhost:9090",
-				ParentDirname:   GinkgoT().TempDir(),
-				StartTimeout:    100 * time.Millisecond,
-			})
-			Expect(err).To(HaveOccurred())
-			Expect(d).To(BeNil())
-			Eventually(func() bool {
-				out, _ := exec.Command("pgrep", "-f", "mockdriver").Output()
-				for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-					if line == "" {
-						continue
-					}
-					pid := MustSucceed(strconv.Atoi(line))
-					process, err := os.FindProcess(pid)
-					if err != nil {
-						continue
-					}
-					if err := process.Signal(os.Signal(nil)); err == nil {
-						return false
-					}
-				}
-				return true
-			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
 		})
 
 		It("Should return nil driver on config validation failure", func() {
@@ -153,6 +141,15 @@ var _ = Describe("Close", func() {
 			logger, _ := newTestLogger()
 			d := openMockDriver(logger)
 			Expect(d.Close()).To(Succeed())
+			Expect(d.Close()).To(Succeed())
+		})
+
+		It("Should handle a driver crash after successful startup", func() {
+			Expect(os.Setenv("MOCK_EXIT_AFTER_MS", "100")).To(Succeed())
+			defer func() { Expect(os.Unsetenv("MOCK_EXIT_AFTER_MS")).To(Succeed()) }()
+			logger, _ := newTestLogger()
+			d := openMockDriver(logger)
+			time.Sleep(200 * time.Millisecond)
 			Expect(d.Close()).To(Succeed())
 		})
 

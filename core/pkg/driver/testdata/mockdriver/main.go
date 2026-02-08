@@ -61,6 +61,16 @@ func main() {
 
 	fmt.Fprintln(os.Stdout, "I [mock] [main.go] started successfully")
 
+	if exitStr := os.Getenv("MOCK_EXIT_AFTER_MS"); exitStr != "" {
+		if ms, err := strconv.Atoi(exitStr); err == nil && ms > 0 {
+			go func() {
+				time.Sleep(time.Duration(ms) * time.Millisecond)
+				fmt.Fprintln(os.Stdout, "E [mock] [main.go] simulated crash")
+				os.Exit(1)
+			}()
+		}
+	}
+
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		if scanner.Text() == "STOP" {

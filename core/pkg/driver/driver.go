@@ -10,9 +10,6 @@
 package driver
 
 import (
-	"io"
-	"os/exec"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -62,6 +59,9 @@ type Config struct {
 	// StartTimeout sets the maximum acceptable time to wait for the driver to bootup
 	// successfully before timing out and returning a failed startup error.
 	StartTimeout time.Duration `json:"start_timeout"`
+	// StopTimeout is the time to wait for the driver to exit gracefully
+	// after sending STOP before escalating to a forceful kill.
+	StopTimeout time.Duration `json:"stop_timeout"`
 	// TaskOpTimeout sets the duration before reporting stuck task operations.
 	TaskOpTimeout time.Duration `json:"task_op_timeout"`
 	// TaskPollInterval sets the interval between task timeout checks.
@@ -128,6 +128,7 @@ var (
 		Enabled:             config.True(),
 		Debug:               config.False(),
 		StartTimeout:        time.Second * 10,
+		StopTimeout:         10 * time.Second,
 		TaskOpTimeout:       time.Second * 60,
 		TaskPollInterval:    time.Second * 1,
 		TaskShutdownTimeout: time.Second * 30,
@@ -157,6 +158,7 @@ func (c Config) Override(other Config) Config {
 	c.TaskPollInterval = override.Numeric(c.TaskPollInterval, other.TaskPollInterval)
 	c.TaskShutdownTimeout = override.Numeric(c.TaskShutdownTimeout, other.TaskShutdownTimeout)
 	c.TaskWorkerCount = override.Numeric(c.TaskWorkerCount, other.TaskWorkerCount)
+	c.StopTimeout = override.Numeric(c.StopTimeout, other.StopTimeout)
 	return c
 }
 
@@ -176,13 +178,4 @@ func (c Config) Validate() error {
 	validate.NotEmptyString(v, "parent_dirname", c.ParentDirname)
 	validate.InBounds(v, "task_worker_count", c.TaskWorkerCount, 1, 64)
 	return v.Error()
-}
-
-type Driver struct {
-	shutdown  io.Closer
-	stdInPipe io.WriteCloser
-	cmd       *exec.Cmd
-	started   chan struct{}
-	cfg       Config
-	mu        sync.Mutex
 }
