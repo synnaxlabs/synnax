@@ -91,7 +91,7 @@ public:
         if (this->started_) return x::errors::NIL;
 
         if (this->config_.interval.nanoseconds() > 0) {
-            this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+            this->timer_ = std::make_unique<::x::loop::Timer>(this->config_.interval);
         }
 
         this->last_tick_ = std::chrono::steady_clock::now();
@@ -130,7 +130,7 @@ private:
     }
 
     Config config_;
-    std::unique_ptr<::loop::Timer> timer_;
+    std::unique_ptr<::x::loop::Timer> timer_;
     std::chrono::steady_clock::time_point last_tick_;
     bool started_ = false;
 };

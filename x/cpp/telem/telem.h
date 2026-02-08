@@ -826,18 +826,18 @@ public:
     /// @returns A new numeric sample value of the appropriate type
     /// @throws std::runtime_error if the data type is not numeric
     [[nodiscard]] SampleValue cast(const SampleValue &value) const {
-        if (*this == _priv::FLOAT64_T) return cast<double>(value);
-        if (*this == _priv::FLOAT32_T) return cast<float>(value);
-        if (*this == _priv::INT64_T) return cast<int64_t>(value);
-        if (*this == _priv::INT32_T) return cast<int32_t>(value);
-        if (*this == _priv::INT16_T) return cast<int16_t>(value);
-        if (*this == _priv::INT8_T) return cast<int8_t>(value);
-        if (*this == _priv::UINT64_T) return cast<uint64_t>(value);
-        if (*this == _priv::UINT32_T) return cast<uint32_t>(value);
-        if (*this == _priv::UINT16_T) return cast<uint16_t>(value);
-        if (*this == _priv::UINT8_T) return cast<uint8_t>(value);
-        if (*this == _priv::TIMESTAMP_T) return cast<TimeStamp>(value);
-        if (this->is_variable()) return cast<std::string>(value);
+        if (*this == _priv::FLOAT64_T) return x::telem::cast<double>(value);
+        if (*this == _priv::FLOAT32_T) return x::telem::cast<float>(value);
+        if (*this == _priv::INT64_T) return x::telem::cast<int64_t>(value);
+        if (*this == _priv::INT32_T) return x::telem::cast<int32_t>(value);
+        if (*this == _priv::INT16_T) return x::telem::cast<int16_t>(value);
+        if (*this == _priv::INT8_T) return x::telem::cast<int8_t>(value);
+        if (*this == _priv::UINT64_T) return x::telem::cast<uint64_t>(value);
+        if (*this == _priv::UINT32_T) return x::telem::cast<uint32_t>(value);
+        if (*this == _priv::UINT16_T) return x::telem::cast<uint16_t>(value);
+        if (*this == _priv::UINT8_T) return x::telem::cast<uint8_t>(value);
+        if (*this == _priv::TIMESTAMP_T) return x::telem::cast<TimeStamp>(value);
+        if (this->is_variable()) return x::telem::cast<std::string>(value);
         throw std::runtime_error(
             "cannot cast sample value to unknown data type " + this->value
         );
