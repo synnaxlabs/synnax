@@ -79,7 +79,7 @@ public:
 
         if (this->config_.interval.nanoseconds() > 0) {
             if (this->config_.mode == ExecutionMode::HIGH_RATE)
-                this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+                this->timer_ = std::make_unique<::x::loop::Timer>(this->config_.interval);
             else {
                 this->timer_fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
                 if (this->timer_fd_ == -1) {
@@ -283,7 +283,7 @@ private:
     int event_fd_ = -1;
     int timer_fd_ = -1;
     bool timer_enabled_ = false;
-    std::unique_ptr<::loop::Timer> timer_;
+    std::unique_ptr<::x::loop::Timer> timer_;
 };
 
 std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
