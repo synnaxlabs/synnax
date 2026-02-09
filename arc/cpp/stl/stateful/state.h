@@ -36,7 +36,8 @@ class Variables {
     std::unordered_map<std::string, std::unordered_map<uint32_t, float>> f32;
     std::unordered_map<std::string, std::unordered_map<uint32_t, double>> f64;
     std::unordered_map<std::string, std::unordered_map<uint32_t, std::string>> string;
-    std::unordered_map<std::string, std::unordered_map<uint32_t, telem::Series>> series;
+    std::unordered_map<std::string, std::unordered_map<uint32_t, x::telem::Series>>
+        series;
 
 public:
     void set_current_node_key(const std::string &key) { this->current_node_key = key; }

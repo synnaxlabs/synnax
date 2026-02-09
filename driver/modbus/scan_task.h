@@ -17,23 +17,23 @@
 #include "glog/logging.h"
 
 #include "client/cpp/synnax.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xjson/xjson.h"
 
+#include "driver/common/scan_task.h"
+#include "driver/common/status.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/modbus.h"
-#include "driver/task/common/scan_task.h"
-#include "driver/task/common/status.h"
 #include "driver/task/task.h"
 
-namespace modbus {
+namespace driver::modbus {
 const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task]";
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
 /// @brief Configuration for the Modbus scanner.
 struct ScanTaskConfig : common::ScanTaskConfig {
     ScanTaskConfig() = default;
-    explicit ScanTaskConfig(xjson::Parser &cfg): common::ScanTaskConfig(cfg) {}
+    explicit ScanTaskConfig(x::json::Parser &cfg): common::ScanTaskConfig(cfg) {}
 };
 
 /// @brief Arguments for testing connection to a Modbus server.
@@ -42,7 +42,7 @@ struct ScanCommandArgs {
     device::ConnectionConfig connection;
 
     /// @brief Parses the arguments from their JSON object representation.
-    explicit ScanCommandArgs(const xjson::Parser &parser):
+    explicit ScanCommandArgs(const x::json::Parser &parser):
         connection(device::ConnectionConfig(parser.child("connection"))) {}
 };
 
@@ -52,7 +52,7 @@ class Scanner final : public common::Scanner {
 public:
     Scanner(
         std::shared_ptr<task::Context> ctx,
-        synnax::Task task,
+        synnax::task::Task task,
         std::shared_ptr<device::Manager> devices
     );
 
@@ -60,19 +60,19 @@ public:
     [[nodiscard]] common::ScannerConfig config() const override;
 
     /// @brief Periodic scan method - checks health of all tracked devices.
-    std::pair<std::vector<synnax::Device>, xerrors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &scan_ctx) override;
 
     /// @brief Handle Modbus-specific commands (test connection).
     bool exec(
         task::Command &cmd,
-        const synnax::Task &task,
+        const synnax::task::Task &task,
         const std::shared_ptr<task::Context> &ctx
     ) override;
 
 private:
     std::shared_ptr<task::Context> ctx;
-    synnax::Task task;
+    synnax::task::Task task;
     std::shared_ptr<device::Manager> devices;
 
     /// @brief Test connection to a Modbus server.
@@ -80,6 +80,6 @@ private:
 
     /// @brief Check health of a single device by testing its connection.
     /// Sets dev.status based on connection result.
-    void check_device_health(synnax::Device &dev) const;
+    void check_device_health(synnax::device::Device &dev) const;
 };
 }

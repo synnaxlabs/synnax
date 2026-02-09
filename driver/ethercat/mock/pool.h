@@ -21,7 +21,7 @@
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/mock/master.h"
 
-namespace ethercat::mock {
+namespace driver::ethercat::mock {
 
 /// @brief mock implementation of engine::Pool for testing.
 class Pool {
@@ -29,7 +29,7 @@ class Pool {
     std::unordered_map<std::string, std::shared_ptr<Master>> masters;
     std::unordered_map<std::string, std::shared_ptr<engine::Engine>> engines;
     std::vector<master::Info> master_infos;
-    xerrors::Error inject_acquire_err;
+    x::errors::Error inject_acquire_err;
 
 public:
     Pool() = default;
@@ -42,12 +42,12 @@ public:
     }
 
     /// @brief injects an error to be returned by acquire().
-    void inject_acquire_error(const xerrors::Error &err) {
+    void inject_acquire_error(const x::errors::Error &err) {
         this->inject_acquire_err = err;
     }
 
     /// @brief clears any injected acquire error.
-    void clear_injected_errors() { this->inject_acquire_err = xerrors::NIL; }
+    void clear_injected_errors() { this->inject_acquire_err = x::errors::NIL; }
 
     /// @brief returns configured master infos.
     [[nodiscard]] std::vector<master::Info> enumerate() const {
@@ -56,27 +56,27 @@ public:
     }
 
     /// @brief acquires or creates an engine for the specified master.
-    std::pair<std::shared_ptr<engine::Engine>, xerrors::Error>
+    std::pair<std::shared_ptr<engine::Engine>, x::errors::Error>
     acquire(const std::string &key) {
         std::lock_guard lock(this->mu);
         if (this->inject_acquire_err) return {nullptr, this->inject_acquire_err};
 
         auto eng_it = this->engines.find(key);
-        if (eng_it != this->engines.end()) return {eng_it->second, xerrors::NIL};
+        if (eng_it != this->engines.end()) return {eng_it->second, x::errors::NIL};
 
         auto master_it = this->masters.find(key);
         if (master_it == this->masters.end())
             return {
                 nullptr,
-                xerrors::Error(
-                    MASTER_INIT_ERROR,
+                x::errors::Error(
+                    errors::MASTER_INIT_ERROR,
                     "no mock master configured for key: " + key
                 )
             };
 
         auto eng = std::make_shared<engine::Engine>(master_it->second);
         this->engines[key] = eng;
-        return {eng, xerrors::NIL};
+        return {eng, x::errors::NIL};
     }
 
     /// @brief checks if a key has an active (running) engine.

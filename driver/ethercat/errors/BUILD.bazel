@@ -4,6 +4,6 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//driver/errors",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
     ],
 )

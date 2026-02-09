@@ -18,8 +18,8 @@ cc_library(
         "//arc/cpp/runtime/state",
         "//arc/cpp/stl",
         "//vendor/wasmtime",
+        "//x/cpp/errors",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
     ],
 )
 
@@ -36,7 +36,7 @@ cc_test(
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/telem",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )
@@ -58,13 +58,13 @@ cc_test(
         "//arc/cpp/stl/error",
         "//arc/cpp/stl/math",
         "//arc/cpp/stl/series",
+        "//arc/cpp/stl/stateful",
         "//arc/cpp/stl/str",
         "//arc/cpp/stl/time",
-        "//arc/cpp/stl/stateful",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/telem",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

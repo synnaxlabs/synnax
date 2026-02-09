@@ -20,7 +20,7 @@
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/control.h"
 #include "x/cpp/telem/frame.h"
-#include "x/cpp/xthread/xthread.h"
+#include "x/cpp/thread/thread.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
@@ -45,14 +45,14 @@ namespace arc::runtime {
 /// @brief combines data frames and authority changes into a single output
 /// so that authority-only changes (with no channel writes) are not starved.
 struct Output {
-    telem::Frame frame;
+    x::telem::Frame frame;
     std::vector<state::AuthorityChange> authority_changes;
 };
 
 struct Config {
     module::Module mod;
-    breaker::Config breaker;
-    std::function<std::pair<std::vector<state::ChannelDigest>, xerrors::Error>(
+    x::breaker::Config breaker;
+    std::function<std::pair<std::vector<state::ChannelDigest>, x::errors::Error>(
         const std::vector<types::ChannelKey> &
     )>
         retrieve_channels;
@@ -63,17 +63,17 @@ struct Config {
 };
 
 /// @brief callback invoked when a fatal error occurs in the runtime.
-using ErrorHandler = std::function<void(const xerrors::Error &)>;
+using ErrorHandler = std::function<void(const x::errors::Error &)>;
 
 class Runtime {
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
     std::thread run_thread;
     std::shared_ptr<wasm::Module> mod;
     std::shared_ptr<state::State> state;
     std::unique_ptr<scheduler::Scheduler> scheduler;
     std::unique_ptr<loop::Loop> loop;
-    queue::SPSC<telem::Frame> inputs;
-    queue::SPSC<Output> outputs;
+    x::queue::SPSC<x::telem::Frame> inputs;
+    x::queue::SPSC<Output> outputs;
     std::chrono::steady_clock::time_point start_time_steady_;
     errors::Handler error_handler;
 
@@ -95,25 +95,25 @@ public:
         state(std::move(state)),
         scheduler(std::move(scheduler)),
         loop(std::move(loop)),
-        inputs(queue::SPSC<telem::Frame>(cfg.input_queue_capacity)),
-        outputs(queue::SPSC<Output>(cfg.output_queue_capacity)),
+        inputs(x::queue::SPSC<x::telem::Frame>(cfg.input_queue_capacity)),
+        outputs(x::queue::SPSC<Output>(cfg.output_queue_capacity)),
         error_handler(std::move(error_handler)),
         read_channels(read_channels),
         write_channels(std::move(write_channels)) {}
 
     void run() {
         this->start_time_steady_ = std::chrono::steady_clock::now();
-        xthread::set_name("runtime");
+        x::thread::set_name("runtime");
         this->loop->start();
         if (!this->loop->watch(this->inputs.notifier())) {
             LOG(ERROR) << "[runtime] failed to watch input notifier";
-            this->error_handler(xerrors::Error("failed to watch input notifier"));
+            this->error_handler(x::errors::Error("failed to watch input notifier"));
             return;
         }
         while (this->breaker.running()) {
             const auto wake_reason = this->loop->wait(this->breaker);
             const bool is_timer = (wake_reason == loop::WakeReason::Timer);
-            telem::Frame frame;
+            x::telem::Frame frame;
             bool first = true;
             while (this->inputs.try_pop(frame) || first) {
                 const auto reason = (first && is_timer) ? node::RunReason::TimerTick
@@ -121,7 +121,7 @@ public:
                 first = false;
                 this->state->ingest(frame);
                 const auto now_steady = std::chrono::steady_clock::now();
-                const auto elapsed = telem::TimeSpan(
+                const auto elapsed = x::telem::TimeSpan(
                     std::chrono::duration_cast<std::chrono::nanoseconds>(
                         now_steady - this->start_time_steady_
                     )
@@ -134,7 +134,7 @@ public:
                     Output out;
                     out.authority_changes = std::move(changes);
                     if (!writes.empty()) {
-                        out.frame = telem::Frame(writes.size());
+                        out.frame = x::telem::Frame(writes.size());
                         for (auto &[key, series]: writes)
                             out.frame.emplace(key, series->deep_copy());
                     }
@@ -169,13 +169,13 @@ public:
         return true;
     }
 
-    xerrors::Error write(telem::Frame frame) {
-        if (this->inputs.closed()) return xerrors::Error("runtime closed");
+    x::errors::Error write(x::telem::Frame frame) {
+        if (this->inputs.closed()) return x::errors::Error("runtime closed");
         if (!this->inputs.push(std::move(frame))) {
             this->error_handler(errors::QUEUE_FULL_INPUT);
             return errors::QUEUE_FULL_INPUT;
         }
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     bool read(Output &out) { return this->outputs.pop(out); }
@@ -184,15 +184,15 @@ public:
 /// @brief Builds a per-channel authority vector from the static Authorities
 /// in the IR. Maps channel keys to authority values and returns authorities
 /// aligned with write_keys.
-inline std::vector<telem::Authority> build_authorities(
+inline std::vector<x::telem::Authority> build_authorities(
     const ir::Authorities &auth,
     const std::vector<types::ChannelKey> &write_keys
 ) {
     if (!auth.default_authority.has_value() && auth.channels.empty()) return {};
-    std::vector<telem::Authority> authorities(write_keys.size());
+    std::vector<x::telem::Authority> authorities(write_keys.size());
     for (size_t i = 0; i < write_keys.size(); i++)
         authorities[i] = auth.default_authority.has_value() ? *auth.default_authority
-                                                            : telem::AUTH_ABSOLUTE;
+                                                            : x::telem::AUTH_ABSOLUTE;
     for (const auto &[key, value]: auth.channels) {
         for (size_t i = 0; i < write_keys.size(); i++) {
             if (write_keys[i] == key) {
@@ -204,7 +204,7 @@ inline std::vector<telem::Authority> build_authorities(
     return authorities;
 }
 
-inline std::pair<std::shared_ptr<Runtime>, xerrors::Error>
+inline std::pair<std::shared_ptr<Runtime>, x::errors::Error>
 load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     std::set<types::ChannelKey> reads;
     std::set<types::ChannelKey> writes;
@@ -297,7 +297,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
             std::vector(writes.begin(), writes.end()),
             std::move(error_handler)
         ),
-        xerrors::NIL
+        x::errors::NIL
     };
 }
 

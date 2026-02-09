@@ -12,7 +12,7 @@
 #include <memory>
 #include <optional>
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
@@ -37,11 +37,11 @@ public:
     ):
         state(state), authority_value(authority), channel_key(std::move(channel_key)) {}
 
-    xerrors::Error next(runtime::node::Context & /*ctx*/) override {
-        if (this->initialized) return xerrors::NIL;
+    x::errors::Error next(runtime::node::Context & /*ctx*/) override {
+        if (this->initialized) return x::errors::NIL;
         this->initialized = true;
         this->state.set_authority(this->channel_key, this->authority_value);
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void reset() override { this->initialized = false; }
@@ -74,16 +74,16 @@ private:
             return node_type == "set_authority";
         }
 
-        std::pair<std::unique_ptr<runtime::node::Node>, xerrors::Error>
+        std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
         create(runtime::node::Config &&cfg) override {
-            if (!this->handles(cfg.node.type)) return {nullptr, xerrors::NOT_FOUND};
+            if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
             const auto auth = cfg.node.config["value"].get<uint8_t>();
             const auto channel = cfg.node.config["channel"].get<types::ChannelKey>();
             std::optional<types::ChannelKey> channel_key;
             if (channel != 0) channel_key = channel;
             return {
                 std::make_unique<SetAuthority>(*this->state, auth, channel_key),
-                xerrors::NIL
+                x::errors::NIL
             };
         }
     };

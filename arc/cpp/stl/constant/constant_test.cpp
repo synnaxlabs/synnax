@@ -11,7 +11,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
@@ -21,9 +21,9 @@
 namespace arc::stl {
 runtime::node::Context make_context() {
     return runtime::node::Context{
-        .elapsed = ::telem::SECOND,
+        .elapsed = x::telem::SECOND,
         .mark_changed = [](const std::string &) {},
-        .report_error = [](const xerrors::Error &) {},
+        .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
 }
@@ -32,7 +32,7 @@ struct TestSetup {
     ir::IR ir;
     runtime::state::State state;
 
-    TestSetup(const types::Kind kind, const ::telem::SampleValue &value):
+    TestSetup(const types::Kind kind, const x::telem::SampleValue &value):
         ir(build_ir(kind, value)),
         state(
             runtime::state::Config{.ir = ir, .channels = {}},
@@ -42,7 +42,7 @@ struct TestSetup {
     runtime::state::Node make_node() { return ASSERT_NIL_P(state.node("const")); }
 
 private:
-    static ir::IR build_ir(const types::Kind kind, const ::telem::SampleValue &value) {
+    static ir::IR build_ir(const types::Kind kind, const x::telem::SampleValue &value) {
         ir::Param output_param;
         output_param.name = "output";
         output_param.type = types::Type(kind);
@@ -78,7 +78,7 @@ TEST(ConstantFactoryTest, ReturnsNotFoundForWrongType) {
     auto factory = module.factory();
     ASSERT_OCCURRED_AS_P(
         factory->create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
-        xerrors::NOT_FOUND
+        x::errors::NOT_FOUND
     );
 }
 
@@ -96,7 +96,7 @@ TEST(ConstantFactoryTest, CreatesConstantNode) {
 /// @brief Test that next() outputs the constant value on first call.
 TEST(ConstantTest, NextOutputsValueOnFirstCall) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, ::telem::FLOAT32_T);
+    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
@@ -110,7 +110,7 @@ TEST(ConstantTest, NextOutputsValueOnFirstCall) {
 /// @brief Test that next() is a no-op on subsequent calls.
 TEST(ConstantTest, NextNoOpsOnSubsequentCalls) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, ::telem::FLOAT32_T);
+    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -126,7 +126,7 @@ TEST(ConstantTest, NextNoOpsOnSubsequentCalls) {
 /// @brief Test that reset() allows the value to be output again.
 TEST(ConstantTest, ResetAllowsValueToBeOutputAgain) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, ::telem::FLOAT32_T);
+    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -144,7 +144,7 @@ TEST(ConstantTest, ResetAllowsValueToBeOutputAgain) {
 /// @brief Test that float32 values are correctly cast and output.
 TEST(ConstantTest, ValueIsCastToCorrectDataType_Float32) {
     TestSetup setup(types::Kind::F32, 3.14f);
-    constant::Constant node(setup.make_node(), 3.14f, ::telem::FLOAT32_T);
+    constant::Constant node(setup.make_node(), 3.14f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -161,7 +161,7 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_Int64) {
     constant::Constant node(
         setup.make_node(),
         static_cast<int64_t>(12345),
-        ::telem::INT64_T
+        x::telem::INT64_T
     );
 
     auto ctx = make_context();
@@ -179,7 +179,7 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_U8) {
     constant::Constant node(
         setup.make_node(),
         static_cast<uint8_t>(255),
-        ::telem::UINT8_T
+        x::telem::UINT8_T
     );
 
     auto ctx = make_context();
@@ -194,7 +194,7 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_U8) {
 /// @brief Test that is_output_truthy delegates to state.
 TEST(ConstantTest, IsOutputTruthyDelegatesToState) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, ::telem::FLOAT32_T);
+    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -205,7 +205,7 @@ TEST(ConstantTest, IsOutputTruthyDelegatesToState) {
 /// @brief Test that mark_changed is called on first next().
 TEST(ConstantTest, MarkChangedCalledOnFirstNext) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, ::telem::FLOAT32_T);
+    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     bool changed_called = false;
     std::string changed_param;
@@ -224,7 +224,7 @@ TEST(ConstantTest, MarkChangedCalledOnFirstNext) {
 /// @brief Test that mark_changed is not called on subsequent next() calls.
 TEST(ConstantTest, MarkChangedNotCalledOnSubsequentNext) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, ::telem::FLOAT32_T);
+    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -241,7 +241,7 @@ TEST(ConstantTest, MarkChangedNotCalledOnSubsequentNext) {
 /// @brief Test that timestamp is populated on first next().
 TEST(ConstantTest, TimestampOutputOnFirstNext) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, ::telem::FLOAT32_T);
+    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -255,7 +255,7 @@ TEST(ConstantTest, TimestampOutputOnFirstNext) {
 /// @brief Test that reset produces a new timestamp on subsequent next().
 TEST(ConstantTest, ResetProducesNewTimestamp) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, ::telem::FLOAT32_T);
+    constant::Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);

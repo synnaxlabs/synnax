@@ -20,9 +20,8 @@ enum WriterCommand : uint32_t {
     SET_AUTHORITY = 3,
 };
 
-namespace synnax {
-std::pair<Writer, xerrors::Error>
-FrameClient::open_writer(const WriterConfig &cfg) const {
+namespace synnax::framer {
+std::pair<Writer, x::errors::Error> Client::open_writer(const WriterConfig &cfg) const {
     Codec codec;
     if (cfg.enable_experimental_codec) {
         codec = Codec(this->channel_client);
@@ -54,32 +53,32 @@ void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
     f->set_err_on_unauthorized(this->err_on_unauthorized);
 }
 
-xerrors::Error Writer::write(const telem::Frame &fr) {
+x::errors::Error Writer::write(const x::telem::Frame &fr) {
     if (this->close_err) return this->close_err;
     if (const auto err = this->init_request(fr)) return this->close(err);
     return this->exec(*this->cached_write_req, false).second;
 }
 
-std::pair<telem::TimeStamp, xerrors::Error> Writer::commit() {
-    if (this->close_err) return {telem::TimeStamp(0), this->close_err};
+std::pair<x::telem::TimeStamp, x::errors::Error> Writer::commit() {
+    if (this->close_err) return {x::telem::TimeStamp(0), this->close_err};
     api::v1::FrameWriterRequest req;
     req.set_command(COMMIT);
     const auto [res, err] = this->exec(req, true);
-    return {telem::TimeStamp(res.end()), err};
+    return {x::telem::TimeStamp(res.end()), err};
 }
 
-xerrors::Error Writer::set_authority(const telem::Authority &auth) {
+x::errors::Error Writer::set_authority(const x::telem::Authority &auth) {
     return this->set_authority({}, std::vector{auth});
 }
 
-xerrors::Error
-Writer::set_authority(const ChannelKey &key, const telem::Authority &authority) {
+x::errors::Error
+Writer::set_authority(const channel::Key &key, const x::telem::Authority &authority) {
     return this->set_authority(std::vector{key}, std::vector{authority});
 }
 
-xerrors::Error Writer::set_authority(
-    const std::vector<ChannelKey> &keys,
-    const std::vector<telem::Authority> &authorities,
+x::errors::Error Writer::set_authority(
+    const std::vector<channel::Key> &keys,
+    const std::vector<x::telem::Authority> &authorities,
     const bool ack
 ) {
     if (this->close_err) return this->close_err;
@@ -90,11 +89,11 @@ xerrors::Error Writer::set_authority(
     return this->exec(req, ack).second;
 }
 
-xerrors::Error Writer::close() {
-    return this->close(xerrors::NIL);
+x::errors::Error Writer::close() {
+    return this->close(x::errors::NIL);
 }
 
-xerrors::Error Writer::init_request(const telem::Frame &fr) {
+x::errors::Error Writer::init_request(const x::telem::Frame &fr) {
     if (this->cfg.enable_experimental_codec) {
         if (this->cached_write_req == nullptr)
             this->cached_write_req = std::make_unique<api::v1::FrameWriterRequest>();
@@ -104,7 +103,7 @@ xerrors::Error Writer::init_request(const telem::Frame &fr) {
             this->codec_data.data(),
             this->codec_data.size()
         );
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     if (this->cached_write_req != nullptr && this->cfg.enable_proto_frame_caching) {
@@ -112,17 +111,17 @@ xerrors::Error Writer::init_request(const telem::Frame &fr) {
             fr.series->at(i).to_proto(
                 cached_frame->mutable_series(static_cast<int>(i))
             );
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
     this->cached_write_req = nullptr;
     this->cached_write_req = std::make_unique<api::v1::FrameWriterRequest>();
     this->cached_write_req->set_command(WRITE);
     this->cached_frame = cached_write_req->mutable_frame();
     fr.to_proto(cached_frame);
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-xerrors::Error Writer::close(const xerrors::Error &close_err) {
+x::errors::Error Writer::close(const x::errors::Error &close_err) {
     if (this->close_err) return this->close_err.skip(WRITER_CLOSED);
     this->close_err = close_err;
     stream->close_send();
@@ -132,20 +131,20 @@ xerrors::Error Writer::close(const xerrors::Error &close_err) {
         if (err)
             this->close_err = err.matches(freighter::EOF_ERR) ? WRITER_CLOSED : err;
         else
-            this->close_err = xerrors::Error(res.error());
+            this->close_err = x::errors::Error(res.error());
     }
 }
 
-std::pair<api::v1::FrameWriterResponse, xerrors::Error>
+std::pair<api::v1::FrameWriterResponse, x::errors::Error>
 Writer::exec(api::v1::FrameWriterRequest &req, const bool ack) {
     if (const auto err = this->stream->send(req); err)
         return {api::v1::FrameWriterResponse(), this->close(err)};
     while (ack) {
         auto [res, res_err] = stream->receive();
         if (res_err) return {res, this->close(res_err)};
-        if (auto err = xerrors::Error(res.error())) return {res, this->close(err)};
-        if (res.command() == req.command()) return {res, xerrors::NIL};
+        if (auto err = x::errors::Error(res.error())) return {res, this->close(err)};
+        if (res.command() == req.command()) return {res, x::errors::NIL};
     }
-    return {api::v1::FrameWriterResponse(), xerrors::NIL};
+    return {api::v1::FrameWriterResponse(), x::errors::NIL};
 }
 }

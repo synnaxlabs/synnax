@@ -1,0 +1,23 @@
+cc_library(
+    name = "args",
+    hdrs = [
+        "args.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/caseconv",
+        "//x/cpp/errors",
+    ],
+)
+
+cc_test(
+    name = "args_test",
+    srcs = [
+        "args_test.cpp",
+    ],
+    deps = [
+        "//x/cpp/args",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

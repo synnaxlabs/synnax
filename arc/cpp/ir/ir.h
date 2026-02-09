@@ -125,12 +125,12 @@ namespace arc::ir {
 struct Param {
     std::string name;
     types::Type type;
-    std::optional<telem::SampleValue> value;
+    std::optional<x::telem::SampleValue> value;
 
     explicit Param(const v1::types::PBParam &pb) {
         this->name = pb.name();
         if (pb.has_type()) this->type = types::Type(pb.type());
-        if (pb.has_value()) this->value = telem::from_proto(pb.value());
+        if (pb.has_value()) this->value = x::telem::from_proto(pb.value());
     }
 
     Param() = default;
@@ -138,7 +138,7 @@ struct Param {
     void to_proto(v1::types::PBParam *pb) const {
         pb->set_name(name);
         type.to_proto(pb->mutable_type());
-        if (value.has_value()) telem::to_proto(*value, pb->mutable_value());
+        if (value.has_value()) x::telem::to_proto(*value, pb->mutable_value());
     }
 
     /// @brief Returns the value cast to the requested type.
@@ -148,12 +148,12 @@ struct Param {
     template<typename T>
     [[nodiscard]] T get() const {
         assert(value.has_value() && "Param has no value");
-        return telem::cast<T>(*value);
+        return x::telem::cast<T>(*value);
     }
 
     [[nodiscard]] std::string to_string() const {
         std::string result = name + " (" + type.to_string() + ")";
-        if (value.has_value()) result += " = " + telem::to_string(*value);
+        if (value.has_value()) result += " = " + x::telem::to_string(*value);
         return result;
     }
 

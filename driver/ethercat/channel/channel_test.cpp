@@ -11,7 +11,7 @@
 
 #include "driver/ethercat/channel/channel.h"
 
-namespace ethercat::channel {
+namespace driver::ethercat::channel {
 
 TEST(AutomaticInput, ResolvesPdoFromSlaveProperties) {
     slave::Properties slave{
@@ -23,14 +23,14 @@ TEST(AutomaticInput, ResolvesPdoFromSlaveProperties) {
              .bit_length = 16,
              .is_input = true,
              .name = "Position",
-             .data_type = telem::INT16_T},
+             .data_type = x::telem::INT16_T},
             {.pdo_index = 0x1A00,
              .index = 0x6000,
              .sub_index = 2,
              .bit_length = 32,
              .is_input = true,
              .name = "Velocity",
-             .data_type = telem::INT32_T},
+             .data_type = x::telem::INT32_T},
         },
     };
 
@@ -42,7 +42,7 @@ TEST(AutomaticInput, ResolvesPdoFromSlaveProperties) {
         {"pdo", "Velocity"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     AutomaticInput ch(parser, slave);
 
     ASSERT_TRUE(parser.ok());
@@ -54,7 +54,7 @@ TEST(AutomaticInput, ResolvesPdoFromSlaveProperties) {
     ASSERT_EQ(ch.index, 0x6000);
     ASSERT_EQ(ch.sub_index, 2);
     ASSERT_EQ(ch.bit_length, 32);
-    ASSERT_EQ(ch.data_type, telem::INT32_T);
+    ASSERT_EQ(ch.data_type, x::telem::INT32_T);
     ASSERT_TRUE(ch.is_input);
 }
 
@@ -68,7 +68,7 @@ TEST(AutomaticInput, ReportsErrorWhenPdoNotFound) {
              .bit_length = 16,
              .is_input = true,
              .name = "Position",
-             .data_type = telem::INT16_T},
+             .data_type = x::telem::INT16_T},
         },
     };
 
@@ -80,7 +80,7 @@ TEST(AutomaticInput, ReportsErrorWhenPdoNotFound) {
         {"pdo", "NonExistentPdo"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     AutomaticInput ch(parser, slave);
 
     ASSERT_FALSE(parser.ok());
@@ -100,7 +100,7 @@ TEST(ManualInput, ParsesPdoAddressFromJson) {
         {"data_type", "float32"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     ManualInput ch(parser, slave);
 
     ASSERT_TRUE(parser.ok());
@@ -111,7 +111,7 @@ TEST(ManualInput, ParsesPdoAddressFromJson) {
     ASSERT_EQ(ch.index, 0x6010);
     ASSERT_EQ(ch.sub_index, 3);
     ASSERT_EQ(ch.bit_length, 32);
-    ASSERT_EQ(ch.data_type, telem::FLOAT32_T);
+    ASSERT_EQ(ch.data_type, x::telem::FLOAT32_T);
     ASSERT_TRUE(ch.is_input);
 }
 
@@ -125,7 +125,7 @@ TEST(ParseInput, CreatesAutomaticInputForAutomaticType) {
              .bit_length = 16,
              .is_input = true,
              .name = "Status",
-             .data_type = telem::UINT16_T},
+             .data_type = x::telem::UINT16_T},
         },
     };
 
@@ -137,14 +137,14 @@ TEST(ParseInput, CreatesAutomaticInputForAutomaticType) {
         {"pdo", "Status"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     auto ch = parse_input(parser, slave);
 
     ASSERT_TRUE(parser.ok());
     ASSERT_NE(ch, nullptr);
     ASSERT_NE(dynamic_cast<AutomaticInput *>(ch.get()), nullptr);
     ASSERT_EQ(ch->index, 0x6000);
-    ASSERT_EQ(ch->data_type, telem::UINT16_T);
+    ASSERT_EQ(ch->data_type, x::telem::UINT16_T);
 }
 
 TEST(ParseInput, CreatesManualInputForManualType) {
@@ -161,7 +161,7 @@ TEST(ParseInput, CreatesManualInputForManualType) {
         {"data_type", "uint64"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     auto ch = parse_input(parser, slave);
 
     ASSERT_TRUE(parser.ok());
@@ -170,7 +170,7 @@ TEST(ParseInput, CreatesManualInputForManualType) {
     ASSERT_EQ(ch->index, 0x6020);
     ASSERT_EQ(ch->sub_index, 5);
     ASSERT_EQ(ch->bit_length, 64);
-    ASSERT_EQ(ch->data_type, telem::UINT64_T);
+    ASSERT_EQ(ch->data_type, x::telem::UINT64_T);
 }
 
 TEST(ParseInput, ReportsErrorForUnknownType) {
@@ -183,7 +183,7 @@ TEST(ParseInput, ReportsErrorForUnknownType) {
         {"type", "invalid"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     auto ch = parse_input(parser, slave);
 
     ASSERT_FALSE(parser.ok());
@@ -200,14 +200,14 @@ TEST(AutomaticOutput, ResolvesPdoFromSlaveProperties) {
              .bit_length = 16,
              .is_input = false,
              .name = "TargetPosition",
-             .data_type = telem::INT16_T},
+             .data_type = x::telem::INT16_T},
             {.pdo_index = 0x1600,
              .index = 0x7000,
              .sub_index = 2,
              .bit_length = 8,
              .is_input = false,
              .name = "ControlWord",
-             .data_type = telem::UINT8_T},
+             .data_type = x::telem::UINT8_T},
         },
     };
 
@@ -220,7 +220,7 @@ TEST(AutomaticOutput, ResolvesPdoFromSlaveProperties) {
         {"pdo", "ControlWord"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     AutomaticOutput ch(parser, slave);
 
     ASSERT_TRUE(parser.ok());
@@ -233,7 +233,7 @@ TEST(AutomaticOutput, ResolvesPdoFromSlaveProperties) {
     ASSERT_EQ(ch.index, 0x7000);
     ASSERT_EQ(ch.sub_index, 2);
     ASSERT_EQ(ch.bit_length, 8);
-    ASSERT_EQ(ch.data_type, telem::UINT8_T);
+    ASSERT_EQ(ch.data_type, x::telem::UINT8_T);
     ASSERT_FALSE(ch.is_input);
 }
 
@@ -247,7 +247,7 @@ TEST(AutomaticOutput, ReportsErrorWhenPdoNotFound) {
              .bit_length = 16,
              .is_input = false,
              .name = "TargetPosition",
-             .data_type = telem::INT16_T},
+             .data_type = x::telem::INT16_T},
         },
     };
 
@@ -259,7 +259,7 @@ TEST(AutomaticOutput, ReportsErrorWhenPdoNotFound) {
         {"pdo", "NonExistentPdo"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     AutomaticOutput ch(parser, slave);
 
     ASSERT_FALSE(parser.ok());
@@ -280,7 +280,7 @@ TEST(ManualOutput, ParsesPdoAddressFromJson) {
         {"data_type", "int16"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     ManualOutput ch(parser, slave);
 
     ASSERT_TRUE(parser.ok());
@@ -292,7 +292,7 @@ TEST(ManualOutput, ParsesPdoAddressFromJson) {
     ASSERT_EQ(ch.index, 0x7010);
     ASSERT_EQ(ch.sub_index, 4);
     ASSERT_EQ(ch.bit_length, 16);
-    ASSERT_EQ(ch.data_type, telem::INT16_T);
+    ASSERT_EQ(ch.data_type, x::telem::INT16_T);
     ASSERT_FALSE(ch.is_input);
 }
 
@@ -306,7 +306,7 @@ TEST(ParseOutput, CreatesAutomaticOutputForAutomaticType) {
              .bit_length = 32,
              .is_input = false,
              .name = "TargetVelocity",
-             .data_type = telem::INT32_T},
+             .data_type = x::telem::INT32_T},
         },
     };
 
@@ -319,14 +319,14 @@ TEST(ParseOutput, CreatesAutomaticOutputForAutomaticType) {
         {"pdo", "TargetVelocity"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     auto ch = parse_output(parser, slave);
 
     ASSERT_TRUE(parser.ok());
     ASSERT_NE(ch, nullptr);
     ASSERT_NE(dynamic_cast<AutomaticOutput *>(ch.get()), nullptr);
     ASSERT_EQ(ch->index, 0x7000);
-    ASSERT_EQ(ch->data_type, telem::INT32_T);
+    ASSERT_EQ(ch->data_type, x::telem::INT32_T);
 }
 
 TEST(ParseOutput, CreatesManualOutputForManualType) {
@@ -344,7 +344,7 @@ TEST(ParseOutput, CreatesManualOutputForManualType) {
         {"data_type", "uint8"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     auto ch = parse_output(parser, slave);
 
     ASSERT_TRUE(parser.ok());
@@ -353,7 +353,7 @@ TEST(ParseOutput, CreatesManualOutputForManualType) {
     ASSERT_EQ(ch->index, 0x7020);
     ASSERT_EQ(ch->sub_index, 2);
     ASSERT_EQ(ch->bit_length, 8);
-    ASSERT_EQ(ch->data_type, telem::UINT8_T);
+    ASSERT_EQ(ch->data_type, x::telem::UINT8_T);
 }
 
 TEST(ParseOutput, ReportsErrorForUnknownType) {
@@ -366,7 +366,7 @@ TEST(ParseOutput, ReportsErrorForUnknownType) {
         {"type", "unknown"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     auto ch = parse_output(parser, slave);
 
     ASSERT_FALSE(parser.ok());
@@ -411,9 +411,9 @@ TEST(SortByPosition, SortsBySlavePositionThenByIndex) {
         {"data_type", "uint16"}
     };
 
-    auto parser1 = xjson::Parser(j1);
-    auto parser2 = xjson::Parser(j2);
-    auto parser3 = xjson::Parser(j3);
+    auto parser1 = x::json::Parser(j1);
+    auto parser2 = x::json::Parser(j2);
+    auto parser3 = x::json::Parser(j3);
 
     std::vector<std::unique_ptr<Input>> channels;
     channels.push_back(std::make_unique<ManualInput>(parser1, slave1));
@@ -440,7 +440,7 @@ TEST(Channel, EnabledDefaultsToTrue) {
              .bit_length = 16,
              .is_input = true,
              .name = "Value",
-             .data_type = telem::UINT16_T},
+             .data_type = x::telem::UINT16_T},
         },
     };
 
@@ -451,7 +451,7 @@ TEST(Channel, EnabledDefaultsToTrue) {
         {"pdo", "Value"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     AutomaticInput ch(parser, slave);
 
     ASSERT_TRUE(parser.ok());
@@ -468,7 +468,7 @@ TEST(Output, StateKeyDefaultsToZero) {
              .bit_length = 16,
              .is_input = false,
              .name = "Control",
-             .data_type = telem::UINT16_T},
+             .data_type = x::telem::UINT16_T},
         },
     };
 
@@ -480,7 +480,7 @@ TEST(Output, StateKeyDefaultsToZero) {
         {"pdo", "Control"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     AutomaticOutput ch(parser, slave);
 
     ASSERT_TRUE(parser.ok());
@@ -497,7 +497,7 @@ TEST(Input, BindRemoteInfoCopiesChannelInformation) {
              .bit_length = 16,
              .is_input = true,
              .name = "Value",
-             .data_type = telem::UINT16_T},
+             .data_type = x::telem::UINT16_T},
         },
     };
 
@@ -509,19 +509,19 @@ TEST(Input, BindRemoteInfoCopiesChannelInformation) {
         {"pdo", "Value"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     AutomaticInput ch(parser, slave);
 
-    synnax::Channel remote_ch;
+    synnax::channel::Channel remote_ch;
     remote_ch.key = 1300;
     remote_ch.name = "test_channel";
-    remote_ch.data_type = telem::UINT16_T;
+    remote_ch.data_type = x::telem::UINT16_T;
 
     ch.bind_remote_info(remote_ch);
 
     ASSERT_EQ(ch.ch.key, 1300);
     ASSERT_EQ(ch.ch.name, "test_channel");
-    ASSERT_EQ(ch.ch.data_type, telem::UINT16_T);
+    ASSERT_EQ(ch.ch.data_type, x::telem::UINT16_T);
 }
 
 TEST(Output, BindRemoteInfoCopiesStateChannelInformation) {
@@ -534,7 +534,7 @@ TEST(Output, BindRemoteInfoCopiesStateChannelInformation) {
              .bit_length = 8,
              .is_input = false,
              .name = "Control",
-             .data_type = telem::UINT8_T},
+             .data_type = x::telem::UINT8_T},
         },
     };
 
@@ -547,19 +547,19 @@ TEST(Output, BindRemoteInfoCopiesStateChannelInformation) {
         {"pdo", "Control"}
     };
 
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     AutomaticOutput ch(parser, slave);
 
-    synnax::Channel state_ch;
+    synnax::channel::Channel state_ch;
     state_ch.key = 1401;
     state_ch.name = "state_channel";
-    state_ch.data_type = telem::UINT8_T;
+    state_ch.data_type = x::telem::UINT8_T;
 
     ch.bind_remote_info(state_ch);
 
     ASSERT_EQ(ch.state_ch.key, 1401);
     ASSERT_EQ(ch.state_ch.name, "state_channel");
-    ASSERT_EQ(ch.state_ch.data_type, telem::UINT8_T);
+    ASSERT_EQ(ch.state_ch.data_type, x::telem::UINT8_T);
 }
 
 }

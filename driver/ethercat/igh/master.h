@@ -27,7 +27,7 @@
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
 
-namespace ethercat::igh {
+namespace driver::ethercat::igh {
 
 /// @brief IgH EtherLab implementation of the Master interface.
 class Master final : public master::Master {
@@ -80,19 +80,19 @@ public:
     Master(const Master &) = delete;
     Master &operator=(const Master &) = delete;
 
-    xerrors::Error initialize() override;
+    x::errors::Error initialize() override;
 
-    xerrors::Error register_pdos(const std::vector<pdo::Entry> &entries) override;
+    x::errors::Error register_pdos(const std::vector<pdo::Entry> &entries) override;
 
     void set_slave_enabled(uint16_t position, bool enabled) override;
 
-    xerrors::Error activate() override;
+    x::errors::Error activate() override;
 
     void deactivate() override;
 
-    xerrors::Error receive() override;
+    x::errors::Error receive() override;
 
-    xerrors::Error send() override;
+    x::errors::Error send() override;
 
     std::span<const uint8_t> input_data() override;
 
@@ -112,7 +112,7 @@ public:
     ec_slave_config_t *get_or_create_slave_config(uint16_t position);
 
     /// @brief registers a PDO entry for cyclic exchange.
-    std::pair<size_t, xerrors::Error> register_pdo(const pdo::Entry &entry);
+    std::pair<size_t, x::errors::Error> register_pdo(const pdo::Entry &entry);
 
 private:
     /// @brief converts IgH slave state to our slave::State enum.
@@ -150,13 +150,16 @@ class Manager final : public master::Manager {
 public:
     /// @brief opens the IgH manager, checking device availability and loading the API.
     /// @return pair of manager instance and error (nil on success).
-    static std::pair<std::unique_ptr<Manager>, xerrors::Error> open() {
+    static std::pair<std::unique_ptr<Manager>, x::errors::Error> open() {
         struct stat st;
         if (stat(IGH_DEVICE_PATH.c_str(), &st) != 0)
-            return {nullptr, xerrors::Error(MASTER_INIT_ERROR, "IgH device not found")};
+            return {
+                nullptr,
+                x::errors::Error(errors::MASTER_INIT_ERROR, "IgH device not found")
+            };
         auto [api, err] = API::load();
         if (err) return {nullptr, err};
-        return {std::unique_ptr<Manager>(new Manager(std::move(api))), xerrors::NIL};
+        return {std::unique_ptr<Manager>(new Manager(std::move(api))), x::errors::NIL};
     }
 
     [[nodiscard]] std::vector<master::Info> enumerate() override {
@@ -183,25 +186,25 @@ public:
         return masters;
     }
 
-    [[nodiscard]] std::pair<std::shared_ptr<master::Master>, xerrors::Error>
+    [[nodiscard]] std::pair<std::shared_ptr<master::Master>, x::errors::Error>
     create(const std::string &key) override {
         if (key.size() < 5 || key.substr(0, 4) != "igh:")
             return {
                 nullptr,
-                xerrors::Error(
-                    MASTER_INIT_ERROR,
+                x::errors::Error(
+                    errors::MASTER_INIT_ERROR,
                     "invalid IgH master key '" + key + "': expected format 'igh:N'"
                 )
             };
 
         try {
             const int index = std::stoi(key.substr(4));
-            return {std::make_shared<Master>(this->api, index), xerrors::NIL};
+            return {std::make_shared<Master>(this->api, index), x::errors::NIL};
         } catch (const std::exception &) {
             return {
                 nullptr,
-                xerrors::Error(
-                    MASTER_INIT_ERROR,
+                x::errors::Error(
+                    errors::MASTER_INIT_ERROR,
                     "invalid IgH master key '" + key + "': could not parse index"
                 )
             };

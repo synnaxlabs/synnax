@@ -14,15 +14,15 @@
 #include <vector>
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
+#include "driver/common/read_task.h"
+#include "driver/common/sample_clock.h"
 #include "driver/ethercat/channel/channel.h"
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/topology/topology.h"
-#include "driver/task/common/read_task.h"
-#include "driver/task/common/sample_clock.h"
 
-namespace ethercat {
+namespace driver::ethercat {
 /// @brief configuration for EtherCAT read tasks.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief network interface name for the EtherCAT master.
@@ -30,7 +30,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     std::string interface_name;
     /// @brief index channel keys for timestamp generation.
     /// Dynamically populated by querying the core.
-    std::set<synnax::ChannelKey> indexes;
+    std::set<synnax::channel::Key> indexes;
     /// @brief configured input channels.
     std::vector<std::unique_ptr<channel::Input>> channels;
     /// @brief number of samples per channel per batch.
@@ -51,7 +51,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
-        xjson::Parser &cfg
+        x::json::Parser &cfg
     ):
         BaseReadTaskConfig(cfg), samples_per_chan(sample_rate / stream_rate) {
         const auto sample_rate_int = static_cast<size_t>(sample_rate.hz());
@@ -67,7 +67,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         std::unordered_map<std::string, slave::Properties> slave_cache;
         std::string first_network;
 
-        cfg.iter("channels", [&](xjson::Parser &ch) {
+        cfg.iter("channels", [&](x::json::Parser &ch) {
             auto slave_key = ch.field<std::string>("device");
             if (ch.error()) return;
             if (!slave_cache.contains(slave_key)) {
@@ -76,7 +76,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                     ch.field_err("device", slave_err.message());
                     return;
                 }
-                auto props_parser = xjson::Parser(slave_dev.properties);
+                auto props_parser = x::json::Parser(slave_dev.properties);
                 slave_cache.emplace(slave_key, slave::Properties::parse(props_parser));
                 if (props_parser.error()) {
                     ch.field_err("device", props_parser.error().message());
@@ -108,7 +108,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
         channel::sort_by_position(this->channels);
 
-        std::vector<synnax::ChannelKey> keys;
+        std::vector<synnax::channel::Key> keys;
         keys.reserve(this->channels.size());
         for (const auto &ch: this->channels)
             keys.push_back(ch->synnax_key);
@@ -126,29 +126,31 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
     }
 
-    static std::pair<ReadTaskConfig, xerrors::Error>
-    parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
-        auto parser = xjson::Parser(task.config);
+    static std::pair<ReadTaskConfig, x::errors::Error> parse(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const synnax::task::Task &task
+    ) {
+        auto parser = x::json::Parser(task.config);
         ReadTaskConfig cfg(client, parser);
         return {std::move(cfg), parser.error()};
     }
 
-    [[nodiscard]] std::vector<synnax::Channel> data_channels() const {
-        std::vector<synnax::Channel> result;
+    [[nodiscard]] std::vector<synnax::channel::Channel> data_channels() const {
+        std::vector<synnax::channel::Channel> result;
         result.reserve(channels.size());
         for (const auto &ch: channels)
             result.push_back(ch->ch);
         return result;
     }
 
-    [[nodiscard]] synnax::WriterConfig writer_config() const {
-        std::vector<synnax::ChannelKey> keys;
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
+        std::vector<synnax::channel::Key> keys;
         keys.reserve(channels.size() + indexes.size());
         for (const auto &ch: channels)
             keys.push_back(ch->ch.key);
         for (const auto &idx: indexes)
             keys.push_back(idx);
-        return synnax::WriterConfig{
+        return synnax::framer::WriterConfig{
             .channels = keys,
             .mode = common::data_saving_writer_mode(data_saving),
         };
@@ -165,7 +167,7 @@ public:
     explicit ReadTaskSource(std::shared_ptr<engine::Engine> eng, ReadTaskConfig cfg):
         cfg(std::move(cfg)), engine(std::move(eng)) {}
 
-    xerrors::Error start() override {
+    x::errors::Error start() override {
         if (auto err = this->engine->ensure_initialized(); err) return err;
         if (auto err = topology::validate(
                 slave::discovered_properties(this->engine->slaves()),
@@ -185,15 +187,16 @@ public:
         );
         if (err) return err;
         this->reader = std::move(rdr);
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    xerrors::Error stop() override {
+    x::errors::Error stop() override {
         this->reader.reset();
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    common::ReadResult read(breaker::Breaker &breaker, telem::Frame &fr) override {
+    common::ReadResult
+    read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         common::ReadResult res;
         const size_t n_channels = this->cfg.channels.size();
         const size_t n_samples = this->cfg.samples_per_chan;
@@ -207,7 +210,7 @@ public:
         );
         const size_t epochs_per_batch = n_samples * decimation;
 
-        const auto start = telem::TimeStamp::now();
+        const auto start = x::telem::TimeStamp::now();
         for (size_t epoch = 0; epoch < epochs_per_batch; ++epoch) {
             if (epoch % decimation == 0) {
                 if (res.error = this->reader->read(breaker, fr); res.error) return res;
@@ -218,7 +221,7 @@ public:
                 return res;
             }
         }
-        const auto end = telem::TimeStamp::now();
+        const auto end = x::telem::TimeStamp::now();
         common::generate_index_data(
             fr,
             this->cfg.indexes,
@@ -230,11 +233,11 @@ public:
         return res;
     }
 
-    [[nodiscard]] synnax::WriterConfig writer_config() const override {
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
         return cfg.writer_config();
     }
 
-    [[nodiscard]] std::vector<synnax::Channel> channels() const override {
+    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return cfg.data_channels();
     }
 };

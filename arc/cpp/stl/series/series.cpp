@@ -22,7 +22,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
                 "series",                                                              \
                 "create_empty_" #suffix,                                               \
                 [ss](uint32_t length) -> uint32_t {                                    \
-                    auto s = telem::Series(                                            \
+                    auto s = x::telem::Series(                                         \
                         data_type_const,                                               \
                         static_cast<size_t>(length)                                    \
                     );                                                                 \
@@ -393,16 +393,16 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
     }
 
-    BIND_SERIES_OPS(u8, uint8_t, telem::UINT8_T)
-    BIND_SERIES_OPS(u16, uint16_t, telem::UINT16_T)
-    BIND_SERIES_OPS(u32, uint32_t, telem::UINT32_T)
-    BIND_SERIES_OPS(u64, uint64_t, telem::UINT64_T)
-    BIND_SERIES_OPS(i8, int8_t, telem::INT8_T)
-    BIND_SERIES_OPS(i16, int16_t, telem::INT16_T)
-    BIND_SERIES_OPS(i32, int32_t, telem::INT32_T)
-    BIND_SERIES_OPS(i64, int64_t, telem::INT64_T)
-    BIND_SERIES_OPS(f32, float, telem::FLOAT32_T)
-    BIND_SERIES_OPS(f64, double, telem::FLOAT64_T)
+    BIND_SERIES_OPS(u8, uint8_t, x::telem::UINT8_T)
+    BIND_SERIES_OPS(u16, uint16_t, x::telem::UINT16_T)
+    BIND_SERIES_OPS(u32, uint32_t, x::telem::UINT32_T)
+    BIND_SERIES_OPS(u64, uint64_t, x::telem::UINT64_T)
+    BIND_SERIES_OPS(i8, int8_t, x::telem::INT8_T)
+    BIND_SERIES_OPS(i16, int16_t, x::telem::INT16_T)
+    BIND_SERIES_OPS(i32, int32_t, x::telem::INT32_T)
+    BIND_SERIES_OPS(i64, int64_t, x::telem::INT64_T)
+    BIND_SERIES_OPS(f32, float, x::telem::FLOAT32_T)
+    BIND_SERIES_OPS(f64, double, x::telem::FLOAT64_T)
 
 #undef BIND_SERIES_OPS
 
@@ -462,7 +462,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
                 const auto src_size = src->size();
                 if (start >= src_size || end > src_size || start >= end) return 0;
                 const auto slice_len = end - start;
-                auto sliced = telem::Series(src->data_type(), slice_len);
+                auto sliced = x::telem::Series(src->data_type(), slice_len);
                 const auto density = src->data_type().density();
                 std::memcpy(
                     sliced.data(),

@@ -12,8 +12,8 @@
 #include <memory>
 #include <numeric>
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/loop/loop.h"
@@ -24,48 +24,48 @@
 namespace arc::stl::time {
 
 /// @brief Sentinel value indicating base_interval hasn't been set yet.
-inline const ::telem::TimeSpan UNSET_BASE_INTERVAL = ::telem::TimeSpan::max();
+inline const ::x::telem::TimeSpan UNSET_BASE_INTERVAL = ::x::telem::TimeSpan::max();
 
 /// @brief Calculates the tolerance for timing comparisons based on execution mode.
-inline ::telem::TimeSpan calculate_tolerance(
+inline ::x::telem::TimeSpan calculate_tolerance(
     const runtime::loop::ExecutionMode mode,
-    const ::telem::TimeSpan base_interval
+    const ::x::telem::TimeSpan base_interval
 ) {
-    if (base_interval == UNSET_BASE_INTERVAL) return 5 * ::telem::MILLISECOND;
+    if (base_interval == UNSET_BASE_INTERVAL) return 5 * ::x::telem::MILLISECOND;
     const auto half = base_interval / 2;
     switch (mode) {
         case runtime::loop::ExecutionMode::RT_EVENT:
         case runtime::loop::ExecutionMode::BUSY_WAIT:
-            return std::min(half, 100 * ::telem::MICROSECOND);
+            return std::min(half, 100 * ::x::telem::MICROSECOND);
         case runtime::loop::ExecutionMode::HIGH_RATE:
-            return std::min(half, ::telem::MILLISECOND);
+            return std::min(half, ::x::telem::MILLISECOND);
         default:
-            return std::min(half, 5 * ::telem::MILLISECOND);
+            return std::min(half, 5 * ::x::telem::MILLISECOND);
     }
 }
 
 struct IntervalConfig {
-    ::telem::TimeSpan interval;
+    ::x::telem::TimeSpan interval;
 
     explicit IntervalConfig(const ir::Params &params) {
         const auto interval_ns = params["period"].get<std::int64_t>();
-        this->interval = ::telem::TimeSpan(interval_ns);
+        this->interval = ::x::telem::TimeSpan(interval_ns);
     }
 };
 
 class Interval : public runtime::node::Node {
     runtime::state::Node state;
     IntervalConfig cfg;
-    ::telem::TimeSpan last_fired;
+    ::x::telem::TimeSpan last_fired;
 
 public:
     explicit Interval(const IntervalConfig &cfg, runtime::state::Node &&state):
         state(std::move(state)), cfg(cfg), last_fired(-1 * this->cfg.interval) {}
 
-    xerrors::Error next(runtime::node::Context &ctx) override {
-        if (ctx.reason != runtime::node::RunReason::TimerTick) return xerrors::NIL;
+    x::errors::Error next(runtime::node::Context &ctx) override {
+        if (ctx.reason != runtime::node::RunReason::TimerTick) return x::errors::NIL;
         if (ctx.elapsed - this->last_fired < this->cfg.interval - ctx.tolerance)
-            return xerrors::NIL;
+            return x::errors::NIL;
         this->last_fired = ctx.elapsed;
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
@@ -74,7 +74,7 @@ public:
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, ctx.elapsed.nanoseconds());
         ctx.mark_changed(ir::default_output_param);
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void reset() override { last_fired = -1 * cfg.interval; }
@@ -85,11 +85,11 @@ public:
 };
 
 struct WaitConfig {
-    ::telem::TimeSpan duration;
+    ::x::telem::TimeSpan duration;
 
     explicit WaitConfig(const ir::Params &params) {
         const auto duration_ns = params["duration"].get<std::int64_t>();
-        this->duration = ::telem::TimeSpan(duration_ns);
+        this->duration = ::x::telem::TimeSpan(duration_ns);
     }
 };
 
@@ -97,19 +97,19 @@ struct WaitConfig {
 class Wait : public runtime::node::Node {
     runtime::state::Node state;
     WaitConfig cfg;
-    ::telem::TimeSpan start_time = ::telem::TimeSpan(-1);
+    ::x::telem::TimeSpan start_time = ::x::telem::TimeSpan(-1);
     bool fired = false;
 
 public:
     explicit Wait(const WaitConfig &cfg, runtime::state::Node &&state):
         state(std::move(state)), cfg(cfg) {}
 
-    xerrors::Error next(runtime::node::Context &ctx) override {
-        if (ctx.reason != runtime::node::RunReason::TimerTick) return xerrors::NIL;
-        if (this->fired) return xerrors::NIL;
+    x::errors::Error next(runtime::node::Context &ctx) override {
+        if (ctx.reason != runtime::node::RunReason::TimerTick) return x::errors::NIL;
+        if (this->fired) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
         if (ctx.elapsed - this->start_time < this->cfg.duration - ctx.tolerance)
-            return xerrors::NIL;
+            return x::errors::NIL;
         this->fired = true;
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
@@ -118,11 +118,11 @@ public:
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, ctx.elapsed.nanoseconds());
         ctx.mark_changed(ir::default_output_param);
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void reset() override {
-        start_time = ::telem::TimeSpan(-1);
+        start_time = ::x::telem::TimeSpan(-1);
         fired = false;
     }
 
@@ -132,25 +132,25 @@ public:
 };
 
 class Factory : public runtime::node::Factory {
-    ::telem::TimeSpan base = UNSET_BASE_INTERVAL;
+    ::x::telem::TimeSpan base = UNSET_BASE_INTERVAL;
 
 public:
     /// @brief Returns the GCD of all interval/wait durations seen during node
     /// creation. Returns UNSET_BASE_INTERVAL if no time nodes were created.
-    [[nodiscard]] ::telem::TimeSpan base_interval() const { return this->base; }
+    [[nodiscard]] ::x::telem::TimeSpan base_interval() const { return this->base; }
 
     bool handles(const std::string &node_type) const override {
         return node_type == "interval" || node_type == "wait";
     }
 
-    std::pair<std::unique_ptr<runtime::node::Node>, xerrors::Error>
+    std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (cfg.node.type == "interval") {
             IntervalConfig node_cfg(cfg.node.config);
             this->update_base_interval(node_cfg.interval);
             return {
                 std::make_unique<Interval>(node_cfg, std::move(cfg.state)),
-                xerrors::NIL
+                x::errors::NIL
             };
         }
         if (cfg.node.type == "wait") {
@@ -158,18 +158,18 @@ public:
             this->update_base_interval(node_cfg.duration);
             return {
                 std::make_unique<Wait>(node_cfg, std::move(cfg.state)),
-                xerrors::NIL
+                x::errors::NIL
             };
         }
-        return {nullptr, xerrors::NOT_FOUND};
+        return {nullptr, x::errors::NOT_FOUND};
     }
 
 private:
-    void update_base_interval(const ::telem::TimeSpan span) {
+    void update_base_interval(const ::x::telem::TimeSpan span) {
         if (this->base == UNSET_BASE_INTERVAL)
             this->base = span;
         else
-            this->base = ::telem::TimeSpan(
+            this->base = ::x::telem::TimeSpan(
                 std::gcd(this->base.nanoseconds(), span.nanoseconds())
             );
     }
@@ -182,7 +182,7 @@ public:
             .func_wrap(
                 "time",
                 "now",
-                []() -> int64_t { return ::telem::TimeStamp::now().nanoseconds(); }
+                []() -> int64_t { return ::x::telem::TimeStamp::now().nanoseconds(); }
             )
             .unwrap();
     }

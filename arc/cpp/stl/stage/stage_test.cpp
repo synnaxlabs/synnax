@@ -9,18 +9,18 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stage/stage.h"
 
-namespace arc::stl {
+namespace arc::stl::stage {
 runtime::node::Context make_context() {
     return runtime::node::Context{
-        .elapsed = ::telem::SECOND,
+        .elapsed = x::telem::SECOND,
         .mark_changed = [](const std::string &) {},
-        .report_error = [](const xerrors::Error &) {},
+        .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
 }
@@ -74,7 +74,7 @@ TEST(StageFactoryTest, CreatesStageEntryNode) {
 
 /// @brief Verify next() calls activate_stage on the context.
 TEST(StageEntryTest, NextActivatesStage) {
-    stage::StageEntry entry;
+    StageEntry entry;
 
     bool activated = false;
     auto ctx = make_context();
@@ -87,14 +87,14 @@ TEST(StageEntryTest, NextActivatesStage) {
 
 /// @brief Verify next() returns nil error.
 TEST(StageEntryTest, NextReturnsNil) {
-    stage::StageEntry entry;
+    StageEntry entry;
     auto ctx = make_context();
     ASSERT_NIL(entry.next(ctx));
 }
 
 /// @brief Verify is_output_truthy always returns false regardless of parameter.
 TEST(StageEntryTest, IsOutputTruthyAlwaysFalse) {
-    const stage::StageEntry entry;
+    const StageEntry entry;
     EXPECT_FALSE(entry.is_output_truthy("output"));
     EXPECT_FALSE(entry.is_output_truthy("anything"));
     EXPECT_FALSE(entry.is_output_truthy(""));

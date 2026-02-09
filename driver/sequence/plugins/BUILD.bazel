@@ -11,8 +11,8 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//driver/pipeline",
-        "//x/cpp/xerrors",
-        "//x/cpp/xlua",
+        "//x/cpp/errors",
+        "//x/cpp/lua",
         "@glog",
         "@nlohmann_json//:json",
     ],
@@ -31,7 +31,7 @@ cc_test(
         "//driver/pipeline/mock",
         "//driver/sequence/plugins",
         "//driver/sequence/plugins/mock",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

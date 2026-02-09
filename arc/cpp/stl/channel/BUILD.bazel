@@ -10,7 +10,7 @@ cc_library(
         "//arc/cpp/runtime/state",
         "//arc/cpp/stl",
         "//arc/cpp/stl/str:state",
+        "//x/cpp/mem",
         "//x/cpp/telem",
-        "//x/cpp/xmemory",
     ],
 )

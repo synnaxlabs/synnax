@@ -15,7 +15,7 @@
 
 #include "driver/ethercat/slave/slave.h"
 
-namespace ethercat::esi {
+namespace driver::ethercat::esi {
 /// @brief looks up PDO definitions for a device in the ESI registry.
 bool lookup_device_pdos(
     uint32_t vendor_id,

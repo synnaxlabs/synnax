@@ -16,11 +16,11 @@
 #include <unordered_map>
 #include <vector>
 
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/mem/local_shared.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xmemory/local_shared.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
@@ -30,7 +30,7 @@
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
-using Series = xmemory::local_shared<telem::Series>;
+using Series = x::mem::local_shared<x::telem::Series>;
 
 struct AuthorityChange {
     std::optional<types::ChannelKey> channel_key;
@@ -44,7 +44,7 @@ struct Value {
 
 struct ChannelDigest {
     types::ChannelKey key;
-    telem::DataType data_type;
+    x::telem::DataType data_type;
     types::ChannelKey index;
 };
 
@@ -68,7 +68,7 @@ class Node {
         size_t source;
         Series data;
         Series time;
-        telem::TimeStamp last_timestamp{0};
+        x::telem::TimeStamp last_timestamp{0};
         bool consumed{true};
     };
 
@@ -116,7 +116,7 @@ public:
 
     /// Reads buffered data and time series from a channel. Returns (data, index_data,
     /// ok). If the channel has an associated index, both data and time are returned.
-    std::tuple<telem::MultiSeries, telem::MultiSeries, bool>
+    std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
     read_chan(types::ChannelKey key) const;
 
     /// Writes data and time series to a channel buffer.
@@ -127,7 +127,7 @@ public:
 
     /// @brief Checks if a series is truthy by examining its last element.
     /// Empty series are falsy. A series with a last element of zero is falsy.
-    [[nodiscard]] static bool is_series_truthy(const telem::Series &series) {
+    [[nodiscard]] static bool is_series_truthy(const x::telem::Series &series) {
         if (series.size() == 0) return false;
         const auto last_value = series.at(-1);
         return std::visit(
@@ -145,7 +145,7 @@ public:
     /// @brief Resets accumulated input state for runtime restart.
     void reset() {
         for (auto &entry: this->accumulated) {
-            entry.last_timestamp = telem::TimeStamp(0);
+            entry.last_timestamp = x::telem::TimeStamp(0);
             entry.consumed = true;
         }
     }
@@ -177,13 +177,13 @@ class State {
 
 public:
     void write_channel(types::ChannelKey key, const Series &data, const Series &time);
-    std::pair<telem::MultiSeries, bool> read_channel(types::ChannelKey key);
+    std::pair<x::telem::MultiSeries, bool> read_channel(types::ChannelKey key);
     explicit State(
         const Config &cfg,
         errors::Handler error_handler = errors::noop_handler
     );
-    std::pair<Node, xerrors::Error> node(const std::string &key);
-    void ingest(const telem::Frame &frame);
+    std::pair<Node, x::errors::Error> node(const std::string &key);
+    void ingest(const x::telem::Frame &frame);
     std::vector<std::pair<types::ChannelKey, Series>> flush();
 
     /// @brief Buffers an authority change request for later flushing.

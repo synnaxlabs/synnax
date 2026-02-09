@@ -6,6 +6,6 @@ cc_library(
         "//driver/ethercat/pdo",
         "//driver/ethercat/slave",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
     ],
 )

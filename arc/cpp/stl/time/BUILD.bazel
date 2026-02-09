@@ -13,7 +13,7 @@ cc_library(
         "//arc/cpp/runtime/state",
         "//arc/cpp/stl",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
     ],
 )
 
@@ -26,7 +26,7 @@ cc_test(
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/loop",
         "//arc/cpp/runtime/state",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

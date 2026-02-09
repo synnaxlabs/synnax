@@ -14,8 +14,8 @@ cc_library(
         "//arc/cpp/stl/stateful:state",
         "//arc/cpp/stl/str:state",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
-        "//x/cpp/xmemory",
+        "//x/cpp/errors",
+        "//x/cpp/mem",
         "@glog",
     ],
 )
@@ -27,7 +27,7 @@ cc_test(
     ],
     deps = [
         ":state",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

@@ -368,6 +368,51 @@ func detectConfigContext(tokens []antlr.Token) CompletionContext {
 	return ContextUnknown
 }
 
+// NestingKind represents the kind of nesting context the cursor is in.
+type NestingKind int
+
+const (
+	NestingTopLevel     NestingKind = iota
+	NestingFunction                 // inside func body, if block, etc.
+	NestingSequenceBody             // inside sequence body (only stage declarations)
+	NestingStageBody                // inside stage body (flow statements)
+)
+
+// detectNesting walks the tokens before the cursor and determines the
+// innermost nesting context. It tracks SEQUENCE/STAGE/FUNC keywords
+// followed by brace patterns, and any other braces (if blocks, etc.)
+// are treated as function-level nesting.
+func detectNesting(tokens []antlr.Token) NestingKind {
+	type frame struct{ kind NestingKind }
+	var stack []frame
+	for i := 0; i < len(tokens); i++ {
+		tt := tokens[i].GetTokenType()
+		switch tt {
+		case parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE:
+			kind := NestingSequenceBody
+			if tt == parser.ArcLexerSTAGE {
+				kind = NestingStageBody
+			}
+			if i+2 < len(tokens) &&
+				tokens[i+1].GetTokenType() == parser.ArcLexerIDENTIFIER &&
+				tokens[i+2].GetTokenType() == parser.ArcLexerLBRACE {
+				stack = append(stack, frame{kind: kind})
+				i += 2
+			}
+		case parser.ArcLexerLBRACE:
+			stack = append(stack, frame{kind: NestingFunction})
+		case parser.ArcLexerRBRACE:
+			if len(stack) > 0 {
+				stack = stack[:len(stack)-1]
+			}
+		}
+	}
+	if len(stack) == 0 {
+		return NestingTopLevel
+	}
+	return stack[len(stack)-1].kind
+}
+
 func extractConfigContext(content string, pos protocol.Position) *configContextInfo {
 	tokens := tokenizeContent(content)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)

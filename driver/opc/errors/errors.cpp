@@ -17,7 +17,7 @@
 /// internal
 #include "driver/opc/errors/errors.h"
 
-namespace opc::errors {
+namespace driver::opc::errors {
 static const std::unordered_map<uint32_t, std::string>
     STATUS_CODE_DESCRIPTIONS =
         {
@@ -404,8 +404,8 @@ static bool is_connection_status_code(const UA_StatusCode &status) {
            status == UA_STATUSCODE_BADCONNECTIONCLOSED;
 }
 
-xerrors::Error parse(const UA_StatusCode &status) {
-    if (status == UA_STATUSCODE_GOOD) return xerrors::NIL;
+x::errors::Error parse(const UA_StatusCode &status) {
+    if (status == UA_STATUSCODE_GOOD) return x::errors::NIL;
     const std::string status_name = UA_StatusCode_name(status);
     const std::string message = status_code_description(status);
     if (is_connection_status_code(status))

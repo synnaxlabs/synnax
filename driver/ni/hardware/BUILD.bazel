@@ -7,8 +7,8 @@ cc_library(
     hdrs = ["hardware.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/common",
         "//driver/ni/daqmx",
-        "//driver/task/common",
-        "@glog//:glog",
+        "@glog",
     ],
 )

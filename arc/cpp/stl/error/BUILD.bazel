@@ -9,6 +9,6 @@ cc_library(
     deps = [
         "//arc/cpp/runtime/errors",
         "//arc/cpp/stl",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
     ],
 )

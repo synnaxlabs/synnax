@@ -10,7 +10,7 @@ cc_library(
         "//arc/cpp/ir",
         "//arc/cpp/runtime/node",
         "//arc/cpp/stl",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
     ],
 )
 
@@ -21,7 +21,7 @@ cc_test(
         ":stage",
         "//arc/cpp/ir",
         "//arc/cpp/runtime/state",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

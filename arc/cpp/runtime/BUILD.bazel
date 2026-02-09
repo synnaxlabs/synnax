@@ -20,7 +20,7 @@ cc_library(
         "//arc/cpp/stl/str",
         "//arc/cpp/stl/telem",
         "//arc/cpp/stl/time",
-        "//x/cpp/xthread",
+        "//x/cpp/thread",
     ],
 )
 
@@ -31,7 +31,7 @@ cc_test(
         ":runtime",
         "//arc/cpp/runtime/testutil",
         "//x/cpp/telem",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

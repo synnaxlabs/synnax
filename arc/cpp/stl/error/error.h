@@ -12,7 +12,7 @@
 #include <cstdio>
 #include <string>
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/stl/stl.h"
@@ -50,7 +50,9 @@ public:
                             );
                     }
                     std::fprintf(stderr, "WASM panic: %s\n", message.c_str());
-                    self->handler(xerrors::Error(runtime::errors::WASM_PANIC, message));
+                    self->handler(
+                        x::errors::Error(runtime::errors::WASM_PANIC, message)
+                    );
                 }
             )
             .unwrap();

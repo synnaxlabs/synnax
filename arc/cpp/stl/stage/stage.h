@@ -12,7 +12,7 @@
 #include <memory>
 #include <string>
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
@@ -24,9 +24,12 @@ namespace arc::stl::stage {
 /// an activation signal (input value of u8(1)).
 class StageEntry : public runtime::node::Node {
 public:
-    xerrors::Error next(runtime::node::Context &ctx) override {
+    x::errors::Error next(runtime::node::Context &ctx) override {
+        // Entry nodes only execute when the scheduler's mark_changed() adds them
+        // to the changed set. mark_changed() already validates is_output_truthy()
+        // on the upstream node for one-shot edges, so no input check is needed here.
         ctx.activate_stage();
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
@@ -47,9 +50,9 @@ private:
             return node_type == "stage_entry";
         }
 
-        std::pair<std::unique_ptr<runtime::node::Node>, xerrors::Error>
+        std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
         create(runtime::node::Config &&cfg) override {
-            return {std::make_unique<StageEntry>(), xerrors::NIL};
+            return {std::make_unique<StageEntry>(), x::errors::NIL};
         }
     };
 };
