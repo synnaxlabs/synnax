@@ -16,6 +16,7 @@
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/module/module.h"
 #include "arc/cpp/runtime/errors/errors.h"
@@ -56,7 +57,7 @@ struct TaskConfig : common::BaseTaskConfig {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
         auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
-            cfg.arc_key,
+            x::uuid::UUID::parse(cfg.arc_key).first,
             synnax::arc::RetrieveOptions{.compile = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};
@@ -166,7 +167,7 @@ public:
             );
         task->acquisition = std::make_unique<pipeline::Acquisition>(
             writer_factory,
-            synnax::framer::WriterConfig {
+            synnax::framer::WriterConfig{
                 .channels = task->runtime->write_channels,
                 .start = x::telem::TimeStamp::now(),
                 .subject =

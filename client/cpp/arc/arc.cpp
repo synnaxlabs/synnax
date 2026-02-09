@@ -23,7 +23,7 @@ const std::string DELETE_ENDPOINT = "/api/v1/arc/delete";
 Arc::Arc(std::string name): name(std::move(name)) {}
 
 Arc::Arc(const api::v1::Arc &pb):
-    key(pb.key()),
+    key(x::uuid::UUID::parse(pb.key()).first),
     name(pb.name()),
     graph(pb.has_graph() ? ::arc::graph::Graph(pb.graph()) : ::arc::graph::Graph()),
     text(pb.has_text() ? ::arc::text::Text(pb.text()) : ::arc::text::Text()),
@@ -34,8 +34,7 @@ Arc::Arc(const api::v1::Arc &pb):
     version(pb.version()) {}
 
 void Arc::to_proto(api::v1::Arc *pb) const {
-    // Only set key if it's not empty (server generates UUID for new Arcs)
-    if (!key.empty()) pb->set_key(key);
+    if (!this->key.is_nil()) pb->set_key(this->key.to_string());
     pb->set_name(name);
     graph.to_proto(pb->mutable_graph());
     text.to_proto(pb->mutable_text());
@@ -61,7 +60,7 @@ x::errors::Error Client::create(Arc &arc) const {
     if (res.arcs_size() == 0) return errors::unexpected_missing_error("arc");
 
     const auto &first = res.arcs(0);
-    arc.key = first.key();
+    arc.key = x::uuid::UUID::parse(first.key()).first;
     arc.name = first.name();
     if (first.has_graph()) arc.graph = ::arc::graph::Graph(first.graph());
     if (first.has_text()) arc.text = ::arc::text::Text(first.text());
@@ -83,7 +82,7 @@ x::errors::Error Client::create(std::vector<Arc> &arcs) const {
 
     for (int i = 0; i < res.arcs_size(); i++) {
         const auto &pb = res.arcs(i);
-        arcs[i].key = pb.key();
+        arcs[i].key = x::uuid::UUID::parse(pb.key()).first;
         arcs[i].name = pb.name();
         if (pb.has_graph()) arcs[i].graph = ::arc::graph::Graph(pb.graph());
         if (pb.has_text()) arcs[i].text = ::arc::text::Text(pb.text());
@@ -117,10 +116,12 @@ std::pair<Arc, x::errors::Error> Client::retrieve_by_name(
     return {Arc(res.arcs(0)), x::errors::NIL};
 }
 
-std::pair<Arc, x::errors::Error>
-Client::retrieve_by_key(const std::string &key, const RetrieveOptions &options) const {
+std::pair<Arc, x::errors::Error> Client::retrieve_by_key(
+    const x::uuid::UUID &key,
+    const RetrieveOptions &options
+) const {
     auto req = api::v1::ArcRetrieveRequest();
-    req.add_keys(key);
+    req.add_keys(key.to_string());
     options.apply(req);
 
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
@@ -151,12 +152,12 @@ std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve(
 }
 
 std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve_by_keys(
-    const std::vector<std::string> &keys,
+    const std::vector<x::uuid::UUID> &keys,
     const RetrieveOptions &options
 ) const {
     auto req = api::v1::ArcRetrieveRequest();
     for (const auto &key: keys)
-        req.add_keys(key);
+        req.add_keys(key.to_string());
     options.apply(req);
 
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
@@ -170,18 +171,18 @@ std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve_by_keys(
     return {arcs, x::errors::NIL};
 }
 
-x::errors::Error Client::delete_arc(const std::string &key) const {
+x::errors::Error Client::delete_arc(const x::uuid::UUID &key) const {
     auto req = api::v1::ArcDeleteRequest();
-    req.add_keys(key);
+    req.add_keys(key.to_string());
 
     auto [_, err] = delete_client->send(DELETE_ENDPOINT, req);
     return err;
 }
 
-x::errors::Error Client::delete_arc(const std::vector<std::string> &keys) const {
+x::errors::Error Client::delete_arc(const std::vector<x::uuid::UUID> &keys) const {
     auto req = api::v1::ArcDeleteRequest();
     for (const auto &key: keys)
-        req.add_keys(key);
+        req.add_keys(key.to_string());
 
     auto [_, err] = delete_client->send(DELETE_ENDPOINT, req);
     return err;

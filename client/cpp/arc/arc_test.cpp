@@ -33,7 +33,7 @@ TEST(TestArc, testCreate) {
 
     ASSERT_NIL(client.arcs.create(arc));
     ASSERT_EQ(arc.name, "test_arc");
-    ASSERT_FALSE(arc.key.empty());
+    ASSERT_FALSE(arc.key.is_nil());
 }
 
 /// @brief it should create an Arc program using the convenience method.
@@ -41,7 +41,7 @@ TEST(TestArc, testCreateConvenience) {
     const auto client = new_test_client();
     auto arc = ASSERT_NIL_P(client.arcs.create("convenience_arc"));
     ASSERT_EQ(arc.name, "convenience_arc");
-    ASSERT_FALSE(arc.key.empty());
+    ASSERT_FALSE(arc.key.is_nil());
 }
 
 /// @brief it should create multiple Arc programs.
@@ -56,7 +56,7 @@ TEST(TestArc, testCreateMany) {
     ASSERT_NIL(client.arcs.create(arcs));
 
     for (const auto &arc: arcs)
-        ASSERT_FALSE(arc.key.empty());
+        ASSERT_FALSE(arc.key.is_nil());
     ASSERT_EQ(arcs[0].name, "arc1");
     ASSERT_EQ(arcs[1].name, "arc2");
     ASSERT_EQ(arcs[2].name, "arc3");
@@ -109,7 +109,7 @@ TEST(TestArc, testRetrieveByKeys) {
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
-    std::vector<std::string> keys = {arcs[0].key, arcs[1].key};
+    std::vector<x::uuid::UUID> keys = {arcs[0].key, arcs[1].key};
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_keys(keys));
     ASSERT_EQ(retrieved.size(), 2);
 }
@@ -134,7 +134,7 @@ TEST(TestArc, testDeleteMany) {
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
-    std::vector<std::string> keys = {arcs[0].key, arcs[1].key};
+    std::vector<x::uuid::UUID> keys = {arcs[0].key, arcs[1].key};
     ASSERT_NIL(client.arcs.delete_arc(keys));
 
     auto retrieved = ASSERT_OCCURRED_AS_P(

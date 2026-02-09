@@ -19,9 +19,9 @@
 namespace driver::sequence::plugins::mock {
 class FrameSink final : public plugins::FrameSink, public pipeline::mock::Sink {
 public:
-    std::vector<
-        std::
-            pair<std::vector<synnax::channel::Key>, std::vector<x::control::Authority>>>
+    std::vector<std::pair<
+        std::vector<synnax::channel::Key>,
+        std::vector<x::control::Authority>>>
         authority_calls;
 
     x::errors::Error write(x::telem::Frame &frame) override {

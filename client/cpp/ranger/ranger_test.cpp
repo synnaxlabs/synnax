@@ -28,7 +28,7 @@ TEST(RangerTests, testCreate) {
         x::telem::TimeRange(x::telem::TimeStamp(10), x::telem::TimeStamp(100))
     ));
     ASSERT_EQ(range.name, "test");
-    ASSERT_FALSE(range.key.empty());
+    ASSERT_FALSE(range.key.is_nil());
     ASSERT_EQ(range.time_range.start, x::telem::TimeStamp(10));
     ASSERT_EQ(range.time_range.end, x::telem::TimeStamp(100));
 }
@@ -42,7 +42,7 @@ TEST(RangerTests, testRetrieveByKey) {
     ));
     const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_key(range.key));
     ASSERT_EQ(got.name, "test");
-    ASSERT_FALSE(got.key.empty());
+    ASSERT_FALSE(got.key.is_nil());
     ASSERT_EQ(got.time_range.start, x::telem::TimeStamp(30));
     ASSERT_EQ(got.time_range.end, x::telem::TimeStamp(100));
 }
@@ -57,7 +57,7 @@ TEST(RangerTests, testRetrieveByName) {
     ));
     const auto got = ASSERT_NIL_P(client.ranges.retrieve_by_name(rand_name));
     ASSERT_EQ(got.name, rand_name);
-    ASSERT_FALSE(got.key.empty());
+    ASSERT_FALSE(got.key.is_nil());
     ASSERT_EQ(got.time_range.start, x::telem::TimeStamp(10));
     ASSERT_EQ(got.time_range.end, x::telem::TimeStamp(100));
 }
@@ -88,11 +88,11 @@ TEST(RangerTests, testRetrieveMultipleByName) {
     );
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, rand_name);
-    ASSERT_FALSE(got[0].key.empty());
+    ASSERT_FALSE(got[0].key.is_nil());
     ASSERT_EQ(got[0].time_range.start, x::telem::TimeStamp(30));
     ASSERT_EQ(got[0].time_range.end, x::telem::TimeStamp(100));
     ASSERT_EQ(got[1].name, rand_name);
-    ASSERT_FALSE(got[1].key.empty());
+    ASSERT_FALSE(got[1].key.is_nil());
     ASSERT_EQ(got[1].time_range.start, x::telem::TimeStamp(30));
     ASSERT_EQ(got[1].time_range.end, x::telem::TimeStamp(100));
 }
@@ -111,11 +111,11 @@ TEST(RangerTests, testRetrieveMultipleByKey) {
     );
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, "test");
-    ASSERT_FALSE(got[0].key.empty());
+    ASSERT_FALSE(got[0].key.is_nil());
     ASSERT_EQ(got[0].time_range.start, x::telem::TimeStamp(10 * x::telem::SECOND));
     ASSERT_EQ(got[0].time_range.end, x::telem::TimeStamp(100 * x::telem::SECOND));
     ASSERT_EQ(got[1].name, "test2");
-    ASSERT_FALSE(got[1].key.empty());
+    ASSERT_FALSE(got[1].key.is_nil());
     ASSERT_EQ(got[1].time_range.start, x::telem::TimeStamp(10 * x::telem::SECOND));
     ASSERT_EQ(got[1].time_range.end, x::telem::TimeStamp(100 * x::telem::SECOND));
 }
@@ -172,28 +172,32 @@ TEST(RangerTests, testKVDelete) {
 
 /// @brief it should convert a range key to an ontology ID
 TEST(RangerTests, testRangeOntologyId) {
-    const std::string key = "748d31e2-5732-4cb5-8bc9-64d4ad51efe8";
+    const auto key = x::uuid::UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8").first;
     const auto id = ontology_id(key);
     ASSERT_EQ(id.type, "range");
-    ASSERT_EQ(id.key, key);
+    ASSERT_EQ(id.key, "748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
 }
 
 /// @brief it should convert multiple range keys to ontology IDs
 TEST(RangerTests, testRangeOntologyIds) {
-    const std::vector<std::string> keys = {"key1", "key2", "key3"};
+    const std::vector<Key> keys = {
+        x::uuid::UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8").first,
+        x::uuid::UUID::parse("00000000-0000-0000-0000-000000000001").first,
+        x::uuid::UUID::parse("00000000-0000-0000-0000-000000000002").first,
+    };
     const auto ids = ontology_ids(keys);
     ASSERT_EQ(ids.size(), 3);
     ASSERT_EQ(ids[0].type, "range");
-    ASSERT_EQ(ids[0].key, "key1");
+    ASSERT_EQ(ids[0].key, "748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
     ASSERT_EQ(ids[1].type, "range");
-    ASSERT_EQ(ids[1].key, "key2");
+    ASSERT_EQ(ids[1].key, "00000000-0000-0000-0000-000000000001");
     ASSERT_EQ(ids[2].type, "range");
-    ASSERT_EQ(ids[2].key, "key3");
+    ASSERT_EQ(ids[2].key, "00000000-0000-0000-0000-000000000002");
 }
 
 /// @brief it should return empty vector for empty input
 TEST(RangerTests, testRangeOntologyIdsEmpty) {
-    const std::vector<std::string> keys;
+    const std::vector<Key> keys;
     const auto ids = ontology_ids(keys);
     ASSERT_TRUE(ids.empty());
 }
