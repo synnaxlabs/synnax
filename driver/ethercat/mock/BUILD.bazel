@@ -9,7 +9,7 @@ cc_library(
         "//driver/ethercat/engine",
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
     ],
 )
 
@@ -21,7 +21,7 @@ cc_test(
     ],
     deps = [
         ":mock",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

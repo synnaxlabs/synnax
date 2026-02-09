@@ -237,7 +237,11 @@ func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 	defer cancel()
 	if *o.EnableSearch {
 		for _, svc := range o.registrar {
-			o.search.Register(ctx, svc.Type(), svc.Schema())
+			var extraFields []string
+			if provider, ok := svc.(SearchableFieldsProvider); ok {
+				extraFields = provider.SearchableFields()
+			}
+			o.search.Register(ctx, svc.Type(), extraFields...)
 		}
 	}
 	for _, svc := range o.registrar {
@@ -249,7 +253,7 @@ func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 				for ch := range i {
 					o.L.Debug(
 						"updating search index",
-						zap.String("key", ch.Key.String()),
+						zap.Stringer("key", ch.Key),
 						zap.Stringer("type", svc.Type()),
 						zap.Stringer("variant", ch.Variant),
 					)

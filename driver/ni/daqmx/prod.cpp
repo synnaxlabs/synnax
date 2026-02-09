@@ -11,32 +11,32 @@
 #include <memory>
 #include <utility>
 
-#include "x/cpp/xlib/xlib.h"
-#include "x/cpp/xos/xos.h"
+#include "x/cpp/lib/lib.h"
+#include "x/cpp/os/os.h"
 
+#include "../errors/errors.h"
 #include "driver/errors/errors.h"
 #include "driver/ni/daqmx/prod.h"
-#include "driver/ni/errors.h"
 
+namespace driver::ni::daqmx {
 #ifdef _WIN32
 static const std::string LIB_NAME = "nicaiu.dll";
 #else
 static const std::string LIB_NAME = "libnidaqmx.so.1";
 #endif
 
-namespace daqmx {
-const auto LOAD_ERROR = driver::missing_lib(ni::NI_DAQMX);
+const auto LOAD_ERROR = errors::missing_lib(LIBRARY_INFO);
 
-std::pair<std::shared_ptr<API>, xerrors::Error> ProdAPI::load() {
-    const auto os = xos::get();
-    if (os == xos::MACOS_NAME || os == xos::UNKNOWN_NAME)
-        return {nullptr, xerrors::NIL};
-    auto lib = std::make_unique<xlib::SharedLib>(LIB_NAME);
+std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
+    const auto os = x::os::get();
+    if (os == x::os::MACOS_NAME || os == x::os::UNKNOWN_NAME)
+        return {nullptr, x::errors::NIL};
+    auto lib = std::make_unique<x::lib::SharedLib>(LIB_NAME);
     if (!lib->load()) return {nullptr, LOAD_ERROR};
-    return {std::make_shared<ProdAPI>(lib), xerrors::Error()};
+    return {std::make_shared<ProdAPI>(lib), x::errors::Error()};
 }
 
-ProdAPI::ProdAPI(std::unique_ptr<xlib::SharedLib> &lib_): lib(std::move(lib_)) {
+ProdAPI::ProdAPI(std::unique_ptr<x::lib::SharedLib> &lib_): lib(std::move(lib_)) {
     memset(&function_pointers_, 0, sizeof(function_pointers_));
     function_pointers_
         .AddCDAQSyncConnection = reinterpret_cast<AddCDAQSyncConnectionPtr>(

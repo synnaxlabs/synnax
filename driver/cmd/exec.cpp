@@ -9,6 +9,7 @@
 
 #include "driver/cmd/cmd.h"
 
+namespace driver::cmd {
 void print_usage() {
     std::cout
         << "Usage: synnax-driver <command> [options]\n"
@@ -32,9 +33,9 @@ void print_usage() {
         << "  clear                     Clear the persisted state\n";
 }
 
-int cmd::exec(const int argc, char *argv[]) {
+int exec(const int argc, char *argv[]) {
     google::InitGoogleLogging(argv[0]);
-    auto args = xargs::Parser(argc, argv);
+    auto args = x::args::Parser(argc, argv);
     const bool disable_color = args.flag("--no-color");
     FLAGS_logtostderr = true;
     FLAGS_colorlogtostderr = !disable_color;
@@ -46,18 +47,19 @@ int cmd::exec(const int argc, char *argv[]) {
         return 1;
     }
     if (command == "start") {
-        if (args.flag("--standalone", "-s")) return cmd::sub::start(args);
-        return cmd::sub::service_start(args);
+        if (args.flag("--standalone", "-s")) return sub::start(args);
+        return sub::service_start(args);
     }
-    if (command == "stop") return cmd::sub::service_stop(args);
-    if (command == "restart") return cmd::sub::service_restart(args);
-    if (command == "login") return cmd::sub::login(args);
-    if (command == "install") return cmd::sub::service_install(args);
-    if (command == "uninstall") return cmd::sub::service_uninstall(args);
-    if (command == "logs") return cmd::sub::service_view_logs(args);
-    if (command == "status") return cmd::sub::service_status(args);
-    if (command == "version") return cmd::sub::version(args);
-    if (command == "clear") return cmd::sub::clear(args);
+    if (command == "stop") return sub::service_stop(args);
+    if (command == "restart") return sub::service_restart(args);
+    if (command == "login") return sub::login(args);
+    if (command == "install") return sub::service_install(args);
+    if (command == "uninstall") return sub::service_uninstall(args);
+    if (command == "logs") return sub::service_view_logs(args);
+    if (command == "status") return sub::service_status(args);
+    if (command == "version") return sub::version(args);
+    if (command == "clear") return sub::clear(args);
     print_usage();
     return 1;
+}
 }

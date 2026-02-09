@@ -15,40 +15,40 @@
 
 #include "client/cpp/errors/errors.h"
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/status/status.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
 
 #include "core/pkg/api/grpc/v1/status.pb.h"
 
-namespace synnax {
+namespace synnax::status {
 /// @brief Alias for status with default details (no custom details).
-using Status = status::Status<status::DefaultDetails>;
+using Status = x::status::Status<>;
 
 const std::string STATUS_SET_CHANNEL_NAME = "sy_status_set";
 
 /// @brief Freighter retrieve transport.
-using StatusRetrieveClient = freighter::
+using RetrieveClient = freighter::
     UnaryClient<api::v1::StatusRetrieveRequest, api::v1::StatusRetrieveResponse>;
 
 /// @brief Freighter set transport.
-using StatusSetClient = freighter::
+using SetClient = freighter::
     UnaryClient<api::v1::StatusSetRequest, api::v1::StatusSetResponse>;
 
 /// @brief Freighter delete transport.
-using StatusDeleteClient = freighter::
+using DeleteClient = freighter::
     UnaryClient<api::v1::StatusDeleteRequest, google::protobuf::Empty>;
 
 /// @brief StatusClient for creating, retrieving, and deleting statuses in a Synnax
 /// cluster.
-class StatusClient {
+class Client {
 public:
-    StatusClient() = default;
+    Client() = default;
 
-    StatusClient(
-        std::shared_ptr<StatusRetrieveClient> retrieve_client,
-        std::shared_ptr<StatusSetClient> set_client,
-        std::shared_ptr<StatusDeleteClient> delete_client
+    Client(
+        std::shared_ptr<RetrieveClient> retrieve_client,
+        std::shared_ptr<SetClient> set_client,
+        std::shared_ptr<DeleteClient> delete_client
     ):
         retrieve_client(std::move(retrieve_client)),
         set_client(std::move(set_client)),
@@ -60,19 +60,19 @@ public:
     /// @modifies status May update the key if auto-generated.
     /// @returns An error where ok() is false if the status could not be created.
     /// Use err.message() to get the error message or err.type to get the error type.
-    template<typename Details = status::DefaultDetails>
-    [[nodiscard]] xerrors::Error set(status::Status<Details> &status) const {
+    template<typename Details = x::status::DefaultDetails>
+    [[nodiscard]] x::errors::Error set(x::status::Status<Details> &status) const {
         api::v1::StatusSetRequest req;
         status.to_proto(req.add_statuses());
         auto [res, err] = this->set_client->send("/status/set", req);
         if (err) return err;
-        if (res.statuses_size() == 0) return unexpected_missing_error("status");
-        auto [decoded, decode_err] = status::Status<Details>::from_proto(
+        if (res.statuses_size() == 0) return errors::unexpected_missing_error("status");
+        auto [decoded, decode_err] = x::status::Status<Details>::from_proto(
             res.statuses(0)
         );
         if (decode_err) return decode_err;
         status = decoded;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     /// @brief Creates or updates the given statuses in the Synnax cluster.
@@ -82,9 +82,9 @@ public:
     /// @modifies statuses May update keys if auto-generated.
     /// @returns An error where ok() is false if the statuses could not be created.
     /// Use err.message() to get the error message or err.type to get the error type.
-    template<typename Details = status::DefaultDetails>
-    [[nodiscard]] xerrors::Error
-    set(std::vector<status::Status<Details>> &statuses) const {
+    template<typename Details = x::status::DefaultDetails>
+    [[nodiscard]] x::errors::Error
+    set(std::vector<x::status::Status<Details>> &statuses) const {
         api::v1::StatusSetRequest req;
         req.mutable_statuses()->Reserve(static_cast<int>(statuses.size()));
         for (const auto &status: statuses)
@@ -92,13 +92,13 @@ public:
         auto [res, err] = this->set_client->send("/status/set", req);
         if (err) return err;
         for (int i = 0; i < res.statuses_size(); i++) {
-            auto [decoded, decode_err] = status::Status<Details>::from_proto(
+            auto [decoded, decode_err] = x::status::Status<Details>::from_proto(
                 res.statuses(i)
             );
             if (decode_err) return decode_err;
             statuses[i] = decoded;
         }
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     /// @brief Retrieves a status with the given key.
@@ -108,15 +108,18 @@ public:
     /// false if the status could not be retrieved. In the case of an error, the
     /// returned status will be invalid. Use err.message() to get the error message
     /// or err.type to get the error type.
-    template<typename Details = status::DefaultDetails>
-    [[nodiscard]] std::pair<status::Status<Details>, xerrors::Error>
+    template<typename Details = x::status::DefaultDetails>
+    [[nodiscard]] std::pair<x::status::Status<Details>, x::errors::Error>
     retrieve(const std::string &key) const {
         auto [statuses, err] = this->retrieve<Details>(std::vector{key});
-        if (err) return {status::Status<Details>{}, err};
+        if (err) return {x::status::Status<Details>{}, err};
         if (statuses.empty()) {
-            return {status::Status<Details>(), not_found_error("status", "key " + key)};
+            return {
+                x::status::Status<Details>(),
+                errors::not_found_error("status", "key " + key)
+            };
         }
-        return {statuses[0], xerrors::NIL};
+        return {statuses[0], x::errors::NIL};
     }
 
     /// @brief Retrieves statuses with the given keys.
@@ -125,21 +128,24 @@ public:
     /// @returns A pair containing all statuses matching the given keys and an error
     /// where ok() is false if the statuses could not be retrieved. Statuses that
     /// don't exist will not be in the returned vector.
-    template<typename Details = status::DefaultDetails>
-    [[nodiscard]] std::pair<std::vector<status::Status<Details>>, xerrors::Error>
+    template<typename Details = x::status::DefaultDetails>
+    [[nodiscard]] std::pair<std::vector<x::status::Status<Details>>, x::errors::Error>
     retrieve(const std::vector<std::string> &keys) const {
         api::v1::StatusRetrieveRequest req;
         req.mutable_keys()->Add(keys.begin(), keys.end());
         auto [res, err] = this->retrieve_client->send("/status/retrieve", req);
-        if (err) return {std::vector<status::Status<Details>>(), err};
-        std::vector<status::Status<Details>> statuses;
+        if (err) return {std::vector<x::status::Status<Details>>(), err};
+        std::vector<x::status::Status<Details>> statuses;
         statuses.reserve(res.statuses_size());
         for (const auto &pb_status: res.statuses()) {
-            auto [decoded, decode_err] = status::Status<Details>::from_proto(pb_status);
-            if (decode_err) return {std::vector<status::Status<Details>>(), decode_err};
+            auto [decoded, decode_err] = x::status::Status<Details>::from_proto(
+                pb_status
+            );
+            if (decode_err)
+                return {std::vector<x::status::Status<Details>>(), decode_err};
             statuses.push_back(decoded);
         }
-        return {statuses, xerrors::NIL};
+        return {statuses, x::errors::NIL};
     }
 
     /// @brief Deletes a status with the given key.
@@ -148,7 +154,7 @@ public:
     /// @param key The key of the status to delete.
     /// @returns An error where ok() is false if the status could not be deleted.
     /// Use err.message() to get the error message or err.type to get the error type.
-    [[nodiscard]] xerrors::Error del(const std::string &key) const {
+    [[nodiscard]] x::errors::Error del(const std::string &key) const {
         return this->del(std::vector{key});
     }
 
@@ -158,16 +164,16 @@ public:
     /// @param keys The keys of the statuses to delete.
     /// @returns An error where ok() is false if the statuses could not be deleted.
     /// Use err.message() to get the error message or err.type to get the error type.
-    [[nodiscard]] xerrors::Error del(const std::vector<std::string> &keys) const {
+    [[nodiscard]] x::errors::Error del(const std::vector<std::string> &keys) const {
         api::v1::StatusDeleteRequest req;
         req.mutable_keys()->Add(keys.begin(), keys.end());
         return this->delete_client->send("/status/delete", req).second;
     }
 
 private:
-    std::shared_ptr<StatusRetrieveClient> retrieve_client;
-    std::shared_ptr<StatusSetClient> set_client;
-    std::shared_ptr<StatusDeleteClient> delete_client;
+    std::shared_ptr<RetrieveClient> retrieve_client;
+    std::shared_ptr<SetClient> set_client;
+    std::shared_ptr<DeleteClient> delete_client;
 };
 
 }

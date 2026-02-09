@@ -19,7 +19,7 @@
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/master/master.h"
 
-namespace ethercat::mock {
+namespace driver::ethercat::mock {
 /// @brief mock implementation of Master for testing without real hardware.
 class Master final : public master::Master {
     std::string iface_name;
@@ -30,10 +30,10 @@ class Master final : public master::Master {
     bool activated;
     mutable std::mutex mu;
 
-    xerrors::Error inject_init_err;
-    xerrors::Error inject_activate_err;
-    xerrors::Error inject_receive_err;
-    xerrors::Error inject_send_err;
+    x::errors::Error inject_init_err;
+    x::errors::Error inject_activate_err;
+    x::errors::Error inject_receive_err;
+    x::errors::Error inject_send_err;
 
     std::unordered_map<uint16_t, slave::State> state_transition_failures;
 
@@ -66,27 +66,27 @@ public:
     }
 
     /// @brief injects an error to be returned by initialize().
-    void inject_init_error(const xerrors::Error &err) { this->inject_init_err = err; }
+    void inject_init_error(const x::errors::Error &err) { this->inject_init_err = err; }
 
     /// @brief injects an error to be returned by activate().
-    void inject_activate_error(const xerrors::Error &err) {
+    void inject_activate_error(const x::errors::Error &err) {
         this->inject_activate_err = err;
     }
 
     /// @brief injects an error to be returned by receive().
-    void inject_receive_error(const xerrors::Error &err) {
+    void inject_receive_error(const x::errors::Error &err) {
         this->inject_receive_err = err;
     }
 
     /// @brief injects an error to be returned by send().
-    void inject_send_error(const xerrors::Error &err) { this->inject_send_err = err; }
+    void inject_send_error(const x::errors::Error &err) { this->inject_send_err = err; }
 
     /// @brief clears all injected errors.
     void clear_injected_errors() {
-        this->inject_init_err = xerrors::NIL;
-        this->inject_activate_err = xerrors::NIL;
-        this->inject_receive_err = xerrors::NIL;
-        this->inject_send_err = xerrors::NIL;
+        this->inject_init_err = x::errors::NIL;
+        this->inject_activate_err = x::errors::NIL;
+        this->inject_receive_err = x::errors::NIL;
+        this->inject_send_err = x::errors::NIL;
     }
 
     /// @brief sets a slave to fail state transition to the given target state.
@@ -115,30 +115,30 @@ public:
                this->calls.end();
     }
 
-    xerrors::Error initialize() override {
+    x::errors::Error initialize() override {
         std::lock_guard lock(this->mu);
         this->calls.push_back("initialize");
         this->init_calls++;
         if (this->inject_init_err) return this->inject_init_err;
         this->initialized = true;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    xerrors::Error register_pdos(const std::vector<pdo::Entry> &entries) override {
+    x::errors::Error register_pdos(const std::vector<pdo::Entry> &entries) override {
         std::lock_guard lock(this->mu);
         this->calls.push_back("register_pdos");
         this->registered_pdos = entries;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void set_slave_enabled(uint16_t, bool) override {}
 
-    xerrors::Error activate() override {
+    x::errors::Error activate() override {
         std::lock_guard lock(this->mu);
         this->calls.push_back("activate");
         if (this->inject_activate_err) return this->inject_activate_err;
         if (!this->initialized)
-            return xerrors::Error(ACTIVATION_ERROR, "master not initialized");
+            return x::errors::Error(errors::ACTIVATION_ERROR, "master not initialized");
         this->activated = true;
         this->input_sz = 0;
         this->output_sz = 0;
@@ -178,7 +178,7 @@ public:
             else
                 slave.status.state = slave::State::OP;
         }
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void deactivate() override {
@@ -196,18 +196,18 @@ public:
             slave.status.state = slave::State::INIT;
     }
 
-    xerrors::Error receive() override {
+    x::errors::Error receive() override {
         std::lock_guard lock(this->mu);
         this->calls.push_back("receive");
         if (this->inject_receive_err) return this->inject_receive_err;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    xerrors::Error send() override {
+    x::errors::Error send() override {
         std::lock_guard lock(this->mu);
         this->calls.push_back("send");
         if (this->inject_send_err) return this->inject_send_err;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     std::span<const uint8_t> input_data() override {
@@ -370,14 +370,14 @@ public:
 
     [[nodiscard]] std::vector<master::Info> enumerate() override { return this->infos; }
 
-    [[nodiscard]] std::pair<std::shared_ptr<master::Master>, xerrors::Error>
+    [[nodiscard]] std::pair<std::shared_ptr<master::Master>, x::errors::Error>
     create(const std::string &key) override {
         auto it = this->masters.find(key);
-        if (it != this->masters.end()) return {it->second, xerrors::NIL};
+        if (it != this->masters.end()) return {it->second, x::errors::NIL};
         return {
             nullptr,
-            xerrors::Error(
-                MASTER_INIT_ERROR,
+            x::errors::Error(
+                errors::MASTER_INIT_ERROR,
                 "no mock master configured for key: " + key
             )
         };

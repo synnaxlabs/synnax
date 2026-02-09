@@ -5,9 +5,9 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//core/pkg/api/grpc/v1:api_grpc",
-        "//freighter/cpp/fgrpc",
+        "//freighter/cpp/grpc",
         "//x/cpp/telem",
-        "//x/cpp/xos",
+        "//x/cpp/os",
         "@grpc//:grpc++",
     ],
 )
@@ -18,7 +18,7 @@ cc_test(
     deps = [
         "//client/cpp/auth",
         "//freighter/cpp/mock",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

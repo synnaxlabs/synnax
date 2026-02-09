@@ -14,11 +14,11 @@
 #include <string>
 #include <unordered_map>
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "driver/ethercat/engine/engine.h"
 
-namespace ethercat::engine {
+namespace driver::ethercat::engine {
 
 /// @brief manages a pool of EtherCAT engines keyed by master identifier.
 class Pool {
@@ -34,7 +34,8 @@ public:
     [[nodiscard]] std::vector<master::Info> enumerate() const;
 
     /// @brief acquires or creates an engine for the specified master key.
-    std::pair<std::shared_ptr<Engine>, xerrors::Error> acquire(const std::string &key);
+    std::pair<std::shared_ptr<Engine>, x::errors::Error>
+    acquire(const std::string &key);
 
     /// @brief checks if a master has an active (running) engine.
     [[nodiscard]] bool is_active(const std::string &key) const;
@@ -47,12 +48,12 @@ public:
     /// If engine is running, returns cached slaves. If not, initializes first.
     /// @param key The master key (e.g., "igh:0" or "eth0").
     /// @return Pair of slave list and error.
-    [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, xerrors::Error>
+    [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     discover_slaves(const std::string &key);
 
 private:
     /// @brief acquires or creates an engine without locking. Caller must hold mu.
-    std::pair<std::shared_ptr<Engine>, xerrors::Error>
+    std::pair<std::shared_ptr<Engine>, x::errors::Error>
     acquire_unlocked(const std::string &key);
 };
 

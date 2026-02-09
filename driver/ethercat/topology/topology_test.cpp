@@ -9,11 +9,11 @@
 
 #include <gtest/gtest.h>
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/ethercat/topology/topology.h"
 
-namespace ethercat::topology {
+namespace driver::ethercat::topology {
 
 class TopologyValidateTest : public ::testing::Test {
 protected:
@@ -32,7 +32,7 @@ protected:
             {"network", "eth0"},
             {"position", position}
         };
-        auto parser = xjson::Parser(j);
+        auto parser = x::json::Parser(j);
         return slave::Properties::parse(parser);
     }
 
@@ -70,7 +70,7 @@ TEST_F(TopologyValidateTest, MissingSlaveAtPositionReturnsMismatch) {
     std::unordered_map<std::string, slave::Properties> expected;
     expected.emplace("dev1", make_props("dev1", 2, 0x00000002, 0xABCDEF00));
 
-    ASSERT_OCCURRED_AS(validate(actual, expected), TOPOLOGY_MISMATCH);
+    ASSERT_OCCURRED_AS(validate(actual, expected), errors::TOPOLOGY_MISMATCH);
 }
 
 TEST_F(TopologyValidateTest, WrongVendorIdReturnsMismatch) {
@@ -81,7 +81,7 @@ TEST_F(TopologyValidateTest, WrongVendorIdReturnsMismatch) {
     std::unordered_map<std::string, slave::Properties> expected;
     expected.emplace("dev1", make_props("dev1", 1, 0x00000099, 0x12345678));
 
-    ASSERT_OCCURRED_AS(validate(actual, expected), TOPOLOGY_MISMATCH);
+    ASSERT_OCCURRED_AS(validate(actual, expected), errors::TOPOLOGY_MISMATCH);
 }
 
 TEST_F(TopologyValidateTest, WrongProductCodeReturnsMismatch) {
@@ -92,7 +92,7 @@ TEST_F(TopologyValidateTest, WrongProductCodeReturnsMismatch) {
     std::unordered_map<std::string, slave::Properties> expected;
     expected.emplace("dev1", make_props("dev1", 1, 0x00000002, 0x87654321));
 
-    ASSERT_OCCURRED_AS(validate(actual, expected), TOPOLOGY_MISMATCH);
+    ASSERT_OCCURRED_AS(validate(actual, expected), errors::TOPOLOGY_MISMATCH);
 }
 
 TEST_F(TopologyValidateTest, EmptyExpectedReturnsNil) {

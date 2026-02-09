@@ -15,7 +15,7 @@
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/wasm/bindings.h"
 #include "arc/cpp/runtime/wasm/module.h"
@@ -33,12 +33,12 @@ std::string random_name(const std::string &prefix) {
 /// @brief Compiles an Arc program via the Synnax client.
 arc::module::Module
 compile_arc(const synnax::Synnax &client, const std::string &source) {
-    auto arc = synnax::Arc(random_name("test_arc"));
+    auto arc = synnax::arc::Arc(random_name("test_arc"));
     arc.text.raw = source;
     if (const auto create_err = client.arcs.create(arc))
         throw std::runtime_error("Failed to create arc: " + create_err.message());
 
-    synnax::RetrieveOptions opts;
+    synnax::arc::RetrieveOptions opts;
     opts.compile = true;
     auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, opts);
     if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
@@ -52,7 +52,7 @@ TEST(ModuleOpenTest, ReturnsErrorForEmptyWasmBytes) {
     mod.wasm = {};
     const ModuleConfig cfg{.module = mod};
     const auto [module, err] = Module::open(cfg);
-    ASSERT_TRUE(err.matches(xerrors::VALIDATION));
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
     ASSERT_NE(err.message().find("empty"), std::string::npos);
 }
 
@@ -62,7 +62,7 @@ TEST(ModuleOpenTest, ReturnsErrorForInvalidWasmBytes) {
     mod.wasm = {0x00, 0x01, 0x02, 0x03};
     const ModuleConfig cfg{.module = mod};
     const auto [module, err] = Module::open(cfg);
-    ASSERT_TRUE(err.matches(xerrors::VALIDATION));
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
     ASSERT_NE(err.message().find("compile"), std::string::npos);
 }
 
@@ -70,7 +70,7 @@ TEST(ModuleOpenTest, ReturnsErrorForInvalidWasmBytes) {
 TEST(ModuleOpenTest, SucceedsWithValidModule) {
     const auto client = new_test_client();
     const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), telem::FLOAT32_T, true)
+        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
     );
 
     const std::string source = R"(
@@ -91,7 +91,7 @@ func double(val f32) f32 {
 TEST(ModuleFuncTest, ReturnsNotFoundForMissingExport) {
     const auto client = new_test_client();
     const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), telem::FLOAT32_T, true)
+        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
     );
 
     const std::string source = R"(
@@ -105,14 +105,14 @@ func double(val f32) f32 {
     auto module = ASSERT_NIL_P(Module::open(cfg));
 
     auto [func, func_err] = module->func("nonexistent");
-    ASSERT_TRUE(func_err.matches(xerrors::NOT_FOUND));
+    ASSERT_TRUE(func_err.matches(x::errors::NOT_FOUND));
 }
 
 /// @brief Module::func returns valid function for existing export.
 TEST(ModuleFuncTest, ReturnsValidFunctionForExistingExport) {
     const auto client = new_test_client();
     const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), telem::FLOAT32_T, true)
+        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
     );
 
     const std::string source = R"(
@@ -131,7 +131,7 @@ func double(val f32) f32 {
 TEST(FunctionCallTest, ExecutesFunctionAndReturnsResults) {
     const auto client = new_test_client();
     const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), telem::FLOAT32_T, true)
+        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
     );
 
     const std::string source = R"(
@@ -145,7 +145,7 @@ func double(val f32) f32 {
     auto module = ASSERT_NIL_P(Module::open(cfg));
     auto func = ASSERT_NIL_P(module->func("double"));
 
-    std::vector<telem::SampleValue> params = {5.0f};
+    std::vector<x::telem::SampleValue> params = {5.0f};
     std::vector<Module::Function::Result> results;
     ASSERT_NIL(func.call(params, results));
     ASSERT_EQ(results.size(), 1);
@@ -155,34 +155,40 @@ func double(val f32) f32 {
 
 /// @brief sample_to_wasm converts integer types correctly.
 TEST(SampleToWasmTest, ConvertsIntegerTypes) {
-    const auto i32_val = sample_to_wasm(telem::SampleValue(static_cast<int32_t>(42)));
+    const auto i32_val = sample_to_wasm(
+        x::telem::SampleValue(static_cast<int32_t>(42))
+    );
     EXPECT_EQ(i32_val.i32(), 42);
 
     const auto i64_val = sample_to_wasm(
-        telem::SampleValue(static_cast<int64_t>(123456789))
+        x::telem::SampleValue(static_cast<int64_t>(123456789))
     );
     EXPECT_EQ(i64_val.i64(), 123456789);
 
-    const auto u8_val = sample_to_wasm(telem::SampleValue(static_cast<uint8_t>(255)));
+    const auto u8_val = sample_to_wasm(
+        x::telem::SampleValue(static_cast<uint8_t>(255))
+    );
     EXPECT_EQ(i32_val.i32(), 42);
 
-    const auto u64_val = sample_to_wasm(telem::SampleValue(static_cast<uint64_t>(999)));
+    const auto u64_val = sample_to_wasm(
+        x::telem::SampleValue(static_cast<uint64_t>(999))
+    );
     EXPECT_EQ(u64_val.i64(), 999);
 }
 
 /// @brief sample_to_wasm converts float types correctly.
 TEST(SampleToWasmTest, ConvertsFloatTypes) {
-    const auto f32_val = sample_to_wasm(telem::SampleValue(3.14f));
+    const auto f32_val = sample_to_wasm(x::telem::SampleValue(3.14f));
     EXPECT_FLOAT_EQ(f32_val.f32(), 3.14f);
 
-    const auto f64_val = sample_to_wasm(telem::SampleValue(2.71828));
+    const auto f64_val = sample_to_wasm(x::telem::SampleValue(2.71828));
     EXPECT_DOUBLE_EQ(f64_val.f64(), 2.71828);
 }
 
 /// @brief sample_to_wasm converts timestamp correctly.
 TEST(SampleToWasmTest, ConvertsTimestamp) {
-    const telem::TimeStamp ts(1000000000);
-    const auto val = sample_to_wasm(telem::SampleValue(ts));
+    const x::telem::TimeStamp ts(1000000000);
+    const auto val = sample_to_wasm(x::telem::SampleValue(ts));
     EXPECT_EQ(val.i64(), 1000000000);
 }
 
@@ -242,7 +248,7 @@ TEST(SampleFromWasmTest, ConvertsTimestamp) {
     arc::types::Unit ns_unit(dims, 1.0, "ns");
     arc::types::Type ts_type(arc::types::Kind::I64, ns_unit);
     const auto ts_sample = sample_from_wasm(ts_wasm, ts_type);
-    EXPECT_EQ(std::get<telem::TimeStamp>(ts_sample).nanoseconds(), 1000000000);
+    EXPECT_EQ(std::get<x::telem::TimeStamp>(ts_sample).nanoseconds(), 1000000000);
 }
 
 /// @brief sample_from_bits converts integer types correctly.
@@ -300,5 +306,5 @@ TEST(SampleFromBitsTest, HandlesTimestamp) {
     arc::types::Unit ns_unit(dims, 1.0, "ns");
     arc::types::Type ts_type(arc::types::Kind::I64, ns_unit);
     const auto ts_sample = sample_from_bits(1000000000, ts_type);
-    EXPECT_EQ(std::get<telem::TimeStamp>(ts_sample).nanoseconds(), 1000000000);
+    EXPECT_EQ(std::get<x::telem::TimeStamp>(ts_sample).nanoseconds(), 1000000000);
 }

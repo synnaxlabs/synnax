@@ -12,9 +12,6 @@ package transport_test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"io"
-	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,178 +24,133 @@ import (
 )
 
 var _ = Describe("Freighter Transport", func() {
-	Describe("streamAdapter", func() {
-		var (
-			serverStream *fmock.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
-			clientStream *fmock.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
-			ctx          context.Context
-			cancel       context.CancelFunc
-		)
-		BeforeEach(func() {
-			ctx, cancel = context.WithCancel(context.Background())
-			clientStream, serverStream = fmock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](ctx)
-		})
-		AfterEach(func() {
-			cancel()
-		})
-		Describe("Read", func() {
-			It("Should read JSON-RPC message and add Content-Length header", func() {
-				adapter := &streamAdapter{stream: serverStream}
-				jsonContent := `{"jsonrpc":"2.0","id":1,"method":"test"}`
-				done := make(chan struct{})
-				go func() {
-					defer GinkgoRecover()
-					defer close(done)
-					Expect(clientStream.Send(transport.JSONRPCMessage{Content: jsonContent})).To(Succeed())
-				}()
-				buf := make([]byte, 1024)
-				n := MustSucceed(adapter.Read(buf))
-				Expect(n).To(BeNumerically(">", 0))
-				expected := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(jsonContent), jsonContent)
-				Expect(string(buf[:n])).To(Equal(expected))
-				Eventually(done).Should(BeClosed())
+	var (
+		server       *lsp.Server
+		clientStream *fmock.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
+		ctx          context.Context
+		cancel       context.CancelFunc
+		errChan      chan error
+	)
+
+	sendRequest := func(id int, method string, params any) {
+		req := map[string]any{
+			"jsonrpc": "2.0",
+			"id":      id,
+			"method":  method,
+		}
+		if params != nil {
+			req["params"] = params
+		}
+		content := MustSucceed(json.Marshal(req))
+		Expect(clientStream.Send(transport.JSONRPCMessage{
+			Content: string(content),
+		})).To(Succeed())
+	}
+
+	sendNotification := func(method string, params any) {
+		req := map[string]any{
+			"jsonrpc": "2.0",
+			"method":  method,
+		}
+		if params != nil {
+			req["params"] = params
+		}
+		content := MustSucceed(json.Marshal(req))
+		Expect(clientStream.Send(transport.JSONRPCMessage{
+			Content: string(content),
+		})).To(Succeed())
+	}
+
+	receiveResponse := func(id int) map[string]any {
+		for {
+			msg := MustSucceed(clientStream.Receive())
+			var response map[string]any
+			Expect(json.Unmarshal([]byte(msg.Content), &response)).To(Succeed())
+			if respID, ok := response["id"]; ok && respID != nil {
+				Expect(respID).To(BeEquivalentTo(id))
+				return response
+			}
+		}
+	}
+
+	BeforeEach(func() {
+		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+		server = MustSucceed(lsp.New(lsp.Config{
+			Instrumentation: alamos.New("test"),
+		}))
+		var serverStream *fmock.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
+		clientStream, serverStream = fmock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](ctx)
+		errChan = make(chan error, 1)
+		go func() {
+			errChan <- transport.ServeFreighter(ctx, transport.Config{
+				Server: server,
+				Stream: serverStream,
 			})
-			It("Should handle partial reads with buffering", func() {
-				adapter := &streamAdapter{stream: serverStream}
-				jsonContent := `{"jsonrpc":"2.0","id":1,"method":"test"}`
-				done := make(chan struct{})
-				go func() {
-					defer GinkgoRecover()
-					defer close(done)
-					Expect(clientStream.Send(transport.JSONRPCMessage{Content: jsonContent})).To(Succeed())
-				}()
-				smallBuf := make([]byte, 10)
-				n := MustSucceed(adapter.Read(smallBuf))
-				Expect(n).To(Equal(10))
-				secondBuf := make([]byte, 1024)
-				n2 := MustSucceed(adapter.Read(secondBuf))
-				Expect(n2).To(BeNumerically(">", 0))
-				Eventually(done).Should(BeClosed())
+		}()
+	})
+
+	AfterEach(func() {
+		cancel()
+		Eventually(errChan).Should(Receive())
+	})
+
+	Describe("Initialize", func() {
+		It("Should handle an initialize request and return capabilities", func() {
+			sendRequest(1, "initialize", map[string]any{
+				"clientInfo": map[string]any{"name": "test-client"},
 			})
-			It("Should return error when stream receive fails", func() {
-				adapter := &streamAdapter{stream: serverStream}
-				done := make(chan struct{})
-				go func() {
-					defer GinkgoRecover()
-					defer close(done)
-					Expect(clientStream.CloseSend()).To(Succeed())
-				}()
-				buf := make([]byte, 1024)
-				_, err := adapter.Read(buf)
-				Expect(err).To(HaveOccurred())
-				Eventually(done).Should(BeClosed())
-			})
-		})
-		Describe("Write", func() {
-			It("Should parse Content-Length header and send JSON-RPC message", func() {
-				adapter := &streamAdapter{stream: serverStream}
-				jsonContent := `{"jsonrpc":"2.0","id":1,"method":"test"}`
-				message := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(jsonContent), jsonContent)
-				done := make(chan struct{})
-				go func() {
-					defer GinkgoRecover()
-					defer close(done)
-					msg := MustSucceed(clientStream.Receive())
-					Expect(msg.Content).To(Equal(jsonContent))
-				}()
-				n := MustSucceed(adapter.Write([]byte(message)))
-				Expect(n).To(Equal(len(message)))
-				Eventually(done).Should(BeClosed())
-			})
-			It("Should handle multiple messages in single write", func() {
-				adapter := &streamAdapter{stream: serverStream}
-				json1 := `{"jsonrpc":"2.0","id":1}`
-				json2 := `{"jsonrpc":"2.0","id":2}`
-				msg1 := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(json1), json1)
-				msg2 := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(json2), json2)
-				combined := msg1 + msg2
-				var receivedCount atomic.Int32
-				go func() {
-					defer GinkgoRecover()
-					for i := 0; i < 2; i++ {
-						msg := MustSucceed(clientStream.Receive())
-						if msg.Content == json1 || msg.Content == json2 {
-							receivedCount.Add(1)
-						}
-					}
-				}()
-				n := MustSucceed(adapter.Write([]byte(combined)))
-				Expect(n).To(Equal(len(combined)))
-				Eventually(func() int32 { return receivedCount.Load() }).Should(Equal(int32(2)))
-			})
-			It("Should handle partial writes with buffering", func() {
-				adapter := &streamAdapter{stream: serverStream}
-				jsonContent := `{"jsonrpc":"2.0","id":1}`
-				fullMessage := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(jsonContent), jsonContent)
-				part1 := fullMessage[:20]
-				part2 := fullMessage[20:]
-				n1 := MustSucceed(adapter.Write([]byte(part1)))
-				Expect(n1).To(Equal(len(part1)))
-				done := make(chan struct{})
-				go func() {
-					defer GinkgoRecover()
-					defer close(done)
-					msg := MustSucceed(clientStream.Receive())
-					Expect(msg.Content).To(Equal(jsonContent))
-				}()
-				n2 := MustSucceed(adapter.Write([]byte(part2)))
-				Expect(n2).To(Equal(len(part2)))
-				Eventually(done).Should(BeClosed())
-			})
-			It("Should handle headers with LF instead of CRLF", func() {
-				adapter := &streamAdapter{stream: serverStream}
-				jsonContent := `{"jsonrpc":"2.0","id":1}`
-				message := fmt.Sprintf("Content-Length: %d\n\n%s", len(jsonContent), jsonContent)
-				done := make(chan struct{})
-				go func() {
-					defer GinkgoRecover()
-					defer close(done)
-					msg := MustSucceed(clientStream.Receive())
-					Expect(msg.Content).To(Equal(jsonContent))
-				}()
-				n := MustSucceed(adapter.Write([]byte(message)))
-				Expect(n).To(Equal(len(message)))
-				Eventually(done).Should(BeClosed())
-			})
-			It("Should return error when closed", func() {
-				adapter := &streamAdapter{stream: serverStream, closed: true}
-				_, err := adapter.Write([]byte("test"))
-				Expect(err).To(Equal(io.ErrClosedPipe))
-			})
-			It("Should return error when Content-Length exceeds max", func() {
-				adapter := &streamAdapter{stream: serverStream, maxContentLength: 10}
-				jsonContent := `{"jsonrpc":"2.0","id":1,"method":"test"}`
-				message := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(jsonContent), jsonContent)
-				Expect(adapter.Write([]byte(message))).Error().To(MatchError(transport.ErrContentLengthExceeded))
-			})
-		})
-		Describe("Close", func() {
-			It("Should mark adapter as closed", func() {
-				adapter := &streamAdapter{stream: serverStream}
-				Expect(adapter.Close()).To(Succeed())
-				_, err := adapter.Write([]byte("test"))
-				Expect(err).To(Equal(io.ErrClosedPipe))
-			})
+			response := receiveResponse(1)
+			result, ok := response["result"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(result).To(HaveKey("capabilities"))
 		})
 	})
-	Describe("ServeFreighter", func() {
-		It("Should create LSP connection and start serving", func() {
-			ins := alamos.New("test")
-			server := MustSucceed(lsp.New(lsp.Config{Instrumentation: ins}))
-			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-			defer cancel()
-			clientStream, serverStream := fmock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](ctx)
-			errChan := make(chan error, 1)
-			go func() {
-				errChan <- transport.ServeFreighter(ctx, transport.Config{
-					Server: server,
-					Stream: serverStream,
-				})
-			}()
+
+	Describe("DidOpen + Hover", func() {
+		It("Should handle document open notification followed by hover request", func() {
+			sendRequest(1, "initialize", map[string]any{
+				"clientInfo": map[string]any{"name": "test-client"},
+			})
+			receiveResponse(1)
+			sendNotification("initialized", map[string]any{})
+			sendNotification("textDocument/didOpen", map[string]any{
+				"textDocument": map[string]any{
+					"uri":        "file:///test.arc",
+					"languageId": "arc",
+					"version":    1,
+					"text":       "x := 1\n",
+				},
+			})
+			sendRequest(2, "textDocument/hover", map[string]any{
+				"textDocument": map[string]any{"uri": "file:///test.arc"},
+				"position":     map[string]any{"line": 0, "character": 0},
+			})
+			receiveResponse(2)
+		})
+	})
+
+	Describe("Multiple sequential requests", func() {
+		It("Should handle multiple requests over the same connection", func() {
+			sendRequest(1, "initialize", map[string]any{
+				"clientInfo": map[string]any{"name": "test-client"},
+			})
+			receiveResponse(1)
+
+			sendRequest(2, "shutdown", nil)
+			receiveResponse(2)
+		})
+	})
+
+	Describe("Connection close", func() {
+		It("Should exit cleanly when the client stream closes", func() {
+			sendRequest(1, "initialize", map[string]any{
+				"clientInfo": map[string]any{"name": "test-client"},
+			})
+			receiveResponse(1)
 			Expect(clientStream.CloseSend()).To(Succeed())
-			Eventually(errChan, time.Second).Should(Receive())
 		})
 	})
+
 	Describe("JSONRPCMessage", func() {
 		Describe("UnmarshalJSON", func() {
 			It("Should unmarshal valid JSON object", func() {
@@ -222,95 +174,3 @@ var _ = Describe("Freighter Transport", func() {
 		})
 	})
 })
-
-type streamAdapter struct {
-	stream           *fmock.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
-	buffer           []byte
-	writeBuffer      []byte
-	closed           bool
-	maxContentLength int
-}
-
-func (s *streamAdapter) Read(p []byte) (n int, err error) {
-	if len(s.buffer) > 0 {
-		n = copy(p, s.buffer)
-		s.buffer = s.buffer[n:]
-		return n, nil
-	}
-	msg, err := s.stream.Receive()
-	if err != nil {
-		return 0, err
-	}
-	contentBytes := []byte(msg.Content)
-	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(contentBytes))
-	headerBytes := []byte(header)
-	fullMessage := make([]byte, len(headerBytes)+len(contentBytes))
-	copy(fullMessage, headerBytes)
-	copy(fullMessage[len(headerBytes):], contentBytes)
-	n = copy(p, fullMessage)
-	if n < len(fullMessage) {
-		s.buffer = fullMessage[n:]
-	}
-	return n, nil
-}
-
-func (s *streamAdapter) Write(p []byte) (int, error) {
-	if s.closed {
-		return 0, io.ErrClosedPipe
-	}
-	s.writeBuffer = append(s.writeBuffer, p...)
-	for {
-		headerEnd := -1
-		contentLength := -1
-		data := s.writeBuffer
-		if len(data) < 16 {
-			break
-		}
-		for i := 0; i <= len(data)-16; i++ {
-			if data[i] == 'C' && string(data[i:i+15]) == "Content-Length:" {
-				j := i + 15
-				for j < len(data) && (data[j] == ' ' || data[j] == '\t') {
-					j++
-				}
-				lenStart := j
-				for j < len(data) && data[j] >= '0' && data[j] <= '9' {
-					j++
-				}
-				if j > lenStart {
-					if _, err := fmt.Sscanf(string(data[lenStart:j]), "%d", &contentLength); err != nil {
-						return 0, err
-					}
-				}
-				for j < len(data)-3 {
-					if data[j] == '\r' && data[j+1] == '\n' && data[j+2] == '\r' && data[j+3] == '\n' {
-						headerEnd = j + 4
-						break
-					} else if data[j] == '\n' && data[j+1] == '\n' {
-						headerEnd = j + 2
-						break
-					}
-					j++
-				}
-				break
-			}
-		}
-		if headerEnd == -1 || contentLength == -1 || len(data) < headerEnd+contentLength {
-			break
-		}
-		if contentLength < 0 || (s.maxContentLength > 0 && contentLength > s.maxContentLength) {
-			return 0, transport.ErrContentLengthExceeded
-		}
-		jsonContent := data[headerEnd : headerEnd+contentLength]
-		msg := transport.JSONRPCMessage{Content: string(jsonContent)}
-		if err := s.stream.Send(msg); err != nil {
-			return 0, err
-		}
-		s.writeBuffer = data[headerEnd+contentLength:]
-	}
-	return len(p), nil
-}
-
-func (s *streamAdapter) Close() error {
-	s.closed = true
-	return nil
-}

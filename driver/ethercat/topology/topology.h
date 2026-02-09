@@ -13,18 +13,18 @@
 #include <unordered_map>
 #include <vector>
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/slave/slave.h"
 
-namespace ethercat::topology {
+namespace driver::ethercat::topology {
 
 /// @brief validates configured channels match current bus topology.
 /// @param actual_slaves Current slaves from engine->slaves().
 /// @param expected Map of device_key to SlaveProperties from config.
-/// @return xerrors::NIL if topology matches, TOPOLOGY_MISMATCH otherwise.
-[[nodiscard]] inline xerrors::Error validate(
+/// @return x::errors::NIL if topology matches, errors::TOPOLOGY_MISMATCH otherwise.
+[[nodiscard]] inline x::errors::Error validate(
     const std::vector<slave::Properties> &actual_slaves,
     const std::unordered_map<std::string, slave::Properties> &expected
 ) {
@@ -34,16 +34,16 @@ namespace ethercat::topology {
             if (slave.position != props.position) continue;
             found = true;
             if (slave.vendor_id != props.vendor_id)
-                return xerrors::Error(
-                    TOPOLOGY_MISMATCH,
+                return x::errors::Error(
+                    errors::TOPOLOGY_MISMATCH,
                     "device " + device_key + " at position " +
                         std::to_string(props.position) + ": expected vendor_id 0x" +
                         std::to_string(props.vendor_id) + ", found 0x" +
                         std::to_string(slave.vendor_id)
                 );
             if (slave.product_code != props.product_code)
-                return xerrors::Error(
-                    TOPOLOGY_MISMATCH,
+                return x::errors::Error(
+                    errors::TOPOLOGY_MISMATCH,
                     "device " + device_key + " at position " +
                         std::to_string(props.position) + ": expected product_code 0x" +
                         std::to_string(props.product_code) + ", found 0x" +
@@ -52,13 +52,13 @@ namespace ethercat::topology {
             break;
         }
         if (!found)
-            return xerrors::Error(
-                TOPOLOGY_MISMATCH,
+            return x::errors::Error(
+                errors::TOPOLOGY_MISMATCH,
                 "device " + device_key + " expected at position " +
                     std::to_string(props.position) + " not found on bus"
             );
     }
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
 }

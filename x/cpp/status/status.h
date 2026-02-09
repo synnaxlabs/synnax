@@ -13,13 +13,13 @@
 
 #include "nlohmann/json.hpp"
 
+#include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xjson/xjson.h"
 
 #include "x/go/status/x/go/status/status.pb.h"
 
 /// @brief utility packages for managing status messages.
-namespace status {
+namespace x::status {
 namespace variant {
 /// @brief a successful operation.
 const std::string SUCCESS = "success";
@@ -37,9 +37,9 @@ const std::string LOADING = "loading";
 }
 
 struct DefaultDetails {
-    static json to_json() { return json::object(); }
+    static json::json to_json() { return json::json::object(); }
 
-    static DefaultDetails parse(xjson::Parser &) { return DefaultDetails{}; }
+    static DefaultDetails parse(json::Parser &) { return DefaultDetails{}; }
 };
 
 /// @brief a standardized type for communicating status information across a Synnax
@@ -49,7 +49,7 @@ struct DefaultDetails {
 /// methods:
 ///
 ///     json to_json() - returns a nlohmann::json representation of the details.
-///     static Details parse(xjson::Parser &parser) - parses a Details object from
+///     static Details parse(json::Parser &parser) - parses a Details object from
 ///     its JSON representation.
 template<typename Details = DefaultDetails>
 struct Status {
@@ -70,7 +70,7 @@ struct Status {
     Details details = Details{};
 
     /// @brief parses a Status object from a JSON representation.
-    static Status parse(xjson::Parser &parser) {
+    static Status parse(json::Parser &parser) {
         auto details = parser.child("details");
         return Status{
             .key = parser.field<std::string>("key"),
@@ -84,8 +84,8 @@ struct Status {
     }
 
     /// @brief converts the Status object to its JSON representation.
-    [[nodiscard]] json to_json() const {
-        json j;
+    [[nodiscard]] json::json to_json() const {
+        json::json j;
         j["key"] = key;
         j["name"] = name;
         j["variant"] = variant;
@@ -97,7 +97,7 @@ struct Status {
     }
 
     /// @brief constructs a Status from its protobuf representation.
-    static std::pair<Status<Details>, xerrors::Error> from_proto(const PBStatus &pb) {
+    static std::pair<Status, errors::Error> from_proto(const ::status::PBStatus &pb) {
         Status status{
             .key = pb.key(),
             .name = pb.name(),
@@ -108,16 +108,16 @@ struct Status {
             .details = Details{},
         };
         if (!pb.details().empty()) {
-            xjson::Parser parser(pb.details());
+            json::Parser parser(pb.details());
             status.details = Details::parse(parser);
             if (!parser.ok()) return {Status(), parser.error()};
         }
-        return {status, xerrors::NIL};
+        return {status, errors::NIL};
     }
 
     /// @brief converts the Status to its protobuf representation.
     /// @param pb the protobuf message to encode the fields into.
-    void to_proto(PBStatus *pb) const {
+    void to_proto(::status::PBStatus *pb) const {
         pb->set_key(key);
         pb->set_name(name);
         pb->set_variant(variant);

@@ -24,7 +24,7 @@ int main() {
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
-    modbus::mock::SlaveConfig config;
+    driver::modbus::mock::SlaveConfig config;
 
     config.coils[0] = 1; // ON
     config.coils[1] = 0; // OFF
@@ -47,7 +47,7 @@ int main() {
                   << std::endl;
 
         // Create and start the slave
-        modbus::mock::Slave slave(config);
+        driver::modbus::mock::Slave slave(config);
         if (const auto err = slave.start()) {
             std::cerr << "Failed to start slave: " << err.message() << std::endl;
             return 1;
@@ -66,11 +66,11 @@ int main() {
 
         std::cout << "\nHolding Registers (read/write 16-bit):" << std::endl;
         for (const auto &[addr, value]: config.holding_registers)
-            std::cout << "  Address " << addr << ": " << telem::to_string(value);
+            std::cout << "  Address " << addr << ": " << x::telem::to_string(value);
 
         std::cout << "\nInput Registers (read-only 16-bit):" << std::endl;
         for (const auto &[addr, value]: config.input_registers)
-            std::cout << "  Address " << addr << ": " << telem::to_string(value);
+            std::cout << "  Address " << addr << ": " << x::telem::to_string(value);
 
         std::cout << "\nSlave is running. Press Ctrl+C to stop." << std::endl;
 

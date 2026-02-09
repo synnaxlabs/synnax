@@ -9,28 +9,28 @@
 
 #pragma once
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "driver/errors/errors.h"
 #include "driver/ni/daqmx/api.h"
 
-namespace daqmx {
-const xerrors::Error CRITICAL_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("ni");
-const xerrors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub("ni");
-const xerrors::Error FIELD_ERROR = CRITICAL_ERROR.sub("field");
-const xerrors::Error ANALOG_WRITE_OUT_OF_BOUNDS = CRITICAL_ERROR.sub("200561");
-const xerrors::Error APPLICATION_TOO_SLOW = CRITICAL_ERROR.sub("200729");
-const xerrors::Error DEVICE_DISCONNECTED = CRITICAL_ERROR.sub("88710");
-const xerrors::Error RESOURCE_NOT_AVAILABLE = CRITICAL_ERROR.sub("88708");
-const xerrors::Error DEVICE_DISCONNECTED_2 = CRITICAL_ERROR.sub("88709");
-const xerrors::Error ADC_CONVERSION_ERROR = CRITICAL_ERROR.sub("200019");
-const xerrors::Error RESOURCE_RESERVED = CRITICAL_ERROR.sub("201105");
-const xerrors::Error ROUTING_ERROR = CRITICAL_ERROR.sub("89130");
-const auto TEMPORARILY_UNREACHABLE = xerrors::Error(
+namespace driver::ni::daqmx {
+const x::errors::Error CRITICAL_ERROR = errors::CRITICAL_HARDWARE_ERROR.sub("ni");
+const x::errors::Error TEMPORARY_ERROR = errors::TEMPORARY_HARDWARE_ERROR.sub("ni");
+const x::errors::Error FIELD_ERROR = CRITICAL_ERROR.sub("field");
+const x::errors::Error ANALOG_WRITE_OUT_OF_BOUNDS = CRITICAL_ERROR.sub("200561");
+const x::errors::Error APPLICATION_TOO_SLOW = CRITICAL_ERROR.sub("200729");
+const x::errors::Error DEVICE_DISCONNECTED = CRITICAL_ERROR.sub("88710");
+const x::errors::Error RESOURCE_NOT_AVAILABLE = CRITICAL_ERROR.sub("88708");
+const x::errors::Error DEVICE_DISCONNECTED_2 = CRITICAL_ERROR.sub("88709");
+const x::errors::Error ADC_CONVERSION_ERROR = CRITICAL_ERROR.sub("200019");
+const x::errors::Error RESOURCE_RESERVED = CRITICAL_ERROR.sub("201105");
+const x::errors::Error ROUTING_ERROR = CRITICAL_ERROR.sub("89130");
+const auto TEMPORARILY_UNREACHABLE = x::errors::Error(
     TEMPORARY_ERROR,
     "The device is temporarily unreachable. Will keep trying"
 );
-const auto REQUIRES_RESTART = xerrors::Error(
+const auto REQUIRES_RESTART = x::errors::Error(
     TEMPORARILY_UNREACHABLE,
     "Restarting task to recover"
 );
@@ -38,14 +38,14 @@ const auto REQUIRES_RESTART = xerrors::Error(
 class SugaredAPI {
     std::shared_ptr<API> dmx;
 
-    [[nodiscard]] xerrors::Error process_error(int32 status) const;
+    [[nodiscard]] x::errors::Error process_error(int32 status) const;
 
 public:
     explicit SugaredAPI(std::shared_ptr<API> dmx): dmx(std::move(dmx)) {}
 
-    xerrors::Error AddCDAQSyncConnection(const char portList[]);
-    xerrors::Error AddGlobalChansToTask(TaskHandle task, const char channelNames[]);
-    xerrors::Error AddNetworkDevice(
+    x::errors::Error AddCDAQSyncConnection(const char portList[]);
+    x::errors::Error AddGlobalChansToTask(TaskHandle task, const char channelNames[]);
+    x::errors::Error AddNetworkDevice(
         const char ipAddress[],
         const char deviceName[],
         bool32 attemptReservation,
@@ -53,14 +53,14 @@ public:
         char deviceNameOut[],
         uInt32 deviceNameOutBufferSize
     );
-    xerrors::Error AreConfiguredCDAQSyncPortsDisconnected(
+    x::errors::Error AreConfiguredCDAQSyncPortsDisconnected(
         const char chassisDevicesPorts[],
         float64 timeout,
         bool32 *disconnectedPortsExist
     );
-    xerrors::Error
+    x::errors::Error
     AutoConfigureCDAQSyncConnections(const char chassisDevicesPorts[], float64 timeout);
-    xerrors::Error CalculateReversePolyCoeff(
+    x::errors::Error CalculateReversePolyCoeff(
         const float64 forwardCoeffs[],
         uInt32 numForwardCoeffsIn,
         float64 minValX,
@@ -69,20 +69,20 @@ public:
         int32 reversePolyOrder,
         float64 reverseCoeffs[]
     );
-    xerrors::Error CfgAnlgEdgeRefTrig(
+    x::errors::Error CfgAnlgEdgeRefTrig(
         TaskHandle task,
         const char triggerSource[],
         int32 triggerSlope,
         float64 triggerLevel,
         uInt32 pretriggerSamples
     );
-    xerrors::Error CfgAnlgEdgeStartTrig(
+    x::errors::Error CfgAnlgEdgeStartTrig(
         TaskHandle task,
         const char triggerSource[],
         int32 triggerSlope,
         float64 triggerLevel
     );
-    xerrors::Error CfgAnlgMultiEdgeRefTrig(
+    x::errors::Error CfgAnlgMultiEdgeRefTrig(
         TaskHandle task,
         const char triggerSources[],
         const int32 triggerSlopeArray[],
@@ -90,14 +90,14 @@ public:
         uInt32 pretriggerSamples,
         uInt32 arraySize
     );
-    xerrors::Error CfgAnlgMultiEdgeStartTrig(
+    x::errors::Error CfgAnlgMultiEdgeStartTrig(
         TaskHandle task,
         const char triggerSources[],
         const int32 triggerSlopeArray[],
         const float64 triggerLevelArray[],
         uInt32 arraySize
     );
-    xerrors::Error CfgAnlgWindowRefTrig(
+    x::errors::Error CfgAnlgWindowRefTrig(
         TaskHandle task,
         const char triggerSource[],
         int32 triggerWhen,
@@ -105,14 +105,14 @@ public:
         float64 windowBottom,
         uInt32 pretriggerSamples
     );
-    xerrors::Error CfgAnlgWindowStartTrig(
+    x::errors::Error CfgAnlgWindowStartTrig(
         TaskHandle task,
         const char triggerSource[],
         int32 triggerWhen,
         float64 windowTop,
         float64 windowBottom
     );
-    xerrors::Error CfgBurstHandshakingTimingExportClock(
+    x::errors::Error CfgBurstHandshakingTimingExportClock(
         TaskHandle task,
         int32 sampleMode,
         uInt64 sampsPerChan,
@@ -122,7 +122,7 @@ public:
         int32 pauseWhen,
         int32 readyEventActiveLevel
     );
-    xerrors::Error CfgBurstHandshakingTimingImportClock(
+    x::errors::Error CfgBurstHandshakingTimingImportClock(
         TaskHandle task,
         int32 sampleMode,
         uInt64 sampsPerChan,
@@ -132,41 +132,41 @@ public:
         int32 pauseWhen,
         int32 readyEventActiveLevel
     );
-    xerrors::Error CfgChangeDetectionTiming(
+    x::errors::Error CfgChangeDetectionTiming(
         TaskHandle task,
         const char risingEdgeChan[],
         const char fallingEdgeChan[],
         int32 sampleMode,
         uInt64 sampsPerChan
     );
-    xerrors::Error CfgDigEdgeRefTrig(
+    x::errors::Error CfgDigEdgeRefTrig(
         TaskHandle task,
         const char triggerSource[],
         int32 triggerEdge,
         uInt32 pretriggerSamples
     );
-    xerrors::Error
+    x::errors::Error
     CfgDigEdgeStartTrig(TaskHandle task, const char triggerSource[], int32 triggerEdge);
-    xerrors::Error CfgDigPatternRefTrig(
+    x::errors::Error CfgDigPatternRefTrig(
         TaskHandle task,
         const char triggerSource[],
         const char triggerPattern[],
         int32 triggerWhen,
         uInt32 pretriggerSamples
     );
-    xerrors::Error CfgDigPatternStartTrig(
+    x::errors::Error CfgDigPatternStartTrig(
         TaskHandle task,
         const char triggerSource[],
         const char triggerPattern[],
         int32 triggerWhen
     );
-    xerrors::Error
+    x::errors::Error
     CfgHandshakingTiming(TaskHandle task, int32 sampleMode, uInt64 sampsPerChan);
-    xerrors::Error
+    x::errors::Error
     CfgImplicitTiming(TaskHandle task, int32 sampleMode, uInt64 sampsPerChan);
-    xerrors::Error CfgInputBuffer(TaskHandle task, uInt32 numSampsPerChan);
-    xerrors::Error CfgOutputBuffer(TaskHandle task, uInt32 numSampsPerChan);
-    xerrors::Error CfgPipelinedSampClkTiming(
+    x::errors::Error CfgInputBuffer(TaskHandle task, uInt32 numSampsPerChan);
+    x::errors::Error CfgOutputBuffer(TaskHandle task, uInt32 numSampsPerChan);
+    x::errors::Error CfgPipelinedSampClkTiming(
         TaskHandle task,
         const char source[],
         float64 rate,
@@ -174,7 +174,7 @@ public:
         int32 sampleMode,
         uInt64 sampsPerChan
     );
-    xerrors::Error CfgSampClkTiming(
+    x::errors::Error CfgSampClkTiming(
         TaskHandle task,
         const char source[],
         float64 rate,
@@ -182,44 +182,44 @@ public:
         int32 sampleMode,
         uInt64 sampsPerChan
     );
-    xerrors::Error
+    x::errors::Error
     CfgTimeStartTrig(TaskHandle task, CVIAbsoluteTime when, int32 timescale);
-    xerrors::Error CfgWatchdogAOExpirStates(
+    x::errors::Error CfgWatchdogAOExpirStates(
         TaskHandle task,
         const char channelNames[],
         const float64 expirStateArray[],
         const int32 outputTypeArray[],
         uInt32 arraySize
     );
-    xerrors::Error CfgWatchdogCOExpirStates(
+    x::errors::Error CfgWatchdogCOExpirStates(
         TaskHandle task,
         const char channelNames[],
         const int32 expirStateArray[],
         uInt32 arraySize
     );
-    xerrors::Error CfgWatchdogDOExpirStates(
+    x::errors::Error CfgWatchdogDOExpirStates(
         TaskHandle task,
         const char channelNames[],
         const int32 expirStateArray[],
         uInt32 arraySize
     );
-    xerrors::Error ClearTEDS(const char physicalChannel[]);
-    xerrors::Error ClearTask(TaskHandle task);
-    xerrors::Error ConfigureLogging(
+    x::errors::Error ClearTEDS(const char physicalChannel[]);
+    x::errors::Error ClearTask(TaskHandle task);
+    x::errors::Error ConfigureLogging(
         TaskHandle task,
         const char filePath[],
         int32 loggingMode,
         const char groupName[],
         int32 operation
     );
-    xerrors::Error ConfigureTEDS(const char physicalChannel[], const char filePath[]);
-    xerrors::Error ConnectTerms(
+    x::errors::Error ConfigureTEDS(const char physicalChannel[], const char filePath[]);
+    x::errors::Error ConnectTerms(
         const char sourceTerminal[],
         const char destinationTerminal[],
         int32 signalModifiers
     );
-    xerrors::Error ControlWatchdogTask(TaskHandle task, int32 action);
-    xerrors::Error CreateAIAccel4WireDCVoltageChan(
+    x::errors::Error ControlWatchdogTask(TaskHandle task, int32 action);
+    x::errors::Error CreateAIAccel4WireDCVoltageChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -234,7 +234,7 @@ public:
         bool32 useExcitForScaling,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIAccelChan(
+    x::errors::Error CreateAIAccelChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -248,7 +248,7 @@ public:
         float64 currentExcitVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIAccelChargeChan(
+    x::errors::Error CreateAIAccelChargeChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -260,7 +260,7 @@ public:
         int32 sensitivityUnits,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIBridgeChan(
+    x::errors::Error CreateAIBridgeChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -273,7 +273,7 @@ public:
         float64 nominalBridgeResistance,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIChargeChan(
+    x::errors::Error CreateAIChargeChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -283,19 +283,7 @@ public:
         int32 units,
         const char customScaleName[]
     );
-    xerrors::Error CreateAICurrentChan(
-        TaskHandle task,
-        const char physicalChannel[],
-        const char nameToAssignToChannel[],
-        int32 terminalConfig,
-        float64 minVal,
-        float64 maxVal,
-        int32 units,
-        int32 shuntResistorLoc,
-        float64 extShuntResistorVal,
-        const char customScaleName[]
-    );
-    xerrors::Error CreateAICurrentRMSChan(
+    x::errors::Error CreateAICurrentChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -307,7 +295,19 @@ public:
         float64 extShuntResistorVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIForceBridgePolynomialChan(
+    x::errors::Error CreateAICurrentRMSChan(
+        TaskHandle task,
+        const char physicalChannel[],
+        const char nameToAssignToChannel[],
+        int32 terminalConfig,
+        float64 minVal,
+        float64 maxVal,
+        int32 units,
+        int32 shuntResistorLoc,
+        float64 extShuntResistorVal,
+        const char customScaleName[]
+    );
+    x::errors::Error CreateAIForceBridgePolynomialChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -326,7 +326,7 @@ public:
         int32 physicalUnits,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIForceBridgeTableChan(
+    x::errors::Error CreateAIForceBridgeTableChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -345,7 +345,7 @@ public:
         int32 physicalUnits,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIForceBridgeTwoPointLinChan(
+    x::errors::Error CreateAIForceBridgeTwoPointLinChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -364,7 +364,7 @@ public:
         int32 physicalUnits,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIForceIEPEChan(
+    x::errors::Error CreateAIForceIEPEChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -378,7 +378,7 @@ public:
         float64 currentExcitVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIFreqVoltageChan(
+    x::errors::Error CreateAIFreqVoltageChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -389,7 +389,7 @@ public:
         float64 hysteresis,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIMicrophoneChan(
+    x::errors::Error CreateAIMicrophoneChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -401,7 +401,7 @@ public:
         float64 currentExcitVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIPosEddyCurrProxProbeChan(
+    x::errors::Error CreateAIPosEddyCurrProxProbeChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -412,22 +412,7 @@ public:
         int32 sensitivityUnits,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIPosLVDTChan(
-        TaskHandle task,
-        const char physicalChannel[],
-        const char nameToAssignToChannel[],
-        float64 minVal,
-        float64 maxVal,
-        int32 units,
-        float64 sensitivity,
-        int32 sensitivityUnits,
-        int32 voltageExcitSource,
-        float64 voltageExcitVal,
-        float64 voltageExcitFreq,
-        int32 acExcitWireMode,
-        const char customScaleName[]
-    );
-    xerrors::Error CreateAIPosRVDTChan(
+    x::errors::Error CreateAIPosLVDTChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -442,7 +427,22 @@ public:
         int32 acExcitWireMode,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIPowerChan(
+    x::errors::Error CreateAIPosRVDTChan(
+        TaskHandle task,
+        const char physicalChannel[],
+        const char nameToAssignToChannel[],
+        float64 minVal,
+        float64 maxVal,
+        int32 units,
+        float64 sensitivity,
+        int32 sensitivityUnits,
+        int32 voltageExcitSource,
+        float64 voltageExcitVal,
+        float64 voltageExcitFreq,
+        int32 acExcitWireMode,
+        const char customScaleName[]
+    );
+    x::errors::Error CreateAIPowerChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -450,7 +450,7 @@ public:
         float64 currentSetpoint,
         bool32 outputEnable
     );
-    xerrors::Error CreateAIPressureBridgePolynomialChan(
+    x::errors::Error CreateAIPressureBridgePolynomialChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -469,7 +469,7 @@ public:
         int32 physicalUnits,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIPressureBridgeTableChan(
+    x::errors::Error CreateAIPressureBridgeTableChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -488,7 +488,7 @@ public:
         int32 physicalUnits,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIPressureBridgeTwoPointLinChan(
+    x::errors::Error CreateAIPressureBridgeTwoPointLinChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -507,7 +507,7 @@ public:
         int32 physicalUnits,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIRTDChan(
+    x::errors::Error CreateAIRTDChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -520,7 +520,7 @@ public:
         float64 currentExcitVal,
         float64 r0
     );
-    xerrors::Error CreateAIResistanceChan(
+    x::errors::Error CreateAIResistanceChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -532,7 +532,7 @@ public:
         float64 currentExcitVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIRosetteStrainGageChan(
+    x::errors::Error CreateAIRosetteStrainGageChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -550,7 +550,7 @@ public:
         float64 poissonRatio,
         float64 leadWireResistance
     );
-    xerrors::Error CreateAIStrainGageChan(
+    x::errors::Error CreateAIStrainGageChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -567,13 +567,13 @@ public:
         float64 leadWireResistance,
         const char customScaleName[]
     );
-    xerrors::Error CreateAITempBuiltInSensorChan(
+    x::errors::Error CreateAITempBuiltInSensorChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
         int32 units
     );
-    xerrors::Error CreateAIThrmcplChan(
+    x::errors::Error CreateAIThrmcplChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -585,7 +585,7 @@ public:
         float64 cjcVal,
         const char cjcChannel[]
     );
-    xerrors::Error CreateAIThrmstrChanIex(
+    x::errors::Error CreateAIThrmstrChanIex(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -599,7 +599,7 @@ public:
         float64 b,
         float64 c
     );
-    xerrors::Error CreateAIThrmstrChanVex(
+    x::errors::Error CreateAIThrmstrChanVex(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -614,7 +614,7 @@ public:
         float64 c,
         float64 r1
     );
-    xerrors::Error CreateAITorqueBridgePolynomialChan(
+    x::errors::Error CreateAITorqueBridgePolynomialChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -633,7 +633,7 @@ public:
         int32 physicalUnits,
         const char customScaleName[]
     );
-    xerrors::Error CreateAITorqueBridgeTableChan(
+    x::errors::Error CreateAITorqueBridgeTableChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -652,7 +652,7 @@ public:
         int32 physicalUnits,
         const char customScaleName[]
     );
-    xerrors::Error CreateAITorqueBridgeTwoPointLinChan(
+    x::errors::Error CreateAITorqueBridgeTwoPointLinChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -671,7 +671,7 @@ public:
         int32 physicalUnits,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIVelocityIEPEChan(
+    x::errors::Error CreateAIVelocityIEPEChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -685,7 +685,7 @@ public:
         float64 currentExcitVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIVoltageChan(
+    x::errors::Error CreateAIVoltageChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -695,7 +695,7 @@ public:
         int32 units,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIVoltageChanWithExcit(
+    x::errors::Error CreateAIVoltageChanWithExcit(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -709,7 +709,7 @@ public:
         bool32 useExcitForScaling,
         const char customScaleName[]
     );
-    xerrors::Error CreateAIVoltageRMSChan(
+    x::errors::Error CreateAIVoltageRMSChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -719,7 +719,7 @@ public:
         int32 units,
         const char customScaleName[]
     );
-    xerrors::Error CreateAOCurrentChan(
+    x::errors::Error CreateAOCurrentChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -728,7 +728,7 @@ public:
         int32 units,
         const char customScaleName[]
     );
-    xerrors::Error CreateAOFuncGenChan(
+    x::errors::Error CreateAOFuncGenChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -737,7 +737,7 @@ public:
         float64 amplitude,
         float64 offset
     );
-    xerrors::Error CreateAOVoltageChan(
+    x::errors::Error CreateAOVoltageChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -746,7 +746,7 @@ public:
         int32 units,
         const char customScaleName[]
     );
-    xerrors::Error CreateCIAngEncoderChan(
+    x::errors::Error CreateCIAngEncoderChan(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -759,7 +759,7 @@ public:
         float64 initialAngle,
         const char customScaleName[]
     );
-    xerrors::Error CreateCIAngVelocityChan(
+    x::errors::Error CreateCIAngVelocityChan(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -770,7 +770,7 @@ public:
         uInt32 pulsesPerRev,
         const char customScaleName[]
     );
-    xerrors::Error CreateCICountEdgesChan(
+    x::errors::Error CreateCICountEdgesChan(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -778,7 +778,7 @@ public:
         uInt32 initialCount,
         int32 countDirection
     );
-    xerrors::Error CreateCIDutyCycleChan(
+    x::errors::Error CreateCIDutyCycleChan(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -787,7 +787,7 @@ public:
         int32 edge,
         const char customScaleName[]
     );
-    xerrors::Error CreateCIFreqChan(
+    x::errors::Error CreateCIFreqChan(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -800,7 +800,7 @@ public:
         uInt32 divisor,
         const char customScaleName[]
     );
-    xerrors::Error CreateCIGPSTimestampChan(
+    x::errors::Error CreateCIGPSTimestampChan(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -808,7 +808,7 @@ public:
         int32 syncMethod,
         const char customScaleName[]
     );
-    xerrors::Error CreateCILinEncoderChan(
+    x::errors::Error CreateCILinEncoderChan(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -821,7 +821,7 @@ public:
         float64 initialPos,
         const char customScaleName[]
     );
-    xerrors::Error CreateCILinVelocityChan(
+    x::errors::Error CreateCILinVelocityChan(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -832,7 +832,7 @@ public:
         float64 distPerPulse,
         const char customScaleName[]
     );
-    xerrors::Error CreateCIPeriodChan(
+    x::errors::Error CreateCIPeriodChan(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -845,7 +845,7 @@ public:
         uInt32 divisor,
         const char customScaleName[]
     );
-    xerrors::Error CreateCIPulseChanFreq(
+    x::errors::Error CreateCIPulseChanFreq(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -853,7 +853,7 @@ public:
         float64 maxVal,
         int32 units
     );
-    xerrors::Error CreateCIPulseChanTicks(
+    x::errors::Error CreateCIPulseChanTicks(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -861,7 +861,7 @@ public:
         float64 minVal,
         float64 maxVal
     );
-    xerrors::Error CreateCIPulseChanTime(
+    x::errors::Error CreateCIPulseChanTime(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -869,7 +869,7 @@ public:
         float64 maxVal,
         int32 units
     );
-    xerrors::Error CreateCIPulseWidthChan(
+    x::errors::Error CreateCIPulseWidthChan(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -879,7 +879,7 @@ public:
         int32 startingEdge,
         const char customScaleName[]
     );
-    xerrors::Error CreateCISemiPeriodChan(
+    x::errors::Error CreateCISemiPeriodChan(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -888,7 +888,7 @@ public:
         int32 units,
         const char customScaleName[]
     );
-    xerrors::Error CreateCITwoEdgeSepChan(
+    x::errors::Error CreateCITwoEdgeSepChan(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -899,7 +899,7 @@ public:
         int32 secondEdge,
         const char customScaleName[]
     );
-    xerrors::Error CreateCOPulseChanFreq(
+    x::errors::Error CreateCOPulseChanFreq(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -909,7 +909,7 @@ public:
         float64 freq,
         float64 dutyCycle
     );
-    xerrors::Error CreateCOPulseChanTicks(
+    x::errors::Error CreateCOPulseChanTicks(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -919,7 +919,7 @@ public:
         int32 lowTicks,
         int32 highTicks
     );
-    xerrors::Error CreateCOPulseChanTime(
+    x::errors::Error CreateCOPulseChanTime(
         TaskHandle task,
         const char counter[],
         const char nameToAssignToChannel[],
@@ -929,26 +929,26 @@ public:
         float64 lowTime,
         float64 highTime
     );
-    xerrors::Error CreateDIChan(
+    x::errors::Error CreateDIChan(
         TaskHandle task,
         const char lines[],
         const char nameToAssignToLines[],
         int32 lineGrouping
     );
-    xerrors::Error CreateDOChan(
+    x::errors::Error CreateDOChan(
         TaskHandle task,
         const char lines[],
         const char nameToAssignToLines[],
         int32 lineGrouping
     );
-    xerrors::Error CreateLinScale(
+    x::errors::Error CreateLinScale(
         const char name[],
         float64 slope,
         float64 yIntercept,
         int32 preScaledUnits,
         const char scaledUnits[]
     );
-    xerrors::Error CreateMapScale(
+    x::errors::Error CreateMapScale(
         const char name[],
         float64 prescaledMin,
         float64 prescaledMax,
@@ -957,7 +957,7 @@ public:
         int32 preScaledUnits,
         const char scaledUnits[]
     );
-    xerrors::Error CreatePolynomialScale(
+    x::errors::Error CreatePolynomialScale(
         const char name[],
         const float64 forwardCoeffs[],
         uInt32 numForwardCoeffsIn,
@@ -966,7 +966,7 @@ public:
         int32 preScaledUnits,
         const char scaledUnits[]
     );
-    xerrors::Error CreateTEDSAIAccelChan(
+    x::errors::Error CreateTEDSAIAccelChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -978,7 +978,7 @@ public:
         float64 currentExcitVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateTEDSAIBridgeChan(
+    x::errors::Error CreateTEDSAIBridgeChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -989,7 +989,7 @@ public:
         float64 voltageExcitVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateTEDSAICurrentChan(
+    x::errors::Error CreateTEDSAICurrentChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1001,7 +1001,7 @@ public:
         float64 extShuntResistorVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateTEDSAIForceBridgeChan(
+    x::errors::Error CreateTEDSAIForceBridgeChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1012,7 +1012,7 @@ public:
         float64 voltageExcitVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateTEDSAIForceIEPEChan(
+    x::errors::Error CreateTEDSAIForceIEPEChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1024,7 +1024,7 @@ public:
         float64 currentExcitVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateTEDSAIMicrophoneChan(
+    x::errors::Error CreateTEDSAIMicrophoneChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1035,7 +1035,7 @@ public:
         float64 currentExcitVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateTEDSAIPosLVDTChan(
+    x::errors::Error CreateTEDSAIPosLVDTChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1048,7 +1048,7 @@ public:
         int32 acExcitWireMode,
         const char customScaleName[]
     );
-    xerrors::Error CreateTEDSAIPosRVDTChan(
+    x::errors::Error CreateTEDSAIPosRVDTChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1061,7 +1061,7 @@ public:
         int32 acExcitWireMode,
         const char customScaleName[]
     );
-    xerrors::Error CreateTEDSAIPressureBridgeChan(
+    x::errors::Error CreateTEDSAIPressureBridgeChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1072,7 +1072,7 @@ public:
         float64 voltageExcitVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateTEDSAIRTDChan(
+    x::errors::Error CreateTEDSAIRTDChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1083,7 +1083,7 @@ public:
         int32 currentExcitSource,
         float64 currentExcitVal
     );
-    xerrors::Error CreateTEDSAIResistanceChan(
+    x::errors::Error CreateTEDSAIResistanceChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1095,7 +1095,7 @@ public:
         float64 currentExcitVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateTEDSAIStrainGageChan(
+    x::errors::Error CreateTEDSAIStrainGageChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1108,7 +1108,7 @@ public:
         float64 leadWireResistance,
         const char customScaleName[]
     );
-    xerrors::Error CreateTEDSAIThrmcplChan(
+    x::errors::Error CreateTEDSAIThrmcplChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1119,7 +1119,7 @@ public:
         float64 cjcVal,
         const char cjcChannel[]
     );
-    xerrors::Error CreateTEDSAIThrmstrChanIex(
+    x::errors::Error CreateTEDSAIThrmstrChanIex(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1130,7 +1130,7 @@ public:
         int32 currentExcitSource,
         float64 currentExcitVal
     );
-    xerrors::Error CreateTEDSAIThrmstrChanVex(
+    x::errors::Error CreateTEDSAIThrmstrChanVex(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1142,7 +1142,7 @@ public:
         float64 voltageExcitVal,
         float64 r1
     );
-    xerrors::Error CreateTEDSAITorqueBridgeChan(
+    x::errors::Error CreateTEDSAITorqueBridgeChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1153,7 +1153,7 @@ public:
         float64 voltageExcitVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateTEDSAIVoltageChan(
+    x::errors::Error CreateTEDSAIVoltageChan(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1163,7 +1163,7 @@ public:
         int32 units,
         const char customScaleName[]
     );
-    xerrors::Error CreateTEDSAIVoltageChanWithExcit(
+    x::errors::Error CreateTEDSAIVoltageChanWithExcit(
         TaskHandle task,
         const char physicalChannel[],
         const char nameToAssignToChannel[],
@@ -1175,7 +1175,7 @@ public:
         float64 voltageExcitVal,
         const char customScaleName[]
     );
-    xerrors::Error CreateTableScale(
+    x::errors::Error CreateTableScale(
         const char name[],
         const float64 prescaledVals[],
         uInt32 numPrescaledValsIn,
@@ -1184,25 +1184,25 @@ public:
         int32 preScaledUnits,
         const char scaledUnits[]
     );
-    xerrors::Error CreateTask(const char sessionName[], TaskHandle *task);
-    xerrors::Error CreateWatchdogTimerTaskEx(
+    x::errors::Error CreateTask(const char sessionName[], TaskHandle *task);
+    x::errors::Error CreateWatchdogTimerTaskEx(
         const char deviceName[],
         const char sessionName[],
         TaskHandle *task,
         float64 timeout
     );
-    xerrors::Error DeleteNetworkDevice(const char deviceName[]);
-    xerrors::Error DeleteSavedGlobalChan(const char channelName[]);
-    xerrors::Error DeleteSavedScale(const char scaleName[]);
-    xerrors::Error DeleteSavedTask(const char taskName[]);
-    xerrors::Error DeviceSupportsCal(const char deviceName[], bool32 *calSupported);
-    xerrors::Error DisableRefTrig(TaskHandle task);
-    xerrors::Error DisableStartTrig(TaskHandle task);
-    xerrors::Error
+    x::errors::Error DeleteNetworkDevice(const char deviceName[]);
+    x::errors::Error DeleteSavedGlobalChan(const char channelName[]);
+    x::errors::Error DeleteSavedScale(const char scaleName[]);
+    x::errors::Error DeleteSavedTask(const char taskName[]);
+    x::errors::Error DeviceSupportsCal(const char deviceName[], bool32 *calSupported);
+    x::errors::Error DisableRefTrig(TaskHandle task);
+    x::errors::Error DisableStartTrig(TaskHandle task);
+    x::errors::Error
     DisconnectTerms(const char sourceTerminal[], const char destinationTerminal[]);
-    xerrors::Error
+    x::errors::Error
     ExportSignal(TaskHandle task, int32 signalID, const char outputTerminal[]);
-    xerrors::Error GetAIChanCalCalDate(
+    x::errors::Error GetAIChanCalCalDate(
         TaskHandle task,
         const char channelName[],
         uInt32 *year,
@@ -1211,7 +1211,7 @@ public:
         uInt32 *hour,
         uInt32 *minute
     );
-    xerrors::Error GetAIChanCalExpDate(
+    x::errors::Error GetAIChanCalExpDate(
         TaskHandle task,
         const char channelName[],
         uInt32 *year,
@@ -1220,120 +1220,121 @@ public:
         uInt32 *hour,
         uInt32 *minute
     );
-    xerrors::Error GetAnalogPowerUpStatesWithOutputType(
+    x::errors::Error GetAnalogPowerUpStatesWithOutputType(
         const char channelNames[],
         float64 stateArray[],
         int32 channelTypeArray[],
         uInt32 *arraySize
     );
-    xerrors::Error GetArmStartTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data);
-    xerrors::Error GetArmStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime *data);
-    xerrors::Error
+    x::errors::Error
+    GetArmStartTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data);
+    x::errors::Error GetArmStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime *data);
+    x::errors::Error
     GetAutoConfiguredCDAQSyncConnections(char portList[], uInt32 portListSize);
-    xerrors::Error
+    x::errors::Error
     GetBufferAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value);
-    xerrors::Error
+    x::errors::Error
     GetCalInfoAttributeBool(const char deviceName[], int32 attribute, bool32 *value);
-    xerrors::Error
+    x::errors::Error
     GetCalInfoAttributeDouble(const char deviceName[], int32 attribute, float64 *value);
-    xerrors::Error GetCalInfoAttributeString(
+    x::errors::Error GetCalInfoAttributeString(
         const char deviceName[],
         int32 attribute,
         char value[],
         uInt32 size
     );
-    xerrors::Error
+    x::errors::Error
     GetCalInfoAttributeUInt32(const char deviceName[], int32 attribute, uInt32 *value);
-    xerrors::Error GetChanAttributeBool(
+    x::errors::Error GetChanAttributeBool(
         TaskHandle task,
         const char channel[],
         int32 attribute,
         bool32 *value
     );
-    xerrors::Error GetChanAttributeDouble(
+    x::errors::Error GetChanAttributeDouble(
         TaskHandle task,
         const char channel[],
         int32 attribute,
         float64 *value
     );
-    xerrors::Error GetChanAttributeDoubleArray(
+    x::errors::Error GetChanAttributeDoubleArray(
         TaskHandle task,
         const char channel[],
         int32 attribute,
         float64 value[],
         uInt32 size
     );
-    xerrors::Error GetChanAttributeInt32(
+    x::errors::Error GetChanAttributeInt32(
         TaskHandle task,
         const char channel[],
         int32 attribute,
         int32 *value
     );
-    xerrors::Error GetChanAttributeString(
+    x::errors::Error GetChanAttributeString(
         TaskHandle task,
         const char channel[],
         int32 attribute,
         char value[],
         uInt32 size
     );
-    xerrors::Error GetChanAttributeUInt32(
+    x::errors::Error GetChanAttributeUInt32(
         TaskHandle task,
         const char channel[],
         int32 attribute,
         uInt32 *value
     );
-    xerrors::Error
+    x::errors::Error
     GetDeviceAttributeBool(const char deviceName[], int32 attribute, bool32 *value);
-    xerrors::Error
+    x::errors::Error
     GetDeviceAttributeDouble(const char deviceName[], int32 attribute, float64 *value);
-    xerrors::Error GetDeviceAttributeDoubleArray(
+    x::errors::Error GetDeviceAttributeDoubleArray(
         const char deviceName[],
         int32 attribute,
         float64 value[],
         uInt32 size
     );
-    xerrors::Error
+    x::errors::Error
     GetDeviceAttributeInt32(const char deviceName[], int32 attribute, int32 *value);
-    xerrors::Error GetDeviceAttributeInt32Array(
+    x::errors::Error GetDeviceAttributeInt32Array(
         const char deviceName[],
         int32 attribute,
         int32 value[],
         uInt32 size
     );
-    xerrors::Error GetDeviceAttributeString(
+    x::errors::Error GetDeviceAttributeString(
         const char deviceName[],
         int32 attribute,
         char value[],
         uInt32 size
     );
-    xerrors::Error
+    x::errors::Error
     GetDeviceAttributeUInt32(const char deviceName[], int32 attribute, uInt32 *value);
-    xerrors::Error GetDeviceAttributeUInt32Array(
+    x::errors::Error GetDeviceAttributeUInt32Array(
         const char deviceName[],
         int32 attribute,
         uInt32 value[],
         uInt32 size
     );
-    xerrors::Error
+    x::errors::Error
     GetDigitalLogicFamilyPowerUpState(const char deviceName[], int32 *logicFamily);
-    xerrors::Error GetDisconnectedCDAQSyncPorts(char portList[], uInt32 portListSize);
-    xerrors::Error
+    x::errors::Error GetDisconnectedCDAQSyncPorts(char portList[], uInt32 portListSize);
+    x::errors::Error
     GetErrorString(int32 errorCode, char errorString[], uInt32 bufferSize);
-    xerrors::Error
+    x::errors::Error
     GetExportedSignalAttributeBool(TaskHandle task, int32 attribute, bool32 *value);
-    xerrors::Error
+    x::errors::Error
     GetExportedSignalAttributeDouble(TaskHandle task, int32 attribute, float64 *value);
-    xerrors::Error
+    x::errors::Error
     GetExportedSignalAttributeInt32(TaskHandle task, int32 attribute, int32 *value);
-    xerrors::Error GetExportedSignalAttributeString(
+    x::errors::Error GetExportedSignalAttributeString(
         TaskHandle task,
         int32 attribute,
         char value[],
         uInt32 size
     );
-    xerrors::Error
+    x::errors::Error
     GetExportedSignalAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value);
-    xerrors::Error GetExtCalLastDateAndTime(
+    x::errors::Error GetExtCalLastDateAndTime(
         const char deviceName[],
         uInt32 *year,
         uInt32 *month,
@@ -1341,135 +1342,135 @@ public:
         uInt32 *hour,
         uInt32 *minute
     );
-    xerrors::Error GetExtendedErrorInfo(char errorString[], uInt32 bufferSize);
-    xerrors::Error GetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime *data);
-    xerrors::Error GetFirstSampTimestampVal(TaskHandle task, CVIAbsoluteTime *data);
-    xerrors::Error
+    x::errors::Error GetExtendedErrorInfo(char errorString[], uInt32 bufferSize);
+    x::errors::Error GetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime *data);
+    x::errors::Error GetFirstSampTimestampVal(TaskHandle task, CVIAbsoluteTime *data);
+    x::errors::Error
     GetNthTaskChannel(TaskHandle task, uInt32 index, char buffer[], int32 bufferSize);
-    xerrors::Error
+    x::errors::Error
     GetNthTaskDevice(TaskHandle task, uInt32 index, char buffer[], int32 bufferSize);
-    xerrors::Error GetNthTaskReadChannel(
+    x::errors::Error GetNthTaskReadChannel(
         TaskHandle task,
         uInt32 index,
         char buffer[],
         int32 bufferSize
     );
-    xerrors::Error
+    x::errors::Error
     GetPersistedChanAttributeBool(const char channel[], int32 attribute, bool32 *value);
-    xerrors::Error GetPersistedChanAttributeString(
+    x::errors::Error GetPersistedChanAttributeString(
         const char channel[],
         int32 attribute,
         char value[],
         uInt32 size
     );
-    xerrors::Error GetPersistedScaleAttributeBool(
+    x::errors::Error GetPersistedScaleAttributeBool(
         const char scaleName[],
         int32 attribute,
         bool32 *value
     );
-    xerrors::Error GetPersistedScaleAttributeString(
+    x::errors::Error GetPersistedScaleAttributeString(
         const char scaleName[],
         int32 attribute,
         char value[],
         uInt32 size
     );
-    xerrors::Error GetPersistedTaskAttributeBool(
+    x::errors::Error GetPersistedTaskAttributeBool(
         const char taskName[],
         int32 attribute,
         bool32 *value
     );
-    xerrors::Error GetPersistedTaskAttributeString(
+    x::errors::Error GetPersistedTaskAttributeString(
         const char taskName[],
         int32 attribute,
         char value[],
         uInt32 size
     );
-    xerrors::Error GetPhysicalChanAttributeBool(
+    x::errors::Error GetPhysicalChanAttributeBool(
         const char physicalChannel[],
         int32 attribute,
         bool32 *value
     );
-    xerrors::Error GetPhysicalChanAttributeBytes(
+    x::errors::Error GetPhysicalChanAttributeBytes(
         const char physicalChannel[],
         int32 attribute,
         uInt8 value[],
         uInt32 size
     );
-    xerrors::Error GetPhysicalChanAttributeDouble(
+    x::errors::Error GetPhysicalChanAttributeDouble(
         const char physicalChannel[],
         int32 attribute,
         float64 *value
     );
-    xerrors::Error GetPhysicalChanAttributeDoubleArray(
+    x::errors::Error GetPhysicalChanAttributeDoubleArray(
         const char physicalChannel[],
         int32 attribute,
         float64 value[],
         uInt32 size
     );
-    xerrors::Error GetPhysicalChanAttributeInt32(
+    x::errors::Error GetPhysicalChanAttributeInt32(
         const char physicalChannel[],
         int32 attribute,
         int32 *value
     );
-    xerrors::Error GetPhysicalChanAttributeInt32Array(
+    x::errors::Error GetPhysicalChanAttributeInt32Array(
         const char physicalChannel[],
         int32 attribute,
         int32 value[],
         uInt32 size
     );
-    xerrors::Error GetPhysicalChanAttributeString(
+    x::errors::Error GetPhysicalChanAttributeString(
         const char physicalChannel[],
         int32 attribute,
         char value[],
         uInt32 size
     );
-    xerrors::Error GetPhysicalChanAttributeUInt32(
+    x::errors::Error GetPhysicalChanAttributeUInt32(
         const char physicalChannel[],
         int32 attribute,
         uInt32 *value
     );
-    xerrors::Error GetPhysicalChanAttributeUInt32Array(
+    x::errors::Error GetPhysicalChanAttributeUInt32Array(
         const char physicalChannel[],
         int32 attribute,
         uInt32 value[],
         uInt32 size
     );
-    xerrors::Error
+    x::errors::Error
     GetReadAttributeBool(TaskHandle task, int32 attribute, bool32 *value);
-    xerrors::Error
+    x::errors::Error
     GetReadAttributeDouble(TaskHandle task, int32 attribute, float64 *value);
-    xerrors::Error
+    x::errors::Error
     GetReadAttributeInt32(TaskHandle task, int32 attribute, int32 *value);
-    xerrors::Error
+    x::errors::Error
     GetReadAttributeString(TaskHandle task, int32 attribute, char value[], uInt32 size);
-    xerrors::Error
+    x::errors::Error
     GetReadAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value);
-    xerrors::Error
+    x::errors::Error
     GetReadAttributeUInt64(TaskHandle task, int32 attribute, uInt64 *value);
-    xerrors::Error
+    x::errors::Error
     GetRealTimeAttributeBool(TaskHandle task, int32 attribute, bool32 *value);
-    xerrors::Error
+    x::errors::Error
     GetRealTimeAttributeInt32(TaskHandle task, int32 attribute, int32 *value);
-    xerrors::Error
+    x::errors::Error
     GetRealTimeAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value);
-    xerrors::Error GetRefTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data);
-    xerrors::Error
+    x::errors::Error GetRefTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data);
+    x::errors::Error
     GetScaleAttributeDouble(const char scaleName[], int32 attribute, float64 *value);
-    xerrors::Error GetScaleAttributeDoubleArray(
+    x::errors::Error GetScaleAttributeDoubleArray(
         const char scaleName[],
         int32 attribute,
         float64 value[],
         uInt32 size
     );
-    xerrors::Error
+    x::errors::Error
     GetScaleAttributeInt32(const char scaleName[], int32 attribute, int32 *value);
-    xerrors::Error GetScaleAttributeString(
+    x::errors::Error GetScaleAttributeString(
         const char scaleName[],
         int32 attribute,
         char value[],
         uInt32 size
     );
-    xerrors::Error GetSelfCalLastDateAndTime(
+    x::errors::Error GetSelfCalLastDateAndTime(
         const char deviceName[],
         uInt32 *year,
         uInt32 *month,
@@ -1477,155 +1478,155 @@ public:
         uInt32 *hour,
         uInt32 *minute
     );
-    xerrors::Error GetStartTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data);
-    xerrors::Error GetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime *data);
-    xerrors::Error GetSyncPulseTimeWhen(TaskHandle task, CVIAbsoluteTime *data);
-    xerrors::Error
+    x::errors::Error GetStartTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data);
+    x::errors::Error GetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime *data);
+    x::errors::Error GetSyncPulseTimeWhen(TaskHandle task, CVIAbsoluteTime *data);
+    x::errors::Error
     GetSystemInfoAttributeString(int32 attribute, char value[], uInt32 size);
-    xerrors::Error GetSystemInfoAttributeUInt32(int32 attribute, uInt32 *value);
-    xerrors::Error
+    x::errors::Error GetSystemInfoAttributeUInt32(int32 attribute, uInt32 *value);
+    x::errors::Error
     GetTaskAttributeBool(TaskHandle task, int32 attribute, bool32 *value);
-    xerrors::Error
+    x::errors::Error
     GetTaskAttributeString(TaskHandle task, int32 attribute, char value[], uInt32 size);
-    xerrors::Error
+    x::errors::Error
     GetTaskAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value);
-    xerrors::Error
+    x::errors::Error
     GetTimingAttributeBool(TaskHandle task, int32 attribute, bool32 *value);
-    xerrors::Error
+    x::errors::Error
     GetTimingAttributeDouble(TaskHandle task, int32 attribute, float64 *value);
-    xerrors::Error GetTimingAttributeExBool(
+    x::errors::Error GetTimingAttributeExBool(
         TaskHandle task,
         const char deviceNames[],
         int32 attribute,
         bool32 *value
     );
-    xerrors::Error GetTimingAttributeExDouble(
+    x::errors::Error GetTimingAttributeExDouble(
         TaskHandle task,
         const char deviceNames[],
         int32 attribute,
         float64 *value
     );
-    xerrors::Error GetTimingAttributeExInt32(
+    x::errors::Error GetTimingAttributeExInt32(
         TaskHandle task,
         const char deviceNames[],
         int32 attribute,
         int32 *value
     );
-    xerrors::Error GetTimingAttributeExString(
+    x::errors::Error GetTimingAttributeExString(
         TaskHandle task,
         const char deviceNames[],
         int32 attribute,
         char value[],
         uInt32 size
     );
-    xerrors::Error GetTimingAttributeExTimestamp(
+    x::errors::Error GetTimingAttributeExTimestamp(
         TaskHandle task,
         const char deviceNames[],
         int32 attribute,
         CVIAbsoluteTime *value
     );
-    xerrors::Error GetTimingAttributeExUInt32(
+    x::errors::Error GetTimingAttributeExUInt32(
         TaskHandle task,
         const char deviceNames[],
         int32 attribute,
         uInt32 *value
     );
-    xerrors::Error GetTimingAttributeExUInt64(
+    x::errors::Error GetTimingAttributeExUInt64(
         TaskHandle task,
         const char deviceNames[],
         int32 attribute,
         uInt64 *value
     );
-    xerrors::Error
+    x::errors::Error
     GetTimingAttributeInt32(TaskHandle task, int32 attribute, int32 *value);
-    xerrors::Error GetTimingAttributeString(
+    x::errors::Error GetTimingAttributeString(
         TaskHandle task,
         int32 attribute,
         char value[],
         uInt32 size
     );
-    xerrors::Error GetTimingAttributeTimestamp(
+    x::errors::Error GetTimingAttributeTimestamp(
         TaskHandle task,
         int32 attribute,
         CVIAbsoluteTime *value
     );
-    xerrors::Error
+    x::errors::Error
     GetTimingAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value);
-    xerrors::Error
+    x::errors::Error
     GetTimingAttributeUInt64(TaskHandle task, int32 attribute, uInt64 *value);
-    xerrors::Error
+    x::errors::Error
     GetTrigAttributeBool(TaskHandle task, int32 attribute, bool32 *value);
-    xerrors::Error
+    x::errors::Error
     GetTrigAttributeDouble(TaskHandle task, int32 attribute, float64 *value);
-    xerrors::Error GetTrigAttributeDoubleArray(
+    x::errors::Error GetTrigAttributeDoubleArray(
         TaskHandle task,
         int32 attribute,
         float64 value[],
         uInt32 size
     );
-    xerrors::Error
+    x::errors::Error
     GetTrigAttributeInt32(TaskHandle task, int32 attribute, int32 *value);
-    xerrors::Error GetTrigAttributeInt32Array(
+    x::errors::Error GetTrigAttributeInt32Array(
         TaskHandle task,
         int32 attribute,
         int32 value[],
         uInt32 size
     );
-    xerrors::Error
+    x::errors::Error
     GetTrigAttributeString(TaskHandle task, int32 attribute, char value[], uInt32 size);
-    xerrors::Error
+    x::errors::Error
     GetTrigAttributeTimestamp(TaskHandle task, int32 attribute, CVIAbsoluteTime *value);
-    xerrors::Error
+    x::errors::Error
     GetTrigAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value);
-    xerrors::Error GetWatchdogAttributeBool(
+    x::errors::Error GetWatchdogAttributeBool(
         TaskHandle task,
         const char lines[],
         int32 attribute,
         bool32 *value
     );
-    xerrors::Error GetWatchdogAttributeDouble(
+    x::errors::Error GetWatchdogAttributeDouble(
         TaskHandle task,
         const char lines[],
         int32 attribute,
         float64 *value
     );
-    xerrors::Error GetWatchdogAttributeInt32(
+    x::errors::Error GetWatchdogAttributeInt32(
         TaskHandle task,
         const char lines[],
         int32 attribute,
         int32 *value
     );
-    xerrors::Error GetWatchdogAttributeString(
+    x::errors::Error GetWatchdogAttributeString(
         TaskHandle task,
         const char lines[],
         int32 attribute,
         char value[],
         uInt32 size
     );
-    xerrors::Error
+    x::errors::Error
     GetWriteAttributeBool(TaskHandle task, int32 attribute, bool32 *value);
-    xerrors::Error
+    x::errors::Error
     GetWriteAttributeDouble(TaskHandle task, int32 attribute, float64 *value);
-    xerrors::Error
+    x::errors::Error
     GetWriteAttributeInt32(TaskHandle task, int32 attribute, int32 *value);
-    xerrors::Error GetWriteAttributeString(
+    x::errors::Error GetWriteAttributeString(
         TaskHandle task,
         int32 attribute,
         char value[],
         uInt32 size
     );
-    xerrors::Error
+    x::errors::Error
     GetWriteAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value);
-    xerrors::Error
+    x::errors::Error
     GetWriteAttributeUInt64(TaskHandle task, int32 attribute, uInt64 *value);
-    xerrors::Error IsTaskDone(TaskHandle task, bool32 *isTaskDone);
-    xerrors::Error LoadTask(const char sessionName[], TaskHandle *task);
-    xerrors::Error PerformBridgeOffsetNullingCalEx(
+    x::errors::Error IsTaskDone(TaskHandle task, bool32 *isTaskDone);
+    x::errors::Error LoadTask(const char sessionName[], TaskHandle *task);
+    x::errors::Error PerformBridgeOffsetNullingCalEx(
         TaskHandle task,
         const char channel[],
         bool32 skipUnsupportedChannels
     );
-    xerrors::Error PerformBridgeShuntCalEx(
+    x::errors::Error PerformBridgeShuntCalEx(
         TaskHandle task,
         const char channel[],
         float64 shuntResistorValue,
@@ -1635,7 +1636,7 @@ public:
         float64 bridgeResistance,
         bool32 skipUnsupportedChannels
     );
-    xerrors::Error PerformStrainShuntCalEx(
+    x::errors::Error PerformStrainShuntCalEx(
         TaskHandle task,
         const char channel[],
         float64 shuntResistorValue,
@@ -1644,12 +1645,12 @@ public:
         int32 shuntResistorSource,
         bool32 skipUnsupportedChannels
     );
-    xerrors::Error PerformThrmcplLeadOffsetNullingCal(
+    x::errors::Error PerformThrmcplLeadOffsetNullingCal(
         TaskHandle task,
         const char channel[],
         bool32 skipUnsupportedChannels
     );
-    xerrors::Error ReadAnalogF64(
+    x::errors::Error ReadAnalogF64(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1659,13 +1660,13 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadAnalogScalarF64(
+    x::errors::Error ReadAnalogScalarF64(
         TaskHandle task,
         float64 timeout,
         float64 *value,
         bool32 *reserved
     );
-    xerrors::Error ReadBinaryI16(
+    x::errors::Error ReadBinaryI16(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1675,7 +1676,7 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadBinaryI32(
+    x::errors::Error ReadBinaryI32(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1685,7 +1686,7 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadBinaryU16(
+    x::errors::Error ReadBinaryU16(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1695,7 +1696,7 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadBinaryU32(
+    x::errors::Error ReadBinaryU32(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1705,7 +1706,7 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadCounterF64(
+    x::errors::Error ReadCounterF64(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1714,7 +1715,7 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadCounterF64Ex(
+    x::errors::Error ReadCounterF64Ex(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1724,19 +1725,19 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadCounterScalarF64(
+    x::errors::Error ReadCounterScalarF64(
         TaskHandle task,
         float64 timeout,
         float64 *value,
         bool32 *reserved
     );
-    xerrors::Error ReadCounterScalarU32(
+    x::errors::Error ReadCounterScalarU32(
         TaskHandle task,
         float64 timeout,
         uInt32 *value,
         bool32 *reserved
     );
-    xerrors::Error ReadCounterU32(
+    x::errors::Error ReadCounterU32(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1745,7 +1746,7 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadCounterU32Ex(
+    x::errors::Error ReadCounterU32Ex(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1755,7 +1756,7 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadCtrFreq(
+    x::errors::Error ReadCtrFreq(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1766,14 +1767,14 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadCtrFreqScalar(
+    x::errors::Error ReadCtrFreqScalar(
         TaskHandle task,
         float64 timeout,
         float64 *frequency,
         float64 *dutyCycle,
         bool32 *reserved
     );
-    xerrors::Error ReadCtrTicks(
+    x::errors::Error ReadCtrTicks(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1784,14 +1785,14 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadCtrTicksScalar(
+    x::errors::Error ReadCtrTicksScalar(
         TaskHandle task,
         float64 timeout,
         uInt32 *highTicks,
         uInt32 *lowTicks,
         bool32 *reserved
     );
-    xerrors::Error ReadCtrTime(
+    x::errors::Error ReadCtrTime(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1802,14 +1803,14 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadCtrTimeScalar(
+    x::errors::Error ReadCtrTimeScalar(
         TaskHandle task,
         float64 timeout,
         float64 *highTime,
         float64 *lowTime,
         bool32 *reserved
     );
-    xerrors::Error ReadDigitalLines(
+    x::errors::Error ReadDigitalLines(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1820,13 +1821,13 @@ public:
         int32 *numBytesPerSamp,
         bool32 *reserved
     );
-    xerrors::Error ReadDigitalScalarU32(
+    x::errors::Error ReadDigitalScalarU32(
         TaskHandle task,
         float64 timeout,
         uInt32 *value,
         bool32 *reserved
     );
-    xerrors::Error ReadDigitalU16(
+    x::errors::Error ReadDigitalU16(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1836,7 +1837,7 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadDigitalU32(
+    x::errors::Error ReadDigitalU32(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1846,7 +1847,7 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadDigitalU8(
+    x::errors::Error ReadDigitalU8(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1856,7 +1857,7 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadPowerBinaryI16(
+    x::errors::Error ReadPowerBinaryI16(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1867,7 +1868,7 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadPowerF64(
+    x::errors::Error ReadPowerF64(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1878,14 +1879,14 @@ public:
         int32 *sampsPerChanRead,
         bool32 *reserved
     );
-    xerrors::Error ReadPowerScalarF64(
+    x::errors::Error ReadPowerScalarF64(
         TaskHandle task,
         float64 timeout,
         float64 *voltage,
         float64 *current,
         bool32 *reserved
     );
-    xerrors::Error ReadRaw(
+    x::errors::Error ReadRaw(
         TaskHandle task,
         int32 numSampsPerChan,
         float64 timeout,
@@ -1895,13 +1896,13 @@ public:
         int32 *numBytesPerSamp,
         bool32 *reserved
     );
-    xerrors::Error RegisterDoneEvent(
+    x::errors::Error RegisterDoneEvent(
         TaskHandle task,
         uInt32 options,
         DAQmxDoneEventCallbackPtr callbackFunction,
         void *callbackData
     );
-    xerrors::Error RegisterEveryNSamplesEvent(
+    x::errors::Error RegisterEveryNSamplesEvent(
         TaskHandle task,
         int32 everyNSamplesEventType,
         uInt32 nSamples,
@@ -1909,49 +1910,49 @@ public:
         DAQmxEveryNSamplesEventCallbackPtr callbackFunction,
         void *callbackData
     );
-    xerrors::Error RegisterSignalEvent(
+    x::errors::Error RegisterSignalEvent(
         TaskHandle task,
         int32 signalID,
         uInt32 options,
         DAQmxSignalEventCallbackPtr callbackFunction,
         void *callbackData
     );
-    xerrors::Error RemoveCDAQSyncConnection(const char portList[]);
-    xerrors::Error
+    x::errors::Error RemoveCDAQSyncConnection(const char portList[]);
+    x::errors::Error
     ReserveNetworkDevice(const char deviceName[], bool32 overrideReservation);
-    xerrors::Error ResetBufferAttribute(TaskHandle task, int32 attribute);
-    xerrors::Error
+    x::errors::Error ResetBufferAttribute(TaskHandle task, int32 attribute);
+    x::errors::Error
     ResetChanAttribute(TaskHandle task, const char channel[], int32 attribute);
-    xerrors::Error ResetDevice(const char deviceName[]);
-    xerrors::Error ResetExportedSignalAttribute(TaskHandle task, int32 attribute);
-    xerrors::Error ResetReadAttribute(TaskHandle task, int32 attribute);
-    xerrors::Error ResetRealTimeAttribute(TaskHandle task, int32 attribute);
-    xerrors::Error ResetTimingAttribute(TaskHandle task, int32 attribute);
-    xerrors::Error
+    x::errors::Error ResetDevice(const char deviceName[]);
+    x::errors::Error ResetExportedSignalAttribute(TaskHandle task, int32 attribute);
+    x::errors::Error ResetReadAttribute(TaskHandle task, int32 attribute);
+    x::errors::Error ResetRealTimeAttribute(TaskHandle task, int32 attribute);
+    x::errors::Error ResetTimingAttribute(TaskHandle task, int32 attribute);
+    x::errors::Error
     ResetTimingAttributeEx(TaskHandle task, const char deviceNames[], int32 attribute);
-    xerrors::Error ResetTrigAttribute(TaskHandle task, int32 attribute);
-    xerrors::Error
+    x::errors::Error ResetTrigAttribute(TaskHandle task, int32 attribute);
+    x::errors::Error
     ResetWatchdogAttribute(TaskHandle task, const char lines[], int32 attribute);
-    xerrors::Error ResetWriteAttribute(TaskHandle task, int32 attribute);
-    xerrors::Error RestoreLastExtCalConst(const char deviceName[]);
-    xerrors::Error SaveGlobalChan(
+    x::errors::Error ResetWriteAttribute(TaskHandle task, int32 attribute);
+    x::errors::Error RestoreLastExtCalConst(const char deviceName[]);
+    x::errors::Error SaveGlobalChan(
         TaskHandle task,
         const char channelName[],
         const char saveAs[],
         const char author[],
         uInt32 options
     );
-    xerrors::Error SaveScale(
+    x::errors::Error SaveScale(
         const char scaleName[],
         const char saveAs[],
         const char author[],
         uInt32 options
     );
-    xerrors::Error
+    x::errors::Error
     SaveTask(TaskHandle task, const char saveAs[], const char author[], uInt32 options);
-    xerrors::Error SelfCal(const char deviceName[]);
-    xerrors::Error SelfTestDevice(const char deviceName[]);
-    xerrors::Error SetAIChanCalCalDate(
+    x::errors::Error SelfCal(const char deviceName[]);
+    x::errors::Error SelfTestDevice(const char deviceName[]);
+    x::errors::Error SetAIChanCalCalDate(
         TaskHandle task,
         const char channelName[],
         uInt32 year,
@@ -1960,7 +1961,7 @@ public:
         uInt32 hour,
         uInt32 minute
     );
-    xerrors::Error SetAIChanCalExpDate(
+    x::errors::Error SetAIChanCalExpDate(
         TaskHandle task,
         const char channelName[],
         uInt32 year,
@@ -1969,247 +1970,251 @@ public:
         uInt32 hour,
         uInt32 minute
     );
-    xerrors::Error SetAnalogPowerUpStatesWithOutputType(
+    x::errors::Error SetAnalogPowerUpStatesWithOutputType(
         const char channelNames[],
         const float64 stateArray[],
         const int32 channelTypeArray[],
         uInt32 arraySize
     );
-    xerrors::Error SetArmStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data);
-    xerrors::Error
+    x::errors::Error SetArmStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data);
+    x::errors::Error
     SetBufferAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value);
-    xerrors::Error
+    x::errors::Error
     SetCalInfoAttributeBool(const char deviceName[], int32 attribute, bool32 value);
-    xerrors::Error
+    x::errors::Error
     SetCalInfoAttributeDouble(const char deviceName[], int32 attribute, float64 value);
-    xerrors::Error SetCalInfoAttributeString(
+    x::errors::Error SetCalInfoAttributeString(
         const char deviceName[],
         int32 attribute,
         const char value[]
     );
-    xerrors::Error
+    x::errors::Error
     SetCalInfoAttributeUInt32(const char deviceName[], int32 attribute, uInt32 value);
-    xerrors::Error SetChanAttributeBool(
+    x::errors::Error SetChanAttributeBool(
         TaskHandle task,
         const char channel[],
         int32 attribute,
         bool32 value
     );
-    xerrors::Error SetChanAttributeDouble(
+    x::errors::Error SetChanAttributeDouble(
         TaskHandle task,
         const char channel[],
         int32 attribute,
         float64 value
     );
-    xerrors::Error SetChanAttributeDoubleArray(
+    x::errors::Error SetChanAttributeDoubleArray(
         TaskHandle task,
         const char channel[],
         int32 attribute,
         const float64 value[],
         uInt32 size
     );
-    xerrors::Error SetChanAttributeInt32(
+    x::errors::Error SetChanAttributeInt32(
         TaskHandle task,
         const char channel[],
         int32 attribute,
         int32 value
     );
-    xerrors::Error SetChanAttributeString(
+    x::errors::Error SetChanAttributeString(
         TaskHandle task,
         const char channel[],
         int32 attribute,
         const char value[]
     );
-    xerrors::Error SetChanAttributeUInt32(
+    x::errors::Error SetChanAttributeUInt32(
         TaskHandle task,
         const char channel[],
         int32 attribute,
         uInt32 value
     );
-    xerrors::Error
+    x::errors::Error
     SetDigitalLogicFamilyPowerUpState(const char deviceName[], int32 logicFamily);
-    xerrors::Error
+    x::errors::Error
     SetExportedSignalAttributeBool(TaskHandle task, int32 attribute, bool32 value);
-    xerrors::Error
+    x::errors::Error
     SetExportedSignalAttributeDouble(TaskHandle task, int32 attribute, float64 value);
-    xerrors::Error
+    x::errors::Error
     SetExportedSignalAttributeInt32(TaskHandle task, int32 attribute, int32 value);
-    xerrors::Error SetExportedSignalAttributeString(
+    x::errors::Error SetExportedSignalAttributeString(
         TaskHandle task,
         int32 attribute,
         const char value[]
     );
-    xerrors::Error
+    x::errors::Error
     SetExportedSignalAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value);
-    xerrors::Error SetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime data);
-    xerrors::Error SetReadAttributeBool(TaskHandle task, int32 attribute, bool32 value);
-    xerrors::Error
+    x::errors::Error SetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime data);
+    x::errors::Error
+    SetReadAttributeBool(TaskHandle task, int32 attribute, bool32 value);
+    x::errors::Error
     SetReadAttributeDouble(TaskHandle task, int32 attribute, float64 value);
-    xerrors::Error SetReadAttributeInt32(TaskHandle task, int32 attribute, int32 value);
-    xerrors::Error
+    x::errors::Error
+    SetReadAttributeInt32(TaskHandle task, int32 attribute, int32 value);
+    x::errors::Error
     SetReadAttributeString(TaskHandle task, int32 attribute, const char value[]);
-    xerrors::Error
+    x::errors::Error
     SetReadAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value);
-    xerrors::Error
+    x::errors::Error
     SetReadAttributeUInt64(TaskHandle task, int32 attribute, uInt64 value);
-    xerrors::Error
+    x::errors::Error
     SetRealTimeAttributeBool(TaskHandle task, int32 attribute, bool32 value);
-    xerrors::Error
+    x::errors::Error
     SetRealTimeAttributeInt32(TaskHandle task, int32 attribute, int32 value);
-    xerrors::Error
+    x::errors::Error
     SetRealTimeAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value);
-    xerrors::Error SetRuntimeEnvironment(
+    x::errors::Error SetRuntimeEnvironment(
         const char environment[],
         const char environmentVersion[],
         const char reserved1[],
         const char reserved2[]
     );
-    xerrors::Error
+    x::errors::Error
     SetScaleAttributeDouble(const char scaleName[], int32 attribute, float64 value);
-    xerrors::Error SetScaleAttributeDoubleArray(
+    x::errors::Error SetScaleAttributeDoubleArray(
         const char scaleName[],
         int32 attribute,
         const float64 value[],
         uInt32 size
     );
-    xerrors::Error
+    x::errors::Error
     SetScaleAttributeInt32(const char scaleName[], int32 attribute, int32 value);
-    xerrors::Error SetScaleAttributeString(
+    x::errors::Error SetScaleAttributeString(
         const char scaleName[],
         int32 attribute,
         const char value[]
     );
-    xerrors::Error SetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data);
-    xerrors::Error SetSyncPulseTimeWhen(TaskHandle task, CVIAbsoluteTime data);
-    xerrors::Error
+    x::errors::Error SetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data);
+    x::errors::Error SetSyncPulseTimeWhen(TaskHandle task, CVIAbsoluteTime data);
+    x::errors::Error
     SetTimingAttributeBool(TaskHandle task, int32 attribute, bool32 value);
-    xerrors::Error
+    x::errors::Error
     SetTimingAttributeDouble(TaskHandle task, int32 attribute, float64 value);
-    xerrors::Error SetTimingAttributeExBool(
+    x::errors::Error SetTimingAttributeExBool(
         TaskHandle task,
         const char deviceNames[],
         int32 attribute,
         bool32 value
     );
-    xerrors::Error SetTimingAttributeExDouble(
+    x::errors::Error SetTimingAttributeExDouble(
         TaskHandle task,
         const char deviceNames[],
         int32 attribute,
         float64 value
     );
-    xerrors::Error SetTimingAttributeExInt32(
+    x::errors::Error SetTimingAttributeExInt32(
         TaskHandle task,
         const char deviceNames[],
         int32 attribute,
         int32 value
     );
-    xerrors::Error SetTimingAttributeExString(
+    x::errors::Error SetTimingAttributeExString(
         TaskHandle task,
         const char deviceNames[],
         int32 attribute,
         const char value[]
     );
-    xerrors::Error SetTimingAttributeExTimestamp(
+    x::errors::Error SetTimingAttributeExTimestamp(
         TaskHandle task,
         const char deviceNames[],
         int32 attribute,
         CVIAbsoluteTime value
     );
-    xerrors::Error SetTimingAttributeExUInt32(
+    x::errors::Error SetTimingAttributeExUInt32(
         TaskHandle task,
         const char deviceNames[],
         int32 attribute,
         uInt32 value
     );
-    xerrors::Error SetTimingAttributeExUInt64(
+    x::errors::Error SetTimingAttributeExUInt64(
         TaskHandle task,
         const char deviceNames[],
         int32 attribute,
         uInt64 value
     );
-    xerrors::Error
+    x::errors::Error
     SetTimingAttributeInt32(TaskHandle task, int32 attribute, int32 value);
-    xerrors::Error
+    x::errors::Error
     SetTimingAttributeString(TaskHandle task, int32 attribute, const char value[]);
-    xerrors::Error SetTimingAttributeTimestamp(
+    x::errors::Error SetTimingAttributeTimestamp(
         TaskHandle task,
         int32 attribute,
         CVIAbsoluteTime value
     );
-    xerrors::Error
+    x::errors::Error
     SetTimingAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value);
-    xerrors::Error
+    x::errors::Error
     SetTimingAttributeUInt64(TaskHandle task, int32 attribute, uInt64 value);
-    xerrors::Error SetTrigAttributeBool(TaskHandle task, int32 attribute, bool32 value);
-    xerrors::Error
+    x::errors::Error
+    SetTrigAttributeBool(TaskHandle task, int32 attribute, bool32 value);
+    x::errors::Error
     SetTrigAttributeDouble(TaskHandle task, int32 attribute, float64 value);
-    xerrors::Error SetTrigAttributeDoubleArray(
+    x::errors::Error SetTrigAttributeDoubleArray(
         TaskHandle task,
         int32 attribute,
         const float64 value[],
         uInt32 size
     );
-    xerrors::Error SetTrigAttributeInt32(TaskHandle task, int32 attribute, int32 value);
-    xerrors::Error SetTrigAttributeInt32Array(
+    x::errors::Error
+    SetTrigAttributeInt32(TaskHandle task, int32 attribute, int32 value);
+    x::errors::Error SetTrigAttributeInt32Array(
         TaskHandle task,
         int32 attribute,
         const int32 value[],
         uInt32 size
     );
-    xerrors::Error
+    x::errors::Error
     SetTrigAttributeString(TaskHandle task, int32 attribute, const char value[]);
-    xerrors::Error
+    x::errors::Error
     SetTrigAttributeTimestamp(TaskHandle task, int32 attribute, CVIAbsoluteTime value);
-    xerrors::Error
+    x::errors::Error
     SetTrigAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value);
-    xerrors::Error SetWatchdogAttributeBool(
+    x::errors::Error SetWatchdogAttributeBool(
         TaskHandle task,
         const char lines[],
         int32 attribute,
         bool32 value
     );
-    xerrors::Error SetWatchdogAttributeDouble(
+    x::errors::Error SetWatchdogAttributeDouble(
         TaskHandle task,
         const char lines[],
         int32 attribute,
         float64 value
     );
-    xerrors::Error SetWatchdogAttributeInt32(
+    x::errors::Error SetWatchdogAttributeInt32(
         TaskHandle task,
         const char lines[],
         int32 attribute,
         int32 value
     );
-    xerrors::Error SetWatchdogAttributeString(
+    x::errors::Error SetWatchdogAttributeString(
         TaskHandle task,
         const char lines[],
         int32 attribute,
         const char value[]
     );
-    xerrors::Error
+    x::errors::Error
     SetWriteAttributeBool(TaskHandle task, int32 attribute, bool32 value);
-    xerrors::Error
+    x::errors::Error
     SetWriteAttributeDouble(TaskHandle task, int32 attribute, float64 value);
-    xerrors::Error
+    x::errors::Error
     SetWriteAttributeInt32(TaskHandle task, int32 attribute, int32 value);
-    xerrors::Error
+    x::errors::Error
     SetWriteAttributeString(TaskHandle task, int32 attribute, const char value[]);
-    xerrors::Error
+    x::errors::Error
     SetWriteAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value);
-    xerrors::Error
+    x::errors::Error
     SetWriteAttributeUInt64(TaskHandle task, int32 attribute, uInt64 value);
-    xerrors::Error StartNewFile(TaskHandle task, const char filePath[]);
-    xerrors::Error StartTask(TaskHandle task);
-    xerrors::Error StopTask(TaskHandle task);
-    xerrors::Error TaskControl(TaskHandle task, int32 action);
-    xerrors::Error TristateOutputTerm(const char outputTerminal[]);
-    xerrors::Error UnregisterDoneEvent(
+    x::errors::Error StartNewFile(TaskHandle task, const char filePath[]);
+    x::errors::Error StartTask(TaskHandle task);
+    x::errors::Error StopTask(TaskHandle task);
+    x::errors::Error TaskControl(TaskHandle task, int32 action);
+    x::errors::Error TristateOutputTerm(const char outputTerminal[]);
+    x::errors::Error UnregisterDoneEvent(
         TaskHandle task,
         uInt32 options,
         DAQmxDoneEventCallbackPtr callbackFunction,
         void *callbackData
     );
-    xerrors::Error UnregisterEveryNSamplesEvent(
+    x::errors::Error UnregisterEveryNSamplesEvent(
         TaskHandle task,
         int32 everyNSamplesEventType,
         uInt32 nSamples,
@@ -2217,24 +2222,24 @@ public:
         DAQmxEveryNSamplesEventCallbackPtr callbackFunction,
         void *callbackData
     );
-    xerrors::Error UnregisterSignalEvent(
+    x::errors::Error UnregisterSignalEvent(
         TaskHandle task,
         int32 signalID,
         uInt32 options,
         DAQmxSignalEventCallbackPtr callbackFunction,
         void *callbackData
     );
-    xerrors::Error UnreserveNetworkDevice(const char deviceName[]);
-    xerrors::Error
+    x::errors::Error UnreserveNetworkDevice(const char deviceName[]);
+    x::errors::Error
     WaitForNextSampleClock(TaskHandle task, float64 timeout, bool32 *isLate);
-    xerrors::Error WaitForValidTimestamp(
+    x::errors::Error WaitForValidTimestamp(
         TaskHandle task,
         int32 timestampEvent,
         float64 timeout,
         CVIAbsoluteTime *timestamp
     );
-    xerrors::Error WaitUntilTaskDone(TaskHandle task, float64 timeToWait);
-    xerrors::Error WriteAnalogF64(
+    x::errors::Error WaitUntilTaskDone(TaskHandle task, float64 timeToWait);
+    x::errors::Error WriteAnalogF64(
         TaskHandle task,
         int32 numSampsPerChan,
         bool32 autoStart,
@@ -2244,14 +2249,14 @@ public:
         int32 *sampsPerChanWritten,
         bool32 *reserved
     );
-    xerrors::Error WriteAnalogScalarF64(
+    x::errors::Error WriteAnalogScalarF64(
         TaskHandle task,
         bool32 autoStart,
         float64 timeout,
         float64 value,
         bool32 *reserved
     );
-    xerrors::Error WriteBinaryI16(
+    x::errors::Error WriteBinaryI16(
         TaskHandle task,
         int32 numSampsPerChan,
         bool32 autoStart,
@@ -2261,7 +2266,7 @@ public:
         int32 *sampsPerChanWritten,
         bool32 *reserved
     );
-    xerrors::Error WriteBinaryI32(
+    x::errors::Error WriteBinaryI32(
         TaskHandle task,
         int32 numSampsPerChan,
         bool32 autoStart,
@@ -2271,7 +2276,7 @@ public:
         int32 *sampsPerChanWritten,
         bool32 *reserved
     );
-    xerrors::Error WriteBinaryU16(
+    x::errors::Error WriteBinaryU16(
         TaskHandle task,
         int32 numSampsPerChan,
         bool32 autoStart,
@@ -2281,7 +2286,7 @@ public:
         int32 *sampsPerChanWritten,
         bool32 *reserved
     );
-    xerrors::Error WriteBinaryU32(
+    x::errors::Error WriteBinaryU32(
         TaskHandle task,
         int32 numSampsPerChan,
         bool32 autoStart,
@@ -2291,7 +2296,7 @@ public:
         int32 *sampsPerChanWritten,
         bool32 *reserved
     );
-    xerrors::Error WriteCtrFreq(
+    x::errors::Error WriteCtrFreq(
         TaskHandle task,
         int32 numSampsPerChan,
         bool32 autoStart,
@@ -2302,7 +2307,7 @@ public:
         int32 *numSampsPerChanWritten,
         bool32 *reserved
     );
-    xerrors::Error WriteCtrFreqScalar(
+    x::errors::Error WriteCtrFreqScalar(
         TaskHandle task,
         bool32 autoStart,
         float64 timeout,
@@ -2310,7 +2315,7 @@ public:
         float64 dutyCycle,
         bool32 *reserved
     );
-    xerrors::Error WriteCtrTicks(
+    x::errors::Error WriteCtrTicks(
         TaskHandle task,
         int32 numSampsPerChan,
         bool32 autoStart,
@@ -2321,7 +2326,7 @@ public:
         int32 *numSampsPerChanWritten,
         bool32 *reserved
     );
-    xerrors::Error WriteCtrTicksScalar(
+    x::errors::Error WriteCtrTicksScalar(
         TaskHandle task,
         bool32 autoStart,
         float64 timeout,
@@ -2329,7 +2334,7 @@ public:
         uInt32 lowTicks,
         bool32 *reserved
     );
-    xerrors::Error WriteCtrTime(
+    x::errors::Error WriteCtrTime(
         TaskHandle task,
         int32 numSampsPerChan,
         bool32 autoStart,
@@ -2340,7 +2345,7 @@ public:
         int32 *numSampsPerChanWritten,
         bool32 *reserved
     );
-    xerrors::Error WriteCtrTimeScalar(
+    x::errors::Error WriteCtrTimeScalar(
         TaskHandle task,
         bool32 autoStart,
         float64 timeout,
@@ -2348,7 +2353,7 @@ public:
         float64 lowTime,
         bool32 *reserved
     );
-    xerrors::Error WriteDigitalLines(
+    x::errors::Error WriteDigitalLines(
         TaskHandle task,
         int32 numSampsPerChan,
         bool32 autoStart,
@@ -2358,14 +2363,14 @@ public:
         int32 *sampsPerChanWritten,
         bool32 *reserved
     );
-    xerrors::Error WriteDigitalScalarU32(
+    x::errors::Error WriteDigitalScalarU32(
         TaskHandle task,
         bool32 autoStart,
         float64 timeout,
         uInt32 value,
         bool32 *reserved
     );
-    xerrors::Error WriteDigitalU16(
+    x::errors::Error WriteDigitalU16(
         TaskHandle task,
         int32 numSampsPerChan,
         bool32 autoStart,
@@ -2375,7 +2380,7 @@ public:
         int32 *sampsPerChanWritten,
         bool32 *reserved
     );
-    xerrors::Error WriteDigitalU32(
+    x::errors::Error WriteDigitalU32(
         TaskHandle task,
         int32 numSampsPerChan,
         bool32 autoStart,
@@ -2385,7 +2390,7 @@ public:
         int32 *sampsPerChanWritten,
         bool32 *reserved
     );
-    xerrors::Error WriteDigitalU8(
+    x::errors::Error WriteDigitalU8(
         TaskHandle task,
         int32 numSampsPerChan,
         bool32 autoStart,
@@ -2395,7 +2400,7 @@ public:
         int32 *sampsPerChanWritten,
         bool32 *reserved
     );
-    xerrors::Error WriteRaw(
+    x::errors::Error WriteRaw(
         TaskHandle task,
         int32 numSamps,
         bool32 autoStart,
@@ -2404,20 +2409,21 @@ public:
         int32 *sampsPerChanWritten,
         bool32 *reserved
     );
-    xerrors::Error WriteToTEDSFromArray(
+    x::errors::Error WriteToTEDSFromArray(
         const char physicalChannel[],
         const uInt8 bitStream[],
         uInt32 arraySize,
         int32 basicTEDSOptions
     );
-    xerrors::Error WriteToTEDSFromFile(
+    x::errors::Error WriteToTEDSFromFile(
         const char physicalChannel[],
         const char filePath[],
         int32 basicTEDSOptions
     );
-    xerrors::Error SetReadRelativeTo(TaskHandle taskHandle, int32 data);
-    xerrors::Error SetReadOffset(TaskHandle taskHandle, int32 data);
-    xerrors::Error SetReadOverWrite(TaskHandle taskHandle, int32 data);
-    xerrors::Error GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64 *data);
+    x::errors::Error SetReadRelativeTo(TaskHandle taskHandle, int32 data);
+    x::errors::Error SetReadOffset(TaskHandle taskHandle, int32 data);
+    x::errors::Error SetReadOverWrite(TaskHandle taskHandle, int32 data);
+    x::errors::Error
+    GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64 *data);
 };
 }
