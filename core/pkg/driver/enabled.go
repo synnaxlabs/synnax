@@ -134,14 +134,22 @@ func (d *Driver) start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var mf func(ctx context.Context) error
-	mf = func(ctx context.Context) error {
+	var runProcess func(ctx context.Context) error
+	runProcess = func(ctx context.Context) error {
 		cfgFile, extractedBinary, err := d.setupCmd(ctx)
 		if cfgFile != "" {
-			defer func() { _ = os.Remove(cfgFile) }()
+			defer func() {
+				if rmErr := os.Remove(cfgFile); rmErr != nil {
+					d.cfg.L.Error("failed to remove config file", zap.Error(rmErr))
+				}
+			}()
 		}
 		if extractedBinary != "" {
-			defer func() { _ = os.Remove(extractedBinary) }()
+			defer func() {
+				if rmErr := os.Remove(extractedBinary); rmErr != nil {
+					d.cfg.L.Error("failed to remove extracted binary", zap.Error(rmErr))
+				}
+			}()
 		}
 		if err != nil {
 			return err
@@ -195,7 +203,7 @@ func (d *Driver) start(ctx context.Context) error {
 			isSignal = strings.Contains(err.Error(), "signal") || strings.Contains(err.Error(), "exit status")
 			if !isSignal && bre.Wait() {
 				d.cfg.L.Warn("embedded driver process crashed", zap.Error(err))
-				return mf(ctx)
+				return runProcess(ctx)
 			}
 		}
 		if isSignal {
@@ -204,7 +212,7 @@ func (d *Driver) start(ctx context.Context) error {
 		}
 		return err
 	}
-	sCtx.Go(mf)
+	sCtx.Go(runProcess)
 	if _, err = signal.RecvUnderContext(ctx, d.started); err != nil {
 		closeErr := d.Close()
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -249,7 +257,9 @@ func (d *Driver) close() error {
 	case <-time.After(d.cfg.StopTimeout):
 		d.cfg.L.Warn("embedded driver did not stop within grace period, escalating to kill")
 		if d.cmd != nil && d.cmd.Process != nil {
-			_ = d.cmd.Process.Kill()
+			if killErr := d.cmd.Process.Kill(); killErr != nil {
+				d.cfg.L.Error("failed to kill embedded driver process", zap.Error(killErr))
+			}
 		}
 		select {
 		case err := <-done:
