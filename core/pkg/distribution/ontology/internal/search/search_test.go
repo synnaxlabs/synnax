@@ -117,6 +117,20 @@ var _ = Describe("SearchTerm", func() {
 					Name: "October 29 Gooster",
 				},
 			}, "October 28 Gooster", resource.ID{Type: "test", Key: "1"}),
+			Entry("Multi-word with shared prefix", []resource.Resource{
+				{
+					ID:   resource.ID{Type: "test", Key: "1"},
+					Name: "View A",
+				},
+				{
+					ID:   resource.ID{Type: "test", Key: "2"},
+					Name: "View B",
+				},
+				{
+					ID:   resource.ID{Type: "test", Key: "3"},
+					Name: "View C",
+				},
+			}, "View A", resource.ID{Type: "test", Key: "1"}),
 		)
 		DescribeTable("No Results",
 			func(res resource.Resource, term string) {
