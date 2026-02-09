@@ -71,7 +71,17 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(l Label) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(l.Key), l.Name, l)
+	type labelData struct {
+		Name  string    `json:"name" msgpack:"name"`
+		Color string    `json:"color" msgpack:"color"`
+		Key   uuid.UUID `json:"key" msgpack:"key"`
+	}
+	data := labelData{
+		Name:  l.Name,
+		Color: l.Color.Hex(),
+		Key:   l.Key,
+	}
+	return ontology.NewResource(schema, OntologyID(l.Key), l.Name, data)
 }
 
 type change = xchange.Change[uuid.UUID, Label]

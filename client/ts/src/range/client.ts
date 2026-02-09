@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type CrudeTimeRange, type Series, TimeRange } from "@synnaxlabs/x";
+import { array, color, type CrudeTimeRange, type Series, TimeRange } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -50,7 +50,7 @@ export class Range {
   name: string;
   readonly kv: KVClient;
   readonly timeRange: TimeRange;
-  readonly color: string | undefined;
+  readonly color?: color.Color;
   readonly parent: Payload | null;
   readonly labels?: label.Label[];
   readonly channels: channel.Retriever;
@@ -313,14 +313,7 @@ export class Client {
   }
 
   resourceToRange(resource: ontology.Resource): Range {
-    return this.sugarOne({
-      key: resource.id.key,
-      name: resource.data?.name as string,
-      timeRange: new TimeRange(resource.data?.timeRange as CrudeTimeRange),
-      color: resource.data?.color as string,
-      labels: [],
-      parent: null,
-    });
+    return this.sugarOne(convertOntologyResourceToPayload(resource));
   }
 }
 
@@ -332,6 +325,12 @@ export const aliasOntologyID = (key: Key): ontology.ID => ({
   key,
 });
 
+const parseColor = (c?: unknown): color.Color | undefined => {
+  const parsed = color.colorZ.safeParse(c);
+  if (parsed.success) return parsed.data;
+  return undefined;
+};
+
 export const convertOntologyResourceToPayload = ({
   data,
   id: { key },
@@ -342,7 +341,7 @@ export const convertOntologyResourceToPayload = ({
     key,
     name,
     timeRange,
-    color: typeof data?.color === "string" ? data.color : undefined,
+    color: parseColor(data?.color),
     labels: [],
     parent: null,
   };

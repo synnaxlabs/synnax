@@ -61,7 +61,19 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(r Range) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(r.Key), r.Name, r)
+	type rangeData struct {
+		Name      string          `json:"name" msgpack:"name"`
+		Color     string          `json:"color" msgpack:"color"`
+		TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
+		Key       uuid.UUID       `json:"key" msgpack:"key"`
+	}
+	data := rangeData{
+		Name:      r.Name,
+		Color:     r.Color.Hex(),
+		TimeRange: r.TimeRange,
+		Key:       r.Key,
+	}
+	return ontology.NewResource(schema, OntologyID(r.Key), r.Name, data)
 }
 
 var _ ontology.Service = (*Service)(nil)
