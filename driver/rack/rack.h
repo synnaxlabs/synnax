@@ -44,10 +44,13 @@ struct RemoteInfo {
     template<typename Parser>
     void override(Parser &p) {
         this->rack_key = p.field("rack_key", this->rack_key);
-        this->cluster_key = x::uuid::UUID::parse(
-                                p.field("cluster_key", this->cluster_key.to_string())
-        )
-                                .first;
+        auto [ck, ck_err] = x::uuid::UUID::parse(
+            p.field("cluster_key", this->cluster_key.to_string())
+        );
+        if (ck_err)
+            p.field_err("cluster_key", ck_err);
+        else
+            this->cluster_key = ck;
     }
 
     [[nodiscard]] x::json::json to_json() const {
