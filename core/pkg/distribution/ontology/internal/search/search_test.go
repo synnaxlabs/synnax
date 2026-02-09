@@ -149,6 +149,83 @@ var _ = Describe("SearchTerm", func() {
 				Name: "Channel",
 			}, "nn"),
 		)
+		Describe("Multiple Fields", func() {
+			It("Should match on extra searchable fields", func() {
+				idx = MustSucceed(search.New())
+				idx.Register(ctx, "device", "make", "model")
+				Expect(idx.Index([]resource.Resource{
+					{
+						ID:   resource.ID{Type: "device", Key: "1"},
+						Name: "My Device",
+						Data: map[string]any{"make": "LabJack", "model": "T7"},
+					},
+				})).To(Succeed())
+				res := MustSucceed(idx.Search(ctx, search.Request{
+					Type: "device",
+					Term: "LabJack",
+				}))
+				Expect(res).To(HaveLen(1))
+				Expect(res[0].Key).To(Equal("1"))
+			})
+			It("Should match on name when extra fields are registered", func() {
+				idx = MustSucceed(search.New())
+				idx.Register(ctx, "device", "make", "model")
+				Expect(idx.Index([]resource.Resource{
+					{
+						ID:   resource.ID{Type: "device", Key: "1"},
+						Name: "My Device",
+						Data: map[string]any{"make": "LabJack", "model": "T7"},
+					},
+				})).To(Succeed())
+				res := MustSucceed(idx.Search(ctx, search.Request{
+					Type: "device",
+					Term: "My Device",
+				}))
+				Expect(res).To(HaveLen(1))
+			})
+			It("Should prioritize exact match across multiple types", func() {
+				idx = MustSucceed(search.New())
+				idx.Register(ctx, "device", "make")
+				idx.Register(ctx, "channel")
+				Expect(idx.Index([]resource.Resource{
+					{
+						ID:   resource.ID{Type: "device", Key: "1"},
+						Name: "Pressure Sensor",
+						Data: map[string]any{"make": "NI"},
+					},
+					{
+						ID:   resource.ID{Type: "channel", Key: "2"},
+						Name: "Pressure",
+					},
+				})).To(Succeed())
+				res := MustSucceed(idx.Search(ctx, search.Request{
+					Term: "Pressure Sensor",
+				}))
+				Expect(res).ToNot(BeEmpty())
+				Expect(res[0].Key).To(Equal("1"))
+			})
+			It("Should find results by searching extra fields across types", func() {
+				idx = MustSucceed(search.New())
+				idx.Register(ctx, "device", "make")
+				idx.Register(ctx, "channel")
+				Expect(idx.Index([]resource.Resource{
+					{
+						ID:   resource.ID{Type: "device", Key: "1"},
+						Name: "My Device",
+						Data: map[string]any{"make": "LabJack"},
+					},
+					{
+						ID:   resource.ID{Type: "channel", Key: "2"},
+						Name: "Temperature",
+					},
+				})).To(Succeed())
+				res := MustSucceed(idx.Search(ctx, search.Request{
+					Term: "LabJack",
+				}))
+				Expect(res).To(HaveLen(1))
+				Expect(res[0].Key).To(Equal("1"))
+			})
+		})
 		Describe("Disjunction Fallback", func() {
 			It("Should fall back to a disjunction search if the conjunction search finds no results", func() {
 				Expect(idx.Index([]resource.Resource{
