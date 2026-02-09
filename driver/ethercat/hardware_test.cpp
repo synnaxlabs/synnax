@@ -23,13 +23,13 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/soem/master.h"
 #include "engine/engine.h"
 
-namespace ethercat {
+namespace driver::ethercat {
 
 /// Expected number of slaves on IOLITE R8.
 constexpr int EXPECTED_SLAVE_COUNT = 7;
@@ -159,7 +159,7 @@ TEST_F(HardwareTest, WorkingCounterValidationIOLITE) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         ASSERT_NIL(master->receive());
 
-        if (master->process(*domain).matches(WORKING_COUNTER_ERROR))
+        if (master->process(*domain).matches(errors::WORKING_COUNTER_ERROR))
             wkc_mismatch_count++;
 
         (void) master->queue(*domain);
@@ -213,7 +213,7 @@ protected:
         std::shared_ptr<Master> master_base = master;
         engine = std::make_unique<Loop>(
             master_base,
-            LoopConfig(telem::MILLISECOND * 10)
+            LoopConfig(x::telem::MILLISECOND * 10)
         );
         cleanup = nullptr;
     }

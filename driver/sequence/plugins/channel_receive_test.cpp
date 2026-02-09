@@ -9,28 +9,28 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 extern "C" {
 #include <lualib.h>
 }
 
-/// internal.
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/sequence/plugins/plugins.h"
 
+namespace driver::sequence::plugins {
 /// @brief it should receive channel values and expose them as Lua globals.
 TEST(ChannelReceive, Basic) {
-    synnax::Channel ch;
+    synnax::channel::Channel ch;
     ch.key = 1;
     ch.name = "my_channel";
-    ch.data_type = telem::FLOAT64_T;
-    auto fr_1 = telem::Frame(1);
-    fr_1.emplace(1, telem::Series(1.0, telem::FLOAT64_T));
-    const auto reads = std::make_shared<std::vector<telem::Frame>>();
+    ch.data_type = x::telem::FLOAT64_T;
+    auto fr_1 = x::telem::Frame(1);
+    fr_1.emplace(1, x::telem::Series(1.0, x::telem::FLOAT64_T));
+    const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     reads->push_back(std::move(fr_1));
     const auto factory = pipeline::mock::simple_streamer_factory({ch.key}, reads);
-    auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
+    auto plugin = ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
     plugin.before_all(L);
@@ -46,15 +46,15 @@ TEST(ChannelReceive, Basic) {
 
 /// @brief it should safely handle stop being called before start.
 TEST(ChannelReceive, StopBeforeStart) {
-    synnax::Channel ch;
+    synnax::channel::Channel ch;
     ch.key = 1;
     ch.name = "my_channel";
-    ch.data_type = telem::FLOAT64_T;
+    ch.data_type = x::telem::FLOAT64_T;
     const auto factory = pipeline::mock::simple_streamer_factory(
         {ch.key},
-        std::make_shared<std::vector<telem::Frame>>()
+        std::make_shared<std::vector<x::telem::Frame>>()
     );
-    auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
+    auto plugin = ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
     // Stopping before starting should be safe
@@ -64,15 +64,15 @@ TEST(ChannelReceive, StopBeforeStart) {
 
 /// @brief it should safely handle being started twice.
 TEST(ChannelReceive, DoubleStart) {
-    synnax::Channel ch;
+    synnax::channel::Channel ch;
     ch.key = 1;
     ch.name = "my_channel";
-    ch.data_type = telem::FLOAT64_T;
+    ch.data_type = x::telem::FLOAT64_T;
     const auto factory = pipeline::mock::simple_streamer_factory(
         {ch.key},
-        std::make_shared<std::vector<telem::Frame>>()
+        std::make_shared<std::vector<x::telem::Frame>>()
     );
-    auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
+    auto plugin = ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
     // Starting twice should be safe
@@ -84,15 +84,15 @@ TEST(ChannelReceive, DoubleStart) {
 
 /// @brief it should safely handle being stopped twice.
 TEST(ChannelReceive, DoubleStop) {
-    synnax::Channel ch;
+    synnax::channel::Channel ch;
     ch.key = 1;
     ch.name = "my_channel";
-    ch.data_type = telem::FLOAT64_T;
+    ch.data_type = x::telem::FLOAT64_T;
     const auto factory = pipeline::mock::simple_streamer_factory(
         {ch.key},
-        std::make_shared<std::vector<telem::Frame>>()
+        std::make_shared<std::vector<x::telem::Frame>>()
     );
-    auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
+    auto plugin = ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
     plugin.before_all(L);
@@ -100,4 +100,5 @@ TEST(ChannelReceive, DoubleStop) {
     plugin.after_all(L);
     plugin.after_all(L);
     lua_close(L);
+}
 }

@@ -14,30 +14,30 @@
 
 #include "client/cpp/framer/framer.h"
 
-namespace synnax {
+namespace synnax::framer {
 uint8_t CodecFlags::encode() const {
     uint8_t b = 0;
-    b = binary::set_bit(b, FlagPosition::EqualLengths, equal_lens);
-    b = binary::set_bit(b, FlagPosition::EqualTimeRanges, equal_time_ranges);
-    b = binary::set_bit(b, FlagPosition::TimeRangesZero, time_ranges_zero);
-    b = binary::set_bit(b, FlagPosition::AllChannelsPresent, all_channels_present);
-    b = binary::set_bit(b, FlagPosition::EqualAlignments, equal_alignments);
-    b = binary::set_bit(b, FlagPosition::ZeroAlignments, zero_alignments);
+    b = x::binary::set_bit(b, FlagPosition::EqualLengths, equal_lens);
+    b = x::binary::set_bit(b, FlagPosition::EqualTimeRanges, equal_time_ranges);
+    b = x::binary::set_bit(b, FlagPosition::TimeRangesZero, time_ranges_zero);
+    b = x::binary::set_bit(b, FlagPosition::AllChannelsPresent, all_channels_present);
+    b = x::binary::set_bit(b, FlagPosition::EqualAlignments, equal_alignments);
+    b = x::binary::set_bit(b, FlagPosition::ZeroAlignments, zero_alignments);
     return b;
 }
 
 CodecFlags CodecFlags::decode(const uint8_t b) {
     CodecFlags f;
-    f.equal_lens = binary::get_bit(b, FlagPosition::EqualLengths);
-    f.equal_time_ranges = binary::get_bit(b, FlagPosition::EqualTimeRanges);
-    f.time_ranges_zero = binary::get_bit(b, FlagPosition::TimeRangesZero);
-    f.all_channels_present = binary::get_bit(b, FlagPosition::AllChannelsPresent);
-    f.equal_alignments = binary::get_bit(b, FlagPosition::EqualAlignments);
-    f.zero_alignments = binary::get_bit(b, FlagPosition::ZeroAlignments);
+    f.equal_lens = x::binary::get_bit(b, FlagPosition::EqualLengths);
+    f.equal_time_ranges = x::binary::get_bit(b, FlagPosition::EqualTimeRanges);
+    f.time_ranges_zero = x::binary::get_bit(b, FlagPosition::TimeRangesZero);
+    f.all_channels_present = x::binary::get_bit(b, FlagPosition::AllChannelsPresent);
+    f.equal_alignments = x::binary::get_bit(b, FlagPosition::EqualAlignments);
+    f.zero_alignments = x::binary::get_bit(b, FlagPosition::ZeroAlignments);
     return f;
 }
 
-xerrors::Error Codec::update(const std::vector<ChannelKey> &keys) {
+x::errors::Error Codec::update(const std::vector<channel::Key> &keys) {
     this->seq_num++;
     auto [channels, err] = this->channel_client.retrieve(keys);
     if (err) return err;
@@ -48,7 +48,7 @@ xerrors::Error Codec::update(const std::vector<ChannelKey> &keys) {
         if (ch.data_type.is_variable()) state.has_variable_data_types = true;
     }
     this->states[seq_num] = state;
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
 void Codec::throw_if_uninitialized() const {
@@ -56,8 +56,8 @@ void Codec::throw_if_uninitialized() const {
 }
 
 Codec::Codec(
-    const std::vector<ChannelKey> &channels,
-    const std::vector<telem::DataType> &data_types
+    const std::vector<channel::Key> &channels,
+    const std::vector<x::telem::DataType> &data_types
 ):
     seq_num(1), channel_client(nullptr, nullptr) {
     Codec::State state;
@@ -79,7 +79,8 @@ constexpr std::size_t FLAGS_SIZE = 1;
 constexpr std::size_t SEQ_NUM_SIZE = 4;
 constexpr std::size_t TIME_RANGE_SIZE = 16;
 
-xerrors::Error Codec::encode(const telem::Frame &frame, std::vector<uint8_t> &output) {
+x::errors::Error
+Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
     this->throw_if_uninitialized();
     CodecFlags flags;
     size_t byte_array_size = FLAGS_SIZE + SEQ_NUM_SIZE;
@@ -97,14 +98,14 @@ xerrors::Error Codec::encode(const telem::Frame &frame, std::vector<uint8_t> &ou
         auto &ser = frame.series->at(i);
         auto dt = state.key_data_types.find(k);
         if (dt == state.key_data_types.end())
-            return xerrors::Error(
-                xerrors::VALIDATION,
+            return x::errors::Error(
+                x::errors::VALIDATION,
                 "frame contains extra key " + std::to_string(k) +
                     "not provided when opening the writer"
             );
         if (dt->second != ser.data_type())
-            return xerrors::Error(
-                xerrors::VALIDATION,
+            return x::errors::Error(
+                x::errors::VALIDATION,
                 "data type " + dt->second + " for channel + " + std::to_string(k) +
                     " does not match series data type " + ser.data_type()
             );
@@ -115,11 +116,11 @@ xerrors::Error Codec::encode(const telem::Frame &frame, std::vector<uint8_t> &ou
     flags.equal_lens = !state.has_variable_data_types;
     size_t cur_data_size = 0;
     bool first_series = true;
-    telem::TimeRange ref_tr = {};
-    telem::Alignment ref_alignment;
+    x::telem::TimeRange ref_tr = {};
+    x::telem::Alignment ref_alignment;
 
     for (const auto &[key, idx]: sorting_indices) {
-        const telem::Series &series = frame.series->at(idx);
+        const x::telem::Series &series = frame.series->at(idx);
         byte_array_size += series.byte_size();
         if (first_series) {
             cur_data_size = series.size();
@@ -158,44 +159,50 @@ xerrors::Error Codec::encode(const telem::Frame &frame, std::vector<uint8_t> &ou
             byte_array_size += ALIGNMENT_SIZE;
     }
 
-    binary::Writer buf(output, byte_array_size);
+    x::binary::Writer buf(output, byte_array_size);
 
     if (buf.uint8(flags.encode()) != 1)
-        return xerrors::Error(xerrors::UNEXPECTED, "failed to write flags");
+        return x::errors::Error(x::errors::UNEXPECTED, "failed to write flags");
     if (buf.uint32(this->seq_num) != 4)
-        return xerrors::Error(xerrors::UNEXPECTED, "failed to write sequence number");
+        return x::errors::Error(
+            x::errors::UNEXPECTED,
+            "failed to write sequence number"
+        );
 
     if (flags.equal_lens) {
         if (buf.uint32(static_cast<uint32_t>(cur_data_size)) != 4)
-            return xerrors::Error(xerrors::UNEXPECTED, "failed to write data length");
+            return x::errors::Error(
+                x::errors::UNEXPECTED,
+                "failed to write data length"
+            );
     }
 
     if (flags.equal_time_ranges && !flags.time_ranges_zero) {
         if (buf.int64(ref_tr.start.nanoseconds()) != 8)
-            return xerrors::Error(
-                xerrors::UNEXPECTED,
+            return x::errors::Error(
+                x::errors::UNEXPECTED,
                 "failed to write time range start"
             );
         if (buf.int64(ref_tr.end.nanoseconds()) != 8)
-            return xerrors::Error(
-                xerrors::UNEXPECTED,
+            return x::errors::Error(
+                x::errors::UNEXPECTED,
                 "failed to write time range end"
             );
     }
 
     if (flags.equal_alignments && !flags.zero_alignments) {
         if (buf.uint64(ref_alignment.uint64()) != 8)
-            return xerrors::Error(xerrors::UNEXPECTED, "failed to write alignment");
+            return x::errors::Error(x::errors::UNEXPECTED, "failed to write alignment");
     }
 
     for (const auto &[key, idx]: sorting_indices) {
-        const telem::Series &ser = frame.series->at(idx);
+        const x::telem::Series &ser = frame.series->at(idx);
         const auto byte_size = ser.byte_size();
 
         if (!flags.all_channels_present) {
             if (buf.uint32(key) != 4)
-                return xerrors::Error(
-                    xerrors::UNEXPECTED,
+                return x::errors::Error(
+                    x::errors::UNEXPECTED,
                     "failed to write channel key"
                 );
         }
@@ -203,57 +210,57 @@ xerrors::Error Codec::encode(const telem::Frame &frame, std::vector<uint8_t> &ou
         if (!flags.equal_lens) {
             const auto size = ser.data_type().is_variable() ? byte_size : ser.size();
             if (buf.uint32(static_cast<uint32_t>(size)) != 4)
-                return xerrors::Error(
-                    xerrors::UNEXPECTED,
+                return x::errors::Error(
+                    x::errors::UNEXPECTED,
                     "failed to write series length"
                 );
         }
 
         if (buf.write(ser.data(), byte_size) != byte_size)
-            return xerrors::Error(
-                xerrors::UNEXPECTED,
+            return x::errors::Error(
+                x::errors::UNEXPECTED,
                 "failed to write series data: expected " + std::to_string(byte_size) +
                     " bytes"
             );
 
         if (!flags.equal_time_ranges) {
             if (buf.int64(ser.time_range.start.nanoseconds()) != 8)
-                return xerrors::Error(
-                    xerrors::UNEXPECTED,
+                return x::errors::Error(
+                    x::errors::UNEXPECTED,
                     "failed to write series time range start"
                 );
             if (buf.int64(ser.time_range.end.nanoseconds()) != 8)
-                return xerrors::Error(
-                    xerrors::UNEXPECTED,
+                return x::errors::Error(
+                    x::errors::UNEXPECTED,
                     "failed to write series time range end"
                 );
         }
 
         if (!flags.equal_alignments) {
             if (buf.uint64(ser.alignment.uint64()) != 8)
-                return xerrors::Error(
-                    xerrors::UNEXPECTED,
+                return x::errors::Error(
+                    x::errors::UNEXPECTED,
                     "failed to write series alignment"
                 );
         }
     }
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-std::pair<telem::Frame, xerrors::Error>
+std::pair<x::telem::Frame, x::errors::Error>
 Codec::decode(const std::vector<uint8_t> &data) const {
     return this->decode(data.data(), data.size());
 }
 
-std::pair<telem::Frame, xerrors::Error>
+std::pair<x::telem::Frame, x::errors::Error>
 Codec::decode(const uint8_t *data, const size_t size) const {
     this->throw_if_uninitialized();
-    auto reader = binary::Reader(data, size);
-    telem::Frame frame;
+    auto reader = x::binary::Reader(data, size);
+    x::telem::Frame frame;
     uint32_t data_len = 0;
-    telem::TimeRange ref_tr = {};
-    telem::Alignment ref_alignment;
+    x::telem::TimeRange ref_tr = {};
+    x::telem::Alignment ref_alignment;
     auto flags = CodecFlags::decode(reader.uint8());
 
     auto seq_num = reader.uint32();
@@ -262,15 +269,15 @@ Codec::decode(const uint8_t *data, const size_t size) const {
     if (flags.equal_lens) data_len = reader.uint32();
 
     if (flags.equal_time_ranges && !flags.time_ranges_zero) {
-        ref_tr.start = telem::TimeStamp(reader.int64());
-        ref_tr.end = telem::TimeStamp(reader.int64());
+        ref_tr.start = x::telem::TimeStamp(reader.int64());
+        ref_tr.end = x::telem::TimeStamp(reader.int64());
     } else if (flags.time_ranges_zero)
-        ref_tr = telem::TimeRange{telem::TimeStamp(0), telem::TimeStamp(0)};
+        ref_tr = x::telem::TimeRange{x::telem::TimeStamp(0), x::telem::TimeStamp(0)};
 
     if (flags.equal_alignments && !flags.zero_alignments)
-        ref_alignment = telem::Alignment(reader.uint64());
+        ref_alignment = x::telem::Alignment(reader.uint64());
 
-    auto decode_series = [&](const ChannelKey key) {
+    auto decode_series = [&](const channel::Key key) {
         // when the series is a variable data type, we use its byte capacity instead
         // of its length.
         uint32_t local_data_len_or_byte_cap = data_len;
@@ -280,22 +287,22 @@ Codec::decode(const uint8_t *data, const size_t size) const {
         if (it == state.key_data_types.end())
             throw std::runtime_error("Unknown channel key: " + std::to_string(key));
 
-        auto s = telem::Series(it->second, local_data_len_or_byte_cap);
+        auto s = x::telem::Series(it->second, local_data_len_or_byte_cap);
         s.time_range = ref_tr;
         s.alignment = ref_alignment;
 
         s.fill_from(reader);
 
         if (!flags.equal_time_ranges) {
-            s.time_range.start = telem::TimeStamp(reader.int64());
-            s.time_range.end = telem::TimeStamp(reader.int64());
+            s.time_range.start = x::telem::TimeStamp(reader.int64());
+            s.time_range.end = x::telem::TimeStamp(reader.int64());
         }
 
-        if (!flags.equal_alignments) s.alignment = telem::Alignment(reader.uint64());
+        if (!flags.equal_alignments) s.alignment = x::telem::Alignment(reader.uint64());
 
         if (frame.channels == nullptr) {
-            frame.channels = std::make_unique<std::vector<ChannelKey>>();
-            frame.series = std::make_unique<std::vector<telem::Series>>();
+            frame.channels = std::make_unique<std::vector<channel::Key>>();
+            frame.series = std::make_unique<std::vector<x::telem::Series>>();
         }
 
         frame.emplace(key, std::move(s));
@@ -309,6 +316,6 @@ Codec::decode(const uint8_t *data, const size_t size) const {
     } else
         while (decode_series(reader.uint32())) {}
 
-    return {std::move(frame), xerrors::NIL};
+    return {std::move(frame), x::errors::NIL};
 }
 }

@@ -196,7 +196,7 @@ struct Type {
         return kind == Kind::I64 && unit && unit->is_timestamp();
     }
 
-    [[nodiscard]] telem::DataType telem() const;
+    [[nodiscard]] x::telem::DataType telem() const;
 
     /// @brief Returns the string representation of the type.
     [[nodiscard]] std::string to_string() const {

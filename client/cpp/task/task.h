@@ -17,46 +17,51 @@
 
 #include "client/cpp/ontology/id.h"
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/status/status.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xjson/xjson.h"
 
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/task.pb.h"
 
 namespace synnax {
-// Forward declaration for RackKey (needed for task key utilities)
-using RackKey = std::uint32_t;
+namespace rack {
+using Key = std::uint32_t;
+}
+namespace task {
+const std::string SET_CHANNEL = "sy_task_set";
+const std::string DELETE_CHANNEL = "sy_task_delete";
+const std::string CMD_CHANNEL = "sy_task_cmd";
 
 /// @brief Type alias for the transport used to create a task.
-using TaskCreateClient = freighter::
+using CreateClient = freighter::
     UnaryClient<api::v1::TaskCreateRequest, api::v1::TaskCreateResponse>;
 
 /// @brief Type alias for the transport used to retrieve a task.
-using TaskRetrieveClient = freighter::
+using RetrieveClient = freighter::
     UnaryClient<api::v1::TaskRetrieveRequest, api::v1::TaskRetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a task.
-using TaskDeleteClient = freighter::
+using DeleteClient = freighter::
     UnaryClient<api::v1::TaskDeleteRequest, google::protobuf::Empty>;
 
 /// @brief An alias for the type of task's key.
-using TaskKey = std::uint64_t;
+using Key = std::uint64_t;
 
 /// @brief Converts a task key to an ontology ID.
 /// @param key The task key.
 /// @returns An ontology ID with type "task" and the given key.
-inline ontology::ID task_ontology_id(TaskKey key) {
+inline ontology::ID ontology_id(const Key key) {
     return ontology::ID("task", std::to_string(key));
 }
 
 /// @brief Converts a vector of task keys to a vector of ontology IDs.
 /// @param keys The task keys.
 /// @returns A vector of ontology IDs.
-inline std::vector<ontology::ID> task_ontology_ids(const std::vector<TaskKey> &keys) {
+inline std::vector<ontology::ID> ontology_ids(const std::vector<Key> &keys) {
     std::vector<ontology::ID> ids;
     ids.reserve(keys.size());
     for (const auto &key: keys)
-        ids.push_back(task_ontology_id(key));
+        ids.push_back(ontology_id(key));
     return ids;
 }
 
@@ -64,48 +69,48 @@ inline std::vector<ontology::ID> task_ontology_ids(const std::vector<TaskKey> &k
 /// @param rack The rack key.
 /// @param task The local task key.
 /// @returns A combined task key.
-inline TaskKey create_task_key(const RackKey rack, const TaskKey task) {
-    return static_cast<TaskKey>(rack) << 32 | task;
+inline Key create_key(const rack::Key rack, const Key task) {
+    return static_cast<Key>(rack) << 32 | task;
 }
 
 /// @brief Extracts the rack key from a task key.
 /// @param key The task key.
 /// @returns The rack key portion of the task key.
-inline RackKey rack_key_from_task_key(const TaskKey key) {
+inline rack::Key rack_key_from_task_key(const Key key) {
     return key >> 32;
 }
 
 /// @brief Extracts the local task key from a task key.
 /// @param key The task key.
 /// @returns The local task key portion of the task key.
-inline std::uint32_t local_task_key(const TaskKey key) {
+inline std::uint32_t local_key(const Key key) {
     return key & 0xFFFFFFFF;
 }
 
 /// @brief specific status details for tasks.
-struct TaskStatusDetails {
+struct StatusDetails {
     /// @brief The key of the task that this status is for.
-    TaskKey task;
+    Key task;
     /// @brief Is a non-empty string if the status is an explicit response to a command.
     std::string cmd;
     /// @brief whether the task is currently running.
     bool running;
     /// @brief additional data associated with the task.
-    json data;
+    x::json::json data;
 
     /// @brief parses the task status details from a JSON parser.
-    static TaskStatusDetails parse(xjson::Parser parser) {
-        return TaskStatusDetails{
-            .task = parser.field<TaskKey>("task"),
+    static StatusDetails parse(x::json::Parser parser) {
+        return StatusDetails{
+            .task = parser.field<Key>("task"),
             .cmd = parser.field<std::string>("cmd", ""),
             .running = parser.field<bool>("running"),
-            .data = parser.field<json>("data"),
+            .data = parser.field<x::json::json>("data"),
         };
     }
 
     /// @brief converts the task status details to JSON.
-    [[nodiscard]] json to_json() const {
-        json j;
+    [[nodiscard]] x::json::json to_json() const {
+        x::json::json j;
         j["task"] = this->task;
         j["running"] = this->running;
         j["data"] = this->data;
@@ -115,10 +120,10 @@ struct TaskStatusDetails {
 };
 
 /// @brief status information for a task.
-using TaskStatus = status::Status<TaskStatusDetails>;
+using Status = x::status::Status<StatusDetails>;
 
 /// @brief Options for retrieving tasks.
-struct TaskRetrieveOptions {
+struct RetrieveOptions {
     /// @brief Whether to include status information in the retrieved tasks.
     bool include_status = false;
 };
@@ -129,7 +134,7 @@ struct TaskRetrieveOptions {
 class Task {
 public:
     /// @brief The unique identifier for the task.
-    TaskKey key = 0;
+    Key key = 0;
     /// @brief A human-readable name for the task.
     std::string name;
     /// @brief The type of the task, which determines its behavior.
@@ -142,7 +147,7 @@ public:
     bool snapshot = false;
 
     /// @brief Status information for the task.
-    TaskStatus status;
+    Status status;
 
     /// @brief Constructs a new task with the given properties.
     /// @param name A human-readable name for the task.
@@ -166,7 +171,7 @@ public:
     /// @param internal Whether the task is internal to the system.
     /// @param snapshot Whether the task is a snapshot and cannot be modified.
     Task(
-        TaskKey key,
+        Key key,
         std::string name,
         std::string type,
         std::string config,
@@ -182,7 +187,7 @@ public:
     /// @param internal Whether the task is internal to the system.
     /// @param snapshot Whether the task is a snapshot and cannot be modified.
     Task(
-        RackKey rack,
+        rack::Key rack,
         std::string name,
         std::string type,
         std::string config,
@@ -193,7 +198,7 @@ public:
     /// @brief Constructs a task from its protobuf representation.
     /// @param task The protobuf representation of the task.
     /// @returns A pair containing the task and an error if one occurred.
-    static std::pair<Task, xerrors::Error> from_proto(const api::v1::Task &task);
+    static std::pair<Task, x::errors::Error> from_proto(const api::v1::Task &task);
 
     /// @brief Default constructor for an empty task.
     Task() = default;
@@ -204,10 +209,10 @@ public:
 
     /// @brief returns the key used for creating statuses associated with the task.
     [[nodiscard]] std::string status_key() const {
-        return task_ontology_id(this->key).string();
+        return ontology_id(this->key).string();
     }
 
-    [[nodiscard]] synnax::RackKey rack() const {
+    [[nodiscard]] synnax::rack::Key rack() const {
         return rack_key_from_task_key(this->key);
     }
 
@@ -216,22 +221,22 @@ private:
     /// @param task The protobuf object to populate.
     void to_proto(api::v1::Task *task) const;
 
-    friend class TaskClient;
+    friend class Client;
 };
 
 /// @brief Client for managing tasks on a specific rack.
-class TaskClient {
+class Client {
 public:
     /// @brief Constructs a new task client for the given rack.
     /// @param rack The rack key that this client operates on.
     /// @param task_create_client Client for creating tasks.
     /// @param task_retrieve_client Client for retrieving tasks.
     /// @param task_delete_client Client for deleting tasks.
-    TaskClient(
-        const RackKey rack,
-        std::shared_ptr<TaskCreateClient> task_create_client,
-        std::shared_ptr<TaskRetrieveClient> task_retrieve_client,
-        std::shared_ptr<TaskDeleteClient> task_delete_client
+    Client(
+        const rack::Key rack,
+        std::shared_ptr<CreateClient> task_create_client,
+        std::shared_ptr<RetrieveClient> task_retrieve_client,
+        std::shared_ptr<DeleteClient> task_delete_client
     ):
         rack(rack),
         task_create_client(std::move(task_create_client)),
@@ -242,55 +247,55 @@ public:
     /// @param task The task to create. Will be updated with the assigned key.
     /// @returns An error if the creation failed.
     [[nodiscard]]
-    xerrors::Error create(Task &task) const;
+    x::errors::Error create(Task &task) const;
 
     /// @brief Retrieves a task by its key.
     /// @param key The key of the task to retrieve.
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
-    std::pair<Task, xerrors::Error> retrieve(TaskKey key) const;
+    std::pair<Task, x::errors::Error> retrieve(Key key) const;
 
     /// @brief Retrieves a task by its key with options.
     /// @param key The key of the task to retrieve.
     /// @param options Options for the retrieval.
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
-    std::pair<Task, xerrors::Error>
-    retrieve(TaskKey key, const TaskRetrieveOptions &options) const;
+    std::pair<Task, x::errors::Error>
+    retrieve(Key key, const RetrieveOptions &options) const;
 
     /// @brief Retrieves a task by its type.
     /// @param type The type of the task to retrieve.
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
-    std::pair<Task, xerrors::Error> retrieve_by_type(const std::string &type) const;
+    std::pair<Task, x::errors::Error> retrieve_by_type(const std::string &type) const;
 
     /// @brief Retrieves a task by its type with options.
     /// @param type The type of the task to retrieve.
     /// @param options Options for the retrieval.
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
-    std::pair<Task, xerrors::Error>
-    retrieve_by_type(const std::string &type, const TaskRetrieveOptions &options) const;
+    std::pair<Task, x::errors::Error>
+    retrieve_by_type(const std::string &type, const RetrieveOptions &options) const;
 
     /// @brief Retrieves a task by its name.
     /// @param name The name of the task to retrieve.
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
-    std::pair<Task, xerrors::Error> retrieve(const std::string &name) const;
+    std::pair<Task, x::errors::Error> retrieve(const std::string &name) const;
 
     /// @brief Retrieves a task by its name with options.
     /// @param name The name of the task to retrieve.
     /// @param options Options for the retrieval.
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
-    std::pair<Task, xerrors::Error>
-    retrieve(const std::string &name, const TaskRetrieveOptions &options) const;
+    std::pair<Task, x::errors::Error>
+    retrieve(const std::string &name, const RetrieveOptions &options) const;
 
     /// @brief Retrieves multiple tasks by their names.
     /// @param names The names of the tasks to retrieve.
     /// @returns A pair containing the retrieved tasks and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error>
+    std::pair<std::vector<Task>, x::errors::Error>
     retrieve(const std::vector<std::string> &names) const;
 
     /// @brief Retrieves multiple tasks by their names with options.
@@ -298,16 +303,16 @@ public:
     /// @param options Options for the retrieval.
     /// @returns A pair containing the retrieved tasks and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error> retrieve(
+    std::pair<std::vector<Task>, x::errors::Error> retrieve(
         const std::vector<std::string> &names,
-        const TaskRetrieveOptions &options
+        const RetrieveOptions &options
     ) const;
 
     /// @brief Retrieves multiple tasks by their types.
     /// @param types The types of the tasks to retrieve.
     /// @returns A pair containing the retrieved tasks and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error>
+    std::pair<std::vector<Task>, x::errors::Error>
     retrieve_by_type(const std::vector<std::string> &types) const;
 
     /// @brief Retrieves multiple tasks by their types with options.
@@ -315,38 +320,38 @@ public:
     /// @param options Options for the retrieval.
     /// @returns A pair containing the retrieved tasks and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error> retrieve_by_type(
+    std::pair<std::vector<Task>, x::errors::Error> retrieve_by_type(
         const std::vector<std::string> &types,
-        const TaskRetrieveOptions &options
+        const RetrieveOptions &options
     ) const;
 
     /// @brief Deletes a task by its key.
     /// @param key The key of the task to delete.
     /// @returns An error if the deletion failed.
     [[nodiscard]]
-    xerrors::Error del(TaskKey key) const;
+    x::errors::Error del(Key key) const;
 
     /// @brief Lists all tasks on the rack.
     /// @returns A pair containing the list of tasks and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error> list() const;
+    std::pair<std::vector<Task>, x::errors::Error> list() const;
 
     /// @brief Lists all tasks on the rack with options.
     /// @param options Options for the retrieval.
     /// @returns A pair containing the list of tasks and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error>
-    list(const TaskRetrieveOptions &options) const;
+    std::pair<std::vector<Task>, x::errors::Error>
+    list(const RetrieveOptions &options) const;
 
 private:
     /// @brief Key of rack that this client belongs to.
-    RackKey rack;
+    rack::Key rack;
     /// @brief Task creation transport.
-    std::shared_ptr<TaskCreateClient> task_create_client;
+    std::shared_ptr<CreateClient> task_create_client;
     /// @brief Task retrieval transport.
-    std::shared_ptr<TaskRetrieveClient> task_retrieve_client;
+    std::shared_ptr<RetrieveClient> task_retrieve_client;
     /// @brief Task deletion transport.
-    std::shared_ptr<TaskDeleteClient> task_delete_client;
+    std::shared_ptr<DeleteClient> task_delete_client;
 };
-
+}
 }

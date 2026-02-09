@@ -22,7 +22,7 @@
 
 namespace arc::graph {
 struct Viewport {
-    spatial::XY position;
+    x::spatial::XY position;
     float zoom = 1.0f;
 
     Viewport() = default;
@@ -40,15 +40,15 @@ struct Viewport {
 struct Node {
     std::string key;
     std::string type;
-    std::map<std::string, telem::SampleValue> config;
-    spatial::XY position;
+    std::map<std::string, x::telem::SampleValue> config;
+    x::spatial::XY position;
 
     Node() = default;
 
     explicit Node(const v1::graph::PBNode &pb): key(pb.key()), type(pb.type()) {
         for (const auto &[config_key, config_value]: pb.config())
-            this->config[config_key] = telem::from_proto(config_value);
-        if (pb.has_position()) this->position = spatial::XY(pb.position());
+            this->config[config_key] = x::telem::from_proto(config_value);
+        if (pb.has_position()) this->position = x::spatial::XY(pb.position());
     }
 
     void to_proto(v1::graph::PBNode *pb) const {
@@ -56,7 +56,7 @@ struct Node {
         pb->set_type(this->type);
         auto *config_map = pb->mutable_config();
         for (const auto &[k, v]: this->config)
-            telem::to_proto(v, &(*config_map)[k]);
+            x::telem::to_proto(v, &(*config_map)[k]);
         this->position.to_proto(pb->mutable_position());
     }
 };

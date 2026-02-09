@@ -11,6 +11,7 @@ package lsp_test
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -135,6 +136,129 @@ var _ = Describe("Server Diagnostics", func() {
 	})
 })
 
+var _ = Describe("Debounced Diagnostics", func() {
+	var (
+		ctx    context.Context
+		server *lsp.Server
+		uri    protocol.DocumentURI
+		client *MockClient
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		server, uri, client = SetupTestServerWithClient(lsp.Config{
+			DebounceDelay:    20 * time.Millisecond,
+			MaxDebounceDelay: 200 * time.Millisecond,
+		})
+	})
+
+	It("Should publish diagnostics after debounce delay", func() {
+		OpenDocument(server, ctx, uri, "func test() {}")
+		baseline := client.PublishCount()
+
+		ChangeDocument(server, ctx, uri, "func test() {\n\tx := undefined\n}", 2)
+
+		Expect(client.WaitForDiagnostics(baseline, 500*time.Millisecond)).To(BeTrue())
+		Expect(client.Diagnostics()).To(HaveLen(1))
+		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol"))
+	})
+
+	It("Should coalesce rapid changes into a single publish", func() {
+		OpenDocument(server, ctx, uri, "func test() {}")
+		baseline := client.PublishCount()
+
+		for i := 2; i <= 6; i++ {
+			ChangeDocument(server, ctx, uri, "func test() {\n\tx := undefined\n}", int32(i))
+		}
+
+		Expect(client.WaitForDiagnostics(baseline, 500*time.Millisecond)).To(BeTrue())
+		time.Sleep(50 * time.Millisecond)
+		// Should have far fewer publishes than changes
+		Expect(client.PublishCount() - baseline).To(BeNumerically("<=", 2))
+	})
+
+	It("Should force-flush on DidSave", func() {
+		OpenDocument(server, ctx, uri, "func test() {}")
+		baseline := client.PublishCount()
+
+		ChangeDocument(server, ctx, uri, "func test() {\n\tx := undefined\n}", 2)
+		// Immediately save - should flush without waiting for debounce
+		Expect(server.DidSave(ctx, &protocol.DidSaveTextDocumentParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		})).To(Succeed())
+
+		Expect(client.PublishCount()).To(BeNumerically(">", baseline))
+		Expect(client.Diagnostics()).To(HaveLen(1))
+	})
+
+	It("Should refresh semantic tokens after debounced analysis", func() {
+		OpenDocument(server, ctx, uri, "func test() {}")
+		baseline := client.SemanticRefreshCount()
+
+		ChangeDocument(server, ctx, uri, "func dog() {}", 2)
+
+		Expect(client.WaitForSemanticRefresh(baseline, 500*time.Millisecond)).To(BeTrue())
+	})
+
+	It("Should cancel stale analysis when new change arrives", func() {
+		OpenDocument(server, ctx, uri, "func test() {}")
+		baseline := client.PublishCount()
+
+		// Send invalid code, then quickly send valid code
+		ChangeDocument(server, ctx, uri, "func test() {\n\tx := undefined\n}", 2)
+		ChangeDocument(server, ctx, uri, "func test() {\n\tx := 42\n}", 3)
+
+		Expect(client.WaitForDiagnostics(baseline, 500*time.Millisecond)).To(BeTrue())
+		time.Sleep(50 * time.Millisecond)
+		// The final diagnostics should be clean (from the valid code)
+		Expect(client.Diagnostics()).To(BeEmpty())
+	})
+})
+
+var _ = Describe("Incremental Sync", func() {
+	var (
+		ctx    context.Context
+		server *lsp.Server
+		uri    protocol.DocumentURI
+		client *MockClient
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		server, uri, client = SetupTestServerWithClient(lsp.Config{
+			DebounceDelay:    5 * time.Millisecond,
+			MaxDebounceDelay: 50 * time.Millisecond,
+		})
+	})
+
+	It("Should apply incremental changes correctly", func() {
+		OpenDocument(server, ctx, uri, "func test() {\n\tx := 42\n}")
+		baseline := client.PublishCount()
+
+		// Send an incremental change: replace "42" with "undefined"
+		// In "\tx := 42", tab=0, x=1, ' '=2, :=3, ==4, ' '=5, 4=6, 2=7
+		Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
+			TextDocument: protocol.VersionedTextDocumentIdentifier{
+				TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+				Version:                2,
+			},
+			ContentChanges: []protocol.TextDocumentContentChangeEvent{
+				{
+					Range: protocol.Range{
+						Start: protocol.Position{Line: 1, Character: 6},
+						End:   protocol.Position{Line: 1, Character: 8},
+					},
+					Text: "undefined",
+				},
+			},
+		})).To(Succeed())
+
+		Expect(client.WaitForDiagnostics(baseline, 500*time.Millisecond)).To(BeTrue())
+		Expect(client.Diagnostics()).To(HaveLen(1))
+		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol"))
+	})
+})
+
 var _ = Describe("External Change Notifications", func() {
 	var (
 		ctx      context.Context
@@ -166,6 +290,20 @@ var _ = Describe("External Change Notifications", func() {
 		}
 		observer.Notify(ctx, struct{}{})
 		Eventually(func() []protocol.Diagnostic { return client.Diagnostics() }).Should(BeEmpty())
+	})
+
+	It("Should refresh semantic tokens when external state changes", func() {
+		OpenDocument(server, ctx, uri, "func test() {\n\tx := my_channel\n}")
+		baseline := client.SemanticRefreshCount()
+
+		resolver["my_channel"] = symbol.Symbol{
+			Name: "my_channel",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F32()),
+		}
+		observer.Notify(ctx, struct{}{})
+
+		Eventually(func() int { return client.SemanticRefreshCount() }).Should(BeNumerically(">", baseline))
 	})
 
 	It("Should show errors when a previously valid symbol is removed", func() {

@@ -14,12 +14,12 @@
 #include "driver/errors/errors.h"
 #include "driver/pipeline/control.h"
 
-namespace pipeline {
+namespace driver::pipeline {
 Control::Control(
     std::shared_ptr<synnax::Synnax> client,
-    synnax::StreamerConfig streamer_config,
-    std::shared_ptr<pipeline::Sink> sink,
-    const breaker::Config &breaker_config,
+    const synnax::framer::StreamerConfig &streamer_config,
+    const std::shared_ptr<Sink> &sink,
+    const x::breaker::Config &breaker_config,
     std::string thread_name
 ):
     Control(
@@ -32,9 +32,9 @@ Control::Control(
 
 Control::Control(
     std::shared_ptr<StreamerFactory> streamer_factory,
-    synnax::StreamerConfig streamer_config,
+    synnax::framer::StreamerConfig streamer_config,
     std::shared_ptr<Sink> sink,
-    const breaker::Config &breaker_config,
+    const x::breaker::Config &breaker_config,
     std::string thread_name
 ):
     Base(breaker_config, std::move(thread_name)),
@@ -44,7 +44,7 @@ Control::Control(
 
 bool Control::stop() {
     if (this->streamer != nullptr) this->streamer->close_send();
-    const bool was_running = pipeline::Base::stop();
+    const bool was_running = Base::stop();
     return was_running;
 }
 
@@ -58,12 +58,12 @@ void Control::run() {
         return this->sink->stopped_with_err(open_err);
     }
 
-    xerrors::Error sink_err = xerrors::NIL;
+    x::errors::Error sink_err = x::errors::NIL;
     while (breaker.running()) {
         auto [cmd_frame, cmd_err] = this->streamer->read();
         if (cmd_err) break;
         if (sink_err = this->sink->write(cmd_frame); sink_err) {
-            if (sink_err.matches(driver::TEMPORARY_HARDWARE_ERROR) &&
+            if (sink_err.matches(errors::TEMPORARY_HARDWARE_ERROR) &&
                 breaker.wait(sink_err.message()))
                 continue;
             break;
@@ -78,14 +78,14 @@ void Control::run() {
         this->sink->stopped_with_err(close_err);
 }
 
-SynnaxStreamer::SynnaxStreamer(synnax::Streamer internal):
+SynnaxStreamer::SynnaxStreamer(synnax::framer::Streamer internal):
     internal(std::move(internal)) {}
 
-std::pair<telem::Frame, xerrors::Error> SynnaxStreamer::read() {
+std::pair<x::telem::Frame, x::errors::Error> SynnaxStreamer::read() {
     return this->internal.read();
 }
 
-xerrors::Error SynnaxStreamer::close() {
+x::errors::Error SynnaxStreamer::close() {
     return this->internal.close();
 }
 
@@ -98,10 +98,10 @@ SynnaxStreamerFactory::SynnaxStreamerFactory(
 ):
     client(std::move(client)) {}
 
-std::pair<std::unique_ptr<pipeline::Streamer>, xerrors::Error>
-SynnaxStreamerFactory::open_streamer(synnax::StreamerConfig config) {
+std::pair<std::unique_ptr<Streamer>, x::errors::Error>
+SynnaxStreamerFactory::open_streamer(synnax::framer::StreamerConfig config) {
     auto [ss, err] = client->telem.open_streamer(config);
     if (err) return {nullptr, err};
-    return {std::make_unique<SynnaxStreamer>(std::move(ss)), xerrors::NIL};
+    return {std::make_unique<SynnaxStreamer>(std::move(ss)), x::errors::NIL};
 }
 }

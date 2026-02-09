@@ -12,7 +12,7 @@
 #include <memory>
 #include <vector>
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/node.h"
@@ -39,7 +39,7 @@ public:
 
     virtual bool handles(const std::string &node_type) const { return false; }
 
-    virtual std::pair<std::unique_ptr<Node>, xerrors::Error> create(Config &&cfg) = 0;
+    virtual std::pair<std::unique_ptr<Node>, x::errors::Error> create(Config &&cfg) = 0;
 };
 
 class MultiFactory : public Factory {
@@ -49,7 +49,7 @@ public:
     explicit MultiFactory(std::vector<std::shared_ptr<Factory>> factories):
         factories(std::move(factories)) {}
 
-    std::pair<std::unique_ptr<Node>, xerrors::Error> create(Config &&cfg) override {
+    std::pair<std::unique_ptr<Node>, x::errors::Error> create(Config &&cfg) override {
         const auto node_key = cfg.node.key;
         const auto node_type = cfg.node.type;
         for (const auto &factory: this->factories) {
@@ -58,19 +58,19 @@ public:
             if (err) {
                 return {
                     nullptr,
-                    xerrors::Error(
+                    x::errors::Error(
                         err,
                         err.data + " (while creating node '" + node_key +
                             "' of type '" + node_type + "')"
                     )
                 };
             }
-            return {std::move(node), xerrors::NIL};
+            return {std::move(node), x::errors::NIL};
         }
         return {
             nullptr,
-            xerrors::Error(
-                xerrors::NOT_FOUND,
+            x::errors::Error(
+                x::errors::NOT_FOUND,
                 "No factory registered for node type '" + node_type +
                     "' (node: " + node_key + ")"
             )

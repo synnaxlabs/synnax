@@ -19,8 +19,8 @@
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/errors/errors.h"
 
-namespace opc::connection {
-std::pair<Pool::Connection, xerrors::Error>
+namespace driver::opc::connection {
+std::pair<Pool::Connection, x::errors::Error>
 Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     const std::string key = cfg.endpoint + "|" + cfg.username + "|" +
                             cfg.security_mode + "|" + cfg.security_policy;
@@ -55,7 +55,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
                         entry.in_use = true;
                         VLOG(1) << log_prefix << "Reusing connection from pool for "
                                 << cfg.endpoint;
-                        return {Connection(entry.client, this, key), xerrors::NIL};
+                        return {Connection(entry.client, this, key), x::errors::NIL};
                     } else {
                         VLOG(1) << log_prefix << "Removing stale connection from pool";
                         entry.client.reset();
@@ -89,7 +89,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     }
 
     VLOG(1) << log_prefix << "Created new connection for " << cfg.endpoint;
-    return {Connection(client, this, key), xerrors::NIL};
+    return {Connection(client, this, key), x::errors::NIL};
 }
 
 void Pool::release(const std::string &key, std::shared_ptr<UA_Client> client) {
@@ -144,7 +144,7 @@ size_t Pool::available_count(const std::string &endpoint) const {
     return count;
 }
 
-xerrors::Error Pool::run_iterate_checked(
+x::errors::Error Pool::run_iterate_checked(
     const std::shared_ptr<UA_Client> &client,
     const std::string &log_prefix
 ) {
@@ -162,7 +162,7 @@ xerrors::Error Pool::run_iterate_checked(
 
     if (session_state != UA_SESSIONSTATE_ACTIVATED) {
         LOG(WARNING) << log_prefix << "Session no longer activated after run_iterate";
-        return xerrors::Error(
+        return x::errors::Error(
             opc::errors::NO_CONNECTION,
             "session deactivated during maintenance"
         );
@@ -186,7 +186,7 @@ xerrors::Error Pool::run_iterate_checked(
         return opc::errors::parse(read_status);
     }
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
 }

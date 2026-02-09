@@ -11,29 +11,32 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/rack/status/status.h"
 
+namespace driver::rack::status {
 /// @brief it should report nominal driver status via state streamer.
 TEST(stateTests, testNominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    auto ch = ASSERT_NIL_P(client->channels.retrieve(synnax::STATUS_SET_CHANNEL_NAME));
+    auto ch = ASSERT_NIL_P(
+        client->channels.retrieve(synnax::status::STATUS_SET_CHANNEL_NAME)
+    );
     auto ctx = std::make_shared<task::SynnaxContext>(client);
-    auto hb = rack::status::Task::configure(
+    auto hb = Task::configure(
         ctx,
-        synnax::Task(rack.key, "state", "state", "", true)
+        synnax::task::Task(rack.key, "state", "state", "", true)
     );
     auto cmd = task::Command(0, "start", {});
     hb->exec(cmd);
-    x::defer stop([&hb]() { hb->stop(false); });
+    x::defer::defer stop([&hb]() { hb->stop(false); });
     auto streamer = ASSERT_NIL_P(client->telem.open_streamer(
-        synnax::StreamerConfig{
+        synnax::framer::StreamerConfig{
             .channels = {ch.key},
         }
     ));
-    json j;
+    x::json::json j;
     for (int i = 0; i < 50; i++) {
         auto frm = ASSERT_NIL_P(streamer.read());
         ASSERT_EQ(frm.size(), 1);
@@ -41,7 +44,8 @@ TEST(stateTests, testNominal) {
         if (j["details"]["rack"] == rack.key) break;
     }
     EXPECT_EQ(j["details"]["rack"], rack.key);
-    EXPECT_EQ(j["variant"], status::variant::SUCCESS);
+    EXPECT_EQ(j["variant"], x::status::variant::SUCCESS);
     EXPECT_EQ(j["message"], "Driver is running");
     ASSERT_NIL(streamer.close());
+}
 }

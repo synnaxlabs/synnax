@@ -12,12 +12,13 @@
 #include "arc/cpp/module/module.h"
 #include "arc/go/module/arc/go/module/module.pb.h"
 
+namespace arc::module {
 /// @brief it should correctly round-trip Module through protobuf
 TEST(ModuleTest, testModuleProtobufRoundTrip) {
-    arc::module::Module original;
+    Module original;
 
     // Add some IR data
-    arc::ir::Node node;
+    ir::Node node;
     node.key = "test_node";
     node.type = "multiply";
     original.nodes.push_back(node);
@@ -29,10 +30,10 @@ TEST(ModuleTest, testModuleProtobufRoundTrip) {
     original.output_memory_bases["output1"] = 1024;
     original.output_memory_bases["output2"] = 2048;
 
-    arc::v1::module::PBModule pb;
+    v1::module::PBModule pb;
     original.to_proto(&pb);
 
-    arc::module::Module reconstructed(pb);
+    Module reconstructed(pb);
 
     ASSERT_EQ(reconstructed.nodes.size(), 1);
     ASSERT_EQ(reconstructed.nodes[0].key, "test_node");
@@ -41,4 +42,5 @@ TEST(ModuleTest, testModuleProtobufRoundTrip) {
     ASSERT_EQ(reconstructed.output_memory_bases.size(), 2);
     ASSERT_EQ(reconstructed.output_memory_bases["output1"], 1024);
     ASSERT_EQ(reconstructed.output_memory_bases["output2"], 2048);
+}
 }
