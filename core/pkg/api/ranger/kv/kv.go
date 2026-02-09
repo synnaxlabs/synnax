@@ -20,16 +20,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	svckv "github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type Pair = svckv.Pair
+type Pair = kv.Pair
 
 type Service struct {
 	db     *gorp.DB
 	access *rbac.Service
-	kv     *svckv.Service
+	kv     *kv.Service
 }
 
 func NewService(cfg config.Config) *Service {
@@ -46,7 +46,7 @@ type (
 		Range uuid.UUID `json:"range" msgpack:"range"`
 	}
 	GetResponse struct {
-		Pairs []svckv.Pair `json:"pairs" msgpack:"pairs"`
+		Pairs []kv.Pair `json:"pairs" msgpack:"pairs"`
 	}
 )
 
@@ -81,8 +81,8 @@ func (s *Service) Get(
 }
 
 type SetRequest struct {
-	Pairs []svckv.Pair `json:"pairs" msgpack:"pairs"`
-	Range uuid.UUID    `json:"range" msgpack:"range"`
+	Pairs []kv.Pair `json:"pairs" msgpack:"pairs"`
+	Range uuid.UUID `json:"range" msgpack:"range"`
 }
 
 func (s *Service) Set(

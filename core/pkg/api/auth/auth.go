@@ -15,7 +15,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -27,7 +27,7 @@ import (
 // Service is the core authentication service for the Synnax API.
 type Service struct {
 	db            *gorp.DB
-	authenticator svcauth.Authenticator
+	authenticator auth.Authenticator
 	token         *token.Service
 	user          *user.Service
 	cluster       cluster.Cluster
@@ -66,7 +66,7 @@ type LoginResponse struct {
 }
 
 type LoginRequest struct {
-	svcauth.InsecureCredentials
+	auth.InsecureCredentials
 }
 
 // Login attempts to authenticate a user with the provided credentials. If successful,
@@ -96,7 +96,7 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (LoginResponse, e
 }
 
 type ChangePasswordRequest struct {
-	svcauth.InsecureCredentials
+	auth.InsecureCredentials
 	NewPassword password.Raw `json:"new_password" msgpack:"new_password" validate:"required"`
 }
 

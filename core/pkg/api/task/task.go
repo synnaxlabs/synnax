@@ -19,16 +19,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
-	svctask "github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Service struct {
 	db     *gorp.DB
 	access *rbac.Service
-	task   *svctask.Service
-	status *svcstatus.Service
+	task   *task.Service
+	status *status.Service
 }
 
 func NewService(cfg config.Config) *Service {
@@ -41,15 +41,15 @@ func NewService(cfg config.Config) *Service {
 }
 
 type (
-	Task = svctask.Task
+	Task = task.Task
 )
 
 type (
 	CreateRequest struct {
-		Tasks []svctask.Task `json:"tasks" msgpack:"tasks"`
+		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
 	}
 	CreateResponse struct {
-		Tasks []svctask.Task `json:"tasks" msgpack:"tasks"`
+		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
 	}
 )
 
@@ -61,7 +61,7 @@ func (svc *Service) Create(
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: svctask.OntologyIDsFromTasks(req.Tasks),
+		Objects: task.OntologyIDsFromTasks(req.Tasks),
 	}); err != nil {
 		return res, err
 	}
@@ -80,19 +80,19 @@ func (svc *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		Internal      *bool         `json:"internal" msgpack:"internal"`
-		Snapshot      *bool         `json:"snapshot" msgpack:"snapshot"`
-		SearchTerm    string        `json:"search_term" msgpack:"search_term"`
-		Keys          []svctask.Key `json:"keys" msgpack:"keys"`
-		Names         []string      `json:"names" msgpack:"names"`
-		Types         []string      `json:"types" msgpack:"types"`
-		Limit         int           `json:"limit" msgpack:"limit"`
-		Offset        int           `json:"offset" msgpack:"offset"`
-		Rack          rack.Key      `json:"rack" msgpack:"rack"`
-		IncludeStatus bool          `json:"include_status" msgpack:"include_status"`
+		Internal      *bool      `json:"internal" msgpack:"internal"`
+		Snapshot      *bool      `json:"snapshot" msgpack:"snapshot"`
+		SearchTerm    string     `json:"search_term" msgpack:"search_term"`
+		Keys          []task.Key `json:"keys" msgpack:"keys"`
+		Names         []string   `json:"names" msgpack:"names"`
+		Types         []string   `json:"types" msgpack:"types"`
+		Limit         int        `json:"limit" msgpack:"limit"`
+		Offset        int        `json:"offset" msgpack:"offset"`
+		Rack          rack.Key   `json:"rack" msgpack:"rack"`
+		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
 	}
 	RetrieveResponse struct {
-		Tasks []svctask.Task `json:"tasks" msgpack:"tasks"`
+		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
 	}
 )
 
@@ -143,9 +143,9 @@ func (svc *Service) Retrieve(
 	}
 
 	if req.IncludeStatus {
-		statuses := make([]svctask.Status, 0, len(res.Tasks))
-		if err = svcstatus.NewRetrieve[svctask.StatusDetails](svc.status).
-			WhereKeys(ontology.IDsToKeys(svctask.OntologyIDsFromTasks(res.Tasks))...).
+		statuses := make([]task.Status, 0, len(res.Tasks))
+		if err = status.NewRetrieve[task.StatusDetails](svc.status).
+			WhereKeys(ontology.IDsToKeys(task.OntologyIDsFromTasks(res.Tasks))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err
@@ -157,7 +157,7 @@ func (svc *Service) Retrieve(
 	if err = svc.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: svctask.OntologyIDsFromTasks(res.Tasks),
+		Objects: task.OntologyIDsFromTasks(res.Tasks),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -165,7 +165,7 @@ func (svc *Service) Retrieve(
 }
 
 type DeleteRequest struct {
-	Keys []svctask.Key `json:"keys" msgpack:"keys"`
+	Keys []task.Key `json:"keys" msgpack:"keys"`
 }
 
 func (svc *Service) Delete(
@@ -176,7 +176,7 @@ func (svc *Service) Delete(
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: svctask.OntologyIDs(req.Keys),
+		Objects: task.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}
@@ -193,12 +193,12 @@ func (svc *Service) Delete(
 
 type (
 	CopyRequest struct {
-		Name     string      `json:"name" msgpack:"name"`
-		Key      svctask.Key `json:"key" msgpack:"key"`
-		Snapshot bool        `json:"snapshot" msgpack:"snapshot"`
+		Name     string   `json:"name" msgpack:"name"`
+		Key      task.Key `json:"key" msgpack:"key"`
+		Snapshot bool     `json:"snapshot" msgpack:"snapshot"`
 	}
 	CopyResponse struct {
-		Task svctask.Task `json:"task" msgpack:"task"`
+		Task task.Task `json:"task" msgpack:"task"`
 	}
 )
 
@@ -210,7 +210,7 @@ func (svc *Service) Copy(
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{svctask.OntologyID(req.Key)},
+		Objects: []ontology.ID{task.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
 	}
@@ -229,7 +229,7 @@ func (svc *Service) Copy(
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{svctask.OntologyID(res.Task.Key)},
+		Objects: []ontology.ID{task.OntologyID(res.Task.Key)},
 	}); err != nil {
 		return CopyResponse{}, err
 	}

@@ -23,22 +23,22 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Arc struct {
-	Status *svcstatus.Status[svcarc.StatusDetails] `json:"status" msgpack:"status"`
-	svcarc.Arc
+	Status *status.Status[arc.StatusDetails] `json:"status" msgpack:"status"`
+	arc.Arc
 }
 
 type Service struct {
 	db       *gorp.DB
 	access   *rbac.Service
-	internal *svcarc.Service
-	status   *svcstatus.Service
+	internal *arc.Service
+	status   *status.Service
 	alamos.Instrumentation
 }
 
@@ -63,7 +63,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: svcarc.OntologyIDsFromArcs(translateArcsToService(req.Arcs)),
+		Objects: arc.OntologyIDsFromArcs(translateArcsToService(req.Arcs)),
 	}); err != nil {
 		return res, err
 	}
@@ -88,7 +88,7 @@ func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil,
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: svcarc.OntologyIDs(req.Keys),
+		Objects: arc.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}
@@ -114,7 +114,7 @@ type (
 
 func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res RetrieveResponse, err error) {
 	var (
-		svcArcs   []svcarc.Arc
+		svcArcs   []arc.Arc
 		q         = s.internal.NewRetrieve().Entries(&svcArcs)
 		hasKeys   = len(req.Keys) > 0
 		hasNames  = len(req.Names) > 0
@@ -155,19 +155,19 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: svcarc.OntologyIDsFromArcs(svcArcs),
+		Objects: arc.OntologyIDsFromArcs(svcArcs),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
 }
 
-func translateArcsToService(arcs []Arc) []svcarc.Arc {
-	return lo.Map(arcs, func(a Arc, _ int) svcarc.Arc { return a.Arc })
+func translateArcsToService(arcs []Arc) []arc.Arc {
+	return lo.Map(arcs, func(a Arc, _ int) arc.Arc { return a.Arc })
 }
 
-func translateArcsFromService(arcs []svcarc.Arc) []Arc {
-	return lo.Map(arcs, func(a svcarc.Arc, _ int) Arc { return Arc{Arc: a} })
+func translateArcsFromService(arcs []arc.Arc) []Arc {
+	return lo.Map(arcs, func(a arc.Arc, _ int) Arc { return Arc{Arc: a} })
 }
 
 // LSPMessage represents a single JSON-RPC message for the LSP

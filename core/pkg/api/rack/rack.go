@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
-	svcrack "github.com/synnaxlabs/synnax/pkg/service/rack"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -30,10 +30,10 @@ import (
 type Service struct {
 	db     *gorp.DB
 	access *rbac.Service
-	rack   *svcrack.Service
+	rack   *rack.Service
 	device *device.Service
 	task   *task.Service
-	status *svcstatus.Service
+	status *status.Service
 }
 
 func NewService(cfg config.Config) *Service {
@@ -47,14 +47,14 @@ func NewService(cfg config.Config) *Service {
 	}
 }
 
-type Rack = svcrack.Rack
+type Rack = rack.Rack
 
 type (
 	CreateRequest struct {
-		Racks []svcrack.Rack `json:"racks" msgpack:"racks"`
+		Racks []rack.Rack `json:"racks" msgpack:"racks"`
 	}
 	CreateResponse struct {
-		Racks []svcrack.Rack `json:"racks" msgpack:"racks"`
+		Racks []rack.Rack `json:"racks" msgpack:"racks"`
 	}
 )
 
@@ -66,7 +66,7 @@ func (svc *Service) Create(
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: svcrack.OntologyIDsFromRacks(req.Racks),
+		Objects: rack.OntologyIDsFromRacks(req.Racks),
 	}); err != nil {
 		return res, err
 	}
@@ -88,17 +88,17 @@ func (svc *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		Embedded      *bool         `json:"embedded" msgpack:"embedded"`
-		HostIsNode    *bool         `json:"host_is_node" msgpack:"host_is_node"`
-		SearchTerm    string        `json:"search_term" msgpack:"search_term"`
-		Keys          []svcrack.Key `json:"keys" msgpack:"keys"`
-		Names         []string      `json:"names" msgpack:"names"`
-		Limit         int           `json:"limit" msgpack:"limit"`
-		Offset        int           `json:"offset" msgpack:"offset"`
-		IncludeStatus bool          `json:"include_status" msgpack:"include_status"`
+		Embedded      *bool      `json:"embedded" msgpack:"embedded"`
+		HostIsNode    *bool      `json:"host_is_node" msgpack:"host_is_node"`
+		SearchTerm    string     `json:"search_term" msgpack:"search_term"`
+		Keys          []rack.Key `json:"keys" msgpack:"keys"`
+		Names         []string   `json:"names" msgpack:"names"`
+		Limit         int        `json:"limit" msgpack:"limit"`
+		Offset        int        `json:"offset" msgpack:"offset"`
+		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
 	}
 	RetrieveResponse struct {
-		Racks []svcrack.Rack `json:"racks" msgpack:"racks"`
+		Racks []rack.Rack `json:"racks" msgpack:"racks"`
 	}
 )
 
@@ -114,7 +114,7 @@ func (svc *Service) Retrieve(
 		hasLimit  = req.Limit > 0
 		hasOffset = req.Offset > 0
 	)
-	resRacks := make([]svcrack.Rack, 0, len(req.Keys)+len(req.Names))
+	resRacks := make([]rack.Rack, 0, len(req.Keys)+len(req.Names))
 	q := svc.rack.NewRetrieve()
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
@@ -142,13 +142,13 @@ func (svc *Service) Retrieve(
 	}
 
 	if req.IncludeStatus {
-		keys := make([]svcrack.Key, len(resRacks))
+		keys := make([]rack.Key, len(resRacks))
 		for i := range resRacks {
 			keys[i] = resRacks[i].Key
 		}
-		statuses := make([]svcrack.Status, 0, len(resRacks))
-		if err := svcstatus.NewRetrieve[svcrack.StatusDetails](svc.status).
-			WhereKeys(ontology.IDsToKeys(svcrack.OntologyIDsFromRacks(resRacks))...).
+		statuses := make([]rack.Status, 0, len(resRacks))
+		if err := status.NewRetrieve[rack.StatusDetails](svc.status).
+			WhereKeys(ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err
@@ -161,7 +161,7 @@ func (svc *Service) Retrieve(
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: svcrack.OntologyIDsFromRacks(resRacks),
+		Objects: rack.OntologyIDsFromRacks(resRacks),
 	}); err != nil {
 		return res, err
 	}
@@ -170,7 +170,7 @@ func (svc *Service) Retrieve(
 }
 
 type DeleteRequest struct {
-	Keys []svcrack.Key `json:"keys" msgpack:"keys"`
+	Keys []rack.Key `json:"keys" msgpack:"keys"`
 }
 
 func embeddedGuard(_ gorp.Context, r Rack) error {
@@ -188,7 +188,7 @@ func (svc *Service) Delete(
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: svcrack.OntologyIDs(req.Keys),
+		Objects: rack.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}

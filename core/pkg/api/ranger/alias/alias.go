@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	svcalias "github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -29,7 +29,7 @@ import (
 type Service struct {
 	db     *gorp.DB
 	access *rbac.Service
-	alias  *svcalias.Service
+	alias  *alias.Service
 }
 
 func NewService(cfg config.Config) *Service {
@@ -53,7 +53,7 @@ func (s *Service) Set(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: svcalias.OntologyIDs(req.Range, keys),
+		Objects: alias.OntologyIDs(req.Range, keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}
@@ -97,7 +97,7 @@ func (s *Service) Resolve(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: svcalias.OntologyIDs(req.Range, keys),
+		Objects: alias.OntologyIDs(req.Range, keys),
 	}); err != nil {
 		return ResolveResponse{}, err
 	}
@@ -116,7 +116,7 @@ func (s *Service) Delete(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: svcalias.OntologyIDs(req.Range, req.Channels),
+		Objects: alias.OntologyIDs(req.Range, req.Channels),
 	}); err != nil {
 		return types.Nil{}, err
 	}
@@ -153,7 +153,7 @@ func (s *Service) List(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: svcalias.OntologyIDs(req.Range, keys),
+		Objects: alias.OntologyIDs(req.Range, keys),
 	}); err != nil {
 		return ListResponse{}, err
 	}
@@ -177,7 +177,7 @@ func (s *Service) Retrieve(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: svcalias.OntologyIDs(req.Range, req.Channels),
+		Objects: alias.OntologyIDs(req.Range, req.Channels),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}

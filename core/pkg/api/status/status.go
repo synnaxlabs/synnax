@@ -21,14 +21,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Service struct {
 	db       *gorp.DB
 	access   *rbac.Service
-	internal *svcstatus.Service
+	internal *status.Service
 	label    *label.Service
 }
 
@@ -42,20 +42,20 @@ func NewService(cfg config.Config) *Service {
 }
 
 type Status struct {
-	svcstatus.Status[any]
+	status.Status[any]
 	Labels []label.Label
 }
 
-func translateStatusesToService(statuses []Status) []svcstatus.Status[any] {
-	return lo.Map(statuses, func(s Status, _ int) svcstatus.Status[any] {
+func translateStatusesToService(statuses []Status) []status.Status[any] {
+	return lo.Map(statuses, func(s Status, _ int) status.Status[any] {
 		return s.Status
 	})
 }
 
 func translateStatusesFromService(
-	statuses []svcstatus.Status[any],
+	statuses []status.Status[any],
 ) []Status {
-	return lo.Map(statuses, func(s svcstatus.Status[any], _ int) Status {
+	return lo.Map(statuses, func(s status.Status[any], _ int) Status {
 		return Status{Status: s}
 	})
 }
@@ -136,7 +136,7 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (res RetrieveResponse, err error) {
 	q := s.internal.NewRetrieve()
-	resStatuses := make([]svcstatus.Status[any], 0, len(req.Keys))
+	resStatuses := make([]status.Status[any], 0, len(req.Keys))
 
 	if req.SearchTerm != "" {
 		q = q.Search(req.SearchTerm)
@@ -190,7 +190,7 @@ func (s *Service) Delete(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: svcstatus.OntologyIDs(req.Keys),
+		Objects: status.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}

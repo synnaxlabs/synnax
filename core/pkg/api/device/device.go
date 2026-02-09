@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -30,7 +30,7 @@ type Service struct {
 	db     *gorp.DB
 	access *rbac.Service
 	device *device.Service
-	status *svcstatus.Service
+	status *status.Service
 }
 
 func NewService(cfg config.Config) *Service {
@@ -142,7 +142,7 @@ func (svc *Service) Retrieve(
 
 	if req.IncludeStatus {
 		statuses := make([]device.Status, 0, len(res.Devices))
-		if err := svcstatus.NewRetrieve[device.StatusDetails](svc.status).
+		if err := status.NewRetrieve[device.StatusDetails](svc.status).
 			WhereKeys(ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
