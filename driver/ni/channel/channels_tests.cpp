@@ -9,14 +9,13 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
 #include "driver/ni/channel/channels.h"
 
-using json = nlohmann::json;
-
+namespace driver::ni::channel {
 TEST(ChannelsTest, ParseAIAccelChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_accel"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -35,7 +34,7 @@ TEST(ChannelsTest, ParseAIAccelChan) {
         {"device", "cDAQ1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -50,12 +49,12 @@ TEST(ChannelsTest, ParseAIAccelChan) {
     EXPECT_EQ(accel_chan->excitation_config.source, DAQmx_Val_Internal);
     EXPECT_EQ(accel_chan->excitation_config.val, 0);
     EXPECT_EQ(accel_chan->units, DAQmx_Val_g);
-    accel_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    accel_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(accel_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAIBridgeChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_bridge"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -73,7 +72,7 @@ TEST(ChannelsTest, ParseAIBridgeChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -83,12 +82,12 @@ TEST(ChannelsTest, ParseAIBridgeChan) {
     EXPECT_EQ(bridge_chan->min_val, 0);
     EXPECT_EQ(bridge_chan->max_val, 1);
     EXPECT_EQ(bridge_chan->bridge_config.nominal_bridge_resistance, 1);
-    bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAICurrentChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_current"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -105,7 +104,7 @@ TEST(ChannelsTest, ParseAICurrentChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -116,12 +115,12 @@ TEST(ChannelsTest, ParseAICurrentChan) {
     EXPECT_EQ(current_chan->max_val, 1);
     EXPECT_EQ(current_chan->shunt_resistor_loc, DAQmx_Val_Default);
     EXPECT_EQ(current_chan->ext_shunt_resistor_val, 1);
-    current_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    current_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(current_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_force_bridge_table"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -143,7 +142,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -162,12 +161,12 @@ TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
     EXPECT_EQ(force_bridge_chan->bridge_config.voltage_excit_val, 0);
     EXPECT_EQ(force_bridge_chan->table_config.electrical_vals[0], 1);
     EXPECT_EQ(force_bridge_chan->table_config.electrical_vals[1], 2);
-    force_bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    force_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(force_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_force_bridge_two_point_lin"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -191,7 +190,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -207,12 +206,12 @@ TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
     EXPECT_EQ(force_bridge_chan->two_point_lin_config.second_electrical_val, 1);
     EXPECT_EQ(force_bridge_chan->two_point_lin_config.first_physical_val, 0);
     EXPECT_EQ(force_bridge_chan->two_point_lin_config.second_physical_val, 1);
-    force_bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    force_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(force_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAIForceIEPEChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_force_iepe"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -231,7 +230,7 @@ TEST(ChannelsTest, ParseAIForceIEPEChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -243,12 +242,12 @@ TEST(ChannelsTest, ParseAIForceIEPEChan) {
     EXPECT_EQ(force_iepe_chan->sensitivity, 0);
     EXPECT_EQ(force_iepe_chan->excitation_config.source, DAQmx_Val_Internal);
     EXPECT_EQ(force_iepe_chan->excitation_config.val, 0);
-    force_iepe_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    force_iepe_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(force_iepe_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAIMicrophoneChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_microphone"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -265,7 +264,7 @@ TEST(ChannelsTest, ParseAIMicrophoneChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -276,12 +275,12 @@ TEST(ChannelsTest, ParseAIMicrophoneChan) {
     EXPECT_EQ(mic_chan->excitation_config.val, 0);
     EXPECT_EQ(mic_chan->mic_sensitivity, 0);
     EXPECT_EQ(mic_chan->max_snd_press_level, 0);
-    mic_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    mic_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(mic_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_pressure_bridge_table"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -303,7 +302,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -323,12 +322,12 @@ TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
         DAQmx_Val_Internal
     );
     EXPECT_EQ(pressure_bridge_chan->bridge_config.voltage_excit_val, 0);
-    pressure_bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    pressure_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(pressure_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_pressure_bridge_two_point_lin"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -352,7 +351,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -372,12 +371,12 @@ TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
     EXPECT_EQ(pressure_bridge_chan->two_point_lin_config.second_electrical_val, 1);
     EXPECT_EQ(pressure_bridge_chan->two_point_lin_config.first_physical_val, 0);
     EXPECT_EQ(pressure_bridge_chan->two_point_lin_config.second_physical_val, 1);
-    pressure_bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    pressure_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(pressure_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAIRTDChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_rtd"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -395,7 +394,7 @@ TEST(ChannelsTest, ParseAIRTDChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -408,12 +407,12 @@ TEST(ChannelsTest, ParseAIRTDChan) {
     EXPECT_EQ(rtd_chan->r0, 0);
     EXPECT_EQ(rtd_chan->excitation_config.source, DAQmx_Val_Internal);
     EXPECT_EQ(rtd_chan->excitation_config.val, 0);
-    rtd_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    rtd_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(rtd_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAIStrainGaugeChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_strain_gauge"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -435,7 +434,7 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -451,12 +450,12 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
     EXPECT_EQ(strain_chan->lead_wire_resistance, 0);
     EXPECT_EQ(strain_chan->excitation_config.source, DAQmx_Val_Internal);
     EXPECT_EQ(strain_chan->excitation_config.val, 0);
-    strain_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    strain_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(strain_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAITempBuiltInChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_temp_builtin"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -467,19 +466,19 @@ TEST(ChannelsTest, ParseAITempBuiltInChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     const auto temp_chan = dynamic_cast<channel::AITempBuiltIn *>(chan.get());
     ASSERT_NE(temp_chan, nullptr);
     EXPECT_EQ(temp_chan->units, DAQmx_Val_DegC);
-    temp_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    temp_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(temp_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAIThermoChan) {
-    json j = {
+    x::json::json j = {
         {"channels.0",
          {{"type", "ai_thermocouple"},
           {"key", "ks1VnWdrSVA"},
@@ -497,7 +496,7 @@ TEST(ChannelsTest, ParseAIThermoChan) {
           {"device", "cdaq1Mod2"}}}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     auto child = p.child("channels.0");
     const auto chan = channel::parse_input(child);
     ASSERT_FALSE(p.error()) << p.error();
@@ -510,12 +509,12 @@ TEST(ChannelsTest, ParseAIThermoChan) {
     EXPECT_EQ(thermo_chan->cjc_port, "channels_1");
     EXPECT_EQ(thermo_chan->min_val, 0);
     EXPECT_EQ(thermo_chan->max_val, 1);
-    thermo_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    thermo_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(thermo_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_torque_bridge_table"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -537,7 +536,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -554,12 +553,12 @@ TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
         DAQmx_Val_Internal
     );
     EXPECT_EQ(torque_bridge_chan->bridge_config.voltage_excit_val, 0);
-    torque_bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    torque_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(torque_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_torque_bridge_two_point_lin"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -583,7 +582,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -599,12 +598,12 @@ TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
     EXPECT_EQ(torque_bridge_chan->two_point_lin_config.second_electrical_val, 1);
     EXPECT_EQ(torque_bridge_chan->two_point_lin_config.first_physical_val, 0);
     EXPECT_EQ(torque_bridge_chan->two_point_lin_config.second_physical_val, 1);
-    torque_bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    torque_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(torque_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_velocity_iepe"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -623,7 +622,7 @@ TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -635,12 +634,12 @@ TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
     EXPECT_EQ(velocity_chan->sensitivity, 0);
     EXPECT_EQ(velocity_chan->excitation_config.source, DAQmx_Val_Internal);
     EXPECT_EQ(velocity_chan->excitation_config.val, 0);
-    velocity_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    velocity_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(velocity_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAIVoltageChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_voltage"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -655,7 +654,7 @@ TEST(ChannelsTest, ParseAIVoltageChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -664,12 +663,12 @@ TEST(ChannelsTest, ParseAIVoltageChan) {
     EXPECT_EQ(voltage_chan->terminal_config, DAQmx_Val_Cfg_Default);
     EXPECT_EQ(voltage_chan->min_val, 0);
     EXPECT_EQ(voltage_chan->max_val, 1);
-    voltage_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    voltage_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(voltage_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
 TEST(ChannelsTest, ParseAOVoltageChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ao_voltage"},
         {"key", "XBQejNmAyaO"},
         {"port", 0},
@@ -683,7 +682,7 @@ TEST(ChannelsTest, ParseAOVoltageChan) {
         {"units", "Volts"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_output(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -691,12 +690,12 @@ TEST(ChannelsTest, ParseAOVoltageChan) {
     ASSERT_NE(voltage_chan, nullptr);
     EXPECT_EQ(voltage_chan->min_val, 0);
     EXPECT_EQ(voltage_chan->max_val, 1);
-    voltage_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    voltage_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(voltage_chan->loc(), "cDAQ1Mod2/ao0");
 }
 
 TEST(ChannelsTest, ParseAOFuncGenChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ao_func_gen"},
         {"key", "AepqBDjsgwx"},
         {"port", 1},
@@ -709,7 +708,7 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
         {"offset", 0}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_output(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -719,12 +718,12 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
     EXPECT_EQ(func_gen_chan->frequency, 0);
     EXPECT_EQ(func_gen_chan->amplitude, 0);
     EXPECT_EQ(func_gen_chan->offset, 0);
-    func_gen_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    func_gen_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(func_gen_chan->loc(), "cDAQ1Mod2/ao1");
 }
 
 TEST(ChannelsTest, ParseDIChan) {
-    json j = {
+    x::json::json j = {
         {"type", "digital_input"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -734,7 +733,7 @@ TEST(ChannelsTest, ParseDIChan) {
         {"device", "cDAQ1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -743,12 +742,12 @@ TEST(ChannelsTest, ParseDIChan) {
     EXPECT_EQ(di_chan->port, 0);
     EXPECT_EQ(di_chan->line, 1);
     EXPECT_EQ(di_chan->enabled, true);
-    di_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    di_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(di_chan->loc(), "cDAQ1Mod2/port0/line1");
 }
 
 TEST(ChannelsTest, ParseDOChan) {
-    json j = {
+    x::json::json j = {
         {"type", "digital_output"},
         {"key", "XBQejNmAyaO"},
         {"port", 0},
@@ -759,7 +758,7 @@ TEST(ChannelsTest, ParseDOChan) {
         {"device", "cDAQ1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_output(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -768,12 +767,12 @@ TEST(ChannelsTest, ParseDOChan) {
     EXPECT_EQ(do_chan->port, 0);
     EXPECT_EQ(do_chan->line, 1);
     EXPECT_EQ(do_chan->enabled, true);
-    do_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    do_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(do_chan->loc(), "cDAQ1Mod2/port0/line1");
 }
 
 TEST(ChannelsTest, ParseCIFrequencyChanHz) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_frequency"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -792,7 +791,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanHz) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -808,12 +807,12 @@ TEST(ChannelsTest, ParseCIFrequencyChanHz) {
     EXPECT_DOUBLE_EQ(ci_freq_chan->meas_time, 0.001);
     EXPECT_EQ(ci_freq_chan->divisor, 4);
     EXPECT_EQ(ci_freq_chan->terminal, "");
-    ci_freq_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_freq_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_freq_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
 TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_frequency"},
         {"key", "ks1VnWdrSVB"},
         {"port", 1},
@@ -832,7 +831,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -848,12 +847,12 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
     EXPECT_DOUBLE_EQ(ci_freq_chan->meas_time, 0.01);
     EXPECT_EQ(ci_freq_chan->divisor, 1);
     EXPECT_EQ(ci_freq_chan->terminal, "PFI0");
-    ci_freq_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_freq_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_freq_chan->loc(), "cDAQ1Mod3/ctr1");
 }
 
 TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_edge_count"},
         {"key", "ks1VnWdrSVC"},
         {"port", 0},
@@ -867,7 +866,7 @@ TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -879,12 +878,12 @@ TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
     EXPECT_EQ(ci_edge_count_chan->count_direction, DAQmx_Val_CountUp);
     EXPECT_EQ(ci_edge_count_chan->initial_count, 0);
     EXPECT_EQ(ci_edge_count_chan->terminal, "");
-    ci_edge_count_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_edge_count_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_edge_count_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
 TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_edge_count"},
         {"key", "ks1VnWdrSVD"},
         {"port", 2},
@@ -898,7 +897,7 @@ TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -910,12 +909,12 @@ TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
     EXPECT_EQ(ci_edge_count_chan->count_direction, DAQmx_Val_CountDown);
     EXPECT_EQ(ci_edge_count_chan->initial_count, 100);
     EXPECT_EQ(ci_edge_count_chan->terminal, "PFI11");
-    ci_edge_count_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_edge_count_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_edge_count_chan->loc(), "cDAQ1Mod3/ctr2");
 }
 
 TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_period"},
         {"key", "ks1VnWdrSVE"},
         {"port", 0},
@@ -934,7 +933,7 @@ TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -945,12 +944,12 @@ TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
     EXPECT_EQ(ci_period_chan->edge, DAQmx_Val_Rising);
     EXPECT_EQ(ci_period_chan->meas_method, DAQmx_Val_DynAvg);
     EXPECT_EQ(ci_period_chan->terminal, "");
-    ci_period_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_period_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_period_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
 TEST(ChannelsTest, ParseCIPeriodChanTicks) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_period"},
         {"key", "ks1VnWdrSVF"},
         {"port", 1},
@@ -969,7 +968,7 @@ TEST(ChannelsTest, ParseCIPeriodChanTicks) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -980,12 +979,12 @@ TEST(ChannelsTest, ParseCIPeriodChanTicks) {
     EXPECT_EQ(ci_period_chan->edge, DAQmx_Val_Falling);
     EXPECT_EQ(ci_period_chan->meas_method, DAQmx_Val_LowFreq1Ctr);
     EXPECT_EQ(ci_period_chan->terminal, "PFI5");
-    ci_period_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_period_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_period_chan->loc(), "cDAQ1Mod3/ctr1");
 }
 
 TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_pulse_width"},
         {"key", "ks1VnWdrSVG"},
         {"port", 0},
@@ -1001,7 +1000,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1011,12 +1010,12 @@ TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
     EXPECT_EQ(ci_pulse_width_chan->port, 0);
     EXPECT_EQ(ci_pulse_width_chan->edge, DAQmx_Val_Rising);
     EXPECT_EQ(ci_pulse_width_chan->terminal, "");
-    ci_pulse_width_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_pulse_width_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_pulse_width_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
 TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_pulse_width"},
         {"key", "ks1VnWdrSVH"},
         {"port", 1},
@@ -1032,7 +1031,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1042,12 +1041,12 @@ TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
     EXPECT_EQ(ci_pulse_width_chan->port, 1);
     EXPECT_EQ(ci_pulse_width_chan->edge, DAQmx_Val_Falling);
     EXPECT_EQ(ci_pulse_width_chan->terminal, "PFI9");
-    ci_pulse_width_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_pulse_width_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_pulse_width_chan->loc(), "cDAQ1Mod3/ctr1");
 }
 
 TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_semi_period"},
         {"key", "ks1VnWdrSVI"},
         {"port", 0},
@@ -1061,7 +1060,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1069,12 +1068,12 @@ TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
     ASSERT_NE(ci_semi_period_chan, nullptr);
     EXPECT_EQ(ci_semi_period_chan->enabled, true);
     EXPECT_EQ(ci_semi_period_chan->port, 0);
-    ci_semi_period_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_semi_period_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_semi_period_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
 TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_semi_period"},
         {"key", "ks1VnWdrSVJ"},
         {"port", 1},
@@ -1088,7 +1087,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1096,12 +1095,12 @@ TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
     ASSERT_NE(ci_semi_period_chan, nullptr);
     EXPECT_EQ(ci_semi_period_chan->enabled, true);
     EXPECT_EQ(ci_semi_period_chan->port, 1);
-    ci_semi_period_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_semi_period_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_semi_period_chan->loc(), "cDAQ1Mod3/ctr1");
 }
 
 TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_two_edge_sep"},
         {"key", "ks1VnWdrSVK"},
         {"port", 0},
@@ -1117,7 +1116,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1127,12 +1126,12 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
     EXPECT_EQ(ci_two_edge_sep_chan->port, 0);
     EXPECT_EQ(ci_two_edge_sep_chan->first_edge, DAQmx_Val_Rising);
     EXPECT_EQ(ci_two_edge_sep_chan->second_edge, DAQmx_Val_Falling);
-    ci_two_edge_sep_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_two_edge_sep_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_two_edge_sep_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
 TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_two_edge_sep"},
         {"key", "ks1VnWdrSVL"},
         {"port", 1},
@@ -1148,7 +1147,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1158,12 +1157,12 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
     EXPECT_EQ(ci_two_edge_sep_chan->port, 1);
     EXPECT_EQ(ci_two_edge_sep_chan->first_edge, DAQmx_Val_Falling);
     EXPECT_EQ(ci_two_edge_sep_chan->second_edge, DAQmx_Val_Rising);
-    ci_two_edge_sep_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_two_edge_sep_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_two_edge_sep_chan->loc(), "cDAQ1Mod3/ctr1");
 }
 
 TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_velocity_linear"},
         {"key", "ks1VnWdrSVW"},
         {"port", 0},
@@ -1181,7 +1180,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1196,12 +1195,12 @@ TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
     EXPECT_DOUBLE_EQ(ci_lin_vel_chan->dist_per_pulse, 0.001);
     EXPECT_EQ(ci_lin_vel_chan->terminal_a, "PFI0");
     EXPECT_EQ(ci_lin_vel_chan->terminal_b, "PFI1");
-    ci_lin_vel_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_lin_vel_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_lin_vel_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
 TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_velocity_linear"},
         {"key", "ks1VnWdrSVX"},
         {"port", 1},
@@ -1219,7 +1218,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1234,12 +1233,12 @@ TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
     EXPECT_DOUBLE_EQ(ci_lin_vel_chan->dist_per_pulse, 0.01);
     EXPECT_EQ(ci_lin_vel_chan->terminal_a, "");
     EXPECT_EQ(ci_lin_vel_chan->terminal_b, "");
-    ci_lin_vel_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_lin_vel_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_lin_vel_chan->loc(), "cDAQ1Mod3/ctr1");
 }
 
 TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_velocity_angular"},
         {"key", "ks1VnWdrSVY"},
         {"port", 0},
@@ -1257,7 +1256,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1272,12 +1271,12 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
     EXPECT_EQ(ci_ang_vel_chan->pulses_per_rev, 24);
     EXPECT_EQ(ci_ang_vel_chan->terminal_a, "PFI2");
     EXPECT_EQ(ci_ang_vel_chan->terminal_b, "PFI3");
-    ci_ang_vel_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_ang_vel_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_ang_vel_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
 TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_velocity_angular"},
         {"key", "ks1VnWdrSVZ"},
         {"port", 2},
@@ -1295,7 +1294,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1310,12 +1309,12 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
     EXPECT_EQ(ci_ang_vel_chan->pulses_per_rev, 100);
     EXPECT_EQ(ci_ang_vel_chan->terminal_a, "");
     EXPECT_EQ(ci_ang_vel_chan->terminal_b, "");
-    ci_ang_vel_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_ang_vel_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_ang_vel_chan->loc(), "cDAQ1Mod3/ctr2");
 }
 
 TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_position_linear"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -1338,7 +1337,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1358,12 +1357,12 @@ TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
     EXPECT_EQ(ci_lin_pos_chan->terminal_a, "PFI0");
     EXPECT_EQ(ci_lin_pos_chan->terminal_b, "PFI1");
     EXPECT_EQ(ci_lin_pos_chan->terminal_z, "PFI2");
-    ci_lin_pos_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_lin_pos_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_lin_pos_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
 TEST(ChannelsTest, ParseCILinearPositionChanInches) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_position_linear"},
         {"key", "ks1VnWdrSVB"},
         {"port", 1},
@@ -1386,7 +1385,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanInches) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1406,12 +1405,12 @@ TEST(ChannelsTest, ParseCILinearPositionChanInches) {
     EXPECT_EQ(ci_lin_pos_chan->terminal_a, "");
     EXPECT_EQ(ci_lin_pos_chan->terminal_b, "");
     EXPECT_EQ(ci_lin_pos_chan->terminal_z, "");
-    ci_lin_pos_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_lin_pos_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_lin_pos_chan->loc(), "cDAQ1Mod3/ctr1");
 }
 
 TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_position_angular"},
         {"key", "ks1VnWdrSVC"},
         {"port", 0},
@@ -1434,7 +1433,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1454,12 +1453,12 @@ TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
     EXPECT_EQ(ci_ang_pos_chan->terminal_a, "PFI10");
     EXPECT_EQ(ci_ang_pos_chan->terminal_b, "PFI12");
     EXPECT_EQ(ci_ang_pos_chan->terminal_z, "PFI11");
-    ci_ang_pos_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_ang_pos_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_ang_pos_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
 TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_position_angular"},
         {"key", "ks1VnWdrSVD"},
         {"port", 2},
@@ -1482,7 +1481,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1502,12 +1501,12 @@ TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
     EXPECT_EQ(ci_ang_pos_chan->terminal_a, "");
     EXPECT_EQ(ci_ang_pos_chan->terminal_b, "");
     EXPECT_EQ(ci_ang_pos_chan->terminal_z, "");
-    ci_ang_pos_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_ang_pos_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_ang_pos_chan->loc(), "cDAQ1Mod3/ctr2");
 }
 
 TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_duty_cycle"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -1522,7 +1521,7 @@ TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1534,12 +1533,12 @@ TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
     EXPECT_EQ(ci_duty_cycle_chan->max_val, 10000);
     EXPECT_EQ(ci_duty_cycle_chan->edge, DAQmx_Val_Rising);
     EXPECT_EQ(ci_duty_cycle_chan->terminal, "PFI0");
-    ci_duty_cycle_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_duty_cycle_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_duty_cycle_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
 TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_duty_cycle"},
         {"key", "ks1VnWdrSVB"},
         {"port", 1},
@@ -1554,7 +1553,7 @@ TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1566,6 +1565,7 @@ TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
     EXPECT_EQ(ci_duty_cycle_chan->max_val, 5000);
     EXPECT_EQ(ci_duty_cycle_chan->edge, DAQmx_Val_Falling);
     EXPECT_EQ(ci_duty_cycle_chan->terminal, "");
-    ci_duty_cycle_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_duty_cycle_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_duty_cycle_chan->loc(), "cDAQ1Mod3/ctr1");
+}
 }

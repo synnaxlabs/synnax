@@ -5,8 +5,8 @@ cc_library(
     deps = [
         "//driver/errors",
         "//vendor/libmodbus",
-        "//x/cpp/xerrors",
-        "//x/cpp/xjson",
+        "//x/cpp/errors",
+        "//x/cpp/json",
         "@glog//:glog",
     ],
 )
@@ -18,7 +18,7 @@ cc_test(
     deps = [
         ":device",
         "//driver/modbus/mock",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

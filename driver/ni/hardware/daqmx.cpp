@@ -11,8 +11,8 @@
 
 #include "driver/ni/hardware/hardware.h"
 
-namespace hardware::daqmx {
-Base::Base(TaskHandle task_handle, std::shared_ptr<::daqmx::SugaredAPI> dmx):
+namespace driver::ni::hardware::daqmx {
+Base::Base(TaskHandle task_handle, std::shared_ptr<ni::daqmx::SugaredAPI> dmx):
     task_handle(task_handle), dmx(std::move(dmx)) {}
 
 Base::~Base() {
@@ -20,23 +20,23 @@ Base::~Base() {
         LOG(ERROR) << "[ni] unexpected failure to clear daqmx task: " << err;
 }
 
-xerrors::Error Base::start() {
-    if (this->running.exchange(true)) return xerrors::NIL;
+x::errors::Error Base::start() {
+    if (this->running.exchange(true)) return x::errors::NIL;
     return this->dmx->StartTask(this->task_handle);
 }
 
-xerrors::Error Base::stop() {
-    if (!this->running.exchange(false)) return xerrors::NIL;
+x::errors::Error Base::stop() {
+    if (!this->running.exchange(false)) return x::errors::NIL;
     return this->dmx->StopTask(this->task_handle);
 }
 
 DigitalWriter::DigitalWriter(
-    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+    const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ):
     Base(task_handle, dmx) {}
 
-xerrors::Error DigitalWriter::write(const std::vector<uint8_t> &data) {
+x::errors::Error DigitalWriter::write(const std::vector<uint8_t> &data) {
     return this->dmx->WriteDigitalLines(
         this->task_handle,
         1,
@@ -50,12 +50,12 @@ xerrors::Error DigitalWriter::write(const std::vector<uint8_t> &data) {
 }
 
 AnalogWriter::AnalogWriter(
-    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+    const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ):
     Base(task_handle, dmx) {}
 
-xerrors::Error AnalogWriter::write(const std::vector<double> &data) {
+x::errors::Error AnalogWriter::write(const std::vector<double> &data) {
     return this->dmx->WriteAnalogF64(
         this->task_handle,
         1,
@@ -69,7 +69,7 @@ xerrors::Error AnalogWriter::write(const std::vector<double> &data) {
 }
 
 DigitalReader::DigitalReader(
-    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+    const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ):
     Base(task_handle, dmx) {}
@@ -95,7 +95,7 @@ ReadResult DigitalReader::read(
 }
 
 AnalogReader::AnalogReader(
-    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+    const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ):
     SkewTrackingReader<double>(dmx, task_handle) {}
@@ -121,7 +121,7 @@ AnalogReader::read(const size_t samples_per_channel, std::vector<double> &data) 
 }
 
 template<typename T>
-xerrors::Error SkewTrackingReader<T>::start() {
+x::errors::Error SkewTrackingReader<T>::start() {
     this->total_samples_acquired = 0;
     this->total_samples_requested = 0;
     if (const auto err = this->dmx->SetReadOverWrite(
@@ -154,7 +154,7 @@ int64 SkewTrackingReader<T>::update_skew(const size_t &n_requested) {
 template struct SkewTrackingReader<double>;
 
 CounterReader::CounterReader(
-    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+    const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ):
     SkewTrackingReader<double>(dmx, task_handle) {}

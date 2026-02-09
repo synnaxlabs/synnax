@@ -4,7 +4,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//driver/ethercat/pdo",
-        "//x/cpp/xjson",
+        "//x/cpp/json",
     ],
 )
 

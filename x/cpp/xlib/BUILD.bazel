@@ -1,8 +1,0 @@
-cc_library(
-    name = "xlib",
-    hdrs = ["xlib.h"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//x/cpp/xerrors",
-    ],
-)

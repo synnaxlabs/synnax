@@ -4,7 +4,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/telem",
-        "//x/cpp/xjson",
+        "//x/cpp/json",
     ],
 )
 
@@ -13,7 +13,7 @@ cc_test(
     srcs = ["pdo_test.cpp"],
     deps = [
         ":pdo",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

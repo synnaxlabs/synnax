@@ -16,7 +16,7 @@
 
 #include "x/go/telem/telem.pb.h"
 
-namespace telem {
+namespace x::telem {
 /// @brief A frame is a collection of series mapped to their corresponding channel
 /// keys.
 class Frame {
@@ -48,26 +48,26 @@ public:
 
     /// @brief constructs the frame from its protobuf representation.
     /// @param f the protobuf representation of the frame.
-    explicit Frame(const PBFrame &f);
+    explicit Frame(const ::telem::PBFrame &f);
 
     /// @brief constructs a frame with a single channel and series.
     /// @param chan the channel key corresponding to the given series.
     /// @param ser the series to add to the frame.
-    Frame(const std::uint32_t &chan, telem::Series &&ser);
+    Frame(const std::uint32_t &chan, Series &&ser);
 
     explicit Frame(
-        std::unordered_map<std::uint32_t, telem::SampleValue> &data,
+        std::unordered_map<std::uint32_t, SampleValue> &data,
         size_t cap = 0
     );
 
     /// @brief binds the frame to the given protobuf representation.
     /// @param f the protobuf representation to bind to. This pb must be non-null.
-    void to_proto(PBFrame *f) const;
+    void to_proto(::telem::PBFrame *f) const;
 
     /// @brief adds the given channel and series to the frame, moving the series.
     /// @param chan the channel key to add.
     /// @param ser the series to add for the channel key.
-    void emplace(const std::uint32_t &chan, telem::Series &&ser);
+    void emplace(const std::uint32_t &chan, Series &&ser);
 
     /// @brief returns true if the frame has no series.
     [[nodiscard]] bool empty() const;
@@ -84,8 +84,7 @@ public:
         throw std::runtime_error("channel not found");
     }
 
-    [[nodiscard]] telem::SampleValue
-    at(const std::uint32_t &key, const int &index) const;
+    [[nodiscard]] SampleValue at(const std::uint32_t &key, const int &index) const;
 
     /// @brief returns the number of series in the frame.
     [[nodiscard]] size_t size() const { return series != nullptr ? series->size() : 0; }
@@ -123,14 +122,14 @@ public:
     /// traverse the channel keys and series in the frame.
     struct Iterator {
         using iterator_category = std::forward_iterator_tag;
-        using value_type = std::pair<std::uint32_t, telem::Series &>;
+        using value_type = std::pair<std::uint32_t, Series &>;
         using difference_type = std::ptrdiff_t;
         using pointer = value_type *;
         using reference = value_type &;
 
         Iterator(
             std::vector<std::uint32_t> &channels_ref,
-            std::vector<telem::Series> &series_ref,
+            std::vector<Series> &series_ref,
             const size_t pos
         ):
             channels(&channels_ref), series(&series_ref), pos(pos) {}
@@ -153,7 +152,7 @@ public:
         // lifecycle concerns because the Iterator is only valid while the parent Frame
         // exists - the same contract as STL container iterators.
         std::vector<std::uint32_t> *channels;
-        std::vector<telem::Series> *series;
+        std::vector<Series> *series;
         size_t pos;
     };
 

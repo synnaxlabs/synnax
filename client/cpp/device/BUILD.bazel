@@ -8,11 +8,12 @@ cc_library(
     deps = [
         "//client/cpp/errors",
         "//client/cpp/ontology",
+        "//client/cpp/rack",
         "//core/pkg/api/grpc/v1:api_grpc",
         "//freighter/cpp:freighter",
+        "//x/cpp/errors",
+        "//x/cpp/json",
         "//x/cpp/status",
-        "//x/cpp/xjson",
-        "//x/cpp/xerrors",
     ],
 )
 
@@ -23,7 +24,7 @@ cc_test(
         ":device",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

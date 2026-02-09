@@ -12,7 +12,7 @@ cc_library(
     deps = [
         "//client/cpp/channel",
         "//freighter/cpp:freighter",
-        "//freighter/cpp/fgrpc",
+        "//freighter/cpp/grpc",
         "//core/pkg/api/grpc/v1:api_grpc",
         "//x/cpp/binary",
         "//x/cpp/telem",
@@ -31,7 +31,7 @@ cc_test(
     deps = [
         "//client/cpp:synnax",
         "//client/cpp/testutil",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )
