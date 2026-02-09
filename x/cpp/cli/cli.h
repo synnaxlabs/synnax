@@ -21,7 +21,7 @@
 #include <string>
 
 /// @brief provides utilities for building interactive CLI applications.
-namespace cli {
+namespace x::cli {
 /// @brief prompts the user to enter a value.
 /// @param message the message to display to the user.
 /// @param default_value optional default value to use if input is empty

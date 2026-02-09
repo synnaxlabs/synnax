@@ -11,16 +11,18 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/errors/errors.h"
-#include "driver/labjack/errors.h"
-#include "driver/ni/errors.h"
+#include "driver/labjack/ljm/api.h"
+#include "driver/ni/daqmx/api.h"
+#include "driver/ni/syscfg/api.h"
 
-const std::vector<driver::LibraryInfo> ALL_LIBS = {
-    labjack::LABJACK_LJM,
-    ni::NI_DAQMX,
-    ni::NI_SYSCFG,
+namespace driver::errors {
+const std::vector ALL_LIBS = {
+    labjack::ljm::LIBRARY_INFO,
+    ni::daqmx::LIBRARY_INFO,
+    ni::syscfg::LIBRARY_INFO,
 };
 
 /// @brief it should have non-empty names and URLs for all library info.
@@ -47,11 +49,11 @@ TEST(ErrorsTest, URLsAreWellFormed) {
 
 /// @brief it should create a missing library error without download URL.
 TEST(ErrorsTest, LibraryInfoWithoutURL) {
-    const driver::LibraryInfo no_url = {"Test Library", ""};
+    const LibraryInfo no_url = {"Test Library", ""};
 
-    auto err = driver::missing_lib(no_url);
+    auto err = missing_lib(no_url);
 
-    ASSERT_MATCHES(err, xlib::LOAD_ERROR);
+    ASSERT_MATCHES(err, x::lib::LOAD_ERROR);
     EXPECT_NE(err.data.find("Test Library"), std::string::npos);
     EXPECT_NE(err.data.find("is not installed"), std::string::npos);
     EXPECT_EQ(err.data.find("Download here:"), std::string::npos);
@@ -59,12 +61,9 @@ TEST(ErrorsTest, LibraryInfoWithoutURL) {
 
 /// @brief it should wrap error with channel name and hardware location.
 TEST(ErrorsTest, WrapChannelError) {
-    auto base_err = xerrors::Error(
-        driver::CRITICAL_HARDWARE_ERROR,
-        "some hardware error"
-    );
+    auto base_err = x::errors::Error(CRITICAL_HARDWARE_ERROR, "some hardware error");
 
-    auto wrapped = driver::wrap_channel_error(base_err, "my_channel", "AIN0");
+    auto wrapped = wrap_channel_error(base_err, "my_channel", "AIN0");
 
     EXPECT_EQ(wrapped.type, base_err.type);
     EXPECT_NE(wrapped.data.find("my_channel"), std::string::npos)
@@ -73,4 +72,5 @@ TEST(ErrorsTest, WrapChannelError) {
         << "Expected hardware location in error. Got: " << wrapped.data;
     EXPECT_NE(wrapped.data.find("some hardware error"), std::string::npos)
         << "Expected original error message in error. Got: " << wrapped.data;
+}
 }

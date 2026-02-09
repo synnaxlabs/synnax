@@ -10,13 +10,14 @@
 #include <atomic>
 #include <memory>
 
-#include "x/cpp/xargs/xargs.h"
+#include "x/cpp/args/args.h"
 
 #include "driver/cmd/cmd.h"
 
-int cmd::sub::start(xargs::Parser &args) {
-    LOG(INFO) << xlog::BLUE() << "starting Synnax Driver " << cmd::version()
-              << xlog::RESET();
+namespace driver::cmd::sub {
+int start(x::args::Parser &args) {
+    LOG(INFO) << x::log::BLUE() << "starting Synnax Driver " << ::driver::cmd::version()
+              << x::log::RESET();
 
     const bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");
     VLOG(1) << "stdin stop " << (stdin_stop_enabled ? "enabled" : "disabled");
@@ -35,24 +36,25 @@ int cmd::sub::start(xargs::Parser &args) {
     // an error.
     auto early_shutdown = std::make_shared<std::atomic<bool>>(false);
     const std::function on_shutdown = [early_shutdown] {
-        xshutdown::signal_shutdown();
+        x::shutdown::signal_shutdown();
         early_shutdown->store(true);
     };
 
     r.start(args, on_shutdown);
 
     // Register a signal handler to stop the driver when the process receives a signal.
-    xshutdown::listen(sig_stop_enabled, stdin_stop_enabled);
+    x::shutdown::listen(sig_stop_enabled, stdin_stop_enabled);
     if (!early_shutdown->load())
-        LOG(INFO) << xlog::BLUE()
+        LOG(INFO) << x::log::BLUE()
                   << "received shutdown signal. Gracefully stopping driver. "
                      "This can take up to 5 seconds. Please be patient"
-                  << xlog::RESET();
+                  << x::log::RESET();
     else
         LOG(WARNING) << "unexpected early shutdown";
     if (const auto err = r.stop())
         LOG(ERROR) << "stopped with error: " << err;
     else
-        LOG(INFO) << xlog::BLUE() << "stopped" << xlog::RESET();
+        LOG(INFO) << x::log::BLUE() << "stopped" << x::log::RESET();
     return 0;
+}
 }

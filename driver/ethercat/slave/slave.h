@@ -14,11 +14,11 @@
 #include <string>
 #include <vector>
 
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
 #include "driver/ethercat/pdo/pdo.h"
 
-namespace ethercat::slave {
+namespace driver::ethercat::slave {
 
 /// @brief EtherCAT slave application layer states as defined in ETG.1000.
 enum class State : uint8_t {
@@ -99,7 +99,7 @@ struct Properties {
     }
 
     /// @brief parses slave properties from JSON.
-    static Properties parse(xjson::Parser &parser) {
+    static Properties parse(x::json::Parser &parser) {
         Properties props;
         props.serial = parser.field<uint32_t>("serial");
         props.vendor_id = parser.field<uint32_t>("vendor_id");
@@ -111,10 +111,10 @@ struct Properties {
         props.enabled = parser.field<bool>("enabled");
         const auto pdos_parser = parser.child("pdos");
         if (!pdos_parser.error()) {
-            pdos_parser.iter("inputs", [&props](xjson::Parser &pdo) {
+            pdos_parser.iter("inputs", [&props](x::json::Parser &pdo) {
                 props.input_pdos.push_back(pdo::Properties::parse(pdo, true));
             });
-            pdos_parser.iter("outputs", [&props](xjson::Parser &pdo) {
+            pdos_parser.iter("outputs", [&props](x::json::Parser &pdo) {
                 props.output_pdos.push_back(pdo::Properties::parse(pdo, false));
             });
         }

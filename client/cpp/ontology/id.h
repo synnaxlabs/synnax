@@ -14,9 +14,7 @@
 
 #include "nlohmann/json.hpp"
 
-#include "x/cpp/xerrors/errors.h"
-
-using json = nlohmann::json;
+#include "x/cpp/errors/errors.h"
 
 namespace synnax::ontology {
 /// @brief An ontology ID is a composite identifier consisting of a type and key.
@@ -47,7 +45,7 @@ struct ID {
     /// @param s The string to parse.
     /// @returns A pair containing the parsed ID and an error. If parsing fails,
     /// the error will have ok() == false.
-    [[nodiscard]] static std::pair<ID, xerrors::Error> parse(const std::string &s);
+    [[nodiscard]] static std::pair<ID, x::errors::Error> parse(const std::string &s);
 
     /// @brief Equality operator.
     bool operator==(const ID &other) const;
@@ -63,7 +61,7 @@ const ID ROOT_ID("builtin", "root");
 /// @param strs The strings to parse, each in "type:key" format.
 /// @returns A pair containing the parsed IDs and an error. If any parse fails,
 /// the error will have ok() == false and indicate the first failure.
-[[nodiscard]] std::pair<std::vector<ID>, xerrors::Error>
+[[nodiscard]] std::pair<std::vector<ID>, x::errors::Error>
 parse_ids(const std::vector<std::string> &strs);
 
 /// @brief Converts a vector of IDs to a vector of strings.

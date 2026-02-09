@@ -16,14 +16,14 @@
 #include <vector>
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
+#include "driver/common/scan_task.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/slave/slave.h"
-#include "driver/task/common/scan_task.h"
 #include "driver/task/task.h"
 
-namespace ethercat {
+namespace driver::ethercat {
 
 /// @brief log prefix for scan task messages.
 const std::string SCAN_LOG_PREFIX = "[ethercat.scan_task] ";
@@ -35,7 +35,7 @@ const std::string TEST_INTERFACE_CMD_TYPE = "test_interface";
 struct ScanTaskConfig : common::ScanTaskConfig {
     ScanTaskConfig() = default;
 
-    explicit ScanTaskConfig(xjson::Parser &cfg): common::ScanTaskConfig(cfg) {}
+    explicit ScanTaskConfig(x::json::Parser &cfg): common::ScanTaskConfig(cfg) {}
 };
 
 /// @brief arguments for the test_interface command.
@@ -43,7 +43,7 @@ struct TestInterfaceArgs {
     /// @brief master key to test (e.g., "igh:0" or "eth0").
     std::string interface;
 
-    explicit TestInterfaceArgs(xjson::Parser &parser):
+    explicit TestInterfaceArgs(x::json::Parser &parser):
         interface(parser.field<std::string>("interface")) {}
 };
 
@@ -52,7 +52,7 @@ class Scanner final : public common::Scanner {
 public:
     Scanner(
         std::shared_ptr<task::Context> ctx,
-        synnax::Task task,
+        synnax::task::Task task,
         ScanTaskConfig cfg,
         std::shared_ptr<engine::Pool> pool
     );
@@ -61,34 +61,34 @@ public:
     [[nodiscard]] common::ScannerConfig config() const override;
 
     /// @brief lifecycle method called when the scan task starts.
-    xerrors::Error start() override;
+    x::errors::Error start() override;
 
     /// @brief lifecycle method called when the scan task stops.
-    xerrors::Error stop() override;
+    x::errors::Error stop() override;
 
     /// @brief periodic scan method to discover networks and slaves.
-    std::pair<std::vector<synnax::Device>, xerrors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &ctx) override;
 
     /// @brief handles EtherCAT-specific commands.
     bool exec(
         task::Command &cmd,
-        const synnax::Task &task,
+        const synnax::task::Task &task,
         const std::shared_ptr<task::Context> &ctx
     ) override;
 
     /// @brief handles device updates to sync enabled flag to engine.
-    void on_device_set(const synnax::Device &dev) override;
+    void on_device_set(const synnax::device::Device &dev) override;
 
 private:
     std::shared_ptr<task::Context> ctx;
-    synnax::Task task;
+    synnax::task::Task task;
     ScanTaskConfig cfg;
     std::shared_ptr<engine::Pool> pool;
     std::unordered_map<std::string, size_t> last_slave_counts;
 
     /// @brief creates a slave device for the given slave.
-    synnax::Device create_slave_device(
+    synnax::device::Device create_slave_device(
         const slave::DiscoveryResult &slave,
         const std::string &master_key,
         const common::ScannerContext &scan_ctx

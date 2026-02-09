@@ -1,5 +1,0 @@
-cc_library(
-    name = "xlog",
-    hdrs = ["xlog.h"],
-    visibility = ["//visibility:public"],
-)

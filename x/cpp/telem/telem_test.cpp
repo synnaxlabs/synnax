@@ -13,7 +13,7 @@
 
 #include "x/cpp/telem/telem.h"
 
-namespace telem {
+namespace x::telem {
 /// @brief - it should initialize a timestamp from a long.
 TEST(TimeStampTests, testConstructor) {
     const auto ts = TimeStamp(5);
@@ -264,14 +264,14 @@ TEST(TimeSpanTests, testModulo) {
 
 /// @brief it should truncate a timespan to a given unit.
 TEST(TimeSpanTests, testTruncate) {
-    const auto ts = telem::SECOND * 5 + telem::MICROSECOND * 10;
-    const auto ts3 = ts.truncate(telem::SECOND);
-    ASSERT_EQ(ts3, telem::SECOND * 5);
+    const auto ts = SECOND * 5 + MICROSECOND * 10;
+    const auto ts3 = ts.truncate(SECOND);
+    ASSERT_EQ(ts3, SECOND * 5);
 }
 
 /// @brief it should return the original timespan when truncating to zero.
 TEST(TimeSpanTests, testTruncateZeroTarget) {
-    const auto ts = telem::SECOND * 5;
+    const auto ts = SECOND * 5;
     const auto target = TimeSpan(0);
     const auto ts3 = ts.truncate(target);
     ASSERT_EQ(ts3, ts);
@@ -406,9 +406,9 @@ TEST(TimeRangeTests, testNotEqualOperatorNotEqual) {
 /// @brief it should calculate the period from a rate.
 TEST(RateTests, testPeriod) {
     const auto r = Rate(1);
-    ASSERT_EQ(r.period(), telem::SECOND);
+    ASSERT_EQ(r.period(), SECOND);
     const auto r2 = Rate(2);
-    ASSERT_EQ(r2.period(), telem::SECOND / 2);
+    ASSERT_EQ(r2.period(), SECOND / 2);
 }
 
 /// @brief it should initialize a rate from a frequency.
@@ -534,7 +534,7 @@ TEST(RateTests, testPeriodVariousFrequencies) {
     ASSERT_EQ(Rate(1000).period().milliseconds(), 1); // 1kHz should be 1ms
 }
 
-/// @brief Test that telem::Rate can be streamed with << operator
+/// @brief Test that Rate can be streamed with << operator
 TEST(RateTests, testRateStreamOperator) {
     Rate rate_25(25.0);
     std::ostringstream oss;
@@ -564,7 +564,7 @@ TEST(RateTests, testRateInErrorMessage) {
 class DataTypeTests : public ::testing::Test {};
 
 struct TypeTestCase {
-    telem::DataType expected;
+    DataType expected;
     std::function<DataType()> inferFn;
 };
 
@@ -581,18 +581,18 @@ INSTANTIATE_TEST_SUITE_P(
     DataTypes,
     DataTypeInferTest,
     testing::Values(
-        TypeTestCase{telem::INT8_T, []() { return DataType::infer<int8_t>(); }},
-        TypeTestCase{telem::UINT8_T, []() { return DataType::infer<uint8_t>(); }},
-        TypeTestCase{telem::INT16_T, []() { return DataType::infer<int16_t>(); }},
-        TypeTestCase{telem::UINT16_T, []() { return DataType::infer<uint16_t>(); }},
-        TypeTestCase{telem::INT32_T, []() { return DataType::infer<int32_t>(); }},
-        TypeTestCase{telem::UINT32_T, []() { return DataType::infer<uint32_t>(); }},
-        TypeTestCase{telem::INT64_T, []() { return DataType::infer<int64_t>(); }},
-        TypeTestCase{telem::UINT64_T, []() { return DataType::infer<uint64_t>(); }},
-        TypeTestCase{telem::FLOAT32_T, []() { return DataType::infer<float>(); }},
-        TypeTestCase{telem::FLOAT64_T, []() { return DataType::infer<double>(); }},
-        TypeTestCase{telem::TIMESTAMP_T, []() { return DataType::infer<TimeStamp>(); }},
-        TypeTestCase{telem::STRING_T, []() { return DataType::infer<std::string>(); }}
+        TypeTestCase{INT8_T, []() { return DataType::infer<int8_t>(); }},
+        TypeTestCase{UINT8_T, []() { return DataType::infer<uint8_t>(); }},
+        TypeTestCase{INT16_T, []() { return DataType::infer<int16_t>(); }},
+        TypeTestCase{UINT16_T, []() { return DataType::infer<uint16_t>(); }},
+        TypeTestCase{INT32_T, []() { return DataType::infer<int32_t>(); }},
+        TypeTestCase{UINT32_T, []() { return DataType::infer<uint32_t>(); }},
+        TypeTestCase{INT64_T, []() { return DataType::infer<int64_t>(); }},
+        TypeTestCase{UINT64_T, []() { return DataType::infer<uint64_t>(); }},
+        TypeTestCase{FLOAT32_T, []() { return DataType::infer<float>(); }},
+        TypeTestCase{FLOAT64_T, []() { return DataType::infer<double>(); }},
+        TypeTestCase{TIMESTAMP_T, []() { return DataType::infer<TimeStamp>(); }},
+        TypeTestCase{STRING_T, []() { return DataType::infer<std::string>(); }}
     )
 );
 
@@ -604,53 +604,53 @@ TEST(DataTypeTests, testInferOveride) {
 
 /// @brief it should return the name of a data type.
 TEST(DataTypeTests, testName) {
-    const auto dt = telem::FLOAT32_T;
+    const auto dt = FLOAT32_T;
     ASSERT_EQ(dt.name(), "float32");
 }
 
 /// @brief it should return the byte density for each data type.
 TEST(DataTypeTests, testDensity) {
-    ASSERT_EQ(telem::FLOAT64_T.density(), 8);
-    ASSERT_EQ(telem::FLOAT32_T.density(), 4);
-    ASSERT_EQ(telem::INT8_T.density(), 1);
-    ASSERT_EQ(telem::INT16_T.density(), 2);
-    ASSERT_EQ(telem::INT32_T.density(), 4);
-    ASSERT_EQ(telem::INT64_T.density(), 8);
-    ASSERT_EQ(telem::UINT8_T.density(), 1);
-    ASSERT_EQ(telem::UINT16_T.density(), 2);
-    ASSERT_EQ(telem::UINT32_T.density(), 4);
-    ASSERT_EQ(telem::UINT64_T.density(), 8);
-    ASSERT_EQ(telem::TIMESTAMP_T.density(), 8);
-    ASSERT_EQ(telem::UUID_T.density(), 16);
-    ASSERT_EQ(telem::STRING_T.density(), 0);
-    ASSERT_EQ(telem::JSON_T.density(), 0);
+    ASSERT_EQ(FLOAT64_T.density(), 8);
+    ASSERT_EQ(FLOAT32_T.density(), 4);
+    ASSERT_EQ(INT8_T.density(), 1);
+    ASSERT_EQ(INT16_T.density(), 2);
+    ASSERT_EQ(INT32_T.density(), 4);
+    ASSERT_EQ(INT64_T.density(), 8);
+    ASSERT_EQ(UINT8_T.density(), 1);
+    ASSERT_EQ(UINT16_T.density(), 2);
+    ASSERT_EQ(UINT32_T.density(), 4);
+    ASSERT_EQ(UINT64_T.density(), 8);
+    ASSERT_EQ(TIMESTAMP_T.density(), 8);
+    ASSERT_EQ(UUID_T.density(), 16);
+    ASSERT_EQ(STRING_T.density(), 0);
+    ASSERT_EQ(JSON_T.density(), 0);
 }
 
 /// @brief it should identify variable-length data types.
 TEST(DataTypeTests, testIsVariable) {
-    ASSERT_TRUE(telem::STRING_T.is_variable());
-    ASSERT_TRUE(telem::JSON_T.is_variable());
-    ASSERT_FALSE(telem::FLOAT32_T.is_variable());
-    ASSERT_FALSE(telem::INT64_T.is_variable());
+    ASSERT_TRUE(STRING_T.is_variable());
+    ASSERT_TRUE(JSON_T.is_variable());
+    ASSERT_FALSE(FLOAT32_T.is_variable());
+    ASSERT_FALSE(INT64_T.is_variable());
 }
 
 /// @brief it should check if a data type matches a set of types.
 TEST(DataTypeTests, testMatches) {
-    const auto empty = telem::UNKNOWN_T;
-    const auto dt = telem::FLOAT32_T;
+    const auto empty = UNKNOWN_T;
+    const auto dt = FLOAT32_T;
 
-    const std::vector types = {telem::FLOAT32_T, telem::FLOAT64_T};
+    const std::vector types = {FLOAT32_T, FLOAT64_T};
     ASSERT_TRUE(dt.matches(types));
 
-    const std::vector non_matching = {telem::INT32_T, telem::INT64_T};
+    const std::vector non_matching = {INT32_T, INT64_T};
     ASSERT_FALSE(dt.matches(non_matching));
 }
 
 /// @brief it should compare two data types for equality.
 TEST(DataTypeTests, testEquality) {
-    const auto dt1 = telem::FLOAT32_T;
-    const auto dt2 = telem::FLOAT32_T;
-    const auto dt3 = telem::FLOAT64_T;
+    const auto dt1 = FLOAT32_T;
+    const auto dt2 = FLOAT32_T;
+    const auto dt3 = FLOAT64_T;
 
     ASSERT_TRUE(dt1 == dt2);
     ASSERT_FALSE(dt1 == dt3);
@@ -658,9 +658,9 @@ TEST(DataTypeTests, testEquality) {
 
 /// @brief it should compare two data types for inequality.
 TEST(DataTypeTests, testInequality) {
-    const auto dt1 = telem::FLOAT32_T;
-    const auto dt2 = telem::FLOAT32_T;
-    const auto dt3 = telem::FLOAT64_T;
+    const auto dt1 = FLOAT32_T;
+    const auto dt2 = FLOAT32_T;
+    const auto dt3 = FLOAT64_T;
 
     ASSERT_FALSE(dt1 != dt2);
     ASSERT_TRUE(dt1 != dt3);
@@ -668,7 +668,7 @@ TEST(DataTypeTests, testInequality) {
 
 /// @brief it should stream a data type to an output stream.
 TEST(DataTypeTests, testStreamOperator) {
-    const auto dt = telem::FLOAT32_T;
+    const auto dt = FLOAT32_T;
     std::stringstream ss;
     ss << dt;
     ASSERT_EQ(ss.str(), "float32");
@@ -924,26 +924,26 @@ TEST(ProtoConversionTests, testRoundTripString) {
 /// @brief it should measure elapsed time from construction.
 TEST(StopwatchTests, testElapsedFromConstruction) {
     const auto sw = Stopwatch();
-    std::this_thread::sleep_for((10 * telem::MILLISECOND).chrono());
+    std::this_thread::sleep_for((10 * MILLISECOND).chrono());
     const auto elapsed = sw.elapsed();
-    ASSERT_GE(elapsed, 10 * telem::MILLISECOND);
-    ASSERT_LE(elapsed, 50 * telem::MILLISECOND);
+    ASSERT_GE(elapsed, 10 * MILLISECOND);
+    ASSERT_LE(elapsed, 50 * MILLISECOND);
 }
 
 /// @brief it should reset and measure new elapsed time.
 TEST(StopwatchTests, testReset) {
     auto sw = Stopwatch();
-    std::this_thread::sleep_for((10 * telem::MILLISECOND).chrono());
+    std::this_thread::sleep_for((10 * MILLISECOND).chrono());
     sw.reset();
     const auto elapsed = sw.elapsed();
-    ASSERT_LT(elapsed, 5 * telem::MILLISECOND);
+    ASSERT_LT(elapsed, 5 * MILLISECOND);
 }
 
 /// @brief it should return increasing elapsed times.
 TEST(StopwatchTests, testIncreasingElapsed) {
     const auto sw = Stopwatch();
     const auto elapsed1 = sw.elapsed();
-    std::this_thread::sleep_for((1 * telem::MILLISECOND).chrono());
+    std::this_thread::sleep_for((1 * MILLISECOND).chrono());
     const auto elapsed2 = sw.elapsed();
     ASSERT_GT(elapsed2, elapsed1);
 }
@@ -953,7 +953,7 @@ TEST(StopwatchTests, testSubMillisecondPrecision) {
     const auto sw = Stopwatch();
     const auto elapsed = sw.elapsed();
     ASSERT_GE(elapsed.nanoseconds(), 0);
-    ASSERT_LT(elapsed, telem::MILLISECOND);
+    ASSERT_LT(elapsed, MILLISECOND);
 }
 
 /// @brief it should return a TimeSpan with correct value.

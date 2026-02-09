@@ -9,12 +9,17 @@
 
 #include "driver/cmd/cmd.h"
 
-std::string cmd::version() {
+namespace driver::cmd {
+std::string version() {
     return "v" + std::string(SYNNAX_DRIVER_VERSION) + " (" +
            std::string(SYNNAX_BUILD_TIMESTAMP) + ")";
 }
 
-int cmd::sub::version(xargs::Parser &args) {
-    LOG(INFO) << xlog::BLUE() << "Synnax Driver " << cmd::version() << xlog::RESET();
+namespace sub {
+int version(x::args::Parser &args) {
+    LOG(INFO) << x::log::BLUE() << "Synnax Driver " << cmd::version()
+              << x::log::RESET();
     return 0;
+}
+}
 }

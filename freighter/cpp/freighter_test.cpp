@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "freighter/cpp/freighter.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 class BasicMiddleware final : public freighter::PassthroughMiddleware {
     std::string value;
@@ -18,7 +18,7 @@ class BasicMiddleware final : public freighter::PassthroughMiddleware {
 public:
     explicit BasicMiddleware(std::string value): value(std::move(value)) {}
 
-    std::pair<freighter::Context, xerrors::Error>
+    std::pair<freighter::Context, x::errors::Error>
     operator()(freighter::Context context, freighter::Next &next) override {
         context.set("test", value);
         return next(context);
@@ -28,8 +28,8 @@ public:
 class BasicFinalizer final : public freighter::Finalizer<int, int> {
 public:
     freighter::FinalizerReturn<int>
-    operator()(freighter::Context context, int &req) override {
-        return {context, xerrors::NIL, req + 1};
+    operator()(const freighter::Context context, int &req) override {
+        return {context, x::errors::NIL, req + 1};
     }
 };
 
@@ -41,7 +41,7 @@ TEST(testFreighter, testMiddlewareCollector) {
     auto f = BasicFinalizer();
     collector.use(mw1);
     collector.use(mw2);
-    const auto ctx = freighter::Context("test", url::URL("1"), freighter::UNARY);
+    const auto ctx = freighter::Context("test", x::url::URL("1"), freighter::UNARY);
     auto req = 1;
     const auto res = ASSERT_NIL_P(collector.exec(ctx, &f, req));
     ASSERT_EQ(res, 2);

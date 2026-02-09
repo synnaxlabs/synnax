@@ -10,138 +10,131 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/frame.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/engine/pool.h"
 #include "driver/ethercat/mock/master.h"
 
+namespace driver::ethercat::engine {
 class EngineTest : public ::testing::Test {
 protected:
-    std::shared_ptr<ethercat::mock::Master> mock_master;
-    std::shared_ptr<ethercat::engine::Engine> engine;
+    std::shared_ptr<mock::Master> mock_master;
+    std::shared_ptr<Engine> engine;
 
     void SetUp() override {
-        mock_master = std::make_shared<ethercat::mock::Master>("eth0");
+        mock_master = std::make_shared<mock::Master>("eth0");
         mock_master->add_slave(
-            ethercat::slave::Properties{
+            slave::Properties{
                 .position = 0,
                 .vendor_id = 0x1,
                 .product_code = 0x2,
                 .name = "Slave1"
             }
         );
-        engine = std::make_shared<ethercat::engine::Engine>(mock_master);
+        engine = std::make_shared<Engine>(mock_master);
     }
 };
 
 TEST_F(EngineTest, OpenReaderReturnsCorrectSize) {
-    auto reader = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true)},
-        telem::Rate(100)
-    ));
+    auto reader = ASSERT_NIL_P(
+        engine->open_reader({pdo::Entry(0, 0x6000, 1, 16, true)}, x::telem::Rate(100))
+    );
     EXPECT_EQ(reader->size(), 2);
 }
 
 TEST_F(EngineTest, OpenWriterSucceeds) {
-    auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::pdo::Entry(0, 0x7000, 1, 16, false)},
-        telem::Rate(100)
-    ));
+    auto writer = ASSERT_NIL_P(
+        engine->open_writer({pdo::Entry(0, 0x7000, 1, 16, false)}, x::telem::Rate(100))
+    );
     writer->write(0, static_cast<uint16_t>(0x1234));
 }
 
 TEST_F(EngineTest, OpenReaderWithMultiplePDOs) {
     auto reader = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true),
-         ethercat::pdo::Entry(0, 0x6000, 2, 32, true)},
-        telem::Rate(100)
+        {pdo::Entry(0, 0x6000, 1, 16, true), pdo::Entry(0, 0x6000, 2, 32, true)},
+        x::telem::Rate(100)
     ));
     EXPECT_EQ(reader->size(), 6);
 }
 
 TEST_F(EngineTest, ReadReturnsData) {
-    auto reader = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true)},
-        telem::Rate(100)
-    ));
+    auto reader = ASSERT_NIL_P(
+        engine->open_reader({pdo::Entry(0, 0x6000, 1, 16, true)}, x::telem::Rate(100))
+    );
 
-    breaker::Breaker brk;
+    x::breaker::Breaker brk;
     brk.start();
-    telem::Frame frame(1, telem::Series(telem::UINT16_T, 1));
+    x::telem::Frame frame(1, x::telem::Series(x::telem::UINT16_T, 1));
     ASSERT_NIL(reader->read(brk, frame));
     EXPECT_EQ(frame.series->at(0).size(), 1);
     brk.stop();
 }
 
 TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
-    auto reader = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true)},
-        telem::Rate(100)
-    ));
+    auto reader = ASSERT_NIL_P(
+        engine->open_reader({pdo::Entry(0, 0x6000, 1, 16, true)}, x::telem::Rate(100))
+    );
 
-    breaker::Breaker brk;
-    telem::Frame frame(1, telem::Series(telem::UINT16_T, 1));
+    x::breaker::Breaker brk;
+    x::telem::Frame frame(1, x::telem::Series(x::telem::UINT16_T, 1));
     ASSERT_NIL(reader->read(brk, frame));
 }
 
 TEST_F(EngineTest, WriteSucceeds) {
-    auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::pdo::Entry(0, 0x7000, 1, 16, false)},
-        telem::Rate(100)
-    ));
+    auto writer = ASSERT_NIL_P(
+        engine->open_writer({pdo::Entry(0, 0x7000, 1, 16, false)}, x::telem::Rate(100))
+    );
     writer->write(0, static_cast<uint16_t>(0x1234));
 }
 
 TEST_F(EngineTest, InitializeErrorPropagates) {
     mock_master->inject_init_error(
-        xerrors::Error(ethercat::MASTER_INIT_ERROR, "init failed")
+        x::errors::Error(errors::MASTER_INIT_ERROR, "init failed")
     );
 
     ASSERT_OCCURRED_AS(
-        engine->open_reader({}, telem::Rate(100)).second,
-        ethercat::MASTER_INIT_ERROR
+        engine->open_reader({}, x::telem::Rate(100)).second,
+        errors::MASTER_INIT_ERROR
     );
 }
 
 TEST_F(EngineTest, ActivateErrorPropagates) {
     mock_master->inject_activate_error(
-        xerrors::Error(ethercat::ACTIVATION_ERROR, "activate failed")
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
     );
 
     ASSERT_OCCURRED_AS(
-        engine->open_reader({}, telem::Rate(100)).second,
-        ethercat::ACTIVATION_ERROR
+        engine->open_reader({}, x::telem::Rate(100)).second,
+        errors::ACTIVATION_ERROR
     );
 }
 
 TEST_F(EngineTest, MultipleReadersCanRead) {
-    auto reader1 = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true)},
-        telem::Rate(100)
-    ));
+    auto reader1 = ASSERT_NIL_P(
+        engine->open_reader({pdo::Entry(0, 0x6000, 1, 16, true)}, x::telem::Rate(100))
+    );
 
-    auto reader2 = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 2, 32, true)},
-        telem::Rate(100)
-    ));
+    auto reader2 = ASSERT_NIL_P(
+        engine->open_reader({pdo::Entry(0, 0x6000, 2, 32, true)}, x::telem::Rate(100))
+    );
 
-    breaker::Breaker brk;
+    x::breaker::Breaker brk;
     brk.start();
 
-    telem::Frame frame1(1, telem::Series(telem::UINT16_T, 1));
+    x::telem::Frame frame1(1, x::telem::Series(x::telem::UINT16_T, 1));
     ASSERT_NIL(reader1->read(brk, frame1));
 
-    telem::Frame frame2(2, telem::Series(telem::UINT32_T, 1));
+    x::telem::Frame frame2(2, x::telem::Series(x::telem::UINT32_T, 1));
     ASSERT_NIL(reader2->read(brk, frame2));
 
     brk.stop();
 }
 
 TEST_F(EngineTest, MultipleSlavesPDORegistration) {
-    auto multi_master = std::make_shared<ethercat::mock::Master>("eth0");
+    auto multi_master = std::make_shared<mock::Master>("eth0");
     multi_master->add_slave(
-        ethercat::slave::Properties{
+        slave::Properties{
             .position = 0,
             .vendor_id = 0x1,
             .product_code = 0x2,
@@ -149,7 +142,7 @@ TEST_F(EngineTest, MultipleSlavesPDORegistration) {
         }
     );
     multi_master->add_slave(
-        ethercat::slave::Properties{
+        slave::Properties{
             .position = 1,
             .vendor_id = 0x1,
             .product_code = 0x3,
@@ -157,31 +150,28 @@ TEST_F(EngineTest, MultipleSlavesPDORegistration) {
         }
     );
 
-    auto multi_engine = std::make_shared<ethercat::engine::Engine>(multi_master);
+    auto multi_engine = std::make_shared<Engine>(multi_master);
 
     auto reader = ASSERT_NIL_P(multi_engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true),
-         ethercat::pdo::Entry(1, 0x6000, 1, 32, true)},
-        telem::Rate(100)
+        {pdo::Entry(0, 0x6000, 1, 16, true), pdo::Entry(1, 0x6000, 1, 32, true)},
+        x::telem::Rate(100)
     ));
 
     EXPECT_EQ(reader->size(), 6);
 }
 
 TEST_F(EngineTest, MixedReadersAndWriters) {
-    auto reader = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true)},
-        telem::Rate(100)
-    ));
+    auto reader = ASSERT_NIL_P(
+        engine->open_reader({pdo::Entry(0, 0x6000, 1, 16, true)}, x::telem::Rate(100))
+    );
 
-    auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::pdo::Entry(0, 0x7000, 1, 16, false)},
-        telem::Rate(100)
-    ));
+    auto writer = ASSERT_NIL_P(
+        engine->open_writer({pdo::Entry(0, 0x7000, 1, 16, false)}, x::telem::Rate(100))
+    );
 
-    breaker::Breaker brk;
+    x::breaker::Breaker brk;
     brk.start();
-    telem::Frame frame(1, telem::Series(telem::UINT16_T, 1));
+    x::telem::Frame frame(1, x::telem::Series(x::telem::UINT16_T, 1));
     ASSERT_NIL(reader->read(brk, frame));
 
     writer->write(0, static_cast<uint16_t>(0x5678));
@@ -189,23 +179,21 @@ TEST_F(EngineTest, MixedReadersAndWriters) {
 }
 
 TEST_F(EngineTest, ReadAfterReconfigure) {
-    auto reader1 = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true)},
-        telem::Rate(100)
-    ));
+    auto reader1 = ASSERT_NIL_P(
+        engine->open_reader({pdo::Entry(0, 0x6000, 1, 16, true)}, x::telem::Rate(100))
+    );
 
-    breaker::Breaker brk;
+    x::breaker::Breaker brk;
     brk.start();
 
-    telem::Frame frame1(1, telem::Series(telem::UINT16_T, 1));
+    x::telem::Frame frame1(1, x::telem::Series(x::telem::UINT16_T, 1));
     ASSERT_NIL(reader1->read(brk, frame1));
 
-    auto reader2 = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 2, 32, true)},
-        telem::Rate(100)
-    ));
+    auto reader2 = ASSERT_NIL_P(
+        engine->open_reader({pdo::Entry(0, 0x6000, 2, 32, true)}, x::telem::Rate(100))
+    );
 
-    telem::Frame frame2(2, telem::Series(telem::UINT32_T, 1));
+    x::telem::Frame frame2(2, x::telem::Series(x::telem::UINT32_T, 1));
 
     ASSERT_NIL(reader1->read(brk, frame1));
     ASSERT_NIL(reader2->read(brk, frame2));
@@ -214,8 +202,8 @@ TEST_F(EngineTest, ReadAfterReconfigure) {
 
 TEST_F(EngineTest, WriteTypeConversionFloatToInt16) {
     auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::pdo::Entry(0, 0x7000, 1, 16, false, telem::INT16_T)},
-        telem::Rate(100)
+        {pdo::Entry(0, 0x7000, 1, 16, false, x::telem::INT16_T)},
+        x::telem::Rate(100)
     ));
     writer->write(0, 42.7f);
     ASSERT_EVENTUALLY_EQ(
@@ -226,8 +214,8 @@ TEST_F(EngineTest, WriteTypeConversionFloatToInt16) {
 
 TEST_F(EngineTest, WriteTypeConversionInt64ToInt32) {
     auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::pdo::Entry(0, 0x7000, 1, 32, false, telem::INT32_T)},
-        telem::Rate(100)
+        {pdo::Entry(0, 0x7000, 1, 32, false, x::telem::INT32_T)},
+        x::telem::Rate(100)
     ));
     writer->write(0, static_cast<int64_t>(0x12345678));
     ASSERT_EVENTUALLY_EQ(
@@ -238,8 +226,8 @@ TEST_F(EngineTest, WriteTypeConversionInt64ToInt32) {
 
 TEST_F(EngineTest, WriteSubByteSingleByte) {
     auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::pdo::Entry(0, 0x7000, 1, 4, false, telem::UINT8_T)},
-        telem::Rate(100)
+        {pdo::Entry(0, 0x7000, 1, 4, false, x::telem::UINT8_T)},
+        x::telem::Rate(100)
     ));
     writer->write(0, static_cast<uint8_t>(0x0F));
     ASSERT_EVENTUALLY_EQ(
@@ -250,8 +238,8 @@ TEST_F(EngineTest, WriteSubByteSingleByte) {
 
 TEST_F(EngineTest, Write24BitNoOffset) {
     auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::pdo::Entry(0, 0x7000, 1, 24, false, telem::INT32_T)},
-        telem::Rate(100)
+        {pdo::Entry(0, 0x7000, 1, 24, false, x::telem::INT32_T)},
+        x::telem::Rate(100)
     ));
     writer->write(0, static_cast<int32_t>(0x123456));
     ASSERT_EVENTUALLY_EQ(
@@ -264,8 +252,8 @@ TEST_F(EngineTest, Write24BitNoOffset) {
 
 TEST_F(EngineTest, Write24BitSignedNegative) {
     auto writer = ASSERT_NIL_P(engine->open_writer(
-        {ethercat::pdo::Entry(0, 0x7000, 1, 24, false, telem::INT32_T)},
-        telem::Rate(100)
+        {pdo::Entry(0, 0x7000, 1, 24, false, x::telem::INT32_T)},
+        x::telem::Rate(100)
     ));
     writer->write(0, static_cast<int32_t>(-1));
     ASSERT_EVENTUALLY_EQ(
@@ -278,21 +266,17 @@ TEST_F(EngineTest, Write24BitSignedNegative) {
 
 class EngineReadValueTest : public ::testing::Test {
 protected:
-    std::shared_ptr<ethercat::mock::Master> mock_master;
-    std::shared_ptr<ethercat::engine::Engine> engine;
+    std::shared_ptr<mock::Master> mock_master;
+    std::shared_ptr<Engine> engine;
 
-    void SetUp() override {
-        mock_master = std::make_shared<ethercat::mock::Master>("eth0");
-    }
+    void SetUp() override { mock_master = std::make_shared<mock::Master>("eth0"); }
 
-    void create_engine() {
-        engine = std::make_shared<ethercat::engine::Engine>(mock_master);
-    }
+    void create_engine() { engine = std::make_shared<Engine>(mock_master); }
 };
 
 TEST_F(EngineReadValueTest, ReadValueInt16) {
     this->mock_master->add_slave(
-        ethercat::slave::Properties{
+        slave::Properties{
             .position = 0,
             .vendor_id = 0x1,
             .product_code = 0x2,
@@ -304,22 +288,22 @@ TEST_F(EngineReadValueTest, ReadValueInt16) {
                  .bit_length = 16,
                  .is_input = true,
                  .name = "status_word",
-                 .data_type = telem::INT16_T}
+                 .data_type = x::telem::INT16_T}
             },
         }
     );
     this->create_engine();
 
     auto reader = ASSERT_NIL_P(this->engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true, telem::INT16_T)},
-        telem::Rate(100)
+        {pdo::Entry(0, 0x6000, 1, 16, true, x::telem::INT16_T)},
+        x::telem::Rate(100)
     ));
 
     this->mock_master->set_input<int16_t>(0, 0x1234);
 
-    breaker::Breaker brk;
+    x::breaker::Breaker brk;
     brk.start();
-    telem::Frame frame(1, telem::Series(telem::INT16_T, 1));
+    x::telem::Frame frame(1, x::telem::Series(x::telem::INT16_T, 1));
     ASSERT_NIL(reader->read(brk, frame));
     brk.stop();
 
@@ -329,7 +313,7 @@ TEST_F(EngineReadValueTest, ReadValueInt16) {
 
 TEST_F(EngineReadValueTest, ReadValueInt32) {
     this->mock_master->add_slave(
-        ethercat::slave::Properties{
+        slave::Properties{
             .position = 0,
             .vendor_id = 0x1,
             .product_code = 0x2,
@@ -341,22 +325,22 @@ TEST_F(EngineReadValueTest, ReadValueInt32) {
                  .bit_length = 32,
                  .is_input = true,
                  .name = "position",
-                 .data_type = telem::INT32_T}
+                 .data_type = x::telem::INT32_T}
             },
         }
     );
     this->create_engine();
 
     auto reader = ASSERT_NIL_P(this->engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 1, 32, true, telem::INT32_T)},
-        telem::Rate(100)
+        {pdo::Entry(0, 0x6000, 1, 32, true, x::telem::INT32_T)},
+        x::telem::Rate(100)
     ));
 
     this->mock_master->set_input<int32_t>(0, 0x12345678);
 
-    breaker::Breaker brk;
+    x::breaker::Breaker brk;
     brk.start();
-    telem::Frame frame(1, telem::Series(telem::INT32_T, 1));
+    x::telem::Frame frame(1, x::telem::Series(x::telem::INT32_T, 1));
     ASSERT_NIL(reader->read(brk, frame));
     brk.stop();
 
@@ -366,7 +350,7 @@ TEST_F(EngineReadValueTest, ReadValueInt32) {
 
 TEST_F(EngineReadValueTest, ReadValueMultiplePDOs) {
     this->mock_master->add_slave(
-        ethercat::slave::Properties{
+        slave::Properties{
             .position = 0,
             .vendor_id = 0x1,
             .product_code = 0x2,
@@ -378,33 +362,33 @@ TEST_F(EngineReadValueTest, ReadValueMultiplePDOs) {
                  .bit_length = 16,
                  .is_input = true,
                  .name = "status_word",
-                 .data_type = telem::INT16_T},
+                 .data_type = x::telem::INT16_T},
                 {.pdo_index = 0x1A00,
                  .index = 0x6000,
                  .sub_index = 2,
                  .bit_length = 32,
                  .is_input = true,
                  .name = "position",
-                 .data_type = telem::INT32_T},
+                 .data_type = x::telem::INT32_T},
             },
         }
     );
     this->create_engine();
 
     auto reader = ASSERT_NIL_P(this->engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true, telem::INT16_T),
-         ethercat::pdo::Entry(0, 0x6000, 2, 32, true, telem::INT32_T)},
-        telem::Rate(100)
+        {pdo::Entry(0, 0x6000, 1, 16, true, x::telem::INT16_T),
+         pdo::Entry(0, 0x6000, 2, 32, true, x::telem::INT32_T)},
+        x::telem::Rate(100)
     ));
 
     this->mock_master->set_input<int16_t>(0, 0x1234);
     this->mock_master->set_input<int32_t>(2, 0xDEADBEEF);
 
-    breaker::Breaker brk;
+    x::breaker::Breaker brk;
     brk.start();
-    telem::Frame frame(2);
-    frame.series->push_back(telem::Series(telem::INT16_T, 1));
-    frame.series->push_back(telem::Series(telem::INT32_T, 1));
+    x::telem::Frame frame(2);
+    frame.series->push_back(x::telem::Series(x::telem::INT16_T, 1));
+    frame.series->push_back(x::telem::Series(x::telem::INT32_T, 1));
     ASSERT_NIL(reader->read(brk, frame));
     brk.stop();
 
@@ -416,7 +400,7 @@ TEST_F(EngineReadValueTest, ReadValueMultiplePDOs) {
 
 TEST_F(EngineReadValueTest, ReadValue24BitPositive) {
     this->mock_master->add_slave(
-        ethercat::slave::Properties{
+        slave::Properties{
             .position = 0,
             .vendor_id = 0x1,
             .product_code = 0x2,
@@ -428,24 +412,24 @@ TEST_F(EngineReadValueTest, ReadValue24BitPositive) {
                  .bit_length = 24,
                  .is_input = true,
                  .name = "position_24bit",
-                 .data_type = telem::INT32_T}
+                 .data_type = x::telem::INT32_T}
             },
         }
     );
     this->create_engine();
 
     auto reader = ASSERT_NIL_P(this->engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 1, 24, true, telem::INT32_T)},
-        telem::Rate(100)
+        {pdo::Entry(0, 0x6000, 1, 24, true, x::telem::INT32_T)},
+        x::telem::Rate(100)
     ));
 
     this->mock_master->set_input<uint8_t>(0, 0x56);
     this->mock_master->set_input<uint8_t>(1, 0x34);
     this->mock_master->set_input<uint8_t>(2, 0x12);
 
-    breaker::Breaker brk;
+    x::breaker::Breaker brk;
     brk.start();
-    telem::Frame frame(1, telem::Series(telem::INT32_T, 1));
+    x::telem::Frame frame(1, x::telem::Series(x::telem::INT32_T, 1));
     ASSERT_NIL(reader->read(brk, frame));
     brk.stop();
 
@@ -455,7 +439,7 @@ TEST_F(EngineReadValueTest, ReadValue24BitPositive) {
 
 TEST_F(EngineReadValueTest, ReadValue24BitNegative) {
     this->mock_master->add_slave(
-        ethercat::slave::Properties{
+        slave::Properties{
             .position = 0,
             .vendor_id = 0x1,
             .product_code = 0x2,
@@ -467,24 +451,24 @@ TEST_F(EngineReadValueTest, ReadValue24BitNegative) {
                  .bit_length = 24,
                  .is_input = true,
                  .name = "position_24bit",
-                 .data_type = telem::INT32_T}
+                 .data_type = x::telem::INT32_T}
             },
         }
     );
     this->create_engine();
 
     auto reader = ASSERT_NIL_P(this->engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 1, 24, true, telem::INT32_T)},
-        telem::Rate(100)
+        {pdo::Entry(0, 0x6000, 1, 24, true, x::telem::INT32_T)},
+        x::telem::Rate(100)
     ));
 
     this->mock_master->set_input<uint8_t>(0, 0xFF);
     this->mock_master->set_input<uint8_t>(1, 0xFF);
     this->mock_master->set_input<uint8_t>(2, 0xFF);
 
-    breaker::Breaker brk;
+    x::breaker::Breaker brk;
     brk.start();
-    telem::Frame frame(1, telem::Series(telem::INT32_T, 1));
+    x::telem::Frame frame(1, x::telem::Series(x::telem::INT32_T, 1));
     ASSERT_NIL(reader->read(brk, frame));
     brk.stop();
 
@@ -494,7 +478,7 @@ TEST_F(EngineReadValueTest, ReadValue24BitNegative) {
 
 TEST_F(EngineReadValueTest, ReadValueSubByte4Bit) {
     this->mock_master->add_slave(
-        ethercat::slave::Properties{
+        slave::Properties{
             .position = 0,
             .vendor_id = 0x1,
             .product_code = 0x2,
@@ -506,22 +490,22 @@ TEST_F(EngineReadValueTest, ReadValueSubByte4Bit) {
                  .bit_length = 4,
                  .is_input = true,
                  .name = "nibble",
-                 .data_type = telem::UINT8_T}
+                 .data_type = x::telem::UINT8_T}
             },
         }
     );
     this->create_engine();
 
     auto reader = ASSERT_NIL_P(this->engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 1, 4, true, telem::UINT8_T)},
-        telem::Rate(100)
+        {pdo::Entry(0, 0x6000, 1, 4, true, x::telem::UINT8_T)},
+        x::telem::Rate(100)
     ));
 
     this->mock_master->set_input<uint8_t>(0, 0xAF);
 
-    breaker::Breaker brk;
+    x::breaker::Breaker brk;
     brk.start();
-    telem::Frame frame(1, telem::Series(telem::UINT8_T, 1));
+    x::telem::Frame frame(1, x::telem::Series(x::telem::UINT8_T, 1));
     ASSERT_NIL(reader->read(brk, frame));
     brk.stop();
 
@@ -535,9 +519,9 @@ TEST_F(EngineTest, EnsureInitializedIdempotent) {
 }
 
 TEST_F(EngineTest, SlavesReturnsDiscoveredSlaves) {
-    auto multi_master = std::make_shared<ethercat::mock::Master>("eth0");
+    auto multi_master = std::make_shared<mock::Master>("eth0");
     multi_master->add_slave(
-        ethercat::slave::Properties{
+        slave::Properties{
             .position = 0,
             .vendor_id = 0x1,
             .product_code = 0x2,
@@ -545,14 +529,14 @@ TEST_F(EngineTest, SlavesReturnsDiscoveredSlaves) {
         }
     );
     multi_master->add_slave(
-        ethercat::slave::Properties{
+        slave::Properties{
             .position = 1,
             .vendor_id = 0x3,
             .product_code = 0x4,
             .name = "Slave2"
         }
     );
-    auto multi_engine = std::make_shared<ethercat::engine::Engine>(multi_master);
+    auto multi_engine = std::make_shared<Engine>(multi_master);
 
     ASSERT_NIL(multi_engine->ensure_initialized());
 
@@ -567,9 +551,9 @@ TEST_F(EngineTest, InterfaceNameReturnsCorrect) {
 }
 
 TEST(PoolTest, DiscoverSlavesCreatesEngine) {
-    auto mock_master = std::make_shared<ethercat::mock::Master>("eth0");
+    auto mock_master = std::make_shared<mock::Master>("eth0");
     mock_master->add_slave(
-        ethercat::slave::Properties{
+        slave::Properties{
             .position = 0,
             .vendor_id = 0x1,
             .product_code = 0x2,
@@ -577,7 +561,7 @@ TEST(PoolTest, DiscoverSlavesCreatesEngine) {
         }
     );
     mock_master->add_slave(
-        ethercat::slave::Properties{
+        slave::Properties{
             .position = 1,
             .vendor_id = 0x3,
             .product_code = 0x4,
@@ -585,10 +569,10 @@ TEST(PoolTest, DiscoverSlavesCreatesEngine) {
         }
     );
 
-    auto manager = std::make_unique<ethercat::mock::Manager>();
+    auto manager = std::make_unique<mock::Manager>();
     manager->configure("eth0", mock_master);
 
-    ethercat::engine::Pool pool(std::move(manager));
+    Pool pool(std::move(manager));
 
     auto slaves = ASSERT_NIL_P(pool.discover_slaves("eth0"));
     ASSERT_EQ(slaves.size(), 2);
@@ -597,9 +581,9 @@ TEST(PoolTest, DiscoverSlavesCreatesEngine) {
 }
 
 TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
-    auto mock_master = std::make_shared<ethercat::mock::Master>("eth0");
+    auto mock_master = std::make_shared<mock::Master>("eth0");
     mock_master->add_slave(
-        ethercat::slave::Properties{
+        slave::Properties{
             .position = 0,
             .vendor_id = 0x1,
             .product_code = 0x2,
@@ -607,7 +591,7 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
         }
     );
     mock_master->add_slave(
-        ethercat::slave::Properties{
+        slave::Properties{
             .position = 1,
             .vendor_id = 0x3,
             .product_code = 0x4,
@@ -615,16 +599,15 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
         }
     );
 
-    auto manager = std::make_unique<ethercat::mock::Manager>();
+    auto manager = std::make_unique<mock::Manager>();
     manager->configure("eth0", mock_master);
 
-    ethercat::engine::Pool pool(std::move(manager));
+    Pool pool(std::move(manager));
 
     auto engine = ASSERT_NIL_P(pool.acquire("eth0"));
-    auto reader = ASSERT_NIL_P(engine->open_reader(
-        {ethercat::pdo::Entry(0, 0x6000, 1, 16, true)},
-        telem::Rate(100)
-    ));
+    auto reader = ASSERT_NIL_P(
+        engine->open_reader({pdo::Entry(0, 0x6000, 1, 16, true)}, x::telem::Rate(100))
+    );
 
     EXPECT_TRUE(pool.is_active("eth0"));
 
@@ -635,20 +618,21 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
 }
 
 TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
-    auto mock_master = std::make_shared<ethercat::mock::Master>("eth0");
+    auto mock_master = std::make_shared<mock::Master>("eth0");
     mock_master->inject_init_error(
-        xerrors::Error(ethercat::MASTER_INIT_ERROR, "no interface")
+        x::errors::Error(errors::MASTER_INIT_ERROR, "no interface")
     );
 
-    auto manager = std::make_unique<ethercat::mock::Manager>();
+    auto manager = std::make_unique<mock::Manager>();
     manager->configure("eth0", mock_master);
 
-    ethercat::engine::Pool pool(std::move(manager));
+    Pool pool(std::move(manager));
 
     auto slaves = ASSERT_OCCURRED_AS_P(
         pool.discover_slaves("eth0"),
-        ethercat::MASTER_INIT_ERROR
+        errors::MASTER_INIT_ERROR
     );
     EXPECT_TRUE(slaves.empty());
     EXPECT_FALSE(pool.is_active("eth0"));
+}
 }

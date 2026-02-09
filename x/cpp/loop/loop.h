@@ -21,7 +21,7 @@
 using hs_clock = std::chrono::high_resolution_clock;
 using nanos = std::chrono::nanoseconds;
 
-namespace loop {
+namespace x::loop {
 /// @brief Threshold below which high-resolution timing is used.
 const telem::TimeSpan HIGH_RES_THRESHOLD = telem::Rate(200).period();
 /// @brief Threshold below which medium-resolution timing is used.

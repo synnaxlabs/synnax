@@ -1,0 +1,21 @@
+cc_library(
+    name = "test",
+    hdrs = ["test.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "test_test",
+    srcs = ["test_test.cpp"],
+    tags = ["no-asan"],  # Tests ASSERT_EVENTUALLY_* macros with timeouts - timing-sensitive
+    deps = [
+        "//x/cpp/errors",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -9,9 +9,15 @@
 
 #pragma once
 
+#include "driver/errors/errors.h"
 #include "driver/ni/daqmx/nidaqmx.h"
 
-namespace daqmx {
+namespace driver::ni::daqmx {
+const LibraryInfo LIBRARY_INFO = {
+    "National Instruments NI-DAQmx shared",
+    "https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html"
+};
+
 class API {
 public:
     virtual ~API() = default;

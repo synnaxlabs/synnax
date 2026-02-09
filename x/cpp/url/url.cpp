@@ -12,7 +12,7 @@
 
 #include "x/cpp/url/url.h"
 
-namespace url {
+namespace x::url {
 /// @brief joins the two paths together to form a valid url with a trailing slash.
 std::string join_paths(const std::string &a, const std::string &b) {
     // Build result starting with "/" if a is empty, otherwise use a (adding "/" if
