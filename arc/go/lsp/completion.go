@@ -266,7 +266,7 @@ var completions = []completionInfo{
 		Insert:       "authority ${1:255}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categoryKeyword,
+		Category:     categoryTopLevelKeyword,
 	},
 	{
 		Label:        parser.LiteralFUNC,
