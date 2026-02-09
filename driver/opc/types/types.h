@@ -17,20 +17,20 @@
 #include "open62541/types.h"
 
 /// module
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/telem/series.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xjson/xjson.h"
 
-namespace opc {
+namespace driver::opc::types {
 struct Node {
-    ::telem::DataType data_type;
+    ::x::telem::DataType data_type;
     std::string node_class;
     std::string name;
     std::string node_id;
     bool is_array;
 
     Node(
-        const ::telem::DataType &data_type,
+        const ::x::telem::DataType &data_type,
         const std::string &name,
         const std::string &node_id,
         const std::string &node_class,
@@ -42,13 +42,13 @@ struct Node {
         node_id(node_id),
         is_array(is_array) {}
 
-    explicit Node(xjson::Parser &p):
-        data_type(::telem::DataType(p.field<std::string>("data_type"))),
+    explicit Node(x::json::Parser &p):
+        data_type(::x::telem::DataType(p.field<std::string>("data_type"))),
         name(p.field<std::string>("name")),
         node_id(p.field<std::string>("node_id")),
         is_array(p.field<bool>("is_array", false)) {}
 
-    json to_json() const {
+    x::json::json to_json() const {
         return {
             {"data_type", data_type.name()},
             {"name", name},
@@ -91,8 +91,8 @@ public:
     [[nodiscard]] const UA_NodeId &get() const { return id_; }
     [[nodiscard]] bool is_null() const { return UA_NodeId_isNull(&id_); }
 
-    static NodeId parse(const std::string &field_name, xjson::Parser &parser);
-    static std::pair<NodeId, xerrors::Error> parse(const std::string &node_id_str);
+    static NodeId parse(const std::string &field_name, x::json::Parser &parser);
+    static std::pair<NodeId, x::errors::Error> parse(const std::string &node_id_str);
     static std::string to_string(const UA_NodeId &node_id);
 };
 
@@ -222,7 +222,8 @@ public:
         return *this;
     }
 
-    xerrors::Error add_value(const UA_NodeId &node_id, const ::telem::Series &series);
+    x::errors::Error
+    add_value(const UA_NodeId &node_id, const ::x::telem::Series &series);
 
     UA_WriteRequest build() const {
         UA_WriteRequest req;

@@ -9,12 +9,12 @@
 
 #pragma once
 
-#include "x/cpp/xlib/xlib.h"
+#include "x/cpp/lib/lib.h"
 
 #include "driver/errors/errors.h"
 #include "driver/ethercat/igh/ecrt.h"
 
-namespace ethercat::igh {
+namespace driver::ethercat::igh {
 /// @brief library path for the IgH EtherCAT master shared library.
 const std::string IGH_LIBRARY_NAME = "libethercat.so.1";
 
@@ -25,7 +25,7 @@ const driver::LibraryInfo IGH_LIB_INFO = {
 };
 
 /// @brief error returned when the IgH library cannot be loaded.
-const auto LOAD_ERROR = driver::missing_lib(IGH_LIB_INFO);
+const auto LOAD_ERROR = driver::errors::missing_lib(IGH_LIB_INFO);
 
 /// @brief API wrapper for IgH EtherCAT master library functions with dynamic loading.
 class API {
@@ -55,12 +55,12 @@ class API {
     };
 
     /// @brief shared library handle.
-    std::unique_ptr<xlib::SharedLib> lib;
+    std::unique_ptr<x::lib::SharedLib> lib;
     /// @brief function pointers loaded from the library.
     FunctionPointers func_ptrs;
 
 public:
-    explicit API(std::unique_ptr<xlib::SharedLib> lib): lib(std::move(lib)) {
+    explicit API(std::unique_ptr<x::lib::SharedLib> lib): lib(std::move(lib)) {
         memset(&this->func_ptrs, 0, sizeof(this->func_ptrs));
         this->func_ptrs
             .request_master = reinterpret_cast<decltype(&ecrt_request_master)>(
@@ -144,10 +144,10 @@ public:
 
     /// @brief loads the IgH EtherCAT library and returns an API instance.
     /// @return pair of API instance and error (nil on success).
-    static std::pair<std::shared_ptr<API>, xerrors::Error> load() {
-        auto lib = std::make_unique<xlib::SharedLib>(IGH_LIBRARY_NAME);
+    static std::pair<std::shared_ptr<API>, x::errors::Error> load() {
+        auto lib = std::make_unique<x::lib::SharedLib>(IGH_LIBRARY_NAME);
         if (!lib->load()) return {nullptr, LOAD_ERROR};
-        return {std::make_shared<API>(std::move(lib)), xerrors::NIL};
+        return {std::make_shared<API>(std::move(lib)), x::errors::NIL};
     }
 
     /// @brief requests an EtherCAT master for realtime operation.

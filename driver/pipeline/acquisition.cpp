@@ -17,34 +17,33 @@
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 
-using json = nlohmann::json;
+namespace driver::pipeline {
+SynnaxWriter::SynnaxWriter(synnax::framer::Writer internal):
+    internal(std::move(internal)) {}
 
-namespace pipeline {
-SynnaxWriter::SynnaxWriter(synnax::Writer internal): internal(std::move(internal)) {}
-
-xerrors::Error SynnaxWriter::write(const telem::Frame &fr) {
+x::errors::Error SynnaxWriter::write(const x::telem::Frame &fr) {
     return this->internal.write(fr);
 }
 
-xerrors::Error SynnaxWriter::close() {
+x::errors::Error SynnaxWriter::close() {
     return this->internal.close();
 }
 
 SynnaxWriterFactory::SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client):
     client(std::move(client)) {}
 
-std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error>
-SynnaxWriterFactory::open_writer(const synnax::WriterConfig &config) {
+std::pair<std::unique_ptr<pipeline::Writer>, x::errors::Error>
+SynnaxWriterFactory::open_writer(const synnax::framer::WriterConfig &config) {
     auto [sw, err] = client->telem.open_writer(config);
     if (err) return {nullptr, err};
-    return {std::make_unique<SynnaxWriter>(std::move(sw)), xerrors::NIL};
+    return {std::make_unique<SynnaxWriter>(std::move(sw)), x::errors::NIL};
 }
 
 Acquisition::Acquisition(
     std::shared_ptr<synnax::Synnax> client,
-    synnax::WriterConfig writer_config,
+    synnax::framer::WriterConfig writer_config,
     std::shared_ptr<Source> source,
-    const breaker::Config &breaker_config,
+    const x::breaker::Config &breaker_config,
     std::string thread_name
 ):
     Acquisition(
@@ -57,9 +56,9 @@ Acquisition::Acquisition(
 
 Acquisition::Acquisition(
     std::shared_ptr<WriterFactory> factory,
-    synnax::WriterConfig writer_config,
+    synnax::framer::WriterConfig writer_config,
     std::shared_ptr<Source> source,
-    const breaker::Config &breaker_config,
+    const x::breaker::Config &breaker_config,
     std::string thread_name
 ):
     Base(breaker_config, std::move(thread_name)),
@@ -70,41 +69,41 @@ Acquisition::Acquisition(
 /// @brief attempts to resolve the start timestamp for the writer from a series in
 /// the frame with a timestamp data type. If that can't be found, resolveStart falls
 /// back to now().
-telem::TimeStamp resolve_start(const telem::Frame &frame) {
-    auto min_timestamp = telem::TimeStamp::max();
+x::telem::TimeStamp resolve_start(const x::telem::Frame &frame) {
+    auto min_timestamp = x::telem::TimeStamp::max();
     for (size_t i = 0; i < frame.size(); i++) {
         const auto &series = frame.series->at(i);
-        if (series.data_type() == telem::TIMESTAMP_T && series.size() > 0) {
-            const auto ts = series.at<telem::TimeStamp>(0);
+        if (series.data_type() == x::telem::TIMESTAMP_T && series.size() > 0) {
+            const auto ts = series.at<x::telem::TimeStamp>(0);
             if (ts < min_timestamp) min_timestamp = ts;
         }
     }
-    if (min_timestamp < telem::TimeStamp::max()) return min_timestamp;
-    return telem::TimeStamp::now();
+    if (min_timestamp < x::telem::TimeStamp::max()) return min_timestamp;
+    return x::telem::TimeStamp::now();
 }
 
 void Acquisition::run() {
     std::unique_ptr<Writer> writer;
     bool writer_opened = false;
-    xerrors::Error writer_err;
-    xerrors::Error source_err;
+    x::errors::Error writer_err;
+    x::errors::Error source_err;
     // A running breaker means the pipeline user has not called stop.
-    telem::Frame frame(0);
+    x::telem::Frame frame(0);
     while (this->breaker.running()) {
 
         if (auto source_err_i = this->source->read(this->breaker, frame)) {
             source_err = source_err_i;
-            if (!source_err.matches(driver::NOMINAL_SHUTDOWN_ERROR))
+            if (!source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
                 LOG(ERROR) << "[acquisition] failed to read source: "
                            << source_err.message();
             // With a temporary error, we just continue the loop. With any other
             // error we break and shut things down.
-            if (source_err.matches(driver::TEMPORARY_HARDWARE_ERROR) &&
+            if (source_err.matches(errors::TEMPORARY_HARDWARE_ERROR) &&
                 this->breaker.wait(source_err.message()))
                 continue;
             break;
         }
-        if (source_err) source_err = xerrors::NIL;
+        if (source_err) source_err = x::errors::NIL;
         if (frame.empty()) continue;
         // Open the writer after receiving the first frame so we can resolve the
         // start timestamp from the data. This helps to account for clock drift
@@ -135,7 +134,7 @@ void Acquisition::run() {
     if (writer_err.matches(freighter::UNREACHABLE) &&
         this->breaker.wait(writer_err.message()))
         return this->run();
-    if (source_err && !source_err.matches(driver::NOMINAL_SHUTDOWN_ERROR))
+    if (source_err && !source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
         this->source->stopped_with_err(source_err);
     else if (writer_err)
         this->source->stopped_with_err(writer_err);

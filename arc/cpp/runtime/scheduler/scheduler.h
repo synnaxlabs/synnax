@@ -17,7 +17,7 @@
 
 #include "glog/logging.h"
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
@@ -66,7 +66,7 @@ class Scheduler {
     /// @brief Maximum iterations for stage convergence loop.
     size_t max_convergence_iterations = 0;
     /// @brief Tolerance for timing comparisons to handle OS scheduling jitter.
-    telem::TimeSpan tolerance_;
+    x::telem::TimeSpan tolerance_;
     /// @brief Error handler for reporting node execution errors.
     errors::Handler error_handler;
 
@@ -90,7 +90,7 @@ public:
     Scheduler(
         const ir::IR &prog,
         std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls,
-        const telem::TimeSpan tolerance,
+        const x::telem::TimeSpan tolerance,
         errors::Handler error_handler = errors::noop_handler
     ):
         tolerance_(tolerance), error_handler(std::move(error_handler)) {
@@ -145,7 +145,7 @@ public:
     /// @param elapsed Time elapsed since runtime start.
     /// @param reason Why this scheduler run was triggered (timer tick or channel
     /// input).
-    void next(const telem::TimeSpan elapsed, const node::RunReason reason) {
+    void next(const x::telem::TimeSpan elapsed, const node::RunReason reason) {
         this->ctx.elapsed = elapsed;
         this->ctx.tolerance = this->tolerance_;
         this->ctx.reason = reason;
@@ -195,7 +195,7 @@ private:
     }
 
     /// @brief Reports an error from a node to the error handler.
-    void report_error(const xerrors::Error &e) {
+    void report_error(const x::errors::Error &e) {
         LOG(ERROR) << "[arc] node encountered error: " << e;
         this->error_handler(e);
     }

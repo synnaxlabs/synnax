@@ -11,45 +11,47 @@
 
 #include "driver/errors/errors.h"
 
-namespace ethercat {
+namespace driver::ethercat::errors {
 /// @brief base error type for all EtherCAT-related errors.
-const xerrors::Error BASE_ERROR = driver::BASE_ERROR.sub("ethercat");
+const x::errors::Error BASE_ERROR = driver::errors::BASE_ERROR.sub("ethercat");
 /// @brief temporary EtherCAT error that is recoverable.
-const xerrors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub("ethercat");
+const x::errors::Error TEMPORARY_ERROR = driver::errors::TEMPORARY_HARDWARE_ERROR.sub(
+    "ethercat"
+);
 /// @brief error returned when the EtherCAT master fails to initialize.
-const xerrors::Error MASTER_INIT_ERROR = BASE_ERROR.sub("master_init");
+const x::errors::Error MASTER_INIT_ERROR = BASE_ERROR.sub("master_init");
 /// @brief error returned when the network interface cannot be opened.
-const xerrors::Error INTERFACE_ERROR = BASE_ERROR.sub("interface");
+const x::errors::Error INTERFACE_ERROR = BASE_ERROR.sub("interface");
 /// @brief error returned when slave configuration fails.
-const xerrors::Error SLAVE_CONFIG_ERROR = BASE_ERROR.sub("slave_config");
+const x::errors::Error SLAVE_CONFIG_ERROR = BASE_ERROR.sub("slave_config");
 /// @brief error returned when PDO mapping is invalid or fails.
-const xerrors::Error PDO_MAPPING_ERROR = BASE_ERROR.sub("pdo_mapping");
+const x::errors::Error PDO_MAPPING_ERROR = BASE_ERROR.sub("pdo_mapping");
 /// @brief error returned when domain creation or registration fails.
-const xerrors::Error DOMAIN_ERROR = BASE_ERROR.sub("domain");
+const x::errors::Error DOMAIN_ERROR = BASE_ERROR.sub("domain");
 /// @brief error returned when master activation fails.
-const xerrors::Error ACTIVATION_ERROR = BASE_ERROR.sub("activation");
+const x::errors::Error ACTIVATION_ERROR = BASE_ERROR.sub("activation");
 /// @brief error returned when cyclic communication fails.
-const xerrors::Error CYCLIC_ERROR = BASE_ERROR.sub("cyclic");
+const x::errors::Error CYCLIC_ERROR = BASE_ERROR.sub("cyclic");
 /// @brief error returned when a slave enters an unexpected state.
-const xerrors::Error SLAVE_STATE_ERROR = BASE_ERROR.sub("slave_state");
+const x::errors::Error SLAVE_STATE_ERROR = BASE_ERROR.sub("slave_state");
 /// @brief error returned when a slave is not found at the expected position.
-const xerrors::Error SLAVE_NOT_FOUND = BASE_ERROR.sub("slave_not_found");
+const x::errors::Error SLAVE_NOT_FOUND = BASE_ERROR.sub("slave_not_found");
 /// @brief error returned when a slave is disconnected.
-const xerrors::Error SLAVE_DISCONNECTED = BASE_ERROR.sub("slave_disconnected");
+const x::errors::Error SLAVE_DISCONNECTED = BASE_ERROR.sub("slave_disconnected");
 /// @brief error returned when the working counter does not match expected value.
-const xerrors::Error WORKING_COUNTER_ERROR = BASE_ERROR.sub("working_counter");
+const x::errors::Error WORKING_COUNTER_ERROR = BASE_ERROR.sub("working_counter");
 /// @brief error returned when the cycle time cannot be maintained.
-const xerrors::Error CYCLE_OVERRUN = BASE_ERROR.sub("cycle_overrun");
+const x::errors::Error CYCLE_OVERRUN = BASE_ERROR.sub("cycle_overrun");
 /// @brief error returned when a state machine transition fails.
-const xerrors::Error STATE_CHANGE_ERROR = BASE_ERROR.sub("state_change");
+const x::errors::Error STATE_CHANGE_ERROR = BASE_ERROR.sub("state_change");
 /// @brief error returned when the cyclic engine is restarting for reconfiguration.
-const xerrors::Error ENGINE_RESTARTING = TEMPORARY_ERROR.sub("engine_restarting");
+const x::errors::Error ENGINE_RESTARTING = TEMPORARY_ERROR.sub("engine_restarting");
 /// @brief error returned when PDO discovery fails for a slave.
-const xerrors::Error PDO_DISCOVERY_ERROR = BASE_ERROR.sub("pdo_discovery");
+const x::errors::Error PDO_DISCOVERY_ERROR = BASE_ERROR.sub("pdo_discovery");
 /// @brief error returned when an SDO read operation fails.
-const xerrors::Error SDO_READ_ERROR = BASE_ERROR.sub("sdo_read");
+const x::errors::Error SDO_READ_ERROR = BASE_ERROR.sub("sdo_read");
 /// @brief error returned when engine rate doesn't match requested rate.
-const xerrors::Error RATE_MISMATCH = BASE_ERROR.sub("rate_mismatch");
+const x::errors::Error RATE_MISMATCH = BASE_ERROR.sub("rate_mismatch");
 /// @brief error returned when bus topology doesn't match configured devices.
-const xerrors::Error TOPOLOGY_MISMATCH = BASE_ERROR.sub("topology_mismatch");
+const x::errors::Error TOPOLOGY_MISMATCH = BASE_ERROR.sub("topology_mismatch");
 }

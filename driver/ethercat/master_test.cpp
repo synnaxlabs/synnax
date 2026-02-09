@@ -9,12 +9,12 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/mock/master.h"
 
-namespace ethercat {
+namespace driver::ethercat {
 
 class MasterTest : public ::testing::Test {
 protected:
@@ -38,8 +38,10 @@ TEST_F(MasterTest, InitializeSuccess) {
 }
 
 TEST_F(MasterTest, InitializeFailure) {
-    master->inject_init_error(xerrors::Error(MASTER_INIT_ERROR, "interface not found"));
-    ASSERT_OCCURRED_AS(master->initialize(), MASTER_INIT_ERROR);
+    master->inject_init_error(
+        x::errors::Error(errors::MASTER_INIT_ERROR, "interface not found")
+    );
+    ASSERT_OCCURRED_AS(master->initialize(), errors::MASTER_INIT_ERROR);
     EXPECT_FALSE(master->is_initialized());
 }
 
@@ -69,13 +71,15 @@ TEST_F(MasterTest, ActivateFailure) {
         }
     );
     ASSERT_NIL(master->initialize());
-    master->inject_activate_error(xerrors::Error(ACTIVATION_ERROR, "failed to map IO"));
-    ASSERT_OCCURRED_AS(master->activate(), ACTIVATION_ERROR);
+    master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "failed to map IO")
+    );
+    ASSERT_OCCURRED_AS(master->activate(), errors::ACTIVATION_ERROR);
     EXPECT_FALSE(master->is_activated());
 }
 
 TEST_F(MasterTest, ActivateWithoutInitializeFails) {
-    ASSERT_OCCURRED_AS(master->activate(), ACTIVATION_ERROR);
+    ASSERT_OCCURRED_AS(master->activate(), errors::ACTIVATION_ERROR);
 }
 
 TEST_F(MasterTest, SlaveDiscovery) {
@@ -185,14 +189,14 @@ TEST_F(MasterTest, PDOOffsetLookup) {
                      .bit_length = 16,
                      .is_input = true,
                      .name = "Input1",
-                     .data_type = telem::INT16_T},
+                     .data_type = x::telem::INT16_T},
                     {.pdo_index = 0x1600,
                      .index = 0x6000,
                      .sub_index = 2,
                      .bit_length = 32,
                      .is_input = true,
                      .name = "Input2",
-                     .data_type = telem::INT32_T},
+                     .data_type = x::telem::INT32_T},
                 },
             .output_pdos = {
                 {.pdo_index = 0x1A00,
@@ -201,7 +205,7 @@ TEST_F(MasterTest, PDOOffsetLookup) {
                  .bit_length = 16,
                  .is_input = false,
                  .name = "Output1",
-                 .data_type = telem::INT16_T},
+                 .data_type = x::telem::INT16_T},
             },
         }
     );
@@ -351,8 +355,10 @@ TEST_F(MasterTest, ReceiveErrorInjection) {
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
 
-    master->inject_receive_error(xerrors::Error(CYCLIC_ERROR, "receive failed"));
-    ASSERT_OCCURRED_AS(master->receive(), CYCLIC_ERROR);
+    master->inject_receive_error(
+        x::errors::Error(errors::CYCLIC_ERROR, "receive failed")
+    );
+    ASSERT_OCCURRED_AS(master->receive(), errors::CYCLIC_ERROR);
 }
 
 TEST_F(MasterTest, SendErrorInjection) {
@@ -367,15 +373,15 @@ TEST_F(MasterTest, SendErrorInjection) {
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
 
-    master->inject_send_error(xerrors::Error(CYCLIC_ERROR, "send failed"));
-    ASSERT_OCCURRED_AS(master->send(), CYCLIC_ERROR);
+    master->inject_send_error(x::errors::Error(errors::CYCLIC_ERROR, "send failed"));
+    ASSERT_OCCURRED_AS(master->send(), errors::CYCLIC_ERROR);
 }
 
 TEST_F(MasterTest, ClearInjectedErrors) {
-    master->inject_init_error(xerrors::Error(MASTER_INIT_ERROR, "error"));
-    master->inject_activate_error(xerrors::Error(ACTIVATION_ERROR, "error"));
-    master->inject_receive_error(xerrors::Error(CYCLIC_ERROR, "error"));
-    master->inject_send_error(xerrors::Error(CYCLIC_ERROR, "error"));
+    master->inject_init_error(x::errors::Error(errors::MASTER_INIT_ERROR, "error"));
+    master->inject_activate_error(x::errors::Error(errors::ACTIVATION_ERROR, "error"));
+    master->inject_receive_error(x::errors::Error(errors::CYCLIC_ERROR, "error"));
+    master->inject_send_error(x::errors::Error(errors::CYCLIC_ERROR, "error"));
 
     master->clear_injected_errors();
     master->add_slave(

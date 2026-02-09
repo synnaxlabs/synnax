@@ -18,20 +18,20 @@
 #include "modbus/modbus.h"
 #endif
 
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 
 #include "driver/errors/errors.h"
 
-const xerrors::Error CRITICAL_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("modbus");
-const xerrors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub("modbus");
+namespace driver::modbus::device {
+const x::errors::Error CRITICAL_ERROR = errors::CRITICAL_HARDWARE_ERROR.sub("modbus");
+const x::errors::Error TEMPORARY_ERROR = errors::TEMPORARY_HARDWARE_ERROR.sub("modbus");
 
-namespace modbus::device {
 /// @brief parses the xerrors compatible representation of the modbus error code.
-inline xerrors::Error parse_error(const int code) {
-    if (code != -1) return xerrors::NIL;
+inline x::errors::Error parse_error(const int code) {
+    if (code != -1) return x::errors::NIL;
     const auto err = modbus_strerror(errno);
-    return xerrors::Error(CRITICAL_ERROR, err);
+    return x::errors::Error(CRITICAL_ERROR, err);
 }
 
 enum RegisterType {
@@ -61,7 +61,7 @@ struct Device {
     /// @param addr the address to start reading from.
     /// @param nb the number of bits to read.
     /// @param dest the destination buffer to read into.
-    xerrors::Error read_bits(
+    x::errors::Error read_bits(
         const BitType input_type,
         const int addr,
         const size_t nb,
@@ -78,7 +78,7 @@ struct Device {
     /// registers).
     /// @brief input_type the input type to read from - either
     /// RegisterType::HoldingRegister or ByteType::InputRegister.
-    xerrors::Error read_registers(
+    x::errors::Error read_registers(
         const RegisterType t,
         const int addr,
         const size_t nb,
@@ -97,7 +97,7 @@ struct Device {
     /// @param addr the address to start writing to.
     /// @param nb the number of bits to write.
     /// @param src the source buffer to write from.
-    xerrors::Error
+    x::errors::Error
     write_bits(const int addr, const size_t nb, const uint8_t *src) const {
         return parse_error(modbus_write_bits(ctx, addr, static_cast<int>(nb), src));
     }
@@ -106,7 +106,7 @@ struct Device {
     /// @param addr the address to start writing to.
     /// @param nb the number of registers to write.
     /// @param src the source buffer to write from.
-    xerrors::Error
+    x::errors::Error
     write_registers(const int addr, const size_t nb, const uint16_t *src) const {
         return parse_error(
             modbus_write_registers(ctx, addr, static_cast<int>(nb), src)
@@ -139,14 +139,14 @@ struct ConnectionConfig {
         swap_words(swap_words) {}
 
     /// @brief constructs a ConnectionConfig from a JSON object.
-    explicit ConnectionConfig(xjson::Parser parser):
+    explicit ConnectionConfig(x::json::Parser parser):
         host(parser.field<std::string>("host")),
         port(parser.field<uint16_t>("port")),
         swap_bytes(parser.field<bool>("swap_bytes")),
         swap_words(parser.field<bool>("swap_words")) {}
 
     /// @brief returns the JSON representation of the configuration.
-    [[nodiscard]] json to_json() const {
+    [[nodiscard]] x::json::json to_json() const {
         return {
             {"host", host},
             {"port", port},
@@ -167,18 +167,18 @@ public:
     /// @note Each call creates a fresh connection. Connections are not cached or shared
     /// to avoid thread-safety issues (libmodbus is not thread-safe) and stale
     /// connection problems when servers restart.
-    std::pair<std::shared_ptr<Device>, xerrors::Error>
+    std::pair<std::shared_ptr<Device>, x::errors::Error>
     acquire(const ConnectionConfig &config) {
         auto ctx = modbus_new_tcp(config.host.c_str(), config.port);
         if (ctx == nullptr)
-            return {nullptr, xerrors::Error(CRITICAL_ERROR, modbus_strerror(errno))};
+            return {nullptr, x::errors::Error(CRITICAL_ERROR, modbus_strerror(errno))};
 
         if (auto err = parse_error(modbus_connect(ctx))) {
             modbus_free(ctx);
             return {nullptr, err};
         }
 
-        return {std::make_shared<Device>(ctx), xerrors::NIL};
+        return {std::make_shared<Device>(ctx), x::errors::NIL};
     }
 };
 }

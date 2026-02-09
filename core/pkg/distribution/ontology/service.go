@@ -21,6 +21,12 @@ import (
 	"go.uber.org/zap"
 )
 
+// SearchableFieldsProvider is an optional interface that ontology services can
+// implement to declare which fields beyond "name" should be indexed for search.
+type SearchableFieldsProvider interface {
+	SearchableFields() []string
+}
+
 // Service represents a service that exposes a set of entities to the ontology (such as
 // a channel, node, user, etc.). Because the ontology only stores the relationships
 // between entities, it is a service's responsibility to provide the entities themselves

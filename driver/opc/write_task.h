@@ -16,35 +16,35 @@
 
 /// module
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
 /// internal
+#include "driver/common/write_task.h"
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/errors/errors.h"
 #include "driver/opc/types/types.h"
 #include "driver/opc/write_task.h"
 #include "driver/pipeline/control.h"
-#include "driver/task/common/write_task.h"
 
-namespace opc {
+namespace driver::opc {
 struct OutputChan {
     /// @brief whether output for the channel is enabled.
     const bool enabled;
     /// @brief the OPC UA node id.
-    opc::NodeId node;
+    types::NodeId node;
     /// @brief the corresponding channel key to write the variable for the node
     /// from.
-    const synnax::ChannelKey cmd_channel;
+    const synnax::channel::Key cmd_channel;
     /// @brief the channel fetched from the Synnax server. This does not need to
     /// be provided via the JSON configuration.
-    synnax::Channel ch;
+    synnax::channel::Channel ch;
 
-    explicit OutputChan(xjson::Parser &parser):
+    explicit OutputChan(x::json::Parser &parser):
         enabled(parser.field<bool>("enabled", true)),
-        node(opc::NodeId::parse("node_id", parser)),
+        node(types::NodeId::parse("node_id", parser)),
         cmd_channel([&parser] {
-            auto ch = parser.field<synnax::ChannelKey>("cmd_channel", 0);
-            if (ch == 0) ch = parser.field<synnax::ChannelKey>("channel", 0);
+            auto ch = parser.field<synnax::channel::Key>("cmd_channel", 0);
+            if (ch == 0) ch = parser.field<synnax::channel::Key>("channel", 0);
             if (ch == 0) parser.field_err("cmd_channel", "channel must be specified");
             return ch;
         }()) {}
@@ -52,17 +52,17 @@ struct OutputChan {
 
 struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the list of channels to read from the server.
-    std::unordered_map<synnax::ChannelKey, std::unique_ptr<OutputChan>> channels;
+    std::unordered_map<synnax::channel::Key, std::unique_ptr<OutputChan>> channels;
     /// @brief the config for connecting to the OPC UA server.
     /// Dynamically populated from device properties.
-    opc::connection::Config connection;
+    connection::Config connection;
 
     explicit WriteTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
-        xjson::Parser &parser
+        x::json::Parser &parser
     ):
         common::BaseWriteTaskConfig(parser) {
-        parser.iter("channels", [&](xjson::Parser &channel_builder) {
+        parser.iter("channels", [&](x::json::Parser &channel_builder) {
             auto ch = std::make_unique<OutputChan>(channel_builder);
             if (ch->enabled) channels[ch->cmd_channel] = std::move(ch);
         });
@@ -71,7 +71,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             return;
         }
 
-        std::vector<synnax::ChannelKey> keys;
+        std::vector<synnax::channel::Key> keys;
         keys.reserve(this->channels.size());
         for (const auto &[key, _]: this->channels)
             keys.push_back(key);
@@ -92,61 +92,63 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             parser.field_err("device", "failed to retrieve device: " + err.message());
             return;
         }
-        const auto properties = xjson::Parser(dev.properties);
-        this->connection = opc::connection::Config(properties.child("connection"));
+        const auto properties = x::json::Parser(dev.properties);
+        this->connection = connection::Config(properties.child("connection"));
         if (properties.error())
             parser.field_err("device", properties.error().message());
     }
 
-    [[nodiscard]] std::vector<synnax::ChannelKey> cmd_keys() const {
-        std::vector<synnax::ChannelKey> keys;
+    [[nodiscard]] std::vector<synnax::channel::Key> cmd_keys() const {
+        std::vector<synnax::channel::Key> keys;
         keys.reserve(this->channels.size());
         for (const auto &[key, _]: channels)
             keys.push_back(key);
         return keys;
     }
 
-    static std::pair<WriteTaskConfig, xerrors::Error>
-    parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
-        auto parser = xjson::Parser(task.config);
+    static std::pair<WriteTaskConfig, x::errors::Error> parse(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const synnax::task::Task &task
+    ) {
+        auto parser = x::json::Parser(task.config);
         return {WriteTaskConfig(client, parser), parser.error()};
     }
 };
 
 class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
-    std::shared_ptr<opc::connection::Pool> pool;
-    opc::connection::Pool::Connection connection;
-    opc::WriteRequestBuilder builder;
-    std::vector<synnax::ChannelKey> written_keys;
+    std::shared_ptr<connection::Pool> pool;
+    connection::Pool::Connection connection;
+    types::WriteRequestBuilder builder;
+    std::vector<synnax::channel::Key> written_keys;
 
 public:
-    WriteTaskSink(std::shared_ptr<opc::connection::Pool> pool, WriteTaskConfig cfg):
+    WriteTaskSink(std::shared_ptr<connection::Pool> pool, WriteTaskConfig cfg):
         Sink(cfg.cmd_keys()),
         cfg(std::move(cfg)),
         pool(std::move(pool)),
         connection(nullptr, nullptr, "") {}
 
-    xerrors::Error start() override {
+    x::errors::Error start() override {
         auto [c, err] = pool->acquire(cfg.connection, "[opc.write] ");
         if (err) return err;
         connection = std::move(c);
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    xerrors::Error stop() override {
-        connection = opc::connection::Pool::Connection(nullptr, nullptr, "");
-        return xerrors::NIL;
+    x::errors::Error stop() override {
+        connection = connection::Pool::Connection(nullptr, nullptr, "");
+        return x::errors::NIL;
     }
 
-    xerrors::Error write(::telem::Frame &frame) override {
+    x::errors::Error write(::x::telem::Frame &frame) override {
         auto err = this->perform_write(frame);
-        if (!err.matches(opc::errors::UNREACHABLE)) return err;
+        if (!err.matches(errors::UNREACHABLE)) return err;
         LOG(
             WARNING
         ) << "[opc.write_task] connection error detected, attempting reconnect: "
           << err;
-        this->connection = opc::connection::Pool::Connection(nullptr, nullptr, "");
+        this->connection = connection::Pool::Connection(nullptr, nullptr, "");
         auto [c, conn_err] = this->pool->acquire(this->cfg.connection, "[opc.write] ");
         if (conn_err) {
             LOG(ERROR) << "[opc.write_task] failed to reconnect: " << conn_err;
@@ -158,8 +160,8 @@ public:
     }
 
 private:
-    xerrors::Error perform_write(const ::telem::Frame &frame) {
-        if (!this->connection) return opc::errors::NO_CONNECTION;
+    x::errors::Error perform_write(const ::x::telem::Frame &frame) {
+        if (!this->connection) return errors::NO_CONNECTION;
         this->builder.clear();
         this->written_keys.clear();
         for (const auto &[key, s]: frame) {
@@ -171,23 +173,23 @@ private:
             }
             this->written_keys.push_back(key);
         }
-        if (this->builder.empty()) return xerrors::NIL;
-        opc::WriteResponse res(
+        if (this->builder.empty()) return x::errors::NIL;
+        types::WriteResponse res(
             UA_Client_Service_write(this->connection.get(), this->builder.build())
         );
-        if (auto err = opc::errors::parse(res.get().responseHeader.serviceResult); err)
+        if (auto err = errors::parse(res.get().responseHeader.serviceResult); err)
             return err;
         for (std::size_t i = 0; i < res.get().resultsSize; ++i) {
-            if (auto err = opc::errors::parse(res.get().results[i]); err) {
+            if (auto err = errors::parse(res.get().results[i]); err) {
                 const auto &ch = this->cfg.channels.at(this->written_keys[i]);
-                return driver::wrap_channel_error(
+                return driver::errors::wrap_channel_error(
                     err,
                     ch->ch.name,
-                    opc::NodeId::to_string(ch->node.get())
+                    types::NodeId::to_string(ch->node.get())
                 );
             }
         }
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 };
 }

@@ -13,10 +13,11 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/binary",
+        "//x/cpp/json",
         "//x/go/control:control_grpc",
         "//x/go/telem:telem_grpc",
         "@nlohmann_json//:json",
-        "@protobuf//:protobuf",
+        "@protobuf",
     ],
 )
 

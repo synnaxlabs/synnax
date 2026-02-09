@@ -30,6 +30,7 @@
     color: var(--pluto-secondary-m1) !important;
 }
 
+.monaco-editor,
 .monaco-editor-background {
     background: var(--pluto-gray-l1) !important;
 }

@@ -13,7 +13,7 @@
 
 #include "x/cpp/telem/telem.h"
 
-namespace notify {
+namespace x::notify {
 
 struct Notifier {
     virtual ~Notifier() = default;

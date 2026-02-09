@@ -27,25 +27,25 @@
 
 #include "client/cpp/synnax.h"
 
+#include "driver/common/scan_task.h"
 #include "driver/ni/ni.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/sugared.h"
-#include "driver/task/common/scan_task.h"
 
-namespace ni {
+namespace driver::ni {
 const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
 const std::string RESET_DEVICE_CMD = "reset_device";
 
 struct ResetDeviceCommandArgs {
     std::vector<std::string> device_keys;
 
-    explicit ResetDeviceCommandArgs(xjson::Parser &parser):
+    explicit ResetDeviceCommandArgs(x::json::Parser &parser):
         device_keys(parser.field<std::vector<std::string>>("device_keys")) {}
 };
 
 /// @brief an extension of the default synnax device that also includes NI related
 /// properties.
-struct Device : synnax::Device {
+struct Device : synnax::device::Device {
     /// @brief the raw NI resource name.
     std::string resource_name;
     /// @brief whether the device is simulated.
@@ -54,18 +54,18 @@ struct Device : synnax::Device {
     Device() = default;
 
     explicit Device(
-        const synnax::Device &device,
+        const synnax::device::Device &device,
         std::string resource_name,
         const bool is_simulated
     ):
-        synnax::Device(device),
+        synnax::device::Device(device),
         resource_name(std::move(resource_name)),
         is_simulated(is_simulated) {}
 
     /// @brief returns the synnax device representation along with json serialized
     /// properties.
-    synnax::Device to_synnax() {
-        auto dev = synnax::Device(
+    synnax::device::Device to_synnax() {
+        auto dev = synnax::device::Device(
             this->key,
             this->name,
             this->rack,
@@ -73,7 +73,7 @@ struct Device : synnax::Device {
             this->make,
             this->model,
             nlohmann::to_string(
-                json{
+                x::json::json{
                     {"is_simulated", this->is_simulated},
                     {"resource_name", this->resource_name}
                 }
@@ -91,7 +91,7 @@ struct ScanTaskConfig : common::ScanTaskConfig {
     /// @brief a set of regex patterns to ignore certain devices when scanning.
     std::vector<std::regex> ignored_models;
 
-    explicit ScanTaskConfig(xjson::Parser &cfg): common::ScanTaskConfig(cfg) {
+    explicit ScanTaskConfig(x::json::Parser &cfg): common::ScanTaskConfig(cfg) {
         const auto i = cfg.field<std::vector<std::string>>(
             "ignored_models",
             DEFAULT_IGNORED_MODELS
@@ -112,7 +112,7 @@ struct ScanTaskConfig : common::ScanTaskConfig {
 class Scanner final : public common::Scanner {
     /// @brief configuration for the scan task.
     const ScanTaskConfig cfg;
-    const synnax::Task task;
+    const synnax::task::Task task;
     /// @brief the NI system configuration library.
     std::shared_ptr<syscfg::SugaredAPI> syscfg;
     /// @brief ni system configuration session handle.
@@ -121,11 +121,11 @@ class Scanner final : public common::Scanner {
     NISysCfgFilterHandle filter = nullptr;
 
     /// @brief parses the device located at the specified resource handle.
-    /// @returns the parsed device and xerrors::NIL error if successful.
+    /// @returns the parsed device and x::errors::NIL error if successful.
     /// @returns the device and an SKIP_DEVICE_ERR error if the device should be
     /// skipped.
     /// @returns an empty device and an error if the device could not be parsed.
-    std::pair<ni::Device, xerrors::Error>
+    std::pair<ni::Device, x::errors::Error>
     parse_device(NISysCfgResourceHandle resource) const;
 
     common::ScannerConfig config() const override {
@@ -136,14 +136,14 @@ public:
     explicit Scanner(
         const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
         ScanTaskConfig cfg,
-        synnax::Task task
+        synnax::task::Task task
     );
 
-    xerrors::Error start() override;
+    x::errors::Error start() override;
 
-    std::pair<std::vector<synnax::Device>, xerrors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &ctx) override;
 
-    xerrors::Error stop() override;
+    x::errors::Error stop() override;
 };
 }
