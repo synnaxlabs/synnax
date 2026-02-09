@@ -292,8 +292,11 @@ class ChannelOperations(ConsoleCase):
         assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
 
         console.channels.edit_calculated(self.calc_editable, updated_expr)
-        sy.sleep(0.2)
-        frame = client.read_latest([self.calc_editable, SRC_CH], n=1)
+        for _ in range(5):
+            sy.sleep(0.5)
+            frame = client.read_latest([self.calc_editable, SRC_CH], n=1)
+            if len(frame[SRC_CH]) > 0:
+                break
         uptime_val = int(frame[SRC_CH][-1])
         calc_val = int(frame[self.calc_editable][-1])
         expected_val = uptime_val * updated_multiplier

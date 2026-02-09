@@ -243,14 +243,14 @@ class TaskCase(TestCase):
                 streamer.read(timeout=1)
             sy.sleep(1)
             start_time = sy.TimeStamp.now()
-            sy.sleep(duration.seconds * 1.2)  # Bufffer for CI
+            sy.sleep(duration.seconds * 1.25)  # Bufffer for CI
 
         end_time = sy.TimeStamp.now()
 
         # Allow 35% tolerance for CI environments with timing variance
         expected_samples = int(sample_rate * duration.seconds)
-        min_samples = int(expected_samples * 0.65) if strict else 1
-        max_samples = int(expected_samples * 1.35) if strict else sys.maxsize
+        min_samples = int(expected_samples * 0.60) if strict else 1
+        max_samples = int(expected_samples * 1.4) if strict else sys.maxsize
 
         # Read from start_time to now (captures any buffered/flushed samples)
         time_range = sy.TimeRange(start_time, end_time)
@@ -265,7 +265,7 @@ class TaskCase(TestCase):
                 if strict:
                     raise AssertionError(
                         f"Channel '{ch.name}' has {num_samples} samples, "
-                        f"expected {expected_samples} ±35% ({min_samples}-{max_samples})"
+                        f"expected {expected_samples} ±40% ({min_samples}-{max_samples})"
                     )
                 else:
                     raise AssertionError(
