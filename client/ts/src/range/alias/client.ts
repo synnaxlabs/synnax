@@ -11,7 +11,6 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { type Key } from "@/range/payload";
 import {
   deleteReqZ,
   deleteResZ,
@@ -24,8 +23,9 @@ import {
   setReqZ,
   setResZ,
 } from "@/range/alias/payload";
+import { type Key } from "@/range/payload";
 
-export class Aliaser {
+export class Client {
   private readonly cache = new Map<string, channel.Key>();
   private readonly client: UnaryClient;
   private readonly rangeKey: Key;

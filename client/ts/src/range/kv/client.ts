@@ -11,10 +11,10 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { deleteReqZ, getReqZ, getResZ, type Pair, setReqZ } from "@/range/kv/payload";
 import { type Key } from "@/range/payload";
-import { deleteReqZ, getReqZ, getResZ, type KVPair, setReqZ } from "@/range/kv/payload";
 
-export class KV {
+export class Client {
   private readonly rangeKey: Key;
   private readonly client: UnaryClient;
 
@@ -44,7 +44,7 @@ export class KV {
   async set(key: string, value: string): Promise<void>;
   async set(kv: Record<string, string>): Promise<void>;
   async set(key: string | Record<string, string>, value: string = ""): Promise<void> {
-    let pairs: KVPair[];
+    let pairs: Pair[];
     if (typeof key == "string") pairs = [{ range: this.rangeKey, key, value }];
     else
       pairs = Object.entries(key).map(([k, v]) => ({

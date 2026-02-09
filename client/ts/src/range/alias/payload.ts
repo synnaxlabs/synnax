@@ -13,8 +13,8 @@ import { z } from "zod";
 import { channel } from "@/channel";
 import { type Key, keyZ } from "@/range/payload";
 
-export const SET_ALIAS_CHANNEL_NAME = "sy_range_alias_set";
-export const DELETE_ALIAS_CHANNEL_NAME = "sy_range_alias_delete";
+export const SET_CHANNEL_NAME = "sy_range_alias_set";
+export const DELETE_CHANNEL_NAME = "sy_range_alias_delete";
 
 export const resolveReqZ = z.object({ range: keyZ, aliases: z.string().array() });
 
@@ -57,7 +57,7 @@ export type AliasChange = change.Change<string, Alias>;
 
 const SEPARATOR = "---";
 
-export const aliasKey = (alias: Pick<Alias, "range" | "channel">): string =>
+export const createKey = (alias: Pick<Alias, "range" | "channel">): string =>
   `${alias.range}${SEPARATOR}${alias.channel}`;
 
 export interface DecodedDeleteAliasChange {
@@ -65,9 +65,7 @@ export interface DecodedDeleteAliasChange {
   channel: channel.Key;
 }
 
-export const decodeDeleteAliasChange = (
-  deletedAlias: string,
-): DecodedDeleteAliasChange => {
+export const decodeDeleteChange = (deletedAlias: string): DecodedDeleteAliasChange => {
   const [range, channel] = deletedAlias.split(SEPARATOR);
   return { range, channel: Number(channel) };
 };
