@@ -12,11 +12,12 @@
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
 
+namespace x::loop {
 /// @brief it should correctly wait for an expended number of requests.
 TEST(LoopTest, testWaitPrecise) {
     const auto rate = telem::HERTZ * 5000;
     const auto TARGET_AVG_THRESHOLD = telem::MICROSECOND * 500;
-    loop::Timer timer{rate};
+    Timer timer{rate};
     std::vector<telem::TimeSpan> elapsed;
     constexpr int count = 5e3;
     elapsed.reserve(count);
@@ -39,7 +40,7 @@ TEST(LoopTest, testWaitPrecise) {
 TEST(LoopTest, testWaitLowRate) {
     const auto rate = telem::HERTZ * 10;
     const auto AVG_THRESHOLD = telem::MILLISECOND * 10;
-    loop::Timer timer{rate};
+    Timer timer{rate};
     std::vector<telem::TimeSpan> elapsed;
     constexpr int count = 10;
     elapsed.reserve(count);
@@ -60,7 +61,7 @@ TEST(LoopTest, testWaitLowRate) {
 
 void runBreaker(breaker::Breaker &brk) {
     const auto rate = telem::HERTZ * 1;
-    loop::Timer timer{rate};
+    Timer timer{rate};
     timer.wait(brk);
 }
 
@@ -86,4 +87,5 @@ TEST(LoopTest, testWaitBreaker) {
         (telem::MILLISECOND * 10).nanoseconds()
     );
     t.join();
+}
 }

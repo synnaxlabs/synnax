@@ -11,12 +11,12 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/common",
         "//driver/errors",
         "//driver/modbus/device",
         "//driver/modbus/util",
         "//driver/pipeline",
         "//driver/task",
-        "//driver/task/common",
         "//vendor/libmodbus",
         "//x/cpp/breaker",
         "//x/cpp/defer",
@@ -36,7 +36,7 @@ cc_test(
         "//driver/modbus",
         "//driver/modbus/mock",
         "//driver/pipeline/mock",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

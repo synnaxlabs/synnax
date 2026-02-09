@@ -9,11 +9,11 @@
 
 #include <gtest/gtest.h>
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/ethercat/mock/master.h"
 
-namespace ethercat::mock {
+namespace driver::ethercat::mock {
 
 TEST(MasterConstruction, DefaultInterfaceName) {
     Master master;
@@ -117,20 +117,20 @@ TEST(MasterInitialization, InitializeIncrementsCallCount) {
 
 TEST(MasterInitialization, InitializeWithInjectedError) {
     Master master;
-    master.inject_init_error(xerrors::Error(MASTER_INIT_ERROR, "test error"));
-    ASSERT_OCCURRED_AS(master.initialize(), MASTER_INIT_ERROR);
+    master.inject_init_error(x::errors::Error(errors::MASTER_INIT_ERROR, "test error"));
+    ASSERT_OCCURRED_AS(master.initialize(), errors::MASTER_INIT_ERROR);
 }
 
 TEST(MasterInitialization, InitializeWithInjectedErrorDoesNotSetInitialized) {
     Master master;
-    master.inject_init_error(xerrors::Error(MASTER_INIT_ERROR, "test error"));
+    master.inject_init_error(x::errors::Error(errors::MASTER_INIT_ERROR, "test error"));
     auto err = master.initialize();
     EXPECT_FALSE(master.is_initialized());
 }
 
 TEST(MasterActivation, ActivateRequiresInitialization) {
     Master master;
-    ASSERT_OCCURRED_AS(master.activate(), ACTIVATION_ERROR);
+    ASSERT_OCCURRED_AS(master.activate(), errors::ACTIVATION_ERROR);
 }
 
 TEST(MasterActivation, ActivateSetsActivatedTrue) {
@@ -161,8 +161,10 @@ TEST(MasterActivation, ActivateTransitionsSlavesToOp) {
 TEST(MasterActivation, ActivateWithInjectedError) {
     Master master;
     ASSERT_NIL(master.initialize());
-    master.inject_activate_error(xerrors::Error(ACTIVATION_ERROR, "test error"));
-    ASSERT_OCCURRED_AS(master.activate(), ACTIVATION_ERROR);
+    master.inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "test error")
+    );
+    ASSERT_OCCURRED_AS(master.activate(), errors::ACTIVATION_ERROR);
 }
 
 TEST(MasterActivation, ActivateWithTransitionFailure) {
@@ -187,14 +189,14 @@ TEST(MasterActivation, ActivateAllocatesIoMaps) {
                   .sub_index = 1,
                   .bit_length = 16,
                   .is_input = true,
-                  .data_type = telem::INT16_T}},
+                  .data_type = x::telem::INT16_T}},
             .output_pdos = {
                 {.pdo_index = 0x1600,
                  .index = 0x7000,
                  .sub_index = 1,
                  .bit_length = 32,
                  .is_input = false,
-                 .data_type = telem::INT32_T}
+                 .data_type = x::telem::INT32_T}
             }
         }
     );
@@ -253,8 +255,8 @@ TEST(MasterSendReceive, SendWithInjectedError) {
     Master master;
     ASSERT_NIL(master.initialize());
     ASSERT_NIL(master.activate());
-    master.inject_send_error(xerrors::Error(MASTER_INIT_ERROR, "send error"));
-    ASSERT_OCCURRED_AS(master.send(), MASTER_INIT_ERROR);
+    master.inject_send_error(x::errors::Error(errors::MASTER_INIT_ERROR, "send error"));
+    ASSERT_OCCURRED_AS(master.send(), errors::MASTER_INIT_ERROR);
 }
 
 TEST(MasterSendReceive, ReceiveLogsCall) {
@@ -269,8 +271,10 @@ TEST(MasterSendReceive, ReceiveWithInjectedError) {
     Master master;
     ASSERT_NIL(master.initialize());
     ASSERT_NIL(master.activate());
-    master.inject_receive_error(xerrors::Error(MASTER_INIT_ERROR, "receive error"));
-    ASSERT_OCCURRED_AS(master.receive(), MASTER_INIT_ERROR);
+    master.inject_receive_error(
+        x::errors::Error(errors::MASTER_INIT_ERROR, "receive error")
+    );
+    ASSERT_OCCURRED_AS(master.receive(), errors::MASTER_INIT_ERROR);
 }
 
 TEST(MasterPdoRegistration, RegisterPdosLogsCall) {
@@ -282,8 +286,8 @@ TEST(MasterPdoRegistration, RegisterPdosLogsCall) {
 TEST(MasterPdoRegistration, PdoOffsetReturnsCorrectOffset) {
     Master master;
     std::vector<pdo::Entry> entries = {
-        pdo::Entry(0, 0x6000, 1, 16, true, telem::INT16_T),
-        pdo::Entry(0, 0x6000, 2, 32, true, telem::INT32_T),
+        pdo::Entry(0, 0x6000, 1, 16, true, x::telem::INT16_T),
+        pdo::Entry(0, 0x6000, 2, 32, true, x::telem::INT32_T),
     };
     ASSERT_NIL(master.register_pdos(entries));
     ASSERT_NIL(master.initialize());
@@ -299,7 +303,7 @@ TEST(MasterPdoRegistration, PdoOffsetReturnsEmptyForUnregistered) {
     Master master;
     ASSERT_NIL(master.initialize());
     ASSERT_NIL(master.activate());
-    pdo::Entry unknown(0, 0x9999, 1, 16, true, telem::INT16_T);
+    pdo::Entry unknown(0, 0x9999, 1, 16, true, x::telem::INT16_T);
     auto offset = master.pdo_offset(unknown);
     EXPECT_EQ(offset.byte, 0);
     EXPECT_EQ(offset.bit, 0);
@@ -385,10 +389,12 @@ TEST(MasterCallLog, ClearCallLogRemovesEntries) {
 
 TEST(MasterErrorInjection, ClearInjectedErrorsResetsAllErrors) {
     Master master;
-    master.inject_init_error(xerrors::Error(MASTER_INIT_ERROR, "init"));
-    master.inject_activate_error(xerrors::Error(ACTIVATION_ERROR, "activate"));
-    master.inject_send_error(xerrors::Error(MASTER_INIT_ERROR, "send"));
-    master.inject_receive_error(xerrors::Error(MASTER_INIT_ERROR, "receive"));
+    master.inject_init_error(x::errors::Error(errors::MASTER_INIT_ERROR, "init"));
+    master.inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate")
+    );
+    master.inject_send_error(x::errors::Error(errors::MASTER_INIT_ERROR, "send"));
+    master.inject_receive_error(x::errors::Error(errors::MASTER_INIT_ERROR, "receive"));
     master.clear_injected_errors();
     ASSERT_NIL(master.initialize());
     ASSERT_NIL(master.activate());
@@ -445,7 +451,7 @@ TEST(ManagerCreate, ReturnsConfiguredMaster) {
 
 TEST(ManagerCreate, ReturnsErrorForUnconfigured) {
     Manager manager;
-    ASSERT_OCCURRED_AS_P(manager.create("unknown"), MASTER_INIT_ERROR);
+    ASSERT_OCCURRED_AS_P(manager.create("unknown"), errors::MASTER_INIT_ERROR);
 }
 
 }

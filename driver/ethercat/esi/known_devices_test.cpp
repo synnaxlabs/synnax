@@ -11,7 +11,7 @@
 
 #include "driver/ethercat/esi/known_devices.h"
 
-namespace ethercat::esi {
+namespace driver::ethercat::esi {
 
 class KnownDevicesTest : public ::testing::Test {
 protected:

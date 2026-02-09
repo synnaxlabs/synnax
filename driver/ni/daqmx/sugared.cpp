@@ -9,7 +9,7 @@
 
 #include "driver/ni/daqmx/sugared.h"
 
-namespace daqmx {
+namespace driver::ni::daqmx {
 using Status = int32;
 
 inline std::string get_error_msg(const std::shared_ptr<API> &dmx) {
@@ -19,30 +19,30 @@ inline std::string get_error_msg(const std::shared_ptr<API> &dmx) {
     return {err_buf.data()};
 }
 
-static xerrors::Error
+static x::errors::Error
 parse_error(const std::shared_ptr<API> &dmx, const Status status) {
-    if (status == 0) return xerrors::NIL;
+    if (status == 0) return x::errors::NIL;
     const auto err_msg = get_error_msg(dmx);
-    return xerrors::Error{
+    return x::errors::Error{
         CRITICAL_ERROR.sub(std::to_string(status).substr(1)),
         err_msg
     };
 }
 
-xerrors::Error SugaredAPI::process_error(const int32 status) const {
+x::errors::Error SugaredAPI::process_error(const int32 status) const {
     return parse_error(dmx, status);
 }
 
-xerrors::Error SugaredAPI::AddCDAQSyncConnection(const char portList[]) {
+x::errors::Error SugaredAPI::AddCDAQSyncConnection(const char portList[]) {
     return process_error(dmx->AddCDAQSyncConnection(portList));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::AddGlobalChansToTask(TaskHandle task, const char channelNames[]) {
     return process_error(dmx->AddGlobalChansToTask(task, channelNames));
 }
 
-xerrors::Error SugaredAPI::AddNetworkDevice(
+x::errors::Error SugaredAPI::AddNetworkDevice(
     const char ipAddress[],
     const char deviceName[],
     bool32 attemptReservation,
@@ -60,7 +60,7 @@ xerrors::Error SugaredAPI::AddNetworkDevice(
     ));
 }
 
-xerrors::Error SugaredAPI::AreConfiguredCDAQSyncPortsDisconnected(
+x::errors::Error SugaredAPI::AreConfiguredCDAQSyncPortsDisconnected(
     const char chassisDevicesPorts[],
     float64 timeout,
     bool32 *disconnectedPortsExist
@@ -72,7 +72,7 @@ xerrors::Error SugaredAPI::AreConfiguredCDAQSyncPortsDisconnected(
     ));
 }
 
-xerrors::Error SugaredAPI::AutoConfigureCDAQSyncConnections(
+x::errors::Error SugaredAPI::AutoConfigureCDAQSyncConnections(
     const char chassisDevicesPorts[],
     float64 timeout
 ) {
@@ -81,7 +81,7 @@ xerrors::Error SugaredAPI::AutoConfigureCDAQSyncConnections(
     );
 }
 
-xerrors::Error SugaredAPI::CalculateReversePolyCoeff(
+x::errors::Error SugaredAPI::CalculateReversePolyCoeff(
     const float64 forwardCoeffs[],
     uInt32 numForwardCoeffsIn,
     float64 minValX,
@@ -101,7 +101,7 @@ xerrors::Error SugaredAPI::CalculateReversePolyCoeff(
     ));
 }
 
-xerrors::Error SugaredAPI::CfgAnlgEdgeRefTrig(
+x::errors::Error SugaredAPI::CfgAnlgEdgeRefTrig(
     TaskHandle task,
     const char triggerSource[],
     int32 triggerSlope,
@@ -117,7 +117,7 @@ xerrors::Error SugaredAPI::CfgAnlgEdgeRefTrig(
     ));
 }
 
-xerrors::Error SugaredAPI::CfgAnlgEdgeStartTrig(
+x::errors::Error SugaredAPI::CfgAnlgEdgeStartTrig(
     TaskHandle task,
     const char triggerSource[],
     int32 triggerSlope,
@@ -128,7 +128,7 @@ xerrors::Error SugaredAPI::CfgAnlgEdgeStartTrig(
     );
 }
 
-xerrors::Error SugaredAPI::CfgAnlgMultiEdgeRefTrig(
+x::errors::Error SugaredAPI::CfgAnlgMultiEdgeRefTrig(
     TaskHandle task,
     const char triggerSources[],
     const int32 triggerSlopeArray[],
@@ -146,7 +146,7 @@ xerrors::Error SugaredAPI::CfgAnlgMultiEdgeRefTrig(
     ));
 }
 
-xerrors::Error SugaredAPI::CfgAnlgMultiEdgeStartTrig(
+x::errors::Error SugaredAPI::CfgAnlgMultiEdgeStartTrig(
     TaskHandle task,
     const char triggerSources[],
     const int32 triggerSlopeArray[],
@@ -162,7 +162,7 @@ xerrors::Error SugaredAPI::CfgAnlgMultiEdgeStartTrig(
     ));
 }
 
-xerrors::Error SugaredAPI::CfgAnlgWindowRefTrig(
+x::errors::Error SugaredAPI::CfgAnlgWindowRefTrig(
     TaskHandle task,
     const char triggerSource[],
     int32 triggerWhen,
@@ -180,7 +180,7 @@ xerrors::Error SugaredAPI::CfgAnlgWindowRefTrig(
     ));
 }
 
-xerrors::Error SugaredAPI::CfgAnlgWindowStartTrig(
+x::errors::Error SugaredAPI::CfgAnlgWindowStartTrig(
     TaskHandle task,
     const char triggerSource[],
     int32 triggerWhen,
@@ -196,7 +196,7 @@ xerrors::Error SugaredAPI::CfgAnlgWindowStartTrig(
     ));
 }
 
-xerrors::Error SugaredAPI::CfgBurstHandshakingTimingExportClock(
+x::errors::Error SugaredAPI::CfgBurstHandshakingTimingExportClock(
     TaskHandle task,
     int32 sampleMode,
     uInt64 sampsPerChan,
@@ -218,7 +218,7 @@ xerrors::Error SugaredAPI::CfgBurstHandshakingTimingExportClock(
     ));
 }
 
-xerrors::Error SugaredAPI::CfgBurstHandshakingTimingImportClock(
+x::errors::Error SugaredAPI::CfgBurstHandshakingTimingImportClock(
     TaskHandle task,
     int32 sampleMode,
     uInt64 sampsPerChan,
@@ -240,7 +240,7 @@ xerrors::Error SugaredAPI::CfgBurstHandshakingTimingImportClock(
     ));
 }
 
-xerrors::Error SugaredAPI::CfgChangeDetectionTiming(
+x::errors::Error SugaredAPI::CfgChangeDetectionTiming(
     TaskHandle task,
     const char risingEdgeChan[],
     const char fallingEdgeChan[],
@@ -256,7 +256,7 @@ xerrors::Error SugaredAPI::CfgChangeDetectionTiming(
     ));
 }
 
-xerrors::Error SugaredAPI::CfgDigEdgeRefTrig(
+x::errors::Error SugaredAPI::CfgDigEdgeRefTrig(
     TaskHandle task,
     const char triggerSource[],
     int32 triggerEdge,
@@ -267,7 +267,7 @@ xerrors::Error SugaredAPI::CfgDigEdgeRefTrig(
     );
 }
 
-xerrors::Error SugaredAPI::CfgDigEdgeStartTrig(
+x::errors::Error SugaredAPI::CfgDigEdgeStartTrig(
     TaskHandle task,
     const char triggerSource[],
     int32 triggerEdge
@@ -275,7 +275,7 @@ xerrors::Error SugaredAPI::CfgDigEdgeStartTrig(
     return process_error(dmx->CfgDigEdgeStartTrig(task, triggerSource, triggerEdge));
 }
 
-xerrors::Error SugaredAPI::CfgDigPatternRefTrig(
+x::errors::Error SugaredAPI::CfgDigPatternRefTrig(
     TaskHandle task,
     const char triggerSource[],
     const char triggerPattern[],
@@ -291,7 +291,7 @@ xerrors::Error SugaredAPI::CfgDigPatternRefTrig(
     ));
 }
 
-xerrors::Error SugaredAPI::CfgDigPatternStartTrig(
+x::errors::Error SugaredAPI::CfgDigPatternStartTrig(
     TaskHandle task,
     const char triggerSource[],
     const char triggerPattern[],
@@ -302,7 +302,7 @@ xerrors::Error SugaredAPI::CfgDigPatternStartTrig(
     );
 }
 
-xerrors::Error SugaredAPI::CfgHandshakingTiming(
+x::errors::Error SugaredAPI::CfgHandshakingTiming(
     TaskHandle task,
     int32 sampleMode,
     uInt64 sampsPerChan
@@ -310,20 +310,20 @@ xerrors::Error SugaredAPI::CfgHandshakingTiming(
     return process_error(dmx->CfgHandshakingTiming(task, sampleMode, sampsPerChan));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::CfgImplicitTiming(TaskHandle task, int32 sampleMode, uInt64 sampsPerChan) {
     return process_error(dmx->CfgImplicitTiming(task, sampleMode, sampsPerChan));
 }
 
-xerrors::Error SugaredAPI::CfgInputBuffer(TaskHandle task, uInt32 numSampsPerChan) {
+x::errors::Error SugaredAPI::CfgInputBuffer(TaskHandle task, uInt32 numSampsPerChan) {
     return process_error(dmx->CfgInputBuffer(task, numSampsPerChan));
 }
 
-xerrors::Error SugaredAPI::CfgOutputBuffer(TaskHandle task, uInt32 numSampsPerChan) {
+x::errors::Error SugaredAPI::CfgOutputBuffer(TaskHandle task, uInt32 numSampsPerChan) {
     return process_error(dmx->CfgOutputBuffer(task, numSampsPerChan));
 }
 
-xerrors::Error SugaredAPI::CfgPipelinedSampClkTiming(
+x::errors::Error SugaredAPI::CfgPipelinedSampClkTiming(
     TaskHandle task,
     const char source[],
     float64 rate,
@@ -341,7 +341,7 @@ xerrors::Error SugaredAPI::CfgPipelinedSampClkTiming(
     ));
 }
 
-xerrors::Error SugaredAPI::CfgSampClkTiming(
+x::errors::Error SugaredAPI::CfgSampClkTiming(
     TaskHandle task,
     const char source[],
     float64 rate,
@@ -354,12 +354,12 @@ xerrors::Error SugaredAPI::CfgSampClkTiming(
     );
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::CfgTimeStartTrig(TaskHandle task, CVIAbsoluteTime when, int32 timescale) {
     return process_error(dmx->CfgTimeStartTrig(task, when, timescale));
 }
 
-xerrors::Error SugaredAPI::CfgWatchdogAOExpirStates(
+x::errors::Error SugaredAPI::CfgWatchdogAOExpirStates(
     TaskHandle task,
     const char channelNames[],
     const float64 expirStateArray[],
@@ -375,7 +375,7 @@ xerrors::Error SugaredAPI::CfgWatchdogAOExpirStates(
     ));
 }
 
-xerrors::Error SugaredAPI::CfgWatchdogCOExpirStates(
+x::errors::Error SugaredAPI::CfgWatchdogCOExpirStates(
     TaskHandle task,
     const char channelNames[],
     const int32 expirStateArray[],
@@ -386,7 +386,7 @@ xerrors::Error SugaredAPI::CfgWatchdogCOExpirStates(
     );
 }
 
-xerrors::Error SugaredAPI::CfgWatchdogDOExpirStates(
+x::errors::Error SugaredAPI::CfgWatchdogDOExpirStates(
     TaskHandle task,
     const char channelNames[],
     const int32 expirStateArray[],
@@ -397,15 +397,15 @@ xerrors::Error SugaredAPI::CfgWatchdogDOExpirStates(
     );
 }
 
-xerrors::Error SugaredAPI::ClearTEDS(const char physicalChannel[]) {
+x::errors::Error SugaredAPI::ClearTEDS(const char physicalChannel[]) {
     return process_error(dmx->ClearTEDS(physicalChannel));
 }
 
-xerrors::Error SugaredAPI::ClearTask(TaskHandle task) {
+x::errors::Error SugaredAPI::ClearTask(TaskHandle task) {
     return process_error(dmx->ClearTask(task));
 }
 
-xerrors::Error SugaredAPI::ConfigureLogging(
+x::errors::Error SugaredAPI::ConfigureLogging(
     TaskHandle task,
     const char filePath[],
     int32 loggingMode,
@@ -417,12 +417,12 @@ xerrors::Error SugaredAPI::ConfigureLogging(
     );
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::ConfigureTEDS(const char physicalChannel[], const char filePath[]) {
     return process_error(dmx->ConfigureTEDS(physicalChannel, filePath));
 }
 
-xerrors::Error SugaredAPI::ConnectTerms(
+x::errors::Error SugaredAPI::ConnectTerms(
     const char sourceTerminal[],
     const char destinationTerminal[],
     int32 signalModifiers
@@ -432,11 +432,11 @@ xerrors::Error SugaredAPI::ConnectTerms(
     );
 }
 
-xerrors::Error SugaredAPI::ControlWatchdogTask(TaskHandle task, int32 action) {
+x::errors::Error SugaredAPI::ControlWatchdogTask(TaskHandle task, int32 action) {
     return process_error(dmx->ControlWatchdogTask(task, action));
 }
 
-xerrors::Error SugaredAPI::CreateAIAccel4WireDCVoltageChan(
+x::errors::Error SugaredAPI::CreateAIAccel4WireDCVoltageChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -468,7 +468,7 @@ xerrors::Error SugaredAPI::CreateAIAccel4WireDCVoltageChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIAccelChan(
+x::errors::Error SugaredAPI::CreateAIAccelChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -498,7 +498,7 @@ xerrors::Error SugaredAPI::CreateAIAccelChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIAccelChargeChan(
+x::errors::Error SugaredAPI::CreateAIAccelChargeChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -524,7 +524,7 @@ xerrors::Error SugaredAPI::CreateAIAccelChargeChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIBridgeChan(
+x::errors::Error SugaredAPI::CreateAIBridgeChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -552,7 +552,7 @@ xerrors::Error SugaredAPI::CreateAIBridgeChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIChargeChan(
+x::errors::Error SugaredAPI::CreateAIChargeChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -574,7 +574,7 @@ xerrors::Error SugaredAPI::CreateAIChargeChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAICurrentChan(
+x::errors::Error SugaredAPI::CreateAICurrentChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -600,7 +600,7 @@ xerrors::Error SugaredAPI::CreateAICurrentChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAICurrentRMSChan(
+x::errors::Error SugaredAPI::CreateAICurrentRMSChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -626,7 +626,7 @@ xerrors::Error SugaredAPI::CreateAICurrentRMSChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIForceBridgePolynomialChan(
+x::errors::Error SugaredAPI::CreateAIForceBridgePolynomialChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -666,7 +666,7 @@ xerrors::Error SugaredAPI::CreateAIForceBridgePolynomialChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIForceBridgeTableChan(
+x::errors::Error SugaredAPI::CreateAIForceBridgeTableChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -706,7 +706,7 @@ xerrors::Error SugaredAPI::CreateAIForceBridgeTableChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIForceBridgeTwoPointLinChan(
+x::errors::Error SugaredAPI::CreateAIForceBridgeTwoPointLinChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -746,7 +746,7 @@ xerrors::Error SugaredAPI::CreateAIForceBridgeTwoPointLinChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIForceIEPEChan(
+x::errors::Error SugaredAPI::CreateAIForceIEPEChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -776,7 +776,7 @@ xerrors::Error SugaredAPI::CreateAIForceIEPEChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIFreqVoltageChan(
+x::errors::Error SugaredAPI::CreateAIFreqVoltageChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -800,7 +800,7 @@ xerrors::Error SugaredAPI::CreateAIFreqVoltageChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIMicrophoneChan(
+x::errors::Error SugaredAPI::CreateAIMicrophoneChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -826,7 +826,7 @@ xerrors::Error SugaredAPI::CreateAIMicrophoneChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIPosEddyCurrProxProbeChan(
+x::errors::Error SugaredAPI::CreateAIPosEddyCurrProxProbeChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -850,7 +850,7 @@ xerrors::Error SugaredAPI::CreateAIPosEddyCurrProxProbeChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIPosLVDTChan(
+x::errors::Error SugaredAPI::CreateAIPosLVDTChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -882,7 +882,7 @@ xerrors::Error SugaredAPI::CreateAIPosLVDTChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIPosRVDTChan(
+x::errors::Error SugaredAPI::CreateAIPosRVDTChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -914,7 +914,7 @@ xerrors::Error SugaredAPI::CreateAIPosRVDTChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIPowerChan(
+x::errors::Error SugaredAPI::CreateAIPowerChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -932,7 +932,7 @@ xerrors::Error SugaredAPI::CreateAIPowerChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIPressureBridgePolynomialChan(
+x::errors::Error SugaredAPI::CreateAIPressureBridgePolynomialChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -972,7 +972,7 @@ xerrors::Error SugaredAPI::CreateAIPressureBridgePolynomialChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIPressureBridgeTableChan(
+x::errors::Error SugaredAPI::CreateAIPressureBridgeTableChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -1012,7 +1012,7 @@ xerrors::Error SugaredAPI::CreateAIPressureBridgeTableChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIPressureBridgeTwoPointLinChan(
+x::errors::Error SugaredAPI::CreateAIPressureBridgeTwoPointLinChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -1052,7 +1052,7 @@ xerrors::Error SugaredAPI::CreateAIPressureBridgeTwoPointLinChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIRTDChan(
+x::errors::Error SugaredAPI::CreateAIRTDChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -1080,7 +1080,7 @@ xerrors::Error SugaredAPI::CreateAIRTDChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIResistanceChan(
+x::errors::Error SugaredAPI::CreateAIResistanceChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -1106,7 +1106,7 @@ xerrors::Error SugaredAPI::CreateAIResistanceChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIRosetteStrainGageChan(
+x::errors::Error SugaredAPI::CreateAIRosetteStrainGageChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -1144,7 +1144,7 @@ xerrors::Error SugaredAPI::CreateAIRosetteStrainGageChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIStrainGageChan(
+x::errors::Error SugaredAPI::CreateAIStrainGageChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -1180,7 +1180,7 @@ xerrors::Error SugaredAPI::CreateAIStrainGageChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAITempBuiltInSensorChan(
+x::errors::Error SugaredAPI::CreateAITempBuiltInSensorChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -1194,7 +1194,7 @@ xerrors::Error SugaredAPI::CreateAITempBuiltInSensorChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIThrmcplChan(
+x::errors::Error SugaredAPI::CreateAIThrmcplChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -1220,7 +1220,7 @@ xerrors::Error SugaredAPI::CreateAIThrmcplChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIThrmstrChanIex(
+x::errors::Error SugaredAPI::CreateAIThrmstrChanIex(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -1250,7 +1250,7 @@ xerrors::Error SugaredAPI::CreateAIThrmstrChanIex(
     ));
 }
 
-xerrors::Error SugaredAPI::SetScaleAttributeDouble(
+x::errors::Error SugaredAPI::SetScaleAttributeDouble(
     const char scaleName[],
     int32 attribute,
     float64 value
@@ -1258,7 +1258,7 @@ xerrors::Error SugaredAPI::SetScaleAttributeDouble(
     return process_error(dmx->SetScaleAttributeDouble(scaleName, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetScaleAttributeDoubleArray(
+x::errors::Error SugaredAPI::SetScaleAttributeDoubleArray(
     const char scaleName[],
     int32 attribute,
     const float64 value[],
@@ -1269,7 +1269,7 @@ xerrors::Error SugaredAPI::SetScaleAttributeDoubleArray(
     );
 }
 
-xerrors::Error SugaredAPI::SetScaleAttributeInt32(
+x::errors::Error SugaredAPI::SetScaleAttributeInt32(
     const char scaleName[],
     int32 attribute,
     int32 value
@@ -1277,7 +1277,7 @@ xerrors::Error SugaredAPI::SetScaleAttributeInt32(
     return process_error(dmx->SetScaleAttributeInt32(scaleName, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetScaleAttributeString(
+x::errors::Error SugaredAPI::SetScaleAttributeString(
     const char scaleName[],
     int32 attribute,
     const char value[]
@@ -1285,25 +1285,27 @@ xerrors::Error SugaredAPI::SetScaleAttributeString(
     return process_error(dmx->SetScaleAttributeString(scaleName, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data) {
+x::errors::Error
+SugaredAPI::SetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data) {
     return process_error(dmx->SetStartTrigTrigWhen(task, data));
 }
 
-xerrors::Error SugaredAPI::SetSyncPulseTimeWhen(TaskHandle task, CVIAbsoluteTime data) {
+x::errors::Error
+SugaredAPI::SetSyncPulseTimeWhen(TaskHandle task, CVIAbsoluteTime data) {
     return process_error(dmx->SetSyncPulseTimeWhen(task, data));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetTimingAttributeBool(TaskHandle task, int32 attribute, bool32 value) {
     return process_error(dmx->SetTimingAttributeBool(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetTimingAttributeDouble(TaskHandle task, int32 attribute, float64 value) {
     return process_error(dmx->SetTimingAttributeDouble(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetTimingAttributeExBool(
+x::errors::Error SugaredAPI::SetTimingAttributeExBool(
     TaskHandle task,
     const char deviceNames[],
     int32 attribute,
@@ -1314,7 +1316,7 @@ xerrors::Error SugaredAPI::SetTimingAttributeExBool(
     );
 }
 
-xerrors::Error SugaredAPI::SetTimingAttributeExDouble(
+x::errors::Error SugaredAPI::SetTimingAttributeExDouble(
     TaskHandle task,
     const char deviceNames[],
     int32 attribute,
@@ -1325,7 +1327,7 @@ xerrors::Error SugaredAPI::SetTimingAttributeExDouble(
     );
 }
 
-xerrors::Error SugaredAPI::SetTimingAttributeExInt32(
+x::errors::Error SugaredAPI::SetTimingAttributeExInt32(
     TaskHandle task,
     const char deviceNames[],
     int32 attribute,
@@ -1336,7 +1338,7 @@ xerrors::Error SugaredAPI::SetTimingAttributeExInt32(
     );
 }
 
-xerrors::Error SugaredAPI::SetTimingAttributeExString(
+x::errors::Error SugaredAPI::SetTimingAttributeExString(
     TaskHandle task,
     const char deviceNames[],
     int32 attribute,
@@ -1347,7 +1349,7 @@ xerrors::Error SugaredAPI::SetTimingAttributeExString(
     );
 }
 
-xerrors::Error SugaredAPI::SetTimingAttributeExTimestamp(
+x::errors::Error SugaredAPI::SetTimingAttributeExTimestamp(
     TaskHandle task,
     const char deviceNames[],
     int32 attribute,
@@ -1358,7 +1360,7 @@ xerrors::Error SugaredAPI::SetTimingAttributeExTimestamp(
     );
 }
 
-xerrors::Error SugaredAPI::SetTimingAttributeExUInt32(
+x::errors::Error SugaredAPI::SetTimingAttributeExUInt32(
     TaskHandle task,
     const char deviceNames[],
     int32 attribute,
@@ -1369,7 +1371,7 @@ xerrors::Error SugaredAPI::SetTimingAttributeExUInt32(
     );
 }
 
-xerrors::Error SugaredAPI::SetTimingAttributeExUInt64(
+x::errors::Error SugaredAPI::SetTimingAttributeExUInt64(
     TaskHandle task,
     const char deviceNames[],
     int32 attribute,
@@ -1380,12 +1382,12 @@ xerrors::Error SugaredAPI::SetTimingAttributeExUInt64(
     );
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetTimingAttributeInt32(TaskHandle task, int32 attribute, int32 value) {
     return process_error(dmx->SetTimingAttributeInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetTimingAttributeString(
+x::errors::Error SugaredAPI::SetTimingAttributeString(
     TaskHandle task,
     int32 attribute,
     const char value[]
@@ -1393,7 +1395,7 @@ xerrors::Error SugaredAPI::SetTimingAttributeString(
     return process_error(dmx->SetTimingAttributeString(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetTimingAttributeTimestamp(
+x::errors::Error SugaredAPI::SetTimingAttributeTimestamp(
     TaskHandle task,
     int32 attribute,
     CVIAbsoluteTime value
@@ -1401,27 +1403,27 @@ xerrors::Error SugaredAPI::SetTimingAttributeTimestamp(
     return process_error(dmx->SetTimingAttributeTimestamp(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetTimingAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value) {
     return process_error(dmx->SetTimingAttributeUInt32(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetTimingAttributeUInt64(TaskHandle task, int32 attribute, uInt64 value) {
     return process_error(dmx->SetTimingAttributeUInt64(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetTrigAttributeBool(TaskHandle task, int32 attribute, bool32 value) {
     return process_error(dmx->SetTrigAttributeBool(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetTrigAttributeDouble(TaskHandle task, int32 attribute, float64 value) {
     return process_error(dmx->SetTrigAttributeDouble(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetTrigAttributeDoubleArray(
+x::errors::Error SugaredAPI::SetTrigAttributeDoubleArray(
     TaskHandle task,
     int32 attribute,
     const float64 value[],
@@ -1432,12 +1434,12 @@ xerrors::Error SugaredAPI::SetTrigAttributeDoubleArray(
     );
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetTrigAttributeInt32(TaskHandle task, int32 attribute, int32 value) {
     return process_error(dmx->SetTrigAttributeInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetTrigAttributeInt32Array(
+x::errors::Error SugaredAPI::SetTrigAttributeInt32Array(
     TaskHandle task,
     int32 attribute,
     const int32 value[],
@@ -1446,7 +1448,7 @@ xerrors::Error SugaredAPI::SetTrigAttributeInt32Array(
     return process_error(dmx->SetTrigAttributeInt32Array(task, attribute, value, size));
 }
 
-xerrors::Error SugaredAPI::SetTrigAttributeString(
+x::errors::Error SugaredAPI::SetTrigAttributeString(
     TaskHandle task,
     int32 attribute,
     const char value[]
@@ -1454,7 +1456,7 @@ xerrors::Error SugaredAPI::SetTrigAttributeString(
     return process_error(dmx->SetTrigAttributeString(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetTrigAttributeTimestamp(
+x::errors::Error SugaredAPI::SetTrigAttributeTimestamp(
     TaskHandle task,
     int32 attribute,
     CVIAbsoluteTime value
@@ -1462,12 +1464,12 @@ xerrors::Error SugaredAPI::SetTrigAttributeTimestamp(
     return process_error(dmx->SetTrigAttributeTimestamp(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetTrigAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value) {
     return process_error(dmx->SetTrigAttributeUInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetWatchdogAttributeBool(
+x::errors::Error SugaredAPI::SetWatchdogAttributeBool(
     TaskHandle task,
     const char lines[],
     int32 attribute,
@@ -1476,7 +1478,7 @@ xerrors::Error SugaredAPI::SetWatchdogAttributeBool(
     return process_error(dmx->SetWatchdogAttributeBool(task, lines, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetWatchdogAttributeDouble(
+x::errors::Error SugaredAPI::SetWatchdogAttributeDouble(
     TaskHandle task,
     const char lines[],
     int32 attribute,
@@ -1487,7 +1489,7 @@ xerrors::Error SugaredAPI::SetWatchdogAttributeDouble(
     );
 }
 
-xerrors::Error SugaredAPI::SetWatchdogAttributeInt32(
+x::errors::Error SugaredAPI::SetWatchdogAttributeInt32(
     TaskHandle task,
     const char lines[],
     int32 attribute,
@@ -1496,7 +1498,7 @@ xerrors::Error SugaredAPI::SetWatchdogAttributeInt32(
     return process_error(dmx->SetWatchdogAttributeInt32(task, lines, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetWatchdogAttributeString(
+x::errors::Error SugaredAPI::SetWatchdogAttributeString(
     TaskHandle task,
     const char lines[],
     int32 attribute,
@@ -1507,22 +1509,22 @@ xerrors::Error SugaredAPI::SetWatchdogAttributeString(
     );
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetWriteAttributeBool(TaskHandle task, int32 attribute, bool32 value) {
     return process_error(dmx->SetWriteAttributeBool(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetWriteAttributeDouble(TaskHandle task, int32 attribute, float64 value) {
     return process_error(dmx->SetWriteAttributeDouble(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetWriteAttributeInt32(TaskHandle task, int32 attribute, int32 value) {
     return process_error(dmx->SetWriteAttributeInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetWriteAttributeString(
+x::errors::Error SugaredAPI::SetWriteAttributeString(
     TaskHandle task,
     int32 attribute,
     const char value[]
@@ -1530,37 +1532,37 @@ xerrors::Error SugaredAPI::SetWriteAttributeString(
     return process_error(dmx->SetWriteAttributeString(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetWriteAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value) {
     return process_error(dmx->SetWriteAttributeUInt32(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetWriteAttributeUInt64(TaskHandle task, int32 attribute, uInt64 value) {
     return process_error(dmx->SetWriteAttributeUInt64(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::StartNewFile(TaskHandle task, const char filePath[]) {
+x::errors::Error SugaredAPI::StartNewFile(TaskHandle task, const char filePath[]) {
     return process_error(dmx->StartNewFile(task, filePath));
 }
 
-xerrors::Error SugaredAPI::StartTask(TaskHandle task) {
+x::errors::Error SugaredAPI::StartTask(TaskHandle task) {
     return process_error(dmx->StartTask(task));
 }
 
-xerrors::Error SugaredAPI::StopTask(TaskHandle task) {
+x::errors::Error SugaredAPI::StopTask(TaskHandle task) {
     return process_error(dmx->StopTask(task));
 }
 
-xerrors::Error SugaredAPI::TaskControl(TaskHandle task, int32 action) {
+x::errors::Error SugaredAPI::TaskControl(TaskHandle task, int32 action) {
     return process_error(dmx->TaskControl(task, action));
 }
 
-xerrors::Error SugaredAPI::TristateOutputTerm(const char outputTerminal[]) {
+x::errors::Error SugaredAPI::TristateOutputTerm(const char outputTerminal[]) {
     return process_error(dmx->TristateOutputTerm(outputTerminal));
 }
 
-xerrors::Error SugaredAPI::UnregisterDoneEvent(
+x::errors::Error SugaredAPI::UnregisterDoneEvent(
     TaskHandle task,
     uInt32 options,
     DAQmxDoneEventCallbackPtr callbackFunction,
@@ -1571,7 +1573,7 @@ xerrors::Error SugaredAPI::UnregisterDoneEvent(
     );
 }
 
-xerrors::Error SugaredAPI::UnregisterEveryNSamplesEvent(
+x::errors::Error SugaredAPI::UnregisterEveryNSamplesEvent(
     TaskHandle task,
     int32 everyNSamplesEventType,
     uInt32 nSamples,
@@ -1589,7 +1591,7 @@ xerrors::Error SugaredAPI::UnregisterEveryNSamplesEvent(
     ));
 }
 
-xerrors::Error SugaredAPI::UnregisterSignalEvent(
+x::errors::Error SugaredAPI::UnregisterSignalEvent(
     TaskHandle task,
     int32 signalID,
     uInt32 options,
@@ -1605,16 +1607,16 @@ xerrors::Error SugaredAPI::UnregisterSignalEvent(
     ));
 }
 
-xerrors::Error SugaredAPI::UnreserveNetworkDevice(const char deviceName[]) {
+x::errors::Error SugaredAPI::UnreserveNetworkDevice(const char deviceName[]) {
     return process_error(dmx->UnreserveNetworkDevice(deviceName));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::WaitForNextSampleClock(TaskHandle task, float64 timeout, bool32 *isLate) {
     return process_error(dmx->WaitForNextSampleClock(task, timeout, isLate));
 }
 
-xerrors::Error SugaredAPI::WaitForValidTimestamp(
+x::errors::Error SugaredAPI::WaitForValidTimestamp(
     TaskHandle task,
     int32 timestampEvent,
     float64 timeout,
@@ -1625,11 +1627,11 @@ xerrors::Error SugaredAPI::WaitForValidTimestamp(
     );
 }
 
-xerrors::Error SugaredAPI::WaitUntilTaskDone(TaskHandle task, float64 timeToWait) {
+x::errors::Error SugaredAPI::WaitUntilTaskDone(TaskHandle task, float64 timeToWait) {
     return process_error(dmx->WaitUntilTaskDone(task, timeToWait));
 }
 
-xerrors::Error SugaredAPI::WriteAnalogF64(
+x::errors::Error SugaredAPI::WriteAnalogF64(
     TaskHandle task,
     int32 numSampsPerChan,
     bool32 autoStart,
@@ -1651,7 +1653,7 @@ xerrors::Error SugaredAPI::WriteAnalogF64(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteAnalogScalarF64(
+x::errors::Error SugaredAPI::WriteAnalogScalarF64(
     TaskHandle task,
     bool32 autoStart,
     float64 timeout,
@@ -1663,7 +1665,7 @@ xerrors::Error SugaredAPI::WriteAnalogScalarF64(
     );
 }
 
-xerrors::Error SugaredAPI::WriteBinaryI16(
+x::errors::Error SugaredAPI::WriteBinaryI16(
     TaskHandle task,
     int32 numSampsPerChan,
     bool32 autoStart,
@@ -1685,7 +1687,7 @@ xerrors::Error SugaredAPI::WriteBinaryI16(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteBinaryI32(
+x::errors::Error SugaredAPI::WriteBinaryI32(
     TaskHandle task,
     int32 numSampsPerChan,
     bool32 autoStart,
@@ -1707,7 +1709,7 @@ xerrors::Error SugaredAPI::WriteBinaryI32(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteBinaryU16(
+x::errors::Error SugaredAPI::WriteBinaryU16(
     TaskHandle task,
     int32 numSampsPerChan,
     bool32 autoStart,
@@ -1729,7 +1731,7 @@ xerrors::Error SugaredAPI::WriteBinaryU16(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteBinaryU32(
+x::errors::Error SugaredAPI::WriteBinaryU32(
     TaskHandle task,
     int32 numSampsPerChan,
     bool32 autoStart,
@@ -1751,7 +1753,7 @@ xerrors::Error SugaredAPI::WriteBinaryU32(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteCtrFreq(
+x::errors::Error SugaredAPI::WriteCtrFreq(
     TaskHandle task,
     int32 numSampsPerChan,
     bool32 autoStart,
@@ -1775,7 +1777,7 @@ xerrors::Error SugaredAPI::WriteCtrFreq(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteCtrFreqScalar(
+x::errors::Error SugaredAPI::WriteCtrFreqScalar(
     TaskHandle task,
     bool32 autoStart,
     float64 timeout,
@@ -1793,7 +1795,7 @@ xerrors::Error SugaredAPI::WriteCtrFreqScalar(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteCtrTicks(
+x::errors::Error SugaredAPI::WriteCtrTicks(
     TaskHandle task,
     int32 numSampsPerChan,
     bool32 autoStart,
@@ -1817,7 +1819,7 @@ xerrors::Error SugaredAPI::WriteCtrTicks(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteCtrTicksScalar(
+x::errors::Error SugaredAPI::WriteCtrTicksScalar(
     TaskHandle task,
     bool32 autoStart,
     float64 timeout,
@@ -1835,7 +1837,7 @@ xerrors::Error SugaredAPI::WriteCtrTicksScalar(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteCtrTime(
+x::errors::Error SugaredAPI::WriteCtrTime(
     TaskHandle task,
     int32 numSampsPerChan,
     bool32 autoStart,
@@ -1859,7 +1861,7 @@ xerrors::Error SugaredAPI::WriteCtrTime(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteCtrTimeScalar(
+x::errors::Error SugaredAPI::WriteCtrTimeScalar(
     TaskHandle task,
     bool32 autoStart,
     float64 timeout,
@@ -1872,7 +1874,7 @@ xerrors::Error SugaredAPI::WriteCtrTimeScalar(
     );
 }
 
-xerrors::Error SugaredAPI::WriteDigitalLines(
+x::errors::Error SugaredAPI::WriteDigitalLines(
     TaskHandle task,
     int32 numSampsPerChan,
     bool32 autoStart,
@@ -1894,7 +1896,7 @@ xerrors::Error SugaredAPI::WriteDigitalLines(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteDigitalScalarU32(
+x::errors::Error SugaredAPI::WriteDigitalScalarU32(
     TaskHandle task,
     bool32 autoStart,
     float64 timeout,
@@ -1906,7 +1908,7 @@ xerrors::Error SugaredAPI::WriteDigitalScalarU32(
     );
 }
 
-xerrors::Error SugaredAPI::WriteDigitalU16(
+x::errors::Error SugaredAPI::WriteDigitalU16(
     TaskHandle task,
     int32 numSampsPerChan,
     bool32 autoStart,
@@ -1928,7 +1930,7 @@ xerrors::Error SugaredAPI::WriteDigitalU16(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteDigitalU32(
+x::errors::Error SugaredAPI::WriteDigitalU32(
     TaskHandle task,
     int32 numSampsPerChan,
     bool32 autoStart,
@@ -1950,7 +1952,7 @@ xerrors::Error SugaredAPI::WriteDigitalU32(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteDigitalU8(
+x::errors::Error SugaredAPI::WriteDigitalU8(
     TaskHandle task,
     int32 numSampsPerChan,
     bool32 autoStart,
@@ -1972,7 +1974,7 @@ xerrors::Error SugaredAPI::WriteDigitalU8(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteRaw(
+x::errors::Error SugaredAPI::WriteRaw(
     TaskHandle task,
     int32 numSamps,
     bool32 autoStart,
@@ -1992,7 +1994,7 @@ xerrors::Error SugaredAPI::WriteRaw(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteToTEDSFromArray(
+x::errors::Error SugaredAPI::WriteToTEDSFromArray(
     const char physicalChannel[],
     const uInt8 bitStream[],
     uInt32 arraySize,
@@ -2006,7 +2008,7 @@ xerrors::Error SugaredAPI::WriteToTEDSFromArray(
     ));
 }
 
-xerrors::Error SugaredAPI::WriteToTEDSFromFile(
+x::errors::Error SugaredAPI::WriteToTEDSFromFile(
     const char physicalChannel[],
     const char filePath[],
     int32 basicTEDSOptions
@@ -2016,24 +2018,24 @@ xerrors::Error SugaredAPI::WriteToTEDSFromFile(
     );
 }
 
-xerrors::Error SugaredAPI::SetReadRelativeTo(TaskHandle taskHandle, int32 data) {
+x::errors::Error SugaredAPI::SetReadRelativeTo(TaskHandle taskHandle, int32 data) {
     return process_error(dmx->SetReadRelativeTo(taskHandle, data));
 }
 
-xerrors::Error SugaredAPI::SetReadOffset(TaskHandle taskHandle, int32 data) {
+x::errors::Error SugaredAPI::SetReadOffset(TaskHandle taskHandle, int32 data) {
     return process_error(dmx->SetReadOffset(taskHandle, data));
 }
 
-xerrors::Error SugaredAPI::SetReadOverWrite(TaskHandle taskHandle, int32 data) {
+x::errors::Error SugaredAPI::SetReadOverWrite(TaskHandle taskHandle, int32 data) {
     return process_error(dmx->SetReadOverWrite(taskHandle, data));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64 *data) {
     return process_error(dmx->GetReadTotalSampPerChanAcquired(taskHandle, data));
 }
 
-xerrors::Error SugaredAPI::CreateLinScale(
+x::errors::Error SugaredAPI::CreateLinScale(
     const char scaleName[],
     float64 slope,
     float64 yIntercept,
@@ -2049,7 +2051,7 @@ xerrors::Error SugaredAPI::CreateLinScale(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateMapScale(
+x::errors::Error SugaredAPI::CreateMapScale(
     const char scaleName[],
     float64 prescaledMin,
     float64 prescaledMax,
@@ -2069,7 +2071,7 @@ xerrors::Error SugaredAPI::CreateMapScale(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTableScale(
+x::errors::Error SugaredAPI::CreateTableScale(
     const char scaleName[],
     const float64 prescaledVals[],
     uInt32 numPrescaledVals,
@@ -2089,7 +2091,7 @@ xerrors::Error SugaredAPI::CreateTableScale(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIVoltageChan(
+x::errors::Error SugaredAPI::CreateAIVoltageChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -2111,7 +2113,7 @@ xerrors::Error SugaredAPI::CreateAIVoltageChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAOCurrentChan(
+x::errors::Error SugaredAPI::CreateAOCurrentChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -2131,7 +2133,7 @@ xerrors::Error SugaredAPI::CreateAOCurrentChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAOFuncGenChan(
+x::errors::Error SugaredAPI::CreateAOFuncGenChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -2151,7 +2153,7 @@ xerrors::Error SugaredAPI::CreateAOFuncGenChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAOVoltageChan(
+x::errors::Error SugaredAPI::CreateAOVoltageChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -2171,7 +2173,7 @@ xerrors::Error SugaredAPI::CreateAOVoltageChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreatePolynomialScale(
+x::errors::Error SugaredAPI::CreatePolynomialScale(
     const char scaleName[],
     const float64 forwardCoeffs[],
     uInt32 numForwardCoeffs,
@@ -2191,7 +2193,7 @@ xerrors::Error SugaredAPI::CreatePolynomialScale(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIVelocityIEPEChan(
+x::errors::Error SugaredAPI::CreateAIVelocityIEPEChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -2221,7 +2223,7 @@ xerrors::Error SugaredAPI::CreateAIVelocityIEPEChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAITorqueBridgeTableChan(
+x::errors::Error SugaredAPI::CreateAITorqueBridgeTableChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -2261,7 +2263,7 @@ xerrors::Error SugaredAPI::CreateAITorqueBridgeTableChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAITorqueBridgePolynomialChan(
+x::errors::Error SugaredAPI::CreateAITorqueBridgePolynomialChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -2301,7 +2303,7 @@ xerrors::Error SugaredAPI::CreateAITorqueBridgePolynomialChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAITorqueBridgeTwoPointLinChan(
+x::errors::Error SugaredAPI::CreateAITorqueBridgeTwoPointLinChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -2341,11 +2343,11 @@ xerrors::Error SugaredAPI::CreateAITorqueBridgeTwoPointLinChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTask(const char sessionName[], TaskHandle *task) {
+x::errors::Error SugaredAPI::CreateTask(const char sessionName[], TaskHandle *task) {
     return process_error(dmx->CreateTask(sessionName, task));
 }
 
-xerrors::Error SugaredAPI::CreateWatchdogTimerTaskEx(
+x::errors::Error SugaredAPI::CreateWatchdogTimerTaskEx(
     const char deviceName[],
     const char sessionName[],
     TaskHandle *task,
@@ -2356,48 +2358,48 @@ xerrors::Error SugaredAPI::CreateWatchdogTimerTaskEx(
     );
 }
 
-xerrors::Error SugaredAPI::DeleteNetworkDevice(const char deviceName[]) {
+x::errors::Error SugaredAPI::DeleteNetworkDevice(const char deviceName[]) {
     return process_error(dmx->DeleteNetworkDevice(deviceName));
 }
 
-xerrors::Error SugaredAPI::DeleteSavedGlobalChan(const char channelName[]) {
+x::errors::Error SugaredAPI::DeleteSavedGlobalChan(const char channelName[]) {
     return process_error(dmx->DeleteSavedGlobalChan(channelName));
 }
 
-xerrors::Error SugaredAPI::DeleteSavedScale(const char scaleName[]) {
+x::errors::Error SugaredAPI::DeleteSavedScale(const char scaleName[]) {
     return process_error(dmx->DeleteSavedScale(scaleName));
 }
 
-xerrors::Error SugaredAPI::DeleteSavedTask(const char taskName[]) {
+x::errors::Error SugaredAPI::DeleteSavedTask(const char taskName[]) {
     return process_error(dmx->DeleteSavedTask(taskName));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::DeviceSupportsCal(const char deviceName[], bool32 *calSupported) {
     return process_error(dmx->DeviceSupportsCal(deviceName, calSupported));
 }
 
-xerrors::Error SugaredAPI::DisableRefTrig(TaskHandle task) {
+x::errors::Error SugaredAPI::DisableRefTrig(TaskHandle task) {
     return process_error(dmx->DisableRefTrig(task));
 }
 
-xerrors::Error SugaredAPI::DisableStartTrig(TaskHandle task) {
+x::errors::Error SugaredAPI::DisableStartTrig(TaskHandle task) {
     return process_error(dmx->DisableStartTrig(task));
 }
 
-xerrors::Error SugaredAPI::DisconnectTerms(
+x::errors::Error SugaredAPI::DisconnectTerms(
     const char sourceTerminal[],
     const char destinationTerminal[]
 ) {
     return process_error(dmx->DisconnectTerms(sourceTerminal, destinationTerminal));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::ExportSignal(TaskHandle task, int32 signalID, const char outputTerminal[]) {
     return process_error(dmx->ExportSignal(task, signalID, outputTerminal));
 }
 
-xerrors::Error SugaredAPI::GetAIChanCalCalDate(
+x::errors::Error SugaredAPI::GetAIChanCalCalDate(
     TaskHandle task,
     const char channelName[],
     uInt32 *year,
@@ -2411,7 +2413,7 @@ xerrors::Error SugaredAPI::GetAIChanCalCalDate(
     );
 }
 
-xerrors::Error SugaredAPI::GetAIChanCalExpDate(
+x::errors::Error SugaredAPI::GetAIChanCalExpDate(
     TaskHandle task,
     const char channelName[],
     uInt32 *year,
@@ -2425,7 +2427,7 @@ xerrors::Error SugaredAPI::GetAIChanCalExpDate(
     );
 }
 
-xerrors::Error SugaredAPI::GetAnalogPowerUpStatesWithOutputType(
+x::errors::Error SugaredAPI::GetAnalogPowerUpStatesWithOutputType(
     const char channelNames[],
     float64 stateArray[],
     int32 channelTypeArray[],
@@ -2439,29 +2441,29 @@ xerrors::Error SugaredAPI::GetAnalogPowerUpStatesWithOutputType(
     ));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetArmStartTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data) {
     return process_error(dmx->GetArmStartTrigTimestampVal(task, data));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetArmStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime *data) {
     return process_error(dmx->GetArmStartTrigTrigWhen(task, data));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetAutoConfiguredCDAQSyncConnections(char portList[], uInt32 portListSize) {
     return process_error(
         dmx->GetAutoConfiguredCDAQSyncConnections(portList, portListSize)
     );
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetBufferAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value) {
     return process_error(dmx->GetBufferAttributeUInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetCalInfoAttributeBool(
+x::errors::Error SugaredAPI::GetCalInfoAttributeBool(
     const char deviceName[],
     int32 attribute,
     bool32 *value
@@ -2469,7 +2471,7 @@ xerrors::Error SugaredAPI::GetCalInfoAttributeBool(
     return process_error(dmx->GetCalInfoAttributeBool(deviceName, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetCalInfoAttributeDouble(
+x::errors::Error SugaredAPI::GetCalInfoAttributeDouble(
     const char deviceName[],
     int32 attribute,
     float64 *value
@@ -2477,7 +2479,7 @@ xerrors::Error SugaredAPI::GetCalInfoAttributeDouble(
     return process_error(dmx->GetCalInfoAttributeDouble(deviceName, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetCalInfoAttributeString(
+x::errors::Error SugaredAPI::GetCalInfoAttributeString(
     const char deviceName[],
     int32 attribute,
     char value[],
@@ -2488,7 +2490,7 @@ xerrors::Error SugaredAPI::GetCalInfoAttributeString(
     );
 }
 
-xerrors::Error SugaredAPI::GetCalInfoAttributeUInt32(
+x::errors::Error SugaredAPI::GetCalInfoAttributeUInt32(
     const char deviceName[],
     int32 attribute,
     uInt32 *value
@@ -2496,7 +2498,7 @@ xerrors::Error SugaredAPI::GetCalInfoAttributeUInt32(
     return process_error(dmx->GetCalInfoAttributeUInt32(deviceName, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetChanAttributeBool(
+x::errors::Error SugaredAPI::GetChanAttributeBool(
     TaskHandle task,
     const char channel[],
     int32 attribute,
@@ -2505,7 +2507,7 @@ xerrors::Error SugaredAPI::GetChanAttributeBool(
     return process_error(dmx->GetChanAttributeBool(task, channel, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetChanAttributeDouble(
+x::errors::Error SugaredAPI::GetChanAttributeDouble(
     TaskHandle task,
     const char channel[],
     int32 attribute,
@@ -2514,7 +2516,7 @@ xerrors::Error SugaredAPI::GetChanAttributeDouble(
     return process_error(dmx->GetChanAttributeDouble(task, channel, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetChanAttributeDoubleArray(
+x::errors::Error SugaredAPI::GetChanAttributeDoubleArray(
     TaskHandle task,
     const char channel[],
     int32 attribute,
@@ -2526,7 +2528,7 @@ xerrors::Error SugaredAPI::GetChanAttributeDoubleArray(
     );
 }
 
-xerrors::Error SugaredAPI::GetChanAttributeInt32(
+x::errors::Error SugaredAPI::GetChanAttributeInt32(
     TaskHandle task,
     const char channel[],
     int32 attribute,
@@ -2535,7 +2537,7 @@ xerrors::Error SugaredAPI::GetChanAttributeInt32(
     return process_error(dmx->GetChanAttributeInt32(task, channel, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetChanAttributeString(
+x::errors::Error SugaredAPI::GetChanAttributeString(
     TaskHandle task,
     const char channel[],
     int32 attribute,
@@ -2547,7 +2549,7 @@ xerrors::Error SugaredAPI::GetChanAttributeString(
     );
 }
 
-xerrors::Error SugaredAPI::GetChanAttributeUInt32(
+x::errors::Error SugaredAPI::GetChanAttributeUInt32(
     TaskHandle task,
     const char channel[],
     int32 attribute,
@@ -2556,7 +2558,7 @@ xerrors::Error SugaredAPI::GetChanAttributeUInt32(
     return process_error(dmx->GetChanAttributeUInt32(task, channel, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetDeviceAttributeBool(
+x::errors::Error SugaredAPI::GetDeviceAttributeBool(
     const char deviceName[],
     int32 attribute,
     bool32 *value
@@ -2564,7 +2566,7 @@ xerrors::Error SugaredAPI::GetDeviceAttributeBool(
     return process_error(dmx->GetDeviceAttributeBool(deviceName, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetDeviceAttributeDouble(
+x::errors::Error SugaredAPI::GetDeviceAttributeDouble(
     const char deviceName[],
     int32 attribute,
     float64 *value
@@ -2572,7 +2574,7 @@ xerrors::Error SugaredAPI::GetDeviceAttributeDouble(
     return process_error(dmx->GetDeviceAttributeDouble(deviceName, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetDeviceAttributeDoubleArray(
+x::errors::Error SugaredAPI::GetDeviceAttributeDoubleArray(
     const char deviceName[],
     int32 attribute,
     float64 value[],
@@ -2583,7 +2585,7 @@ xerrors::Error SugaredAPI::GetDeviceAttributeDoubleArray(
     );
 }
 
-xerrors::Error SugaredAPI::GetDeviceAttributeInt32(
+x::errors::Error SugaredAPI::GetDeviceAttributeInt32(
     const char deviceName[],
     int32 attribute,
     int32 *value
@@ -2591,7 +2593,7 @@ xerrors::Error SugaredAPI::GetDeviceAttributeInt32(
     return process_error(dmx->GetDeviceAttributeInt32(deviceName, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetDeviceAttributeInt32Array(
+x::errors::Error SugaredAPI::GetDeviceAttributeInt32Array(
     const char deviceName[],
     int32 attribute,
     int32 value[],
@@ -2602,7 +2604,7 @@ xerrors::Error SugaredAPI::GetDeviceAttributeInt32Array(
     );
 }
 
-xerrors::Error SugaredAPI::GetDeviceAttributeString(
+x::errors::Error SugaredAPI::GetDeviceAttributeString(
     const char deviceName[],
     int32 attribute,
     char value[],
@@ -2613,7 +2615,7 @@ xerrors::Error SugaredAPI::GetDeviceAttributeString(
     );
 }
 
-xerrors::Error SugaredAPI::GetDeviceAttributeUInt32(
+x::errors::Error SugaredAPI::GetDeviceAttributeUInt32(
     const char deviceName[],
     int32 attribute,
     uInt32 *value
@@ -2621,7 +2623,7 @@ xerrors::Error SugaredAPI::GetDeviceAttributeUInt32(
     return process_error(dmx->GetDeviceAttributeUInt32(deviceName, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetDeviceAttributeUInt32Array(
+x::errors::Error SugaredAPI::GetDeviceAttributeUInt32Array(
     const char deviceName[],
     int32 attribute,
     uInt32 value[],
@@ -2632,7 +2634,7 @@ xerrors::Error SugaredAPI::GetDeviceAttributeUInt32Array(
     );
 }
 
-xerrors::Error SugaredAPI::GetDigitalLogicFamilyPowerUpState(
+x::errors::Error SugaredAPI::GetDigitalLogicFamilyPowerUpState(
     const char deviceName[],
     int32 *logicFamily
 ) {
@@ -2641,12 +2643,12 @@ xerrors::Error SugaredAPI::GetDigitalLogicFamilyPowerUpState(
     );
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetDisconnectedCDAQSyncPorts(char portList[], uInt32 portListSize) {
     return process_error(dmx->GetDisconnectedCDAQSyncPorts(portList, portListSize));
 }
 
-xerrors::Error SugaredAPI::GetExportedSignalAttributeBool(
+x::errors::Error SugaredAPI::GetExportedSignalAttributeBool(
     TaskHandle task,
     int32 attribute,
     bool32 *value
@@ -2654,7 +2656,7 @@ xerrors::Error SugaredAPI::GetExportedSignalAttributeBool(
     return process_error(dmx->GetExportedSignalAttributeBool(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetExportedSignalAttributeDouble(
+x::errors::Error SugaredAPI::GetExportedSignalAttributeDouble(
     TaskHandle task,
     int32 attribute,
     float64 *value
@@ -2662,7 +2664,7 @@ xerrors::Error SugaredAPI::GetExportedSignalAttributeDouble(
     return process_error(dmx->GetExportedSignalAttributeDouble(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetExportedSignalAttributeInt32(
+x::errors::Error SugaredAPI::GetExportedSignalAttributeInt32(
     TaskHandle task,
     int32 attribute,
     int32 *value
@@ -2670,7 +2672,7 @@ xerrors::Error SugaredAPI::GetExportedSignalAttributeInt32(
     return process_error(dmx->GetExportedSignalAttributeInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetExportedSignalAttributeString(
+x::errors::Error SugaredAPI::GetExportedSignalAttributeString(
     TaskHandle task,
     int32 attribute,
     char value[],
@@ -2681,7 +2683,7 @@ xerrors::Error SugaredAPI::GetExportedSignalAttributeString(
     );
 }
 
-xerrors::Error SugaredAPI::GetExportedSignalAttributeUInt32(
+x::errors::Error SugaredAPI::GetExportedSignalAttributeUInt32(
     TaskHandle task,
     int32 attribute,
     uInt32 *value
@@ -2689,7 +2691,7 @@ xerrors::Error SugaredAPI::GetExportedSignalAttributeUInt32(
     return process_error(dmx->GetExportedSignalAttributeUInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetExtCalLastDateAndTime(
+x::errors::Error SugaredAPI::GetExtCalLastDateAndTime(
     const char deviceName[],
     uInt32 *year,
     uInt32 *month,
@@ -2702,20 +2704,22 @@ xerrors::Error SugaredAPI::GetExtCalLastDateAndTime(
     );
 }
 
-xerrors::Error SugaredAPI::GetExtendedErrorInfo(char errorString[], uInt32 bufferSize) {
+x::errors::Error
+SugaredAPI::GetExtendedErrorInfo(char errorString[], uInt32 bufferSize) {
     return process_error(dmx->GetExtendedErrorInfo(errorString, bufferSize));
 }
 
-xerrors::Error SugaredAPI::GetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime *data) {
+x::errors::Error
+SugaredAPI::GetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime *data) {
     return process_error(dmx->GetFirstSampClkWhen(task, data));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetFirstSampTimestampVal(TaskHandle task, CVIAbsoluteTime *data) {
     return process_error(dmx->GetFirstSampTimestampVal(task, data));
 }
 
-xerrors::Error SugaredAPI::GetNthTaskChannel(
+x::errors::Error SugaredAPI::GetNthTaskChannel(
     TaskHandle task,
     uInt32 index,
     char buffer[],
@@ -2724,7 +2728,7 @@ xerrors::Error SugaredAPI::GetNthTaskChannel(
     return process_error(dmx->GetNthTaskChannel(task, index, buffer, bufferSize));
 }
 
-xerrors::Error SugaredAPI::GetNthTaskDevice(
+x::errors::Error SugaredAPI::GetNthTaskDevice(
     TaskHandle task,
     uInt32 index,
     char buffer[],
@@ -2733,7 +2737,7 @@ xerrors::Error SugaredAPI::GetNthTaskDevice(
     return process_error(dmx->GetNthTaskDevice(task, index, buffer, bufferSize));
 }
 
-xerrors::Error SugaredAPI::GetNthTaskReadChannel(
+x::errors::Error SugaredAPI::GetNthTaskReadChannel(
     TaskHandle task,
     uInt32 index,
     char buffer[],
@@ -2742,7 +2746,7 @@ xerrors::Error SugaredAPI::GetNthTaskReadChannel(
     return process_error(dmx->GetNthTaskReadChannel(task, index, buffer, bufferSize));
 }
 
-xerrors::Error SugaredAPI::GetPersistedChanAttributeBool(
+x::errors::Error SugaredAPI::GetPersistedChanAttributeBool(
     const char channel[],
     int32 attribute,
     bool32 *value
@@ -2750,7 +2754,7 @@ xerrors::Error SugaredAPI::GetPersistedChanAttributeBool(
     return process_error(dmx->GetPersistedChanAttributeBool(channel, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetPersistedChanAttributeString(
+x::errors::Error SugaredAPI::GetPersistedChanAttributeString(
     const char channel[],
     int32 attribute,
     char value[],
@@ -2761,7 +2765,7 @@ xerrors::Error SugaredAPI::GetPersistedChanAttributeString(
     );
 }
 
-xerrors::Error SugaredAPI::GetPersistedScaleAttributeBool(
+x::errors::Error SugaredAPI::GetPersistedScaleAttributeBool(
     const char scaleName[],
     int32 attribute,
     bool32 *value
@@ -2771,7 +2775,7 @@ xerrors::Error SugaredAPI::GetPersistedScaleAttributeBool(
     );
 }
 
-xerrors::Error SugaredAPI::GetPersistedScaleAttributeString(
+x::errors::Error SugaredAPI::GetPersistedScaleAttributeString(
     const char scaleName[],
     int32 attribute,
     char value[],
@@ -2782,7 +2786,7 @@ xerrors::Error SugaredAPI::GetPersistedScaleAttributeString(
     );
 }
 
-xerrors::Error SugaredAPI::GetPersistedTaskAttributeBool(
+x::errors::Error SugaredAPI::GetPersistedTaskAttributeBool(
     const char taskName[],
     int32 attribute,
     bool32 *value
@@ -2792,7 +2796,7 @@ xerrors::Error SugaredAPI::GetPersistedTaskAttributeBool(
     );
 }
 
-xerrors::Error SugaredAPI::GetPersistedTaskAttributeString(
+x::errors::Error SugaredAPI::GetPersistedTaskAttributeString(
     const char taskName[],
     int32 attribute,
     char value[],
@@ -2803,7 +2807,7 @@ xerrors::Error SugaredAPI::GetPersistedTaskAttributeString(
     );
 }
 
-xerrors::Error SugaredAPI::GetPhysicalChanAttributeBool(
+x::errors::Error SugaredAPI::GetPhysicalChanAttributeBool(
     const char physicalChannel[],
     int32 attribute,
     bool32 *value
@@ -2813,7 +2817,7 @@ xerrors::Error SugaredAPI::GetPhysicalChanAttributeBool(
     );
 }
 
-xerrors::Error SugaredAPI::GetPhysicalChanAttributeBytes(
+x::errors::Error SugaredAPI::GetPhysicalChanAttributeBytes(
     const char physicalChannel[],
     int32 attribute,
     uInt8 value[],
@@ -2824,7 +2828,7 @@ xerrors::Error SugaredAPI::GetPhysicalChanAttributeBytes(
     );
 }
 
-xerrors::Error SugaredAPI::GetPhysicalChanAttributeDouble(
+x::errors::Error SugaredAPI::GetPhysicalChanAttributeDouble(
     const char physicalChannel[],
     int32 attribute,
     float64 *value
@@ -2834,7 +2838,7 @@ xerrors::Error SugaredAPI::GetPhysicalChanAttributeDouble(
     );
 }
 
-xerrors::Error SugaredAPI::GetPhysicalChanAttributeDoubleArray(
+x::errors::Error SugaredAPI::GetPhysicalChanAttributeDoubleArray(
     const char physicalChannel[],
     int32 attribute,
     float64 value[],
@@ -2848,7 +2852,7 @@ xerrors::Error SugaredAPI::GetPhysicalChanAttributeDoubleArray(
     ));
 }
 
-xerrors::Error SugaredAPI::GetPhysicalChanAttributeInt32(
+x::errors::Error SugaredAPI::GetPhysicalChanAttributeInt32(
     const char physicalChannel[],
     int32 attribute,
     int32 *value
@@ -2858,7 +2862,7 @@ xerrors::Error SugaredAPI::GetPhysicalChanAttributeInt32(
     );
 }
 
-xerrors::Error SugaredAPI::GetPhysicalChanAttributeInt32Array(
+x::errors::Error SugaredAPI::GetPhysicalChanAttributeInt32Array(
     const char physicalChannel[],
     int32 attribute,
     int32 value[],
@@ -2869,7 +2873,7 @@ xerrors::Error SugaredAPI::GetPhysicalChanAttributeInt32Array(
     );
 }
 
-xerrors::Error SugaredAPI::GetPhysicalChanAttributeString(
+x::errors::Error SugaredAPI::GetPhysicalChanAttributeString(
     const char physicalChannel[],
     int32 attribute,
     char value[],
@@ -2880,7 +2884,7 @@ xerrors::Error SugaredAPI::GetPhysicalChanAttributeString(
     );
 }
 
-xerrors::Error SugaredAPI::GetPhysicalChanAttributeUInt32(
+x::errors::Error SugaredAPI::GetPhysicalChanAttributeUInt32(
     const char physicalChannel[],
     int32 attribute,
     uInt32 *value
@@ -2890,7 +2894,7 @@ xerrors::Error SugaredAPI::GetPhysicalChanAttributeUInt32(
     );
 }
 
-xerrors::Error SugaredAPI::GetPhysicalChanAttributeUInt32Array(
+x::errors::Error SugaredAPI::GetPhysicalChanAttributeUInt32Array(
     const char physicalChannel[],
     int32 attribute,
     uInt32 value[],
@@ -2904,22 +2908,22 @@ xerrors::Error SugaredAPI::GetPhysicalChanAttributeUInt32Array(
     ));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetReadAttributeBool(TaskHandle task, int32 attribute, bool32 *value) {
     return process_error(dmx->GetReadAttributeBool(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetReadAttributeDouble(TaskHandle task, int32 attribute, float64 *value) {
     return process_error(dmx->GetReadAttributeDouble(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetReadAttributeInt32(TaskHandle task, int32 attribute, int32 *value) {
     return process_error(dmx->GetReadAttributeInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetReadAttributeString(
+x::errors::Error SugaredAPI::GetReadAttributeString(
     TaskHandle task,
     int32 attribute,
     char value[],
@@ -2928,27 +2932,27 @@ xerrors::Error SugaredAPI::GetReadAttributeString(
     return process_error(dmx->GetReadAttributeString(task, attribute, value, size));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetReadAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value) {
     return process_error(dmx->GetReadAttributeUInt32(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetReadAttributeUInt64(TaskHandle task, int32 attribute, uInt64 *value) {
     return process_error(dmx->GetReadAttributeUInt64(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetRealTimeAttributeBool(TaskHandle task, int32 attribute, bool32 *value) {
     return process_error(dmx->GetRealTimeAttributeBool(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetRealTimeAttributeInt32(TaskHandle task, int32 attribute, int32 *value) {
     return process_error(dmx->GetRealTimeAttributeInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetRealTimeAttributeUInt32(
+x::errors::Error SugaredAPI::GetRealTimeAttributeUInt32(
     TaskHandle task,
     int32 attribute,
     uInt32 *value
@@ -2956,12 +2960,12 @@ xerrors::Error SugaredAPI::GetRealTimeAttributeUInt32(
     return process_error(dmx->GetRealTimeAttributeUInt32(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetRefTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data) {
     return process_error(dmx->GetRefTrigTimestampVal(task, data));
 }
 
-xerrors::Error SugaredAPI::GetScaleAttributeDoubleArray(
+x::errors::Error SugaredAPI::GetScaleAttributeDoubleArray(
     const char scaleName[],
     int32 attribute,
     float64 value[],
@@ -2972,7 +2976,7 @@ xerrors::Error SugaredAPI::GetScaleAttributeDoubleArray(
     );
 }
 
-xerrors::Error SugaredAPI::GetScaleAttributeInt32(
+x::errors::Error SugaredAPI::GetScaleAttributeInt32(
     const char scaleName[],
     int32 attribute,
     int32 *value
@@ -2980,7 +2984,7 @@ xerrors::Error SugaredAPI::GetScaleAttributeInt32(
     return process_error(dmx->GetScaleAttributeInt32(scaleName, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetScaleAttributeString(
+x::errors::Error SugaredAPI::GetScaleAttributeString(
     const char scaleName[],
     int32 attribute,
     char value[],
@@ -2991,7 +2995,7 @@ xerrors::Error SugaredAPI::GetScaleAttributeString(
     );
 }
 
-xerrors::Error SugaredAPI::GetSelfCalLastDateAndTime(
+x::errors::Error SugaredAPI::GetSelfCalLastDateAndTime(
     const char deviceName[],
     uInt32 *year,
     uInt32 *month,
@@ -3004,37 +3008,37 @@ xerrors::Error SugaredAPI::GetSelfCalLastDateAndTime(
     );
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetStartTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data) {
     return process_error(dmx->GetStartTrigTimestampVal(task, data));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime *data) {
     return process_error(dmx->GetStartTrigTrigWhen(task, data));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetSyncPulseTimeWhen(TaskHandle task, CVIAbsoluteTime *data) {
     return process_error(dmx->GetSyncPulseTimeWhen(task, data));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetSystemInfoAttributeString(int32 attribute, char value[], uInt32 size) {
     return process_error(dmx->GetSystemInfoAttributeString(attribute, value, size));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetSystemInfoAttributeUInt32(int32 attribute, uInt32 *value) {
     return process_error(dmx->GetSystemInfoAttributeUInt32(attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetTaskAttributeBool(TaskHandle task, int32 attribute, bool32 *value) {
     return process_error(dmx->GetTaskAttributeBool(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetTaskAttributeString(
+x::errors::Error SugaredAPI::GetTaskAttributeString(
     TaskHandle task,
     int32 attribute,
     char value[],
@@ -3043,22 +3047,22 @@ xerrors::Error SugaredAPI::GetTaskAttributeString(
     return process_error(dmx->GetTaskAttributeString(task, attribute, value, size));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetTaskAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value) {
     return process_error(dmx->GetTaskAttributeUInt32(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetTimingAttributeBool(TaskHandle task, int32 attribute, bool32 *value) {
     return process_error(dmx->GetTimingAttributeBool(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetTimingAttributeDouble(TaskHandle task, int32 attribute, float64 *value) {
     return process_error(dmx->GetTimingAttributeDouble(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetTimingAttributeExBool(
+x::errors::Error SugaredAPI::GetTimingAttributeExBool(
     TaskHandle task,
     const char deviceNames[],
     int32 attribute,
@@ -3069,7 +3073,7 @@ xerrors::Error SugaredAPI::GetTimingAttributeExBool(
     );
 }
 
-xerrors::Error SugaredAPI::GetTimingAttributeExDouble(
+x::errors::Error SugaredAPI::GetTimingAttributeExDouble(
     TaskHandle task,
     const char deviceNames[],
     int32 attribute,
@@ -3080,7 +3084,7 @@ xerrors::Error SugaredAPI::GetTimingAttributeExDouble(
     );
 }
 
-xerrors::Error SugaredAPI::GetTimingAttributeExInt32(
+x::errors::Error SugaredAPI::GetTimingAttributeExInt32(
     TaskHandle task,
     const char deviceNames[],
     int32 attribute,
@@ -3091,7 +3095,7 @@ xerrors::Error SugaredAPI::GetTimingAttributeExInt32(
     );
 }
 
-xerrors::Error SugaredAPI::GetTimingAttributeExString(
+x::errors::Error SugaredAPI::GetTimingAttributeExString(
     TaskHandle task,
     const char deviceNames[],
     int32 attribute,
@@ -3103,7 +3107,7 @@ xerrors::Error SugaredAPI::GetTimingAttributeExString(
     );
 }
 
-xerrors::Error SugaredAPI::GetTimingAttributeExTimestamp(
+x::errors::Error SugaredAPI::GetTimingAttributeExTimestamp(
     TaskHandle task,
     const char deviceNames[],
     int32 attribute,
@@ -3114,7 +3118,7 @@ xerrors::Error SugaredAPI::GetTimingAttributeExTimestamp(
     );
 }
 
-xerrors::Error SugaredAPI::GetTimingAttributeExUInt32(
+x::errors::Error SugaredAPI::GetTimingAttributeExUInt32(
     TaskHandle task,
     const char deviceNames[],
     int32 attribute,
@@ -3125,7 +3129,7 @@ xerrors::Error SugaredAPI::GetTimingAttributeExUInt32(
     );
 }
 
-xerrors::Error SugaredAPI::GetTimingAttributeExUInt64(
+x::errors::Error SugaredAPI::GetTimingAttributeExUInt64(
     TaskHandle task,
     const char deviceNames[],
     int32 attribute,
@@ -3136,12 +3140,12 @@ xerrors::Error SugaredAPI::GetTimingAttributeExUInt64(
     );
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetTimingAttributeInt32(TaskHandle task, int32 attribute, int32 *value) {
     return process_error(dmx->GetTimingAttributeInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetTimingAttributeString(
+x::errors::Error SugaredAPI::GetTimingAttributeString(
     TaskHandle task,
     int32 attribute,
     char value[],
@@ -3150,7 +3154,7 @@ xerrors::Error SugaredAPI::GetTimingAttributeString(
     return process_error(dmx->GetTimingAttributeString(task, attribute, value, size));
 }
 
-xerrors::Error SugaredAPI::GetTimingAttributeTimestamp(
+x::errors::Error SugaredAPI::GetTimingAttributeTimestamp(
     TaskHandle task,
     int32 attribute,
     CVIAbsoluteTime *value
@@ -3158,27 +3162,27 @@ xerrors::Error SugaredAPI::GetTimingAttributeTimestamp(
     return process_error(dmx->GetTimingAttributeTimestamp(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetTimingAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value) {
     return process_error(dmx->GetTimingAttributeUInt32(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetTimingAttributeUInt64(TaskHandle task, int32 attribute, uInt64 *value) {
     return process_error(dmx->GetTimingAttributeUInt64(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetTrigAttributeBool(TaskHandle task, int32 attribute, bool32 *value) {
     return process_error(dmx->GetTrigAttributeBool(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetTrigAttributeDouble(TaskHandle task, int32 attribute, float64 *value) {
     return process_error(dmx->GetTrigAttributeDouble(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetTrigAttributeDoubleArray(
+x::errors::Error SugaredAPI::GetTrigAttributeDoubleArray(
     TaskHandle task,
     int32 attribute,
     float64 value[],
@@ -3189,12 +3193,12 @@ xerrors::Error SugaredAPI::GetTrigAttributeDoubleArray(
     );
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetTrigAttributeInt32(TaskHandle task, int32 attribute, int32 *value) {
     return process_error(dmx->GetTrigAttributeInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetTrigAttributeInt32Array(
+x::errors::Error SugaredAPI::GetTrigAttributeInt32Array(
     TaskHandle task,
     int32 attribute,
     int32 value[],
@@ -3203,7 +3207,7 @@ xerrors::Error SugaredAPI::GetTrigAttributeInt32Array(
     return process_error(dmx->GetTrigAttributeInt32Array(task, attribute, value, size));
 }
 
-xerrors::Error SugaredAPI::GetTrigAttributeString(
+x::errors::Error SugaredAPI::GetTrigAttributeString(
     TaskHandle task,
     int32 attribute,
     char value[],
@@ -3212,7 +3216,7 @@ xerrors::Error SugaredAPI::GetTrigAttributeString(
     return process_error(dmx->GetTrigAttributeString(task, attribute, value, size));
 }
 
-xerrors::Error SugaredAPI::GetTrigAttributeTimestamp(
+x::errors::Error SugaredAPI::GetTrigAttributeTimestamp(
     TaskHandle task,
     int32 attribute,
     CVIAbsoluteTime *value
@@ -3220,12 +3224,12 @@ xerrors::Error SugaredAPI::GetTrigAttributeTimestamp(
     return process_error(dmx->GetTrigAttributeTimestamp(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetTrigAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value) {
     return process_error(dmx->GetTrigAttributeUInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetWatchdogAttributeBool(
+x::errors::Error SugaredAPI::GetWatchdogAttributeBool(
     TaskHandle task,
     const char lines[],
     int32 attribute,
@@ -3234,7 +3238,7 @@ xerrors::Error SugaredAPI::GetWatchdogAttributeBool(
     return process_error(dmx->GetWatchdogAttributeBool(task, lines, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetWatchdogAttributeDouble(
+x::errors::Error SugaredAPI::GetWatchdogAttributeDouble(
     TaskHandle task,
     const char lines[],
     int32 attribute,
@@ -3245,7 +3249,7 @@ xerrors::Error SugaredAPI::GetWatchdogAttributeDouble(
     );
 }
 
-xerrors::Error SugaredAPI::GetWatchdogAttributeInt32(
+x::errors::Error SugaredAPI::GetWatchdogAttributeInt32(
     TaskHandle task,
     const char lines[],
     int32 attribute,
@@ -3254,7 +3258,7 @@ xerrors::Error SugaredAPI::GetWatchdogAttributeInt32(
     return process_error(dmx->GetWatchdogAttributeInt32(task, lines, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetWatchdogAttributeString(
+x::errors::Error SugaredAPI::GetWatchdogAttributeString(
     TaskHandle task,
     const char lines[],
     int32 attribute,
@@ -3266,22 +3270,22 @@ xerrors::Error SugaredAPI::GetWatchdogAttributeString(
     );
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetWriteAttributeBool(TaskHandle task, int32 attribute, bool32 *value) {
     return process_error(dmx->GetWriteAttributeBool(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetWriteAttributeDouble(TaskHandle task, int32 attribute, float64 *value) {
     return process_error(dmx->GetWriteAttributeDouble(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetWriteAttributeInt32(TaskHandle task, int32 attribute, int32 *value) {
     return process_error(dmx->GetWriteAttributeInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::GetWriteAttributeString(
+x::errors::Error SugaredAPI::GetWriteAttributeString(
     TaskHandle task,
     int32 attribute,
     char value[],
@@ -3290,25 +3294,25 @@ xerrors::Error SugaredAPI::GetWriteAttributeString(
     return process_error(dmx->GetWriteAttributeString(task, attribute, value, size));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetWriteAttributeUInt32(TaskHandle task, int32 attribute, uInt32 *value) {
     return process_error(dmx->GetWriteAttributeUInt32(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::GetWriteAttributeUInt64(TaskHandle task, int32 attribute, uInt64 *value) {
     return process_error(dmx->GetWriteAttributeUInt64(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::IsTaskDone(TaskHandle task, bool32 *isTaskDone) {
+x::errors::Error SugaredAPI::IsTaskDone(TaskHandle task, bool32 *isTaskDone) {
     return process_error(dmx->IsTaskDone(task, isTaskDone));
 }
 
-xerrors::Error SugaredAPI::LoadTask(const char sessionName[], TaskHandle *task) {
+x::errors::Error SugaredAPI::LoadTask(const char sessionName[], TaskHandle *task) {
     return process_error(dmx->LoadTask(sessionName, task));
 }
 
-xerrors::Error SugaredAPI::PerformBridgeOffsetNullingCalEx(
+x::errors::Error SugaredAPI::PerformBridgeOffsetNullingCalEx(
     TaskHandle task,
     const char channel[],
     bool32 skipUnsupportedChannels
@@ -3318,7 +3322,7 @@ xerrors::Error SugaredAPI::PerformBridgeOffsetNullingCalEx(
     );
 }
 
-xerrors::Error SugaredAPI::PerformBridgeShuntCalEx(
+x::errors::Error SugaredAPI::PerformBridgeShuntCalEx(
     TaskHandle task,
     const char channel[],
     float64 shuntResistorValue,
@@ -3340,7 +3344,7 @@ xerrors::Error SugaredAPI::PerformBridgeShuntCalEx(
     ));
 }
 
-xerrors::Error SugaredAPI::PerformStrainShuntCalEx(
+x::errors::Error SugaredAPI::PerformStrainShuntCalEx(
     TaskHandle task,
     const char channel[],
     float64 shuntResistorValue,
@@ -3360,7 +3364,7 @@ xerrors::Error SugaredAPI::PerformStrainShuntCalEx(
     ));
 }
 
-xerrors::Error SugaredAPI::PerformThrmcplLeadOffsetNullingCal(
+x::errors::Error SugaredAPI::PerformThrmcplLeadOffsetNullingCal(
     TaskHandle task,
     const char channel[],
     bool32 skipUnsupportedChannels
@@ -3370,7 +3374,7 @@ xerrors::Error SugaredAPI::PerformThrmcplLeadOffsetNullingCal(
     );
 }
 
-xerrors::Error SugaredAPI::ReadAnalogF64(
+x::errors::Error SugaredAPI::ReadAnalogF64(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3392,7 +3396,7 @@ xerrors::Error SugaredAPI::ReadAnalogF64(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadAnalogScalarF64(
+x::errors::Error SugaredAPI::ReadAnalogScalarF64(
     TaskHandle task,
     float64 timeout,
     float64 *value,
@@ -3401,7 +3405,7 @@ xerrors::Error SugaredAPI::ReadAnalogScalarF64(
     return process_error(dmx->ReadAnalogScalarF64(task, timeout, value, reserved));
 }
 
-xerrors::Error SugaredAPI::ReadBinaryI16(
+x::errors::Error SugaredAPI::ReadBinaryI16(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3423,7 +3427,7 @@ xerrors::Error SugaredAPI::ReadBinaryI16(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadBinaryI32(
+x::errors::Error SugaredAPI::ReadBinaryI32(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3445,7 +3449,7 @@ xerrors::Error SugaredAPI::ReadBinaryI32(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadBinaryU16(
+x::errors::Error SugaredAPI::ReadBinaryU16(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3467,7 +3471,7 @@ xerrors::Error SugaredAPI::ReadBinaryU16(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadBinaryU32(
+x::errors::Error SugaredAPI::ReadBinaryU32(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3489,7 +3493,7 @@ xerrors::Error SugaredAPI::ReadBinaryU32(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadCounterF64(
+x::errors::Error SugaredAPI::ReadCounterF64(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3509,7 +3513,7 @@ xerrors::Error SugaredAPI::ReadCounterF64(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadCounterF64Ex(
+x::errors::Error SugaredAPI::ReadCounterF64Ex(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3531,7 +3535,7 @@ xerrors::Error SugaredAPI::ReadCounterF64Ex(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadCounterScalarF64(
+x::errors::Error SugaredAPI::ReadCounterScalarF64(
     TaskHandle task,
     float64 timeout,
     float64 *value,
@@ -3540,7 +3544,7 @@ xerrors::Error SugaredAPI::ReadCounterScalarF64(
     return process_error(dmx->ReadCounterScalarF64(task, timeout, value, reserved));
 }
 
-xerrors::Error SugaredAPI::ReadCounterScalarU32(
+x::errors::Error SugaredAPI::ReadCounterScalarU32(
     TaskHandle task,
     float64 timeout,
     uInt32 *value,
@@ -3549,7 +3553,7 @@ xerrors::Error SugaredAPI::ReadCounterScalarU32(
     return process_error(dmx->ReadCounterScalarU32(task, timeout, value, reserved));
 }
 
-xerrors::Error SugaredAPI::ReadCounterU32(
+x::errors::Error SugaredAPI::ReadCounterU32(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3569,7 +3573,7 @@ xerrors::Error SugaredAPI::ReadCounterU32(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadCounterU32Ex(
+x::errors::Error SugaredAPI::ReadCounterU32Ex(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3591,7 +3595,7 @@ xerrors::Error SugaredAPI::ReadCounterU32Ex(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadCtrFreq(
+x::errors::Error SugaredAPI::ReadCtrFreq(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3615,7 +3619,7 @@ xerrors::Error SugaredAPI::ReadCtrFreq(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadCtrFreqScalar(
+x::errors::Error SugaredAPI::ReadCtrFreqScalar(
     TaskHandle task,
     float64 timeout,
     float64 *frequency,
@@ -3627,7 +3631,7 @@ xerrors::Error SugaredAPI::ReadCtrFreqScalar(
     );
 }
 
-xerrors::Error SugaredAPI::ReadCtrTicks(
+x::errors::Error SugaredAPI::ReadCtrTicks(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3651,7 +3655,7 @@ xerrors::Error SugaredAPI::ReadCtrTicks(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadCtrTicksScalar(
+x::errors::Error SugaredAPI::ReadCtrTicksScalar(
     TaskHandle task,
     float64 timeout,
     uInt32 *highTicks,
@@ -3663,7 +3667,7 @@ xerrors::Error SugaredAPI::ReadCtrTicksScalar(
     );
 }
 
-xerrors::Error SugaredAPI::ReadCtrTime(
+x::errors::Error SugaredAPI::ReadCtrTime(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3687,7 +3691,7 @@ xerrors::Error SugaredAPI::ReadCtrTime(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadCtrTimeScalar(
+x::errors::Error SugaredAPI::ReadCtrTimeScalar(
     TaskHandle task,
     float64 timeout,
     float64 *highTime,
@@ -3699,7 +3703,7 @@ xerrors::Error SugaredAPI::ReadCtrTimeScalar(
     );
 }
 
-xerrors::Error SugaredAPI::ReadDigitalLines(
+x::errors::Error SugaredAPI::ReadDigitalLines(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3723,7 +3727,7 @@ xerrors::Error SugaredAPI::ReadDigitalLines(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadDigitalScalarU32(
+x::errors::Error SugaredAPI::ReadDigitalScalarU32(
     TaskHandle task,
     float64 timeout,
     uInt32 *value,
@@ -3732,7 +3736,7 @@ xerrors::Error SugaredAPI::ReadDigitalScalarU32(
     return process_error(dmx->ReadDigitalScalarU32(task, timeout, value, reserved));
 }
 
-xerrors::Error SugaredAPI::ReadDigitalU16(
+x::errors::Error SugaredAPI::ReadDigitalU16(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3754,7 +3758,7 @@ xerrors::Error SugaredAPI::ReadDigitalU16(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadDigitalU32(
+x::errors::Error SugaredAPI::ReadDigitalU32(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3776,7 +3780,7 @@ xerrors::Error SugaredAPI::ReadDigitalU32(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadDigitalU8(
+x::errors::Error SugaredAPI::ReadDigitalU8(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3798,7 +3802,7 @@ xerrors::Error SugaredAPI::ReadDigitalU8(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadPowerBinaryI16(
+x::errors::Error SugaredAPI::ReadPowerBinaryI16(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3822,7 +3826,7 @@ xerrors::Error SugaredAPI::ReadPowerBinaryI16(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadPowerF64(
+x::errors::Error SugaredAPI::ReadPowerF64(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3846,7 +3850,7 @@ xerrors::Error SugaredAPI::ReadPowerF64(
     ));
 }
 
-xerrors::Error SugaredAPI::ReadPowerScalarF64(
+x::errors::Error SugaredAPI::ReadPowerScalarF64(
     TaskHandle task,
     float64 timeout,
     float64 *voltage,
@@ -3858,7 +3862,7 @@ xerrors::Error SugaredAPI::ReadPowerScalarF64(
     );
 }
 
-xerrors::Error SugaredAPI::ReadRaw(
+x::errors::Error SugaredAPI::ReadRaw(
     TaskHandle task,
     int32 numSampsPerChan,
     float64 timeout,
@@ -3880,7 +3884,7 @@ xerrors::Error SugaredAPI::ReadRaw(
     ));
 }
 
-xerrors::Error SugaredAPI::RegisterDoneEvent(
+x::errors::Error SugaredAPI::RegisterDoneEvent(
     TaskHandle task,
     uInt32 options,
     DAQmxDoneEventCallbackPtr callbackFunction,
@@ -3891,7 +3895,7 @@ xerrors::Error SugaredAPI::RegisterDoneEvent(
     );
 }
 
-xerrors::Error SugaredAPI::RegisterEveryNSamplesEvent(
+x::errors::Error SugaredAPI::RegisterEveryNSamplesEvent(
     TaskHandle task,
     int32 everyNSamplesEventType,
     uInt32 nSamples,
@@ -3909,7 +3913,7 @@ xerrors::Error SugaredAPI::RegisterEveryNSamplesEvent(
     ));
 }
 
-xerrors::Error SugaredAPI::RegisterSignalEvent(
+x::errors::Error SugaredAPI::RegisterSignalEvent(
     TaskHandle task,
     int32 signalID,
     uInt32 options,
@@ -3925,37 +3929,37 @@ xerrors::Error SugaredAPI::RegisterSignalEvent(
     ));
 }
 
-xerrors::Error SugaredAPI::RemoveCDAQSyncConnection(const char portList[]) {
+x::errors::Error SugaredAPI::RemoveCDAQSyncConnection(const char portList[]) {
     return process_error(dmx->RemoveCDAQSyncConnection(portList));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::ReserveNetworkDevice(const char deviceName[], bool32 overrideReservation) {
     return process_error(dmx->ReserveNetworkDevice(deviceName, overrideReservation));
 }
 
-xerrors::Error SugaredAPI::ResetBufferAttribute(TaskHandle task, int32 attribute) {
+x::errors::Error SugaredAPI::ResetBufferAttribute(TaskHandle task, int32 attribute) {
     return process_error(dmx->ResetBufferAttribute(task, attribute));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::ResetChanAttribute(TaskHandle task, const char channel[], int32 attribute) {
     return process_error(dmx->ResetChanAttribute(task, channel, attribute));
 }
 
-xerrors::Error SugaredAPI::ResetDevice(const char deviceName[]) {
+x::errors::Error SugaredAPI::ResetDevice(const char deviceName[]) {
     return process_error(dmx->ResetDevice(deviceName));
 }
 
-xerrors::Error SugaredAPI::ResetRealTimeAttribute(TaskHandle task, int32 attribute) {
+x::errors::Error SugaredAPI::ResetRealTimeAttribute(TaskHandle task, int32 attribute) {
     return process_error(dmx->ResetRealTimeAttribute(task, attribute));
 }
 
-xerrors::Error SugaredAPI::ResetTimingAttribute(TaskHandle task, int32 attribute) {
+x::errors::Error SugaredAPI::ResetTimingAttribute(TaskHandle task, int32 attribute) {
     return process_error(dmx->ResetTimingAttribute(task, attribute));
 }
 
-xerrors::Error SugaredAPI::ResetTimingAttributeEx(
+x::errors::Error SugaredAPI::ResetTimingAttributeEx(
     TaskHandle task,
     const char deviceNames[],
     int32 attribute
@@ -3963,19 +3967,19 @@ xerrors::Error SugaredAPI::ResetTimingAttributeEx(
     return process_error(dmx->ResetTimingAttributeEx(task, deviceNames, attribute));
 }
 
-xerrors::Error SugaredAPI::ResetTrigAttribute(TaskHandle task, int32 attribute) {
+x::errors::Error SugaredAPI::ResetTrigAttribute(TaskHandle task, int32 attribute) {
     return process_error(dmx->ResetTrigAttribute(task, attribute));
 }
 
-xerrors::Error SugaredAPI::ResetWriteAttribute(TaskHandle task, int32 attribute) {
+x::errors::Error SugaredAPI::ResetWriteAttribute(TaskHandle task, int32 attribute) {
     return process_error(dmx->ResetWriteAttribute(task, attribute));
 }
 
-xerrors::Error SugaredAPI::RestoreLastExtCalConst(const char deviceName[]) {
+x::errors::Error SugaredAPI::RestoreLastExtCalConst(const char deviceName[]) {
     return process_error(dmx->RestoreLastExtCalConst(deviceName));
 }
 
-xerrors::Error SugaredAPI::SaveGlobalChan(
+x::errors::Error SugaredAPI::SaveGlobalChan(
     TaskHandle task,
     const char channelName[],
     const char saveAs[],
@@ -3987,7 +3991,7 @@ xerrors::Error SugaredAPI::SaveGlobalChan(
     );
 }
 
-xerrors::Error SugaredAPI::SaveTask(
+x::errors::Error SugaredAPI::SaveTask(
     TaskHandle task,
     const char saveAs[],
     const char author[],
@@ -3996,15 +4000,15 @@ xerrors::Error SugaredAPI::SaveTask(
     return process_error(dmx->SaveTask(task, saveAs, author, options));
 }
 
-xerrors::Error SugaredAPI::SelfCal(const char deviceName[]) {
+x::errors::Error SugaredAPI::SelfCal(const char deviceName[]) {
     return process_error(dmx->SelfCal(deviceName));
 }
 
-xerrors::Error SugaredAPI::SelfTestDevice(const char deviceName[]) {
+x::errors::Error SugaredAPI::SelfTestDevice(const char deviceName[]) {
     return process_error(dmx->SelfTestDevice(deviceName));
 }
 
-xerrors::Error SugaredAPI::SetAIChanCalCalDate(
+x::errors::Error SugaredAPI::SetAIChanCalCalDate(
     TaskHandle task,
     const char channelName[],
     uInt32 year,
@@ -4018,7 +4022,7 @@ xerrors::Error SugaredAPI::SetAIChanCalCalDate(
     );
 }
 
-xerrors::Error SugaredAPI::SetAIChanCalExpDate(
+x::errors::Error SugaredAPI::SetAIChanCalExpDate(
     TaskHandle task,
     const char channelName[],
     uInt32 year,
@@ -4032,7 +4036,7 @@ xerrors::Error SugaredAPI::SetAIChanCalExpDate(
     );
 }
 
-xerrors::Error SugaredAPI::SetAnalogPowerUpStatesWithOutputType(
+x::errors::Error SugaredAPI::SetAnalogPowerUpStatesWithOutputType(
     const char channelNames[],
     const float64 stateArray[],
     const int32 channelTypeArray[],
@@ -4046,17 +4050,17 @@ xerrors::Error SugaredAPI::SetAnalogPowerUpStatesWithOutputType(
     ));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetArmStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data) {
     return process_error(dmx->SetArmStartTrigTrigWhen(task, data));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetBufferAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value) {
     return process_error(dmx->SetBufferAttributeUInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetCalInfoAttributeBool(
+x::errors::Error SugaredAPI::SetCalInfoAttributeBool(
     const char deviceName[],
     int32 attribute,
     bool32 value
@@ -4064,7 +4068,7 @@ xerrors::Error SugaredAPI::SetCalInfoAttributeBool(
     return process_error(dmx->SetCalInfoAttributeBool(deviceName, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetCalInfoAttributeDouble(
+x::errors::Error SugaredAPI::SetCalInfoAttributeDouble(
     const char deviceName[],
     int32 attribute,
     float64 value
@@ -4072,7 +4076,7 @@ xerrors::Error SugaredAPI::SetCalInfoAttributeDouble(
     return process_error(dmx->SetCalInfoAttributeDouble(deviceName, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetCalInfoAttributeString(
+x::errors::Error SugaredAPI::SetCalInfoAttributeString(
     const char deviceName[],
     int32 attribute,
     const char value[]
@@ -4080,7 +4084,7 @@ xerrors::Error SugaredAPI::SetCalInfoAttributeString(
     return process_error(dmx->SetCalInfoAttributeString(deviceName, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetCalInfoAttributeUInt32(
+x::errors::Error SugaredAPI::SetCalInfoAttributeUInt32(
     const char deviceName[],
     int32 attribute,
     uInt32 value
@@ -4088,7 +4092,7 @@ xerrors::Error SugaredAPI::SetCalInfoAttributeUInt32(
     return process_error(dmx->SetCalInfoAttributeUInt32(deviceName, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetChanAttributeBool(
+x::errors::Error SugaredAPI::SetChanAttributeBool(
     TaskHandle task,
     const char channel[],
     int32 attribute,
@@ -4097,7 +4101,7 @@ xerrors::Error SugaredAPI::SetChanAttributeBool(
     return process_error(dmx->SetChanAttributeBool(task, channel, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetChanAttributeDouble(
+x::errors::Error SugaredAPI::SetChanAttributeDouble(
     TaskHandle task,
     const char channel[],
     int32 attribute,
@@ -4106,7 +4110,7 @@ xerrors::Error SugaredAPI::SetChanAttributeDouble(
     return process_error(dmx->SetChanAttributeDouble(task, channel, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetChanAttributeDoubleArray(
+x::errors::Error SugaredAPI::SetChanAttributeDoubleArray(
     TaskHandle task,
     const char channel[],
     int32 attribute,
@@ -4118,7 +4122,7 @@ xerrors::Error SugaredAPI::SetChanAttributeDoubleArray(
     );
 }
 
-xerrors::Error SugaredAPI::SetChanAttributeInt32(
+x::errors::Error SugaredAPI::SetChanAttributeInt32(
     TaskHandle task,
     const char channel[],
     int32 attribute,
@@ -4127,7 +4131,7 @@ xerrors::Error SugaredAPI::SetChanAttributeInt32(
     return process_error(dmx->SetChanAttributeInt32(task, channel, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetChanAttributeString(
+x::errors::Error SugaredAPI::SetChanAttributeString(
     TaskHandle task,
     const char channel[],
     int32 attribute,
@@ -4136,7 +4140,7 @@ xerrors::Error SugaredAPI::SetChanAttributeString(
     return process_error(dmx->SetChanAttributeString(task, channel, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetChanAttributeUInt32(
+x::errors::Error SugaredAPI::SetChanAttributeUInt32(
     TaskHandle task,
     const char channel[],
     int32 attribute,
@@ -4145,7 +4149,7 @@ xerrors::Error SugaredAPI::SetChanAttributeUInt32(
     return process_error(dmx->SetChanAttributeUInt32(task, channel, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetDigitalLogicFamilyPowerUpState(
+x::errors::Error SugaredAPI::SetDigitalLogicFamilyPowerUpState(
     const char deviceName[],
     int32 logicFamily
 ) {
@@ -4154,7 +4158,7 @@ xerrors::Error SugaredAPI::SetDigitalLogicFamilyPowerUpState(
     );
 }
 
-xerrors::Error SugaredAPI::SetExportedSignalAttributeBool(
+x::errors::Error SugaredAPI::SetExportedSignalAttributeBool(
     TaskHandle task,
     int32 attribute,
     bool32 value
@@ -4162,7 +4166,7 @@ xerrors::Error SugaredAPI::SetExportedSignalAttributeBool(
     return process_error(dmx->SetExportedSignalAttributeBool(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetExportedSignalAttributeDouble(
+x::errors::Error SugaredAPI::SetExportedSignalAttributeDouble(
     TaskHandle task,
     int32 attribute,
     float64 value
@@ -4170,7 +4174,7 @@ xerrors::Error SugaredAPI::SetExportedSignalAttributeDouble(
     return process_error(dmx->SetExportedSignalAttributeDouble(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetExportedSignalAttributeInt32(
+x::errors::Error SugaredAPI::SetExportedSignalAttributeInt32(
     TaskHandle task,
     int32 attribute,
     int32 value
@@ -4178,7 +4182,7 @@ xerrors::Error SugaredAPI::SetExportedSignalAttributeInt32(
     return process_error(dmx->SetExportedSignalAttributeInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetExportedSignalAttributeString(
+x::errors::Error SugaredAPI::SetExportedSignalAttributeString(
     TaskHandle task,
     int32 attribute,
     const char value[]
@@ -4186,7 +4190,7 @@ xerrors::Error SugaredAPI::SetExportedSignalAttributeString(
     return process_error(dmx->SetExportedSignalAttributeString(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetExportedSignalAttributeUInt32(
+x::errors::Error SugaredAPI::SetExportedSignalAttributeUInt32(
     TaskHandle task,
     int32 attribute,
     uInt32 value
@@ -4194,26 +4198,27 @@ xerrors::Error SugaredAPI::SetExportedSignalAttributeUInt32(
     return process_error(dmx->SetExportedSignalAttributeUInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime data) {
+x::errors::Error
+SugaredAPI::SetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime data) {
     return process_error(dmx->SetFirstSampClkWhen(task, data));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetReadAttributeBool(TaskHandle task, int32 attribute, bool32 value) {
     return process_error(dmx->SetReadAttributeBool(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetReadAttributeDouble(TaskHandle task, int32 attribute, float64 value) {
     return process_error(dmx->SetReadAttributeDouble(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetReadAttributeInt32(TaskHandle task, int32 attribute, int32 value) {
     return process_error(dmx->SetReadAttributeInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetReadAttributeString(
+x::errors::Error SugaredAPI::SetReadAttributeString(
     TaskHandle task,
     int32 attribute,
     const char value[]
@@ -4221,32 +4226,32 @@ xerrors::Error SugaredAPI::SetReadAttributeString(
     return process_error(dmx->SetReadAttributeString(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetReadAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value) {
     return process_error(dmx->SetReadAttributeUInt32(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetReadAttributeUInt64(TaskHandle task, int32 attribute, uInt64 value) {
     return process_error(dmx->SetReadAttributeUInt64(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetRealTimeAttributeBool(TaskHandle task, int32 attribute, bool32 value) {
     return process_error(dmx->SetRealTimeAttributeBool(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetRealTimeAttributeInt32(TaskHandle task, int32 attribute, int32 value) {
     return process_error(dmx->SetRealTimeAttributeInt32(task, attribute, value));
 }
 
-xerrors::Error
+x::errors::Error
 SugaredAPI::SetRealTimeAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value) {
     return process_error(dmx->SetRealTimeAttributeUInt32(task, attribute, value));
 }
 
-xerrors::Error SugaredAPI::SetRuntimeEnvironment(
+x::errors::Error SugaredAPI::SetRuntimeEnvironment(
     const char environment[],
     const char environmentVersion[],
     const char reserved1[],
@@ -4260,7 +4265,7 @@ xerrors::Error SugaredAPI::SetRuntimeEnvironment(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCIAngEncoderChan(
+x::errors::Error SugaredAPI::CreateCIAngEncoderChan(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4288,7 +4293,7 @@ xerrors::Error SugaredAPI::CreateCIAngEncoderChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCIAngVelocityChan(
+x::errors::Error SugaredAPI::CreateCIAngVelocityChan(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4312,7 +4317,7 @@ xerrors::Error SugaredAPI::CreateCIAngVelocityChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCICountEdgesChan(
+x::errors::Error SugaredAPI::CreateCICountEdgesChan(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4330,7 +4335,7 @@ xerrors::Error SugaredAPI::CreateCICountEdgesChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCIDutyCycleChan(
+x::errors::Error SugaredAPI::CreateCIDutyCycleChan(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4350,7 +4355,7 @@ xerrors::Error SugaredAPI::CreateCIDutyCycleChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCIFreqChan(
+x::errors::Error SugaredAPI::CreateCIFreqChan(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4378,7 +4383,7 @@ xerrors::Error SugaredAPI::CreateCIFreqChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCIGPSTimestampChan(
+x::errors::Error SugaredAPI::CreateCIGPSTimestampChan(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4396,7 +4401,7 @@ xerrors::Error SugaredAPI::CreateCIGPSTimestampChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCILinEncoderChan(
+x::errors::Error SugaredAPI::CreateCILinEncoderChan(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4424,7 +4429,7 @@ xerrors::Error SugaredAPI::CreateCILinEncoderChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCILinVelocityChan(
+x::errors::Error SugaredAPI::CreateCILinVelocityChan(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4448,7 +4453,7 @@ xerrors::Error SugaredAPI::CreateCILinVelocityChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCIPeriodChan(
+x::errors::Error SugaredAPI::CreateCIPeriodChan(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4476,7 +4481,7 @@ xerrors::Error SugaredAPI::CreateCIPeriodChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCIPulseChanFreq(
+x::errors::Error SugaredAPI::CreateCIPulseChanFreq(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4494,7 +4499,7 @@ xerrors::Error SugaredAPI::CreateCIPulseChanFreq(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCIPulseChanTicks(
+x::errors::Error SugaredAPI::CreateCIPulseChanTicks(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4512,7 +4517,7 @@ xerrors::Error SugaredAPI::CreateCIPulseChanTicks(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCIPulseChanTime(
+x::errors::Error SugaredAPI::CreateCIPulseChanTime(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4530,7 +4535,7 @@ xerrors::Error SugaredAPI::CreateCIPulseChanTime(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCIPulseWidthChan(
+x::errors::Error SugaredAPI::CreateCIPulseWidthChan(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4552,7 +4557,7 @@ xerrors::Error SugaredAPI::CreateCIPulseWidthChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCISemiPeriodChan(
+x::errors::Error SugaredAPI::CreateCISemiPeriodChan(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4572,7 +4577,7 @@ xerrors::Error SugaredAPI::CreateCISemiPeriodChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCITwoEdgeSepChan(
+x::errors::Error SugaredAPI::CreateCITwoEdgeSepChan(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4596,7 +4601,7 @@ xerrors::Error SugaredAPI::CreateCITwoEdgeSepChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCOPulseChanFreq(
+x::errors::Error SugaredAPI::CreateCOPulseChanFreq(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4618,7 +4623,7 @@ xerrors::Error SugaredAPI::CreateCOPulseChanFreq(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCOPulseChanTicks(
+x::errors::Error SugaredAPI::CreateCOPulseChanTicks(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4640,7 +4645,7 @@ xerrors::Error SugaredAPI::CreateCOPulseChanTicks(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateCOPulseChanTime(
+x::errors::Error SugaredAPI::CreateCOPulseChanTime(
     TaskHandle task,
     const char counter[],
     const char nameToAssignToChannel[],
@@ -4662,7 +4667,7 @@ xerrors::Error SugaredAPI::CreateCOPulseChanTime(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateDIChan(
+x::errors::Error SugaredAPI::CreateDIChan(
     TaskHandle task,
     const char lines[],
     const char nameToAssignToLines[],
@@ -4673,7 +4678,7 @@ xerrors::Error SugaredAPI::CreateDIChan(
     );
 }
 
-xerrors::Error SugaredAPI::CreateDOChan(
+x::errors::Error SugaredAPI::CreateDOChan(
     TaskHandle task,
     const char lines[],
     const char nameToAssignToLines[],
@@ -4684,7 +4689,7 @@ xerrors::Error SugaredAPI::CreateDOChan(
     );
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIAccelChan(
+x::errors::Error SugaredAPI::CreateTEDSAIAccelChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -4710,7 +4715,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIAccelChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIBridgeChan(
+x::errors::Error SugaredAPI::CreateTEDSAIBridgeChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -4734,7 +4739,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIBridgeChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAICurrentChan(
+x::errors::Error SugaredAPI::CreateTEDSAICurrentChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -4760,7 +4765,7 @@ xerrors::Error SugaredAPI::CreateTEDSAICurrentChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIForceBridgeChan(
+x::errors::Error SugaredAPI::CreateTEDSAIForceBridgeChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -4784,7 +4789,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIForceBridgeChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIForceIEPEChan(
+x::errors::Error SugaredAPI::CreateTEDSAIForceIEPEChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -4810,7 +4815,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIForceIEPEChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIMicrophoneChan(
+x::errors::Error SugaredAPI::CreateTEDSAIMicrophoneChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -4834,7 +4839,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIMicrophoneChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIPosLVDTChan(
+x::errors::Error SugaredAPI::CreateTEDSAIPosLVDTChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -4862,7 +4867,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIPosLVDTChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIPosRVDTChan(
+x::errors::Error SugaredAPI::CreateTEDSAIPosRVDTChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -4890,7 +4895,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIPosRVDTChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIPressureBridgeChan(
+x::errors::Error SugaredAPI::CreateTEDSAIPressureBridgeChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -4914,7 +4919,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIPressureBridgeChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIRTDChan(
+x::errors::Error SugaredAPI::CreateTEDSAIRTDChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -4938,7 +4943,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIRTDChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIResistanceChan(
+x::errors::Error SugaredAPI::CreateTEDSAIResistanceChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -4964,7 +4969,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIResistanceChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIStrainGageChan(
+x::errors::Error SugaredAPI::CreateTEDSAIStrainGageChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -4992,7 +4997,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIStrainGageChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIThrmcplChan(
+x::errors::Error SugaredAPI::CreateTEDSAIThrmcplChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -5016,7 +5021,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIThrmcplChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIThrmstrChanIex(
+x::errors::Error SugaredAPI::CreateTEDSAIThrmstrChanIex(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -5040,7 +5045,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIThrmstrChanIex(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIThrmstrChanVex(
+x::errors::Error SugaredAPI::CreateTEDSAIThrmstrChanVex(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -5066,7 +5071,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIThrmstrChanVex(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAITorqueBridgeChan(
+x::errors::Error SugaredAPI::CreateTEDSAITorqueBridgeChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -5090,7 +5095,7 @@ xerrors::Error SugaredAPI::CreateTEDSAITorqueBridgeChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIVoltageChan(
+x::errors::Error SugaredAPI::CreateTEDSAIVoltageChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -5112,7 +5117,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIVoltageChan(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateTEDSAIVoltageChanWithExcit(
+x::errors::Error SugaredAPI::CreateTEDSAIVoltageChanWithExcit(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -5138,7 +5143,7 @@ xerrors::Error SugaredAPI::CreateTEDSAIVoltageChanWithExcit(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIVoltageChanWithExcit(
+x::errors::Error SugaredAPI::CreateAIVoltageChanWithExcit(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],
@@ -5168,7 +5173,7 @@ xerrors::Error SugaredAPI::CreateAIVoltageChanWithExcit(
     ));
 }
 
-xerrors::Error SugaredAPI::CreateAIVoltageRMSChan(
+x::errors::Error SugaredAPI::CreateAIVoltageRMSChan(
     TaskHandle task,
     const char physicalChannel[],
     const char nameToAssignToChannel[],

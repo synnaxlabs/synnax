@@ -19,31 +19,31 @@ class MockUnaryClient final : public freighter::UnaryClient<RQ, RS>,
 public:
     std::vector<RQ> requests{};
     std::vector<RS> responses{};
-    std::vector<xerrors::Error> response_errors{};
+    std::vector<x::errors::Error> response_errors{};
 
     MockUnaryClient() = default;
 
     MockUnaryClient(
         std::vector<RS> responses,
-        std::vector<xerrors::Error> response_errors
+        std::vector<x::errors::Error> response_errors
     ):
         responses(responses), response_errors(std::move(response_errors)) {}
 
-    MockUnaryClient(RS response, const xerrors::Error &response_error):
+    MockUnaryClient(RS response, const x::errors::Error &response_error):
         responses({response}), response_errors({response_error}) {}
 
     void use(std::shared_ptr<freighter::Middleware> middleware) override {
         mw.use(middleware);
     }
 
-    std::pair<RS, xerrors::Error>
+    std::pair<RS, x::errors::Error>
     send(const std::string &target, RQ &request) override {
         requests.push_back(request);
         if (responses.empty())
             throw std::runtime_error("mock unary client has no responses left!");
         const auto ctx = freighter::Context(
             "mock",
-            url::URL(target),
+            x::url::URL(target),
             freighter::TransportVariant::STREAM
         );
         auto [res, err] = mw.exec(ctx, this, request);

@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 namespace arc::errors {
-const auto BASE = xerrors::Error("arc");
+const auto BASE = x::errors::Error("arc");
 }

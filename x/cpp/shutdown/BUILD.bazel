@@ -1,0 +1,10 @@
+cc_library(
+    name = "shutdown",
+    srcs = select({
+        "@platforms//os:windows": ["windows.cpp"],
+        "//conditions:default": ["unix.cpp"],
+    }),
+    hdrs = ["shutdown.h"],
+    visibility = ["//visibility:public"],
+    deps = [],
+)

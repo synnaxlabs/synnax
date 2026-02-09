@@ -21,9 +21,9 @@
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/transport.h"
-#include "x/cpp/xjson/xjson.h"
-#include "x/cpp/xlog/xlog.h"
-#include "x/cpp/xpath/xpath.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/log/log.h"
+#include "x/cpp/path/path.h"
 
 namespace synnax {
 ///// @brief Internal namespace. Do not use.
@@ -62,7 +62,7 @@ struct Config {
     /// or using username/password authentication.
     std::string client_key_file;
     /// @brief sets the clock skew threshold at which a warning will be logged.
-    telem::TimeSpan clock_skew_threshold = telem::SECOND * 1;
+    x::telem::TimeSpan clock_skew_threshold = x::telem::SECOND * 1;
     /// @brief sets the maximum number of login retries before giving up.
     std::uint32_t max_retries = 5;
 
@@ -78,7 +78,7 @@ struct Config {
         );
         this->client_key_file = parser.field("client_key_file", this->client_key_file);
         this->ca_cert_file = parser.field("ca_cert_file", this->ca_cert_file);
-        this->clock_skew_threshold = telem::TimeSpan(parser.field(
+        this->clock_skew_threshold = x::telem::TimeSpan(parser.field(
             "clock_skew_threshold",
             this->clock_skew_threshold.nanoseconds()
         ));
@@ -86,21 +86,21 @@ struct Config {
     }
 
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
-        os << xlog::SHALE() << "  " << "cluster address" << xlog::RESET() << ": "
+        os << x::log::SHALE() << "  " << "cluster address" << x::log::RESET() << ": "
            << cfg.address() << "\n"
-           << "  " << xlog::SHALE() << "username" << xlog::RESET() << ": "
+           << "  " << x::log::SHALE() << "username" << x::log::RESET() << ": "
            << cfg.username << "\n"
-           << "  " << xlog::SHALE() << "password" << xlog::RESET() << ": "
-           << xlog::sensitive_string(cfg.password) << "\n"
-           << "  " << xlog::SHALE() << "secure" << xlog::RESET() << ": "
-           << xlog::bool_to_str(cfg.is_secure()) << "\n";
+           << "  " << x::log::SHALE() << "password" << x::log::RESET() << ": "
+           << x::log::sensitive_string(cfg.password) << "\n"
+           << "  " << x::log::SHALE() << "secure" << x::log::RESET() << ": "
+           << x::log::bool_to_str(cfg.is_secure()) << "\n";
         if (!cfg.is_secure()) return os;
-        os << "  " << xlog::SHALE() << "ca_cert_file" << xlog::RESET() << ": "
-           << xpath::resolve_relative(cfg.ca_cert_file) << "\n"
-           << "  " << xlog::SHALE() << "client_cert_file" << xlog::RESET() << ": "
-           << xpath::resolve_relative(cfg.client_cert_file) << "\n"
-           << "  " << xlog::SHALE() << "client_key_file" << xlog::RESET() << ": "
-           << xpath::resolve_relative(cfg.client_key_file) << "\n";
+        os << "  " << x::log::SHALE() << "ca_cert_file" << x::log::RESET() << ": "
+           << x::path::resolve_relative(cfg.ca_cert_file) << "\n"
+           << "  " << x::log::SHALE() << "client_cert_file" << x::log::RESET() << ": "
+           << x::path::resolve_relative(cfg.client_cert_file) << "\n"
+           << "  " << x::log::SHALE() << "client_key_file" << x::log::RESET() << ": "
+           << x::path::resolve_relative(cfg.client_key_file) << "\n";
         return os;
     }
 
@@ -114,7 +114,7 @@ struct Config {
         return this->host + ":" + std::to_string(this->port);
     }
 
-    [[nodiscard]] json to_json() const {
+    [[nodiscard]] x::json::json to_json() const {
         return {
             {"host", this->host},
             {"port", this->port},
@@ -133,21 +133,22 @@ struct Config {
 class Synnax {
 public:
     /// @brief Client for creating and retrieving channels in a cluster.
-    ChannelClient channels = ChannelClient(nullptr, nullptr);
+    channel::Client channels = channel::Client(nullptr, nullptr);
     /// @brief Client for creating, retrieving, and performing operations on ranges
     /// in a cluster.
-    RangeClient ranges = RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr);
+    ranger::Client ranges = ranger::Client(nullptr, nullptr, nullptr, nullptr, nullptr);
     /// @brief Client for reading and writing telemetry to a cluster.
-    FrameClient telem = FrameClient(nullptr, nullptr, ChannelClient());
+    framer::Client telem = framer::Client(nullptr, nullptr, channel::Client());
     /// @brief Client for managing racks.
-    RackClient racks = RackClient(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    rack::Client
+        racks = rack::Client(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     /// @brief Client for managing devices.
-    DeviceClient devices = DeviceClient(nullptr, nullptr, nullptr);
+    device::Client devices = device::Client(nullptr, nullptr, nullptr);
     /// @brief Client for managing statuses.
-    StatusClient statuses = StatusClient();
+    status::Client statuses = status::Client();
     /// @brief Client for managing Arc automation programs.
-    ArcClient arcs = ArcClient(nullptr, nullptr, nullptr);
-    std::shared_ptr<AuthMiddleware> auth = nullptr;
+    arc::Client arcs = arc::Client(nullptr, nullptr, nullptr);
+    std::shared_ptr<auth::Middleware> auth = nullptr;
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg) {
@@ -159,41 +160,45 @@ public:
             cfg.client_key_file
         );
         priv::check_little_endian();
-        this->auth = std::make_shared<AuthMiddleware>(
+        this->auth = std::make_shared<auth::Middleware>(
             std::move(t.auth_login),
             cfg.username,
             cfg.password,
             cfg.clock_skew_threshold
         );
         t.use(this->auth);
-        this->channels = ChannelClient(t.chan_retrieve, t.chan_create);
-        this->ranges = RangeClient(
+        this->channels = channel::Client(t.chan_retrieve, t.chan_create);
+        this->ranges = ranger::Client(
             std::move(t.range_retrieve),
             std::move(t.range_create),
             t.range_kv_get,
             t.range_kv_set,
             t.range_kv_delete
         );
-        this->telem = FrameClient(
+        this->telem = framer::Client(
             std::move(t.frame_stream),
             std::move(t.frame_write),
-            ChannelClient(t.chan_retrieve, t.chan_create)
+            channel::Client(t.chan_retrieve, t.chan_create)
         );
-        this->racks = RackClient(
+        this->racks = rack::Client(
             std::move(t.rack_create_client),
             std::move(t.rack_retrieve),
             std::move(t.rack_delete),
-            t.module_create,
-            t.module_retrieve,
-            t.module_delete
+            t.task_create,
+            t.task_retrieve,
+            t.task_delete
         );
-        this->devices = DeviceClient(
+        this->devices = device::Client(
             std::move(t.device_create),
             std::move(t.device_retrieve),
             std::move(t.device_delete)
         );
-        this->statuses = StatusClient(t.status_retrieve, t.status_set, t.status_delete);
-        this->arcs = ArcClient(t.arc_retrieve, t.arc_create, t.arc_delete);
+        this->statuses = status::Client(
+            t.status_retrieve,
+            t.status_set,
+            t.status_delete
+        );
+        this->arcs = arc::Client(t.arc_retrieve, t.arc_create, t.arc_delete);
     }
 };
 }

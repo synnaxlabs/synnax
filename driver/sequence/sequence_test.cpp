@@ -11,21 +11,22 @@
 
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/framer/framer.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/sequence/plugins/mock/plugins.h"
 #include "driver/sequence/plugins/plugins.h"
 #include "driver/sequence/sequence.h"
 
+namespace driver::sequence {
 /// @brief it should executed a basic sequence.
 TEST(Sequence, nominal) {
-    synnax::Channel read_channel;
+    synnax::channel::Channel read_channel;
     read_channel.key = 2;
     read_channel.name = "read_channel";
-    read_channel.data_type = telem::FLOAT64_T;
-    auto fr_1 = telem::Frame(read_channel.key, telem::Series(1.0));
-    const auto reads = std::make_shared<std::vector<telem::Frame>>();
+    read_channel.data_type = x::telem::FLOAT64_T;
+    auto fr_1 = x::telem::Frame(read_channel.key, x::telem::Series(1.0));
+    const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     reads->push_back(std::move(fr_1));
     auto streamer_factory = pipeline::mock::simple_streamer_factory(
         {read_channel.key},
@@ -37,10 +38,10 @@ TEST(Sequence, nominal) {
     );
 
     // Write pipeline
-    synnax::Channel write_channel;
+    synnax::channel::Channel write_channel;
     write_channel.key = 1;
     write_channel.name = "write_channel";
-    write_channel.data_type = telem::FLOAT64_T;
+    write_channel.data_type = x::telem::FLOAT64_T;
     auto mock_sink = std::make_shared<plugins::mock::FrameSink>();
     auto ch_write_plugin = std::make_shared<plugins::ChannelWrite>(
         mock_sink,
@@ -60,7 +61,7 @@ TEST(Sequence, nominal) {
         set("write_channel", read_channel)
     )";
 
-    auto seq = sequence::Sequence(plugins, script);
+    auto seq = Sequence(plugins, script);
     const auto start_err = seq.begin();
     const auto next_err = seq.next();
 
@@ -88,8 +89,8 @@ TEST(Sequence, compileError) {
         end
     )";
 
-    auto seq = sequence::Sequence(plugins, script);
-    ASSERT_OCCURRED_AS(seq.compile(), sequence::COMPILATION_ERROR);
+    auto seq = Sequence(plugins, script);
+    ASSERT_OCCURRED_AS(seq.compile(), COMPILATION_ERROR);
 }
 
 /// @brief it should return an error when the caller tries to compare a number with
@@ -103,18 +104,18 @@ TEST(Sequence, compareNil) {
             return
         end
     )";
-    auto seq = sequence::Sequence(plugins, script);
+    auto seq = Sequence(plugins, script);
     ASSERT_NIL(seq.begin());
-    ASSERT_OCCURRED_AS(seq.next(), sequence::RUNTIME_ERROR);
+    ASSERT_OCCURRED_AS(seq.next(), RUNTIME_ERROR);
     ASSERT_NIL(seq.end());
 }
 
 /// @brief it should return an error when trying to set a non-existent channel
 TEST(Sequence, channelNotFound) {
-    synnax::Channel write_channel;
+    synnax::channel::Channel write_channel;
     write_channel.key = 1;
     write_channel.name = "write_channel";
-    write_channel.data_type = telem::FLOAT64_T;
+    write_channel.data_type = x::telem::FLOAT64_T;
     auto mock_sink = std::make_shared<plugins::mock::FrameSink>();
     auto ch_write_plugin = std::make_shared<plugins::ChannelWrite>(
         mock_sink,
@@ -126,10 +127,10 @@ TEST(Sequence, channelNotFound) {
     const auto script = R"(
         set("nonexistent_channel", 42)
     )";
-    auto seq = sequence::Sequence(plugins, script);
+    auto seq = Sequence(plugins, script);
     ASSERT_NIL(seq.begin());
     const auto next_err = seq.next();
-    ASSERT_MATCHES(next_err, sequence::RUNTIME_ERROR);
+    ASSERT_MATCHES(next_err, RUNTIME_ERROR);
     EXPECT_NE(next_err.message().find("nonexistent_channel"), std::string::npos);
     EXPECT_NE(next_err.message().find("not found"), std::string::npos);
     ASSERT_NIL(seq.end());
@@ -139,14 +140,14 @@ TEST(Sequence, channelNotFound) {
 /// @brief it should correctly restart and re-execute a sequence several times,
 /// including binding correct variable names and functions.
 TEST(Sequence, restart) {
-    synnax::Channel read_channel;
+    synnax::channel::Channel read_channel;
     read_channel.key = 2;
     read_channel.name = "read_channel";
-    read_channel.data_type = telem::FLOAT64_T;
+    read_channel.data_type = x::telem::FLOAT64_T;
 
-    auto fr_1 = telem::Frame(read_channel.key, telem::Series(1.0));
-    auto fr_2 = telem::Frame(read_channel.key, telem::Series(2.0));
-    const auto reads = std::make_shared<std::vector<telem::Frame>>();
+    auto fr_1 = x::telem::Frame(read_channel.key, x::telem::Series(1.0));
+    auto fr_2 = x::telem::Frame(read_channel.key, x::telem::Series(2.0));
+    const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     reads->push_back(std::move(fr_1));
     reads->push_back(std::move(fr_2));
 
@@ -159,10 +160,10 @@ TEST(Sequence, restart) {
         std::vector{read_channel}
     );
 
-    synnax::Channel write_channel;
+    synnax::channel::Channel write_channel;
     write_channel.key = 1;
     write_channel.name = "write_channel";
-    write_channel.data_type = telem::FLOAT64_T;
+    write_channel.data_type = x::telem::FLOAT64_T;
     auto mock_sink = std::make_shared<plugins::mock::FrameSink>();
     auto ch_write_plugin = std::make_shared<plugins::ChannelWrite>(
         mock_sink,
@@ -183,7 +184,7 @@ TEST(Sequence, restart) {
         set("write_channel", read_channel)
     )";
 
-    auto seq = sequence::Sequence(plugins, script);
+    auto seq = Sequence(plugins, script);
 
     auto check_writes = [&]() -> size_t {
         auto _ = seq.next();
@@ -209,4 +210,5 @@ TEST(Sequence, restart) {
     ASSERT_EVENTUALLY_GE_F(check_writes_2, curr_size);
     ASSERT_NIL(seq.end());
     ASSERT_EQ(mock_sink->writes->at(0).channels->at(0), write_channel.key);
+}
 }

@@ -12,7 +12,7 @@
 #include "driver/modbus/device/device.h"
 #include "driver/task/task.h"
 
-namespace modbus {
+namespace driver::modbus {
 /// @brief integration name for modbus.
 const std::string INTEGRATION_NAME = "modbus";
 
@@ -29,13 +29,13 @@ public:
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) override;
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Rack &rack
+        const synnax::rack::Rack &rack
     ) override;
 };
 }
