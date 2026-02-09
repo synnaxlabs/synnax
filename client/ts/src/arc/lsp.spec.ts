@@ -41,8 +41,7 @@ const receiveNotification = async (
     if (err != null) throw err;
     if (res == null) throw new Error("Expected message");
     const msg = JSON.parse(res.content);
-    if ("method" in msg && msg.method === expectedMethod)
-      return msg as jsonRPC.Request;
+    if ("method" in msg && msg.method === expectedMethod) return msg as jsonRPC.Request;
   }
 };
 
