@@ -78,7 +78,7 @@ TEST(TestCommonReadTask, testBasicOperation) {
     EXPECT_EQ(start_state.key, t.status_key());
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
     EXPECT_EQ(start_state.details.task, t.key);
-    EXPECT_EQ(start_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
     read_task.stop("stop_cmd", true);
@@ -87,7 +87,7 @@ TEST(TestCommonReadTask, testBasicOperation) {
     EXPECT_EQ(stop_state.key, t.status_key());
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, t.key);
-    EXPECT_EQ(stop_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should report error status when source fails to start.
@@ -118,7 +118,7 @@ TEST(TestCommonReadTask, testErrorOnStart) {
     EXPECT_EQ(start_state.key, t.status_key());
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
     EXPECT_EQ(start_state.details.task, t.key);
-    EXPECT_EQ(start_state.variant, x::status::variant::ERR);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(start_state.message, "start error");
 }
 
@@ -151,7 +151,7 @@ TEST(TestCommonReadTask, testErrorOnStop) {
     EXPECT_EQ(start_state.key, t.status_key());
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
     EXPECT_EQ(start_state.details.task, t.key);
-    EXPECT_EQ(start_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
 
     const std::string stop_cmd_key = "stop_cmd";
     ASSERT_TRUE(read_task.stop(stop_cmd_key, true));
@@ -160,7 +160,7 @@ TEST(TestCommonReadTask, testErrorOnStop) {
     EXPECT_EQ(stop_state.key, t.status_key());
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, t.key);
-    EXPECT_EQ(stop_state.variant, x::status::variant::ERR);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "stop error");
 }
 
@@ -193,7 +193,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     EXPECT_EQ(start_state1.key, t.status_key());
     EXPECT_EQ(start_state1.details.cmd, start_cmd_key1);
     EXPECT_EQ(start_state1.details.task, t.key);
-    EXPECT_EQ(start_state1.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(start_state1.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
 
@@ -204,7 +204,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     EXPECT_EQ(stop_state1.key, t.status_key());
     EXPECT_EQ(stop_state1.details.cmd, stop_cmd_key1);
     EXPECT_EQ(stop_state1.details.task, t.key);
-    EXPECT_EQ(stop_state1.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(stop_state1.variant, x::status::VARIANT_SUCCESS);
 
     // Second start-stop cycle
     const std::string start_cmd_key2 = "start_cmd2";
@@ -214,7 +214,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     EXPECT_EQ(start_state2.key, t.status_key());
     EXPECT_EQ(start_state2.details.cmd, start_cmd_key2);
     EXPECT_EQ(start_state2.details.task, t.key);
-    EXPECT_EQ(start_state2.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(start_state2.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 2);
 
@@ -225,7 +225,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     EXPECT_EQ(stop_state2.key, t.status_key());
     EXPECT_EQ(stop_state2.details.cmd, stop_cmd_key2);
     EXPECT_EQ(stop_state2.details.task, t.key);
-    EXPECT_EQ(stop_state2.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(stop_state2.variant, x::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should report error status when read fails during operation.
@@ -260,7 +260,7 @@ TEST(TestCommonReadTask, testReadError) {
     EXPECT_EQ(start_state.key, t.status_key());
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
     EXPECT_EQ(start_state.details.task, t.key);
-    EXPECT_EQ(start_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.message, "Task started successfully");
 
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
@@ -268,7 +268,7 @@ TEST(TestCommonReadTask, testReadError) {
     auto run_err = ctx->statuses[1];
     ASSERT_EQ(run_err.key, t.status_key());
     ASSERT_EQ(run_err.details.task, t.key);
-    ASSERT_EQ(run_err.variant, x::status::variant::ERR);
+    ASSERT_EQ(run_err.variant, x::status::VARIANT_ERROR);
     ASSERT_EQ(run_err.message, "read error");
 
     ASSERT_FALSE(read_task.stop("stop_cmd", true));
@@ -277,7 +277,7 @@ TEST(TestCommonReadTask, testReadError) {
     EXPECT_EQ(stop_state.key, t.status_key());
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, t.key);
-    EXPECT_EQ(stop_state.variant, x::status::variant::ERR);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "read error");
 }
 
@@ -314,7 +314,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     EXPECT_EQ(start_state1.key, t.status_key());
     EXPECT_EQ(start_state1.details.cmd, start_cmd_key1);
     EXPECT_EQ(start_state1.details.task, t.key);
-    EXPECT_EQ(start_state1.variant, x::status::variant::ERR);
+    EXPECT_EQ(start_state1.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(start_state1.message, "first start error");
 
     // Second start attempt - should succeed
@@ -325,7 +325,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     EXPECT_EQ(start_state2.key, t.status_key());
     EXPECT_EQ(start_state2.details.cmd, start_cmd_key2);
     EXPECT_EQ(start_state2.details.task, t.key);
-    EXPECT_EQ(start_state2.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(start_state2.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state2.message, "Task started successfully");
 
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
@@ -338,7 +338,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     EXPECT_EQ(stop_state.key, t.status_key());
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, t.key);
-    EXPECT_EQ(stop_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should recover on second stop after first stop failure.
@@ -378,7 +378,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     EXPECT_EQ(start_state.key, t.status_key());
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
     EXPECT_EQ(start_state.details.task, t.key);
-    EXPECT_EQ(start_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.message, "Task started successfully");
 
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
@@ -391,7 +391,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     EXPECT_EQ(stop_state1.key, t.status_key());
     EXPECT_EQ(stop_state1.details.cmd, stop_cmd_key1);
     EXPECT_EQ(stop_state1.details.task, t.key);
-    EXPECT_EQ(stop_state1.variant, x::status::variant::ERR);
+    EXPECT_EQ(stop_state1.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state1.message, "first stop error");
 
     // Start the task again
@@ -402,7 +402,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     EXPECT_EQ(start_state2.key, t.status_key());
     EXPECT_EQ(start_state2.details.cmd, start_cmd_key2);
     EXPECT_EQ(start_state2.details.task, t.key);
-    EXPECT_EQ(start_state2.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(start_state2.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 2);
 
@@ -414,7 +414,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     EXPECT_EQ(stop_state2.key, t.status_key());
     EXPECT_EQ(stop_state2.details.cmd, stop_cmd_key2);
     EXPECT_EQ(stop_state2.details.task, t.key);
-    EXPECT_EQ(stop_state2.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(stop_state2.variant, x::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should report warning status on temporary hardware error and recover.
@@ -445,20 +445,20 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.key, t.status_key());
     EXPECT_EQ(start_state.details.cmd, "start_cmd");
-    EXPECT_EQ(start_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     auto warning_state = ctx->statuses[1];
     EXPECT_EQ(warning_state.key, t.status_key());
     EXPECT_EQ(warning_state.details.cmd, "start_cmd");
-    EXPECT_EQ(warning_state.variant, x::status::variant::WARNING);
+    EXPECT_EQ(warning_state.variant, x::status::VARIANT_WARNING);
     EXPECT_EQ(warning_state.message, errors::TEMPORARY_HARDWARE_ERROR.message());
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     auto recovered_state = ctx->statuses[2];
     EXPECT_EQ(recovered_state.key, t.status_key());
     EXPECT_EQ(recovered_state.details.cmd, "start_cmd");
-    EXPECT_EQ(recovered_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(recovered_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(recovered_state.message, "Task running");
 
     read_task.stop("stop_cmd", true);
@@ -467,7 +467,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     auto stop_state = ctx->statuses[3];
     EXPECT_EQ(stop_state.key, t.status_key());
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(stop_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.message, "Task stopped successfully");
 }
 

@@ -439,7 +439,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     EXPECT_EQ(first_state.key, task.status_key());
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
 
     wt->stop("stop_cmd", true);
 
@@ -448,7 +448,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     EXPECT_EQ(second_state.key, task.status_key());
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
 }
 
 /// Regression test for buffer size calculation bug with UINT8 holding registers.
