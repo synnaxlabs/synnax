@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import warnings
 from uuid import uuid4
 
 import pytest
@@ -89,3 +90,74 @@ class TestAuthRetry:
         response, error = mock_client.send("", 1, int)
         assert error is None
         assert response == 1
+
+
+def _make_token_response(node_time: int = 0) -> sy.auth.TokenResponse:
+    return sy.auth.TokenResponse(
+        token="abc",
+        user=sy.User(
+            key=uuid4(),
+            username="synnax",
+            password="seldon",
+            email="synnax@synnax.com",
+            first_name="Synnax",
+            last_name="Labs",
+        ),
+        cluster_info=sy.auth.ClusterInfo(node_time=node_time),
+    )
+
+
+@pytest.mark.auth
+class TestClockSkewDetection:
+    def test_warns_on_excessive_skew(self):
+        """Should emit a warning when clock skew exceeds the threshold."""
+        skewed_time = int(sy.TimeStamp.now()) + int(sy.TimeSpan.HOUR)
+        res = _make_token_response(node_time=skewed_time)
+        mock_login_client = MockUnaryClient[
+            sy.auth.InsecureCredentials, sy.auth.TokenResponse
+        ](responses=[res], response_errors=[None])
+        auth = sy.auth.AuthenticationClient(
+            mock_login_client,
+            "synnax",
+            "seldon",
+            clock_skew_threshold=sy.TimeSpan.SECOND,
+        )
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            auth.authenticate()
+            assert len(w) == 1
+            assert "clock skew" in str(w[0].message).lower()
+
+    def test_no_warning_within_threshold(self):
+        """Should not emit a warning when clock skew is within the threshold."""
+        res = _make_token_response(node_time=int(sy.TimeStamp.now()))
+        mock_login_client = MockUnaryClient[
+            sy.auth.InsecureCredentials, sy.auth.TokenResponse
+        ](responses=[res], response_errors=[None])
+        auth = sy.auth.AuthenticationClient(
+            mock_login_client,
+            "synnax",
+            "seldon",
+            clock_skew_threshold=sy.TimeSpan.SECOND,
+        )
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            auth.authenticate()
+            assert len(w) == 0
+
+    def test_no_warning_when_node_time_is_zero(self):
+        """Should not emit a warning when node_time is zero (old server)."""
+        res = _make_token_response(node_time=0)
+        mock_login_client = MockUnaryClient[
+            sy.auth.InsecureCredentials, sy.auth.TokenResponse
+        ](responses=[res], response_errors=[None])
+        auth = sy.auth.AuthenticationClient(
+            mock_login_client,
+            "synnax",
+            "seldon",
+            clock_skew_threshold=sy.TimeSpan.SECOND,
+        )
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            auth.authenticate()
+            assert len(w) == 0

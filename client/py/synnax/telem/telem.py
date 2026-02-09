@@ -415,6 +415,12 @@ class TimeSpan(int):
     def __rmul__(self, rhs: CrudeTimeSpan) -> TimeSpan:
         return self.__mul__(rhs)
 
+    def __abs__(self) -> TimeSpan:
+        return TimeSpan(super().__abs__())
+
+    def __neg__(self) -> TimeSpan:
+        return TimeSpan(super().__neg__())
+
     def __gt__(self, rhs: CrudeTimeSpan) -> bool:
         return super().__gt__(TimeSpan(rhs))
 

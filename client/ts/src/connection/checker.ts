@@ -22,6 +22,8 @@ export const stateZ = z.object({
   clientVersion: z.string(),
   clientServerCompatible: z.boolean(),
   nodeVersion: z.string().optional(),
+  clockSkew: TimeSpan.z.optional(),
+  clockSkewExcessive: z.boolean().optional(),
 });
 export interface State extends z.infer<typeof stateZ> {}
 
@@ -51,6 +53,11 @@ const createWarning = (
   https://docs.synnaxlabs.com/reference/client/resources/troubleshooting#old-${toUpgrade}-version`;
 };
 
+export interface ClockSkewInfo {
+  skew: TimeSpan;
+  excessive: boolean;
+}
+
 /** Polls a synnax cluster for connectivity information. */
 export class Checker {
   static readonly DEFAULT: State = DEFAULT;
@@ -63,6 +70,7 @@ export class Checker {
   private readonly onChangeHandlers: Array<(state: State) => void> = [];
   static readonly connectionStateZ = stateZ;
   private versionWarned = false;
+  private readonly clockSkewSource?: () => ClockSkewInfo | undefined;
 
   /**
    * @param client - The transport client to use for connectivity checks.
@@ -74,12 +82,14 @@ export class Checker {
     pollFreq: TimeSpan = TimeSpan.seconds(30),
     clientVersion: string,
     name?: string,
+    clockSkewSource?: () => ClockSkewInfo | undefined,
   ) {
     this._state = { ...DEFAULT };
     this.client = client;
     this.pollFrequency = pollFreq;
     this.clientVersion = clientVersion;
     this.name = name;
+    this.clockSkewSource = clockSkewSource;
     void this.check();
     this.start();
   }
@@ -136,6 +146,11 @@ export class Checker {
       this._state.clusterKey = res.clusterKey;
       this._state.nodeVersion = res.nodeVersion;
       this._state.clientVersion = this.clientVersion;
+      const skewInfo = this.clockSkewSource?.();
+      if (skewInfo != null) {
+        this._state.clockSkew = skewInfo.skew;
+        this._state.clockSkewExcessive = skewInfo.excessive;
+      }
     } catch (err) {
       this._state.status = "failed";
       this._state.error = err as Error;

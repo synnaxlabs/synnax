@@ -118,6 +118,7 @@ class Synnax(Client):
             transport=self._transport.unary,
             username=opts.username,
             password=opts.password,
+            clock_skew_threshold=TimeSpan.SECOND,
         )
         self.auth.authenticate()
         self._transport.use(self.auth.middleware())

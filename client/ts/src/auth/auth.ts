@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Middleware, sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { ClockSkewCalculator, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ExpiredTokenError, InvalidTokenError } from "@/errors";
@@ -16,7 +17,18 @@ import { user } from "@/user";
 const insecureCredentialsZ = z.object({ username: z.string(), password: z.string() });
 interface InsecureCredentials extends z.infer<typeof insecureCredentialsZ> {}
 
-const tokenResponseZ = z.object({ token: z.string(), user: user.userZ });
+const clusterInfoZ = z.object({
+  clusterKey: z.string().default(""),
+  nodeVersion: z.string().default(""),
+  nodeKey: z.coerce.number().default(0),
+  nodeTime: TimeStamp.z.default(TimeStamp.ZERO),
+});
+
+const tokenResponseZ = z.object({
+  token: z.string(),
+  user: user.userZ,
+  clusterInfo: clusterInfoZ,
+});
 
 const LOGIN_ENDPOINT = "/auth/login";
 
@@ -41,11 +53,19 @@ export class Client {
   private authState: AuthState = { authenticated: false };
   authenticating: Promise<Error | null> | undefined;
   private retryCount: number;
+  private readonly clockSkewThreshold: TimeSpan;
+  private _clockSkew: TimeSpan = TimeSpan.ZERO;
+  private _clockSkewExcessive: boolean = false;
 
-  constructor(client: UnaryClient, credentials: InsecureCredentials) {
+  constructor(
+    client: UnaryClient,
+    credentials: InsecureCredentials,
+    clockSkewThreshold: TimeSpan = TimeSpan.seconds(1),
+  ) {
     this.client = client;
     this.credentials = credentials;
     this.retryCount = 0;
+    this.clockSkewThreshold = clockSkewThreshold;
   }
 
   get authenticated(): boolean {
@@ -58,6 +78,14 @@ export class Client {
 
   get token(): string | undefined {
     return this.authState.authenticated ? this.authState.token : undefined;
+  }
+
+  get clockSkew(): TimeSpan {
+    return this._clockSkew;
+  }
+
+  get clockSkewExcessive(): boolean {
+    return this._clockSkewExcessive;
   }
 
   async retrieveUser(): Promise<user.User> {
@@ -88,6 +116,8 @@ export class Client {
     const mw: Middleware = async (reqCtx, next) => {
       if (!this.authenticated && !reqCtx.target.endsWith(LOGIN_ENDPOINT)) {
         this.authenticating ??= new Promise((resolve, reject) => {
+          const skewCalc = new ClockSkewCalculator();
+          skewCalc.start();
           this.client
             .send(
               LOGIN_ENDPOINT,
@@ -103,6 +133,26 @@ export class Client {
                 user: res.user,
                 token: res.token,
               };
+              const nodeTime = res.clusterInfo.nodeTime;
+              if (!nodeTime.equals(TimeStamp.ZERO)) {
+                skewCalc.end(nodeTime);
+                this._clockSkew = skewCalc.skew();
+                this._clockSkewExcessive = skewCalc.exceeds(
+                  this.clockSkewThreshold,
+                );
+                if (this._clockSkewExcessive) {
+                  const direction =
+                    this._clockSkew.valueOf() > 0n ? "behind" : "ahead of";
+                  console.warn(
+                    `Measured excessive clock skew between this host ` +
+                      `and the Synnax cluster. This host is ${direction} ` +
+                      `the cluster by approximately ${this._clockSkew.abs().toString()}. This may ` +
+                      `cause problems with time-series data consistency. ` +
+                      `We highly recommend synchronizing your clock with ` +
+                      `the Synnax cluster.`,
+                  );
+                }
+              }
               resolve(null);
             })
             .catch(reject);

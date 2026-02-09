@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Context } from "@synnaxlabs/freighter";
-import { URL } from "@synnaxlabs/x";
-import { describe, expect, it, test } from "vitest";
+import { TimeSpan, URL } from "@synnaxlabs/x";
+import { describe, expect, it, test, vi } from "vitest";
 
 import { auth } from "@/auth";
 import { AuthError, ExpiredTokenError, InvalidTokenError } from "@/errors";
@@ -97,6 +97,51 @@ describe("auth", () => {
         new InvalidTokenError(),
       ]);
       expect(err).toBeInstanceOf(InvalidTokenError);
+    });
+  });
+
+  describe("clock skew detection", () => {
+    test("should not warn when skew is within threshold", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const transport = new Transport(
+        new URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      const client = new auth.Client(
+        transport.unary,
+        TEST_CLIENT_PARAMS,
+        TimeSpan.seconds(5),
+      );
+      const mw = client.middleware();
+      await mw(DUMMY_CTX, async () => [DUMMY_CTX, null]);
+      const clockSkewWarns = warnSpy.mock.calls.filter(
+        (call) =>
+          typeof call[0] === "string" && call[0].includes("clock skew"),
+      );
+      expect(clockSkewWarns).toHaveLength(0);
+      warnSpy.mockRestore();
+    });
+
+    test("should populate clockSkew and clockSkewExcessive after auth", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const transport = new Transport(
+        new URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      const client = new auth.Client(
+        transport.unary,
+        TEST_CLIENT_PARAMS,
+        TimeSpan.seconds(5),
+      );
+      const mw = client.middleware();
+      await mw(DUMMY_CTX, async () => [DUMMY_CTX, null]);
+      expect(client.clockSkew).toBeDefined();
+      expect(typeof client.clockSkewExcessive).toBe("boolean");
+      warnSpy.mockRestore();
     });
   });
 });

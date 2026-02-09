@@ -52,6 +52,12 @@ const Base = ({
   if (loading) {
     statusMessage = "connecting";
     statusVariant = "loading";
+  } else if (
+    status === "connected" &&
+    data?.clockSkewExcessive === true
+  ) {
+    statusVariant = "warning";
+    statusMessage = "clock skew";
   }
   return (
     <BaseList.Item

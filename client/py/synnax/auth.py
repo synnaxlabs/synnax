@@ -8,6 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 
+import socket
+import warnings
+
 from freighter import (
     AsyncMiddleware,
     AsyncNext,
@@ -19,6 +22,8 @@ from freighter import (
 )
 
 from synnax.exceptions import ExpiredToken, InvalidToken
+from synnax.telem import TimeSpan, TimeStamp
+from synnax.telem.clock_skew import ClockSkewCalculator
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
 
@@ -28,9 +33,17 @@ class InsecureCredentials(Payload):
     password: str
 
 
+class ClusterInfo(Payload):
+    cluster_key: str = ""
+    node_version: str = ""
+    node_key: int = 0
+    node_time: int = 0
+
+
 class TokenResponse(Payload):
     token: str
     user: User
+    cluster_info: ClusterInfo = ClusterInfo()
 
 
 AUTHORIZATION_HEADER = "Authorization"
@@ -46,19 +59,24 @@ class AuthenticationClient:
     token: str
     user: User
     authenticated: bool
+    clock_skew_threshold: TimeSpan
 
     def __init__(
         self,
         transport: UnaryClient,
         username: str,
         password: str,
+        clock_skew_threshold: TimeSpan = TimeSpan.SECOND,
     ) -> None:
         self.client = transport
         self.username = username
         self.password = password
         self.authenticated = False
+        self.clock_skew_threshold = clock_skew_threshold
 
     def authenticate(self) -> None:
+        skew_calc = ClockSkewCalculator()
+        skew_calc.start()
         res = send_required(
             self.client,
             "/auth/login",
@@ -67,6 +85,22 @@ class AuthenticationClient:
         )
         self.token = res.token
         self.user = res.user
+        node_time = res.cluster_info.node_time
+        if node_time != 0:
+            skew_calc.end(TimeStamp(node_time))
+            if skew_calc.exceeds(self.clock_skew_threshold):
+                host = socket.gethostname()
+                skew = skew_calc.skew()
+                direction = "behind" if skew > TimeSpan.ZERO else "ahead of"
+                warnings.warn(
+                    f"Measured excessive clock skew between this host "
+                    f"and the Synnax cluster. This host ({host}) is "
+                    f"{direction} the cluster by approximately "
+                    f"{abs(skew)}. This may cause problems "
+                    f"with time-series data consistency. We highly "
+                    f"recommend synchronizing your clock with the Synnax "
+                    f"cluster."
+                )
         self.authenticated = True
 
     def middleware(self) -> list[Middleware]:

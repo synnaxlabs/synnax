@@ -899,6 +899,22 @@ describe("TimeSpan", () => {
       expect(result.valueOf()).toBe(1500n);
     });
 
+    describe("abs", () => {
+      test("positive", () => {
+        const ts = new TimeSpan(1000);
+        const result = ts.abs();
+        expect(result).toBeInstanceOf(TimeSpan);
+        expect(result.valueOf()).toBe(1000n);
+      });
+
+      test("negative", () => {
+        const ts = new TimeSpan(-1000);
+        const result = ts.abs();
+        expect(result).toBeInstanceOf(TimeSpan);
+        expect(result.valueOf()).toBe(1000n);
+      });
+    });
+
     test("sub with TimeSpan", () => {
       const ts1 = new TimeSpan(1000);
       const ts2 = new TimeSpan(300);

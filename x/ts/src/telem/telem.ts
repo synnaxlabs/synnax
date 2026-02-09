@@ -892,7 +892,7 @@ export class TimeSpan
   }
 
   private toSemanticString(): string {
-    const absValue = this.valueOf() < 0n ? -this.valueOf() : this.valueOf();
+    const absValue = math.abs(this.valueOf());
     const span = new TimeSpan(absValue);
     const isNegative = this.valueOf() < 0n;
 
@@ -1072,6 +1072,15 @@ export class TimeSpan
    */
   add(other: CrudeTimeSpan): TimeSpan {
     return new TimeSpan(this.valueOf() + new TimeSpan(other).valueOf());
+  }
+
+  /**
+   * Returns the absolute value of the TimeSpan.
+   *
+   * @returns A new TimeSpan representing the absolute value of the TimeSpan.
+   */
+  abs(): TimeSpan {
+    return new TimeSpan(math.abs(this.valueOf()));
   }
 
   /**

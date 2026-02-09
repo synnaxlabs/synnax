@@ -17,6 +17,7 @@ import pytest
 
 import synnax as sy
 from synnax.telem import CrudeDataType, CrudeRate, CrudeTimeSpan
+from synnax.telem.clock_skew import ClockSkewCalculator
 
 _now = sy.TimeStamp.now()
 
@@ -350,6 +351,25 @@ class TestTimeSpan:
         abc = sy.TimeSpan.to_seconds(span)
         assert abc == expected
 
+    def test_abs(self):
+        """Should return the absolute value as a TimeSpan"""
+        span = sy.TimeSpan(-5 * sy.TimeSpan.SECOND)
+        result = abs(span)
+        assert result == 5 * sy.TimeSpan.SECOND
+        assert isinstance(result, sy.TimeSpan)
+
+    def test_abs_positive(self):
+        """Should return the same value when already positive"""
+        span = 5 * sy.TimeSpan.SECOND
+        assert abs(span) == span
+
+    def test_neg(self):
+        """Should negate a TimeSpan"""
+        span = 5 * sy.TimeSpan.SECOND
+        result = -span
+        assert result == sy.TimeSpan(-5 * sy.TimeSpan.SECOND)
+        assert isinstance(result, sy.TimeSpan)
+
 
 @pytest.mark.telem
 class TestRate:
@@ -603,3 +623,82 @@ class TestAlignment:
         model2 = TestModel(alignment=packed_value)
         assert model2.alignment.domain_index == 5
         assert model2.alignment.sample_index == 10
+
+
+@pytest.mark.telem
+class TestClockSkewCalculator:
+    def test_single_measurement(self):
+        """Should correctly calculate clock skew from a single measurement."""
+        mock_time = sy.TimeStamp(0)
+
+        def custom_now() -> sy.TimeStamp:
+            return mock_time
+
+        calc = ClockSkewCalculator(now=custom_now)
+        calc.start()  # local_start_t = 0
+        mock_time = sy.TimeStamp(10)  # advance by 10ns
+        # remote midpoint was 3ns
+        calc.end(sy.TimeStamp(3))
+        # local midpoint = 0 + (10 - 0) / 2 = 5, skew = 5 - 3 = 2
+        assert calc.skew() == sy.TimeSpan(2)
+        assert calc.exceeds(sy.TimeSpan(1))
+        assert not calc.exceeds(sy.TimeSpan(3))
+
+    def test_zero_skew(self):
+        """Should report zero skew when local and remote times match."""
+        mock_time = sy.TimeStamp(0)
+
+        def custom_now() -> sy.TimeStamp:
+            return mock_time
+
+        calc = ClockSkewCalculator(now=custom_now)
+        calc.start()
+        mock_time = sy.TimeStamp(1000)
+        calc.end(sy.TimeStamp(500))  # midpoint = 500, remote = 500
+        assert calc.skew() == sy.TimeSpan.ZERO
+        assert not calc.exceeds(sy.TimeSpan(1))
+
+    def test_average_across_measurements(self):
+        """Should average skew across multiple measurements."""
+        mock_time = sy.TimeStamp(0)
+
+        def custom_now() -> sy.TimeStamp:
+            return mock_time
+
+        calc = ClockSkewCalculator(now=custom_now)
+
+        # First: local mid = 5, remote = 3, skew = 2
+        calc.start()
+        mock_time = sy.TimeStamp(10)
+        calc.end(sy.TimeStamp(3))
+
+        # Second: local mid = 15, remote = 11, skew = 4
+        mock_time = sy.TimeStamp(10)
+        calc.start()
+        mock_time = sy.TimeStamp(20)
+        calc.end(sy.TimeStamp(11))
+
+        # Average = (2 + 4) / 2 = 3
+        assert calc.skew() == sy.TimeSpan(3)
+
+    def test_no_measurements(self):
+        """Should return zero skew when no measurements taken."""
+        calc = ClockSkewCalculator()
+        assert calc.skew() == sy.TimeSpan.ZERO
+        assert not calc.exceeds(sy.TimeSpan(1))
+
+    def test_negative_skew(self):
+        """Should handle negative skew (local behind remote)."""
+        mock_time = sy.TimeStamp(0)
+
+        def custom_now() -> sy.TimeStamp:
+            return mock_time
+
+        calc = ClockSkewCalculator(now=custom_now)
+        calc.start()
+        mock_time = sy.TimeStamp(10)
+        # remote midpoint is 8, local midpoint is 5, skew = -3
+        calc.end(sy.TimeStamp(8))
+        assert calc.skew() == sy.TimeSpan(-3)
+        assert calc.exceeds(sy.TimeSpan(2))
+        assert not calc.exceeds(sy.TimeSpan(3))

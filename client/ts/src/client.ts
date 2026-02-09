@@ -129,6 +129,10 @@ export default class Synnax extends framer.Client {
       connectivityPollFrequency,
       this.clientVersion,
       parsedParams.name,
+      () =>
+        this.auth.authenticated
+          ? { skew: this.auth.clockSkew, excessive: this.auth.clockSkewExcessive }
+          : undefined,
     );
     this.control = new control.Client(this);
     this.ontology = new ontology.Client(transport.unary, this);

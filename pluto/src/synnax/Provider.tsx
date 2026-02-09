@@ -59,12 +59,15 @@ export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant
 };
 
 export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
+export const CLOCK_SKEW_DETECTED = "clockSkewDetected";
 
 export const statusDetailsSchema = z.object({
   type: z.string(),
-  oldServer: z.boolean(),
+  oldServer: z.boolean().optional(),
   nodeVersion: z.string().optional(),
-  clientVersion: z.string(),
+  clientVersion: z.string().optional(),
+  clockSkew: z.string().optional(),
+  clockSkewDirection: z.string().optional(),
 });
 
 export interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
@@ -169,6 +172,30 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
             oldServer,
             nodeVersion: connectivity.nodeVersion,
             clientVersion: connectivity.clientVersion,
+          },
+        });
+      }
+
+      if (
+        connectivity.status === "connected" &&
+        connectivity.clockSkewExcessive === true &&
+        connectivity.clockSkew != null
+      ) {
+        const skew = connectivity.clockSkew;
+        const direction = skew.valueOf() > 0n ? "behind" : "ahead of";
+        addStatus<StatusDetails>({
+          variant: "warning",
+          message: "Excessive clock skew detected",
+          description:
+            `This host is ${direction} the Synnax cluster by ` +
+            `approximately ${new TimeSpan(
+              skew.valueOf() < 0n ? -skew.valueOf() : skew.valueOf(),
+            ).toString()}. This may cause problems with time-series data ` +
+            `consistency. We recommend synchronizing your clock with the cluster.`,
+          details: {
+            type: CLOCK_SKEW_DETECTED,
+            clockSkew: skew.toString(),
+            clockSkewDirection: direction,
           },
         });
       }

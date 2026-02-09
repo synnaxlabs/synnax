@@ -34,3 +34,11 @@ export const versionOutdatedAdapter: Notifications.Adapter<
   else nextStatus.actions = [<Version.OpenUpdateDialogAction key="update" />];
   return nextStatus;
 };
+
+export const clockSkewAdapter: Notifications.Adapter<
+  typeof Synnax.statusDetailsSchema
+> = (status) => {
+  if (status.details == null) return null;
+  if (status.details.type !== Synnax.CLOCK_SKEW_DETECTED) return null;
+  return { ...status };
+};

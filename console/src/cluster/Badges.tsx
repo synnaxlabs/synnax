@@ -35,9 +35,10 @@ const STATUS_MESSAGES: Record<connection.Status, string> = {
  * @param props.state - The connection state of the cluster.
  */
 export const ConnectionStatusBadge = ({
-  state: { status, message },
+  state: { status, message, clockSkewExcessive, clockSkew },
 }: ConnectionStateBadgeProps): ReactElement => {
-  const variant = Synnax.CONNECTION_STATE_VARIANTS[status];
+  let variant = Synnax.CONNECTION_STATE_VARIANTS[status];
+  if (status === "connected" && clockSkewExcessive === true) variant = "warning";
   return (
     <Tooltip.Dialog location={location.BOTTOM_LEFT}>
       <Flex.Box y gap="tiny">
@@ -47,6 +48,11 @@ export const ConnectionStatusBadge = ({
         {message != null && (
           <Text.Text color={9} weight={450}>
             {message}
+          </Text.Text>
+        )}
+        {clockSkewExcessive === true && clockSkew != null && (
+          <Text.Text color={9} weight={450}>
+            Clock skew: {clockSkew.toString()}
           </Text.Text>
         )}
       </Flex.Box>
