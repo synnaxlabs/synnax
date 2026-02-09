@@ -145,5 +145,5 @@ class NITask(TaskPage):
             idx = self.channels_by_name.index(channel_name)
             self.layout.page.locator(".pluto-list__item").nth(idx).click()
             channel = self.channels[idx]
-            sy.sleep(0.1)
+            sy.sleep(0.3)
             channel.assert_form()

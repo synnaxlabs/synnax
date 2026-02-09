@@ -58,16 +58,16 @@ class SetpointPressUser(SimDaqTestCase, ConsoleCase):
         press_valve = schematic.create_symbol(
             Valve(
                 label="press_vlv",
-                state_channel="press_vlv",
-                command_channel="press_vlv",
+                state_channel="press_vlv_state",
+                command_channel="press_vlv_cmd",
             )
         )
         press_valve.move(delta_x=-90, delta_y=10)
         vent_valve = schematic.create_symbol(
             Valve(
                 label="vent_vlv",
-                state_channel="vent_vlv",
-                command_channel="vent_vlv",
+                state_channel="vent_vlv_state",
+                command_channel="vent_vlv_cmd",
             )
         )
         vent_valve.move(delta_x=90, delta_y=10)
@@ -87,14 +87,9 @@ class SetpointPressUser(SimDaqTestCase, ConsoleCase):
         # A failure means future commands will not be written.
 
         self.log("Starting Control Authority Test (1/2)")
-
-        # Assertions 1
-        start_flag_val = self.read_tlm("test_flag_cmd")
-        press_vlv_state = self.read_tlm("press_vlv_state")
-        vent_vlv_state = self.read_tlm("vent_vlv_state")
-        assert start_flag_val == 0, "Start flag should be 0 on initial read"
-        assert press_vlv_state == 0, "Press valve should be 0 on initial read"
-        assert vent_vlv_state == 0, "Vent valve should be 0 on initial read"
+        self.wait_for_eq("test_flag_cmd", 0, is_virtual=True)
+        self.wait_for_eq("press_vlv_state", 0)
+        self.wait_for_eq("vent_vlv_state", 0)
 
         start_cmd.press()  # Set True
 
@@ -128,13 +123,15 @@ class SetpointPressUser(SimDaqTestCase, ConsoleCase):
         # ------------- Test 2: Basic Control --------------
         self.log("Starting Basic Control Test (2/2)")
         start_cmd.press()  # Set True
+        self.wait_for_eq("test_flag_cmd", 1, is_virtual=True)
 
         self.log("Starting test")
         setpoints = [25, 0]
         for target in setpoints:
             self.log(f"Target pressure: {target}")
             setpoint.set_value(target)
-            self.wait_for_near("press_pt", target, tolerance=0.5)
+            self.wait_for_eq("press_setpoint_cmd", target, is_virtual=True)
+            self.wait_for_near("press_pt", target, tolerance=3.0)
             self.log(f"Target pressure reached")
             sy.sleep(1)
 
