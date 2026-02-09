@@ -381,6 +381,16 @@ class Schematic(ConsolePage):
                 )
             sy.sleep(0.1)  # Wait for Core update
 
+    def fit_view(self) -> None:
+        """Fit the schematic view to its contents."""
+        fit_button = (
+            self.page.locator(".console-controls button")
+            .filter(has=self.page.locator("svg.pluto-icon--expand"))
+            .first
+        )
+        if fit_button.count() > 0:
+            fit_button.click()
+
     def get_edit_status(self) -> bool:
         """Get whether edit is currently enabled for this schematic."""
         edit_button = (

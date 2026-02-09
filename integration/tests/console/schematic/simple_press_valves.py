@@ -55,8 +55,8 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
         press_valve = schematic.create_symbol(
             Valve(
                 label="press_vlv",
-                state_channel="press_vlv",
-                command_channel="press_vlv",
+                state_channel="press_vlv_state",
+                command_channel="press_vlv_cmd",
             )
         )
         press_valve.move(delta_x=-200, delta_y=0)
@@ -64,13 +64,15 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
         vent_valve = schematic.create_symbol(
             Valve(
                 label="vent_vlv",
-                state_channel="vent_vlv",
-                command_channel="vent_vlv",
+                state_channel="vent_vlv_state",
+                command_channel="vent_vlv_cmd",
             )
         )
         schematic.connect_symbols(press_valve, "right", vent_valve, "left")
 
         self.log("Starting test")
+        schematic.set_authority(255)
+        schematic.fit_view()
         schematic.acquire_control()
         target_Pressure = 20
 
@@ -99,4 +101,7 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
         self.wait_for_eq("press_vlv_state", 0)
         self.wait_for_eq("vent_vlv_state", 0)
         end_test_cmd.press()
+        schematic.release_control()
+        schematic.enable_edit()
+        schematic.set_authority(1)
         self.console.screenshot("console_press_control_passed")
