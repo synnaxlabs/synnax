@@ -222,6 +222,19 @@ void State::reset() {
     this->var_series.clear();
 }
 
+void State::set_authority(
+    std::optional<types::ChannelKey> channel_key,
+    const uint8_t authority
+) {
+    authority_changes.push_back({std::move(channel_key), authority});
+}
+
+std::vector<AuthorityChange> State::flush_authority_changes() {
+    std::vector<AuthorityChange> result;
+    result.swap(authority_changes);
+    return result;
+}
+
 void State::write_channel(
     const types::ChannelKey key,
     const Series &data,

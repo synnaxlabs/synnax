@@ -25,7 +25,7 @@ struct BaseReadTaskConfig : BaseTaskConfig {
     /// @brief sets the stream rate for the task.
     const x::telem::Rate stream_rate;
     /// @brief timing configuration options for the task.
-    common::TimingConfig timing;
+    TimingConfig timing;
 
     BaseReadTaskConfig(BaseReadTaskConfig &&other) noexcept:
         BaseTaskConfig(std::move(other)),
@@ -128,8 +128,11 @@ class ReadTask final : public task::Task {
             this->p.stop("", true);
         }
 
-        x::errors::Error
-        read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
+        x::errors::Error read(
+            x::breaker::Breaker &breaker,
+            x::telem::Frame &fr,
+            pipeline::Authorities &authorities
+        ) override {
             auto [err, warning] = this->internal->read(breaker, fr);
             // Three cases.
             // 1. We have an error, but it's temporary, so we trigger the breaker

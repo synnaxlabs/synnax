@@ -681,7 +681,7 @@ func (p *printer) handleDefault(tok antlr.Token, idx int, tokens []antlr.Token) 
 
 func (p *printer) needsNewlineBefore(tokType int) bool {
 	switch tokType {
-	case parser.ArcLexerFUNC, parser.ArcLexerSEQUENCE:
+	case parser.ArcLexerFUNC, parser.ArcLexerSEQUENCE, parser.ArcLexerAUTHORITY:
 		return p.prevToken != nil && p.lastTokenType != parser.ArcLexerRBRACE
 	case parser.ArcLexerSTAGE:
 		return p.prevToken != nil
@@ -699,7 +699,8 @@ func (p *printer) needsNewlineAfter(tokType int, idx int, tokens []antlr.Token) 
 	switch tokType {
 	case parser.ArcLexerRBRACE:
 		if nextType == parser.ArcLexerFUNC || nextType == parser.ArcLexerSEQUENCE ||
-			nextType == parser.ArcLexerSTAGE || nextType == antlr.TokenEOF {
+			nextType == parser.ArcLexerSTAGE || nextType == parser.ArcLexerAUTHORITY ||
+			nextType == antlr.TokenEOF {
 			return true
 		}
 	}
@@ -820,7 +821,7 @@ func (p *printer) isKeyword(tokType int) bool {
 	switch tokType {
 	case parser.ArcLexerFUNC, parser.ArcLexerIF, parser.ArcLexerELSE,
 		parser.ArcLexerRETURN, parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
-		parser.ArcLexerNEXT, parser.ArcLexerNOT:
+		parser.ArcLexerNEXT, parser.ArcLexerNOT, parser.ArcLexerAUTHORITY:
 		return true
 	}
 	return false
@@ -857,7 +858,7 @@ func (p *printer) needsSpaceBeforeParen() bool {
 	switch p.lastTokenType {
 	case parser.ArcLexerIDENTIFIER:
 		return false
-	case parser.ArcLexerIF:
+	case parser.ArcLexerIF, parser.ArcLexerAUTHORITY:
 		return true
 	case parser.ArcLexerRBRACE:
 		return true
