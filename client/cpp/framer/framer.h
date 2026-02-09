@@ -459,5 +459,4 @@ private:
     /// cluster.
     channel::Client channel_client;
 };
-
 }

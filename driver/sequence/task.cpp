@@ -160,9 +160,8 @@ std::unique_ptr<task::Task> Task::configure(
                     cfg.write.end())
                 cfg.write.push_back(ch.index);
 
-        const synnax::framer::WriterConfig writer_cfg{
-            .channels = cfg.write,
-            .start = x::telem::TimeStamp::now(),
+        const synnax::framer::WriterConfig writer_cfg {
+            .channels = cfg.write, .start = x::telem::TimeStamp::now(),
             .authorities = {cfg.authority},
             .subject = x::control::Subject{
                 .name = task.name,

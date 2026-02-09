@@ -25,7 +25,7 @@ TEST(WriterTests, testWriteBasic) {
         synnax::framer::WriterConfig{
             synnax::channel::keys_from_channels(time, data),
             now,
-            std::vector{x::telem::AUTHORITY_ABSOLUTE, x::telem::AUTHORITY_ABSOLUTE},
+            std::vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
             x::control::Subject{"test_writer"},
         }
     ));
@@ -68,7 +68,7 @@ TEST(WriterTests, testOpenWriterOnNonexistentChannel) {
             synnax::framer::WriterConfig{
                 std::vector<synnax::channel::Key>{time.key, 1000},
                 now,
-                std::vector{x::telem::AUTHORITY_ABSOLUTE},
+                std::vector{x::control::AUTHORITY_ABSOLUTE},
                 x::control::Subject{"test_writer"},
             }
         ),
@@ -85,7 +85,7 @@ TEST(WriterTests, testWriteToUnspecifiedChannel) {
         synnax::framer::WriterConfig{
             std::vector{time.key},
             x::telem::TimeStamp::now(),
-            std::vector{x::telem::AUTHORITY_ABSOLUTE},
+            std::vector{x::control::AUTHORITY_ABSOLUTE},
             x::control::Subject{"test_writer"},
         }
     ));
@@ -105,7 +105,7 @@ TEST(WriterTests, testWriteSeriesWithMismatchedDataType) {
         synnax::framer::WriterConfig{
             std::vector{time.key, data.key},
             x::telem::TimeStamp::now(),
-            std::vector{x::telem::AUTHORITY_ABSOLUTE, x::telem::AUTHORITY_ABSOLUTE},
+            std::vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
             x::control::Subject{"test_writer"},
         }
     ));
@@ -138,7 +138,7 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
             .channels = std::vector{time.key, data.key},
             .start = x::telem::TimeStamp::now(),
             .authorities = std::
-                vector{x::telem::AUTHORITY_ABSOLUTE, x::telem::AUTHORITY_ABSOLUTE},
+                vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
             .subject = x::control::Subject{"test_writer_1"},
             .err_on_unauthorized = true
         }
@@ -148,7 +148,7 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
             .channels = std::vector{time.key, data.key},
             .start = x::telem::TimeStamp::now(),
             .authorities = std::
-                vector{x::telem::AUTHORITY_ABSOLUTE, x::telem::AUTHORITY_ABSOLUTE},
+                vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
             .subject = x::control::Subject{"test_writer_2"},
             .err_on_unauthorized = true
         }
@@ -185,9 +185,9 @@ TEST(WriterTests, testSetAuthority) {
             .start = x::telem::TimeStamp::now(),
             .authorities =
                 std::vector{
-                    x::telem::AUTHORITY_ABSOLUTE,
-                    x::telem::AUTHORITY_ABSOLUTE,
-                    x::telem::AUTHORITY_ABSOLUTE
+                    x::control::AUTHORITY_ABSOLUTE,
+                    x::control::AUTHORITY_ABSOLUTE,
+                    x::control::AUTHORITY_ABSOLUTE
                 },
             .subject = x::control::Subject{"test_writer"},
             .err_on_unauthorized = true
@@ -198,12 +198,12 @@ TEST(WriterTests, testSetAuthority) {
     ASSERT_NIL(writer.set_authority(0));
 
     // Test setting authority for a single channel
-    ASSERT_NIL(writer.set_authority(data1.key, x::telem::AUTHORITY_ABSOLUTE));
+    ASSERT_NIL(writer.set_authority(data1.key, x::control::AUTHORITY_ABSOLUTE));
 
     // Test setting different authorities for multiple channels
     ASSERT_NIL(writer.set_authority(
         std::vector{time.key, data2.key},
-        std::vector{x::telem::AUTHORITY_ABSOLUTE, x::telem::AUTHORITY_ABSOLUTE}
+        std::vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE}
     ));
 
     ASSERT_NIL(writer.close());
@@ -219,7 +219,7 @@ TEST(WriterTests, testCloseIdempotency) {
         synnax::framer::WriterConfig{
             synnax::channel::keys_from_channels(time, data),
             now,
-            std::vector{x::telem::AUTHORITY_ABSOLUTE, x::telem::AUTHORITY_ABSOLUTE},
+            std::vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
             x::control::Subject{"test_writer"},
         }
     ));
@@ -248,7 +248,7 @@ TEST(WriterTests, testErrorCommunication) {
         synnax::framer::WriterConfig{
             std::vector{time.key, data.key},
             x::telem::TimeStamp::now(),
-            std::vector{x::telem::AUTHORITY_ABSOLUTE, x::telem::AUTHORITY_ABSOLUTE},
+            std::vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
             x::control::Subject{"test_writer"},
         }
     ));

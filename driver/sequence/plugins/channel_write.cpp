@@ -169,7 +169,9 @@ x::errors::Error ChannelWrite::before_all(lua_State *L) {
                 lua_pushnil(cL);
                 while (lua_next(cL, 1) != 0) {
                     const char *channel_name = lua_tostring(cL, -2);
-                    auto auth = static_cast<x::control::Authority>(lua_tonumber(cL, -1));
+                    auto auth = static_cast<x::control::Authority>(
+                        lua_tonumber(cL, -1)
+                    );
 
                     const auto [channel, found] = op->resolve(channel_name);
                     if (!found) {

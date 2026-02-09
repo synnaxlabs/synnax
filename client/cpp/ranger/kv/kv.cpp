@@ -23,8 +23,7 @@ std::pair<std::string, x::errors::Error> Client::get(const std::string &key) con
     return {res.pairs().at(0).value(), err};
 }
 
-x::errors::Error
-Client::set(const std::string &key, const std::string &value) const {
+x::errors::Error Client::set(const std::string &key, const std::string &value) const {
     auto req = api::v1::RangeKVSetRequest();
     req.set_range_key(range_key);
     const auto pair = req.add_pairs();

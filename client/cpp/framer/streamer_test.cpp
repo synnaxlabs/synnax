@@ -38,7 +38,7 @@ TEST(StreamerTests, testStreamBasic) {
         synnax::framer::WriterConfig{
             channels,
             now,
-            {x::telem::AUTHORITY_ABSOLUTE},
+            {x::control::AUTHORITY_ABSOLUTE},
             x::control::Subject{"test_writer"}
         }
     ));
@@ -74,7 +74,7 @@ TEST(StreamerTests, testStreamSetChannels) {
         synnax::framer::WriterConfig{
             {data.key},
             now,
-            {x::telem::AUTHORITY_ABSOLUTE},
+            {x::control::AUTHORITY_ABSOLUTE},
             x::control::Subject{"test_writer"}
         }
     ));
@@ -166,7 +166,7 @@ TEST(StreamerTests, TestStreamVariableChannel) {
         synnax::framer::WriterConfig{
             channels,
             now,
-            std::vector{x::telem::AUTHORITY_ABSOLUTE},
+            std::vector{x::control::AUTHORITY_ABSOLUTE},
             x::control::Subject{"test_writer"}
         }
     ));
@@ -195,7 +195,7 @@ void test_downsample(
         synnax::framer::WriterConfig{
             channels,
             now,
-            std::vector{x::telem::AUTHORITY_ABSOLUTE},
+            std::vector{x::control::AUTHORITY_ABSOLUTE},
             x::control::Subject{"test_writer"}
         }
     ));
@@ -239,7 +239,7 @@ void test_downsample_string(
         synnax::framer::WriterConfig{
             channels,
             now,
-            std::vector{x::telem::AUTHORITY_ABSOLUTE},
+            std::vector{x::control::AUTHORITY_ABSOLUTE},
             x::control::Subject{"test_writer"}
         }
     ));
