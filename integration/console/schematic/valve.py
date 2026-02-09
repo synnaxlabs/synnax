@@ -129,10 +129,24 @@ class Valve(Symbol):
 
         return props
 
+    @property
+    def visual_enabled(self) -> bool:
+        """Whether the valve visually shows as enabled (reflects Aether state)."""
+        return self.locator.locator(".pluto--enabled").count() > 0
+
     def press(self) -> None:
-        """Press button."""
+        """Press button and wait for the visual state to toggle."""
         self._disable_edit_mode()
+        was_enabled = self.visual_enabled
         self.click()
+        if was_enabled:
+            self.locator.locator(".pluto--enabled").wait_for(
+                state="hidden", timeout=5000
+            )
+        else:
+            self.locator.locator(".pluto--enabled").wait_for(
+                state="visible", timeout=5000
+            )
 
     def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
         """Click and hold the button for the specified duration."""
