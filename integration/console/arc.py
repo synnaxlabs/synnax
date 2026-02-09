@@ -72,9 +72,32 @@ class ArcClient:
             editor.locator(".monaco-editor.focused").wait_for(
                 state="visible", timeout=5000
             )
+            self._paste_source(editor, source)
+
+    def _paste_source(self, editor: Locator, source: str, max_retries: int = 3) -> None:
+        """Paste source code into the Monaco editor with retry on failure.
+
+        Clipboard paste in headless browsers can intermittently fail, so we
+        verify the editor received content and retry if it didn't.
+        """
+        for attempt in range(max_retries):
             self.page.keyboard.press("ControlOrMeta+a")
             self.page.evaluate(f"navigator.clipboard.writeText({repr(source)})")
+            self.page.wait_for_timeout(100)
             self.page.keyboard.press("ControlOrMeta+v")
+            self.page.wait_for_timeout(500)
+            line_count = editor.locator(".view-line").count()
+            if line_count > 1:
+                return
+            if attempt < max_retries - 1:
+                editor.click()
+                editor.locator(".monaco-editor.focused").wait_for(
+                    state="visible", timeout=5000
+                )
+
+        raise RuntimeError(
+            f"Failed to paste Arc source into editor after {max_retries} attempts"
+        )
 
     def find_item(self, name: str) -> Locator | None:
         """Find an Arc item in the panel by name."""
