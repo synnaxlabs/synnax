@@ -79,7 +79,9 @@ public:
 
         if (this->config_.interval.nanoseconds() > 0) {
             if (this->config_.mode == ExecutionMode::HIGH_RATE)
-                this->timer_ = std::make_unique<::x::loop::Timer>(this->config_.interval);
+                this->timer_ = std::make_unique<::x::loop::Timer>(
+                    this->config_.interval
+                );
             else {
                 this->timer_fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
                 if (this->timer_fd_ == -1) {

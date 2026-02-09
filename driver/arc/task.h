@@ -166,7 +166,7 @@ public:
             );
         task->acquisition = std::make_unique<pipeline::Acquisition>(
             writer_factory,
-            synnax::framer::WriterConfig {
+            synnax::framer::WriterConfig{
                 .channels = task->runtime->write_channels,
                 .start = x::telem::TimeStamp::now(),
                 .subject =
