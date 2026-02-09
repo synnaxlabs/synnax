@@ -2422,7 +2422,7 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
     auto *error_status = find_status_by_variant(ctx->statuses, x::status::variant::ERR);
     EXPECT_NE(error_status, nullptr)
         << "Writer failure should propagate error status via stopped_with_err";
-    if (error_status != nullptr) EXPECT_FALSE(error_status->details.running);
+    if (error_status != nullptr) { EXPECT_FALSE(error_status->details.running); }
 
     // Explicit stop to join pipeline threads (stopped_with_err calls stop from within
     // the acquisition thread which skips the thread join).

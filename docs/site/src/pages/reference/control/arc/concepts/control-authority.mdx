@@ -52,8 +52,9 @@ This sets a default of 200, then overrides `press_vlv_cmd` to 100 and `vent_vlv_
 to 150.
 
 <Note.Note variant="info">
-  See the [syntax reference](/reference/control/arc/reference/syntax#authority-declarations)
-  for the full authority declaration grammar.
+  See the [syntax
+  reference](/reference/control/arc/reference/syntax#authority-declarations) for the
+  full authority declaration grammar.
 </Note.Note>
 
 <Divider.Divider x />
@@ -64,9 +65,9 @@ When omitted, authority defaults to 255 — the maximum. This means a program wi
 explicit declaration has the highest possible priority and cannot be overridden by any
 other writer.
 
-Starting at 255 works for simple cases with a single writer, but prevents escalation
-and manual override in multi-writer setups. Choosing a lower value like 200 leaves room
-for emergency overrides and operator intervention.
+Starting at 255 works for simple cases with a single writer, but prevents escalation and
+manual override in multi-writer setups. Choosing a lower value like 200 leaves room for
+emergency overrides and operator intervention.
 
 <Divider.Divider x />
 
@@ -117,8 +118,8 @@ that acquired the channel first keeps control. The second writer's values are dr
 stopping or lowering its authority), the next highest writer automatically regains
 effective control. No restart or re-acquisition is needed.
 
-These rules apply uniformly across all writer types — Arc programs, Python scripts,
-and schematic controls all participate in the same authority system.
+These rules apply uniformly across all writer types — Arc programs, Python scripts, and
+schematic controls all participate in the same authority system.
 
 <Divider.Divider x />
 
@@ -178,9 +179,9 @@ sequence main {
 start_cmd => main
 ```
 
-This is useful when two Arc programs coordinate over the same channels. A
-high-priority program lowers its authority when it finishes, allowing a lower-priority
-program to resume without restarting.
+This is useful when two Arc programs coordinate over the same channels. A high-priority
+program lowers its authority when it finishes, allowing a lower-priority program to
+resume without restarting.
 
 <Note.Note variant="warning">
   Setting authority to 0 does not disconnect the writer. The program still holds the

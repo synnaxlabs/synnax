@@ -12,6 +12,7 @@
 
 #include "client/cpp/framer/framer.h"
 
+namespace synnax::framer {
 /// @brief enumeration of possible writer commands.
 enum WriterCommand : uint32_t {
     OPEN = 0,
@@ -20,7 +21,6 @@ enum WriterCommand : uint32_t {
     SET_AUTHORITY = 3,
 };
 
-namespace synnax::framer {
 std::pair<Writer, x::errors::Error> Client::open_writer(const WriterConfig &cfg) const {
     Codec codec;
     if (cfg.enable_experimental_codec) {

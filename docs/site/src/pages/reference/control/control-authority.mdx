@@ -79,8 +79,7 @@ stage escalate {
 
 For full syntax details, see the
 [`authority` declaration](/reference/control/arc/reference/syntax#authority-declarations)
-and
-[`set_authority` built-in](/reference/control/arc/reference/built-ins#set_authority)
+and [`set_authority` built-in](/reference/control/arc/reference/built-ins#set_authority)
 reference pages. For practical patterns including emergency override, handoff between
 programs, and releasing control, see the
 [Control Authority how-to guide](/reference/control/arc/how-to/control-authority).
@@ -92,6 +91,7 @@ programs, and releasing control, see the
 Manual control of channels through components such as
 [Schematics](/reference/console/schematics) follow the same control authority rules as
 sequences. Schematic authority is configurable via the schematic toolbar and defaults to
+
 1. When an operator stops controlling a channel from a schematic, any other writer with
-higher authority that was already writing to the same channel will resume effective
-control.
+   higher authority that was already writing to the same channel will resume effective
+   control.

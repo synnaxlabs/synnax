@@ -275,9 +275,9 @@ ox_pt_1 > 500 -> set_status{
 
 ### set_authority
 
-Dynamically changes
-[control authority](/reference/control/control-authority) during execution. Use this to
-escalate priority, release control, or adjust authority for specific channels at runtime.
+Dynamically changes [control authority](/reference/control/control-authority) during
+execution. Use this to escalate priority, release control, or adjust authority for
+specific channels at runtime.
 
 **All channels:**
 
@@ -297,19 +297,19 @@ set_authority{value=255, channel=press_vlv_cmd}
 set_authority{value=0}
 ```
 
-| Config    | Type              | Required | Description                                       |
-| --------- | ----------------- | -------- | ------------------------------------------------- |
-| `value`   | `u8`              | Yes      | Authority level (0-255)                           |
+| Config    | Type              | Required | Description                                        |
+| --------- | ----------------- | -------- | -------------------------------------------------- |
+| `value`   | `u8`              | Yes      | Authority level (0-255)                            |
 | `channel` | channel reference | No       | Specific channel to change (default: all channels) |
 
 <Note.Note variant="info">
   Authority changes are flushed before channel writes in the same execution cycle. This
-  means you can set authority and write to a channel in the same stage, and the authority
-  change takes effect first.
+  means you can set authority and write to a channel in the same stage, and the
+  authority change takes effect first.
 </Note.Note>
 
 <Note.Note variant="warning">
-  Setting `set_authority{value=0}` sets authority to the minimum, allowing any other
+  Setting `set_authority{(value = 0)}` sets authority to the minimum, allowing any other
   writer with authority above 0 to take control. Empty stages do NOT lower authority —
   the writer holds its current authority as long as the program is running.
 </Note.Note>
@@ -368,19 +368,19 @@ if x < 0 {
 
 ## Summary Table
 
-| Function     | Category   | Description                |
-| ------------ | ---------- | -------------------------- |
-| `len`        | Core       | Length of series or string |
-| `now`        | Core       | Current timestamp (ns)     |
-| `interval`   | Timing     | Periodic trigger           |
-| `wait`       | Timing     | One-shot delay             |
-| `avg`        | Statistics | Running average            |
-| `min`        | Statistics | Running minimum            |
-| `max`        | Statistics | Running maximum            |
-| `on`         | I/O        | Read from channel          |
-| `write`      | I/O        | Write to channel           |
-| `select`     | Signal     | Route by condition         |
-| `stable_for` | Signal     | Debounce filter            |
-| `set_status`    | Status    | Update Console status      |
-| `set_authority` | Authority | Change control authority   |
-| `constant`      | Utility   | Static value output        |
+| Function        | Category   | Description                |
+| --------------- | ---------- | -------------------------- |
+| `len`           | Core       | Length of series or string |
+| `now`           | Core       | Current timestamp (ns)     |
+| `interval`      | Timing     | Periodic trigger           |
+| `wait`          | Timing     | One-shot delay             |
+| `avg`           | Statistics | Running average            |
+| `min`           | Statistics | Running minimum            |
+| `max`           | Statistics | Running maximum            |
+| `on`            | I/O        | Read from channel          |
+| `write`         | I/O        | Write to channel           |
+| `select`        | Signal     | Route by condition         |
+| `stable_for`    | Signal     | Debounce filter            |
+| `set_status`    | Status     | Update Console status      |
+| `set_authority` | Authority  | Change control authority   |
+| `constant`      | Utility    | Static value output        |
