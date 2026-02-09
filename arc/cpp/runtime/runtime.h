@@ -38,7 +38,7 @@
 
 namespace arc::runtime {
 
-constexpr x::telem::Authority DEFAULT_AUTHORITY = 200;
+constexpr x::telem::Authority DEFAULT_AUTHORITY = x::telem::AUTH_ABSOLUTE;
 /// @brief combines data frames and authority changes into a single output
 /// so that authority-only changes (with no channel writes) are not starved.
 struct Output {
