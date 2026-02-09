@@ -206,7 +206,7 @@ describe("Error", () => {
       });
     });
 
-    describe("copy diagnostics", () => {
+    describe("Copy diagnostics", () => {
       let writeTextMock: ReturnType<typeof vi.fn>;
 
       beforeEach(() => {

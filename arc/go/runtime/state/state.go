@@ -409,11 +409,11 @@ func isSeriesTruthy(s telem.Series) bool {
 
 // ReadChannelValue reads a single value from a channel (for WASM runtime bindings).
 func (s *State) ReadChannelValue(key uint32) (telem.Series, bool) {
-	series, ok := s.channel.reads[key]
-	if !ok {
+	ms, ok := s.channel.reads[key]
+	if !ok || len(ms.Series) == 0 {
 		return telem.Series{}, false
 	}
-	return series.Series[series.Len()-1], ok
+	return ms.Series[len(ms.Series)-1], ok
 }
 
 // WriteChannelValue writes a single value to a channel (for WASM runtime bindings).

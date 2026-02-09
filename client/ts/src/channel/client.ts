@@ -24,7 +24,6 @@ import {
   type Key,
   type KeyOrName,
   keyZ,
-  type Name,
   type New,
   ontologyID,
   type Operation,
@@ -73,10 +72,9 @@ export class Channel {
    */
   readonly key: Key;
   /**
-   * A human-readable name for the channel. This name is not guaranteed to be
-   * unique.
+   * A human-readable name for the channel. This name is not guaranteed to be unique.
    */
-  readonly name: Name;
+  readonly name: string;
   /**
    * The data type of the channel.
    */

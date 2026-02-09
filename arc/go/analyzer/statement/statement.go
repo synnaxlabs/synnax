@@ -240,6 +240,11 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 		})
 		return
 	}
+	// Stateful variables store VALUES, not channel references.
+	// If initialized from a channel, unwrap to get the value type.
+	if varType.Kind == types.KindChan {
+		varType = varType.Unwrap()
+	}
 	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindStatefulVariable,
@@ -381,7 +386,7 @@ func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], ch
 		if channelSym.SourceID != nil {
 			writeID = uint32(*channelSym.SourceID)
 		}
-		fn.Channels.Write.Add(writeID)
+		fn.Channels.Write[writeID] = channelSym.Name
 	}
 
 	// Track this as a channel write in the function
@@ -731,7 +736,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 	expression.Analyze(context.Child(ctx, expr))
-	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
+	exprType := atypes.InferFromExpression(context.Child(ctx, expr)).UnwrapChan()
 	if !exprType.IsValid() || !varScope.Type.IsValid() {
 		return
 	}

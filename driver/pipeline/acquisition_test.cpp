@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// GTest
+#include <atomic>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/xtest/xtest.h"
@@ -338,6 +339,41 @@ TEST(AcquisitionPipeline, testStartResolutionNoTimestamps) {
 
     ASSERT_GE(mock_factory->config.start, before);
     ASSERT_LE(mock_factory->config.start, after);
+}
+
+/// @brief a source that returns NOMINAL_SHUTDOWN_ERROR on the first read, used to
+/// test that nominal shutdowns don't trigger stopped_with_err.
+class NominalShutdownSource final : public pipeline::Source {
+public:
+    std::atomic<bool> read_called{false};
+    xerrors::Error stopped_err = xerrors::NIL;
+
+    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+        read_called.store(true);
+        return driver::NOMINAL_SHUTDOWN_ERROR;
+    }
+
+    void stopped_with_err(const xerrors::Error &err) override {
+        this->stopped_err = err;
+    }
+};
+
+/// @brief stopped_with_err should not be called when the source returns
+/// NOMINAL_SHUTDOWN_ERROR, as this represents a clean shutdown, not a failure.
+TEST(AcquisitionPipeline, testNominalShutdownDoesNotCallStoppedWithErr) {
+    auto writes = std::make_shared<std::vector<telem::Frame>>();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+    const auto source = std::make_shared<NominalShutdownSource>();
+    auto pipeline = pipeline::Acquisition(
+        mock_factory,
+        synnax::WriterConfig(),
+        source,
+        breaker::Config()
+    );
+    pipeline.start();
+    ASSERT_EVENTUALLY_TRUE(source->read_called.load());
+    pipeline.stop();
+    ASSERT_EQ(source->stopped_err, xerrors::NIL);
 }
 
 /// @brief it should ignore empty timestamp series and fall back to now()

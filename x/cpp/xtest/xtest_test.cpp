@@ -189,4 +189,3 @@ TEST_F(XTestTest, TestAssertOccurredAsSingleEvaluation) {
     ASSERT_OCCURRED_AS(error_with_side_effect(), expected);
     EXPECT_EQ(counter.load(), 1);
 }
-
