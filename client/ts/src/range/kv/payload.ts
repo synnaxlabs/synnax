@@ -31,3 +31,14 @@ export interface SetRequest extends z.infer<typeof setReqZ> {}
 
 export const deleteReqZ = z.object({ range: keyZ, keys: z.string().array() });
 export interface DeleteRequest extends z.infer<typeof deleteReqZ> {}
+
+/** @deprecated Use {@link SET_CHANNEL} instead. */
+export const KV_SET_CHANNEL = SET_CHANNEL;
+/** @deprecated Use {@link DELETE_CHANNEL} instead. */
+export const KV_DELETE_CHANNEL = DELETE_CHANNEL;
+/** @deprecated Use {@link pairZ} instead. */
+export const kvPairZ = pairZ;
+/** @deprecated Use {@link Pair} instead. */
+export type KVPair = Pair;
+/** @deprecated Use {@link createPairKey} instead. */
+export const kvPairKey = createPairKey;

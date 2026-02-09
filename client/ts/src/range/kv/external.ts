@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/range/kv/client";
+export { Client as KV } from "@/range/kv/client";
 export * from "@/range/kv/payload";

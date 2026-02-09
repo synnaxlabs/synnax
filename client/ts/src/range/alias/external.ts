@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/range/alias/client";
+export { Client as Aliaser } from "@/range/alias/client";
 export * from "@/range/alias/payload";
