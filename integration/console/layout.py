@@ -376,7 +376,9 @@ class LayoutClient:
 
         raise RuntimeError(f"No selected button found from options: {button_options}")
 
-    def select_from_dropdown(self, text: str, placeholder: str | None = None) -> None:
+    def select_from_dropdown(
+        self, text: str, placeholder: str | None = None, exact: bool = False
+    ) -> None:
         """Select an item from an open dropdown."""
         sy.sleep(0.3)
         target_item = f".pluto-list__item:not(.pluto-tree__item):has-text('{text}')"
@@ -396,10 +398,16 @@ class LayoutClient:
         for _ in range(5):
             try:
                 self.page.wait_for_selector(target_item, timeout=5000)
-                item = self.page.locator(target_item).first
-                item.wait_for(state="attached", timeout=5000)
-                item.click()
-                return
+                if exact:
+                    for candidate in self.page.locator(target_item).all():
+                        if candidate.inner_text().strip() == text:
+                            candidate.click()
+                            return
+                else:
+                    item = self.page.locator(target_item).first
+                    item.wait_for(state="attached", timeout=5000)
+                    item.click()
+                    return
             except Exception:
                 sy.sleep(1)
                 continue

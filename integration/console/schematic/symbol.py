@@ -168,7 +168,7 @@ class Symbol(ABC):
     def set_channel(self, *, input_field: str, channel_name: str) -> None:
         if channel_name is not None:
             self.layout.click_btn(input_field)
-            self.layout.select_from_dropdown(channel_name, "Search")
+            self.layout.select_from_dropdown(channel_name, "Search", exact=True)
 
     def set_value(self, value: float) -> None:
         """Set the symbol's value if applicable. Default implementation does nothing."""
