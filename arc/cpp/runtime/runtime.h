@@ -37,6 +37,8 @@
 #include "arc/cpp/runtime/wasm/module.h"
 
 namespace arc::runtime {
+
+constexpr x::telem::Authority DEFAULT_AUTHORITY = 200;
 /// @brief combines data frames and authority changes into a single output
 /// so that authority-only changes (with no channel writes) are not starved.
 struct Output {
@@ -190,7 +192,7 @@ inline std::vector<x::telem::Authority> build_authorities(
     std::vector<x::telem::Authority> authorities(write_keys.size());
     for (size_t i = 0; i < write_keys.size(); i++)
         authorities[i] = auth.default_authority.has_value() ? *auth.default_authority
-                                                            : x::telem::AUTH_ABSOLUTE;
+                                                            : DEFAULT_AUTHORITY;
     for (const auto &[key, value]: auth.channels) {
         for (size_t i = 0; i < write_keys.size(); i++) {
             if (write_keys[i] == key) {

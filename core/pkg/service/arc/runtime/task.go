@@ -411,7 +411,7 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-const DefaultAuthority = control.AuthorityAbsolute
+const DefaultAuthority = control.Authority(200)
 
 // buildAuthorities constructs a per-channel authority slice from the static
 // Authorities in the IR. It maps channel keys to authority values and
