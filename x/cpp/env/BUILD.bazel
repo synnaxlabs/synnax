@@ -1,0 +1,22 @@
+cc_library(
+    name = "env",
+    hdrs = [
+        "env.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/caseconv",
+        "@glog",
+    ],
+)
+
+cc_test(
+    name = "env_test",
+    srcs = [
+        "env_test.cpp",
+    ],
+    deps = [
+        "//x/cpp/env",
+        "@googletest//:gtest_main",
+    ],
+)

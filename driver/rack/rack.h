@@ -20,26 +20,24 @@
 
 #include "nlohmann/json.hpp"
 
-#include "x/cpp/xargs/xargs.h"
-#include "x/cpp/xlog/xlog.h"
+#include "x/cpp/args/args.h"
+#include "x/cpp/log/log.h"
 
 #include "driver/labjack/labjack.h"
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
+#include "driver/common/sample_clock.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/ni/ni.h"
 #include "driver/opc/opc.h"
 #include "driver/rack/status/status.h"
 #include "driver/sequence/sequence.h"
-#include "driver/task/common/sample_clock.h"
 #include "driver/task/task.h"
 
-using json = nlohmann::json;
-
-namespace rack {
+namespace driver::rack {
 struct RemoteInfo {
-    synnax::RackKey rack_key = 0;
+    synnax::rack::Key rack_key = 0;
     std::string cluster_key;
 
     template<typename Parser>
@@ -48,7 +46,7 @@ struct RemoteInfo {
         this->cluster_key = p.field("cluster_key", this->cluster_key);
     }
 
-    [[nodiscard]] json to_json() const {
+    [[nodiscard]] x::json::json to_json() const {
         return {
             {"rack_key", this->rack_key},
             {"cluster_key", this->cluster_key},
@@ -86,7 +84,7 @@ struct Config {
     /// @brief this is the rack that the driver will attach to on the server. If not
     /// provided, the driver will automatically create a new rack and persist it in
     /// state.
-    synnax::Rack rack;
+    synnax::rack::Rack rack;
     /// @brief important info used to determine the identity of the driver when
     /// connecting to a cluster. This is cached on the local file system to compare
     /// and contrast.
@@ -116,7 +114,8 @@ struct Config {
         os << "configuration:\n"
            << cfg.connection << cfg.timing << "\n"
            << cfg.manager << "\n"
-           << "  " << xlog::SHALE() << "enabled integrations" << xlog::RESET() << ": ";
+           << "  " << x::log::SHALE() << "enabled integrations" << x::log::RESET()
+           << ": ";
         for (size_t i = 0; i < cfg.integrations.size(); ++i) {
             os << cfg.integrations[i];
             if (i < cfg.integrations.size() - 1) os << ", ";
@@ -125,8 +124,8 @@ struct Config {
         return os;
     }
 
-    static std::pair<Config, xerrors::Error>
-    load(xargs::Parser &parser, breaker::Breaker &breaker) {
+    static std::pair<Config, x::errors::Error>
+    load(x::args::Parser &parser, x::breaker::Breaker &breaker) {
         rack::Config cfg{
             .connection =
                 {
@@ -147,13 +146,13 @@ struct Config {
         if (const auto err = cfg.load_args(parser)) return {cfg, err};
         if (breaker.retry_count() == 0) LOG(INFO) << cfg;
         if (const auto err = cfg.load_remote(breaker)) return {cfg, err};
-        LOG(INFO) << xlog::BLUE() << "successfully reached cluster at "
+        LOG(INFO) << x::log::BLUE() << "successfully reached cluster at "
                   << cfg.connection.address() << ". Continuing with driver startup"
-                  << xlog::RESET();
+                  << x::log::RESET();
         LOG(INFO) << "remote info" << "\n"
-                  << xlog::SHALE() << "  rack: " << xlog::RESET() << cfg.rack.name
+                  << x::log::SHALE() << "  rack: " << x::log::RESET() << cfg.rack.name
                   << " (" << cfg.remote_info.rack_key << ")\n"
-                  << xlog::SHALE() << "  cluster: " << xlog::RESET()
+                  << x::log::SHALE() << "  cluster: " << x::log::RESET()
                   << cfg.remote_info.cluster_key;
         VLOG(1) << "saving remote info";
         const auto err = Config::save_remote_info(parser, cfg.remote_info);
@@ -174,31 +173,31 @@ struct Config {
     }
 
     /// @brief permanently saves connection parameters to the persisted state file.
-    static xerrors::Error
-    save_conn_params(xargs::Parser &args, const synnax::Config &conn_params);
+    static x::errors::Error
+    save_conn_params(x::args::Parser &args, const synnax::Config &conn_params);
 
     /// @brief permanently saves the remote info to the persisted state file.
-    static xerrors::Error
-    save_remote_info(xargs::Parser &args, const RemoteInfo &remote_info);
+    static x::errors::Error
+    save_remote_info(x::args::Parser &args, const RemoteInfo &remote_info);
 
-    static xerrors::Error clear_persisted_state(xargs::Parser &args);
+    static x::errors::Error clear_persisted_state(x::args::Parser &args);
 
     /// @brief loads the configuration from the provided command line arguments.
     /// Looks for a "--config" flag followed by a configuration file path.
-    [[nodiscard]] xerrors::Error load_persisted_state(xargs::Parser &args);
+    [[nodiscard]] x::errors::Error load_persisted_state(x::args::Parser &args);
 
-    [[nodiscard]] xerrors::Error
-    load_config_file(xargs::Parser &args, breaker::Breaker &breaker);
+    [[nodiscard]] x::errors::Error
+    load_config_file(x::args::Parser &args, x::breaker::Breaker &breaker);
 
-    [[nodiscard]] xerrors::Error load_env();
+    [[nodiscard]] x::errors::Error load_env();
 
-    [[nodiscard]] xerrors::Error load_args(xargs::Parser &args);
+    [[nodiscard]] x::errors::Error load_args(x::args::Parser &args);
 
-    [[nodiscard]] xerrors::Error load_remote(breaker::Breaker &breaker);
+    [[nodiscard]] x::errors::Error load_remote(x::breaker::Breaker &breaker);
 };
 
 /// @brief clears the persisted state file, removing all cached information.
-xerrors::Error clear_persisted_state();
+x::errors::Error clear_persisted_state();
 
 /// @brief rack is the entry point for driver operation. It is responsible for
 /// communicating its identity to the Synnax cluster and managing the lifecycle
@@ -206,22 +205,22 @@ xerrors::Error clear_persisted_state();
 class Rack {
     std::thread run_thread;
     std::unique_ptr<task::Manager> task_manager;
-    breaker::Breaker breaker = breaker::Breaker({
+    x::breaker::Breaker breaker = x::breaker::Breaker({
         .name = "driver",
-        .base_interval = telem::SECOND,
+        .base_interval = x::telem::SECOND,
         .max_retries = 200,
         .scale = 1.1f,
-        .max_interval = telem::MINUTE,
+        .max_interval = x::telem::MINUTE,
     });
-    xerrors::Error run_err = xerrors::NIL;
+    x::errors::Error run_err = x::errors::NIL;
 
     /// @brief returns true if the error cannot be recovered from and the rack
     /// should stop operations and shut down.
     bool
-    should_exit(const xerrors::Error &err, const std::function<void()> &on_shutdown);
+    should_exit(const x::errors::Error &err, const std::function<void()> &on_shutdown);
 
     /// @brief starts the main loop for the rack.
-    void run(xargs::Parser &args, const std::function<void()> &on_shutdown);
+    void run(x::args::Parser &args, const std::function<void()> &on_shutdown);
 
 public:
     /// @brief destructor ensures thread is properly joined
@@ -231,9 +230,9 @@ public:
     /// @param args Parser containing command line arguments
     /// @param on_shutdown Optional callback that will be called if the rack shuts
     /// down prematurely
-    void start(xargs::Parser &args, std::function<void()> on_shutdown = nullptr);
+    void start(x::args::Parser &args, std::function<void()> on_shutdown = nullptr);
 
     /// @brief stops the rack.
-    xerrors::Error stop();
+    x::errors::Error stop();
 };
 }

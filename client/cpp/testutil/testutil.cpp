@@ -11,7 +11,7 @@
 
 //// internal
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 synnax::Synnax new_test_client() {
     return synnax::Synnax(test_client_config);
@@ -32,22 +32,26 @@ std::string make_unique_channel_name(const std::string &base_name) {
     return base_name + "_" + std::to_string(dis(gen));
 }
 
-synnax::Channel
-create_virtual_channel(const synnax::Synnax &client, const telem::DataType &data_type) {
+synnax::channel::Channel create_virtual_channel(
+    const synnax::Synnax &client,
+    const x::telem::DataType &data_type
+) {
     return ASSERT_NIL_P(
         client.channels.create(make_unique_channel_name("virtual"), data_type, true)
     );
 }
 
-std::pair<synnax::Channel, synnax::Channel>
+std::pair<synnax::channel::Channel, synnax::channel::Channel>
 create_indexed_pair(synnax::Synnax &client) {
     auto idx = ASSERT_NIL_P(
         client.channels
-            .create(make_unique_channel_name("index"), telem::TIMESTAMP_T, 0, true)
+            .create(make_unique_channel_name("index"), x::telem::TIMESTAMP_T, 0, true)
     );
-    auto data = ASSERT_NIL_P(
-        client.channels
-            .create(make_unique_channel_name("data"), telem::FLOAT32_T, idx.key, false)
-    );
+    auto data = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("data"),
+        x::telem::FLOAT32_T,
+        idx.key,
+        false
+    ));
     return {idx, data};
 }

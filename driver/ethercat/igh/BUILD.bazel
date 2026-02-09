@@ -14,7 +14,7 @@ cc_library(
     deps = [
         ":ecrt_official",
         "//driver/errors",
-        "//x/cpp/xlib",
+        "//x/cpp/lib",
     ],
 )
 
@@ -30,8 +30,8 @@ cc_library(
         "//driver/ethercat/esi",
         "//driver/ethercat/master",
         "//driver/ethercat/telem",
-        "//x/cpp/xlib",
-        "//x/cpp/xerrors",
+        "//x/cpp/lib",
+        "//x/cpp/errors",
         "@glog",
     ],
 )
@@ -49,7 +49,7 @@ cc_test(
     deps = [
         ":igh",
         ":igh_api",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

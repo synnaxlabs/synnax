@@ -1,11 +1,4 @@
 cc_library(
-    name = "ni_errors",
-    hdrs = ["errors.h"],
-    visibility = ["//visibility:public"],
-    deps = ["//driver/errors"],
-)
-
-cc_library(
     name = "ni",
     srcs = [
         "factory.cpp",
@@ -19,18 +12,18 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        ":ni_errors",
         "//client/cpp:synnax",
+        "//driver/common",
         "//driver/ni/channel",
         "//driver/ni/daqmx",
+        "//driver/ni/errors",
         "//driver/ni/hardware",
         "//driver/ni/syscfg",
         "//driver/pipeline",
         "//driver/task",
-        "//driver/task/common",
         "//x/cpp/breaker",
+        "//x/cpp/json",
         "//x/cpp/loop",
-        "//x/cpp/xjson",
         "@nlohmann_json//:json",
     ],
 )
@@ -46,7 +39,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/ni",
         "//driver/pipeline/mock",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

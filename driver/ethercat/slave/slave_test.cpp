@@ -11,7 +11,7 @@
 
 #include "driver/ethercat/slave/slave.h"
 
-namespace ethercat::slave {
+namespace driver::ethercat::slave {
 
 TEST(SlaveStateToString, ConvertsAllStatesToExpectedStrings) {
     ASSERT_EQ(slave_state_to_string(State::INIT), "INIT");
@@ -136,7 +136,7 @@ TEST(PropertiesParse, ParsesBasicProperties) {
         {"position", 1},
         {"enabled", true}
     };
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     auto props = Properties::parse(parser);
     ASSERT_EQ(props.serial, 12345);
     ASSERT_EQ(props.vendor_id, 0x00000002);
@@ -174,7 +174,7 @@ TEST(PropertiesParse, ParsesWithPdos) {
              {"name", "Control"},
              {"data_type", "uint8"}}}}}}
     };
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     auto props = Properties::parse(parser);
     ASSERT_EQ(props.input_pdos.size(), 1);
     ASSERT_EQ(props.input_pdos[0].name, "Value");
@@ -197,7 +197,7 @@ TEST(PropertiesParse, HandlesMissingPdosField) {
         {"position", 1},
         {"enabled", false}
     };
-    auto parser = xjson::Parser(j);
+    auto parser = x::json::Parser(j);
     auto props = Properties::parse(parser);
     ASSERT_EQ(props.input_pdos.size(), 0);
     ASSERT_EQ(props.output_pdos.size(), 0);
@@ -221,7 +221,7 @@ TEST(PropertiesToJson, SerializesAllFields) {
               .bit_length = 16,
               .is_input = true,
               .name = "Value",
-              .data_type = telem::INT16_T}},
+              .data_type = x::telem::INT16_T}},
         .output_pdos =
             {{.pdo_index = 0x1600,
               .index = 0x7000,
@@ -229,7 +229,7 @@ TEST(PropertiesToJson, SerializesAllFields) {
               .bit_length = 8,
               .is_input = false,
               .name = "Control",
-              .data_type = telem::UINT8_T}},
+              .data_type = x::telem::UINT8_T}},
         .coe_pdo_order_reliable = true,
         .enabled = true,
     };

@@ -12,19 +12,44 @@ package testutil
 import (
 	"context"
 	"sync"
+	"time"
 
 	"go.lsp.dev/protocol"
 )
 
 type MockClient struct {
-	mu          sync.Mutex
-	diagnostics []protocol.Diagnostic
+	mu                   sync.Mutex
+	diagnostics          []protocol.Diagnostic
+	publishCount         int
+	semanticRefreshCount int
 }
 
 func (m *MockClient) Diagnostics() []protocol.Diagnostic {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.diagnostics
+}
+
+func (m *MockClient) PublishCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.publishCount
+}
+
+// WaitForDiagnostics blocks until publishCount changes from the given
+// baseline value or timeout elapses. Returns true if a new publish was observed.
+func (m *MockClient) WaitForDiagnostics(
+	baseline int,
+	timeout time.Duration,
+) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if m.PublishCount() != baseline {
+			return true
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	return m.PublishCount() != baseline
 }
 
 func (m *MockClient) ShowMessage(context.Context, *protocol.ShowMessageParams) error {
@@ -67,6 +92,7 @@ func (m *MockClient) PublishDiagnostics(_ context.Context, params *protocol.Publ
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.diagnostics = params.Diagnostics
+	m.publishCount++
 	return nil
 }
 
@@ -84,4 +110,30 @@ func (m *MockClient) ShowDocument(context.Context, *protocol.ShowDocumentParams)
 
 func (m *MockClient) Request(context.Context, string, any) (any, error) {
 	return nil, nil
+}
+
+func (m *MockClient) SemanticTokensRefresh(context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.semanticRefreshCount++
+	return nil
+}
+
+func (m *MockClient) SemanticRefreshCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.semanticRefreshCount
+}
+
+// WaitForSemanticRefresh blocks until semanticRefreshCount changes from the
+// given baseline value or timeout elapses.
+func (m *MockClient) WaitForSemanticRefresh(baseline int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if m.SemanticRefreshCount() != baseline {
+			return true
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	return m.SemanticRefreshCount() != baseline
 }

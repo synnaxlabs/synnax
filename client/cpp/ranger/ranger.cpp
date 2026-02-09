@@ -9,84 +9,84 @@
 
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/ranger/ranger.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
 
 #include "core/pkg/api/grpc/v1/ranger.pb.h"
 #include "x/go/telem/telem.pb.h"
 
-namespace synnax {
-Range::Range(std::string name, telem::TimeRange time_range):
+namespace synnax::ranger {
+Range::Range(std::string name, x::telem::TimeRange time_range):
     name(std::move(name)), time_range(time_range) {}
 
 Range::Range(const api::v1::Range &rng):
     key(rng.key()),
     name(rng.name()),
-    time_range(telem::TimeRange(rng.time_range().start(), rng.time_range().end())) {}
+    time_range(x::telem::TimeRange(rng.time_range().start(), rng.time_range().end())) {}
 
 void Range::to_proto(api::v1::Range *rng) const {
     rng->set_name(name);
     rng->set_key(key);
-    auto tr = telem::PBTimeRange();
+    auto tr = ::telem::PBTimeRange();
     rng->mutable_time_range()->set_start(time_range.start.nanoseconds());
     rng->mutable_time_range()->set_end(time_range.end.nanoseconds());
 }
 
-std::pair<Range, xerrors::Error>
-RangeClient::retrieve_by_key(const std::string &key) const {
+std::pair<Range, x::errors::Error>
+Client::retrieve_by_key(const std::string &key) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_keys(key);
     auto [res, err] = retrieve_client->send("/range/retrieve", req);
     if (err) return {Range(), err};
     if (res.ranges_size() == 0)
-        return {Range(), not_found_error("range", "key " + key)};
+        return {Range(), errors::not_found_error("range", "key " + key)};
     auto rng = Range(res.ranges(0));
-    rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
+    rng.kv = KV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
     return {rng, err};
 }
 
-std::pair<Range, xerrors::Error>
-RangeClient::retrieve_by_name(const std::string &name) const {
+std::pair<Range, x::errors::Error>
+Client::retrieve_by_name(const std::string &name) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_names(name);
     auto [res, err] = retrieve_client->send("/range/retrieve", req);
     if (err) return {Range(), err};
     if (res.ranges_size() == 0)
-        return {Range(), not_found_error("range", "name " + name)};
+        return {Range(), errors::not_found_error("range", "name " + name)};
     if (res.ranges_size() > 1)
-        return {Range(), multiple_found_error("ranges", "name " + name)};
+        return {Range(), errors::multiple_found_error("ranges", "name " + name)};
     auto rng = Range(res.ranges(0));
-    rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
+    rng.kv = KV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
     return {rng, err};
 }
 
-std::pair<std::vector<Range>, xerrors::Error>
-RangeClient::retrieve_many(api::v1::RangeRetrieveRequest &req) const {
+std::pair<std::vector<Range>, x::errors::Error>
+Client::retrieve_many(api::v1::RangeRetrieveRequest &req) const {
     auto [res, err] = retrieve_client->send("/range/retrieve", req);
     if (err) return {std::vector<Range>(), err};
     std::vector<Range> ranges = {res.ranges().begin(), res.ranges().end()};
     for (auto &r: ranges)
-        r.kv = RangeKV(r.key, kv_get_client, kv_set_client, kv_delete_client);
+        r.kv = KV(r.key, kv_get_client, kv_set_client, kv_delete_client);
     return {ranges, err};
 }
 
-std::pair<std::vector<Range>, xerrors::Error>
-RangeClient::retrieve_by_name(const std::vector<std::string> &names) const {
+std::pair<std::vector<Range>, x::errors::Error>
+Client::retrieve_by_name(const std::vector<std::string> &names) const {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &name: names)
         req.add_names(name);
     return retrieve_many(req);
 }
 
-std::pair<std::vector<Range>, xerrors::Error>
-RangeClient::retrieve_by_key(const std::vector<std::string> &keys) const {
+std::pair<std::vector<Range>, x::errors::Error>
+Client::retrieve_by_key(const std::vector<std::string> &keys) const {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &key: keys)
         req.add_keys(key);
     return retrieve_many(req);
 }
 
-xerrors::Error RangeClient::create(std::vector<Range> &ranges) const {
+x::errors::Error Client::create(std::vector<Range> &ranges) const {
     auto req = api::v1::RangeCreateRequest();
     req.mutable_ranges()->Reserve(ranges.size());
     for (const auto &range: ranges)
@@ -95,47 +95,43 @@ xerrors::Error RangeClient::create(std::vector<Range> &ranges) const {
     if (err) return err;
     for (auto i = 0; i < res.ranges_size(); i++) {
         ranges[i].key = res.ranges(i).key();
-        ranges[i].kv = RangeKV(
-            ranges[i].key,
-            kv_get_client,
-            kv_set_client,
-            kv_delete_client
-        );
+        ranges[i]
+            .kv = KV(ranges[i].key, kv_get_client, kv_set_client, kv_delete_client);
     }
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-xerrors::Error RangeClient::create(Range &range) const {
+x::errors::Error Client::create(Range &range) const {
     auto req = api::v1::RangeCreateRequest();
     range.to_proto(req.add_ranges());
     auto [res, err] = create_client->send("/range/create", req);
     if (err) return err;
-    if (res.ranges_size() == 0) return unexpected_missing_error("range");
+    if (res.ranges_size() == 0) return errors::unexpected_missing_error("range");
     const auto rng = res.ranges(0);
     range.key = rng.key();
-    range.kv = RangeKV(rng.key(), kv_get_client, kv_set_client, kv_delete_client);
+    range.kv = KV(rng.key(), kv_get_client, kv_set_client, kv_delete_client);
     return err;
 }
 
-std::pair<Range, xerrors::Error>
-RangeClient::create(const std::string &name, telem::TimeRange time_range) const {
+std::pair<Range, x::errors::Error>
+Client::create(const std::string &name, x::telem::TimeRange time_range) const {
     auto rng = Range(name, time_range);
     auto err = create(rng);
     return {rng, err};
 }
 
-std::pair<std::string, xerrors::Error> RangeKV::get(const std::string &key) const {
+std::pair<std::string, x::errors::Error> KV::get(const std::string &key) const {
     auto req = api::v1::RangeKVGetRequest();
     req.add_keys(key);
     req.set_range_key(range_key);
     auto [res, err] = kv_get_client->send("/range/kv/get", req);
     if (err) return {"", err};
     if (res.pairs_size() == 0)
-        return {"", not_found_error("range key-value pair", "key " + key)};
+        return {"", errors::not_found_error("range key-value pair", "key " + key)};
     return {res.pairs().at(0).value(), err};
 }
 
-xerrors::Error RangeKV::set(const std::string &key, const std::string &value) const {
+x::errors::Error KV::set(const std::string &key, const std::string &value) const {
     auto req = api::v1::RangeKVSetRequest();
     req.set_range_key(range_key);
     const auto pair = req.add_pairs();
@@ -145,7 +141,7 @@ xerrors::Error RangeKV::set(const std::string &key, const std::string &value) co
     return err;
 }
 
-xerrors::Error RangeKV::del(const std::string &key) const {
+x::errors::Error KV::del(const std::string &key) const {
     auto req = api::v1::RangeKVDeleteRequest();
     req.set_range_key(range_key);
     req.add_keys(key);

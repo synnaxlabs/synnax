@@ -18,19 +18,19 @@
 #include <vector>
 
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/frame.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xthread/rt.h"
+#include "x/cpp/thread/rt/rt.h"
 
 #include "driver/ethercat/master/master.h"
 
-namespace ethercat::engine {
+namespace driver::ethercat::engine {
 /// @brief Configuration for the Loop.
 struct Config {
     /// @brief maximum allowed cycle overrun before logging a warning.
-    telem::TimeSpan max_overrun = telem::TimeSpan(0);
+    x::telem::TimeSpan max_overrun = x::telem::TimeSpan(0);
     /// @brief real-time thread configuration for the cycle thread.
-    xthread::RTConfig rt;
+    x::thread::rt::Config rt;
 
     Config() = default;
 };
@@ -43,12 +43,12 @@ class Engine {
         size_t id;
         std::vector<pdo::Entry> entries;
         std::vector<pdo::Offset> offsets;
-        telem::Rate rate;
+        x::telem::Rate rate;
     };
 
     std::atomic<size_t> next_id = 0;
 
-    std::atomic<int64_t> cycle_time_ns{telem::MILLISECOND.nanoseconds()};
+    std::atomic<int64_t> cycle_time_ns{x::telem::MILLISECOND.nanoseconds()};
 
     struct alignas(64) {
         std::atomic<uint64_t> seq = 0;
@@ -73,11 +73,11 @@ class Engine {
 
     std::thread run_thread;
     std::atomic<bool> restarting{false};
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
 
     void run();
     void stop();
-    [[nodiscard]] xerrors::Error reconfigure();
+    [[nodiscard]] x::errors::Error reconfigure();
     [[nodiscard]] bool should_be_running() const;
     void update_cycle_time();
 
@@ -97,7 +97,7 @@ public:
     /// @brief resolved PDO entry with offset and type information.
     struct ResolvedPDO {
         pdo::Offset offset;
-        telem::DataType data_type;
+        x::telem::DataType data_type;
         uint8_t bit_length;
     };
 
@@ -125,11 +125,11 @@ public:
         ~Reader();
 
         /// @brief blocks until new input data is available, then writes to the frame.
-        [[nodiscard]] xerrors::Error
-        read(const breaker::Breaker &brk, const telem::Frame &frame) const;
+        [[nodiscard]] x::errors::Error
+        read(const x::breaker::Breaker &brk, const x::telem::Frame &frame) const;
 
         /// @brief blocks until the next PDO exchange epoch without extracting data.
-        [[nodiscard]] xerrors::Error wait(const breaker::Breaker &brk) const;
+        [[nodiscard]] x::errors::Error wait(const x::breaker::Breaker &brk) const;
 
         /// @brief returns the total size in bytes of all registered PDO entries.
         [[nodiscard]] size_t size() const { return this->total_size; }
@@ -156,7 +156,7 @@ public:
             Transaction &operator=(Transaction &&) = delete;
 
             /// @brief writes a value to a specific PDO entry by index.
-            void write(size_t pdo_index, const telem::SampleValue &value) const;
+            void write(size_t pdo_index, const x::telem::SampleValue &value) const;
         };
 
         Writer(Engine &eng, size_t id, std::vector<ResolvedPDO> pdos);
@@ -169,7 +169,7 @@ public:
         [[nodiscard]] Transaction open_tx() const;
 
         /// @brief writes a value to a specific PDO entry by index.
-        void write(size_t pdo_index, const telem::SampleValue &value) const;
+        void write(size_t pdo_index, const x::telem::SampleValue &value) const;
     };
 
     /// @brief constructs an Engine with the given master and configuration.
@@ -184,12 +184,12 @@ public:
     Engine &operator=(const Engine &) = delete;
 
     /// @brief opens a new Reader for the specified PDO entries.
-    [[nodiscard]] std::pair<std::unique_ptr<Reader>, xerrors::Error>
-    open_reader(const std::vector<pdo::Entry> &entries, telem::Rate sample_rate);
+    [[nodiscard]] std::pair<std::unique_ptr<Reader>, x::errors::Error>
+    open_reader(const std::vector<pdo::Entry> &entries, x::telem::Rate sample_rate);
 
     /// @brief opens a new Writer for the specified PDO entries.
-    [[nodiscard]] std::pair<std::unique_ptr<Writer>, xerrors::Error>
-    open_writer(const std::vector<pdo::Entry> &entries, telem::Rate execution_rate);
+    [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error>
+    open_writer(const std::vector<pdo::Entry> &entries, x::telem::Rate execution_rate);
 
     /// @brief returns true if the engine is running.
     bool running() const { return this->breaker.running(); }
@@ -198,10 +198,10 @@ public:
     [[nodiscard]] const Config &cfg() const { return this->config; }
 
     /// @brief returns the current engine cycle rate (thread-safe).
-    [[nodiscard]] telem::Rate cycle_rate() const;
+    [[nodiscard]] x::telem::Rate cycle_rate() const;
 
     /// @brief initializes the master (thread-safe, idempotent).
-    [[nodiscard]] xerrors::Error ensure_initialized() const;
+    [[nodiscard]] x::errors::Error ensure_initialized() const;
 
     /// @brief returns discovered slaves.
     [[nodiscard]] std::vector<slave::DiscoveryResult> slaves() const;

@@ -12,10 +12,10 @@
 
 #pragma once
 
+#include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xjson/xjson.h"
 
-namespace ethercat::pdo {
+namespace driver::ethercat::pdo {
 /// @brief key for PDO offset cache lookup.
 struct Key {
     uint16_t slave_position;
@@ -63,7 +63,7 @@ struct Entry {
     /// @brief true for input (TxPDO), false for output (RxPDO).
     bool is_input = true;
     /// @brief actual hardware data type from the PDO.
-    telem::DataType data_type = telem::UNKNOWN_T;
+    x::telem::DataType data_type = x::telem::UNKNOWN_T;
 
     /// @brief returns the size of this PDO entry in bytes (rounded up from bits).
     [[nodiscard]] size_t byte_length() const { return (bit_length + 7) / 8; }
@@ -84,13 +84,13 @@ struct Properties {
     /// @brief human-readable name from CoE object dictionary.
     std::string name;
     /// @brief Synnax data type for channel creation.
-    telem::DataType data_type;
+    x::telem::DataType data_type;
 
     /// @brief returns the size of this PDO entry in bytes (rounded up from bits).
     [[nodiscard]] size_t byte_length() const { return (this->bit_length + 7) / 8; }
 
     /// @brief parses PDO properties from JSON.
-    static Properties parse(xjson::Parser &parser, const bool is_input) {
+    static Properties parse(x::json::Parser &parser, const bool is_input) {
         return {
             .pdo_index = static_cast<uint16_t>(parser.field<int>("pdo_index", 0)),
             .index = static_cast<uint16_t>(parser.field<int>("index")),
@@ -98,7 +98,7 @@ struct Properties {
             .bit_length = static_cast<uint8_t>(parser.field<int>("bit_length")),
             .is_input = is_input,
             .name = parser.field<std::string>("name"),
-            .data_type = telem::DataType(parser.field<std::string>("data_type")),
+            .data_type = x::telem::DataType(parser.field<std::string>("data_type")),
         };
     }
 
