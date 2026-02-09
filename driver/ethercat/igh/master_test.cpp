@@ -9,11 +9,11 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/ethercat/igh/master.h"
 
-namespace ethercat::igh {
+namespace driver::ethercat::igh {
 
 class MasterTest : public ::testing::Test {
 protected:

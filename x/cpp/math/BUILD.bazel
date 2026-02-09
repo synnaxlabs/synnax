@@ -1,0 +1,17 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "math",
+    hdrs = ["math.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "math_test",
+    srcs = ["math_test.cpp"],
+    deps = [
+        "//x/cpp/math",
+        "@googletest//:gtest_main",
+    ],
+)

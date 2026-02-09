@@ -11,7 +11,7 @@
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/telem/telem.h"
 
-namespace ethercat::engine {
+namespace driver::ethercat::engine {
 Engine::Reader::Reader(
     Engine &eng,
     const size_t id,
@@ -29,12 +29,14 @@ Engine::Reader::~Reader() {
     this->engine.unregister_reader(this->id);
 }
 
-xerrors::Error
-Engine::Reader::read(const breaker::Breaker &brk, const telem::Frame &frame) const {
+x::errors::Error Engine::Reader::read(
+    const x::breaker::Breaker &brk,
+    const x::telem::Frame &frame
+) const {
     uint64_t observed_epoch = 0;
     {
         std::unique_lock lock(this->engine.notify_mu);
-        const auto timeout = telem::MILLISECOND * 200;
+        const auto timeout = x::telem::MILLISECOND * 200;
         const bool notified = this->engine.read_cv.wait_for(
             lock,
             timeout.chrono(),
@@ -48,15 +50,18 @@ Engine::Reader::read(const breaker::Breaker &brk, const telem::Frame &frame) con
             }
         );
         if (!notified)
-            return xerrors::Error(CYCLE_OVERRUN, "timeout waiting for inputs");
+            return x::errors::Error(
+                errors::CYCLE_OVERRUN,
+                "timeout waiting for inputs"
+            );
     }
 
     if (this->engine.restarting.load(std::memory_order_acquire))
-        return xerrors::Error(ENGINE_RESTARTING, "engine restarting");
+        return x::errors::Error(errors::ENGINE_RESTARTING, "engine restarting");
     // User commanded stop - not an error
-    if (!brk.running()) return xerrors::NIL;
+    if (!brk.running()) return x::errors::NIL;
     if (!this->engine.breaker.running())
-        return xerrors::Error(CYCLIC_ERROR, "engine stopped unexpectedly");
+        return x::errors::Error(errors::CYCLIC_ERROR, "engine stopped unexpectedly");
 
     this->last_seen_epoch = observed_epoch;
 
@@ -74,32 +79,41 @@ Engine::Reader::read(const breaker::Breaker &brk, const telem::Frame &frame) con
     } while (s0 != s1);
 
     if (frame.series->size() < this->pdos.size())
-        return xerrors::Error(
-            CYCLIC_ERROR,
+        return x::errors::Error(
+            errors::CYCLIC_ERROR,
             "frame has fewer series than registered PDO entries"
         );
 
     for (size_t i = 0; i < this->pdos.size(); ++i) {
         const auto &pdo = this->pdos[i];
-        const size_t required = pdo_required_bytes(pdo.offset.bit, pdo.bit_length);
+        const size_t required = telem::pdo_required_bytes(
+            pdo.offset.bit,
+            pdo.bit_length
+        );
         if (pdo.offset.byte + required > this->private_buffer.size())
-            return xerrors::Error(
-                CYCLIC_ERROR,
+            return x::errors::Error(
+                errors::CYCLIC_ERROR,
                 "PDO offset out of bounds in input buffer"
             );
         auto &series = frame.series->at(i);
         const uint8_t *src = this->private_buffer.data() + pdo.offset.byte;
-        read_pdo_to_series(src, pdo.offset.bit, pdo.bit_length, pdo.data_type, series);
+        telem::read_pdo_to_series(
+            src,
+            pdo.offset.bit,
+            pdo.bit_length,
+            pdo.data_type,
+            series
+        );
     }
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-xerrors::Error Engine::Reader::wait(const breaker::Breaker &brk) const {
+x::errors::Error Engine::Reader::wait(const x::breaker::Breaker &brk) const {
     uint64_t observed_epoch = 0;
     {
         std::unique_lock lock(this->engine.notify_mu);
-        const auto timeout = telem::MILLISECOND * 200;
+        const auto timeout = x::telem::MILLISECOND * 200;
         const bool notified = this->engine.read_cv.wait_for(
             lock,
             timeout.chrono(),
@@ -113,17 +127,20 @@ xerrors::Error Engine::Reader::wait(const breaker::Breaker &brk) const {
             }
         );
         if (!notified)
-            return xerrors::Error(CYCLE_OVERRUN, "timeout waiting for inputs");
+            return x::errors::Error(
+                errors::CYCLE_OVERRUN,
+                "timeout waiting for inputs"
+            );
     }
 
     if (this->engine.restarting.load(std::memory_order_acquire))
-        return xerrors::Error(ENGINE_RESTARTING, "engine restarting");
+        return x::errors::Error(errors::ENGINE_RESTARTING, "engine restarting");
     // User commanded stop - not an error
-    if (!brk.running()) return xerrors::NIL;
+    if (!brk.running()) return x::errors::NIL;
     if (!this->engine.breaker.running())
-        return xerrors::Error(CYCLIC_ERROR, "engine stopped unexpectedly");
+        return x::errors::Error(errors::CYCLIC_ERROR, "engine stopped unexpectedly");
 
     this->last_seen_epoch = observed_epoch;
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 }

@@ -10,82 +10,83 @@
 #include "glog/logging.h"
 
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
+#include "driver/common/factory.h"
+#include "driver/common/scan_task.h"
 #include "driver/opc/opc.h"
 #include "driver/opc/read_task.h"
 #include "driver/opc/scan_task.h"
 #include "driver/opc/write_task.h"
-#include "driver/task/common/factory.h"
-#include "driver/task/common/scan_task.h"
 
-std::pair<common::ConfigureResult, xerrors::Error> configure_read(
+namespace driver::opc {
+std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task,
-    const std::shared_ptr<opc::connection::Pool> &pool
+    const synnax::task::Task &task,
+    const std::shared_ptr<connection::Pool> &pool
 ) {
     common::ConfigureResult result;
-    auto [cfg, err] = opc::ReadTaskConfig::parse(ctx->client, task);
+    auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task);
     if (err) return {std::move(result), err};
     std::unique_ptr<common::Source> s;
     if (cfg.array_size > 1)
-        s = std::make_unique<opc::ArrayReadTaskSource>(pool, std::move(cfg));
+        s = std::make_unique<ArrayReadTaskSource>(pool, std::move(cfg));
     else
-        s = std::make_unique<opc::UnaryReadTaskSource>(pool, std::move(cfg));
+        s = std::make_unique<UnaryReadTaskSource>(pool, std::move(cfg));
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
+        x::breaker::default_config(task.name),
         std::move(s)
     );
-    return {std::move(result), xerrors::NIL};
+    return {std::move(result), x::errors::NIL};
 }
 
-std::pair<common::ConfigureResult, xerrors::Error> configure_write(
+std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task,
-    const std::shared_ptr<opc::connection::Pool> &pool
+    const synnax::task::Task &task,
+    const std::shared_ptr<connection::Pool> &pool
 ) {
     common::ConfigureResult result;
-    auto [cfg, err] = opc::WriteTaskConfig::parse(ctx->client, task);
+    auto [cfg, err] = WriteTaskConfig::parse(ctx->client, task);
     if (err) return {std::move(result), err};
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::WriteTaskSink>(pool, std::move(cfg))
+        x::breaker::default_config(task.name),
+        std::make_unique<WriteTaskSink>(pool, std::move(cfg))
     );
-    return {std::move(result), xerrors::NIL};
+    return {std::move(result), x::errors::NIL};
 }
 
-std::pair<common::ConfigureResult, xerrors::Error> configure_scan(
+std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task,
-    const std::shared_ptr<opc::connection::Pool> &pool
+    const synnax::task::Task &task,
+    const std::shared_ptr<connection::Pool> &pool
 ) {
     common::ConfigureResult result;
-    auto parser = xjson::Parser(task.config);
-    auto cfg = opc::ScanTaskConfig(parser);
+    auto parser = x::json::Parser(task.config);
+    auto cfg = ScanTaskConfig(parser);
     if (parser.error()) return {std::move(result), parser.error()};
     result.task = std::make_unique<common::ScanTask>(
-        std::make_unique<opc::Scanner>(ctx, task, pool),
+        std::make_unique<Scanner>(ctx, task, pool),
         ctx,
         task,
-        breaker::default_config(task.name),
+        x::breaker::default_config(task.name),
         cfg.scan_rate
     );
     result.auto_start = cfg.enabled;
-    return {std::move(result), xerrors::NIL};
+    return {std::move(result), x::errors::NIL};
 }
 
-std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
+std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
-    std::pair<common::ConfigureResult, xerrors::Error> res;
+    std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == SCAN_TASK_TYPE)
         res = configure_scan(ctx, task, conn_pool_);
     else if (task.type == READ_TASK_TYPE)
@@ -95,10 +96,10 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
     return common::handle_config_err(ctx, task, std::move(res));
 }
 
-std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
-opc::Factory::configure_initial_tasks(
+std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
+Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Rack &rack
+    const synnax::rack::Rack &rack
 ) {
     common::delete_legacy_task_by_type(rack, "opcScanner", INTEGRATION_NAME);
     return common::configure_initial_factory_tasks(
@@ -109,4 +110,5 @@ opc::Factory::configure_initial_tasks(
         SCAN_TASK_TYPE,
         INTEGRATION_NAME
     );
+}
 }

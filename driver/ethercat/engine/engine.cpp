@@ -16,21 +16,21 @@
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/errors/errors.h"
 
-namespace ethercat::engine {
+namespace driver::ethercat::engine {
 void Engine::run() {
     LOG(INFO) << "[ethercat] engine started on " << this->master->interface_name();
-    const auto cycle_time = telem::TimeSpan(
+    const auto cycle_time = x::telem::TimeSpan(
         this->cycle_time_ns.load(std::memory_order_acquire)
     );
-    xthread::RTConfig rt_cfg = this->config.rt;
+    x::thread::rt::Config rt_cfg = this->config.rt;
     if (rt_cfg.enabled && !rt_cfg.has_timing()) {
         rt_cfg.period = cycle_time;
         rt_cfg.computation = cycle_time * 0.2;
         rt_cfg.deadline = cycle_time * 0.8;
         rt_cfg.prefer_deadline_scheduler = true;
     }
-    xthread::apply_rt_config(rt_cfg);
-    loop::Timer timer(cycle_time);
+    x::thread::rt::apply_config(rt_cfg);
+    x::loop::Timer timer(cycle_time);
 
     // Track error state to avoid log spam - only log on state transitions
     bool had_receive_error = false;
@@ -99,7 +99,7 @@ void Engine::stop() {
     this->master->deactivate();
 }
 
-xerrors::Error Engine::reconfigure() {
+x::errors::Error Engine::reconfigure() {
     std::scoped_lock lk(this->registration_mu, this->write_mu);
 
     if (this->breaker.running()) {
@@ -155,7 +155,7 @@ xerrors::Error Engine::reconfigure() {
     this->restarting = false;
     this->breaker.start();
     this->run_thread = std::thread(&Engine::run, this);
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
 bool Engine::should_be_running() const {
@@ -164,7 +164,7 @@ bool Engine::should_be_running() const {
 }
 
 void Engine::update_cycle_time() {
-    telem::Rate max_rate(0);
+    x::telem::Rate max_rate(0);
     {
         std::lock_guard lock(this->registration_mu);
         for (const auto &reg: this->read_registrations)
@@ -182,9 +182,9 @@ void Engine::update_cycle_time() {
         );
 }
 
-telem::Rate Engine::cycle_rate() const {
+x::telem::Rate Engine::cycle_rate() const {
     const auto ns = this->cycle_time_ns.load(std::memory_order_acquire);
-    return telem::Rate(telem::TimeSpan(ns));
+    return x::telem::Rate(x::telem::TimeSpan(ns));
 }
 
 void Engine::publish_inputs(const std::span<const uint8_t> src) {
@@ -274,12 +274,12 @@ void Engine::unregister_writer(const size_t id) {
 Engine::Engine(std::shared_ptr<master::Master> master, const Config &config):
     config(config),
     breaker(
-        breaker::Config{
+        x::breaker::Config{
             .name = "ethercat_engine",
-            .base_interval = telem::MILLISECOND * 100,
+            .base_interval = x::telem::MILLISECOND * 100,
             .max_retries = 10,
             .scale = 1.5f,
-            .max_interval = telem::SECOND * 5
+            .max_interval = x::telem::SECOND * 5
         }
     ),
     master(std::move(master)) {}
@@ -291,9 +291,9 @@ Engine::~Engine() {
     this->stop();
 }
 
-std::pair<std::unique_ptr<Engine::Reader>, xerrors::Error> Engine::open_reader(
+std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader(
     const std::vector<pdo::Entry> &entries,
-    const telem::Rate sample_rate
+    const x::telem::Rate sample_rate
 ) {
     size_t total_size = 0;
     for (const auto &e: entries)
@@ -339,13 +339,13 @@ std::pair<std::unique_ptr<Engine::Reader>, xerrors::Error> Engine::open_reader(
             std::move(resolved_pdos),
             input_frame_size
         ),
-        xerrors::NIL
+        x::errors::NIL
     };
 }
 
-std::pair<std::unique_ptr<Engine::Writer>, xerrors::Error> Engine::open_writer(
+std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer(
     const std::vector<pdo::Entry> &entries,
-    const telem::Rate execution_rate
+    const x::telem::Rate execution_rate
 ) {
     const size_t reg_id = this->next_id.fetch_add(1, std::memory_order_relaxed);
     {
@@ -379,11 +379,11 @@ std::pair<std::unique_ptr<Engine::Writer>, xerrors::Error> Engine::open_writer(
 
     return {
         std::make_unique<Writer>(*this, reg_id, std::move(resolved_pdos)),
-        xerrors::NIL
+        x::errors::NIL
     };
 }
 
-xerrors::Error Engine::ensure_initialized() const {
+x::errors::Error Engine::ensure_initialized() const {
     std::lock_guard lock(this->master_init_mu);
     return this->master->initialize();
 }

@@ -24,9 +24,9 @@
 #include <google/protobuf/struct.pb.h>
 
 #include "x/cpp/date/date.h"
-#include "x/cpp/xmath/xmath.h"
+#include "x/cpp/math/math.h"
 
-namespace telem {
+namespace x::telem {
 // private namespace for internal constants
 namespace _priv {
 constexpr int64_t NANOSECOND = 1;
@@ -323,20 +323,20 @@ public:
     /// negative infinity.
     /// @returns the number of microseconds since Unix epoch.
     [[nodiscard]] std::int64_t microseconds() const {
-        return xmath::floor_div(value, 1000);
+        return math::floor_div(value, 1000);
     }
 
     /// @brief returns the number of milliseconds since Unix epoch.
     /// @returns the number of milliseconds since Unix epoch.
     [[nodiscard]] std::int64_t milliseconds() const {
-        return xmath::floor_div(value, 1000000);
+        return math::floor_div(value, 1000000);
     }
 
     /// @brief returns the number of seconds since Unix epoch, floored toward negative
     /// infinity.
     /// @returns the number of seconds since Unix epoch.
     [[nodiscard]] std::int64_t seconds() const {
-        return xmath::floor_div(value, 1000000000);
+        return math::floor_div(value, 1000000000);
     }
 
     /// @brief returns the timestamp as fractional seconds.
@@ -350,7 +350,7 @@ public:
     [[nodiscard]] std::string iso8601() const {
         const int64_t sec = seconds();
         const int64_t frac_ns = value - sec * 1000000000;
-        const int64_t day = xmath::floor_div(sec, 86400);
+        const int64_t day = math::floor_div(sec, 86400);
         const int64_t sod = sec - day * 86400;
         const date::Date d = date::civil_from_days(day);
         const auto hh = sod / 3600;
@@ -538,7 +538,7 @@ public:
 
 /// @brief A stopwatch for measuring elapsed time using a monotonic clock.
 /// This class provides a simple interface for timing code execution and returns
-/// results as telem::TimeSpan for consistency with other time-related utilities.
+/// results as TimeSpan for consistency with other time-related utilities.
 class Stopwatch {
     std::chrono::steady_clock::time_point start_;
 
@@ -772,7 +772,7 @@ template<typename T>
     return cast<std::string>(value);
 }
 
-/// @brief Converts a google::protobuf::Value to telem::SampleValue.
+/// @brief Converts a google::protobuf::Value to SampleValue.
 /// @param v The protobuf Value to convert.
 /// @returns The SampleValue representation.
 /// @note Struct and list values are not supported and will return a default double(0).
@@ -793,7 +793,7 @@ template<typename T>
     }
 }
 
-/// @brief Converts a telem::SampleValue to google::protobuf::Value.
+/// @brief Converts a SampleValue to google::protobuf::Value.
 /// @param sv The SampleValue to convert.
 /// @param v Pointer to the protobuf Value to populate.
 inline void to_proto(const SampleValue &sv, google::protobuf::Value *v) {
@@ -926,18 +926,18 @@ public:
     /// @returns A new numeric sample value of the appropriate type
     /// @throws std::runtime_error if the data type is not numeric
     [[nodiscard]] SampleValue cast(const SampleValue &value) const {
-        if (*this == _priv::FLOAT64_T) return telem::cast<double>(value);
-        if (*this == _priv::FLOAT32_T) return telem::cast<float>(value);
-        if (*this == _priv::INT64_T) return telem::cast<int64_t>(value);
-        if (*this == _priv::INT32_T) return telem::cast<int32_t>(value);
-        if (*this == _priv::INT16_T) return telem::cast<int16_t>(value);
-        if (*this == _priv::INT8_T) return telem::cast<int8_t>(value);
-        if (*this == _priv::UINT64_T) return telem::cast<uint64_t>(value);
-        if (*this == _priv::UINT32_T) return telem::cast<uint32_t>(value);
-        if (*this == _priv::UINT16_T) return telem::cast<uint16_t>(value);
-        if (*this == _priv::UINT8_T) return telem::cast<uint8_t>(value);
-        if (*this == _priv::TIMESTAMP_T) return telem::cast<TimeStamp>(value);
-        if (this->is_variable()) return telem::cast<std::string>(value);
+        if (*this == _priv::FLOAT64_T) return x::telem::cast<double>(value);
+        if (*this == _priv::FLOAT32_T) return x::telem::cast<float>(value);
+        if (*this == _priv::INT64_T) return x::telem::cast<int64_t>(value);
+        if (*this == _priv::INT32_T) return x::telem::cast<int32_t>(value);
+        if (*this == _priv::INT16_T) return x::telem::cast<int16_t>(value);
+        if (*this == _priv::INT8_T) return x::telem::cast<int8_t>(value);
+        if (*this == _priv::UINT64_T) return x::telem::cast<uint64_t>(value);
+        if (*this == _priv::UINT32_T) return x::telem::cast<uint32_t>(value);
+        if (*this == _priv::UINT16_T) return x::telem::cast<uint16_t>(value);
+        if (*this == _priv::UINT8_T) return x::telem::cast<uint8_t>(value);
+        if (*this == _priv::TIMESTAMP_T) return x::telem::cast<TimeStamp>(value);
+        if (this->is_variable()) return x::telem::cast<std::string>(value);
         throw std::runtime_error(
             "cannot cast sample value to unknown data type " + this->value
         );
@@ -1028,7 +1028,7 @@ public:
     }
 
     // Add hash support for DataType
-    friend struct std::hash<telem::DataType>;
+    friend struct std::hash<DataType>;
 
 private:
     inline static std::unordered_map<std::string, size_t> DENSITIES = {
@@ -1172,8 +1172,8 @@ const DataType BYTES_T(_priv::BYTES_T);
 
 // Add hash specialization in std namespace
 template<>
-struct std::hash<telem::DataType> {
-    size_t operator()(const telem::DataType &dt) const noexcept {
+struct std::hash<x::telem::DataType> {
+    size_t operator()(const x::telem::DataType &dt) const noexcept {
         return hash<string>()(dt.value);
     }
 };

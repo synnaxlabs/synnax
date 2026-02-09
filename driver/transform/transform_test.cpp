@@ -10,20 +10,20 @@
 #include "gtest/gtest.h"
 
 /// local
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/transform/transform.h"
 
-namespace transform {
+namespace driver::transform {
 class MockTransform final : public Transform {
 public:
     explicit MockTransform(bool should_fail = false): should_fail_(should_fail) {}
 
-    xerrors::Error transform(telem::Frame &frame) override {
+    x::errors::Error transform(x::telem::Frame &frame) override {
         was_called_ = true;
         if (should_fail_)
-            return xerrors::Error(xerrors::INTERNAL, "Mock transform failed");
-        return xerrors::NIL;
+            return x::errors::Error(x::errors::INTERNAL, "Mock transform failed");
+        return x::errors::NIL;
     }
 
     [[nodiscard]] bool was_called() const { return was_called_; }
@@ -42,7 +42,7 @@ TEST(TransformTests, ChainTransform) {
     chain.add(mock1);
     chain.add(mock2);
 
-    telem::Frame frame;
+    x::telem::Frame frame;
     ASSERT_NIL(chain.transform(frame));
     ASSERT_TRUE(mock1->was_called());
     ASSERT_TRUE(mock2->was_called());
@@ -61,8 +61,8 @@ TEST(TransformTests, ChainTransformFailure) {
     chain.add(mock2);
     chain.add(mock3);
 
-    telem::Frame frame;
-    ASSERT_OCCURRED_AS(chain.transform(frame), xerrors::INTERNAL);
+    x::telem::Frame frame;
+    ASSERT_OCCURRED_AS(chain.transform(frame), x::errors::INTERNAL);
     ASSERT_TRUE(mock1->was_called());
     ASSERT_TRUE(mock2->was_called());
     ASSERT_FALSE(mock3->was_called());
@@ -71,38 +71,38 @@ TEST(TransformTests, ChainTransformFailure) {
 /// @brief it should do nothing in an empty chain.
 TEST(TransformTests, EmptyChain) {
     Chain chain;
-    telem::Frame frame;
+    x::telem::Frame frame;
     ASSERT_NIL(chain.transform(frame));
 }
 
 class TareTests : public ::testing::Test {
 protected:
     void SetUp() override {
-        synnax::Channel ch1;
+        synnax::channel::Channel ch1;
         ch1.key = 1;
         ch1.name = "test1";
-        ch1.data_type = telem::FLOAT64_T;
+        ch1.data_type = x::telem::FLOAT64_T;
 
-        synnax::Channel ch2;
+        synnax::channel::Channel ch2;
         ch2.key = 2;
         ch2.name = "test2";
-        ch2.data_type = telem::FLOAT32_T;
+        ch2.data_type = x::telem::FLOAT32_T;
         channels = {ch1, ch2};
 
         frame.reserve(2);
-        auto series1 = telem::Series(telem::FLOAT64_T, 2);
+        auto series1 = x::telem::Series(x::telem::FLOAT64_T, 2);
         series1.write(10.0);
         series1.write(20.0);
         frame.emplace(1, std::move(series1));
 
-        auto series2 = telem::Series(telem::FLOAT32_T, 2);
+        auto series2 = x::telem::Series(x::telem::FLOAT32_T, 2);
         series2.write(5.0f);
         series2.write(15.0f);
         frame.emplace(2, std::move(series2));
     }
 
-    std::vector<synnax::Channel> channels;
-    telem::Frame frame;
+    std::vector<synnax::channel::Channel> channels;
+    x::telem::Frame frame;
 };
 
 /// @brief it should tare the value of a channel.
@@ -114,16 +114,16 @@ TEST_F(TareTests, BasicTare) {
     ASSERT_EQ(frame.at<double>(1, -1), 20.0);
     ASSERT_EQ(frame.at<float>(2, -1), 15.0f);
 
-    json tare_args = json::object();
+    x::json::json tare_args = x::json::json::object();
     ASSERT_NIL(tare.tare(tare_args));
 
-    telem::Frame new_frame(2);
-    auto new_series1 = telem::Series(telem::FLOAT64_T, 2);
+    x::telem::Frame new_frame(2);
+    auto new_series1 = x::telem::Series(x::telem::FLOAT64_T, 2);
     new_series1.write(30.0);
     new_series1.write(40.0);
     new_frame.emplace(1, std::move(new_series1));
 
-    auto new_series2 = telem::Series(telem::FLOAT32_T, 2);
+    auto new_series2 = x::telem::Series(x::telem::FLOAT32_T, 2);
     new_series2.write(25.0f);
     new_series2.write(35.0f);
     new_frame.emplace(2, std::move(new_series2));
@@ -144,16 +144,16 @@ TEST_F(TareTests, TareSpecificChannels) {
     ASSERT_NIL(tare.transform(frame));
 
     // Request tare of only channel 1
-    json tare_args = {{"keys", {1}}};
+    x::json::json tare_args = {{"keys", {1}}};
     ASSERT_NIL(tare.tare(tare_args));
 
-    telem::Frame new_frame(2);
-    auto new_series1 = telem::Series(telem::FLOAT64_T, 2);
+    x::telem::Frame new_frame(2);
+    auto new_series1 = x::telem::Series(x::telem::FLOAT64_T, 2);
     new_series1.write(30.0);
     new_series1.write(40.0);
     new_frame.emplace(1, std::move(new_series1));
 
-    auto new_series2 = telem::Series(telem::FLOAT32_T, 2);
+    auto new_series2 = x::telem::Series(x::telem::FLOAT32_T, 2);
     new_series2.write(25.0f);
     new_series2.write(35.0f);
     new_frame.emplace(2, std::move(new_series2));
@@ -167,13 +167,13 @@ TEST_F(TareTests, TareSpecificChannels) {
     ASSERT_EQ(new_frame.at<float>(2, 1), 35.0f); // Unchanged
 
     // Subsequent frame should use same tare values
-    telem::Frame third_frame(2);
-    auto third_series1 = telem::Series(telem::FLOAT64_T, 2);
+    x::telem::Frame third_frame(2);
+    auto third_series1 = x::telem::Series(x::telem::FLOAT64_T, 2);
     third_series1.write(50.0);
     third_series1.write(60.0);
     third_frame.emplace(1, std::move(third_series1));
 
-    auto third_series2 = telem::Series(telem::FLOAT32_T, 2);
+    auto third_series2 = x::telem::Series(x::telem::FLOAT32_T, 2);
     third_series2.write(45.0f);
     third_series2.write(55.0f);
     third_frame.emplace(2, std::move(third_series2));
@@ -191,31 +191,31 @@ TEST_F(TareTests, InvalidChannelKey) {
 
     ASSERT_NIL(tare.transform(frame));
 
-    json tare_args = {{"keys", {999}}};
+    x::json::json tare_args = {{"keys", {999}}};
     const auto err = tare.tare(tare_args);
     ASSERT_TRUE(err);
 }
 
 /// @brief it should correctly apply a linear scale to a channel
 TEST(ScaleTests, LinearScale) {
-    json config = {
+    x::json::json config = {
         {"channels",
          {{{"channel", 1},
            {"scale", {{"type", "linear"}, {"slope", 2.0}, {"offset", 5.0}}}}}}
     };
 
     // Create channel map
-    std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
-    synnax::Channel ch1;
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
+    synnax::channel::Channel ch1;
     ch1.key = 1;
-    ch1.data_type = telem::FLOAT64_T;
+    ch1.data_type = x::telem::FLOAT64_T;
     channels[1] = ch1;
 
-    xjson::Parser parser(config);
+    x::json::Parser parser(config);
     Scale scale(parser, channels);
 
-    telem::Frame frame(1);
-    auto series = telem::Series(telem::FLOAT64_T, 2);
+    x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::FLOAT64_T, 2);
     series.write(10.0);
     series.write(20.0);
     frame.emplace(1, std::move(series));
@@ -228,7 +228,7 @@ TEST(ScaleTests, LinearScale) {
 
 /// @brief it should properly apply a map scale to a channel.
 TEST(ScaleTests, MapScale) {
-    json config = {
+    x::json::json config = {
         {"channels",
          {{{"channel", 1},
            {"scale",
@@ -239,17 +239,17 @@ TEST(ScaleTests, MapScale) {
              {"scaled_max", 1.0}}}}}}
     };
 
-    std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
-    synnax::Channel ch1;
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
+    synnax::channel::Channel ch1;
     ch1.key = 1;
-    ch1.data_type = telem::FLOAT64_T;
+    ch1.data_type = x::telem::FLOAT64_T;
     channels[1] = ch1;
 
-    xjson::Parser parser(config);
+    x::json::Parser parser(config);
     Scale scale(parser, channels);
 
-    telem::Frame frame(1);
-    auto series = telem::Series(telem::FLOAT64_T, 3);
+    x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::FLOAT64_T, 3);
     series.write(0.0);
     series.write(50.0);
     series.write(100.0);
@@ -264,7 +264,7 @@ TEST(ScaleTests, MapScale) {
 
 /// @brief it should correctly apply a scale to multiple channels.
 TEST(ScaleTests, MultipleChannels) {
-    json config = {
+    x::json::json config = {
         {"channels",
          {{{"channel", 1},
            {"scale", {{"type", "linear"}, {"slope", 2.0}, {"offset", 0.0}}}},
@@ -277,25 +277,25 @@ TEST(ScaleTests, MultipleChannels) {
              {"scaled_max", 100.0}}}}}}
     };
 
-    std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
-    synnax::Channel ch1;
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
+    synnax::channel::Channel ch1;
     ch1.key = 1;
-    ch1.data_type = telem::FLOAT64_T;
+    ch1.data_type = x::telem::FLOAT64_T;
     channels[1] = ch1;
 
-    synnax::Channel ch2;
+    synnax::channel::Channel ch2;
     ch2.key = 2;
-    ch2.data_type = telem::FLOAT64_T;
+    ch2.data_type = x::telem::FLOAT64_T;
     channels[2] = ch2;
 
-    xjson::Parser parser(config);
+    x::json::Parser parser(config);
     Scale scale(parser, channels);
 
-    telem::Frame frame(2);
-    auto series1 = telem::Series(telem::FLOAT64_T, 1);
+    x::telem::Frame frame(2);
+    auto series1 = x::telem::Series(x::telem::FLOAT64_T, 1);
     series1.write(5.0);
     frame.emplace(1, std::move(series1));
-    auto series2 = telem::Series(telem::FLOAT64_T, 1);
+    auto series2 = x::telem::Series(x::telem::FLOAT64_T, 1);
     series2.write(5.0);
     frame.emplace(2, std::move(series2));
     ASSERT_NIL(scale.transform(frame));
@@ -306,28 +306,28 @@ TEST(ScaleTests, MultipleChannels) {
 
 /// @brief it should correctly ignore channels that are not configured for scaling.
 TEST(ScaleTests, IgnoreUnknownChannels) {
-    json config = {
+    x::json::json config = {
         {"channels",
          {{{"channel", 1},
            {"scale", {{"type", "linear"}, {"slope", 2.0}, {"offset", 0.0}}}}}}
     };
 
-    std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
-    synnax::Channel ch1;
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
+    synnax::channel::Channel ch1;
     ch1.key = 1;
-    ch1.data_type = telem::FLOAT64_T;
+    ch1.data_type = x::telem::FLOAT64_T;
     channels[1] = ch1;
 
-    xjson::Parser parser(config);
+    x::json::Parser parser(config);
     Scale scale(parser, channels);
 
-    telem::Frame frame(2);
+    x::telem::Frame frame(2);
 
-    auto series1 = telem::Series(telem::FLOAT64_T, 1);
+    auto series1 = x::telem::Series(x::telem::FLOAT64_T, 1);
     series1.write(5.0);
     frame.emplace(1, std::move(series1));
 
-    auto series2 = telem::Series(telem::FLOAT64_T, 1);
+    auto series2 = x::telem::Series(x::telem::FLOAT64_T, 1);
     series2.write(5.0);
     frame.emplace(2, std::move(series2));
 
@@ -339,7 +339,7 @@ TEST(ScaleTests, IgnoreUnknownChannels) {
 
 /// @brief it should correctly ignore disabled channels.
 TEST(ScaleTests, DisabledChannel) {
-    json config = {
+    x::json::json config = {
         {"channels",
          {{{"channel", 1},
            {"enabled", true},
@@ -349,23 +349,23 @@ TEST(ScaleTests, DisabledChannel) {
            {"scale", {{"type", "linear"}, {"slope", 3.0}, {"offset", 10.0}}}}}}
     };
 
-    std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
 
-    synnax::Channel ch1;
+    synnax::channel::Channel ch1;
     ch1.key = 1;
-    ch1.data_type = telem::FLOAT64_T;
+    ch1.data_type = x::telem::FLOAT64_T;
     channels[1] = ch1;
 
-    xjson::Parser parser(config);
+    x::json::Parser parser(config);
     Scale scale(parser, channels);
 
-    telem::Frame frame(2);
+    x::telem::Frame frame(2);
 
-    auto series1 = telem::Series(telem::FLOAT64_T, 1);
+    auto series1 = x::telem::Series(x::telem::FLOAT64_T, 1);
     series1.write(10.0);
     frame.emplace(1, std::move(series1));
 
-    auto series2 = telem::Series(telem::FLOAT64_T, 1);
+    auto series2 = x::telem::Series(x::telem::FLOAT64_T, 1);
     series2.write(10.0);
     frame.emplace(2, std::move(series2));
 
@@ -377,34 +377,34 @@ TEST(ScaleTests, DisabledChannel) {
 
 /// @brief it should apply transformations directly to the frame.
 TEST(ScaleTests, TransformInplaceUsage) {
-    json config = {
+    x::json::json config = {
         {"channels",
          {{{"channel", 1},
            {"scale", {{"type", "linear"}, {"slope", 3.0}, {"offset", 2.0}}}}}}
     };
 
-    std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
-    synnax::Channel ch1;
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
+    synnax::channel::Channel ch1;
     ch1.key = 1;
-    ch1.data_type = telem::FLOAT64_T;
+    ch1.data_type = x::telem::FLOAT64_T;
     channels[1] = ch1;
 
-    xjson::Parser parser(config);
+    x::json::Parser parser(config);
     Scale scale(parser, channels);
 
-    telem::Frame frame(3);
+    x::telem::Frame frame(3);
 
-    auto series1 = telem::Series(telem::FLOAT64_T, 2);
+    auto series1 = x::telem::Series(x::telem::FLOAT64_T, 2);
     series1.write(1.0);
     series1.write(2.0);
     frame.emplace(1, std::move(series1));
 
-    auto series2 = telem::Series(telem::INT32_T, 2);
+    auto series2 = x::telem::Series(x::telem::INT32_T, 2);
     series2.write(10);
     series2.write(20);
     frame.emplace(2, std::move(series2));
 
-    auto series3 = telem::Series(telem::FLOAT32_T, 2);
+    auto series3 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series3.write(1.5f);
     series3.write(2.5f);
     frame.emplace(3, std::move(series3));
@@ -421,60 +421,60 @@ TEST(ScaleTests, TransformInplaceUsage) {
 
 /// @brief it should correctly tare channels with different data types.
 TEST_F(TareTests, TareWithDifferentDataTypes) {
-    std::vector<synnax::Channel> channels;
+    std::vector<synnax::channel::Channel> channels;
 
-    synnax::Channel ch1;
+    synnax::channel::Channel ch1;
     ch1.key = 1;
     ch1.name = "int32";
-    ch1.data_type = telem::INT32_T;
+    ch1.data_type = x::telem::INT32_T;
 
-    synnax::Channel ch2;
+    synnax::channel::Channel ch2;
     ch2.key = 2;
     ch2.name = "float32";
-    ch2.data_type = telem::FLOAT32_T;
+    ch2.data_type = x::telem::FLOAT32_T;
 
-    synnax::Channel ch3;
+    synnax::channel::Channel ch3;
     ch3.key = 3;
     ch3.name = "float64";
-    ch3.data_type = telem::FLOAT64_T;
+    ch3.data_type = x::telem::FLOAT64_T;
 
     channels = {ch1, ch2, ch3};
 
     Tare tare(channels);
 
-    telem::Frame frame(3);
-    auto series1 = telem::Series(telem::INT32_T, 2);
+    x::telem::Frame frame(3);
+    auto series1 = x::telem::Series(x::telem::INT32_T, 2);
     series1.write(100);
     series1.write(200);
     frame.emplace(1, std::move(series1));
 
-    auto series2 = telem::Series(telem::FLOAT32_T, 2);
+    auto series2 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series2.write(10.5f);
     series2.write(20.5f);
     frame.emplace(2, std::move(series2));
 
-    auto series3 = telem::Series(telem::FLOAT64_T, 2);
+    auto series3 = x::telem::Series(x::telem::FLOAT64_T, 2);
     series3.write(1000.25);
     series3.write(2000.25);
     frame.emplace(3, std::move(series3));
 
     ASSERT_NIL(tare.transform(frame));
 
-    json tare_args = json::object();
+    x::json::json tare_args = x::json::json::object();
     ASSERT_NIL(tare.tare(tare_args));
 
-    telem::Frame new_frame(3);
-    auto new_series1 = telem::Series(telem::INT32_T, 2);
+    x::telem::Frame new_frame(3);
+    auto new_series1 = x::telem::Series(x::telem::INT32_T, 2);
     new_series1.write(300);
     new_series1.write(400);
     new_frame.emplace(1, std::move(new_series1));
 
-    auto new_series2 = telem::Series(telem::FLOAT32_T, 2);
+    auto new_series2 = x::telem::Series(x::telem::FLOAT32_T, 2);
     new_series2.write(30.5f);
     new_series2.write(40.5f);
     new_frame.emplace(2, std::move(new_series2));
 
-    auto new_series3 = telem::Series(telem::FLOAT64_T, 2);
+    auto new_series3 = x::telem::Series(x::telem::FLOAT64_T, 2);
     new_series3.write(3000.25);
     new_series3.write(4000.25);
     new_frame.emplace(3, std::move(new_series3));
@@ -491,18 +491,18 @@ TEST_F(TareTests, TareWithDifferentDataTypes) {
     ASSERT_EQ(new_frame.at<double>(3, 1), 500.0); // 4000.25 - 3500.25
 
     // Test subsequent frame with same tare values
-    telem::Frame third_frame(3);
-    auto third_series1 = telem::Series(telem::INT32_T, 2);
+    x::telem::Frame third_frame(3);
+    auto third_series1 = x::telem::Series(x::telem::INT32_T, 2);
     third_series1.write(500);
     third_series1.write(600);
     third_frame.emplace(1, std::move(third_series1));
 
-    auto third_series2 = telem::Series(telem::FLOAT32_T, 2);
+    auto third_series2 = x::telem::Series(x::telem::FLOAT32_T, 2);
     third_series2.write(50.5f);
     third_series2.write(60.5f);
     third_frame.emplace(2, std::move(third_series2));
 
-    auto third_series3 = telem::Series(telem::FLOAT64_T, 2);
+    auto third_series3 = x::telem::Series(x::telem::FLOAT64_T, 2);
     third_series3.write(5000.25);
     third_series3.write(6000.25);
     third_frame.emplace(3, std::move(third_series3));
@@ -518,46 +518,46 @@ TEST_F(TareTests, TareWithDifferentDataTypes) {
 
 /// @brief it should correctly execute a chain with a tare and scale transform.
 TEST(ChainTests, ComplexTransformChain) {
-    std::vector<synnax::Channel> channels;
+    std::vector<synnax::channel::Channel> channels;
 
-    synnax::Channel ch1;
+    synnax::channel::Channel ch1;
     ch1.key = 1;
     ch1.name = "test";
-    ch1.data_type = telem::FLOAT64_T;
+    ch1.data_type = x::telem::FLOAT64_T;
 
     channels = {ch1};
 
     auto tare = std::make_shared<Tare>(channels);
 
-    json config = {
+    x::json::json config = {
         {"channels",
          {{{"channel", 1},
            {"scale", {{"type", "linear"}, {"slope", 2.0}, {"offset", 10.0}}}}}}
     };
 
-    std::unordered_map<synnax::ChannelKey, synnax::Channel> channel_map;
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channel_map;
     channel_map[1] = ch1;
 
-    xjson::Parser parser(config);
+    x::json::Parser parser(config);
     auto scale = std::make_shared<Scale>(parser, channel_map);
 
     Chain chain;
     chain.add(tare);
     chain.add(scale);
 
-    json tare_args = json::object();
+    x::json::json tare_args = x::json::json::object();
     ASSERT_NIL(tare->tare(tare_args));
 
-    telem::Frame frame(1);
-    auto series = telem::Series(telem::FLOAT64_T, 1);
+    x::telem::Frame frame(1);
+    auto series = x::telem::Series(x::telem::FLOAT64_T, 1);
     series.write(50.0);
     frame.emplace(1, std::move(series));
 
     ASSERT_NIL(chain.transform(frame));
 
     // Create second frame
-    telem::Frame frame2(1);
-    auto series2 = telem::Series(telem::FLOAT64_T, 1);
+    x::telem::Frame frame2(1);
+    auto series2 = x::telem::Series(x::telem::FLOAT64_T, 1);
     series2.write(70.0);
     frame2.emplace(1, std::move(series2));
 

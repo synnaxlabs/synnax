@@ -15,7 +15,7 @@
 
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xthread/rt.h"
+#include "x/cpp/thread/rt/rt.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 
@@ -34,7 +34,7 @@ public:
 
     ~WindowsLoop() override { this->close_handles(); }
 
-    WakeReason wait(breaker::Breaker &breaker) override {
+    WakeReason wait(x::breaker::Breaker &breaker) override {
         if (this->wake_event_ == NULL) return WakeReason::Shutdown;
 
         switch (this->config_.mode) {
@@ -53,12 +53,12 @@ public:
         return WakeReason::Shutdown;
     }
 
-    xerrors::Error start() override {
-        if (this->wake_event_ != NULL) return xerrors::NIL;
+    x::errors::Error start() override {
+        if (this->wake_event_ != NULL) return x::errors::NIL;
 
         this->wake_event_ = CreateEvent(NULL, FALSE, FALSE, NULL);
         if (this->wake_event_ == NULL) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to create wake event: " + std::to_string(GetLastError())
             );
         }
@@ -66,13 +66,15 @@ public:
         if (this->config_.interval.nanoseconds() > 0) {
             if (this->config_.mode == ExecutionMode::HIGH_RATE) {
                 // HIGH_RATE uses precise software timer
-                this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+                this->timer_ = std::make_unique<::x::loop::Timer>(
+                    this->config_.interval
+                );
             } else {
                 // Other modes use WaitableTimer
                 this->timer_event_ = CreateWaitableTimer(NULL, FALSE, NULL);
                 if (this->timer_event_ == NULL) {
                     CloseHandle(this->wake_event_);
-                    return xerrors::Error(
+                    return x::errors::Error(
                         "Failed to create waitable timer: " +
                         std::to_string(GetLastError())
                     );
@@ -85,7 +87,7 @@ public:
 
                 const LONG period_ms = static_cast<LONG>(
                     this->config_.interval.nanoseconds() /
-                    telem::MILLISECOND.nanoseconds()
+                    x::telem::MILLISECOND.nanoseconds()
                 );
 
                 if (!SetWaitableTimer(
@@ -98,7 +100,7 @@ public:
                     )) {
                     CloseHandle(this->timer_event_);
                     CloseHandle(this->wake_event_);
-                    return xerrors::Error(
+                    return x::errors::Error(
                         "Failed to set waitable timer: " +
                         std::to_string(GetLastError())
                     );
@@ -110,10 +112,10 @@ public:
 
         auto rt_cfg = this->config_.rt();
         rt_cfg.use_mmcss = true;
-        if (auto err = xthread::apply_rt_config(rt_cfg); err)
+        if (auto err = x::thread::rt::apply_config(rt_cfg); err)
             LOG(WARNING) << "[loop] Failed to apply RT config: " << err.message();
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void wake() override {
@@ -121,7 +123,7 @@ public:
         SetEvent(this->wake_event_);
     }
 
-    bool watch(notify::Notifier &notifier) override {
+    bool watch(x::notify::Notifier &notifier) override {
         auto *handle = static_cast<HANDLE>(notifier.native_handle());
         if (handle == nullptr) {
             LOG(ERROR) << "[loop] Notifier has no native handle";
@@ -153,7 +155,7 @@ private:
         this->timer_enabled_ = false;
     }
 
-    WakeReason busy_wait(breaker::Breaker &breaker) {
+    WakeReason busy_wait(x::breaker::Breaker &breaker) {
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
         if (count == 0) return WakeReason::Shutdown;
@@ -171,7 +173,7 @@ private:
         return WakeReason::Shutdown;
     }
 
-    WakeReason high_rate_wait(breaker::Breaker &breaker) {
+    WakeReason high_rate_wait(x::breaker::Breaker &breaker) {
         this->timer_->wait(breaker);
         return WakeReason::Timer;
     }
@@ -198,7 +200,7 @@ private:
         return this->classify_result(result, handles);
     }
 
-    WakeReason hybrid_wait(breaker::Breaker &breaker) {
+    WakeReason hybrid_wait(x::breaker::Breaker &breaker) {
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
         if (count == 0) return WakeReason::Shutdown;
@@ -248,13 +250,13 @@ private:
     HANDLE timer_event_ = NULL;
     HANDLE watched_handle_ = NULL;
     bool timer_enabled_ = false;
-    std::unique_ptr<::loop::Timer> timer_;
+    std::unique_ptr<::x::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
     auto loop = std::make_unique<WindowsLoop>(cfg);
     if (auto err = loop->start(); err) return {nullptr, err};
-    return {std::move(loop), xerrors::NIL};
+    return {std::move(loop), x::errors::NIL};
 }
 
 }

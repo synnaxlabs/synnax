@@ -13,7 +13,7 @@ cc_library(
         "//driver/opc/types",
         "//vendor/open62541",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "@glog",
     ],
 )

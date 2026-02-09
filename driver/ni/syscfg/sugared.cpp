@@ -7,26 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/ni/errors.h"
+#include "driver/ni/errors/errors.h"
 #include "driver/ni/syscfg/sugared.h"
 
-namespace syscfg {
-xerrors::Error SugaredAPI::process_error(NISysCfgStatus status) const {
+namespace driver::ni::syscfg {
+x::errors::Error SugaredAPI::process_error(const NISysCfgStatus status) const {
     wchar_t *error_buf = nullptr;
-    if (status == NISysCfg_OK) return xerrors::NIL;
-    if (status == NISysCfg_EndOfEnum) return ni::END_OF_ENUM;
+    if (status == NISysCfg_OK) return x::errors::NIL;
+    if (status == NISysCfg_EndOfEnum) return errors::END_OF_ENUM;
     const auto desc_status = this->syscfg
                                  ->GetStatusDescriptionW(nullptr, status, &error_buf);
     if (desc_status != NISysCfg_OK || error_buf == nullptr)
-        return xerrors::Error(
+        return x::errors::Error(
             "failed to retrieve error message for status code " + std::to_string(status)
         );
     const auto str = std::wstring(error_buf);
     this->syscfg->FreeDetailedStringW(error_buf);
-    return xerrors::Error(std::string(str.begin(), str.end()));
+    return x::errors::Error(std::string(str.begin(), str.end()));
 }
 
-xerrors::Error SugaredAPI::InitializeSession(
+x::errors::Error SugaredAPI::InitializeSession(
     const char *targetName,
     const char *username,
     const char *password,
@@ -49,7 +49,7 @@ xerrors::Error SugaredAPI::InitializeSession(
     return process_error(status);
 }
 
-xerrors::Error SugaredAPI::CreateFilter(
+x::errors::Error SugaredAPI::CreateFilter(
     NISysCfgSessionHandle sessionHandle,
     NISysCfgFilterHandle *filterHandle
 ) {
@@ -57,7 +57,7 @@ xerrors::Error SugaredAPI::CreateFilter(
     return process_error(status);
 }
 
-xerrors::Error SugaredAPI::SetFilterProperty(
+x::errors::Error SugaredAPI::SetFilterProperty(
     NISysCfgFilterHandle filterHandle,
     NISysCfgFilterProperty propertyID,
     ...
@@ -79,14 +79,14 @@ xerrors::Error SugaredAPI::SetFilterProperty(
     return process_error(status);
 }
 
-xerrors::Error SugaredAPI::CloseHandle(void *syscfgHandle) {
+x::errors::Error SugaredAPI::CloseHandle(void *syscfgHandle) {
     auto status = syscfg->CloseHandle(syscfgHandle);
     // END_OF_ENUM is expected when closing an exhausted enumeration handle
-    if (status == NISysCfg_EndOfEnum) return xerrors::NIL;
+    if (status == NISysCfg_EndOfEnum) return x::errors::NIL;
     return process_error(status);
 }
 
-xerrors::Error SugaredAPI::FindHardware(
+x::errors::Error SugaredAPI::FindHardware(
     NISysCfgSessionHandle sessionHandle,
     NISysCfgFilterMode filterMode,
     NISysCfgFilterHandle filterHandle,
@@ -103,7 +103,7 @@ xerrors::Error SugaredAPI::FindHardware(
     return process_error(status);
 }
 
-xerrors::Error SugaredAPI::NextResource(
+x::errors::Error SugaredAPI::NextResource(
     NISysCfgSessionHandle sessionHandle,
     NISysCfgEnumResourceHandle resourceEnumHandle,
     NISysCfgResourceHandle *resourceHandle
@@ -113,7 +113,7 @@ xerrors::Error SugaredAPI::NextResource(
     return process_error(status);
 }
 
-xerrors::Error SugaredAPI::GetResourceProperty(
+x::errors::Error SugaredAPI::GetResourceProperty(
     NISysCfgResourceHandle resourceHandle,
     NISysCfgResourceProperty propertyID,
     void *value
@@ -122,7 +122,7 @@ xerrors::Error SugaredAPI::GetResourceProperty(
     return process_error(status);
 }
 
-xerrors::Error SugaredAPI::GetResourceIndexedProperty(
+x::errors::Error SugaredAPI::GetResourceIndexedProperty(
     NISysCfgResourceHandle resourceHandle,
     NISysCfgIndexedProperty propertyID,
     unsigned int index,

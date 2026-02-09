@@ -5,7 +5,7 @@ cc_library(
     deps = [
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
     ],
 )
 
@@ -14,8 +14,8 @@ cc_test(
     srcs = ["topology_test.cpp"],
     deps = [
         ":topology",
-        "//x/cpp/xjson",
-        "//x/cpp/xtest",
+        "//x/cpp/json",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

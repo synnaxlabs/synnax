@@ -6,7 +6,7 @@ cc_library(
         "//client/cpp:synnax",
         "//driver/ethercat/master",
         "//x/cpp/telem",
-        "//x/cpp/xjson",
+        "//x/cpp/json",
     ],
 )
 
