@@ -172,7 +172,9 @@ TEST(RangerTests, testKVDelete) {
 
 /// @brief it should convert a range key to an ontology ID
 TEST(RangerTests, testRangeOntologyId) {
-    const auto key = x::uuid::UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8").first;
+    const auto key = ASSERT_NIL_P(
+        x::uuid::UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8")
+    );
     const auto id = ontology_id(key);
     ASSERT_EQ(id.type, "range");
     ASSERT_EQ(id.key, "748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
@@ -181,9 +183,9 @@ TEST(RangerTests, testRangeOntologyId) {
 /// @brief it should convert multiple range keys to ontology IDs
 TEST(RangerTests, testRangeOntologyIds) {
     const std::vector<Key> keys = {
-        x::uuid::UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8").first,
-        x::uuid::UUID::parse("00000000-0000-0000-0000-000000000001").first,
-        x::uuid::UUID::parse("00000000-0000-0000-0000-000000000002").first,
+        ASSERT_NIL_P(x::uuid::UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8")),
+        ASSERT_NIL_P(x::uuid::UUID::parse("00000000-0000-0000-0000-000000000001")),
+        ASSERT_NIL_P(x::uuid::UUID::parse("00000000-0000-0000-0000-000000000002")),
     };
     const auto ids = ontology_ids(keys);
     ASSERT_EQ(ids.size(), 3);

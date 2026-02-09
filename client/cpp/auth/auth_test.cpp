@@ -18,10 +18,18 @@
 #include "core/pkg/api/grpc/v1/auth.pb.h"
 
 namespace synnax::auth {
+const std::string MOCK_CLUSTER_KEY = "748d31e2-5732-4cb5-8bc9-64d4ad51efe8";
+
+api::v1::LoginResponse mock_login_response() {
+    api::v1::LoginResponse res;
+    res.set_token("abc");
+    res.mutable_cluster_info()->set_cluster_key(MOCK_CLUSTER_KEY);
+    return res;
+}
+
 /// @brief it should correctly authenticate with a Synnax cluster.
 TEST(TestAuth, testLoginHappyPath) {
-    auto res = api::v1::LoginResponse();
-    res.set_token("abc");
+    auto res = mock_login_response();
     auto mock_login_client = std::make_unique<
         MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
         res,
@@ -42,8 +50,7 @@ TEST(TestAuth, testLoginHappyPath) {
 
 /// @brief it should return an error if credentials are invalid.
 TEST(TestAuth, testLoginInvalidCredentials) {
-    auto res = api::v1::LoginResponse();
-    res.set_token("abc");
+    auto res = mock_login_response();
     auto mock_login_client = std::make_unique<
         MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
         res,
@@ -64,8 +71,7 @@ TEST(TestAuth, testLoginInvalidCredentials) {
 
 /// @brief it should retry authentication if the authentication token is invalid.
 TEST(TestAuth, testLoginRetry) {
-    auto res = api::v1::LoginResponse();
-    res.set_token("abc");
+    auto res = mock_login_response();
     auto mock_login_client = std::make_unique<
         MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
         std::vector<api::v1::LoginResponse>{res, res},
@@ -95,7 +101,7 @@ protected:
     std::shared_ptr<Middleware> mw;
     MockUnaryClient<int, int> mock_client;
 
-    void SetUp() override { res.set_token("abc"); }
+    void SetUp() override { res = mock_login_response(); }
 
     void setupTest(x::errors::Error first_error) {
         mock_login_client = std::make_unique<

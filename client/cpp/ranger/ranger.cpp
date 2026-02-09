@@ -19,10 +19,15 @@ namespace synnax::ranger {
 Range::Range(std::string name, x::telem::TimeRange time_range):
     name(std::move(name)), time_range(time_range) {}
 
-Range::Range(const api::v1::Range &rng):
-    key(x::uuid::UUID::parse(rng.key()).first),
-    name(rng.name()),
-    time_range(x::telem::TimeRange(rng.time_range().start(), rng.time_range().end())) {}
+std::pair<Range, x::errors::Error> Range::from_proto(const api::v1::Range &rng) {
+    auto [key, err] = x::uuid::UUID::parse(rng.key());
+    if (err) return {{}, err};
+    Range r;
+    r.key = key;
+    r.name = rng.name();
+    r.time_range = {rng.time_range().start(), rng.time_range().end()};
+    return {r, x::errors::NIL};
+}
 
 void Range::to_proto(api::v1::Range *rng) const {
     rng->set_name(name);
@@ -39,9 +44,10 @@ std::pair<Range, x::errors::Error> Client::retrieve_by_key(const Key &key) const
     if (err) return {Range(), err};
     if (res.ranges_size() == 0)
         return {Range(), errors::not_found_error("range", "key " + key.to_string())};
-    auto rng = Range(res.ranges(0));
+    auto [rng, parse_err] = Range::from_proto(res.ranges(0));
+    if (parse_err) return {Range(), parse_err};
     rng.kv = this->kv.scope_to_range(rng.key.to_string());
-    return {rng, err};
+    return {rng, x::errors::NIL};
 }
 
 std::pair<Range, x::errors::Error>
@@ -54,19 +60,25 @@ Client::retrieve_by_name(const std::string &name) const {
         return {Range(), errors::not_found_error("range", "name " + name)};
     if (res.ranges_size() > 1)
         return {Range(), errors::multiple_found_error("ranges", "name " + name)};
-    auto rng = Range(res.ranges(0));
+    auto [rng, parse_err] = Range::from_proto(res.ranges(0));
+    if (parse_err) return {Range(), parse_err};
     rng.kv = this->kv.scope_to_range(rng.key.to_string());
-    return {rng, err};
+    return {rng, x::errors::NIL};
 }
 
 std::pair<std::vector<Range>, x::errors::Error>
 Client::retrieve_many(api::v1::RangeRetrieveRequest &req) const {
     auto [res, err] = retrieve_client->send("/range/retrieve", req);
-    if (err) return {std::vector<Range>(), err};
-    std::vector<Range> ranges = {res.ranges().begin(), res.ranges().end()};
-    for (auto &r: ranges)
-        r.kv = this->kv.scope_to_range(r.key.to_string());
-    return {ranges, err};
+    if (err) return {{}, err};
+    std::vector<Range> ranges;
+    ranges.reserve(res.ranges_size());
+    for (const auto &pb: res.ranges()) {
+        auto [rng, parse_err] = Range::from_proto(pb);
+        if (parse_err) return {{}, parse_err};
+        rng.kv = this->kv.scope_to_range(rng.key.to_string());
+        ranges.push_back(std::move(rng));
+    }
+    return {ranges, x::errors::NIL};
 }
 
 std::pair<std::vector<Range>, x::errors::Error>
@@ -93,7 +105,9 @@ x::errors::Error Client::create(std::vector<Range> &ranges) const {
     auto [res, err] = create_client->send("/range/create", req);
     if (err) return err;
     for (auto i = 0; i < res.ranges_size(); i++) {
-        ranges[i].key = x::uuid::UUID::parse(res.ranges(i).key()).first;
+        auto [key, parse_err] = x::uuid::UUID::parse(res.ranges(i).key());
+        if (parse_err) return parse_err;
+        ranges[i].key = key;
         ranges[i].kv = this->kv.scope_to_range(ranges[i].key.to_string());
     }
     return x::errors::NIL;
@@ -105,10 +119,12 @@ x::errors::Error Client::create(Range &range) const {
     auto [res, err] = create_client->send("/range/create", req);
     if (err) return err;
     if (res.ranges_size() == 0) return errors::unexpected_missing_error("range");
-    const auto rng = res.ranges(0);
-    range.key = x::uuid::UUID::parse(rng.key()).first;
-    range.kv = this->kv.scope_to_range(rng.key());
-    return err;
+    const auto &rng = res.ranges(0);
+    auto [key, parse_err] = x::uuid::UUID::parse(rng.key());
+    if (parse_err) return parse_err;
+    range.key = key;
+    range.kv = this->kv.scope_to_range(range.key.to_string());
+    return x::errors::NIL;
 }
 
 std::pair<Range, x::errors::Error>

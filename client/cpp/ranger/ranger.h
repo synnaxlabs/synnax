@@ -53,7 +53,7 @@ public:
     Range(std::string name, x::telem::TimeRange time_range);
 
     /// @brief constructs the range from its protobuf type.
-    explicit Range(const api::v1::Range &rng);
+    static std::pair<Range, x::errors::Error> from_proto(const api::v1::Range &rng);
 
 private:
     /// @brief binds the range's fields to the given proto.

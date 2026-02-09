@@ -96,7 +96,3 @@ std::ostream &operator<<(std::ostream &os, const UUID &uuid) {
 }
 
 }
-
-size_t std::hash<x::uuid::UUID>::operator()(const x::uuid::UUID &uuid) const noexcept {
-    return boost::uuids::hash_value(uuid.underlying());
-}

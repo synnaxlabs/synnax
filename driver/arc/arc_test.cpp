@@ -768,7 +768,10 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
 
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    auto *error_status = find_status_by_variant(ctx->statuses, x::status::VARIANT_ERROR);
+    auto *error_status = find_status_by_variant(
+        ctx->statuses,
+        x::status::VARIANT_ERROR
+    );
     ASSERT_NE(error_status, nullptr) << "Fatal WASM trap should produce error status";
     expect_status(*error_status, x::status::VARIANT_ERROR, false);
 
@@ -862,7 +865,10 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    auto *error_status = find_status_by_variant(ctx->statuses, x::status::VARIANT_ERROR);
+    auto *error_status = find_status_by_variant(
+        ctx->statuses,
+        x::status::VARIANT_ERROR
+    );
     EXPECT_NE(error_status, nullptr) << "Should have error status after WASM trap";
 
     task->stop("test_stop_1", true);

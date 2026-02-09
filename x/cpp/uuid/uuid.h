@@ -102,5 +102,7 @@ inline UUID generate() {
 /// @brief Hash support for use in std::unordered_map/set.
 template<>
 struct std::hash<x::uuid::UUID> {
-    size_t operator()(const x::uuid::UUID &uuid) const noexcept;
+    size_t operator()(const x::uuid::UUID &uuid) const noexcept {
+        return boost::uuids::hash_value(uuid.underlying());
+    }
 };

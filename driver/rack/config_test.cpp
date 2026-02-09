@@ -106,15 +106,16 @@ TEST_F(RackConfigTest, recreateOnClusterKeyMismatch) {
         args,
         {
             .rack_key = rack.key,
-            .cluster_key = x::uuid::UUID::parse("00000000-0000-0000-0000-000000000001")
-                               .first,
+            .cluster_key = ASSERT_NIL_P(
+                x::uuid::UUID::parse("00000000-0000-0000-0000-000000000001")
+            ),
         }
     );
     const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
     ASSERT_NE(cfg.rack.key, rack.key);
     ASSERT_NE(
         cfg.remote_info.cluster_key,
-        x::uuid::UUID::parse("00000000-0000-0000-0000-000000000001").first
+        ASSERT_NIL_P(x::uuid::UUID::parse("00000000-0000-0000-0000-000000000001"))
     );
 }
 

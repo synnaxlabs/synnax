@@ -93,7 +93,7 @@ struct Arc {
     explicit Arc(std::string name);
     /// @brief Constructs an Arc program from its protobuf representation.
     /// @param pb Protobuf message representing the Arc program.
-    explicit Arc(const api::v1::Arc &pb);
+    static std::pair<Arc, x::errors::Error> from_proto(const api::v1::Arc &pb);
 
 private:
     /// @brief Converts the Arc program to its protobuf representation.

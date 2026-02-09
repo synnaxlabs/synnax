@@ -55,11 +55,17 @@ struct ClusterInfo {
 
     ClusterInfo() = default;
 
-    explicit ClusterInfo(const api::v1::ClusterInfo &info):
-        cluster_key(x::uuid::UUID::parse(info.cluster_key()).first),
-        node_version(info.node_version()),
-        node_key(info.node_key()),
-        node_time(info.node_time()) {}
+    static std::pair<ClusterInfo, x::errors::Error>
+    from_proto(const api::v1::ClusterInfo &info) {
+        auto [cluster_key, err] = x::uuid::UUID::parse(info.cluster_key());
+        if (err) return {{}, err};
+        ClusterInfo ci;
+        ci.cluster_key = cluster_key;
+        ci.node_version = info.node_version();
+        ci.node_key = info.node_key();
+        ci.node_time = x::telem::TimeStamp(info.node_time());
+        return {ci, x::errors::NIL};
+    }
 };
 
 /// @brief AuthMiddleware for authenticating requests using a bearer token.
@@ -110,7 +116,9 @@ public:
         auto [res, err] = login_client->send("/auth/login", req);
         if (err) return err;
         this->token = res.token();
-        this->cluster_info = ClusterInfo(res.cluster_info());
+        auto [cluster_info, ci_err] = ClusterInfo::from_proto(res.cluster_info());
+        if (ci_err) return ci_err;
+        this->cluster_info = cluster_info;
         skew_calc.end(this->cluster_info.node_time);
 
         if (skew_calc.exceeds(this->clock_skew_threshold)) {

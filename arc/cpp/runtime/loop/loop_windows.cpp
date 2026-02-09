@@ -66,7 +66,9 @@ public:
         if (this->config_.interval.nanoseconds() > 0) {
             if (this->config_.mode == ExecutionMode::HIGH_RATE) {
                 // HIGH_RATE uses precise software timer
-                this->timer_ = std::make_unique<::x::loop::Timer>(this->config_.interval);
+                this->timer_ = std::make_unique<::x::loop::Timer>(
+                    this->config_.interval
+                );
             } else {
                 // Other modes use WaitableTimer
                 this->timer_event_ = CreateWaitableTimer(NULL, FALSE, NULL);
