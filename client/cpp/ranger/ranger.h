@@ -69,7 +69,7 @@ private:
 /// @param key The range key.
 /// @returns An ontology ID with type "range" and the given key.
 inline ontology::ID ontology_id(const Key &key) {
-    return ontology::ID("range", key.to_string());
+    return ontology::ID{.type = "range", .key = key.to_string()};
 }
 
 /// @brief Converts a vector of range keys to a vector of ontology IDs.

@@ -222,7 +222,12 @@ protected:
             {"stream_rate", 25}
         };
 
-        task = synnax::task::Task(rack.key, "OPC UA Read Task Test", "opc_read", "");
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "OPC UA Read Task Test",
+            .type = "opc_read",
+            .config = ""
+        };
 
         task_cfg_json = task_cfg;
 

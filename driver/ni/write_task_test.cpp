@@ -29,34 +29,34 @@ protected:
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_writer_factory;
     std::shared_ptr<pipeline::mock::StreamerFactory> mock_streamer_factory;
-    synnax::channel::Channel state_idx_ch = synnax::channel::Channel(
-        make_unique_channel_name("state_idx_ch"),
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
-    synnax::channel::Channel state_ch_1 = synnax::channel::Channel(
-        make_unique_channel_name("state_ch_1"),
-        x::telem::FLOAT64_T,
-        state_idx_ch.key,
-        false
-    );
-    synnax::channel::Channel cmd_ch_1 = synnax::channel::Channel(
-        make_unique_channel_name("cmd_ch_1"),
-        x::telem::FLOAT64_T,
-        true
-    );
-    synnax::channel::Channel state_ch_2 = synnax::channel::Channel(
-        make_unique_channel_name("state_ch_2"),
-        x::telem::FLOAT64_T,
-        state_idx_ch.key,
-        false
-    );
-    synnax::channel::Channel cmd_ch_2 = synnax::channel::Channel(
-        make_unique_channel_name("cmd_ch_2"),
-        x::telem::FLOAT64_T,
-        true
-    );
+    synnax::channel::Channel state_idx_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("state_idx_ch"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
+    synnax::channel::Channel state_ch_1 = synnax::channel::Channel{
+        .name = make_unique_channel_name("state_ch_1"),
+        .data_type = x::telem::FLOAT64_T,
+        .index = state_idx_ch.key,
+        .is_index = false
+    };
+    synnax::channel::Channel cmd_ch_1 = synnax::channel::Channel{
+        .name = make_unique_channel_name("cmd_ch_1"),
+        .data_type = x::telem::FLOAT64_T,
+        .is_virtual = true
+    };
+    synnax::channel::Channel state_ch_2 = synnax::channel::Channel{
+        .name = make_unique_channel_name("state_ch_2"),
+        .data_type = x::telem::FLOAT64_T,
+        .index = state_idx_ch.key,
+        .is_index = false
+    };
+    synnax::channel::Channel cmd_ch_2 = synnax::channel::Channel{
+        .name = make_unique_channel_name("cmd_ch_2"),
+        .data_type = x::telem::FLOAT64_T,
+        .is_virtual = true
+    };
 
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -76,7 +76,12 @@ protected:
             dev("abc123", "my_device", rack.key, "dev1", "ni", "PXI-6255", "");
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::task::Task(rack.key, "my_task", "ni_analog_write", "");
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "my_task",
+            .type = "ni_analog_write",
+            .config = ""
+        };
 
         const x::json::json j{
             {"data_saving", false},

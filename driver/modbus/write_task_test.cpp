@@ -66,7 +66,12 @@ protected:
         );
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::task::Task(rack.key, "modbus_write_test", "modbus_write", "");
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "modbus_write_test",
+            .type = "modbus_write",
+            .config = ""
+        };
     }
 };
 
