@@ -65,10 +65,6 @@ func (s *Server) DidRenameFiles(context.Context, *protocol.RenameFilesParams) er
 	return nil
 }
 
-func (s *Server) DidSave(context.Context, *protocol.DidSaveTextDocumentParams) error {
-	return nil
-}
-
 func (s *Server) DocumentColor(context.Context, *protocol.DocumentColorParams) ([]protocol.ColorInformation, error) {
 	return nil, nil
 }
