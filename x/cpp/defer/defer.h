@@ -11,7 +11,7 @@
 
 #include <functional>
 
-namespace x {
+namespace x::defer {
 /**
  * @brief A utility class that executes a function when it goes out of scope.
  *
@@ -24,7 +24,7 @@ namespace x {
  * ```
  * {
  *     auto resource = acquire_resource();
- *     x::defer d([&resource]() { release_resource(resource); });
+ *     errors::test::defer d([&resource]() { release_resource(resource); });
  *
  *     // Use resource...
  *     // When scope ends, release_resource will be called automatically

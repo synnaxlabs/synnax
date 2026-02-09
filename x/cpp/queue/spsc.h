@@ -16,7 +16,7 @@
 
 #include "x/cpp/notify/notify.h"
 
-namespace queue {
+namespace x::queue {
 
 /// @brief Lock-free Single-Producer Single-Consumer queue with RT-safe signaling.
 template<typename T>

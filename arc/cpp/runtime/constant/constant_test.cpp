@@ -11,60 +11,55 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/constant/constant.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
 
-using namespace arc::runtime;
-
+namespace arc::runtime::constant {
 namespace {
 node::Context make_context() {
     return node::Context{
-        .elapsed = telem::SECOND,
+        .elapsed = x::telem::SECOND,
         .mark_changed = [](const std::string &) {},
-        .report_error = [](const xerrors::Error &) {},
+        .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
 }
 
 struct TestSetup {
-    arc::ir::IR ir;
+    ir::IR ir;
     state::State state;
 
-    TestSetup(const arc::types::Kind kind, const telem::SampleValue &value):
+    TestSetup(const types::Kind kind, const x::telem::SampleValue &value):
         ir(build_ir(kind, value)),
-        state(
-            state::Config{.ir = ir, .channels = {}},
-            arc::runtime::errors::noop_handler
-        ) {}
+        state(state::Config{.ir = ir, .channels = {}}, runtime::errors::noop_handler) {}
 
     state::Node make_node() { return ASSERT_NIL_P(state.node("const")); }
 
 private:
-    static arc::ir::IR
-    build_ir(const arc::types::Kind kind, const telem::SampleValue &value) {
-        arc::ir::Param output_param;
+    static ir::IR build_ir(const types::Kind kind, const x::telem::SampleValue &value) {
+        ir::Param output_param;
         output_param.name = "output";
-        output_param.type = arc::types::Type(kind);
+        output_param.type = types::Type(kind);
 
-        arc::ir::Param value_param;
+        ir::Param value_param;
         value_param.name = "value";
-        value_param.type = arc::types::Type(kind);
+        value_param.type = types::Type(kind);
         value_param.value = value;
 
-        arc::ir::Node ir_node;
+        ir::Node ir_node;
         ir_node.key = "const";
         ir_node.type = "constant";
         ir_node.outputs.params.push_back(output_param);
         ir_node.config.params.push_back(value_param);
 
-        arc::ir::Function fn;
+        ir::Function fn;
         fn.key = "test";
 
-        arc::ir::IR ir;
+        ir::IR ir;
         ir.nodes.push_back(ir_node);
         ir.functions.push_back(fn);
         return ir;
@@ -74,21 +69,21 @@ private:
 
 /// @brief Test that factory returns NOT_FOUND for non-constant node types.
 TEST(ConstantFactoryTest, ReturnsNotFoundForWrongType) {
-    TestSetup setup(arc::types::Kind::F32, 42.5f);
+    TestSetup setup(types::Kind::F32, 42.5f);
     auto ir_node = setup.ir.nodes[0];
     ir_node.type = "not_constant";
 
-    constant::Factory factory;
+    Factory factory;
     ASSERT_OCCURRED_AS_P(
         factory.create(node::Config(setup.ir, ir_node, setup.make_node())),
-        xerrors::NOT_FOUND
+        x::errors::NOT_FOUND
     );
 }
 
 /// @brief Test that factory creates a Constant node with valid configuration.
 TEST(ConstantFactoryTest, CreatesConstantNode) {
-    TestSetup setup(arc::types::Kind::F32, 42.5f);
-    constant::Factory factory;
+    TestSetup setup(types::Kind::F32, 42.5f);
+    Factory factory;
     auto node = ASSERT_NIL_P(
         factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
     );
@@ -97,8 +92,8 @@ TEST(ConstantFactoryTest, CreatesConstantNode) {
 
 /// @brief Test that next() outputs the constant value on first call.
 TEST(ConstantTest, NextOutputsValueOnFirstCall) {
-    TestSetup setup(arc::types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, telem::FLOAT32_T);
+    TestSetup setup(types::Kind::F32, 42.5f);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
@@ -111,8 +106,8 @@ TEST(ConstantTest, NextOutputsValueOnFirstCall) {
 
 /// @brief Test that next() is a no-op on subsequent calls.
 TEST(ConstantTest, NextNoOpsOnSubsequentCalls) {
-    TestSetup setup(arc::types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, telem::FLOAT32_T);
+    TestSetup setup(types::Kind::F32, 42.5f);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -127,8 +122,8 @@ TEST(ConstantTest, NextNoOpsOnSubsequentCalls) {
 
 /// @brief Test that reset() allows the value to be output again.
 TEST(ConstantTest, ResetAllowsValueToBeOutputAgain) {
-    TestSetup setup(arc::types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, telem::FLOAT32_T);
+    TestSetup setup(types::Kind::F32, 42.5f);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -145,8 +140,8 @@ TEST(ConstantTest, ResetAllowsValueToBeOutputAgain) {
 
 /// @brief Test that float32 values are correctly cast and output.
 TEST(ConstantTest, ValueIsCastToCorrectDataType_Float32) {
-    TestSetup setup(arc::types::Kind::F32, 3.14f);
-    constant::Constant node(setup.make_node(), 3.14f, telem::FLOAT32_T);
+    TestSetup setup(types::Kind::F32, 3.14f);
+    Constant node(setup.make_node(), 3.14f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -159,12 +154,8 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_Float32) {
 
 /// @brief Test that int64 values are correctly cast and output.
 TEST(ConstantTest, ValueIsCastToCorrectDataType_Int64) {
-    TestSetup setup(arc::types::Kind::I64, static_cast<int64_t>(12345));
-    constant::Constant node(
-        setup.make_node(),
-        static_cast<int64_t>(12345),
-        telem::INT64_T
-    );
+    TestSetup setup(types::Kind::I64, static_cast<int64_t>(12345));
+    Constant node(setup.make_node(), static_cast<int64_t>(12345), x::telem::INT64_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -177,12 +168,8 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_Int64) {
 
 /// @brief Test that uint8 values are correctly cast and output.
 TEST(ConstantTest, ValueIsCastToCorrectDataType_U8) {
-    TestSetup setup(arc::types::Kind::U8, static_cast<uint8_t>(255));
-    constant::Constant node(
-        setup.make_node(),
-        static_cast<uint8_t>(255),
-        telem::UINT8_T
-    );
+    TestSetup setup(types::Kind::U8, static_cast<uint8_t>(255));
+    Constant node(setup.make_node(), static_cast<uint8_t>(255), x::telem::UINT8_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -195,8 +182,8 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_U8) {
 
 /// @brief Test that is_output_truthy delegates to state.
 TEST(ConstantTest, IsOutputTruthyDelegatesToState) {
-    TestSetup setup(arc::types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, telem::FLOAT32_T);
+    TestSetup setup(types::Kind::F32, 42.5f);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -206,8 +193,8 @@ TEST(ConstantTest, IsOutputTruthyDelegatesToState) {
 
 /// @brief Test that mark_changed is called on first next().
 TEST(ConstantTest, MarkChangedCalledOnFirstNext) {
-    TestSetup setup(arc::types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, telem::FLOAT32_T);
+    TestSetup setup(types::Kind::F32, 42.5f);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     bool changed_called = false;
     std::string changed_param;
@@ -225,8 +212,8 @@ TEST(ConstantTest, MarkChangedCalledOnFirstNext) {
 
 /// @brief Test that mark_changed is not called on subsequent next() calls.
 TEST(ConstantTest, MarkChangedNotCalledOnSubsequentNext) {
-    TestSetup setup(arc::types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, telem::FLOAT32_T);
+    TestSetup setup(types::Kind::F32, 42.5f);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -242,8 +229,8 @@ TEST(ConstantTest, MarkChangedNotCalledOnSubsequentNext) {
 
 /// @brief Test that timestamp is populated on first next().
 TEST(ConstantTest, TimestampOutputOnFirstNext) {
-    TestSetup setup(arc::types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, telem::FLOAT32_T);
+    TestSetup setup(types::Kind::F32, 42.5f);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -256,8 +243,8 @@ TEST(ConstantTest, TimestampOutputOnFirstNext) {
 
 /// @brief Test that reset produces a new timestamp on subsequent next().
 TEST(ConstantTest, ResetProducesNewTimestamp) {
-    TestSetup setup(arc::types::Kind::F32, 42.5f);
-    constant::Constant node(setup.make_node(), 42.5f, telem::FLOAT32_T);
+    TestSetup setup(types::Kind::F32, 42.5f);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -272,4 +259,5 @@ TEST(ConstantTest, ResetProducesNewTimestamp) {
 
     const auto ts2 = output_time->at<int64_t>(0);
     EXPECT_GT(ts2, ts1);
+}
 }

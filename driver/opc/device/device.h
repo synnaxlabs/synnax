@@ -18,8 +18,8 @@
 #include "open62541/client.h"
 
 /// module
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/series.h"
-#include "x/cpp/xerrors/errors.h"
 
 /// internal
 #include "driver/opc/connection/connection.h"
@@ -27,27 +27,29 @@
 #include "driver/opc/telem/telem.h"
 #include "driver/opc/types/types.h"
 
-namespace opc::device {
+namespace driver::opc::device {
 struct Properties {
-    opc::connection::Config connection;
-    std::vector<Node> channels;
+    connection::Config connection;
+    std::vector<types::Node> channels;
 
     Properties(
-        const opc::connection::Config &connection,
-        const std::vector<Node> &channels
+        const connection::Config &connection,
+        const std::vector<types::Node> &channels
     ):
         connection(connection), channels(channels) {}
 
-    explicit Properties(const xjson::Parser &parser):
+    explicit Properties(const x::json::Parser &parser):
         connection(parser.child("connection")) {
         if (!parser.has("channels")) return;
-        parser.iter("channels", [&](xjson::Parser &cb) { channels.emplace_back(cb); });
+        parser.iter("channels", [&](x::json::Parser &cb) {
+            channels.emplace_back(cb);
+        });
     }
 
-    json to_json() const {
-        json j;
+    x::json::json to_json() const {
+        x::json::json j;
         j["connection"] = connection.to_json();
-        j["channels"] = json::array();
+        j["channels"] = x::json::json::array();
         for (const auto &ch: channels)
             j["channels"].push_back(ch.to_json());
         return j;

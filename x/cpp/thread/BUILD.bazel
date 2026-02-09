@@ -1,0 +1,26 @@
+cc_library(
+    name = "thread",
+    hdrs = [
+        "thread.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/errors",
+        "//x/cpp/log",
+        "//x/cpp/telem",
+        "@glog",
+    ],
+)
+
+cc_test(
+    name = "thread_test",
+    srcs = [
+        "thread_test.cpp",
+    ],
+    deps = [
+        "//x/cpp/telem",
+        "//x/cpp/test",
+        "//x/cpp/thread",
+        "@googletest//:gtest_main",
+    ],
+)

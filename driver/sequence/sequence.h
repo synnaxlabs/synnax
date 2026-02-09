@@ -20,53 +20,50 @@ extern "C" {
 }
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
-/// internal.
 #include "driver/sequence/plugins/plugins.h"
 #include "driver/task/task.h"
 
-using json = nlohmann::json;
-
-namespace sequence {
+namespace driver::sequence {
 /// @brief integration name for use in driver configuration.
 const std::string INTEGRATION_NAME = "sequence";
 /// @brief task type for use in driver configuration.
 const std::string TASK_TYPE = INTEGRATION_NAME;
 /// @brief base error for all sequencing problems.
-const xerrors::Error BASE_ERROR = xerrors::SY.sub("sequence");
+const x::errors::Error BASE_ERROR = x::errors::SY.sub("sequence");
 /// @brief returned when a sequence fails to compile.
-const xerrors::Error COMPILATION_ERROR = BASE_ERROR.sub("compilation");
+const x::errors::Error COMPILATION_ERROR = BASE_ERROR.sub("compilation");
 /// @brief returned when the sequence encounters a runtime error.
-const xerrors::Error RUNTIME_ERROR = BASE_ERROR.sub("runtime");
+const x::errors::Error RUNTIME_ERROR = BASE_ERROR.sub("runtime");
 
 /// @brief TaskConfig is the configuration for creating a sequence task.
 struct TaskConfig {
     /// @brief rate is the rate at which the script loop will execute.
-    telem::Rate rate;
+    x::telem::Rate rate;
     /// @brief script is the lua scrip that will be executed ihn the fixed rate
     /// loop.
     std::string script;
     /// @brief read is the list of channels that the task will need to read from in
     /// real-time.
-    std::vector<synnax::ChannelKey> read;
+    std::vector<synnax::channel::Key> read;
     /// @brief write_to is the channels that the task will need write access to for
     /// control.
-    std::vector<synnax::ChannelKey> write;
+    std::vector<synnax::channel::Key> write;
     /// @brief globals is a JSON object whose keys are global variables that will be
     /// available within the Lua script.
-    json globals;
+    x::json::json globals;
     /// @brief authority is the base authority level that the sequence will have;
-    telem::Authority authority;
+    x::telem::Authority authority;
 
-    explicit TaskConfig(xjson::Parser &parser):
+    explicit TaskConfig(x::json::Parser &parser):
         // this comment keeps the formatter happy
-        rate(telem::Rate(parser.field<float>("rate"))),
+        rate(x::telem::Rate(parser.field<float>("rate"))),
         script(parser.field<std::string>("script")),
-        read(parser.field<std::vector<synnax::ChannelKey>>("read")),
-        write(parser.field<std::vector<synnax::ChannelKey>>("write")),
-        globals(parser.field<json>("globals", json::object())),
-        authority(parser.field<telem::Authority>("authority", 150)) {}
+        read(parser.field<std::vector<synnax::channel::Key>>("read")),
+        write(parser.field<std::vector<synnax::channel::Key>>("write")),
+        globals(parser.field<x::json::json>("globals", x::json::json::object())),
+        authority(parser.field<x::telem::Authority>("authority", 150)) {}
 };
 
 /// @brief deleted used to clean up lua unique pointers to ensure resources are
@@ -86,17 +83,17 @@ public:
     /// @brief compiles the script in the sequence. It is not strictly necessary to
     /// run this before calling start(), although it can be used to check for
     /// compilation errors early.
-    [[nodiscard]] xerrors::Error compile();
+    [[nodiscard]] x::errors::Error compile();
 
     /// @brief starts the sequence, initializing all plugins. Note that this
     /// function does not actually run the sequence, but prepares it for execution.
-    [[nodiscard]] xerrors::Error begin();
+    [[nodiscard]] x::errors::Error begin();
 
     /// @brief executes the next iteration in the sequence.
-    [[nodiscard]] xerrors::Error next() const;
+    [[nodiscard]] x::errors::Error next() const;
 
     /// @brief ends the sequence, cleaning up any resources that were allocated.
-    [[nodiscard]] xerrors::Error end() const;
+    [[nodiscard]] x::errors::Error end() const;
 
 private:
     /// @brief source is used to bind relevant variables to the lua state.
@@ -115,9 +112,9 @@ class Task final : public task::Task {
     /// @brief cfg is the configuration for the task.
     const TaskConfig cfg;
     /// @brief task is the synnax task configuration.
-    const synnax::Task task;
+    const synnax::task::Task task;
     /// @brief the list of channels that the task will write to.
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
     /// @brief thread is the thread that will execute the sequence.
     std::thread thread;
     /// @brief ctx is the task execution context for communicating with the Synnax
@@ -126,22 +123,24 @@ class Task final : public task::Task {
     /// @brief the compiled sequence that will be executed within the task.
     std::unique_ptr<sequence::Sequence> seq;
     /// @brief the current task state.
-    synnax::TaskStatus status;
+    synnax::task::Status status;
 
 public:
     /// @brief static helper function used to configure the sequence.
     /// @returns the configured sequence if configuration was successful, otherwise
     /// returns a nullptr. Configuration errors are communicated through the task
     /// context.
-    static std::unique_ptr<task::Task>
-    configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
+    static std::unique_ptr<task::Task> configure(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::task::Task &task
+    );
 
     Task(
         const std::shared_ptr<task::Context> &ctx,
-        synnax::Task task,
+        synnax::task::Task task,
         TaskConfig cfg,
         std::unique_ptr<sequence::Sequence> seq,
-        const breaker::Config &breaker_config
+        const x::breaker::Config &breaker_config
     );
 
     /// @brief returns the name of the task for logging.
@@ -173,7 +172,7 @@ public:
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) override {
         if (task.type != TASK_TYPE) return {nullptr, false};
         return {sequence::Task::configure(ctx, task), true};

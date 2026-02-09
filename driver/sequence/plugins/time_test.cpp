@@ -15,33 +15,34 @@ extern "C" {
 #include <lualib.h>
 }
 
+namespace driver::sequence::plugins {
 /// @brief it should correctly return the elapsed sequence time based on the current
 /// time.
 TEST(TimePluginTest, testElapsed) {
-    auto current_time = telem::TimeSpan::ZERO();
-    auto now = [&current_time]() -> telem::TimeStamp {
-        return telem::TimeStamp(current_time);
+    auto current_time = x::telem::TimeSpan::ZERO();
+    auto now = [&current_time]() -> x::telem::TimeStamp {
+        return x::telem::TimeStamp(current_time);
     };
 
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
 
-    auto plugin = plugins::Time(now);
+    auto plugin = Time(now);
 
     // Initialize the plugin with the Lua state
-    ASSERT_EQ(plugin.before_all(L), xerrors::NIL);
+    ASSERT_EQ(plugin.before_all(L), x::errors::NIL);
 
     // Test before_next updates elapsed time correctly
-    current_time = telem::SECOND * 1;
-    ASSERT_EQ(plugin.before_next(L), xerrors::NIL);
+    current_time = x::telem::SECOND * 1;
+    ASSERT_EQ(plugin.before_next(L), x::errors::NIL);
 
     // Check that Lua global variables were set correctly
     lua_getglobal(L, "elapsed_time");
     EXPECT_EQ(lua_type(L, -1), LUA_TNUMBER);
     EXPECT_EQ(lua_tonumber(L, -1), 1.0); // 1.0 seconds
 
-    current_time = telem::SECOND * 5;
-    ASSERT_EQ(plugin.before_next(L), xerrors::NIL);
+    current_time = x::telem::SECOND * 5;
+    ASSERT_EQ(plugin.before_next(L), x::errors::NIL);
     lua_getglobal(L, "elapsed_time");
     EXPECT_EQ(lua_type(L, -1), LUA_TNUMBER);
     EXPECT_EQ(lua_tonumber(L, -1), 5.0); // 5.0 seconds
@@ -54,18 +55,18 @@ TEST(TimePluginTest, testIteration) {
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
 
-    auto plugin = plugins::Time();
+    auto plugin = Time();
 
-    ASSERT_EQ(plugin.before_all(L), xerrors::NIL);
+    ASSERT_EQ(plugin.before_all(L), x::errors::NIL);
 
-    ASSERT_EQ(plugin.before_next(L), xerrors::NIL);
+    ASSERT_EQ(plugin.before_next(L), x::errors::NIL);
     lua_getglobal(L, "iteration");
     EXPECT_EQ(lua_type(L, -1), LUA_TNUMBER);
     EXPECT_EQ(lua_tointeger(L, -1), 1);
     lua_pop(L, 1);
 
-    ASSERT_EQ(plugin.before_next(L), xerrors::NIL);
-    ASSERT_EQ(plugin.before_next(L), xerrors::NIL);
+    ASSERT_EQ(plugin.before_next(L), x::errors::NIL);
+    ASSERT_EQ(plugin.before_next(L), x::errors::NIL);
     lua_getglobal(L, "iteration");
     EXPECT_EQ(lua_type(L, -1), LUA_TNUMBER);
     EXPECT_EQ(lua_tointeger(L, -1), 3);
@@ -75,20 +76,20 @@ TEST(TimePluginTest, testIteration) {
 
 /// @brief it should check if elapsed time is within a specified range.
 TEST(TimePluginTest, testElapsedWithin) {
-    auto current_time = telem::TimeSpan::ZERO();
-    auto now = [&current_time]() -> telem::TimeStamp {
-        return telem::TimeStamp(current_time);
+    auto current_time = x::telem::TimeSpan::ZERO();
+    auto now = [&current_time]() -> x::telem::TimeStamp {
+        return x::telem::TimeStamp(current_time);
     };
 
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
 
-    auto plugin = plugins::Time(now);
+    auto plugin = Time(now);
 
-    ASSERT_EQ(plugin.before_all(L), xerrors::NIL);
+    ASSERT_EQ(plugin.before_all(L), x::errors::NIL);
 
-    current_time = telem::SECOND * 3;
-    ASSERT_EQ(plugin.before_next(L), xerrors::NIL);
+    current_time = x::telem::SECOND * 3;
+    ASSERT_EQ(plugin.before_next(L), x::errors::NIL);
 
     lua_getglobal(L, "elapsed_time_within");
     lua_pushnumber(L, 1); // start time
@@ -106,8 +107,8 @@ TEST(TimePluginTest, testElapsedWithin) {
     EXPECT_FALSE(lua_toboolean(L, -1)); // 3 seconds is not within 4-6 seconds
     lua_pop(L, 1);
 
-    current_time = telem::SECOND * 7;
-    ASSERT_EQ(plugin.before_next(L), xerrors::NIL);
+    current_time = x::telem::SECOND * 7;
+    ASSERT_EQ(plugin.before_next(L), x::errors::NIL);
 
     lua_getglobal(L, "elapsed_time_within");
     lua_pushnumber(L, 5); // start time
@@ -117,4 +118,5 @@ TEST(TimePluginTest, testElapsedWithin) {
     EXPECT_TRUE(lua_toboolean(L, -1)); // 7 seconds is within 5-10 seconds
 
     lua_close(L);
+}
 }

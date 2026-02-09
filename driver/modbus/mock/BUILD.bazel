@@ -6,7 +6,7 @@ cc_library(
         "//driver/modbus/util",
         "//vendor/libmodbus",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "@glog//:glog",
     ],
 )
@@ -22,7 +22,7 @@ cc_binary(
         "//driver/modbus/mock",
         "//driver/modbus/util",
         "//vendor/libmodbus",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "@glog",
     ],
 )

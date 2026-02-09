@@ -17,11 +17,13 @@
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/telem/telem.h"
 
-namespace ethercat::soem {
+namespace driver::ethercat::soem {
 /// Timeout for EtherCAT state transitions (INIT→PRE_OP→SAFE_OP→OP) in microseconds.
-const int STATE_CHANGE_TIMEOUT = static_cast<int>((telem::SECOND * 2).microseconds());
+const int STATE_CHANGE_TIMEOUT = static_cast<int>(
+    (x::telem::SECOND * 2).microseconds()
+);
 /// Timeout for cyclic process data exchange in microseconds.
-const int PROCESSDATA_TIMEOUT = static_cast<int>(telem::MILLISECOND.microseconds());
+const int PROCESSDATA_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
 /// IOMap buffer size for process data image. This is local memory only - actual wire
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
@@ -59,27 +61,30 @@ Master::~Master() {
     if (this->activated || this->initialized) this->deactivate();
 }
 
-xerrors::Error Master::initialize() {
-    if (this->initialized) return xerrors::NIL;
+x::errors::Error Master::initialize() {
+    if (this->initialized) return x::errors::NIL;
 
     if (ecx_init(&this->context, this->iface_name.c_str()) <= 0)
-        return xerrors::Error(
-            MASTER_INIT_ERROR,
+        return x::errors::Error(
+            errors::MASTER_INIT_ERROR,
             "failed to initialize EtherCAT on interface: " + this->iface_name
         );
 
     if (ecx_config_init(&this->context) <= 0) {
         ecx_close(&this->context);
-        return xerrors::Error(MASTER_INIT_ERROR, "no EtherCAT slaves found on network");
+        return x::errors::Error(
+            errors::MASTER_INIT_ERROR,
+            "no EtherCAT slaves found on network"
+        );
     }
 
     this->populate_slaves();
     this->initialized = true;
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-xerrors::Error Master::register_pdos(const std::vector<pdo::Entry> &) {
-    return xerrors::NIL;
+x::errors::Error Master::register_pdos(const std::vector<pdo::Entry> &) {
+    return x::errors::NIL;
 }
 
 void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
@@ -90,11 +95,11 @@ void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
         this->disabled_slaves.erase(position);
 }
 
-xerrors::Error Master::activate() {
+x::errors::Error Master::activate() {
     if (!this->initialized)
-        return xerrors::Error(ACTIVATION_ERROR, "master not initialized");
+        return x::errors::Error(errors::ACTIVATION_ERROR, "master not initialized");
     if (this->activated)
-        return xerrors::Error(ACTIVATION_ERROR, "master already activated");
+        return x::errors::Error(errors::ACTIVATION_ERROR, "master already activated");
 
     {
         std::lock_guard lock(this->mu);
@@ -106,7 +111,10 @@ xerrors::Error Master::activate() {
     const int iomap_size = ecx_config_map_group(&this->context, this->iomap.data(), 0);
 
     if (iomap_size <= 0)
-        return xerrors::Error(ACTIVATION_ERROR, "failed to configure PDO mapping");
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            "failed to configure PDO mapping"
+        );
 
     const auto &group = this->context.grouplist[0];
     this->input_sz = group.Ibytes;
@@ -136,7 +144,7 @@ xerrors::Error Master::activate() {
 
     this->cache_pdo_offsets();
     this->activated = true;
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
 void Master::deactivate() {
@@ -156,12 +164,14 @@ void Master::deactivate() {
     }
 }
 
-xerrors::Error Master::receive() {
-    if (!this->activated) return xerrors::Error(CYCLIC_ERROR, "master not activated");
+x::errors::Error Master::receive() {
+    if (!this->activated)
+        return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
 
     const int wkc = ecx_receive_processdata(&this->context, PROCESSDATA_TIMEOUT);
 
-    if (wkc < 0) return xerrors::Error(CYCLIC_ERROR, "process data receive failed");
+    if (wkc < 0)
+        return x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed");
 
     if (wkc != this->expected_wkc) {
         std::string failing_slaves;
@@ -172,25 +182,27 @@ xerrors::Error Master::receive() {
                                   std::string(this->context.slavelist[i].name) + ")";
             }
         }
-        return xerrors::Error(
-            WORKING_COUNTER_ERROR,
+        return x::errors::Error(
+            errors::WORKING_COUNTER_ERROR,
             "working counter mismatch: expected " + std::to_string(this->expected_wkc) +
                 ", got " + std::to_string(wkc) +
                 (failing_slaves.empty() ? "" : "; slaves not in OP: " + failing_slaves)
         );
     }
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-xerrors::Error Master::send() {
-    if (!this->activated) return xerrors::Error(CYCLIC_ERROR, "master not activated");
+x::errors::Error Master::send() {
+    if (!this->activated)
+        return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
 
     const int result = ecx_send_processdata(&this->context);
 
-    if (result <= 0) return xerrors::Error(CYCLIC_ERROR, "process data send failed");
+    if (result <= 0)
+        return x::errors::Error(errors::CYCLIC_ERROR, "process data send failed");
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
 std::span<const uint8_t> Master::input_data() {
@@ -335,7 +347,7 @@ void Master::cache_pdo_offsets() {
 }
 
 /// Timeout for SDO (Service Data Object) reads during PDO discovery in microseconds.
-const int SDO_TIMEOUT = static_cast<int>((telem::MILLISECOND * 700).microseconds());
+const int SDO_TIMEOUT = static_cast<int>((x::telem::MILLISECOND * 700).microseconds());
 constexpr int MAX_SDO_FAILURES = 3;
 
 void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
@@ -524,8 +536,10 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
                     entry_name = name_buf;
                 }
 
-                const telem::DataType data_type = infer_type_from_bit_length(bitlen);
-                const std::string name = generate_pdo_entry_name(
+                const x::telem::DataType data_type = telem::infer_type_from_bit_length(
+                    bitlen
+                );
+                const std::string name = telem::generate_pdo_entry_name(
                     entry_name,
                     obj_idx,
                     obj_subidx,
@@ -573,7 +587,7 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
             << props.output_pdos.size() << " outputs";
 }
 
-xerrors::Error Master::read_pdo_assign(
+x::errors::Error Master::read_pdo_assign(
     const uint16_t slave_pos,
     const uint16_t assign_index,
     const bool is_input,
@@ -595,7 +609,10 @@ xerrors::Error Master::read_pdo_assign(
         VLOG(2) << "Slave " << slave_pos << " SDO read 0x" << std::hex << assign_index
                 << ":0 failed, result=" << std::dec << result
                 << " ecx_err=" << this->context.slavelist[slave_pos].ALstatuscode;
-        return xerrors::Error(SDO_READ_ERROR, "failed to read PDO assignment count");
+        return x::errors::Error(
+            errors::SDO_READ_ERROR,
+            "failed to read PDO assignment count"
+        );
     }
     VLOG(2) << "Slave " << slave_pos << " PDO assign 0x" << std::hex << assign_index
             << " has " << std::dec << static_cast<int>(num_pdos) << " PDOs";
@@ -617,8 +634,8 @@ xerrors::Error Master::read_pdo_assign(
         if (result <= 0) {
             consecutive_failures++;
             if (consecutive_failures >= MAX_SDO_FAILURES)
-                return xerrors::Error(
-                    SDO_READ_ERROR,
+                return x::errors::Error(
+                    errors::SDO_READ_ERROR,
                     "too many consecutive SDO failures"
                 );
             continue;
@@ -632,10 +649,10 @@ xerrors::Error Master::read_pdo_assign(
                     << " for slave " << std::dec << slave_pos << ": " << err.message();
     }
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-xerrors::Error Master::read_pdo_mapping(
+x::errors::Error Master::read_pdo_mapping(
     const uint16_t slave_pos,
     const uint16_t pdo_index,
     const bool is_input,
@@ -657,7 +674,10 @@ xerrors::Error Master::read_pdo_mapping(
     if (result <= 0) {
         VLOG(2) << "Slave " << slave_pos << " SDO read 0x" << std::hex << pdo_index
                 << ":0 failed, result=" << std::dec << result;
-        return xerrors::Error(SDO_READ_ERROR, "failed to read PDO mapping count");
+        return x::errors::Error(
+            errors::SDO_READ_ERROR,
+            "failed to read PDO mapping count"
+        );
     }
     VLOG(2) << "Slave " << slave_pos << " PDO 0x" << std::hex << pdo_index << " has "
             << std::dec << static_cast<int>(num_entries) << " entries";
@@ -679,8 +699,8 @@ xerrors::Error Master::read_pdo_mapping(
         if (result <= 0) {
             consecutive_failures++;
             if (consecutive_failures >= MAX_SDO_FAILURES)
-                return xerrors::Error(
-                    SDO_READ_ERROR,
+                return x::errors::Error(
+                    errors::SDO_READ_ERROR,
                     "too many consecutive SDO failures"
                 );
             continue;
@@ -700,8 +720,10 @@ xerrors::Error Master::read_pdo_mapping(
             index,
             sub_index
         );
-        const telem::DataType data_type = infer_type_from_bit_length(bit_length);
-        const std::string name = generate_pdo_entry_name(
+        const x::telem::DataType data_type = telem::infer_type_from_bit_length(
+            bit_length
+        );
+        const std::string name = telem::generate_pdo_entry_name(
             coe_name,
             index,
             sub_index,
@@ -718,7 +740,7 @@ xerrors::Error Master::read_pdo_mapping(
             props.output_pdos.push_back(entry);
     }
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
 std::string Master::read_pdo_entry_name(
@@ -789,7 +811,7 @@ bool Master::scan_object_dictionary_for_pdos(
     return found_any;
 }
 
-xerrors::Error Master::request_state(const uint16_t state, const int timeout) {
+x::errors::Error Master::request_state(const uint16_t state, const int timeout) {
     int success_count = 0;
     int group0_count = 0;
     std::string error_msg;
@@ -818,13 +840,13 @@ xerrors::Error Master::request_state(const uint16_t state, const int timeout) {
     }
 
     if (success_count < group0_count)
-        return xerrors::Error(
-            STATE_CHANGE_ERROR,
+        return x::errors::Error(
+            errors::STATE_CHANGE_ERROR,
             "state transition failed: " + std::to_string(success_count) + "/" +
                 std::to_string(group0_count) + " slaves reached state " +
                 std::to_string(state) + "; " + error_msg
         );
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 }

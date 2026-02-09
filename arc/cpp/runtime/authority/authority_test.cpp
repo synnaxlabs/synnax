@@ -9,7 +9,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/authority/authority.h"
@@ -64,9 +64,9 @@ private:
 
 node::Context make_context() {
     return node::Context{
-        .elapsed = telem::SECOND,
+        .elapsed = x::telem::SECOND,
         .mark_changed = [](const std::string &) {},
-        .report_error = [](const xerrors::Error &) {},
+        .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
 }
@@ -79,7 +79,7 @@ TEST(SetAuthorityFactoryTest, ReturnsNotFoundForWrongType) {
     authority::Factory factory(setup.state);
     ASSERT_OCCURRED_AS_P(
         factory.create(node::Config(setup.ir, ir_node, setup.make_node())),
-        xerrors::NOT_FOUND
+        x::errors::NOT_FOUND
     );
 }
 

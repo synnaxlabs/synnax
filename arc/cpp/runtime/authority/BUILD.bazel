@@ -5,7 +5,7 @@ cc_library(
     deps = [
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
     ],
 )
 
@@ -16,7 +16,7 @@ cc_test(
         ":authority",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/state",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

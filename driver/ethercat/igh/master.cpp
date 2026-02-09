@@ -15,7 +15,7 @@
 #include "driver/ethercat/igh/master.h"
 #include "driver/ethercat/telem/telem.h"
 
-namespace ethercat::igh {
+namespace driver::ethercat::igh {
 Master::Master(std::shared_ptr<API> api, const unsigned int master_index):
     api(std::move(api)),
     master_index(master_index),
@@ -35,13 +35,13 @@ Master::~Master() {
     this->deactivate();
 }
 
-xerrors::Error Master::initialize() {
-    if (this->initialized) return xerrors::NIL;
+x::errors::Error Master::initialize() {
+    if (this->initialized) return x::errors::NIL;
 
     this->ec_master = this->api->request_master(this->master_index);
     if (!this->ec_master)
-        return xerrors::Error(
-            MASTER_INIT_ERROR,
+        return x::errors::Error(
+            errors::MASTER_INIT_ERROR,
             "IgH master not available - is kernel module loaded?"
         );
 
@@ -49,7 +49,7 @@ xerrors::Error Master::initialize() {
     if (this->api->master(this->ec_master, &master_info) < 0) {
         this->api->release_master(this->ec_master);
         this->ec_master = nullptr;
-        return xerrors::Error(MASTER_INIT_ERROR, "failed to get master info");
+        return x::errors::Error(errors::MASTER_INIT_ERROR, "failed to get master info");
     }
 
     this->cached_slaves.clear();
@@ -76,28 +76,34 @@ xerrors::Error Master::initialize() {
     if (!this->output_domain) {
         this->api->release_master(this->ec_master);
         this->ec_master = nullptr;
-        return xerrors::Error(MASTER_INIT_ERROR, "failed to create output domain");
+        return x::errors::Error(
+            errors::MASTER_INIT_ERROR,
+            "failed to create output domain"
+        );
     }
 
     this->input_domain = this->api->master_create_domain(this->ec_master);
     if (!this->input_domain) {
         this->api->release_master(this->ec_master);
         this->ec_master = nullptr;
-        return xerrors::Error(MASTER_INIT_ERROR, "failed to create input domain");
+        return x::errors::Error(
+            errors::MASTER_INIT_ERROR,
+            "failed to create input domain"
+        );
     }
 
     this->initialized = true;
     VLOG(1) << "[ethercat.igh] master " << this->master_index << " initialized with "
             << this->cached_slaves.size() << " slaves";
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-xerrors::Error Master::register_pdos(const std::vector<pdo::Entry> &entries) {
+x::errors::Error Master::register_pdos(const std::vector<pdo::Entry> &entries) {
     for (const auto &entry: entries) {
         auto [offset, err] = this->register_pdo(entry);
         if (err) return err;
     }
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
 void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
@@ -108,11 +114,12 @@ void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
         this->disabled_slaves.erase(position);
 }
 
-xerrors::Error Master::activate() {
-    if (!this->initialized) return xerrors::Error(ACTIVATION_ERROR, "not initialized");
-    if (this->activated) return xerrors::NIL;
+x::errors::Error Master::activate() {
+    if (!this->initialized)
+        return x::errors::Error(errors::ACTIVATION_ERROR, "not initialized");
+    if (this->activated) return x::errors::NIL;
     if (!this->output_domain || !this->input_domain)
-        return xerrors::Error(ACTIVATION_ERROR, "domains not created");
+        return x::errors::Error(errors::ACTIVATION_ERROR, "domains not created");
 
     const size_t output_domain_size = this->api->domain_size(this->output_domain);
     const size_t input_domain_size = this->api->domain_size(this->input_domain);
@@ -128,22 +135,25 @@ xerrors::Error Master::activate() {
     this->input_sz = input_domain_size;
 
     if (this->api->master_activate(this->ec_master) < 0)
-        return xerrors::Error(ACTIVATION_ERROR, "ecrt_master_activate failed");
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            "ecrt_master_activate failed"
+        );
 
     this->output_domain_data = this->api->domain_data(this->output_domain);
     this->input_domain_data = this->api->domain_data(this->input_domain);
 
     if (!this->output_domain_data && this->output_sz > 0) {
         this->api->master_deactivate(this->ec_master);
-        return xerrors::Error(
-            ACTIVATION_ERROR,
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
             "failed to get output domain data pointer"
         );
     }
     if (!this->input_domain_data && this->input_sz > 0) {
         this->api->master_deactivate(this->ec_master);
-        return xerrors::Error(
-            ACTIVATION_ERROR,
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
             "failed to get input domain data pointer"
         );
     }
@@ -166,7 +176,7 @@ xerrors::Error Master::activate() {
                 << ", online=" << state.online << ", operational=" << state.operational;
     }
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
 void Master::deactivate() {
@@ -191,8 +201,9 @@ void Master::deactivate() {
     this->output_sz = 0;
 }
 
-xerrors::Error Master::receive() {
-    if (!this->activated) return xerrors::Error(CYCLIC_ERROR, "not activated");
+x::errors::Error Master::receive() {
+    if (!this->activated)
+        return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
 
     this->api->master_receive(this->ec_master);
 
@@ -204,7 +215,7 @@ xerrors::Error Master::receive() {
 
     if (this->output_domain_state.wc_state == EC_WC_ZERO ||
         this->input_domain_state.wc_state == EC_WC_ZERO)
-        return xerrors::Error(WORKING_COUNTER_ERROR, "no slaves responded");
+        return x::errors::Error(errors::WORKING_COUNTER_ERROR, "no slaves responded");
 
     if (this->output_domain_state.wc_state == EC_WC_INCOMPLETE ||
         this->input_domain_state.wc_state == EC_WC_INCOMPLETE)
@@ -212,17 +223,18 @@ xerrors::Error Master::receive() {
                 << this->output_domain_state.working_counter
                 << ", input=" << this->input_domain_state.working_counter;
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-xerrors::Error Master::send() {
-    if (!this->activated) return xerrors::Error(CYCLIC_ERROR, "not activated");
+x::errors::Error Master::send() {
+    if (!this->activated)
+        return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
 
     this->api->domain_queue(this->output_domain);
     this->api->domain_queue(this->input_domain);
     this->api->master_send(this->ec_master);
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
 std::span<const uint8_t> Master::input_data() {
@@ -438,11 +450,14 @@ void Master::configure_slave_pdos(
     }
 }
 
-std::pair<size_t, xerrors::Error> Master::register_pdo(const pdo::Entry &entry) {
+std::pair<size_t, x::errors::Error> Master::register_pdo(const pdo::Entry &entry) {
     if (this->activated)
         return {
             0,
-            xerrors::Error(PDO_MAPPING_ERROR, "cannot register PDO after activation")
+            x::errors::Error(
+                errors::PDO_MAPPING_ERROR,
+                "cannot register PDO after activation"
+            )
         };
 
     // get_or_create_slave_config() now registers ALL PDOs for the slave,
@@ -451,7 +466,10 @@ std::pair<size_t, xerrors::Error> Master::register_pdo(const pdo::Entry &entry) 
     if (!sc)
         return {
             0,
-            xerrors::Error(PDO_MAPPING_ERROR, "failed to get slave configuration")
+            x::errors::Error(
+                errors::PDO_MAPPING_ERROR,
+                "failed to get slave configuration"
+            )
         };
 
     // Look up the cached offset (already registered by get_or_create_slave_config)
@@ -470,8 +488,8 @@ std::pair<size_t, xerrors::Error> Master::register_pdo(const pdo::Entry &entry) 
                    << " (is_input=" << entry.is_input << ")";
         return {
             0,
-            xerrors::Error(
-                PDO_MAPPING_ERROR,
+            x::errors::Error(
+                errors::PDO_MAPPING_ERROR,
                 "PDO not found - may not exist in slave's PDO mapping"
             )
         };
@@ -481,7 +499,7 @@ std::pair<size_t, xerrors::Error> Master::register_pdo(const pdo::Entry &entry) 
             << static_cast<int>(entry.sub_index) << std::dec << " for slave "
             << entry.slave_position << " found at offset=" << it->second.byte;
 
-    return {it->second.byte, xerrors::NIL};
+    return {it->second.byte, x::errors::NIL};
 }
 
 slave::State Master::convert_state(const uint8_t igh_state) {
@@ -574,7 +592,7 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
 
                 if (entry_info.index == 0 && entry_info.subindex == 0) continue;
 
-                const telem::DataType data_type = infer_type_from_bit_length(
+                const x::telem::DataType data_type = telem::infer_type_from_bit_length(
                     entry_info.bit_length
                 );
                 const std::string coe_name = this->read_pdo_entry_name(
@@ -582,7 +600,7 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
                     entry_info.index,
                     entry_info.subindex
                 );
-                const std::string name = generate_pdo_entry_name(
+                const std::string name = telem::generate_pdo_entry_name(
                     coe_name,
                     entry_info.index,
                     entry_info.subindex,

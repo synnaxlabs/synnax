@@ -13,7 +13,7 @@
 
 #include "x/go/control/x/go/control/control.pb.h"
 
-namespace telem {
+namespace x::telem {
 typedef std::uint8_t Authority;
 constexpr Authority AUTH_ABSOLUTE = 255;
 
