@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/range/alias";
-export * from "@/range/client";
-export * from "@/range/kv";
-export * from "@/range/payload";
-export * from "@/range/writer";
+export {
+  createPairKey,
+  DELETE_CHANNEL,
+  type Pair,
+  pairZ,
+  SET_CHANNEL,
+} from "@/ranger/kv/payload";

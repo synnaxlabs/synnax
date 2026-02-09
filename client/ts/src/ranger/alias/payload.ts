@@ -11,40 +11,10 @@ import { type change } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { type Key, keyZ } from "@/range/payload";
+import { type Key, keyZ } from "@/ranger/payload";
 
 export const SET_CHANNEL_NAME = "sy_range_alias_set";
 export const DELETE_CHANNEL_NAME = "sy_range_alias_delete";
-
-export const resolveReqZ = z.object({ range: keyZ, aliases: z.string().array() });
-
-export const resolveResZ = z.object({
-  aliases: z.record(z.string(), channel.keyZ),
-});
-
-export const setReqZ = z.object({
-  range: keyZ,
-  aliases: z.record(channel.keyZ, z.string()),
-});
-
-export const setResZ = z.unknown();
-
-export const deleteReqZ = z.object({ range: keyZ, channels: channel.keyZ.array() });
-
-export const deleteResZ = z.unknown();
-
-export const listReqZ = z.object({ range: keyZ });
-
-export const listResZ = z.object({ aliases: z.record(z.string(), z.string()) });
-
-export const retrieveReqZ = z.object({
-  range: keyZ,
-  channels: channel.keyZ.array(),
-});
-
-export const retrieveResZ = z.object({
-  aliases: z.record(z.string(), z.string()),
-});
 
 export const aliasZ = z.object({
   alias: z.string().optional(),

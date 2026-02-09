@@ -11,8 +11,13 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { deleteReqZ, getReqZ, getResZ, type Pair, setReqZ } from "@/range/kv/payload";
-import { type Key } from "@/range/payload";
+import { type Pair, pairZ } from "@/ranger/kv/payload";
+import { type Key, keyZ } from "@/ranger/payload";
+
+const getReqZ = z.object({ range: keyZ, keys: z.string().array() });
+const getResZ = z.object({ pairs: array.nullableZ(pairZ) });
+const setReqZ = z.object({ range: keyZ, pairs: pairZ.array() });
+const deleteReqZ = z.object({ range: keyZ, keys: z.string().array() });
 
 export class Client {
   private readonly rangeKey: Key;

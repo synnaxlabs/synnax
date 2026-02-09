@@ -22,7 +22,7 @@ import {
   type Table,
 } from "@/table/payload";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
+import { workspace } from "@/workspace";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
@@ -41,7 +41,7 @@ export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ tables: array.nullableZ(remoteZ) });
 
-const createReqZ = z.object({ workspace: workspaceKeyZ, tables: newZ.array() });
+const createReqZ = z.object({ workspace: workspace.keyZ, tables: newZ.array() });
 const createResZ = z.object({ tables: remoteZ.array() });
 
 const emptyResZ = z.object({});
@@ -53,9 +53,9 @@ export class Client {
     this.client = client;
   }
 
-  async create(workspace: WorkspaceKey, table: New): Promise<Table>;
-  async create(workspace: WorkspaceKey, tables: New[]): Promise<Table[]>;
-  async create(workspace: WorkspaceKey, tables: New | New[]): Promise<Table | Table[]> {
+  async create(workspace: workspace.Key, table: New): Promise<Table>;
+  async create(workspace: workspace.Key, tables: New[]): Promise<Table[]>;
+  async create(workspace: workspace.Key, tables: New | New[]): Promise<Table | Table[]> {
     const isMany = Array.isArray(tables);
     const res = await sendRequired(
       this.client,

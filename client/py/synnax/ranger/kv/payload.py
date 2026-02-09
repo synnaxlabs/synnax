@@ -15,7 +15,7 @@ from synnax.exceptions import ValidationError
 from synnax.util.primitive import is_primitive
 
 
-class KVPair(Payload):
+class Pair(Payload):
     range: uuid.UUID
     key: str
     value: str
@@ -30,25 +30,3 @@ class KVPair(Payload):
                 """)
         kwargs["value"] = str(value)
         super().__init__(**kwargs)
-
-
-class GetRequest(Payload):
-    range: uuid.UUID
-    keys: list[str]
-
-
-class GetResponse(Payload):
-    pairs: list[KVPair]
-
-
-class SetRequest(Payload):
-    range: uuid.UUID
-    pairs: list[KVPair]
-
-
-class DeleteRequest(Payload):
-    range: uuid.UUID
-    keys: list[str]
-
-
-class EmptyResponse(Payload): ...

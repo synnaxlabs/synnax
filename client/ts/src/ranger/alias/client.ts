@@ -9,21 +9,28 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { type channel } from "@/channel";
-import {
-  deleteReqZ,
-  deleteResZ,
-  listReqZ,
-  listResZ,
-  resolveReqZ,
-  resolveResZ,
-  retrieveReqZ,
-  retrieveResZ,
-  setReqZ,
-  setResZ,
-} from "@/range/alias/payload";
-import { type Key } from "@/range/payload";
+import { type channel, channel as channelMod } from "@/channel";
+import { type Key, keyZ } from "@/ranger/payload";
+
+const resolveReqZ = z.object({ range: keyZ, aliases: z.string().array() });
+const resolveResZ = z.object({ aliases: z.record(z.string(), channelMod.keyZ) });
+
+const setReqZ = z.object({
+  range: keyZ,
+  aliases: z.record(channelMod.keyZ, z.string()),
+});
+const setResZ = z.unknown();
+
+const deleteReqZ = z.object({ range: keyZ, channels: channelMod.keyZ.array() });
+const deleteResZ = z.unknown();
+
+const listReqZ = z.object({ range: keyZ });
+const listResZ = z.object({ aliases: z.record(z.string(), z.string()) });
+
+const retrieveReqZ = z.object({ range: keyZ, channels: channelMod.keyZ.array() });
+const retrieveResZ = z.object({ aliases: z.record(z.string(), z.string()) });
 
 export class Client {
   private readonly cache = new Map<string, channel.Key>();
