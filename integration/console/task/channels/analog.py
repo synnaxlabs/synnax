@@ -65,7 +65,7 @@ class Analog:
 
         # Configure channel type
         layout.click_btn("Channel Type")
-        layout.select_from_dropdown(chan_type)
+        layout.select_from_dropdown(chan_type, exact=True)
         values["Channel Type"] = chan_type
 
         # Get device (set by task.add_channel)
@@ -80,7 +80,7 @@ class Analog:
 
         if terminal_config is not None:
             layout.click_btn("Terminal Configuration")
-            layout.select_from_dropdown(terminal_config)
+            layout.select_from_dropdown(terminal_config, exact=True)
             values["Terminal Configuration"] = terminal_config
         elif self.has_terminal_config():
             values["Terminal Configuration"] = layout.get_dropdown_value(
@@ -103,7 +103,7 @@ class Analog:
         no_custom_scale_types = ("RTD", "Temperature Built-In Sensor", "Thermocouple")
         if custom_scale is not None:
             layout.click_btn("Custom Scaling")
-            layout.select_from_dropdown(custom_scale)
+            layout.select_from_dropdown(custom_scale, exact=True)
             values["Custom Scaling"] = custom_scale
         elif chan_type not in no_custom_scale_types:
             values["Custom Scaling"] = layout.get_dropdown_value("Custom Scaling")
@@ -153,7 +153,7 @@ class Analog:
         """
         if value is not None:
             self.layout.click_btn(label)
-            self.layout.select_from_dropdown(value)
+            self.layout.select_from_dropdown(value, exact=True)
             if track:
                 self.form_values[label] = value
         elif track:
