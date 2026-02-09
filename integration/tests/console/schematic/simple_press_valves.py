@@ -71,6 +71,7 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
         schematic.connect_symbols(press_valve, "right", vent_valve, "left")
 
         self.log("Starting test")
+        schematic.acquire_control()
         target_Pressure = 20
 
         for _ in range(2):

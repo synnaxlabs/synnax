@@ -578,6 +578,8 @@ class TestCase(ABC):
         actual_value = (
             self.read_tlm(channel_name) if is_virtual else self.get_value(channel_name)
         )
+        if actual_value is not None and condition(actual_value):
+            return
         self.fail(
             f"Timeout waiting for {channel_name} {condition_desc}!\n"
             f"Actual: {actual_value}\n"
