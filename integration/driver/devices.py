@@ -128,14 +128,14 @@ class Simulator:
 
     MODBUS = SimulatorConfig(
         server_setup=start_modbus_server,
-        startup_delay_seconds=7.0,
+        startup_delay_seconds=5.0,
         device_factory=KnownDevices.modbus_sim,
         device_name="Modbus TCP Test Server",
     )
 
     OPCUA = SimulatorConfig(
         server_setup=start_opcua_server,
-        startup_delay_seconds=5.0,
+        startup_delay_seconds=3.0,
         device_factory=KnownDevices.opcua_sim,
         device_name="OPC UA Test Server",
     )

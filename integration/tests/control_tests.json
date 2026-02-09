@@ -21,7 +21,6 @@
         }
       ]
     },
-
     {
       "sequence_name": "Client Press Control & Bad Actor",
       "sequence_order": "asynchronous",

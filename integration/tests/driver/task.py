@@ -241,7 +241,7 @@ class TaskCase(TestCase):
             # Block until first frame arrives
             with self.client.open_streamer(channel_keys) as streamer:
                 streamer.read(timeout=1)
-            sy.sleep(0.2)
+            sy.sleep(1)
             start_time = sy.TimeStamp.now()
             sy.sleep(duration.seconds * 1.2)  # Bufffer for CI
 
