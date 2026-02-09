@@ -49,12 +49,12 @@ ox_pt_1
 
 **Reserved keywords** cannot be used as identifiers:
 
-| Keywords               |                        |             |          |
-| ---------------------- | ---------------------- | ----------- | -------- |
-| `func`                 | `if`                   | `else`      | `return` |
-| `sequence`             | `stage`                | `next`      | `chan`   |
-| `series`               | `and`                  | `or`        | `not`    |
-| `i8` `i16` `i32` `i64` | `u8` `u16` `u32` `u64` | `f32` `f64` | `str`    |
+| Keywords               |                        |             |             |
+| ---------------------- | ---------------------- | ----------- | ----------- |
+| `func`                 | `if`                   | `else`      | `return`    |
+| `sequence`             | `stage`                | `next`      | `chan`      |
+| `series`               | `and`                  | `or`        | `not`       |
+| `authority`            | `i8` `i16` `i32` `i64` | `u8` `u16` `u32` `u64` | `f32` `f64` `str` |
 
 <Divider.Divider x />
 
@@ -242,6 +242,56 @@ func example() {
     min := 10    // shadows built-in min function
 }
 ```
+
+<Divider.Divider x />
+
+## Authority Declarations
+
+Authority declarations set the [control authority](/reference/control/control-authority)
+for channels written by the program. They must appear before any `func`, `sequence`, or
+flow declarations.
+
+### Default Authority
+
+Set a default authority for all channels:
+
+```arc
+authority 200
+```
+
+When omitted, the system default is 255 (maximum).
+
+### Per-Channel Authority
+
+Set authority for specific channels using a grouped form:
+
+```arc
+authority (200 valve_cmd 100 vent_cmd 150)
+```
+
+This sets a default of 200, then overrides `valve_cmd` to 100 and `vent_cmd` to 150.
+
+You can also set per-channel authority without a default:
+
+```arc
+authority (valve_cmd 100 vent_cmd 150)
+```
+
+### Summary
+
+| Form | Syntax | Description |
+| --- | --- | --- |
+| Default only | `authority 200` | Sets authority for all channels |
+| Grouped with default | `authority (200 valve_cmd 100)` | Default plus per-channel overrides |
+| Per-channel only | `authority (valve_cmd 100 vent_cmd 150)` | Only named channels |
+
+Authority values are `u8` integers in the range 0-255.
+
+<Note.Note variant="info">
+  To change authority at runtime, use the
+  [`set_authority`](/reference/control/arc/reference/built-ins#set_authority) built-in
+  function inside stage bodies.
+</Note.Note>
 
 <Divider.Divider x />
 

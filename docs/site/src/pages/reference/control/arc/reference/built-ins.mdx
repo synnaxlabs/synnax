@@ -271,6 +271,61 @@ ox_pt_1 > 500 -> set_status{
 
 <Divider.Divider x />
 
+## Authority
+
+### set_authority
+
+Dynamically changes
+[control authority](/reference/control/control-authority) during execution. Use this to
+escalate priority, release control, or adjust authority for specific channels at runtime.
+
+**All channels:**
+
+```arc
+set_authority{value=200}
+```
+
+**Specific channel:**
+
+```arc
+set_authority{value=255, channel=press_vlv_cmd}
+```
+
+**Set to minimum authority:**
+
+```arc
+set_authority{value=0}
+```
+
+| Config    | Type              | Required | Description                                       |
+| --------- | ----------------- | -------- | ------------------------------------------------- |
+| `value`   | `u8`              | Yes      | Authority level (0-255)                           |
+| `channel` | channel reference | No       | Specific channel to change (default: all channels) |
+
+<Note.Note variant="info">
+  Authority changes are flushed before channel writes in the same execution cycle. This
+  means you can set authority and write to a channel in the same stage, and the authority
+  change takes effect first.
+</Note.Note>
+
+<Note.Note variant="warning">
+  Setting `set_authority{value=0}` sets authority to the minimum, allowing any other
+  writer with authority above 0 to take control. Empty stages do NOT lower authority —
+  the writer holds its current authority as long as the program is running.
+</Note.Note>
+
+**Usage in a stage:**
+
+```arc
+stage emergency {
+    set_authority{value=255},
+    0 -> press_vlv_cmd,
+    1 -> vent_vlv_cmd
+}
+```
+
+<Divider.Divider x />
+
 ## Utility Nodes
 
 ### constant
@@ -326,5 +381,6 @@ if x < 0 {
 | `write`      | I/O        | Write to channel           |
 | `select`     | Signal     | Route by condition         |
 | `stable_for` | Signal     | Debounce filter            |
-| `set_status` | Status     | Update Console status      |
-| `constant`   | Utility    | Static value output        |
+| `set_status`    | Status    | Update Console status      |
+| `set_authority` | Authority | Change control authority   |
+| `constant`      | Utility   | Static value output        |

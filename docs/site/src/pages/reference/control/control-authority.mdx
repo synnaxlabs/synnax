@@ -6,7 +6,7 @@ prevURL: "/reference/control/get-started"
 prev: "Get Started"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -36,22 +36,54 @@ of the channel.
 
 ## Mixed Authorities
 
-It's important to note that a sequence may have different control authorities for
-different channels. For example, we may dynamically change the authority of a channel
-based on a certain step in a sequence:
+A sequence may have different control authorities for different channels. For example,
+an emergency stage in Arc can escalate authority on critical channels while leaving
+others at normal priority:
 
-```lua
--- abort condition met
-if pressure > 100 then
-    set_authority("press_vlv_cmd", 255)
-    set_authority("vent_vlv_cmd", 100)
-    set("press_vlv_cmd", false)
-    set("vent_vlv_cmd", true)
-end
+```arc
+stage emergency {
+    set_authority{value=255, channel=press_vlv_cmd},
+    set_authority{value=100, channel=vent_vlv_cmd},
+    0 -> press_vlv_cmd,
+    1 -> vent_vlv_cmd
+}
 ```
 
-In this case, the `press_vlv_cmd` channel will have absolute authority of 255 and the
-`vent_vlv_cmd` channel will have an authority of 100.
+In this case, `press_vlv_cmd` has absolute authority of 255 and `vent_vlv_cmd` has an
+authority of 100.
+
+<Divider.Divider x />
+
+## Setting Authority in Arc
+
+Arc provides two mechanisms for controlling authority:
+
+**Static declarations** set authority at program startup using the `authority` keyword:
+
+```arc
+authority 200
+
+sequence main {
+    // all channels written at authority 200
+}
+```
+
+**Dynamic changes** adjust authority at runtime using `set_authority` inside stages:
+
+```arc
+stage escalate {
+    set_authority{value=255},
+    1 -> press_vlv_cmd
+}
+```
+
+For full syntax details, see the
+[`authority` declaration](/reference/control/arc/reference/syntax#authority-declarations)
+and
+[`set_authority` built-in](/reference/control/arc/reference/built-ins#set_authority)
+reference pages. For practical patterns including emergency override, handoff between
+programs, and releasing control, see the
+[Control Authority how-to guide](/reference/control/arc/how-to/control-authority).
 
 <Divider.Divider x />
 
@@ -59,4 +91,7 @@ In this case, the `press_vlv_cmd` channel will have absolute authority of 255 an
 
 Manual control of channels through components such as
 [Schematics](/reference/console/schematics) follow the same control authority rules as
-sequences. This allows for operators to conditionally take control of channels.
+sequences. Schematic authority is configurable via the schematic toolbar and defaults to
+1. When an operator stops controlling a channel from a schematic, any other writer with
+higher authority that was already writing to the same channel will resume effective
+control.

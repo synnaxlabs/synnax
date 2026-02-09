@@ -118,6 +118,11 @@ func example() {
 | `"compound assignment requires numeric element type"`  | Using `+=` etc. with non-numeric type                 |
 | `"undefined symbol: X"`                                | Symbol not declared (typo or missing channel)         |
 | `"type mismatch"`                                      | Incompatible types in operation                       |
+| `"authority value must be an integer in range 0-255"`  | Authority value out of range                          |
+| `"authority declaration must appear before ..."`       | Authority block after func/sequence declarations      |
+| `"multiple default authority values"`                  | More than one bare numeric default in authority block |
+| `"duplicate authority for 'X'"`                        | Same channel listed twice in authority block          |
+| `"channel 'X' not found"`                              | Authority references a channel that doesn't exist    |
 | `"missing return"`                                     | Function with return type has no return statement     |
 | `"unreachable code"`                                   | Code after unconditional return                       |
 
