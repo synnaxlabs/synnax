@@ -69,3 +69,12 @@ export const decodeDeleteChange = (deletedAlias: string): DecodedDeleteAliasChan
   const [range, channel] = deletedAlias.split(SEPARATOR);
   return { range, channel: Number(channel) };
 };
+
+/** @deprecated Use {@link SET_CHANNEL_NAME} instead. */
+export const SET_ALIAS_CHANNEL_NAME = SET_CHANNEL_NAME;
+/** @deprecated Use {@link DELETE_CHANNEL_NAME} instead. */
+export const DELETE_ALIAS_CHANNEL_NAME = DELETE_CHANNEL_NAME;
+/** @deprecated Use {@link createKey} instead. */
+export const aliasKey = createKey;
+/** @deprecated Use {@link decodeDeleteChange} instead. */
+export const decodeDeleteAliasChange = decodeDeleteChange;
