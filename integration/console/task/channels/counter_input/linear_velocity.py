@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
+from console.layout import LayoutClient
 from console.task.channels.counter import Counter
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 
 class LinearVelocity(Counter):
@@ -32,7 +30,7 @@ class LinearVelocity(Counter):
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         units: Literal["m/s", "in/s"] | None = None,
@@ -44,58 +42,15 @@ class LinearVelocity(Counter):
     ) -> None:
         """Initialize linear velocity channel with configuration."""
         super().__init__(
-            console=console,
+            layout=layout,
             name=name,
             device=device,
             chan_type="Velocity Linear",
             **kwargs,
         )
 
-        # Units
-        if units is not None:
-            console.click_btn("Scaled Units")
-            console.select_from_dropdown(units)
-            self.form_values["Scaled Units"] = units
-        else:
-            self.form_values["Scaled Units"] = console.get_dropdown_value(
-                "Scaled Units"
-            )
-
-        # Distance per Pulse
-        if dist_per_pulse is not None:
-            console.fill_input_field("Distance / Pulse", str(dist_per_pulse))
-            self.form_values["Distance / Pulse"] = str(dist_per_pulse)
-        else:
-            self.form_values["Distance / Pulse"] = console.get_input_field(
-                "Distance / Pulse"
-            )
-
-        # Decoding Type
-        if decoding_type is not None:
-            console.click_btn("Decoding Type")
-            console.select_from_dropdown(decoding_type)
-            self.form_values["Decoding Type"] = decoding_type
-        else:
-            self.form_values["Decoding Type"] = console.get_dropdown_value(
-                "Decoding Type"
-            )
-
-        # Input Terminal A
-        if terminal_a is not None:
-            console.click_btn("Input Terminal A")
-            console.select_from_dropdown(terminal_a)
-            self.form_values["Input Terminal A"] = terminal_a
-        else:
-            self.form_values["Input Terminal A"] = console.get_dropdown_value(
-                "Input Terminal A"
-            )
-
-        # Input Terminal B
-        if terminal_b is not None:
-            console.click_btn("Input Terminal B")
-            console.select_from_dropdown(terminal_b)
-            self.form_values["Input Terminal B"] = terminal_b
-        else:
-            self.form_values["Input Terminal B"] = console.get_dropdown_value(
-                "Input Terminal B"
-            )
+        self._configure_dropdown("Scaled Units", units)
+        self._configure_input("Distance / Pulse", dist_per_pulse)
+        self._configure_dropdown("Decoding Type", decoding_type)
+        self._configure_dropdown("Input Terminal A", terminal_a)
+        self._configure_dropdown("Input Terminal B", terminal_b)

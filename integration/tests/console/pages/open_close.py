@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from console.case import ConsoleCase
-from console.console import PageType
+from console.workspace import PageType
 
 
 class OpenClose(ConsoleCase):
@@ -39,20 +39,20 @@ class OpenClose(ConsoleCase):
 
         self.log("(1/2) Create pages by cmd palette")
         for page_type, page_name in pages_renamed:
-            console._create_page_by_command_palette(page_type, page_name)
+            console.workspace.create_page_by_command_palette(page_type, page_name)
         for page_type, page_name in pages_renamed:
-            console.close_page(page_name)
+            console.workspace.close_page(page_name)
 
         self.log("(2/2) Create pages by (+) button")
         for page_type, page_name in pages_renamed:
-            console._create_page_by_new_page_button(page_type, page_name)
+            console.workspace.create_page_by_new_page_button(page_type, page_name)
         for page_type, page_name in pages_renamed:
-            console.close_page(page_name)
+            console.workspace.close_page(page_name)
 
         # Close "Get Started" if it's still open (may have been closed by workspace selection)
-        get_started_tab = console._get_tab_locator("Get Started")
+        get_started_tab = console.layout.get_tab("Get Started")
         if get_started_tab.count() > 0:
-            console.close_page("Get Started")
+            console.workspace.close_page("Get Started")
 
         # Should see "New Component" if all pages closed successfully
         pass_condition = self.page.get_by_text("New Component").count() > 0
