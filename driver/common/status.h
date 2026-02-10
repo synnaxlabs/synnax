@@ -56,6 +56,19 @@ struct StatusHandler {
         return true;
     }
 
+    /// @brief immediately sends the provided error as a status update. Unlike
+    /// error(), which only accumulates the error for later transmission, this
+    /// method sends the error status to the task context right away.
+    void send_error(const x::errors::Error &err) {
+        if (!err) return;
+        this->status.key = this->task.status_key();
+        this->status.variant = x::status::variant::ERR;
+        this->status.details.running = false;
+        this->status.message = err.data;
+        this->accumulated_err = err;
+        this->ctx->set_status(this->status);
+    }
+
     void send_warning(const x::errors::Error &err) { this->send_warning(err.data); }
 
     /// @brief sends the provided warning string to the task. If the task is in

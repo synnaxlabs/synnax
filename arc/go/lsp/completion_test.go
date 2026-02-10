@@ -416,6 +416,99 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
+	Describe("Authority Block Completion", func() {
+		var globalResolver symbol.MapResolver
+
+		BeforeEach(func() {
+			globalResolver = symbol.MapResolver{
+				"vent_vlv_cmd": symbol.Symbol{
+					Name: "vent_vlv_cmd",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   1,
+				},
+				"press_vlv_cmd": symbol.Symbol{
+					Name: "press_vlv_cmd",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   2,
+				},
+				"myGlobal": symbol.Symbol{
+					Name: "myGlobal",
+					Kind: symbol.KindVariable,
+					Type: types.I32(),
+				},
+			}
+		})
+
+		It("should suggest authority keyword at top level", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "auth"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 0, 4)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "authority")).To(BeTrue())
+		})
+
+		It("should suggest channels inside authority block", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "authority (\n    200\n    \n)"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 2, 4)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeTrue())
+		})
+
+		It("should not suggest non-channel symbols inside authority block", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "authority (\n    200\n    \n)"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 2, 4)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "myGlobal")).To(BeFalse())
+		})
+
+		It("should filter out already-listed channels", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "authority (\n    200\n    vent_vlv_cmd 100\n    \n)"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 3, 4)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeFalse())
+			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeTrue())
+		})
+
+		It("should filter by prefix inside authority block", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "authority (\n    200\n    v\n)"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 2, 5)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeFalse())
+		})
+	})
+
 	Describe("Stage Body Completion", func() {
 		var globalResolver symbol.MapResolver
 

@@ -360,9 +360,12 @@ public:
     /// @returns true if the authority was set successfully.
     /// @param keys the channels to set the authority of.
     /// @param authorities the authority levels to set the channels to.
+    /// @param ack if true, waits for server acknowledgement. If false, sends
+    /// fire-and-forget.
     [[nodiscard]] x::errors::Error set_authority(
         const std::vector<channel::Key> &keys,
-        const std::vector<x::telem::Authority> &authorities
+        const std::vector<x::telem::Authority> &authorities,
+        bool ack = true
     );
 
     /// @brief commits all pending writes to the Synnax cluster. Commit can be
