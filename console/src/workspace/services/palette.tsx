@@ -11,6 +11,7 @@ import { workspace } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { useFileIngesters } from "@/import/FileIngestersProvider";
 import { Palette } from "@/palette";
 import { Workspace } from "@/workspace";
 import { ImportIcon } from "@/workspace/services/Icon";
@@ -33,13 +34,13 @@ export const ImportWorkspaceCommand: Palette.Command = ({
   store,
   client,
   fluxStore,
-  fileIngestors,
   ...listProps
 }) => {
+  const fileIngesters = useFileIngesters();
   const handleSelect = useCallback(
     () =>
-      import_({ placeLayout, handleError, store, client, fluxStore, fileIngestors }),
-    [placeLayout, handleError, store, client, fluxStore, fileIngestors],
+      import_({ placeLayout, handleError, store, client, fluxStore, fileIngesters }),
+    [placeLayout, handleError, store, client, fluxStore, fileIngesters],
   );
   return (
     <Palette.CommandListItem
@@ -55,27 +56,9 @@ ImportWorkspaceCommand.commandName = "Import a workspace";
 ImportWorkspaceCommand.sortOrder = -1;
 ImportWorkspaceCommand.useVisible = useUpdateVisible;
 
-export const ExportWorkspaceCommand: Palette.Command = ({
-  handleError,
-  client,
-  store,
-  confirm,
-  addStatus,
-  extractors,
-  ...listProps
-}) => {
-  const handleSelect = useCallback(
-    () =>
-      Workspace.export_(null, {
-        handleError,
-        client,
-        store,
-        confirm,
-        addStatus,
-        extractors,
-      }),
-    [handleError, client, store, confirm, addStatus, extractors],
-  );
+export const ExportWorkspaceCommand: Palette.Command = (listProps) => {
+  const handleExport = Workspace.useExport();
+  const handleSelect = useCallback(() => handleExport(null), [handleExport]);
   return (
     <Palette.CommandListItem
       {...listProps}

@@ -13,7 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { type Services } from "@/ontology/service";
 
 const [Context, useContext] = context.create<Services>({
-  displayName: "Ontology.ServicesProvider",
+  displayName: "Ontology.Context",
   providerName: "Ontology.ServicesProvider",
 });
 

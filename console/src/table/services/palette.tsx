@@ -13,8 +13,7 @@ import { useCallback } from "react";
 
 import { Palette } from "@/palette";
 import { Table } from "@/table";
-import { CreateIcon, ImportIcon } from "@/table/services/Icon";
-import { import_ } from "@/table/services/import";
+import { CreateIcon } from "@/table/services/Icon";
 
 const useVisible = () => Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID);
 
@@ -33,30 +32,4 @@ CreateCommand.key = "create-table";
 CreateCommand.commandName = "Create a table";
 CreateCommand.useVisible = useVisible;
 
-export const ImportCommand: Palette.Command = ({
-  placeLayout,
-  handleError,
-  store,
-  client,
-  fluxStore,
-  ...listProps
-}) => {
-  const handleSelect = useCallback(
-    () => import_({ placeLayout, handleError, store, client, fluxStore }),
-    [placeLayout, handleError, store, client, fluxStore],
-  );
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name="Import Table(s)"
-      icon={<ImportIcon />}
-      onSelect={handleSelect}
-    />
-  );
-};
-ImportCommand.key = "import-table";
-ImportCommand.commandName = "Import Table(s)";
-ImportCommand.sortOrder = -1;
-ImportCommand.useVisible = useVisible;
-
-export const COMMANDS = [CreateCommand, ImportCommand];
+export const COMMANDS = [CreateCommand];

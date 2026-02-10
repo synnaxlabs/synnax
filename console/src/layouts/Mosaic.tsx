@@ -40,7 +40,6 @@ import { useDispatch, useStore } from "react-redux";
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Import } from "@/import";
-import { FILE_INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { Controls } from "@/layout/Controls";
 import { Nav } from "@/layouts/nav";
@@ -207,6 +206,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   );
 
   const services = Ontology.useServices();
+  const fileIngesters = Import.useFileIngesters();
 
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
@@ -234,7 +234,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         } else placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
       });
     },
-    [placeLayout, store, client, addStatus],
+    [placeLayout, store, client, addStatus, handleError, removeLayout, services],
   );
 
   LinePlot.useTriggerHold({ defaultMode: "toggle", toggle: [["H"]] });
@@ -271,7 +271,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
           try {
             await Import.dataTransferItem(item, {
               client,
-              fileIngestors: FILE_INGESTORS,
+              fileIngesters,
               ingestDirectory: WorkspaceServices.ingest,
               layout: { tab: { mosaicKey: nodeKey, location: loc } },
               placeLayout,
@@ -284,7 +284,16 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         }),
       );
     },
-    [client, placeLayout, store, fluxStore],
+    [
+      client,
+      fileIngesters,
+      placeLayout,
+      store,
+      fluxStore,
+      handleError,
+      store,
+      fluxStore,
+    ],
   );
 
   // Creates a wrapper around the general purpose layout content to create a set of

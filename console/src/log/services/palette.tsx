@@ -12,8 +12,7 @@ import { Access } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Log } from "@/log";
-import { CreateIcon, ImportIcon } from "@/log/services/Icon";
-import { import_ } from "@/log/services/import";
+import { CreateIcon } from "@/log/services/Icon";
 import { Palette } from "@/palette";
 
 const useVisible = () => Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
@@ -33,30 +32,4 @@ CreateCommand.key = "create-log";
 CreateCommand.commandName = "Create a log";
 CreateCommand.useVisible = useVisible;
 
-export const ImportCommand: Palette.Command = ({
-  placeLayout,
-  handleError,
-  store,
-  client,
-  fluxStore,
-  ...listProps
-}) => {
-  const handleSelect = useCallback(
-    () => import_({ placeLayout, handleError, store, client, fluxStore }),
-    [placeLayout, handleError, store, client, fluxStore],
-  );
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name="Import Log(s)"
-      icon={<ImportIcon />}
-      onSelect={handleSelect}
-    />
-  );
-};
-ImportCommand.key = "import-log";
-ImportCommand.commandName = "Import Log(s)";
-ImportCommand.sortOrder = -1;
-ImportCommand.useVisible = useVisible;
-
-export const COMMANDS = [CreateCommand, ImportCommand];
+export const COMMANDS = [CreateCommand];

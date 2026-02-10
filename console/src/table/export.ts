@@ -13,6 +13,7 @@ import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { select } from "@/table/selectors";
 import { type State } from "@/table/slice";
+import { LAYOUT_TYPE } from "@/table/Table";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
   const storeState = store.getState();
@@ -24,7 +25,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
     state ??= { ...(table.data as State), key: table.key };
     name ??= table.name;
   }
-  return { data: JSON.stringify(state), name };
+  return { data: JSON.stringify({ ...state, type: LAYOUT_TYPE }), name };
 };
 
 export const useExport = () => Export.use(extract, "table");

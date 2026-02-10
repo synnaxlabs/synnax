@@ -13,8 +13,7 @@ import { useCallback } from "react";
 
 import { Palette } from "@/palette";
 import { Schematic } from "@/schematic";
-import { CreateIcon, ImportIcon } from "@/schematic/services/Icon";
-import { import_ } from "@/schematic/services/import";
+import { CreateIcon } from "@/schematic/services/Icon";
 
 const useVisible = () => Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
 
@@ -36,30 +35,4 @@ CreateCommand.key = "create-schematic";
 CreateCommand.commandName = "Create a schematic";
 CreateCommand.useVisible = useVisible;
 
-export const ImportCommand: Palette.Command = ({
-  placeLayout,
-  handleError,
-  store,
-  client,
-  fluxStore,
-  ...listProps
-}) => {
-  const handleSelect = useCallback(
-    () => import_({ placeLayout, handleError, store, client, fluxStore }),
-    [placeLayout, handleError, store, client, fluxStore],
-  );
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name="Import Schematic(s)"
-      icon={<ImportIcon />}
-      onSelect={handleSelect}
-    />
-  );
-};
-ImportCommand.key = "import-schematic";
-ImportCommand.commandName = "Import Schematic(s)";
-ImportCommand.sortOrder = -1;
-ImportCommand.useVisible = useVisible;
-
-export const COMMANDS = [CreateCommand, ImportCommand];
+export const COMMANDS = [CreateCommand];

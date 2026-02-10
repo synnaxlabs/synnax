@@ -20,10 +20,10 @@ import { Layout } from "@/layout";
 import { Runtime } from "@/runtime";
 import { Workspace } from "@/workspace";
 
-export const ingest: Import.DirectoryIngestor = async (
+export const ingest: Import.DirectoryIngester = async (
   name,
   files,
-  { client, fileIngestors, placeLayout, store, fluxStore },
+  { client, fileIngesters, placeLayout, store, fluxStore },
 ) => {
   if (
     !Access.updateGranted({ id: workspace.TYPE_ONTOLOGY_ID, store: fluxStore, client })
@@ -45,7 +45,7 @@ export const ingest: Import.DirectoryIngestor = async (
   );
 
   Object.entries(layout.layouts).forEach(([key, layout]) => {
-    const ingest = fileIngestors[layout.type];
+    const ingest = fileIngesters[layout.type];
     if (ingest == null) return;
     const data = files.find(
       (file) =>
@@ -64,7 +64,7 @@ export const ingest: Import.DirectoryIngestor = async (
 export interface IngestContext {
   handleError: Status.ErrorHandler;
   client: Synnax | null;
-  fileIngestors: Import.FileIngestors;
+  fileIngesters: Import.FileIngesters;
   placeLayout: Layout.Placer;
   store: Store;
   fluxStore: Pluto.FluxStore;
@@ -73,7 +73,7 @@ export interface IngestContext {
 export const import_ = ({
   handleError,
   client,
-  fileIngestors,
+  fileIngesters,
   placeLayout,
   store,
   fluxStore,
@@ -103,7 +103,7 @@ export const import_ = ({
     );
     await ingest(name, fileData, {
       client,
-      fileIngestors,
+      fileIngesters,
       placeLayout,
       store,
       fluxStore,
