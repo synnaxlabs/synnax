@@ -550,7 +550,7 @@ class WorkspaceClient:
             return False
 
         if random.choice([True, False]):
-            self.layout.command_palette("Create a Workspace")
+            self.layout.command_palette("Create a workspace")
         else:
             self.layout.close_left_toolbar()
             selector = (
