@@ -59,9 +59,9 @@ guaranteed.
 
 Arc is now fully compatible with Synnax's
 [control authority](/reference/control/arc/concepts/control-authority) system. When
-multiple writers target the same channel — two Arc programs, an Arc program and a Python
-script, or an Arc program and a schematic control — authority determines whose values
-take effect.
+multiple writers target the same channel, authority determines whose values take effect.
+This applies across all writer types, including Arc programs, Python scripts, and
+schematic controls.
 
 The `authority` keyword sets a program's priority level from 0 to 255, where higher
 values take precedence. You can set a uniform level, assign different levels per
@@ -78,9 +78,9 @@ authority (
 sequence main {
     stage monitor {
         sensor -> filter{} -> output,
-        sensor > THRESHOLD => emergency
+        sensor > THRESHOLD => abort
     }
-    stage emergency {
+    stage abort {
         // escalate at runtime to override all other writers
         set_authority{value=255},
         0 -> press_vlv_cmd,
@@ -92,8 +92,8 @@ start_cmd => main
 ```
 
 This makes it possible to start at a moderate level, assign fine-grained priorities per
-channel, and escalate when conditions require it — such as an emergency override that
-takes precedence over all other writers.
+channel, and escalate when conditions require it. For example, an abort stage can jump
+to 255 to take precedence over all other writers.
 
 For the full details on declaring authority, runtime changes, and multi-writer
 coordination, see the
@@ -101,9 +101,26 @@ coordination, see the
 
 ### Other Minor Improvements and Bug Fixes
 
+#### Console
+
+- Fixed importing and exporting of Arc sequences.
+- Fixed an issue where Cores could not be removed from the login page.
+- Improved the display of Task statuses, allowing for more detailed information to be
+  displayed.
+- Added new menu items on the Core list in the login page, allowing for editing and
+  refreshing connections.
+
 #### Core
 
 - Improved search indexing performance and reduced memory usage. Synnax cores now
   consume less memory while idle.
+- Fixed an issue where Arc programs would take progressively longer to compile as more
+  channels were created in the core.
+
+### TypeScript Client
+
+- Fixed an issue where the TypeScript client would incorrectly block the creation of
+  channels with invalid names even when the Core was started with
+  `--disable-channel-name-validation`.
 
 </Release>
