@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
+from console.layout import LayoutClient
 from console.task.channels.analog import Analog
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 
 class Thermocouple(Analog):
@@ -36,7 +34,7 @@ class Thermocouple(Analog):
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         port: int | None = None,
@@ -51,47 +49,20 @@ class Thermocouple(Analog):
         cjc_port: int | None = None,
         **kwargs: Any,
     ) -> None:
+        super().__init__(
+            layout=layout,
+            name=name,
+            device=device,
+            chan_type="Thermocouple",
+            port=port,
+            **kwargs,
+        )
 
-        # Does not call super()
+        self._configure_dropdown("Temperature Units", temperature_units)
+        self._configure_dropdown("Thermocouple Type", thermocouple_type)
+        self._configure_dropdown("CJC Source", cjc_source)
 
-        self.console = console
-        self.device = device
-        self.name = name
-
-        values: dict[str, str | bool] = {}
-
-        # Configure channel type
-        console.click_btn("Channel Type")
-        console.select_from_dropdown("Thermocouple")
-        values["Channel Type"] = "Thermocouple"
-
-        # Get device (set by task.add_channel)
-        values["Device"] = console.get_dropdown_value("Device")
-
-        # Optional configurations
-        if port is not None:
-            console.fill_input_field("Port", str(port))
-            values["Port"] = str(port)
-        else:
-            values["Port"] = console.get_input_field("Port")
-
-        # Thermocouple-specific configurations:
-        if temperature_units is not None:
-            console.click_btn("Temperature Units")
-            console.select_from_dropdown(temperature_units)
-
-        if thermocouple_type is not None:
-            console.click_btn("Thermocouple Type")
-            console.select_from_dropdown(thermocouple_type)
-
-        if cjc_source is not None:
-            console.click_btn("CJC Source")
-            console.select_from_dropdown(cjc_source)
-
-        if cjc_value is not None and cjc_source == "Constant Value":
-            console.fill_input_field("CJC Value", str(cjc_value))
-
-        if cjc_port is not None and cjc_source == "Channel":
-            console.fill_input_field("CJC Port", str(cjc_port))
-
-        self.form_values = values
+        if cjc_source == "Constant Value":
+            self._configure_input("CJC Value", cjc_value)
+        elif cjc_source == "Channel":
+            self._configure_input("CJC Port", cjc_port)

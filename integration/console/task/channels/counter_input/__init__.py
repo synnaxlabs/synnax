@@ -7,17 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .angular_position import AngularPosition
-from .angular_velocity import AngularVelocity
-from .duty_cycle import DutyCycle
-from .edge_count import EdgeCount
-from .frequency import Frequency
-from .linear_position import LinearPosition
-from .linear_velocity import LinearVelocity
-from .period import Period
-from .pulse_width import PulseWidth
-from .semi_period import SemiPeriod
-from .two_edge_separation import TwoEdgeSeparation
+from console.task.channels.counter_input.angular_position import AngularPosition
+from console.task.channels.counter_input.angular_velocity import AngularVelocity
+from console.task.channels.counter_input.duty_cycle import DutyCycle
+from console.task.channels.counter_input.edge_count import EdgeCount
+from console.task.channels.counter_input.frequency import Frequency
+from console.task.channels.counter_input.linear_position import LinearPosition
+from console.task.channels.counter_input.linear_velocity import LinearVelocity
+from console.task.channels.counter_input.period import Period
+from console.task.channels.counter_input.pulse_width import PulseWidth
+from console.task.channels.counter_input.semi_period import SemiPeriod
+from console.task.channels.counter_input.two_edge_separation import TwoEdgeSeparation
 
 __all__ = [
     "AngularPosition",

@@ -93,7 +93,16 @@ func (c *Channels) ResolveConfigChannel(
 		}
 	}
 	if !replaced {
-		c.Read[channelKey] = channelName
+		dir := types.ChanDirectionRead
+		if param, ok := fnSym.Type.Config.Get(paramName); ok && param.Type.ChanDirection.IsSet() {
+			dir = param.Type.ChanDirection
+		}
+		if dir.IsRead() {
+			c.Read[channelKey] = channelName
+		}
+		if dir.IsWrite() {
+			c.Write[channelKey] = channelName
+		}
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/authority"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
@@ -302,6 +303,7 @@ func Analyze(
 	)
 
 	analyzer.AnalyzeProgram(aCtx)
+	i.Authorities = authority.Analyze(aCtx)
 	if !aCtx.Diagnostics.Ok() {
 		return i, aCtx.Diagnostics
 	}
