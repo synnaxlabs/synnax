@@ -1,0 +1,126 @@
+---
+title: "Version 0.51 Release Notes"
+---
+
+import { Image } from "@/components/media/Media";
+import { Divider, Flex } from "@synnaxlabs/pluto";
+import Release from "@/components/releases/Release.astro";
+import Diagram from "@/components/diagram/Diagram.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import EtherCAT from "@/pages/releases/EtherCAT.astro";
+
+export const components = mdxOverrides;
+
+<Release
+    version="0.51.0"
+    date="Feb 10, 2026"
+    title="EtherCAT Support and Arc Improvements"
+>
+
+<EtherCAT />
+
+Synnax v0.51 introduces support for reading from and writing to
+[EtherCAT](/reference/driver/ethercat) devices.
+
+We've also made a number of improvements to the Arc programming language. Most notably,
+Arc is now completely compatible with the Synnax control authority system.
+
+As always, this release comes with a number of performance, stability, and user
+experience improvements to Synnax.
+
+### EtherCAT Driver
+
+Our new driver supports reading from and writing to slaves on an EtherCAT network. A
+deployed Synnax driver will now automatically discover EtherCAT devices on a network,
+and acts as a master for both real-time data acquisition and control.
+
+The [read task](/reference/driver/ethercat/read-task) can be used to acquire data from
+output, while the [write task](/reference/driver/ethercat/write-task) can be used to
+send commands to outputs.
+
+#### Real-Time Support
+
+When deployed on Linux-based operating systems with the real-time kernel enabled (such
+as [Ubuntu 24.04 Pro](https://ubuntu.com/pro)), the Synnax Driver will automatically
+leverage the real-time capabilities of the operating system to achieve deterministic
+cycle times.
+
+This is our recommended deployment configuration when using Synnax for real-time control
+of EtherCAT devices.
+
+#### Non-Real-Time Support
+
+The Synnax Driver also supports EtherCAT on non real-time operating systems, such as
+macOS and Windows. In these environments, Synnax will leverage the tools available on
+the host to achieve maximum performance, but deterministic cycle times are not
+guaranteed.
+
+### Arc Control Authority
+
+Arc is now fully compatible with Synnax's
+[control authority](/reference/control/arc/concepts/control-authority) system. When
+multiple writers target the same channel, authority determines whose values take effect.
+This applies across all writer types, including Arc programs, Python scripts, and
+schematic controls.
+
+The `authority` keyword sets a program's priority level from 0 to 255, where higher
+values take precedence. You can set a uniform level, assign different levels per
+channel, or change authority at runtime with `set_authority`:
+
+```arc
+// default 200, with per-channel overrides for press_vlv_cmd and vent_vlv_cmd
+authority (
+    200
+    press_vlv_cmd 100
+    vent_vlv_cmd 150
+)
+
+sequence main {
+    stage monitor {
+        sensor -> filter{} -> output,
+        sensor > THRESHOLD => abort
+    }
+    stage abort {
+        // escalate at runtime to override all other writers
+        set_authority{value=255},
+        0 -> press_vlv_cmd,
+        1 -> vent_vlv_cmd
+    }
+}
+
+start_cmd => main
+```
+
+This makes it possible to start at a moderate level, assign fine-grained priorities per
+channel, and escalate when conditions require it. For example, an abort stage can jump
+to 255 to take precedence over all other writers.
+
+For the full details on declaring authority, runtime changes, and multi-writer
+coordination, see the
+[control authority documentation](/reference/control/arc/concepts/control-authority).
+
+### Other Minor Improvements and Bug Fixes
+
+#### Console
+
+- Fixed importing and exporting of Arc sequences.
+- Fixed an issue where Cores could not be removed from the login page.
+- Improved the display of task statuses, allowing for more detailed information to be
+  displayed.
+- Added new context menu items on the Core list in the login page, allowing for editing
+  and refreshing connections.
+
+#### Core
+
+- Improved search indexing performance and reduced memory usage. Synnax Cores now
+  consume less memory while idle.
+- Fixed an issue where Arc programs would take progressively longer to compile as more
+  channels were created in the Core.
+
+#### TypeScript Client
+
+- Fixed an issue where the TypeScript client would incorrectly block the creation of
+  channels with invalid names even when the Core was started with
+  `--disable-channel-name-validation`.
+
+</Release>

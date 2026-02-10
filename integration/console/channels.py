@@ -196,7 +196,7 @@ class ChannelClient:
 
             # Open command palette for first channel
             if i == 0:
-                self.layout.command_palette("Create a Channel")
+                self.layout.command_palette("Create a channel")
                 # Wait for modal to appear
                 self.layout.page.wait_for_selector(
                     self.layout.MODAL_SELECTOR,
@@ -434,9 +434,9 @@ class ChannelClient:
                 item.click(modifiers=["ControlOrMeta"])
             last_item = item
 
-        # Right-click last item and select "Group Selection"
+        # Right-click last item and select "Group selection"
         assert last_item is not None
-        self.ctx_menu.action(last_item, "Group Selection")
+        self.ctx_menu.action(last_item, "Group selection")
 
         editable_input = self.layout.page.locator(
             "input.pluto-text__input--editable"
@@ -615,7 +615,7 @@ class ChannelClient:
         The modal will be visible after this method returns.
         Use close_modal() to close it.
         """
-        self.layout.command_palette("Create a Channel")
+        self.layout.command_palette("Create a channel")
 
         modal = self.layout.page.locator(self.layout.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
@@ -629,7 +629,7 @@ class ChannelClient:
         The modal will be visible after this method returns.
         Use close_modal() to close it.
         """
-        self.layout.command_palette("Create a Calculated Channel")
+        self.layout.command_palette("Create a calculated channel")
 
         modal = self.layout.page.locator(self.layout.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)

@@ -36,13 +36,13 @@ export const ClearCommand: Palette.Command = ({
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Clear Local Storage"
+      name="Clear local storage"
       icon={<Icon.Close />}
       onSelect={handleSelect}
     />
   );
 };
 ClearCommand.key = "clear-local-storage";
-ClearCommand.commandName = "Clear Local Storage";
+ClearCommand.commandName = "Clear local storage";
 
 export const COMMANDS = [ClearCommand];

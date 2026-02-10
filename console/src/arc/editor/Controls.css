@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-arc-editor {
+.console-arc {
     container-type: inline-size;
 
     .console-editor {
@@ -35,6 +35,7 @@
 
         & .console-rack-select {
             flex-grow: 1;
+            min-width: 200px;
         }
     }
 }

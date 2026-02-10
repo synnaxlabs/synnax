@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ArcServices } from "@/arc/services";
 import { Hardware } from "@/hardware";
 import { type Import } from "@/import";
 import { LinePlotServices } from "@/lineplot/services";
@@ -14,10 +15,11 @@ import { LogServices } from "@/log/services";
 import { SchematicServices } from "@/schematic/services";
 import { TableServices } from "@/table/services";
 
-export const FILE_INGESTORS: Import.FileIngestors = {
-  ...Hardware.FILE_INGESTORS,
-  ...LinePlotServices.FILE_INGESTORS,
-  ...LogServices.FILE_INGESTORS,
-  ...SchematicServices.FILE_INGESTORS,
-  ...TableServices.FILE_INGESTORS,
+export const FILE_INGESTERS: Import.FileIngesters = {
+  ...ArcServices.FILE_INGESTERS,
+  ...Hardware.FILE_INGESTERS,
+  ...LinePlotServices.FILE_INGESTERS,
+  ...LogServices.FILE_INGESTERS,
+  ...SchematicServices.FILE_INGESTERS,
+  ...TableServices.FILE_INGESTERS,
 };

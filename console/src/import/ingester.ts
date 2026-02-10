@@ -18,27 +18,27 @@ export interface File {
   name: string;
 }
 
-interface FileIngestorContext {
+export interface FileIngesterContext {
   layout: Partial<Layout.State>;
   placeLayout: Layout.Placer;
   store: Pluto.FluxStore;
   client: Synnax | null;
 }
 
-export interface FileIngestor {
-  (data: unknown, ctx: FileIngestorContext): void;
+export interface FileIngester {
+  (data: unknown, ctx: FileIngesterContext): void;
 }
 
-export interface FileIngestors extends Record<string, FileIngestor> {}
+export interface FileIngesters extends Record<string, FileIngester> {}
 
-interface DirectoryIngestorContext {
+interface DirectoryIngesterContext {
   client: Synnax | null;
-  fileIngestors: FileIngestors;
+  fileIngesters: FileIngesters;
   placeLayout: Layout.Placer;
   store: Store;
   fluxStore: Pluto.FluxStore;
 }
 
-export interface DirectoryIngestor {
-  (name: string, files: File[], ctx: DirectoryIngestorContext): Promise<void>;
+export interface DirectoryIngester {
+  (name: string, files: File[], ctx: DirectoryIngesterContext): Promise<void>;
 }

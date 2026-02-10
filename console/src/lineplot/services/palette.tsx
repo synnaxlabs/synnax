@@ -12,8 +12,7 @@ import { Access } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { LinePlot } from "@/lineplot";
-import { CreateIcon, ImportIcon } from "@/lineplot/services/Icon";
-import { import_ } from "@/lineplot/services/import";
+import { CreateIcon } from "@/lineplot/services/Icon";
 import { Palette } from "@/palette";
 
 const useVisible = () => Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);
@@ -23,40 +22,14 @@ export const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) =>
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create a Line Plot"
+      name="Create a line plot"
       icon={<CreateIcon />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "create-line-plot";
-CreateCommand.commandName = "Create a Line Plot";
+CreateCommand.commandName = "Create a line plot";
 CreateCommand.useVisible = useVisible;
 
-export const ImportCommand: Palette.Command = ({
-  placeLayout,
-  handleError,
-  store,
-  client,
-  fluxStore,
-  ...listProps
-}) => {
-  const handleSelect = useCallback(
-    () => import_({ placeLayout, handleError, store, client, fluxStore }),
-    [placeLayout, handleError, store, client, fluxStore],
-  );
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name="Import Line Plot(s)"
-      icon={<ImportIcon />}
-      onSelect={handleSelect}
-    />
-  );
-};
-ImportCommand.key = "import-line-plot";
-ImportCommand.commandName = "Import Line Plot(s)";
-ImportCommand.sortOrder = -1;
-ImportCommand.useVisible = useVisible;
-
-export const COMMANDS = [CreateCommand, ImportCommand];
+export const COMMANDS = [CreateCommand];

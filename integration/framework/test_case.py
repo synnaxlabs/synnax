@@ -522,7 +522,7 @@ class TestCase(ABC):
             for attempt in range(3):
                 latest_value = self.client.read_latest(channel_name)
                 if latest_value is not None and len(latest_value) > 0:
-                    return float(latest_value)
+                    return float(latest_value[-1])
 
                 # If read_latest is empty, read recent time range
                 now = sy.TimeStamp.now()

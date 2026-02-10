@@ -11,6 +11,7 @@ import { workspace } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { useFileIngesters } from "@/import/FileIngestersProvider";
 import { Palette } from "@/palette";
 import { Workspace } from "@/workspace";
 import { ImportIcon } from "@/workspace/services/Icon";
@@ -21,7 +22,7 @@ const useViewVisible = () => Access.useRetrieveGranted(workspace.TYPE_ONTOLOGY_I
 
 export const CreateCommand = Palette.createSimpleCommand({
   key: "workspace-create",
-  name: "Create a Workspace",
+  name: "Create a workspace",
   icon: <Icon.Workspace />,
   layout: Workspace.CREATE_LAYOUT,
   useVisible: useUpdateVisible,
@@ -33,60 +34,42 @@ export const ImportWorkspaceCommand: Palette.Command = ({
   store,
   client,
   fluxStore,
-  fileIngestors,
   ...listProps
 }) => {
+  const fileIngesters = useFileIngesters();
   const handleSelect = useCallback(
     () =>
-      import_({ placeLayout, handleError, store, client, fluxStore, fileIngestors }),
-    [placeLayout, handleError, store, client, fluxStore, fileIngestors],
+      import_({ placeLayout, handleError, store, client, fluxStore, fileIngesters }),
+    [placeLayout, handleError, store, client, fluxStore, fileIngesters],
   );
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Import a Workspace"
+      name="Import a workspace"
       icon={<ImportIcon />}
       onSelect={handleSelect}
     />
   );
 };
 ImportWorkspaceCommand.key = "workspace-import";
-ImportWorkspaceCommand.commandName = "Import a Workspace";
+ImportWorkspaceCommand.commandName = "Import a workspace";
 ImportWorkspaceCommand.sortOrder = -1;
 ImportWorkspaceCommand.useVisible = useUpdateVisible;
 
-export const ExportWorkspaceCommand: Palette.Command = ({
-  handleError,
-  client,
-  store,
-  confirm,
-  addStatus,
-  extractors,
-  ...listProps
-}) => {
-  const handleSelect = useCallback(
-    () =>
-      Workspace.export_(null, {
-        handleError,
-        client,
-        store,
-        confirm,
-        addStatus,
-        extractors,
-      }),
-    [handleError, client, store, confirm, addStatus, extractors],
-  );
+export const ExportWorkspaceCommand: Palette.Command = (listProps) => {
+  const handleExport = Workspace.useExport();
+  const handleSelect = useCallback(() => handleExport(null), [handleExport]);
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Export Current Workspace"
+      name="Export current workspace"
       icon={<Icon.Workspace />}
       onSelect={handleSelect}
     />
   );
 };
 ExportWorkspaceCommand.key = "workspace-export";
-ExportWorkspaceCommand.commandName = "Export Current Workspace";
+ExportWorkspaceCommand.commandName = "Export current workspace";
 ExportWorkspaceCommand.sortOrder = -1;
 ExportWorkspaceCommand.useVisible = useViewVisible;
 
