@@ -80,18 +80,20 @@ var _ = Describe("Access", Ordered, func() {
 				Exec(ctx, tx)).To(Succeed())
 			originalObjects := ownerPolicy.Objects
 			Expect(originalObjects).ToNot(BeEmpty())
+			originalActions := ownerPolicy.Actions
+			Expect(originalActions).ToNot(BeEmpty())
 
 			// Remove an object from the policy to simulate a stale DB
 			Expect(gorp.NewUpdate[uuid.UUID, policy.Policy]().
 				WhereKeys(ownerPolicy.Key).
 				Change(func(_ gorp.Context, p policy.Policy) policy.Policy {
 					p.Objects = p.Objects[:1]
+					p.Actions = p.Actions[:1]
 					return p
 				}).Exec(ctx, tx)).To(Succeed())
 
 			// Re-provision should restore the full object list
-			_, err := access.Provision(ctx, tx, svc.RBAC)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(access.Provision(ctx, tx, svc.RBAC)).ToNot(BeZero())
 
 			var updated policy.Policy
 			Expect(svc.RBAC.Policy.NewRetrieve().
@@ -99,6 +101,7 @@ var _ = Describe("Access", Ordered, func() {
 				Entry(&updated).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(updated.Objects).To(Equal(originalObjects))
+			Expect(updated.Actions).To(Equal(originalActions))
 		})
 	})
 
