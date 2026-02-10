@@ -176,8 +176,8 @@ jobs:
       - windows-latest
     needs: [setup, build]
     if:
-      always() && needs.setup.result == 'success' && (needs.build.result == 'success' ||
-      needs.build.result == 'skipped')
+      ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
+      'success' || needs.build.result == 'skipped') }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -248,8 +248,8 @@ jobs:
       - ubuntu-latest
     needs: [setup, build]
     if:
-      always() && needs.setup.result == 'success' && (needs.build.result == 'success' ||
-      needs.build.result == 'skipped')
+      ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
+      'success' || needs.build.result == 'skipped') }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
