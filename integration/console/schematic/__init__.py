@@ -7,15 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .button import Button
-from .custom_symbol import CustomSymbol
-from .schematic import SCHEMATIC_VERSION, Schematic
-from .setpoint import Setpoint
-from .symbol import Symbol
-from .value import Value
-from .valve import Valve
-from .valve_threeway import ValveThreeWay
-from .valve_threeway_ball import ValveThreeWayBall
+from console.schematic.button import Button
+from console.schematic.custom_symbol import CustomSymbol
+from console.schematic.schematic import SCHEMATIC_VERSION, Schematic
+from console.schematic.setpoint import Setpoint
+from console.schematic.symbol import Symbol
+from console.schematic.value import Value
+from console.schematic.valve import Valve
+from console.schematic.valve_threeway import ValveThreeWay
+from console.schematic.valve_threeway_ball import ValveThreeWayBall
 
 __all__ = [
     "Button",

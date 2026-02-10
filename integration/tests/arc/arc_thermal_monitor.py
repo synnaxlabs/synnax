@@ -154,59 +154,32 @@ class ArcThermalMonitor(ArcConsoleCase):
         self.log("Verifying thermal cycling behavior...")
 
         self.log("Waiting for heater to turn on (heating stage)...")
-        heater_on = False
-        while self.should_continue:
-            if self.read_tlm("heater_state") == 1:
-                self.log("Heater ON - heating stage active")
-                heater_on = True
-                break
-        if not heater_on:
-            self.fail("Heater should turn on")
-            return
+        self.wait_for_eq("heater_state", 1)
+        self.log("Heater ON - heating stage active")
 
         self.log("Waiting for temp to rise and heater to turn off (cooling stage)...")
-        heater_off = False
-        while self.should_continue:
-            if self.read_tlm("heater_state") == 0:
-                temp = self.read_tlm("temp_sensor")
-                self.log(f"Heater OFF at temp={temp:.1f} - cooling stage active")
-                heater_off = True
-                break
-        if not heater_off:
-            self.fail("Heater should turn off when temp > 60")
-            return
+        self.wait_for_eq("heater_state", 0)
+        temp = self.read_tlm("temp_sensor")
+        self.log(f"Heater OFF at temp={temp:.1f} - cooling stage active")
 
         self.log("Waiting for heater to turn back on (looping back to heating)...")
-        heater_back_on = False
-        while self.should_continue:
-            if self.read_tlm("heater_state") == 1:
-                temp = self.read_tlm("temp_sensor")
-                self.log(f"Heater ON again at temp={temp:.1f} - loop confirmed")
-                heater_back_on = True
-                break
-        if not heater_back_on:
-            self.fail("Heater should turn back on when temp < 40")
-            return
+        self.wait_for_eq("heater_state", 1)
+        temp = self.read_tlm("temp_sensor")
+        self.log(f"Heater ON again at temp={temp:.1f} - loop confirmed")
 
     def _verify_stateful_variables(self) -> None:
         self.log("Verifying stateful variable behavior...")
 
-        cycle_count = self.read_tlm("cycle_count")
-        self.log(f"Cycle count: {cycle_count}")
-        if cycle_count is None or cycle_count < 2:
-            self.fail(f"Expected cycle_count >= 2, got {cycle_count}")
-            return
+        self.wait_for_ge("cycle_count", 2, timeout=0)
+        self.log(f"Cycle count: {self.read_tlm('cycle_count')}")
 
-        peak_temp = self.read_tlm("peak_temp")
-        self.log(f"Peak temperature tracked: {peak_temp:.1f}" if peak_temp else "None")
-        if peak_temp is None or peak_temp < 55:
-            self.fail(f"Expected peak_temp > 55, got {peak_temp}")
-            return
+        self.wait_for_gt("peak_temp", 55, timeout=0)
+        self.log(f"Peak temperature tracked: {self.read_tlm('peak_temp'):.1f}")
 
         temp_error = self.read_tlm("temp_error")
         current_temp = self.read_tlm("temp_sensor")
         if temp_error is None or current_temp is None:
-            self.fail(f"temp_error or current_temp is None")
+            self.fail("temp_error or current_temp is None")
             return
         expected_error = current_temp - 50.0
         self.log(f"Temp error: {temp_error:.1f} (expected ~{expected_error:.1f})")
@@ -214,7 +187,6 @@ class ArcThermalMonitor(ArcConsoleCase):
             self.fail(
                 f"temp_error {temp_error:.1f} doesn't match expected {expected_error:.1f}"
             )
-            return
 
     def _verify_abort_transition(self) -> None:
         self.log("Verifying abort transition (temp > 80)...")
@@ -224,37 +196,14 @@ class ArcThermalMonitor(ArcConsoleCase):
             w.write("force_overheat_cmd", 1)
 
         self.log("Waiting for temp to exceed 80...")
-        temp_exceeded = False
-        while self.should_continue:
-            temp = self.read_tlm("temp_sensor")
-            if temp is not None and temp > 80:
-                self.log(f"Temperature exceeded 80: {temp:.1f}")
-                temp_exceeded = True
-                break
-        if not temp_exceeded:
-            self.fail("Temperature should exceed 80 during force overheat")
-            return
+        self.wait_for_gt("temp_sensor", 80)
+        temp = self.read_tlm("temp_sensor")
+        self.log(f"Temperature exceeded 80: {temp:.1f}")
 
         self.log("Waiting for abort sequence (heater off, alarm active)...")
-        abort_confirmed = False
-        log_counter = 0
-        while self.should_continue:
-            heater = self.read_tlm("heater_state")
-            alarm = self.read_tlm("alarm_active")
-            log_counter += 1
-            if log_counter % 50 == 0:
-                self.log(f"Checking abort: heater={heater}, alarm={alarm}")
-            if heater == 0 and alarm == 1:
-                self.log("Abort sequence confirmed: heater OFF, alarm ACTIVE")
-                abort_confirmed = True
-                break
-        if not abort_confirmed:
-            heater = self.read_tlm("heater_state")
-            alarm = self.read_tlm("alarm_active")
-            self.fail(
-                f"Abort sequence should activate (heater={heater}, alarm={alarm})"
-            )
-            return
+        self.wait_for_eq("heater_state", 0)
+        self.wait_for_eq("alarm_active", 1)
+        self.log("Abort sequence confirmed: heater OFF, alarm ACTIVE")
 
         with self.client.open_writer(sy.TimeStamp.now(), "force_overheat_cmd") as w:
             w.write("force_overheat_cmd", 0)

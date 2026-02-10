@@ -12,6 +12,39 @@ import { describe, expect, it } from "vitest";
 
 import { createTestClient } from "@/testutil/client";
 
+type LSPReceiver = {
+  receive: () => Promise<[{ content: string }, null] | [null, Error]>;
+};
+
+/** Drains messages from the stream until a JSON-RPC response with the expected id arrives. */
+const receiveResponse = async (
+  stream: LSPReceiver,
+  expectedId: number,
+): Promise<jsonRPC.Response> => {
+  for (;;) {
+    const [res, err] = await stream.receive();
+    if (err != null) throw err;
+    if (res == null) throw new Error("Expected response");
+    const msg = JSON.parse(res.content);
+    if (!("method" in msg) && "id" in msg && msg.id === expectedId)
+      return msg as jsonRPC.Response;
+  }
+};
+
+/** Drains messages from the stream until a JSON-RPC notification with the expected method arrives. */
+const receiveNotification = async (
+  stream: LSPReceiver,
+  expectedMethod: string,
+): Promise<jsonRPC.Request> => {
+  for (;;) {
+    const [res, err] = await stream.receive();
+    if (err != null) throw err;
+    if (res == null) throw new Error("Expected message");
+    const msg = JSON.parse(res.content);
+    if ("method" in msg && msg.method === expectedMethod) return msg as jsonRPC.Request;
+  }
+};
+
 describe("Arc LSP", () => {
   it("should open an LSP stream and handle initialize request", async () => {
     const client = createTestClient();
@@ -310,14 +343,10 @@ describe("Arc LSP", () => {
     // Send raw JSON (no headers)
     stream.send({ content: messageContent });
 
-    // The server should respond (even if it's an error for unknown method)
-    const [response, err] = await stream.receive();
-    expect(err).toBeNull();
-    expect(response).not.toBeNull();
-    if (!response) throw new Error("Expected response");
-
-    // Response should be parseable JSON
-    const parsed = JSON.parse(response.content) as jsonRPC.Response;
+    // The server should respond (even if it's an error for unknown method).
+    // Use receiveResponse to skip any server-initiated messages (e.g.
+    // workspace/semanticTokens/refresh) that may arrive from external changes.
+    const parsed = await receiveResponse(stream, 999);
     expect(parsed.jsonrpc).toBe("2.0");
     expect(parsed.id).toBe(999);
 
@@ -393,8 +422,8 @@ describe("Arc LSP", () => {
       }),
     });
 
-    // Wait for diagnostics
-    await stream.receive();
+    // Wait for diagnostics, skipping any server-initiated messages
+    await receiveNotification(stream, "textDocument/publishDiagnostics");
 
     // Request semantic tokens
     const semanticTokensRequest: jsonRPC.Request = {
@@ -408,12 +437,7 @@ describe("Arc LSP", () => {
 
     stream.send({ content: JSON.stringify(semanticTokensRequest) });
 
-    const [tokenResponse, tokenErr] = await stream.receive();
-    expect(tokenErr).toBeNull();
-    expect(tokenResponse).not.toBeNull();
-    if (!tokenResponse) throw new Error("Expected response");
-
-    const tokenMsg = JSON.parse(tokenResponse.content) as jsonRPC.Response;
+    const tokenMsg = await receiveResponse(stream, 2);
     expect(tokenMsg.jsonrpc).toBe("2.0");
     expect(tokenMsg.id).toBe(2);
 

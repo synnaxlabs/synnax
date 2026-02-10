@@ -2,10 +2,22 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "Console Press Control - Valves",
+      "sequence_name": "Console Press Control",
       "tests": [
         {
           "case": "console/schematic/simple_press_valves"
+        }
+      ]
+    },
+    {
+      "sequence_name": "Console Setpoint Control",
+      "sequence_order": "asynchronous",
+      "tests": [
+        {
+          "case": "console/schematic/setpoint_press_user"
+        },
+        {
+          "case": "client/setpoint_press_auto"
         }
       ]
     },
