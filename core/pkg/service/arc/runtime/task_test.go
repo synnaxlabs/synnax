@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -634,6 +635,333 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			time.Sleep(50 * time.Millisecond)
 			Expect(t.Stop()).To(Succeed())
+		})
+	})
+
+	Describe("Control Authority", func() {
+		It("Should apply static authority from authority block", func() {
+			ch := createVirtualCh("auth_static", telem.Uint8T)
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					authority 100
+					func output() {
+						%s = 42
+					}
+					interval{period=50ms} -> output{}
+				`, ch.Name),
+			}
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{ch.Key()}, 2)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			var fr framer.StreamerResponse
+			Eventually(responses).Should(Receive(&fr))
+
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{ch.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(200)},
+				Sync:        config.True(),
+			}))
+			defer func() { Expect(w.Close()).To(Succeed()) }()
+			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+		})
+
+		It("Should block lower-authority competing writers", func() {
+			ch := createVirtualCh("auth_block", telem.Uint8T)
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					authority 200
+					func output() {
+						%s = 42
+					}
+					interval{period=50ms} -> output{}
+				`, ch.Name),
+			}
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{ch.Key()}, 2)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			var fr framer.StreamerResponse
+			Eventually(responses).Should(Receive(&fr))
+
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{ch.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(100)},
+				Sync:        config.True(),
+			}))
+			defer func() { Expect(w.Close()).To(Succeed()) }()
+			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
+		})
+
+		It("Should default to absolute authority without authority block", func() {
+			ch := createVirtualCh("auth_default", telem.Uint8T)
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					func output() {
+						%s = 42
+					}
+					interval{period=50ms} -> output{}
+				`, ch.Name),
+			}
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{ch.Key()}, 2)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			var fr framer.StreamerResponse
+			Eventually(responses).Should(Receive(&fr))
+
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{ch.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(254)},
+				Sync:        config.True(),
+			}))
+			defer func() { Expect(w.Close()).To(Succeed()) }()
+			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
+		})
+
+		It("Should apply per-channel authority overrides", func() {
+			ch1 := createVirtualCh("auth_perchan_1", telem.Uint8T)
+			ch2 := createVirtualCh("auth_perchan_2", telem.Uint8T)
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					authority (100 %s 200)
+					func output() {
+						%s = 1
+						%s = 2
+					}
+					interval{period=50ms} -> output{}
+				`, ch1.Name, ch1.Name, ch2.Name),
+			}
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{ch1.Key(), ch2.Key()}, 2)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			var fr framer.StreamerResponse
+			Eventually(responses).Should(Receive(&fr))
+
+			wA := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{ch1.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(150)},
+				Sync:        config.True(),
+			}))
+			defer func() { Expect(wA.Close()).To(Succeed()) }()
+			Expect(wA.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
+
+			wB := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{ch2.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(150)},
+				Sync:        config.True(),
+			}))
+			defer func() { Expect(wB.Close()).To(Succeed()) }()
+			Expect(wB.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+		})
+
+		It("Should write data with non-default authority", func() {
+			ch := createVirtualCh("auth_write_data", telem.Uint8T)
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					authority 100
+					func output() {
+						%s = 42
+					}
+					interval{period=50ms} -> output{}
+				`, ch.Name),
+			}
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{ch.Key()}, 2)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			var fr framer.StreamerResponse
+			Eventually(responses).Should(Receive(&fr))
+			Expect(fr.Frame.Get(ch.Key()).Len()).To(BeEquivalentTo(1))
+			Expect(telem.ValueAt[uint8](fr.Frame.Get(ch.Key()).Series[0], 0)).To(Equal(uint8(42)))
+		})
+
+		It("Should dynamically escalate authority via set_authority", func() {
+			dataCh := createVirtualCh("dyn_esc_data", telem.Uint8T)
+			triggerCh := createVirtualCh("dyn_esc_trigger", telem.Uint8T)
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					authority 100
+
+					func output() {
+						%s = 42
+					}
+
+					%s => seq
+
+					sequence seq {
+						stage escalated {
+							1 -> set_authority{value=200}
+						}
+					}
+
+					interval{period=50ms} -> output{}
+				`, dataCh.Name, triggerCh.Name),
+			}
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{dataCh.Key()}, 2)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			var fr framer.StreamerResponse
+			Eventually(responses).Should(Receive(&fr))
+
+			trigW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{triggerCh.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(trigW.Write(frame.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(trigW.Close()).To(Succeed())
+
+			// Receive data frames to ensure the runtime has processed the trigger
+			Eventually(responses).Should(Receive(&fr))
+			Eventually(responses).Should(Receive(&fr))
+
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{dataCh.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(150)},
+				Sync:        config.True(),
+			}))
+			defer func() { Expect(w.Close()).To(Succeed()) }()
+			Expect(w.Write(frame.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
+		})
+
+		It("Should dynamically de-escalate authority via set_authority", func() {
+			dataCh := createVirtualCh("dyn_deesc_data", telem.Uint8T)
+			triggerCh := createVirtualCh("dyn_deesc_trigger", telem.Uint8T)
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					authority 200
+
+					func output() {
+						%s = 42
+					}
+
+					%s => seq
+
+					sequence seq {
+						stage deescalated {
+							1 -> set_authority{value=50}
+						}
+					}
+
+					interval{period=50ms} -> output{}
+				`, dataCh.Name, triggerCh.Name),
+			}
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{dataCh.Key()}, 2)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			var fr framer.StreamerResponse
+			Eventually(responses).Should(Receive(&fr))
+
+			wBefore := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{dataCh.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(100)},
+				Sync:        config.True(),
+			}))
+			Expect(wBefore.Write(frame.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
+			Expect(wBefore.Close()).To(Succeed())
+
+			trigW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{triggerCh.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(trigW.Write(frame.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(trigW.Close()).To(Succeed())
+
+			// Receive data frames to ensure the runtime has processed the trigger
+			Eventually(responses).Should(Receive(&fr))
+			Eventually(responses).Should(Receive(&fr))
+
+			wAfter := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:        channel.Keys{dataCh.Key()},
+				Start:       telem.Now(),
+				Authorities: []control.Authority{control.Authority(100)},
+				Sync:        config.True(),
+			}))
+			defer func() { Expect(wAfter.Close()).To(Succeed()) }()
+			Expect(wAfter.Write(frame.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+		})
+
+		It("Should continue writing data after dynamic authority change", func() {
+			dataCh := createVirtualCh("dyn_cont_data", telem.Uint8T)
+			triggerCh := createVirtualCh("dyn_cont_trigger", telem.Uint8T)
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					authority 100
+
+					func output() {
+						%s = 42
+					}
+
+					%s => seq
+
+					sequence seq {
+						stage escalated {
+							1 -> set_authority{value=200}
+						}
+					}
+
+					interval{period=50ms} -> output{}
+				`, dataCh.Name, triggerCh.Name),
+			}
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{dataCh.Key()}, 2)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			var fr framer.StreamerResponse
+			Eventually(responses).Should(Receive(&fr))
+
+			trigW := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{triggerCh.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(trigW.Write(frame.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(trigW.Close()).To(Succeed())
+
+			Eventually(responses).Should(Receive(&fr))
+			Expect(fr.Frame.Get(dataCh.Key()).Len()).To(BeEquivalentTo(1))
+			Expect(telem.ValueAt[uint8](fr.Frame.Get(dataCh.Key()).Series[0], 0)).To(Equal(uint8(42)))
 		})
 	})
 

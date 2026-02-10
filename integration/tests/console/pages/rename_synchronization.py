@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from console.case import ConsoleCase
-from console.console import PageType
+from console.workspace import PageType
 from framework.utils import get_random_name
 
 
@@ -31,7 +31,7 @@ class RenameSynchronization(ConsoleCase):
         new_name = f"{page_type}_renamed_{suffix}"
 
         self.log(f"1. Creating {page_type}: {original_name}")
-        console.create_page(page_type, original_name)
+        console.workspace.create_page(page_type, original_name)
 
         self.log(f"2. Verifying page exists in Resources Toolbar")
         assert console.workspace.page_exists(
@@ -47,7 +47,7 @@ class RenameSynchronization(ConsoleCase):
         ), f"{page_type} should be renamed in Resources Toolbar"
 
         self.log("5. Verifying Mosaic Tab")
-        console.ESCAPE
+        console.layout.press_escape()
         console.layout.get_tab(new_name).wait_for(state="visible", timeout=5000)
 
         self.log("6. Verifying Visualization Toolbar")
@@ -59,6 +59,6 @@ class RenameSynchronization(ConsoleCase):
         console.layout.hide_visualization_toolbar()
 
         self.log(f"7. Cleanup: Closing {new_name}")
-        console.close_page(new_name)
+        console.workspace.close_page(new_name)
 
         self.log(f"{page_type} rename synchronization passed")

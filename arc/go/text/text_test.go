@@ -486,6 +486,44 @@ var _ = Describe("Text", func() {
 				Expect(node.Channels.Write).To(BeEmpty(), "should not have any write channels")
 			})
 
+			It("Should resolve read-only config param channel in Channels.Read", func() {
+				resolver := symbol.MapResolver{
+					"do_0_state":       {Name: "do_0_state", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10201},
+					"do_0_counter":     {Name: "do_0_counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10202},
+					"do_0_counter_max": {Name: "do_0_counter_max", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10203},
+				}
+				source := `
+				func count_rising_test{counter_ch chan f32, max_ch chan f32}(input u8) {
+					prev $= input
+					counter f32 $= 0
+					read_val := max_ch + f32(0.0)
+
+					if counter < read_val {
+						counter = read_val
+					}
+
+					if input and not prev {
+						counter = counter + 1.0
+					}
+
+					counter_ch = counter
+					prev = input
+				}
+
+				do_0_state -> count_rising_test{counter_ch=do_0_counter, max_ch=do_0_counter_max}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "count_rising_test_0")
+				Expect(node.Channels.Write.Contains(uint32(10202))).To(BeTrue(), "should write to do_0_counter")
+				Expect(node.Channels.Read.Contains(uint32(10203))).To(BeTrue(), "should read from do_0_counter_max")
+				Expect(node.Config).To(HaveLen(2))
+				Expect(node.Config[0].Value).To(Equal(uint32(10202)))
+				Expect(node.Config[1].Value).To(Equal(uint32(10203)))
+			})
+
 			It("Should handle config values using global constants", func() {
 				source := `
 				A := 10
@@ -612,44 +650,6 @@ var _ = Describe("Text", func() {
 				Expect(node.Config[0].Name).To(Equal("max"))
 				Expect(node.Config[0].Type).To(Equal(types.I32()))
 				Expect(node.Config[0].Value).To(Equal(int32(255)))
-			})
-
-			It("Should resolve read-only config param channel in Channels.Read", func() {
-				resolver := symbol.MapResolver{
-					"do_0_state":       {Name: "do_0_state", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10201},
-					"do_0_counter":     {Name: "do_0_counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10202},
-					"do_0_counter_max": {Name: "do_0_counter_max", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10203},
-				}
-				source := `
-				func count_rising_test{counter_ch chan f32, max_ch chan f32}(input u8) {
-					prev $= input
-					counter f32 $= 0
-					read_val := max_ch + f32(0.0)
-
-					if counter < read_val {
-						counter = read_val
-					}
-
-					if input and not prev {
-						counter = counter + 1.0
-					}
-
-					counter_ch = counter
-					prev = input
-				}
-
-				do_0_state -> count_rising_test{counter_ch=do_0_counter, max_ch=do_0_counter_max}
-				`
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-
-				node := findNodeByKey(inter.Nodes, "count_rising_test_0")
-				Expect(node.Channels.Write.Contains(uint32(10202))).To(BeTrue(), "should write to do_0_counter")
-				Expect(node.Channels.Read.Contains(uint32(10203))).To(BeTrue(), "should read from do_0_counter_max")
-				Expect(node.Config).To(HaveLen(2))
-				Expect(node.Config[0].Value).To(Equal(uint32(10202)))
-				Expect(node.Config[1].Value).To(Equal(uint32(10203)))
 			})
 		})
 
@@ -1589,6 +1589,61 @@ var _ = Describe("Text", func() {
 			seq := MustBeOk(inter.Sequences.Find("main"))
 			Expect(seq.Stages[0].Strata).To(HaveLen(1))
 			Expect(seq.Stages[0].Strata[0]).To(ContainElement(initNode.Key))
+		})
+	})
+
+	Describe("Authority Analysis", func() {
+		It("Should include authority config in IR with simple form", func() {
+			resolver := symbol.MapResolver{
+				"valve": {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+			}
+			source := `
+			authority 200
+
+			func a{} () {}
+			func b{} () {}
+			a{} -> b{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.Authorities.Default).ToNot(BeNil())
+			Expect(*inter.Authorities.Default).To(Equal(uint8(200)))
+		})
+
+		It("Should include per-channel authority overrides", func() {
+			resolver := symbol.MapResolver{
+				"valve": {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+				"vent":  {Name: "vent", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 200},
+			}
+			source := `
+			authority (200 valve 100 vent 150)
+
+			func a{} () {}
+			func b{} () {}
+			a{} -> b{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.Authorities.Default).ToNot(BeNil())
+			Expect(*inter.Authorities.Default).To(Equal(uint8(200)))
+			Expect(inter.Authorities.Channels).To(HaveLen(2))
+			Expect(inter.Authorities.Channels[100]).To(Equal(uint8(100)))
+			Expect(inter.Authorities.Channels[200]).To(Equal(uint8(150)))
+		})
+
+		It("Should report error for authority after function", func() {
+			source := `
+			func a{} () {}
+			authority 200
+			func b{} () {}
+			a{} -> b{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, nil)
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("before"))
 		})
 	})
 

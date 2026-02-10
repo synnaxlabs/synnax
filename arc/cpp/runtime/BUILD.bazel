@@ -3,6 +3,7 @@ cc_library(
     hdrs = ["runtime.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//arc/cpp/runtime/authority",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/constant",
         "//arc/cpp/runtime/loop",
