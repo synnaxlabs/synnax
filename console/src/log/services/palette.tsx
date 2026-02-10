@@ -23,14 +23,14 @@ export const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) =>
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create a Log"
+      name="Create a log"
       icon={<CreateIcon />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "create-log";
-CreateCommand.commandName = "Create a Log";
+CreateCommand.commandName = "Create a log";
 CreateCommand.useVisible = useVisible;
 
 export const ImportCommand: Palette.Command = ({

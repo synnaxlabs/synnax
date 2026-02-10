@@ -23,14 +23,14 @@ export const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) =>
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create a Line Plot"
+      name="Create a line plot"
       icon={<CreateIcon />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "create-line-plot";
-CreateCommand.commandName = "Create a Line Plot";
+CreateCommand.commandName = "Create a line plot";
 CreateCommand.useVisible = useVisible;
 
 export const ImportCommand: Palette.Command = ({

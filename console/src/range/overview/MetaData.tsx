@@ -132,7 +132,7 @@ const MetaDataListItem = ({
               selectOnFocus: true,
               resetOnBlurIfEmpty: true,
               onlyChangeOnBlur: !isCreate,
-              placeholder: "Add Key",
+              placeholder: "Key",
               variant: "shadow",
               weight: 500,
             }}

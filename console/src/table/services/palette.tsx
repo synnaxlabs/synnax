@@ -23,14 +23,14 @@ export const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) =>
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create a Table"
+      name="Create a table"
       icon={<CreateIcon />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "create-table";
-CreateCommand.commandName = "Create a Table";
+CreateCommand.commandName = "Create a table";
 CreateCommand.useVisible = useVisible;
 
 export const ImportCommand: Palette.Command = ({
