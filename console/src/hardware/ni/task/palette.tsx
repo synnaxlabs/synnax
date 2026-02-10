@@ -16,13 +16,6 @@ import { ANALOG_WRITE_LAYOUT } from "@/hardware/ni/task/AnalogWrite";
 import { COUNTER_READ_LAYOUT } from "@/hardware/ni/task/CounterRead";
 import { DIGITAL_READ_LAYOUT } from "@/hardware/ni/task/DigitalRead";
 import { DIGITAL_WRITE_LAYOUT } from "@/hardware/ni/task/DigitalWrite";
-import {
-  importAnalogRead,
-  importAnalogWrite,
-  importCounterRead,
-  importDigitalRead,
-  importDigitalWrite,
-} from "@/hardware/ni/task/import";
 import { SCAN_SCHEMAS, SCAN_TYPE } from "@/hardware/ni/task/types";
 import { Palette } from "@/palette";
 
@@ -67,136 +60,6 @@ export const CreateDigitalReadCommand = Palette.createSimpleCommand({
   layout: DIGITAL_READ_LAYOUT,
   useVisible,
 });
-
-export const ImportAnalogReadCommand: Palette.Command = ({
-  placeLayout,
-  handleError,
-  store,
-  client,
-  fluxStore,
-  ...listProps
-}) => {
-  const handleSelect = useCallback(
-    () => importAnalogRead({ placeLayout, handleError, store, client, fluxStore }),
-    [placeLayout, handleError, store, client, fluxStore],
-  );
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name="Import NI Analog Read Task(s)"
-      icon={<Icon.Logo.NI />}
-      onSelect={handleSelect}
-    />
-  );
-};
-ImportAnalogReadCommand.key = "ni-import-analog-read-task";
-ImportAnalogReadCommand.commandName = "Import NI Analog Read Task(s)";
-ImportAnalogReadCommand.sortOrder = -1;
-ImportAnalogReadCommand.useVisible = useVisible;
-
-export const ImportAnalogWriteCommand: Palette.Command = ({
-  placeLayout,
-  handleError,
-  store,
-  client,
-  fluxStore,
-  ...listProps
-}) => {
-  const handleSelect = useCallback(
-    () => importAnalogWrite({ placeLayout, handleError, store, client, fluxStore }),
-    [placeLayout, handleError, store, client, fluxStore],
-  );
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name="Import NI Analog Write Task(s)"
-      icon={<Icon.Logo.NI />}
-      onSelect={handleSelect}
-    />
-  );
-};
-ImportAnalogWriteCommand.key = "ni-import-analog-write-task";
-ImportAnalogWriteCommand.commandName = "Import NI Analog Write Task(s)";
-ImportAnalogWriteCommand.sortOrder = -1;
-ImportAnalogWriteCommand.useVisible = useVisible;
-
-export const ImportCounterReadCommand: Palette.Command = ({
-  placeLayout,
-  handleError,
-  store,
-  client,
-  fluxStore,
-  ...listProps
-}) => {
-  const handleSelect = useCallback(
-    () => importCounterRead({ placeLayout, handleError, store, client, fluxStore }),
-    [placeLayout, handleError, store, client, fluxStore],
-  );
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name="Import NI Counter Read Task(s)"
-      icon={<Icon.Logo.NI />}
-      onSelect={handleSelect}
-    />
-  );
-};
-ImportCounterReadCommand.key = "ni-import-counter-read-task";
-ImportCounterReadCommand.commandName = "Import NI Counter Read Task(s)";
-ImportCounterReadCommand.sortOrder = -1;
-ImportCounterReadCommand.useVisible = useVisible;
-
-export const ImportDigitalReadCommand: Palette.Command = ({
-  placeLayout,
-  handleError,
-  store,
-  client,
-  fluxStore,
-  ...listProps
-}) => {
-  const handleSelect = useCallback(
-    () => importDigitalRead({ placeLayout, handleError, store, client, fluxStore }),
-    [placeLayout, handleError, store, client, fluxStore],
-  );
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name="Import NI Digital Read Task(s)"
-      icon={<Icon.Logo.NI />}
-      onSelect={handleSelect}
-    />
-  );
-};
-ImportDigitalReadCommand.key = "ni-import-digital-read-task";
-ImportDigitalReadCommand.commandName = "Import NI Digital Read Task(s)";
-ImportDigitalReadCommand.sortOrder = -1;
-ImportDigitalReadCommand.useVisible = useVisible;
-
-export const ImportDigitalWriteCommand: Palette.Command = ({
-  placeLayout,
-  handleError,
-  store,
-  client,
-  fluxStore,
-  ...listProps
-}) => {
-  const handleSelect = useCallback(
-    () => importDigitalWrite({ placeLayout, handleError, store, client, fluxStore }),
-    [placeLayout, handleError, store, client, fluxStore],
-  );
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name="Import NI Digital Write Task(s)"
-      icon={<Icon.Import />}
-      onSelect={handleSelect}
-    />
-  );
-};
-ImportDigitalWriteCommand.key = "ni-import-digital-write-task";
-ImportDigitalWriteCommand.commandName = "Import NI Digital Write Task(s)";
-ImportDigitalWriteCommand.sortOrder = -1;
-ImportDigitalWriteCommand.useVisible = useVisible;
 
 export const ToggleScannerCommand: Palette.Command = ({
   client,
@@ -250,10 +113,5 @@ export const COMMANDS = [
   CreateCounterReadCommand,
   CreateDigitalWriteCommand,
   CreateDigitalReadCommand,
-  ImportAnalogReadCommand,
-  ImportAnalogWriteCommand,
-  ImportCounterReadCommand,
-  ImportDigitalReadCommand,
-  ImportDigitalWriteCommand,
   ToggleScannerCommand,
 ];

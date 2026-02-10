@@ -61,16 +61,9 @@ class ArcAuthorityPythonOverride(ArcConsoleCase):
     def _verify(self) -> None:
         # Phase 1: Arc in control at authority 200
         self.log("Phase 1: Verifying Arc controls valve at authority 200...")
-        while self.should_continue:
-            if self.read_tlm("press_vlv_state") == 1:
-                self.log("Phase 1: Press valve opened by Arc")
-                break
-        else:
-            self.fail("Phase 1: Press valve should open")
-            return
+        self.wait_for_eq("press_vlv_state", 1)
 
         # Phase 2: Python writer overrides at authority 255
-        self.log("Phase 2: Opening Python writer at authority 255...")
         self._override_writer = self.client.open_writer(
             sy.TimeStamp.now(),
             ["press_vlv_cmd_time", "press_vlv_cmd"],
@@ -84,26 +77,14 @@ class ArcAuthorityPythonOverride(ArcConsoleCase):
         )
 
         self.log("Phase 2: Waiting for valve to close (Python override)...")
-        while self.should_continue:
-            if self.read_tlm("press_vlv_state") == 0:
-                self.log("Phase 2: Press valve closed by Python override")
-                break
-        else:
-            self.fail("Phase 2: Press valve should close from Python override")
-            return
+        self.wait_for_eq("press_vlv_state", 0)
 
         # Phase 3: Close Python writer, Arc resumes
-        self.log("Phase 3: Closing Python writer, Arc should resume...")
         self._override_writer.close()
         self._override_writer = None
 
-        while self.should_continue:
-            if self.read_tlm("press_vlv_state") == 1:
-                self.log("Phase 3: Press valve reopened by Arc (auto-resume)")
-                break
-        else:
-            self.fail("Phase 3: Arc should resume control after Python writer closes")
-            return
+        self.log("Phase 3: Waiting for Arc to resume...")
+        self.wait_for_eq("press_vlv_state", 1)
 
     def teardown(self) -> None:
         if self._override_writer is not None:

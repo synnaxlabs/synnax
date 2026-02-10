@@ -139,7 +139,7 @@ TEST(AcquisitionPipeline, testWriteRetrySuccess) {
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(writes->size(), 3);
     ASSERT_TRUE(pipeline.stop());
-    ASSERT_EQ(mock_factory->writer_opens, 2);
+    ASSERT_EQ(mock_factory->writer_opens.load(std::memory_order_acquire), 2);
 }
 
 /// @brief it should not retry opening the writer when write returns false and the
@@ -164,7 +164,7 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
         }
     );
     ASSERT_TRUE(pipeline.start());
-    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EQ(source->stopped_err, x::errors::UNAUTHORIZED);
     ASSERT_TRUE(pipeline.stop());
 }

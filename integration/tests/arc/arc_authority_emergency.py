@@ -72,13 +72,7 @@ class ArcAuthorityEmergency(ArcConsoleCase):
     def _verify(self) -> None:
         # Phase 1: Arc opens valve at authority 100, pressure rises
         self.log("Phase 1: Waiting for Arc to open press valve (authority 100)...")
-        while self.should_continue:
-            if self.read_tlm("press_vlv_state") == 1:
-                self.log("Phase 1: Press valve opened - pressure rising")
-                break
-        else:
-            self.fail("Phase 1: Arc should open press valve")
-            return
+        self.wait_for_eq("press_vlv_state", 1)
 
         # Phase 2: External writer at authority 200 keeps valve forced open
         # Both Arc (100) and Python (200) write 1, so pressure keeps rising.
@@ -101,37 +95,17 @@ class ArcAuthorityEmergency(ArcConsoleCase):
         # Phase 3: Pressure rises past 50 -> Arc enters emergency stage
         # set_authority{value=255} fires first (flushed before writes),
         # then 0 -> press_vlv_cmd succeeds because 255 > 200.
-        self.log("Phase 3: Waiting for emergency escalation (press_vlv_state == 0)...")
-        while self.should_continue:
-            if self.read_tlm("press_vlv_state") == 0:
-                self.log("Phase 3: Arc escalated to 255 - press valve closed")
-                break
-        else:
-            self.fail("Phase 3: Arc should escalate and close press valve")
-            return
-
+        self.log("Phase 3: Waiting for emergency escalation...")
+        self.wait_for_eq("press_vlv_state", 0)
         self.log("Phase 3: Verifying vent valve opened...")
-        while self.should_continue:
-            if self.read_tlm("vent_vlv_state") == 1:
-                self.log("Phase 3: Vent valve opened - depressurizing")
-                break
-        else:
-            self.fail("Phase 3: Vent valve should open in emergency stage")
-            return
+        self.wait_for_eq("vent_vlv_state", 1)
 
         # Phase 4: Close Python writer, wait for safe state
-        self.log("Phase 4: Closing Python writer...")
         self._override_writer.close()
         self._override_writer = None
 
-        self.log("Phase 4: Waiting for safed stage (vent_vlv_state == 0)...")
-        while self.should_continue:
-            if self.read_tlm("vent_vlv_state") == 0:
-                self.log("Phase 4: System safed - vent valve closed")
-                break
-        else:
-            self.fail("Phase 4: Vent valve should close in safed stage")
-            return
+        self.log("Phase 4: Waiting for safed stage...")
+        self.wait_for_eq("vent_vlv_state", 0)
 
     def teardown(self) -> None:
         if self._override_writer is not None:

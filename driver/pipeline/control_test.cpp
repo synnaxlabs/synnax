@@ -112,7 +112,10 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
     );
 
     control.start();
-    ASSERT_EVENTUALLY_EQ(streamer_factory->streamer_opens, 3);
+    ASSERT_EVENTUALLY_EQ(
+        streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        3
+    );
     ASSERT_EVENTUALLY_EQ(sink->writes->size(), 2);
     control.stop();
 }

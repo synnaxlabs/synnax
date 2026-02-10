@@ -71,19 +71,19 @@ class RoleViewerPermissions(ConsoleCase):
         palette_input = self.page.locator(
             ".console-palette__input input[role='textbox']"
         )
-        palette_input.fill(">Create a Workspace", timeout=2000)
+        palette_input.fill(">Create a workspace", timeout=2000)
         sy.sleep(0.3)
 
-        workspace_cmd = self.page.get_by_text("Create a Workspace", exact=True)
+        workspace_cmd = self.page.get_by_text("Create a workspace", exact=True)
         workspace_cmd_exists = workspace_cmd.count() > 0
 
         self.console.layout.press_escape()
         sy.sleep(0.2)
 
         if workspace_cmd_exists:
-            self.log("WARNING: Create Workspace command exists for viewer")
+            self.log("WARNING: Create workspace command exists for viewer")
         else:
-            self.log("PASS: Create Workspace command not available for viewer")
+            self.log("PASS: Create workspace command not available for viewer")
 
         # Test 3: Try to create a line plot
         self.log("Testing: Viewer should not be able to create line plot...")
@@ -93,19 +93,19 @@ class RoleViewerPermissions(ConsoleCase):
         palette_input = self.page.locator(
             ".console-palette__input input[role='textbox']"
         )
-        palette_input.fill(">Create a Line Plot", timeout=2000)
+        palette_input.fill(">Create a line plot", timeout=2000)
         sy.sleep(0.3)
 
-        lineplot_cmd = self.page.get_by_text("Create a Line Plot", exact=True)
+        lineplot_cmd = self.page.get_by_text("Create a line plot", exact=True)
         lineplot_cmd_exists = lineplot_cmd.count() > 0
 
         self.console.layout.press_escape()
         sy.sleep(0.2)
 
         if lineplot_cmd_exists:
-            self.log("WARNING: Create Line Plot command exists for viewer")
+            self.log("WARNING: Create line plot command exists for viewer")
         else:
-            self.log("PASS: Create Line Plot command not available for viewer")
+            self.log("PASS: Create line plot command not available for viewer")
 
         # Test 4: Try to create a channel
         self.log("Testing: Viewer should not be able to create channel...")
@@ -115,17 +115,17 @@ class RoleViewerPermissions(ConsoleCase):
         palette_input = self.page.locator(
             ".console-palette__input input[role='textbox']"
         )
-        palette_input.fill(">Create a Channel", timeout=2000)
+        palette_input.fill(">Create a channel", timeout=2000)
         sy.sleep(0.3)
 
-        channel_cmd = self.page.get_by_text("Create a Channel", exact=True)
+        channel_cmd = self.page.get_by_text("Create a channel", exact=True)
         channel_cmd_exists = channel_cmd.count() > 0
 
         self.console.layout.press_escape()
 
         if channel_cmd_exists:
-            self.log("WARNING: Create Channel command exists for viewer")
+            self.log("WARNING: Create channel command exists for viewer")
         else:
-            self.log("PASS: Create Channel command not available for viewer")
+            self.log("PASS: Create channel command not available for viewer")
 
         self.log("Viewer permissions test completed")

@@ -61,19 +61,21 @@ func provisionRole(
 ) (uuid.UUID, error) {
 	policyKeys := make([]uuid.UUID, 0, len(policies))
 
-	// Create or retrieve all policies
+	// Create or update all policies
 	for i := range policies {
 		pol := &policies[i]
+		desiredEffect := pol.Effect
+		desiredConstraint := pol.Constraint
 		if err := service.Policy.NewRetrieve().
 			WhereNames(pol.Name).
 			Entry(pol).
 			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 			return uuid.Nil, err
 		}
-		if pol.Key == uuid.Nil {
-			if err := service.Policy.NewWriter(tx).Create(ctx, pol); err != nil {
-				return uuid.Nil, err
-			}
+		pol.Effect = desiredEffect
+		pol.Constraint = desiredConstraint
+		if err := service.Policy.NewWriter(tx).Create(ctx, pol); err != nil {
+			return uuid.Nil, err
 		}
 		policyKeys = append(policyKeys, pol.Key)
 	}

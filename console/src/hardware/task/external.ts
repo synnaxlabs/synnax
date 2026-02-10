@@ -44,13 +44,13 @@ export const EXTRACTORS: Export.Extractors = {
   ...Sequence.EXTRACTORS,
 };
 
-export const FILE_INGESTORS: Import.FileIngestors = {
-  ...EtherCAT.Task.FILE_INGESTORS,
-  ...LabJack.Task.FILE_INGESTORS,
-  ...Modbus.Task.FILE_INGESTORS,
-  ...NI.Task.FILE_INGESTORS,
-  ...OPC.Task.FILE_INGESTORS,
-  ...Sequence.FILE_INGESTORS,
+export const FILE_INGESTERS: Import.FileIngesters = {
+  ...EtherCAT.Task.FILE_INGESTERS,
+  ...LabJack.Task.FILE_INGESTERS,
+  ...Modbus.Task.FILE_INGESTERS,
+  ...NI.Task.FILE_INGESTERS,
+  ...OPC.Task.FILE_INGESTERS,
+  ...Sequence.FILE_INGESTERS,
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
