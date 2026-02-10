@@ -59,11 +59,10 @@ func (p *Pool) Get(ctx context.Context, uri, apiKey string) (Client, error) {
 func (p *Pool) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-
-	a := errors.NewCatcher(errors.WithAggregation())
+	var err error
 	for _, client := range p.clients {
-		a.Exec(client.Close)
+		err = errors.Join(err, client.Close())
 	}
 	clear(p.clients)
-	return a.Error()
+	return err
 }
