@@ -138,8 +138,10 @@ public:
                         for (auto &[key, series]: writes)
                             out.frame.emplace(key, series->deep_copy());
                     }
-                    if (!this->outputs.push(std::move(out)))
+                    if (!this->outputs.push(std::move(out))) {
+                        if (this->outputs.closed()) break;
                         this->error_handler(errors::QUEUE_FULL_OUTPUT);
+                    }
                 }
             }
         }

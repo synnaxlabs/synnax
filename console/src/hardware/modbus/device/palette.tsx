@@ -17,7 +17,7 @@ const useVisible = () => Access.useUpdateGranted(device.TYPE_ONTOLOGY_ID);
 
 export const ConnectModbusServerCommand = Palette.createSimpleCommand({
   key: "modbus-connect-server",
-  name: "Connect a Modbus Server",
+  name: "Connect a Modbus server",
   icon: <Icon.Logo.Modbus />,
   layout: CONNECT_LAYOUT,
   useVisible,

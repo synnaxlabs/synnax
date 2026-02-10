@@ -407,7 +407,7 @@ class WorkspaceClient:
             page_item.click(modifiers=["ControlOrMeta"])
 
         last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        self.ctx_menu.action(last_item, "Group Selection")
+        self.ctx_menu.action(last_item, "Group selection")
         self.layout.select_all_and_type(group_name)
         self.layout.press_enter()
         self.layout.close_left_toolbar()

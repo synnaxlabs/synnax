@@ -61,7 +61,7 @@ class AccessClient:
         palette_input.fill(">Log Out", timeout=2000)
         sy.sleep(0.2)
 
-        logout_option = self.layout.page.get_by_text("Log Out", exact=True).first
+        logout_option = self.layout.page.get_by_text("Log out", exact=True).first
         logout_option.click(timeout=2000)
         sy.sleep(0.5)
 
@@ -179,7 +179,7 @@ class AccessClient:
     def assign_role_to_user(self, *, username: str, role_name: str) -> bool:
         """Assign a role to a user via the context menu modal.
 
-        This uses the "Assign to role" context menu option on a user,
+        This uses the "Change role" context menu option on a user,
         which opens a modal with a role dropdown.
 
         :param username: The username of the user.
@@ -193,11 +193,11 @@ class AccessClient:
             raise ValueError(f"User '{username}' not found in users panel")
 
         self.ctx_menu.open_on(user_item)
-        assign_option = self.layout.page.get_by_text("Assign to role", exact=True).first
+        assign_option = self.layout.page.get_by_text("Change role", exact=True).first
         if assign_option.count() == 0:
             self.ctx_menu.close()
-            raise ValueError("'Assign to role' option not available for this user")
-        self.ctx_menu.click_option("Assign to role")
+            raise ValueError("'Change role' option not available for this user")
+        self.ctx_menu.click_option("Change role")
 
         if not self.layout.is_modal_open():
             raise RuntimeError("Assign role modal did not open")

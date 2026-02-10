@@ -120,7 +120,7 @@ class RoleEngineerPermissions(ConsoleCase):
         palette_input.fill(">Create a Channel", timeout=2000)
         sy.sleep(0.3)
 
-        channel_cmd = self.page.get_by_text("Create a Channel", exact=True)
+        channel_cmd = self.page.get_by_text("Create a channel", exact=True)
         channel_cmd_exists = channel_cmd.count() > 0
 
         self.console.layout.press_escape()
