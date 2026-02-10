@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	svcAccess "github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
@@ -78,17 +79,16 @@ var _ = Describe("Access", Ordered, func() {
 				WhereNames("Owner").
 				Entry(&ownerPolicy).
 				Exec(ctx, tx)).To(Succeed())
-			originalObjects := ownerPolicy.Objects
-			Expect(originalObjects).ToNot(BeEmpty())
-			originalActions := ownerPolicy.Actions
-			Expect(originalActions).ToNot(BeEmpty())
+			originalConstraint := ownerPolicy.Constraint
+			Expect(originalConstraint).ToNot(BeZero())
+			originalEffect := ownerPolicy.Effect
+			Expect(originalEffect).ToNot(BeZero())
 
 			// Remove an object from the policy to simulate a stale DB
 			Expect(gorp.NewUpdate[uuid.UUID, policy.Policy]().
 				WhereKeys(ownerPolicy.Key).
 				Change(func(_ gorp.Context, p policy.Policy) policy.Policy {
-					p.Objects = p.Objects[:1]
-					p.Actions = p.Actions[:1]
+					p.Constraint = constraint.Constraint{}
 					return p
 				}).Exec(ctx, tx)).To(Succeed())
 
@@ -100,8 +100,8 @@ var _ = Describe("Access", Ordered, func() {
 				WhereNames("Owner").
 				Entry(&updated).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(updated.Objects).To(Equal(originalObjects))
-			Expect(updated.Actions).To(Equal(originalActions))
+			Expect(updated.Constraint).To(Equal(originalConstraint))
+			Expect(updated.Effect).To(Equal(originalEffect))
 		})
 	})
 

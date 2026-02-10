@@ -35,7 +35,7 @@ var _ = Describe("Ontology", Ordered, func() {
 		It("Should correctly return the ontology.ID for the specified channel", func() {
 			ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, ch)).To(Succeed())
-			Expect(ch.OntologyID()).To(Equal(channel.OntologyID(ch.Key())))
+			Expect(ch.OntologyID()).To(Equal(ontology.ID{Type: channel.OntologyType, Key: ch.Key().String()}))
 		})
 	})
 	Describe("OpenNexter", func() {
