@@ -77,6 +77,26 @@ const beforeValidate = ({
   return true;
 };
 
+const beforeSave = async ({
+  get,
+  set,
+}: Flux.FormBeforeSaveParams<
+  Device.RetrieveQuery,
+  typeof Device.formSchema,
+  Device.FluxSubStore
+>) => {
+  const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
+    message: "Connected to Sift",
+    variant: "success",
+    details: {
+      rack: get<rack.Key>("rack").value,
+      device: get<device.Key>("key").value,
+    },
+  });
+  set("status", devStatus, { notifyOnChange: false, markTouched: false });
+  return true;
+};
+
 export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   const {
     form,
@@ -87,6 +107,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
     query: { key: layoutKey === CONNECT_LAYOUT_TYPE ? "" : layoutKey },
     initialValues: INITIAL_VALUES,
     beforeValidate,
+    beforeSave,
     afterSave: useCallback(() => onClose(), [onClose]),
   });
   return (
