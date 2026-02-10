@@ -31,11 +31,11 @@ experience improvements to Synnax.
 ### EtherCAT Driver
 
 Our new driver supports reading from and writing to slaves on an EtherCAT network. A
-deployed Synnax driver will now autoamtically discover EtherCAT devices on a network,
+deployed Synnax driver will now automatically discover EtherCAT devices on a network,
 and acts as a master for both real-time data acquisition and control.
 
-The [Read Task](/reference/driver/ethercat/read-task) can be used to acquire data from
-output, while the [Write Task](/reference/driver/ethercat/write-task) can be used to
+The [read task](/reference/driver/ethercat/read-task) can be used to acquire data from
+output, while the [write task](/reference/driver/ethercat/write-task) can be used to
 send commands to outputs.
 
 #### Real-Time Support
@@ -51,8 +51,8 @@ of EtherCAT devices.
 #### Non-Real-Time Support
 
 The Synnax Driver also supports EtherCAT on non real-time operating systems, such as
-MacOS and Windows. In these environments, Synnax will leverage the tools available on
-the host to acheive maximum performance, but deterministic cycle times are not
+macOS and Windows. In these environments, Synnax will leverage the tools available on
+the host to achieve maximum performance, but deterministic cycle times are not
 guaranteed.
 
 ### Arc Control Authority
@@ -105,17 +105,17 @@ coordination, see the
 
 - Fixed importing and exporting of Arc sequences.
 - Fixed an issue where Cores could not be removed from the login page.
-- Improved the display of Task statuses, allowing for more detailed information to be
+- Improved the display of task statuses, allowing for more detailed information to be
   displayed.
-- Added new menu items on the Core list in the login page, allowing for editing and
-  refreshing connections.
+- Added new context menu items on the Core list in the login page, allowing for editing
+  and refreshing connections.
 
 #### Core
 
-- Improved search indexing performance and reduced memory usage. Synnax cores now
+- Improved search indexing performance and reduced memory usage. Synnax Cores now
   consume less memory while idle.
 - Fixed an issue where Arc programs would take progressively longer to compile as more
-  channels were created in the core.
+  channels were created in the Core.
 
 #### TypeScript Client
 
