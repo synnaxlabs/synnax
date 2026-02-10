@@ -12,7 +12,6 @@ import { Access } from "@synnaxlabs/pluto";
 
 import { Editor } from "@/arc/editor";
 import { anyStateZ } from "@/arc/slice";
-import { TYPE } from "@/arc/types";
 import { type Import } from "@/import";
 
 export const ingest: Import.FileIngester = (
@@ -22,5 +21,5 @@ export const ingest: Import.FileIngester = (
   const state = anyStateZ.parse(data);
   if (!Access.updateGranted({ id: arc.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import Arc automations");
-  placeLayout(Editor.create({ ...state, key: layout?.key, ...layout, type: TYPE }));
+  placeLayout(Editor.create({ ...state, key: layout?.key, ...layout }));
 };
