@@ -91,6 +91,13 @@ class ThermalSimDAQ(SimDAQ):
         )
 
         client.write(sy.TimeStamp.now(), self.end_test_cmd.key, [0])
+
+        now = sy.TimeStamp.now()
+        client.write(now, {
+            self.daq_time.key: [now],
+            "temp_sensor": [self.AMBIENT_TEMP],
+            "heater_state": [0],
+        })
         self._log("Channels created successfully")
 
     def _run_loop(self) -> None:

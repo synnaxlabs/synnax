@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from playwright.sync_api import Locator
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
@@ -230,6 +231,32 @@ class ArcClient:
             return False
         pause_btn = controls.locator("button:has(.pluto-icon--pause)")
         return pause_btn.count() > 0 and pause_btn.is_visible()
+
+    def rename(self, *, old_name: str, new_name: str) -> None:
+        """Rename an Arc via context menu inline edit.
+
+        Right-clicks the item, selects "Rename" which triggers an inline text
+        edit on the list item. Types the new name and presses Enter. If the Arc
+        is currently running, a confirmation dialog will appear warning that the
+        Arc will be stopped and reconfigured.
+
+        Args:
+            old_name: The current name of the Arc.
+            new_name: The new name for the Arc.
+        """
+        self._show_arc_panel()
+        item = self.get_item(old_name)
+        self.ctx_menu.action(item, "Rename")
+        self.layout.select_all_and_type(new_name)
+        self.layout.press_enter()
+        # If running, a confirmation dialog appears warning about redeployment
+        confirm_modal = self.layout.page.locator(LayoutClient.MODAL_SELECTOR)
+        try:
+            confirm_modal.wait_for(state="visible", timeout=1000)
+        except PlaywrightTimeoutError:
+            return
+        confirm_modal.get_by_role("button", name="Rename", exact=True).click()
+        confirm_modal.wait_for(state="hidden", timeout=5000)
 
     def delete(self, name: str) -> None:
         """Delete an Arc via context menu.
