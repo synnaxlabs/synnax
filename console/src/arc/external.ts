@@ -23,11 +23,14 @@ export * from "@/arc/selectors";
 export * from "@/arc/slice";
 export * from "@/arc/Toolbar";
 
-export const EXTRACTORS: Export.Extractors = { [TYPE]: extract };
+export const EDITOR_LAYOUT_TYPE = TYPE;
+export type EditorLayoutType = typeof EDITOR_LAYOUT_TYPE;
+
+export const EXTRACTORS: Export.Extractors = { [EDITOR_LAYOUT_TYPE]: extract };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [EXPLORER_LAYOUT_TYPE]: Explorer,
-  [TYPE]: Editor.Editor,
+  [EDITOR_LAYOUT_TYPE]: Editor.Editor,
   [Editor.CREATE_ARC_LAYOUT_TYPE]: Editor.CreateModal,
 };
 
