@@ -115,10 +115,10 @@ class RoleViewerPermissions(ConsoleCase):
         palette_input = self.page.locator(
             ".console-palette__input input[role='textbox']"
         )
-        palette_input.fill(">Create a Channel", timeout=2000)
+        palette_input.fill(">Create a channel", timeout=2000)
         sy.sleep(0.3)
 
-        channel_cmd = self.page.get_by_text("Create a Channel", exact=True)
+        channel_cmd = self.page.get_by_text("Create a channel", exact=True)
         channel_cmd_exists = channel_cmd.count() > 0
 
         self.console.layout.press_escape()
