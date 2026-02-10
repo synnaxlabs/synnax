@@ -131,6 +131,15 @@ const Internal = ({
   onConfigure,
   status,
 }: Common.Task.FormProps<typeof typeZ, typeof configZ, typeof statusDetailsZ>) => {
+  const addStatus = Status.useAdder();
+  useEffect(() => {
+    addStatus({
+      variant: "warning",
+      message: "Lua control sequences are deprecated",
+      description:
+        "Lua based sequences will be removed in a future release. Use Arc automations instead.",
+    });
+  }, []);
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
   const globals = usePhantomGlobals({
