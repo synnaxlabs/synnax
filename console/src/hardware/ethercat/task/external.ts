@@ -27,7 +27,7 @@ export const EXTRACTORS: Export.Extractors = {
   [WRITE_TYPE]: Common.Task.extract,
 };
 
-export const FILE_INGESTORS: Import.FileIngestors = {
+export const FILE_INGESTERS: Import.FileIngesters = {
   [READ_TYPE]: ingestRead,
   [WRITE_TYPE]: ingestWrite,
 };

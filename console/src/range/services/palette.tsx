@@ -18,7 +18,7 @@ const useViewVisible = () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
 
 export const CreateCommand = Palette.createSimpleCommand({
   key: "define-range",
-  name: "Create a Range",
+  name: "Create a range",
   icon: <Ranger.CreateIcon />,
   layout: Range.CREATE_LAYOUT,
   useVisible: useUpdateVisible,
@@ -26,7 +26,7 @@ export const CreateCommand = Palette.createSimpleCommand({
 
 export const OpenExplorerCommand = Palette.createSimpleCommand({
   key: "open-explorer",
-  name: "Open Range Explorer",
+  name: "Open the Range Explorer",
   icon: <Icon.Explore />,
   layout: Range.EXPLORER_LAYOUT,
   useVisible: useViewVisible,

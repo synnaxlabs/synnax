@@ -10,11 +10,11 @@
 import { lineplot } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
-import { Import } from "@/import";
+import { type Import } from "@/import";
 import { create } from "@/lineplot/layout";
 import { anyStateZ } from "@/lineplot/slice";
 
-export const ingest: Import.FileIngestor = (
+export const ingest: Import.FileIngester = (
   data,
   { layout, placeLayout, store, client },
 ) => {
@@ -25,7 +25,3 @@ export const ingest: Import.FileIngestor = (
   // the imported data overwriting existing line plots in the cluster
   placeLayout(create({ ...state, key: layout?.key, ...layout }));
 };
-
-export const import_ = Import.createImporter(ingest, "line plot");
-
-export const useImport = (workspaceKey?: string) => Import.use(import_, workspaceKey);

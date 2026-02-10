@@ -81,7 +81,10 @@ TEST(TestCommonReadTask, testBasicOperation) {
     EXPECT_EQ(start_state.details.task, t.key);
     EXPECT_EQ(start_state.variant, x::status::variant::SUCCESS);
     EXPECT_EQ(start_state.message, "Task started successfully");
-    ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
+    ASSERT_EVENTUALLY_EQ(
+        mock_writer_factory->writer_opens.load(std::memory_order_acquire),
+        1
+    );
     read_task.stop("stop_cmd", true);
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto stop_state = ctx->statuses[1];
@@ -196,7 +199,10 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     EXPECT_EQ(start_state1.details.task, t.key);
     EXPECT_EQ(start_state1.variant, x::status::variant::SUCCESS);
 
-    ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
+    ASSERT_EVENTUALLY_EQ(
+        mock_writer_factory->writer_opens.load(std::memory_order_acquire),
+        1
+    );
 
     const std::string stop_cmd_key1 = "stop_cmd1";
     ASSERT_TRUE(read_task.stop(stop_cmd_key1, true));
@@ -217,7 +223,10 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     EXPECT_EQ(start_state2.details.task, t.key);
     EXPECT_EQ(start_state2.variant, x::status::variant::SUCCESS);
 
-    ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 2);
+    ASSERT_EVENTUALLY_EQ(
+        mock_writer_factory->writer_opens.load(std::memory_order_acquire),
+        2
+    );
 
     const std::string stop_cmd_key2 = "stop_cmd2";
     ASSERT_TRUE(read_task.stop(stop_cmd_key2, true));
@@ -264,7 +273,10 @@ TEST(TestCommonReadTask, testReadError) {
     EXPECT_EQ(start_state.variant, x::status::variant::SUCCESS);
     EXPECT_EQ(start_state.message, "Task started successfully");
 
-    ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_writer_factory->writer_opens.load(std::memory_order_acquire),
+        1
+    );
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto run_err = ctx->statuses[1];
     ASSERT_EQ(run_err.key, t.status_key());
@@ -329,7 +341,10 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     EXPECT_EQ(start_state2.variant, x::status::variant::SUCCESS);
     EXPECT_EQ(start_state2.message, "Task started successfully");
 
-    ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
+    ASSERT_EVENTUALLY_EQ(
+        mock_writer_factory->writer_opens.load(std::memory_order_acquire),
+        1
+    );
 
     // Stop the task
     const std::string stop_cmd_key = "stop_cmd";
@@ -382,7 +397,10 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     EXPECT_EQ(start_state.variant, x::status::variant::SUCCESS);
     EXPECT_EQ(start_state.message, "Task started successfully");
 
-    ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
+    ASSERT_EVENTUALLY_EQ(
+        mock_writer_factory->writer_opens.load(std::memory_order_acquire),
+        1
+    );
 
     // First stop attempt - should report error but return true
     const std::string stop_cmd_key1 = "stop_cmd1";
@@ -405,7 +423,10 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     EXPECT_EQ(start_state2.details.task, t.key);
     EXPECT_EQ(start_state2.variant, x::status::variant::SUCCESS);
 
-    ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 2);
+    ASSERT_EVENTUALLY_EQ(
+        mock_writer_factory->writer_opens.load(std::memory_order_acquire),
+        2
+    );
 
     // Second stop attempt - should succeed
     const std::string stop_cmd_key2 = "stop_cmd2";
