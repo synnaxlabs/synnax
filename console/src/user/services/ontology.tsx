@@ -95,7 +95,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <PMenu.Item itemKey="assignRole">
             <Icon.Role />
-            Assign to role
+            Change role
           </PMenu.Item>
           <PMenu.Divider />
         </>

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	svcAccess "github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
@@ -69,6 +70,38 @@ var _ = Describe("Access", Ordered, func() {
 			Expect(roles2.EngineerKey).To(Equal(roles.EngineerKey))
 			Expect(roles2.OperatorKey).To(Equal(roles.OperatorKey))
 			Expect(roles2.ViewerKey).To(Equal(roles.ViewerKey))
+		})
+		It("Should update existing policy objects on re-provision", func() {
+			// Retrieve the Owner policy and strip its objects
+			var ownerPolicy policy.Policy
+			Expect(svc.RBAC.Policy.NewRetrieve().
+				WhereNames("Owner").
+				Entry(&ownerPolicy).
+				Exec(ctx, tx)).To(Succeed())
+			originalObjects := ownerPolicy.Objects
+			Expect(originalObjects).ToNot(BeEmpty())
+			originalActions := ownerPolicy.Actions
+			Expect(originalActions).ToNot(BeEmpty())
+
+			// Remove an object from the policy to simulate a stale DB
+			Expect(gorp.NewUpdate[uuid.UUID, policy.Policy]().
+				WhereKeys(ownerPolicy.Key).
+				Change(func(_ gorp.Context, p policy.Policy) policy.Policy {
+					p.Objects = p.Objects[:1]
+					p.Actions = p.Actions[:1]
+					return p
+				}).Exec(ctx, tx)).To(Succeed())
+
+			// Re-provision should restore the full object list
+			Expect(access.Provision(ctx, tx, svc.RBAC)).ToNot(BeZero())
+
+			var updated policy.Policy
+			Expect(svc.RBAC.Policy.NewRetrieve().
+				WhereNames("Owner").
+				Entry(&updated).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(updated.Objects).To(Equal(originalObjects))
+			Expect(updated.Actions).To(Equal(originalActions))
 		})
 	})
 

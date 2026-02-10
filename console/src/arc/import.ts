@@ -7,21 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { arc } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
+import { Editor } from "@/arc/editor";
+import { anyStateZ } from "@/arc/slice";
 import { type Import } from "@/import";
-import { create, LAYOUT_TYPE } from "@/schematic/Schematic";
-import { anyStateZ } from "@/schematic/slice";
 
 export const ingest: Import.FileIngester = (
   data,
   { layout, placeLayout, store, client },
 ) => {
   const state = anyStateZ.parse(data);
-  if (!Access.updateGranted({ id: schematic.TYPE_ONTOLOGY_ID, store, client }))
-    throw new Error("You do not have permission to import schematics");
-  // create with an undefined key so we do not have to worry about the key that was from
-  // the imported data overwriting existing schematics in the cluster
-  placeLayout(create({ ...state, key: layout?.key, ...layout, type: LAYOUT_TYPE }));
+  if (!Access.updateGranted({ id: arc.TYPE_ONTOLOGY_ID, store, client }))
+    throw new Error("You do not have permission to import Arc automations");
+  placeLayout(Editor.create({ ...state, key: layout?.key, ...layout }));
 };

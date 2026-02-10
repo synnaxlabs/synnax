@@ -8,23 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
-import { logout } from "@/cluster/services/logout";
+import { useImport } from "@/import/import";
 import { Palette } from "@/palette";
 
-export const LogoutCommand: Palette.Command = ({ store, ...listProps }) => {
-  const handleSelect = useCallback(() => logout(store.dispatch), [store]);
+export const ImportCommand: Palette.Command = (listProps) => {
+  const handleSelect = useImport();
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Log out"
-      icon={<Icon.Logout />}
+      name="Import"
+      icon={<Icon.Import />}
       onSelect={handleSelect}
     />
   );
 };
-LogoutCommand.key = "logout";
-LogoutCommand.commandName = "Log out";
+ImportCommand.key = "import";
+ImportCommand.commandName = "Import component(s)";
+ImportCommand.sortOrder = -1;
 
-export const COMMANDS = [LogoutCommand];
+export const COMMANDS = [ImportCommand];

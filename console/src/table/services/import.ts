@@ -10,11 +10,11 @@
 import { table } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
-import { Import } from "@/import";
+import { type Import } from "@/import";
 import { stateZ } from "@/table/slice";
 import { create } from "@/table/Table";
 
-export const ingest: Import.FileIngestor = (
+export const ingest: Import.FileIngester = (
   data,
   { layout, placeLayout, store, client },
 ) => {
@@ -25,7 +25,3 @@ export const ingest: Import.FileIngestor = (
   // the imported data overwriting existing tables in the cluster
   placeLayout(create({ ...state, key: layout?.key, ...layout }));
 };
-
-export const import_ = Import.createImporter(ingest, "table");
-
-export const useImport = (workspaceKey?: string) => Import.use(import_, workspaceKey);
