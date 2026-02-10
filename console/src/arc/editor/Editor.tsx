@@ -18,7 +18,6 @@ import { Text } from "@/arc/editor/text";
 import { useSelectMode, useSelectVersion } from "@/arc/selectors";
 import { internalCreate, type State, ZERO_STATE } from "@/arc/slice";
 import { translateGraphToConsole } from "@/arc/types/translate";
-import { TYPE } from "@/arc/types/v0";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { type Layout } from "@/layout";
 import { Selector } from "@/selector";
@@ -31,7 +30,6 @@ export const useLoadRemote = createLoadRemote<arc.Arc>({
     internalCreate({
       version: "0.0.0",
       key: v.key,
-      type: TYPE,
       remoteCreated: true,
       graph: translateGraphToConsole(v.graph),
       text: v.text,

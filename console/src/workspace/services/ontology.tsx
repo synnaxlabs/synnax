@@ -25,7 +25,6 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
 import { Export } from "@/export";
-import { EXTRACTORS } from "@/extractors";
 import { Group } from "@/group";
 import { Import } from "@/import";
 import { Layout } from "@/layout";
@@ -199,7 +198,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const createSchematic = useCreateSchematic(props);
   const importComponent = Import.useImport();
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = useExport(EXTRACTORS);
+  const handleExport = useExport();
   const handleRename = useRename(props);
   const resources = getResource(ids);
   const first = resources[0];

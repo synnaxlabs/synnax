@@ -56,27 +56,9 @@ ImportWorkspaceCommand.commandName = "Import a Workspace";
 ImportWorkspaceCommand.sortOrder = -1;
 ImportWorkspaceCommand.useVisible = useUpdateVisible;
 
-export const ExportWorkspaceCommand: Palette.Command = ({
-  handleError,
-  client,
-  store,
-  confirm,
-  addStatus,
-  extractors,
-  ...listProps
-}) => {
-  const handleSelect = useCallback(
-    () =>
-      Workspace.export_(null, {
-        handleError,
-        client,
-        store,
-        confirm,
-        addStatus,
-        extractors,
-      }),
-    [handleError, client, store, confirm, addStatus, extractors],
-  );
+export const ExportWorkspaceCommand: Palette.Command = (listProps) => {
+  const handleExport = Workspace.useExport();
+  const handleSelect = useCallback(() => handleExport(null), [handleExport]);
   return (
     <Palette.CommandListItem
       {...listProps}
