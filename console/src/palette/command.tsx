@@ -32,7 +32,6 @@ import {
 import { useStore } from "react-redux";
 
 import { type Export } from "@/export";
-import { type Import } from "@/import";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { type UseListReturn } from "@/palette/list";
@@ -44,7 +43,6 @@ export interface CommandProps extends List.ItemProps<string> {
   rename: Modals.PromptRename;
   handleError: Status.ErrorHandler;
   addStatus: Status.Adder;
-  fileIngestors: Import.FileIngestors;
   extractors: Export.Extractors;
   store: RootStore;
   fluxStore: Pluto.FluxStore;
@@ -108,7 +106,6 @@ export const CommandListItem = Component.removeProps(BaseCommandListItem, [
   "rename",
   "handleError",
   "addStatus",
-  "fileIngestors",
   "extractors",
   "store",
   "fluxStore",
@@ -147,31 +144,28 @@ export const createSimpleCommand = ({
 
 interface ContextValue {
   commands: Command[];
-  fileIngestors: Import.FileIngestors;
   extractors: Export.Extractors;
 }
 
 const [CommandContext, useCommandContext] = context.create<ContextValue>({
-  defaultValue: { commands: [], fileIngestors: {}, extractors: {} },
+  defaultValue: { commands: [], extractors: {} },
   displayName: "Palette.CommandContext",
 });
 export { useCommandContext };
 
 export interface CommandProviderProps extends PropsWithChildren {
   commands: Command[];
-  fileIngestors: Import.FileIngestors;
   extractors: Export.Extractors;
 }
 
 export const CommandProvider = ({
   commands,
-  fileIngestors,
   extractors,
   children,
 }: CommandProviderProps) => {
   const ctxValue = useMemo(
-    () => ({ commands, fileIngestors, extractors }),
-    [commands, fileIngestors, extractors],
+    () => ({ commands, extractors }),
+    [commands, extractors],
   );
   return <CommandContext value={ctxValue}>{children}</CommandContext>;
 };
@@ -185,7 +179,7 @@ export const useCommandList = (): UseListReturn<Command> => {
   const store = useStore<RootState, RootAction>();
   const client = Synnax.use();
   const fluxStore = Flux.useStore<Pluto.FluxStore>();
-  const { commands, fileIngestors, extractors } = useCommandContext();
+  const { commands, extractors } = useCommandContext();
 
   const visibilities = commands.map((cmd) => cmd.useVisible?.() ?? true);
   const visibleCommands = useMemo(
@@ -206,7 +200,6 @@ export const useCommandList = (): UseListReturn<Command> => {
       rename,
       handleError,
       addStatus,
-      fileIngestors,
       extractors,
       store,
       fluxStore,
@@ -218,7 +211,6 @@ export const useCommandList = (): UseListReturn<Command> => {
       rename,
       handleError,
       addStatus,
-      fileIngestors,
       extractors,
       store,
       fluxStore,

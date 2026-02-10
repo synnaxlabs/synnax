@@ -7,5 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Editor } from "@/arc/editor";
+import { ingest } from "@/arc/import";
+import { type Import } from "@/import";
+
+export * from "@/arc/import";
 export * from "@/arc/services/ontology";
 export * from "@/arc/services/palette";
+
+export const FILE_INGESTERS: Import.FileIngesters = { [Editor.LAYOUT_TYPE]: ingest };

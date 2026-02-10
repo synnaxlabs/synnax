@@ -11,6 +11,7 @@ import { workspace } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { useFileIngesters } from "@/import/FileIngestersProvider";
 import { Palette } from "@/palette";
 import { Workspace } from "@/workspace";
 import { ImportIcon } from "@/workspace/services/Icon";
@@ -33,13 +34,13 @@ export const ImportWorkspaceCommand: Palette.Command = ({
   store,
   client,
   fluxStore,
-  fileIngestors,
   ...listProps
 }) => {
+  const fileIngesters = useFileIngesters();
   const handleSelect = useCallback(
     () =>
-      import_({ placeLayout, handleError, store, client, fluxStore, fileIngestors }),
-    [placeLayout, handleError, store, client, fluxStore, fileIngestors],
+      import_({ placeLayout, handleError, store, client, fluxStore, fileIngesters }),
+    [placeLayout, handleError, store, client, fluxStore, fileIngesters],
   );
   return (
     <Palette.CommandListItem

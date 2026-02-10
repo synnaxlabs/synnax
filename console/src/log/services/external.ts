@@ -17,4 +17,4 @@ export * from "@/log/services/link";
 export * from "@/log/services/ontology";
 export * from "@/log/services/palette";
 
-export const FILE_INGESTORS: Import.FileIngestors = { [Log.LAYOUT_TYPE]: ingest };
+export const FILE_INGESTERS: Import.FileIngesters = { [Log.LAYOUT_TYPE]: ingest };

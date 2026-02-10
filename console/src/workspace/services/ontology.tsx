@@ -27,6 +27,7 @@ import { Menu } from "@/components";
 import { Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
 import { Group } from "@/group";
+import { Import } from "@/import";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { LinePlotServices } from "@/lineplot/services";
@@ -195,13 +196,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const createLog = useCreateLog(props);
   const createTable = useCreateTable(props);
   const firstID = selection.ids[0];
-  const importPlot = LinePlotServices.useImport(firstID.key);
   const createSchematic = useCreateSchematic(props);
-  const importSchematic = SchematicServices.useImport(firstID.key);
+  const importComponent = Import.useImport();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport(EXTRACTORS);
-  const importLog = LogServices.useImport(firstID.key);
-  const importTable = TableServices.useImport(firstID.key);
   const handleRename = useRename(props);
   const resources = getResource(ids);
   const first = resources[0];
@@ -212,11 +210,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     createLog,
     createPlot,
     createTable,
-    importPlot,
-    importLog,
-    importTable,
     createSchematic,
-    importSchematic,
+    import: () => importComponent(firstID.key),
     export: () => handleExport(first.id.key),
     link: () => handleLink({ name: first.name, ontologyID: first.id }),
   };
@@ -251,21 +246,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
             Create schematic
           </PMenu.Item>
           <PMenu.Divider />
-          <PMenu.Item itemKey="importPlot">
-            <LinePlotServices.ImportIcon />
-            Import line plot(s)
-          </PMenu.Item>
-          <PMenu.Item itemKey="importLog">
-            <LogServices.ImportIcon />
-            Import log(s)
-          </PMenu.Item>
-          <PMenu.Item itemKey="importSchematic">
-            <SchematicServices.ImportIcon />
-            Import schematic(s)
-          </PMenu.Item>
-          <PMenu.Item itemKey="importTable">
-            <TableServices.ImportIcon />
-            Import table(s)
+          <PMenu.Item itemKey="import">
+            <Icon.Import />
+            Import component(s)
           </PMenu.Item>
           <PMenu.Divider />
           <Export.MenuItem />
