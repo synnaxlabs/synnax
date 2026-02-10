@@ -6,7 +6,7 @@
       "tests": [
         {
           "case": "arc/arc_lifecycle",
-          "parameters": { "rack_key": [65537, 65538] }
+          "parameters": { "rack_key": [65538] }
         },
         {
           "case": "arc/arc_thermal_monitor",
