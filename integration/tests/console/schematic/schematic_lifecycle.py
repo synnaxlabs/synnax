@@ -70,7 +70,9 @@ class SchematicLifecycle(ConsoleCase):
         self.console.ranges.favorite(self.shared_range_name)
         self.console.ranges.set_active(self.shared_range_name)
 
-        ctx_schematic = Schematic(self.console, f"Context Menu Test {self.suffix}")
+        ctx_schematic = self.console.workspace.create_schematic(
+            f"Context Menu Test {self.suffix}"
+        )
         self.ctx_schematic_name = ctx_schematic.page_name
         ctx_schematic.close()
 
@@ -112,7 +114,9 @@ class SchematicLifecycle(ConsoleCase):
         """Run all schematic lifecycle tests."""
         self.setup_channels()
 
-        schematic = Schematic(self.console, f"Schematic Test {self.suffix}")
+        schematic = self.console.workspace.create_schematic(
+            f"Schematic Test {self.suffix}"
+        )
         schematic.create_symbol(Button(label="Test Button", channel_name=self.cmd_name))
 
         self.test_view_writers_in_control(schematic)
@@ -220,7 +224,9 @@ class SchematicLifecycle(ConsoleCase):
         assert self.main_schematic_name is not None
         self.log("Testing open schematic from search palette")
 
-        schematic = Schematic.open_from_search(self.console, self.main_schematic_name)
+        schematic = self.console.workspace.open_from_search(
+            Schematic, self.main_schematic_name
+        )
 
         assert (
             schematic.is_pane_visible
@@ -269,7 +275,9 @@ class SchematicLifecycle(ConsoleCase):
         self.log("Creating schematics for multi-select operations")
         schematic_names: list[str] = []
         for i in range(3):
-            schematic = Schematic(self.console, f"Multi Test {i} {self.suffix}")
+            schematic = self.console.workspace.create_schematic(
+                f"Multi Test {i} {self.suffix}"
+            )
             schematic_names.append(schematic.page_name)
             schematic.close()
 
@@ -291,7 +299,7 @@ class SchematicLifecycle(ConsoleCase):
         assert self.shared_range_name is not None
         self.log("Testing snapshot schematic to active range")
         single_snapshot_name = f"Snapshot Single {self.suffix}"
-        schematic = Schematic(self.console, single_snapshot_name)
+        schematic = self.console.workspace.create_schematic(single_snapshot_name)
         schematic.close()
         self.console.workspace.snapshot_page_to_active_range(
             single_snapshot_name, self.shared_range_name
@@ -301,7 +309,9 @@ class SchematicLifecycle(ConsoleCase):
         self.log("Testing snapshot multiple schematics to active range")
         multi_names: list[str] = []
         for i in range(2):
-            schematic = Schematic(self.console, f"Snapshot Multi {i} {self.suffix}")
+            schematic = self.console.workspace.create_schematic(
+                f"Snapshot Multi {i} {self.suffix}"
+            )
             multi_names.append(schematic.page_name)
             schematic.close()
         self.console.workspace.snapshot_pages_to_active_range(
@@ -316,7 +326,7 @@ class SchematicLifecycle(ConsoleCase):
         """Test that renaming a snapshot synchronizes across UI elements."""
         assert self.shared_range_name is not None
         original_name = f"Snapshot Original {self.suffix}"
-        schematic = Schematic(self.console, original_name)
+        schematic = self.console.workspace.create_schematic(original_name)
         schematic.close()
         self.console.workspace.snapshot_page_to_active_range(
             original_name, self.shared_range_name
@@ -331,7 +341,7 @@ class SchematicLifecycle(ConsoleCase):
         snapshot_names = self.console.ranges.get_snapshot_names_in_overview()
         self.log(f"Snapshots found in overview: {snapshot_names}")
         assert self.console.ranges.snapshot_exists_in_overview(
-            snapshot_name, timeout=10000
+            snapshot_name
         ), f"Snapshot '{snapshot_name}' should exist in Range Details Overview. Found: {snapshot_names}"
 
         self.console.ranges.open_snapshot_from_overview(snapshot_name)
@@ -340,7 +350,7 @@ class SchematicLifecycle(ConsoleCase):
         new_name = f"Snapshot Renamed {self.suffix}"
         self.console.layout.rename_tab(old_name=snapshot_name, new_name=new_name)
 
-        self.console.ESCAPE
+        self.console.layout.press_escape()
         self.console.layout.wait_for_tab(new_name)
 
         self.console.layout.show_visualization_toolbar()
@@ -355,7 +365,7 @@ class SchematicLifecycle(ConsoleCase):
         assert self.console.ranges.snapshot_exists_in_overview(
             new_name
         ), f"Snapshot should be renamed to '{new_name}' in Range Details Overview"
-        self.console.close_page(new_name)
+        self.console.workspace.close_page(new_name)
         self.console.workspace.delete_page(original_name)
 
     def test_ctx_delete_operations(self) -> None:

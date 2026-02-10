@@ -27,14 +27,14 @@ class MosaicOperations(ConsoleCase):
 
         # Create a page with a specific name
         page_name = "Layout Test Plot"
-        console.create_page("Line Plot", page_name)
+        console.workspace.create_page("Line Plot", page_name)
 
         # Find the tab using LayoutClient
         tab = console.layout.get_tab(page_name)
         assert tab.is_visible(), f"Tab '{page_name}' should be visible"
 
         # Clean up
-        console.close_page(page_name)
+        console.workspace.close_page(page_name)
         self.log("test_find_tab: PASSED")
 
     def test_rename_tab(self) -> None:
@@ -44,7 +44,7 @@ class MosaicOperations(ConsoleCase):
 
         # Create a page
         original_name = "Original Tab Name"
-        console.create_page("Line Plot", original_name)
+        console.workspace.create_page("Line Plot", original_name)
 
         # Rename the tab
         new_name = "Renamed Tab"
@@ -55,7 +55,7 @@ class MosaicOperations(ConsoleCase):
         assert new_tab.is_visible(), f"Tab '{new_name}' should be visible after rename"
 
         # Clean up
-        console.close_page(new_name)
+        console.workspace.close_page(new_name)
         self.log("test_rename_tab: PASSED")
 
     def test_split_horizontal(self) -> None:
@@ -66,8 +66,8 @@ class MosaicOperations(ConsoleCase):
         # Create two pages
         left_name = "Left Plot"
         right_name = "Right Plot"
-        console.create_page("Line Plot", left_name)
-        console.create_page("Line Plot", right_name)
+        console.workspace.create_page("Line Plot", left_name)
+        console.workspace.create_page("Line Plot", right_name)
 
         # Split Left Plot horizontally
         console.layout.split_horizontal(left_name)
@@ -107,8 +107,8 @@ class MosaicOperations(ConsoleCase):
         ), f"Right pane ({right_box['x']}) should be to the right of left pane ({left_box['x']})"
 
         # Clean up
-        console.close_page(left_name)
-        console.close_page(right_name)
+        console.workspace.close_page(left_name)
+        console.workspace.close_page(right_name)
         self.log("test_split_horizontal: PASSED")
 
     def test_split_vertical(self) -> None:
@@ -119,8 +119,8 @@ class MosaicOperations(ConsoleCase):
         # Create two pages
         top_name = "Top Plot"
         bottom_name = "Bottom Plot"
-        console.create_page("Line Plot", top_name)
-        console.create_page("Line Plot", bottom_name)
+        console.workspace.create_page("Line Plot", top_name)
+        console.workspace.create_page("Line Plot", bottom_name)
 
         # Split Top Plot vertically
         console.layout.split_vertical(top_name)
@@ -160,6 +160,6 @@ class MosaicOperations(ConsoleCase):
         ), f"Bottom pane ({bottom_box['y']}) should be below top pane ({top_box['y']})"
 
         # Clean up
-        console.close_page(top_name)
-        console.close_page(bottom_name)
+        console.workspace.close_page(top_name)
+        console.workspace.close_page(bottom_name)
         self.log("test_split_vertical: PASSED")
