@@ -101,6 +101,8 @@ public:
         this->config = config;
         this->streamer_opens.fetch_add(1, std::memory_order_release);
         const auto opens = this->streamer_opens.load(std::memory_order_relaxed);
+        if (this->configs->empty())
+            return {nullptr, x::errors::Error("no streamer configs provided")};
         /// try to grab the next config
         size_t idx = opens - 1;
         if (opens > this->configs->size()) idx = this->configs->size() - 1;
