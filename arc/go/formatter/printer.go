@@ -990,14 +990,14 @@ func reorderAuthorityEntries(tokens []antlr.Token) []antlr.Token {
 			i += 2
 			var entries []authorityEntry
 			for i < len(tokens) && tokens[i].GetTokenType() != parser.ArcLexerRPAREN {
-				tokType := tokens[i].GetTokenType()
-				if tokType == parser.ArcLexerINTEGER_LITERAL {
+				switch tokens[i].GetTokenType() {
+				case parser.ArcLexerINTEGER_LITERAL:
 					entries = append(entries, authorityEntry{
 						tokens:    []antlr.Token{tokens[i]},
 						isDefault: true,
 					})
 					i++
-				} else if tokType == parser.ArcLexerIDENTIFIER {
+				case parser.ArcLexerIDENTIFIER:
 					entry := authorityEntry{tokens: []antlr.Token{tokens[i]}}
 					i++
 					if i < len(tokens) && tokens[i].GetTokenType() == parser.ArcLexerINTEGER_LITERAL {
@@ -1005,7 +1005,7 @@ func reorderAuthorityEntries(tokens []antlr.Token) []antlr.Token {
 						i++
 					}
 					entries = append(entries, entry)
-				} else {
+				default:
 					i++
 				}
 			}
