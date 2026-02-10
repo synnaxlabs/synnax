@@ -110,8 +110,7 @@ class ArcLifecycle(ArcConsoleCase):
         self._arc_started = False  # Rename stops the arc
 
         self.log("Verifying new name in toolbar")
-        new_item = self.console.arc.find_item(self.new_name)
-        assert new_item is not None, f"Renamed Arc '{self.new_name}' not found"
+        self.console.arc.wait_for_item(self.new_name)
 
         old_item = self.console.arc.find_item(self.arc_name)
         assert old_item is None, f"Old name '{self.arc_name}' still present"

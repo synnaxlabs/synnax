@@ -133,6 +133,22 @@ class ArcClient:
             return None
         return items.first
 
+    def wait_for_item(self, name: str) -> Locator:
+        """Wait for an Arc item to appear in the panel by name.
+
+        Args:
+            name: The name of the Arc to wait for.
+            timeout: Maximum time to wait in milliseconds.
+
+        Returns:
+            Locator for the Arc item.
+        """
+        self._show_arc_panel()
+        toolbar = self.layout.page.locator(self.TOOLBAR_CLASS)
+        item = toolbar.locator(self.LIST_ITEM_CLASS).filter(has_text=name).first
+        item.wait_for(state="visible", timeout=5000)
+        return item
+
     def get_item(self, name: str) -> Locator:
         """Get an Arc item locator from the panel.
 
