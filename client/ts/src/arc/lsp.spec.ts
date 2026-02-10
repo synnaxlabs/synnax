@@ -129,18 +129,11 @@ describe("Arc LSP", () => {
       }),
     });
 
-    // Diagnostics may or may not arrive in time
-    const diagnosticsPromise = receiveNotification(
+    const diagMsg = await receiveNotification(
       stream,
       "textDocument/publishDiagnostics",
-    ).then((msg) => {
-      expect(msg.jsonrpc).toBe("2.0");
-    });
-    const timeoutPromise = new Promise((resolve) =>
-      setTimeout(() => resolve(null), 500),
     );
-
-    await Promise.race([diagnosticsPromise, timeoutPromise]);
+    expect(diagMsg.jsonrpc).toBe("2.0");
 
     stream.closeSend();
     client.close();
