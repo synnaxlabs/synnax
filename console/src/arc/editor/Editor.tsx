@@ -17,6 +17,7 @@ import { Graph } from "@/arc/editor/graph";
 import { Text } from "@/arc/editor/text";
 import { useSelectMode, useSelectVersion } from "@/arc/selectors";
 import { internalCreate, type State, ZERO_STATE } from "@/arc/slice";
+import { TYPE } from "@/arc/types";
 import { translateGraphToConsole } from "@/arc/types/translate";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { type Layout } from "@/layout";
@@ -51,9 +52,6 @@ export const Editor: Layout.Renderer = (props) => {
 };
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 
-export const LAYOUT_TYPE = "arc_editor";
-export type LayoutType = typeof LAYOUT_TYPE;
-
 export const create =
   (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
@@ -65,7 +63,7 @@ export const create =
       location,
       name,
       icon: "Arc",
-      type: LAYOUT_TYPE,
+      type: TYPE,
       window: { navTop: true, showTitle: true },
       tab,
     };
@@ -93,5 +91,5 @@ export const Selectable: Selector.Selectable = ({
     <Selector.Item title="Arc Automation" icon={<Icon.Arc />} onClick={handleClick} />
   );
 };
-Selectable.type = LAYOUT_TYPE;
+Selectable.type = TYPE;
 Selectable.useVisible = () => Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);

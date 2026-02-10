@@ -31,6 +31,19 @@ export const ingestComponent = (
   fileIngesters: FileIngesters,
   ctx: FileIngesterContext,
 ): void => {
+  let type: string | undefined;
+  if (
+    typeof data === "object" &&
+    data != null &&
+    "type" in data &&
+    typeof data.type === "string"
+  )
+    type = data.type;
+  if (type != null) {
+    const ingest = fileIngesters[type];
+    ingest(data, ctx);
+    return;
+  }
   for (const ingest of Object.values(fileIngesters))
     try {
       ingest(data, ctx);

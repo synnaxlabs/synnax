@@ -27,7 +27,7 @@ export const EXTRACTORS: Export.Extractors = { [TYPE]: extract };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [EXPLORER_LAYOUT_TYPE]: Explorer,
-  [Editor.LAYOUT_TYPE]: Editor.Editor,
+  [TYPE]: Editor.Editor,
   [Editor.CREATE_ARC_LAYOUT_TYPE]: Editor.CreateModal,
 };
 
