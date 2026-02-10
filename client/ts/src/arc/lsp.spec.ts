@@ -248,7 +248,7 @@ describe("Arc LSP", () => {
     for (const req of requests) stream.send({ content: JSON.stringify(req) });
 
     for (const req of requests) {
-      const msg = await receiveResponse(stream, req.id as number);
+      const msg = await receiveResponse(stream, req.id);
       if ("error" in msg) throw new Error(`LSP error: ${msg.error.message}`);
       receivedMessages.push(msg);
     }
