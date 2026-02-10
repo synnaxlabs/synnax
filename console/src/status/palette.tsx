@@ -19,7 +19,7 @@ const useViewVisible = () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
 
 export const CreateCommand = Palette.createSimpleCommand({
   key: "create_status",
-  name: "Create a Status",
+  name: "Create a status",
   icon: <Status.CreateIcon />,
   layout: CREATE_LAYOUT,
   useVisible: useUpdateVisible,
@@ -27,7 +27,7 @@ export const CreateCommand = Palette.createSimpleCommand({
 
 export const OpenExplorerCommand = Palette.createSimpleCommand({
   key: "open_status_explorer",
-  name: "Open Status Explorer",
+  name: "Open the Status Explorer",
   icon: <Icon.Explore />,
   layout: EXPLORER_LAYOUT,
   useVisible: useViewVisible,

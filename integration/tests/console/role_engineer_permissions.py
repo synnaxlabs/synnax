@@ -71,10 +71,10 @@ class RoleEngineerPermissions(ConsoleCase):
         palette_input = self.page.locator(
             ".console-palette__input input[role='textbox']"
         )
-        palette_input.fill(">Create a Workspace", timeout=2000)
+        palette_input.fill(">Create a workspace", timeout=2000)
         sy.sleep(0.3)
 
-        workspace_cmd = self.page.get_by_text("Create a Workspace", exact=True)
+        workspace_cmd = self.page.get_by_text("Create a workspace", exact=True)
         workspace_cmd_exists = workspace_cmd.count() > 0
 
         self.console.layout.press_escape()
@@ -94,19 +94,19 @@ class RoleEngineerPermissions(ConsoleCase):
         palette_input = self.page.locator(
             ".console-palette__input input[role='textbox']"
         )
-        palette_input.fill(">Create a Schematic", timeout=2000)
+        palette_input.fill(">Create a schematic", timeout=2000)
         sy.sleep(0.3)
 
-        schematic_cmd = self.page.get_by_text("Create a Schematic", exact=True)
+        schematic_cmd = self.page.get_by_text("Create a schematic", exact=True)
         schematic_cmd_exists = schematic_cmd.count() > 0
 
         self.console.layout.press_escape()
         sy.sleep(0.2)
 
         if schematic_cmd_exists:
-            self.log("PASS: Create Schematic command available for engineer")
+            self.log("PASS: Create schematic command available for engineer")
         else:
-            self.log("FAIL: Create Schematic command not available for engineer")
+            self.log("FAIL: Create schematic command not available for engineer")
             assert False, "Engineer should be able to create schematic"
 
         # Test 4: Engineer SHOULD be able to create channel
@@ -117,16 +117,16 @@ class RoleEngineerPermissions(ConsoleCase):
         palette_input = self.page.locator(
             ".console-palette__input input[role='textbox']"
         )
-        palette_input.fill(">Create a Channel", timeout=2000)
+        palette_input.fill(">Create a channel", timeout=2000)
         sy.sleep(0.3)
 
-        channel_cmd = self.page.get_by_text("Create a Channel", exact=True)
+        channel_cmd = self.page.get_by_text("Create a channel", exact=True)
         channel_cmd_exists = channel_cmd.count() > 0
 
         self.console.layout.press_escape()
 
         if channel_cmd_exists:
-            self.log("PASS: Create Channel command available for engineer")
+            self.log("PASS: Create channel command available for engineer")
         else:
             self.log("FAIL: Create Channel command not available for engineer")
             assert False, "Engineer should be able to create channel"

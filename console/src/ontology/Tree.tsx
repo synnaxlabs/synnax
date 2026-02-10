@@ -358,6 +358,13 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [expand, contract, setLoading, handleError, setResource, nodesRef, setNodes],
   );
 
+  const placeLayout = Layout.usePlacer();
+  const removeLayout = Layout.useRemover();
+  const addStatus = Status.useAdder();
+  const store = useStore<RootState, RootAction>();
+
+  const moveChildren = Ontology.useMoveChildren({});
+
   const getBaseProps = useCallback(
     (client: Client): BaseProps => ({
       client,
@@ -368,15 +375,8 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       handleError,
       services,
     }),
-    [],
+    [store, placeLayout, removeLayout, addStatus, handleError, services],
   );
-
-  const placeLayout = Layout.usePlacer();
-  const removeLayout = Layout.useRemover();
-  const addStatus = Status.useAdder();
-  const store = useStore<RootState, RootAction>();
-
-  const moveChildren = Ontology.useMoveChildren({});
 
   const handleDrop = useCallback(
     (key: string, { source, items }: Haul.OnDropProps): Haul.Item[] => {
@@ -452,17 +452,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       if (client == null) throw new DisconnectedError();
       const { type } = ontology.idZ.parse(key);
       services[type].onSelect?.({
-        client,
-        store,
-        services,
-        placeLayout,
-        handleError,
-        removeLayout,
-        addStatus,
+        ...getBaseProps(client),
         selection: getResource([key]),
       });
     },
-    [client, store, services, placeLayout, handleError, removeLayout, addStatus],
+    [client, services, getBaseProps, getResource],
   );
 
   const handleContextMenu = useCallback(

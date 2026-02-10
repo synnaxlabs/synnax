@@ -9,9 +9,7 @@
 
 import { task } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
-import { importRead, importWrite } from "@/hardware/modbus/task/import";
 import { READ_LAYOUT } from "@/hardware/modbus/task/Read";
 import { WRITE_LAYOUT } from "@/hardware/modbus/task/Write";
 import { Palette } from "@/palette";
@@ -34,61 +32,4 @@ export const CreateWriteCommand = Palette.createSimpleCommand({
   useVisible,
 });
 
-export const ImportReadCommand: Palette.Command = ({
-  placeLayout,
-  handleError,
-  store,
-  client,
-  fluxStore,
-  ...listProps
-}) => {
-  const handleSelect = useCallback(
-    () => importRead({ placeLayout, handleError, store, client, fluxStore }),
-    [placeLayout, handleError, store, client, fluxStore],
-  );
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name="Import Modbus Read Task(s)"
-      icon={<Icon.Logo.Modbus />}
-      onSelect={handleSelect}
-    />
-  );
-};
-ImportReadCommand.key = "modbus-import-read-task";
-ImportReadCommand.commandName = "Import Modbus Read Task(s)";
-ImportReadCommand.sortOrder = -1;
-ImportReadCommand.useVisible = useVisible;
-
-export const ImportWriteCommand: Palette.Command = ({
-  placeLayout,
-  handleError,
-  store,
-  client,
-  fluxStore,
-  ...listProps
-}) => {
-  const handleSelect = useCallback(
-    () => importWrite({ placeLayout, handleError, store, client, fluxStore }),
-    [placeLayout, handleError, store, client, fluxStore],
-  );
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name="Import Modbus Write Task(s)"
-      icon={<Icon.Logo.Modbus />}
-      onSelect={handleSelect}
-    />
-  );
-};
-ImportWriteCommand.key = "modbus-import-write-task";
-ImportWriteCommand.commandName = "Import Modbus Write Task(s)";
-ImportWriteCommand.sortOrder = -1;
-ImportWriteCommand.useVisible = useVisible;
-
-export const COMMANDS = [
-  CreateReadCommand,
-  CreateWriteCommand,
-  ImportReadCommand,
-  ImportWriteCommand,
-];
+export const COMMANDS = [CreateReadCommand, CreateWriteCommand];

@@ -20,54 +20,28 @@ import {
   digitalReadConfigZ,
   digitalWriteConfigZ,
 } from "@/hardware/ni/task/types";
-import { Import } from "@/import";
 
-export const ingestAnalogRead = Common.Task.createIngestor(
+export const ingestAnalogRead = Common.Task.createIngester(
   analogReadConfigZ,
   ANALOG_READ_LAYOUT,
 );
 
-export const importAnalogRead = Import.createImporter(
-  ingestAnalogRead,
-  "NI Analog Read Task",
-);
-
-export const ingestAnalogWrite = Common.Task.createIngestor(
+export const ingestAnalogWrite = Common.Task.createIngester(
   analogWriteConfigZ,
   ANALOG_WRITE_LAYOUT,
 );
 
-export const importAnalogWrite = Import.createImporter(
-  ingestAnalogWrite,
-  "NI Analog Write Task",
-);
-
-export const ingestCounterRead = Common.Task.createIngestor(
+export const ingestCounterRead = Common.Task.createIngester(
   counterReadConfigZ,
   COUNTER_READ_LAYOUT,
 );
 
-export const importCounterRead = Import.createImporter(
-  ingestCounterRead,
-  "NI Counter Read Task",
-);
-
-export const ingestDigitalRead = Common.Task.createIngestor(
+export const ingestDigitalRead = Common.Task.createIngester(
   digitalReadConfigZ,
   DIGITAL_READ_LAYOUT,
 );
 
-export const importDigitalRead = Import.createImporter(
-  ingestDigitalRead,
-  "NI Digital Read Task",
-);
-
-export const ingestDigitalWrite = Common.Task.createIngestor(
+export const ingestDigitalWrite = Common.Task.createIngester(
   digitalWriteConfigZ,
   DIGITAL_WRITE_LAYOUT,
-);
-
-export const importDigitalWrite = Import.createImporter(
-  ingestDigitalWrite,
-  "NI Digital Write Task",
 );
