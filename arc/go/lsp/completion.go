@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"go.lsp.dev/protocol"
+	"go.uber.org/zap"
 )
 
 type completionCategory int
@@ -260,6 +261,15 @@ var completions = []completionInfo{
 		Category:     categoryStageKeyword,
 	},
 	{
+		Label:        parser.LiteralAUTHORITY,
+		Detail:       "authority declaration",
+		Doc:          "Sets control authority for output channels",
+		Insert:       "authority ${1:255}",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     categoryTopLevelKeyword,
+	},
+	{
 		Label:        parser.LiteralFUNC,
 		Detail:       "func declaration",
 		Doc:          "Declares a function",
@@ -349,6 +359,10 @@ func (s *Server) getCompletionItems(
 
 	if completionCtx == ContextComment {
 		return []protocol.CompletionItem{}
+	}
+
+	if completionCtx == ContextAuthorityEntry {
+		return s.getAuthorityEntryCompletions(ctx, doc, prefix, pos)
 	}
 
 	if completionCtx == ContextConfigParamName || completionCtx == ContextConfigParamValue {
@@ -456,6 +470,49 @@ func symbolCompletionItem(name string, t types.Type) protocol.CompletionItem {
 		Kind:   kind,
 		Detail: detail,
 	}
+}
+
+func (s *Server) getAuthorityEntryCompletions(
+	ctx context.Context,
+	doc *Document,
+	prefix string,
+	pos protocol.Position,
+) []protocol.CompletionItem {
+	existing := extractAuthorityExistingChannels(doc.displayContent(), pos)
+	existingSet := make(map[string]bool, len(existing))
+	for _, name := range existing {
+		existingSet[name] = true
+	}
+	var items []protocol.CompletionItem
+	appendChanCompletions := func(name string, t types.Type) {
+		if t.Kind != types.KindChan || existingSet[name] {
+			return
+		}
+		items = append(items, protocol.CompletionItem{
+			Label:  name,
+			Kind:   protocol.CompletionItemKindVariable,
+			Detail: t.String(),
+		})
+	}
+	if s.cfg.GlobalResolver != nil {
+		symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
+		if err != nil {
+			s.cfg.L.Error("failed to search global resolver for authority completions", zap.Error(err))
+		}
+		for _, sym := range symbols {
+			appendChanCompletions(sym.Name, sym.Type)
+		}
+	}
+	if doc.IR.Symbols != nil {
+		scopes, err := doc.IR.Symbols.Search(ctx, prefix)
+		if err != nil {
+			s.cfg.L.Error("failed to search scope for authority completions", zap.Error(err))
+		}
+		for _, scope := range scopes {
+			appendChanCompletions(scope.Name, scope.Type)
+		}
+	}
+	return items
 }
 
 func (s *Server) resolveFunctionType(

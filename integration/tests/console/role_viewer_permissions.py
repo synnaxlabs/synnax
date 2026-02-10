@@ -60,7 +60,7 @@ class RoleViewerPermissions(ConsoleCase):
         else:
             self.log("PASS: Users toolbar is hidden for viewer")
 
-        self.console.ESCAPE
+        self.console.layout.press_escape()
         sy.sleep(0.3)
 
         # Test 2: Try to create a workspace
@@ -77,7 +77,7 @@ class RoleViewerPermissions(ConsoleCase):
         workspace_cmd = self.page.get_by_text("Create a Workspace", exact=True)
         workspace_cmd_exists = workspace_cmd.count() > 0
 
-        self.console.ESCAPE
+        self.console.layout.press_escape()
         sy.sleep(0.2)
 
         if workspace_cmd_exists:
@@ -99,7 +99,7 @@ class RoleViewerPermissions(ConsoleCase):
         lineplot_cmd = self.page.get_by_text("Create a Line Plot", exact=True)
         lineplot_cmd_exists = lineplot_cmd.count() > 0
 
-        self.console.ESCAPE
+        self.console.layout.press_escape()
         sy.sleep(0.2)
 
         if lineplot_cmd_exists:
@@ -121,7 +121,7 @@ class RoleViewerPermissions(ConsoleCase):
         channel_cmd = self.page.get_by_text("Create a Channel", exact=True)
         channel_cmd_exists = channel_cmd.count() > 0
 
-        self.console.ESCAPE
+        self.console.layout.press_escape()
 
         if channel_cmd_exists:
             self.log("WARNING: Create Channel command exists for viewer")

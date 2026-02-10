@@ -27,7 +27,7 @@ namespace driver::modbus::device {
 const x::errors::Error CRITICAL_ERROR = errors::CRITICAL_HARDWARE_ERROR.sub("modbus");
 const x::errors::Error TEMPORARY_ERROR = errors::TEMPORARY_HARDWARE_ERROR.sub("modbus");
 
-/// @brief parses the xerrors compatible representation of the modbus error code.
+/// @brief parses the x::errors compatible representation of the modbus error code.
 inline x::errors::Error parse_error(const int code) {
     if (code != -1) return x::errors::NIL;
     const auto err = modbus_strerror(errno);

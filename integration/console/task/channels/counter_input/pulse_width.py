@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import Any, Literal, Optional
 
+from console.layout import LayoutClient
 from console.task.channels.counter import Counter
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 
 class PulseWidth(Counter):
@@ -30,7 +28,7 @@ class PulseWidth(Counter):
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         starting_edge: Optional[Literal["Rising", "Falling"]] = None,
@@ -40,39 +38,13 @@ class PulseWidth(Counter):
     ) -> None:
         """Initialize pulse width channel with configuration."""
         super().__init__(
-            console=console,
+            layout=layout,
             name=name,
             device=device,
             chan_type="Pulse Width",
             **kwargs,
         )
 
-        # Starting Edge
-        if starting_edge is not None:
-            console.click_btn("Starting Edge")
-            console.select_from_dropdown(starting_edge)
-            self.form_values["Starting Edge"] = starting_edge
-        else:
-            self.form_values["Starting Edge"] = console.get_dropdown_value(
-                "Starting Edge"
-            )
-
-        # Scaled Units
-        if units is not None:
-            console.click_btn("Scaled Units")
-            console.select_from_dropdown(units)
-            self.form_values["Scaled Units"] = units
-        else:
-            self.form_values["Scaled Units"] = console.get_dropdown_value(
-                "Scaled Units"
-            )
-
-        # Terminal
-        if terminal is not None:
-            console.click_btn("Input Terminal")
-            console.select_from_dropdown(terminal)
-            self.form_values["Input Terminal"] = terminal
-        else:
-            self.form_values["Input Terminal"] = console.get_dropdown_value(
-                "Input Terminal"
-            )
+        self._configure_dropdown("Starting Edge", starting_edge)
+        self._configure_dropdown("Scaled Units", units)
+        self._configure_dropdown("Input Terminal", terminal)
