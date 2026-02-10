@@ -114,27 +114,28 @@ def assert_distribution(
                 f"Difference: {diff}\n"
                 f"Gap between '{sorted_symbols[i].label}' and '{sorted_symbols[i + 1].label}'"
             )
-    else:
-        sorted_data = sorted(zip(symbols, positions), key=lambda x: box_top(x[1]))
-        sorted_symbols = [item[0] for item in sorted_data]
-        sorted_positions = [item[1] for item in sorted_data]
+        return
 
-        gaps = []
-        for i in range(len(sorted_positions) - 1):
-            current_bottom = box_bottom(sorted_positions[i])
-            next_top = box_top(sorted_positions[i + 1])
-            gaps.append(next_top - current_bottom)
+    sorted_data = sorted(zip(symbols, positions), key=lambda x: box_top(x[1]))
+    sorted_symbols = [item[0] for item in sorted_data]
+    sorted_positions = [item[1] for item in sorted_data]
 
-        first_gap = gaps[0]
-        for i, gap in enumerate(gaps):
-            diff = abs(gap - first_gap)
-            assert diff <= tolerance, (
-                f"Vertical gap {i} is not equal to first gap!\n"
-                f"Expected gap: {first_gap} (±{tolerance})\n"
-                f"Actual gap: {gap}\n"
-                f"Difference: {diff}\n"
-                f"Gap between '{sorted_symbols[i].label}' and '{sorted_symbols[i + 1].label}'"
-            )
+    gaps = []
+    for i in range(len(sorted_positions) - 1):
+        current_bottom = box_bottom(sorted_positions[i])
+        next_top = box_top(sorted_positions[i + 1])
+        gaps.append(next_top - current_bottom)
+
+    first_gap = gaps[0]
+    for i, gap in enumerate(gaps):
+        diff = abs(gap - first_gap)
+        assert diff <= tolerance, (
+            f"Vertical gap {i} is not equal to first gap!\n"
+            f"Expected gap: {first_gap} (±{tolerance})\n"
+            f"Actual gap: {gap}\n"
+            f"Difference: {diff}\n"
+            f"Gap between '{sorted_symbols[i].label}' and '{sorted_symbols[i + 1].label}'"
+        )
 
 
 def assert_rotation(
@@ -377,7 +378,7 @@ class Alignment(ConsoleCase):
         console = self.console
         client = self.client
 
-        schematic = Schematic(console, "set_output_schematic")
+        schematic = console.workspace.create_schematic("set_output_schematic")
 
         # Set up Symbols
         valve_threeway = schematic.create_symbol(

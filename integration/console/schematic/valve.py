@@ -11,7 +11,7 @@ from typing import Any
 
 import synnax as sy
 
-from .symbol import Symbol
+from console.schematic.symbol import Symbol
 
 
 class Valve(Symbol):
@@ -129,15 +129,10 @@ class Valve(Symbol):
 
         return props
 
-    def press(self, sleep: int = 100) -> None:
-        """Press button
-
-        Args:
-            sleep: Time in milliseconds to wait after pressing. Buffer for network delays and slow animations.
-        """
-
+    def press(self) -> None:
+        """Press button."""
         self._disable_edit_mode()
-        self.click(sleep=sleep)
+        self.click()
 
     def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
         """Click and hold the button for the specified duration."""
