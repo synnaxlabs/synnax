@@ -21,7 +21,7 @@ const useViewVisible = () => Access.useRetrieveGranted(workspace.TYPE_ONTOLOGY_I
 
 export const CreateCommand = Palette.createSimpleCommand({
   key: "workspace-create",
-  name: "Create a Workspace",
+  name: "Create a workspace",
   icon: <Icon.Workspace />,
   layout: Workspace.CREATE_LAYOUT,
   useVisible: useUpdateVisible,
@@ -44,14 +44,14 @@ export const ImportWorkspaceCommand: Palette.Command = ({
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Import a Workspace"
+      name="Import a workspace"
       icon={<ImportIcon />}
       onSelect={handleSelect}
     />
   );
 };
 ImportWorkspaceCommand.key = "workspace-import";
-ImportWorkspaceCommand.commandName = "Import a Workspace";
+ImportWorkspaceCommand.commandName = "Import a workspace";
 ImportWorkspaceCommand.sortOrder = -1;
 ImportWorkspaceCommand.useVisible = useUpdateVisible;
 
@@ -79,14 +79,14 @@ export const ExportWorkspaceCommand: Palette.Command = ({
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Export Current Workspace"
+      name="Export current workspace"
       icon={<Icon.Workspace />}
       onSelect={handleSelect}
     />
   );
 };
 ExportWorkspaceCommand.key = "workspace-export";
-ExportWorkspaceCommand.commandName = "Export Current Workspace";
+ExportWorkspaceCommand.commandName = "Export current workspace";
 ExportWorkspaceCommand.sortOrder = -1;
 ExportWorkspaceCommand.useVisible = useViewVisible;
 

@@ -26,14 +26,14 @@ export const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) =>
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create a Schematic"
+      name="Create a schematic"
       icon={<CreateIcon />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "create-schematic";
-CreateCommand.commandName = "Create a Schematic";
+CreateCommand.commandName = "Create a schematic";
 CreateCommand.useVisible = useVisible;
 
 export const ImportCommand: Palette.Command = ({

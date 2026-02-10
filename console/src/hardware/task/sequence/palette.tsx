@@ -34,14 +34,14 @@ export const CreateCommand: Palette.Command = ({
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create a Control Sequence"
+      name="Create a control sequence"
       icon={<Icon.Control />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "create-control-sequence";
-CreateCommand.commandName = "Create a Control Sequence";
+CreateCommand.commandName = "Create a control sequence";
 CreateCommand.useVisible = useVisible;
 
 export const ImportCommand: Palette.Command = ({
