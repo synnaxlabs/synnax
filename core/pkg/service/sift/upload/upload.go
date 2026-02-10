@@ -14,9 +14,9 @@ import (
 	"context"
 	"encoding/json"
 	"maps"
-	"strconv"
 	"sync"
 
+	"github.com/google/uuid"
 	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
 	ingestionconfigsv1 "github.com/sift-stack/sift/go/gen/sift/ingestion_configs/v1"
 	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
@@ -388,6 +388,7 @@ func Configure(
 	setStatus func(driver.Context, task.Task, xstatus.Variant, string, bool),
 ) (driver.Task, error) {
 	cfg, err := parseConfig(t.Config)
+	cfg.FlowName = uuid.New().String()
 	if err != nil {
 		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 		return nil, err
@@ -447,7 +448,6 @@ func Configure(
 	}
 
 	// Create ingestion config for each group
-	clientKeyBase := "synnax-" + strconv.FormatUint(uint64(t.Key), 10)
 	groupSlice := make([]*channelGroup, 0, len(groups))
 	groupNum := 0
 	for _, group := range groups {
@@ -469,16 +469,15 @@ func Configure(
 			continue
 		}
 
-		clientKey := clientKeyBase + "-" + strconv.Itoa(groupNum)
 		ingestionCfgRes, err := siftClient.CreateIngestionConfig(
 			ctx,
 			&ingestionconfigsv1.CreateIngestionConfigRequest{
-				ClientKey: clientKey,
 				AssetName: cfg.AssetName,
 				Flows:     []*ingestionconfigsv1.FlowConfig{{Name: cfg.FlowName, Channels: flowChannels}},
 			},
 		)
 		if err != nil {
+			err := errors.Wrap(err, "failed to create ingestion config")
 			setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 			return nil, err
 		}
@@ -497,17 +496,18 @@ func Configure(
 	// Create a single run shared across all groups
 	runRes, err := siftClient.CreateRun(ctx, &runsv2.CreateRunRequest{
 		Name:      cfg.RunName,
-		ClientKey: &clientKeyBase,
 		StartTime: timestamppb.New(cfg.TimeRange.Start.Time()),
 		StopTime:  timestamppb.New(cfg.TimeRange.End.Time()),
 	})
 	if err != nil {
+		err := errors.Wrap(err, "failed to create run")
 		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 		return nil, err
 	}
 
 	ingester, err := siftClient.OpenIngester(ctx)
 	if err != nil {
+		err := errors.Wrap(err, "failed to open ingester")
 		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
 		return nil, err
 	}
@@ -517,8 +517,9 @@ func Configure(
 		Bounds: cfg.TimeRange,
 	})
 	if err != nil {
+		err := errors.Wrap(err, "failed to create stream iterator")
+		err = errors.Combine(err, ingester.Close())
 		setStatus(ctx, t, xstatus.VariantError, err.Error(), false)
-		err := errors.Combine(err, ingester.Close())
 		return nil, err
 	}
 

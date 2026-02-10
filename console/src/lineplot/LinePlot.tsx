@@ -48,6 +48,7 @@ import {
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
+import { Sift } from "@/hardware/sift";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
@@ -137,6 +138,17 @@ const RangeAnnotationContextMenu = ({
   const handleViewDetails = () => {
     placeLayout({ ...Range.OVERVIEW_LAYOUT, name: range.name, key: range.key });
   };
+  const promptExportToSiftModal = Sift.useUploadModal();
+  const handleError = Status.useErrorHandler();
+  const handleOpenInSift = () => {
+    handleError(async () => {
+      await promptExportToSiftModal({
+        timeRange: range.timeRange,
+        channels: lines.map((line) => line.channels.y as number) ?? [],
+        name: range.name,
+      });
+    }, "Failed to open in Sift");
+  };
   return (
     <PMenu.Menu level="small">
       <PMenu.Item itemKey="download" onClick={handleDownloadAsCSV}>
@@ -150,6 +162,10 @@ const RangeAnnotationContextMenu = ({
       <PMenu.Item itemKey="metadata" onClick={handleViewDetails}>
         <Icon.Annotate />
         View details
+      </PMenu.Item>
+      <PMenu.Item itemKey="sift" onClick={handleOpenInSift}>
+        <Icon.Sift />
+        Open in Sift
       </PMenu.Item>
     </PMenu.Menu>
   );
@@ -372,7 +388,17 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     const { box: selection } = useSelectSelection(layoutKey);
     const placeLayout = Layout.usePlacer();
     const handleError = Status.useErrorHandler();
-
+    const promptExportToSiftModal = Sift.useUploadModal();
+    const handleOpenInSift = () => {
+      handleError(async () => {
+        const tr = await getTimeRange();
+        await promptExportToSiftModal({
+          timeRange: tr ?? new TimeRange(0, 0),
+          channels: lines.map((line) => line.channels.y as number) ?? [],
+          name,
+        });
+      }, "Failed to open in Sift");
+    };
     const getTimeRange = useCallback(async () => {
       const bounds = await linePlotRef.current?.getBounds();
       if (bounds == null) return null;
@@ -409,6 +435,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             if (client == null) return;
             downloadAsCSV({ timeRanges: [tr], lines, name });
             break;
+          case "sift":
+            handleOpenInSift();
+            break;
         }
       }, `Failed to perform ${CONTEXT_MENU_ERROR_MESSAGES[key]}`);
     };
@@ -433,6 +462,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             <PMenu.Divider />
             <PMenu.Item itemKey="download">
               <Icon.CSV /> Download region as CSV
+            </PMenu.Item>
+            <PMenu.Item itemKey="sift">
+              <Icon.Sift /> Upload to Sift
             </PMenu.Item>
             <PMenu.Divider />
           </>

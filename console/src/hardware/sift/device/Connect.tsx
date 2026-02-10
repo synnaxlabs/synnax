@@ -71,6 +71,7 @@ const beforeValidate = ({
   let uri = get<string>("properties.uri").value;
   if (uri.startsWith("https://")) uri = uri.slice(8);
   else if (uri.startsWith("http://")) uri = uri.slice(7);
+  if (!uri.includes(":")) uri = `${uri}:443`;
   set("location", uri);
   set("properties.uri", uri);
   return true;

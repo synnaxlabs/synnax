@@ -42,7 +42,6 @@ const formSchema = z.object({
   name: z.string(),
   deviceKey: z.string().min(1, "Please select a Sift device"),
   assetName: z.string().min(1, "Asset name is required"),
-  flowName: z.string().min(1, "Flow name is required"),
   runName: z.string().min(1, "Run name is required"),
   channels: channel.keyZ.array().min(1, "Please select at least one channel"),
   timeRange: z.object({
@@ -67,11 +66,10 @@ const UploadButton = ({ handleFinish, timeRange }: UploadButtonProps) => {
 
     const deviceKey = get<string>("deviceKey").value;
     const assetName = get<string>("assetName").value;
-    const flowName = get<string>("flowName").value;
     const runName = get<string>("runName").value;
     const channels = get<channel.Keys>("channels").value;
 
-    if (!deviceKey || !assetName || !flowName || !runName || channels.length === 0) {
+    if (!deviceKey || !assetName || !runName || channels.length === 0) {
       addStatus({
         variant: "error",
         message: "Please fill in all required fields",
@@ -86,7 +84,6 @@ const UploadButton = ({ handleFinish, timeRange }: UploadButtonProps) => {
       const taskConfig = {
         device_key: deviceKey,
         asset_name: assetName,
-        flow_name: flowName,
         run_name: runName,
         channels,
         time_range: {
@@ -147,7 +144,6 @@ export const [useUploadModal, UploadModal] = Modals.createBase<void, UploadModal
         name,
         deviceKey: "",
         assetName: "",
-        flowName: "telemetry",
         runName: name,
         channels,
         timeRange: tr.numeric,
@@ -178,9 +174,6 @@ export const [useUploadModal, UploadModal] = Modals.createBase<void, UploadModal
             <Flex.Box x gap="medium">
               <Form.Field<string> path="assetName" label="Asset Name" required grow>
                 {(p) => <Input.Text placeholder="Asset" {...p} />}
-              </Form.Field>
-              <Form.Field<string> path="flowName" label="Flow Name" required grow>
-                {(p) => <Input.Text placeholder="Flow" {...p} />}
               </Form.Field>
             </Flex.Box>
             <Form.Field<string> path="runName" label="Run Name" required>
