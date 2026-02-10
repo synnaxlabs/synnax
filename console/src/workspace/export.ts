@@ -16,6 +16,7 @@ import { exists, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "react-redux";
 
 import { type Export } from "@/export";
+import { useExtractors } from "@/export/ExtractorsProvider";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Runtime } from "@/runtime";
@@ -104,12 +105,13 @@ export const export_ = (
 
 export const LAYOUT_FILE_NAME = "LAYOUT.json";
 
-export const useExport = (extractors: Export.Extractors): ((key: string) => void) => {
+export const useExport = (): ((key: string | null) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const store = useStore<RootState, RootAction>();
   const confirm = Modals.useConfirm();
-  return (key: string) =>
+  const extractors = useExtractors();
+  return (key: string | null) =>
     export_(key, { client, store, confirm, handleError, extractors, addStatus });
 };

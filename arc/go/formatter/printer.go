@@ -31,6 +31,7 @@ const (
 	parenContextDefault parenContext = iota
 	parenContextInputList
 	parenContextMultiOutput
+	parenContextAuthority
 )
 
 type printer struct {
@@ -68,6 +69,7 @@ func newPrinter() *printer {
 
 func (p *printer) print(tokens []antlr.Token) string {
 	visibleTokens, comments := p.separateTokens(tokens)
+	visibleTokens = reorderAuthorityEntries(visibleTokens)
 	commentAttacher := newCommentAttacher(comments)
 
 	for i, tok := range visibleTokens {
@@ -148,7 +150,10 @@ func (p *printer) emitToken(tok antlr.Token, idx int, tokens []antlr.Token, ca *
 	hasLeadingComments := len(leadingComments) > 0
 
 	if p.prevLine > 0 && tokLine > p.prevLine && !p.atLineStart {
-		if tokType != parser.ArcLexerRBRACE || hasLeadingComments {
+		if p.inAuthorityParenContext() {
+			// Skip general newline handling inside authority blocks;
+			// entry formatting handles newlines independently.
+		} else if tokType != parser.ArcLexerRBRACE || hasLeadingComments {
 			p.writeNewline()
 			if !hasLeadingComments {
 				lineDiff := tokLine - p.prevLine
@@ -452,6 +457,19 @@ func (p *printer) handleOpenParen(idx int, tokens []antlr.Token) {
 		p.writeSpace()
 	}
 
+	// Authority paren blocks are always multiline
+	if ctx == parenContextAuthority {
+		depth := len(p.parenContextStack)
+		p.multilineParens[depth] = true
+		p.emitChar("(")
+		if !p.isEmptyParenList(idx, tokens) {
+			p.writeNewline()
+			p.indentLevel++
+		}
+		p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLPAREN)
+		return
+	}
+
 	// Check if this paren list should be multiline
 	if ctx == parenContextInputList || ctx == parenContextMultiOutput {
 		depth := len(p.parenContextStack)
@@ -499,6 +517,9 @@ func (p *printer) handleCloseParen(idx int, tokens []antlr.Token) {
 }
 
 func (p *printer) detectParenContext(idx int, tokens []antlr.Token) parenContext {
+	if idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerAUTHORITY {
+		return parenContextAuthority
+	}
 	if p.isInputListParen(idx, tokens) {
 		return parenContextInputList
 	}
@@ -569,6 +590,13 @@ func (p *printer) isMultiOutputParen(idx int, tokens []antlr.Token) bool {
 	}
 
 	return false
+}
+
+func (p *printer) inAuthorityParenContext() bool {
+	if len(p.parenContextStack) == 0 {
+		return false
+	}
+	return p.parenContextStack[len(p.parenContextStack)-1] == parenContextAuthority
 }
 
 func (p *printer) popParenContext() parenContext {
@@ -661,6 +689,15 @@ func (p *printer) handleDefault(tok antlr.Token, idx int, tokens []antlr.Token) 
 		if !p.atLineStart {
 			p.writeNewline()
 		}
+	}
+
+	// In authority paren context, break lines between entries.
+	// Each entry ends with an INTEGER_LITERAL, so when we see a new
+	// word token after one, it's the start of the next entry.
+	if p.inAuthorityParenContext() && !p.atLineStart &&
+		p.isWordToken(tokType) &&
+		p.lastTokenType == parser.ArcLexerINTEGER_LITERAL {
+		p.writeNewline()
 	}
 
 	if p.atLineStart {
@@ -926,4 +963,70 @@ func (p *printer) writeNewline() {
 	p.linePos = 0
 	p.atLineStart = true
 	p.needsSpace = false
+}
+
+type authorityEntry struct {
+	tokens    []antlr.Token
+	isDefault bool
+}
+
+// reorderAuthorityEntries moves default (bare integer) entries to the top of
+// grouped authority blocks, so the output always reads:
+//
+//	authority (
+//	    200
+//	    valve 100
+//	    vent 150
+//	)
+func reorderAuthorityEntries(tokens []antlr.Token) []antlr.Token {
+	result := make([]antlr.Token, 0, len(tokens))
+	i := 0
+	for i < len(tokens) {
+		tok := tokens[i]
+		if tok.GetTokenType() == parser.ArcLexerAUTHORITY &&
+			i+1 < len(tokens) &&
+			tokens[i+1].GetTokenType() == parser.ArcLexerLPAREN {
+			result = append(result, tokens[i], tokens[i+1])
+			i += 2
+			var entries []authorityEntry
+			for i < len(tokens) && tokens[i].GetTokenType() != parser.ArcLexerRPAREN {
+				switch tokens[i].GetTokenType() {
+				case parser.ArcLexerINTEGER_LITERAL:
+					entries = append(entries, authorityEntry{
+						tokens:    []antlr.Token{tokens[i]},
+						isDefault: true,
+					})
+					i++
+				case parser.ArcLexerIDENTIFIER:
+					entry := authorityEntry{tokens: []antlr.Token{tokens[i]}}
+					i++
+					if i < len(tokens) && tokens[i].GetTokenType() == parser.ArcLexerINTEGER_LITERAL {
+						entry.tokens = append(entry.tokens, tokens[i])
+						i++
+					}
+					entries = append(entries, entry)
+				default:
+					i++
+				}
+			}
+			for _, e := range entries {
+				if e.isDefault {
+					result = append(result, e.tokens...)
+				}
+			}
+			for _, e := range entries {
+				if !e.isDefault {
+					result = append(result, e.tokens...)
+				}
+			}
+			if i < len(tokens) {
+				result = append(result, tokens[i])
+				i++
+			}
+		} else {
+			result = append(result, tok)
+			i++
+		}
+	}
+	return result
 }

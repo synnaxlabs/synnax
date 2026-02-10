@@ -137,7 +137,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
           <PMenu.Divider />
           <PMenu.Item size="small" itemKey="retest">
             <Icon.Refresh />
-            Refresh Connection
+            Refresh connection
           </PMenu.Item>
           <PMenu.Divider />
           <PMenu.Item size="small" itemKey="remove">

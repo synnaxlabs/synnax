@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from playwright.sync_api import Locator
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
@@ -89,9 +90,32 @@ class ArcClient:
             editor.locator(".monaco-editor.focused").wait_for(
                 state="visible", timeout=5000
             )
+            self._paste_source(editor, source)
+
+    def _paste_source(self, editor: Locator, source: str, max_retries: int = 3) -> None:
+        """Paste source code into the Monaco editor with retry on failure.
+
+        Clipboard paste in headless browsers can intermittently fail, so we
+        verify the editor received content and retry if it didn't.
+        """
+        for attempt in range(max_retries):
             self.layout.press_key("ControlOrMeta+a")
             self.layout.page.evaluate(f"navigator.clipboard.writeText({repr(source)})")
+            self.layout.sleep(100)
             self.layout.press_key("ControlOrMeta+v")
+            self.layout.sleep(500)
+            line_count = editor.locator(".view-line").count()
+            if line_count > 1:
+                return
+            if attempt < max_retries - 1:
+                editor.click()
+                editor.locator(".monaco-editor.focused").wait_for(
+                    state="visible", timeout=5000
+                )
+
+        raise RuntimeError(
+            f"Failed to paste Arc source into editor after {max_retries} attempts"
+        )
 
     def find_item(self, name: str) -> Locator | None:
         """Find an Arc item in the panel by name.
@@ -108,6 +132,22 @@ class ArcClient:
         if items.count() == 0:
             return None
         return items.first
+
+    def wait_for_item(self, name: str) -> Locator:
+        """Wait for an Arc item to appear in the panel by name.
+
+        Args:
+            name: The name of the Arc to wait for.
+            timeout: Maximum time to wait in milliseconds.
+
+        Returns:
+            Locator for the Arc item.
+        """
+        self._show_arc_panel()
+        toolbar = self.layout.page.locator(self.TOOLBAR_CLASS)
+        item = toolbar.locator(self.LIST_ITEM_CLASS).filter(has_text=name).first
+        item.wait_for(state="visible", timeout=5000)
+        return item
 
     def get_item(self, name: str) -> Locator:
         """Get an Arc item locator from the panel.
@@ -207,6 +247,32 @@ class ArcClient:
             return False
         pause_btn = controls.locator("button:has(.pluto-icon--pause)")
         return pause_btn.count() > 0 and pause_btn.is_visible()
+
+    def rename(self, *, old_name: str, new_name: str) -> None:
+        """Rename an Arc via context menu inline edit.
+
+        Right-clicks the item, selects "Rename" which triggers an inline text
+        edit on the list item. Types the new name and presses Enter. If the Arc
+        is currently running, a confirmation dialog will appear warning that the
+        Arc will be stopped and reconfigured.
+
+        Args:
+            old_name: The current name of the Arc.
+            new_name: The new name for the Arc.
+        """
+        self._show_arc_panel()
+        item = self.get_item(old_name)
+        self.ctx_menu.action(item, "Rename")
+        self.layout.select_all_and_type(new_name)
+        self.layout.press_enter()
+        # If running, a confirmation dialog appears warning about redeployment
+        confirm_modal = self.layout.page.locator(LayoutClient.MODAL_SELECTOR)
+        try:
+            confirm_modal.wait_for(state="visible", timeout=1000)
+        except PlaywrightTimeoutError:
+            return
+        confirm_modal.get_by_role("button", name="Rename", exact=True).click()
+        confirm_modal.wait_for(state="hidden", timeout=5000)
 
     def delete(self, name: str) -> None:
         """Delete an Arc via context menu.
