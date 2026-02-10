@@ -15,59 +15,63 @@
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
 
-namespace arc::runtime::state {
+using namespace arc::runtime::state;
+
 /// @brief Test basic state creation and node retrieval
 TEST(StateTest, CreateStateAndGetNode) {
-    ir::Node ir_node;
+    arc::ir::Node ir_node;
     ir_node.key = "test";
     ir_node.type = "test";
 
-    ir::Function fn;
+    arc::ir::Function fn;
     fn.key = "test";
 
-    ir::IR ir;
+    arc::ir::IR ir;
     ir.nodes.push_back(ir_node);
     ir.functions.push_back(fn);
 
     Config cfg{.ir = ir, .channels = {}};
-    State s(cfg, errors::noop_handler);
+    State s(cfg, arc::runtime::errors::noop_handler);
 
     auto state = ASSERT_NIL_P(s.node("test"));
 }
 
 /// @brief Test basic input alignment with two connected nodes
 TEST(StateTest, RefreshInputs_BasicAlignment) {
-    ir::Param output_param;
+    arc::ir::Param output_param;
     output_param.name = "output";
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type = arc::types::Type(arc::types::Kind::F32);
 
-    ir::Param input_param;
+    arc::ir::Param input_param;
     input_param.name = "input";
-    input_param.type = types::Type(types::Kind::F32);
+    input_param.type = arc::types::Type(arc::types::Kind::F32);
 
-    ir::Node producer;
+    arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
     producer.outputs.params.push_back(output_param);
 
-    ir::Node consumer;
+    arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
     consumer.inputs.params.push_back(input_param);
 
-    ir::Edge edge(ir::Handle("producer", "output"), ir::Handle("consumer", "input"));
+    arc::ir::Edge edge(
+        arc::ir::Handle("producer", "output"),
+        arc::ir::Handle("consumer", "input")
+    );
 
-    ir::Function fn;
+    arc::ir::Function fn;
     fn.key = "test";
 
-    ir::IR ir;
+    arc::ir::IR ir;
     ir.nodes.push_back(producer);
     ir.nodes.push_back(consumer);
     ir.edges.push_back(edge);
     ir.functions.push_back(fn);
 
     Config cfg{.ir = ir, .channels = {}};
-    State s(cfg, errors::noop_handler);
+    State s(cfg, arc::runtime::errors::noop_handler);
 
     auto producer_node = ASSERT_NIL_P(s.node("producer"));
 
@@ -95,37 +99,40 @@ TEST(StateTest, RefreshInputs_BasicAlignment) {
 
 /// @brief Test that refresh_inputs returns false when upstream output is empty
 TEST(StateTest, RefreshInputs_NoTriggerOnEmpty) {
-    ir::Param output_param;
+    arc::ir::Param output_param;
     output_param.name = "output";
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type = arc::types::Type(arc::types::Kind::F32);
 
-    ir::Param input_param;
+    arc::ir::Param input_param;
     input_param.name = "input";
-    input_param.type = types::Type(types::Kind::F32);
+    input_param.type = arc::types::Type(arc::types::Kind::F32);
 
-    ir::Node producer;
+    arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
     producer.outputs.params.push_back(output_param);
 
-    ir::Node consumer;
+    arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
     consumer.inputs.params.push_back(input_param);
 
-    ir::Edge edge(ir::Handle("producer", "output"), ir::Handle("consumer", "input"));
+    arc::ir::Edge edge(
+        arc::ir::Handle("producer", "output"),
+        arc::ir::Handle("consumer", "input")
+    );
 
-    ir::Function fn;
+    arc::ir::Function fn;
     fn.key = "test";
 
-    ir::IR ir;
+    arc::ir::IR ir;
     ir.nodes.push_back(producer);
     ir.nodes.push_back(consumer);
     ir.edges.push_back(edge);
     ir.functions.push_back(fn);
 
     Config cfg{.ir = ir, .channels = {}};
-    State s(cfg, errors::noop_handler);
+    State s(cfg, arc::runtime::errors::noop_handler);
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
     ASSERT_FALSE(consumer_node.refresh_inputs());
@@ -133,37 +140,40 @@ TEST(StateTest, RefreshInputs_NoTriggerOnEmpty) {
 
 /// @brief Test that watermark tracking prevents reprocessing the same data
 TEST(StateTest, RefreshInputs_WatermarkTracking) {
-    ir::Param output_param;
+    arc::ir::Param output_param;
     output_param.name = "output";
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type = arc::types::Type(arc::types::Kind::F32);
 
-    ir::Param input_param;
+    arc::ir::Param input_param;
     input_param.name = "input";
-    input_param.type = types::Type(types::Kind::F32);
+    input_param.type = arc::types::Type(arc::types::Kind::F32);
 
-    ir::Node producer;
+    arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
     producer.outputs.params.push_back(output_param);
 
-    ir::Node consumer;
+    arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
     consumer.inputs.params.push_back(input_param);
 
-    ir::Edge edge(ir::Handle("producer", "output"), ir::Handle("consumer", "input"));
+    arc::ir::Edge edge(
+        arc::ir::Handle("producer", "output"),
+        arc::ir::Handle("consumer", "input")
+    );
 
-    ir::Function fn;
+    arc::ir::Function fn;
     fn.key = "test";
 
-    ir::IR ir;
+    arc::ir::IR ir;
     ir.nodes.push_back(producer);
     ir.nodes.push_back(consumer);
     ir.edges.push_back(edge);
     ir.functions.push_back(fn);
 
     Config cfg{.ir = ir, .channels = {}};
-    State s(cfg, errors::noop_handler);
+    State s(cfg, arc::runtime::errors::noop_handler);
 
     auto producer_node = ASSERT_NIL_P(s.node("producer"));
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
@@ -194,46 +204,52 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
 
 /// @brief Test node with multiple inputs only triggers when all have data
 TEST(StateTest, RefreshInputs_MultipleInputs) {
-    ir::Param output1_param;
+    arc::ir::Param output1_param;
     output1_param.name = "output";
-    output1_param.type = types::Type(types::Kind::F32);
+    output1_param.type = arc::types::Type(arc::types::Kind::F32);
 
-    ir::Param output2_param;
+    arc::ir::Param output2_param;
     output2_param.name = "output";
-    output2_param.type = types::Type(types::Kind::F32);
+    output2_param.type = arc::types::Type(arc::types::Kind::F32);
 
-    ir::Param input1_param;
+    arc::ir::Param input1_param;
     input1_param.name = "input1";
-    input1_param.type = types::Type(types::Kind::F32);
+    input1_param.type = arc::types::Type(arc::types::Kind::F32);
 
-    ir::Param input2_param;
+    arc::ir::Param input2_param;
     input2_param.name = "input2";
-    input2_param.type = types::Type(types::Kind::F32);
+    input2_param.type = arc::types::Type(arc::types::Kind::F32);
 
-    ir::Node producer1;
+    arc::ir::Node producer1;
     producer1.key = "producer1";
     producer1.type = "producer1";
     producer1.outputs.params.push_back(output1_param);
 
-    ir::Node producer2;
+    arc::ir::Node producer2;
     producer2.key = "producer2";
     producer2.type = "producer2";
     producer2.outputs.params.push_back(output2_param);
 
-    ir::Node consumer;
+    arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
     consumer.inputs.params.push_back(input1_param);
     consumer.inputs.params.push_back(input2_param);
 
-    ir::Edge edge1(ir::Handle("producer1", "output"), ir::Handle("consumer", "input1"));
+    arc::ir::Edge edge1(
+        arc::ir::Handle("producer1", "output"),
+        arc::ir::Handle("consumer", "input1")
+    );
 
-    ir::Edge edge2(ir::Handle("producer2", "output"), ir::Handle("consumer", "input2"));
+    arc::ir::Edge edge2(
+        arc::ir::Handle("producer2", "output"),
+        arc::ir::Handle("consumer", "input2")
+    );
 
-    ir::Function fn;
+    arc::ir::Function fn;
     fn.key = "test";
 
-    ir::IR ir;
+    arc::ir::IR ir;
     ir.nodes.push_back(producer1);
     ir.nodes.push_back(producer2);
     ir.nodes.push_back(consumer);
@@ -242,7 +258,7 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
     ir.functions.push_back(fn);
 
     Config cfg{.ir = ir, .channels = {}};
-    State s(cfg, errors::noop_handler);
+    State s(cfg, arc::runtime::errors::noop_handler);
 
     auto producer1_node = ASSERT_NIL_P(s.node("producer1"));
     auto producer2_node = ASSERT_NIL_P(s.node("producer2"));
@@ -279,25 +295,25 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
 
 /// @brief Test that unconnected optional input uses default value
 TEST(StateTest, OptionalInput_UseDefault) {
-    ir::Param input1_param;
+    arc::ir::Param input1_param;
     input1_param.name = "input1";
-    input1_param.type = types::Type(types::Kind::F32);
+    input1_param.type = arc::types::Type(arc::types::Kind::F32);
     input1_param.value = 42.0f;
 
-    ir::Node consumer;
+    arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
     consumer.inputs.params.push_back(input1_param);
 
-    ir::Function fn;
+    arc::ir::Function fn;
     fn.key = "test";
 
-    ir::IR ir;
+    arc::ir::IR ir;
     ir.nodes.push_back(consumer);
     ir.functions.push_back(fn);
 
     Config cfg{.ir = ir, .channels = {}};
-    State s(cfg, errors::noop_handler);
+    State s(cfg, arc::runtime::errors::noop_handler);
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
@@ -312,38 +328,41 @@ TEST(StateTest, OptionalInput_UseDefault) {
 
 /// @brief Test that connected input overrides default value
 TEST(StateTest, OptionalInput_OverrideDefault) {
-    ir::Param output_param;
+    arc::ir::Param output_param;
     output_param.name = "output";
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type = arc::types::Type(arc::types::Kind::F32);
 
-    ir::Param input_param;
+    arc::ir::Param input_param;
     input_param.name = "input";
-    input_param.type = types::Type(types::Kind::F32);
+    input_param.type = arc::types::Type(arc::types::Kind::F32);
     input_param.value = 42.0f;
 
-    ir::Node producer;
+    arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
     producer.outputs.params.push_back(output_param);
 
-    ir::Node consumer;
+    arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
     consumer.inputs.params.push_back(input_param);
 
-    ir::Edge edge(ir::Handle("producer", "output"), ir::Handle("consumer", "input"));
+    arc::ir::Edge edge(
+        arc::ir::Handle("producer", "output"),
+        arc::ir::Handle("consumer", "input")
+    );
 
-    ir::Function fn;
+    arc::ir::Function fn;
     fn.key = "test";
 
-    ir::IR ir;
+    arc::ir::IR ir;
     ir.nodes.push_back(producer);
     ir.nodes.push_back(consumer);
     ir.edges.push_back(edge);
     ir.functions.push_back(fn);
 
     Config cfg{.ir = ir, .channels = {}};
-    State s(cfg, errors::noop_handler);
+    State s(cfg, arc::runtime::errors::noop_handler);
 
     auto producer_node = ASSERT_NIL_P(s.node("producer"));
 
@@ -367,19 +386,19 @@ TEST(StateTest, OptionalInput_OverrideDefault) {
 
 /// @brief Helper to create a minimal State for channel read/write tests
 State create_minimal_state() {
-    ir::Node ir_node;
+    arc::ir::Node ir_node;
     ir_node.key = "test";
     ir_node.type = "test";
 
-    ir::Function fn;
+    arc::ir::Function fn;
     fn.key = "test";
 
-    ir::IR ir;
+    arc::ir::IR ir;
     ir.nodes.push_back(ir_node);
     ir.functions.push_back(fn);
 
     const Config cfg{.ir = ir, .channels = {}};
-    return State(cfg, errors::noop_handler);
+    return State(cfg, arc::runtime::errors::noop_handler);
 }
 
 TEST(StateTest, ClearReads_PreservesLatestSeries) {
@@ -557,37 +576,40 @@ TEST(StateTest, Reset_ClearsReadsAndWrites) {
 
 /// @brief Test that Node::reset clears watermark tracking
 TEST(StateTest, NodeReset_ClearsWatermarks) {
-    ir::Param output_param;
+    arc::ir::Param output_param;
     output_param.name = "output";
-    output_param.type = types::Type(types::Kind::F32);
+    output_param.type = arc::types::Type(arc::types::Kind::F32);
 
-    ir::Param input_param;
+    arc::ir::Param input_param;
     input_param.name = "input";
-    input_param.type = types::Type(types::Kind::F32);
+    input_param.type = arc::types::Type(arc::types::Kind::F32);
 
-    ir::Node producer;
+    arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
     producer.outputs.params.push_back(output_param);
 
-    ir::Node consumer;
+    arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
     consumer.inputs.params.push_back(input_param);
 
-    ir::Edge edge(ir::Handle("producer", "output"), ir::Handle("consumer", "input"));
+    arc::ir::Edge edge(
+        arc::ir::Handle("producer", "output"),
+        arc::ir::Handle("consumer", "input")
+    );
 
-    ir::Function fn;
+    arc::ir::Function fn;
     fn.key = "test";
 
-    ir::IR ir;
+    arc::ir::IR ir;
     ir.nodes.push_back(producer);
     ir.nodes.push_back(consumer);
     ir.edges.push_back(edge);
     ir.functions.push_back(fn);
 
     Config cfg{.ir = ir, .channels = {}};
-    State s(cfg, errors::noop_handler);
+    State s(cfg, arc::runtime::errors::noop_handler);
 
     auto producer_node = ASSERT_NIL_P(s.node("producer"));
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
@@ -664,4 +686,42 @@ TEST(StateTest, IsSeriesTruthy_Int64Series) {
     x::telem::Series non_zero_series(static_cast<int64_t>(-42));
     EXPECT_TRUE(Node::is_series_truthy(non_zero_series));
 }
+
+TEST(StateTest, SetAuthority_BufferAndFlush) {
+    State s = create_minimal_state();
+    s.set_authority(42, 200);
+    auto changes = s.flush_authority_changes();
+    ASSERT_EQ(changes.size(), 1);
+    ASSERT_TRUE(changes[0].channel_key.has_value());
+    EXPECT_EQ(*changes[0].channel_key, 42);
+    EXPECT_EQ(changes[0].authority, 200);
+    EXPECT_TRUE(s.flush_authority_changes().empty());
+}
+
+TEST(StateTest, SetAuthority_GlobalAuthority) {
+    State s = create_minimal_state();
+    s.set_authority(std::nullopt, 150);
+    auto changes = s.flush_authority_changes();
+    ASSERT_EQ(changes.size(), 1);
+    ASSERT_FALSE(changes[0].channel_key.has_value());
+    EXPECT_EQ(changes[0].authority, 150);
+    EXPECT_TRUE(s.flush_authority_changes().empty());
+}
+
+TEST(StateTest, SetAuthority_MultipleChanges) {
+    State s = create_minimal_state();
+    s.set_authority(1, 100);
+    s.set_authority(std::nullopt, 200);
+    s.set_authority(2, 50);
+    auto changes = s.flush_authority_changes();
+    ASSERT_EQ(changes.size(), 3);
+    ASSERT_TRUE(changes[0].channel_key.has_value());
+    EXPECT_EQ(*changes[0].channel_key, 1);
+    EXPECT_EQ(changes[0].authority, 100);
+    ASSERT_FALSE(changes[1].channel_key.has_value());
+    EXPECT_EQ(changes[1].authority, 200);
+    ASSERT_TRUE(changes[2].channel_key.has_value());
+    EXPECT_EQ(*changes[2].channel_key, 2);
+    EXPECT_EQ(changes[2].authority, 50);
+    EXPECT_TRUE(s.flush_authority_changes().empty());
 }
