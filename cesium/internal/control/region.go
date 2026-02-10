@@ -22,7 +22,7 @@ import (
 type region[R Resource] struct {
 	// resource is the resource being controlled by the region
 	// [not safe for unprotected concurrent access by external callers, but safe to
-	// call static properties like ChannelKey() concurrently]
+	// call static properties like Channel() concurrently]
 	resource R
 	// curr is the gate currently in control of the region.
 	// [not safe for unprotected concurrent access]

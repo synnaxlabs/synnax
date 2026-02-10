@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import Any, Literal, Optional
 
+from console.layout import LayoutClient
 from console.task.channels.counter import Counter
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 
 class Period(Counter):
@@ -31,7 +29,7 @@ class Period(Counter):
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         starting_edge: Optional[Literal["Rising", "Falling"]] = None,
@@ -49,47 +47,14 @@ class Period(Counter):
     ) -> None:
         """Initialize period channel with configuration."""
         super().__init__(
-            console=console,
+            layout=layout,
             name=name,
             device=device,
             chan_type="Period",
             **kwargs,
         )
 
-        # Starting Edge
-        if starting_edge is not None:
-            console.click_btn("Starting Edge")
-            console.select_from_dropdown(starting_edge)
-            self.form_values["Starting Edge"] = starting_edge
-        else:
-            self.form_values["Starting Edge"] = console.get_dropdown_value(
-                "Starting Edge"
-            )
-
-        # Units
-        if units is not None:
-            console.click_btn("Units")
-            console.select_from_dropdown(units)
-            self.form_values["Units"] = units
-        else:
-            self.form_values["Units"] = console.get_dropdown_value("Units")
-
-        # Terminal
-        if terminal is not None:
-            console.click_btn("Input Terminal")
-            console.select_from_dropdown(terminal)
-            self.form_values["Input Terminal"] = terminal
-        else:
-            self.form_values["Input Terminal"] = console.get_dropdown_value(
-                "Input Terminal"
-            )
-
-        # Measurement Method
-        if meas_method is not None:
-            console.click_btn("Measurement Method")
-            console.select_from_dropdown(meas_method)
-            self.form_values["Measurement Method"] = meas_method
-        else:
-            self.form_values["Measurement Method"] = console.get_dropdown_value(
-                "Measurement Method"
-            )
+        self._configure_dropdown("Starting Edge", starting_edge)
+        self._configure_dropdown("Units", units)
+        self._configure_dropdown("Input Terminal", terminal)
+        self._configure_dropdown("Measurement Method", meas_method)

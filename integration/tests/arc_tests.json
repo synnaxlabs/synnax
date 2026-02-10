@@ -21,6 +21,35 @@
           "parameters": { "rack_key": [65537, 65538] }
         }
       ]
+    },
+    {
+      "sequence_name": "arc_authority",
+      "tests": [
+        {
+          "case": "arc/arc_authority_static",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/arc_authority_dynamic",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/arc_authority_python_override",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/arc_authority_arc_vs_arc",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/arc_authority_schematic_override",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/arc_authority_emergency",
+          "parameters": { "rack_key": [65537, 65538] }
+        }
+      ]
     }
   ]
 }

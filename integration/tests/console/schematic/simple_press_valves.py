@@ -44,7 +44,7 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
         PRESSURE = "press_pt"
 
         self.log("Creating schematic symbols")
-        schematic = Schematic(self.console, "simple_press_valves")
+        schematic = self.console.workspace.create_schematic("simple_press_valves")
         schematic.move("left")
 
         end_test_cmd = schematic.create_symbol(
@@ -55,8 +55,8 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
         press_valve = schematic.create_symbol(
             Valve(
                 label="press_vlv",
-                state_channel="press_vlv",
-                command_channel="press_vlv",
+                state_channel="press_vlv_state",
+                command_channel="press_vlv_cmd",
             )
         )
         press_valve.move(delta_x=-200, delta_y=0)
@@ -64,60 +64,44 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
         vent_valve = schematic.create_symbol(
             Valve(
                 label="vent_vlv",
-                state_channel="vent_vlv",
-                command_channel="vent_vlv",
+                state_channel="vent_vlv_state",
+                command_channel="vent_vlv_cmd",
             )
         )
         schematic.connect_symbols(press_valve, "right", vent_valve, "left")
 
         self.log("Starting test")
+        schematic.set_authority(255)
+        schematic.fit_view()
+        schematic.acquire_control()
         target_Pressure = 20
 
         for _ in range(2):
             self.log(f"Target pressure: {target_Pressure}")
             press_valve.press()
-            self.assert_states(press_state=1, vent_state=0)
-            pressure_reached = False
-            while self.should_continue:
-                pressure_value = self.get_value(PRESSURE)
-                if pressure_value is not None and pressure_value > target_Pressure:
-                    pressure_reached = True
-                    break
-            if not pressure_reached:
-                self.fail("Exiting on timeout.")
-                return
+            self.wait_for_eq("press_vlv_state", 1)
+            self.wait_for_eq("vent_vlv_state", 0)
+            self.wait_for_ge(PRESSURE, target_Pressure)
 
             # Configure next cycle
             self.log("Closing press valve")
             press_valve.press()
-            self.assert_states(press_state=0, vent_state=0)
+            self.wait_for_eq("press_vlv_state", 0)
+            self.wait_for_eq("vent_vlv_state", 0)
             target_Pressure += 20
 
         # Safe the system
         self.log("Venting the system")
         vent_valve.press()
-        self.assert_states(press_state=0, vent_state=1)
-        while self.should_continue:
-            pressure_value = self.get_value(PRESSURE)
-            if pressure_value is not None and pressure_value < 5:
-                self.log("Closing vent valve")
-                vent_valve.press()
-                self.assert_states(press_state=0, vent_state=0)
-                end_test_cmd.press()
-                self.console.screenshot("console_press_control_passed")
-                return
-
-        self.console.screenshot("console_press_control_failed")
-        self.fail("Exited without venting")
-
-    def assert_states(self, press_state: int, vent_state: int) -> None:
-        """Wait for valve states to match expected values."""
-        while self.should_continue:
-            press_vlv_state = self.get_value("press_vlv_state")
-            vent_vlv_state = self.get_value("vent_vlv_state")
-            if press_vlv_state == press_state and vent_vlv_state == vent_state:
-                return
-        self.fail(
-            f"Valve state mismatch: press={press_vlv_state} (expected {press_state}), "
-            f"vent={vent_vlv_state} (expected {vent_state})"
-        )
+        self.wait_for_eq("press_vlv_state", 0)
+        self.wait_for_eq("vent_vlv_state", 1)
+        self.wait_for_le(PRESSURE, 5)
+        self.log("Closing vent valve")
+        vent_valve.press()
+        self.wait_for_eq("press_vlv_state", 0)
+        self.wait_for_eq("vent_vlv_state", 0)
+        end_test_cmd.press()
+        schematic.release_control()
+        schematic.enable_edit()
+        schematic.set_authority(1)
+        self.console.screenshot("console_press_control_passed")

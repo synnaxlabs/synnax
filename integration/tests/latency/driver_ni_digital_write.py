@@ -242,11 +242,13 @@ class DriverNIDigitalWrite(Latency):
         std = np.std(latencies_ms)
         min_lat = np.min(latencies_ms)
         max_lat = np.max(latencies_ms)
+        p1 = np.percentile(latencies_ms, 1)
         p50 = np.percentile(latencies_ms, 50)
         p90 = np.percentile(latencies_ms, 90)
         p95 = np.percentile(latencies_ms, 95)
         p99 = np.percentile(latencies_ms, 99)
         peak_to_peak = max_lat - min_lat
+        trimmed_peak_to_peak = p99 - p1
         jitter = np.abs(np.diff(latencies_ms))
         avg_jitter = np.mean(jitter)
 
@@ -256,11 +258,13 @@ class DriverNIDigitalWrite(Latency):
         self.log(f"Std: {std:.2f} ms")
         self.log(f"Min: {min_lat:.2f} ms")
         self.log(f"Max: {max_lat:.2f} ms")
+        self.log(f"P1: {p1:.2f} ms")
         self.log(f"P50: {p50:.2f} ms")
         self.log(f"P90: {p90:.2f} ms")
         self.log(f"P95: {p95:.2f} ms")
         self.log(f"P99: {p99:.2f} ms")
-        self.log(f"Peak-to-peak jitter: {peak_to_peak:.2f} ms")
+        self.log(f"Peak-to-peak: {peak_to_peak:.2f} ms")
+        self.log(f"Trimmed peak-to-peak (P1-P99): {trimmed_peak_to_peak:.2f} ms")
         self.log(f"Avg jitter: {avg_jitter:.2f} ms")
 
         return {
@@ -269,11 +273,13 @@ class DriverNIDigitalWrite(Latency):
             "std": std,
             "min": min_lat,
             "max": max_lat,
+            "p1": p1,
             "p50": p50,
             "p90": p90,
             "p95": p95,
             "p99": p99,
             "peak_to_peak": peak_to_peak,
+            "trimmed_peak_to_peak": trimmed_peak_to_peak,
             "jitter": jitter,
             "avg_jitter": avg_jitter,
         }
@@ -301,11 +307,11 @@ class DriverNIDigitalWrite(Latency):
         assert stats_loop["p99"] <= 15, "Loop p99 latency is greater than 15 ms"
 
         assert (
-            stats_driver["peak_to_peak"] < 40
-        ), "Driver peak-to-peak latency is greater than 40 ms"
+            stats_driver["trimmed_peak_to_peak"] < 10
+        ), "Driver trimmed peak-to-peak (P1-P99) latency is greater than 10 ms"
         assert (
-            stats_loop["peak_to_peak"] < 40
-        ), "Loop peak-to-peak latency is greater than 40 ms"
+            stats_loop["trimmed_peak_to_peak"] < 10
+        ), "Loop trimmed peak-to-peak (P1-P99) latency is greater than 10 ms"
 
         assert stats_driver["avg_jitter"] < 4, "Driver avg jitter is greater than 4 ms"
         assert stats_loop["avg_jitter"] < 4, "Loop avg jitter is greater than 4 ms"

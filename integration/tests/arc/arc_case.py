@@ -95,7 +95,7 @@ class ArcConsoleCase(SimDaqTestCase, ConsoleCase):
 
     def teardown(self) -> None:
         """Clean up Arc resources. Called even if test fails."""
-        if self._arc_started:
+        if self._arc_started and self.console.arc.is_running():
             self.log("Stopping Arc task")
             try:
                 self.console.arc.stop()
