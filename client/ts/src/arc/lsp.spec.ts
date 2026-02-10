@@ -16,12 +16,14 @@ type LSPReceiver = {
   receive: () => Promise<[{ content: string }, null] | [null, Error]>;
 };
 
+const MAX_DRAIN = 50;
+
 /** Drains messages from the stream until a JSON-RPC response with the expected id arrives. */
 const receiveResponse = async (
   stream: LSPReceiver,
   expectedId: number,
 ): Promise<jsonRPC.Response> => {
-  for (;;) {
+  for (let i = 0; i < MAX_DRAIN; i++) {
     const [res, err] = await stream.receive();
     if (err != null) throw err;
     if (res == null) throw new Error("Expected response");
@@ -29,6 +31,9 @@ const receiveResponse = async (
     if (!("method" in msg) && "id" in msg && msg.id === expectedId)
       return msg as jsonRPC.Response;
   }
+  throw new Error(
+    `receiveResponse: drained ${MAX_DRAIN} messages without seeing id=${expectedId}`,
+  );
 };
 
 /** Drains messages from the stream until a JSON-RPC notification with the expected method arrives. */
@@ -36,13 +41,16 @@ const receiveNotification = async (
   stream: LSPReceiver,
   expectedMethod: string,
 ): Promise<jsonRPC.Request> => {
-  for (;;) {
+  for (let i = 0; i < MAX_DRAIN; i++) {
     const [res, err] = await stream.receive();
     if (err != null) throw err;
     if (res == null) throw new Error("Expected message");
     const msg = JSON.parse(res.content);
     if ("method" in msg && msg.method === expectedMethod) return msg as jsonRPC.Request;
   }
+  throw new Error(
+    `receiveNotification: drained ${MAX_DRAIN} messages without seeing method=${expectedMethod}`,
+  );
 };
 
 describe("Arc LSP", () => {
