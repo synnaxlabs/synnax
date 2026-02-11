@@ -68,7 +68,7 @@ export const EXTRACTORS: Export.Extractors = {
   [DIGITAL_WRITE_TYPE]: Common.Task.extract,
 };
 
-export const FILE_INGESTORS: Import.FileIngestors = {
+export const FILE_INGESTERS: Import.FileIngesters = {
   [ANALOG_READ_TYPE]: ingestAnalogRead,
   [ANALOG_WRITE_TYPE]: ingestAnalogWrite,
   [COUNTER_READ_TYPE]: ingestCounterRead,

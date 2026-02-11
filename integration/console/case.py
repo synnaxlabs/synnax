@@ -84,17 +84,17 @@ class ConsoleCase(TestCase):
         password_input = self.page.locator(".pluto-field__password input").first
         password_input.fill(password)
 
-        login_button = self.page.get_by_role("button", name="Log In")
-        login_button.wait_for(state="attached", timeout=2000)
-        login_button.click()
+        self.page.get_by_role("button", name="Log In").click(timeout=2000)
 
-        self.page.wait_for_load_state("networkidle")
-
-        # Initialize Console interface & Workspace
         self.console = Console(self.page, self.client)
-        self.page.wait_for_selector("text=Get Started", timeout=5000)
+
+        # Initialized signal (Not "Get Started" page)
+        self.page.wait_for_selector(
+            ".console-palette button", state="visible", timeout=10000
+        )
+
+        # Default workspace for all tests
         self.console.workspace.ensure_selected("TestSpace")
-        self.log("Selected default workspace 'TestSpace'")
 
         # Prevent state pollution
         # Selecting workspace restores tabs

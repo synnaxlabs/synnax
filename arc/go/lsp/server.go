@@ -12,6 +12,7 @@ package lsp
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/debounce"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"go.lsp.dev/protocol"
@@ -358,7 +360,8 @@ func (s *Server) refreshSemanticTokens(ctx context.Context, uri protocol.Documen
 	if s.client == nil {
 		return
 	}
-	if err := s.client.SemanticTokensRefresh(ctx); err != nil {
+	if err := s.client.SemanticTokensRefresh(ctx); err != nil &&
+		!errors.Is(err, io.ErrClosedPipe) {
 		s.cfg.L.Warn(
 			"failed to refresh semantic tokens",
 			zap.Error(err),

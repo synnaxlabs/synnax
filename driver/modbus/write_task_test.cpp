@@ -123,7 +123,10 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
     );
 
     wt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
     ASSERT_EVENTUALLY_EQ(slave.get_coil(0), 1);
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(1), 12345);
     wt->stop("stop_cmd", true);
@@ -228,7 +231,10 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     );
 
     wt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(0), static_cast<uint16_t>(-1234));
     uint32_t uint32_val = (static_cast<uint32_t>(slave.get_holding_register(2)) << 16) |
                           slave.get_holding_register(1);
@@ -361,7 +367,10 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
     );
 
     wt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
     ASSERT_EVENTUALLY_EQ(slave.get_coil(0), 1);
     ASSERT_EVENTUALLY_EQ(slave.get_coil(1), 0);
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(0), 1000);
@@ -429,7 +438,10 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     ASSERT_EQ(slave.get_holding_register(1), 0);
 
     wt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
 
     ASSERT_EVENTUALLY_EQ(slave.get_coil(0), 1);
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(1), 42);
@@ -533,7 +545,10 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     );
 
     wt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
     // All three registers should be written correctly, including the last one
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(0), 50);
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(1), 100);

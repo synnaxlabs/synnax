@@ -304,7 +304,10 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
-    ASSERT_EVENTUALLY_GE(mock_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
 
     wt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
@@ -323,7 +326,10 @@ TEST_F(TestWriteTask, testWriteValuesArePersisted) {
     auto wt = create_task();
     wt->start("start_cmd");
     x::defer::defer stop_task([&wt]() { wt->stop("defer_stop", true); });
-    ASSERT_EVENTUALLY_GE(mock_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
 
     // Give the write task time to process the frame
     std::this_thread::sleep_for(std::chrono::milliseconds(500));

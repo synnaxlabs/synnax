@@ -257,8 +257,7 @@ var _ = Describe("Ranger", Ordered, func() {
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
 					}
 					Expect(w.Create(ctx, &p)).To(Succeed())
-					_, err := svc.RetrieveParentKey(ctx, p.Key, tx)
-					Expect(err).To(HaveOccurredAs(query.ErrNotFound))
+					Expect(svc.RetrieveParentKey(ctx, p.Key, tx)).Error().To(HaveOccurredAs(query.ErrNotFound))
 				})
 			})
 		})

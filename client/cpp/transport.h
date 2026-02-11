@@ -37,9 +37,9 @@ struct Transport {
     std::shared_ptr<channel::RetrieveClient> chan_retrieve;
     std::unique_ptr<ranger::RetrieveClient> range_retrieve;
     std::unique_ptr<ranger::CreateClient> range_create;
-    std::shared_ptr<kv::DeleteClient> range_kv_delete;
-    std::shared_ptr<kv::GetClient> range_kv_get;
-    std::shared_ptr<kv::SetClient> range_kv_set;
+    std::shared_ptr<ranger::kv::DeleteClient> range_kv_delete;
+    std::shared_ptr<ranger::kv::GetClient> range_kv_get;
+    std::shared_ptr<ranger::kv::SetClient> range_kv_set;
     std::unique_ptr<rack::CreateClient> rack_create_client;
     std::unique_ptr<rack::RetrieveClient> rack_retrieve;
     std::unique_ptr<rack::DeleteClient> rack_delete;

@@ -11,12 +11,7 @@ import { Common } from "@/hardware/common";
 import { READ_LAYOUT } from "@/hardware/modbus/task/Read";
 import { readConfigZ, writeConfigZ } from "@/hardware/modbus/task/types";
 import { WRITE_LAYOUT } from "@/hardware/modbus/task/Write";
-import { Import } from "@/import";
 
-export const ingestRead = Common.Task.createIngestor(readConfigZ, READ_LAYOUT);
+export const ingestRead = Common.Task.createIngester(readConfigZ, READ_LAYOUT);
 
-export const importRead = Import.createImporter(ingestRead, "Modbus Read Task");
-
-export const ingestWrite = Common.Task.createIngestor(writeConfigZ, WRITE_LAYOUT);
-
-export const importWrite = Import.createImporter(ingestWrite, "Modbus Write Task");
+export const ingestWrite = Common.Task.createIngester(writeConfigZ, WRITE_LAYOUT);

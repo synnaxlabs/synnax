@@ -91,7 +91,7 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transpo
 		SchematicRetrieveSymbol:      fhttp.UnaryServer[api.SchematicRetrieveSymbolRequest, api.SchematicRetrieveSymbolResponse](router, "/api/v1/schematic/symbol/retrieve"),
 		SchematicDeleteSymbol:        fhttp.UnaryServer[api.SchematicDeleteSymbolRequest, types.Nil](router, "/api/v1/schematic/symbol/delete"),
 		SchematicRenameSymbol:        fhttp.UnaryServer[api.SchematicRenameSymbolRequest, types.Nil](router, "/api/v1/schematic/symbol/rename"),
-		SchematicRetrieveSymbolGroup: fhttp.UnaryServer[api.SchematicRetrieveSymbolGroupRequest, api.SchematicRetrieveSymbolGroupResponse](router, "/api/v1/schematic/symbol/retrieve_group"),
+		SchematicRetrieveSymbolGroup: fhttp.UnaryServer[api.SchematicRetrieveSymbolGroupRequest, api.SchematicRetrieveSymbolGroupResponse](router, "/api/v1/schematic/symbol/retrieve-group"),
 
 		// LINE PLOT
 		LinePlotCreate:   fhttp.UnaryServer[api.LinePlotCreateRequest, api.LinePlotCreateResponse](router, "/api/v1/lineplot/create"),
