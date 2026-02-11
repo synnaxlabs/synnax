@@ -56,12 +56,12 @@ func AddFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSlice(
 		FlagEnableIntegrations,
 		nil,
-		"Device integrations to enable (labjack, modbus, ni, opc, sequence)",
+		"Device integrations to enable (labjack, modbus, ni, opc)",
 	)
 	cmd.Flags().StringSlice(
 		FlagDisableIntegrations,
 		nil,
-		"Device integrations to disable (labjack, modbus, ni, opc, sequence)",
+		"Device integrations to disable (labjack, modbus, ni, opc)",
 	)
 	cmd.Flags().StringP(
 		FlagData,

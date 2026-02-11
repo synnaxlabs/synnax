@@ -15,7 +15,6 @@ import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
-import { Sequence } from "@/hardware/task/sequence";
 import { type Layout } from "@/layout";
 import { Selector as BaseSelector } from "@/selector";
 
@@ -37,7 +36,6 @@ export const SELECTABLES: BaseSelector.Selectable[] = [
   ...Modbus.Task.SELECTABLES,
   ...NI.Task.SELECTABLES,
   ...OPC.Task.SELECTABLES,
-  ...Sequence.SELECTABLES,
 ].map(withTaskVisibility);
 
 export const SELECTOR_LAYOUT_TYPE = "taskSelector";

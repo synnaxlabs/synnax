@@ -14,7 +14,6 @@ import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/hardware/task/Selector";
-import { Sequence } from "@/hardware/task/sequence";
 import { TOOLBAR_NAV_DRAWER_ITEM } from "@/hardware/task/Toolbar";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
@@ -32,7 +31,6 @@ export const COMMANDS: Palette.Command[] = [
   ...Modbus.Task.COMMANDS,
   ...NI.Task.COMMANDS,
   ...OPC.Task.COMMANDS,
-  ...Sequence.COMMANDS,
 ];
 
 export const EXTRACTORS: Export.Extractors = {
@@ -41,7 +39,6 @@ export const EXTRACTORS: Export.Extractors = {
   ...Modbus.Task.EXTRACTORS,
   ...NI.Task.EXTRACTORS,
   ...OPC.Task.EXTRACTORS,
-  ...Sequence.EXTRACTORS,
 };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
@@ -50,7 +47,6 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   ...Modbus.Task.FILE_INGESTERS,
   ...NI.Task.FILE_INGESTERS,
   ...OPC.Task.FILE_INGESTERS,
-  ...Sequence.FILE_INGESTERS,
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
@@ -60,7 +56,6 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...NI.Task.LAYOUTS,
   ...OPC.Task.LAYOUTS,
   [SELECTOR_LAYOUT_TYPE]: Selector,
-  ...Sequence.LAYOUTS,
 };
 
 export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [TOOLBAR_NAV_DRAWER_ITEM];

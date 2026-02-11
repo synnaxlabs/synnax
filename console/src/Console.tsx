@@ -30,7 +30,6 @@ import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Code } from "@/code";
 import { Arc as ArcCode } from "@/code/arc";
-import { Lua } from "@/code/lua";
 import { COMMANDS } from "@/commands";
 import { CSV } from "@/csv";
 import { Docs } from "@/docs";
@@ -147,8 +146,8 @@ const MainUnderContext = (): ReactElement => {
   const cluster = Cluster.useSelect();
   useBlockDefaultDropBehavior();
 
-  const monacoExtensions = useMemo(() => [...Lua.EXTENSIONS], []);
-  const monacoServices = useMemo(() => [...Lua.SERVICES, ...ArcCode.SERVICES], []);
+  const monacoExtensions = useMemo(() => [], []);
+  const monacoServices = useMemo(() => [...ArcCode.SERVICES], []);
 
   return (
     <Pluto.Provider

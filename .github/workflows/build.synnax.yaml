@@ -824,20 +824,6 @@ jobs:
       - name: Build TypeScript
         run: pnpm build:console-vite
 
-      - name: Pre-sign Embedded lua-language-server
-        if: startsWith(matrix.os, 'macos-build-bot') && inputs.sign_binaries
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
-        run: |
-          EMBEDDED_BIN_REPO="vendor/lua-language-server/bin/macOS/lua-language-server"
-          if [ ! -f "$EMBEDDED_BIN_REPO" ]; then
-            echo "Embedded binary not found at $EMBEDDED_BIN_REPO"
-            exit 1
-          fi
-          echo "Pre-signing embedded binary at $EMBEDDED_BIN_REPO..."
-          codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$EMBEDDED_BIN_REPO"
-          codesign --verify --verbose "$EMBEDDED_BIN_REPO"
-
       - name: Install trusted-signing-cli
         if: matrix.os == 'windows-latest' && inputs.sign_binaries
         run: cargo install trusted-signing-cli

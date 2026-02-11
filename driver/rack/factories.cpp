@@ -48,12 +48,6 @@ void configure_ni(const Config &config, FactoryList &factories) {
     });
 }
 
-void configure_sequences(const Config &config, FactoryList &factories) {
-    configure_integration(config, factories, sequence::INTEGRATION_NAME, []() {
-        return std::make_unique<sequence::Factory>();
-    });
-}
-
 void configure_labjack(const Config &config, FactoryList &factories) {
     configure_integration(config, factories, labjack::INTEGRATION_NAME, [&config]() {
         return labjack::Factory::create(config.timing);
@@ -88,7 +82,6 @@ std::unique_ptr<task::Factory> Config::new_factory() const {
     configure_state(factories);
     configure_opc(*this, factories);
     configure_ni(*this, factories);
-    configure_sequences(*this, factories);
     configure_labjack(*this, factories);
     configure_arc(*this, factories);
     configure_ethercat(*this, factories);
