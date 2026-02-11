@@ -3,32 +3,18 @@
   "sequences": [
     {
       "sequence_name": "workspace",
-      "tests": [
-        {
-          "case": "console/workspace/workspace"
-        }
-      ]
+      "tests": [{ "case": "console/workspace/workspace" }]
     },
     {
       "sequence_name": "lifecycle",
       "sequence_order": "asynchronous",
       "pool_size": 3,
       "tests": [
-        {
-          "case": "console/label/label_lifecycle"
-        },
-        {
-          "case": "console/rack/rack_lifecycle"
-        },
-        {
-          "case": "console/range/range_lifecycle"
-        },
-        {
-          "case": "console/schematic/schematic_lifecycle"
-        },
-        {
-          "case": "console/schematic/custom_symbols"
-        }
+        { "case": "console/label/label_lifecycle" },
+        { "case": "console/rack/rack_lifecycle" },
+        { "case": "console/range/range_lifecycle" },
+        { "case": "console/schematic/schematic_lifecycle" },
+        { "case": "console/schematic/custom_symbols" }
       ]
     },
     {
@@ -36,43 +22,23 @@
       "sequence_order": "asynchronous",
       "pool_size": 3,
       "tests": [
-        {
-          "case": "console/pages/open_close"
-        },
-        {
-          "case": "console/pages/rename_synchronization"
-        },
-        {
-          "case": "console/log/log_lifecycle"
-        },
-        {
-          "case": "console/plot/line_plot"
-        },
-        {
-          "case": "console/schematic/alignment"
-        },
-        {
-          "case": "console/schematic/edit_props"
-        }
+        { "case": "console/pages/open_close" },
+        { "case": "console/pages/rename_synchronization" },
+        { "case": "console/log/log_lifecycle" },
+        { "case": "console/plot/line_plot" },
+        { "case": "console/schematic/alignment" },
+        { "case": "console/schematic/edit_props" }
       ]
     },
     {
       "sequence_name": "channel",
       "tests": [
-        {
-          "case": "console/channel/channel_operations"
-        },
-        {
-          "case": "console/channel/rename_synchronization"
-        },
-        {
-          "case": "console/channel/alias_synchronization"
-        },
+        { "case": "console/channel/channel_operations" },
+        { "case": "console/channel/rename_synchronization" },
+        { "case": "console/channel/alias_synchronization" },
         {
           "case": "console/channel/calc_channel_stress",
-          "parameters": {
-            "rate": [10, 100, 1000]
-          }
+          "parameters": { "rate": [10, 100, 1000] }
         }
       ]
     },
@@ -81,21 +47,11 @@
       "sequence_order": "asynchronous",
       "pool_size": 3,
       "tests": [
-        {
-          "case": "console/user/register"
-        },
-        {
-          "case": "console/user/assign_role"
-        },
-        {
-          "case": "console/user/drag_to_role"
-        },
-        {
-          "case": "console/user/login_logout"
-        },
-        {
-          "case": "console/user/logout_badge"
-        }
+        { "case": "console/user/register" },
+        { "case": "console/user/assign_role" },
+        { "case": "console/user/drag_to_role" },
+        { "case": "console/user/login_logout" },
+        { "case": "console/user/logout_badge" }
       ]
     },
     {
@@ -103,15 +59,9 @@
       "sequence_order": "asynchronous",
       "pool_size": 3,
       "tests": [
-        {
-          "case": "console/user/role_engineer_permissions"
-        },
-        {
-          "case": "console/user/role_operator_permissions"
-        },
-        {
-          "case": "console/user/role_viewer_permissions"
-        }
+        { "case": "console/user/role_engineer_permissions" },
+        { "case": "console/user/role_operator_permissions" },
+        { "case": "console/user/role_viewer_permissions" }
       ]
     },
     {
@@ -119,15 +69,9 @@
       "sequence_order": "asynchronous",
       "pool_size": 3,
       "tests": [
-        {
-          "case": "console/task/ni_analog_write_forms"
-        },
-        {
-          "case": "console/task/ni_counter_read_forms"
-        },
-        {
-          "case": "console/task/ni_analog_read_forms"
-        }
+        { "case": "console/task/ni_analog_write_forms" },
+        { "case": "console/task/ni_counter_read_forms" },
+        { "case": "console/task/ni_analog_read_forms" }
       ]
     },
     {
@@ -135,15 +79,9 @@
       "sequence_order": "asynchronous",
       "pool_size": 3,
       "tests": [
-        {
-          "case": "console/layout/mosaic_operations"
-        },
-        {
-          "case": "console/layout/keyboard_shortcuts"
-        },
-        {
-          "case": "console/documentation"
-        }
+        { "case": "console/layout/mosaic_operations" },
+        { "case": "console/layout/keyboard_shortcuts" },
+        { "case": "console/documentation" }
       ]
     }
   ]
