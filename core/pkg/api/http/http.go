@@ -120,7 +120,7 @@ func NewTransport(router *fhttp.Router, ch *distchannel.Service) api.Transport {
 		SchematicRetrieveSymbol:      fhttp.UnaryServer[schematic.RetrieveSymbolRequest, schematic.RetrieveSymbolResponse](router, "/api/v1/schematic/symbol/retrieve"),
 		SchematicDeleteSymbol:        fhttp.UnaryServer[schematic.DeleteSymbolRequest, types.Nil](router, "/api/v1/schematic/symbol/delete"),
 		SchematicRenameSymbol:        fhttp.UnaryServer[schematic.RenameSymbolRequest, types.Nil](router, "/api/v1/schematic/symbol/rename"),
-		SchematicRetrieveSymbolGroup: fhttp.UnaryServer[schematic.RetrieveSymbolGroupRequest, schematic.RetrieveSymbolGroupResponse](router, "/api/v1/schematic/symbol/retrieve_group"),
+		SchematicRetrieveSymbolGroup: fhttp.UnaryServer[schematic.RetrieveSymbolGroupRequest, schematic.RetrieveSymbolGroupResponse](router, "/api/v1/schematic/symbol/retrieve-group"),
 
 		// LINE PLOT
 		LinePlotCreate:   fhttp.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse](router, "/api/v1/lineplot/create"),

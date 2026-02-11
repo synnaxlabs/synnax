@@ -24,7 +24,7 @@ import {
 } from "@/schematic/payload";
 import { symbol } from "@/schematic/symbol";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
+import { workspace } from "@/workspace";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
@@ -51,7 +51,7 @@ export type CopyArgs = z.input<typeof copyReqZ>;
 const retrieveResZ = z.object({ schematics: array.nullableZ(remoteZ) });
 
 const createReqZ = z.object({
-  workspace: workspaceKeyZ,
+  workspace: workspace.keyZ,
   schematics: newZ.array(),
 });
 const createResZ = z.object({ schematics: remoteZ.array() });
@@ -68,10 +68,10 @@ export class Client {
     this.symbols = new symbol.Client(client);
   }
 
-  async create(workspace: WorkspaceKey, schematic: New): Promise<Schematic>;
-  async create(workspace: WorkspaceKey, schematics: New[]): Promise<Schematic[]>;
+  async create(workspace: workspace.Key, schematic: New): Promise<Schematic>;
+  async create(workspace: workspace.Key, schematics: New[]): Promise<Schematic[]>;
   async create(
-    workspace: WorkspaceKey,
+    workspace: workspace.Key,
     schematics: New | New[],
   ): Promise<Schematic | Schematic[]> {
     const isMany = Array.isArray(schematics);

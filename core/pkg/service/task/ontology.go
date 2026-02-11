@@ -70,6 +70,9 @@ func (s *Service) Type() ontology.Type { return OntologyType }
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }
 
+// SearchableFields implements ontology.SearchableFieldsProvider.
+func (s *Service) SearchableFields() []string { return []string{"type"} }
+
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	k, err := strconv.Atoi(key)

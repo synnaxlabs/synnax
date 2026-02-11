@@ -19,7 +19,7 @@
 
 #include "core/pkg/api/grpc/v1/ranger.pb.h"
 
-namespace synnax::kv {
+namespace synnax::ranger::kv {
 /// @brief type alias for the transport used to get range-scoped key-values.
 using GetClient = freighter::
     UnaryClient<api::v1::RangeKVGetRequest, api::v1::RangeKVGetResponse>;

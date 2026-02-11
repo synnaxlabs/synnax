@@ -24,7 +24,7 @@ import {
   type PrimitiveParams,
 } from "@/channel/payload";
 import { QueryError } from "@/errors";
-import { keyZ as rangeKeyZ } from "@/range/payload";
+import { keyZ as rangeKeyZ } from "@/ranger/payload";
 import {
   analyzeParams as analyzeParameters,
   type ParamAnalysisResult,

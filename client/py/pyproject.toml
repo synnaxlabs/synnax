@@ -1,6 +1,6 @@
 [project]
 name = "synnax"
-version = "0.50.0"
+version = "0.51.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]

@@ -250,6 +250,23 @@ var _ = Describe("Formatter", func() {
 		})
 	})
 
+	DescribeTable("Authority Blocks",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("simple authority", "authority 200", "authority 200\n"),
+		Entry("authority with grouped entries", "authority (200 valve 100 vent 150)", "authority (\n    200\n    valve 100\n    vent 150\n)\n"),
+		Entry("authority with single default entry", "authority (200)", "authority (\n    200\n)\n"),
+		Entry("authority with single channel entry", "authority (valve 100)", "authority (\n    valve 100\n)\n"),
+		Entry("authority before sequence", "authority 200\nsequence main{stage init{}}", "authority 200\nsequence main {\n    stage init {}\n}\n"),
+		Entry("authority before function", "authority 100\nfunc foo(){}", "authority 100\nfunc foo() {}\n"),
+		Entry("authority with blank line before sequence", "authority 200\n\nsequence main{stage init{}}", "authority 200\n\nsequence main {\n    stage init {}\n}\n"),
+		Entry("grouped authority before sequence", "authority (200 valve 100)\nsequence main{stage init{}}", "authority (\n    200\n    valve 100\n)\nsequence main {\n    stage init {}\n}\n"),
+		Entry("default reordered to top", "authority (valve 100 200 vent 150)", "authority (\n    200\n    valve 100\n    vent 150\n)\n"),
+		Entry("default already at top stays", "authority (200 valve 100)", "authority (\n    200\n    valve 100\n)\n"),
+		Entry("default at end moves to top", "authority (valve 100 vent 150 200)", "authority (\n    200\n    valve 100\n    vent 150\n)\n"),
+	)
+
 	DescribeTable("Malformed Input",
 		func(input, shouldContain string) {
 			result := formatter.Format(input)

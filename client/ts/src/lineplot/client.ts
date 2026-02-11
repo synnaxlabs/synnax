@@ -22,7 +22,7 @@ import {
 } from "@/lineplot/payload";
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
+import { workspace } from "@/workspace";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
@@ -41,7 +41,7 @@ export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ linePlots: array.nullableZ(linePlotZ) });
 
-const createReqZ = z.object({ workspace: workspaceKeyZ, linePlots: newZ.array() });
+const createReqZ = z.object({ workspace: workspace.keyZ, linePlots: newZ.array() });
 const createResZ = z.object({ linePlots: linePlotZ.array() });
 
 const emptyResZ = z.object({});
@@ -53,10 +53,10 @@ export class Client {
     this.client = client;
   }
 
-  async create(workspace: WorkspaceKey, linePlot: New): Promise<LinePlot>;
-  async create(workspace: WorkspaceKey, linePlots: New[]): Promise<LinePlot[]>;
+  async create(workspace: workspace.Key, linePlot: New): Promise<LinePlot>;
+  async create(workspace: workspace.Key, linePlots: New[]): Promise<LinePlot[]>;
   async create(
-    workspace: WorkspaceKey,
+    workspace: workspace.Key,
     linePlots: New | New[],
   ): Promise<LinePlot | LinePlot[]> {
     const isMany = Array.isArray(linePlots);
