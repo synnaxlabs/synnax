@@ -229,8 +229,11 @@ class WorkspaceClient:
             return
         workspace_item = workspace_items[0]
         caret = workspace_item.locator(".pluto--location-bottom")
-        if caret.count() > 0:
+        try:
+            caret.wait_for(state="visible", timeout=500)
             return
+        except PlaywrightTimeoutError:
+            pass
         workspace_item.click()
         caret.wait_for(state="visible", timeout=5000)
 
