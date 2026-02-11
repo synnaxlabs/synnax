@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "x/cpp/lib/lib.h"
+
 #include "driver/ethercat/engine/pool.h"
 
 namespace driver::ethercat::engine {
@@ -22,6 +24,14 @@ std::pair<std::shared_ptr<Engine>, x::errors::Error>
 Pool::acquire_unlocked(const std::string &key) {
     const auto it = this->engines.find(key);
     if (it != this->engines.end()) return {it->second, x::errors::NIL};
+    if (this->manager == nullptr)
+        return {
+            nullptr,
+            x::errors::Error(
+                x::lib::LOAD_ERROR,
+                "EtherCAT master backend unavailable - required libraries are not installed"
+            )
+        };
     auto [m, err] = this->manager->create(key);
     if (err) return {nullptr, err};
     auto eng = std::make_shared<Engine>(std::move(m));
