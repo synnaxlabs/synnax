@@ -5,7 +5,7 @@
       "sequence_name": "workspace",
       "tests": [
         {
-          "case": "console/workspace"
+          "case": "console/workspace/workspace"
         }
       ]
     },
@@ -71,7 +71,11 @@
         {
           "case": "console/channel/calc_channel_stress",
           "parameters": {
-            "rate": [10, 100, 1000]
+            "rate": [
+              10,
+              100,
+              1000
+            ]
           }
         }
       ]
@@ -82,19 +86,19 @@
       "pool_size": 3,
       "tests": [
         {
-          "case": "console/user_register"
+          "case": "console/user/register"
         },
         {
-          "case": "console/user_assign_role"
+          "case": "console/user/assign_role"
         },
         {
-          "case": "console/user_drag_to_role"
+          "case": "console/user/drag_to_role"
         },
         {
-          "case": "console/user_login_logout"
+          "case": "console/user/login_logout"
         },
         {
-          "case": "console/user_logout_badge"
+          "case": "console/user/logout_badge"
         }
       ]
     },
@@ -104,13 +108,13 @@
       "pool_size": 3,
       "tests": [
         {
-          "case": "console/role_engineer_permissions"
+          "case": "console/user/role_engineer_permissions"
         },
         {
-          "case": "console/role_operator_permissions"
+          "case": "console/user/role_operator_permissions"
         },
         {
-          "case": "console/role_viewer_permissions"
+          "case": "console/user/role_viewer_permissions"
         }
       ]
     },

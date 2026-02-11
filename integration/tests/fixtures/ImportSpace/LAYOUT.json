@@ -1,0 +1,1002 @@
+{
+    "activeTheme": "synnaxDark",
+    "altKeyToKey": {},
+    "colorContext": {
+        "frequent": {},
+        "palettes": {
+            "frequent": {
+                "key": "frequent",
+                "name": "Frequent",
+                "swatches": []
+            }
+        }
+    },
+    "keyToAltKey": {},
+    "layouts": {
+        "a9ee59c8-24a9-4ff9-bc90-58dc40ebdbd9": {
+            "icon": "Visualize",
+            "key": "a9ee59c8-24a9-4ff9-bc90-58dc40ebdbd9",
+            "location": "mosaic",
+            "name": "Metrics Plot",
+            "type": "lineplot",
+            "windowKey": "main"
+        },
+        "d2487df6-4207-4a81-ae7d-3dc63734e12f": {
+            "key": "d2487df6-4207-4a81-ae7d-3dc63734e12f",
+            "location": "mosaic",
+            "name": "Metrics Schematic",
+            "icon": "Schematic",
+            "type": "schematic",
+            "window": {
+                "navTop": true,
+                "showTitle": true
+            },
+            "windowKey": "main"
+        },
+        "main": {
+            "key": "main",
+            "location": "window",
+            "name": "Main",
+            "type": "main",
+            "window": {
+                "navTop": false
+            },
+            "windowKey": "main"
+        },
+        "424ef02f-6ec3-4af6-bdd2-242964a747d8": {
+            "key": "424ef02f-6ec3-4af6-bdd2-242964a747d8",
+            "name": "Metrics Log",
+            "icon": "Log",
+            "location": "mosaic",
+            "type": "log",
+            "windowKey": "main"
+        },
+        "88b8b83e-2433-4c92-b244-de2b5f59a68d": {
+            "key": "88b8b83e-2433-4c92-b244-de2b5f59a68d",
+            "type": "table",
+            "icon": "Table",
+            "name": "Metrics Table",
+            "location": "mosaic",
+            "windowKey": "main"
+        }
+    },
+    "mosaics": {
+        "main": {
+            "activeTab": "88b8b83e-2433-4c92-b244-de2b5f59a68d",
+            "focused": null,
+            "root": {
+                "direction": "x",
+                "first": {
+                    "key": 2,
+                    "first": {
+                        "key": 4,
+                        "tabs": [
+                            {
+                                "closable": true,
+                                "icon": "Visualize",
+                                "name": "Metrics Plot",
+                                "tabKey": "a9ee59c8-24a9-4ff9-bc90-58dc40ebdbd9"
+                            }
+                        ],
+                        "selected": "a9ee59c8-24a9-4ff9-bc90-58dc40ebdbd9"
+                    },
+                    "last": {
+                        "key": 5,
+                        "tabs": [
+                            {
+                                "closable": true,
+                                "icon": "Log",
+                                "name": "Metrics Log",
+                                "tabKey": "424ef02f-6ec3-4af6-bdd2-242964a747d8"
+                            }
+                        ],
+                        "selected": "424ef02f-6ec3-4af6-bdd2-242964a747d8",
+                        "size": 0.5
+                    },
+                    "direction": "y"
+                },
+                "key": 1,
+                "last": {
+                    "key": 3,
+                    "first": {
+                        "key": 6,
+                        "tabs": [
+                            {
+                                "closable": true,
+                                "icon": "Schematic",
+                                "name": "Metrics Schematic",
+                                "tabKey": "d2487df6-4207-4a81-ae7d-3dc63734e12f"
+                            }
+                        ],
+                        "selected": "d2487df6-4207-4a81-ae7d-3dc63734e12f"
+                    },
+                    "last": {
+                        "key": 7,
+                        "tabs": [
+                            {
+                                "closable": true,
+                                "icon": "Table",
+                                "name": "Metrics Table",
+                                "tabKey": "88b8b83e-2433-4c92-b244-de2b5f59a68d"
+                            }
+                        ],
+                        "selected": "88b8b83e-2433-4c92-b244-de2b5f59a68d",
+                        "size": 0.5
+                    },
+                    "direction": "y"
+                },
+                "size": 0.5
+            }
+        }
+    },
+    "nav": {
+        "main": {
+            "drawers": {
+                "bottom": {
+                    "activeItem": "visualization",
+                    "hover": false,
+                    "menuItems": [
+                        "visualization"
+                    ],
+                    "size": 232
+                },
+                "left": {
+                    "activeItem": "workspace",
+                    "hover": false,
+                    "menuItems": [
+                        "channel",
+                        "range",
+                        "workspace",
+                        "device",
+                        "task",
+                        "user",
+                        "arc",
+                        "status"
+                    ],
+                    "size": 398
+                },
+                "right": {
+                    "activeItem": null,
+                    "hover": false,
+                    "menuItems": []
+                }
+            }
+        }
+    },
+    "version": "9.0.0",
+    "hauling": {
+        "source": {
+            "key": "",
+            "type": ""
+        },
+        "items": [
+            {
+                "key": "file",
+                "type": "file"
+            }
+        ]
+    },
+    "alreadyCheckedGetStarted": true,
+    "themes": {
+        "synnaxDark": {
+            "name": "Synnax Dark",
+            "key": "synnaxDark",
+            "colors": {
+                "border": [
+                    39,
+                    39,
+                    39,
+                    1
+                ],
+                "primary": {
+                    "m2": [
+                        4,
+                        27,
+                        61,
+                        1
+                    ],
+                    "m1": [
+                        53,
+                        111,
+                        197,
+                        1
+                    ],
+                    "z": [
+                        55,
+                        116,
+                        208,
+                        1
+                    ],
+                    "p1": [
+                        94,
+                        148,
+                        238,
+                        1
+                    ],
+                    "p2": [
+                        138,
+                        184,
+                        255,
+                        1
+                    ]
+                },
+                "gray": {
+                    "l0": [
+                        2,
+                        2,
+                        2,
+                        1
+                    ],
+                    "l1": [
+                        8,
+                        8,
+                        8,
+                        1
+                    ],
+                    "l2": [
+                        21,
+                        21,
+                        21,
+                        1
+                    ],
+                    "l3": [
+                        32,
+                        32,
+                        32,
+                        1
+                    ],
+                    "l4": [
+                        39,
+                        39,
+                        39,
+                        1
+                    ],
+                    "l5": [
+                        59,
+                        59,
+                        59,
+                        1
+                    ],
+                    "l6": [
+                        74,
+                        74,
+                        74,
+                        1
+                    ],
+                    "l7": [
+                        92,
+                        92,
+                        92,
+                        1
+                    ],
+                    "l8": [
+                        118,
+                        118,
+                        118,
+                        1
+                    ],
+                    "l9": [
+                        149,
+                        149,
+                        149,
+                        1
+                    ],
+                    "l10": [
+                        218,
+                        218,
+                        218,
+                        1
+                    ],
+                    "l11": [
+                        250,
+                        250,
+                        250,
+                        1
+                    ]
+                },
+                "error": {
+                    "m2": [
+                        146,
+                        7,
+                        14,
+                        1
+                    ],
+                    "m1": [
+                        195,
+                        9,
+                        18,
+                        1
+                    ],
+                    "z": [
+                        245,
+                        36,
+                        46,
+                        1
+                    ],
+                    "p1": [
+                        247,
+                        85,
+                        93,
+                        1
+                    ],
+                    "p2": [
+                        250,
+                        143,
+                        148,
+                        1
+                    ]
+                },
+                "secondary": {
+                    "m2": [
+                        45,
+                        143,
+                        78,
+                        1
+                    ],
+                    "m1": [
+                        56,
+                        178,
+                        97,
+                        1
+                    ],
+                    "z": [
+                        80,
+                        200,
+                        120,
+                        1
+                    ],
+                    "p1": [
+                        115,
+                        211,
+                        147,
+                        1
+                    ],
+                    "p2": [
+                        150,
+                        222,
+                        174,
+                        1
+                    ]
+                },
+                "warning": {
+                    "m2": [
+                        145,
+                        118,
+                        8,
+                        1
+                    ],
+                    "m1": [
+                        194,
+                        157,
+                        10,
+                        1
+                    ],
+                    "z": [
+                        244,
+                        202,
+                        37,
+                        1
+                    ],
+                    "p1": [
+                        246,
+                        214,
+                        85,
+                        1
+                    ],
+                    "p2": [
+                        249,
+                        226,
+                        134,
+                        1
+                    ]
+                },
+                "palettes": {
+                    "recent": {
+                        "key": "recent",
+                        "name": "Recent",
+                        "swatches": []
+                    }
+                },
+                "visualization": {
+                    "palettes": {
+                        "default": [
+                            [
+                                220,
+                                19,
+                                108,
+                                1
+                            ],
+                            [
+                                32,
+                                164,
+                                243,
+                                1
+                            ],
+                            [
+                                122,
+                                199,
+                                79,
+                                1
+                            ],
+                            [
+                                255,
+                                196,
+                                61,
+                                1
+                            ],
+                            [
+                                254,
+                                95,
+                                85,
+                                1
+                            ],
+                            [
+                                128,
+                                117,
+                                255,
+                                1
+                            ],
+                            [
+                                217,
+                                4,
+                                41,
+                                1
+                            ],
+                            [
+                                247,
+                                174,
+                                248,
+                                1
+                            ],
+                            [
+                                241,
+                                143,
+                                1,
+                                1
+                            ],
+                            [
+                                121,
+                                30,
+                                148,
+                                1
+                            ],
+                            [
+                                39,
+                                154,
+                                241,
+                                1
+                            ],
+                            [
+                                217,
+                                255,
+                                245,
+                                1
+                            ],
+                            [
+                                255,
+                                107,
+                                107,
+                                1
+                            ],
+                            [
+                                82,
+                                255,
+                                184,
+                                1
+                            ]
+                        ]
+                    }
+                },
+                "white": [
+                    255,
+                    255,
+                    255,
+                    1
+                ],
+                "black": [
+                    0,
+                    0,
+                    0,
+                    1
+                ],
+                "text": [
+                    250,
+                    250,
+                    250,
+                    1
+                ],
+                "textInverted": [
+                    2,
+                    2,
+                    2,
+                    1
+                ],
+                "textOnPrimary": [
+                    250,
+                    250,
+                    250,
+                    1
+                ],
+                "primaryText": [
+                    147,
+                    197,
+                    253,
+                    1
+                ],
+                "errorText": [
+                    252,
+                    165,
+                    165,
+                    1
+                ],
+                "warningText": [
+                    252,
+                    211,
+                    77,
+                    1
+                ],
+                "logo": "var(--pluto-text-color)"
+            },
+            "sizes": {
+                "base": 6,
+                "border": {
+                    "radius": 3,
+                    "width": 1,
+                    "thickWidth": 1
+                },
+                "schematic": {
+                    "elementStrokeWidth": 2
+                }
+            },
+            "typography": {
+                "family": "\"Inter Variable\", sans-serif",
+                "codeFamily": "\"Geist Mono\", monospace",
+                "h1": {
+                    "size": 5.5,
+                    "weight": "500",
+                    "lineHeight": 8.25
+                },
+                "h2": {
+                    "size": 4.5,
+                    "weight": "medium",
+                    "lineHeight": 6.75
+                },
+                "h3": {
+                    "size": 3.5,
+                    "weight": "medium",
+                    "lineHeight": 5.25
+                },
+                "h4": {
+                    "size": 2.6666,
+                    "weight": "medium",
+                    "lineHeight": 3.9999
+                },
+                "h5": {
+                    "size": 2.333333,
+                    "weight": 450,
+                    "lineHeight": 3.4999995000000004
+                },
+                "p": {
+                    "size": 2.1666666666,
+                    "weight": "regular",
+                    "lineHeight": 3
+                },
+                "small": {
+                    "size": 1.916666,
+                    "weight": "regular",
+                    "lineHeight": 2.3333333
+                }
+            }
+        },
+        "synnaxLight": {
+            "name": "Synnax Light",
+            "key": "synnaxLight",
+            "colors": {
+                "border": [
+                    228,
+                    228,
+                    228,
+                    1
+                ],
+                "primary": {
+                    "m2": [
+                        4,
+                        27,
+                        61,
+                        1
+                    ],
+                    "m1": [
+                        53,
+                        111,
+                        197,
+                        1
+                    ],
+                    "z": [
+                        55,
+                        116,
+                        208,
+                        1
+                    ],
+                    "p1": [
+                        94,
+                        148,
+                        238,
+                        1
+                    ],
+                    "p2": [
+                        138,
+                        184,
+                        255,
+                        1
+                    ]
+                },
+                "gray": {
+                    "l0": [
+                        254,
+                        254,
+                        254,
+                        1
+                    ],
+                    "l1": [
+                        250,
+                        250,
+                        250,
+                        1
+                    ],
+                    "l2": [
+                        242,
+                        242,
+                        242,
+                        1
+                    ],
+                    "l3": [
+                        236,
+                        236,
+                        236,
+                        1
+                    ],
+                    "l4": [
+                        228,
+                        228,
+                        228,
+                        1
+                    ],
+                    "l5": [
+                        209,
+                        209,
+                        209,
+                        1
+                    ],
+                    "l6": [
+                        188,
+                        188,
+                        188,
+                        1
+                    ],
+                    "l7": [
+                        172,
+                        172,
+                        172,
+                        1
+                    ],
+                    "l8": [
+                        143,
+                        143,
+                        143,
+                        1
+                    ],
+                    "l9": [
+                        79,
+                        79,
+                        79,
+                        1
+                    ],
+                    "l10": [
+                        41,
+                        41,
+                        41,
+                        1
+                    ],
+                    "l11": [
+                        5,
+                        5,
+                        5,
+                        1
+                    ]
+                },
+                "error": {
+                    "m2": [
+                        146,
+                        7,
+                        14,
+                        1
+                    ],
+                    "m1": [
+                        195,
+                        9,
+                        18,
+                        1
+                    ],
+                    "z": [
+                        245,
+                        36,
+                        46,
+                        1
+                    ],
+                    "p1": [
+                        247,
+                        85,
+                        93,
+                        1
+                    ],
+                    "p2": [
+                        250,
+                        143,
+                        148,
+                        1
+                    ]
+                },
+                "secondary": {
+                    "m2": [
+                        45,
+                        143,
+                        78,
+                        1
+                    ],
+                    "m1": [
+                        56,
+                        178,
+                        97,
+                        1
+                    ],
+                    "z": [
+                        80,
+                        200,
+                        120,
+                        1
+                    ],
+                    "p1": [
+                        115,
+                        211,
+                        147,
+                        1
+                    ],
+                    "p2": [
+                        150,
+                        222,
+                        174,
+                        1
+                    ]
+                },
+                "warning": {
+                    "m2": [
+                        145,
+                        118,
+                        8,
+                        1
+                    ],
+                    "m1": [
+                        194,
+                        157,
+                        10,
+                        1
+                    ],
+                    "z": [
+                        244,
+                        202,
+                        37,
+                        1
+                    ],
+                    "p1": [
+                        246,
+                        214,
+                        85,
+                        1
+                    ],
+                    "p2": [
+                        249,
+                        226,
+                        134,
+                        1
+                    ]
+                },
+                "palettes": {
+                    "recent": {
+                        "key": "recent",
+                        "name": "Recent",
+                        "swatches": []
+                    }
+                },
+                "visualization": {
+                    "palettes": {
+                        "default": [
+                            [
+                                220,
+                                19,
+                                108,
+                                1
+                            ],
+                            [
+                                32,
+                                164,
+                                243,
+                                1
+                            ],
+                            [
+                                122,
+                                199,
+                                79,
+                                1
+                            ],
+                            [
+                                255,
+                                196,
+                                61,
+                                1
+                            ],
+                            [
+                                254,
+                                95,
+                                85,
+                                1
+                            ],
+                            [
+                                128,
+                                117,
+                                255,
+                                1
+                            ],
+                            [
+                                217,
+                                4,
+                                41,
+                                1
+                            ],
+                            [
+                                247,
+                                174,
+                                248,
+                                1
+                            ],
+                            [
+                                241,
+                                143,
+                                1,
+                                1
+                            ],
+                            [
+                                121,
+                                30,
+                                148,
+                                1
+                            ],
+                            [
+                                39,
+                                154,
+                                241,
+                                1
+                            ],
+                            [
+                                217,
+                                255,
+                                245,
+                                1
+                            ],
+                            [
+                                255,
+                                107,
+                                107,
+                                1
+                            ],
+                            [
+                                82,
+                                255,
+                                184,
+                                1
+                            ]
+                        ]
+                    }
+                },
+                "white": [
+                    255,
+                    255,
+                    255,
+                    1
+                ],
+                "black": [
+                    0,
+                    0,
+                    0,
+                    1
+                ],
+                "text": [
+                    5,
+                    5,
+                    5,
+                    1
+                ],
+                "textInverted": [
+                    254,
+                    254,
+                    254,
+                    1
+                ],
+                "textOnPrimary": [
+                    254,
+                    254,
+                    254,
+                    1
+                ],
+                "primaryText": [
+                    59,
+                    130,
+                    246,
+                    1
+                ],
+                "errorText": [
+                    239,
+                    68,
+                    68,
+                    1
+                ],
+                "warningText": [
+                    245,
+                    158,
+                    11,
+                    1
+                ],
+                "logo": "url(#synnax-linear-gradient)"
+            },
+            "sizes": {
+                "base": 6,
+                "border": {
+                    "radius": 3,
+                    "width": 1,
+                    "thickWidth": 1
+                },
+                "schematic": {
+                    "elementStrokeWidth": 2
+                }
+            },
+            "typography": {
+                "family": "\"Inter Variable\", sans-serif",
+                "codeFamily": "\"Geist Mono\", monospace",
+                "h1": {
+                    "size": 5.5,
+                    "weight": "500",
+                    "lineHeight": 8.25
+                },
+                "h2": {
+                    "size": 4.5,
+                    "weight": "medium",
+                    "lineHeight": 6.75
+                },
+                "h3": {
+                    "size": 3.5,
+                    "weight": "medium",
+                    "lineHeight": 5.25
+                },
+                "h4": {
+                    "size": 2.6666,
+                    "weight": "medium",
+                    "lineHeight": 3.9999
+                },
+                "h5": {
+                    "size": 2.333333,
+                    "weight": 450,
+                    "lineHeight": 3.4999995000000004
+                },
+                "p": {
+                    "size": 2.1666666666,
+                    "weight": "regular",
+                    "lineHeight": 3
+                },
+                "small": {
+                    "size": 1.916666,
+                    "weight": "regular",
+                    "lineHeight": 2.3333333
+                }
+            }
+        }
+    }
+}

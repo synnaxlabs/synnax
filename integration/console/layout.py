@@ -299,6 +299,18 @@ class LayoutClient:
 
         nav_drawer.wait_for(state="hidden", timeout=5000)
 
+    def get_version(self) -> str:
+        """Get the version string displayed in the navbar badge.
+
+        Returns:
+            The version string (e.g., "v0.51.0").
+        """
+        version_badge = self.page.get_by_role("button").filter(
+            has_text=re.compile(r"^v\d+\.\d+\.\d+$")
+        )
+        version_badge.first.wait_for(state="visible", timeout=5000)
+        return version_badge.first.inner_text().strip()
+
     def fill_input_field(self, input_label: str, value: str) -> None:
         """Fill an input field by label."""
         input_field = (
