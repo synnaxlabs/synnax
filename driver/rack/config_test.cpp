@@ -251,8 +251,7 @@ TEST_F(RackConfigTest, configurationPrecedence) {
     ASSERT_EQ(cfg.connection.password, "argpass");
 }
 
-// We need to explicitly define a main function here instead of using gtest_main
-// because otherwise the lua interpreters main function will get executed instead.
+// We need to explicitly define a main function here instead of using gtest_main.
 int main(int argc, char **argv) {
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
