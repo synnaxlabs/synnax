@@ -110,7 +110,8 @@ class LabelClient:
 
         name_input = label_item.locator("input[placeholder='Label Name']").first
 
-        name_input.fill(new_name)
+        name_input.click()
+        self.layout.select_all_and_type(new_name)
         name_input.press("Enter")
         expect(name_input).to_have_value(new_name, timeout=5000)
 
