@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic/symbol"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,7 +27,7 @@ var _ = Describe("Service", func() {
 		It("Should create a service with minimal configuration", func() {
 			testDB := gorp.Wrap(memkv.New())
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
-				EnableSearch: config.False(),
+				EnableSearch: new(false),
 				DB:           testDB,
 			}))
 
@@ -47,7 +46,7 @@ var _ = Describe("Service", func() {
 		It("Should create a service with group configuration", func() {
 			testDB := gorp.Wrap(memkv.New())
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
-				EnableSearch: config.False(),
+				EnableSearch: new(false),
 				DB:           testDB,
 			}))
 			testGroup := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
@@ -88,11 +87,11 @@ var _ = Describe("Service", func() {
 			testDB1 := gorp.Wrap(memkv.New())
 			testDB2 := gorp.Wrap(memkv.New())
 			testOtg1 := MustSucceed(ontology.Open(ctx, ontology.Config{
-				EnableSearch: config.False(),
+				EnableSearch: new(false),
 				DB:           testDB1,
 			}))
 			testOtg2 := MustSucceed(ontology.Open(ctx, ontology.Config{
-				EnableSearch: config.False(),
+				EnableSearch: new(false),
 				DB:           testDB2,
 			}))
 
@@ -142,7 +141,7 @@ var _ = Describe("Service", func() {
 		It("Should close the service cleanly", func() {
 			testDB := gorp.Wrap(memkv.New())
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
-				EnableSearch: config.False(),
+				EnableSearch: new(false),
 				DB:           testDB,
 			}))
 

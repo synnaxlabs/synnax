@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
 	"testing"
 )
@@ -30,6 +29,6 @@ func TestMembership(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	ins = Instrumentation("pledge", InstrumentationConfig{Log: config.False()})
+	ins = Instrumentation("pledge", InstrumentationConfig{Log: new(false)})
 	ctx = context.Background()
 })

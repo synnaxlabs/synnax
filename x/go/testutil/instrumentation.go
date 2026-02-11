@@ -47,9 +47,9 @@ func (c InstrumentationConfig) Override(
 }
 
 var DefaultInstrumentationConfig = InstrumentationConfig{
-	Trace:  config.False(),
-	Log:    config.False(),
-	Report: config.False(),
+	Trace:  new(false),
+	Log:    new(false),
+	Report: new(false),
 }
 
 func serviceName() string { return lo.Must(os.Hostname()) }

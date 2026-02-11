@@ -31,7 +31,7 @@ type Cluster struct {
 // NewCluster opens a new Cluster that provisions stores using the given configuration.
 func NewCluster(configs ...storage.Config) *Cluster {
 	cfg := lo.Must(config.New(storage.DefaultConfig, append([]storage.Config{{
-		InMemory: config.True(),
+		InMemory: new(true),
 	}}, configs...)...))
 	if !*cfg.InMemory {
 		lo.Must0(os.MkdirAll(cfg.Dirname, cfg.Perm))

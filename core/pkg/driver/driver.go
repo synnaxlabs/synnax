@@ -125,8 +125,8 @@ var (
 	}
 	DefaultConfig = Config{
 		Integrations:        []string{},
-		Enabled:             config.True(),
-		Debug:               config.False(),
+		Enabled:             new(true),
+		Debug:               new(false),
 		StartTimeout:        time.Second * 10,
 		StopTimeout:         10 * time.Second,
 		TaskOpTimeout:       time.Second * 60,

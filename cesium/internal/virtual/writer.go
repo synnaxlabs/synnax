@@ -36,7 +36,7 @@ type WriterConfig struct {
 var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
 	DefaultWriterConfig                             = WriterConfig{
-		ErrOnUnauthorizedOpen: config.False(),
+		ErrOnUnauthorizedOpen: new(false),
 	}
 )
 

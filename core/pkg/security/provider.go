@@ -58,7 +58,7 @@ var (
 	// Provider.
 	DefaultProviderConfig = ProviderConfig{
 		LoaderConfig: cert.DefaultLoaderConfig,
-		Insecure:     config.True(),
+		Insecure:     new(true),
 		KeySize:      cert.DefaultFactoryConfig.KeySize,
 	}
 )

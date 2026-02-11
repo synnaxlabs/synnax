@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/mock"
-	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -28,6 +27,6 @@ var _ = Describe("Storage", func() {
 		Expect(b.Close()).To(Succeed())
 	},
 		Entry("Memory-backed storage implementation"),
-		Entry("FS-backed storage implementation", storage.Config{InMemory: config.False(), Dirname: "./tmp"}),
+		Entry("FS-backed storage implementation", storage.Config{InMemory: new(false), Dirname: "./tmp"}),
 	)
 })

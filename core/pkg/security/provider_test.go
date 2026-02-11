@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
-	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -32,7 +31,7 @@ var _ = Describe("OtelProvider", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					LoaderConfig: cert.LoaderConfig{FS: fs},
 					KeySize:      mock.SmallKeySize,
-					Insecure:     config.False(),
+					Insecure:     new(false),
 				}))
 				config := prov.TLS()
 				Expect(config).ToNot(BeNil())
@@ -52,7 +51,7 @@ var _ = Describe("OtelProvider", func() {
 				_, err := security.NewProvider(security.ProviderConfig{
 					LoaderConfig: cert.LoaderConfig{FS: fs},
 					KeySize:      mock.SmallKeySize,
-					Insecure:     config.False(),
+					Insecure:     new(false),
 				})
 				Expect(err).To(HaveOccurredAs(os.ErrNotExist))
 			})
@@ -64,7 +63,7 @@ var _ = Describe("OtelProvider", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					LoaderConfig: cert.LoaderConfig{FS: fs},
 					KeySize:      mock.SmallKeySize,
-					Insecure:     config.False(),
+					Insecure:     new(false),
 				}))
 				Expect(prov.NodePrivate()).ToNot(BeNil())
 			})
@@ -75,7 +74,7 @@ var _ = Describe("OtelProvider", func() {
 		Describe("TLS Properties", func() {
 			It("Should return an empty TLS configuration", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					Insecure: config.True(),
+					Insecure: new(true),
 					KeySize:  mock.SmallKeySize,
 				}))
 				Expect(prov.TLS()).To(BeNil())
@@ -84,7 +83,7 @@ var _ = Describe("OtelProvider", func() {
 		Describe("Node Private", func() {
 			It("Should return the randomly generated private key", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					Insecure: config.True(),
+					Insecure: new(true),
 					KeySize:  mock.SmallKeySize,
 				}))
 				Expect(prov.NodePrivate()).ToNot(BeNil())

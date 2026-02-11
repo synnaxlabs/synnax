@@ -105,11 +105,11 @@ func DefaultWriterConfig() WriterConfig {
 	return WriterConfig{
 		ControlSubject:           xcontrol.Subject{Key: uuid.New().String()},
 		Authorities:              []xcontrol.Authority{xcontrol.AuthorityAbsolute},
-		ErrOnUnauthorized:        config.False(),
+		ErrOnUnauthorized:        new(false),
 		Mode:                     WriterModePersistStream,
-		EnableAutoCommit:         config.True(),
+		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
-		Sync:                     config.False(),
+		Sync:                     new(false),
 	}
 }
 
@@ -204,7 +204,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			EnableAutoCommit:         cfg.EnableAutoCommit,
 			AutoIndexPersistInterval: cfg.AutoIndexPersistInterval,
 			Start:                    cfg.Start,
-			Persist:                  config.Bool(cfg.Mode.Persist()),
+			Persist:                  new(cfg.Mode.Persist()),
 			Authority:                cfg.authority(i),
 			AlignmentDomainIndex:     domainAlignment,
 		}

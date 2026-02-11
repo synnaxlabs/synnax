@@ -17,11 +17,11 @@ Individual Go modules in the monorepo:
 The repo uses a `go.work` file to manage local module replacements:
 
 ```go
-go 1.25.4
+go 1.26
 
 use (
     ./alamos/go
-    ./arc
+    ./arc/go
     ./aspen
     ./cesium
     ./core

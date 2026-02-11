@@ -40,8 +40,7 @@ func (t TestError) Error() string {
 }
 
 func encodeTestError(_ context.Context, err error) (errors.Payload, bool) {
-	var errTest TestError
-	ok := errors.As(err, &errTest)
+	errTest, ok := errors.AsType[TestError](err)
 	if !ok {
 		return errors.Payload{}, false
 	}

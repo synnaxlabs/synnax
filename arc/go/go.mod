@@ -1,6 +1,6 @@
 module github.com/synnaxlabs/arc
 
-go 1.25.6
+go 1.26
 
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.1

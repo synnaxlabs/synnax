@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	framerv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/v1"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -58,9 +57,9 @@ func (writerRequestTranslator) Backward(
 			Authorities: lo.Map(req.Config.Authorities, func(auth uint32, _ int) control.Authority {
 				return control.Authority(auth)
 			}),
-			ErrOnUnauthorized:        config.Bool(req.Config.ErrOnUnauthorized),
+			ErrOnUnauthorized:        new(req.Config.ErrOnUnauthorized),
 			Mode:                     ts.WriterMode(req.Config.Mode),
-			EnableAutoCommit:         config.Bool(req.Config.EnableAutoCommit),
+			EnableAutoCommit:         new(req.Config.EnableAutoCommit),
 			AutoIndexPersistInterval: telem.TimeSpan(req.Config.AutoIndexPersistInterval),
 		},
 		Frame: translateFrameForward(req.Frame),

@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -41,7 +40,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 
 func (db *DB) lockControllerForNonWriteOp(tr telem.TimeRange, opName string) (release func(), err error) {
 	g, _, err := db.controller.OpenGate(control.GateConfig[*controlledWriter]{
-		ErrIfControlled: config.True(),
+		ErrIfControlled: new(true),
 		TimeRange:       tr,
 		Authority:       xcontrol.AuthorityAbsolute,
 		Subject:         xcontrol.Subject{Key: uuid.NewString(), Name: opName},

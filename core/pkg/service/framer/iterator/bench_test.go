@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -113,7 +112,7 @@ func (e *benchIterEnv) writeData(
 	w, err := e.dist.Framer.OpenWriter(e.ctx, framer.WriterConfig{
 		Start:            telem.SecondTS,
 		Keys:             keys,
-		EnableAutoCommit: config.True(),
+		EnableAutoCommit: new(true),
 	})
 	if err != nil {
 		b.Fatalf("failed to open writer: %v", err)
@@ -352,7 +351,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				w, err := env.dist.Framer.OpenWriter(env.ctx, framer.WriterConfig{
 					Start:            startTS,
 					Keys:             keys,
-					EnableAutoCommit: config.True(),
+					EnableAutoCommit: new(true),
 				})
 				if err != nil {
 					b.Fatalf("failed to open writer: %v", err)

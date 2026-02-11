@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
@@ -967,7 +966,7 @@ var _ = Describe("Writer Behavior", func() {
 						w := MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
 							Channels:         []cesium.ChannelKey{index, basic},
 							Start:            10 * telem.SecondTS,
-							EnableAutoCommit: config.False(),
+							EnableAutoCommit: new(false),
 						}))
 
 						By("Writing data to the channel")
@@ -1104,14 +1103,14 @@ var _ = Describe("Writer Behavior", func() {
 							Channels:    []cesium.ChannelKey{key, key2},
 							Start:       10 * telem.SecondTS,
 							Authorities: []control.Authority{control.Authority(100), control.Authority(110)},
-							Sync:        config.True(),
+							Sync:        new(true),
 						}))
 
 						w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels:    []cesium.ChannelKey{key, key2},
 							Start:       10 * telem.SecondTS,
 							Authorities: []control.Authority{control.Authority(110), control.Authority(100)},
-							Sync:        config.True(),
+							Sync:        new(true),
 						}))
 
 						authorized := MustSucceed(w1.Write(telem.MultiFrame(
@@ -1419,7 +1418,7 @@ var _ = Describe("Writer Behavior", func() {
 						cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{dtErrKey},
 							Start:    10 * telem.SecondTS,
-							Sync:     config.True(),
+							Sync:     new(true),
 						}))
 					authorized, err := w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{dtErrKey},
@@ -1468,7 +1467,7 @@ var _ = Describe("Writer Behavior", func() {
 				})
 				Context("True", func() {
 					It("Should return an error if writer is not authorized to write", func() {
-						w2, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS, ErrOnUnauthorized: config.True()})
+						w2, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS, ErrOnUnauthorized: new(true)})
 						Expect(err).To(HaveOccurredAs(control.ErrUnauthorized))
 						Expect(w2).To(BeNil())
 					})

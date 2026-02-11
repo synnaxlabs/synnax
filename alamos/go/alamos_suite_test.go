@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/config"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,6 +28,6 @@ func TestAlamos(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	devIns = Instrumentation("alamos-test", InstrumentationConfig{
-		Trace: config.True(),
+		Trace: new(true),
 	})
 })

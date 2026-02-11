@@ -302,7 +302,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	if embeddedDriver, err = driver.Open(
 		ctx,
 		driver.Config{
-			Enabled:             config.Bool(!*cfg.noDriver),
+			Enabled:             new(!*cfg.noDriver),
 			Insecure:            cfg.insecure,
 			Integrations:        parseIntegrations(cfg.enabledIntegrations, cfg.disabledIntegrations),
 			Instrumentation:     cfg.Child("driver"),

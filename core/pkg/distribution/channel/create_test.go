@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -557,7 +556,7 @@ var _ = Context("Name Validation Disabled", func() {
 		var mockCluster *mock.Cluster
 		BeforeAll(func() {
 			mockCluster = mock.ProvisionCluster(ctx, 1, distribution.Config{
-				ValidateChannelNames: config.False(),
+				ValidateChannelNames: new(false),
 			})
 		})
 		AfterAll(func() {

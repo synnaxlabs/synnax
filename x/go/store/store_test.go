@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/store"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -36,7 +35,7 @@ var _ = Describe("Store", func() {
 			s := MustSucceed(store.WrapObservable(store.ObservableConfig[state, state]{
 				Store:     store.New(copyState),
 				Transform: func(_, next state) (state, bool) { return next, true },
-				GoNotify:  config.False(),
+				GoNotify:  new(false),
 			}))
 			var changedState state
 			s.OnChange(func(_ context.Context, s state) { changedState = s })

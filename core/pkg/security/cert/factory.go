@@ -44,7 +44,7 @@ var (
 	DefaultFactoryConfig = FactoryConfig{
 		LoaderConfig:  DefaultLoaderConfig,
 		KeySize:       2048,
-		AllowKeyReuse: config.False(),
+		AllowKeyReuse: new(false),
 	}
 )
 

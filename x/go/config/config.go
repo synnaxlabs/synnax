@@ -35,12 +35,3 @@ func New[C Config[C]](base C, overrides ...C) (C, error) {
 	}
 	return base, nil
 }
-
-// Bool returns a pointer to a boolean.
-func Bool(b bool) *bool { return &b }
-
-// True returns a pointer to a true boolean.
-func True() *bool { return Bool(true) }
-
-// False returns a pointer to a false boolean.
-func False() *bool { return Bool(false) }

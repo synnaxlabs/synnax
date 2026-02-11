@@ -31,7 +31,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/address"
 	xbinary "github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
@@ -395,8 +394,8 @@ func (s *FrameService) openWriter(
 		Keys:                     req.Config.Keys,
 		Authorities:              authorities,
 		Mode:                     req.Config.Mode,
-		ErrOnUnauthorized:        config.Bool(req.Config.ErrOnUnauthorized),
-		EnableAutoCommit:         config.Bool(req.Config.EnableAutoCommit),
+		ErrOnUnauthorized:        new(req.Config.ErrOnUnauthorized),
+		EnableAutoCommit:         new(req.Config.EnableAutoCommit),
 		AutoIndexPersistInterval: req.Config.AutoIndexPersistInterval,
 	})
 	if err != nil {

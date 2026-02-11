@@ -1,6 +1,6 @@
 module github.com/synnaxlabs/synnax
 
-go 1.25.6
+go 1.26
 
 require (
 	github.com/blevesearch/bleve/v2 v2.5.7

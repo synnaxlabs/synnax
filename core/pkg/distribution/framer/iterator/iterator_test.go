@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -42,7 +41,7 @@ var _ = Describe("Iterator", func() {
 					writer := MustSucceed(s.dist.Framer.OpenWriter(context.TODO(), writer.Config{
 						Keys:  s.keys,
 						Start: 10 * telem.SecondTS,
-						Sync:  config.True(),
+						Sync:  new(true),
 					}))
 					MustSucceed(writer.Write(frame.NewMulti(
 						s.keys,

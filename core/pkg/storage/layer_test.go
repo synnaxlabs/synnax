@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -81,7 +80,7 @@ var _ = Describe("storage", func() {
 		})
 		Describe("In-Memory", func() {
 			It("Should open a memory backed version of storage", func() {
-				cfg.InMemory = config.True()
+				cfg.InMemory = new(true)
 				store, err := storage.Open(ctx, cfg)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(store.Close()).To(Succeed())

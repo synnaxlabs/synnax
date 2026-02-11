@@ -1,6 +1,6 @@
 module github.com/synnaxlabs/x
 
-go 1.25.6
+go 1.26
 
 require (
 	github.com/cockroachdb/errors v1.12.0

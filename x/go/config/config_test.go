@@ -77,20 +77,4 @@ var _ = Describe("Config", func() {
 			Expect(config.New(defaultConfig, errorConfig, successConfig)).To(Equal(successConfig))
 		})
 	})
-	DescribeTable("Bool", func(b bool) {
-		Expect(*config.Bool(b)).To(Equal(b))
-	},
-		Entry("true", true),
-		Entry("false", false),
-	)
-	Describe("True", func() {
-		It("Should return a pointer to a true boolean", func() {
-			Expect(*config.True()).To(BeTrue())
-		})
-	})
-	Describe("False", func() {
-		It("Should return a pointer to a false boolean", func() {
-			Expect(*config.False()).To(BeFalse())
-		})
-	})
 })

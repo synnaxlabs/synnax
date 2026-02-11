@@ -73,9 +73,9 @@ var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default server configuration.
 	DefaultConfig = Config{
-		Debug: config.False(),
+		Debug: new(false),
 		Security: SecurityConfig{
-			Insecure: config.False(),
+			Insecure: new(false),
 		},
 	}
 )

@@ -70,10 +70,10 @@ type WriterConfig struct {
 var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
 	DefaultWriterConfig                             = WriterConfig{
-		Persist:                  config.True(),
-		EnableAutoCommit:         config.True(),
+		Persist:                  new(true),
+		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
-		ErrOnUnauthorizedOpen:    config.False(),
+		ErrOnUnauthorizedOpen:    new(false),
 	}
 	errWriterClosed = resource.NewClosedError("unary.writer")
 )
@@ -175,7 +175,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		wrapError: db.wrapError,
 	}
 	if w.control, transfer, err = db.controller.OpenGate(control.GateConfig[*controlledWriter]{
-		ErrIfControlled:       config.False(),
+		ErrIfControlled:       new(false),
 		ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
 		TimeRange:             cfg.controlTimeRange(),
 		Authority:             cfg.Authority,

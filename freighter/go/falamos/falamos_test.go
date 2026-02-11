@@ -14,14 +14,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/falamos"
-	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Falamos", func() {
 	Describe("Name", func() {
 		It("Should correctly attach tracing metadata", func() {
-			clientIns := Instrumentation("falamos", InstrumentationConfig{Trace: config.True()})
+			clientIns := Instrumentation("falamos", InstrumentationConfig{Trace: new(true)})
 			clientMw := MustSucceed(falamos.Middleware(falamos.Config{
 				Instrumentation: clientIns,
 			}))
@@ -36,7 +35,7 @@ var _ = Describe("Falamos", func() {
 			_, ok := oCtx.Get("alamos-traceparent")
 			Expect(ok).To(BeTrue())
 
-			serverIns := Instrumentation("falamos", InstrumentationConfig{Trace: config.True()})
+			serverIns := Instrumentation("falamos", InstrumentationConfig{Trace: new(true)})
 			serverMw := MustSucceed(falamos.Middleware(falamos.Config{
 				Instrumentation: serverIns,
 			}))

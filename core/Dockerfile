@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Stage 1: Download dependencies
-FROM golang:1.25.6 AS deps
+FROM golang:1.26 AS deps
 WORKDIR /workspace
 
 # Copy go.work files first

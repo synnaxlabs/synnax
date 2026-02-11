@@ -9,7 +9,11 @@
 
 package errors
 
-import "github.com/cockroachdb/errors"
+import (
+	stderrors "errors"
+
+	"github.com/cockroachdb/errors"
+)
 
 const (
 	// TypeEmpty represents an error that hasn't been properly parsed or detected.
@@ -92,6 +96,11 @@ func Newf(format string, args ...any) error { return errors.Newf(format, args...
 // The As method should set the target to its value and return true if err matches the
 // type to which target points.
 func As(err error, target any) bool { return errors.As(err, target) }
+
+// AsType is a generic version of As that is type-safe and returns the matched error
+// value directly. It finds the first error in err's tree that matches the target type T,
+// and if so, returns it along with true. Otherwise, it returns the zero value and false.
+func AsType[T error](err error) (T, bool) { return stderrors.AsType[T](err) }
 
 // Skip returns nil if the error satisfied errors.Is for any of the reference errors.
 // Otherwise, it returns the error itself.
