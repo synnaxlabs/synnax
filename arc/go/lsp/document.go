@@ -13,10 +13,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/debounce"
+	"github.com/synnaxlabs/x/diagnostics"
 	"go.lsp.dev/protocol"
 )
 

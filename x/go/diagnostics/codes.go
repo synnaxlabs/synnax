@@ -9,8 +9,8 @@
 
 package diagnostics
 
-// ErrorCode identifies a diagnostic category for Arc compiler errors.
-// Error codes follow the format ARC<category><number> where:
+// ErrorCode identifies a diagnostic category for compiler errors.
+// Error codes follow the format <PREFIX><category><number> where:
 //   - Category 2xxx: Type system errors
 //   - Category 3xxx: Function-related errors
 //   - Category 4xxx: Symbol/scope errors
