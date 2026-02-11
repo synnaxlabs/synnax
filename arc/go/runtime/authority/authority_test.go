@@ -74,6 +74,26 @@ var _ = Describe("Authority", func() {
 			}
 			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
+		It("Should create node for set_authority with a non-uint8 channel", func() {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "set_authority",
+					Config: types.Params{
+						{Name: "value", Type: types.U8(), Value: uint8(200)},
+						{Name: "channel", Type: types.U8(), Value: uint32(99)},
+					},
+				},
+				State: s.Node("set_auth"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			Expect(n).ToNot(BeNil())
+			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			changes := s.FlushAuthorityChanges()
+			Expect(changes).To(HaveLen(1))
+			Expect(changes[0].Channel).ToNot(BeNil())
+			Expect(*changes[0].Channel).To(Equal(uint32(99)))
+			Expect(changes[0].Authority).To(Equal(uint8(200)))
+		})
 		It("Should return NotFound for unknown type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
@@ -176,6 +196,26 @@ var _ = Describe("Authority", func() {
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Authority).To(Equal(uint8(150)))
 			Expect(changes[0].Channel).To(BeNil())
+		})
+
+		It("Should buffer authority change for a non-uint8 channel", func() {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "set_authority",
+					Config: types.Params{
+						{Name: "value", Type: types.U8(), Value: uint8(255)},
+						{Name: "channel", Type: types.U8(), Value: uint32(99)},
+					},
+				},
+				State: s.Node("set_auth"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			changes := s.FlushAuthorityChanges()
+			Expect(changes).To(HaveLen(1))
+			Expect(changes[0].Authority).To(Equal(uint8(255)))
+			Expect(changes[0].Channel).ToNot(BeNil())
+			Expect(*changes[0].Channel).To(Equal(uint32(99)))
 		})
 
 		It("Should fire only once before Reset", func() {

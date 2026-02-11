@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/authority"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
@@ -752,6 +753,51 @@ var _ = Describe("Graph", func() {
 				stableReturnParam := MustBeOk(stableIRNode.Outputs.Get(ir.DefaultOutputParam))
 				Expect(stableReturnParam.Type).To(Equal(types.U8()))
 			})
+		})
+
+		It("Should analyze set_authority with a non-uint8 channel", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "on",
+						Config: types.Params{
+							{Name: "channel", Type: types.Chan(types.F64())},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:    "on",
+						Type:   "on",
+						Config: map[string]any{"channel": 12},
+					},
+					{
+						Key:  "set_auth",
+						Type: "set_authority",
+						Config: map[string]any{
+							"value":   200,
+							"channel": 12,
+						},
+					},
+				},
+			}
+			resolver := symbol.CompoundResolver{
+				authority.SymbolResolver,
+				symbol.MapResolver{
+					"12": symbol.Symbol{
+						Name: "f64_sensor",
+						Type: types.WriteChan(types.F64()),
+						Kind: symbol.KindChannel,
+						ID:   12,
+					},
+				},
+			}
+			g = MustSucceed(graph.Parse(g))
+			_, diagnostics := graph.Analyze(ctx, g, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
 		Describe("Edge Validation", func() {
