@@ -2425,7 +2425,10 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    auto *error_status = find_status_by_variant(ctx->statuses, x::status::variant::ERR);
+    auto *error_status = find_status_by_variant(
+        ctx->statuses,
+        x::status::VARIANT_ERROR
+    );
     EXPECT_NE(error_status, nullptr)
         << "Writer failure should propagate error status via stopped_with_err";
     if (error_status != nullptr) { EXPECT_FALSE(error_status->details.running); }

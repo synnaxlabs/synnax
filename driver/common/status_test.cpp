@@ -114,7 +114,7 @@ TEST(TestTaskStateHandler, testSendError) {
     EXPECT_EQ(first.key, task.status_key());
     EXPECT_EQ(first.name, "task1");
     EXPECT_EQ(first.details.task, task.key);
-    EXPECT_EQ(first.variant, x::status::variant::ERR);
+    EXPECT_EQ(first.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(first.details.running, false);
     EXPECT_EQ(first.message, "fatal runtime error");
 

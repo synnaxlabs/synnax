@@ -62,7 +62,7 @@ struct StatusHandler {
     void send_error(const x::errors::Error &err) {
         if (!err) return;
         this->status.key = this->task.status_key();
-        this->status.variant = x::status::variant::ERR;
+        this->status.variant = x::status::VARIANT_ERROR;
         this->status.details.running = false;
         this->status.message = err.data;
         this->accumulated_err = err;
