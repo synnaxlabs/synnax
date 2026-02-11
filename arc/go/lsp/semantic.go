@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
-	xlsp "github.com/synnaxlabs/x/lsp"
+	"github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/protocol"
 )
 
@@ -79,7 +79,7 @@ func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.Semant
 
 func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []uint32 {
 	allTokens := tokenizeContent(content)
-	var tokens []xlsp.Token
+	var tokens []lsp.Token
 	for _, t := range allTokens {
 		if t.GetTokenType() == antlr.TokenEOF {
 			continue
@@ -88,14 +88,14 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 		if tokenType == nil {
 			continue
 		}
-		tokens = append(tokens, xlsp.Token{
+		tokens = append(tokens, lsp.Token{
 			Line:      uint32(t.GetLine() - 1),
 			StartChar: uint32(t.GetColumn()),
 			Length:    uint32(len(t.GetText())),
 			TokenType: *tokenType,
 		})
 	}
-	return xlsp.EncodeSemanticTokens(tokens)
+	return lsp.EncodeSemanticTokens(tokens)
 }
 
 func classifyToken(ctx context.Context, t antlr.Token, docIR ir.IR) *uint32 {

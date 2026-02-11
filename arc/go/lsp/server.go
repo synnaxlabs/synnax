@@ -27,7 +27,7 @@ import (
 	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
-	xlsp "github.com/synnaxlabs/x/lsp"
+	lsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"go.lsp.dev/protocol"
@@ -80,20 +80,13 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error { return nil }
 
-// Client extends protocol.Client with LSP 3.16+ methods missing from
-// go.lsp.dev/protocol@v0.12.0.
-type Client interface {
-	protocol.Client
-	SemanticTokensRefresh(ctx context.Context) error
-}
-
-var translateCfg = xlsp.TranslateConfig{Source: "arc-analyzer"}
+var translateCfg = lsp.TranslateConfig{Source: "arc-analyzer"}
 
 // Server implements the Language Server Protocol for arc
 type Server struct {
-	xlsp.NoopServer
+	lsp.NoopServer
 	capabilities             protocol.ServerCapabilities
-	client                   Client
+	client                   lsp.Client
 	documents                map[protocol.DocumentURI]*Document
 	cfg                      Config
 	mu                       sync.RWMutex
@@ -139,7 +132,7 @@ func New(cfgs ...Config) (*Server, error) {
 			RenameProvider:                  true,
 			SemanticTokensProvider: map[string]any{
 				"legend": protocol.SemanticTokensLegend{
-					TokenTypes: xlsp.ConvertToSemanticTokenTypes(semanticTokenTypes),
+					TokenTypes: lsp.ConvertToSemanticTokenTypes(semanticTokenTypes),
 				},
 				"full": true,
 			},
@@ -148,7 +141,7 @@ func New(cfgs ...Config) (*Server, error) {
 }
 
 // SetClient sets the LSP client for sending notifications
-func (s *Server) SetClient(client Client) {
+func (s *Server) SetClient(client lsp.Client) {
 	s.client = client
 	if s.cfg.OnExternalChange != nil {
 		s.externalChangeDisconnect = s.cfg.OnExternalChange.OnChange(func(ctx context.Context, _ struct{}) {
@@ -259,10 +252,10 @@ func (s *Server) DidChange(_ context.Context, params *protocol.DidChangeTextDocu
 		return nil
 	}
 	for _, change := range params.ContentChanges {
-		if IsFullReplacement(change) {
+		if lsp.IsFullReplacement(change) {
 			doc.Content = change.Text
 		} else {
-			doc.Content = ApplyIncrementalChange(doc.Content, change)
+			doc.Content = lsp.ApplyIncrementalChange(doc.Content, change)
 		}
 	}
 	doc.Version = params.TextDocument.Version
@@ -384,7 +377,7 @@ func (s *Server) analyze(
 		wrappedContent := fmt.Sprintf("{%s}", content)
 		t, err := parser.ParseBlock(wrappedContent)
 		if err != nil {
-			pDiagnostics = xlsp.TranslateDiagnostics(*err, translateCfg)
+			pDiagnostics = lsp.TranslateDiagnostics(*err, translateCfg)
 		} else {
 			aCtx := acontext.CreateRoot[parser.IBlockContext](
 				ctx, t, s.cfg.GlobalResolver,
@@ -392,18 +385,18 @@ func (s *Server) analyze(
 			statement.AnalyzeFunctionBody(aCtx)
 			docIR = ir.IR{Symbols: aCtx.Scope}
 			docDiag = *aCtx.Diagnostics
-			pDiagnostics = xlsp.TranslateDiagnostics(docDiag, translateCfg)
+			pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateCfg)
 		}
 	} else {
 		t, diag := text.Parse(text.Text{Raw: content})
 		if diag != nil {
-			pDiagnostics = xlsp.TranslateDiagnostics(*diag, translateCfg)
+			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateCfg)
 		} else {
 			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.GlobalResolver)
 			docIR = analyzedIR
 			if analysisDiag != nil {
 				docDiag = *analysisDiag
-				pDiagnostics = xlsp.TranslateDiagnostics(docDiag, translateCfg)
+				pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateCfg)
 			}
 		}
 	}

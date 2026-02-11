@@ -11,9 +11,18 @@
 package lsp
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/x/diagnostics"
 	"go.lsp.dev/protocol"
 )
+
+// Client extends protocol.Client with LSP 3.16+ methods missing from
+// go.lsp.dev/protocol@v0.12.0.
+type Client interface {
+	protocol.Client
+	SemanticTokensRefresh(ctx context.Context) error
+}
 
 // Severity converts an internal Severity to an LSP protocol DiagnosticSeverity.
 func Severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
