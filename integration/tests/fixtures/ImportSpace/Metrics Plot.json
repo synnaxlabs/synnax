@@ -1,198 +1,193 @@
 {
+  "axes": {
     "axes": {
-        "axes": {
-            "x1": {
-                "autoBounds": {
-                    "lower": true,
-                    "upper": true
-                },
-                "bounds": {
-                    "lower": 1770833394155893500,
-                    "upper": 1770833424755893500
-                },
-                "key": "x1",
-                "label": "",
-                "labelDirection": "x",
-                "labelLevel": "small",
-                "tickSpacing": 75,
-                "type": "time"
-            },
-            "x2": {
-                "autoBounds": {
-                    "lower": true,
-                    "upper": true
-                },
-                "bounds": {
-                    "lower": 0,
-                    "upper": 0
-                },
-                "key": "x2",
-                "label": "",
-                "labelDirection": "x",
-                "labelLevel": "small",
-                "tickSpacing": 75,
-                "type": "time"
-            },
-            "y1": {
-                "autoBounds": {
-                    "lower": true,
-                    "upper": true
-                },
-                "bounds": {
-                    "lower": -3.614695978164673,
-                    "upper": 69.2797278881073
-                },
-                "key": "y1",
-                "label": "",
-                "labelDirection": "y",
-                "labelLevel": "small",
-                "tickSpacing": 75
-            },
-            "y2": {
-                "autoBounds": {
-                    "lower": true,
-                    "upper": true
-                },
-                "bounds": {
-                    "lower": 0,
-                    "upper": 0
-                },
-                "key": "y2",
-                "label": "",
-                "labelDirection": "y",
-                "labelLevel": "small",
-                "tickSpacing": 75
-            },
-            "y3": {
-                "autoBounds": {
-                    "lower": true,
-                    "upper": true
-                },
-                "bounds": {
-                    "lower": 0,
-                    "upper": 0
-                },
-                "key": "y3",
-                "label": "",
-                "labelDirection": "y",
-                "labelLevel": "small",
-                "tickSpacing": 75
-            },
-            "y4": {
-                "autoBounds": {
-                    "lower": true,
-                    "upper": true
-                },
-                "bounds": {
-                    "lower": 0,
-                    "upper": 0
-                },
-                "key": "y4",
-                "label": "",
-                "labelDirection": "y",
-                "labelLevel": "small",
-                "tickSpacing": 75
-            }
+      "x1": {
+        "autoBounds": {
+          "lower": true,
+          "upper": true
         },
-        "hasHadChannelSet": true,
-        "renderTrigger": 100
-    },
-    "channels": {
-        "x1": 0,
-        "x2": 0,
-        "y1": [
-            1048581,
-            1048580
-        ],
-        "y2": [],
-        "y3": [],
-        "y4": []
-    },
-    "control": {
-        "clickMode": null,
-        "enableTooltip": true,
-        "hold": false
-    },
-    "key": "a9ee59c8-24a9-4ff9-bc90-58dc40ebdbd9",
-    "legend": {
-        "position": {
-            "root": {
-                "x": "left",
-                "y": "top"
-            },
-            "units": {
-                "x": "px",
-                "y": "px"
-            },
-            "x": 50,
-            "y": 50
+        "bounds": {
+          "lower": 1770833394155893500,
+          "upper": 1770833424755893500
         },
-        "visible": true
-    },
-    "lines": [
-        {
-            "key": "y1---x1---recent---0---1048581",
-            "color": "#dc136c",
-            "strokeWidth": 2,
-            "downsample": 1,
-            "downsampleMode": "decimate",
-            "label": "sy_node_1_metrics_cpu_percentage"
+        "key": "x1",
+        "label": "",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "tickSpacing": 75,
+        "type": "time"
+      },
+      "x2": {
+        "autoBounds": {
+          "lower": true,
+          "upper": true
         },
-        {
-            "key": "y1---x1---recent---0---1048580",
-            "color": "#20a4f3",
-            "strokeWidth": 2,
-            "downsample": 1,
-            "downsampleMode": "decimate",
-            "label": "sy_node_1_metrics_mem_percentage"
-        }
-    ],
-    "measure": {
-        "mode": "one"
-    },
-    "mode": "zoom",
-    "ranges": {
-        "x1": [
-            "recent"
-        ],
-        "x2": []
-    },
-    "remoteCreated": true,
-    "rules": [],
-    "selection": {
-        "box": {
-            "one": {
-                "x": 0,
-                "y": 0
-            },
-            "two": {
-                "x": 0,
-                "y": 0
-            },
-            "root": {
-                "x": "left",
-                "y": "top"
-            }
-        }
-    },
-    "title": {
-        "level": "h4",
-        "visible": false
-    },
-    "toolbar": {
-        "activeTab": "data"
-    },
-    "version": "4.0.0",
-    "viewport": {
-        "renderTrigger": 0,
-        "zoom": {
-            "width": 1,
-            "height": 1
+        "bounds": {
+          "lower": 0,
+          "upper": 0
         },
-        "pan": {
-            "x": 0,
-            "y": 0
-        }
+        "key": "x2",
+        "label": "",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "tickSpacing": 75,
+        "type": "time"
+      },
+      "y1": {
+        "autoBounds": {
+          "lower": true,
+          "upper": true
+        },
+        "bounds": {
+          "lower": -3.614695978164673,
+          "upper": 69.2797278881073
+        },
+        "key": "y1",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "tickSpacing": 75
+      },
+      "y2": {
+        "autoBounds": {
+          "lower": true,
+          "upper": true
+        },
+        "bounds": {
+          "lower": 0,
+          "upper": 0
+        },
+        "key": "y2",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "tickSpacing": 75
+      },
+      "y3": {
+        "autoBounds": {
+          "lower": true,
+          "upper": true
+        },
+        "bounds": {
+          "lower": 0,
+          "upper": 0
+        },
+        "key": "y3",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "tickSpacing": 75
+      },
+      "y4": {
+        "autoBounds": {
+          "lower": true,
+          "upper": true
+        },
+        "bounds": {
+          "lower": 0,
+          "upper": 0
+        },
+        "key": "y4",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "tickSpacing": 75
+      }
     },
-    "type": "lineplot"
+    "hasHadChannelSet": true,
+    "renderTrigger": 100
+  },
+  "channels": {
+    "x1": 0,
+    "x2": 0,
+    "y1": [1048581, 1048580],
+    "y2": [],
+    "y3": [],
+    "y4": []
+  },
+  "control": {
+    "clickMode": null,
+    "enableTooltip": true,
+    "hold": false
+  },
+  "key": "a9ee59c8-24a9-4ff9-bc90-58dc40ebdbd9",
+  "legend": {
+    "position": {
+      "root": {
+        "x": "left",
+        "y": "top"
+      },
+      "units": {
+        "x": "px",
+        "y": "px"
+      },
+      "x": 50,
+      "y": 50
+    },
+    "visible": true
+  },
+  "lines": [
+    {
+      "key": "y1---x1---recent---0---1048581",
+      "color": "#dc136c",
+      "strokeWidth": 2,
+      "downsample": 1,
+      "downsampleMode": "decimate",
+      "label": "sy_node_1_metrics_cpu_percentage"
+    },
+    {
+      "key": "y1---x1---recent---0---1048580",
+      "color": "#20a4f3",
+      "strokeWidth": 2,
+      "downsample": 1,
+      "downsampleMode": "decimate",
+      "label": "sy_node_1_metrics_mem_percentage"
+    }
+  ],
+  "measure": {
+    "mode": "one"
+  },
+  "mode": "zoom",
+  "ranges": {
+    "x1": ["recent"],
+    "x2": []
+  },
+  "remoteCreated": true,
+  "rules": [],
+  "selection": {
+    "box": {
+      "one": {
+        "x": 0,
+        "y": 0
+      },
+      "two": {
+        "x": 0,
+        "y": 0
+      },
+      "root": {
+        "x": "left",
+        "y": "top"
+      }
+    }
+  },
+  "title": {
+    "level": "h4",
+    "visible": false
+  },
+  "toolbar": {
+    "activeTab": "data"
+  },
+  "version": "4.0.0",
+  "viewport": {
+    "renderTrigger": 0,
+    "zoom": {
+      "width": 1,
+      "height": 1
+    },
+    "pan": {
+      "x": 0,
+      "y": 0
+    }
+  },
+  "type": "lineplot"
 }
