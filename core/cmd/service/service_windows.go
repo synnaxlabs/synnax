@@ -263,8 +263,8 @@ func stateToString(state svc.State) string {
 	}
 }
 
-func status() (StatusInfo, error) {
-	info := StatusInfo{
+func status() (info StatusInfo, err error) {
+	info = StatusInfo{
 		ConfigPath: ConfigPath(),
 	}
 
@@ -287,14 +287,18 @@ func status() (StatusInfo, error) {
 	if err != nil {
 		return info, errors.Wrap(err, "failed to connect to service manager")
 	}
-	defer m.Disconnect()
+	defer func() {
+		err = errors.Combine(err, errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"))
+	}()
 
 	s, err := m.OpenService(name)
 	if err != nil {
 		// Service not installed
 		return info, nil
 	}
-	defer s.Close()
+	defer func() {
+		err = errors.Combine(err, errors.Wrap(s.Close(), "failed to close service handle"))
+	}()
 
 	info.Installed = true
 
