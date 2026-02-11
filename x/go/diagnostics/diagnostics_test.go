@@ -360,9 +360,9 @@ var _ = Describe("Diagnostics", func() {
 	Describe("Error Codes", func() {
 		It("Should add error with code", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Errorf(nil, "type error").WithCode(diagnostics.ErrorCodeTypeMismatch))
+			d.Add(diagnostics.Errorf(nil, "type error").WithCode("TEST001"))
 			Expect(d).To(HaveLen(1))
-			Expect(d[0].Code).To(Equal(diagnostics.ErrorCodeTypeMismatch))
+			Expect(d[0].Code).To(Equal(diagnostics.ErrorCode("TEST001")))
 			Expect(d[0].Message).To(Equal("type error"))
 		})
 
@@ -371,10 +371,10 @@ var _ = Describe("Diagnostics", func() {
 			d.Add(diagnostics.Diagnostic{
 				Start:    diagnostics.Position{Line: 1, Col: 5},
 				Severity: diagnostics.SeverityError,
-				Code:     diagnostics.ErrorCodeFuncArgCount,
+				Code:     "TEST002",
 				Message:  "wrong arg count",
 			})
-			Expect(d.String()).To(Equal("1:5 error [ARC3001]: wrong arg count"))
+			Expect(d.String()).To(Equal("1:5 error [TEST002]: wrong arg count"))
 		})
 	})
 
@@ -389,9 +389,9 @@ var _ = Describe("Diagnostics", func() {
 
 		It("Should add error with code and note", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Errorf(nil, "wrong type").WithCode(diagnostics.ErrorCodeFuncArgType).WithNote("signature: add(x i64, y i64) i64"))
+			d.Add(diagnostics.Errorf(nil, "wrong type").WithCode("TEST003").WithNote("signature: add(x i64, y i64) i64"))
 			Expect(d).To(HaveLen(1))
-			Expect(d[0].Code).To(Equal(diagnostics.ErrorCodeFuncArgType))
+			Expect(d[0].Code).To(Equal(diagnostics.ErrorCode("TEST003")))
 			Expect(d[0].Notes).To(HaveLen(1))
 			Expect(d[0].Notes[0].Message).To(Equal("signature: add(x i64, y i64) i64"))
 		})

@@ -11,8 +11,6 @@
 package lsp
 
 import (
-	"io"
-
 	"github.com/synnaxlabs/x/diagnostics"
 	"go.lsp.dev/protocol"
 )
@@ -122,13 +120,3 @@ func ConvertToSemanticTokenTypes(types []string) []protocol.SemanticTokenTypes {
 	}
 	return result
 }
-
-// RWCloser wraps an io.Reader and io.Writer into a single io.ReadWriteCloser,
-// suitable for passing to LSP stream constructors that need stdin/stdout.
-type RWCloser struct {
-	io.Reader
-	io.Writer
-}
-
-// Close is a no-op that satisfies io.Closer.
-func (RWCloser) Close() error { return nil }

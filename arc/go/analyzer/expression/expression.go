@@ -14,6 +14,7 @@ import (
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/analyzer/units"
@@ -416,7 +417,7 @@ func validateFunctionCall(
 			msg = fmt.Sprintf("function %s expects %d to %d argument(s), got %d",
 				funcName, requiredCount, totalCount, actualCount)
 		}
-		ctx.Diagnostics.Add(diagnostics.Errorf(funcCall, "%s", msg).WithCode(diagnostics.ErrorCodeFuncArgCount).WithNote("signature: " + signature))
+		ctx.Diagnostics.Add(diagnostics.Errorf(funcCall, "%s", msg).WithCode(codes.FuncArgCount).WithNote("signature: " + signature))
 		return
 	}
 
@@ -434,7 +435,7 @@ func validateFunctionCall(
 		if !types.Compatible(argType, paramType) {
 			diag := diagnostics.Diagnostic{
 				Severity: diagnostics.SeverityError,
-				Code:     diagnostics.ErrorCodeFuncArgType,
+				Code:     codes.FuncArgType,
 				Message: fmt.Sprintf("argument %d of %s: expected %s, got %s",
 					i+1, funcName, paramType, argType),
 				Notes: []diagnostics.Note{{Message: "signature: " + signature}},

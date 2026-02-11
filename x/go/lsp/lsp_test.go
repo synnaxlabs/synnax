@@ -10,8 +10,6 @@
 package lsp_test
 
 import (
-	"bytes"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -72,9 +70,9 @@ var _ = Describe("LSP", func() {
 
 		It("Should include error code when present", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Errorf(nil, "error").WithCode(diagnostics.ErrorCodeTypeMismatch))
+			d.Add(diagnostics.Errorf(nil, "error").WithCode("TEST001"))
 			result := lsp.TranslateDiagnostics(d, cfg)
-			Expect(result[0].Code).To(Equal("ARC2001"))
+			Expect(result[0].Code).To(Equal("TEST001"))
 		})
 
 		It("Should convert notes to related information", func() {
@@ -117,28 +115,6 @@ var _ = Describe("LSP", func() {
 		It("Should return empty slice for empty input", func() {
 			result := lsp.ConvertToSemanticTokenTypes(nil)
 			Expect(result).To(BeEmpty())
-		})
-	})
-
-	Describe("RWCloser", func() {
-		It("Should read and write", func() {
-			var buf bytes.Buffer
-			rwc := lsp.RWCloser{Reader: bytes.NewReader([]byte("hello")), Writer: &buf}
-			b := make([]byte, 5)
-			n, err := rwc.Read(b)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(n).To(Equal(5))
-			Expect(string(b)).To(Equal("hello"))
-
-			n, err = rwc.Write([]byte("world"))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(n).To(Equal(5))
-			Expect(buf.String()).To(Equal("world"))
-		})
-
-		It("Should close without error", func() {
-			rwc := lsp.RWCloser{}
-			Expect(rwc.Close()).To(Succeed())
 		})
 	})
 
