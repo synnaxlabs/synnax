@@ -114,7 +114,7 @@ x::errors::Error Engine::reconfigure() {
 
     std::vector<pdo::Entry> all_entries;
     for (const auto &reg: this->read_registrations)
-        all_entries.insert(all_entries.end(), reg.entries.begin(), reg.entries.end());
+        all_entries.insert(all_entries.end(), reg->entries.begin(), reg->entries.end());
     for (const auto &reg: this->write_registrations)
         all_entries.insert(all_entries.end(), reg.entries.begin(), reg.entries.end());
 
@@ -152,6 +152,7 @@ x::errors::Error Engine::reconfigure() {
     this->breaker.reset();
     this->update_read_offsets_locked();
     this->update_write_offsets_locked(this->master->output_data().size());
+    this->config_gen.fetch_add(1, std::memory_order_release);
     this->restarting = false;
     this->breaker.start();
     this->run_thread = std::thread(&Engine::run, this);
@@ -168,7 +169,7 @@ void Engine::update_cycle_time() {
     {
         std::lock_guard lock(this->registration_mu);
         for (const auto &reg: this->read_registrations)
-            if (reg.rate > max_rate) max_rate = reg.rate;
+            if (reg->rate > max_rate) max_rate = reg->rate;
     }
     {
         std::lock_guard lock(this->write_mu);
@@ -217,9 +218,9 @@ void Engine::update_read_offsets_locked() {
     if (this->shared_input_buffer.size() != input_size)
         this->shared_input_buffer.resize(input_size);
     for (auto &reg: this->read_registrations) {
-        reg.offsets.clear();
-        for (const auto &entry: reg.entries)
-            reg.offsets.push_back(this->master->pdo_offset(entry));
+        reg->offsets.clear();
+        for (const auto &entry: reg->entries)
+            reg->offsets.push_back(this->master->pdo_offset(entry));
     }
 }
 
@@ -252,9 +253,10 @@ void Engine::update_write_offsets(const size_t total_size) {
 void Engine::unregister_reader(const size_t id) {
     {
         std::lock_guard lock(this->registration_mu);
-        std::erase_if(this->read_registrations, [id](const Registration &r) {
-            return r.id == id;
-        });
+        std::erase_if(
+            this->read_registrations,
+            [id](const std::shared_ptr<Registration> &r) { return r->id == id; }
+        );
     }
     this->update_cycle_time();
     if (!this->should_be_running()) this->stop();
@@ -300,9 +302,12 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
         total_size += e.byte_length();
 
     const size_t reg_id = this->next_id.fetch_add(1, std::memory_order_relaxed);
+    auto reg = std::make_shared<Registration>(
+        Registration{reg_id, entries, {}, sample_rate}
+    );
     {
         std::lock_guard lock(this->registration_mu);
-        this->read_registrations.push_back({reg_id, entries, {}, sample_rate});
+        this->read_registrations.push_back(reg);
     }
     this->update_cycle_time();
 
@@ -312,33 +317,8 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
         return {nullptr, err};
     }
 
-    std::vector<ResolvedPDO> resolved_pdos;
-    size_t input_frame_size;
-    {
-        std::lock_guard lock(this->registration_mu);
-        input_frame_size = this->shared_input_buffer.size();
-        for (const auto &reg: this->read_registrations) {
-            if (reg.id == reg_id) {
-                resolved_pdos.reserve(reg.entries.size());
-                for (size_t i = 0; i < reg.entries.size(); ++i)
-                    resolved_pdos.push_back(
-                        {reg.offsets[i],
-                         reg.entries[i].data_type,
-                         reg.entries[i].bit_length}
-                    );
-                break;
-            }
-        }
-    }
-
     return {
-        std::make_unique<Reader>(
-            *this,
-            reg_id,
-            total_size,
-            std::move(resolved_pdos),
-            input_frame_size
-        ),
+        std::make_unique<Reader>(*this, reg_id, total_size, std::move(reg)),
         x::errors::NIL
     };
 }

@@ -64,7 +64,7 @@ class Engine {
     std::condition_variable read_cv;
 
     mutable std::mutex registration_mu;
-    std::vector<Registration> read_registrations;
+    std::vector<std::shared_ptr<Registration>> read_registrations;
 
     mutable std::mutex write_mu;
     std::vector<uint8_t> write_staging;
@@ -73,6 +73,7 @@ class Engine {
 
     std::thread run_thread;
     std::atomic<bool> restarting{false};
+    alignas(64) std::atomic<uint64_t> config_gen{0};
     x::breaker::Breaker breaker;
 
     void run();
@@ -106,17 +107,20 @@ public:
         Engine &engine;
         size_t id;
         size_t total_size;
-        std::vector<ResolvedPDO> pdos;
+        std::shared_ptr<Registration> registration;
+        mutable std::vector<ResolvedPDO> pdos;
         mutable std::vector<uint8_t> private_buffer;
         mutable uint64_t last_seen_epoch = 0;
+        mutable uint64_t my_config_gen = 0;
+
+        void refresh_pdos() const;
 
     public:
         Reader(
             Engine &eng,
             size_t id,
             size_t total_size,
-            std::vector<ResolvedPDO> pdos,
-            size_t input_frame_size
+            std::shared_ptr<Registration> registration
         );
 
         Reader(const Reader &) = delete;

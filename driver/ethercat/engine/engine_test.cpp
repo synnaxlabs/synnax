@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
+#include <thread>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/frame.h"
@@ -14,6 +17,7 @@
 
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/engine/pool.h"
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/mock/master.h"
 
 namespace driver::ethercat::engine {
@@ -615,6 +619,245 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
     ASSERT_EQ(slaves.size(), 2);
     EXPECT_EQ(slaves[0].properties.position, 0);
     EXPECT_EQ(slaves[1].properties.position, 1);
+}
+
+TEST_F(EngineReadValueTest, ReaderBufferResizesAfterReconfigure) {
+    this->mock_master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1",
+            .input_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 16,
+                 .is_input = true,
+                 .name = "a",
+                 .data_type = x::telem::UINT16_T},
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 2,
+                 .bit_length = 32,
+                 .is_input = true,
+                 .name = "b",
+                 .data_type = x::telem::UINT32_T},
+            },
+        }
+    );
+    this->create_engine();
+
+    auto reader1 = ASSERT_NIL_P(this->engine->open_reader(
+        {pdo::Entry(0, 0x6000, 1, 16, true, x::telem::UINT16_T)},
+        x::telem::Rate(100)
+    ));
+
+    x::breaker::Breaker brk;
+    brk.start();
+    x::telem::Frame frame1(1, x::telem::Series(x::telem::UINT16_T, 1));
+    ASSERT_NIL(reader1->read(brk, frame1));
+
+    auto reader2 = ASSERT_NIL_P(this->engine->open_reader(
+        {pdo::Entry(0, 0x6000, 2, 32, true, x::telem::UINT32_T)},
+        x::telem::Rate(100)
+    ));
+
+    this->mock_master->set_input<uint16_t>(0, 0xABCD);
+
+    x::telem::Frame frame1b(1, x::telem::Series(x::telem::UINT16_T, 1));
+    ASSERT_NIL(reader1->read(brk, frame1b));
+    EXPECT_EQ(frame1b.series->at(0).at<uint16_t>(0), static_cast<uint16_t>(0xABCD));
+
+    brk.stop();
+}
+
+TEST_F(EngineReadValueTest, ReadAfterReconfigureGetsCorrectValues) {
+    this->mock_master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1",
+            .input_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 16,
+                 .is_input = true,
+                 .name = "a",
+                 .data_type = x::telem::UINT16_T},
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 2,
+                 .bit_length = 32,
+                 .is_input = true,
+                 .name = "b",
+                 .data_type = x::telem::INT32_T},
+            },
+        }
+    );
+    this->create_engine();
+
+    auto reader1 = ASSERT_NIL_P(this->engine->open_reader(
+        {pdo::Entry(0, 0x6000, 1, 16, true, x::telem::UINT16_T)},
+        x::telem::Rate(100)
+    ));
+
+    this->mock_master->set_input<uint16_t>(0, 0x1234);
+
+    x::breaker::Breaker brk;
+    brk.start();
+    x::telem::Frame frame1(1, x::telem::Series(x::telem::UINT16_T, 1));
+    ASSERT_NIL(reader1->read(brk, frame1));
+    EXPECT_EQ(frame1.series->at(0).at<uint16_t>(0), static_cast<uint16_t>(0x1234));
+
+    auto reader2 = ASSERT_NIL_P(this->engine->open_reader(
+        {pdo::Entry(0, 0x6000, 2, 32, true, x::telem::INT32_T)},
+        x::telem::Rate(100)
+    ));
+
+    this->mock_master->set_input<uint16_t>(0, 0x5678);
+    this->mock_master->set_input<int32_t>(2, 0xDEADBEEF);
+
+    x::telem::Frame frame1b(1, x::telem::Series(x::telem::UINT16_T, 1));
+    ASSERT_NIL(reader1->read(brk, frame1b));
+    EXPECT_EQ(frame1b.series->at(0).at<uint16_t>(0), static_cast<uint16_t>(0x5678));
+
+    x::telem::Frame frame2(1, x::telem::Series(x::telem::INT32_T, 1));
+    ASSERT_NIL(reader2->read(brk, frame2));
+    EXPECT_EQ(frame2.series->at(0).at<int32_t>(0), static_cast<int32_t>(0xDEADBEEF));
+
+    brk.stop();
+}
+
+TEST_F(EngineReadValueTest, ReaderAfterRemovalAndReconfigure) {
+    this->mock_master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1",
+            .input_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 16,
+                 .is_input = true,
+                 .name = "a",
+                 .data_type = x::telem::UINT16_T},
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 2,
+                 .bit_length = 16,
+                 .is_input = true,
+                 .name = "b",
+                 .data_type = x::telem::UINT16_T},
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 3,
+                 .bit_length = 32,
+                 .is_input = true,
+                 .name = "c",
+                 .data_type = x::telem::INT32_T},
+            },
+        }
+    );
+    this->create_engine();
+
+    auto reader1 = ASSERT_NIL_P(this->engine->open_reader(
+        {pdo::Entry(0, 0x6000, 1, 16, true, x::telem::UINT16_T)},
+        x::telem::Rate(100)
+    ));
+
+    {
+        auto reader2 = ASSERT_NIL_P(this->engine->open_reader(
+            {pdo::Entry(0, 0x6000, 2, 16, true, x::telem::UINT16_T)},
+            x::telem::Rate(100)
+        ));
+    }
+
+    auto reader3 = ASSERT_NIL_P(this->engine->open_reader(
+        {pdo::Entry(0, 0x6000, 3, 32, true, x::telem::INT32_T)},
+        x::telem::Rate(100)
+    ));
+
+    this->mock_master->set_input<uint16_t>(0, 0xAAAA);
+    this->mock_master->set_input<int32_t>(2, 0xBBBBCCCC);
+
+    x::breaker::Breaker brk;
+    brk.start();
+
+    x::telem::Frame frame1(1, x::telem::Series(x::telem::UINT16_T, 1));
+    ASSERT_NIL(reader1->read(brk, frame1));
+    EXPECT_EQ(frame1.series->at(0).at<uint16_t>(0), static_cast<uint16_t>(0xAAAA));
+
+    x::telem::Frame frame3(1, x::telem::Series(x::telem::INT32_T, 1));
+    ASSERT_NIL(reader3->read(brk, frame3));
+    EXPECT_EQ(frame3.series->at(0).at<int32_t>(0), static_cast<int32_t>(0xBBBBCCCC));
+
+    brk.stop();
+}
+
+TEST_F(EngineReadValueTest, ConcurrentOpenReaderAndRead) {
+    this->mock_master->add_slave(
+        slave::Properties{
+            .position = 0,
+            .vendor_id = 0x1,
+            .product_code = 0x2,
+            .name = "Slave1",
+            .input_pdos = {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 16,
+                 .is_input = true,
+                 .name = "a",
+                 .data_type = x::telem::UINT16_T},
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 2,
+                 .bit_length = 32,
+                 .is_input = true,
+                 .name = "b",
+                 .data_type = x::telem::UINT32_T},
+            },
+        }
+    );
+    this->create_engine();
+
+    auto reader1 = ASSERT_NIL_P(this->engine->open_reader(
+        {pdo::Entry(0, 0x6000, 1, 16, true, x::telem::UINT16_T)},
+        x::telem::Rate(100)
+    ));
+
+    x::breaker::Breaker brk;
+    brk.start();
+    std::atomic<int> restarting_count{0};
+    std::atomic<int> success_count{0};
+    std::atomic<bool> done{false};
+
+    std::thread reader_thread([&] {
+        while (!done.load(std::memory_order_acquire)) {
+            x::telem::Frame frame(1, x::telem::Series(x::telem::UINT16_T, 1));
+            auto err = reader1->read(brk, frame);
+            if (err.matches(errors::ENGINE_RESTARTING))
+                restarting_count.fetch_add(1, std::memory_order_relaxed);
+            else if (!err)
+                success_count.fetch_add(1, std::memory_order_relaxed);
+        }
+    });
+
+    auto reader2 = ASSERT_NIL_P(this->engine->open_reader(
+        {pdo::Entry(0, 0x6000, 2, 32, true, x::telem::UINT32_T)},
+        x::telem::Rate(100)
+    ));
+
+    ASSERT_EVENTUALLY_GE(success_count.load(std::memory_order_acquire), 3);
+
+    done.store(true, std::memory_order_release);
+    brk.stop();
+    reader_thread.join();
 }
 
 TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
