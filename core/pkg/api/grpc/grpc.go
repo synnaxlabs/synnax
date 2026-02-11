@@ -46,7 +46,7 @@ import (
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 )
 
-func New(channelSvc *distchannel.Service) (api.Transport, []fgrpc.BindableTransport) {
+func NewTransport(channelSvc *distchannel.Service) (api.Transport, []fgrpc.BindableTransport) {
 	var a api.Transport
 	transports := fgrpc.CompoundBindableTransport{
 		channelgrpc.New(&a),

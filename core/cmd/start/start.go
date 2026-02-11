@@ -260,7 +260,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	apiLayer.BindTo(httpapi.NewTransport(r, distributionLayer.Channel))
 
 	// Configure the GRPC Layer AspenTransport.
-	grpcAPI, grpcAPITrans := grpcapi.New(distributionLayer.Channel)
+	grpcAPI, grpcAPITrans := grpcapi.NewTransport(distributionLayer.Channel)
 	apiLayer.BindTo(grpcAPI)
 
 	if rootServer, err = server.Serve(
