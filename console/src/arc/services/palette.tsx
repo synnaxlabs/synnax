@@ -48,7 +48,7 @@ CreateCommand.useVisible = useUpdateVisible;
 
 export const OpenExplorerCommand = Palette.createSimpleCommand({
   key: "open_arc_explorer",
-  name: "Open Arc Explorer",
+  name: "Open the Arc Explorer",
   icon: <Icon.Explore />,
   layout: Arc.EXPLORER_LAYOUT,
   useVisible: useViewVisible,

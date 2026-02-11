@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 import synnax as sy
 
-from .symbol import Symbol
+from console.schematic.symbol import Symbol
 
 ButtonMode = Literal["Fire", "Momentary", "Pulse"]
 
@@ -80,7 +80,7 @@ class Button(Symbol):
             applied_properties["channel"] = channel_name
 
         if activation_delay is not None:
-            self.console.fill_input_field("Activation Delay", str(activation_delay))
+            self.layout.fill_input_field("Activation Delay", str(activation_delay))
             self.page.keyboard.press("Enter")
             applied_properties["activation_delay"] = activation_delay
 
@@ -122,7 +122,7 @@ class Button(Symbol):
 
         # Activation Delay
         props["activation_delay"] = float(
-            self.console.get_input_field("Activation Delay")
+            self.layout.get_input_field("Activation Delay")
         )
 
         # Show Control Chip
@@ -149,15 +149,10 @@ class Button(Symbol):
 
         return props
 
-    def press(self, sleep: int = 100) -> None:
-        """Press button
-
-        Args:
-            sleep: Time in milliseconds to wait after pressing. Buffer for network delays and slow animations.
-        """
-
+    def press(self) -> None:
+        """Press button."""
         self._disable_edit_mode()
-        self.click(sleep=sleep)
+        self.click()
 
     def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
         """Click and hold the button for the specified duration."""

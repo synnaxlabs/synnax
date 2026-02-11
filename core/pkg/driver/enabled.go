@@ -12,23 +12,24 @@
 package driver
 
 import (
-	"bufio"
 	"context"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/synnaxlabs/alamos"
+	"go.uber.org/zap"
+
+	"github.com/synnaxlabs/synnax/pkg/driver/internal/log"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
-	"go.uber.org/zap"
 )
 
 const (
@@ -38,14 +39,20 @@ const (
 	noColorFlag         = "--no-color"
 	configFlag          = "--config"
 	debugFlag           = "--debug"
-	startedMessage      = "started successfully"
 )
 
-var errStartTimeout = errors.New(
-	`timed out waiting for embedded Driver to start. This occurs either because
+var (
+	errStartTimeout = errors.New(
+		`timed out waiting for embedded Driver to start. This occurs either because
 the Driver could not reach the Core or a task took an unusual amount of time to
 start. Check logs above categorized 'driver' for more information.
 `,
+	)
+	errForceKillFailed = errors.New(
+		`embedded Driver shutdown timed out after being force killed. This may indicate
+a hardware deadlock or other issue preventing the Driver from exiting gracefully.
+`,
+	)
 )
 
 const (
@@ -59,6 +66,44 @@ const (
 
 var configCodec = &binary.JSONCodec{}
 
+// Driver manages the lifecycle of an embedded C++ driver subprocess. The driver
+// binary is either extracted from an embedded filesystem or loaded from a configured
+// path, then executed as a child process that communicates with the Synnax cluster.
+//
+// On startup, Open launches the subprocess and two goroutines that pipe its stdout and
+// stderr through PipeToLogger. A third goroutine waits for the process to exit. All
+// three run under an isolated signal context. Open blocks until the subprocess prints
+// "started successfully" or the StartTimeout expires. If startup fails, Open cleans
+// up the process and returns (nil, err).
+//
+// On shutdown, Close writes "STOP\n" to the subprocess's stdin, giving it a chance to
+// exit gracefully. If the process doesn't exit within StopTimeout, Close escalates to
+// Process.Kill. A secondary StopTimeout after the kill guarantees Close never blocks
+// indefinitely. Close is idempotent — concurrent and repeated calls return the result
+// of the first invocation.
+type Driver struct {
+	// cfg holds the validated configuration for the driver.
+	cfg Config
+	// cmd is the running driver subprocess. Nil before Start or after a failed launch.
+	cmd *exec.Cmd
+	// stdInPipe is the write end of the subprocess's stdin, used to send the STOP
+	// command during shutdown.
+	stdInPipe io.WriteCloser
+	// started is closed once the subprocess prints "started successfully". Open
+	// blocks on this channel to know when startup is complete.
+	started chan struct{}
+	// shutdown wraps the signal context's cancel and wait, allowing Close to tear
+	// down the goroutines that manage the subprocess's I/O and lifetime.
+	shutdown io.Closer
+	// mu guards the cmd and stdInPipe fields during subprocess setup in start().
+	mu sync.Mutex
+	// closeOnce ensures close() executes exactly once, making Close idempotent.
+	closeOnce sync.Once
+	// closeErr stores the result of the single close() invocation for subsequent
+	// Close calls to return.
+	closeErr error
+}
+
 func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -67,7 +112,10 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	d := &Driver{cfg: cfg, started: make(chan struct{})}
 	ctx, cancel := context.WithTimeout(ctx, cfg.StartTimeout)
 	defer cancel()
-	return d, d.start(ctx)
+	if err := d.start(ctx); err != nil {
+		return nil, err
+	}
+	return d, nil
 }
 
 func (d *Driver) start(ctx context.Context) error {
@@ -86,46 +134,26 @@ func (d *Driver) start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var mf func(ctx context.Context) error
-	mf = func(ctx context.Context) error {
-		d.mu.Lock()
-		b, err := configCodec.Encode(ctx, d.cfg.format())
+	var runProcess func(ctx context.Context) error
+	runProcess = func(ctx context.Context) error {
+		cfgFile, extractedBinary, err := d.setupCmd(ctx)
+		if cfgFile != "" {
+			defer func() {
+				if rmErr := os.Remove(cfgFile); rmErr != nil {
+					d.cfg.L.Error("failed to remove config file", zap.Error(rmErr))
+				}
+			}()
+		}
+		if extractedBinary != "" {
+			defer func() {
+				if rmErr := os.Remove(extractedBinary); rmErr != nil {
+					d.cfg.L.Error("failed to remove extracted binary", zap.Error(rmErr))
+				}
+			}()
+		}
 		if err != nil {
 			return err
 		}
-		workDir := filepath.Join(d.cfg.ParentDirname, extractedDriverDir)
-		if err = os.MkdirAll(workDir, xfs.UserRWX); err != nil {
-			return err
-		}
-		cfgFileName := filepath.Join(workDir, configFileName)
-		if err = os.WriteFile(cfgFileName, b, xfs.UserRW); err != nil {
-			return err
-		}
-		data, err := executable.ReadFile(embeddedDriverPath)
-		if err != nil {
-			return err
-		}
-		driverFileName := filepath.Join(workDir, driverName)
-		if err = os.WriteFile(driverFileName, data, xfs.UserRWX); err != nil {
-			return err
-		}
-		defer func() {
-			err = errors.Combine(err, os.Remove(cfgFileName))
-			err = errors.Combine(err, os.Remove(driverFileName))
-		}()
-		flags := []string{
-			startCmdName,
-			startStandaloneFlag,
-			blockSigStopFlag,
-			noColorFlag,
-		}
-		if *d.cfg.Debug {
-			flags = append(flags, debugFlag)
-		}
-		flags = append(flags, configFlag, cfgFileName)
-		d.cmd = exec.Command(driverFileName, flags...)
-		configureSysProcAttr(d.cmd)
-		d.mu.Unlock()
 		stdoutPipe, err := d.cmd.StdoutPipe()
 		if err != nil {
 			return err
@@ -146,19 +174,20 @@ func (d *Driver) start(ctx context.Context) error {
 		internalSCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 		defer cancel()
 
+		startedOnce := &sync.Once{}
 		internalSCtx.Go(func(ctx context.Context) error {
-			pipeOutputToLogger(stdoutPipe, d.cfg.L, d.started)
+			log.PipeToLogger(stdoutPipe, d.cfg.L, d.started, startedOnce)
 			return nil
 		},
-			signal.WithKey("stdoutPipe"),
+			signal.WithKey("stdout_pipe"),
 			signal.RecoverWithErrOnPanic(),
 			signal.WithRetryOnPanic(),
 		)
 		internalSCtx.Go(func(ctx context.Context) error {
-			pipeOutputToLogger(stderrPipe, d.cfg.L, d.started)
+			log.PipeToLogger(stderrPipe, d.cfg.L, d.started, startedOnce)
 			return nil
 		},
-			signal.WithKey("stderrPipe"),
+			signal.WithKey("stderr_pipe"),
 			signal.RecoverWithErrOnPanic(),
 			signal.WithRetryOnPanic(),
 		)
@@ -172,91 +201,119 @@ func (d *Driver) start(ctx context.Context) error {
 		isSignal := false
 		if err != nil {
 			isSignal = strings.Contains(err.Error(), "signal") || strings.Contains(err.Error(), "exit status")
-			if bre.Wait() && !isSignal {
-				return mf(ctx)
+			if !isSignal && bre.Wait() {
+				d.cfg.L.Warn("embedded driver process crashed", zap.Error(err))
+				return runProcess(ctx)
 			}
 		}
 		if isSignal {
+			d.cfg.L.Warn("embedded driver process exited unexpectedly", zap.Error(err))
 			return nil
 		}
 		return err
 	}
-	sCtx.Go(mf)
+	sCtx.Go(runProcess)
 	if _, err = signal.RecvUnderContext(ctx, d.started); err != nil {
+		closeErr := d.Close()
 		if errors.Is(err, context.DeadlineExceeded) {
-			return errStartTimeout
+			return errors.Combine(errStartTimeout, closeErr)
 		}
-		return errors.Wrap(err, "failed to start Embedded Driver")
+		return errors.Combine(
+			errors.Wrap(err, "failed to start Embedded Driver"),
+			closeErr,
+		)
 	}
 	return nil
 }
 
 const stopKeyword = "STOP\n"
 
+// Close stops the driver process and waits up to StopTimeout for
+// it to exit. If the process doesn't exit within the grace period, it escalates
+// to Process.Kill. This prevents Close from blocking indefinitely when the
+// driver is hung (hardware deadlock, stuck initialization, etc.). Close is
+// idempotent — subsequent calls return the result of the first.
 func (d *Driver) Close() error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.shutdown != nil && d.cmd != nil && d.cmd.Process != nil {
-		if _, err := d.stdInPipe.Write([]byte(stopKeyword)); err != nil {
-			return err
-		}
-		err := d.shutdown.Close()
-		return err
-	}
-	return nil
+	d.closeOnce.Do(func() { d.closeErr = d.close() })
+	return d.closeErr
 }
 
-func pipeOutputToLogger(
-	reader io.ReadCloser,
-	logger *alamos.Logger,
-	started chan<- struct{},
-) {
-	var caller string
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		// Find the first "]" and remove everything before it
-		// This is to remove the timestamp from the log output
-		b := scanner.Bytes()
-		namedLogger := logger
-		if len(b) == 0 {
-			namedLogger.Warn("received empty log line from driver")
-			continue
-		}
-		level := string(b[0])
-		original := string(b)
-		split := strings.Split(original, "]")
-		message := original
-		if len(split) >= 3 {
-			callerSplit := strings.Split(split[0], " ")
-			caller = callerSplit[len(callerSplit)-1]
-			first := strings.TrimSpace(split[1])
-			namedLogger = logger.Named(first)
-			message = split[2]
-			if len(message) > 1 {
-				message = message[1:]
+func (d *Driver) close() error {
+	if d.shutdown == nil {
+		return nil
+	}
+	d.cfg.L.Info("stopping embedded driver")
+	if d.cmd != nil && d.cmd.Process != nil {
+		// Best-effort: ask the process to exit gracefully. If the process
+		// already exited (e.g. crash or timeout cleanup race), the pipe is
+		// closed and the write fails harmlessly.
+		_, _ = d.stdInPipe.Write([]byte(stopKeyword))
+	}
+	done := make(chan error, 1)
+	go func() { done <- d.shutdown.Close() }()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(d.cfg.StopTimeout):
+		d.cfg.L.Warn("embedded driver did not stop within grace period, escalating to kill")
+		if d.cmd != nil && d.cmd.Process != nil {
+			if killErr := d.cmd.Process.Kill(); killErr != nil {
+				d.cfg.L.Error("failed to kill embedded driver process", zap.Error(killErr))
 			}
-		} else if len(split) == 2 {
-			callerSplit := strings.Split(split[0], " ")
-			caller = callerSplit[len(callerSplit)-1]
-			message = split[1]
 		}
-		message = strings.TrimSpace(message)
-		if started != nil && message == startedMessage {
-			close(started)
-		}
-		callerField := zap.String("caller", caller)
-		switch level {
-		case "D":
-			namedLogger.Debug(message, callerField)
-		case "E", "F":
-			namedLogger.Error(message, callerField)
-		case "W":
-			namedLogger.Warn(message, callerField)
-		default:
-			namedLogger.Info(message, callerField)
+		select {
+		case err := <-done:
+			return err
+		case <-time.After(d.cfg.StopTimeout):
+			return errForceKillFailed
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		logger.Error("Error reading from std pipe", zap.Error(err))
+}
+
+// setupCmd prepares the driver subprocess command under d.mu, writing the config
+// file, extracting the binary (if needed), and constructing the exec.Cmd. It returns
+// the paths of any temp files created so the caller can defer their cleanup.
+func (d *Driver) setupCmd(ctx context.Context) (cfgFile, extractedBinary string, err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	b, err := configCodec.Encode(ctx, d.cfg.format())
+	if err != nil {
+		return "", "", err
 	}
+	workDir := filepath.Join(d.cfg.ParentDirname, extractedDriverDir)
+	if err = os.MkdirAll(workDir, xfs.UserRWX); err != nil {
+		return "", "", err
+	}
+	cfgFile = filepath.Join(workDir, configFileName)
+	if err = os.WriteFile(cfgFile, b, xfs.UserRW); err != nil {
+		return "", "", err
+	}
+	var driverPath string
+	if d.cfg.BinaryPath != "" {
+		driverPath = d.cfg.BinaryPath
+	} else {
+		var data []byte
+		data, err = executable.ReadFile(embeddedDriverPath)
+		if err != nil {
+			return cfgFile, "", err
+		}
+		extractedBinary = filepath.Join(workDir, driverName)
+		if err = os.WriteFile(extractedBinary, data, xfs.UserRWX); err != nil {
+			return cfgFile, "", err
+		}
+		driverPath = extractedBinary
+	}
+	flags := []string{
+		startCmdName,
+		startStandaloneFlag,
+		blockSigStopFlag,
+		noColorFlag,
+	}
+	if *d.cfg.Debug {
+		flags = append(flags, debugFlag)
+	}
+	flags = append(flags, configFlag, cfgFile)
+	d.cmd = exec.Command(driverPath, flags...)
+	configureSysProcAttr(d.cmd)
+	return cfgFile, extractedBinary, nil
 }

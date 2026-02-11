@@ -78,14 +78,15 @@ Writer::set_authority(const channel::Key &key, const x::control::Authority &auth
 
 x::errors::Error Writer::set_authority(
     const std::vector<channel::Key> &keys,
-    const std::vector<x::control::Authority> &authorities
+    const std::vector<x::control::Authority> &authorities,
+    const bool ack
 ) {
     if (this->close_err) return this->close_err;
     const WriterConfig config{.channels = keys, .authorities = authorities};
     api::v1::FrameWriterRequest req;
     req.set_command(SET_AUTHORITY);
     config.to_proto(req.mutable_config());
-    return this->exec(req, true).second;
+    return this->exec(req, ack).second;
 }
 
 x::errors::Error Writer::close() {
@@ -120,9 +121,9 @@ x::errors::Error Writer::init_request(const x::telem::Frame &fr) {
     return x::errors::NIL;
 }
 
-x::errors::Error Writer::close(const x::errors::Error &with_err) {
+x::errors::Error Writer::close(const x::errors::Error &close_err) {
     if (this->close_err) return this->close_err.skip(WRITER_CLOSED);
-    this->close_err = with_err;
+    this->close_err = close_err;
     stream->close_send();
     while (true) {
         if (this->close_err) return this->close_err.skip(WRITER_CLOSED);

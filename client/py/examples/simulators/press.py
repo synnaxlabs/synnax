@@ -101,6 +101,17 @@ class PressSimDAQ(SimDAQ):
         )
 
         client.write(sy.TimeStamp.now(), self.press_setpoint_cmd.key, [0.0])
+
+        now = sy.TimeStamp.now()
+        client.write(
+            now,
+            {
+                self.daq_time_ch.key: [now],
+                self.press_vlv_state.key: [0],
+                self.vent_vlv_state.key: [0],
+                self.press_pt.key: [0.0],
+            },
+        )
         self._log("Channels created successfully")
 
     def _run_loop(self) -> None:

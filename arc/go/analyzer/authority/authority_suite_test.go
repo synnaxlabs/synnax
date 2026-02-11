@@ -7,16 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cert_test
+package authority_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-func TestCert(t *testing.T) {
+var bCtx = context.Background()
+
+var _ = BeforeEach(func() {
+	bCtx = context.Background()
+})
+
+func TestAuthority(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cert Suite")
+	RunSpecs(t, "Authority Analyzer Suite")
 }

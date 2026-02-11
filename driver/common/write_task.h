@@ -97,7 +97,7 @@ public:
             keys.push_back(idx);
         return synnax::framer::WriterConfig{
             .channels = keys,
-            .mode = common::data_saving_writer_mode(this->data_saving),
+            .mode = data_saving_writer_mode(this->data_saving),
         };
     }
 
@@ -112,7 +112,11 @@ public:
         }
     }
 
-    x::errors::Error read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
+    x::errors::Error read(
+        x::breaker::Breaker &breaker,
+        x::telem::Frame &fr,
+        pipeline::Authorities &authorities
+    ) override {
         std::unique_lock lock(chan_state_lock);
         this->chan_state_cv.wait_for(lock, this->state_rate.period().chrono());
         fr.clear();
@@ -146,9 +150,12 @@ class WriteTask final : public task::Task {
             this->p.stop("", true);
         }
 
-        x::errors::Error
-        read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
-            return this->internal->read(breaker, fr);
+        x::errors::Error read(
+            x::breaker::Breaker &breaker,
+            x::telem::Frame &fr,
+            pipeline::Authorities &authorities
+        ) override {
+            return this->internal->read(breaker, fr, authorities);
         }
 
         x::errors::Error write(x::telem::Frame &frame) override {

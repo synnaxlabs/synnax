@@ -17,4 +17,4 @@ export * from "@/schematic/services/link";
 export * from "@/schematic/services/ontology";
 export * from "@/schematic/services/palette";
 
-export const FILE_INGESTORS: Import.FileIngestors = { [Schematic.LAYOUT_TYPE]: ingest };
+export const FILE_INGESTERS: Import.FileIngesters = { [Schematic.LAYOUT_TYPE]: ingest };

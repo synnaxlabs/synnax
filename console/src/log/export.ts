@@ -11,6 +11,7 @@ import { DisconnectedError } from "@synnaxlabs/client";
 
 import { Export } from "@/export";
 import { Layout } from "@/layout";
+import { LAYOUT_TYPE } from "@/log/Log";
 import { select } from "@/log/selectors";
 import { type State } from "@/log/slice";
 
@@ -24,7 +25,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
     state ??= { ...(log.data as State), key: log.key };
     name ??= log.name;
   }
-  return { data: JSON.stringify(state), name };
+  return { data: JSON.stringify({ ...state, type: LAYOUT_TYPE }), name };
 };
 
 export const useExport = () => Export.use(extract, "log");

@@ -18,9 +18,11 @@
 #include "glog/logging.h"
 
 #include "x/cpp/queue/spsc.h"
+#include "x/cpp/telem/control.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/thread/thread.h"
 
+#include "arc/cpp/runtime/authority/authority.h"
 #include "arc/cpp/runtime/constant/constant.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
@@ -35,6 +37,15 @@
 #include "arc/cpp/runtime/wasm/module.h"
 
 namespace arc::runtime {
+
+constexpr x::telem::Authority DEFAULT_AUTHORITY = x::telem::AUTH_ABSOLUTE;
+/// @brief combines data frames and authority changes into a single output
+/// so that authority-only changes (with no channel writes) are not starved.
+struct Output {
+    x::telem::Frame frame;
+    std::vector<state::AuthorityChange> authority_changes;
+};
+
 struct Config {
     module::Module mod;
     x::breaker::Config breaker;
@@ -60,7 +71,7 @@ class Runtime {
     std::unique_ptr<scheduler::Scheduler> scheduler;
     std::unique_ptr<loop::Loop> loop;
     x::queue::SPSC<x::telem::Frame> inputs;
-    x::queue::SPSC<x::telem::Frame> outputs;
+    x::queue::SPSC<Output> outputs;
     std::chrono::steady_clock::time_point start_time_steady_;
     errors::Handler error_handler;
 
@@ -85,7 +96,7 @@ public:
         scheduler(std::move(scheduler)),
         loop(std::move(loop)),
         inputs(x::queue::SPSC<x::telem::Frame>(cfg.input_queue_capacity)),
-        outputs(x::queue::SPSC<x::telem::Frame>(cfg.output_queue_capacity)),
+        outputs(x::queue::SPSC<Output>(cfg.output_queue_capacity)),
         error_handler(std::move(error_handler)),
         read_channels(read_channels),
         write_channels(std::move(write_channels)) {}
@@ -117,12 +128,20 @@ public:
                         .count()
                 );
                 this->scheduler->next(elapsed, reason);
-                if (auto writes = this->state->flush(); !writes.empty()) {
-                    x::telem::Frame out_frame(writes.size());
-                    for (auto &[key, series]: writes)
-                        out_frame.emplace(key, series->deep_copy());
-                    if (!this->outputs.push(std::move(out_frame)))
+                auto writes = this->state->flush();
+                auto changes = this->state->flush_authority_changes();
+                if (!writes.empty() || !changes.empty()) {
+                    Output out;
+                    out.authority_changes = std::move(changes);
+                    if (!writes.empty()) {
+                        out.frame = x::telem::Frame(writes.size());
+                        for (auto &[key, series]: writes)
+                            out.frame.emplace(key, series->deep_copy());
+                    }
+                    if (!this->outputs.push(std::move(out))) {
+                        if (this->outputs.closed()) break;
                         this->error_handler(errors::QUEUE_FULL_OUTPUT);
+                    }
                 }
             }
         }
@@ -161,8 +180,31 @@ public:
         return x::errors::NIL;
     }
 
-    bool read(x::telem::Frame &frame) { return this->outputs.pop(frame); }
+    bool read(Output &out) { return this->outputs.pop(out); }
 };
+
+/// @brief Builds a per-channel authority vector from the static Authorities
+/// in the IR. Maps channel keys to authority values and returns authorities
+/// aligned with write_keys.
+inline std::vector<x::telem::Authority> build_authorities(
+    const ir::Authorities &auth,
+    const std::vector<types::ChannelKey> &write_keys
+) {
+    if (!auth.default_authority.has_value() && auth.channels.empty()) return {};
+    std::vector<x::telem::Authority> authorities(write_keys.size());
+    for (size_t i = 0; i < write_keys.size(); i++)
+        authorities[i] = auth.default_authority.has_value() ? *auth.default_authority
+                                                            : DEFAULT_AUTHORITY;
+    for (const auto &[key, value]: auth.channels) {
+        for (size_t i = 0; i < write_keys.size(); i++) {
+            if (write_keys[i] == key) {
+                authorities[i] = value;
+                break;
+            }
+        }
+    }
+    return authorities;
+}
 
 inline std::pair<std::shared_ptr<Runtime>, x::errors::Error>
 load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
@@ -174,6 +216,8 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         const auto write_keys = std::views::keys(n.channels.write);
         writes.insert(write_keys.begin(), write_keys.end());
     }
+    for (const auto &[key, val]: cfg.mod.authorities.channels)
+        writes.insert(key);
 
     std::vector<types::ChannelKey> keys;
     keys.reserve(reads.size() + writes.size());
@@ -206,6 +250,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     auto stage_factory = std::make_shared<stage::Factory>();
     auto io_factory = std::make_shared<io::Factory>();
     auto constant_factory = std::make_shared<constant::Factory>();
+    auto authority_factory = std::make_shared<authority::Factory>(state);
     node::MultiFactory fact(
         std::vector<std::shared_ptr<node::Factory>>{
             wasm_factory,
@@ -213,6 +258,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
             stage_factory,
             io_factory,
             constant_factory,
+            authority_factory,
         }
     );
 
