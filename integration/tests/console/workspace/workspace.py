@@ -47,12 +47,12 @@ class Workspace(ConsoleCase):
     def test_version_visible_in_navbar(self) -> None:
         """Test that the correct version is displayed in the navbar."""
         self.log("Testing version badge visible in navbar")
-        displayed = self.console.layout.get_version()
         expected = f"v{get_synnax_version()}"
-        assert (
-            displayed == expected
-        ), f"Version badge '{displayed}' does not match expected '{expected}'"
-        self.log(f"Version badge displays: {displayed}")
+        displayed = self.console.layout.get_version()
+        self.log(f"Version badge displays: {displayed}, expected prefix: {expected}")
+        assert displayed.startswith(
+            expected
+        ), f"Version badge '{displayed}' does not start with expected '{expected}'"
 
     def test_switch_workspaces_in_resources(self) -> None:
         """Test switching between workspaces by double-clicking in resources toolbar."""

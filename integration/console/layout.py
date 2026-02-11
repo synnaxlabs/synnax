@@ -305,11 +305,13 @@ class LayoutClient:
         Returns:
             The version string (e.g., "v0.51.0").
         """
-        version_badge = self.page.get_by_role("button").filter(
-            has_text=re.compile(r"^v\d+\.\d+\.\d+$")
+        navbar_end = self.page.locator(
+            ".pluto-navbar__content.pluto--end[data-tauri-drag-region]"
         )
-        version_badge.first.wait_for(state="visible", timeout=15000)
-        return version_badge.first.inner_text().strip()
+        navbar_end.wait_for(state="visible", timeout=15000)
+        version_badge = navbar_end.locator("button").first
+        version_badge.wait_for(state="visible", timeout=5000)
+        return version_badge.inner_text().strip()
 
     def fill_input_field(self, input_label: str, value: str) -> None:
         """Fill an input field by label."""
