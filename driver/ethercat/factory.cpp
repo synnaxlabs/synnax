@@ -38,11 +38,6 @@ const std::string PCAP_LIB_NAME = "libpcap.dylib";
 const std::string PCAP_LIB_NAME = "libpcap.so";
 #endif
 
-const LibraryInfo PCAP_LIBRARY_INFO = {
-    "WinPcap/Npcap packet capture",
-    "https://npcap.com/#download"
-};
-
 static bool check_pcap_available() {
     x::lib::SharedLib lib(PCAP_LIB_NAME);
     return lib.load();
@@ -60,8 +55,7 @@ std::unique_ptr<master::Manager> default_manager() {
     LOG(INFO) << "[ethercat] using SOEM backend";
 #endif
     if (!check_pcap_available()) {
-        LOG(WARNING) << "[ethercat] "
-                     << driver::errors::missing_lib(PCAP_LIBRARY_INFO).message();
+        LOG(WARNING) << "[ethercat] " << driver::errors::missing_lib(PCAP_LIBRARY_INFO);
         return nullptr;
     }
     return std::make_unique<soem::Manager>();

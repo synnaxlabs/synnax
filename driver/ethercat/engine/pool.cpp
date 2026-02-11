@@ -29,7 +29,8 @@ Pool::acquire_unlocked(const std::string &key) {
             nullptr,
             x::errors::Error(
                 x::lib::LOAD_ERROR,
-                "EtherCAT master backend unavailable - required libraries are not installed"
+                "EtherCAT is unavailable because a required packet capture "
+                "library is not installed. Check driver logs for details."
             )
         };
     auto [m, err] = this->manager->create(key);
