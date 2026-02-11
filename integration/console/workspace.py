@@ -35,6 +35,31 @@ __all__ = ["WorkspaceClient", "PageType"]
 
 T = TypeVar("T", bound="ConsolePage")
 
+# SY-3670 — Shared JS snippet that walks the React fiber tree from #root
+# to find the Redux store. Used by import_page and export_workspace as a
+# browser-mode workaround for features that normally rely on Tauri APIs.
+_FIND_REDUX_STORE_JS = """
+const rootEl = document.getElementById('root');
+if (!rootEl) throw new Error('Root element not found');
+const containerKey = Object.keys(rootEl).find(
+    k => k.startsWith('__reactContainer$')
+);
+if (!containerKey) throw new Error('React container not found');
+let store = null;
+const stack = [rootEl[containerKey]];
+while (stack.length > 0) {
+    const fiber = stack.pop();
+    if (!fiber) continue;
+    if (fiber.memoizedProps?.store?.dispatch) {
+        store = fiber.memoizedProps.store;
+        break;
+    }
+    if (fiber.child) stack.push(fiber.child);
+    if (fiber.sibling) stack.push(fiber.sibling);
+}
+if (!store) throw new Error('Redux store not found');
+"""
+
 
 class WorkspaceClient:
     """Workspace management for Console UI automation."""
@@ -448,6 +473,180 @@ class WorkspaceClient:
         with open(save_path, "r") as f:
             result: dict[str, Any] = json.load(f)
             return result
+
+    def _evaluate_with_redux(self, js_body: str, args: Any = None) -> Any:
+        """Execute JS with the Redux store available as ``store``.
+
+        # SY-3670 — Uses React fiber walking to locate the Redux store
+        # from the React root. This is a browser-mode workaround for
+        # features that normally rely on Tauri APIs.
+
+        Args:
+            js_body: JS code to execute. ``store`` and ``args`` are in scope.
+            args: Optional arguments forwarded to the JS function.
+        """
+        js = "(args) => {" + _FIND_REDUX_STORE_JS + js_body + "}"
+        return self.layout.page.evaluate(js, args)
+
+    def import_page(self, json_path: str, name: str) -> None:
+        """Import a page from a JSON file via direct JS injection.
+
+        Since the console uses Tauri's native file dialog for imports
+        (unavailable in browser mode), this method bypasses the dialog
+        by reading the JSON file and dispatching Redux actions directly.
+
+        # SY-3670 will address this issue.
+
+        Args:
+            json_path: Path to the JSON file to import.
+            name: Display name for the imported page tab.
+        """
+        with open(json_path, "r") as f:
+            data: dict[str, Any] = json.load(f)
+
+        resource_type = data.get("type")
+        if resource_type is None:
+            raise ValueError(f"JSON file missing 'type' field: {json_path}")
+
+        type_config: dict[str, dict[str, str]] = {
+            "lineplot": {"slice": "line", "icon": "Visualize"},
+            "schematic": {"slice": "schematic", "icon": "Schematic"},
+            "log": {"slice": "log", "icon": "Log"},
+            "table": {"slice": "table", "icon": "Table"},
+        }
+
+        config = type_config.get(resource_type)
+        if config is None:
+            raise ValueError(f"Unsupported resource type: {resource_type}")
+
+        self._evaluate_with_redux(
+            """
+            const [data, name, sliceName, icon] = args;
+            const key = crypto.randomUUID();
+            store.dispatch({
+                type: sliceName + '/create',
+                payload: { ...data, key }
+            });
+            store.dispatch({
+                type: 'layout/place',
+                payload: {
+                    key, name,
+                    location: 'mosaic',
+                    type: data.type,
+                    icon,
+                    windowKey: 'main',
+                }
+            });
+            """,
+            [data, name, config["slice"], config["icon"]],
+        )
+
+        self.layout.get_tab(name).wait_for(state="visible", timeout=10000)
+
+    def import_workspace(self, name: str, data: dict[str, Any]) -> None:
+        """Import a workspace via command palette with JS injection fallback.
+
+        Triggers "Import a workspace" from the command palette. Since the
+        console uses Tauri's native directory dialog (unavailable in browser
+        mode), the actual import falls back to dispatching Redux actions
+        via JS injection.
+
+        # SY-3670 will address the browser-mode limitation.
+
+        Args:
+            name: Name for the imported workspace.
+            data: Export data dict with 'layout' and 'components' keys
+                  (as returned by export_workspace).
+        """
+        self.layout.command_palette("Import a workspace")
+
+        sliceMap: dict[str, str] = {
+            "lineplot": "line",
+            "schematic": "schematic",
+            "log": "log",
+            "table": "table",
+        }
+
+        self._evaluate_with_redux(
+            """
+            const [name, layoutData, components, sliceMap] = args;
+            const wsKey = crypto.randomUUID();
+            store.dispatch({
+                type: 'workspace/setActive',
+                payload: { key: wsKey, name, layout: layoutData },
+            });
+            store.dispatch({
+                type: 'layout/setWorkspace',
+                payload: { slice: layoutData, keepNav: false },
+            });
+            for (const [key, component] of Object.entries(components)) {
+                const sliceName = sliceMap[component.type];
+                if (!sliceName) continue;
+                store.dispatch({
+                    type: sliceName + '/create',
+                    payload: { ...component, key },
+                });
+            }
+            """,
+            [name, data["layout"], data["components"], sliceMap],
+        )
+
+        self.layout.page.get_by_role("button").filter(has_text=name).wait_for(
+            state="visible", timeout=10000
+        )
+
+    def export_workspace(self, name: str) -> dict[str, Any]:
+        """Export a workspace via context menu with JS injection fallback.
+
+        Opens the context menu on the workspace and clicks Export. Since the
+        console uses Tauri's native directory dialog and file system APIs
+        (unavailable in browser mode), the actual data extraction falls back
+        to reading Redux state via JS injection.
+
+        # SY-3670 will address the browser-mode limitation.
+
+        Args:
+            name: Name of the workspace to export.
+
+        Returns:
+            Dict with 'layout' (the layout state) and 'components'
+            (dict of component key -> exported state with type field).
+        """
+        self.layout.show_resource_toolbar("workspace")
+        workspace_item = self.get_item(name)
+        workspace_item.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(workspace_item, "Export")
+        self.notifications.close_all()
+
+        result: dict[str, Any] = self._evaluate_with_redux("""
+            const state = store.getState();
+            const layoutState = state.layout;
+            const sliceMap = {
+                lineplot: { slice: 'line', collection: 'plots' },
+                schematic: { slice: 'schematic', collection: 'schematics' },
+                log: { slice: 'log', collection: 'logs' },
+                table: { slice: 'table', collection: 'tables' },
+            };
+            const components = {};
+            const layouts = {};
+            for (const [key, layout] of Object.entries(layoutState.layouts)) {
+                if (layout.excludeFromWorkspace || layout.location === 'modal')
+                    continue;
+                layouts[key] = layout;
+                const mapping = sliceMap[layout.type];
+                if (!mapping) continue;
+                const cs = state[mapping.slice]?.[mapping.collection]?.[key];
+                if (cs) components[key] = { ...cs, type: layout.type };
+            }
+            return { layout: { ...layoutState, layouts }, components };
+            """)
+
+        save_path = get_results_path(f"{name}_export.json")
+        with open(save_path, "w") as f:
+            json.dump(result, f, indent=2)
+
+        self.layout.close_left_toolbar()
+        return result
 
     def snapshot_page_to_active_range(self, name: str, range_name: str) -> None:
         """Snapshot a page to the active range via context menu.

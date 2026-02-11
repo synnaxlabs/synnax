@@ -426,7 +426,6 @@ I can successfully:
 
 I can successfully:
 
-- [ ] View the correct version in the bottom navbar.
 - [ ] Verify that the auto-update functionality works correctly.
 
 ### Workspaces
@@ -434,17 +433,7 @@ I can successfully:
 I can successfully:
 
 - [ ] Import a workspace by drag and dropping from a directory.
-
-- **Resources Toolbar**
-  - **Context Menu**
-    - [ ] Export a workspace.
-    - [ ] Import a line plot.
-    - [ ] Import a schematic.
-    - [ ] Import a log.
-    - [ ] Import a table.
 - [ ] Open a workspace from a link.
-- **Search and Command Palette**
-  - [ ] Import a workspace.
 - [ ] Create a workspace in a previous version of Synnax, add visualizations, and open it in the release candidate.
 
 ## Driver
