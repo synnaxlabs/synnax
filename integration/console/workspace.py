@@ -330,14 +330,10 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.open_on(page_item)
-        menu = self.layout.page.locator(".pluto-menu-context")
-        delete_item = menu.get_by_text("Delete", exact=True)
-        ungroup_item = menu.get_by_text("Ungroup", exact=True)
-        if delete_item.count() > 0:
-            delete_item.click(timeout=5000)
-        else:
-            ungroup_item.click(timeout=5000)
+        try:
+            self.ctx_menu.action(page_item, "Delete")
+        except PlaywrightTimeoutError:
+            self.ctx_menu.click_option("Ungroup")
         self.layout.close_left_toolbar()
 
     def delete_pages(self, names: list[str]) -> None:

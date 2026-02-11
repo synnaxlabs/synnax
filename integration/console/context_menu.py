@@ -68,6 +68,23 @@ class ContextMenu:
         self.open_on(element)
         self.click_option(action_text, exact=exact)
 
+    def has_option(self, text: str, *, exact: bool = True) -> bool:
+        """Check if a menu option is visible and not disabled.
+
+        Args:
+            text: The text of the menu option to check.
+            exact: Whether to match text exactly.
+
+        Returns:
+            True if the option is visible and not disabled.
+        """
+        menu = self.page.locator(".pluto-menu-context")
+        option = menu.get_by_text(text, exact=exact).first
+        if option.count() == 0 or not option.is_visible():
+            return False
+        option_class = option.get_attribute("class") or ""
+        return "disabled" not in option_class.lower()
+
     def close(self) -> None:
         """Close the context menu by pressing Escape."""
         self.page.keyboard.press("Escape")
