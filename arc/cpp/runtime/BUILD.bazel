@@ -3,6 +3,7 @@ cc_library(
     hdrs = ["runtime.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//arc/cpp/runtime/authority",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/constant",
         "//arc/cpp/runtime/loop",
@@ -13,7 +14,7 @@ cc_library(
         "//arc/cpp/runtime/telem",
         "//arc/cpp/runtime/time",
         "//arc/cpp/runtime/wasm",
-        "//x/cpp/xthread",
+        "//x/cpp/thread",
     ],
 )
 
@@ -24,7 +25,7 @@ cc_test(
         ":runtime",
         "//arc/cpp/runtime/testutil",
         "//x/cpp/telem",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

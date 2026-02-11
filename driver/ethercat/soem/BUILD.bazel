@@ -1,0 +1,15 @@
+cc_library(
+    name = "soem",
+    srcs = ["master.cpp"],
+    hdrs = ["master.h"],
+    visibility = ["//driver/ethercat:__pkg__"],
+    deps = [
+        "//driver/ethercat/errors",
+        "//driver/ethercat/esi",
+        "//driver/ethercat/master",
+        "//driver/ethercat/telem",
+        "//vendor/soem",
+        "//x/cpp/errors",
+        "@glog",
+    ],
+)

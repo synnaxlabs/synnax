@@ -17,7 +17,7 @@ const useVisible = () => Access.useUpdateGranted(user.TYPE_ONTOLOGY_ID);
 
 export const RegisterCommand = Palette.createSimpleCommand({
   key: "register-user",
-  name: "Register a User",
+  name: "Register a user",
   icon: <Icon.User />,
   layout: User.REGISTER_LAYOUT,
   useVisible,

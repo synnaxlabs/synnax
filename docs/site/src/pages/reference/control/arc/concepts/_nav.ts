@@ -33,5 +33,10 @@ export const CONCEPTS_NAV: PageNavNode = {
       href: "/reference/control/arc/concepts/stateful-variables",
       name: "Stateful Variables",
     },
+    {
+      key: "/reference/control/arc/concepts/control-authority",
+      href: "/reference/control/arc/concepts/control-authority",
+      name: "Control Authority",
+    },
   ],
 };

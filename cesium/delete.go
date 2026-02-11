@@ -118,11 +118,11 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	// deleted on FS.
 	defer func() {
 		db.mu.Unlock()
-		c := errors.NewCatcher(errors.WithAggregation())
+		var errRemove error
 		for _, name := range directoriesToRemove {
-			c.Exec(func() error { return db.fs.Remove(name) })
+			errRemove = errors.Join(errRemove, db.fs.Remove(name))
 		}
-		err = errors.Combine(err, c.Error())
+		err = errors.Combine(err, errRemove)
 	}()
 
 	// Do a pass first to remove all non-index channels

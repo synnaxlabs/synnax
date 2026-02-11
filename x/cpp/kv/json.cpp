@@ -20,29 +20,28 @@
 
 #include "nlohmann/json.hpp"
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/kv/kv.h"
-#include "x/cpp/xerrors/errors.h"
 
 using json = nlohmann::json;
 
-namespace kv {
-
+namespace x::kv {
 namespace {
-xerrors::Error
+errors::Error
 check_minimum_permissions(const std::filesystem::path &path, const char *context) {
     auto perms = std::filesystem::status(path).permissions();
     if ((perms & std::filesystem::perms::owner_write) == std::filesystem::perms::none ||
         (perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none) {
-        return xerrors::Error("insufficient permissions on " + std::string(context));
+        return errors::Error("insufficient permissions on " + std::string(context));
     }
-    return xerrors::NIL;
+    return errors::NIL;
 }
 }
 
 JSONFile::JSONFile(const std::string &path, const json &data):
     path(path), data_(data) {}
 
-std::pair<std::shared_ptr<kv::KV>, xerrors::Error>
+std::pair<std::shared_ptr<kv::KV>, errors::Error>
 JSONFile::open(const JSONFileConfig &config) {
     try {
         const auto dir = config.path.parent_path();
@@ -72,7 +71,7 @@ JSONFile::open(const JSONFileConfig &config) {
             if (!file.is_open())
                 return {
                     std::make_shared<JSONFile>(config.path.string(), json::object()),
-                    xerrors::Error("failed to open file")
+                    errors::Error("failed to open file")
                 };
             file << "{}";
             file.close();
@@ -86,7 +85,7 @@ JSONFile::open(const JSONFileConfig &config) {
 
             return {
                 std::make_shared<JSONFile>(config.path.string(), json::object()),
-                xerrors::NIL
+                errors::NIL
             };
         }
 
@@ -95,7 +94,7 @@ JSONFile::open(const JSONFileConfig &config) {
         if (!file.is_open())
             return {
                 std::make_shared<JSONFile>(config.path.string(), json::object()),
-                xerrors::Error("failed to open file")
+                errors::Error("failed to open file")
             };
         json data;
         try {
@@ -103,47 +102,47 @@ JSONFile::open(const JSONFileConfig &config) {
         } catch (const json::exception &e) {
             return {
                 std::make_shared<JSONFile>(config.path.string(), json::object()),
-                xerrors::Error("failed to parse JSON: " + std::string(e.what()))
+                errors::Error("failed to parse JSON: " + std::string(e.what()))
             };
         }
         file.close();
-        return {std::make_shared<JSONFile>(config.path.string(), data), xerrors::NIL};
+        return {std::make_shared<JSONFile>(config.path.string(), data), errors::NIL};
     } catch (const std::exception &e) {
         return {
             std::make_shared<JSONFile>(config.path.string(), json::object()),
-            xerrors::Error("filesystem operation failed: " + std::string(e.what()))
+            errors::Error("filesystem operation failed: " + std::string(e.what()))
         };
     }
 }
 
-xerrors::Error JSONFile::set(const std::string &key, const std::string &value) {
+errors::Error JSONFile::set(const std::string &key, const std::string &value) {
     data_[key] = value;
 
     std::ofstream file(path);
-    if (!file.is_open()) { return xerrors::Error("failed to open file for writing"); }
+    if (!file.is_open()) { return errors::Error("failed to open file for writing"); }
     file << data_.dump(4);
     file.close();
-    return xerrors::NIL;
+    return errors::NIL;
 }
 
-xerrors::Error JSONFile::get(const std::string &key, std::string &value) {
-    if (!data_.contains(key)) return xerrors::NOT_FOUND;
+errors::Error JSONFile::get(const std::string &key, std::string &value) {
+    if (!data_.contains(key)) return errors::NOT_FOUND;
     try {
         value = data_[key].get<std::string>();
     } catch (const json::exception &e) {
-        return xerrors::Error("failed to get value: " + std::string(e.what()));
+        return errors::Error("failed to get value: " + std::string(e.what()));
     }
-    return xerrors::NIL;
+    return errors::NIL;
 }
 
-xerrors::Error JSONFile::del(const std::string &key) {
-    if (!data_.contains(key)) return xerrors::NIL;
+errors::Error JSONFile::del(const std::string &key) {
+    if (!data_.contains(key)) return errors::NIL;
     data_.erase(key);
     std::ofstream file(path);
-    if (!file.is_open()) { return xerrors::Error("failed to open file for writing"); }
+    if (!file.is_open()) { return errors::Error("failed to open file for writing"); }
     file << data_.dump(4);
     file.close();
-    return xerrors::NIL;
+    return errors::NIL;
 }
 
 }

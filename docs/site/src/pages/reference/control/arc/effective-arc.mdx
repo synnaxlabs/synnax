@@ -106,6 +106,32 @@ func rate(value f64) f64 {
 // Document this behavior and handle it downstream
 ```
 
+### Set Authority Below Maximum
+
+Start programs at authority 200 (or lower) rather than the default 255:
+
+```arc
+authority 200
+
+sequence main {
+    stage normal {
+        sensor -> controller{} -> output,
+        emergency_condition => emergency
+    }
+
+    stage emergency {
+        // Escalate to override all other writers
+        set_authority{value=255},
+        0 -> press_vlv_cmd,
+        1 -> vent_vlv_cmd
+    }
+}
+```
+
+If you leave authority at the default 255, you cannot escalate above other writers when
+an emergency occurs. Operators using schematics also need to be able to override
+automations — starting below 255 makes this possible without stopping the program.
+
 ### Name Channels Clearly
 
 Use descriptive snake_case names that indicate what the channel represents:

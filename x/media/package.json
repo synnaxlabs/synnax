@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/media",
-  "version": "0.50.0",
+  "version": "0.51.0",
   "type": "module",
   "description": "Media Assets for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/media",
@@ -18,7 +18,8 @@
     "check-types": "tsc --noEmit",
     "lint": "eslint",
     "fix": "eslint --fix",
-    "madge": "madge --circular src"
+    "madge": "madge --circular src",
+    "stylelint": "stylelint \"src/**/*.css\""
   },
   "dependencies": {
     "clsx": "catalog:",
@@ -34,6 +35,8 @@
     "eslint": "catalog:",
     "eslint-config-synnaxlabs": "workspace:^",
     "madge": "catalog:",
+    "stylelint": "catalog:",
+    "stylelint-config-synnaxlabs": "workspace:^",
     "typescript": "catalog:",
     "vite": "catalog:"
   },

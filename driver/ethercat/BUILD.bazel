@@ -1,0 +1,81 @@
+config_setting(
+    name = "linux",
+    constraint_values = ["@platforms//os:linux"],
+)
+
+cc_library(
+    name = "ethercat",
+    srcs = [
+        "factory.cpp",
+        "read_task.h",
+        "scan_task.cpp",
+        "scan_task.h",
+        "write_task.h",
+    ],
+    hdrs = [
+        "ethercat.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp:synnax",
+        "//driver/common",
+        "//driver/errors",
+        "//driver/ethercat/channel",
+        "//driver/ethercat/engine",
+        "//driver/ethercat/errors",
+        "//driver/ethercat/master",
+        "//driver/ethercat/mock",
+        "//driver/ethercat/soem",
+        "//driver/ethercat/topology",
+        "//driver/pipeline",
+        "//driver/task",
+        "//x/cpp/breaker",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/lib",
+        "//x/cpp/telem",
+        "@glog",
+    ] + select({
+        ":linux": [
+            "//driver/ethercat/igh",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_test(
+    name = "ethercat_test",
+    srcs = [
+        "master_test.cpp",
+        "read_task_test.cpp",
+        "scan_task_test.cpp",
+        "write_task_test.cpp",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/testutil",
+        "//driver/ethercat",
+        "//driver/ethercat/mock",
+        "//driver/pipeline/mock",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "ethercat_hardware_test",
+    srcs = ["hardware_test.cpp"],
+    tags = [
+        "manual",
+        "requires-hardware",
+        "requires-root",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/ethercat",
+        "//driver/ethercat/soem",
+        "//x/cpp/telem",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

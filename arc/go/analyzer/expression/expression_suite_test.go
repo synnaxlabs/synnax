@@ -22,7 +22,11 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var bCtx = context.Background()
+var bCtx context.Context
+
+var _ = BeforeEach(func() {
+	bCtx = context.Background()
+})
 
 func TestExpression(t *testing.T) {
 	RegisterFailHandler(Fail)

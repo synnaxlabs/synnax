@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "x/cpp/xthread/xthread.h"
+#include "x/cpp/thread/rt/rt.h"
+#include "x/cpp/thread/thread.h"
 
 #include "rack.h"
 
-bool rack::Rack::should_exit(
-    const xerrors::Error &err,
+namespace driver::rack {
+bool Rack::should_exit(
+    const x::errors::Error &err,
     const std::function<void()> &on_shutdown
 ) {
     this->run_err = err;
@@ -22,12 +24,13 @@ bool rack::Rack::should_exit(
     return !breaker_ok;
 }
 
-rack::Rack::~Rack() {
+Rack::~Rack() {
     stop();
 }
 
-void rack::Rack::run(xargs::Parser &args, const std::function<void()> &on_shutdown) {
-    xthread::set_name("rack");
+void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) {
+    x::thread::set_name("rack");
+    LOG(INFO) << x::thread::rt::get_capabilities();
     while (this->breaker.running()) {
         auto [cfg, err] = Config::load(args, this->breaker);
         if (err) {
@@ -46,10 +49,10 @@ void rack::Rack::run(xargs::Parser &args, const std::function<void()> &on_shutdo
         if (err && this->should_exit(err, on_shutdown)) return;
     }
     if (this->task_manager != nullptr) this->task_manager->stop();
-    this->run_err = xerrors::NIL;
+    this->run_err = x::errors::NIL;
 }
 
-void rack::Rack::start(xargs::Parser &args, std::function<void()> on_shutdown) {
+void Rack::start(x::args::Parser &args, std::function<void()> on_shutdown) {
     this->breaker.start();
     this->run_thread = std::thread(
         [this, args, callback = std::move(on_shutdown)]() mutable {
@@ -58,9 +61,10 @@ void rack::Rack::start(xargs::Parser &args, std::function<void()> on_shutdown) {
     );
 }
 
-xerrors::Error rack::Rack::stop() {
-    if (!this->breaker.stop()) return xerrors::NIL;
+x::errors::Error Rack::stop() {
+    if (!this->breaker.stop()) return x::errors::NIL;
     if (this->task_manager != nullptr) this->task_manager->stop();
     this->run_thread.join();
     return this->run_err;
+}
 }

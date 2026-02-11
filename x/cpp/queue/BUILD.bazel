@@ -1,5 +1,5 @@
 cc_library(
-    name = "SPSC",
+    name = "queue",
     hdrs = ["spsc.h"],
     visibility = ["//visibility:public"],
     deps = [
@@ -12,7 +12,7 @@ cc_test(
     size = "small",
     srcs = ["spsc_test.cpp"],
     deps = [
-        ":SPSC",
+        "//x/cpp/queue",
         "@googletest//:gtest_main",
     ],
 )

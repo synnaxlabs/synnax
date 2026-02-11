@@ -68,7 +68,7 @@ class RangesClient:
 
     def open_explorer(self) -> None:
         """Open the Range Explorer page (shows all ranges)."""
-        self.layout.command_palette("Open Range Explorer")
+        self.layout.command_palette("Open the Range Explorer")
         self.layout.page.get_by_text("All Ranges").wait_for(
             state="visible", timeout=5000
         )
@@ -145,7 +145,7 @@ class RangesClient:
             labels: Optional list of label names to add.
             stage: Optional stage to set ("To Do", "In Progress", "Completed").
         """
-        self.layout.command_palette("Create a Range")
+        self.layout.command_palette("Create a range")
 
         modal = self.layout.page.locator(self.CREATE_MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)

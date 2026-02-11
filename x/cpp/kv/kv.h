@@ -11,20 +11,20 @@
 
 #include "nlohmann/json.hpp"
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 using json = nlohmann::json;
 
-namespace kv {
+namespace x::kv {
 class KV {
 public:
     virtual ~KV() = default;
 
-    virtual xerrors::Error set(const std::string &key, const std::string &value) = 0;
+    virtual errors::Error set(const std::string &key, const std::string &value) = 0;
 
-    virtual xerrors::Error get(const std::string &key, std::string &value) = 0;
+    virtual errors::Error get(const std::string &key, std::string &value) = 0;
 
-    virtual xerrors::Error del(const std::string &key) = 0;
+    virtual errors::Error del(const std::string &key) = 0;
 };
 
 /// @brief the configuration for a JSONFileKV.
@@ -45,17 +45,17 @@ class JSONFile final : public KV {
 public:
     /// @brief opens the key-value store using the provided configuration. If the
     /// file does not exist, it will be created.
-    static std::pair<std::shared_ptr<KV>, xerrors::Error>
+    static std::pair<std::shared_ptr<KV>, errors::Error>
     open(const JSONFileConfig &config);
 
     /// @brief implements KV.
-    xerrors::Error set(const std::string &key, const std::string &value) override;
+    errors::Error set(const std::string &key, const std::string &value) override;
 
     /// @brief implements KV.
-    xerrors::Error get(const std::string &key, std::string &value) override;
+    errors::Error get(const std::string &key, std::string &value) override;
 
     /// @brief implements KV.
-    xerrors::Error del(const std::string &key) override;
+    errors::Error del(const std::string &key) override;
 
     JSONFile(const std::string &path, const json &data);
 };

@@ -1926,6 +1926,102 @@ var _ = Describe("Compiler", func() {
 		})
 	})
 
+	Describe("Global Constants", func() {
+		It("should inline i64 constant in expression", func() {
+			output := MustSucceed(compile(`
+				MAX := 100
+				func check(x i64) i64 {
+					return x + MAX
+				}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			check := mod.ExportedFunction("check")
+			results := MustSucceed(check.Call(ctx, 50))
+			Expect(results).To(ConsistOf(uint64(150)))
+		})
+
+		It("should inline f64 constant", func() {
+			output := MustSucceed(compile(`
+				PI := 3.14159
+				func area(r f64) f64 {
+					return r * r * PI
+				}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			area := mod.ExportedFunction("area")
+			results := MustSucceed(area.Call(ctx, math.Float64bits(2.0)))
+			result := math.Float64frombits(results[0])
+			Expect(result).To(BeNumerically("~", 12.56636, 0.00001))
+		})
+
+		It("should inline constant with explicit type", func() {
+			output := MustSucceed(compile(`
+				VALUE i32 := 42
+				func getValue() i32 {
+					return VALUE
+				}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			getValue := mod.ExportedFunction("getValue")
+			results := MustSucceed(getValue.Call(ctx))
+			Expect(int32(results[0])).To(Equal(int32(42)))
+		})
+
+		It("should inline constant in condition", func() {
+			output := MustSucceed(compile(`
+				THRESHOLD := 100
+				func check(x i64) i64 {
+					if (x > THRESHOLD) {
+						return 1
+					}
+					return 0
+				}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			check := mod.ExportedFunction("check")
+
+			results := MustSucceed(check.Call(ctx, 150))
+			Expect(results).To(ConsistOf(uint64(1)))
+
+			results = MustSucceed(check.Call(ctx, 50))
+			Expect(results).To(ConsistOf(uint64(0)))
+		})
+
+		It("should inline multiple constants", func() {
+			output := MustSucceed(compile(`
+				A := 10
+				B := 20
+				C := 30
+				func sum() i64 {
+					return A + B + C
+				}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			sum := mod.ExportedFunction("sum")
+			results := MustSucceed(sum.Call(ctx))
+			Expect(results).To(ConsistOf(uint64(60)))
+		})
+
+		It("should inline constant used multiple times", func() {
+			output := MustSucceed(compile(`
+				FACTOR := 2
+				func multiply(x i64) i64 {
+					return x * FACTOR * FACTOR
+				}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			multiply := mod.ExportedFunction("multiply")
+			results := MustSucceed(multiply.Call(ctx, 5))
+			Expect(results).To(ConsistOf(uint64(20)))
+		})
+	})
+
 	Describe("String Operations", func() {
 		var arcRuntime *runtimebindings.Runtime
 

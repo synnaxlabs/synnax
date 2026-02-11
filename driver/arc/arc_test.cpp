@@ -11,7 +11,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
@@ -20,37 +20,38 @@
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/task/task.h"
 
+namespace driver::arc {
 TEST(TaskConfigParsing, DefaultLoopConfig) {
     nlohmann::json cfg{{"arc_key", "test-arc-key"}};
-    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
     ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.mode, arc::runtime::loop::ExecutionMode::AUTO);
-    EXPECT_EQ(task_cfg.loop.rt_priority, arc::runtime::loop::DEFAULT_RT_PRIORITY);
-    EXPECT_EQ(task_cfg.loop.cpu_affinity, arc::runtime::loop::CPU_AFFINITY_AUTO);
+    EXPECT_EQ(task_cfg.loop.mode, ::arc::runtime::loop::ExecutionMode::AUTO);
+    EXPECT_EQ(task_cfg.loop.rt_priority, ::arc::runtime::loop::DEFAULT_RT_PRIORITY);
+    EXPECT_EQ(task_cfg.loop.cpu_affinity, ::arc::runtime::loop::CPU_AFFINITY_AUTO);
     EXPECT_FALSE(task_cfg.loop.lock_memory);
 }
 
 TEST(TaskConfigParsing, ExplicitExecutionMode) {
     nlohmann::json cfg{{"arc_key", "test-arc-key"}, {"execution_mode", "BUSY_WAIT"}};
-    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
     ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.mode, arc::runtime::loop::ExecutionMode::BUSY_WAIT);
+    EXPECT_EQ(task_cfg.loop.mode, ::arc::runtime::loop::ExecutionMode::BUSY_WAIT);
 }
 
 TEST(TaskConfigParsing, AllExecutionModes) {
-    std::vector<std::pair<std::string, arc::runtime::loop::ExecutionMode>> modes = {
-        {"AUTO", arc::runtime::loop::ExecutionMode::AUTO},
-        {"BUSY_WAIT", arc::runtime::loop::ExecutionMode::BUSY_WAIT},
-        {"HIGH_RATE", arc::runtime::loop::ExecutionMode::HIGH_RATE},
-        {"RT_EVENT", arc::runtime::loop::ExecutionMode::RT_EVENT},
-        {"HYBRID", arc::runtime::loop::ExecutionMode::HYBRID},
-        {"EVENT_DRIVEN", arc::runtime::loop::ExecutionMode::EVENT_DRIVEN},
+    std::vector<std::pair<std::string, ::arc::runtime::loop::ExecutionMode>> modes = {
+        {"AUTO", ::arc::runtime::loop::ExecutionMode::AUTO},
+        {"BUSY_WAIT", ::arc::runtime::loop::ExecutionMode::BUSY_WAIT},
+        {"HIGH_RATE", ::arc::runtime::loop::ExecutionMode::HIGH_RATE},
+        {"RT_EVENT", ::arc::runtime::loop::ExecutionMode::RT_EVENT},
+        {"HYBRID", ::arc::runtime::loop::ExecutionMode::HYBRID},
+        {"EVENT_DRIVEN", ::arc::runtime::loop::ExecutionMode::EVENT_DRIVEN},
     };
     for (const auto &[mode_str, expected_mode]: modes) {
         nlohmann::json cfg{{"arc_key", "test-arc-key"}, {"execution_mode", mode_str}};
-        auto parser = xjson::Parser(nlohmann::to_string(cfg));
+        auto parser = x::json::Parser(nlohmann::to_string(cfg));
         arc::TaskConfig task_cfg(parser);
         ASSERT_TRUE(parser.ok()) << "Failed to parse mode: " << mode_str;
         EXPECT_EQ(task_cfg.loop.mode, expected_mode)
@@ -60,14 +61,14 @@ TEST(TaskConfigParsing, AllExecutionModes) {
 
 TEST(TaskConfigParsing, InvalidExecutionMode) {
     nlohmann::json cfg{{"arc_key", "test-arc-key"}, {"execution_mode", "INVALID_MODE"}};
-    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
     EXPECT_FALSE(parser.ok());
 }
 
 TEST(TaskConfigParsing, RtPriority) {
     nlohmann::json cfg{{"arc_key", "test-arc-key"}, {"rt_priority", 99}};
-    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
     ASSERT_TRUE(parser.ok());
     EXPECT_EQ(task_cfg.loop.rt_priority, 99);
@@ -75,7 +76,7 @@ TEST(TaskConfigParsing, RtPriority) {
 
 TEST(TaskConfigParsing, CpuAffinity) {
     nlohmann::json cfg{{"arc_key", "test-arc-key"}, {"cpu_affinity", 3}};
-    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
     ASSERT_TRUE(parser.ok());
     EXPECT_EQ(task_cfg.loop.cpu_affinity, 3);
@@ -84,17 +85,17 @@ TEST(TaskConfigParsing, CpuAffinity) {
 TEST(TaskConfigParsing, CpuAffinityNone) {
     nlohmann::json cfg{
         {"arc_key", "test-arc-key"},
-        {"cpu_affinity", arc::runtime::loop::CPU_AFFINITY_NONE}
+        {"cpu_affinity", ::arc::runtime::loop::CPU_AFFINITY_NONE}
     };
-    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
     ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.cpu_affinity, arc::runtime::loop::CPU_AFFINITY_NONE);
+    EXPECT_EQ(task_cfg.loop.cpu_affinity, ::arc::runtime::loop::CPU_AFFINITY_NONE);
 }
 
 TEST(TaskConfigParsing, LockMemory) {
     nlohmann::json cfg{{"arc_key", "test-arc-key"}, {"lock_memory", true}};
-    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
     ASSERT_TRUE(parser.ok());
     EXPECT_TRUE(task_cfg.loop.lock_memory);
@@ -108,10 +109,10 @@ TEST(TaskConfigParsing, FullLoopConfig) {
         {"cpu_affinity", 7},
         {"lock_memory", true}
     };
-    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
     ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.mode, arc::runtime::loop::ExecutionMode::RT_EVENT);
+    EXPECT_EQ(task_cfg.loop.mode, ::arc::runtime::loop::ExecutionMode::RT_EVENT);
     EXPECT_EQ(task_cfg.loop.rt_priority, 80);
     EXPECT_EQ(task_cfg.loop.cpu_affinity, 7);
     EXPECT_TRUE(task_cfg.loop.lock_memory);
@@ -125,23 +126,38 @@ TEST(ArcTests, testCalcDoubling) {
     auto output_idx_name = make_unique_channel_name("ox_pt_doubled_idx");
     auto output_name = make_unique_channel_name("ox_pt_doubled");
 
-    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::channel::Channel(
+        output_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::Channel(input_name, telem::FLOAT32_T, input_idx.key, false);
-    auto output_ch = synnax::Channel(
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::FLOAT32_T,
+        input_idx.key,
+        false
+    );
+    auto output_ch = synnax::channel::Channel(
         output_name,
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         output_idx.key,
         false
     );
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::Arc arc_prog(make_unique_channel_name("calc_test"));
-    arc_prog.text = arc::text::Text(
+    synnax::arc::Arc arc_prog(make_unique_channel_name("calc_test"));
+    arc_prog.text = ::arc::text::Text(
         "func calc(val f32) f32 {\n"
         "    return val * 2\n"
         "}\n" +
@@ -153,22 +169,22 @@ TEST(ArcTests, testCalcDoubling) {
         client->racks.create(make_unique_channel_name("arc_test_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_calc_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_calc_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
 
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
-    telem::Frame input_fr(2);
-    auto now = telem::TimeStamp::now();
-    auto input_idx_series = telem::Series(now);
-    input_idx_series.alignment = telem::Alignment(1, 0);
-    auto input_val_series = telem::Series(5.0f);
-    input_val_series.alignment = telem::Alignment(1, 0);
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame input_fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto input_idx_series = x::telem::Series(now);
+    input_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto input_val_series = x::telem::Series(5.0f);
+    input_val_series.alignment = x::telem::Alignment(1, 0);
     input_fr.emplace(input_idx.key, std::move(input_idx_series));
     input_fr.emplace(input_ch.key, std::move(input_val_series));
     input_frames->push_back(std::move(input_fr));
@@ -187,7 +203,7 @@ TEST(ArcTests, testCalcDoubling) {
     task->start("test_start");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     auto &output_fr = mock_writer->writes->at(0);
@@ -204,16 +220,16 @@ TEST(ArcTests, testBasicSequence) {
     // Create trigger channel (start_cmd)
     auto start_cmd_idx_name = make_unique_channel_name("start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("start_cmd");
-    auto start_cmd_idx = synnax::Channel(
+    auto start_cmd_idx = synnax::channel::Channel(
         start_cmd_idx_name,
-        telem::TIMESTAMP_T,
+        x::telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::Channel(
+    auto start_cmd_ch = synnax::channel::Channel(
         start_cmd_name,
-        telem::UINT8_T,
+        x::telem::UINT8_T,
         start_cmd_idx.key,
         false
     );
@@ -222,24 +238,24 @@ TEST(ArcTests, testBasicSequence) {
     // Create output channel (valve_cmd)
     auto valve_cmd_idx_name = make_unique_channel_name("valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("valve_cmd");
-    auto valve_cmd_idx = synnax::Channel(
+    auto valve_cmd_idx = synnax::channel::Channel(
         valve_cmd_idx_name,
-        telem::TIMESTAMP_T,
+        x::telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::Channel(
+    auto valve_cmd_ch = synnax::channel::Channel(
         valve_cmd_name,
-        telem::INT64_T,
+        x::telem::INT64_T,
         valve_cmd_idx.key,
         false
     );
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     // Create Arc program with the sequence
-    synnax::Arc arc_prog(make_unique_channel_name("sequence_test"));
-    arc_prog.text = arc::text::Text(
+    synnax::arc::Arc arc_prog(make_unique_channel_name("sequence_test"));
+    arc_prog.text = ::arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
         "        1 -> " +
@@ -257,24 +273,24 @@ TEST(ArcTests, testBasicSequence) {
         client->racks.create(make_unique_channel_name("arc_sequence_test_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_sequence_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_sequence_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     // Setup mock writer to capture outputs
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
 
     // Setup mock streamer to send trigger frame
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
-    telem::Frame trigger_fr(2);
-    auto now = telem::TimeStamp::now();
-    auto trigger_idx_series = telem::Series(now);
-    trigger_idx_series.alignment = telem::Alignment(1, 0);
-    auto trigger_val_series = telem::Series(static_cast<uint8_t>(1));
-    trigger_val_series.alignment = telem::Alignment(1, 0);
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame trigger_fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto trigger_idx_series = x::telem::Series(now);
+    trigger_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto trigger_val_series = x::telem::Series(static_cast<uint8_t>(1));
+    trigger_val_series.alignment = x::telem::Alignment(1, 0);
     trigger_fr.emplace(start_cmd_idx.key, std::move(trigger_idx_series));
     trigger_fr.emplace(start_cmd_ch.key, std::move(trigger_val_series));
     input_frames->push_back(std::move(trigger_fr));
@@ -294,7 +310,7 @@ TEST(ArcTests, testBasicSequence) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
     // Wait for the sequence to execute and write to valve_cmd
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     // Verify valve_cmd received the value 1
@@ -320,16 +336,16 @@ TEST(ArcTests, testOneShotTruthiness) {
     // Create trigger channel (start_cmd)
     auto start_cmd_idx_name = make_unique_channel_name("truthiness_start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("truthiness_start_cmd");
-    auto start_cmd_idx = synnax::Channel(
+    auto start_cmd_idx = synnax::channel::Channel(
         start_cmd_idx_name,
-        telem::TIMESTAMP_T,
+        x::telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::Channel(
+    auto start_cmd_ch = synnax::channel::Channel(
         start_cmd_name,
-        telem::UINT8_T,
+        x::telem::UINT8_T,
         start_cmd_idx.key,
         false
     );
@@ -338,24 +354,24 @@ TEST(ArcTests, testOneShotTruthiness) {
     // Create output channel (valve_cmd)
     auto valve_cmd_idx_name = make_unique_channel_name("truthiness_valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("truthiness_valve_cmd");
-    auto valve_cmd_idx = synnax::Channel(
+    auto valve_cmd_idx = synnax::channel::Channel(
         valve_cmd_idx_name,
-        telem::TIMESTAMP_T,
+        x::telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::Channel(
+    auto valve_cmd_ch = synnax::channel::Channel(
         valve_cmd_name,
-        telem::INT64_T,
+        x::telem::INT64_T,
         valve_cmd_idx.key,
         false
     );
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     // Create Arc program with a sequence triggered by one-shot edge
-    synnax::Arc arc_prog(make_unique_channel_name("truthiness_test"));
-    arc_prog.text = arc::text::Text(
+    synnax::arc::Arc arc_prog(make_unique_channel_name("truthiness_test"));
+    arc_prog.text = ::arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
         "        42 -> " +
@@ -373,11 +389,11 @@ TEST(ArcTests, testOneShotTruthiness) {
         client->racks.create(make_unique_channel_name("arc_truthiness_test_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_truthiness_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_truthiness_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     // Setup mock writer to capture outputs
@@ -386,26 +402,26 @@ TEST(ArcTests, testOneShotTruthiness) {
     // Setup mock streamer to send TWO frames:
     // 1. First frame with value 0 (should NOT trigger)
     // 2. Second frame with value 1 (should trigger)
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
     // Frame 1: falsy trigger (0) - should NOT trigger the sequence
-    telem::Frame falsy_trigger_fr(2);
-    auto now = telem::TimeStamp::now();
-    auto falsy_idx_series = telem::Series(now);
-    falsy_idx_series.alignment = telem::Alignment(1, 0);
-    auto falsy_val_series = telem::Series(static_cast<uint8_t>(0));
-    falsy_val_series.alignment = telem::Alignment(1, 0);
+    x::telem::Frame falsy_trigger_fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto falsy_idx_series = x::telem::Series(now);
+    falsy_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto falsy_val_series = x::telem::Series(static_cast<uint8_t>(0));
+    falsy_val_series.alignment = x::telem::Alignment(1, 0);
     falsy_trigger_fr.emplace(start_cmd_idx.key, std::move(falsy_idx_series));
     falsy_trigger_fr.emplace(start_cmd_ch.key, std::move(falsy_val_series));
     input_frames->push_back(std::move(falsy_trigger_fr));
 
     // Frame 2: truthy trigger (1) - should trigger the sequence
-    telem::Frame truthy_trigger_fr(2);
-    auto later = telem::TimeStamp::now() + telem::SECOND;
-    auto truthy_idx_series = telem::Series(later);
-    truthy_idx_series.alignment = telem::Alignment(1, 1);
-    auto truthy_val_series = telem::Series(static_cast<uint8_t>(1));
-    truthy_val_series.alignment = telem::Alignment(1, 1);
+    x::telem::Frame truthy_trigger_fr(2);
+    auto later = x::telem::TimeStamp::now() + x::telem::SECOND;
+    auto truthy_idx_series = x::telem::Series(later);
+    truthy_idx_series.alignment = x::telem::Alignment(1, 1);
+    auto truthy_val_series = x::telem::Series(static_cast<uint8_t>(1));
+    truthy_val_series.alignment = x::telem::Alignment(1, 1);
     truthy_trigger_fr.emplace(start_cmd_idx.key, std::move(truthy_idx_series));
     truthy_trigger_fr.emplace(start_cmd_ch.key, std::move(truthy_val_series));
     input_frames->push_back(std::move(truthy_trigger_fr));
@@ -425,7 +441,7 @@ TEST(ArcTests, testOneShotTruthiness) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
     // Wait for the sequence to execute and write to valve_cmd
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     // Verify valve_cmd received the value 42 (from the sequence stage)
@@ -463,16 +479,16 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Create trigger channel (start_cmd)
     auto start_cmd_idx_name = make_unique_channel_name("two_stage_start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("two_stage_start_cmd");
-    auto start_cmd_idx = synnax::Channel(
+    auto start_cmd_idx = synnax::channel::Channel(
         start_cmd_idx_name,
-        telem::TIMESTAMP_T,
+        x::telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::Channel(
+    auto start_cmd_ch = synnax::channel::Channel(
         start_cmd_name,
-        telem::UINT8_T,
+        x::telem::UINT8_T,
         start_cmd_idx.key,
         false
     );
@@ -481,11 +497,16 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Create pressure sensor channel
     auto pressure_idx_name = make_unique_channel_name("two_stage_pressure_idx");
     auto pressure_name = make_unique_channel_name("two_stage_pressure");
-    auto pressure_idx = synnax::Channel(pressure_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto pressure_idx = synnax::channel::Channel(
+        pressure_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(pressure_idx));
-    auto pressure_ch = synnax::Channel(
+    auto pressure_ch = synnax::channel::Channel(
         pressure_name,
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         pressure_idx.key,
         false
     );
@@ -494,16 +515,16 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Create output channel (valve_cmd)
     auto valve_cmd_idx_name = make_unique_channel_name("two_stage_valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("two_stage_valve_cmd");
-    auto valve_cmd_idx = synnax::Channel(
+    auto valve_cmd_idx = synnax::channel::Channel(
         valve_cmd_idx_name,
-        telem::TIMESTAMP_T,
+        x::telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::Channel(
+    auto valve_cmd_ch = synnax::channel::Channel(
         valve_cmd_name,
-        telem::INT64_T,
+        x::telem::INT64_T,
         valve_cmd_idx.key,
         false
     );
@@ -512,8 +533,8 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Create Arc program with a two-stage sequence
     // Stage "pressurize": outputs 1, transitions to "idle" when pressure > 50
     // Stage "idle": outputs 0 (terminal stage)
-    synnax::Arc arc_prog(make_unique_channel_name("two_stage_test"));
-    arc_prog.text = arc::text::Text(
+    synnax::arc::Arc arc_prog(make_unique_channel_name("two_stage_test"));
+    arc_prog.text = ::arc::text::Text(
         "sequence main {\n"
         "    stage pressurize {\n"
         "        1 -> " +
@@ -539,11 +560,11 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
         client->racks.create(make_unique_channel_name("arc_two_stage_test_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_two_stage_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_two_stage_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     // Setup mock writer to capture outputs
@@ -553,43 +574,43 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // 1. Trigger frame to start the sequence
     // 2. Pressure frame with value < 50 (should stay in pressurize stage)
     // 3. Pressure frame with value > 50 (should transition to idle stage)
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
     // Frame 1: Trigger the sequence
-    telem::Frame trigger_fr(4);
-    auto now = telem::TimeStamp::now();
-    auto sequence_trigger_idx = telem::Series(now);
-    sequence_trigger_idx.alignment = telem::Alignment(1, 0);
+    x::telem::Frame trigger_fr(4);
+    auto now = x::telem::TimeStamp::now();
+    auto sequence_trigger_idx = x::telem::Series(now);
+    sequence_trigger_idx.alignment = x::telem::Alignment(1, 0);
     trigger_fr.emplace(start_cmd_idx.key, std::move(sequence_trigger_idx));
-    auto sequence_trigger_data = telem::Series(static_cast<std::uint8_t>(1));
-    sequence_trigger_data.alignment = telem::Alignment(1, 0);
+    auto sequence_trigger_data = x::telem::Series(static_cast<std::uint8_t>(1));
+    sequence_trigger_data.alignment = x::telem::Alignment(1, 0);
     trigger_fr.emplace(start_cmd_ch.key, std::move(sequence_trigger_data));
-    auto pressure_idx_series = telem::Series(now);
-    pressure_idx_series.alignment = telem::Alignment(1, 0);
+    auto pressure_idx_series = x::telem::Series(now);
+    pressure_idx_series.alignment = x::telem::Alignment(1, 0);
     trigger_fr.emplace(pressure_idx.key, std::move(pressure_idx_series));
-    auto pressure_val_series = telem::Series(10.0f);
-    pressure_val_series.alignment = telem::Alignment(1, 0);
+    auto pressure_val_series = x::telem::Series(10.0f);
+    pressure_val_series.alignment = x::telem::Alignment(1, 0);
     trigger_fr.emplace(pressure_ch.key, std::move(pressure_val_series));
     input_frames->push_back(std::move(trigger_fr));
 
     // Frame 2: Pressure still low - should stay in pressurize, output 1
-    telem::Frame low_pressure_fr(2);
-    auto t2 = now + telem::MILLISECOND * 100;
-    auto low_pressure_idx_series = telem::Series(t2);
-    low_pressure_idx_series.alignment = telem::Alignment(1, 1);
-    auto low_pressure_val_series = telem::Series(30.0f);
-    low_pressure_val_series.alignment = telem::Alignment(1, 1);
+    x::telem::Frame low_pressure_fr(2);
+    auto t2 = now + x::telem::MILLISECOND * 100;
+    auto low_pressure_idx_series = x::telem::Series(t2);
+    low_pressure_idx_series.alignment = x::telem::Alignment(1, 1);
+    auto low_pressure_val_series = x::telem::Series(30.0f);
+    low_pressure_val_series.alignment = x::telem::Alignment(1, 1);
     low_pressure_fr.emplace(pressure_idx.key, std::move(low_pressure_idx_series));
     low_pressure_fr.emplace(pressure_ch.key, std::move(low_pressure_val_series));
     input_frames->push_back(std::move(low_pressure_fr));
 
     // Frame 3: Pressure exceeds threshold - should transition to idle, output 0
-    telem::Frame high_pressure_fr(2);
-    auto t3 = now + telem::MILLISECOND * 200;
-    auto high_pressure_idx_series = telem::Series(t3);
-    high_pressure_idx_series.alignment = telem::Alignment(1, 2);
-    auto high_pressure_val_series = telem::Series(60.0f);
-    high_pressure_val_series.alignment = telem::Alignment(1, 2);
+    x::telem::Frame high_pressure_fr(2);
+    auto t3 = now + x::telem::MILLISECOND * 200;
+    auto high_pressure_idx_series = x::telem::Series(t3);
+    high_pressure_idx_series.alignment = x::telem::Alignment(1, 2);
+    auto high_pressure_val_series = x::telem::Series(60.0f);
+    high_pressure_val_series.alignment = x::telem::Alignment(1, 2);
     high_pressure_fr.emplace(pressure_idx.key, std::move(high_pressure_idx_series));
     high_pressure_fr.emplace(pressure_ch.key, std::move(high_pressure_val_series));
     input_frames->push_back(std::move(high_pressure_fr));
@@ -610,7 +631,7 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
 
     // Wait for multiple writes (at least 2: one from pressurize stage, one from idle
     // stage)
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 2);
 
     // Verify we got both valve states:
@@ -638,8 +659,8 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     task->stop("test_stop", true);
 }
 
-synnax::TaskStatus *find_status_by_variant(
-    std::vector<synnax::TaskStatus> &statuses,
+synnax::task::Status *find_status_by_variant(
+    std::vector<synnax::task::Status> &statuses,
     const std::string &variant
 ) {
     for (auto &s: statuses)
@@ -648,7 +669,7 @@ synnax::TaskStatus *find_status_by_variant(
 }
 
 void expect_status(
-    const synnax::TaskStatus &status,
+    const synnax::task::Status &status,
     const std::string &expected_variant,
     bool expected_running,
     const std::string &message_contains = ""
@@ -670,19 +691,38 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     auto output_idx_name = make_unique_channel_name("trap_output_idx");
     auto output_name = make_unique_channel_name("trap_output");
 
-    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::channel::Channel(
+        output_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::Channel(input_name, telem::INT32_T, input_idx.key, false);
-    auto
-        output_ch = synnax::Channel(output_name, telem::INT32_T, output_idx.key, false);
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::INT32_T,
+        input_idx.key,
+        false
+    );
+    auto output_ch = synnax::channel::Channel(
+        output_name,
+        x::telem::INT32_T,
+        output_idx.key,
+        false
+    );
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::Arc arc_prog(make_unique_channel_name("trap_test"));
-    arc_prog.text = arc::text::Text(
+    synnax::arc::Arc arc_prog(make_unique_channel_name("trap_test"));
+    arc_prog.text = ::arc::text::Text(
         "func divide_by_zero(val i32) i32 { return val / 0 }\n" + input_name +
         " -> divide_by_zero{} -> " + output_name + "\n"
     );
@@ -692,22 +732,22 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
         client->racks.create(make_unique_channel_name("arc_trap_test_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_trap_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_trap_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
 
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
-    telem::Frame trigger_fr(2);
-    auto now = telem::TimeStamp::now();
-    auto trigger_idx_series = telem::Series(now);
-    trigger_idx_series.alignment = telem::Alignment(1, 0);
-    auto trigger_val_series = telem::Series(static_cast<int32_t>(42));
-    trigger_val_series.alignment = telem::Alignment(1, 0);
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame trigger_fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto trigger_idx_series = x::telem::Series(now);
+    trigger_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto trigger_val_series = x::telem::Series(static_cast<int32_t>(42));
+    trigger_val_series.alignment = x::telem::Alignment(1, 0);
     trigger_fr.emplace(input_idx.key, std::move(trigger_idx_series));
     trigger_fr.emplace(input_ch.key, std::move(trigger_val_series));
     input_frames->push_back(std::move(trigger_fr));
@@ -728,9 +768,9 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
 
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    auto *error_status = find_status_by_variant(ctx->statuses, status::variant::ERR);
+    auto *error_status = find_status_by_variant(ctx->statuses, x::status::variant::ERR);
     ASSERT_NE(error_status, nullptr) << "Fatal WASM trap should produce error status";
-    expect_status(*error_status, status::variant::ERR, false);
+    expect_status(*error_status, x::status::variant::ERR, false);
 
     task->stop("test_stop", true);
 }
@@ -743,19 +783,38 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     auto output_idx_name = make_unique_channel_name("restart_trap_output_idx");
     auto output_name = make_unique_channel_name("restart_trap_output");
 
-    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::channel::Channel(
+        output_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::Channel(input_name, telem::INT32_T, input_idx.key, false);
-    auto
-        output_ch = synnax::Channel(output_name, telem::INT32_T, output_idx.key, false);
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::INT32_T,
+        input_idx.key,
+        false
+    );
+    auto output_ch = synnax::channel::Channel(
+        output_name,
+        x::telem::INT32_T,
+        output_idx.key,
+        false
+    );
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::Arc arc_prog(make_unique_channel_name("restart_trap_test"));
-    arc_prog.text = arc::text::Text(
+    synnax::arc::Arc arc_prog(make_unique_channel_name("restart_trap_test"));
+    arc_prog.text = ::arc::text::Text(
         "func maybe_trap(val i32) i32 {\n"
         "    if val == 0 { return 1 / val }\n"
         "    return val * 2\n"
@@ -768,22 +827,22 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
         client->racks.create(make_unique_channel_name("arc_restart_trap_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_restart_trap_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_restart_trap_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
-    telem::Frame trap_trigger(2);
-    auto now = telem::TimeStamp::now();
-    auto trap_idx = telem::Series(now);
-    trap_idx.alignment = telem::Alignment(1, 0);
-    auto trap_val = telem::Series(static_cast<int32_t>(0));
-    trap_val.alignment = telem::Alignment(1, 0);
+    x::telem::Frame trap_trigger(2);
+    auto now = x::telem::TimeStamp::now();
+    auto trap_idx = x::telem::Series(now);
+    trap_idx.alignment = x::telem::Alignment(1, 0);
+    auto trap_val = x::telem::Series(static_cast<int32_t>(0));
+    trap_val.alignment = x::telem::Alignment(1, 0);
     trap_trigger.emplace(input_idx.key, std::move(trap_idx));
     trap_trigger.emplace(input_ch.key, std::move(trap_val));
     input_frames->push_back(std::move(trap_trigger));
@@ -803,22 +862,22 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    auto *error_status = find_status_by_variant(ctx->statuses, status::variant::ERR);
+    auto *error_status = find_status_by_variant(ctx->statuses, x::status::variant::ERR);
     EXPECT_NE(error_status, nullptr) << "Should have error status after WASM trap";
 
     task->stop("test_stop_1", true);
 
     mock_writer->writes->clear();
-    mock_writer->writer_opens = 0;
+    mock_writer->writer_opens.store(0, std::memory_order_relaxed);
     ctx->statuses.clear();
     input_frames->clear();
 
-    telem::Frame normal_trigger(2);
-    auto now2 = telem::TimeStamp::now();
-    auto normal_idx = telem::Series(now2);
-    normal_idx.alignment = telem::Alignment(2, 0);
-    auto normal_val = telem::Series(static_cast<int32_t>(5));
-    normal_val.alignment = telem::Alignment(2, 0);
+    x::telem::Frame normal_trigger(2);
+    auto now2 = x::telem::TimeStamp::now();
+    auto normal_idx = x::telem::Series(now2);
+    normal_idx.alignment = x::telem::Alignment(2, 0);
+    auto normal_val = x::telem::Series(static_cast<int32_t>(5));
+    normal_val.alignment = x::telem::Alignment(2, 0);
     normal_trigger.emplace(input_idx.key, std::move(normal_idx));
     normal_trigger.emplace(input_ch.key, std::move(normal_val));
     input_frames->push_back(std::move(normal_trigger));
@@ -849,23 +908,38 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
     auto output_idx_name = make_unique_channel_name("multi_cycle_output_idx");
     auto output_name = make_unique_channel_name("multi_cycle_output");
 
-    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::channel::Channel(
+        output_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::Channel(input_name, telem::FLOAT32_T, input_idx.key, false);
-    auto output_ch = synnax::Channel(
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::FLOAT32_T,
+        input_idx.key,
+        false
+    );
+    auto output_ch = synnax::channel::Channel(
         output_name,
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         output_idx.key,
         false
     );
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::Arc arc_prog(make_unique_channel_name("multi_cycle_test"));
-    arc_prog.text = arc::text::Text(
+    synnax::arc::Arc arc_prog(make_unique_channel_name("multi_cycle_test"));
+    arc_prog.text = ::arc::text::Text(
         "func double(val f32) f32 { return val * 2 }\n" + input_name +
         " -> double{} -> " + output_name + "\n"
     );
@@ -875,15 +949,15 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
         client->racks.create(make_unique_channel_name("arc_multi_cycle_test_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_multi_cycle_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_multi_cycle_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
     auto mock_streamer = pipeline::mock::simple_streamer_factory(
         {input_idx.key, input_ch.key},
@@ -898,16 +972,16 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
 
     for (int cycle = 0; cycle < 3; cycle++) {
         mock_writer->writes->clear();
-        mock_writer->writer_opens = 0;
+        mock_writer->writer_opens.store(0, std::memory_order_relaxed);
         ctx->statuses.clear();
         input_frames->clear();
 
-        telem::Frame input_fr(2);
-        auto now = telem::TimeStamp::now();
-        auto idx_series = telem::Series(now);
-        idx_series.alignment = telem::Alignment(cycle + 1, 0);
-        auto val_series = telem::Series(static_cast<float>(cycle + 1));
-        val_series.alignment = telem::Alignment(cycle + 1, 0);
+        x::telem::Frame input_fr(2);
+        auto now = x::telem::TimeStamp::now();
+        auto idx_series = x::telem::Series(now);
+        idx_series.alignment = x::telem::Alignment(cycle + 1, 0);
+        auto val_series = x::telem::Series(static_cast<float>(cycle + 1));
+        val_series.alignment = x::telem::Alignment(cycle + 1, 0);
         input_fr.emplace(input_idx.key, std::move(idx_series));
         input_fr.emplace(input_ch.key, std::move(val_series));
         input_frames->push_back(std::move(input_fr));
@@ -939,23 +1013,38 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
     auto output_idx_name = make_unique_channel_name("status_verify_output_idx");
     auto output_name = make_unique_channel_name("status_verify_output");
 
-    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::channel::Channel(
+        output_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::Channel(input_name, telem::FLOAT32_T, input_idx.key, false);
-    auto output_ch = synnax::Channel(
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::FLOAT32_T,
+        input_idx.key,
+        false
+    );
+    auto output_ch = synnax::channel::Channel(
         output_name,
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         output_idx.key,
         false
     );
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::Arc arc_prog(make_unique_channel_name("status_verify_test"));
-    arc_prog.text = arc::text::Text(
+    synnax::arc::Arc arc_prog(make_unique_channel_name("status_verify_test"));
+    arc_prog.text = ::arc::text::Text(
         "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
         output_name + "\n"
     );
@@ -965,22 +1054,22 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         client->racks.create(make_unique_channel_name("arc_status_verify_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_status_verify_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_status_verify_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
-    telem::Frame input_fr(2);
-    auto now = telem::TimeStamp::now();
-    auto idx_series = telem::Series(now);
-    idx_series.alignment = telem::Alignment(1, 0);
-    auto val_series = telem::Series(1.0f);
-    val_series.alignment = telem::Alignment(1, 0);
+    x::telem::Frame input_fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto idx_series = x::telem::Series(now);
+    idx_series.alignment = x::telem::Alignment(1, 0);
+    auto val_series = x::telem::Series(1.0f);
+    val_series.alignment = x::telem::Alignment(1, 0);
     input_fr.emplace(input_idx.key, std::move(idx_series));
     input_fr.emplace(input_ch.key, std::move(val_series));
     input_frames->push_back(std::move(input_fr));
@@ -1001,19 +1090,22 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
 
     auto *start_status = find_status_by_variant(
         ctx->statuses,
-        status::variant::SUCCESS
+        x::status::variant::SUCCESS
     );
     ASSERT_NE(start_status, nullptr) << "Should have a success status after start";
-    expect_status(*start_status, status::variant::SUCCESS, true, "started");
+    expect_status(*start_status, x::status::variant::SUCCESS, true, "started");
 
     task->stop("verify_stop", true);
 
-    auto *stop_status = find_status_by_variant(ctx->statuses, status::variant::SUCCESS);
+    auto *stop_status = find_status_by_variant(
+        ctx->statuses,
+        x::status::variant::SUCCESS
+    );
     ASSERT_NE(stop_status, nullptr);
 
     bool found_stopped = false;
     for (const auto &s: ctx->statuses) {
-        if (s.variant == status::variant::SUCCESS && !s.details.running) {
+        if (s.variant == x::status::variant::SUCCESS && !s.details.running) {
             found_stopped = true;
             break;
         }
@@ -1030,23 +1122,38 @@ TEST(ArcEdgeCases, RapidStartStop) {
     auto output_idx_name = make_unique_channel_name("rapid_output_idx");
     auto output_name = make_unique_channel_name("rapid_output");
 
-    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::channel::Channel(
+        output_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::Channel(input_name, telem::FLOAT32_T, input_idx.key, false);
-    auto output_ch = synnax::Channel(
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::FLOAT32_T,
+        input_idx.key,
+        false
+    );
+    auto output_ch = synnax::channel::Channel(
         output_name,
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         output_idx.key,
         false
     );
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::Arc arc_prog(make_unique_channel_name("rapid_test"));
-    arc_prog.text = arc::text::Text(
+    synnax::arc::Arc arc_prog(make_unique_channel_name("rapid_test"));
+    arc_prog.text = ::arc::text::Text(
         "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
         output_name + "\n"
     );
@@ -1056,15 +1163,15 @@ TEST(ArcEdgeCases, RapidStartStop) {
         client->racks.create(make_unique_channel_name("arc_rapid_test_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_rapid_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_rapid_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
     auto mock_streamer = pipeline::mock::simple_streamer_factory(
         {input_idx.key, input_ch.key},
@@ -1087,7 +1194,7 @@ TEST(ArcEdgeCases, RapidStartStop) {
 
     auto *final_status = find_status_by_variant(
         ctx->statuses,
-        status::variant::SUCCESS
+        x::status::variant::SUCCESS
     );
     ASSERT_NE(final_status, nullptr);
     EXPECT_TRUE(final_status->details.running);
@@ -1103,23 +1210,38 @@ TEST(ArcEdgeCases, StopWithoutStart) {
     auto output_idx_name = make_unique_channel_name("nostart_output_idx");
     auto output_name = make_unique_channel_name("nostart_output");
 
-    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::channel::Channel(
+        output_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::Channel(input_name, telem::FLOAT32_T, input_idx.key, false);
-    auto output_ch = synnax::Channel(
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::FLOAT32_T,
+        input_idx.key,
+        false
+    );
+    auto output_ch = synnax::channel::Channel(
         output_name,
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         output_idx.key,
         false
     );
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::Arc arc_prog(make_unique_channel_name("nostart_test"));
-    arc_prog.text = arc::text::Text(
+    synnax::arc::Arc arc_prog(make_unique_channel_name("nostart_test"));
+    arc_prog.text = ::arc::text::Text(
         "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
         output_name + "\n"
     );
@@ -1129,15 +1251,15 @@ TEST(ArcEdgeCases, StopWithoutStart) {
         client->racks.create(make_unique_channel_name("arc_nostart_test_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_nostart_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_nostart_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
     auto mock_streamer = pipeline::mock::simple_streamer_factory(
         {input_idx.key, input_ch.key},
@@ -1155,7 +1277,7 @@ TEST(ArcEdgeCases, StopWithoutStart) {
     task->start("start_after_cold_stop");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
-    auto *status = find_status_by_variant(ctx->statuses, status::variant::SUCCESS);
+    auto *status = find_status_by_variant(ctx->statuses, x::status::variant::SUCCESS);
     ASSERT_NE(status, nullptr);
 
     task->stop("final_stop", true);
@@ -1167,11 +1289,16 @@ TEST(ArcTests, testChannelConfigParam) {
     // Trigger channel (u8)
     auto trigger_idx_name = make_unique_channel_name("cfg_ch_trigger_idx");
     auto trigger_name = make_unique_channel_name("cfg_ch_trigger");
-    auto trigger_idx = synnax::Channel(trigger_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto trigger_idx = synnax::channel::Channel(
+        trigger_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(trigger_idx));
-    auto trigger_ch = synnax::Channel(
+    auto trigger_ch = synnax::channel::Channel(
         trigger_name,
-        telem::UINT8_T,
+        x::telem::UINT8_T,
         trigger_idx.key,
         false
     );
@@ -1180,27 +1307,42 @@ TEST(ArcTests, testChannelConfigParam) {
     // Data channel that the config param refers to (f32)
     auto data_idx_name = make_unique_channel_name("cfg_ch_data_idx");
     auto data_name = make_unique_channel_name("cfg_ch_data");
-    auto data_idx = synnax::Channel(data_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto data_idx = synnax::channel::Channel(
+        data_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(data_idx));
-    auto data_ch = synnax::Channel(data_name, telem::FLOAT32_T, data_idx.key, false);
+    auto data_ch = synnax::channel::Channel(
+        data_name,
+        x::telem::FLOAT32_T,
+        data_idx.key,
+        false
+    );
     ASSERT_NIL(client->channels.create(data_ch));
 
     // Output channel (f32)
     auto output_idx_name = make_unique_channel_name("cfg_ch_output_idx");
     auto output_name = make_unique_channel_name("cfg_ch_output");
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::channel::Channel(
+        output_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(output_idx));
-    auto output_ch = synnax::Channel(
+    auto output_ch = synnax::channel::Channel(
         output_name,
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         output_idx.key,
         false
     );
     ASSERT_NIL(client->channels.create(output_ch));
 
     // Arc program: function with channel-typed config param
-    synnax::Arc arc_prog(make_unique_channel_name("cfg_ch_test"));
-    arc_prog.text = arc::text::Text(
+    synnax::arc::Arc arc_prog(make_unique_channel_name("cfg_ch_test"));
+    arc_prog.text = ::arc::text::Text(
         "func read_data{ch chan f32}(trigger u8) f32 {\n"
         "    return ch + f32(0.0)\n"
         "}\n" +
@@ -1212,31 +1354,31 @@ TEST(ArcTests, testChannelConfigParam) {
         client->racks.create(make_unique_channel_name("arc_cfg_ch_test_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_cfg_ch_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_cfg_ch_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
 
     // Build input frames: trigger + data channel values in same frame
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
-    telem::Frame input_fr(6);
-    auto now = telem::TimeStamp::now();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame input_fr(6);
+    auto now = x::telem::TimeStamp::now();
 
-    auto trigger_idx_series = telem::Series(now);
-    trigger_idx_series.alignment = telem::Alignment(1, 0);
-    auto trigger_val_series = telem::Series(static_cast<uint8_t>(1));
-    trigger_val_series.alignment = telem::Alignment(1, 0);
+    auto trigger_idx_series = x::telem::Series(now);
+    trigger_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto trigger_val_series = x::telem::Series(static_cast<uint8_t>(1));
+    trigger_val_series.alignment = x::telem::Alignment(1, 0);
     input_fr.emplace(trigger_idx.key, std::move(trigger_idx_series));
     input_fr.emplace(trigger_ch.key, std::move(trigger_val_series));
 
-    auto data_idx_series = telem::Series(now);
-    data_idx_series.alignment = telem::Alignment(1, 0);
-    auto data_val_series = telem::Series(42.5f);
-    data_val_series.alignment = telem::Alignment(1, 0);
+    auto data_idx_series = x::telem::Series(now);
+    data_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto data_val_series = x::telem::Series(42.5f);
+    data_val_series.alignment = x::telem::Alignment(1, 0);
     input_fr.emplace(data_idx.key, std::move(data_idx_series));
     input_fr.emplace(data_ch.key, std::move(data_val_series));
 
@@ -1256,7 +1398,7 @@ TEST(ArcTests, testChannelConfigParam) {
     task->start("test_start");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     bool found_output = false;
@@ -1284,27 +1426,52 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
     // Input trigger channel (u8)
     auto input_idx_name = make_unique_channel_name("crw_input_idx");
     auto input_name = make_unique_channel_name("crw_input");
-    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(input_idx));
-    auto input_ch = synnax::Channel(input_name, telem::UINT8_T, input_idx.key, false);
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::UINT8_T,
+        input_idx.key,
+        false
+    );
     ASSERT_NIL(client->channels.create(input_ch));
 
     // Counter max channel - READ only config param (f32)
     auto max_idx_name = make_unique_channel_name("crw_max_idx");
     auto max_name = make_unique_channel_name("crw_max");
-    auto max_idx = synnax::Channel(max_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto max_idx = synnax::channel::Channel(
+        max_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(max_idx));
-    auto max_ch = synnax::Channel(max_name, telem::FLOAT32_T, max_idx.key, false);
+    auto max_ch = synnax::channel::Channel(
+        max_name,
+        x::telem::FLOAT32_T,
+        max_idx.key,
+        false
+    );
     ASSERT_NIL(client->channels.create(max_ch));
 
     // Counter output channel - WRITE config param (f32)
     auto counter_idx_name = make_unique_channel_name("crw_counter_idx");
     auto counter_name = make_unique_channel_name("crw_counter");
-    auto counter_idx = synnax::Channel(counter_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto counter_idx = synnax::channel::Channel(
+        counter_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(counter_idx));
-    auto counter_ch = synnax::Channel(
+    auto counter_ch = synnax::channel::Channel(
         counter_name,
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         counter_idx.key,
         false
     );
@@ -1313,8 +1480,8 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
     // Arc program mimicking count_rising:
     // counter_ch is a WRITE config param (channel_write_f32)
     // max_ch is a READ config param (channel_read_f32)
-    synnax::Arc arc_prog(make_unique_channel_name("crw_test"));
-    arc_prog.text = arc::text::Text(
+    synnax::arc::Arc arc_prog(make_unique_channel_name("crw_test"));
+    arc_prog.text = ::arc::text::Text(
         "func count_rising_test{counter_ch chan f32, max_ch chan f32}(input u8) {\n"
         "    prev u8 $= input\n"
         "    counter f32 $= 0.0\n"
@@ -1337,31 +1504,31 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
         client->racks.create(make_unique_channel_name("arc_crw_test_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_crw_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_crw_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
 
     // Frame: trigger=1 (rising edge from 0), max_ch=100.0
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
-    telem::Frame input_fr(6);
-    auto now = telem::TimeStamp::now();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame input_fr(6);
+    auto now = x::telem::TimeStamp::now();
 
-    auto in_idx_s = telem::Series(now);
-    in_idx_s.alignment = telem::Alignment(1, 0);
-    auto in_val_s = telem::Series(static_cast<uint8_t>(1));
-    in_val_s.alignment = telem::Alignment(1, 0);
+    auto in_idx_s = x::telem::Series(now);
+    in_idx_s.alignment = x::telem::Alignment(1, 0);
+    auto in_val_s = x::telem::Series(static_cast<uint8_t>(1));
+    in_val_s.alignment = x::telem::Alignment(1, 0);
     input_fr.emplace(input_idx.key, std::move(in_idx_s));
     input_fr.emplace(input_ch.key, std::move(in_val_s));
 
-    auto max_idx_s = telem::Series(now);
-    max_idx_s.alignment = telem::Alignment(1, 0);
-    auto max_val_s = telem::Series(100.0f);
-    max_val_s.alignment = telem::Alignment(1, 0);
+    auto max_idx_s = x::telem::Series(now);
+    max_idx_s.alignment = x::telem::Alignment(1, 0);
+    auto max_val_s = x::telem::Series(100.0f);
+    max_val_s.alignment = x::telem::Alignment(1, 0);
     input_fr.emplace(max_idx.key, std::move(max_idx_s));
     input_fr.emplace(max_ch.key, std::move(max_val_s));
 
@@ -1381,7 +1548,7 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
     task->start("test_start");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     // counter should be 100: prev $= input initializes prev=1, so no rising
@@ -1412,23 +1579,38 @@ TEST(ArcEdgeCases, DoubleStart) {
     auto output_idx_name = make_unique_channel_name("double_start_output_idx");
     auto output_name = make_unique_channel_name("double_start_output");
 
-    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::channel::Channel(
+        output_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::Channel(input_name, telem::FLOAT32_T, input_idx.key, false);
-    auto output_ch = synnax::Channel(
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::FLOAT32_T,
+        input_idx.key,
+        false
+    );
+    auto output_ch = synnax::channel::Channel(
         output_name,
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         output_idx.key,
         false
     );
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::Arc arc_prog(make_unique_channel_name("double_start_test"));
-    arc_prog.text = arc::text::Text(
+    synnax::arc::Arc arc_prog(make_unique_channel_name("double_start_test"));
+    arc_prog.text = ::arc::text::Text(
         "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
         output_name + "\n"
     );
@@ -1438,22 +1620,22 @@ TEST(ArcEdgeCases, DoubleStart) {
         client->racks.create(make_unique_channel_name("arc_double_start_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_double_start_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_double_start_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
-    telem::Frame fr(2);
-    auto now = telem::TimeStamp::now();
-    auto idx = telem::Series(now);
-    idx.alignment = telem::Alignment(1, 0);
-    auto val = telem::Series(5.0f);
-    val.alignment = telem::Alignment(1, 0);
+    x::telem::Frame fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto idx = x::telem::Series(now);
+    idx.alignment = x::telem::Alignment(1, 0);
+    auto val = x::telem::Series(5.0f);
+    val.alignment = x::telem::Alignment(1, 0);
     fr.emplace(input_idx.key, std::move(idx));
     fr.emplace(input_ch.key, std::move(val));
     input_frames->push_back(std::move(fr));
@@ -1487,19 +1669,38 @@ TEST(ArcTests, testRestartResetsState) {
     auto output_idx_name = make_unique_channel_name("restart_output_idx");
     auto output_name = make_unique_channel_name("restart_output");
 
-    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::channel::Channel(
+        output_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::Channel(input_name, telem::INT64_T, input_idx.key, false);
-    auto
-        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::INT64_T,
+        input_idx.key,
+        false
+    );
+    auto output_ch = synnax::channel::Channel(
+        output_name,
+        x::telem::INT64_T,
+        output_idx.key,
+        false
+    );
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::Arc arc_prog(make_unique_channel_name("restart_test"));
-    arc_prog.text = arc::text::Text(
+    synnax::arc::Arc arc_prog(make_unique_channel_name("restart_test"));
+    arc_prog.text = ::arc::text::Text(
         "func counter(trigger i64) i64 {\n"
         "    count $= 0\n"
         "    count = count + trigger\n"
@@ -1513,22 +1714,22 @@ TEST(ArcTests, testRestartResetsState) {
         client->racks.create(make_unique_channel_name("arc_restart_test_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_restart_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_restart_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
 
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
-    telem::Frame input_fr(2);
-    auto now = telem::TimeStamp::now();
-    auto input_idx_series = telem::Series(now);
-    input_idx_series.alignment = telem::Alignment(1, 0);
-    auto input_val_series = telem::Series(static_cast<int64_t>(1));
-    input_val_series.alignment = telem::Alignment(1, 0);
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame input_fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto input_idx_series = x::telem::Series(now);
+    input_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto input_val_series = x::telem::Series(static_cast<int64_t>(1));
+    input_val_series.alignment = x::telem::Alignment(1, 0);
     input_fr.emplace(input_idx.key, std::move(input_idx_series));
     input_fr.emplace(input_ch.key, std::move(input_val_series));
     input_frames->push_back(std::move(input_fr));
@@ -1546,7 +1747,7 @@ TEST(ArcTests, testRestartResetsState) {
 
     task->start("test_start_1");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     auto &output_fr_1 = mock_writer->writes->at(0);
@@ -1557,23 +1758,23 @@ TEST(ArcTests, testRestartResetsState) {
     task->stop("test_stop_1", true);
 
     mock_writer->writes->clear();
-    mock_writer->writer_opens = 0;
+    mock_writer->writer_opens.store(0, std::memory_order_relaxed);
     ctx->statuses.clear();
 
     input_frames->clear();
-    telem::Frame input_fr_2(2);
-    auto now_2 = telem::TimeStamp::now();
-    auto input_idx_series_2 = telem::Series(now_2);
-    input_idx_series_2.alignment = telem::Alignment(2, 0);
-    auto input_val_series_2 = telem::Series(static_cast<int64_t>(1));
-    input_val_series_2.alignment = telem::Alignment(2, 0);
+    x::telem::Frame input_fr_2(2);
+    auto now_2 = x::telem::TimeStamp::now();
+    auto input_idx_series_2 = x::telem::Series(now_2);
+    input_idx_series_2.alignment = x::telem::Alignment(2, 0);
+    auto input_val_series_2 = x::telem::Series(static_cast<int64_t>(1));
+    input_val_series_2.alignment = x::telem::Alignment(2, 0);
     input_fr_2.emplace(input_idx.key, std::move(input_idx_series_2));
     input_fr_2.emplace(input_ch.key, std::move(input_val_series_2));
     input_frames->push_back(std::move(input_fr_2));
 
     task->start("test_start_2");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     auto &output_fr_2 = mock_writer->writes->at(0);
@@ -1582,4 +1783,649 @@ TEST(ArcTests, testRestartResetsState) {
     EXPECT_EQ(output_val_2, 1) << "State should be reset on restart, count should be 1";
 
     task->stop("test_stop_2", true);
+}
+
+TEST(ArcTests, testStaticAuthorityConfig) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto input_idx_name = make_unique_channel_name("auth_input_idx");
+    auto input_name = make_unique_channel_name("auth_input");
+    auto output_idx_name = make_unique_channel_name("auth_output_idx");
+    auto output_name = make_unique_channel_name("auth_output");
+
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
+    ASSERT_NIL(client->channels.create(input_idx));
+    auto output_idx = synnax::channel::Channel(
+        output_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
+    ASSERT_NIL(client->channels.create(output_idx));
+
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::FLOAT32_T,
+        input_idx.key,
+        false
+    );
+    auto output_ch = synnax::channel::Channel(
+        output_name,
+        x::telem::FLOAT32_T,
+        output_idx.key,
+        false
+    );
+    ASSERT_NIL(client->channels.create(input_ch));
+    ASSERT_NIL(client->channels.create(output_ch));
+
+    synnax::arc::Arc arc_prog(make_unique_channel_name("auth_test"));
+    arc_prog.text = ::arc::text::Text(
+        "authority 200\n"
+        "func calc(val f32) f32 {\n"
+        "    return val * 2\n"
+        "}\n" +
+        input_name + " -> calc{} -> " + output_name + "\n"
+    );
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_auth_test_rack"))
+    );
+
+    synnax::task::Task task_meta(rack.key, "arc_auth_test", "arc_runtime", "");
+    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    task_meta.config = nlohmann::to_string(cfg);
+
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame input_fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto input_idx_series = x::telem::Series(now);
+    input_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto input_val_series = x::telem::Series(5.0f);
+    input_val_series.alignment = x::telem::Alignment(1, 0);
+    input_fr.emplace(input_idx.key, std::move(input_idx_series));
+    input_fr.emplace(input_ch.key, std::move(input_val_series));
+    input_frames->push_back(std::move(input_fr));
+
+    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+        {input_idx.key, input_ch.key},
+        input_frames
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(client);
+
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+    );
+
+    ASSERT_TRUE(task_cfg.module.authorities.default_authority.has_value())
+        << "IR AuthorityConfig.default_authority should be set from 'authority 200'";
+    EXPECT_EQ(*task_cfg.module.authorities.default_authority, 200);
+
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
+
+    ASSERT_FALSE(mock_writer->config.authorities.empty());
+    for (const auto &a: mock_writer->config.authorities)
+        EXPECT_EQ(a, 200);
+
+    ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
+    task->stop("test_stop", true);
+}
+
+TEST(ArcTests, testPerChannelAuthorityConfig) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto input_idx_name = make_unique_channel_name("pca_input_idx");
+    auto input_name = make_unique_channel_name("pca_input");
+    auto out_a_idx_name = make_unique_channel_name("pca_out_a_idx");
+    auto out_a_name = make_unique_channel_name("pca_out_a");
+    auto out_b_idx_name = make_unique_channel_name("pca_out_b_idx");
+    auto out_b_name = make_unique_channel_name("pca_out_b");
+
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
+    ASSERT_NIL(client->channels.create(input_idx));
+    auto out_a_idx = synnax::channel::Channel(
+        out_a_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
+    ASSERT_NIL(client->channels.create(out_a_idx));
+    auto out_b_idx = synnax::channel::Channel(
+        out_b_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
+    ASSERT_NIL(client->channels.create(out_b_idx));
+
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::FLOAT32_T,
+        input_idx.key,
+        false
+    );
+    ASSERT_NIL(client->channels.create(input_ch));
+    auto out_a_ch = synnax::channel::Channel(
+        out_a_name,
+        x::telem::FLOAT32_T,
+        out_a_idx.key,
+        false
+    );
+    ASSERT_NIL(client->channels.create(out_a_ch));
+    auto out_b_ch = synnax::channel::Channel(
+        out_b_name,
+        x::telem::FLOAT32_T,
+        out_b_idx.key,
+        false
+    );
+    ASSERT_NIL(client->channels.create(out_b_ch));
+
+    synnax::arc::Arc arc_prog(make_unique_channel_name("pca_test"));
+    arc_prog.text = ::arc::text::Text(
+        "authority (\n"
+        "    100\n"
+        "    " +
+        out_a_name +
+        " 200\n"
+        ")\n"
+        "func calc(val f32) f32 {\n"
+        "    return val * 2\n"
+        "}\n" +
+        input_name + " -> calc{} -> " + out_a_name + "\n" + input_name +
+        " -> calc{} -> " + out_b_name + "\n"
+    );
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_pca_test_rack"))
+    );
+
+    synnax::task::Task task_meta(rack.key, "arc_pca_test", "arc_runtime", "");
+    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    task_meta.config = nlohmann::to_string(cfg);
+
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    ASSERT_TRUE(task_cfg.module.authorities.default_authority.has_value());
+    EXPECT_EQ(*task_cfg.module.authorities.default_authority, 100);
+    ASSERT_EQ(task_cfg.module.authorities.channels.count(out_a_ch.key), 1);
+    EXPECT_EQ(task_cfg.module.authorities.channels.at(out_a_ch.key), 200);
+
+    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame input_fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto input_idx_series = x::telem::Series(now);
+    input_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto input_val_series = x::telem::Series(5.0f);
+    input_val_series.alignment = x::telem::Alignment(1, 0);
+    input_fr.emplace(input_idx.key, std::move(input_idx_series));
+    input_fr.emplace(input_ch.key, std::move(input_val_series));
+    input_frames->push_back(std::move(input_fr));
+
+    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+        {input_idx.key, input_ch.key},
+        input_frames
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(client);
+
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+    );
+
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
+
+    ASSERT_EQ(
+        mock_writer->config.authorities.size(),
+        mock_writer->config.channels.size()
+    );
+    for (size_t i = 0; i < mock_writer->config.channels.size(); i++) {
+        auto key = mock_writer->config.channels[i];
+        if (key == out_a_ch.key) {
+            EXPECT_EQ(mock_writer->config.authorities[i], 200);
+        } else if (key == out_b_ch.key) {
+            EXPECT_EQ(mock_writer->config.authorities[i], 100);
+        }
+    }
+
+    ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
+    task->stop("test_stop", true);
+}
+
+/// @brief it should forward dynamic authority changes from a set_authority call
+/// inside a sequence stage to the mock writer.
+TEST(ArcTests, testDynamicSetAuthorityInSequence) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto start_cmd_idx_name = make_unique_channel_name("dyn_auth_start_cmd_idx");
+    auto start_cmd_name = make_unique_channel_name("dyn_auth_start_cmd");
+    auto start_cmd_idx = synnax::channel::Channel(
+        start_cmd_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
+    ASSERT_NIL(client->channels.create(start_cmd_idx));
+    auto start_cmd_ch = synnax::channel::Channel(
+        start_cmd_name,
+        x::telem::UINT8_T,
+        start_cmd_idx.key,
+        false
+    );
+    ASSERT_NIL(client->channels.create(start_cmd_ch));
+
+    auto valve_cmd_idx_name = make_unique_channel_name("dyn_auth_valve_cmd_idx");
+    auto valve_cmd_name = make_unique_channel_name("dyn_auth_valve_cmd");
+    auto valve_cmd_idx = synnax::channel::Channel(
+        valve_cmd_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
+    ASSERT_NIL(client->channels.create(valve_cmd_idx));
+    auto valve_cmd_ch = synnax::channel::Channel(
+        valve_cmd_name,
+        x::telem::INT64_T,
+        valve_cmd_idx.key,
+        false
+    );
+    ASSERT_NIL(client->channels.create(valve_cmd_ch));
+
+    synnax::arc::Arc arc_prog(make_unique_channel_name("dyn_auth_test"));
+    arc_prog.text = ::arc::text::Text(
+        "sequence main {\n"
+        "    stage run {\n"
+        "        1 -> " +
+        valve_cmd_name +
+        ",\n"
+        "        set_authority{value=150}\n"
+        "    }\n"
+        "}\n"
+        "\n" +
+        start_cmd_name + " => main\n"
+    );
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_dyn_auth_rack"))
+    );
+
+    synnax::task::Task task_meta(rack.key, "arc_dyn_auth_test", "arc_runtime", "");
+    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    task_meta.config = nlohmann::to_string(cfg);
+
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame trigger_fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto trigger_idx_series = x::telem::Series(now);
+    trigger_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto trigger_val_series = x::telem::Series(static_cast<uint8_t>(1));
+    trigger_val_series.alignment = x::telem::Alignment(1, 0);
+    trigger_fr.emplace(start_cmd_idx.key, std::move(trigger_idx_series));
+    trigger_fr.emplace(start_cmd_ch.key, std::move(trigger_val_series));
+    input_frames->push_back(std::move(trigger_fr));
+
+    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+        {start_cmd_idx.key, start_cmd_ch.key},
+        input_frames
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(client);
+
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+    );
+
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->authority_changes->size(), 1);
+
+    const auto &change = mock_writer->authority_changes->at(0);
+    ASSERT_EQ(change.authorities.size(), 1);
+    EXPECT_EQ(change.authorities[0], 150);
+    EXPECT_TRUE(change.keys.empty());
+
+    task->stop("test_stop", true);
+}
+
+/// @brief it should forward per-channel dynamic authority changes from a
+/// set_authority call with a channel parameter to the mock writer.
+TEST(ArcTests, testDynamicPerChannelSetAuthority) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto start_cmd_idx_name = make_unique_channel_name("dpc_auth_start_cmd_idx");
+    auto start_cmd_name = make_unique_channel_name("dpc_auth_start_cmd");
+    auto start_cmd_idx = synnax::channel::Channel(
+        start_cmd_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
+    ASSERT_NIL(client->channels.create(start_cmd_idx));
+    auto start_cmd_ch = synnax::channel::Channel(
+        start_cmd_name,
+        x::telem::UINT8_T,
+        start_cmd_idx.key,
+        false
+    );
+    ASSERT_NIL(client->channels.create(start_cmd_ch));
+
+    auto valve_cmd_idx_name = make_unique_channel_name("dpc_auth_valve_cmd_idx");
+    auto valve_cmd_name = make_unique_channel_name("dpc_auth_valve_cmd");
+    auto valve_cmd_idx = synnax::channel::Channel(
+        valve_cmd_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
+    ASSERT_NIL(client->channels.create(valve_cmd_idx));
+    auto valve_cmd_ch = synnax::channel::Channel(
+        valve_cmd_name,
+        x::telem::UINT8_T,
+        valve_cmd_idx.key,
+        false
+    );
+    ASSERT_NIL(client->channels.create(valve_cmd_ch));
+
+    synnax::arc::Arc arc_prog(make_unique_channel_name("dpc_auth_test"));
+    arc_prog.text = ::arc::text::Text(
+        "sequence main {\n"
+        "    stage run {\n"
+        "        1 -> " +
+        valve_cmd_name +
+        ",\n"
+        "        set_authority{value=200, channel=" +
+        valve_cmd_name +
+        "}\n"
+        "    }\n"
+        "}\n"
+        "\n" +
+        start_cmd_name + " => main\n"
+    );
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_dpc_auth_rack"))
+    );
+
+    synnax::task::Task task_meta(rack.key, "arc_dpc_auth_test", "arc_runtime", "");
+    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    task_meta.config = nlohmann::to_string(cfg);
+
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame trigger_fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto trigger_idx_series = x::telem::Series(now);
+    trigger_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto trigger_val_series = x::telem::Series(static_cast<uint8_t>(1));
+    trigger_val_series.alignment = x::telem::Alignment(1, 0);
+    trigger_fr.emplace(start_cmd_idx.key, std::move(trigger_idx_series));
+    trigger_fr.emplace(start_cmd_ch.key, std::move(trigger_val_series));
+    input_frames->push_back(std::move(trigger_fr));
+
+    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+        {start_cmd_idx.key, start_cmd_ch.key},
+        input_frames
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(client);
+
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+    );
+
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->authority_changes->size(), 1);
+
+    const auto &change = mock_writer->authority_changes->at(0);
+    ASSERT_EQ(change.authorities.size(), 1);
+    EXPECT_EQ(change.authorities[0], 200);
+    ASSERT_EQ(change.keys.size(), 1);
+    EXPECT_EQ(change.keys[0], valve_cmd_ch.key);
+
+    task->stop("test_stop", true);
+}
+
+/// @brief it should process data and set authority in the same execution cycle
+/// using top-level flows (not sequences).
+TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto input_idx_name = make_unique_channel_name("auth_calc_input_idx");
+    auto input_name = make_unique_channel_name("auth_calc_input");
+    auto output_idx_name = make_unique_channel_name("auth_calc_output_idx");
+    auto output_name = make_unique_channel_name("auth_calc_output");
+
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
+    ASSERT_NIL(client->channels.create(input_idx));
+    auto output_idx = synnax::channel::Channel(
+        output_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
+    ASSERT_NIL(client->channels.create(output_idx));
+
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::UINT8_T,
+        input_idx.key,
+        false
+    );
+    ASSERT_NIL(client->channels.create(input_ch));
+    auto output_ch = synnax::channel::Channel(
+        output_name,
+        x::telem::UINT8_T,
+        output_idx.key,
+        false
+    );
+    ASSERT_NIL(client->channels.create(output_ch));
+
+    synnax::arc::Arc arc_prog(make_unique_channel_name("auth_calc_test"));
+    arc_prog.text = ::arc::text::Text(
+        "func double(val u8) u8 {\n"
+        "    return val * 2\n"
+        "}\n" +
+        input_name + " -> double{} -> " + output_name + "\n" + input_name +
+        " -> set_authority{value=100}\n"
+    );
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_auth_calc_rack"))
+    );
+
+    synnax::task::Task task_meta(rack.key, "arc_auth_calc_test", "arc_runtime", "");
+    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    task_meta.config = nlohmann::to_string(cfg);
+
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame input_fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto input_idx_series = x::telem::Series(now);
+    input_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto input_val_series = x::telem::Series(static_cast<uint8_t>(5));
+    input_val_series.alignment = x::telem::Alignment(1, 0);
+    input_fr.emplace(input_idx.key, std::move(input_idx_series));
+    input_fr.emplace(input_ch.key, std::move(input_val_series));
+    input_frames->push_back(std::move(input_fr));
+
+    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+        {input_idx.key, input_ch.key},
+        input_frames
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(client);
+
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+    );
+
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->authority_changes->size(), 1);
+
+    bool found_output = false;
+    for (const auto &fr: *mock_writer->writes) {
+        if (fr.contains(output_ch.key)) {
+            EXPECT_EQ(fr.at<uint8_t>(output_ch.key, 0), 10);
+            found_output = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found_output);
+
+    const auto &change = mock_writer->authority_changes->at(0);
+    ASSERT_EQ(change.authorities.size(), 1);
+    EXPECT_EQ(change.authorities[0], 100);
+    EXPECT_TRUE(change.keys.empty());
+
+    task->stop("test_stop", true);
+}
+
+TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto input_idx_name = make_unique_channel_name("writer_fail_input_idx");
+    auto input_name = make_unique_channel_name("writer_fail_input");
+    auto output_idx_name = make_unique_channel_name("writer_fail_output_idx");
+    auto output_name = make_unique_channel_name("writer_fail_output");
+
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
+    ASSERT_NIL(client->channels.create(input_idx));
+    auto output_idx = synnax::channel::Channel(
+        output_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
+    ASSERT_NIL(client->channels.create(output_idx));
+
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::INT32_T,
+        input_idx.key,
+        false
+    );
+    auto output_ch = synnax::channel::Channel(
+        output_name,
+        x::telem::INT32_T,
+        output_idx.key,
+        false
+    );
+    ASSERT_NIL(client->channels.create(input_ch));
+    ASSERT_NIL(client->channels.create(output_ch));
+
+    synnax::arc::Arc arc_prog(make_unique_channel_name("writer_fail_test"));
+    arc_prog.text = ::arc::text::Text(
+        "func double(val i32) i32 { return val * 2 }\n" + input_name +
+        " -> double{} -> " + output_name + "\n"
+    );
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_writer_fail_rack"))
+    );
+
+    synnax::task::Task task_meta(rack.key, "arc_writer_fail_test", "arc_runtime", "");
+    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    task_meta.config = nlohmann::to_string(cfg);
+
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    // Configure mock writer factory to fail when opening the writer.
+    // Writer open errors are propagated through stopped_with_err.
+    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>(
+        std::make_shared<std::vector<x::telem::Frame>>(),
+        std::vector<x::errors::Error>{x::errors::VALIDATION}
+    );
+
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame trigger_fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto trigger_idx_series = x::telem::Series(now);
+    trigger_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto trigger_val_series = x::telem::Series(static_cast<int32_t>(42));
+    trigger_val_series.alignment = x::telem::Alignment(1, 0);
+    trigger_fr.emplace(input_idx.key, std::move(trigger_idx_series));
+    trigger_fr.emplace(input_ch.key, std::move(trigger_val_series));
+    input_frames->push_back(std::move(trigger_fr));
+
+    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+        {input_idx.key, input_ch.key},
+        input_frames
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(client);
+
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+    );
+
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    auto *error_status = find_status_by_variant(ctx->statuses, x::status::variant::ERR);
+    EXPECT_NE(error_status, nullptr)
+        << "Writer failure should propagate error status via stopped_with_err";
+    if (error_status != nullptr) { EXPECT_FALSE(error_status->details.running); }
+
+    // Explicit stop to join pipeline threads (stopped_with_err calls stop from within
+    // the acquisition thread which skips the thread join).
+    task->stop("test_stop", true);
+}
 }

@@ -4,9 +4,13 @@ on:
   pull_request:
     paths:
       - .github/workflows/test.core.yaml
+      - .github/workflows/test.go.yaml
+      - .golangci.yaml
       - alamos/go/**
+      - arc/go/**
       - aspen/**
       - cesium/**
+      - codecov.yaml
       - core/**
       - freighter/go/**
       - go.work
@@ -19,9 +23,13 @@ on:
       - rc
     paths:
       - .github/workflows/test.core.yaml
+      - .github/workflows/test.go.yaml
+      - .golangci.yaml
       - alamos/go/**
+      - arc/go/**
       - aspen/**
       - cesium/**
+      - codecov.yaml
       - core/**
       - freighter/go/**
       - go.work
@@ -32,46 +40,9 @@ on:
 
 jobs:
   test:
-    name: Test (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            lint: true
-        exclude:
-          - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'macos-latest' }}
-          - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'windows-latest' }}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.work
-          cache-dependency-path: |
-            go.work.sum
-            **/go.sum
-
-      - name: Check Formatting
-        if: matrix.lint
-        run: scripts/check_gofmt.sh core
-
-      - name: Lint
-        if: matrix.lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          working-directory: core
-
-      - name: Test
-        run:
-          go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-suites
-          --fail-on-pending --fail-on-empty --keep-going --trace --github-output
-        working-directory: core
+    uses: ./.github/workflows/test.go.yaml
+    secrets: inherit
+    with:
+      directory: core
+      coverage_flag: core
+      ginkgo_flags: "--tags driver"

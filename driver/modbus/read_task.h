@@ -11,13 +11,13 @@
 
 #include <set>
 
+#include "driver/common/read_task.h"
+#include "driver/common/sample_clock.h"
 #include "driver/modbus/channels.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/util/util.h"
-#include "driver/task/common/read_task.h"
-#include "driver/task/common/sample_clock.h"
 
-namespace modbus {
+namespace driver::modbus {
 /// @brief interface for reading from different types of Modbus registers/bits.
 struct Reader {
     virtual ~Reader() = default;
@@ -28,15 +28,15 @@ struct Reader {
     /// @param fr the frame to populate with the response data.
     /// @param offset the series offset into the frame to start writing at. This is
     /// incremented by the number of series modified.
-    /// @returns xerrors::NIL if successful, any other error otherwise.
-    virtual xerrors::Error read(
+    /// @returns x::errors::NIL if successful, any other error otherwise.
+    virtual x::errors::Error read(
         const std::shared_ptr<device::Device> &dev,
-        telem::Frame &fr,
+        x::telem::Frame &fr,
         size_t &offset
     ) = 0;
 
     /// @brief return the list of Synnax channels that this reader is responsible for.
-    [[nodiscard]] virtual std::vector<synnax::Channel> sy_channels() const = 0;
+    [[nodiscard]] virtual std::vector<synnax::channel::Channel> sy_channels() const = 0;
 };
 
 /// @brief base reader class for all reader types.
@@ -46,8 +46,8 @@ struct BaseReader : Reader {
 
     explicit BaseReader(const std::vector<Channel> &channels): channels(channels) {}
 
-    [[nodiscard]] std::vector<synnax::Channel> sy_channels() const override {
-        std::vector<synnax::Channel> result;
+    [[nodiscard]] std::vector<synnax::channel::Channel> sy_channels() const override {
+        std::vector<synnax::channel::Channel> result;
         result.reserve(channels.size());
         for (const auto &channel: channels)
             result.push_back(channel.ch);
@@ -75,12 +75,12 @@ public:
         this->buffer.resize(last_addr - first_addr);
     }
 
-    xerrors::Error read(
+    x::errors::Error read(
         const std::shared_ptr<device::Device> &dev,
-        telem::Frame &fr,
+        x::telem::Frame &fr,
         size_t &frame_offset
     ) override {
-        if (channels.empty()) return xerrors::NIL;
+        if (channels.empty()) return x::errors::NIL;
 
         const int start_addr = this->channels[0].address;
 
@@ -103,7 +103,7 @@ public:
             if (err) return err;
             fr.series->at(frame_offset++).write(value);
         }
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 };
 
@@ -123,12 +123,12 @@ public:
         bit_type(bit_type),
         buffer(this->channels.back().address - this->channels.front().address + 1) {}
 
-    xerrors::Error read(
+    x::errors::Error read(
         const std::shared_ptr<device::Device> &dev,
-        telem::Frame &fr,
+        x::telem::Frame &fr,
         size_t &frame_offset
     ) override {
-        if (channels.empty()) return xerrors::NIL;
+        if (channels.empty()) return x::errors::NIL;
 
         const int start_addr = channels.front().address;
 
@@ -143,7 +143,7 @@ public:
         for (const auto &channel: channels)
             fr.series->at(frame_offset++)
                 .write(this->buffer[channel.address - start_addr]);
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 };
 
@@ -154,10 +154,12 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the key of the device to read from.
     std::string device_key;
     /// @brief the indexes of all data channels in the task.
-    std::set<synnax::ChannelKey> indexes;
+    /// Dynamically populated by querying the core.
+    std::set<synnax::channel::Key> indexes;
     /// @brief the list of readers to use for reading data from the device.
     std::vector<std::unique_ptr<Reader>> readers;
     /// @brief the connection configuration for the device.
+    /// Dynamically populated from device properties.
     device::ConnectionConfig conn;
     /// @brief the number of samples per channel to read on each read() call.
     std::size_t samples_per_chan;
@@ -177,7 +179,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
-        xjson::Parser &cfg
+        x::json::Parser &cfg
     ):
         BaseReadTaskConfig(cfg),
         data_channel_count(0),
@@ -194,14 +196,14 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
 
-        auto conn_parser = xjson::Parser(dev.properties);
+        auto conn_parser = x::json::Parser(dev.properties);
         this->conn = device::ConnectionConfig(conn_parser.child("connection"));
         if (conn_parser.error()) {
             cfg.field_err("device", conn_parser.error().message());
             return;
         }
 
-        cfg.iter("channels", [&, this](xjson::Parser &ch) {
+        cfg.iter("channels", [&, this](x::json::Parser &ch) {
             const auto type = ch.field<std::string>("type");
             if (type == "holding_register_input")
                 holding_registers.emplace_back(ch);
@@ -223,7 +225,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         channel::sort_by_address(coils);
         channel::sort_by_address(discrete_inputs);
 
-        std::vector<synnax::ChannelKey> keys;
+        std::vector<synnax::channel::Key> keys;
         for (const auto &ch: holding_registers)
             keys.push_back(ch.synnax_key);
         for (const auto &ch: input_registers)
@@ -285,16 +287,18 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// information.
     /// @param task the task to parse.
     /// @returns a pair containing the parsed configuration and any error that occurred.
-    static std::pair<ReadTaskConfig, xerrors::Error>
-    parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
-        auto parser = xjson::Parser(task.config);
+    static std::pair<ReadTaskConfig, x::errors::Error> parse(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const synnax::task::Task &task
+    ) {
+        auto parser = x::json::Parser(task.config);
         ReadTaskConfig cfg(client, parser);
         return {std::move(cfg), parser.error()};
     }
 
     /// @brief all synnax channels that the task will write to, excluding indexes.
-    [[nodiscard]] std::vector<synnax::Channel> data_channels() const {
-        std::vector<synnax::Channel> result;
+    [[nodiscard]] std::vector<synnax::channel::Channel> data_channels() const {
+        std::vector<synnax::channel::Channel> result;
         result.reserve(this->data_channel_count);
         for (const auto &op: this->readers)
             for (const auto &ch: op->sy_channels())
@@ -303,15 +307,15 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     }
 
     /// @brief configuration for opening a synnax writer for the task.
-    [[nodiscard]] synnax::WriterConfig writer_config() const {
-        std::vector<synnax::ChannelKey> keys;
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
+        std::vector<synnax::channel::Key> keys;
         const auto data_channels = this->data_channels();
         keys.reserve(data_channels.size() + this->indexes.size());
         for (const auto &ch: data_channels)
             keys.push_back(ch.key);
         for (const auto &idx: this->indexes)
             keys.push_back(idx);
-        return synnax::WriterConfig{
+        return synnax::framer::WriterConfig{
             .channels = keys,
             .mode = common::data_saving_writer_mode(this->data_saving),
         };
@@ -334,7 +338,8 @@ public:
     ):
         config(std::move(cfg)), dev(dev), sample_clock(this->config.sample_rate) {}
 
-    common::ReadResult read(breaker::Breaker &breaker, telem::Frame &fr) override {
+    common::ReadResult
+    read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         common::ReadResult res;
         const auto n_channels = this->config.data_channel_count;
         const auto n_samples = this->config.samples_per_chan;
@@ -342,9 +347,9 @@ public:
         if (fr.size() != total_channel_count) {
             fr.reserve(total_channel_count);
             for (const auto &ch: this->config.data_channels())
-                fr.emplace(ch.key, telem::Series(ch.data_type, n_samples));
+                fr.emplace(ch.key, x::telem::Series(ch.data_type, n_samples));
             for (const auto &idx: this->config.indexes)
-                fr.emplace(idx, telem::Series(telem::TIMESTAMP_T, n_samples));
+                fr.emplace(idx, x::telem::Series(x::telem::TIMESTAMP_T, n_samples));
         }
         for (auto &ser: *fr.series)
             ser.clear();
@@ -355,16 +360,16 @@ public:
                 if (res.error = op->read(this->dev, fr, offset); res.error) return res;
             const auto end = this->sample_clock.end();
             for (size_t j = offset; j < this->config.indexes.size() + offset; ++j)
-                fr.series->at(j).write(telem::TimeStamp(end - (end - start) / 2));
+                fr.series->at(j).write(x::telem::TimeStamp(end - (end - start) / 2));
         }
         return res;
     }
 
-    [[nodiscard]] synnax::WriterConfig writer_config() const override {
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
         return this->config.writer_config();
     }
 
-    [[nodiscard]] std::vector<synnax::Channel> channels() const override {
+    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->config.data_channels();
     }
 };

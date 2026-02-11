@@ -88,6 +88,13 @@ class TPCSimDAQ(SimDAQ):
             retrieve_if_name_exists=True,
         )
 
+        now = sy.TimeStamp.now()
+        initial_state: dict[str, list] = {DAQ_TIME: [now]}
+        for state_ch in VALVES.values():
+            initial_state[state_ch] = [0]
+        for sensor in SENSORS:
+            initial_state[sensor] = [0.0]
+        client.write(now, initial_state)
         self._log("Channels created successfully")
 
     def _run_loop(self) -> None:

@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/x",
-  "version": "0.50.0",
+  "version": "0.51.0",
   "type": "module",
   "description": "Common Utilities for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/ts",
@@ -16,6 +16,7 @@
     "build": "tsc --noEmit && vite build",
     "check-types": "tsc --noEmit",
     "test": "vitest",
+    "cov": "vitest --coverage",
     "lint": "eslint",
     "fix": "eslint --fix",
     "madge": "madge --circular src"

@@ -16,6 +16,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/authority"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
@@ -300,7 +301,9 @@ func Analyze(
 		aCtx = acontext.CreateRoot(ctx, t.AST, resolver)
 		i    = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
 	)
+
 	analyzer.AnalyzeProgram(aCtx)
+	i.Authorities = authority.Analyze(aCtx)
 	if !aCtx.Diagnostics.Ok() {
 		return i, aCtx.Diagnostics
 	}
@@ -326,7 +329,6 @@ func Analyze(
 			})
 		}
 	}
-
 	kg := newKeyGenerator()
 	for _, item := range t.AST.AllTopLevelItem() {
 		if flow := item.FlowStatement(); flow != nil {
@@ -346,7 +348,6 @@ func Analyze(
 			i.Edges = append(i.Edges, edges...)
 		}
 	}
-
 	if len(i.Nodes) > 0 {
 		strata, diag := stratifier.Stratify(ctx, i.Nodes, i.Edges, i.Sequences, aCtx.Diagnostics)
 		if diag != nil && !diag.Ok() {
@@ -355,7 +356,6 @@ func Analyze(
 		}
 		i.Strata = strata
 	}
-
 	return i, aCtx.Diagnostics
 }
 
@@ -557,10 +557,23 @@ func extractConfigValues(
 			return channelKey, true
 		}
 
+		if primary := parser.GetPrimaryExpression(expr); primary != nil {
+			if id := primary.IDENTIFIER(); id != nil {
+				sym, err := ctx.Scope.Resolve(ctx, id.GetText())
+				if err != nil {
+					ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+					return nil, false
+				}
+				if sym.Kind == symbol.KindGlobalConstant {
+					return sym.DefaultValue, true
+				}
+			}
+		}
+
 		if !parser.IsLiteral(expr) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				expr,
-				"config value for '%s' must be a literal",
+				"config value for '%s' must be a literal or global constant",
 				paramName,
 			))
 			return nil, false

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Synnax",
-  "version": "0.50.3",
+  "version": "0.51.0",
   "build": {
     "beforeBuildCommand": "pnpm build-vite",
     "beforeDevCommand": "pnpm dev-vite",
@@ -11,7 +11,6 @@
   "bundle": {
     "active": true,
     "category": "DeveloperTool",
-    "copyright": "",
     "targets": "all",
     "icon": [
       "icons/32x32.png",
@@ -24,7 +23,6 @@
     "windows": {
       "signCommand": "powershell -File scripts\\Sign.ps1 %1"
     },
-    "longDescription": "",
     "macOS": {
       "entitlements": null,
       "frameworks": [],

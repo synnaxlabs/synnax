@@ -10,7 +10,6 @@
 /// <reference types="vitest/config" />
 
 import { lib } from "@synnaxlabs/vite-plugin";
-import path from "path";
 import { defineConfig } from "vite";
 
 export default defineConfig({

@@ -1,0 +1,21 @@
+cc_library(
+    name = "topology",
+    hdrs = ["topology.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/ethercat/errors",
+        "//driver/ethercat/master",
+        "//x/cpp/errors",
+    ],
+)
+
+cc_test(
+    name = "topology_test",
+    srcs = ["topology_test.cpp"],
+    deps = [
+        ":topology",
+        "//x/cpp/json",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -17,4 +17,4 @@ export * from "@/table/services/link";
 export * from "@/table/services/ontology";
 export * from "@/table/services/palette";
 
-export const FILE_INGESTORS: Import.FileIngestors = { [Table.LAYOUT_TYPE]: ingest };
+export const FILE_INGESTERS: Import.FileIngesters = { [Table.LAYOUT_TYPE]: ingest };

@@ -10,9 +10,9 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
 import { type Pluto } from "@synnaxlabs/pluto";
-import { ZodError } from "zod";
 
-import { type DirectoryIngestor, type FileIngestors } from "@/import/ingestor";
+import { ingestComponent } from "@/import/import";
+import { type DirectoryIngester, type FileIngesters } from "@/import/ingester";
 import { trimFileName } from "@/import/trimFileName";
 import { type Layout } from "@/layout";
 
@@ -64,8 +64,8 @@ const parseDataTransferItem = async (
 
 interface DataTransferItemContext {
   client: Synnax | null;
-  fileIngestors: FileIngestors;
-  ingestDirectory: DirectoryIngestor;
+  fileIngesters: FileIngesters;
+  ingestDirectory: DirectoryIngester;
   layout: Partial<Layout.State>;
   placeLayout: Layout.Placer;
   store: Store;
@@ -76,7 +76,7 @@ export const dataTransferItem = async (
   item: DataTransferItem,
   {
     client,
-    fileIngestors,
+    fileIngesters,
     ingestDirectory,
     layout,
     placeLayout,
@@ -94,22 +94,12 @@ export const dataTransferItem = async (
     const buffer = await entry.arrayBuffer();
     const fileData = new TextDecoder().decode(buffer);
     const parsedData = JSON.parse(fileData);
-    let hasBeenIngested = false;
-    for (const ingest of Object.values(fileIngestors))
-      try {
-        ingest(parsedData, {
-          layout: { ...layout, name },
-          placeLayout,
-          store: fluxStore,
-          client,
-        });
-        hasBeenIngested = true;
-        break;
-      } catch (e) {
-        if (e instanceof ZodError) continue;
-        else throw e;
-      }
-    if (!hasBeenIngested) throw new Error(`${entry.name} is not a valid layout file`);
+    ingestComponent(parsedData, entry.name, fileIngesters, {
+      layout: { ...layout, name },
+      placeLayout,
+      store: fluxStore,
+      client,
+    });
     return;
   }
 
@@ -123,7 +113,7 @@ export const dataTransferItem = async (
   );
   await ingestDirectory(entry.name, parsedFiles, {
     client,
-    fileIngestors,
+    fileIngesters,
     placeLayout,
     store,
     fluxStore,

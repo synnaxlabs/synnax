@@ -11,6 +11,7 @@ import { Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
+import { EtherCAT } from "@/hardware/ethercat";
 import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
@@ -19,6 +20,7 @@ import { type Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
 export const makeZ = z.enum([
+  EtherCAT.Device.MAKE,
   LabJack.Device.MAKE,
   Modbus.Device.MAKE,
   NI.Device.MAKE,
@@ -31,6 +33,8 @@ export const getMake = (make: unknown): Make | null =>
 
 export const getIconString = (make: Make | null): string => {
   switch (make) {
+    case EtherCAT.Device.MAKE:
+      return "Logo.EtherCAT";
     case LabJack.Device.MAKE:
       return "Logo.LabJack";
     case Modbus.Device.MAKE:
@@ -48,6 +52,7 @@ export const hasIdentifier = (make: Make | null): boolean =>
   make === LabJack.Device.MAKE || make === NI.Device.MAKE;
 
 const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
+  [EtherCAT.Device.MAKE]: <Icon.Logo.EtherCAT />,
   [LabJack.Device.MAKE]: <Icon.Logo.LabJack />,
   [Modbus.Device.MAKE]: <Icon.Logo.Modbus />,
   [NI.Device.MAKE]: <Icon.Logo.NI />,
@@ -58,16 +63,17 @@ export const getIcon = (make: Make | null) =>
   make ? MAKE_ICONS[make] : <Icon.Device />;
 
 export const CONFIGURE_LAYOUTS: Record<Make, Layout.BaseState> = {
+  [EtherCAT.Device.MAKE]: EtherCAT.Device.CONFIGURE_LAYOUT,
   [LabJack.Device.MAKE]: LabJack.Device.CONFIGURE_LAYOUT,
   [Modbus.Device.MAKE]: Modbus.Device.CONNECT_LAYOUT,
   [NI.Device.MAKE]: NI.Device.CONFIGURE_LAYOUT,
   [OPC.Device.MAKE]: OPC.Device.CONNECT_LAYOUT,
 };
 
-const CONTEXT_MENU_ITEMS: Record<
-  Make,
-  (props: Ontology.TreeContextMenuProps) => ReactElement | null
+const CONTEXT_MENU_ITEMS: Partial<
+  Record<Make, (props: Ontology.TreeContextMenuProps) => ReactElement | null>
 > = {
+  [EtherCAT.Device.MAKE]: EtherCAT.DeviceServices.ContextMenuItems,
   [LabJack.Device.MAKE]: LabJack.DeviceServices.ContextMenuItems,
   [Modbus.Device.MAKE]: Modbus.DeviceServices.ContextMenuItems,
   [NI.Device.MAKE]: NI.DeviceServices.ContextMenuItems,

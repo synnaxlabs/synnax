@@ -10,8 +10,5 @@
 import { Common } from "@/hardware/common";
 import { LAYOUT } from "@/hardware/task/sequence/Sequence";
 import { configZ } from "@/hardware/task/sequence/types";
-import { Import } from "@/import";
 
-export const ingest = Common.Task.createIngestor(configZ, LAYOUT);
-
-export const import_ = Import.createImporter(ingest, "control sequence");
+export const ingest = Common.Task.createIngester(configZ, LAYOUT);

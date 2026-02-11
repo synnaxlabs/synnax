@@ -1,0 +1,96 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "EtherCAT | Get Started"
+heading: "EtherCAT Device Driver"
+description: "Learn how to acquire data from and control EtherCAT devices using Synnax."
+next: "Configure a Device"
+nextURL: "/reference/driver/ethercat/configure-device"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Synnax Driver supports reading and writing data from
+[EtherCAT](https://www.ethercat.org/) devices. EtherCAT (Ethernet for Control Automation
+Technology) is a real-time industrial Ethernet protocol designed for high-performance
+automation and control applications.
+
+<Divider.Divider x />
+
+## Supported EtherCAT Masters
+
+The Synnax Driver supports two EtherCAT master implementations:
+
+### IgH EtherCAT Master
+
+The [IgH EtherCAT Master](https://etherlab.org/en/ethercat/) is a Linux kernel module
+that provides deterministic, real-time EtherCAT communication.
+
+- **Recommended for production deployments**
+- Higher performance with deterministic timing
+- Requires kernel module installation
+- Linux only (including NI Linux RT)
+
+<Note.Note variant="info" className="compact">
+  For installation instructions, see the [IgH EtherCAT Master
+  documentation](https://etherlab.org/en/ethercat/). Note that IgH requires a compatible
+  network interface card.
+</Note.Note>
+
+### SOEM (Simple Open EtherCAT Master)
+
+[SOEM](https://github.com/OpenEtherCATsociety/SOEM) is a user-space EtherCAT master
+library that runs on multiple platforms.
+
+- **Bundled with the Synnax Driver** - no additional installation required
+- Cross-platform: Windows, macOS, and Linux
+- Good for development, testing, and non-real-time applications
+- Does not require kernel modifications
+
+<Divider.Divider x />
+
+## Compatible Devices
+
+The Synnax Driver works with any EtherCAT-compatible device. Common vendors include:
+
+| Vendor                                | Device Types                     |
+| ------------------------------------- | -------------------------------- |
+| [Dewesoft](https://dewesoft.com)      | Data acquisition systems         |
+| [Beckhoff](https://www.beckhoff.com)  | I/O terminals, drives, PLCs      |
+| [Omron](https://automation.omron.com) | Servo drives, I/O modules        |
+| [Yaskawa](https://www.yaskawa.com)    | Servo drives, motion controllers |
+| [Lenze](https://www.lenze.com)        | Drives, controllers              |
+
+<Divider.Divider x />
+
+## Supported Operating Systems
+
+| Platform                            | Status          | Master Options |
+| ----------------------------------- | --------------- | -------------- |
+| <Icon.Logo.Windows /> Windows       | ✓ Supported     | SOEM           |
+| <Icon.Logo.Linux /> Linux           | ✓ Supported     | IgH or SOEM    |
+| <Icon.Logo.NI /> NI Linux Real-Time | ✓ Supported     | IgH or SOEM    |
+| <Icon.Logo.Apple /> macOS           | ✓ Supported     | SOEM           |
+| <Icon.Logo.Docker /> Docker         | ✗ Not Supported | -              |
+
+<Note.Note variant="warning" className="compact">
+  Docker is not supported because EtherCAT requires direct access to the network
+  interface for raw Ethernet communication.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Key Terminology
+
+EtherCAT uses specific terminology that differs from other industrial protocols:
+
+- **Master** -> The controller that manages the EtherCAT network (IgH or SOEM in
+  Synnax).
+- **Slave (Device)** -> An EtherCAT device on the network. This documentation uses
+  "device" for clarity.
+- **PDO (Process Data Object)** -> Cyclic data exchanged between master and devices.
+- **TxPDO** -> Transmit PDO. Data sent FROM the device TO Synnax (sensor readings).
+- **RxPDO** -> Receive PDO. Data sent TO the device FROM Synnax (control commands).
+- **CoE (CAN over EtherCAT)** -> Protocol for accessing device parameters using index
+  and subindex addressing.

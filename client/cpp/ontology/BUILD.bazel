@@ -6,7 +6,7 @@ cc_library(
     hdrs = ["id.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "@nlohmann_json//:json",
     ],
 )
@@ -16,7 +16,7 @@ cc_test(
     srcs = ["id_test.cpp"],
     deps = [
         ":ontology",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

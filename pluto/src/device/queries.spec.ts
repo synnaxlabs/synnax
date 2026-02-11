@@ -886,6 +886,195 @@ describe("queries", () => {
     });
   });
 
+  describe("retrieveMultiple", () => {
+    it("should retrieve multiple devices from the server when none are cached", async () => {
+      const rack = await client.racks.create({ name: "test" });
+      const dev1 = await client.devices.create({
+        key: id.create(),
+        name: "device1",
+        rack: rack.key,
+        location: "location1",
+        make: "make1",
+        model: "model1",
+        properties: {},
+      });
+      const dev2 = await client.devices.create({
+        key: id.create(),
+        name: "device2",
+        rack: rack.key,
+        location: "location2",
+        make: "make2",
+        model: "model2",
+        properties: {},
+      });
+
+      const { result } = renderHook(() => Flux.useStore<Device.FluxSubStore>(), {
+        wrapper,
+      });
+
+      const devices = await Device.retrieveMultiple({
+        client,
+        store: result.current,
+        query: { keys: [dev1.key, dev2.key] },
+      });
+
+      expect(devices).toHaveLength(2);
+      expect(devices.map((d) => d.key)).toContain(dev1.key);
+      expect(devices.map((d) => d.key)).toContain(dev2.key);
+    });
+
+    it("should use cached devices and only fetch missing ones", async () => {
+      const rack = await client.racks.create({ name: "test" });
+      const dev1 = await client.devices.create({
+        key: id.create(),
+        name: "cached_device",
+        rack: rack.key,
+        location: "location1",
+        make: "make1",
+        model: "model1",
+        properties: {},
+      });
+      const dev2 = await client.devices.create({
+        key: id.create(),
+        name: "uncached_device",
+        rack: rack.key,
+        location: "location2",
+        make: "make2",
+        model: "model2",
+        properties: {},
+      });
+
+      const { result } = renderHook(() => Flux.useStore<Device.FluxSubStore>(), {
+        wrapper,
+      });
+
+      result.current.devices.set(dev1);
+
+      const devices = await Device.retrieveMultiple({
+        client,
+        store: result.current,
+        query: { keys: [dev1.key, dev2.key] },
+      });
+
+      expect(devices).toHaveLength(2);
+      expect(devices.map((d) => d.key)).toContain(dev1.key);
+      expect(devices.map((d) => d.key)).toContain(dev2.key);
+      expect(result.current.devices.get(dev1.key)).toBeDefined();
+      expect(result.current.devices.get(dev2.key)).toBeDefined();
+    });
+
+    it("should return all cached devices when all are in the store", async () => {
+      const rack = await client.racks.create({ name: "test" });
+      const dev1 = await client.devices.create({
+        key: id.create(),
+        name: "cached1",
+        rack: rack.key,
+        location: "location1",
+        make: "make1",
+        model: "model1",
+        properties: {},
+      });
+      const dev2 = await client.devices.create({
+        key: id.create(),
+        name: "cached2",
+        rack: rack.key,
+        location: "location2",
+        make: "make2",
+        model: "model2",
+        properties: {},
+      });
+
+      const { result } = renderHook(() => Flux.useStore<Device.FluxSubStore>(), {
+        wrapper,
+      });
+
+      result.current.devices.set(dev1);
+      result.current.devices.set(dev2);
+
+      const devices = await Device.retrieveMultiple({
+        client,
+        store: result.current,
+        query: { keys: [dev1.key, dev2.key] },
+      });
+
+      expect(devices).toHaveLength(2);
+      expect(devices.map((d) => d.key)).toContain(dev1.key);
+      expect(devices.map((d) => d.key)).toContain(dev2.key);
+    });
+
+    it("should return an empty array when given empty keys", async () => {
+      const { result } = renderHook(() => Flux.useStore<Device.FluxSubStore>(), {
+        wrapper,
+      });
+
+      const devices = await Device.retrieveMultiple({
+        client,
+        store: result.current,
+        query: { keys: [] },
+      });
+
+      expect(devices).toHaveLength(0);
+    });
+
+    it("should store fetched device statuses in the store", async () => {
+      const rack = await client.racks.create({ name: "test" });
+      const dev = await client.devices.create({
+        key: id.create(),
+        name: "device_with_status",
+        rack: rack.key,
+        location: "location",
+        make: "make",
+        model: "model",
+        properties: {},
+      });
+
+      const { result } = renderHook(() => Flux.useStore<Device.FluxSubStore>(), {
+        wrapper,
+      });
+
+      const devices = await Device.retrieveMultiple({
+        client,
+        store: result.current,
+        query: { keys: [dev.key] },
+      });
+
+      expect(devices).toHaveLength(1);
+      expect(devices[0].status).toBeDefined();
+      if (devices[0].status != null) {
+        const storedStatus = result.current.statuses.get(device.statusKey(dev.key));
+        expect(storedStatus).toBeDefined();
+      }
+    });
+
+    it("should fetch statuses for cached devices", async () => {
+      const rack = await client.racks.create({ name: "test" });
+      const dev = await client.devices.create({
+        key: id.create(),
+        name: "cached_device",
+        rack: rack.key,
+        location: "location",
+        make: "make",
+        model: "model",
+        properties: {},
+      });
+
+      const { result } = renderHook(() => Flux.useStore<Device.FluxSubStore>(), {
+        wrapper,
+      });
+
+      result.current.devices.set(dev);
+
+      const devices = await Device.retrieveMultiple({
+        client,
+        store: result.current,
+        query: { keys: [dev.key] },
+      });
+
+      expect(devices).toHaveLength(1);
+      expect(devices[0].status).toBeDefined();
+    });
+  });
+
   describe("useForm", () => {
     describe("create mode", () => {
       it("should initialize with default values for new device", async () => {

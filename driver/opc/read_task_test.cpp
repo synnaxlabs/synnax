@@ -11,126 +11,131 @@
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/opc/mock/server.h"
 #include "driver/opc/opc.h"
 #include "driver/opc/read_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
+namespace driver::opc {
 class TestReadTask : public ::testing::Test {
 protected:
-    synnax::Task task;
-    json task_cfg_json;
+    synnax::task::Task task;
+    x::json::json task_cfg_json;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
     std::unique_ptr<mock::Server> server;
-    std::shared_ptr<opc::connection::Pool> conn_pool;
-    synnax::Channel index_channel;
-    synnax::Channel bool_channel;
-    synnax::Channel uint16_channel;
-    synnax::Channel uint32_channel;
-    synnax::Channel uint64_channel;
-    synnax::Channel int8_channel;
-    synnax::Channel int16_channel;
-    synnax::Channel int32_channel;
-    synnax::Channel int64_channel;
-    synnax::Channel float_channel;
-    synnax::Channel double_channel;
+    std::shared_ptr<connection::Pool> conn_pool;
+    synnax::channel::Channel index_channel;
+    synnax::channel::Channel bool_channel;
+    synnax::channel::Channel uint16_channel;
+    synnax::channel::Channel uint32_channel;
+    synnax::channel::Channel uint64_channel;
+    synnax::channel::Channel int8_channel;
+    synnax::channel::Channel int16_channel;
+    synnax::channel::Channel int32_channel;
+    synnax::channel::Channel int64_channel;
+    synnax::channel::Channel float_channel;
+    synnax::channel::Channel double_channel;
 
     void SetUp() override {
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-        this->index_channel = ASSERT_NIL_P(
-            client->channels
-                .create(make_unique_channel_name("index"), telem::TIMESTAMP_T, 0, true)
-        );
+        this->index_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("index"),
+            x::telem::TIMESTAMP_T,
+            0,
+            true
+        ));
         this->bool_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("bool_test"),
-            telem::UINT8_T,
+            x::telem::UINT8_T,
             this->index_channel.key,
             false
         ));
         this->uint16_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("uint16_test"),
-            telem::UINT16_T,
+            x::telem::UINT16_T,
             this->index_channel.key,
             false
         ));
         this->uint32_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("uint32_test"),
-            telem::UINT32_T,
+            x::telem::UINT32_T,
             this->index_channel.key,
             false
         ));
         this->uint64_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("uint64_test"),
-            telem::UINT64_T,
+            x::telem::UINT64_T,
             this->index_channel.key,
             false
         ));
         this->int8_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("int8_test"),
-            telem::INT8_T,
+            x::telem::INT8_T,
             this->index_channel.key,
             false
         ));
         this->int16_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("int16_test"),
-            telem::INT16_T,
+            x::telem::INT16_T,
             this->index_channel.key,
             false
         ));
         this->int32_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("int32_test"),
-            telem::INT32_T,
+            x::telem::INT32_T,
             this->index_channel.key,
             false
         ));
         this->int64_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("int64_test"),
-            telem::INT64_T,
+            x::telem::INT64_T,
             this->index_channel.key,
             false
         ));
         this->float_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("float_test"),
-            telem::FLOAT32_T,
+            x::telem::FLOAT32_T,
             this->index_channel.key,
             false
         ));
         this->double_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("double_test"),
-            telem::FLOAT64_T,
+            x::telem::FLOAT64_T,
             this->index_channel.key,
             false
         ));
         auto rack = ASSERT_NIL_P(client->racks.create("opc_read_task_test_rack"));
 
-        opc::connection::Config conn_cfg;
+        connection::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://localhost:4840";
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
 
-        synnax::Device dev(
+        synnax::device::Device dev(
             "opc_read_task_test_server_key",
             "OPC UA Read Task Test Server",
             rack.key,
             "opc.tcp://localhost:4840",
             "opc",
             "OPC UA Server",
-            nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
+            nlohmann::to_string(
+                x::json::json::object({{"connection", conn_cfg.to_json()}})
+            )
         );
         ASSERT_NIL(client->devices.create(dev));
 
         // Use the comprehensive default server configuration
         auto server_cfg = mock::ServerConfig::create_default();
 
-        json task_cfg{
+        x::json::json task_cfg{
             {"data_saving", true},
             {"device", dev.key},
             {"channels",
-             json::array(
+             x::json::json::array(
                  {{{"key", "NS=2;I=1"},
                    {"name", "bool_test"},
                    {"node_name", "TestBoolean"},
@@ -217,39 +222,39 @@ protected:
             {"stream_rate", 25}
         };
 
-        task = synnax::Task(rack.key, "OPC UA Read Task Test", "opc_read", "");
+        task = synnax::task::Task(rack.key, "OPC UA Read Task Test", "opc_read", "");
 
         task_cfg_json = task_cfg;
 
         ctx = std::make_shared<task::MockContext>(client);
         mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-        conn_pool = std::make_shared<opc::connection::Pool>();
+        conn_pool = std::make_shared<connection::Pool>();
 
         server = std::make_unique<mock::Server>(server_cfg);
         server->start();
 
         // Wait for server to be ready by attempting to connect
-        opc::connection::Config test_conn_cfg;
+        connection::Config test_conn_cfg;
         test_conn_cfg.endpoint = conn_cfg.endpoint;
         test_conn_cfg.security_mode = "None";
         test_conn_cfg.security_policy = "None";
         auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            opc::connection::connect(test_conn_cfg, "test"),
-            (5 * telem::SECOND).chrono(),
-            (250 * telem::MILLISECOND).chrono()
+            connection::connect(test_conn_cfg, "test"),
+            (5 * x::telem::SECOND).chrono(),
+            (250 * x::telem::MILLISECOND).chrono()
         );
         UA_Client_disconnect(test_client.get());
     }
 
     std::unique_ptr<common::ReadTask> create_task() {
-        auto p = xjson::Parser(task_cfg_json);
-        auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+        auto p = x::json::Parser(task_cfg_json);
+        auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
         return std::make_unique<common::ReadTask>(
             task,
             ctx,
-            breaker::default_config(task.name),
-            std::make_unique<opc::UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
+            x::breaker::default_config(task.name),
+            std::make_unique<UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
             mock_factory
         );
     }
@@ -257,7 +262,7 @@ protected:
 
 /// @brief it should read multiple data types from OPC UA server.
 TEST_F(TestReadTask, testBasicReadTask) {
-    auto start = telem::TimeStamp::now();
+    auto start = x::telem::TimeStamp::now();
     const auto rt = create_task();
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
@@ -265,16 +270,16 @@ TEST_F(TestReadTask, testBasicReadTask) {
     EXPECT_EQ(first_state.key, task.status_key());
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::variant::SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
-    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop_cmd", true);
     const auto second_state = ctx->statuses[1];
     EXPECT_EQ(second_state.key, task.status_key());
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::variant::SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
     auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 11);
@@ -304,16 +309,16 @@ TEST_F(TestReadTask, testBasicReadTask) {
     ASSERT_EQ(fr.at<std::int64_t>(this->int64_channel.key, 0), 12345);
     ASSERT_NEAR(fr.at<float>(this->float_channel.key, 0), 3.14159f, 0.0001f);
     ASSERT_NEAR(fr.at<double>(this->double_channel.key, 0), 2.71828, 0.0001);
-    ASSERT_GE(fr.at<telem::TimeStamp>(this->index_channel.key, 0), start);
+    ASSERT_GE(fr.at<x::telem::TimeStamp>(this->index_channel.key, 0), start);
 }
 
 /// @brief it should return error for non-existent OPC UA node.
 TEST_F(TestReadTask, testInvalidNodeId) {
-    json bad_task_cfg{
+    x::json::json bad_task_cfg{
         {"data_saving", true},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=999"},
                {"name", "nonexistent"},
                {"node_name", "NonExistent"},
@@ -328,14 +333,14 @@ TEST_F(TestReadTask, testInvalidNodeId) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(bad_task_cfg);
-    auto bad_cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(bad_task_cfg);
+    auto bad_cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
     auto rt = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::UnaryReadTaskSource>(conn_pool, std::move(*bad_cfg)),
+        x::breaker::default_config(task.name),
+        std::make_unique<UnaryReadTaskSource>(conn_pool, std::move(*bad_cfg)),
         mock_factory
     );
 
@@ -346,7 +351,7 @@ TEST_F(TestReadTask, testInvalidNodeId) {
     ASSERT_GE(ctx->statuses.size(), 1);
     bool found_error = false;
     for (const auto &state: ctx->statuses) {
-        if (state.variant == status::variant::ERR) {
+        if (state.variant == x::status::variant::ERR) {
             found_error = true;
             break;
         }
@@ -369,7 +374,7 @@ TEST_F(TestReadTask, testServerDisconnectDuringRead) {
 
     bool found_error = false;
     for (const auto &state: ctx->statuses) {
-        if (state.variant == status::variant::ERR) {
+        if (state.variant == x::status::variant::ERR) {
             found_error = true;
             break;
         }
@@ -379,27 +384,27 @@ TEST_F(TestReadTask, testServerDisconnectDuringRead) {
 
 /// @brief it should return error for empty channel list.
 TEST_F(TestReadTask, testEmptyChannelList) {
-    json empty_cfg{
+    x::json::json empty_cfg{
         {"data_saving", true},
         {"device", "opc_read_task_test_server_key"},
-        {"channels", json::array()},
+        {"channels", x::json::json::array()},
         {"sample_rate", 50},
         {"array_mode", false},
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(empty_cfg);
-    auto empty_config = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(empty_cfg);
+    auto empty_config = std::make_unique<ReadTaskConfig>(ctx->client, p);
     EXPECT_TRUE(p.error());
 }
 
 /// @brief it should return error when all channels are disabled.
 TEST_F(TestReadTask, testDisabledChannels) {
-    json disabled_cfg{
+    x::json::json disabled_cfg{
         {"data_saving", true},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=1"},
                {"name", "float_test"},
                {"node_name", "TestFloat"},
@@ -414,8 +419,8 @@ TEST_F(TestReadTask, testDisabledChannels) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(disabled_cfg);
-    auto disabled_config = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(disabled_cfg);
+    auto disabled_config = std::make_unique<ReadTaskConfig>(ctx->client, p);
     EXPECT_TRUE(p.error());
 }
 
@@ -427,8 +432,8 @@ TEST_F(TestReadTask, testRapidStartStop) {
     rt->stop("stop_cmd", true);
 
     ASSERT_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].variant, status::variant::SUCCESS);
-    EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, x::status::variant::SUCCESS);
 }
 
 /// @brief it should reuse connections from pool across task starts.
@@ -491,11 +496,11 @@ TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
 TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
     // Test that ArrayReadTaskSource properly handles invalid data from OPC UA server
     // by clearing the frame and returning a warning
-    json array_task_cfg{
+    x::json::json array_task_cfg{
         {"data_saving", true},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=1"},
                {"name", "float_test"},
                {"node_name", "TestFloat"},
@@ -511,14 +516,14 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(array_task_cfg);
-    auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(array_task_cfg);
+    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
     auto rt = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        x::breaker::default_config(task.name),
+        std::make_unique<ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -544,9 +549,9 @@ TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
 
     // Verify task lifecycle worked correctly
     ASSERT_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].variant, x::status::variant::SUCCESS);
     EXPECT_EQ(ctx->statuses[0].message, "Task started successfully");
-    EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, x::status::variant::SUCCESS);
     EXPECT_EQ(ctx->statuses[1].message, "Task stopped successfully");
 }
 
@@ -680,11 +685,11 @@ TEST_F(TestReadTask, testUnsignedIntegerChannelDataHandling) {
 /// @brief it should aggregate errors from multiple channels in array mode.
 TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
     // Test that ArrayReadTaskSource aggregates multiple errors from different channels
-    json multi_channel_array_cfg{
+    x::json::json multi_channel_array_cfg{
         {"data_saving", true},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=1"},
                {"name", "float_test"},
                {"node_name", "TestFloat"},
@@ -708,14 +713,14 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(multi_channel_array_cfg);
-    auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(multi_channel_array_cfg);
+    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
     auto rt = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        x::breaker::default_config(task.name),
+        std::make_unique<ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -759,19 +764,19 @@ TEST_F(TestReadTask, testSkipSampleOnWriteErrorInUnaryMode) {
 
     // Verify that task completed successfully
     ASSERT_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].variant, status::variant::SUCCESS);
-    EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, x::status::variant::SUCCESS);
 }
 
 /// @brief it should clear frame when error occurs in array mode.
 TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
     // Test that ArrayReadTaskSource clears the frame when errors occur
     // This exercises the frame.clear() logic in read_task.h line 268
-    json array_cfg{
+    x::json::json array_cfg{
         {"data_saving", true},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=1"},
                {"name", "bool_test"},
                {"node_name", "TestBoolean"},
@@ -787,14 +792,14 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(array_cfg);
-    auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(array_cfg);
+    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
     auto rt = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        x::breaker::default_config(task.name),
+        std::make_unique<ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -839,28 +844,30 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         ctx->client->racks.create("opc_invalid_bool_rack")
     );
 
-    opc::connection::Config invalid_conn_cfg;
+    connection::Config invalid_conn_cfg;
     invalid_conn_cfg.endpoint = "opc.tcp://localhost:4841";
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
-    synnax::Device invalid_dev(
+    synnax::device::Device invalid_dev(
         "opc_invalid_test_server",
         "OPC UA Invalid Data Test Server",
         invalid_rack.key,
         "opc.tcp://localhost:4841",
         "opc",
         "OPC UA Server",
-        nlohmann::to_string(json::object({{"connection", invalid_conn_cfg.to_json()}}))
+        nlohmann::to_string(
+            x::json::json::object({{"connection", invalid_conn_cfg.to_json()}})
+        )
     );
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     // Create a task that reads from the invalid boolean node
-    json invalid_bool_cfg{
+    x::json::json invalid_bool_cfg{
         {"data_saving", true},
         {"device", invalid_dev.key},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=1"},
                {"name", "invalid_bool_test"},
                {"node_name", "InvalidBoolean"},
@@ -875,14 +882,14 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(invalid_bool_cfg);
-    auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(invalid_bool_cfg);
+    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
     auto rt = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
+        x::breaker::default_config(task.name),
+        std::make_unique<UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -919,27 +926,29 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         ctx->client->racks.create("opc_invalid_float_rack")
     );
 
-    opc::connection::Config invalid_conn_cfg;
+    connection::Config invalid_conn_cfg;
     invalid_conn_cfg.endpoint = "opc.tcp://localhost:4842";
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
-    synnax::Device invalid_dev(
+    synnax::device::Device invalid_dev(
         "opc_invalid_float_server",
         "OPC UA Invalid Float Server",
         invalid_rack.key,
         "opc.tcp://localhost:4842",
         "opc",
         "OPC UA Server",
-        nlohmann::to_string(json::object({{"connection", invalid_conn_cfg.to_json()}}))
+        nlohmann::to_string(
+            x::json::json::object({{"connection", invalid_conn_cfg.to_json()}})
+        )
     );
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
-    json invalid_float_cfg{
+    x::json::json invalid_float_cfg{
         {"data_saving", true},
         {"device", invalid_dev.key},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=2"},
                {"name", "invalid_float_test"},
                {"node_name", "InvalidFloat"},
@@ -954,14 +963,14 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(invalid_float_cfg);
-    auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(invalid_float_cfg);
+    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
     auto rt = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
+        x::breaker::default_config(task.name),
+        std::make_unique<UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -998,27 +1007,29 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         ctx->client->racks.create("opc_invalid_double_rack")
     );
 
-    opc::connection::Config invalid_conn_cfg;
+    connection::Config invalid_conn_cfg;
     invalid_conn_cfg.endpoint = "opc.tcp://localhost:4843";
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
-    synnax::Device invalid_dev(
+    synnax::device::Device invalid_dev(
         "opc_invalid_double_server",
         "OPC UA Invalid Double Server",
         invalid_rack.key,
         "opc.tcp://localhost:4843",
         "opc",
         "OPC UA Server",
-        nlohmann::to_string(json::object({{"connection", invalid_conn_cfg.to_json()}}))
+        nlohmann::to_string(
+            x::json::json::object({{"connection", invalid_conn_cfg.to_json()}})
+        )
     );
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
-    json invalid_double_cfg{
+    x::json::json invalid_double_cfg{
         {"data_saving", true},
         {"device", invalid_dev.key},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=3"},
                {"name", "invalid_double_test"},
                {"node_name", "InvalidDouble"},
@@ -1034,14 +1045,14 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(invalid_double_cfg);
-    auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(invalid_double_cfg);
+    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
     auto rt = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        x::breaker::default_config(task.name),
+        std::make_unique<ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -1073,52 +1084,54 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     // Create rack and device
     auto rack = ASSERT_NIL_P(client->racks.create("opc_test_rack"));
 
-    opc::connection::Config conn_cfg;
+    connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4840";
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
 
-    synnax::Device dev(
+    synnax::device::Device dev(
         "opc_test_device_key",
         "OPC UA Test Device",
         rack.key,
         "opc.tcp://localhost:4840",
         "opc",
         "OPC UA Server",
-        nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
+        nlohmann::to_string(x::json::json::object({{"connection", conn_cfg.to_json()}}))
     );
     ASSERT_NIL(client->devices.create(dev));
 
     // Create index and data channels
     auto index_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("opc_test_index"),
-        telem::TIMESTAMP_T,
+        x::telem::TIMESTAMP_T,
         0,
         true
     ));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("opc_test_channel"),
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         index_ch.key,
         false
     ));
 
     // Create task config
-    json task_cfg{
+    x::json::json task_cfg{
         {"data_saving", true},
         {"device", dev.key},
         {"sample_rate", 25},
         {"stream_rate", 25},
         {"array_mode", false},
         {"array_size", 1},
-        {"channels", json::array({{{"node_id", "NS=2;I=8"}, {"channel", ch.key}}})}
+        {"channels",
+         x::json::json::array({{{"node_id", "NS=2;I=8"}, {"channel", ch.key}}})}
     };
 
-    auto p = xjson::Parser(task_cfg);
-    auto cfg = std::make_unique<opc::ReadTaskConfig>(client, p);
+    auto p = x::json::Parser(task_cfg);
+    auto cfg = std::make_unique<ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = cfg->writer_config();
     ASSERT_TRUE(writer_cfg.enable_auto_commit);
+}
 }

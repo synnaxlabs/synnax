@@ -1,0 +1,20 @@
+cc_library(
+    name = "channel",
+    hdrs = ["channel.h"],
+    visibility = ["//driver/ethercat:__subpackages__"],
+    deps = [
+        "//client/cpp:synnax",
+        "//driver/ethercat/master",
+        "//x/cpp/telem",
+        "//x/cpp/json",
+    ],
+)
+
+cc_test(
+    name = "channel_test",
+    srcs = ["channel_test.cpp"],
+    deps = [
+        ":channel",
+        "@googletest//:gtest_main",
+    ],
+)

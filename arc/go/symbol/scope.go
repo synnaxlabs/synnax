@@ -93,7 +93,16 @@ func (c *Channels) ResolveConfigChannel(
 		}
 	}
 	if !replaced {
-		c.Read[channelKey] = channelName
+		dir := types.ChanDirectionRead
+		if param, ok := fnSym.Type.Config.Get(paramName); ok && param.Type.ChanDirection.IsSet() {
+			dir = param.Type.ChanDirection
+		}
+		if dir.IsRead() {
+			c.Read[channelKey] = channelName
+		}
+		if dir.IsWrite() {
+			c.Write[channelKey] = channelName
+		}
 	}
 }
 
@@ -247,11 +256,7 @@ func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 	if s.Parent != nil {
 		return s.Parent.Resolve(ctx, name)
 	}
-	suggestions := s.SuggestSimilar(ctx, name, 2)
-	if len(suggestions) > 0 {
-		return nil, errors.Newf("undefined symbol: %s (did you mean: %s?)", name, strings.Join(suggestions, ", "))
-	}
-	return nil, errors.Newf("undefined symbol: %s", name)
+	return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
 }
 
 func (s *Scope) Search(ctx context.Context, term string) ([]*Scope, error) {

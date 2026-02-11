@@ -10,5 +10,5 @@
 #include "driver/cmd/cmd.h"
 
 int main(const int argc, char *argv[]) {
-    return cmd::exec(argc, argv);
+    return driver::cmd::exec(argc, argv);
 }

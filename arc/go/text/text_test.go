@@ -523,6 +523,134 @@ var _ = Describe("Text", func() {
 				Expect(node.Config[0].Value).To(Equal(uint32(10202)))
 				Expect(node.Config[1].Value).To(Equal(uint32(10203)))
 			})
+
+			It("Should handle config values using global constants", func() {
+				source := `
+				A := 10
+				B := 20
+				C := 30
+
+				func calculator{
+					a i64,
+					b i64,
+					c i64
+				} () i64 {
+					return a + b + c
+				}
+
+				func print{} () {
+				}
+
+				calculator{a=A, b=B, c=C} -> print{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "calculator_0")
+				Expect(node.Type).To(Equal("calculator"))
+				Expect(node.Config).To(HaveLen(3))
+
+				configValues := map[string]int64{
+					"a": 10, "b": 20, "c": 30,
+				}
+				for i, cfg := range node.Config {
+					Expect(cfg.Type).To(Equal(types.I64()))
+					Expect(cfg.Value).To(Equal(configValues[cfg.Name]), "config[%d] '%s' value mismatch", i, cfg.Name)
+				}
+			})
+
+			It("Should handle f64 global constants in config", func() {
+				source := `
+				SCALE := 2.5
+				OFFSET := 0.1
+
+				func transform{
+					scale f64,
+					offset f64
+				} (x f64) f64 {
+					return x * scale + offset
+				}
+
+				func sink{} () {
+				}
+
+				transform{scale=SCALE, offset=OFFSET} -> sink{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "transform_0")
+				Expect(node.Config).To(HaveLen(2))
+
+				configValues := map[string]float64{
+					"scale": 2.5, "offset": 0.1,
+				}
+				for _, cfg := range node.Config {
+					Expect(cfg.Type).To(Equal(types.F64()))
+					Expect(cfg.Value).To(Equal(configValues[cfg.Name]))
+				}
+			})
+
+			It("Should handle mixed literal and constant config values", func() {
+				source := `
+				THRESHOLD := 100
+
+				func filter{
+					threshold i64,
+					enabled i64
+				} (x i64) i64 {
+					return x
+				}
+
+				func sink{} () {
+				}
+
+				filter{threshold=THRESHOLD, enabled=1} -> sink{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "filter_0")
+				Expect(node.Config).To(HaveLen(2))
+
+				for _, cfg := range node.Config {
+					switch cfg.Name {
+					case "threshold":
+						Expect(cfg.Value).To(Equal(int64(100)))
+					case "enabled":
+						Expect(cfg.Value).To(Equal(int64(1)))
+					}
+				}
+			})
+
+			It("Should handle typed global constants in config", func() {
+				source := `
+				MAX_VALUE i32 := 255
+
+				func clamp{
+					max i32
+				} (x i32) i32 {
+					return x
+				}
+
+				func sink{} () {
+				}
+
+				clamp{max=MAX_VALUE} -> sink{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "clamp_0")
+				Expect(node.Config).To(HaveLen(1))
+				Expect(node.Config[0].Name).To(Equal("max"))
+				Expect(node.Config[0].Type).To(Equal(types.I32()))
+				Expect(node.Config[0].Value).To(Equal(int32(255)))
+			})
 		})
 
 		Context("Edge Parameter Validation", func() {
@@ -1461,6 +1589,61 @@ var _ = Describe("Text", func() {
 			seq := MustBeOk(inter.Sequences.Find("main"))
 			Expect(seq.Stages[0].Strata).To(HaveLen(1))
 			Expect(seq.Stages[0].Strata[0]).To(ContainElement(initNode.Key))
+		})
+	})
+
+	Describe("Authority Analysis", func() {
+		It("Should include authority config in IR with simple form", func() {
+			resolver := symbol.MapResolver{
+				"valve": {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+			}
+			source := `
+			authority 200
+
+			func a{} () {}
+			func b{} () {}
+			a{} -> b{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.Authorities.Default).ToNot(BeNil())
+			Expect(*inter.Authorities.Default).To(Equal(uint8(200)))
+		})
+
+		It("Should include per-channel authority overrides", func() {
+			resolver := symbol.MapResolver{
+				"valve": {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+				"vent":  {Name: "vent", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 200},
+			}
+			source := `
+			authority (200 valve 100 vent 150)
+
+			func a{} () {}
+			func b{} () {}
+			a{} -> b{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.Authorities.Default).ToNot(BeNil())
+			Expect(*inter.Authorities.Default).To(Equal(uint8(200)))
+			Expect(inter.Authorities.Channels).To(HaveLen(2))
+			Expect(inter.Authorities.Channels[100]).To(Equal(uint8(100)))
+			Expect(inter.Authorities.Channels[200]).To(Equal(uint8(150)))
+		})
+
+		It("Should report error for authority after function", func() {
+			source := `
+			func a{} () {}
+			authority 200
+			func b{} () {}
+			a{} -> b{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, nil)
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("before"))
 		})
 	})
 
