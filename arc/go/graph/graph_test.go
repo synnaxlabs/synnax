@@ -800,6 +800,35 @@ var _ = Describe("Graph", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
+		It("Should reject set_authority with a read channel", func() {
+			g := arc.Graph{
+				Nodes: []graph.Node{
+					{
+						Key:  "set_auth",
+						Type: "set_authority",
+						Config: map[string]any{
+							"value":   200,
+							"channel": 12,
+						},
+					},
+				},
+			}
+			resolver := symbol.CompoundResolver{
+				authority.SymbolResolver,
+				symbol.MapResolver{
+					"12": symbol.Symbol{
+						Name: "f64_sensor",
+						Type: types.ReadChan(types.F64()),
+						Kind: symbol.KindChannel,
+						ID:   12,
+					},
+				},
+			}
+			g = MustSucceed(graph.Parse(g))
+			_, diagnostics := graph.Analyze(ctx, g, resolver)
+			Expect(diagnostics.Ok()).To(BeFalse())
+		})
+
 		Describe("Edge Validation", func() {
 			Describe("Type Matching", func() {
 				It("Should validate series type matching", func() {

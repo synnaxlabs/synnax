@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/authority"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
@@ -389,6 +390,30 @@ var _ = Describe("Text", func() {
 				diagStr := diagnostics.String()
 				Expect(diagStr).To(ContainSubstring("undefined symbol"))
 				Expect(diagStr).To(ContainSubstring("unknown_sensor"))
+			})
+
+			It("Should reject read channel for config param requiring write channel", func() {
+				resolver := symbol.CompoundResolver{
+					authority.SymbolResolver,
+					symbol.MapResolver{
+						"read_sensor": {
+							Name: "read_sensor",
+							Kind: symbol.KindChannel,
+							Type: types.ReadChan(types.F64()),
+							ID:   100,
+						},
+					},
+				}
+				source := `
+				func source{} () u8 {
+					return 1
+				}
+
+				source{} -> set_authority{value=200, channel=read_sensor}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeFalse())
 			})
 
 			It("Should resolve channel name for write operations and add to Channels.Write", func() {
