@@ -16,6 +16,8 @@ import (
 	"math"
 	stdtime "time"
 
+	"github.com/synnaxlabs/arc/ir"
+	arcauthority "github.com/synnaxlabs/arc/runtime/authority"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
@@ -27,6 +29,7 @@ import (
 	arctelem "github.com/synnaxlabs/arc/runtime/telem"
 	arctime "github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/runtime/wasm"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -47,9 +50,10 @@ import (
 )
 
 const (
-	streamerAddr address.Address = "streamer"
-	writerAddr   address.Address = "writer"
-	runtimeAddr  address.Address = "runtime"
+	streamerAddr        address.Address = "streamer"
+	writerAddr          address.Address = "writer"
+	writerResponsesAddr address.Address = "writer_responses"
+	runtimeAddr         address.Address = "runtime"
 )
 
 // taskImpl implements the driver.Task interface and manages Arc program execution.
@@ -99,6 +103,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 		timeFactory,
 		stable.NewFactory(stable.FactoryConfig{}),
 		arcstatus.NewFactory(t.factoryCfg.Status),
+		arcauthority.NewFactory(drt.state),
 	}
 	var closers xio.MultiCloser
 	var wasmMod *wasm.Module
@@ -149,6 +154,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 	}))
 
 	drt.startTime = telem.Now()
+	drt.writeKeys = stateCfg.Writes.Keys()
 
 	pipeline := plumber.New()
 
@@ -182,21 +188,53 @@ func (t *taskImpl) start(ctx context.Context) error {
 	}
 
 	if len(stateCfg.Writes) > 0 {
-		wrt, err := t.factoryCfg.Framer.NewStreamWriter(
-			ctx,
-			framer.WriterConfig{
-				ControlSubject: control.Subject{Name: t.prog.Name},
-				Start:          drt.startTime,
-				Keys:           stateCfg.Writes.Keys(),
+		// Critical: Keys is extracted from a map, so we need to convert it to a
+		// slice ONCE in order go guarantee stable order.
+		writeKeys := stateCfg.Writes.Keys()
+		writerCfg := framer.WriterConfig{
+			ControlSubject: control.Subject{
+				Name: t.prog.Name,
+				Key:  t.task.Key.String(),
 			},
-		)
+			Start: drt.startTime,
+			Keys:  writeKeys,
+		}
+		if authorities := buildAuthorities(
+			t.prog.Module.Authorities,
+			writeKeys,
+		); len(authorities) > 0 {
+			writerCfg.Authorities = authorities
+		}
+		wrt, err := t.factoryCfg.Framer.NewStreamWriter(ctx, writerCfg)
 		if err != nil {
 			t.setStatus(status.VariantError, false, err.Error())
 			return err
 		}
 		plumber.SetSegment(pipeline, writerAddr, wrt)
 		plumber.MustConnect[framer.WriterRequest](pipeline, runtimeAddr, writerAddr, 10)
-		wrt.OutTo(confluence.NewStream[framer.WriterResponse]())
+		writerResponses := &confluence.UnarySink[framer.WriterResponse]{
+			Sink: func(ctx context.Context, res framer.WriterResponse) error {
+				if res.Err != nil {
+					t.factoryCfg.L.Error("unexpected writer response error",
+						zap.Stringer("task", t.task),
+						zap.Int("seqNum", res.SeqNum),
+						zap.Error(res.Err),
+					)
+					t.setStatus(status.VariantError, false, res.Err.Error())
+					return res.Err
+				} else if !res.Authorized {
+					t.factoryCfg.L.Warn("unauthorized writer response",
+						zap.Stringer("task", t.task),
+						zap.Int("seqNum", res.SeqNum),
+						zap.Stringer("command", res.Command),
+						zap.Error(res.Err),
+					)
+				}
+				return nil
+			},
+		}
+		plumber.SetSink(pipeline, writerResponsesAddr, writerResponses)
+		plumber.MustConnect[framer.WriterResponse](pipeline, writerAddr, writerResponsesAddr, 10)
 	}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.factoryCfg.Instrumentation))
 	t.closer = append(
@@ -204,7 +242,12 @@ func (t *taskImpl) start(ctx context.Context) error {
 		signal.NewGracefulShutdown(sCtx, cancel),
 		streamerCloseSignal,
 	)
-	pipeline.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
+	pipeline.Flow(
+		sCtx,
+		confluence.CloseOutputInletsOnExit(),
+		confluence.RecoverWithErrOnPanic(),
+		confluence.CancelOnFail(),
+	)
 	t.setStatus(status.VariantSuccess, true, "Task started successfully")
 	return nil
 }
@@ -270,15 +313,22 @@ type dataRuntime struct {
 	startTime telem.TimeStamp
 	scheduler *scheduler.Scheduler
 	state     *state.State
+	writeKeys channel.Keys
 }
 
 func (d *dataRuntime) next(
 	ctx context.Context,
 	res framer.StreamerResponse,
+	reason node.RunReason,
 ) error {
 	d.state.Ingest(res.Frame.ToStorage())
-	d.scheduler.Next(ctx, telem.Since(d.startTime))
+	d.scheduler.Next(ctx, telem.Since(d.startTime), reason)
 	d.state.ClearReads()
+	if d.Out != nil {
+		if err := d.flushAuthorityChanges(ctx); err != nil {
+			return err
+		}
+	}
 	if fr, changed := d.state.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
 		req := framer.WriterRequest{
 			Frame:   frame.NewFromStorage(fr),
@@ -289,12 +339,39 @@ func (d *dataRuntime) next(
 	return nil
 }
 
+func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
+	changes := d.state.FlushAuthorityChanges()
+	for _, change := range changes {
+		cfg := writer.Config{}
+		if change.Channel != nil {
+			cfg.Keys = channel.Keys{channel.Key(*change.Channel)}
+			cfg.Authorities = []control.Authority{control.Authority(change.Authority)}
+		} else {
+			cfg.Keys = d.writeKeys
+			cfg.Authorities = make([]control.Authority, len(d.writeKeys))
+			for i := range cfg.Authorities {
+				cfg.Authorities[i] = control.Authority(change.Authority)
+			}
+		}
+		req := framer.WriterRequest{
+			Command: writer.CommandSetAuthority,
+			Config:  cfg,
+		}
+		if err := signal.SendUnderContext(ctx, d.Out.Inlet(), req); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (d *dataRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	if d.Out != nil {
 		o.AttachClosables(d.Out)
 	}
-	signal.GoRange(sCtx, d.In.Outlet(), d.next, o.Signal...)
+	signal.GoRange(sCtx, d.In.Outlet(), func(ctx context.Context, res framer.StreamerResponse) error {
+		return d.next(ctx, res, node.ReasonChannelInput)
+	}, o.Signal...)
 }
 
 type tickerRuntime struct {
@@ -309,9 +386,10 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}
 	sCtx.Go(func(ctx context.Context) error {
 		var (
-			ticker = stdtime.NewTicker(r.interval.Duration())
-			res    framer.StreamerResponse
-			ok     bool
+			runReason node.RunReason
+			ticker    = stdtime.NewTicker(r.interval.Duration())
+			res       framer.StreamerResponse
+			ok        bool
 		)
 		defer ticker.Stop()
 		for {
@@ -319,14 +397,47 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-ticker.C:
+				runReason = node.ReasonTimerTick
 			case res, ok = <-r.In.Outlet():
 				if !ok {
 					return nil
 				}
+				runReason = node.ReasonChannelInput
 			}
-			if err := r.next(ctx, res); err != nil {
+			if err := r.next(ctx, res, runReason); err != nil {
 				return err
 			}
 		}
 	}, o.Signal...)
+}
+
+const DefaultAuthority = control.AuthorityAbsolute
+
+// buildAuthorities constructs a per-channel authority slice from the static
+// Authorities in the IR. It maps channel keys to authority values and
+// returns the authorities array aligned with writeKeys.
+func buildAuthorities(
+	auth ir.Authorities,
+	writeKeys channel.Keys,
+) []control.Authority {
+	if auth.Default == nil && len(auth.Channels) == 0 {
+		return []control.Authority{DefaultAuthority}
+	}
+	authorities := make([]control.Authority, len(writeKeys))
+	for i := range writeKeys {
+		if auth.Default != nil {
+			authorities[i] = control.Authority(*auth.Default)
+		} else {
+			authorities[i] = DefaultAuthority
+		}
+	}
+	for key, value := range auth.Channels {
+		for i, wk := range writeKeys {
+			if wk == channel.Key(key) {
+				authorities[i] = control.Authority(value)
+				break
+			}
+		}
+	}
+	return authorities
 }

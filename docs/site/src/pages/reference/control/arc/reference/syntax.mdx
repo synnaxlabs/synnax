@@ -49,12 +49,12 @@ ox_pt_1
 
 **Reserved keywords** cannot be used as identifiers:
 
-| Keywords               |                        |             |          |
-| ---------------------- | ---------------------- | ----------- | -------- |
-| `func`                 | `if`                   | `else`      | `return` |
-| `sequence`             | `stage`                | `next`      | `chan`   |
-| `series`               | `and`                  | `or`        | `not`    |
-| `i8` `i16` `i32` `i64` | `u8` `u16` `u32` `u64` | `f32` `f64` | `str`    |
+| Keywords    |                        |                        |                   |
+| ----------- | ---------------------- | ---------------------- | ----------------- |
+| `func`      | `if`                   | `else`                 | `return`          |
+| `sequence`  | `stage`                | `next`                 | `chan`            |
+| `series`    | `and`                  | `or`                   | `not`             |
+| `authority` | `i8` `i16` `i32` `i64` | `u8` `u16` `u32` `u64` | `f32` `f64` `str` |
 
 <Divider.Divider x />
 
@@ -138,9 +138,29 @@ empty series f64 := []
 
 ## Variables
 
+### Constants
+
+Top-level declarations are compile-time constants. Use them for configuration values and
+to avoid magic numbers.
+
+```arc
+MAX_PRESSURE := 500.0       // f64 constant
+SAMPLE_COUNT := 100         // i64 constant
+TIMEOUT := 30s              // with unit suffix
+SCALE f32 := 2.5            // explicit type
+```
+
+Constants can be used in expressions and function config parameters:
+
+```arc
+pressure > MAX_PRESSURE -> alarm{}
+
+sensor -> scale{gain=SCALE, offset=0.1} -> output
+```
+
 ### Local Variables
 
-Local variables are declared with `:=` and reset each function invocation.
+Local variables are declared with `:=` inside functions and reset each invocation.
 
 ```arc
 x := 42                  // type inferred as i64
@@ -173,6 +193,105 @@ total *= 2       // total = total * 2
 ratio /= 4       // ratio = ratio / 4
 remainder %= 3   // remainder = remainder % 3
 ```
+
+### Variable Scope
+
+Variables are visible from their declaration point to the end of their enclosing block.
+Nested blocks can access variables from enclosing scopes.
+
+```arc
+func example() {
+    x := 10              // visible for rest of function
+    if x > 5 {
+        y := x + 1       // visible only inside if block
+    }
+    // y is not visible here
+}
+```
+
+### No Shadowing
+
+Arc does not allow shadowing. A variable cannot have the same name as one in an
+enclosing scope:
+
+```arc
+func example() {
+    x i32 := 10
+    if x > 0 {
+        x i32 := 20      // Error: conflicts with outer x
+    }
+}
+```
+
+Use a different name or reassign the existing variable:
+
+```arc
+func example() {
+    x i32 := 10
+    if x > 0 {
+        inner_x i32 := 20    // different name
+        x = 20               // reassign existing
+    }
+}
+```
+
+Local variables can shadow built-in functions and constants:
+
+```arc
+func example() {
+    min := 10    // shadows built-in min function
+}
+```
+
+<Divider.Divider x />
+
+## Authority Declarations
+
+Authority declarations set the [control authority](/reference/control/control-authority)
+for channels written by the program. They must appear before any `func`, `sequence`, or
+flow declarations.
+
+### Default Authority
+
+Set a default authority for all channels:
+
+```arc
+authority 200
+```
+
+When omitted, the system default is 255 (maximum).
+
+### Per-Channel Authority
+
+Set authority for specific channels using a grouped form:
+
+```arc
+authority (200 valve_cmd 100 vent_cmd 150)
+```
+
+This sets a default of 200, then overrides `valve_cmd` to 100 and `vent_cmd` to 150.
+
+You can also set per-channel authority without a default:
+
+```arc
+authority (valve_cmd 100 vent_cmd 150)
+```
+
+### Summary
+
+| Form                 | Syntax                                   | Description                        |
+| -------------------- | ---------------------------------------- | ---------------------------------- |
+| Default only         | `authority 200`                          | Sets authority for all channels    |
+| Grouped with default | `authority (200 valve_cmd 100)`          | Default plus per-channel overrides |
+| Per-channel only     | `authority (valve_cmd 100 vent_cmd 150)` | Only named channels                |
+
+Authority values are `u8` integers in the range 0-255.
+
+<Note.Note variant="info">
+  To change authority at runtime, use the
+  [`set_authority`](/reference/control/arc/reference/built-ins#set_authority) built-in
+  function inside stage bodies.
+</Note.Note>
 
 <Divider.Divider x />
 

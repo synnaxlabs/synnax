@@ -94,14 +94,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     delete: handleDelete,
     edit: () =>
       handleSelect({
+        ...props,
         selection: resources,
-        placeLayout: props.placeLayout,
         client,
         addStatus,
         store,
         handleError,
-        removeLayout: props.removeLayout,
-        services: props.services,
       }),
     rename,
     link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),

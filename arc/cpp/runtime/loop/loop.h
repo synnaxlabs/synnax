@@ -15,50 +15,50 @@
 #include "glog/logging.h"
 
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/log/log.h"
 #include "x/cpp/notify/notify.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xjson/xjson.h"
-#include "x/cpp/xlog/xlog.h"
+#include "x/cpp/thread/rt/rt.h"
 
 namespace arc::runtime::loop {
-
 /// @brief Named constants for timing parameters used across loop implementations.
 namespace timing {
 /// @brief Default spin duration for HYBRID mode before blocking (100 microseconds).
 /// Balances latency (catches immediate data arrivals) vs CPU usage.
-inline const telem::TimeSpan HYBRID_SPIN_DEFAULT = 100 * telem::MICROSECOND;
+inline const x::telem::TimeSpan HYBRID_SPIN_DEFAULT = 100 * x::telem::MICROSECOND;
 
 /// @brief Fallback poll interval for HIGH_RATE mode when no timer configured.
-inline const telem::TimeSpan HIGH_RATE_POLL_INTERVAL = 100 * telem::MICROSECOND;
+inline const x::telem::TimeSpan HIGH_RATE_POLL_INTERVAL = 100 * x::telem::MICROSECOND;
 
 /// @brief Timeout for blocking wait in HYBRID mode after spin phase (10 milliseconds).
-inline const telem::TimeSpan HYBRID_BLOCK_TIMEOUT = 10 * telem::MILLISECOND;
+inline const x::telem::TimeSpan HYBRID_BLOCK_TIMEOUT = 10 * x::telem::MILLISECOND;
 
 /// @brief Minimum meaningful interval for kqueue EVFILT_TIMER on macOS (1 millisecond).
 /// Intervals below this threshold use software timing instead.
-inline const telem::TimeSpan KQUEUE_TIMER_MIN = telem::MILLISECOND;
+inline const x::telem::TimeSpan KQUEUE_TIMER_MIN = x::telem::MILLISECOND;
 
 /// @brief Threshold below which software timer (HIGH_RATE) is used for precision.
 /// Above this, OS timers (timerfd/kqueue/WaitableTimer) provide sufficient precision.
-inline const telem::TimeSpan SOFTWARE_TIMER_THRESHOLD = telem::MILLISECOND;
+inline const x::telem::TimeSpan SOFTWARE_TIMER_THRESHOLD = x::telem::MILLISECOND;
 
 /// @brief Threshold below which HIGH_RATE or RT_EVENT should be used.
 /// Intervals below 1ms require precise software timing.
-inline const telem::TimeSpan HIGH_RATE_THRESHOLD = telem::MILLISECOND;
+inline const x::telem::TimeSpan HIGH_RATE_THRESHOLD = x::telem::MILLISECOND;
 
 /// @brief Threshold below which HYBRID mode is beneficial.
 /// Intervals between 1-5ms benefit from spin-then-block approach.
-inline const telem::TimeSpan HYBRID_THRESHOLD = 5 * telem::MILLISECOND;
+inline const x::telem::TimeSpan HYBRID_THRESHOLD = 5 * x::telem::MILLISECOND;
 
 /// @brief Timeout for event-driven wait to periodically check breaker.running().
-inline const telem::TimeSpan EVENT_DRIVEN_TIMEOUT = 100 * telem::MILLISECOND;
+inline const x::telem::TimeSpan EVENT_DRIVEN_TIMEOUT = 100 * x::telem::MILLISECOND;
 
 /// @brief Shorter timeout for non-blocking/polling checks.
-inline const telem::TimeSpan POLL_TIMEOUT = 10 * telem::MILLISECOND;
+inline const x::telem::TimeSpan POLL_TIMEOUT = 10 * x::telem::MILLISECOND;
 
 /// @brief Windows WaitableTimer uses 100-nanosecond units.
-inline const telem::TimeSpan WINDOWS_TIMER_UNIT = 100 * telem::NANOSECOND;
+inline const x::telem::TimeSpan WINDOWS_TIMER_UNIT = 100 * x::telem::NANOSECOND;
 }
 
 /// @brief Default RT priority for SCHED_FIFO on Linux (range 1-99).
@@ -87,6 +87,18 @@ enum class ExecutionMode {
     EVENT_DRIVEN,
 };
 
+/// @brief Indicates what caused the loop to wake from wait().
+enum class WakeReason {
+    /// @brief Timer interval expired.
+    Timer,
+    /// @brief External input/notifier signaled.
+    Input,
+    /// @brief Wait timed out (no specific event).
+    Timeout,
+    /// @brief Breaker stopped or wake() called.
+    Shutdown,
+};
+
 inline std::ostream &operator<<(std::ostream &os, ExecutionMode mode) {
     switch (mode) {
         case ExecutionMode::AUTO:
@@ -106,32 +118,29 @@ inline std::ostream &operator<<(std::ostream &os, ExecutionMode mode) {
     }
 }
 
-/// @brief Returns true if the platform supports real-time scheduling.
-/// Platform-specific implementation in loop_*.cpp files.
-bool has_rt_scheduling();
-
 /// @brief Auto-selects execution mode based on timing requirements and platform.
 /// Never returns BUSY_WAIT or AUTO.
 inline ExecutionMode
-select_mode(const telem::TimeSpan timing_interval, const bool has_intervals) {
+select_mode(const x::telem::TimeSpan timing_interval, const bool has_intervals) {
     if (!has_intervals) return ExecutionMode::EVENT_DRIVEN;
     if (timing_interval < timing::HIGH_RATE_THRESHOLD)
-        return has_rt_scheduling() ? ExecutionMode::RT_EVENT : ExecutionMode::HIGH_RATE;
+        return x::thread::rt::has_support() ? ExecutionMode::RT_EVENT
+                                            : ExecutionMode::HIGH_RATE;
     if (timing_interval < timing::HYBRID_THRESHOLD) return ExecutionMode::HYBRID;
     return ExecutionMode::EVENT_DRIVEN;
 }
 
 struct Config {
     ExecutionMode mode = ExecutionMode::AUTO;
-    telem::TimeSpan interval = telem::TimeSpan(0);
-    telem::TimeSpan spin_duration = timing::HYBRID_SPIN_DEFAULT;
+    x::telem::TimeSpan interval = x::telem::TimeSpan(0);
+    x::telem::TimeSpan spin_duration = timing::HYBRID_SPIN_DEFAULT;
     int rt_priority = DEFAULT_RT_PRIORITY;
     int cpu_affinity = CPU_AFFINITY_AUTO;
     bool lock_memory = false;
 
     Config() = default;
 
-    explicit Config(xjson::Parser &parser) {
+    explicit Config(x::json::Parser &parser) {
         const auto mode_str = parser.field<std::string>("execution_mode", "AUTO");
         if (mode_str == "AUTO")
             mode = ExecutionMode::AUTO;
@@ -159,9 +168,9 @@ struct Config {
         lock_memory = parser.field<bool>("lock_memory", false);
     }
 
-    Config apply_defaults(const telem::TimeSpan timing_interval) const {
+    Config apply_defaults(const x::telem::TimeSpan timing_interval) const {
         Config cfg = *this;
-        const bool has_intervals = timing_interval != telem::TimeSpan::max();
+        const bool has_intervals = timing_interval != x::telem::TimeSpan::max();
         if (this->mode == ExecutionMode::AUTO)
             cfg.mode = select_mode(timing_interval, has_intervals);
         if (this->interval.nanoseconds() == 0 && has_intervals)
@@ -192,23 +201,41 @@ struct Config {
         return cfg;
     }
 
+    /// @brief Converts this loop Config to an x::thread::rt::Config for applying RT
+    /// settings to the current thread. Platform-specific flags
+    /// (prefer_deadline_scheduler, use_mmcss) should be set by the caller after
+    /// conversion.
+    [[nodiscard]] x::thread::rt::Config rt() const {
+        x::thread::rt::Config cfg;
+        cfg.enabled = this->rt_priority > 0;
+        cfg.priority = this->rt_priority;
+        cfg.cpu_affinity = this->cpu_affinity;
+        cfg.lock_memory = this->lock_memory;
+        if (cfg.enabled && this->interval.nanoseconds() > 0) {
+            cfg.period = this->interval;
+            cfg.computation = this->interval * 0.2;
+            cfg.deadline = this->interval * 0.8;
+        }
+        return cfg;
+    }
+
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
-        os << "  " << xlog::SHALE() << "execution mode" << xlog::RESET() << ": "
+        os << "  " << x::log::SHALE() << "execution mode" << x::log::RESET() << ": "
            << cfg.mode << "\n";
         if (cfg.interval.nanoseconds() > 0)
-            os << "  " << xlog::SHALE() << "interval" << xlog::RESET() << ": "
+            os << "  " << x::log::SHALE() << "interval" << x::log::RESET() << ": "
                << cfg.interval << "\n";
         if (cfg.mode == ExecutionMode::HYBRID)
-            os << "  " << xlog::SHALE() << "spin duration" << xlog::RESET() << ": "
+            os << "  " << x::log::SHALE() << "spin duration" << x::log::RESET() << ": "
                << cfg.spin_duration << "\n";
         if (cfg.mode == ExecutionMode::RT_EVENT) {
-            os << "  " << xlog::SHALE() << "rt priority" << xlog::RESET() << ": "
+            os << "  " << x::log::SHALE() << "rt priority" << x::log::RESET() << ": "
                << cfg.rt_priority << "\n";
-            os << "  " << xlog::SHALE() << "lock memory" << xlog::RESET() << ": "
+            os << "  " << x::log::SHALE() << "lock memory" << x::log::RESET() << ": "
                << (cfg.lock_memory ? "yes" : "no") << "\n";
         }
         if (cfg.cpu_affinity >= 0)
-            os << "  " << xlog::SHALE() << "cpu affinity" << xlog::RESET() << ": "
+            os << "  " << x::log::SHALE() << "cpu affinity" << x::log::RESET() << ": "
                << cfg.cpu_affinity << "\n";
         return os;
     }
@@ -222,12 +249,13 @@ struct Loop {
     /// @brief Block until timer/external event or breaker stops.
     /// Must be called from the runtime thread only.
     /// @param breaker Controls loop termination; wait() returns when breaker stops.
-    virtual void wait(breaker::Breaker &breaker) = 0;
+    /// @return WakeReason indicating why wait() returned.
+    virtual WakeReason wait(x::breaker::Breaker &breaker) = 0;
 
     /// @brief Initialize loop resources. Must be called before wait().
     /// Applies RT configuration (priority, affinity, memory lock) if configured.
     /// @return Error if resource allocation fails.
-    virtual xerrors::Error start() = 0;
+    virtual x::errors::Error start() = 0;
 
     /// @brief Wake up any blocked wait() call.
     /// Used during shutdown to unblock the run thread so it can check
@@ -242,11 +270,11 @@ struct Loop {
     /// Cleanup is automatic when the loop is destroyed (no unwatch needed).
     /// @param notifier The notifier to watch.
     /// @return true if registration succeeded, false if registration failed.
-    virtual bool watch(notify::Notifier &notifier) = 0;
+    virtual bool watch(x::notify::Notifier &notifier) = 0;
 };
 
 /// @brief Creates a platform-specific loop implementation.
 /// @param cfg Loop configuration (mode, timing, RT settings).
 /// @return Pair of (loop, error). Loop is started on success.
-std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg);
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg);
 }

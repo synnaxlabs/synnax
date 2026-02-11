@@ -22,13 +22,13 @@ class Documentation(ConsoleCase):
         docs = console.docs
 
         self.log("(1/3) Open documentation from command palette")
-        if docs.is_open():
+        if docs.is_open:
             docs.close()
             sy.sleep(0.3)
 
-        assert not docs.is_open()
+        assert not docs.is_open
         docs.open_via_command_palette()
-        assert docs.is_open()
+        assert docs.is_open
 
         docs.wait_for_iframe_loaded()
         iframe_url = docs.get_iframe_url()
@@ -41,7 +41,7 @@ class Documentation(ConsoleCase):
 
         self.log("(2/3) Open documentation from question mark icon")
         docs.open_via_question_mark_icon()
-        assert docs.is_open()
+        assert docs.is_open
 
         docs.wait_for_iframe_loaded()
         iframe_url = docs.get_iframe_url()
@@ -55,7 +55,7 @@ class Documentation(ConsoleCase):
 
         docs.close()
         sy.sleep(0.5)
-        assert not docs.is_open()
+        assert not docs.is_open
 
         docs.open_via_question_mark_icon()
         docs.wait_for_iframe_loaded()

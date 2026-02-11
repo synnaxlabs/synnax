@@ -22,6 +22,12 @@
         },
         {
           "case": "console/range/range_lifecycle"
+        },
+        {
+          "case": "console/schematic/schematic_lifecycle"
+        },
+        {
+          "case": "console/schematic/custom_symbols"
         }
       ]
     },

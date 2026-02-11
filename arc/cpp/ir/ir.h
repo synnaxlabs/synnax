@@ -28,10 +28,10 @@
 #include "arc/go/symbol/arc/go/symbol/symbol.pb.h"
 
 namespace arc::ir {
-constexpr std::string default_output_param = "output";
-constexpr std::string default_input_param = "input";
-constexpr std::string lhs_input_param = "lhs_input";
-constexpr std::string rhs_input_param = "rhs_input";
+inline const std::string default_output_param = "output";
+inline const std::string default_input_param = "input";
+inline const std::string lhs_input_param = "lhs_input";
+inline const std::string rhs_input_param = "rhs_input";
 
 enum class EdgeKind { Unspecified = 0, Continuous = 1, OneShot = 2 };
 
@@ -125,12 +125,12 @@ namespace arc::ir {
 struct Param {
     std::string name;
     types::Type type;
-    std::optional<telem::SampleValue> value;
+    std::optional<x::telem::SampleValue> value;
 
     explicit Param(const v1::types::PBParam &pb) {
         this->name = pb.name();
         if (pb.has_type()) this->type = types::Type(pb.type());
-        if (pb.has_value()) this->value = telem::from_proto(pb.value());
+        if (pb.has_value()) this->value = x::telem::from_proto(pb.value());
     }
 
     Param() = default;
@@ -138,7 +138,7 @@ struct Param {
     void to_proto(v1::types::PBParam *pb) const {
         pb->set_name(name);
         type.to_proto(pb->mutable_type());
-        if (value.has_value()) telem::to_proto(*value, pb->mutable_value());
+        if (value.has_value()) x::telem::to_proto(*value, pb->mutable_value());
     }
 
     /// @brief Returns the value cast to the requested type.
@@ -148,12 +148,12 @@ struct Param {
     template<typename T>
     [[nodiscard]] T get() const {
         assert(value.has_value() && "Param has no value");
-        return telem::cast<T>(*value);
+        return x::telem::cast<T>(*value);
     }
 
     [[nodiscard]] std::string to_string() const {
         std::string result = name + " (" + type.to_string() + ")";
-        if (value.has_value()) result += " = " + telem::to_string(*value);
+        if (value.has_value()) result += " = " + x::telem::to_string(*value);
         return result;
     }
 
@@ -557,12 +557,33 @@ struct Sequence {
     }
 };
 
+struct Authorities {
+    std::optional<uint8_t> default_authority;
+    std::map<types::ChannelKey, uint8_t> channels;
+
+    Authorities() = default;
+
+    explicit Authorities(const v1::ir::PBAuthorities &pb) {
+        if (pb.has_default_()) default_authority = static_cast<uint8_t>(pb.default_());
+        for (const auto &[key, val]: pb.channels())
+            channels[key] = static_cast<uint8_t>(val);
+    }
+
+    void to_proto(v1::ir::PBAuthorities *pb) const {
+        if (default_authority.has_value()) pb->set_default_(*default_authority);
+        auto *ch_map = pb->mutable_channels();
+        for (const auto &[key, val]: channels)
+            (*ch_map)[key] = val;
+    }
+};
+
 struct IR {
     std::vector<Function> functions;
     std::vector<Node> nodes;
     std::vector<Edge> edges;
     Strata strata;
     std::vector<Sequence> sequences;
+    Authorities authorities;
 
     IR() = default;
 
@@ -580,6 +601,7 @@ struct IR {
         sequences.reserve(pb.sequences_size());
         for (const auto &seq_pb: pb.sequences())
             sequences.emplace_back(seq_pb);
+        if (pb.has_authorities()) authorities = Authorities(pb.authorities());
     }
 
     void to_proto(arc::v1::ir::PBIR *pb) const {
@@ -596,6 +618,7 @@ struct IR {
         pb->mutable_sequences()->Reserve(static_cast<int>(sequences.size()));
         for (const auto &seq: sequences)
             seq.to_proto(pb->add_sequences());
+        authorities.to_proto(pb->mutable_authorities());
     }
 
     /// @brief Returns the node with the given key.

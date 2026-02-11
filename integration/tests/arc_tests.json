@@ -2,11 +2,11 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "arc_simple",
+      "sequence_name": "simple",
       "tests": [
         {
-          "case": "arc/arc_press_sequence",
-          "parameters": { "rack_key": [65537, 65538] }
+          "case": "arc/arc_lifecycle",
+          "parameters": { "rack_key": [65538] }
         },
         {
           "case": "arc/arc_thermal_monitor",
@@ -18,6 +18,27 @@
         },
         {
           "case": "arc/arc_interval_press",
+          "parameters": { "rack_key": [65537, 65538] }
+        }
+      ]
+    },
+    {
+      "sequence_name": "authority",
+      "tests": [
+        {
+          "case": "arc/arc_authority_python_override",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/arc_authority_arc_vs_arc",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/arc_authority_schematic_override",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/arc_authority_emergency",
           "parameters": { "rack_key": [65537, 65538] }
         }
       ]

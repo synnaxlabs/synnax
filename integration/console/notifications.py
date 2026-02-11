@@ -8,27 +8,18 @@
 #  included in the file licenses/APL.txt.
 
 import time
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import synnax as sy
 from playwright.sync_api import Page
-
-if TYPE_CHECKING:
-    from .console import Console
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 
 class NotificationsClient:
     """Notifications management for Console UI automation."""
 
-    def __init__(self, page: Page, console: "Console"):
-        """Initialize the notifications client.
-
-        Args:
-            page: Playwright Page instance
-            console: Console instance for UI interactions
-        """
+    def __init__(self, page: Page):
         self.page = page
-        self.console = console
 
     def check(self, timeout: sy.CrudeTimeSpan = 0.2) -> list[dict[str, Any]]:
         """Check for notifications in the bottom right corner.
@@ -118,7 +109,7 @@ class NotificationsClient:
                 return True
             return False
 
-        except Exception:
+        except PlaywrightTimeoutError:
             return False
 
     def close_all(self) -> int:
@@ -149,9 +140,8 @@ class NotificationsClient:
         """Close the 'Connected to...' notification if present.
 
         Returns:
-            True if notification was found and closed, False otherwise.
+            True if notification was found and close was triggered, False otherwise.
         """
-
         notification = self.page.locator(".pluto-notification:has-text('Connected to')")
         if notification.count() == 0:
             return False
@@ -159,6 +149,22 @@ class NotificationsClient:
         close_btn = notification.locator(".pluto-notification__silence")
         if close_btn.count() > 0:
             close_btn.click(force=True)
-            notification.wait_for(state="hidden", timeout=2000)
             return True
         return False
+
+    def wait_for(self, text: str) -> bool:
+        """Wait for a notification containing specific text to appear.
+
+        Args:
+            text: Text to search for in the notification.
+            timeout: Maximum time to wait in milliseconds.
+
+        Returns:
+            True if notification was found, False if timeout.
+        """
+        notification = self.page.locator(f".pluto-notification:has-text('{text}')")
+        try:
+            notification.wait_for(state="visible", timeout=5000)
+            return True
+        except PlaywrightTimeoutError:
+            return False

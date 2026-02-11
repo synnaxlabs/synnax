@@ -3,6 +3,6 @@ cc_library(
     hdrs = ["errors.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
     ],
 )

@@ -13,8 +13,8 @@
 #include <utility>
 #include <vector>
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/node.h"
@@ -26,7 +26,7 @@ class Node : public node::Node {
     ir::Node ir;
     state::Node state;
     Module::Function func;
-    std::vector<telem::SampleValue> inputs;
+    std::vector<x::telem::SampleValue> inputs;
     std::vector<Module::Function::Result> results;
     std::vector<int> offsets;
     bool initialized = false;
@@ -51,18 +51,19 @@ public:
         this->offsets.resize(node.outputs.size());
     }
 
-    xerrors::Error next(node::Context &ctx) override {
+    x::errors::Error next(node::Context &ctx) override {
         if (this->is_entry_node) {
-            if (this->initialized) return xerrors::NIL;
+            if (this->initialized) return x::errors::NIL;
             this->initialized = true;
         }
 
-        if (!state.refresh_inputs()) return xerrors::NIL;
+        if (!state.refresh_inputs()) return x::errors::NIL;
 
         int64_t max_length = 0;
         int64_t longest_input_idx = 0;
         for (size_t i = 0; i < this->ir.inputs.size(); i++) {
-            const auto data_len = static_cast<int64_t>(this->state.input(i)->size());
+            const auto inp = this->state.input(i);
+            const auto data_len = static_cast<int64_t>(inp->size());
             if (data_len > max_length) {
                 max_length = data_len;
                 longest_input_idx = static_cast<int64_t>(i);
@@ -70,7 +71,7 @@ public:
         }
 
         if (this->ir.inputs.empty()) max_length = 1;
-        if (max_length <= 0) return xerrors::NIL;
+        if (max_length <= 0) return x::errors::NIL;
         for (auto &offset: this->offsets)
             offset = 0;
 
@@ -83,6 +84,8 @@ public:
         if (!this->ir.inputs.empty())
             longest_input_time = this->state.input_time(longest_input_idx);
 
+        this->state.set_current_node_key(this->ir.key);
+
         for (int i = 0; i < max_length; i++) {
             for (size_t j = 0; j < this->ir.inputs.size(); j++) {
                 const auto input_series = this->state.input(j);
@@ -93,7 +96,7 @@ public:
             const auto err = this->func.call(this->inputs, this->results);
             if (err) {
                 ctx.report_error(
-                    xerrors::Error(
+                    x::errors::Error(
                         "WASM execution failed in node " + this->ir.key +
                         " at sample " + std::to_string(i) + "/" +
                         std::to_string(max_length) + ": " + err.message()
@@ -102,11 +105,11 @@ public:
                 continue;
             }
 
-            telem::TimeStamp ts;
+            x::telem::TimeStamp ts;
             if (!this->ir.inputs.empty() && longest_input_time)
-                ts = longest_input_time->at<telem::TimeStamp>(i);
+                ts = longest_input_time->at<x::telem::TimeStamp>(i);
             else
-                ts = telem::TimeStamp::now();
+                ts = x::telem::TimeStamp::now();
 
             for (size_t j = 0; j < results.size(); j++) {
                 auto [value, changed] = results[j];
@@ -124,7 +127,7 @@ public:
             if (off > 0) ctx.mark_changed(this->ir.outputs[j].name);
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void reset() override { this->initialized = false; }

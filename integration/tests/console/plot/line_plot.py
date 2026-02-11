@@ -23,7 +23,7 @@ class LinePlot(ConsoleCase):
         suffix = get_random_name()
         index_name, data_name = self._setup_channels(suffix)
 
-        plot = Plot(self.client, self.console, f"Line Plot Test {suffix}")
+        plot = self.console.workspace.create_plot(f"Line Plot Test {suffix}")
         plot.add_channels("Y1", data_name)
 
         # General
@@ -135,7 +135,7 @@ class LinePlot(ConsoleCase):
         self.log("Testing drag channel to canvas")
 
         channel = "line_plot_state"
-        plot.drag_channel_to_canvas(channel)
+        plot.drag_channel_to_canvas(channel, self.console.channels)
         assert channel in plot.data["Y1"], f"Channel {channel} should be on Y1"
 
     def test_drag_channel_to_toolbar(self, plot: Plot) -> None:
@@ -143,7 +143,7 @@ class LinePlot(ConsoleCase):
         self.log("Testing drag channel to toolbar")
 
         channel = "line_plot_time"
-        plot.drag_channel_to_toolbar(channel, "Y2")
+        plot.drag_channel_to_toolbar(channel, self.console.channels, "Y2")
         assert channel in plot.data["Y2"], f"Channel {channel} should be on Y2"
 
     def test_download_csv(self, plot: Plot, data_name: str) -> None:
@@ -205,7 +205,7 @@ class LinePlot(ConsoleCase):
         """Test opening a plot by double-clicking it in the workspace resources toolbar."""
         self.log("Testing open plot from resources toolbar")
 
-        plot = self.console.workspace.open_plot(self.client, plot_name)
+        plot = self.console.workspace.open_plot(plot_name)
 
         assert plot.pane_locator is not None, "Plot pane should be visible"
         assert plot.pane_locator.is_visible(), "Plot pane should be visible"
@@ -222,7 +222,7 @@ class LinePlot(ConsoleCase):
         """Test dragging a plot from the resources toolbar onto the mosaic."""
         self.log("Testing drag plot onto mosaic")
 
-        plot = self.console.workspace.drag_plot_to_mosaic(self.client, plot_name)
+        plot = self.console.workspace.drag_plot_to_mosaic(plot_name)
 
         assert plot.pane_locator is not None, "Plot pane should be visible"
         assert plot.pane_locator.is_visible(), "Plot pane should be visible"
@@ -239,7 +239,7 @@ class LinePlot(ConsoleCase):
         self.log("Testing rename plot via context menu")
 
         suffix = get_random_name()
-        plot = Plot(self.client, self.console, f"Rename Test {suffix}")
+        plot = self.console.workspace.create_plot(f"Rename Test {suffix}")
         original_name = plot.page_name
         plot.close()
 
@@ -253,7 +253,7 @@ class LinePlot(ConsoleCase):
         self.log("Testing delete plot via context menu")
 
         suffix = get_random_name()
-        plot = Plot(self.client, self.console, f"Delete Test {suffix}")
+        plot = self.console.workspace.create_plot(f"Delete Test {suffix}")
         plot_name = plot.page_name
         plot.close()
 
@@ -271,7 +271,7 @@ class LinePlot(ConsoleCase):
         plot_names = []
 
         for i in range(3):
-            plot = Plot(self.client, self.console, f"Multi Delete {suffix} {i}")
+            plot = self.console.workspace.create_plot(f"Multi Delete {suffix} {i}")
             plot_names.append(plot.page_name)
             plot.close()
 
@@ -287,7 +287,7 @@ class LinePlot(ConsoleCase):
         self.log("Testing export plot via context menu")
 
         suffix = get_random_name()
-        plot = Plot(self.client, self.console, f"Export Test {suffix}")
+        plot = self.console.workspace.create_plot(f"Export Test {suffix}")
         plot_name = plot.page_name
         plot.close()
 
@@ -304,7 +304,7 @@ class LinePlot(ConsoleCase):
         self.log("Testing copy link via context menu")
 
         suffix = get_random_name()
-        plot = Plot(self.client, self.console, f"Copy Link Test {suffix}")
+        plot = self.console.workspace.create_plot(f"Copy Link Test {suffix}")
         plot_name = plot.page_name
         expected_link = plot.copy_link()
         plot.close()
@@ -321,7 +321,7 @@ class LinePlot(ConsoleCase):
         """Test opening an existing plot by searching its name in the command palette."""
         self.log("Testing open plot by name via command palette")
 
-        plot = Plot.open_from_search(self.client, self.console, plot_name)
+        plot = self.console.workspace.open_from_search(Plot, plot_name)
 
         assert plot.pane_locator is not None, "Plot pane should be visible"
         assert plot.pane_locator.is_visible(), "Plot pane should be visible"

@@ -14,54 +14,54 @@
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/status/status.h"
 
+#include "driver/common/factory.h"
 #include "driver/pipeline/acquisition.h"
-#include "driver/task/common/factory.h"
 #include "driver/task/task.h"
 
-namespace rack::status {
+namespace driver::rack::status {
 const std::string INTEGRATION_NAME = "rack_status";
 const std::string LEGACY_HEARTBEAT_TYPE = "heartbeat";
 const std::string TASK_NAME = "Rack Status";
 const std::string TASK_TYPE = TASK_NAME;
-const auto EMISSION_RATE = telem::HERTZ * 1;
+const auto EMISSION_RATE = x::telem::HERTZ * 1;
 
 class Source final : public pipeline::Base {
     /// @brief the key of the rack the heartbeat is for.
-    const synnax::Rack rack;
-    const synnax::Task task;
+    const synnax::rack::Rack rack;
+    const synnax::task::Task task;
     /// @brief the loop used to control the emission rate of the heartbeat.
-    loop::Timer loop;
+    x::loop::Timer loop;
     std::shared_ptr<synnax::Synnax> client;
 
 public:
     Source(
-        const synnax::Rack &rack,
-        const synnax::Task &task,
+        const synnax::rack::Rack &rack,
+        const synnax::task::Task &task,
         const std::shared_ptr<synnax::Synnax> &client
     ):
         Base(
-            breaker::Config{
+            x::breaker::Config{
                 .name = TASK_NAME,
-                .base_interval = 1 * telem::SECOND,
-                .max_retries = breaker::RETRY_INFINITELY,
+                .base_interval = 1 * x::telem::SECOND,
+                .max_retries = x::breaker::RETRY_INFINITELY,
                 .scale = 1.05f,
-                .max_interval = 5 * telem::SECOND,
+                .max_interval = 5 * x::telem::SECOND,
             },
             TASK_NAME
         ),
         rack(rack),
         task(task),
-        loop(loop::Timer(EMISSION_RATE)),
+        loop(x::loop::Timer(EMISSION_RATE)),
         client(client) {}
 
     void run() override {
-        synnax::TaskStatus stat{
+        synnax::task::Status stat{
             .key = this->task.status_key(),
             .name = this->task.name,
-            .variant = ::status::variant::SUCCESS,
+            .variant = ::x::status::variant::SUCCESS,
             .message = "Started",
-            .time = telem::TimeStamp::now(),
-            .details = synnax::TaskStatusDetails{
+            .time = x::telem::TimeStamp::now(),
+            .details = synnax::task::StatusDetails{
                 .task = this->task.key,
             }
         };
@@ -69,21 +69,20 @@ public:
             LOG(ERROR) << "[rack_status] failed to update task status" << err;
         while (breaker.running()) {
             this->loop.wait(breaker);
-            synnax::RackStatus status{
-                .key = synnax::rack_ontology_id(this->rack.key).string(),
+            synnax::rack::Status status{
+                .key = synnax::rack::ontology_id(this->rack.key).string(),
                 .name = this->rack.name,
-                .variant = ::status::variant::SUCCESS,
+                .variant = ::x::status::variant::SUCCESS,
                 .message = "Driver is running",
-                .time = telem::TimeStamp::now(),
-                .details = synnax::RackStatusDetails{.rack = this->rack.key}
+                .time = x::telem::TimeStamp::now(),
+                .details = synnax::rack::StatusDetails{.rack = this->rack.key}
             };
-            if (const auto err = this->client->statuses.set<synnax::RackStatusDetails>(
-                    status
-                );
+            if (const auto err = this->client->statuses
+                                     .set<synnax::rack::StatusDetails>(status);
                 err)
                 LOG(ERROR) << "[rack_status] error updating status: " << err;
             else
-                VLOG(1) << "[rack_status] successfully set status" << this->rack.key;
+                VLOG(1) << "[rack_status] successfully set status for " << this->rack;
         }
     };
 };
@@ -95,8 +94,8 @@ class Task final : public task::Task {
 
 public:
     Task(
-        const synnax::Rack &rack,
-        const synnax::Task &task,
+        const synnax::rack::Rack &rack,
+        const synnax::task::Task &task,
         const std::shared_ptr<task::Context> &ctx
     ):
         pipe(rack, task, ctx->client) {
@@ -110,18 +109,20 @@ public:
     void stop(bool will_reconfigure) override { this->pipe.stop(); }
 
     /// @brief configures the heartbeat task.
-    static std::unique_ptr<task::Task>
-    configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
-        auto rack_key = synnax::rack_key_from_task_key(task.key);
+    static std::unique_ptr<task::Task> configure(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::task::Task &task
+    ) {
+        auto rack_key = synnax::task::rack_key_from_task_key(task.key);
         auto [rack, rack_err] = ctx->client->racks.retrieve(rack_key);
         if (rack_err) {
-            synnax::TaskStatus stat{
+            synnax::task::Status stat{
                 .key = task.status_key(),
                 .name = TASK_NAME,
-                .variant = ::status::variant::ERR,
+                .variant = ::x::status::variant::ERR,
                 .message = "Failed to retrieve rack for status task",
                 .description = rack_err.message(),
-                .details = synnax::TaskStatusDetails{
+                .details = synnax::task::StatusDetails{
                     .task = task.key,
                 }
             };
@@ -135,16 +136,16 @@ public:
 struct Factory final : task::Factory {
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) override {
         if (task.type == TASK_TYPE) return {Task::configure(ctx, task), true};
         return {nullptr, false};
     }
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Rack &rack
+        const synnax::rack::Rack &rack
     ) override {
         common::delete_legacy_task_by_type(
             rack,

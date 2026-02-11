@@ -12,48 +12,49 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xjson/xjson.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/errors/errors.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/write_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
+namespace driver::ni {
 class SingleChannelAnalogWriteTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
-    synnax::Task task;
-    std::unique_ptr<ni::WriteTaskConfig> cfg;
+    synnax::task::Task task;
+    std::unique_ptr<WriteTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_writer_factory;
     std::shared_ptr<pipeline::mock::StreamerFactory> mock_streamer_factory;
-    synnax::Channel state_idx_ch = synnax::Channel(
+    synnax::channel::Channel state_idx_ch = synnax::channel::Channel(
         make_unique_channel_name("state_idx_ch"),
-        telem::TIMESTAMP_T,
+        x::telem::TIMESTAMP_T,
         0,
         true
     );
-    synnax::Channel state_ch_1 = synnax::Channel(
+    synnax::channel::Channel state_ch_1 = synnax::channel::Channel(
         make_unique_channel_name("state_ch_1"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         state_idx_ch.key,
         false
     );
-    synnax::Channel cmd_ch_1 = synnax::Channel(
+    synnax::channel::Channel cmd_ch_1 = synnax::channel::Channel(
         make_unique_channel_name("cmd_ch_1"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         true
     );
-    synnax::Channel state_ch_2 = synnax::Channel(
+    synnax::channel::Channel state_ch_2 = synnax::channel::Channel(
         make_unique_channel_name("state_ch_2"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         state_idx_ch.key,
         false
     );
-    synnax::Channel cmd_ch_2 = synnax::Channel(
+    synnax::channel::Channel cmd_ch_2 = synnax::channel::Channel(
         make_unique_channel_name("cmd_ch_2"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         true
     );
 
@@ -71,18 +72,18 @@ protected:
 
         const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
-        synnax::Device
+        synnax::device::Device
             dev("abc123", "my_device", rack.key, "dev1", "ni", "PXI-6255", "");
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::Task(rack.key, "my_task", "ni_analog_write", "");
+        task = synnax::task::Task(rack.key, "my_task", "ni_analog_write", "");
 
-        const json j{
+        const x::json::json j{
             {"data_saving", false},
             {"state_rate", 25},
             {"device", dev.key},
             {"channels",
-             json::array({
+             x::json::json::array({
                  {{"type", "ao_voltage"},
                   {"key", "hCzuNC9glqc"},
                   {"port", 0},
@@ -109,8 +110,8 @@ protected:
              })}
         };
 
-        auto p = xjson::Parser(j);
-        cfg = std::make_unique<ni::WriteTaskConfig>(client, p);
+        auto p = x::json::Parser(j);
+        cfg = std::make_unique<WriteTaskConfig>(client, p);
         ASSERT_NIL(p.error());
 
         ctx = std::make_shared<task::MockContext>(client);
@@ -122,8 +123,8 @@ protected:
         return std::make_unique<common::WriteTask>(
             task,
             ctx,
-            breaker::default_config(task.name),
-            std::make_unique<ni::WriteTaskSink<double>>(
+            x::breaker::default_config(task.name),
+            std::make_unique<WriteTaskSink<double>>(
                 std::move(*cfg),
                 std::move(mock_hw)
             ),
@@ -136,9 +137,9 @@ protected:
 /// @brief it should write analog values and update state channels correctly.
 TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     parse_config();
-    auto reads = std::make_shared<std::vector<telem::Frame>>();
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     constexpr double v = 1;
-    reads->emplace_back(cmd_ch_2.key, telem::Series(v, telem::FLOAT64_T));
+    reads->emplace_back(cmd_ch_2.key, x::telem::Series(v, x::telem::FLOAT64_T));
     mock_streamer_factory = pipeline::mock::simple_streamer_factory(
         {cmd_ch_2.key},
         reads
@@ -154,10 +155,16 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     EXPECT_EQ(first_state.key, task.status_key());
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::variant::SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
-    ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
-    ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_writer_factory->writer_opens.load(std::memory_order_acquire),
+        1
+    );
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 6);
 
     wt->stop("stop_cmd", true);
@@ -166,7 +173,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     EXPECT_EQ(second_state.key, task.status_key());
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::variant::SUCCESS);
     ASSERT_EQ(second_state.message, "Task stopped successfully");
 
     auto first = std::move(
@@ -193,7 +200,7 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
     // Create a device
-    auto dev = synnax::Device(
+    auto dev = synnax::device::Device(
         "abc123",
         "test_device",
         rack.key,
@@ -205,29 +212,31 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
     ASSERT_NIL(client->devices.create(dev));
 
     // Create state and command channels
-    auto state_idx_ch = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("state_idx"), telem::TIMESTAMP_T, 0, true)
-    );
+    auto state_idx_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("state_idx"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
     auto state_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("state_ch"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         state_idx_ch.key,
         false
     ));
     auto cmd_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("cmd_ch"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         true
     ));
 
     // Create a configuration with an invalid channel type
-    json j{
+    x::json::json j{
         {"data_saving", false},
         {"state_rate", 25},
         {"device", dev.key},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"type", "INVALID_CHANNEL_TYPE"}, // Invalid channel type
                {"key", "hCzuNC9glqc"},
                {"port", 0},
@@ -241,8 +250,9 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
          )}
     };
 
-    auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<ni::WriteTaskConfig>(client, p);
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<WriteTaskConfig>(client, p);
 
-    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+}
 }

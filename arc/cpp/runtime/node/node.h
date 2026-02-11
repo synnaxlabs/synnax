@@ -12,15 +12,27 @@
 #include <functional>
 #include <string>
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
 
 namespace arc::runtime::node {
+
+/// @brief Indicates what triggered the current scheduler run.
+enum class RunReason {
+    /// @brief Scheduler run triggered by timer expiration.
+    TimerTick,
+    /// @brief Scheduler run triggered by input data arrival.
+    ChannelInput,
+};
+
 struct Context {
-    telem::TimeSpan elapsed;
-    telem::TimeSpan tolerance;
+    x::telem::TimeSpan elapsed;
+    x::telem::TimeSpan tolerance;
+    /// @brief Indicates what triggered this scheduler run.
+    /// Time-based nodes should only fire when reason is TimerTick.
+    RunReason reason;
     std::function<void(const std::string &output_param)> mark_changed;
-    std::function<void(const xerrors::Error &)> report_error;
+    std::function<void(const x::errors::Error &)> report_error;
     std::function<void()> activate_stage;
 };
 
@@ -28,7 +40,7 @@ class Node {
 public:
     virtual ~Node() = default;
 
-    virtual xerrors::Error next(Context &ctx) = 0;
+    virtual x::errors::Error next(Context &ctx) = 0;
 
     /// Reset is called when a stage containing this node is activated.
     /// Nodes can override to reset their internal state (e.g., timers, counters).

@@ -30,7 +30,7 @@ export const DefaultContextMenu = ({
     <PMenu.Menu onChange={handleSelect} level="small" gap="small">
       <PMenu.Item itemKey="newGroup">
         <Icon.Group />
-        New Group
+        New group
       </PMenu.Item>
       <PMenu.Divider />
       <Menu.ReloadConsoleItem />

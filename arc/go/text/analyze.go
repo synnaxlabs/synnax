@@ -16,6 +16,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/authority"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
@@ -236,13 +237,13 @@ func analyzeFunctionNode(
 	n := ir.Node{
 		Key:      key,
 		Type:     name,
-		Channels: sym.Channels,
+		Channels: sym.Channels.Copy(),
 		Config:   slices.Clone(sym.Type.Config),
 		Outputs:  slices.Clone(sym.Type.Outputs),
 		Inputs:   slices.Clone(sym.Type.Inputs),
 	}
 	var ok bool
-	n.Config, ok = extractConfigValues(acontext.Child(ctx, ctx.AST.ConfigValues()), n.Config, n)
+	n.Config, ok = extractConfigValues(acontext.Child(ctx, ctx.AST.ConfigValues()), n.Config, n, sym)
 	if !ok {
 		return nodeResult{}, false
 	}
@@ -300,7 +301,9 @@ func Analyze(
 		aCtx = acontext.CreateRoot(ctx, t.AST, resolver)
 		i    = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
 	)
+
 	analyzer.AnalyzeProgram(aCtx)
+	i.Authorities = authority.Analyze(aCtx)
 	if !aCtx.Diagnostics.Ok() {
 		return i, aCtx.Diagnostics
 	}
@@ -326,7 +329,6 @@ func Analyze(
 			})
 		}
 	}
-
 	kg := newKeyGenerator()
 	for _, item := range t.AST.AllTopLevelItem() {
 		if flow := item.FlowStatement(); flow != nil {
@@ -346,7 +348,6 @@ func Analyze(
 			i.Edges = append(i.Edges, edges...)
 		}
 	}
-
 	if len(i.Nodes) > 0 {
 		strata, diag := stratifier.Stratify(ctx, i.Nodes, i.Edges, i.Sequences, aCtx.Diagnostics)
 		if diag != nil && !diag.Ok() {
@@ -355,7 +356,6 @@ func Analyze(
 		}
 		i.Strata = strata
 	}
-
 	return i, aCtx.Diagnostics
 }
 
@@ -534,6 +534,7 @@ func extractConfigValues(
 	ctx acontext.Context[parser.IConfigValuesContext],
 	config types.Params,
 	node ir.Node,
+	fnSym *symbol.Scope,
 ) (types.Params, bool) {
 	if ctx.AST == nil {
 		return config, true
@@ -552,14 +553,27 @@ func extractConfigValues(
 				return nil, false
 			}
 			channelKey := uint32(sym.ID)
-			node.Channels.Read[channelKey] = sym.Name
+			node.Channels.ResolveConfigChannel(fnSym, paramName, channelKey, sym.Name)
 			return channelKey, true
+		}
+
+		if primary := parser.GetPrimaryExpression(expr); primary != nil {
+			if id := primary.IDENTIFIER(); id != nil {
+				sym, err := ctx.Scope.Resolve(ctx, id.GetText())
+				if err != nil {
+					ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+					return nil, false
+				}
+				if sym.Kind == symbol.KindGlobalConstant {
+					return sym.DefaultValue, true
+				}
+			}
 		}
 
 		if !parser.IsLiteral(expr) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				expr,
-				"config value for '%s' must be a literal",
+				"config value for '%s' must be a literal or global constant",
 				paramName,
 			))
 			return nil, false

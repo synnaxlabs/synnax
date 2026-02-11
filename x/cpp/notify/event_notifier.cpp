@@ -20,7 +20,7 @@
 
 #include "x/cpp/notify/notify.h"
 
-namespace notify {
+namespace x::notify {
 
 class WindowsEventNotifier final : public Notifier {
     HANDLE event_handle = nullptr;

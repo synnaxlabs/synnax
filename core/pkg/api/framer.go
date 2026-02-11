@@ -88,18 +88,13 @@ func (s *FrameService) FrameDelete(
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		c := errors.NewCatcher(errors.WithAggregation())
 		w := s.Internal.NewDeleter()
 		if len(req.Keys) > 0 {
-			c.Exec(func() error {
-				return w.DeleteTimeRangeMany(ctx, req.Keys, req.Bounds)
-			})
+			return w.DeleteTimeRangeMany(ctx, req.Keys, req.Bounds)
 		} else if len(req.Names) > 0 {
-			c.Exec(func() error {
-				return w.DeleteTimeRangeManyByNames(ctx, req.Names, req.Bounds)
-			})
+			return w.DeleteTimeRangeManyByNames(ctx, req.Names, req.Bounds)
 		}
-		return c.Error()
+		return nil
 	})
 }
 

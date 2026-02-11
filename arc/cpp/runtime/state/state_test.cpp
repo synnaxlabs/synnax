@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/series.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
@@ -83,9 +83,9 @@ TEST(StateTest, RefreshInputs_BasicAlignment) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(3);
-    o_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
-    o_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
-    o_time->set(2, telem::TimeStamp(3 * telem::MICROSECOND));
+    o_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+    o_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
+    o_time->set(2, x::telem::TimeStamp(3 * x::telem::MICROSECOND));
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
@@ -185,8 +185,8 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(2);
-    o_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
-    o_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
+    o_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+    o_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
 
     ASSERT_TRUE(consumer_node.refresh_inputs());
     EXPECT_EQ(consumer_node.input(0)->size(), 2);
@@ -196,7 +196,7 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
     o->resize(3);
     o->set(2, 3.0f);
     o_time->resize(3);
-    o_time->set(2, telem::TimeStamp(3 * telem::MICROSECOND));
+    o_time->set(2, x::telem::TimeStamp(3 * x::telem::MICROSECOND));
 
     ASSERT_TRUE(consumer_node.refresh_inputs());
     EXPECT_EQ(consumer_node.input(0)->size(), 3);
@@ -271,8 +271,8 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
 
     auto &o1_time = producer1_node.output_time(0);
     o1_time->resize(2);
-    o1_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
-    o1_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
+    o1_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+    o1_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
 
     ASSERT_FALSE(consumer_node.refresh_inputs());
 
@@ -283,8 +283,8 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
 
     auto &o2_time = producer2_node.output_time(0);
     o2_time->resize(2);
-    o2_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
-    o2_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
+    o2_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+    o2_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
 
     ASSERT_TRUE(consumer_node.refresh_inputs());
     EXPECT_EQ(consumer_node.input(0)->size(), 2);
@@ -373,8 +373,8 @@ TEST(StateTest, OptionalInput_OverrideDefault) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(2);
-    o_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
-    o_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
+    o_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+    o_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
@@ -404,16 +404,16 @@ State create_minimal_state() {
 TEST(StateTest, ClearReads_PreservesLatestSeries) {
     State s = create_minimal_state();
 
-    auto series1 = telem::Series(telem::FLOAT32_T, 3);
+    auto series1 = x::telem::Series(x::telem::FLOAT32_T, 3);
     series1.write(1.0f);
     series1.write(2.0f);
     series1.write(3.0f);
-    s.ingest(telem::Frame(10, std::move(series1)));
+    s.ingest(x::telem::Frame(10, std::move(series1)));
 
-    auto series2 = telem::Series(telem::FLOAT32_T, 2);
+    auto series2 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series2.write(4.0f);
     series2.write(5.0f);
-    s.ingest(telem::Frame(10, std::move(series2)));
+    s.ingest(x::telem::Frame(10, std::move(series2)));
 
     auto [data_before, ok_before] = s.read_channel(10);
     ASSERT_TRUE(ok_before);
@@ -432,16 +432,16 @@ TEST(StateTest, ClearReads_PreservesLatestSeries) {
 TEST(StateTest, ClearReads_PreservesMultipleChannels) {
     State s = create_minimal_state();
 
-    auto series1 = telem::Series(telem::FLOAT32_T, 2);
+    auto series1 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series1.write(1.0f);
     series1.write(2.0f);
-    s.ingest(telem::Frame(10, std::move(series1)));
+    s.ingest(x::telem::Frame(10, std::move(series1)));
 
-    auto series2 = telem::Series(telem::FLOAT64_T, 3);
+    auto series2 = x::telem::Series(x::telem::FLOAT64_T, 3);
     series2.write(10.0);
     series2.write(20.0);
     series2.write(30.0);
-    s.ingest(telem::Frame(20, std::move(series2)));
+    s.ingest(x::telem::Frame(20, std::move(series2)));
 
     s.flush();
 
@@ -459,16 +459,16 @@ TEST(StateTest, ClearReads_PreservesMultipleChannels) {
 TEST(StateTest, ClearReads_PreservedDataAvailableNextCycle) {
     State s = create_minimal_state();
 
-    auto series1 = telem::Series(telem::FLOAT32_T, 2);
+    auto series1 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series1.write(1.0f);
     series1.write(2.0f);
-    s.ingest(telem::Frame(10, std::move(series1)));
+    s.ingest(x::telem::Frame(10, std::move(series1)));
     s.flush();
 
-    auto series2 = telem::Series(telem::FLOAT32_T, 2);
+    auto series2 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series2.write(3.0f);
     series2.write(4.0f);
-    s.ingest(telem::Frame(20, std::move(series2)));
+    s.ingest(x::telem::Frame(20, std::move(series2)));
 
     auto [data10, ok10] = s.read_channel(10);
     ASSERT_TRUE(ok10);
@@ -492,18 +492,18 @@ TEST(StateTest, ClearReads_PreservedDataAvailableNextCycle) {
 TEST(StateTest, ClearReads_NewDataOverwritesPreserved) {
     State s = create_minimal_state();
 
-    auto series1 = telem::Series(telem::FLOAT32_T, 1);
+    auto series1 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series1.write(100.0f);
-    s.ingest(telem::Frame(10, std::move(series1)));
+    s.ingest(x::telem::Frame(10, std::move(series1)));
     s.flush();
 
     auto [data1, ok1] = s.read_channel(10);
     ASSERT_TRUE(ok1);
     EXPECT_EQ(data1.series[0].at<float>(-1), 100.0f);
 
-    auto series2 = telem::Series(telem::FLOAT32_T, 1);
+    auto series2 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series2.write(200.0f);
-    s.ingest(telem::Frame(10, std::move(series2)));
+    s.ingest(x::telem::Frame(10, std::move(series2)));
     s.flush();
 
     auto [data2, ok2] = s.read_channel(10);
@@ -515,11 +515,11 @@ TEST(StateTest, ClearReads_NewDataOverwritesPreserved) {
 TEST(StateTest, ClearReads_SingleSeriesNoOp) {
     State s = create_minimal_state();
 
-    auto series = telem::Series(telem::INT32_T, 3);
+    auto series = x::telem::Series(x::telem::INT32_T, 3);
     series.write(1);
     series.write(2);
     series.write(3);
-    s.ingest(telem::Frame(10, std::move(series)));
+    s.ingest(x::telem::Frame(10, std::move(series)));
 
     s.flush();
 
@@ -545,9 +545,9 @@ TEST(StateTest, ClearReads_EmptyState) {
 TEST(StateTest, ReadChannel_UnknownChannel) {
     State s = create_minimal_state();
 
-    auto series = telem::Series(telem::FLOAT32_T, 1);
+    auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
     series.write(1.0f);
-    s.ingest(telem::Frame(10, std::move(series)));
+    s.ingest(x::telem::Frame(10, std::move(series)));
 
     auto [data, ok] = s.read_channel(99);
     ASSERT_FALSE(ok);
@@ -558,10 +558,10 @@ TEST(StateTest, ReadChannel_UnknownChannel) {
 TEST(StateTest, Reset_ClearsReadsAndWrites) {
     State s = create_minimal_state();
 
-    auto series = telem::Series(telem::FLOAT32_T, 2);
+    auto series = x::telem::Series(x::telem::FLOAT32_T, 2);
     series.write(1.0f);
     series.write(2.0f);
-    s.ingest(telem::Frame(10, std::move(series)));
+    s.ingest(x::telem::Frame(10, std::move(series)));
 
     auto [data_before, ok_before] = s.read_channel(10);
     ASSERT_TRUE(ok_before);
@@ -621,8 +621,8 @@ TEST(StateTest, NodeReset_ClearsWatermarks) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(2);
-    o_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
-    o_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
+    o_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+    o_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
 
     ASSERT_TRUE(consumer_node.refresh_inputs());
 
@@ -635,25 +635,25 @@ TEST(StateTest, NodeReset_ClearsWatermarks) {
 
 /// @brief Test that is_series_truthy returns false for empty series
 TEST(StateTest, IsSeriesTruthy_EmptySeriesIsFalsy) {
-    telem::Series empty_series(telem::FLOAT32_T, 0);
+    x::telem::Series empty_series(x::telem::FLOAT32_T, 0);
     EXPECT_FALSE(Node::is_series_truthy(empty_series));
 }
 
 /// @brief Test that is_series_truthy returns false for series with zero value
 TEST(StateTest, IsSeriesTruthy_ZeroValueIsFalsy) {
-    telem::Series series(0.0f);
+    x::telem::Series series(0.0f);
     EXPECT_FALSE(Node::is_series_truthy(series));
 }
 
 /// @brief Test that is_series_truthy returns true for series with non-zero value
 TEST(StateTest, IsSeriesTruthy_NonZeroValueIsTruthy) {
-    telem::Series series(42.0f);
+    x::telem::Series series(42.0f);
     EXPECT_TRUE(Node::is_series_truthy(series));
 }
 
 /// @brief Test that is_series_truthy returns false when last element is zero
 TEST(StateTest, IsSeriesTruthy_LastElementZeroIsFalsy) {
-    telem::Series series(telem::FLOAT32_T, 3);
+    x::telem::Series series(x::telem::FLOAT32_T, 3);
     series.write(1.0f);
     series.write(2.0f);
     series.write(0.0f); // Last element is zero
@@ -662,7 +662,7 @@ TEST(StateTest, IsSeriesTruthy_LastElementZeroIsFalsy) {
 
 /// @brief Test that is_series_truthy returns true when last element is non-zero
 TEST(StateTest, IsSeriesTruthy_LastElementNonZeroIsTruthy) {
-    telem::Series series(telem::FLOAT32_T, 3);
+    x::telem::Series series(x::telem::FLOAT32_T, 3);
     series.write(0.0f);
     series.write(0.0f);
     series.write(1.0f); // Last element is non-zero
@@ -671,18 +671,57 @@ TEST(StateTest, IsSeriesTruthy_LastElementNonZeroIsTruthy) {
 
 /// @brief Test that is_series_truthy works with uint8 series
 TEST(StateTest, IsSeriesTruthy_Uint8Series) {
-    telem::Series zero_series(static_cast<uint8_t>(0));
+    x::telem::Series zero_series(static_cast<uint8_t>(0));
     EXPECT_FALSE(Node::is_series_truthy(zero_series));
 
-    telem::Series one_series(static_cast<uint8_t>(1));
+    x::telem::Series one_series(static_cast<uint8_t>(1));
     EXPECT_TRUE(Node::is_series_truthy(one_series));
 }
 
 /// @brief Test that is_series_truthy works with int64 series
 TEST(StateTest, IsSeriesTruthy_Int64Series) {
-    telem::Series zero_series(static_cast<int64_t>(0));
+    x::telem::Series zero_series(static_cast<int64_t>(0));
     EXPECT_FALSE(Node::is_series_truthy(zero_series));
 
-    telem::Series non_zero_series(static_cast<int64_t>(-42));
+    x::telem::Series non_zero_series(static_cast<int64_t>(-42));
     EXPECT_TRUE(Node::is_series_truthy(non_zero_series));
+}
+
+TEST(StateTest, SetAuthority_BufferAndFlush) {
+    State s = create_minimal_state();
+    s.set_authority(42, 200);
+    auto changes = s.flush_authority_changes();
+    ASSERT_EQ(changes.size(), 1);
+    ASSERT_TRUE(changes[0].channel_key.has_value());
+    EXPECT_EQ(*changes[0].channel_key, 42);
+    EXPECT_EQ(changes[0].authority, 200);
+    EXPECT_TRUE(s.flush_authority_changes().empty());
+}
+
+TEST(StateTest, SetAuthority_GlobalAuthority) {
+    State s = create_minimal_state();
+    s.set_authority(std::nullopt, 150);
+    auto changes = s.flush_authority_changes();
+    ASSERT_EQ(changes.size(), 1);
+    ASSERT_FALSE(changes[0].channel_key.has_value());
+    EXPECT_EQ(changes[0].authority, 150);
+    EXPECT_TRUE(s.flush_authority_changes().empty());
+}
+
+TEST(StateTest, SetAuthority_MultipleChanges) {
+    State s = create_minimal_state();
+    s.set_authority(1, 100);
+    s.set_authority(std::nullopt, 200);
+    s.set_authority(2, 50);
+    auto changes = s.flush_authority_changes();
+    ASSERT_EQ(changes.size(), 3);
+    ASSERT_TRUE(changes[0].channel_key.has_value());
+    EXPECT_EQ(*changes[0].channel_key, 1);
+    EXPECT_EQ(changes[0].authority, 100);
+    ASSERT_FALSE(changes[1].channel_key.has_value());
+    EXPECT_EQ(changes[1].authority, 200);
+    ASSERT_TRUE(changes[2].channel_key.has_value());
+    EXPECT_EQ(*changes[2].channel_key, 2);
+    EXPECT_EQ(changes[2].authority, 50);
+    EXPECT_TRUE(s.flush_authority_changes().empty());
 }

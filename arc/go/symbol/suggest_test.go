@@ -10,12 +10,35 @@
 package symbol_test
 
 import (
+	"context"
+	"errors"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/compare"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+type searchTracker struct {
+	inner        symbol.Resolver
+	searchCalled bool
+}
+
+func (s *searchTracker) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
+	return s.inner.Resolve(ctx, name)
+}
+
+func (s *searchTracker) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
+	s.searchCalled = true
+	return s.inner.Search(ctx, term)
+}
+
+func resolveErr(scope *symbol.Scope, name string) error {
+	_, err := scope.Resolve(bCtx, name)
+	return err
+}
 
 var _ = Describe("Symbol Suggestions", func() {
 	Describe("LevenshteinDistance", func() {
@@ -100,23 +123,62 @@ var _ = Describe("Symbol Suggestions", func() {
 	})
 
 	Describe("Resolve with suggestions", func() {
-		It("should include suggestions in undefined symbol error", func() {
+		It("should return UndefinedSymbolError with lazy hint", func() {
 			root := symbol.CreateRootScope(nil)
 			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable}))
 
-			Expect(root.Resolve(bCtx, "temperatur")).
-				Error().To(MatchError(And(
-				ContainSubstring("undefined symbol: temperatur"),
-				ContainSubstring("did you mean: temperature?"),
-			)))
+			Expect(root.Resolve(bCtx, "temperatur")).Error().
+				To(MatchError(ContainSubstring("undefined symbol: temperatur")))
+
+			var undefinedErr *symbol.UndefinedSymbolError
+			Expect(errors.As(resolveErr(root, "temperatur"), &undefinedErr)).To(BeTrue())
+			Expect(undefinedErr.GetHint()).To(ContainSubstring("did you mean: temperature?"))
 		})
 
 		It("should not include suggestions when none are close enough", func() {
 			root := symbol.CreateRootScope(nil)
 			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable}))
 
-			Expect(root.Resolve(bCtx, "unknownSymbol")).
-				Error().To(MatchError("undefined symbol: unknownSymbol"))
+			Expect(root.Resolve(bCtx, "unknownSymbol")).Error().
+				To(MatchError("undefined symbol: unknownSymbol"))
+
+			var undefinedErr *symbol.UndefinedSymbolError
+			Expect(errors.As(resolveErr(root, "unknownSymbol"), &undefinedErr)).To(BeTrue())
+			Expect(undefinedErr.GetHint()).To(BeEmpty())
+		})
+	})
+
+	Describe("Lazy suggestion performance", func() {
+		It("should not trigger Search on global resolver during Add", func() {
+			tracker := &searchTracker{
+				inner: symbol.MapResolver{
+					"builtin_fn": {Name: "builtin_fn", Kind: symbol.KindFunction},
+				},
+			}
+			root := symbol.CreateRootScope(tracker)
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "alpha", Kind: symbol.KindVariable}))
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "beta", Kind: symbol.KindVariable}))
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "gamma", Kind: symbol.KindVariable}))
+			Expect(tracker.searchCalled).To(BeFalse())
+		})
+
+		It("should provide suggestions via diagnostics.Error with HintProvider", func() {
+			root := symbol.CreateRootScope(nil)
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable}))
+
+			d := diagnostics.Error(resolveErr(root, "temperatur"), nil)
+			Expect(d.Message).To(Equal("undefined symbol: temperatur"))
+			Expect(d.Notes).To(HaveLen(1))
+			Expect(d.Notes[0].Message).To(ContainSubstring("did you mean: temperature?"))
+		})
+
+		It("should not add notes via diagnostics.Error when no suggestions exist", func() {
+			root := symbol.CreateRootScope(nil)
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable}))
+
+			d := diagnostics.Error(resolveErr(root, "unknownSymbol"), nil)
+			Expect(d.Message).To(Equal("undefined symbol: unknownSymbol"))
+			Expect(d.Notes).To(BeEmpty())
 		})
 	})
 })

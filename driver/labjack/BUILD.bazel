@@ -1,11 +1,4 @@
 cc_library(
-    name = "labjack_errors",
-    hdrs = ["errors.h"],
-    visibility = ["//visibility:public"],
-    deps = ["//driver/errors"],
-)
-
-cc_library(
     name = "labjack",
     srcs = [
         "factory.cpp",
@@ -16,7 +9,7 @@ cc_library(
         "scan_task.h",
         "write_task.h",
     ],
-   copts = select({
+    copts = select({
         "@platforms//os:windows": [
             "/DWIN32_LEAN_AND_MEAN",
             "/DNOMINMAX",
@@ -32,17 +25,16 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
-        ":labjack_errors",
         "//client/cpp:synnax",
+        "//driver/common",
         "//driver/labjack/device",
         "//driver/labjack/ljm",
         "//driver/pipeline",
         "//driver/task",
-        "//driver/task/common",
         "//driver/transform",
         "//x/cpp/breaker",
+        "//x/cpp/json",
         "//x/cpp/loop",
-        "//x/cpp/xjson",
         "@glog",
         "@nlohmann_json//:json",
     ],
@@ -56,7 +48,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/labjack",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

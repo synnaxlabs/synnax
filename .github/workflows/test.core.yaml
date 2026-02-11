@@ -45,3 +45,4 @@ jobs:
     with:
       directory: core
       coverage_flag: core
+      ginkgo_flags: "--tags driver"

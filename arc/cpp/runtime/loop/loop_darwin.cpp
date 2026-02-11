@@ -11,24 +11,19 @@
 #include <thread>
 
 #include "glog/logging.h"
-#include <mach/mach.h>
-#include <mach/thread_policy.h>
 #include <sys/event.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/thread/rt/rt.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 
 namespace arc::runtime::loop {
-
-bool has_rt_scheduling() {
-    return false;
-}
 
 static constexpr uintptr_t USER_EVENT_IDENT = 1;
 static constexpr uintptr_t TIMER_EVENT_IDENT = 2;
@@ -44,31 +39,27 @@ public:
 
     ~DarwinLoop() override { this->close_fds(); }
 
-    void wait(breaker::Breaker &breaker) override {
-        if (this->kqueue_fd_ == -1) return;
+    WakeReason wait(x::breaker::Breaker &breaker) override {
+        if (this->kqueue_fd_ == -1) return WakeReason::Shutdown;
 
         switch (this->config_.mode) {
             case ExecutionMode::AUTO:
             case ExecutionMode::EVENT_DRIVEN:
-                this->event_driven_wait();
-                break;
+                return this->event_driven_wait();
             case ExecutionMode::BUSY_WAIT:
-                this->busy_wait(breaker);
-                break;
+                return this->busy_wait(breaker);
             case ExecutionMode::HIGH_RATE:
-                this->high_rate_wait(breaker);
-                break;
+                return this->high_rate_wait(breaker);
             case ExecutionMode::HYBRID:
-                this->hybrid_wait(breaker);
-                break;
+                return this->hybrid_wait(breaker);
             case ExecutionMode::RT_EVENT:
-                this->high_rate_wait(breaker);
-                break;
+                return this->high_rate_wait(breaker);
         }
+        return WakeReason::Shutdown;
     }
 
-    xerrors::Error start() override {
-        if (this->kqueue_fd_ != -1) return xerrors::NIL;
+    x::errors::Error start() override {
+        if (this->kqueue_fd_ != -1) return x::errors::NIL;
 
         // Handle RT_EVENT fallback on macOS
         if (this->config_.mode == ExecutionMode::RT_EVENT) {
@@ -79,7 +70,7 @@ public:
         // Create kqueue for event multiplexing
         this->kqueue_fd_ = kqueue();
         if (this->kqueue_fd_ == -1)
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to create kqueue: " + std::string(strerror(errno))
             );
 
@@ -88,7 +79,7 @@ public:
         EV_SET(&kev, USER_EVENT_IDENT, EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0, nullptr);
         if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
             close(this->kqueue_fd_);
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to register user event: " + std::string(strerror(errno))
             );
         }
@@ -104,7 +95,7 @@ public:
 
             // Use software timer for sub-millisecond precision
             if (use_software_timer)
-                this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+                this->timer_ = std::make_unique<x::loop::Timer>(this->config_.interval);
             // Use kqueue timer for EVENT_DRIVEN/HYBRID/BUSY_WAIT (ms precision OK)
             else if (auto err = this->setup_kqueue_timer(); err) {
                 close(this->kqueue_fd_);
@@ -112,9 +103,10 @@ public:
             }
         }
 
-        this->apply_thread_config();
+        if (auto err = x::thread::rt::apply_config(this->config_.rt()); err)
+            LOG(WARNING) << "[loop] Failed to apply RT config: " << err.message();
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void wake() override {
@@ -124,7 +116,7 @@ public:
         kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr);
     }
 
-    bool watch(notify::Notifier &notifier) override {
+    bool watch(x::notify::Notifier &notifier) override {
         const int fd = notifier.fd();
         if (fd == -1 || this->kqueue_fd_ == -1) return false;
 
@@ -152,7 +144,7 @@ private:
         this->kqueue_timer_enabled_ = false;
     }
 
-    xerrors::Error setup_kqueue_timer() {
+    x::errors::Error setup_kqueue_timer() {
         const uint64_t interval_ms = this->config_.interval.milliseconds();
         if (interval_ms == 0)
             LOG(WARNING) << "[loop] Interval too small for kqueue timer "
@@ -169,120 +161,92 @@ private:
             nullptr
         );
         if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1)
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to register timer event: " + std::string(strerror(errno))
             );
 
         this->kqueue_timer_enabled_ = true;
-        return xerrors::NIL;
-    }
-
-    void apply_thread_config() const {
-        const mach_port_t thread_port = pthread_mach_thread_np(pthread_self());
-        if (this->config_.rt_priority > 0) {
-            thread_precedence_policy_data_t precedence;
-            precedence.importance = this->config_.rt_priority;
-            const kern_return_t result = thread_policy_set(
-                thread_port,
-                THREAD_PRECEDENCE_POLICY,
-                reinterpret_cast<thread_policy_t>(&precedence),
-                THREAD_PRECEDENCE_POLICY_COUNT
-            );
-
-            if (result != KERN_SUCCESS)
-                LOG(WARNING) << "[loop] Failed to set thread precedence: "
-                             << mach_error_string(result);
-            else
-                LOG(INFO) << "[loop] Set thread precedence to "
-                          << this->config_.rt_priority;
-        }
-
-        if (this->config_.cpu_affinity >= 0) {
-            thread_affinity_policy_data_t affinity_policy;
-            affinity_policy.affinity_tag = this->config_.cpu_affinity;
-
-            const kern_return_t result = thread_policy_set(
-                thread_port,
-                THREAD_AFFINITY_POLICY,
-                reinterpret_cast<thread_policy_t>(&affinity_policy),
-                THREAD_AFFINITY_POLICY_COUNT
-            );
-
-            if (result != KERN_SUCCESS) {
-                LOG(WARNING) << "[loop] Failed to set CPU affinity to "
-                             << this->config_.cpu_affinity << ": "
-                             << mach_error_string(result);
-            } else {
-                LOG(INFO) << "[loop] Set thread affinity tag to "
-                          << this->config_.cpu_affinity;
-            }
-        }
+        return x::errors::NIL;
     }
 
     /// @brief BUSY_WAIT: Non-blocking kqueue poll in tight loop.
-    void busy_wait(const breaker::Breaker &breaker) const {
+    WakeReason busy_wait(const x::breaker::Breaker &breaker) const {
         constexpr timespec timeout = {0, 0};
         struct kevent events[8];
 
         while (breaker.running()) {
             const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
-            if (n > 0) return;
+            if (n > 0) return this->classify_events(events, n);
             if (n == -1 && errno != EINTR && errno != EBADF) {
                 LOG(ERROR) << "[loop] kevent error: " << strerror(errno);
-                return;
+                return WakeReason::Shutdown;
             }
         }
+        return WakeReason::Shutdown;
     }
 
     /// @brief HIGH_RATE: Precise software timer + non-blocking kqueue drain.
-    void high_rate_wait(breaker::Breaker &breaker) const {
+    WakeReason high_rate_wait(x::breaker::Breaker &breaker) const {
         this->timer_->wait(breaker);
         constexpr timespec timeout = {0, 0};
         struct kevent events[8];
         kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
+        return WakeReason::Timer;
     }
 
     /// @brief HYBRID: Spin for configured duration, then block with timeout.
-    void hybrid_wait(const breaker::Breaker &breaker) const {
+    WakeReason hybrid_wait(const x::breaker::Breaker &breaker) const {
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = this->config_.spin_duration.chrono();
         struct timespec timeout = {0, 0};
         struct kevent events[8];
-        // Spin phase: non-blocking poll
         while (std::chrono::steady_clock::now() - spin_start < spin_duration) {
-            if (!breaker.running()) return;
+            if (!breaker.running()) return WakeReason::Shutdown;
             const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
-            if (n > 0) return;
+            if (n > 0) return this->classify_events(events, n);
         }
-        // Block phase: wait with timeout
         const auto block_timeout_ns = timing::HYBRID_BLOCK_TIMEOUT.nanoseconds();
         timeout.tv_sec = 0;
         timeout.tv_nsec = block_timeout_ns;
-        kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
+        const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
+        if (n > 0) return this->classify_events(events, n);
+        return WakeReason::Timeout;
     }
 
     /// @brief EVENT_DRIVEN: Block on kqueue events with timeout.
-    void event_driven_wait() const {
+    WakeReason event_driven_wait() const {
         struct kevent events[8];
-        // Use timeout to ensure we periodically check breaker.running()
-        // in the caller's loop.
         const struct timespec timeout = {0, timing::EVENT_DRIVEN_TIMEOUT.nanoseconds()};
         const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
 
-        if (n == -1 && errno != EINTR)
-            LOG(ERROR) << "[loop] kevent error: " << strerror(errno);
+        if (n > 0) return this->classify_events(events, n);
+        if (n == 0) return WakeReason::Timeout;
+        if (errno != EINTR) LOG(ERROR) << "[loop] kevent error: " << strerror(errno);
+        return WakeReason::Shutdown;
+    }
+
+    /// @brief Classifies kqueue events to determine wake reason.
+    WakeReason classify_events(struct kevent *events, const int n) const {
+        bool input_fired = false;
+        for (int i = 0; i < n; i++) {
+            if (events[i].ident == TIMER_EVENT_IDENT) return WakeReason::Timer;
+            if (events[i].ident != USER_EVENT_IDENT) input_fired = true;
+            // USER_EVENT_IDENT fires when wake() is called - falls through to Shutdown
+        }
+        if (input_fired) return WakeReason::Input;
+        return WakeReason::Shutdown;
     }
 
     Config config_;
     int kqueue_fd_ = -1;
     bool kqueue_timer_enabled_ = false;
-    std::unique_ptr<::loop::Timer> timer_;
+    std::unique_ptr<x::loop::Timer> timer_;
 };
 
-std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
     auto loop = std::make_unique<DarwinLoop>(cfg);
     if (auto err = loop->start(); err) return {nullptr, err};
-    return {std::move(loop), xerrors::NIL};
+    return {std::move(loop), x::errors::NIL};
 }
 
 }

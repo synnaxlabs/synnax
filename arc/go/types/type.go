@@ -75,6 +75,25 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// ChanDirection is a bitmask indicating whether a channel is used for reading,
+// writing, or both.
+type ChanDirection int
+
+const (
+	ChanDirectionNone  ChanDirection = 0
+	ChanDirectionRead  ChanDirection = 1
+	ChanDirectionWrite ChanDirection = 2
+)
+
+// IsRead returns true if the direction includes read.
+func (d ChanDirection) IsRead() bool { return d&ChanDirectionRead != 0 }
+
+// IsWrite returns true if the direction includes write.
+func (d ChanDirection) IsWrite() bool { return d&ChanDirectionWrite != 0 }
+
+// IsSet returns true if any direction has been specified.
+func (d ChanDirection) IsSet() bool { return d != ChanDirectionNone }
+
 // Kind represents the different categories of types in the Arc type system.
 // It is used as a discriminator in the Type tagged union.
 type Kind int
@@ -227,6 +246,10 @@ type Type struct {
 	FunctionProperties
 	// Kind is the discriminator that determines which type this represents.
 	Kind Kind `json:"kind" msgpack:"kind"`
+	// ChanDirection indicates whether a channel-typed parameter is used for reading,
+	// writing, or both. Only meaningful for KindChan types used in config params.
+	// This field is intentionally excluded from type equality checks.
+	ChanDirection ChanDirection `json:"chan_direction,omitempty" msgpack:"chan_direction,omitempty"`
 }
 
 // IntegerMaxValue returns the maximum value representable by this integer type.
@@ -435,6 +458,16 @@ func TimeSpan() Type {
 // Chan returns a channel type wrapping the given value type.
 func Chan(valueType Type) Type {
 	return Type{Kind: KindChan, Elem: &valueType}
+}
+
+// ReadChan returns a channel type annotated for read access.
+func ReadChan(valueType Type) Type {
+	return Type{Kind: KindChan, Elem: &valueType, ChanDirection: ChanDirectionRead}
+}
+
+// WriteChan returns a channel type annotated for write access.
+func WriteChan(valueType Type) Type {
+	return Type{Kind: KindChan, Elem: &valueType, ChanDirection: ChanDirectionWrite}
 }
 
 // Series returns a series/array type wrapping the given value type.

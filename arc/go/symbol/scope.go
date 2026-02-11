@@ -67,6 +67,45 @@ func NewChannels() Channels {
 	}
 }
 
+// ResolveConfigChannel replaces an internal config param ID with the actual channel ID.
+// For user-defined functions, the analyzer populates fnSym.Channels with internal param
+// IDs when processing the function body, so we replace those with actual channel IDs.
+// For built-in functions (resolved from MapResolver), fnSym has no children or channels,
+// so we fall back to adding the channel to Read.
+func (c *Channels) ResolveConfigChannel(
+	fnSym *Scope,
+	paramName string,
+	channelKey uint32,
+	channelName string,
+) {
+	replaced := false
+	if configParamSym := fnSym.FindChildByName(paramName); configParamSym != nil {
+		configParamID := uint32(configParamSym.ID)
+		if fnSym.Channels.Write.Contains(configParamID) {
+			c.Write.Remove(configParamID)
+			c.Write[channelKey] = channelName
+			replaced = true
+		}
+		if fnSym.Channels.Read.Contains(configParamID) {
+			c.Read.Remove(configParamID)
+			c.Read[channelKey] = channelName
+			replaced = true
+		}
+	}
+	if !replaced {
+		dir := types.ChanDirectionRead
+		if param, ok := fnSym.Type.Config.Get(paramName); ok && param.Type.ChanDirection.IsSet() {
+			dir = param.Type.ChanDirection
+		}
+		if dir.IsRead() {
+			c.Read[channelKey] = channelName
+		}
+		if dir.IsWrite() {
+			c.Write[channelKey] = channelName
+		}
+	}
+}
+
 // Scope represents a symbol scope in the hierarchical scope tree.
 //
 // Scopes form a tree structure where each scope can have a parent and multiple children.
@@ -217,11 +256,7 @@ func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 	if s.Parent != nil {
 		return s.Parent.Resolve(ctx, name)
 	}
-	suggestions := s.SuggestSimilar(ctx, name, 2)
-	if len(suggestions) > 0 {
-		return nil, errors.Newf("undefined symbol: %s (did you mean: %s?)", name, strings.Join(suggestions, ", "))
-	}
-	return nil, errors.Newf("undefined symbol: %s", name)
+	return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
 }
 
 func (s *Scope) Search(ctx context.Context, term string) ([]*Scope, error) {

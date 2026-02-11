@@ -9,6 +9,9 @@
 
 import { Editor } from "@/arc/editor";
 import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/arc/Explorer";
+import { extract } from "@/arc/export";
+import { TYPE } from "@/arc/types";
+import { type Export } from "@/export";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
 
@@ -20,9 +23,14 @@ export * from "@/arc/selectors";
 export * from "@/arc/slice";
 export * from "@/arc/Toolbar";
 
+export const EDITOR_LAYOUT_TYPE = TYPE;
+export type EditorLayoutType = typeof EDITOR_LAYOUT_TYPE;
+
+export const EXTRACTORS: Export.Extractors = { [EDITOR_LAYOUT_TYPE]: extract };
+
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [EXPLORER_LAYOUT_TYPE]: Explorer,
-  [Editor.LAYOUT_TYPE]: Editor.Editor,
+  [EDITOR_LAYOUT_TYPE]: Editor.Editor,
   [Editor.CREATE_ARC_LAYOUT_TYPE]: Editor.CreateModal,
 };
 

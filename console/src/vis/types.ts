@@ -18,4 +18,4 @@ export type LayoutType =
   | Log.LayoutType
   | Schematic.LayoutType
   | Table.LayoutType
-  | Arc.Editor.LayoutType;
+  | Arc.EditorLayoutType;

@@ -9,11 +9,12 @@
 
 #pragma once
 
+#include "driver/common/sample_clock.h"
 #include "driver/labjack/device/device.h"
-#include "driver/task/common/sample_clock.h"
 #include "driver/task/task.h"
 
-namespace labjack {
+namespace driver::labjack {
+
 /// @brief make of LabJack devices.
 const std::string MAKE = "LabJack";
 /// @brief labjack integration name.
@@ -38,7 +39,7 @@ const std::vector UNREACHABLE_ERRORS = {
 };
 
 /// @brief translates LJM errors into useful errors for managing the task lifecycle.
-inline xerrors::Error translate_error(const xerrors::Error &err) {
+inline x::errors::Error translate_error(const x::errors::Error &err) {
     if (err.matches(UNREACHABLE_ERRORS)) return ljm::TEMPORARILY_UNREACHABLE;
     return err;
 }
@@ -53,7 +54,7 @@ class Factory final : public task::Factory {
     /// task state and return false.
     [[nodiscard]] bool check_health(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) const;
 
 public:
@@ -69,15 +70,15 @@ public:
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) override;
 
     std::string name() override { return INTEGRATION_NAME; }
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Rack &rack
+        const synnax::rack::Rack &rack
     ) override;
 };
 }

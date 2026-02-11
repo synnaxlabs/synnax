@@ -522,7 +522,7 @@ class TestCase(ABC):
             for attempt in range(3):
                 latest_value = self.client.read_latest(channel_name)
                 if latest_value is not None and len(latest_value) > 0:
-                    return float(latest_value)
+                    return float(latest_value[-1])
 
                 # If read_latest is empty, read recent time range
                 now = sy.TimeStamp.now()
@@ -537,6 +537,139 @@ class TestCase(ABC):
 
         except:
             raise RuntimeError(f'Could not get value for channel "{channel_name}"')
+
+    def _wait_for_condition(
+        self,
+        channel_name: str,
+        condition: Callable[[Any], bool],
+        condition_desc: str,
+        timeout: float = 5.0,
+        is_virtual: bool = False,
+    ) -> None:
+        """Base method for waiting on a channel value condition.
+
+        The condition is always checked at least once before the timeout is evaluated,
+        so timeout=0 can be used for immediate assertions without waiting.
+
+        Args:
+            channel_name: Name of the channel to read
+            condition: Function that takes a value and returns True when condition is met
+            condition_desc: Human-readable description of condition (e.g., "== 1", "> 27")
+            timeout: Maximum time to wait in seconds (default: 5.0). Use 0 for immediate
+                check without waiting.
+            is_virtual: If True, read from subscribed telemetry (read_tlm).
+                       If False, read from database (get_value). Default: False.
+        """
+        timer = sy.Timer()
+        timeout_span = sy.TimeSpan.from_seconds(timeout)
+
+        while self.should_continue:
+            actual_value = (
+                self.read_tlm(channel_name)
+                if is_virtual
+                else self.get_value(channel_name)
+            )
+            if actual_value is not None and condition(actual_value):
+                return
+            # This last to ensure the check runs at least once.
+            if timer.elapsed() > timeout_span:
+                break
+
+        actual_value = (
+            self.read_tlm(channel_name) if is_virtual else self.get_value(channel_name)
+        )
+        if actual_value is not None and condition(actual_value):
+            return
+        self.fail(
+            f"Timeout waiting for {channel_name} {condition_desc}!\n"
+            f"Actual: {actual_value}\n"
+            f"Timeout: {timeout}s"
+        )
+
+    def wait_for_eq(
+        self,
+        channel_name: str,
+        expected: Any,
+        timeout: float = 5.0,
+        is_virtual: bool = False,
+    ) -> None:
+        """Wait for channel value == expected."""
+        self._wait_for_condition(
+            channel_name, lambda v: v == expected, f"== {expected}", timeout, is_virtual
+        )
+
+    def wait_for_gt(
+        self,
+        channel_name: str,
+        threshold: float | int,
+        timeout: float = 5.0,
+        is_virtual: bool = False,
+    ) -> None:
+        """Wait for channel value > threshold."""
+        self._wait_for_condition(
+            channel_name, lambda v: v > threshold, f"> {threshold}", timeout, is_virtual
+        )
+
+    def wait_for_ge(
+        self,
+        channel_name: str,
+        threshold: float | int,
+        timeout: float = 5.0,
+        is_virtual: bool = False,
+    ) -> None:
+        """Wait for channel value >= threshold."""
+        self._wait_for_condition(
+            channel_name,
+            lambda v: v >= threshold,
+            f">= {threshold}",
+            timeout,
+            is_virtual,
+        )
+
+    def wait_for_lt(
+        self,
+        channel_name: str,
+        threshold: float | int,
+        timeout: float = 5.0,
+        is_virtual: bool = False,
+    ) -> None:
+        """Wait for channel value < threshold."""
+        self._wait_for_condition(
+            channel_name, lambda v: v < threshold, f"< {threshold}", timeout, is_virtual
+        )
+
+    def wait_for_le(
+        self,
+        channel_name: str,
+        threshold: float | int,
+        timeout: float = 5.0,
+        is_virtual: bool = False,
+    ) -> None:
+        """Wait for channel value <= threshold."""
+        self._wait_for_condition(
+            channel_name,
+            lambda v: v <= threshold,
+            f"<= {threshold}",
+            timeout,
+            is_virtual,
+        )
+
+    def wait_for_near(
+        self,
+        channel_name: str,
+        target: float,
+        tolerance: float = 0.5,
+        timeout: float = 5.0,
+        is_virtual: bool = False,
+    ) -> None:
+        """Wait for channel value to be within tolerance of target."""
+        self._wait_for_condition(
+            channel_name,
+            lambda v: abs(v - target) < tolerance,
+            f"≈ {target} (±{tolerance})",
+            timeout,
+            is_virtual,
+        )
 
     @overload
     def get_state(

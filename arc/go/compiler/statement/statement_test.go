@@ -104,7 +104,6 @@ var _ = Describe("Statement Compiler", func() {
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID (first stateful var)
 				OpI64Const, int64(0), // init value
 				OpCall, uint64(stateLoadIdx),
@@ -123,7 +122,6 @@ var _ = Describe("Statement Compiler", func() {
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
 				OpI64Const, int64(0), // init value
 				OpCall, uint64(stateLoadIdx),
@@ -147,7 +145,6 @@ var _ = Describe("Statement Compiler", func() {
 			stateStoreIdx := ctx.Imports.StateStore["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				// Declaration: count $= 0
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
 				OpI64Const, int64(0), // init value
 				OpCall, uint64(stateLoadIdx),
@@ -155,7 +152,6 @@ var _ = Describe("Statement Compiler", func() {
 				// Assignment: count = 5
 				OpI64Const, int64(5), // new value
 				OpLocalSet, 0, // store temporarily
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
 				OpLocalGet, 0, // get value back
 				OpCall, uint64(stateStoreIdx),
@@ -177,13 +173,11 @@ var _ = Describe("Statement Compiler", func() {
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				// Declaration: count $= 0
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
 				OpI64Const, int64(0), // init value
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 0, // store in local
 				// Expression: count + 1
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
 				OpI64Const, int64(0), // dummy init value
 				OpCall, uint64(stateLoadIdx),
@@ -209,23 +203,19 @@ var _ = Describe("Statement Compiler", func() {
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				// Declaration: a $= 10
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID for a
 				OpI64Const, int64(10), // init value
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 0, // store in a's local
 				// Declaration: b $= 20
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(1), // var ID for b
 				OpI64Const, int64(20), // init value
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 1, // store in b's local
 				// Expression: a + b
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID for a
 				OpI64Const, int64(0), // dummy init value
 				OpCall, uint64(stateLoadIdx),
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(1), // var ID for b
 				OpI64Const, int64(0), // dummy init value
 				OpCall, uint64(stateLoadIdx),
@@ -245,7 +235,6 @@ var _ = Describe("Statement Compiler", func() {
 
 			stateLoadIdx := ctx.Imports.StateLoad["f64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
-				OpI32Const, int32(0), // func ID
 				OpI32Const, int32(0), // var ID
 				OpF64Const, 20.5, // init value
 				OpCall, uint64(stateLoadIdx),
@@ -269,7 +258,6 @@ var _ = Describe("Statement Compiler", func() {
 			stateStoreIdx := ctx.Imports.StateStore["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				OpI32Const, int32(0),
-				OpI32Const, int32(0),
 				OpI64Const, int64(10),
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 0,
@@ -278,7 +266,6 @@ var _ = Describe("Statement Compiler", func() {
 				OpI64Const, int64(5),
 				OpI64Add,
 				OpLocalSet, 0,
-				OpI32Const, int32(0),
 				OpI32Const, int32(0),
 				OpLocalGet, 0,
 				OpCall, uint64(stateStoreIdx),
@@ -301,7 +288,6 @@ var _ = Describe("Statement Compiler", func() {
 			stateStoreIdx := ctx.Imports.StateStore["f64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				OpI32Const, int32(0),
-				OpI32Const, int32(0),
 				OpF64Const, 100.0,
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 0,
@@ -310,7 +296,6 @@ var _ = Describe("Statement Compiler", func() {
 				OpF64Const, 25.5,
 				OpF64Sub,
 				OpLocalSet, 0,
-				OpI32Const, int32(0),
 				OpI32Const, int32(0),
 				OpLocalGet, 0,
 				OpCall, uint64(stateStoreIdx),
@@ -334,7 +319,6 @@ var _ = Describe("Statement Compiler", func() {
 			stateStoreIdx := ctx.Imports.StateStore["i32"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
 				OpI32Const, int32(0),
-				OpI32Const, int32(0),
 				OpI32Const, int32(1),
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 0,
@@ -344,7 +328,6 @@ var _ = Describe("Statement Compiler", func() {
 				OpI32Mul,
 				OpLocalSet, 0,
 				OpI32Const, int32(0),
-				OpI32Const, int32(0),
 				OpLocalGet, 0,
 				OpCall, uint64(stateStoreIdx),
 
@@ -352,7 +335,6 @@ var _ = Describe("Statement Compiler", func() {
 				OpI32Const, int32(3),
 				OpI32Mul,
 				OpLocalSet, 0,
-				OpI32Const, int32(0),
 				OpI32Const, int32(0),
 				OpLocalGet, 0,
 				OpCall, uint64(stateStoreIdx),
@@ -1337,6 +1319,176 @@ var _ = Describe("Statement Compiler", func() {
 					OpCall, uint64(readIdx), // channel_read_i32
 					OpI32Add,
 					OpLocalSet, 0,
+				))
+			})
+		})
+
+		Describe("Channel Alias Reads", func() {
+			It("Should compile channel alias read assigned to f64 scalar", func() {
+				resolver := symbol.MapResolver{
+					"sensor": {
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   100,
+					},
+				}
+				bytecode, imports := compileWithChannels(`
+					local_ref := sensor
+					value f64 := 0.0
+					value = local_ref
+				`, resolver)
+				readIdx := imports.ChannelRead["f64"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					// local_ref := sensor (stores channel ID in local)
+					OpI32Const, int32(100),
+					OpLocalSet, 0,
+					// value := 0.0
+					OpF64Const, float64(0.0),
+					OpLocalSet, 1,
+					// value = local_ref (get channel ID from local, read channel)
+					OpLocalGet, 0,
+					OpCall, uint64(readIdx),
+					OpLocalSet, 1,
+				))
+			})
+
+			It("Should compile channel alias read assigned to stateful f64 scalar", func() {
+				resolver := symbol.MapResolver{
+					"sensor": {
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   100,
+					},
+				}
+				bytecode, imports := compileWithChannels(`
+					local_ref := sensor
+					value f64 $= 0.0
+					value = local_ref
+				`, resolver)
+				readIdx := imports.ChannelRead["f64"]
+				stateLoadIdx := imports.StateLoad["f64"]
+				stateStoreIdx := imports.StateStore["f64"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					// local_ref := sensor (stores channel ID)
+					OpI32Const, int32(100),
+					OpLocalSet, 0,
+					// value f64 $= 0.0 (state ID = 1 because local_ref takes slot 0)
+					OpI32Const, int32(1),
+					OpF64Const, float64(0.0),
+					OpCall, uint64(stateLoadIdx),
+					OpLocalSet, 1,
+					// value = local_ref (read channel via alias, store + persist)
+					OpLocalGet, 0,
+					OpCall, uint64(readIdx),
+					OpLocalSet, 1,
+					OpI32Const, int32(1),
+					OpLocalGet, 1,
+					OpCall, uint64(stateStoreIdx),
+				))
+			})
+
+			It("Should compile i32 channel alias read assigned to i32 scalar", func() {
+				resolver := symbol.MapResolver{
+					"int_ch": {
+						Name: "int_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   200,
+					},
+				}
+				bytecode, imports := compileWithChannels(`
+					ref := int_ch
+					result i32 := 0
+					result = ref
+				`, resolver)
+				readIdx := imports.ChannelRead["i32"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					// ref := int_ch (stores channel ID)
+					OpI32Const, int32(200),
+					OpLocalSet, 0,
+					// result := 0
+					OpI32Const, int32(0),
+					OpLocalSet, 1,
+					// result = ref (get channel ID, read, store)
+					OpLocalGet, 0,
+					OpCall, uint64(readIdx),
+					OpLocalSet, 1,
+				))
+			})
+
+			It("Should compile channel alias read written to another channel", func() {
+				resolver := symbol.MapResolver{
+					"sensor": {
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   100,
+					},
+					"output_ch": {
+						Name: "output_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   200,
+					},
+				}
+				bytecode, imports := compileWithChannels(`
+					sensor_ref := sensor
+					output_ch = sensor_ref
+				`, resolver)
+				readIdx := imports.ChannelRead["f64"]
+				writeIdx := imports.ChannelWrite["f64"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					// sensor_ref := sensor (stores channel ID)
+					OpI32Const, int32(100),
+					OpLocalSet, 0,
+					// output_ch = sensor_ref (push output ID, read alias, write)
+					OpI32Const, int32(200),
+					OpLocalGet, 0,
+					OpCall, uint64(readIdx),
+					OpCall, uint64(writeIdx),
+				))
+			})
+
+			It("Should compile conditional channel alias read with scalar assignment", func() {
+				resolver := symbol.MapResolver{
+					"sensor": {
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   100,
+					},
+				}
+				bytecode, imports := compileWithChannels(`
+					ref := sensor
+					value f64 := 0.0
+					if ref > 100.0 { value = ref }
+				`, resolver)
+				readIdx := imports.ChannelRead["f64"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					// ref := sensor (stores channel ID)
+					OpI32Const, int32(100),
+					OpLocalSet, 0,
+					// value := 0.0
+					OpF64Const, float64(0.0),
+					OpLocalSet, 1,
+					// if ref > 100.0
+					OpLocalGet, 0,
+					OpCall, uint64(readIdx),
+					OpF64Const, float64(100.0),
+					OpF64Gt,
+					OpIf, BlockTypeEmpty,
+					// value = ref
+					OpLocalGet, 0,
+					OpCall, uint64(readIdx),
+					OpLocalSet, 1,
+					OpEnd,
 				))
 			})
 		})

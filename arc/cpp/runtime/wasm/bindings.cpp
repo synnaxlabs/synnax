@@ -12,7 +12,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "x/cpp/xmemory/local_shared.h"
+#include "x/cpp/mem/local_shared.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/types/types.h"
@@ -87,24 +87,27 @@ Bindings::Bindings(
     }                                                                                  \
     void Bindings::channel_write_##suffix(uint32_t channel_id, cpptype value) {        \
         if (this->state == nullptr) return;                                            \
-        auto data = xmemory::make_local_shared<telem::Series>(value, data_type_const); \
-        auto time = xmemory::make_local_shared<telem::Series>(                         \
-            telem::TimeStamp::now()                                                    \
+        auto data = x::mem::make_local_shared<x::telem::Series>(                       \
+            value,                                                                     \
+            data_type_const                                                            \
+        );                                                                             \
+        auto time = x::mem::make_local_shared<x::telem::Series>(                       \
+            x::telem::TimeStamp::now()                                                 \
         );                                                                             \
         this->state                                                                    \
             ->write_channel(static_cast<types::ChannelKey>(channel_id), data, time);   \
     }
 
-IMPL_CHANNEL_OPS(u8, uint8_t, 0, telem::UINT8_T)
-IMPL_CHANNEL_OPS(u16, uint16_t, 0, telem::UINT16_T)
-IMPL_CHANNEL_OPS(u32, uint32_t, 0, telem::UINT32_T)
-IMPL_CHANNEL_OPS(u64, uint64_t, 0, telem::UINT64_T)
-IMPL_CHANNEL_OPS(i8, int8_t, 0, telem::INT8_T)
-IMPL_CHANNEL_OPS(i16, int16_t, 0, telem::INT16_T)
-IMPL_CHANNEL_OPS(i32, int32_t, 0, telem::INT32_T)
-IMPL_CHANNEL_OPS(i64, int64_t, 0, telem::INT64_T)
-IMPL_CHANNEL_OPS(f32, float, 0.0f, telem::FLOAT32_T)
-IMPL_CHANNEL_OPS(f64, double, 0.0, telem::FLOAT64_T)
+IMPL_CHANNEL_OPS(u8, uint8_t, 0, x::telem::UINT8_T)
+IMPL_CHANNEL_OPS(u16, uint16_t, 0, x::telem::UINT16_T)
+IMPL_CHANNEL_OPS(u32, uint32_t, 0, x::telem::UINT32_T)
+IMPL_CHANNEL_OPS(u64, uint64_t, 0, x::telem::UINT64_T)
+IMPL_CHANNEL_OPS(i8, int8_t, 0, x::telem::INT8_T)
+IMPL_CHANNEL_OPS(i16, int16_t, 0, x::telem::INT16_T)
+IMPL_CHANNEL_OPS(i32, int32_t, 0, x::telem::INT32_T)
+IMPL_CHANNEL_OPS(i64, int64_t, 0, x::telem::INT64_T)
+IMPL_CHANNEL_OPS(f32, float, 0.0f, x::telem::FLOAT32_T)
+IMPL_CHANNEL_OPS(f64, double, 0.0, x::telem::FLOAT64_T)
 
 #undef IMPL_CHANNEL_OPS
 
@@ -122,29 +125,21 @@ void Bindings::channel_write_str(uint32_t channel_id, uint32_t str_handle) {
     if (this->state == nullptr) return;
     std::string str_value = this->state->string_get(str_handle);
     if (str_value.empty()) return;
-    const auto data = xmemory::make_local_shared<telem::Series>(str_value);
-    const auto time = xmemory::make_local_shared<telem::Series>(
-        telem::TimeStamp::now()
+    const auto data = x::mem::make_local_shared<x::telem::Series>(str_value);
+    const auto time = x::mem::make_local_shared<x::telem::Series>(
+        x::telem::TimeStamp::now()
     );
     this->state->write_channel(static_cast<types::ChannelKey>(channel_id), data, time);
 }
 
 #define IMPL_STATE_OPS(suffix, cpptype)                                                \
-    cpptype Bindings::state_load_##suffix(                                             \
-        uint32_t func_id,                                                              \
-        uint32_t var_id,                                                               \
-        cpptype init_value                                                             \
-    ) {                                                                                \
+    cpptype Bindings::state_load_##suffix(uint32_t var_id, cpptype init_value) {       \
         if (this->state == nullptr) return init_value;                                 \
-        return this->state->var_load_##suffix(func_id, var_id, init_value);            \
+        return this->state->var_load_##suffix(var_id, init_value);                     \
     }                                                                                  \
-    void Bindings::state_store_##suffix(                                               \
-        uint32_t func_id,                                                              \
-        uint32_t var_id,                                                               \
-        cpptype value                                                                  \
-    ) {                                                                                \
+    void Bindings::state_store_##suffix(uint32_t var_id, cpptype value) {              \
         if (this->state == nullptr) return;                                            \
-        this->state->var_store_##suffix(func_id, var_id, value);                       \
+        this->state->var_store_##suffix(var_id, value);                                \
     }
 
 IMPL_STATE_OPS(u8, uint8_t)
@@ -160,22 +155,14 @@ IMPL_STATE_OPS(f64, double)
 
 #undef IMPL_STATE_OPS
 
-uint32_t Bindings::state_load_str(
-    const uint32_t func_id,
-    const uint32_t var_id,
-    const uint32_t init_handle
-) {
+uint32_t Bindings::state_load_str(const uint32_t var_id, const uint32_t init_handle) {
     if (this->state == nullptr) return init_handle;
-    return this->state->var_load_str(func_id, var_id, init_handle);
+    return this->state->var_load_str(var_id, init_handle);
 }
 
-void Bindings::state_store_str(
-    const uint32_t func_id,
-    const uint32_t var_id,
-    const uint32_t str_handle
-) {
+void Bindings::state_store_str(const uint32_t var_id, const uint32_t str_handle) {
     if (this->state == nullptr) return;
-    this->state->var_store_str(func_id, var_id, str_handle);
+    this->state->var_store_str(var_id, str_handle);
 }
 
 uint64_t Bindings::series_len(const uint32_t handle) {
@@ -196,7 +183,7 @@ uint32_t Bindings::series_slice(
     const auto src_size = src->size();
     if (start >= src_size || end > src_size || start >= end) return 0;
     const auto slice_len = end - start;
-    auto sliced = telem::Series(src->data_type(), slice_len);
+    auto sliced = x::telem::Series(src->data_type(), slice_len);
     const auto density = src->data_type().density();
     std::memcpy(sliced.data(), src->data() + start * density, slice_len * density);
     sliced.resize(slice_len);
@@ -287,7 +274,7 @@ std::string Bindings::string_get(const uint32_t handle) const {
 #define IMPL_SERIES_OPS(suffix, cpptype, data_type_const)                              \
     uint32_t Bindings::series_create_empty_##suffix(uint32_t length) {                 \
         if (this->state == nullptr) return 0;                                          \
-        auto s = telem::Series(data_type_const, static_cast<size_t>(length));          \
+        auto s = x::telem::Series(data_type_const, static_cast<size_t>(length));       \
         s.resize(length);                                                              \
         return this->state->series_store(std::move(s));                                \
     }                                                                                  \
@@ -416,32 +403,27 @@ std::string Bindings::string_get(const uint32_t handle) const {
         return this->state->series_store(std::move(result));                           \
     }                                                                                  \
     uint32_t Bindings::state_load_series_##suffix(                                     \
-        uint32_t func_id,                                                              \
         uint32_t var_id,                                                               \
         uint32_t init_handle                                                           \
     ) {                                                                                \
         if (this->state == nullptr) return init_handle;                                \
-        return this->state->var_load_series(func_id, var_id, init_handle);             \
+        return this->state->var_load_series(var_id, init_handle);                      \
     }                                                                                  \
-    void Bindings::state_store_series_##suffix(                                        \
-        uint32_t func_id,                                                              \
-        uint32_t var_id,                                                               \
-        uint32_t handle                                                                \
-    ) {                                                                                \
+    void Bindings::state_store_series_##suffix(uint32_t var_id, uint32_t handle) {     \
         if (this->state == nullptr) return;                                            \
-        this->state->var_store_series(func_id, var_id, handle);                        \
+        this->state->var_store_series(var_id, handle);                                 \
     }
 
-IMPL_SERIES_OPS(u8, uint8_t, telem::UINT8_T)
-IMPL_SERIES_OPS(u16, uint16_t, telem::UINT16_T)
-IMPL_SERIES_OPS(u32, uint32_t, telem::UINT32_T)
-IMPL_SERIES_OPS(u64, uint64_t, telem::UINT64_T)
-IMPL_SERIES_OPS(i8, int8_t, telem::INT8_T)
-IMPL_SERIES_OPS(i16, int16_t, telem::INT16_T)
-IMPL_SERIES_OPS(i32, int32_t, telem::INT32_T)
-IMPL_SERIES_OPS(i64, int64_t, telem::INT64_T)
-IMPL_SERIES_OPS(f32, float, telem::FLOAT32_T)
-IMPL_SERIES_OPS(f64, double, telem::FLOAT64_T)
+IMPL_SERIES_OPS(u8, uint8_t, x::telem::UINT8_T)
+IMPL_SERIES_OPS(u16, uint16_t, x::telem::UINT16_T)
+IMPL_SERIES_OPS(u32, uint32_t, x::telem::UINT32_T)
+IMPL_SERIES_OPS(u64, uint64_t, x::telem::UINT64_T)
+IMPL_SERIES_OPS(i8, int8_t, x::telem::INT8_T)
+IMPL_SERIES_OPS(i16, int16_t, x::telem::INT16_T)
+IMPL_SERIES_OPS(i32, int32_t, x::telem::INT32_T)
+IMPL_SERIES_OPS(i64, int64_t, x::telem::INT64_T)
+IMPL_SERIES_OPS(f32, float, x::telem::FLOAT32_T)
+IMPL_SERIES_OPS(f64, double, x::telem::FLOAT64_T)
 
 #undef IMPL_SERIES_OPS
 #undef IMPL_SERIES_SCALAR_OP
@@ -476,7 +458,7 @@ uint32_t Bindings::series_not_u8(uint32_t handle) {
 }
 
 uint64_t Bindings::now() {
-    return static_cast<uint64_t>(telem::TimeStamp::now().nanoseconds());
+    return static_cast<uint64_t>(x::telem::TimeStamp::now().nanoseconds());
 }
 
 uint64_t Bindings::len(const uint32_t handle) {
@@ -497,7 +479,7 @@ void Bindings::panic(const uint32_t ptr, const uint32_t len) {
             message = std::string(reinterpret_cast<const char *>(mem_data + ptr), len);
     }
     std::fprintf(stderr, "WASM panic: %s\n", message.c_str());
-    this->error_handler(xerrors::Error(errors::WASM_PANIC, message));
+    this->error_handler(x::errors::Error(errors::WASM_PANIC, message));
 }
 
 template<typename T>

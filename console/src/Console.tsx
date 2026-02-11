@@ -35,9 +35,11 @@ import { COMMANDS } from "@/commands";
 import { CSV } from "@/csv";
 import { Docs } from "@/docs";
 import { Errors } from "@/errors";
+import { Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
 import { Hardware } from "@/hardware";
-import { FILE_INGESTORS } from "@/ingestors";
+import { Import } from "@/import";
+import { FILE_INGESTERS } from "@/ingesters";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
@@ -176,15 +178,15 @@ export const Console = (): ReactElement => (
       <Errors.OverlayWithStore>
         <Layout.RendererProvider value={LAYOUT_RENDERERS}>
           <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
-            <Ontology.ServicesProvider services={SERVICES}>
-              <Palette.CommandProvider
-                commands={COMMANDS}
-                fileIngestors={FILE_INGESTORS}
-                extractors={EXTRACTORS}
-              >
-                <MainUnderContext />
-              </Palette.CommandProvider>
-            </Ontology.ServicesProvider>
+            <Import.FileIngestersProvider fileIngesters={FILE_INGESTERS}>
+              <Export.ExtractorsProvider extractors={EXTRACTORS}>
+                <Ontology.ServicesProvider services={SERVICES}>
+                  <Palette.CommandProvider commands={COMMANDS}>
+                    <MainUnderContext />
+                  </Palette.CommandProvider>
+                </Ontology.ServicesProvider>
+              </Export.ExtractorsProvider>
+            </Import.FileIngestersProvider>
           </Layout.ContextMenuProvider>
         </Layout.RendererProvider>
       </Errors.OverlayWithStore>

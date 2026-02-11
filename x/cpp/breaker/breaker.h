@@ -17,10 +17,10 @@
 
 #include "glog/logging.h"
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
 
-namespace breaker {
+namespace x::breaker {
 /// @brief tells the breaker to retry infinitely.
 constexpr int RETRY_INFINITELY = -1;
 
@@ -106,7 +106,7 @@ public:
 
     /// @brief triggers the breaker and logs the provided error as its message.
     /// @see wait() for more information.
-    bool wait(const xerrors::Error &err) { return this->wait(err.message()); }
+    bool wait(const errors::Error &err) { return this->wait(err.message()); }
 
     /// @brief triggers the breaker. If the maximum number of retries has been
     /// exceeded, immediately returns false. Otherwise, sleeps the current thread

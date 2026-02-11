@@ -11,38 +11,39 @@
 
 #include "driver/sequence/plugins/plugins.h"
 
-class MockPlugin : public plugins::Plugin {
+namespace driver::sequence::plugins {
+class MockPlugin : public Plugin {
 public:
     std::vector<std::string> calls;
     bool should_error = false;
     std::string error_on;
 
-    xerrors::Error before_all(lua_State *L) override {
+    x::errors::Error before_all(lua_State *L) override {
         calls.emplace_back("before_all");
         if (should_error && error_on == "before_all")
-            return xerrors::Error("mock error");
-        return xerrors::NIL;
+            return x::errors::Error("mock error");
+        return x::errors::NIL;
     }
 
-    xerrors::Error after_all(lua_State *L) override {
+    x::errors::Error after_all(lua_State *L) override {
         calls.emplace_back("after_all");
         if (should_error && error_on == "after_all")
-            return xerrors::Error("mock error");
-        return xerrors::NIL;
+            return x::errors::Error("mock error");
+        return x::errors::NIL;
     }
 
-    xerrors::Error before_next(lua_State *L) override {
+    x::errors::Error before_next(lua_State *L) override {
         calls.emplace_back("before_next");
         if (should_error && error_on == "before_next")
-            return xerrors::Error("mock error");
-        return xerrors::NIL;
+            return x::errors::Error("mock error");
+        return x::errors::NIL;
     }
 
-    xerrors::Error after_next(lua_State *L) override {
+    x::errors::Error after_next(lua_State *L) override {
         calls.emplace_back("after_next");
         if (should_error && error_on == "after_next")
-            return xerrors::Error("mock error");
-        return xerrors::NIL;
+            return x::errors::Error("mock error");
+        return x::errors::NIL;
     }
 };
 
@@ -50,14 +51,14 @@ public:
 TEST(MultiPlugin, testCallOrder) {
     auto plugin1 = std::make_shared<MockPlugin>();
     auto plugin2 = std::make_shared<MockPlugin>();
-    std::vector<std::shared_ptr<plugins::Plugin>> plugins = {plugin1, plugin2};
+    std::vector<std::shared_ptr<Plugin>> plugins = {plugin1, plugin2};
 
-    auto multi = plugins::MultiPlugin(plugins);
+    auto multi = MultiPlugin(plugins);
 
-    ASSERT_EQ(multi.before_all(nullptr), xerrors::NIL);
-    ASSERT_EQ(multi.before_next(nullptr), xerrors::NIL);
-    ASSERT_EQ(multi.after_next(nullptr), xerrors::NIL);
-    ASSERT_EQ(multi.after_all(nullptr), xerrors::NIL);
+    ASSERT_EQ(multi.before_all(nullptr), x::errors::NIL);
+    ASSERT_EQ(multi.before_next(nullptr), x::errors::NIL);
+    ASSERT_EQ(multi.after_next(nullptr), x::errors::NIL);
+    ASSERT_EQ(multi.after_all(nullptr), x::errors::NIL);
 
     std::vector<std::string> expected =
         {"before_all", "before_next", "after_next", "after_all"};
@@ -72,11 +73,11 @@ TEST(MultiPlugin, testErrorPropagationBeforeAll) {
     plugin2->should_error = true;
     plugin2->error_on = "before_all";
 
-    std::vector<std::shared_ptr<plugins::Plugin>> plugins = {plugin1, plugin2};
-    auto multi = plugins::MultiPlugin(plugins);
+    std::vector<std::shared_ptr<Plugin>> plugins = {plugin1, plugin2};
+    auto multi = MultiPlugin(plugins);
 
     auto err = multi.before_all(nullptr);
-    ASSERT_NE(err, xerrors::NIL);
+    ASSERT_NE(err, x::errors::NIL);
     ASSERT_EQ(plugin1->calls.size(), 1);
     ASSERT_EQ(plugin2->calls.size(), 1);
 }
@@ -88,11 +89,11 @@ TEST(MultiPlugin, testErrorPropagationAfterAll) {
     plugin2->should_error = true;
     plugin2->error_on = "after_all";
 
-    std::vector<std::shared_ptr<plugins::Plugin>> plugins = {plugin1, plugin2};
-    auto multi = plugins::MultiPlugin(plugins);
+    std::vector<std::shared_ptr<Plugin>> plugins = {plugin1, plugin2};
+    auto multi = MultiPlugin(plugins);
 
     auto err = multi.after_all(nullptr);
-    ASSERT_NE(err, xerrors::NIL);
+    ASSERT_NE(err, x::errors::NIL);
     ASSERT_EQ(plugin1->calls.size(), 1);
     ASSERT_EQ(plugin2->calls.size(), 1);
 }
@@ -104,11 +105,11 @@ TEST(MultiPlugin, testErrorPropagationBeforeNext) {
     plugin2->should_error = true;
     plugin2->error_on = "before_next";
 
-    std::vector<std::shared_ptr<plugins::Plugin>> plugins = {plugin1, plugin2};
-    auto multi = plugins::MultiPlugin(plugins);
+    std::vector<std::shared_ptr<Plugin>> plugins = {plugin1, plugin2};
+    auto multi = MultiPlugin(plugins);
 
     auto err = multi.before_next(nullptr);
-    ASSERT_NE(err, xerrors::NIL);
+    ASSERT_NE(err, x::errors::NIL);
     ASSERT_EQ(plugin1->calls.size(), 1);
     ASSERT_EQ(plugin2->calls.size(), 1);
 }
@@ -120,11 +121,11 @@ TEST(MultiPlugin, testErrorPropagationAfterNext) {
     plugin2->should_error = true;
     plugin2->error_on = "after_next";
 
-    std::vector<std::shared_ptr<plugins::Plugin>> plugins = {plugin1, plugin2};
-    auto multi = plugins::MultiPlugin(plugins);
+    std::vector<std::shared_ptr<Plugin>> plugins = {plugin1, plugin2};
+    auto multi = MultiPlugin(plugins);
 
     auto err = multi.after_next(nullptr);
-    ASSERT_NE(err, xerrors::NIL);
+    ASSERT_NE(err, x::errors::NIL);
     ASSERT_EQ(plugin1->calls.size(), 1);
     ASSERT_EQ(plugin2->calls.size(), 1);
 }
@@ -139,11 +140,11 @@ TEST(MultiPlugin, testAfterAllCallsAllPlugins) {
     plugin2->should_error = true;
     plugin2->error_on = "after_all";
 
-    std::vector<std::shared_ptr<plugins::Plugin>> plugins = {plugin1, plugin2, plugin3};
-    auto multi = plugins::MultiPlugin(plugins);
+    std::vector<std::shared_ptr<Plugin>> plugins = {plugin1, plugin2, plugin3};
+    auto multi = MultiPlugin(plugins);
 
     auto err = multi.after_all(nullptr);
-    ASSERT_NE(err, xerrors::NIL);
+    ASSERT_NE(err, x::errors::NIL);
 
     // Verify that all plugins had after_all called
     ASSERT_EQ(plugin1->calls.size(), 1);
@@ -154,4 +155,5 @@ TEST(MultiPlugin, testAfterAllCallsAllPlugins) {
 
     ASSERT_EQ(plugin3->calls.size(), 1);
     ASSERT_EQ(plugin3->calls[0], "after_all");
+}
 }

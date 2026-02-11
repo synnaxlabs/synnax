@@ -1,6 +1,6 @@
 {
   "name": "stylelint-config-synnaxlabs",
-  "version": "0.50.0",
+  "version": "0.51.0",
   "description": "Synnax Style Lint Configuration",
   "main": "index.ts",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/configs/stylelint",

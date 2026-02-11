@@ -7,13 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from __future__ import annotations
-
 import synnax as sy
+from playwright.sync_api import Locator
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from synnax.channel.payload import ChannelName
 
-from .console import Console
-from .page import ConsolePage
+from console.layout import LayoutClient
+from console.page import ConsolePage
 
 
 class Log(ConsolePage):
@@ -22,79 +22,36 @@ class Log(ConsolePage):
     page_type: str = "Log"
     pluto_label: str = ".pluto-log"
 
-    @classmethod
-    def open_from_search(cls, client: sy.Synnax, console: Console, name: str) -> Log:
-        """Open an existing log by searching its name in the command palette.
-
-        Args:
-            client: Synnax client instance.
-            console: Console instance.
-            name: Name of the log to search for and open.
-
-        Returns:
-            Log instance for the opened log.
-        """
-        console.search_palette(name)
-
-        log_pane = console.page.locator(cls.pluto_label)
-        log_pane.first.wait_for(state="visible", timeout=5000)
-
-        log = cls.__new__(cls)
-        log.client = client
-        log.console = console
-        log.page = console.page
-        log.page_name = name
-        log.pane_locator = log_pane.first
-        return log
-
     def __init__(
         self,
+        layout: LayoutClient,
         client: sy.Synnax,
-        console: Console,
         page_name: str,
         channel_name: ChannelName | None = None,
+        *,
+        pane_locator: Locator,
     ) -> None:
-        """
-        Initialize a Log page.
-
-        Args:
-            client: Synnax client instance
-            console: Console instance
-            page_name: Name for the page
-            channel_name: Optional channel to set for the log page
-        """
-        super().__init__(client, console, page_name)
+        """Initialize a Log page wrapper (see ConsolePage.__init__ for details)."""
+        super().__init__(layout, client, page_name, pane_locator=pane_locator)
 
         if channel_name is not None:
             self.set_channel(channel_name)
 
     def set_channel(self, channel_name: str) -> None:
-        self.console.click_btn("Channel")
-        self.console.select_from_dropdown(channel_name, "Select a Channel")
+        self.layout.show_visualization_toolbar()
+        self.layout.click_btn("Channel")
+        self.layout.select_from_dropdown(channel_name, "Select a Channel")
 
     def has_channel(self, channel_name: str) -> bool:
         """Check if a channel is shown in the Log toolbar."""
-        self.console.layout.get_tab(self.page_name).click()
-        self.console.layout.show_visualization_toolbar()
+        self.layout.get_tab(self.page_name).click()
+        self.layout.show_visualization_toolbar()
         channel_btn = (
             self.page.locator("text=Channel").locator("..").locator("button").first
         )
         channel_text = channel_btn.inner_text().strip()
         result = channel_name in channel_text
         return result
-
-    def copy_link(self) -> str:
-        """Copy link to the log via the toolbar link button."""
-        self.console.notifications.close_all()
-        self.console.layout.show_visualization_toolbar()
-        link_button = self.page.locator(".pluto-icon--link").locator("..")
-        link_button.click(timeout=5000)
-
-        try:
-            link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
-            return link
-        except Exception:
-            return ""
 
     def is_empty(self) -> bool:
         """Check if the log shows any empty state message."""
@@ -123,51 +80,27 @@ class Log(ConsolePage):
         live_button = self.pane_locator.locator("button.pluto-log__live")
         return live_button.count() > 0
 
-    def wait_until_streaming(self, timeout_ms: int = 5000) -> bool:
-        """Wait until the log starts streaming data.
-
-        Args:
-            timeout_ms: Maximum time to wait in milliseconds.
-
-        Returns:
-            True if streaming started, False if timeout reached.
-
-        Raises:
-            Exception: Re-raises any non-timeout exceptions.
-        """
+    def wait_until_streaming(self) -> bool:
+        """Wait until the log starts streaming data."""
         live_button = self.page.locator(
             f"{self.pluto_label} button.pluto-log__live"
         ).first
         try:
-            live_button.wait_for(state="visible", timeout=timeout_ms)
+            live_button.wait_for(state="visible", timeout=5000)
             return True
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                return False
-            raise RuntimeError from e
+        except PlaywrightTimeoutError:
+            return False
 
-    def wait_until_waiting_for_data(self, timeout_ms: int = 5000) -> bool:
-        """Wait until the log shows 'No data received yet' message.
-
-        Args:
-            timeout_ms: Maximum time to wait in milliseconds.
-
-        Returns:
-            True if waiting state reached, False if timeout reached.
-
-        Raises:
-            Exception: Re-raises any non-timeout exceptions.
-        """
+    def wait_until_waiting_for_data(self) -> bool:
+        """Wait until the log shows 'No data received yet' message."""
         waiting_message = self.page.locator(self.pluto_label).get_by_text(
             "No data received yet"
         )
         try:
-            waiting_message.wait_for(state="visible", timeout=timeout_ms)
+            waiting_message.wait_for(state="visible", timeout=5000)
             return True
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                return False
-            raise RuntimeError from e
+        except PlaywrightTimeoutError:
+            return False
 
     def is_scrolling_paused(self) -> bool:
         """Check if log scrolling is paused."""

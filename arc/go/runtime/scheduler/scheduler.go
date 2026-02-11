@@ -210,10 +210,13 @@ func (s *Scheduler) reportError(err error) {
 //
 // The changed set is cleared at the start of each stage strata execution to ensure
 // independent change propagation between stages.
-func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan) {
+// The reason parameter indicates what triggered this scheduler run (timer tick or
+// channel input). Time-based nodes use this to only fire on timer ticks.
+func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan, reason rnode.RunReason) {
 	s.nodeCtx.Context = ctx
 	s.nodeCtx.Elapsed = elapsed
 	s.nodeCtx.Tolerance = s.tolerance
+	s.nodeCtx.Reason = reason
 	s.currSeqIdx = -1
 	s.currStageIdx = -1
 	s.execStrata(s.globalStrata)

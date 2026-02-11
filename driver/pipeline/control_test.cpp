@@ -9,37 +9,40 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/pipeline/control.h"
 #include "driver/pipeline/mock/pipeline.h"
 
+namespace driver::pipeline {
 /// @brief it should read frames from streamer and write to sink.
 TEST(ControlPipeline, testHappyPath) {
-    auto fr_1 = telem::Frame(1);
-    fr_1.emplace(1, telem::Series(1.0));
-    auto fr_2 = telem::Frame(1);
-    fr_2.emplace(1, telem::Series(2.0));
-    const auto reads = std::make_shared<std::vector<telem::Frame>>();
+    auto fr_1 = x::telem::Frame(1);
+    fr_1.emplace(1, x::telem::Series(1.0));
+    auto fr_2 = x::telem::Frame(1);
+    fr_2.emplace(1, x::telem::Series(2.0));
+    const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     reads->push_back(std::move(fr_1));
     reads->push_back(std::move(fr_2));
-    const auto read_errors = std::make_shared<std::vector<xerrors::Error>>(std::vector{
-        xerrors::NIL,
-        xerrors::NIL,
-    });
-    const auto streamer_config = synnax::StreamerConfig{.channels = {1}};
-    const auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
-        std::vector<xerrors::Error>{},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(std::vector{
-            pipeline::mock::StreamerConfig{reads, read_errors, xerrors::NIL}
-        })
+    const auto read_errors = std::make_shared<std::vector<x::errors::Error>>(
+        std::vector{
+            x::errors::NIL,
+            x::errors::NIL,
+        }
     );
-    const auto sink = std::make_shared<pipeline::mock::Sink>();
-    auto control = pipeline::Control(
+    const auto streamer_config = synnax::framer::StreamerConfig{.channels = {1}};
+    const auto streamer_factory = std::make_shared<mock::StreamerFactory>(
+        std::vector<x::errors::Error>{},
+        std::make_shared<std::vector<mock::StreamerConfig>>(
+            std::vector{mock::StreamerConfig{reads, read_errors, x::errors::NIL}}
+        )
+    );
+    const auto sink = std::make_shared<mock::Sink>();
+    auto control = Control(
         streamer_factory,
         streamer_config,
         sink,
-        breaker::Config{}
+        x::breaker::Config{}
     );
     control.start();
     ASSERT_EVENTUALLY_EQ(sink->writes->size(), 2);
@@ -48,66 +51,72 @@ TEST(ControlPipeline, testHappyPath) {
 
 /// @brief it should stop and report error when streamer open fails with unknown error.
 TEST(ControlPipeline, testUnknownErrOnOpen) {
-    const auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
-        std::vector{xerrors::UNKNOWN},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>()
+    const auto streamer_factory = std::make_shared<mock::StreamerFactory>(
+        std::vector{x::errors::UNKNOWN},
+        std::make_shared<std::vector<mock::StreamerConfig>>()
     );
-    const auto sink = std::make_shared<pipeline::mock::Sink>();
-    auto control = pipeline::Control(
+    const auto sink = std::make_shared<mock::Sink>();
+    auto control = Control(
         streamer_factory,
-        synnax::StreamerConfig{},
+        synnax::framer::StreamerConfig{},
         sink,
-        breaker::Config{}
+        x::breaker::Config{}
     );
     control.start();
     ASSERT_EVENTUALLY_EQ(sink->writes->size(), 0);
     control.stop();
-    ASSERT_MATCHES(sink->stop_err, xerrors::UNKNOWN);
+    ASSERT_MATCHES(sink->stop_err, x::errors::UNKNOWN);
 }
 
 /// @brief it should retry opening streamer on unreachable error and succeed.
 TEST(ControlPipeline, testOpenRetrySuccessful) {
-    auto fr_1 = telem::Frame(1);
-    fr_1.emplace(1, telem::Series(1.0));
-    auto fr_2 = telem::Frame(1);
-    fr_2.emplace(1, telem::Series(2.0));
-    const auto reads = std::make_shared<std::vector<telem::Frame>>();
+    auto fr_1 = x::telem::Frame(1);
+    fr_1.emplace(1, x::telem::Series(1.0));
+    auto fr_2 = x::telem::Frame(1);
+    fr_2.emplace(1, x::telem::Series(2.0));
+    const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     reads->push_back(std::move(fr_1));
     reads->push_back(std::move(fr_2));
-    const auto read_errors = std::make_shared<std::vector<xerrors::Error>>(std::vector{
-        xerrors::NIL,
-        xerrors::NIL,
-    });
-    const auto streamer_config = synnax::StreamerConfig{.channels = {1}};
-    const auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
-        std::vector{freighter::UNREACHABLE, freighter::UNREACHABLE, xerrors::NIL},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(std::vector{
-            pipeline::mock::StreamerConfig{
+    const auto read_errors = std::make_shared<std::vector<x::errors::Error>>(
+        std::vector{
+            x::errors::NIL,
+            x::errors::NIL,
+        }
+    );
+    const auto streamer_config = synnax::framer::StreamerConfig{.channels = {1}};
+    const auto streamer_factory = std::make_shared<mock::StreamerFactory>(
+        std::vector{freighter::UNREACHABLE, freighter::UNREACHABLE, x::errors::NIL},
+        std::make_shared<std::vector<mock::StreamerConfig>>(std::vector{
+            mock::StreamerConfig{
                 reads,
                 read_errors,
-                xerrors::NIL,
+                x::errors::NIL,
             },
-            pipeline::mock::StreamerConfig{
+            mock::StreamerConfig{
                 reads,
                 read_errors,
-                xerrors::NIL,
+                x::errors::NIL,
             },
-            pipeline::mock::StreamerConfig{reads, read_errors, xerrors::NIL}
+            mock::StreamerConfig{reads, read_errors, x::errors::NIL}
         })
     );
-    const auto sink = std::make_shared<pipeline::mock::Sink>();
-    auto control = pipeline::Control(
+    const auto sink = std::make_shared<mock::Sink>();
+    auto control = Control(
         streamer_factory,
         streamer_config,
         sink,
-        breaker::Config{
-            .base_interval = telem::MICROSECOND * 10,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
             .max_retries = 2,
         }
     );
 
     control.start();
-    ASSERT_EVENTUALLY_EQ(streamer_factory->streamer_opens, 3);
+    ASSERT_EVENTUALLY_EQ(
+        streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        3
+    );
     ASSERT_EVENTUALLY_EQ(sink->writes->size(), 2);
     control.stop();
+}
 }

@@ -18,6 +18,8 @@ BUILD_DRIVER=$6
 BUILD_CONSOLE=$7
 BUILD_CONSOLE_TAURI=$8
 BUILD_CORE=$9
+DEBUG=${10}
+SIGNED=${11}
 
 # Verify that at least one platform is selected
 if [ "$PLATFORM_WINDOWS" != "true" ] && [ "$PLATFORM_MACOS" != "true" ] && [ "$PLATFORM_UBUNTU" != "true" ] && [ "$PLATFORM_DOCKER" != "true" ]; then
@@ -81,4 +83,15 @@ else
     echo "  X Core"
 fi
 echo ""
+echo "Settings:"
+if [ "$DEBUG" = "true" ]; then
+    echo "  ✓ Debug"
+else
+    echo "  X Debug"
+fi
+if [ "$SIGNED" = "true" ]; then
+    echo "  ✓ Signed"
+else
+    echo "  X Signed"
+fi
 echo "─────────────────────────────────────────"

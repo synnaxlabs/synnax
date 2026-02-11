@@ -6,9 +6,9 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
+        "//driver/common",
         "//driver/pipeline",
         "//driver/task",
-        "//driver/task/common",
         "//freighter/cpp:freighter",
         "//x/cpp/breaker",
         "//x/cpp/loop",
@@ -26,7 +26,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/rack/status",
         "//x/cpp/defer",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

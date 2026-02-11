@@ -9,21 +9,25 @@
 
 #pragma once
 
-#include "x/cpp/xlib/xlib.h"
-#include "x/cpp/xos/xos.h"
+#include "x/cpp/lib/lib.h"
+#include "x/cpp/os/os.h"
 
 #include "driver/errors/errors.h"
-#include "driver/labjack/errors.h"
 #include "driver/labjack/ljm/LabJackM.h"
 
-namespace ljm {
+namespace driver::labjack::ljm {
 #ifdef __APPLE__
 const std::string LJM_LIBRARY_NAME = "/usr/local/lib/libLabJackM.dylib";
 #else
 const std::string LJM_LIBRARY_NAME = "LabjackM.dll";
 #endif
 
-const auto LOAD_ERROR = driver::missing_lib(labjack::LABJACK_LJM);
+const LibraryInfo LIBRARY_INFO = {
+    "LabJack LJM shared",
+    "https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit"
+};
+
+const auto LOAD_ERROR = errors::missing_lib(LIBRARY_INFO);
 
 /// @brief API wrapped on top of LJM functions that the Synnax driver requires.
 class API {
@@ -49,11 +53,11 @@ class API {
     };
 
     /// @brief Shared library handle.
-    std::unique_ptr<xlib::SharedLib> lib;
+    std::unique_ptr<x::lib::SharedLib> lib;
     FunctionPointers func_ptrs;
 
 public:
-    explicit API(std::unique_ptr<xlib::SharedLib> lib_): lib(std::move(lib_)) {
+    explicit API(std::unique_ptr<x::lib::SharedLib> lib_): lib(std::move(lib_)) {
         memset(&func_ptrs, 0, sizeof(func_ptrs));
         func_ptrs.eStreamRead = reinterpret_cast<decltype(&LJM_eStreamRead)>(
             const_cast<void *>(lib->get_func_ptr("LJM_eStreamRead"))
@@ -112,10 +116,10 @@ public:
         );
     }
 
-    static std::pair<std::shared_ptr<API>, xerrors::Error> load() {
-        auto lib = std::make_unique<xlib::SharedLib>(LJM_LIBRARY_NAME);
+    static std::pair<std::shared_ptr<API>, x::errors::Error> load() {
+        auto lib = std::make_unique<x::lib::SharedLib>(LJM_LIBRARY_NAME);
         if (!lib->load()) return {nullptr, LOAD_ERROR};
-        return {std::make_shared<API>(std::move(lib)), xerrors::NIL};
+        return {std::make_shared<API>(std::move(lib)), x::errors::NIL};
     }
 
     [[nodiscard]] LJM_ERROR_RETURN e_stream_read(

@@ -17,11 +17,11 @@ const (
 	TypeEmpty = ""
 	// TypeNil represents a nil error i.e. one that has not occurred.
 	TypeNil = "nil"
-	// TypeUnknown represents an error that was not registered with the ferrors package.
+	// TypeUnknown represents an error that was not registered with the errors package.
 	TypeUnknown = "unknown"
-	// TypeRoach represents an error type that was encoded using cockroachdb's errors package.
-	// This is the default error type for errors that are not registered with the ferrors package,
-	// and is used mostly for go-to-go communication.
+	// TypeRoach represents an error type that was encoded using cockroachdb's errors
+	// package. This is the default error type for errors that are not registered with
+	// the errors package, and is used mostly for Go-to-Go communication.
 	TypeRoach = "roach"
 )
 
@@ -61,13 +61,11 @@ func Wrapf(err error, format string, args ...any) error {
 	return errors.Wrapf(err, format, args...)
 }
 
-// Join returns an error that wraps the given errors. Any nil error values are discarded.
-// Join returns nil if errs contains no non-nil values. The error formats as the
-// concatenation of the strings obtained by calling the Error method of each element of
-// errs, with a newline between each string. A stack trace is also retained.
-func Join(errs ...error) error {
-	return errors.Join(errs...)
-}
+// Join returns an error that wraps the given errors. Any nil error values are
+// discarded. Join returns nil if errs contains no non-nil values. The error formats as
+// the concatenation of the strings obtained by calling the Error method of each element
+// of errs, with a newline between each string. A stack trace is also retained.
+func Join(errs ...error) error { return errors.Join(errs...) }
 
 // Combine returns:
 //  1. err if otherErr is nil.
@@ -80,16 +78,14 @@ func Combine(err error, otherErr error) error {
 }
 
 // New creates an error with a simple error message. A stack trace is retained.
-func New(msg string) error {
-	return WithStackDepth(errors.New(msg), 1)
-}
+func New(msg string) error { return WithStackDepth(errors.New(msg), 1) }
 
 // Newf creates an error with a formatted error message. A stack trace is retained.
 func Newf(format string, args ...any) error { return errors.Newf(format, args...) }
 
 // As finds the first error in err's chain that matches the type to which target points,
-// and if so, sets the target to its value and returns true. An error matches a type if it
-// is assignable to the target type, or if it has a method As(any) bool such that
+// and if so, sets the target to its value and returns true. An error matches a type if
+// it is assignable to the target type, or if it has a method As(any) bool such that
 // As(target) returns true. As will panic if target is not a non-nil pointer to a type
 // which implements error or is of interface type.
 //

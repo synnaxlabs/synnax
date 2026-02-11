@@ -13,13 +13,12 @@
 #include "open62541/client.h"
 #include "open62541/client_highlevel.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/mock/server.h"
 
-using namespace opc::connection;
-
+namespace driver::opc::connection {
 class ConnectionPoolKeepAliveTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -211,4 +210,5 @@ TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
 
     // Verify we can still acquire successfully
     auto final_conn = ASSERT_NIL_P(pool.acquire(short_cfg, "[test] "));
+}
 }

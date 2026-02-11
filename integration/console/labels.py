@@ -7,16 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import time
 from re import search as re_search
-from typing import TYPE_CHECKING
 
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import Locator
 
+from console.context_menu import ContextMenu
+from console.layout import LayoutClient
+from console.notifications import NotificationsClient
+from console.tree import Tree
 from framework.utils import rgb_to_hex
-
-if TYPE_CHECKING:
-    from .console import Console
-
 
 _MODAL_SELECTOR = ".console-label__edit"
 _LABEL_ITEM_SELECTOR = ".console-label__list-item"
@@ -25,15 +25,11 @@ _LABEL_ITEM_SELECTOR = ".console-label__list-item"
 class LabelClient:
     """Console label client for managing labels via the UI."""
 
-    def __init__(self, page: Page, console: "Console"):
-        """Initialize the label client.
-
-        Args:
-            page: Playwright Page instance
-            console: Console instance for UI interactions
-        """
-        self.page = page
-        self.console = console
+    def __init__(self, layout: LayoutClient):
+        self.layout = layout
+        self.ctx_menu = ContextMenu(layout.page)
+        self.notifications = NotificationsClient(layout.page)
+        self.tree = Tree(layout.page)
 
     def create(self, name: str, *, color: str | None = None) -> None:
         """Create a new label.
@@ -43,19 +39,16 @@ class LabelClient:
             color: Optional hex color code (e.g., "#FF0000") to set for the new label.
         """
         self._open_edit_modal()
-        add_button = self.page.locator(".console-label__add-btn")
+        add_button = self.layout.page.locator(".console-label__add-btn")
         add_button.click()
 
-        create_form = self.page.locator(f"{_LABEL_ITEM_SELECTOR}.console--create").first
+        create_form = self.layout.page.locator(
+            f"{_LABEL_ITEM_SELECTOR}.console--create"
+        ).first
 
         if color is not None:
             color_swatch = create_form.locator(".pluto-color-swatch").first
-            color_swatch.click()
-            hex_input = self.page.locator(".sketch-picker input").first
-            hex_input.click()
-            hex_input.fill(color.lstrip("#"))
-            self.page.keyboard.press("Enter")
-            self.page.keyboard.press("Escape")
+            self._set_color_via_picker(color_swatch, color)
 
         name_input = create_form.locator("input[placeholder='Label Name']")
         name_input.fill(name)
@@ -116,14 +109,10 @@ class LabelClient:
 
         name_input = label_item.locator("input[placeholder='Label Name']").first
 
-        name_input.click()
-        self.console.select_all()
-
-        self.page.keyboard.type(new_name)
-
+        name_input.fill(new_name)
         name_input.press("Enter")
 
-        self.page.wait_for_load_state("networkidle", timeout=5000)
+        self.layout.page.wait_for_load_state("networkidle", timeout=5000)
 
         renamed_item = self._find_label_item(new_name)
 
@@ -162,7 +151,7 @@ class LabelClient:
         element_id = label_item.get_attribute("id")
         delete_button.click(timeout=5000)
 
-        self.page.locator(f"[id='{element_id}']").wait_for(
+        self.layout.page.locator(f"[id='{element_id}']").wait_for(
             state="hidden", timeout=10000
         )
 
@@ -207,43 +196,52 @@ class LabelClient:
             raise ValueError(f"Label '{name}' not found")
 
         color_swatch = label_item.locator(".pluto-color-swatch").first
-        color_swatch.click()
-
-        hex_input = self.page.locator(".sketch-picker input").first
-        hex_input.click()
-        hex_input.fill(new_color.lstrip("#"))
-        self.page.keyboard.press("Enter")
-        self.page.keyboard.press("Escape")
+        self._set_color_via_picker(color_swatch, new_color)
         self._close_edit_modal()
 
+    def _set_color_via_picker(self, swatch: Locator, hex_color: str) -> None:
+        """Set a color using the color picker.
+
+        Args:
+            swatch: The color swatch locator to click.
+            hex_color: The hex color code (e.g., "#FF0000").
+        """
+        swatch.click()
+        color_picker = self.layout.page.locator(".sketch-picker")
+        color_picker.wait_for(state="visible", timeout=2000)
+        hex_input = color_picker.locator("input").first
+        hex_input.click()
+        hex_input.fill(hex_color.lstrip("#"))
+        self.layout.press_enter()
+        self.layout.press_escape()
+        color_picker.wait_for(state="hidden", timeout=2000)
+
     def _open_edit_modal(self) -> None:
-        self.console.command_palette("Edit Labels")
-        modal = self.page.locator(_MODAL_SELECTOR)
-        modal.wait_for(state="visible", timeout=5000)
+        self.layout.open_modal("Edit Labels", _MODAL_SELECTOR)
 
     def _close_edit_modal(self) -> None:
-        close_button = self.page.locator(
-            ".pluto-dialog__dialog button:has(svg.pluto-icon--close)"
-        ).first
-        close_button.click()
-        modal = self.page.locator(_MODAL_SELECTOR)
-        modal.wait_for(state="hidden", timeout=5000)
+        self.layout.close_modal(_MODAL_SELECTOR)
 
     def _find_label_item(self, name: str) -> Locator | None:
-        for item in self._find_label_items():
-            if not item.is_visible():
-                continue
-            name_input = item.locator("input[placeholder='Label Name']").first
-            if name_input.count() == 0:
-                continue
-            if name_input.input_value() != name:
-                continue
-            element_id = item.get_attribute("id")
-            return self.page.locator(f"[id='{element_id}']")
+        for attempt in range(5):
+            for item in self._find_label_items():
+                if not item.is_visible():
+                    continue
+                name_input = item.locator("input[placeholder='Label Name']").first
+                if name_input.count() == 0:
+                    continue
+                if name_input.input_value().strip() != name.strip():
+                    continue
+                element_id = item.get_attribute("id")
+                return self.layout.page.locator(f"[id='{element_id}']")
+            if attempt < 2:
+                time.sleep(0.2)
         return None
 
     def _find_label_items(self) -> list[Locator]:
-        return self.page.locator(f"{_LABEL_ITEM_SELECTOR}:not(.console--create)").all()
+        return self.layout.page.locator(
+            f"{_LABEL_ITEM_SELECTOR}:not(.console--create)"
+        ).all()
 
     def _enumerate_label_names(self, items: list[Locator]) -> list[str]:
         """Extract label names from a list of label item locators.
