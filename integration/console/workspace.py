@@ -229,8 +229,11 @@ class WorkspaceClient:
             return
         workspace_item = workspace_items[0]
         caret = workspace_item.locator(".pluto--location-bottom")
-        if caret.count() > 0:
+        try:
+            caret.wait_for(state="visible", timeout=500)
             return
+        except PlaywrightTimeoutError:
+            pass
         workspace_item.click()
         caret.wait_for(state="visible", timeout=5000)
 
@@ -330,14 +333,10 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.open_on(page_item)
-        menu = self.layout.page.locator(".pluto-menu-context")
-        delete_item = menu.get_by_text("Delete", exact=True)
-        ungroup_item = menu.get_by_text("Ungroup", exact=True)
-        if delete_item.count() > 0:
-            delete_item.click(timeout=5000)
-        else:
-            ungroup_item.click(timeout=5000)
+        try:
+            self.ctx_menu.action(page_item, "Delete")
+        except PlaywrightTimeoutError:
+            self.ctx_menu.click_option("Ungroup")
         self.layout.close_left_toolbar()
 
     def delete_pages(self, names: list[str]) -> None:
@@ -427,12 +426,12 @@ class WorkspaceClient:
         page_item = self.get_page(name)
         try:
             page_item.wait_for(state="visible", timeout=5000)
-        except Exception as e:
+        except PlaywrightTimeoutError as e:
             all_items = self.layout.page.locator(".pluto-tree__item").all()
             item_texts = [
                 item.text_content() for item in all_items if item.is_visible()
             ]
-            raise Exception(
+            raise PlaywrightTimeoutError(
                 f"Page '{name}' not found. Available items: {item_texts}"
             ) from e
         self.ctx_menu.open_on(page_item)
