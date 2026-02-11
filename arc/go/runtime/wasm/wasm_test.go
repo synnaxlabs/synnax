@@ -193,7 +193,7 @@ func binaryOpGraph(
 }
 
 // expectOutput is a helper that executes a single-function graph and checks the first output element.
-func expectOutput[T telem.FixedSample](ctx context.Context, key string, outType types.Type, body string, resolver symbol.Resolver, expected T) {
+func expectOutput[T telem.Sample](ctx context.Context, key string, outType types.Type, body string, resolver symbol.Resolver, expected T) {
 	g := singleFunctionGraph(key, outType, body)
 	h := newHarness(ctx, g, resolver, nil)
 	defer h.Close()

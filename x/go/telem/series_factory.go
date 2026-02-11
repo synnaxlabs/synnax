@@ -105,11 +105,14 @@ func newVariableSeries[T VariableSample](data []T) Series {
 // NewJSONSeries creates a new JSON Series from a slice of JSON values. It returns an
 // error if the data cannot be marshalled into JSON.
 func NewJSONSeries[T any](data []T) (Series, error) {
-	bytes, err := marshalJSON(data)
-	if err != nil {
-		return Series{}, err
+	byteSlices := make([][]byte, len(data))
+	var err error
+	for i, v := range data {
+		if byteSlices[i], err = json.Marshal(v); err != nil {
+			return Series{}, err
+		}
 	}
-	return Series{DataType: JSONT, Data: bytes}, nil
+	return newVariableSeries(byteSlices), nil
 }
 
 // NewJSONSeriesV constructs a new JSON Series from an arbitrary set of JSON values,
@@ -118,17 +121,6 @@ func NewJSONSeries[T any](data []T) (Series, error) {
 func NewJSONSeriesV[T any](data ...T) (Series, error) { return NewJSONSeries(data) }
 
 const newLine = '\n'
-
-func marshalJSON[T any](data []T) ([]byte, error) {
-	byteSlices := make([][]byte, len(data))
-	var err error
-	for i, v := range data {
-		if byteSlices[i], err = json.Marshal(v); err != nil {
-			return nil, err
-		}
-	}
-	return marshalVariable(byteSlices), nil
-}
 
 func marshalVariable[T VariableSample](data []T) []byte {
 	total := lo.SumBy(data, func(v T) int64 { return int64(len(v)) + 1 })
