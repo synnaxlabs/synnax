@@ -46,10 +46,10 @@ import (
 	xconfig "github.com/synnaxlabs/x/config"
 )
 
-// Config is a type alias for config.Config, re-exported for backward compatibility.
-type Config = config.Config
+// LayerConfig is the configuration for opening the API layer.
+type LayerConfig = config.LayerConfig
 
-var DefaultConfig = config.DefaultConfig
+var DefaultLayerConfig = config.DefaultLayerConfig
 
 type Transport struct {
 	// AUTH
@@ -204,14 +204,14 @@ type Layer struct {
 	Access       *access.Service
 	Arc          *arc.Service
 	Status       *status.Service
-	config       config.Config
+	config       config.LayerConfig
 }
 
 // BindTo binds the API layer to the provided Transport implementation.
-func (a *Layer) BindTo(t Transport) {
+func (l *Layer) BindTo(t Transport) {
 	var (
-		tk                 = auth.TokenMiddleware(a.config.Service.Token)
-		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: a.config.Instrumentation}))
+		tk                 = auth.TokenMiddleware(l.config.Service.Token)
+		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: l.config.Instrumentation}))
 		insecureMiddleware = []freighter.Middleware{instrumentation}
 		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
 	)
@@ -372,156 +372,156 @@ func (a *Layer) BindTo(t Transport) {
 	)
 
 	// AUTH
-	t.AuthLogin.BindHandler(a.Auth.Login)
-	t.AuthChangePassword.BindHandler(a.Auth.ChangePassword)
+	t.AuthLogin.BindHandler(l.Auth.Login)
+	t.AuthChangePassword.BindHandler(l.Auth.ChangePassword)
 
 	// USER
-	t.UserRename.BindHandler(a.User.Rename)
-	t.UserChangeUsername.BindHandler(a.User.ChangeUsername)
-	t.UserCreate.BindHandler(a.User.Create)
-	t.UserDelete.BindHandler(a.User.Delete)
-	t.UserRetrieve.BindHandler(a.User.Retrieve)
+	t.UserRename.BindHandler(l.User.Rename)
+	t.UserChangeUsername.BindHandler(l.User.ChangeUsername)
+	t.UserCreate.BindHandler(l.User.Create)
+	t.UserDelete.BindHandler(l.User.Delete)
+	t.UserRetrieve.BindHandler(l.User.Retrieve)
 
 	// CHANNEL
-	t.ChannelCreate.BindHandler(a.Channel.Create)
-	t.ChannelRetrieve.BindHandler(a.Channel.Retrieve)
-	t.ConnectivityCheck.BindHandler(a.Connectivity.Check)
-	t.ChannelDelete.BindHandler(a.Channel.Delete)
-	t.ChannelRename.BindHandler(a.Channel.Rename)
-	t.ChannelRetrieveGroup.BindHandler(a.Channel.RetrieveGroup)
+	t.ChannelCreate.BindHandler(l.Channel.Create)
+	t.ChannelRetrieve.BindHandler(l.Channel.Retrieve)
+	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
+	t.ChannelDelete.BindHandler(l.Channel.Delete)
+	t.ChannelRename.BindHandler(l.Channel.Rename)
+	t.ChannelRetrieveGroup.BindHandler(l.Channel.RetrieveGroup)
 
 	// FRAME
-	t.FrameWriter.BindHandler(a.Framer.Write)
-	t.FrameIterator.BindHandler(a.Framer.Iterate)
-	t.FrameStreamer.BindHandler(a.Framer.Stream)
-	t.FrameDelete.BindHandler(a.Framer.Delete)
+	t.FrameWriter.BindHandler(l.Framer.Write)
+	t.FrameIterator.BindHandler(l.Framer.Iterate)
+	t.FrameStreamer.BindHandler(l.Framer.Stream)
+	t.FrameDelete.BindHandler(l.Framer.Delete)
 
 	// ONTOLOGY
-	t.OntologyRetrieve.BindHandler(a.Ontology.Retrieve)
-	t.OntologyAddChildren.BindHandler(a.Ontology.AddChildren)
-	t.OntologyRemoveChildren.BindHandler(a.Ontology.RemoveChildren)
-	t.OntologyMoveChildren.BindHandler(a.Ontology.MoveChildren)
+	t.OntologyRetrieve.BindHandler(l.Ontology.Retrieve)
+	t.OntologyAddChildren.BindHandler(l.Ontology.AddChildren)
+	t.OntologyRemoveChildren.BindHandler(l.Ontology.RemoveChildren)
+	t.OntologyMoveChildren.BindHandler(l.Ontology.MoveChildren)
 
 	// GROUP
-	t.GroupCreate.BindHandler(a.Group.Create)
-	t.GroupDelete.BindHandler(a.Group.Delete)
-	t.GroupRename.BindHandler(a.Group.Rename)
+	t.GroupCreate.BindHandler(l.Group.Create)
+	t.GroupDelete.BindHandler(l.Group.Delete)
+	t.GroupRename.BindHandler(l.Group.Rename)
 
 	// RANGE
-	t.RangeRetrieve.BindHandler(a.Range.Retrieve)
-	t.RangeCreate.BindHandler(a.Range.Create)
-	t.RangeDelete.BindHandler(a.Range.Delete)
-	t.RangeRename.BindHandler(a.Range.Rename)
+	t.RangeRetrieve.BindHandler(l.Range.Retrieve)
+	t.RangeCreate.BindHandler(l.Range.Create)
+	t.RangeDelete.BindHandler(l.Range.Delete)
+	t.RangeRename.BindHandler(l.Range.Rename)
 
 	// KV
-	t.KVGet.BindHandler(a.KV.Get)
-	t.KVSet.BindHandler(a.KV.Set)
-	t.KVDelete.BindHandler(a.KV.Delete)
+	t.KVGet.BindHandler(l.KV.Get)
+	t.KVSet.BindHandler(l.KV.Set)
+	t.KVDelete.BindHandler(l.KV.Delete)
 
 	// ALIAS
-	t.AliasSet.BindHandler(a.Alias.Set)
-	t.AliasResolve.BindHandler(a.Alias.Resolve)
-	t.AliasRetrieve.BindHandler(a.Alias.Retrieve)
-	t.AliasList.BindHandler(a.Alias.List)
-	t.AliasDelete.BindHandler(a.Alias.Delete)
+	t.AliasSet.BindHandler(l.Alias.Set)
+	t.AliasResolve.BindHandler(l.Alias.Resolve)
+	t.AliasRetrieve.BindHandler(l.Alias.Retrieve)
+	t.AliasList.BindHandler(l.Alias.List)
+	t.AliasDelete.BindHandler(l.Alias.Delete)
 
 	// WORKSPACE
-	t.WorkspaceCreate.BindHandler(a.Workspace.Create)
-	t.WorkspaceDelete.BindHandler(a.Workspace.Delete)
-	t.WorkspaceRetrieve.BindHandler(a.Workspace.Retrieve)
-	t.WorkspaceRename.BindHandler(a.Workspace.Rename)
-	t.WorkspaceSetLayout.BindHandler(a.Workspace.SetLayout)
+	t.WorkspaceCreate.BindHandler(l.Workspace.Create)
+	t.WorkspaceDelete.BindHandler(l.Workspace.Delete)
+	t.WorkspaceRetrieve.BindHandler(l.Workspace.Retrieve)
+	t.WorkspaceRename.BindHandler(l.Workspace.Rename)
+	t.WorkspaceSetLayout.BindHandler(l.Workspace.SetLayout)
 
 	// SCHEMATIC
-	t.SchematicCreate.BindHandler(a.Schematic.Create)
-	t.SchematicRetrieve.BindHandler(a.Schematic.Retrieve)
-	t.SchematicDelete.BindHandler(a.Schematic.Delete)
-	t.SchematicRename.BindHandler(a.Schematic.Rename)
-	t.SchematicSetData.BindHandler(a.Schematic.SetData)
-	t.SchematicCopy.BindHandler(a.Schematic.Copy)
+	t.SchematicCreate.BindHandler(l.Schematic.Create)
+	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
+	t.SchematicDelete.BindHandler(l.Schematic.Delete)
+	t.SchematicRename.BindHandler(l.Schematic.Rename)
+	t.SchematicSetData.BindHandler(l.Schematic.SetData)
+	t.SchematicCopy.BindHandler(l.Schematic.Copy)
 
 	// SCHEMATIC SYMBOL
-	t.SchematicCreateSymbol.BindHandler(a.Schematic.CreateSymbol)
-	t.SchematicRetrieveSymbol.BindHandler(a.Schematic.RetrieveSymbol)
-	t.SchematicDeleteSymbol.BindHandler(a.Schematic.DeleteSymbol)
-	t.SchematicRenameSymbol.BindHandler(a.Schematic.RenameSymbol)
-	t.SchematicRetrieveSymbolGroup.BindHandler(a.Schematic.RetrieveSymbolGroup)
+	t.SchematicCreateSymbol.BindHandler(l.Schematic.CreateSymbol)
+	t.SchematicRetrieveSymbol.BindHandler(l.Schematic.RetrieveSymbol)
+	t.SchematicDeleteSymbol.BindHandler(l.Schematic.DeleteSymbol)
+	t.SchematicRenameSymbol.BindHandler(l.Schematic.RenameSymbol)
+	t.SchematicRetrieveSymbolGroup.BindHandler(l.Schematic.RetrieveSymbolGroup)
 
 	// LINE PLOT
-	t.LinePlotCreate.BindHandler(a.LinePlot.Create)
-	t.LinePlotRename.BindHandler(a.LinePlot.Rename)
-	t.LinePlotSetData.BindHandler(a.LinePlot.SetData)
-	t.LinePlotRetrieve.BindHandler(a.LinePlot.Retrieve)
-	t.LinePlotDelete.BindHandler(a.LinePlot.Delete)
+	t.LinePlotCreate.BindHandler(l.LinePlot.Create)
+	t.LinePlotRename.BindHandler(l.LinePlot.Rename)
+	t.LinePlotSetData.BindHandler(l.LinePlot.SetData)
+	t.LinePlotRetrieve.BindHandler(l.LinePlot.Retrieve)
+	t.LinePlotDelete.BindHandler(l.LinePlot.Delete)
 
 	// LOG
-	t.LogCreate.BindHandler(a.Log.Create)
-	t.LogRetrieve.BindHandler(a.Log.Retrieve)
-	t.LogDelete.BindHandler(a.Log.Delete)
-	t.LogRename.BindHandler(a.Log.Rename)
-	t.LogSetData.BindHandler(a.Log.SetData)
+	t.LogCreate.BindHandler(l.Log.Create)
+	t.LogRetrieve.BindHandler(l.Log.Retrieve)
+	t.LogDelete.BindHandler(l.Log.Delete)
+	t.LogRename.BindHandler(l.Log.Rename)
+	t.LogSetData.BindHandler(l.Log.SetData)
 
 	// TABLE
-	t.TableCreate.BindHandler(a.Table.Create)
-	t.TableRetrieve.BindHandler(a.Table.Retrieve)
-	t.TableDelete.BindHandler(a.Table.Delete)
-	t.TableRename.BindHandler(a.Table.Rename)
-	t.TableSetData.BindHandler(a.Table.SetData)
+	t.TableCreate.BindHandler(l.Table.Create)
+	t.TableRetrieve.BindHandler(l.Table.Retrieve)
+	t.TableDelete.BindHandler(l.Table.Delete)
+	t.TableRename.BindHandler(l.Table.Rename)
+	t.TableSetData.BindHandler(l.Table.SetData)
 
 	// LABEL
-	t.LabelCreate.BindHandler(a.Label.Create)
-	t.LabelRetrieve.BindHandler(a.Label.Retrieve)
-	t.LabelDelete.BindHandler(a.Label.Delete)
-	t.LabelAdd.BindHandler(a.Label.Add)
-	t.LabelRemove.BindHandler(a.Label.Remove)
+	t.LabelCreate.BindHandler(l.Label.Create)
+	t.LabelRetrieve.BindHandler(l.Label.Retrieve)
+	t.LabelDelete.BindHandler(l.Label.Delete)
+	t.LabelAdd.BindHandler(l.Label.Add)
+	t.LabelRemove.BindHandler(l.Label.Remove)
 
 	// RACK
-	t.RackCreate.BindHandler(a.Rack.Create)
-	t.RackRetrieve.BindHandler(a.Rack.Retrieve)
-	t.RackDelete.BindHandler(a.Rack.Delete)
+	t.RackCreate.BindHandler(l.Rack.Create)
+	t.RackRetrieve.BindHandler(l.Rack.Retrieve)
+	t.RackDelete.BindHandler(l.Rack.Delete)
 
 	// TASK
-	t.TaskCreate.BindHandler(a.Task.Create)
-	t.TaskRetrieve.BindHandler(a.Task.Retrieve)
-	t.TaskDelete.BindHandler(a.Task.Delete)
-	t.TaskCopy.BindHandler(a.Task.Copy)
+	t.TaskCreate.BindHandler(l.Task.Create)
+	t.TaskRetrieve.BindHandler(l.Task.Retrieve)
+	t.TaskDelete.BindHandler(l.Task.Delete)
+	t.TaskCopy.BindHandler(l.Task.Copy)
 
 	// DEVICE
-	t.DeviceCreate.BindHandler(a.Device.Create)
-	t.DeviceRetrieve.BindHandler(a.Device.Retrieve)
-	t.DeviceDelete.BindHandler(a.Device.Delete)
+	t.DeviceCreate.BindHandler(l.Device.Create)
+	t.DeviceRetrieve.BindHandler(l.Device.Retrieve)
+	t.DeviceDelete.BindHandler(l.Device.Delete)
 
 	// ACCESS
-	t.AccessCreatePolicy.BindHandler(a.Access.CreatePolicy)
-	t.AccessDeletePolicy.BindHandler(a.Access.DeletePolicy)
-	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
-	t.AccessCreateRole.BindHandler(a.Access.CreateRole)
-	t.AccessDeleteRole.BindHandler(a.Access.DeleteRole)
-	t.AccessRetrieveRole.BindHandler(a.Access.RetrieveRole)
-	t.AccessAssignRole.BindHandler(a.Access.AssignRole)
-	t.AccessUnassignRole.BindHandler(a.Access.UnassignRole)
+	t.AccessCreatePolicy.BindHandler(l.Access.CreatePolicy)
+	t.AccessDeletePolicy.BindHandler(l.Access.DeletePolicy)
+	t.AccessRetrievePolicy.BindHandler(l.Access.RetrievePolicy)
+	t.AccessCreateRole.BindHandler(l.Access.CreateRole)
+	t.AccessDeleteRole.BindHandler(l.Access.DeleteRole)
+	t.AccessRetrieveRole.BindHandler(l.Access.RetrieveRole)
+	t.AccessAssignRole.BindHandler(l.Access.AssignRole)
+	t.AccessUnassignRole.BindHandler(l.Access.UnassignRole)
 
 	// STATUS
-	t.StatusSet.BindHandler(a.Status.Set)
-	t.StatusRetrieve.BindHandler(a.Status.Retrieve)
-	t.StatusDelete.BindHandler(a.Status.Delete)
+	t.StatusSet.BindHandler(l.Status.Set)
+	t.StatusRetrieve.BindHandler(l.Status.Retrieve)
+	t.StatusDelete.BindHandler(l.Status.Delete)
 
 	// VIEW
-	t.ViewCreate.BindHandler(a.View.Create)
-	t.ViewRetrieve.BindHandler(a.View.Retrieve)
-	t.ViewDelete.BindHandler(a.View.Delete)
+	t.ViewCreate.BindHandler(l.View.Create)
+	t.ViewRetrieve.BindHandler(l.View.Retrieve)
+	t.ViewDelete.BindHandler(l.View.Delete)
 
 	// ARC
-	t.ArcCreate.BindHandler(a.Arc.Create)
-	t.ArcDelete.BindHandler(a.Arc.Delete)
-	t.ArcRetrieve.BindHandler(a.Arc.Retrieve)
-	t.ArcLSP.BindHandler(a.Arc.LSP)
+	t.ArcCreate.BindHandler(l.Arc.Create)
+	t.ArcDelete.BindHandler(l.Arc.Delete)
+	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
+	t.ArcLSP.BindHandler(l.Arc.LSP)
 }
 
-// New instantiates the server API layer using the provided Configs. This should only be
-// called once.
-func New(cfgs ...Config) (*Layer, error) {
-	cfg, err := xconfig.New(config.DefaultConfig, cfgs...)
+// NewLayer instantiates the server API layer using the provided Configs. This should
+// only be called once.
+func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

@@ -32,7 +32,7 @@ type Service struct {
 	label    *label.Service
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfg config.LayerConfig) *Service {
 	return &Service{
 		internal: cfg.Service.Status,
 		label:    cfg.Service.Label,

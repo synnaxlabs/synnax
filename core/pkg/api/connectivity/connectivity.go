@@ -23,7 +23,7 @@ type Service struct {
 	cluster cluster.Cluster
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfg config.LayerConfig) *Service {
 	return &Service{cluster: cfg.Distribution.Cluster}
 }
 

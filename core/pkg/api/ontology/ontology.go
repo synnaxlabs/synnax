@@ -27,7 +27,7 @@ type Service struct {
 	access   *rbac.Service
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfg config.LayerConfig) *Service {
 	return &Service{
 		ontology: cfg.Distribution.Ontology,
 		access:   cfg.Service.RBAC,
@@ -51,12 +51,12 @@ type (
 	}
 )
 
-func (o *Service) Retrieve(
+func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	if req.SearchTerm != "" {
-		resources, err := o.ontology.Search(ctx, ontology.SearchRequest{
+		resources, err := s.ontology.Search(ctx, ontology.SearchRequest{
 			Term: req.SearchTerm,
 		})
 		if err != nil {
@@ -64,7 +64,7 @@ func (o *Service) Retrieve(
 		}
 		return RetrieveResponse{Resources: resources}, nil
 	}
-	q := o.ontology.NewRetrieve()
+	q := s.ontology.NewRetrieve()
 	if len(req.IDs) > 0 {
 		q = q.WhereIDs(req.IDs...)
 	}
@@ -88,7 +88,7 @@ func (o *Service) Retrieve(
 	if err := q.Entries(&resources).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := o.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: ontology.ResourceIDs(resources),
@@ -103,19 +103,19 @@ type AddChildrenRequest struct {
 	Children []ontology.ID `json:"children" msgpack:"children" validate:"required"`
 }
 
-func (o *Service) AddChildren(
+func (s *Service) AddChildren(
 	ctx context.Context,
 	req AddChildrenRequest,
 ) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: append(req.Children, req.ID),
 	}); err != nil {
 		return res, err
 	}
-	return res, o.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := o.ontology.NewWriter(tx)
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.ontology.NewWriter(tx)
 		for _, child := range req.Children {
 			if err := w.DefineRelationship(ctx, req.ID, ontology.RelationshipTypeParentOf, child); err != nil {
 				return err
@@ -130,19 +130,19 @@ type RemoveChildrenRequest struct {
 	Children []ontology.ID `json:"children" msgpack:"children" validate:"required"`
 }
 
-func (o *Service) RemoveChildren(
+func (s *Service) RemoveChildren(
 	ctx context.Context,
 	req RemoveChildrenRequest,
 ) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: append(req.Children, req.ID),
 	}); err != nil {
 		return res, err
 	}
-	return res, o.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := o.ontology.NewWriter(tx)
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.ontology.NewWriter(tx)
 		for _, child := range req.Children {
 			if err := w.DeleteRelationship(ctx, req.ID, ontology.RelationshipTypeParentOf, child); err != nil {
 				return err
@@ -158,19 +158,19 @@ type MoveChildrenRequest struct {
 	Children []ontology.ID `json:"children" msgpack:"children" validate:"required"`
 }
 
-func (o *Service) MoveChildren(
+func (s *Service) MoveChildren(
 	ctx context.Context,
 	req MoveChildrenRequest,
 ) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: append(req.Children, req.From, req.To),
 	}); err != nil {
 		return res, err
 	}
-	return res, o.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := o.ontology.NewWriter(tx)
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.ontology.NewWriter(tx)
 		for _, child := range req.Children {
 			if err = w.DeleteRelationship(ctx, req.From, ontology.RelationshipTypeParentOf, child); err != nil {
 				return err

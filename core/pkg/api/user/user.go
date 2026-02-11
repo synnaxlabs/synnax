@@ -37,7 +37,7 @@ type Service struct {
 
 // NewService creates a new Service that allows for registering, updating, and
 // removing users.
-func NewService(cfg config.Config) *Service {
+func NewService(cfg config.LayerConfig) *Service {
 	return &Service{
 		db:            cfg.Distribution.DB,
 		authenticator: cfg.Service.Auth,
@@ -66,8 +66,8 @@ type (
 
 // Create registers the new users with the provided credentials. If successful, Create
 // returns a slice of the new users.
-func (svc *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse, error) {
-	if err := svc.access.Enforce(ctx, access.Request{
+func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse, error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{{Type: user.OntologyType}},
@@ -75,11 +75,11 @@ func (svc *Service) Create(ctx context.Context, req CreateRequest) (CreateRespon
 		return CreateResponse{}, err
 	}
 	var res CreateResponse
-	return res, svc.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := svc.internal.NewWriter(tx)
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.internal.NewWriter(tx)
 		newUsers := make([]user.User, len(req.Users))
 		for i, u := range req.Users {
-			if err := svc.authenticator.NewWriter(tx).Register(ctx, u.InsecureCredentials); err != nil {
+			if err := s.authenticator.NewWriter(tx).Register(ctx, u.InsecureCredentials); err != nil {
 				return err
 			}
 			newUsers[i].Username = u.Username
@@ -102,34 +102,34 @@ type ChangeUsernameRequest struct {
 }
 
 // ChangeUsername changes the username for the user with the given key.
-func (svc *Service) ChangeUsername(ctx context.Context, req ChangeUsernameRequest) (types.Nil, error) {
+func (s *Service) ChangeUsername(ctx context.Context, req ChangeUsernameRequest) (types.Nil, error) {
 	subject := auth.GetSubject(ctx)
 	if subject.Key == req.Key.String() {
 		return types.Nil{}, errors.New("you cannot change your own username through the user service")
 	}
 	var u user.User
-	if err := svc.internal.NewRetrieve().WhereKeys(req.Key).Entry(&u).Exec(ctx, nil); err != nil {
+	if err := s.internal.NewRetrieve().WhereKeys(req.Key).Entry(&u).Exec(ctx, nil); err != nil {
 		return types.Nil{}, err
 	}
 	if u.Username == req.Username {
 		return types.Nil{}, nil
 	}
-	if err := svc.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, svc.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := svc.authenticator.NewWriter(tx).InsecureUpdateUsername(
+	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.authenticator.NewWriter(tx).InsecureUpdateUsername(
 			ctx,
 			u.Username,
 			req.Username,
 		); err != nil {
 			return err
 		}
-		return svc.internal.NewWriter(tx).ChangeUsername(ctx, req.Key, req.Username)
+		return s.internal.NewWriter(tx).ChangeUsername(ctx, req.Key, req.Username)
 	})
 }
 
@@ -141,16 +141,16 @@ type RenameRequest struct {
 
 // Rename changes the name for the user with the provided key. If either the first
 // or last name is empty, the corresponding field will not be updated.
-func (svc *Service) Rename(ctx context.Context, req RenameRequest) (types.Nil, error) {
-	if err := svc.access.Enforce(ctx, access.Request{
+func (s *Service) Rename(ctx context.Context, req RenameRequest) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, svc.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return svc.internal.NewWriter(tx).ChangeName(ctx, req.Key, req.FirstName, req.LastName)
+	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).ChangeName(ctx, req.Key, req.FirstName, req.LastName)
 	})
 }
 
@@ -165,8 +165,8 @@ type (
 )
 
 // Retrieve returns the users with the provided keys or usernames.
-func (svc *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveResponse, error) {
-	q := svc.internal.NewRetrieve()
+func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveResponse, error) {
+	q := s.internal.NewRetrieve()
 
 	if len(req.Keys) > 0 {
 		q = q.WhereKeys(req.Keys...)
@@ -178,7 +178,7 @@ func (svc *Service) Retrieve(ctx context.Context, req RetrieveRequest) (Retrieve
 	if err := q.Entries(&users).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := svc.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: user.OntologyIDsFromUsers(users),
@@ -193,8 +193,8 @@ type DeleteRequest struct {
 }
 
 // Delete removes the users with the provided keys from the Synnax cluster.
-func (svc *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
-	if err := svc.access.Enforce(ctx, access.Request{
+func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: user.OntologyIDsFromKeys(req.Keys),
@@ -206,20 +206,20 @@ func (svc *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, e
 	users := make([]user.User, 0, len(req.Keys))
 	for _, key := range req.Keys {
 		var u user.User
-		err := svc.internal.NewRetrieve().WhereKeys(key).Entry(&u).Exec(ctx, nil)
+		err := s.internal.NewRetrieve().WhereKeys(key).Entry(&u).Exec(ctx, nil)
 		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return types.Nil{}, err
 		}
 		users = append(users, u)
 	}
 
-	return types.Nil{}, svc.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := svc.authenticator.NewWriter(tx).
+	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.authenticator.NewWriter(tx).
 			InsecureDeactivate(ctx, lo.Map(users, func(u user.User, _ int) string {
 				return u.Username
 			})...); err != nil {
 			return err
 		}
-		return svc.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 	})
 }

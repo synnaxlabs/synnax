@@ -29,7 +29,7 @@ type Service struct {
 	internal *log.Service
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfg config.LayerConfig) *Service {
 	return &Service{
 		db:       cfg.Distribution.DB,
 		internal: cfg.Service.Log,

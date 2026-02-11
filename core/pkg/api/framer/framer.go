@@ -54,7 +54,7 @@ type Service struct {
 	alamos.Instrumentation
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfg config.LayerConfig) *Service {
 	return &Service{
 		Instrumentation: cfg.Instrumentation,
 		Internal:        cfg.Service.Framer,

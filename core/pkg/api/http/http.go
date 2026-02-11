@@ -38,10 +38,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/api/workspace"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 )
 
-func New(router *fhttp.Router, cfg api.Config) api.Transport {
-	framerResolver := fhttp.WithCodecResolver(httpframer.NewCodecResolver(cfg.Distribution.Channel))
+func NewTransport(router *fhttp.Router, ch *distchannel.Service) api.Transport {
+	framerResolver := fhttp.WithCodecResolver(httpframer.NewCodecResolver(ch))
 	return api.Transport{
 		// AUTH
 		AuthLogin:          fhttp.UnaryServer[auth.LoginRequest, auth.LoginResponse](router, "/api/v1/auth/login"),

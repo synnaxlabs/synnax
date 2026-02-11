@@ -29,7 +29,7 @@ type Service struct {
 	internal *label.Service
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfg config.LayerConfig) *Service {
 	return &Service{
 		internal: cfg.Service.Label,
 		db:       cfg.Distribution.DB,

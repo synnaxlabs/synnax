@@ -28,7 +28,7 @@ type Service struct {
 	internal *view.Service
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfg config.LayerConfig) *Service {
 	return &Service{
 		internal: cfg.Service.View,
 		db:       cfg.Distribution.DB,

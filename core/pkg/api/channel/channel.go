@@ -59,7 +59,7 @@ type Service struct {
 	alias    *alias.Service
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfg config.LayerConfig) *Service {
 	return &Service{
 		access:   cfg.Service.RBAC,
 		internal: cfg.Distribution.Channel,

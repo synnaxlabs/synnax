@@ -30,7 +30,7 @@ type Service struct {
 	db       *gorp.DB
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfg config.LayerConfig) *Service {
 	return &Service{internal: cfg.Service.RBAC, db: cfg.Distribution.DB}
 }
 
