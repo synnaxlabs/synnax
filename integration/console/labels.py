@@ -7,10 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
 from re import search as re_search
 
 from playwright.sync_api import Locator
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import expect
 
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
@@ -111,8 +112,7 @@ class LabelClient:
 
         name_input.fill(new_name)
         name_input.press("Enter")
-
-        self.layout.page.wait_for_load_state("networkidle", timeout=5000)
+        expect(name_input).to_have_value(new_name, timeout=5000)
 
         renamed_item = self._find_label_item(new_name)
 
@@ -223,19 +223,22 @@ class LabelClient:
         self.layout.close_modal(_MODAL_SELECTOR)
 
     def _find_label_item(self, name: str) -> Locator | None:
-        for attempt in range(5):
-            for item in self._find_label_items():
-                if not item.is_visible():
-                    continue
-                name_input = item.locator("input[placeholder='Label Name']").first
-                if name_input.count() == 0:
-                    continue
-                if name_input.input_value().strip() != name.strip():
-                    continue
+        items_locator = self.layout.page.locator(
+            f"{_LABEL_ITEM_SELECTOR}:not(.console--create)"
+        )
+        try:
+            items_locator.first.wait_for(state="visible", timeout=5000)
+        except PlaywrightTimeoutError:
+            return None
+        for item in items_locator.all():
+            if not item.is_visible():
+                continue
+            name_input = item.locator("input[placeholder='Label Name']").first
+            if name_input.count() == 0:
+                continue
+            if name_input.input_value().strip() == name.strip():
                 element_id = item.get_attribute("id")
                 return self.layout.page.locator(f"[id='{element_id}']")
-            if attempt < 2:
-                time.sleep(0.2)
         return None
 
     def _find_label_items(self) -> list[Locator]:

@@ -427,12 +427,12 @@ class WorkspaceClient:
         page_item = self.get_page(name)
         try:
             page_item.wait_for(state="visible", timeout=5000)
-        except Exception as e:
+        except PlaywrightTimeoutError as e:
             all_items = self.layout.page.locator(".pluto-tree__item").all()
             item_texts = [
                 item.text_content() for item in all_items if item.is_visible()
             ]
-            raise Exception(
+            raise PlaywrightTimeoutError(
                 f"Page '{name}' not found. Available items: {item_texts}"
             ) from e
         self.ctx_menu.open_on(page_item)

@@ -9,7 +9,6 @@
 
 """Context menu helper for Console UI automation."""
 
-import synnax as sy
 from playwright.sync_api import Locator, Page
 
 
@@ -38,7 +37,9 @@ class ContextMenu:
             Self for method chaining.
         """
         element.click(button="right")
-        sy.sleep(0.2)
+        self.page.locator(".pluto-menu-context").first.wait_for(
+            state="visible", timeout=5000
+        )
         return self
 
     def click_option(self, text: str, *, exact: bool = True) -> None:
@@ -70,4 +71,3 @@ class ContextMenu:
     def close(self) -> None:
         """Close the context menu by pressing Escape."""
         self.page.keyboard.press("Escape")
-        sy.sleep(0.1)
