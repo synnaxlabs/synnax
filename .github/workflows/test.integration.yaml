@@ -235,11 +235,6 @@ jobs:
           path: integration/tests/results/*
           retention-days: 7
 
-      - name: Debug Test Environment
-        if: failure()
-        shell: cmd
-        run: integration/scripts/DebugTestEnvironmentWindows.cmd
-
   deploy-and-test-ubuntu:
     name: Deploy and Test (ubuntu)
     timeout-minutes: 30
@@ -299,7 +294,3 @@ jobs:
           name: test-results-linux
           path: integration/tests/results/*
           retention-days: 7
-
-      - name: Debug Test Environment
-        if: failure()
-        run: integration/scripts/debug_test_environment_unix.sh
