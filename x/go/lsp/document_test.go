@@ -38,6 +38,15 @@ var _ = Describe("Document", func() {
 		It("Should return 0 for position at start", func() {
 			Expect(lsp.PositionToOffset("hello", protocol.Position{Line: 0, Character: 0})).To(Equal(0))
 		})
+
+		It("Should handle empty content", func() {
+			Expect(lsp.PositionToOffset("", protocol.Position{Line: 0, Character: 0})).To(Equal(0))
+		})
+
+		It("Should handle multi-line content with later line", func() {
+			content := "line1\nline2\nline3"
+			Expect(lsp.PositionToOffset(content, protocol.Position{Line: 2, Character: 2})).To(Equal(14))
+		})
 	})
 
 	Describe("IsFullReplacement", func() {
@@ -53,6 +62,14 @@ var _ = Describe("Document", func() {
 					End:   protocol.Position{Line: 0, Character: 5},
 				},
 				Text: "world",
+			}
+			Expect(lsp.IsFullReplacement(change)).To(BeFalse())
+		})
+
+		It("Should detect an incremental change via RangeLength", func() {
+			change := protocol.TextDocumentContentChangeEvent{
+				RangeLength: 5,
+				Text:        "new",
 			}
 			Expect(lsp.IsFullReplacement(change)).To(BeFalse())
 		})
@@ -105,6 +122,29 @@ var _ = Describe("Document", func() {
 				Text: "replaced",
 			}
 			Expect(lsp.ApplyIncrementalChange(content, change)).To(Equal("line1\nreplaced\nline3"))
+		})
+
+		It("Should handle empty document", func() {
+			change := protocol.TextDocumentContentChangeEvent{
+				Range: protocol.Range{
+					Start: protocol.Position{Line: 0, Character: 0},
+					End:   protocol.Position{Line: 0, Character: 0},
+				},
+				Text: "new content",
+			}
+			Expect(lsp.ApplyIncrementalChange("", change)).To(Equal("new content"))
+		})
+
+		It("Should handle cross-line replacement", func() {
+			content := "line1\nline2\nline3"
+			change := protocol.TextDocumentContentChangeEvent{
+				Range: protocol.Range{
+					Start: protocol.Position{Line: 0, Character: 3},
+					End:   protocol.Position{Line: 2, Character: 2},
+				},
+				Text: "X",
+			}
+			Expect(lsp.ApplyIncrementalChange(content, change)).To(Equal("linXne3"))
 		})
 	})
 
