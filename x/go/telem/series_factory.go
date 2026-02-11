@@ -112,7 +112,7 @@ func NewJSONSeries[T any](data []T) (Series, error) {
 			return Series{}, err
 		}
 	}
-	return newVariableSeries(byteSlices), nil
+	return Series{DataType: JSONT, Data: marshalVariable(byteSlices)}, nil
 }
 
 // NewJSONSeriesV constructs a new JSON Series from an arbitrary set of JSON values,
