@@ -272,7 +272,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, x::status::variant::SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
-    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop_cmd", true);
     const auto second_state = ctx->statuses[1];

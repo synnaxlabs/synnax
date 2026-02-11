@@ -83,7 +83,6 @@ import (
 // It captures both the default authority for all channels and per-channel overrides.
 type Authorities struct {
 	// Default is the default authority for all write channels not explicitly listed.
-	// If nil, the system default (AuthorityAbsolute, 255) is used.
 	Default *uint8 `json:"default,omitempty" msgpack:"default,omitempty"`
 	// Channels maps channel keys to their specific authority values.
 	Channels map[uint32]uint8 `json:"channels,omitempty" msgpack:"channels,omitempty"`

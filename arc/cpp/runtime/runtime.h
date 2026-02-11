@@ -42,6 +42,8 @@
 #include "arc/cpp/stl/time/time.h"
 
 namespace arc::runtime {
+
+constexpr x::telem::Authority DEFAULT_AUTHORITY = x::telem::AUTH_ABSOLUTE;
 /// @brief combines data frames and authority changes into a single output
 /// so that authority-only changes (with no channel writes) are not starved.
 struct Output {
@@ -138,8 +140,10 @@ public:
                         for (auto &[key, series]: writes)
                             out.frame.emplace(key, series->deep_copy());
                     }
-                    if (!this->outputs.push(std::move(out)))
+                    if (!this->outputs.push(std::move(out))) {
+                        if (this->outputs.closed()) break;
                         this->error_handler(errors::QUEUE_FULL_OUTPUT);
+                    }
                 }
             }
         }
@@ -192,7 +196,7 @@ inline std::vector<x::telem::Authority> build_authorities(
     std::vector<x::telem::Authority> authorities(write_keys.size());
     for (size_t i = 0; i < write_keys.size(); i++)
         authorities[i] = auth.default_authority.has_value() ? *auth.default_authority
-                                                            : x::telem::AUTH_ABSOLUTE;
+                                                            : DEFAULT_AUTHORITY;
     for (const auto &[key, value]: auth.channels) {
         for (size_t i = 0; i < write_keys.size(); i++) {
             if (write_keys[i] == key) {

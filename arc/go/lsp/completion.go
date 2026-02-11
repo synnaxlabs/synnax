@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"go.lsp.dev/protocol"
+	"go.uber.org/zap"
 )
 
 type completionCategory int
@@ -483,34 +484,32 @@ func (s *Server) getAuthorityEntryCompletions(
 		existingSet[name] = true
 	}
 	var items []protocol.CompletionItem
+	appendChanCompletions := func(name string, t types.Type) {
+		if t.Kind != types.KindChan || existingSet[name] {
+			return
+		}
+		items = append(items, protocol.CompletionItem{
+			Label:  name,
+			Kind:   protocol.CompletionItemKindVariable,
+			Detail: t.String(),
+		})
+	}
 	if s.cfg.GlobalResolver != nil {
 		symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
-		if err == nil {
-			for _, sym := range symbols {
-				if sym.Type.Kind != types.KindChan || existingSet[sym.Name] {
-					continue
-				}
-				items = append(items, protocol.CompletionItem{
-					Label:  sym.Name,
-					Kind:   protocol.CompletionItemKindVariable,
-					Detail: sym.Type.String(),
-				})
-			}
+		if err != nil {
+			s.cfg.L.Error("failed to search global resolver for authority completions", zap.Error(err))
+		}
+		for _, sym := range symbols {
+			appendChanCompletions(sym.Name, sym.Type)
 		}
 	}
 	if doc.IR.Symbols != nil {
 		scopes, err := doc.IR.Symbols.Search(ctx, prefix)
-		if err == nil {
-			for _, scope := range scopes {
-				if scope.Type.Kind != types.KindChan || existingSet[scope.Name] {
-					continue
-				}
-				items = append(items, protocol.CompletionItem{
-					Label:  scope.Name,
-					Kind:   protocol.CompletionItemKindVariable,
-					Detail: scope.Type.String(),
-				})
-			}
+		if err != nil {
+			s.cfg.L.Error("failed to search scope for authority completions", zap.Error(err))
+		}
+		for _, scope := range scopes {
+			appendChanCompletions(scope.Name, scope.Type)
 		}
 	}
 	return items

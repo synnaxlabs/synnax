@@ -203,7 +203,7 @@ TEST(ArcTests, testCalcDoubling) {
     task->start("test_start");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     auto &output_fr = mock_writer->writes->at(0);
@@ -310,7 +310,7 @@ TEST(ArcTests, testBasicSequence) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
     // Wait for the sequence to execute and write to valve_cmd
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     // Verify valve_cmd received the value 1
@@ -441,7 +441,7 @@ TEST(ArcTests, testOneShotTruthiness) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
     // Wait for the sequence to execute and write to valve_cmd
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     // Verify valve_cmd received the value 42 (from the sequence stage)
@@ -631,7 +631,7 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
 
     // Wait for multiple writes (at least 2: one from pressurize stage, one from idle
     // stage)
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 2);
 
     // Verify we got both valve states:
@@ -868,7 +868,7 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     task->stop("test_stop_1", true);
 
     mock_writer->writes->clear();
-    mock_writer->writer_opens = 0;
+    mock_writer->writer_opens.store(0, std::memory_order_relaxed);
     ctx->statuses.clear();
     input_frames->clear();
 
@@ -972,7 +972,7 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
 
     for (int cycle = 0; cycle < 3; cycle++) {
         mock_writer->writes->clear();
-        mock_writer->writer_opens = 0;
+        mock_writer->writer_opens.store(0, std::memory_order_relaxed);
         ctx->statuses.clear();
         input_frames->clear();
 
@@ -1398,7 +1398,7 @@ TEST(ArcTests, testChannelConfigParam) {
     task->start("test_start");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     bool found_output = false;
@@ -1548,7 +1548,7 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
     task->start("test_start");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     // counter should be 100: prev $= input initializes prev=1, so no rising
@@ -1747,7 +1747,7 @@ TEST(ArcTests, testRestartResetsState) {
 
     task->start("test_start_1");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     auto &output_fr_1 = mock_writer->writes->at(0);
@@ -1758,7 +1758,7 @@ TEST(ArcTests, testRestartResetsState) {
     task->stop("test_stop_1", true);
 
     mock_writer->writes->clear();
-    mock_writer->writer_opens = 0;
+    mock_writer->writer_opens.store(0, std::memory_order_relaxed);
     ctx->statuses.clear();
 
     input_frames->clear();
@@ -1774,7 +1774,7 @@ TEST(ArcTests, testRestartResetsState) {
 
     task->start("test_start_2");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     auto &output_fr_2 = mock_writer->writes->at(0);
@@ -1873,7 +1873,7 @@ TEST(ArcTests, testStaticAuthorityConfig) {
     EXPECT_EQ(*task_cfg.module.authorities.default_authority, 200);
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
 
     ASSERT_FALSE(mock_writer->config.authorities.empty());
     for (const auto &a: mock_writer->config.authorities)
@@ -1994,7 +1994,7 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
 
     ASSERT_EQ(
         mock_writer->config.authorities.size(),
@@ -2104,7 +2104,7 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
 
     task->start("test_start");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->authority_changes->size(), 1);
 
     const auto &change = mock_writer->authority_changes->at(0);
@@ -2208,7 +2208,7 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
 
     task->start("test_start");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->authority_changes->size(), 1);
 
     const auto &change = mock_writer->authority_changes->at(0);
@@ -2307,7 +2307,7 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
 
     task->start("test_start");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->authority_changes->size(), 1);
 
@@ -2422,7 +2422,7 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
     auto *error_status = find_status_by_variant(ctx->statuses, x::status::variant::ERR);
     EXPECT_NE(error_status, nullptr)
         << "Writer failure should propagate error status via stopped_with_err";
-    if (error_status != nullptr) EXPECT_FALSE(error_status->details.running);
+    if (error_status != nullptr) { EXPECT_FALSE(error_status->details.running); }
 
     // Explicit stop to join pipeline threads (stopped_with_err calls stop from within
     // the acquisition thread which skips the thread join).

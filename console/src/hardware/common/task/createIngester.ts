@@ -14,8 +14,8 @@ import { type z } from "zod";
 import { type Layout } from "@/hardware/common/task/Form";
 import { type Import } from "@/import";
 
-export const createIngestor =
-  (configSchema: z.ZodType, zeroLayout: Layout): Import.FileIngestor =>
+export const createIngester =
+  (configSchema: z.ZodType, zeroLayout: Layout): Import.FileIngester =>
   (data: unknown, { layout, placeLayout, store, client }) => {
     const config = configSchema.parse(data);
     if (!Access.updateGranted({ id: task.TYPE_ONTOLOGY_ID, store, client }))

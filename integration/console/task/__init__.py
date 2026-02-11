@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .analog_read import AnalogRead
-from .analog_write import AnalogWrite
-from .channels.analog import Analog
-from .channels.analog_input import (
+from console.task.analog_read import AnalogRead
+from console.task.analog_write import AnalogWrite
+from console.task.channels.analog import Analog
+from console.task.channels.analog_input import (
     RTD,
     Accelerometer,
     Bridge,
@@ -30,8 +30,8 @@ from .channels.analog_input import (
     VelocityIEPE,
     Voltage,
 )
-from .channels.counter import Counter
-from .channels.counter_input import (
+from console.task.channels.counter import Counter
+from console.task.channels.counter_input import (
     EdgeCount,
     Frequency,
     Period,
@@ -39,8 +39,8 @@ from .channels.counter_input import (
     SemiPeriod,
     TwoEdgeSeparation,
 )
-from .counter_read import CounterRead
-from .ni import NITask
+from console.task.counter_read import CounterRead
+from console.task.ni import NITask
 
 __all__ = [
     "NITask",

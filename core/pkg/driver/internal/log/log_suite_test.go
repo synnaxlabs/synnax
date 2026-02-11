@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cert_test
+//go:build driver
+
+package log_test
 
 import (
 	"testing"
@@ -16,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestCert(t *testing.T) {
+func TestLog(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cert Suite")
+	RunSpecs(t, "Driver Internal Log Suite")
 }

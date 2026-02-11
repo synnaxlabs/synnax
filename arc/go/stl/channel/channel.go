@@ -163,7 +163,7 @@ func bindStr(rt stl.HostRuntime, cs *state.ChannelState, ss *state.StringHandleS
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			strings := telem.UnmarshalStrings(series.Data)
+			strings := telem.UnmarshalSeries[string](series)
 			if len(strings) == 0 {
 				return 0
 			}
@@ -175,11 +175,7 @@ func bindStr(rt stl.HostRuntime, cs *state.ChannelState, ss *state.StringHandleS
 			if !ok {
 				return
 			}
-			data := telem.MarshalStrings([]string{str}, telem.StringT)
-			cs.WriteValue(chID, telem.Series{
-				DataType: telem.StringT,
-				Data:     data,
-			})
+			cs.WriteValue(chID, telem.NewSeriesV[string](str))
 		})
 }
 

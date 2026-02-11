@@ -17,7 +17,7 @@ const useVisible = () => Access.useUpdateGranted(label.TYPE_ONTOLOGY_ID);
 
 export const EditCommand = Palette.createSimpleCommand({
   key: "edit-labels",
-  name: "Edit Labels",
+  name: "Edit labels",
   icon: <Icon.Label />,
   layout: Label.EDIT_LAYOUT,
   useVisible,

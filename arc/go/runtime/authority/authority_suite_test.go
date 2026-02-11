@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package instrumentation_test
+package authority_test
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestInstrumentation(t *testing.T) {
+func TestAuthority(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Instrumentation Suite")
+	RunSpecs(t, "Authority Suite")
 }

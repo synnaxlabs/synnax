@@ -62,7 +62,7 @@ class RoleOperatorPermissions(ConsoleCase):
             self.log("PASS: Users toolbar is hidden for operator")
 
         # Press escape to close any open panels
-        self.console.ESCAPE
+        self.console.layout.press_escape()
         sy.sleep(0.3)
 
         # Test 2: Try to create a workspace via command palette
@@ -73,20 +73,20 @@ class RoleOperatorPermissions(ConsoleCase):
         palette_input = self.page.locator(
             ".console-palette__input input[role='textbox']"
         )
-        palette_input.fill(">Create a Workspace", timeout=2000)
+        palette_input.fill(">Create a workspace", timeout=2000)
         sy.sleep(0.3)
 
         # Check if command is available
-        workspace_cmd = self.page.get_by_text("Create a Workspace", exact=True)
+        workspace_cmd = self.page.get_by_text("Create a workspace", exact=True)
         workspace_cmd_exists = workspace_cmd.count() > 0
 
-        self.console.ESCAPE
+        self.console.layout.press_escape()
         sy.sleep(0.2)
 
         if workspace_cmd_exists:
-            self.log("WARNING: Create Workspace command exists for operator")
+            self.log("WARNING: Create workspace command exists for operator")
         else:
-            self.log("PASS: Create Workspace command not available for operator")
+            self.log("PASS: Create workspace command not available for operator")
 
         # Test 3: Try to create a schematic via command palette
         self.log("Testing: Operator should not be able to create schematic...")
@@ -96,17 +96,17 @@ class RoleOperatorPermissions(ConsoleCase):
         palette_input = self.page.locator(
             ".console-palette__input input[role='textbox']"
         )
-        palette_input.fill(">Create a Schematic", timeout=2000)
+        palette_input.fill(">Create a schematic", timeout=2000)
         sy.sleep(0.3)
 
-        schematic_cmd = self.page.get_by_text("Create a Schematic", exact=True)
+        schematic_cmd = self.page.get_by_text("Create a schematic", exact=True)
         schematic_cmd_exists = schematic_cmd.count() > 0
 
-        self.console.ESCAPE
+        self.console.layout.press_escape()
 
         if schematic_cmd_exists:
-            self.log("WARNING: Create Schematic command exists for operator")
+            self.log("WARNING: Create schematic command exists for operator")
         else:
-            self.log("PASS: Create Schematic command not available for operator")
+            self.log("PASS: Create schematic command not available for operator")
 
         self.log("Operator permissions test completed")
