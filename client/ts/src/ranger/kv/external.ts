@@ -9,8 +9,8 @@
 
 export {
   createPairKey,
-  DELETE_CHANNEL,
+  DELETE_CHANNEL_NAME as DELETE_CHANNEL,
   type Pair,
   pairZ,
-  SET_CHANNEL,
+  SET_CHANNEL_NAME as SET_CHANNEL,
 } from "@/ranger/kv/payload";

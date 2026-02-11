@@ -11,8 +11,8 @@ import { z } from "zod";
 
 import { keyZ } from "@/ranger/payload";
 
-export const SET_CHANNEL = "sy_range_kv_set";
-export const DELETE_CHANNEL = "sy_range_kv_delete";
+export const SET_CHANNEL_NAME = "sy_range_kv_set";
+export const DELETE_CHANNEL_NAME = "sy_range_kv_delete";
 
 export const pairZ = z.object({ range: keyZ, key: z.string(), value: z.string() });
 export interface Pair extends z.infer<typeof pairZ> {}
@@ -20,10 +20,10 @@ export interface Pair extends z.infer<typeof pairZ> {}
 export const createPairKey = ({ range, key }: Omit<Pair, "value">) =>
   `${range}<--->${key}`;
 
-/** @deprecated Use {@link SET_CHANNEL} instead. */
-export const KV_SET_CHANNEL = SET_CHANNEL;
-/** @deprecated Use {@link DELETE_CHANNEL} instead. */
-export const KV_DELETE_CHANNEL = DELETE_CHANNEL;
+/** @deprecated Use {@link SET_CHANNEL_NAME} instead. */
+export const KV_SET_CHANNEL = SET_CHANNEL_NAME;
+/** @deprecated Use {@link DELETE_CHANNEL_NAME} instead. */
+export const KV_DELETE_CHANNEL = DELETE_CHANNEL_NAME;
 /** @deprecated Use {@link pairZ} instead. */
 export const kvPairZ = pairZ;
 /** @deprecated Use {@link Pair} instead. */

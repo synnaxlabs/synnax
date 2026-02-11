@@ -55,7 +55,10 @@ export class Client {
 
   async create(workspace: workspace.Key, table: New): Promise<Table>;
   async create(workspace: workspace.Key, tables: New[]): Promise<Table[]>;
-  async create(workspace: workspace.Key, tables: New | New[]): Promise<Table | Table[]> {
+  async create(
+    workspace: workspace.Key,
+    tables: New | New[],
+  ): Promise<Table | Table[]> {
     const isMany = Array.isArray(tables);
     const res = await sendRequired(
       this.client,
