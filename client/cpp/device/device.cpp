@@ -128,23 +128,6 @@ std::pair<Device, x::errors::Error> Device::from_proto(const api::v1::Device &de
     return {d, x::errors::NIL};
 }
 
-Device::Device(
-    std::string key,
-    std::string name,
-    rack::Key rack,
-    std::string location,
-    std::string make,
-    std::string model,
-    std::string properties
-):
-    key(std::move(key)),
-    name(std::move(name)),
-    rack(rack),
-    location(std::move(location)),
-    make(std::move(make)),
-    model(std::move(model)),
-    properties(std::move(properties)) {}
-
 void Device::to_proto(api::v1::Device *device) const {
     device->set_key(key);
     device->set_name(name);

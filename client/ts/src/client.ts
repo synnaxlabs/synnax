@@ -20,10 +20,14 @@ import { device } from "@/device";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
 import { label } from "@/label";
+import { lineplot } from "@/lineplot";
+import { log } from "@/log";
 import { ontology } from "@/ontology";
 import { rack } from "@/rack";
 import { ranger } from "@/ranger";
+import { schematic } from "@/schematic";
 import { status } from "@/status";
+import { table } from "@/table";
 import { task } from "@/task";
 import { Transport } from "@/transport";
 import { user } from "@/user";
@@ -73,6 +77,10 @@ export default class Synnax extends framer.Client {
   readonly control: control.Client;
   readonly arcs: arc.Client;
   readonly views: view.Client;
+  readonly schematics: schematic.Client;
+  readonly lineplots: lineplot.Client;
+  readonly logs: log.Client;
+  readonly tables: table.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -156,6 +164,10 @@ export default class Synnax extends framer.Client {
     this.devices = new device.Client(this.transport.unary);
     this.arcs = new arc.Client(this.transport.unary, this.transport.stream);
     this.views = new view.Client(this.transport.unary);
+    this.schematics = new schematic.Client(this.transport.unary);
+    this.lineplots = new lineplot.Client(this.transport.unary);
+    this.logs = new log.Client(this.transport.unary);
+    this.tables = new table.Client(this.transport.unary);
   }
 
   get key(): string {

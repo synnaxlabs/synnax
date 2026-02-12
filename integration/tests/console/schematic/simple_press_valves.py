@@ -81,7 +81,7 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
             press_valve.press()
             self.wait_for_eq("press_vlv_state", 1)
             self.wait_for_eq("vent_vlv_state", 0)
-            self.wait_for_ge(PRESSURE, target_Pressure)
+            self.wait_for_ge(PRESSURE, target_Pressure, timeout=10)
 
             # Configure next cycle
             self.log("Closing press valve")
@@ -95,7 +95,7 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
         vent_valve.press()
         self.wait_for_eq("press_vlv_state", 0)
         self.wait_for_eq("vent_vlv_state", 1)
-        self.wait_for_le(PRESSURE, 5)
+        self.wait_for_le(PRESSURE, 5, timeout=10)
         self.log("Closing vent valve")
         vent_valve.press()
         self.wait_for_eq("press_vlv_state", 0)

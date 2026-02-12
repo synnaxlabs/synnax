@@ -35,12 +35,12 @@ protected:
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
         // Create index channel
-        index_channel = synnax::channel::Channel(
-            make_unique_channel_name("time_channel"),
-            x::telem::TIMESTAMP_T,
-            0,
-            true
-        );
+        index_channel = synnax::channel::Channel{
+            .name = make_unique_channel_name("time_channel"),
+            .data_type = x::telem::TIMESTAMP_T,
+            .index = 0,
+            .is_index = true
+        };
         ASSERT_NIL(client->channels.create(index_channel));
 
         // Create rack and device
@@ -197,19 +197,19 @@ TEST(ReadTask, testBasicReadTask) {
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
-    auto index_channel = synnax::channel::Channel(
-        make_unique_channel_name("time_channel"),
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto index_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("time_channel"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
 
-    auto data_channel = synnax::channel::Channel(
-        make_unique_channel_name("data_channel"),
-        x::telem::UINT8_T,
-        index_channel.key,
-        false
-    );
+    auto data_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("data_channel"),
+        .data_type = x::telem::UINT8_T,
+        .index = index_channel.key,
+        .is_index = false
+    };
 
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
@@ -233,7 +233,12 @@ TEST(ReadTask, testBasicReadTask) {
 
     ASSERT_NIL(client->devices.create(dev));
 
-    auto tsk = synnax::task::Task(rack.key, "my_task", "modbus_read", "");
+    auto tsk = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "my_task",
+        .type = "modbus_read",
+        .config = ""
+    };
 
     x::json::json j{
         {"data_saving", false},
@@ -274,7 +279,7 @@ TEST(ReadTask, testBasicReadTask) {
     const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.key, tsk.status_key());
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.details.task, tsk.key);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 1);
@@ -283,7 +288,7 @@ TEST(ReadTask, testBasicReadTask) {
     const auto second_state = ctx->statuses[1];
     EXPECT_EQ(second_state.key, tsk.status_key());
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.details.task, tsk.key);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
 
@@ -332,7 +337,12 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
     );
 
     auto task = common::ReadTask(
-        synnax::task::Task(rack.key, "discrete_test", "modbus_read", ""),
+        synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "discrete_test",
+            .type = "modbus_read",
+            .config = ""
+        },
         ctx,
         x::breaker::default_config("discrete_test"),
         std::make_unique<ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
@@ -386,7 +396,12 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
     );
 
     auto task = common::ReadTask(
-        synnax::task::Task(rack.key, "holding_test", "modbus_read", ""),
+        synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "holding_test",
+            .type = "modbus_read",
+            .config = ""
+        },
         ctx,
         x::breaker::default_config("holding_test"),
         std::make_unique<ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
@@ -459,7 +474,12 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     );
 
     auto task = common::ReadTask(
-        synnax::task::Task(rack.key, "multi_test", "modbus_read", ""),
+        synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "multi_test",
+            .type = "modbus_read",
+            .config = ""
+        },
         ctx,
         x::breaker::default_config("multi_test"),
         std::make_unique<ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
@@ -552,7 +572,12 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
     );
 
     auto task = common::ReadTask(
-        synnax::task::Task(rack.key, "uint8_test", "modbus_read", ""),
+        synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "uint8_test",
+            .type = "modbus_read",
+            .config = ""
+        },
         ctx,
         x::breaker::default_config("uint8_test"),
         std::make_unique<ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
@@ -626,7 +651,12 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
     );
 
     auto task = common::ReadTask(
-        synnax::task::Task(rack.key, "uint8_holding_test", "modbus_read", ""),
+        synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "uint8_holding_test",
+            .type = "modbus_read",
+            .config = ""
+        },
         ctx,
         x::breaker::default_config("uint8_holding_test"),
         std::make_unique<ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
@@ -686,13 +716,12 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
          )}
     };
 
-    task = synnax::task::Task(
-        rack.key,
-        "test_task",
-        "modbus_read",
-        config.dump(),
-        false
-    );
+    task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "test_task",
+        .type = "modbus_read",
+        .config = config.dump()
+    };
 
     // Configure task through factory
     auto factory = Factory();
@@ -705,7 +734,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     bool found_start = false;
     for (const auto &s: ctx->statuses) {
-        if (s.details.running && s.variant == x::status::variant::SUCCESS) {
+        if (s.details.running && s.variant == x::status::VARIANT_SUCCESS) {
             found_start = true;
             break;
         }
@@ -754,13 +783,12 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
          )}
     };
 
-    task = synnax::task::Task(
-        rack.key,
-        "test_task_no_auto",
-        "modbus_read",
-        config.dump(),
-        false
-    );
+    task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "test_task_no_auto",
+        .type = "modbus_read",
+        .config = config.dump()
+    };
 
     // Configure task through factory
     auto factory = Factory();
@@ -774,7 +802,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &initial_state = ctx->statuses[0];
     ASSERT_FALSE(initial_state.details.running);
-    ASSERT_EQ(initial_state.variant, x::status::variant::SUCCESS);
+    ASSERT_EQ(initial_state.variant, x::status::VARIANT_SUCCESS);
     ASSERT_EQ(initial_state.message, "Task configured successfully");
 
     // Manually start the task
@@ -785,7 +813,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     bool found_start = false;
     for (const auto &s: ctx->statuses) {
-        if (s.details.running && s.variant == x::status::variant::SUCCESS) {
+        if (s.details.running && s.variant == x::status::VARIANT_SUCCESS) {
             found_start = true;
             break;
         }

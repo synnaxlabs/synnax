@@ -21,7 +21,7 @@ struct Authorities {
     /// applies to all channels on the writer.
     std::vector<synnax::channel::Key> keys;
     /// @brief the authority levels corresponding to each key.
-    std::vector<x::telem::Authority> authorities;
+    std::vector<x::control::Authority> authorities;
 
     [[nodiscard]] bool empty() const { return authorities.empty(); }
 };

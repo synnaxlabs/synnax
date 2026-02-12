@@ -10,6 +10,7 @@
 import synnax as sy
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import expect
 from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
@@ -155,10 +156,9 @@ class ChannelClient:
         modal = self.layout.page.locator(self.layout.MODAL_SELECTOR)
         modal.wait_for(state="hidden", timeout=5000)
         self.show_channels()
-        for _ in range(20):
-            if self._find_channel_item(name, retry_with_refresh=False) is not None:
-                break
-            self.layout.page.wait_for_timeout(50)
+        self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
+            has=self.layout.page.get_by_text(str(name), exact=True)
+        ).first.wait_for(state="visible", timeout=5000)
         self.hide_channels()
         return True
 
@@ -271,19 +271,7 @@ class ChannelClient:
                 name_input_after = self.layout.page.get_by_role("textbox", name="Name")
 
                 name_input_after.wait_for(state="visible", timeout=5000)
-                # Wait for input to be cleared (form reset)
-                for attempt in range(30):
-                    try:
-                        current_val = name_input_after.input_value()
-                        if current_val == "":
-                            break
-                    except Exception:
-                        pass
-                    self.layout.page.wait_for_timeout(100)
-                else:
-                    raise RuntimeError(
-                        "Form did not reset after creating channel with 'Create More'"
-                    )
+                expect(name_input_after).to_have_value("", timeout=5000)
 
         self.hide_channels()
         return created_channels
@@ -409,7 +397,9 @@ class ChannelClient:
         self.ctx_menu.action(items[0], "Reload Console")
 
         self.layout.page.wait_for_load_state("load", timeout=30000)
-        self.layout.page.wait_for_load_state("networkidle", timeout=30000)
+        self.layout.page.wait_for_selector(
+            ".console-palette button", state="visible", timeout=30000
+        )
 
     def group(self, *, names: ChannelNames, group_name: str) -> None:
         """Group multiple channels together via context menu.
