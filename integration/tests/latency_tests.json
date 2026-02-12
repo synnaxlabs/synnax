@@ -4,22 +4,14 @@
     {
       "sequence_name": "Driver_Latency",
       "sequence_order": "sequential",
-      "tests": [
-        {
-          "case": "latency/driver_ni_digital_write"
-        }
-      ]
+      "tests": [{ "case": "latency/driver_ni_digital_write" }]
     },
     {
       "sequence_name": "Bench_Latency",
       "sequence_order": "asynchronous",
       "tests": [
-        {
-          "case": "latency/bench_response"
-        },
-        {
-          "case": "latency/bench_report"
-        }
+        { "case": "latency/bench_response" },
+        { "case": "latency/bench_report" }
       ]
     },
     {
@@ -29,9 +21,7 @@
         {
           "case": "latency/abcd",
           "name": "async",
-          "parameters": {
-            "mode": ["a", "b", "c", "d"]
-          }
+          "parameters": { "mode": ["a", "b", "c", "d"] }
         }
       ]
     }

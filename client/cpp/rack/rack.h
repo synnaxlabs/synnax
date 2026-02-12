@@ -46,7 +46,7 @@ using Key = std::uint32_t;
 /// @param key The rack key.
 /// @returns An ontology ID with type "rack" and the given key.
 inline ontology::ID ontology_id(const rack::Key key) {
-    return ontology::ID("rack", std::to_string(key));
+    return ontology::ID{.type = "rack", .key = std::to_string(key)};
 }
 
 /// @brief Converts a vector of rack keys to a vector of ontology IDs.
@@ -92,8 +92,7 @@ using Status = x::status::Status<StatusDetails>;
 
 /// @brief A Rack represents a physical or logical grouping of hardware devices.
 /// Racks contain tasks that can be used to interact with hardware.
-class Rack {
-public:
+struct Rack {
     /// @brief The unique identifier for the rack.
     rack::Key key{};
 
@@ -106,18 +105,6 @@ public:
     /// @brief Client for managing tasks on this rack.
     /// Note: This will be initialized after construction by RackClient.
     task::Client tasks = task::Client(0, nullptr, nullptr, nullptr);
-
-    /// @brief Constructs a new rack with the given key and name.
-    /// @param key The unique identifier for the rack.
-    /// @param name A human-readable name for the rack.
-    Rack(rack::Key key, std::string name);
-
-    /// @brief Constructs a new rack with the given name.
-    /// @param name A human-readable name for the rack.
-    explicit Rack(std::string name);
-
-    /// @brief Default constructor for an empty rack.
-    Rack() = default;
 
     /// @brief Constructs a rack from its protobuf representation.
     /// @param rack The protobuf representation of the rack.
@@ -138,12 +125,9 @@ public:
         return os;
     }
 
-private:
     /// @brief Converts the rack to its protobuf representation.
     /// @param rack The protobuf object to populate.
     void to_proto(api::v1::Rack *rack) const;
-
-    friend class Client;
 };
 
 /// @brief Client for managing racks in a Synnax cluster.

@@ -78,7 +78,7 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
         dev.status = synnax::device::Status{
             .key = dev.status_key(),
             .name = dev.name,
-            .variant = x::status::variant::WARNING,
+            .variant = x::status::VARIANT_WARNING,
             .message = "Invalid device properties",
             .description = parser.error().message(),
             .time = ::x::telem::TimeStamp::now(),
@@ -92,7 +92,7 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
         dev.status = synnax::device::Status{
             .key = dev.status_key(),
             .name = dev.name,
-            .variant = x::status::variant::WARNING,
+            .variant = x::status::VARIANT_WARNING,
             .message = "Failed to reach server",
             .description = conn_err.message(),
             .time = ::x::telem::TimeStamp::now(),
@@ -102,7 +102,7 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
         dev.status = synnax::device::Status{
             .key = dev.status_key(),
             .name = dev.name,
-            .variant = x::status::variant::SUCCESS,
+            .variant = x::status::VARIANT_SUCCESS,
             .message = "Server connected",
             .time = ::x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
@@ -171,7 +171,7 @@ void Scanner::browse_nodes(const task::Command &cmd) const {
     synnax::task::Status status{
         .key = this->task.status_key(),
         .name = this->task.name,
-        .variant = x::status::variant::ERR,
+        .variant = x::status::VARIANT_ERROR,
         .details = synnax::task::StatusDetails{.task = task.key, .cmd = cmd.key}
     };
     if (!parser.ok()) {
@@ -182,7 +182,7 @@ void Scanner::browse_nodes(const task::Command &cmd) const {
 
     auto [connection, err] = conn_pool->acquire(args.connection, SCAN_LOG_PREFIX);
     if (err) {
-        status.variant = x::status::variant::ERR;
+        status.variant = x::status::VARIANT_ERROR;
         status.message = err.message();
         return ctx->set_status(status);
     }
@@ -199,7 +199,7 @@ void Scanner::browse_nodes(const task::Command &cmd) const {
     );
 
     status.message = "Scan successful";
-    status.variant = x::status::variant::SUCCESS;
+    status.variant = x::status::VARIANT_SUCCESS;
     status.details.data = device::Properties(args.connection, *scan_ctx->channels)
                               .to_json();
     ctx->set_status(status);
@@ -211,7 +211,7 @@ void Scanner::test_connection(const task::Command &cmd) const {
     synnax::task::Status status{
         .key = this->task.status_key(),
         .name = this->task.name,
-        .variant = x::status::variant::ERR,
+        .variant = x::status::VARIANT_ERROR,
         .details = synnax::task::StatusDetails{
             .task = task.key,
             .cmd = cmd.key,
@@ -228,7 +228,7 @@ void Scanner::test_connection(const task::Command &cmd) const {
         status.message = err.data;
         return ctx->set_status(status);
     }
-    status.variant = x::status::variant::SUCCESS;
+    status.variant = x::status::VARIANT_SUCCESS;
     status.message = "Connection successful";
     return ctx->set_status(status);
 }

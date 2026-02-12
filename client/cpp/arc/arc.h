@@ -16,6 +16,7 @@
 #include "google/protobuf/empty.pb.h"
 
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/graph/graph.h"
 #include "arc/cpp/module/module.h"
@@ -71,7 +72,7 @@ struct RetrieveOptions {
 /// See https://docs.synnaxlabs.com/reference/concepts/arc for more information.
 struct Arc {
     /// @brief Unique identifier for the Arc program (UUID).
-    std::string key;
+    x::uuid::UUID key;
     /// @brief Human-readable name for the Arc program.
     std::string name;
     /// @brief Visual graph representation of the Arc program.
@@ -85,21 +86,13 @@ struct Arc {
     /// @brief Version string for the Arc program.
     std::string version;
 
-    /// @brief Constructs an empty, invalid Arc program.
-    Arc() = default;
-    /// @brief Constructs a new Arc program with the given name.
-    /// @param name Human-readable name for the Arc program.
-    explicit Arc(std::string name);
     /// @brief Constructs an Arc program from its protobuf representation.
     /// @param pb Protobuf message representing the Arc program.
-    explicit Arc(const api::v1::Arc &pb);
+    static std::pair<Arc, x::errors::Error> from_proto(const api::v1::Arc &pb);
 
-private:
     /// @brief Converts the Arc program to its protobuf representation.
     /// @param pb Pointer to protobuf message to populate.
     void to_proto(api::v1::Arc *pb) const;
-
-    friend class Client;
 };
 
 /// @brief Client for managing Arc automation programs in a Synnax cluster.
@@ -157,8 +150,10 @@ public:
     /// @param options Optional retrieve options (compile, include_status, etc.).
     /// @returns A pair containing the retrieved Arc program and an error.
     /// If the Arc program does not exist, an error is returned.
-    [[nodiscard]] std::pair<Arc, x::errors::Error>
-    retrieve_by_key(const std::string &key, const RetrieveOptions &options = {}) const;
+    [[nodiscard]] std::pair<Arc, x::errors::Error> retrieve_by_key(
+        const x::uuid::UUID &key,
+        const RetrieveOptions &options = {}
+    ) const;
 
     /// @brief Retrieves Arc programs by their names.
     /// @param names Vector of names of Arc programs to retrieve.
@@ -177,20 +172,20 @@ public:
     /// @returns A pair containing a vector of retrieved Arc programs and an error.
     /// If an Arc program with a given key does not exist, it will not be in the result.
     [[nodiscard]] std::pair<std::vector<Arc>, x::errors::Error> retrieve_by_keys(
-        const std::vector<std::string> &keys,
+        const std::vector<x::uuid::UUID> &keys,
         const RetrieveOptions &options = {}
     ) const;
 
     /// @brief Deletes an Arc program by its key.
     /// @param key The key of the Arc program to delete.
     /// @returns An error if the Arc program could not be deleted.
-    [[nodiscard]] x::errors::Error delete_arc(const std::string &key) const;
+    [[nodiscard]] x::errors::Error delete_arc(const x::uuid::UUID &key) const;
 
     /// @brief Deletes multiple Arc programs by their keys.
     /// @param keys Vector of keys of Arc programs to delete.
     /// @returns An error if the Arc programs could not be deleted.
     [[nodiscard]] x::errors::Error
-    delete_arc(const std::vector<std::string> &keys) const;
+    delete_arc(const std::vector<x::uuid::UUID> &keys) const;
 
 private:
     /// @brief Client for retrieving Arc programs.

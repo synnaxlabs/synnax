@@ -110,12 +110,12 @@ const useSyncComponent = Workspace.createSyncComponent(
     if (data == null) return;
     const layout = Layout.selectRequired(storeState, key);
     if (data.snapshot) {
-      await client.workspaces.schematics.rename(key, layout.name);
+      await client.schematics.rename(key, layout.name);
       return;
     }
     const setData = { ...data, key: undefined };
     if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
-    await client.workspaces.schematics.create(workspace, {
+    await client.schematics.create(workspace, {
       key,
       name: layout.name,
       data: setData,

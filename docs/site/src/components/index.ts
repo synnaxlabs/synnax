@@ -13,7 +13,6 @@ export { Client } from "@/components/client";
 export { Code } from "@/components/code";
 export { Console } from "@/components/console";
 export { Core } from "@/components/core";
-export { Deploy } from "@/components/deploy";
 export { Details } from "@/components/details";
 export { Diagram } from "@/components/diagram";
 export { Driver } from "@/components/driver";
