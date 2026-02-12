@@ -14,7 +14,7 @@ from console.layout import LayoutClient
 class MosaicOperations(ConsoleCase):
     """Test layout mosaic operations: tabs, splits, focus, new windows."""
 
-    shared_page_name: str | None = None
+    shared_page_name: str = ""
 
     def setup(self) -> None:
         super().setup()
@@ -197,10 +197,10 @@ class MosaicOperations(ConsoleCase):
 
     def _get_theme_class(self) -> str:
         """Get the current pluto theme class from the <html> element."""
-        classes = self.console.layout.page.evaluate("""
+        classes: str = str(self.console.layout.page.evaluate("""
             Array.from(document.documentElement.classList)
                 .find(c => c.startsWith('pluto-theme-')) || ''
-            """)
+            """))
         return classes
 
     def test_toggle_color_theme(self) -> None:
