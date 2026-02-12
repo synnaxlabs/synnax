@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/lsp"
-	. "github.com/synnaxlabs/x/lsp/testutil"
+	"github.com/synnaxlabs/x/lsp/testutil"
 	xutil "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
@@ -22,16 +22,18 @@ import (
 func SetupTestServer(cfgs ...lsp.Config) (*lsp.Server, protocol.DocumentURI) {
 	server := xutil.MustSucceed(lsp.New(cfgs...))
 	uri := protocol.DocumentURI("file:///test.arc")
-	server.SetClient(&MockClient{})
+	server.SetClient(&testutil.MockClient{})
 	return server, uri
 }
 
 // SetupTestServerWithClient creates a new arc LSP server and returns
 // the server, URI, and the MockClient.
-func SetupTestServerWithClient(cfgs ...lsp.Config) (*lsp.Server, protocol.DocumentURI, *MockClient) {
+func SetupTestServerWithClient(
+	cfgs ...lsp.Config,
+) (*lsp.Server, protocol.DocumentURI, *testutil.MockClient) {
 	server := xutil.MustSucceed(lsp.New(cfgs...))
 	uri := protocol.DocumentURI("file:///test.arc")
-	client := &MockClient{}
+	client := &testutil.MockClient{}
 	server.SetClient(client)
 	return server, uri, client
 }
@@ -43,5 +45,5 @@ func OpenArcDocument(
 	uri protocol.DocumentURI,
 	content string,
 ) {
-	OpenDocument(server, ctx, uri, content, "arc")
+	testutil.OpenDocument(server, ctx, uri, content, "arc")
 }
