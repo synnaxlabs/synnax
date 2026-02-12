@@ -197,7 +197,12 @@ protected:
              )}
         };
 
-        task = synnax::task::Task(rack.key, "opc_ua_write_task_test", "opc_write", "");
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "opc_ua_write_task_test",
+            .type = "opc_write",
+            .config = ""
+        };
 
         auto p = x::json::Parser(task_cfg);
         this->cfg = std::make_unique<WriteTaskConfig>(client, p);

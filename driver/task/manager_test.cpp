@@ -324,7 +324,12 @@ protected:
 
 TEST_F(TaskManagerTest, Configure) {
     start_manager(std::make_unique<EchoTaskFactory>());
-    auto task = synnax::task::Task(rack.key, "t", "echo", "");
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "t",
+        .type = "echo",
+        .config = ""
+    };
     ASSERT_NIL(rack.tasks.create(task));
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.variant == x::status::VARIANT_SUCCESS && s.message == "configured";
@@ -334,7 +339,12 @@ TEST_F(TaskManagerTest, Configure) {
 
 TEST_F(TaskManagerTest, Delete) {
     start_manager(std::make_unique<EchoTaskFactory>());
-    auto task = synnax::task::Task(rack.key, "t", "echo", "");
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "t",
+        .type = "echo",
+        .config = ""
+    };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.message == "configured";
@@ -352,7 +362,12 @@ TEST_F(TaskManagerTest, Command) {
     auto writer = ASSERT_NIL_P(client->telem.open_writer(
         {.channels = {cmd_ch.key}, .start = x::telem::TimeStamp::now()}
     ));
-    auto task = synnax::task::Task(rack.key, "t", "echo", "");
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "t",
+        .type = "echo",
+        .config = ""
+    };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.message == "configured";
@@ -374,7 +389,12 @@ TEST_F(TaskManagerTest, Command) {
 TEST_F(TaskManagerTest, IgnoresForeignRack) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto other = ASSERT_NIL_P(client->racks.create("other"));
-    auto task = synnax::task::Task(other.key, "t", "echo", "");
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(other.key, 0),
+        .name = "t",
+        .type = "echo",
+        .config = ""
+    };
     ASSERT_NIL(other.tasks.create(task));
 
     std::atomic<bool> received = false;
@@ -393,7 +413,12 @@ TEST_F(TaskManagerTest, IgnoresForeignRack) {
 
 TEST_F(TaskManagerTest, StopOnShutdown) {
     start_manager(std::make_unique<EchoTaskFactory>());
-    auto task = synnax::task::Task(rack.key, "t", "echo", "");
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "t",
+        .type = "echo",
+        .config = ""
+    };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.message == "configured";
@@ -408,7 +433,12 @@ TEST_F(TaskManagerTest, StopOnShutdown) {
 
 TEST_F(TaskManagerTest, IgnoresSnapshot) {
     start_manager(std::make_unique<EchoTaskFactory>());
-    auto task = synnax::task::Task(rack.key, "t", "echo", "");
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "t",
+        .type = "echo",
+        .config = ""
+    };
     task.snapshot = true;
     ASSERT_NIL(rack.tasks.create(task));
 
@@ -434,11 +464,21 @@ TEST_F(TaskManagerTest, ParallelConfig) {
     auto *f = factory.get();
     start_manager(std::move(factory));
 
-    auto blocking = synnax::task::Task(rack.key, "b", "blocking", "");
+    auto blocking = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "b",
+        .type = "blocking",
+        .config = ""
+    };
     ASSERT_NIL(rack.tasks.create(blocking));
     EVENTUALLY([&] { return f->started.load(); }, [] { return "not started"; });
 
-    auto echo = synnax::task::Task(rack.key, "e", "echo", "");
+    auto echo = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "e",
+        .type = "echo",
+        .config = ""
+    };
     ASSERT_NIL(rack.tasks.create(echo));
     auto s = WAIT_FOR_TASK_STATUS(streamer, echo, [](const synnax::task::Status &s) {
         return s.message == "configured";
@@ -466,7 +506,12 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
     ASSERT_NIL(writer.close());
     std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
 
-    auto task = synnax::task::Task(rack.key, "t", "echo", "");
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "t",
+        .type = "echo",
+        .config = ""
+    };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.message == "configured";
@@ -475,7 +520,12 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
 
 TEST_F(TaskManagerTest, RapidReconfigure) {
     start_manager(std::make_unique<EchoTaskFactory>());
-    auto task = synnax::task::Task(rack.key, "t", "echo", "");
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "t",
+        .type = "echo",
+        .config = ""
+    };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.message == "configured";
@@ -512,7 +562,12 @@ TEST_F(TaskManagerTest, Timeout) {
          .poll_interval = 100 * x::telem::MILLISECOND}
     );
 
-    auto task = synnax::task::Task(rack.key, "t", "timeout", "");
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "t",
+        .type = "timeout",
+        .config = ""
+    };
     ASSERT_NIL(rack.tasks.create(task));
 
     auto s = WAIT_FOR_TASK_STATUS(
@@ -539,7 +594,12 @@ TEST_F(TaskManagerTest, CommandFIFO) {
         {.channels = {cmd_ch.key}, .start = x::telem::TimeStamp::now()}
     ));
 
-    auto task = synnax::task::Task(rack.key, "t", "tracking", "");
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "t",
+        .type = "tracking",
+        .config = ""
+    };
     ASSERT_NIL(rack.tasks.create(task));
     EVENTUALLY(
         [&] {
@@ -573,7 +633,12 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
     auto *f = factory.get();
     start_manager(std::move(factory));
 
-    auto task = synnax::task::Task(rack.key, "t", "tracking", "");
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "t",
+        .type = "tracking",
+        .config = ""
+    };
     ASSERT_NIL(rack.tasks.create(task));
 
     std::shared_ptr<TrackingTaskState> first_state;
@@ -660,7 +725,12 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     auto *f = factory.get();
     start_manager(std::move(factory));
 
-    auto task = synnax::task::Task(rack.key, "t", "destructor_tracking", "");
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "t",
+        .type = "destructor_tracking",
+        .config = ""
+    };
     ASSERT_NIL(rack.tasks.create(task));
 
     WAIT_FOR_TASK_STATUS(streamer, task, [](auto &s) {
@@ -706,7 +776,12 @@ TEST_F(ShutdownTest, DuringConfiguration) {
     std::thread thread([&] { manager->run([&] { started.set_value(); }); });
     started.get_future().wait_for((5 * x::telem::SECOND).chrono());
 
-    auto task = synnax::task::Task(rack.key, "t", "blocking", "");
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "t",
+        .type = "blocking",
+        .config = ""
+    };
     ASSERT_NIL(rack.tasks.create(task));
     EVENTUALLY([&] { return f->started.load(); }, [] { return "not started"; });
 
@@ -730,12 +805,12 @@ TEST_F(ShutdownTest, WithPendingOps) {
     started.get_future().wait_for((5 * x::telem::SECOND).chrono());
 
     for (int i = 0; i < 3; i++) {
-        auto task = synnax::task::Task(
-            rack.key,
-            "t" + std::to_string(i),
-            "blocking",
-            ""
-        );
+        auto task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "t" + std::to_string(i),
+            .type = "blocking",
+            .config = ""
+        };
         ASSERT_NIL(rack.tasks.create(task));
     }
     std::this_thread::sleep_for((50 * x::telem::MILLISECOND).chrono());
@@ -820,7 +895,12 @@ TEST_F(ShutdownTest, TimeoutDetachesStuckWorkers) {
     std::thread thread([&] { manager->run([&] { started.set_value(); }); });
     started.get_future().wait_for((5 * x::telem::SECOND).chrono());
 
-    auto task = synnax::task::Task(rack.key, "t", "blocking_stop", "");
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "t",
+        .type = "blocking_stop",
+        .config = ""
+    };
     ASSERT_NIL(rack.tasks.create(task));
     std::this_thread::sleep_for((100 * x::telem::MILLISECOND).chrono());
 
@@ -894,12 +974,12 @@ TEST_F(ShutdownTest, ParallelTaskStop) {
 
     // Create 4 tasks that each take 200ms to stop
     for (int i = 0; i < 4; i++) {
-        auto task = synnax::task::Task(
-            rack.key,
-            "t" + std::to_string(i),
-            "slow_stop",
-            ""
-        );
+        auto task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "t" + std::to_string(i),
+            .type = "slow_stop",
+            .config = ""
+        };
         ASSERT_NIL(rack.tasks.create(task));
     }
     std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
@@ -967,7 +1047,12 @@ TEST_F(ShutdownTest, StuckWorkerDetach) {
     std::thread thread([&] { manager->run([&] { started.set_value(); }); });
     started.get_future().wait_for((5 * x::telem::SECOND).chrono());
 
-    auto task = synnax::task::Task(rack.key, "t", "stuck_worker", "");
+    auto task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "t",
+        .type = "stuck_worker",
+        .config = ""
+    };
     ASSERT_NIL(rack.tasks.create(task));
 
     EVENTUALLY(

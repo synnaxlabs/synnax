@@ -36,7 +36,12 @@ protected:
 
         rack = ASSERT_NIL_P(client->racks.create("opc_scan_task_test_rack"));
 
-        task = synnax::task::Task(rack.key, "OPC UA Scan Task Test", "opc_scan", "");
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "OPC UA Scan Task Test",
+            .type = "opc_scan",
+            .config = ""
+        };
 
         auto server_cfg = mock::ServerConfig::create_default();
         server = std::make_unique<mock::Server>(server_cfg);

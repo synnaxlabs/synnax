@@ -53,18 +53,19 @@ struct ClusterInfo {
     /// request.
     x::telem::TimeStamp node_time = x::telem::TimeStamp(0);
 
-    ClusterInfo() = default;
-
     static std::pair<ClusterInfo, x::errors::Error>
     from_proto(const api::v1::ClusterInfo &info) {
         auto [cluster_key, err] = x::uuid::UUID::parse(info.cluster_key());
         if (err) return {{}, err};
-        ClusterInfo ci;
-        ci.cluster_key = cluster_key;
-        ci.node_version = info.node_version();
-        ci.node_key = info.node_key();
-        ci.node_time = x::telem::TimeStamp(info.node_time());
-        return {ci, x::errors::NIL};
+        return {
+            ClusterInfo{
+                .cluster_key = cluster_key,
+                .node_version = info.node_version(),
+                .node_key = info.node_key(),
+                .node_time = x::telem::TimeStamp(info.node_time()),
+            },
+            x::errors::NIL,
+        };
     }
 };
 
@@ -91,7 +92,7 @@ class Middleware final : public freighter::PassthroughMiddleware {
 
 public:
     /// Cluster information.
-    ClusterInfo cluster_info = ClusterInfo();
+    ClusterInfo cluster_info;
 
     Middleware(
         std::unique_ptr<LoginClient> login_client,

@@ -92,7 +92,7 @@ inline const UUID NIL;
 
 /// @brief Generate a new random UUID (v4).
 /// @returns A newly generated random UUID.
-inline UUID generate() {
+inline UUID create() {
     static thread_local boost::uuids::random_generator gen;
     return UUID{gen()};
 }

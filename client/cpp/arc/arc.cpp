@@ -20,8 +20,6 @@ const std::string CREATE_ENDPOINT = "/api/v1/arc/create";
 const std::string RETRIEVE_ENDPOINT = "/api/v1/arc/retrieve";
 const std::string DELETE_ENDPOINT = "/api/v1/arc/delete";
 
-Arc::Arc(std::string name): name(std::move(name)) {}
-
 std::pair<Arc, x::errors::Error> Arc::from_proto(const api::v1::Arc &pb) {
     auto [key, err] = x::uuid::UUID::parse(pb.key());
     if (err) return {{}, err};
@@ -102,7 +100,7 @@ x::errors::Error Client::create(std::vector<Arc> &arcs) const {
 }
 
 std::pair<Arc, x::errors::Error> Client::create(const std::string &name) const {
-    auto arc = Arc(name);
+    auto arc = Arc{.name = name};
     auto err = create(arc);
     return {arc, err};
 }

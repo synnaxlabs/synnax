@@ -60,7 +60,12 @@ TEST_F(EtherCATScanTest, ScanConfigDefaultValues) {
 }
 
 TEST_F(EtherCATScanTest, ScannerConfigReturnsCorrectValues) {
-    synnax::task::Task task(rack.key, "EtherCAT Scanner", SCAN_TASK_TYPE, "", true);
+    synnax::task::Task task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true,
+    };
     ScanTaskConfig cfg;
     Scanner scanner(ctx, task, cfg, nullptr);
 
@@ -70,7 +75,12 @@ TEST_F(EtherCATScanTest, ScannerConfigReturnsCorrectValues) {
 }
 
 TEST_F(EtherCATScanTest, ScannerStartStopSucceed) {
-    synnax::task::Task task(rack.key, "EtherCAT Scanner", SCAN_TASK_TYPE, "", true);
+    synnax::task::Task task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true,
+    };
     ScanTaskConfig cfg;
     Scanner scanner(ctx, task, cfg, nullptr);
 
@@ -79,7 +89,12 @@ TEST_F(EtherCATScanTest, ScannerStartStopSucceed) {
 }
 
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
-    synnax::task::Task task(rack.key, "EtherCAT Scanner", SCAN_TASK_TYPE, "", true);
+    synnax::task::Task task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true,
+    };
     ScanTaskConfig cfg;
     Scanner scanner(ctx, task, cfg, nullptr);
 
@@ -94,7 +109,12 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
 }
 
 TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
-    synnax::task::Task task(rack.key, "EtherCAT Scanner", SCAN_TASK_TYPE, "", true);
+    synnax::task::Task task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true,
+    };
     ScanTaskConfig cfg;
     Scanner scanner(ctx, task, cfg, nullptr);
 

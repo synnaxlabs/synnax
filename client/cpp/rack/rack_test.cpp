@@ -21,7 +21,7 @@ std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
 /// @brief it should correctly create a rack in the cluster.
 TEST(RackTests, testCreateRack) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     ASSERT_EQ(r.name, "test_rack");
 }
@@ -29,7 +29,7 @@ TEST(RackTests, testCreateRack) {
 /// @brief it should correctly retrieve a rack from the cluster.
 TEST(RackTests, testRetrieveRack) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto r2 = ASSERT_NIL_P(client.racks.retrieve(r.key));
     ASSERT_EQ(r2.name, "test_rack");
@@ -39,7 +39,7 @@ TEST(RackTests, testRetrieveRack) {
 /// @brief it should correctly delete a rack from the cluster.
 TEST(RackTests, testDeleteRack) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     ASSERT_NIL(client.racks.del(r.key));
     ASSERT_OCCURRED_AS_P(client.racks.retrieve(r.key), x::errors::QUERY);
@@ -49,7 +49,7 @@ TEST(RackTests, testRetrieveRackByName) {
     const auto client = new_test_client();
 
     const auto unique_name = "test_rack_by_name_unique" + std::to_string(rand());
-    auto r = Rack(unique_name);
+    auto r = Rack{.name = unique_name};
     ASSERT_NIL(client.racks.create(r));
     const auto r2 = ASSERT_NIL_P(client.racks.retrieve(unique_name));
     ASSERT_EQ(r2.name, unique_name);
@@ -59,7 +59,7 @@ TEST(RackTests, testRetrieveRackByName) {
 /// @brief it should correctly create and retrieve a rack with a status.
 TEST(RackTests, testCreateRackWithStatus) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack_with_status");
+    auto r = Rack{.name = "test_rack_with_status"};
     r.status.key = "rack-status-key";
     r.status.variant = x::status::VARIANT_SUCCESS;
     r.status.message = "Rack is healthy";
@@ -102,7 +102,7 @@ TEST(StatusDetailsTests, testRoundTrip) {
 
 /// @brief it should correctly stream output a rack.
 TEST(RackTests, testStreamOutput) {
-    auto r = Rack(12345, "my_rack");
+    auto r = Rack{.key = 12345, .name = "my_rack"};
     std::ostringstream oss;
     oss << r;
     ASSERT_EQ(oss.str(), "my_rack (12345)");
