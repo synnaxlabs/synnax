@@ -22,6 +22,32 @@ TEST(SlaveStateToString, ConvertsAllStatesToExpectedStrings) {
     ASSERT_EQ(slave_state_to_string(State::UNKNOWN), "UNKNOWN");
 }
 
+TEST(FromAlState, ConvertsStandardStates) {
+    ASSERT_EQ(from_al_state(0x01), State::INIT);
+    ASSERT_EQ(from_al_state(0x02), State::PRE_OP);
+    ASSERT_EQ(from_al_state(0x03), State::BOOT);
+    ASSERT_EQ(from_al_state(0x04), State::SAFE_OP);
+    ASSERT_EQ(from_al_state(0x08), State::OP);
+}
+
+TEST(FromAlState, ReturnsUnknownForInvalidValues) {
+    ASSERT_EQ(from_al_state(0x00), State::UNKNOWN);
+    ASSERT_EQ(from_al_state(0x05), State::UNKNOWN);
+    ASSERT_EQ(from_al_state(0x0F), State::UNKNOWN);
+}
+
+TEST(FromAlState, MasksErrorFlagBits) {
+    ASSERT_EQ(from_al_state(0x11), State::INIT);
+    ASSERT_EQ(from_al_state(0x12), State::PRE_OP);
+    ASSERT_EQ(from_al_state(0x14), State::SAFE_OP);
+    ASSERT_EQ(from_al_state(0x18), State::OP);
+}
+
+TEST(FromAlState, AcceptsUint8Values) {
+    const uint8_t igh_state = 0x08;
+    ASSERT_EQ(from_al_state(igh_state), State::OP);
+}
+
 TEST(PropertiesPdoCount, ReturnsZeroForEmptyProperties) {
     Properties props;
     ASSERT_EQ(props.pdo_count(), 0);
