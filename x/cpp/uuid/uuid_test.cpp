@@ -62,8 +62,8 @@ TEST(UUID, testParseWrongLength) {
 
 /// @brief it should generate unique UUIDs.
 TEST(UUID, testGenerate) {
-    const auto uuid1 = generate();
-    const auto uuid2 = generate();
+    const auto uuid1 = create();
+    const auto uuid2 = create();
     ASSERT_FALSE(uuid1.is_nil());
     ASSERT_FALSE(uuid2.is_nil());
     ASSERT_NE(uuid1, uuid2);
@@ -220,7 +220,7 @@ TEST(UUID, testUnderlyingAccess) {
 
 /// @brief it should round-trip through string conversion.
 TEST(UUID, testStringRoundTrip) {
-    const auto original = generate();
+    const auto original = create();
     const auto str = original.to_string();
     const auto parsed = ASSERT_NIL_P(UUID::parse(str));
     ASSERT_EQ(original, parsed);
@@ -228,7 +228,7 @@ TEST(UUID, testStringRoundTrip) {
 
 /// @brief it should round-trip through JSON conversion.
 TEST(UUID, testJsonRoundTrip) {
-    const auto original = generate();
+    const auto original = create();
     const auto j = original.to_json();
     json::Parser parser(j);
     const auto parsed = UUID::parse(parser);

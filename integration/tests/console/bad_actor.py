@@ -35,7 +35,7 @@ class BadActor(ConsoleCase):
         sy.sleep(2)
         for ch in channels_to_delete:
             try:
-                console.channels.delete(ch, timeout=500)
+                console.channels.delete(ch)
 
                 try:
                     client.channels.retrieve(ch)

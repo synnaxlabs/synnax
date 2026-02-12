@@ -54,12 +54,12 @@ DataType:
 			Entry("Mismatched Alignments",
 				telem.Series{
 					DataType:  telem.Float64T,
-					Data:      telem.MarshalSlice([]float64{1, 2, 3}),
+					Data:      telem.NewSeries([]float64{1, 2, 3}).Data,
 					Alignment: telem.NewAlignment(1, 2),
 				},
 				telem.Series{
 					DataType:  telem.Float64T,
-					Data:      telem.MarshalSlice([]float64{1, 2, 3}),
+					Data:      telem.NewSeries([]float64{1, 2, 3}).Data,
 					Alignment: telem.NewAlignment(1, 3),
 				},
 				`Series did not match:
@@ -70,13 +70,13 @@ Alignment:
 			Entry("Mismatched Time Ranges",
 				telem.Series{
 					DataType:  telem.Float64T,
-					Data:      telem.MarshalSlice([]float64{1, 2, 3}),
+					Data:      telem.NewSeries([]float64{1, 2, 3}).Data,
 					Alignment: telem.NewAlignment(1, 2),
 					TimeRange: telem.NewRangeSeconds(1, 2),
 				},
 				telem.Series{
 					DataType:  telem.Float64T,
-					Data:      telem.MarshalSlice([]float64{1, 2, 3}),
+					Data:      telem.NewSeries([]float64{1, 2, 3}).Data,
 					Alignment: telem.NewAlignment(1, 2),
 					TimeRange: telem.NewRangeSeconds(1, 3),
 				},

@@ -82,14 +82,25 @@ class Task final : public task::Task {
     public:
         explicit Source(Task &task): task(task) {}
 
-        x::errors::Error
-        read(x::breaker::Breaker &breaker, x::telem::Frame &data) override {
-            if (!this->task.runtime->read(data)) return errors::NOMINAL_SHUTDOWN_ERROR;
+        x::errors::Error read(
+            x::breaker::Breaker &breaker,
+            x::telem::Frame &fr,
+            pipeline::Authorities &authorities
+        ) override {
+            ::arc::runtime::Output out;
+            if (!this->task.runtime->read(out)) return errors::NOMINAL_SHUTDOWN_ERROR;
+            fr = std::move(out.frame);
+            for (auto &c: out.authority_changes) {
+                if (c.channel_key.has_value())
+                    authorities.keys.push_back(*c.channel_key);
+                authorities.authorities.push_back(c.authority);
+            }
             return x::errors::NIL;
         }
 
         void stopped_with_err(const x::errors::Error &err) override {
-            this->task.stop(false);
+            this->task.state.error(err);
+            this->task.stop("", true);
         }
     };
 
@@ -147,8 +158,7 @@ public:
                 if (err.matches(::arc::runtime::errors::WARNING))
                     task_ptr->state.send_warning(err);
                 else {
-                    task_ptr->state.error(err);
-                    task_ptr->state.send_stop("");
+                    task_ptr->state.send_error(err);
                     task_ptr->runtime->close_outputs();
                 }
             }
@@ -167,11 +177,16 @@ public:
             streamer_factory = std::make_shared<pipeline::SynnaxStreamerFactory>(
                 ctx->client
             );
+        auto initial_authorities = ::arc::runtime::build_authorities(
+            cfg.module.authorities,
+            task->runtime->write_channels
+        );
         task->acquisition = std::make_unique<pipeline::Acquisition>(
             writer_factory,
             synnax::framer::WriterConfig{
                 .channels = task->runtime->write_channels,
                 .start = x::telem::TimeStamp::now(),
+                .authorities = std::move(initial_authorities),
                 .subject =
                     x::control::Subject{
                         .name = task_meta.name,

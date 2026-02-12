@@ -316,7 +316,7 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
-    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     rt->stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
@@ -438,7 +438,7 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
     const auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
 
-    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
@@ -620,7 +620,7 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
-    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
 
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
@@ -792,7 +792,7 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
-    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
 
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);

@@ -9,22 +9,18 @@
 
 """Symbol Editor modal client for creating and editing custom symbols."""
 
-from __future__ import annotations
+from playwright.sync_api import Locator
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from typing import TYPE_CHECKING
-
-from playwright.sync_api import Locator, Page
-
-if TYPE_CHECKING:
-    from console.console import Console
+from console.layout import LayoutClient
 
 
 class SymbolEditor:
     """Client for interacting with the Symbol Editor modal."""
 
-    def __init__(self, page: Page, console: "Console"):
-        self.page = page
-        self.console = console
+    def __init__(self, layout: LayoutClient):
+        self.page = layout.page
+        self.layout = layout
 
     @property
     def modal(self) -> Locator:
@@ -38,31 +34,22 @@ class SymbolEditor:
             "Click to select an SVG file or drag and drop it here"
         )
 
-    def wait_for_open(self, timeout: int = 5000) -> None:
-        """Wait for the editor modal to open.
-
-        In create mode, the drop zone is shown first.
-        In edit mode (existing symbol), the form is shown directly since SVG is loaded.
-        """
+    def wait_for_open(self) -> None:
+        """Wait for the editor modal to open."""
         try:
-            self.drop_zone.wait_for(state="visible", timeout=1000)
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                self.wait_for_form_visible(timeout=timeout)
-            else:
-                raise RuntimeError(
-                    f"Error waiting for symbol editor to open: {e}"
-                ) from e
+            self.drop_zone.wait_for(state="visible", timeout=3000)
+        except PlaywrightTimeoutError:
+            self.wait_for_form_visible()
 
-    def wait_for_form_visible(self, timeout: int = 5000) -> None:
+    def wait_for_form_visible(self) -> None:
         """Wait for the form fields to appear (after SVG upload)."""
         self.page.locator("input[placeholder='Symbol Name']").wait_for(
-            state="visible", timeout=timeout
+            state="visible", timeout=5000
         )
 
-    def wait_for_closed(self, timeout: int = 5000) -> None:
+    def wait_for_closed(self) -> None:
         """Wait for the editor modal to close."""
-        self.modal.wait_for(state="hidden", timeout=timeout)
+        self.modal.wait_for(state="hidden", timeout=5000)
 
     def set_name(self, name: str) -> None:
         """Set the symbol name."""
@@ -90,7 +77,7 @@ class SymbolEditor:
             for word in name_without_ext.replace("_", " ").replace("-", " ").split()
         )
 
-        # SY-3670: Bug: Unable to upload SVG in browser
+        # SY-3670
         self.page.evaluate(
             """([svgContent, properName]) => {
                 // Access React fiber to call FileDrop's onContentsChange prop directly
@@ -172,7 +159,7 @@ class SymbolEditor:
         static_btn = self.modal.get_by_text("Static", exact=True)
         static_btn.wait_for(state="visible", timeout=2000)
         static_btn.click()
-        self.console.select_from_dropdown(state, placeholder="variants")
+        self.layout.select_from_dropdown(state, placeholder="variants")
 
     def save(self) -> None:
         """Click Save/Create button to save the symbol."""

@@ -193,6 +193,7 @@ const Content = () => {
                 {...p}
                 onRename={(name) => handleRename({ key, name })}
                 onEdit={() => handleEdit(key)}
+                onDoubleClick={() => handleEdit(key)}
               />
             )}
           </List.Items>

@@ -22,7 +22,7 @@ import { z } from "zod";
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { keyZ as rackKeyZ } from "@/rack/payload";
-import { type ranger } from "@/range";
+import { type ranger } from "@/ranger";
 import { status } from "@/status";
 import {
   type Key,

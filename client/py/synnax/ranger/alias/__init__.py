@@ -7,10 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.ranger.alias.client import Aliaser
-from synnax.ranger.alias.payload import (
-    EmptyResponse,
-    ResolveRequest,
-    ResolveResponse,
-    SetRequest,
-)
+from synnax.ranger.alias.client import Client
+
+Aliaser = Client
+"""Deprecated: Use Client instead."""

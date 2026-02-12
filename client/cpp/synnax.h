@@ -136,7 +136,7 @@ public:
     channel::Client channels = channel::Client(nullptr, nullptr);
     /// @brief Client for creating, retrieving, and performing operations on ranges
     /// in a cluster.
-    ranger::Client ranges = ranger::Client(nullptr, nullptr, kv::Client());
+    ranger::Client ranges = ranger::Client(nullptr, nullptr, ranger::kv::Client());
     /// @brief Client for reading and writing telemetry to a cluster.
     framer::Client telem = framer::Client(nullptr, nullptr, channel::Client());
     /// @brief Client for managing racks.
@@ -171,7 +171,7 @@ public:
         this->ranges = ranger::Client(
             std::move(t.range_retrieve),
             std::move(t.range_create),
-            kv::Client(t.range_kv_get, t.range_kv_set, t.range_kv_delete)
+            ranger::kv::Client(t.range_kv_get, t.range_kv_set, t.range_kv_delete)
         );
         this->telem = framer::Client(
             std::move(t.frame_stream),

@@ -11,6 +11,7 @@ import { DisconnectedError } from "@synnaxlabs/client";
 
 import { Export } from "@/export";
 import { Layout } from "@/layout";
+import { LAYOUT_TYPE } from "@/lineplot/layout";
 import { select } from "@/lineplot/selectors";
 import { type State } from "@/lineplot/slice";
 
@@ -24,7 +25,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
     state ??= { ...(linePlot.data as State), key: linePlot.key };
     name ??= linePlot.name;
   }
-  return { data: JSON.stringify(state), name };
+  return { data: JSON.stringify({ ...state, type: LAYOUT_TYPE }), name };
 };
 
 export const useExport = () => Export.use(extract, "line plot");

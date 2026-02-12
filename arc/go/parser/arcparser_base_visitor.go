@@ -24,6 +24,14 @@ func (v *BaseArcParserVisitor) VisitTopLevelItem(ctx *TopLevelItemContext) inter
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseArcParserVisitor) VisitAuthorityBlock(ctx *AuthorityBlockContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseArcParserVisitor) VisitAuthorityEntry(ctx *AuthorityEntryContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseArcParserVisitor) VisitFunctionDeclaration(ctx *FunctionDeclarationContext) interface{} {
 	return v.VisitChildren(ctx)
 }

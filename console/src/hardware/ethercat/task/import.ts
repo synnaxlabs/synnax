@@ -11,12 +11,7 @@ import { Common } from "@/hardware/common";
 import { READ_LAYOUT } from "@/hardware/ethercat/task/Read";
 import { readConfigZ, writeConfigZ } from "@/hardware/ethercat/task/types";
 import { WRITE_LAYOUT } from "@/hardware/ethercat/task/Write";
-import { Import } from "@/import";
 
-export const ingestRead = Common.Task.createIngestor(readConfigZ, READ_LAYOUT);
+export const ingestRead = Common.Task.createIngester(readConfigZ, READ_LAYOUT);
 
-export const importRead = Import.createImporter(ingestRead, "EtherCAT Read Task");
-
-export const ingestWrite = Common.Task.createIngestor(writeConfigZ, WRITE_LAYOUT);
-
-export const importWrite = Import.createImporter(ingestWrite, "EtherCAT Write Task");
+export const ingestWrite = Common.Task.createIngester(writeConfigZ, WRITE_LAYOUT);

@@ -12,6 +12,7 @@ import { ChannelServices } from "@/channel/services";
 import { ClusterServices } from "@/cluster/services";
 import { Docs } from "@/docs";
 import { Hardware } from "@/hardware";
+import { Import } from "@/import";
 import { LabelServices } from "@/label/services";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
@@ -30,6 +31,7 @@ export const COMMANDS: Palette.Command[] = [
   ...ClusterServices.COMMANDS,
   ...Docs.COMMANDS,
   ...Hardware.COMMANDS,
+  ...Import.COMMANDS,
   ...LabelServices.COMMANDS,
   ...LinePlotServices.COMMANDS,
   ...LogServices.COMMANDS,

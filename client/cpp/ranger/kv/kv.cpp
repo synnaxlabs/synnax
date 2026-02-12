@@ -11,7 +11,7 @@
 #include "client/cpp/ranger/kv/kv.h"
 #include "x/cpp/errors/errors.h"
 
-namespace synnax::kv {
+namespace synnax::ranger::kv {
 std::pair<std::string, x::errors::Error> Client::get(const std::string &key) const {
     auto req = api::v1::RangeKVGetRequest();
     req.add_keys(key);

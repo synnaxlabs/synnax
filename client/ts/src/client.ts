@@ -24,7 +24,7 @@ import { lineplot } from "@/lineplot";
 import { log } from "@/log";
 import { ontology } from "@/ontology";
 import { rack } from "@/rack";
-import { ranger } from "@/range";
+import { ranger } from "@/ranger";
 import { schematic } from "@/schematic";
 import { status } from "@/status";
 import { table } from "@/table";
