@@ -11,8 +11,8 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { AuthError } from "@/errors";
+import { group } from "@/group";
 import { ontology } from "@/ontology";
-import { group } from "@/ontology/group";
 import { createTestClientWithPolicy } from "@/testutil/access";
 import { createTestClient } from "@/testutil/client";
 
@@ -26,7 +26,7 @@ describe("group", () => {
         objects: [group.ontologyID("")],
         actions: ["create"],
       });
-      await userClient.ontology.groups.create({
+      await userClient.groups.create({
         parent: ontology.ROOT_ID,
         name: `test-${id.create()}`,
       });
@@ -39,7 +39,7 @@ describe("group", () => {
         actions: [],
       });
       await expect(
-        userClient.ontology.groups.create({
+        userClient.groups.create({
           parent: ontology.ROOT_ID,
           name: `test-${id.create()}`,
         }),
@@ -52,11 +52,11 @@ describe("group", () => {
         objects: [group.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
-      const randomGroup = await client.ontology.groups.create({
+      const randomGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: `test-${id.create()}`,
       });
-      await userClient.ontology.groups.delete(randomGroup.key);
+      await userClient.groups.delete(randomGroup.key);
     });
 
     it("should deny access when no delete policy exists", async () => {
@@ -65,11 +65,11 @@ describe("group", () => {
         objects: [group.ontologyID("")],
         actions: [],
       });
-      const randomGroup = await client.ontology.groups.create({
+      const randomGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: `test-${id.create()}`,
       });
-      await expect(userClient.ontology.groups.delete(randomGroup.key)).rejects.toThrow(
+      await expect(userClient.groups.delete(randomGroup.key)).rejects.toThrow(
         AuthError,
       );
     });

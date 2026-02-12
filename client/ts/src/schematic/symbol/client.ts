@@ -11,8 +11,8 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { ontology } from "@/ontology";
-import { group } from "@/ontology/group";
 import {
   type Key,
   keyZ,
