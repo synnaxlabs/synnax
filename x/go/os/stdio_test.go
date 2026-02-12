@@ -28,7 +28,7 @@ var _ = Describe("StdIO", func() {
 
 	It("Should delegate writes to os.Stdout", func() {
 		r, w := MustSucceed2(os.Pipe())
-		defer r.Close()
+		defer func() { Expect(r.Close()).To(Succeed()) }()
 
 		origStdout := os.Stdout
 		os.Stdout = w
@@ -38,7 +38,7 @@ var _ = Describe("StdIO", func() {
 		n := MustSucceed(xos.StdIO.Write(data))
 		Expect(n).To(Equal(len(data)))
 
-		w.Close()
+		Expect(w.Close()).To(Succeed())
 		buf := make([]byte, 64)
 		n = MustSucceed(r.Read(buf))
 		Expect(string(buf[:n])).To(Equal("hello stdout"))
@@ -46,7 +46,7 @@ var _ = Describe("StdIO", func() {
 
 	It("Should delegate reads to os.Stdin", func() {
 		r, w := MustSucceed2(os.Pipe())
-		defer w.Close()
+		defer func() { Expect(w.Close()).To(Succeed()) }()
 
 		origStdin := os.Stdin
 		os.Stdin = r
