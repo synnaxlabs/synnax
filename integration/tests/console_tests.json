@@ -27,7 +27,8 @@
         { "case": "console/log/log_lifecycle" },
         { "case": "console/plot/line_plot" },
         { "case": "console/schematic/alignment" },
-        { "case": "console/schematic/edit_props" }
+        { "case": "console/schematic/edit_props" },
+        { "case": "console/table/table_lifecycle" }
       ]
     },
     {
