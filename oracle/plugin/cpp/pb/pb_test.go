@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/cpp/pb"
-	"github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/oracle/testutil"
 )
 
 func TestCppPB(t *testing.T) {
@@ -27,13 +27,13 @@ func TestCppPB(t *testing.T) {
 var _ = Describe("C++ PB Plugin", func() {
 	var (
 		ctx      context.Context
-		loader   *testutil.MockFileLoader
+		loader   *MockFileLoader
 		pbPlugin *pb.Plugin
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		loader = testutil.NewMockFileLoader()
+		loader = NewMockFileLoader()
 		pbPlugin = pb.New(pb.Options{
 			FileNamePattern:  "proto.gen.h",
 			DisableFormatter: true,
@@ -51,6 +51,26 @@ var _ = Describe("C++ PB Plugin", func() {
 
 		It("Should require cpp/types and pb/types", func() {
 			Expect(pbPlugin.Requires()).To(Equal([]string{"cpp/types", "pb/types"}))
+		})
+	})
+
+	Describe("DefaultOptions", func() {
+		It("Should return options with default file pattern", func() {
+			opts := pb.DefaultOptions()
+			Expect(opts.FileNamePattern).To(Equal("proto.gen.h"))
+		})
+	})
+
+	Describe("Check", func() {
+		It("Should return nil", func() {
+			Expect(pbPlugin.Check(nil)).To(Succeed())
+		})
+	})
+
+	Describe("PostWrite", func() {
+		It("Should return nil with formatter disabled", func() {
+			Expect(pbPlugin.PostWrite(nil)).To(Succeed())
+			Expect(pbPlugin.PostWrite([]string{})).To(Succeed())
 		})
 	})
 
@@ -73,10 +93,10 @@ var _ = Describe("C++ PB Plugin", func() {
 						outputs Params
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 				Expect(resp.Files).To(HaveLen(1))
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						// Should use add_* for repeated fields, not set_*
 						"pb.add_inputs()",
@@ -109,9 +129,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						outputs Params
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						// Should use from_proto_repeated helper for struct arrays with explicit element type
 						"x::pb::from_proto_repeated<Param>(cpp.inputs, pb.inputs())",
@@ -135,9 +155,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						inputs Params
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						// Forward: call to_proto() on each struct element
 						"item.to_proto()",
@@ -162,9 +182,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						items Item[]
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						"for (const auto& item : this->items)",
 						"pb.add_items()",
@@ -182,9 +202,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						names string[]
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						"pb.add_values(item)",
 						"pb.add_names(item)",
@@ -208,9 +228,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						unit Unit??
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						// Forward: check has_value() and use mutable_*
 						"if (this->unit.has_value())",
@@ -236,9 +256,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						right Node??
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						// Should use has_value() for indirect<T> fields
 						"if (this->left.has_value())",
@@ -276,10 +296,10 @@ var _ = Describe("C++ PB Plugin", func() {
 						constraint Type??
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 				Expect(resp.Files).To(HaveLen(1))
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						// FunctionProperties array alias fields should use add_*
 						"pb.add_inputs()",
@@ -309,9 +329,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						variant Variant
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "status", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						"VariantToPB",
 						"VariantFromPB",
@@ -335,9 +355,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						kind Kind
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "status", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						"static_cast<",
 					)
@@ -355,9 +375,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						value any
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						// Forward: use mutable_* and to_value
 						"*pb.mutable_value() = x::json::to_value(this->value).first",
@@ -381,9 +401,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						value any??
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						// Forward: check has_value() for hard optional
 						"if (this->value.has_value())",
@@ -406,9 +426,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						metadata json
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						// Forward: use mutable_* and to_struct
 						"*pb.mutable_metadata() = x::json::to_struct(this->metadata).first",
@@ -434,9 +454,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						write map<uint32, string>
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						// Forward: iterate over map and insert into mutable_*
 						"for (const auto& [k, v] : this->read)",
@@ -473,9 +493,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						strata Strata
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "ir", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						// Forward: should get a wrapper via add_strata(), then add values
 						"for (const auto& item : this->strata)",
@@ -503,9 +523,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						rows Row[]
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "ir", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						// Forward: should use wrapper pattern
 						"auto* wrapper = pb.add_rows()",
@@ -535,9 +555,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						strata Strata
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "ir", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						// Regular struct array should use normal pattern
 						"for (const auto& item : this->nodes) *pb.add_nodes() = item.to_proto()",
@@ -560,9 +580,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						data Grid
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "ir", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						// Should detect nested array through alias chain
 						"auto* wrapper = pb.add_data()",
@@ -582,7 +602,7 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Channels uint32[]
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
 				// No proto.gen.h should be generated for array-only schemas
 				Expect(len(resp.Files)).To(Equal(0))
@@ -600,10 +620,10 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Params Param[]
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
 				// Should generate proto for Param struct only
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						"Param::to_proto() const {",
 					).
@@ -624,9 +644,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						name string
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						`#include "x/cpp/pb/pb.h"`,
 					)
@@ -646,9 +666,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						variant Variant
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "status", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						"#include <unordered_map>",
 						"#include <string>",
@@ -656,7 +676,6 @@ var _ = Describe("C++ PB Plugin", func() {
 			})
 
 			It("Should only include type_traits for generic types", func() {
-				// Non-generic type should not include type_traits
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -665,12 +684,214 @@ var _ = Describe("C++ PB Plugin", func() {
 						name string
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
-				testutil.ExpectContent(resp, "proto.gen.h").
+				ExpectContent(resp, "proto.gen.h").
 					ToNotContain(
 						"#include <type_traits>",
 					)
+			})
+		})
+
+		Context("json field conversion", func() {
+			It("Should include json struct header for json fields", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Config struct {
+						data json
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain("x::json")
+			})
+
+			It("Should handle optional json fields with has_value check", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Config struct {
+						data json??
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain("has_value()")
+			})
+		})
+
+		Context("any field conversion", func() {
+			It("Should handle any fields with json value helpers", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Response struct {
+						payload any
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain("x::json")
+			})
+		})
+
+		Context("bytes field conversion", func() {
+			It("Should handle bytes fields with data/size", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Frame struct {
+						payload bytes
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain("payload")
+			})
+		})
+
+		Context("hard optional uuid field", func() {
+			It("Should generate has_value check for optional uuid", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Task struct {
+						key uuid
+						parent uuid??
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain("has_value()").
+					ToContain("to_string()")
+			})
+		})
+
+		Context("alias to struct type", func() {
+			It("Should generate to_proto/from_proto for alias that targets struct", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Base struct {
+						name string
+					}
+
+					Custom = Base
+
+					Wrapper struct {
+						item Custom
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain("to_proto()").
+					ToContain("from_proto")
+			})
+		})
+
+		Context("struct extends with fields", func() {
+			It("Should include parent fields in translation", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Base struct {
+						key uuid
+						name string
+					}
+
+					Derived struct extends Base {
+						extra int32
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain("Base::to_proto()").
+					ToContain("Derived::to_proto()").
+					ToContain("extra")
+			})
+		})
+
+		Context("cross-namespace struct reference", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/common", `
+					@cpp output "client/cpp/common"
+					@pb output "core/pkg/service/common/pb"
+
+					Info struct {
+						name string
+						description string
+					}
+				`)
+			})
+
+			It("Should include cross-namespace headers", func() {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					Task struct {
+						key uuid
+						info common.Info
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain("to_proto()").
+					ToContain("from_proto")
+			})
+		})
+
+		Context("map field conversion", func() {
+			It("Should handle map fields with mutable accessor", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Settings struct {
+						values map<string, string>
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain("mutable_values()")
+			})
+		})
+
+		Context("distinct type with primitive base", func() {
+			It("Should cast through distinct type", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					NodeID = uint32
+
+					Node struct {
+						id NodeID
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain("id")
 			})
 		})
 	})

@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/cpp/json"
-	"github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/oracle/testutil"
 )
 
 func TestCppJson(t *testing.T) {
@@ -27,13 +27,13 @@ func TestCppJson(t *testing.T) {
 var _ = Describe("C++ JSON Plugin", func() {
 	var (
 		ctx        context.Context
-		loader     *testutil.MockFileLoader
+		loader     *MockFileLoader
 		jsonPlugin *json.Plugin
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		loader = testutil.NewMockFileLoader()
+		loader = NewMockFileLoader()
 		jsonPlugin = json.New(json.Options{
 			FileNamePattern:  "json.gen.h",
 			DisableFormatter: true,
@@ -72,10 +72,10 @@ var _ = Describe("C++ JSON Plugin", func() {
 						outputs Params
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
 				Expect(resp.Files).To(HaveLen(1))
 
-				testutil.ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						// Should parse using the wrapper type which has its own parse method
 						`parser.field<Params>("inputs")`,
@@ -99,9 +99,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 						outputs Params
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
 
-				testutil.ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						// Wrapper types have their own to_json() method
 						`j["inputs"] = this->inputs.to_json()`,
@@ -125,9 +125,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 						outputs Params?
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
 
-				testutil.ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						// Soft optional (?) wrapper types still use field<> with wrapper type
 						`parser.field<Params>("inputs")`,
@@ -147,10 +147,10 @@ var _ = Describe("C++ JSON Plugin", func() {
 						right Node??
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
 				Expect(resp.Files).To(HaveLen(1))
 
-				testutil.ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						// Self-referential fields use x::mem::indirect<T> with implicit nullptr default
 						`parser.field<x::mem::indirect<Node>>("left")`,
@@ -168,9 +168,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 						right Node??
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
 
-				testutil.ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						// Should use has_value() and -> operator for indirect<T>
 						`if (this->left.has_value()) j["left"] = this->left->to_json()`,
@@ -189,9 +189,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 						constraint Type??
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
 
-				testutil.ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						`parser.field<x::mem::indirect<Type>>("elem")`,
 						`parser.field<x::mem::indirect<Type>>("constraint")`,
@@ -214,9 +214,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 						unit Unit??
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
 
-				testutil.ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						// Should use has_value() and -> operator for optional<T>
 						`if (this->unit.has_value()) j["unit"] = this->unit->to_json()`,
@@ -237,9 +237,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 						unit Unit??
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
 
-				testutil.ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						// Hard optional struct fields use std::optional<T> with implicit nullopt default
 						`parser.field<std::optional<Unit>>("unit")`,
@@ -257,9 +257,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 						metadata map<string, string>
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
 
-				testutil.ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						`parser.field<std::unordered_map<std::string, std::string>>("metadata")`,
 					)
@@ -291,10 +291,10 @@ var _ = Describe("C++ JSON Plugin", func() {
 						constraint Type??
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
 				Expect(resp.Files).To(HaveLen(1))
 
-				testutil.ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						// FunctionProperties fields use wrapper type (soft optional uses bare type)
 						`parser.field<Params>("inputs")`,
@@ -317,9 +317,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 						names string[]
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
 
-				testutil.ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						`parser.field<std::vector<std::int32_t>>("values")`,
 						`parser.field<std::vector<std::string>>("names")`,
@@ -344,9 +344,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 						items Item[]
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
 
-				testutil.ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						`parser.field<std::vector<Item>>("items")`,
 						`j["items"] = x::json::to_array(this->items)`,
@@ -361,9 +361,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					Channels uint32[]
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
 
-				testutil.ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						// parse method uses parser.field<std::vector<T>>()
 						"inline Channels Channels::parse(x::json::Parser parser) {",
@@ -385,9 +385,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					Params Param[]
 				`
-				resp := testutil.MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
 
-				testutil.ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						// parse method uses parser.field<std::vector<StructType>>()
 						"inline Params Params::parse(x::json::Parser parser) {",

@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/lsp"
-	xlsptestutil "github.com/synnaxlabs/x/lsp/testutil"
+	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
@@ -28,7 +28,7 @@ var _ = Describe("Completion", func() {
 
 	BeforeEach(func() {
 		server = lsp.New()
-		server.SetClient(&xlsptestutil.MockClient{})
+		server.SetClient(&MockClient{})
 		ctx = context.Background()
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
@@ -203,7 +203,7 @@ var _ = Describe("DidChange", func() {
 
 	BeforeEach(func() {
 		server = lsp.New()
-		server.SetClient(&xlsptestutil.MockClient{})
+		server.SetClient(&MockClient{})
 		ctx = context.Background()
 	})
 
@@ -261,7 +261,7 @@ var _ = Describe("DidChange", func() {
 var _ = Describe("DidClose", func() {
 	It("should remove document and clear diagnostics", func() {
 		server := lsp.New()
-		server.SetClient(&xlsptestutil.MockClient{})
+		server.SetClient(&MockClient{})
 		ctx := context.Background()
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
@@ -296,7 +296,7 @@ var _ = Describe("Hover", func() {
 
 	BeforeEach(func() {
 		server = lsp.New()
-		server.SetClient(&xlsptestutil.MockClient{})
+		server.SetClient(&MockClient{})
 		ctx = context.Background()
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
@@ -362,7 +362,7 @@ var _ = Describe("SemanticTokensFull", func() {
 
 	BeforeEach(func() {
 		server = lsp.New()
-		server.SetClient(&xlsptestutil.MockClient{})
+		server.SetClient(&MockClient{})
 		ctx = context.Background()
 	})
 
@@ -416,7 +416,7 @@ var _ = Describe("Formatting", func() {
 
 	BeforeEach(func() {
 		server = lsp.New()
-		server.SetClient(&xlsptestutil.MockClient{})
+		server.SetClient(&MockClient{})
 		ctx = context.Background()
 	})
 

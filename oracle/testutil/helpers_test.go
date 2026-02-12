@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin"
-	"github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/oracle/testutil"
 )
 
 type mockPlugin struct {
@@ -24,10 +24,10 @@ type mockPlugin struct {
 	err   error
 }
 
-func (m *mockPlugin) Name() string                   { return "mock" }
-func (m *mockPlugin) Domains() []string               { return []string{"go"} }
-func (m *mockPlugin) Requires() []string               { return nil }
-func (m *mockPlugin) Check(*plugin.Request) error      { return nil }
+func (m *mockPlugin) Name() string                { return "mock" }
+func (m *mockPlugin) Domains() []string           { return []string{"go"} }
+func (m *mockPlugin) Requires() []string          { return nil }
+func (m *mockPlugin) Check(*plugin.Request) error { return nil }
 
 func (m *mockPlugin) Generate(*plugin.Request) (*plugin.Response, error) {
 	if m.err != nil {
@@ -41,10 +41,10 @@ type reqCapturingPlugin struct {
 	lastReq *plugin.Request
 }
 
-func (m *reqCapturingPlugin) Name() string                   { return "mock" }
-func (m *reqCapturingPlugin) Domains() []string               { return []string{"go"} }
-func (m *reqCapturingPlugin) Requires() []string               { return nil }
-func (m *reqCapturingPlugin) Check(*plugin.Request) error      { return nil }
+func (m *reqCapturingPlugin) Name() string                { return "mock" }
+func (m *reqCapturingPlugin) Domains() []string           { return []string{"go"} }
+func (m *reqCapturingPlugin) Requires() []string          { return nil }
+func (m *reqCapturingPlugin) Check(*plugin.Request) error { return nil }
 
 func (m *reqCapturingPlugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	m.lastReq = req
@@ -54,91 +54,91 @@ func (m *reqCapturingPlugin) Generate(req *plugin.Request) (*plugin.Response, er
 var _ = Describe("MustGenerateRequest", func() {
 	var (
 		ctx    context.Context
-		loader *testutil.MockFileLoader
+		loader *MockFileLoader
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		loader = testutil.NewMockFileLoader()
+		loader = NewMockFileLoader()
 	})
 
 	It("should return a request with resolved types", func() {
-		source := fmt.Sprintf(testutil.SimpleStructTemplate, testutil.DomainDirectives["go"])
-		req := testutil.MustGenerateRequest(ctx, source, "user", loader)
+		source := fmt.Sprintf(SimpleStructTemplate, DomainDirectives["go"])
+		req := MustGenerateRequest(ctx, source, "user", loader)
 		Expect(req).NotTo(BeNil())
 		Expect(req.Resolutions).NotTo(BeNil())
 		Expect(req.RepoRoot).To(Equal("/mock/repo"))
 	})
 
 	It("should resolve all primitive types", func() {
-		source := fmt.Sprintf(testutil.AllPrimitivesTemplate, testutil.DomainDirectives["go"])
-		req := testutil.MustGenerateRequest(ctx, source, "all", loader)
+		source := fmt.Sprintf(AllPrimitivesTemplate, DomainDirectives["go"])
+		req := MustGenerateRequest(ctx, source, "all", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve enum definitions", func() {
-		source := fmt.Sprintf(testutil.IntEnumTemplate, testutil.DomainDirectives["go"])
-		req := testutil.MustGenerateRequest(ctx, source, "status", loader)
+		source := fmt.Sprintf(IntEnumTemplate, DomainDirectives["go"])
+		req := MustGenerateRequest(ctx, source, "status", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve struct extension", func() {
-		source := fmt.Sprintf(testutil.StructExtensionTemplate, testutil.DomainDirectives["go"])
-		req := testutil.MustGenerateRequest(ctx, source, "ext", loader)
+		source := fmt.Sprintf(StructExtensionTemplate, DomainDirectives["go"])
+		req := MustGenerateRequest(ctx, source, "ext", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve soft optional fields", func() {
-		source := fmt.Sprintf(testutil.SoftOptionalTemplate, testutil.DomainDirectives["go"])
-		req := testutil.MustGenerateRequest(ctx, source, "opt", loader)
+		source := fmt.Sprintf(SoftOptionalTemplate, DomainDirectives["go"])
+		req := MustGenerateRequest(ctx, source, "opt", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve hard optional fields", func() {
-		source := fmt.Sprintf(testutil.HardOptionalTemplate, testutil.DomainDirectives["go"])
-		req := testutil.MustGenerateRequest(ctx, source, "nullable", loader)
+		source := fmt.Sprintf(HardOptionalTemplate, DomainDirectives["go"])
+		req := MustGenerateRequest(ctx, source, "nullable", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve array types", func() {
-		source := fmt.Sprintf(testutil.ArrayTypesTemplate, testutil.DomainDirectives["go"])
-		req := testutil.MustGenerateRequest(ctx, source, "arr", loader)
+		source := fmt.Sprintf(ArrayTypesTemplate, DomainDirectives["go"])
+		req := MustGenerateRequest(ctx, source, "arr", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve generic structs", func() {
-		source := fmt.Sprintf(testutil.GenericStructTemplate, testutil.DomainDirectives["go"])
-		req := testutil.MustGenerateRequest(ctx, source, "gen", loader)
+		source := fmt.Sprintf(GenericStructTemplate, DomainDirectives["go"])
+		req := MustGenerateRequest(ctx, source, "gen", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve field omission in extension", func() {
-		source := fmt.Sprintf(testutil.FieldOmissionTemplate, testutil.DomainDirectives["go"])
-		req := testutil.MustGenerateRequest(ctx, source, "omit", loader)
+		source := fmt.Sprintf(FieldOmissionTemplate, DomainDirectives["go"])
+		req := MustGenerateRequest(ctx, source, "omit", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve type aliases", func() {
-		source := fmt.Sprintf(testutil.TypeAliasTemplate, testutil.DomainDirectives["go"])
-		req := testutil.MustGenerateRequest(ctx, source, "alias", loader)
+		source := fmt.Sprintf(TypeAliasTemplate, DomainDirectives["go"])
+		req := MustGenerateRequest(ctx, source, "alias", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve distinct types", func() {
-		source := fmt.Sprintf(testutil.DistinctTypeTemplate, testutil.DomainDirectives["go"])
-		req := testutil.MustGenerateRequest(ctx, source, "distinct", loader)
+		source := fmt.Sprintf(DistinctTypeTemplate, DomainDirectives["go"])
+		req := MustGenerateRequest(ctx, source, "distinct", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve multiple structs in one schema", func() {
-		source := fmt.Sprintf(testutil.MultipleStructsTemplate, testutil.DomainDirectives["go"])
-		req := testutil.MustGenerateRequest(ctx, source, "multi", loader)
+		source := fmt.Sprintf(MultipleStructsTemplate, DomainDirectives["go"])
+		req := MustGenerateRequest(ctx, source, "multi", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
 	It("should resolve struct references", func() {
-		source := fmt.Sprintf(testutil.StructReferenceTemplate, testutil.DomainDirectives["go"])
-		req := testutil.MustGenerateRequest(ctx, source, "ref", loader)
+		source := fmt.Sprintf(StructReferenceTemplate, DomainDirectives["go"])
+		req := MustGenerateRequest(ctx, source, "ref", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 })
@@ -146,12 +146,12 @@ var _ = Describe("MustGenerateRequest", func() {
 var _ = Describe("MustGenerate", func() {
 	var (
 		ctx    context.Context
-		loader *testutil.MockFileLoader
+		loader *MockFileLoader
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		loader = testutil.NewMockFileLoader()
+		loader = NewMockFileLoader()
 	})
 
 	It("should return a response with generated files", func() {
@@ -160,8 +160,8 @@ var _ = Describe("MustGenerate", func() {
 				{Path: "out/user.go", Content: []byte("package user")},
 			},
 		}
-		source := fmt.Sprintf(testutil.SimpleStructTemplate, testutil.DomainDirectives["go"])
-		resp := testutil.MustGenerate(ctx, source, "user", loader, p)
+		source := fmt.Sprintf(SimpleStructTemplate, DomainDirectives["go"])
+		resp := MustGenerate(ctx, source, "user", loader, p)
 		Expect(resp).NotTo(BeNil())
 		Expect(resp.Files).To(HaveLen(1))
 		Expect(resp.Files[0].Path).To(Equal("out/user.go"))
@@ -171,8 +171,8 @@ var _ = Describe("MustGenerate", func() {
 		p := &reqCapturingPlugin{files: []plugin.File{
 			{Path: "out/user.go", Content: []byte("package user")},
 		}}
-		source := fmt.Sprintf(testutil.SimpleStructTemplate, testutil.DomainDirectives["go"])
-		testutil.MustGenerate(ctx, source, "user", loader, p)
+		source := fmt.Sprintf(SimpleStructTemplate, DomainDirectives["go"])
+		MustGenerate(ctx, source, "user", loader, p)
 		Expect(p.lastReq).NotTo(BeNil())
 		Expect(p.lastReq.RepoRoot).To(Equal("/mock/repo"))
 	})
@@ -181,15 +181,15 @@ var _ = Describe("MustGenerate", func() {
 		p := &reqCapturingPlugin{files: []plugin.File{
 			{Path: "out/user.go", Content: []byte("package user")},
 		}}
-		source := fmt.Sprintf(testutil.SimpleStructTemplate, testutil.DomainDirectives["go"])
-		testutil.MustGenerate(ctx, source, "user", loader, p)
+		source := fmt.Sprintf(SimpleStructTemplate, DomainDirectives["go"])
+		MustGenerate(ctx, source, "user", loader, p)
 		Expect(p.lastReq.Resolutions).NotTo(BeNil())
 	})
 
 	It("should return an empty response when plugin generates no files", func() {
 		p := &mockPlugin{files: []plugin.File{}}
-		source := fmt.Sprintf(testutil.SimpleStructTemplate, testutil.DomainDirectives["go"])
-		resp := testutil.MustGenerate(ctx, source, "user", loader, p)
+		source := fmt.Sprintf(SimpleStructTemplate, DomainDirectives["go"])
+		resp := MustGenerate(ctx, source, "user", loader, p)
 		Expect(resp.Files).To(BeEmpty())
 	})
 
@@ -200,8 +200,8 @@ var _ = Describe("MustGenerate", func() {
 				{Path: "out/group.go", Content: []byte("package group")},
 			},
 		}
-		source := fmt.Sprintf(testutil.MultipleStructsTemplate, testutil.DomainDirectives["go"])
-		resp := testutil.MustGenerate(ctx, source, "multi", loader, p)
+		source := fmt.Sprintf(MultipleStructsTemplate, DomainDirectives["go"])
+		resp := MustGenerate(ctx, source, "multi", loader, p)
 		Expect(resp.Files).To(HaveLen(2))
 	})
 })
@@ -213,7 +213,7 @@ var _ = Describe("MustContentOf", func() {
 				{Path: "out/user.go", Content: []byte("package user")},
 			},
 		}
-		Expect(testutil.MustContentOf(resp, "user.go")).To(Equal("package user"))
+		Expect(MustContentOf(resp, "user.go")).To(Equal("package user"))
 	})
 
 	It("should match by suffix across deep paths", func() {
@@ -222,7 +222,7 @@ var _ = Describe("MustContentOf", func() {
 				{Path: "a/b/c/d/schema.go", Content: []byte("package schema")},
 			},
 		}
-		Expect(testutil.MustContentOf(resp, "schema.go")).To(Equal("package schema"))
+		Expect(MustContentOf(resp, "schema.go")).To(Equal("package schema"))
 	})
 
 	It("should return the first matching file", func() {
@@ -232,7 +232,7 @@ var _ = Describe("MustContentOf", func() {
 				{Path: "other/user.go", Content: []byte("second")},
 			},
 		}
-		Expect(testutil.MustContentOf(resp, "user.go")).To(Equal("first"))
+		Expect(MustContentOf(resp, "user.go")).To(Equal("first"))
 	})
 })
 
@@ -247,7 +247,7 @@ var _ = Describe("ExpectContent", func() {
 				Path:    "out/user.go",
 				Content: []byte("package user\n\ntype User struct {\n\tKey uuid.UUID\n}"),
 			})
-			testutil.ExpectContent(resp, "user.go").
+			ExpectContent(resp, "user.go").
 				ToContain("package user", "type User struct", "Key uuid.UUID")
 		})
 
@@ -256,7 +256,7 @@ var _ = Describe("ExpectContent", func() {
 				Path:    "out/user.go",
 				Content: []byte("package user\n\ntype User struct {\n\tKey uuid.UUID\n\tName string\n}"),
 			})
-			testutil.ExpectContent(resp, "user.go").
+			ExpectContent(resp, "user.go").
 				ToContain("package user").
 				ToContain("type User struct").
 				ToContain("Key uuid.UUID")
@@ -269,7 +269,7 @@ var _ = Describe("ExpectContent", func() {
 				Path:    "out/user.go",
 				Content: []byte("package user\n\ntype User struct {}"),
 			})
-			testutil.ExpectContent(resp, "user.go").
+			ExpectContent(resp, "user.go").
 				ToNotContain("secret", "password", "private")
 		})
 
@@ -278,7 +278,7 @@ var _ = Describe("ExpectContent", func() {
 				Path:    "out/user.go",
 				Content: []byte("package user\n\ntype User struct {\n\tName string\n}"),
 			})
-			testutil.ExpectContent(resp, "user.go").
+			ExpectContent(resp, "user.go").
 				ToContain("Name string").
 				ToNotContain("secret")
 		})
@@ -290,7 +290,7 @@ var _ = Describe("ExpectContent", func() {
 				Path:    "out/user.go",
 				Content: []byte("package user\n\nimport \"fmt\"\n\ntype User struct {}"),
 			})
-			testutil.ExpectContent(resp, "user.go").
+			ExpectContent(resp, "user.go").
 				ToPreserveOrder("package user", "import", "type User struct")
 		})
 
@@ -299,7 +299,7 @@ var _ = Describe("ExpectContent", func() {
 				Path:    "out/user.go",
 				Content: []byte("package user\n\ntype User struct {\n\tKey string\n\tName string\n}"),
 			})
-			testutil.ExpectContent(resp, "user.go").
+			ExpectContent(resp, "user.go").
 				ToContain("package user").
 				ToPreserveOrder("Key string", "Name string").
 				ToNotContain("secret")
@@ -307,10 +307,10 @@ var _ = Describe("ExpectContent", func() {
 
 		It("should verify ordering across many substrings", func() {
 			resp := buildResponse(plugin.File{
-				Path: "out/user.go",
+				Path:    "out/user.go",
 				Content: []byte("package user\n\nimport (\n\t\"fmt\"\n)\n\ntype User struct {\n\tA int\n\tB int\n\tC int\n}"),
 			})
-			testutil.ExpectContent(resp, "user.go").
+			ExpectContent(resp, "user.go").
 				ToPreserveOrder("package", "import", "type User", "A int", "B int", "C int")
 		})
 	})
@@ -321,7 +321,7 @@ var _ = Describe("ExpectContent", func() {
 				Path:    "some/deep/path/user.go",
 				Content: []byte("package user"),
 			})
-			testutil.ExpectContent(resp, "user.go").ToContain("package user")
+			ExpectContent(resp, "user.go").ToContain("package user")
 		})
 
 		It("should match the correct file among multiple", func() {
@@ -330,7 +330,7 @@ var _ = Describe("ExpectContent", func() {
 				plugin.File{Path: "out/group.go", Content: []byte("package group")},
 				plugin.File{Path: "out/role.go", Content: []byte("package role")},
 			)
-			testutil.ExpectContent(resp, "group.go").
+			ExpectContent(resp, "group.go").
 				ToContain("package group").
 				ToNotContain("package user", "package role")
 		})
@@ -340,7 +340,7 @@ var _ = Describe("ExpectContent", func() {
 				Path:    "core/pkg/service/user/types.gen.go",
 				Content: []byte("package user"),
 			})
-			testutil.ExpectContent(resp, "user/types.gen.go").ToContain("package user")
+			ExpectContent(resp, "user/types.gen.go").ToContain("package user")
 		})
 	})
 })

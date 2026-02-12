@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/ts/types"
-	"github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/oracle/testutil"
 )
 
 func TestTypes(t *testing.T) {
@@ -72,13 +72,13 @@ var _ = Describe("TSFormatter", func() {
 var _ = Describe("TS Types Plugin", func() {
 	var (
 		ctx         context.Context
-		loader      *testutil.MockFileLoader
+		loader      *MockFileLoader
 		typesPlugin *types.Plugin
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		loader = testutil.NewMockFileLoader()
+		loader = NewMockFileLoader()
 		typesPlugin = types.New(types.DefaultOptions())
 	})
 
@@ -113,10 +113,10 @@ var _ = Describe("TS Types Plugin", func() {
 						active bool
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
 				Expect(resp.Files).To(HaveLen(1))
 
-				testutil.ExpectContent(resp, "types.gen.ts").
+				ExpectContent(resp, "types.gen.ts").
 					ToContain(
 						`import { z } from "zod"`,
 						`export const userZ = z.object(`,
@@ -265,8 +265,8 @@ var _ = Describe("TS Types Plugin", func() {
 							field ` + oracleType + `
 						}
 					`
-					resp := testutil.MustGenerate(ctx, source, "test", loader, typesPlugin)
-					testutil.ExpectContent(resp, "types.gen.ts").ToContain("field: " + expectedZodType)
+					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").ToContain("field: " + expectedZodType)
 				},
 				Entry("uuid", "uuid", "z.uuid()"),
 				Entry("string", "string", "z.string()"),
@@ -296,8 +296,8 @@ var _ = Describe("TS Types Plugin", func() {
 						@ts to_number
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "channel", loader, typesPlugin)
-				testutil.ExpectContent(resp, "types.gen.ts").
+				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
 					ToContain(`export const keyZ = z.uint32().or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))`)
 			})
 		})
@@ -311,8 +311,8 @@ var _ = Describe("TS Types Plugin", func() {
 						@ts to_string
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
-				testutil.ExpectContent(resp, "types.gen.ts").
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
 					ToContain(`export const nameZ = z.string().or(z.number().transform(String))`)
 			})
 		})
@@ -1453,8 +1453,8 @@ var _ = Describe("TS Types Plugin", func() {
 						settings map<string, string>
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "config", loader, typesPlugin)
-				testutil.ExpectContent(resp, "types.gen.ts").
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
 					ToContain(
 						`settings: z.record(z.string(), z.string())`,
 					)
@@ -1468,8 +1468,8 @@ var _ = Describe("TS Types Plugin", func() {
 						counts map<string, int64>
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "metrics", loader, typesPlugin)
-				testutil.ExpectContent(resp, "types.gen.ts").
+				resp := MustGenerate(ctx, source, "metrics", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
 					ToContain(`counts: z.record(z.string(), z.int64())`)
 			})
 
@@ -1485,8 +1485,8 @@ var _ = Describe("TS Types Plugin", func() {
 						entries map<string, Entry>
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "store", loader, typesPlugin)
-				testutil.ExpectContent(resp, "types.gen.ts").
+				resp := MustGenerate(ctx, source, "store", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
 					ToContain(`entries: z.record(z.string(), entryZ)`)
 			})
 		})
@@ -1506,7 +1506,7 @@ var _ = Describe("TS Types Plugin", func() {
 						@ts omit
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`export const userZ`))
 				Expect(content).NotTo(ContainSubstring(`internalStateZ`))
@@ -1528,7 +1528,7 @@ var _ = Describe("TS Types Plugin", func() {
 						@ts omit
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "status", loader, typesPlugin)
+				resp := MustGenerate(ctx, source, "status", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`export enum Status`))
 				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
@@ -1554,7 +1554,7 @@ var _ = Describe("TS Types Plugin", func() {
 						age int32
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`/** User A User represents a user in the system. */`))
 				Expect(content).To(ContainSubstring(`/** key The unique identifier for the user. */`))
@@ -1585,8 +1585,8 @@ var _ = Describe("TS Types Plugin", func() {
 						info common.Info
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "task", loader, typesPlugin)
-				testutil.ExpectContent(resp, "types.gen.ts").
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
 					ToContain(
 						`import { common } from "@/common"`,
 						`common.infoZ`,
@@ -1617,8 +1617,8 @@ var _ = Describe("TS Types Plugin", func() {
 						code status.StatusCode
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "task", loader, typesPlugin)
-				testutil.ExpectContent(resp, "types.gen.ts").
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
 					ToContain(
 						`import { status } from`,
 						`status.statusCodeZ`,
@@ -1649,9 +1649,177 @@ var _ = Describe("TS Types Plugin", func() {
 						info common.Info
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "task", loader, typesPlugin)
-				testutil.ExpectContent(resp, "types.gen.ts").
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
 					ToContain(`import { common } from "@/common"`)
+			})
+		})
+
+		Context("typedef alias form", func() {
+			It("Should generate type alias for alias typedef", func() {
+				source := `
+					@ts output "out"
+
+					Key = uint32
+
+					User struct {
+						key Key
+					}
+				`
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("keyZ")
+			})
+
+			It("Should generate typedef with array alias", func() {
+				source := `
+					@ts output "out"
+
+					Tags = string[]
+				`
+				resp := MustGenerate(ctx, source, "tag", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("tagsZ")
+			})
+		})
+
+		Context("struct with @ts type override on field", func() {
+			It("Should use type override for field type", func() {
+				source := `
+					@ts output "out"
+
+					Key uint32 {
+						@ts type "string"
+					}
+
+					User struct {
+						key Key
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("keyZ")
+			})
+		})
+
+		Context("struct with forward reference", func() {
+			It("Should handle struct referencing a later-declared struct", func() {
+				source := `
+					@ts output "out"
+
+					Parent struct {
+						key uuid
+						child Child
+					}
+
+					Child struct {
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("parentZ").
+					ToContain("childZ")
+			})
+		})
+
+		Context("self-referencing struct", func() {
+			It("Should handle struct with self reference", func() {
+				source := `
+					@ts output "out"
+
+					Node struct {
+						key uuid
+						parent Node?
+					}
+				`
+				resp := MustGenerate(ctx, source, "tree", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("nodeZ")
+			})
+		})
+
+		Context("generic struct with type parameter", func() {
+			It("Should generate generic struct with zod function", func() {
+				source := `
+					@ts output "out"
+
+					Response struct<T> {
+						data T
+						status int32
+					}
+				`
+				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("responseZ")
+			})
+		})
+
+		Context("struct with map field", func() {
+			It("Should generate record type for map field", func() {
+				source := `
+					@ts output "out"
+
+					Config struct {
+						settings map<string, json>
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("configZ").
+					ToContain("settings:")
+			})
+		})
+
+		Context("struct extends another struct", func() {
+			It("Should include parent fields in output", func() {
+				source := `
+					@ts output "out"
+
+					Base struct {
+						key uuid
+						name string
+					}
+
+					Derived struct extends Base {
+						extra int32
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("derivedZ").
+					ToContain("extra:")
+			})
+		})
+
+		Context("multiple files from different namespaces", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/common", `
+					@ts output "client/ts/src/common"
+
+					Info struct {
+						name string
+						description string
+					}
+				`)
+			})
+
+			It("Should generate cross-namespace struct field reference with import", func() {
+				source := `
+					import "schemas/common"
+
+					@ts output "client/ts/src/task"
+
+					Task struct {
+						key uuid
+						info common.Info
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("taskZ").
+					ToContain("common")
 			})
 		})
 
@@ -1678,8 +1846,8 @@ var _ = Describe("TS Types Plugin", func() {
 						data_type telem.DataType
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "channel", loader, typesPlugin)
-				testutil.ExpectContent(resp, "types.gen.ts").
+				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
 					ToContain(`import { telem } from "@synnaxlabs/x"`)
 			})
 		})
