@@ -1,0 +1,29 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "device",
+    srcs = ["device.cpp"],
+    hdrs = ["device.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/errors",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/telem",
+        "@curl",
+        "@glog",
+    ],
+)
+
+cc_test(
+    name = "device_test",
+    srcs = ["device_test.cpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":device",
+        "//driver/http/mock",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

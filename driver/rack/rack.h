@@ -30,6 +30,7 @@
 #endif
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/ethercat.h"
+#include "driver/http/http.h"
 #include "driver/ni/ni.h"
 #include "driver/opc/opc.h"
 #include "driver/rack/status/status.h"
@@ -68,7 +69,8 @@ inline std::vector<std::string> default_integrations() {
         sequence::INTEGRATION_NAME,
         labjack::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,
-        ethercat::INTEGRATION_NAME
+        ethercat::INTEGRATION_NAME,
+        http::INTEGRATION_NAME
     };
 #ifndef SYNNAX_NILINUXRT
     integrations.push_back(modbus::INTEGRATION_NAME);
