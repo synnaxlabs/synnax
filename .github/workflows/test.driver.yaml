@@ -148,6 +148,6 @@ jobs:
         run: |
           bazel test --config=asan-leak --test_output=all //driver/... \
             --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
-            --test_env=LSAN_OPTIONS="exitcode=0:suppressions=${{ github.workspace }}/scripts/sanitizers/lsan_suppressions.txt" \
+            --test_env=LSAN_OPTIONS="suppressions=${{ github.workspace }}/scripts/sanitizers/lsan_suppressions.txt" \
             --spawn_strategy=local \
             --jobs=1 --test_tag_filters=-hardware

@@ -9,6 +9,8 @@
 
 #include <algorithm>
 
+#include "glog/logging.h"
+
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/telem/telem.h"
@@ -26,6 +28,7 @@ Engine::Reader::Reader(
 
 void Engine::Reader::refresh_pdos() const {
     std::lock_guard lock(this->engine.registration_mu);
+    DCHECK_EQ(this->registration->offsets.size(), this->registration->entries.size());
     this->pdos.clear();
     this->pdos.reserve(this->registration->entries.size());
     for (size_t i = 0; i < this->registration->entries.size(); ++i)

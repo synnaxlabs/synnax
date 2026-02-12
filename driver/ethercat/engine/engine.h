@@ -69,6 +69,8 @@ class Engine {
     mutable std::mutex write_mu;
     std::vector<uint8_t> write_staging;
     std::vector<uint8_t> write_active;
+    // Value type is fine here - writers snapshot offsets at construction and
+    // never hold references into this vector, unlike readers.
     std::vector<Registration> write_registrations;
 
     std::thread run_thread;
