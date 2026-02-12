@@ -141,8 +141,9 @@ For struct/class members, use `///<` trailing comments:
 
 ```cpp
 struct Date {
-    uint16_t year;  ///< calendar year.
-    uint8_t month;  ///< month of year [1, 12].
+    uint16_t year; ///< calendar year.
+    uint8_t month; ///< month of year [1, 12].
+    uint8_t day; ///< day of month [1, 31].
 };
 ```
 
