@@ -91,6 +91,10 @@ build:windows --per_file_copt=vendor/.*@/WX-,/w
 # Allow protobuf deprecation warnings without treating them as errors
 build:windows --copt=/wd4996  # disables warning C4996 (deprecated declarations) for MSVC
 
+# Use a fixed PATH so that different shell environments (e.g. with/without a Python venv
+# activated) don't invalidate the entire action cache.
+build --incompatible_strict_action_env
+
 # ===== Warning Suppression for External Dependencies =====
 
 # Only show output from workspace targets (filters out external dependency noise)
