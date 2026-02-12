@@ -198,13 +198,7 @@ I can successfully:
 - **Range Explorer**
   - [ ] Search ranges
   - [ ] Filter ranges by labels
-  - **Context Menu**
-    - [ ] Create a child range
-    - [ ] Favorite multiple ranges
-    - [ ] Unfavorite a range
-    - [ ] Unfavorite multiple ranges
-    - [ ] Copy the link to a range
-    - [ ] Delete multiple ranges
+
 - [ ] Open a range from its link.
 - [ ] Change the time of a range and ensure synchronization across:
   - Range Details

@@ -50,7 +50,6 @@ class RangeDetails(ConsoleCase):
         self.snapshot_name = f"{self.schematic_name} (Snapshot)"
         self.console.notifications.close_all()
 
-
         # Open parent overview BEFORE creating children. Child ranges show the
         # parent name in their explorer breadcrumb, so has_text filtering would
         # match children too if they already exist.
@@ -99,7 +98,6 @@ class RangeDetails(ConsoleCase):
         # Snapshots
         self.test_navigate_to_snapshot()
         self.test_remove_snapshot()
-
 
     def test_rename_child_range(self) -> None:
         """Test renaming a child range via context menu."""
@@ -169,9 +167,7 @@ class RangeDetails(ConsoleCase):
         """Test deleting multiple child ranges via multi-select context menu."""
         self.log("Testing: Delete multiple child ranges")
         self._open_parent_overview()
-        self.console.ranges.delete_child_ranges(
-            [self.child_1_name, self.child_2_name]
-        )
+        self.console.ranges.delete_child_ranges([self.child_1_name, self.child_2_name])
 
         self.console.ranges.wait_for_child_range_removed(self.child_1_name)
         self.console.ranges.wait_for_child_range_removed(self.child_2_name)
@@ -183,7 +179,6 @@ class RangeDetails(ConsoleCase):
             except sy.QueryError:
                 pass
 
-
     def test_set_metadata(self) -> None:
         """Test setting a new metadata key-value pair."""
         self.log("Testing: Set metadata")
@@ -194,7 +189,9 @@ class RangeDetails(ConsoleCase):
             "test_key"
         ), "Metadata 'test_key' should exist"
         value = self.console.ranges.get_metadata_value("test_key")
-        assert value == "test_value", f"Metadata value should be 'test_value', got '{value}'"
+        assert (
+            value == "test_value"
+        ), f"Metadata value should be 'test_value', got '{value}'"
 
     def test_update_metadata_value(self) -> None:
         """Test updating the value of existing metadata."""
@@ -219,17 +216,15 @@ class RangeDetails(ConsoleCase):
     def test_open_metadata_link(self) -> None:
         """Test opening a URL metadata value in a new tab."""
         self.log("Testing: Open metadata link")
-        self.console.ranges.update_metadata_value(
-            "test_key", "https://synnaxlabs.com"
-        )
+        self.console.ranges.update_metadata_value("test_key", "https://synnaxlabs.com")
 
         with self.page.expect_popup() as popup_info:
             self.console.ranges.open_metadata_link("test_key")
 
         popup = popup_info.value
-        assert "synnaxlabs.com" in popup.url, (
-            f"Popup URL should contain 'synnaxlabs.com', got '{popup.url}'"
-        )
+        assert (
+            "synnaxlabs.com" in popup.url
+        ), f"Popup URL should contain 'synnaxlabs.com', got '{popup.url}'"
         popup.close()
 
     def test_delete_metadata(self) -> None:
@@ -238,7 +233,6 @@ class RangeDetails(ConsoleCase):
         self.console.ranges.delete_metadata("test_key")
 
         self.console.ranges.wait_for_metadata_removed("test_key")
-
 
     def test_navigate_to_snapshot(self) -> None:
         """Test navigating to a snapshot by clicking on it."""
@@ -254,7 +248,6 @@ class RangeDetails(ConsoleCase):
         self._open_parent_overview()
         self.console.ranges.delete_snapshot_from_overview(self.snapshot_name)
         self.console.ranges.wait_for_snapshot_removed(self.snapshot_name)
-
 
     def _open_parent_overview(self) -> None:
         """Navigate to the parent range overview if not already showing."""

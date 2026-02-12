@@ -509,4 +509,3 @@ class RangeLifecycle(ConsoleCase):
         now = int(sy.TimeStamp.now())
         assert rng.time_range.start < now, "Child range start should be in the past"
         assert rng.time_range.end > now, "Child range end should be in the future"
-

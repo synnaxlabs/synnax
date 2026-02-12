@@ -626,9 +626,7 @@ class RangesClient:
         """
         section = self._get_metadata_section()
         return (
-            section.locator(
-                f"{self.METADATA_ITEM_SELECTOR}:not(.console--create)"
-            )
+            section.locator(f"{self.METADATA_ITEM_SELECTOR}:not(.console--create)")
             .filter(has_text=key)
             .first
         )
@@ -963,9 +961,7 @@ class RangesClient:
         last_item = self._select_child_ranges(names)
         self.ctx_menu.action(last_item, "Delete")
 
-        delete_btn = self.layout.page.get_by_role(
-            "button", name="Delete", exact=True
-        )
+        delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
         delete_btn.wait_for(state="hidden", timeout=5000)
@@ -1001,6 +997,112 @@ class RangesClient:
 
         for name in names:
             self.wait_for_removed_from_toolbar(name)
+
+    # ── Explorer Multi-Select & Context Menu ─────────────────────────────
+
+    def _deselect_all_explorer_ranges(self) -> None:
+        """Deselect all explorer ranges by dispatching click on their checkbox labels."""
+        checked = self.layout.page.locator(
+            f"{self.EXPLORER_ITEM_SELECTOR}:has(input.pluto-input__checkbox-input:checked)"
+        )
+        for _ in range(10):
+            if checked.count() == 0:
+                break
+            checked.first.locator(".pluto-input__checkbox").dispatch_event("click")
+
+    def _select_explorer_ranges(self, names: list[str]) -> Locator:
+        """Select multiple explorer ranges via their checkbox labels.
+
+        Args:
+            names: The names of the ranges to select.
+
+        Returns:
+            The last selected item's Locator (for context menu targeting).
+        """
+        last_item = None
+        for name in names:
+            item = self.get_explorer_item(name)
+            item.wait_for(state="visible", timeout=5000)
+            checkbox_input = item.locator("input.pluto-input__checkbox-input")
+            if not checkbox_input.is_checked():
+                item.locator(".pluto-input__checkbox").dispatch_event("click")
+            last_item = item
+        assert last_item is not None
+        return last_item
+
+    def unfavorite_from_explorer(self, name: str) -> None:
+        """Remove a range from favorites via context menu in the explorer."""
+        item = self.get_explorer_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(item, "Remove from favorites")
+        self.wait_for_removed_from_toolbar(name)
+
+    def favorite_explorer_ranges(self, names: list[str]) -> None:
+        """Favorite multiple ranges via multi-select context menu in the explorer.
+
+        Args:
+            names: The names of the ranges to favorite.
+        """
+        if not names:
+            return
+        last_item = self._select_explorer_ranges(names)
+        self.ctx_menu.action(last_item, "Add to favorites")
+        self._deselect_all_explorer_ranges()
+
+    def unfavorite_explorer_ranges(self, names: list[str]) -> None:
+        """Unfavorite multiple ranges via multi-select context menu in the explorer.
+
+        Args:
+            names: The names of the ranges to unfavorite.
+        """
+        if not names:
+            return
+        last_item = self._select_explorer_ranges(names)
+        self.ctx_menu.action(last_item, "Remove from favorites")
+        self._deselect_all_explorer_ranges()
+        for name in names:
+            self.wait_for_removed_from_toolbar(name)
+
+    def delete_explorer_ranges(self, names: list[str]) -> None:
+        """Delete multiple ranges via multi-select context menu in the explorer.
+
+        Args:
+            names: The names of the ranges to delete.
+        """
+        if not names:
+            return
+        last_item = self._select_explorer_ranges(names)
+        self.ctx_menu.action(last_item, "Delete")
+        delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
+        delete_btn.wait_for(state="visible", timeout=5000)
+        delete_btn.click(timeout=5000)
+        delete_btn.wait_for(state="hidden", timeout=5000)
+        for name in names:
+            self.wait_for_removed_from_explorer(name)
+
+    def copy_link_from_explorer(self, name: str) -> None:
+        """Copy link to a range via context menu in the explorer.
+
+        Args:
+            name: The name of the range.
+        """
+        item = self.get_explorer_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(item, "Copy link")
+
+    def create_child_range_from_explorer(self, parent_name: str) -> None:
+        """Open the create child range dialog via context menu in the explorer.
+
+        Args:
+            parent_name: The name of the parent range.
+        """
+        item = self.get_explorer_item(parent_name)
+        item.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(item, "Create child range")
+        modal = self.layout.page.locator(self.CREATE_MODAL_SELECTOR)
+        modal.wait_for(state="visible", timeout=5000)
+
+    # ── Range Label Operations ─────────────────────────────────────────────
 
     def get_label_in_toolbar(self, range_name: str, label_name: str) -> Locator:
         """Get a label tag within a range item in the toolbar."""
@@ -1080,6 +1182,8 @@ class RangesClient:
                 labels.append(label_text.strip())
 
         return labels
+
+    # ── Range Snapshot Operations ───────────────────────────────────────────
 
     def get_snapshot_item(self, name: str) -> Locator:
         """Get a snapshot item locator from the Snapshots section by name.
