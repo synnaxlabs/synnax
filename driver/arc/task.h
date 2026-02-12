@@ -16,6 +16,7 @@
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/module/module.h"
 #include "arc/cpp/runtime/errors/errors.h"
@@ -55,8 +56,10 @@ struct TaskConfig : common::BaseTaskConfig {
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
+        auto [arc_key, key_err] = x::uuid::UUID::parse(cfg.arc_key);
+        if (key_err) return {std::move(cfg), key_err};
         auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
-            cfg.arc_key,
+            arc_key,
             synnax::arc::RetrieveOptions{.compile = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};

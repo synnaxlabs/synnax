@@ -20,6 +20,7 @@
 #include "x/cpp/os/os.h"
 #include "x/cpp/telem/clock_skew.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/api/grpc/v1/auth.pb.h"
 
@@ -43,7 +44,7 @@ const std::vector RETRY_ON_ERRORS = {INVALID_TOKEN, EXPIRED_TOKEN};
 /// @brief diagnostic information about the Synnax cluster.
 struct ClusterInfo {
     /// @brief a unique UUID key for the cluster.
-    std::string cluster_key;
+    x::uuid::UUID cluster_key;
     /// @brief the version string of the Synnax node. Follows the semver format.
     std::string node_version;
     /// @brief the key of the node within the cluster.
@@ -54,11 +55,17 @@ struct ClusterInfo {
 
     ClusterInfo() = default;
 
-    explicit ClusterInfo(const api::v1::ClusterInfo &info):
-        cluster_key(info.cluster_key()),
-        node_version(info.node_version()),
-        node_key(info.node_key()),
-        node_time(info.node_time()) {}
+    static std::pair<ClusterInfo, x::errors::Error>
+    from_proto(const api::v1::ClusterInfo &info) {
+        auto [cluster_key, err] = x::uuid::UUID::parse(info.cluster_key());
+        if (err) return {{}, err};
+        ClusterInfo ci;
+        ci.cluster_key = cluster_key;
+        ci.node_version = info.node_version();
+        ci.node_key = info.node_key();
+        ci.node_time = x::telem::TimeStamp(info.node_time());
+        return {ci, x::errors::NIL};
+    }
 };
 
 /// @brief AuthMiddleware for authenticating requests using a bearer token.
@@ -109,7 +116,9 @@ public:
         auto [res, err] = login_client->send("/auth/login", req);
         if (err) return err;
         this->token = res.token();
-        this->cluster_info = ClusterInfo(res.cluster_info());
+        auto [cluster_info, ci_err] = ClusterInfo::from_proto(res.cluster_info());
+        if (ci_err) return ci_err;
+        this->cluster_info = cluster_info;
         skew_calc.end(this->cluster_info.node_time);
 
         if (skew_calc.exceeds(this->clock_skew_threshold)) {

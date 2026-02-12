@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/env/env.h"
+#include "x/cpp/test/test.h"
 
 namespace x::env {
 class XEnvTest : public ::testing::Test {
@@ -116,11 +117,9 @@ TEST_F(XEnvTest, AutomaticCaseConversion) {
     set("HELLO_WORLD", "test_value");
     set("ANOTHER_TEST_VAR", "42");
 
-    // Should work with snake_case input
     EXPECT_EQ(load("hello_world", std::string("default")), "test_value");
     EXPECT_EQ(load("another_test_var", 0), 42);
 
-    // Should also work with already screaming case
     EXPECT_EQ(load("HELLO_WORLD", std::string("default")), "test_value");
     EXPECT_EQ(load("ANOTHER_TEST_VAR", 0), 42);
 
@@ -144,13 +143,11 @@ TEST_F(XEnvTest, ParserWithPrefix) {
     set("APP_TEST_STRING", "prefixed");
     set("APP_TEST_INT", "123");
 
-    // Test with prefix without underscore
     Parser parser("app");
     EXPECT_EQ(parser.field("test_string", std::string("default")), "prefixed");
     EXPECT_EQ(parser.field("test_int", 0), 123);
     EXPECT_EQ(parser.field("nonexistent", std::string("default")), "default");
 
-    // Test with prefix with underscore
     Parser parser2("app_");
     EXPECT_EQ(parser2.field("test_string", std::string("default")), "prefixed");
     EXPECT_EQ(parser2.field("test_int", 0), 123);
@@ -163,10 +160,9 @@ TEST_F(XEnvTest, ParserWithPrefix) {
 TEST_F(XEnvTest, ParserWithMixedCasePrefix) {
     set("MY_APP_TEST_VALUE", "mixed_case_prefix");
 
-    // Test different prefix case styles - all should access the same env var
-    const Parser parser1("my_app");
-    const Parser parser2("MY_APP");
-    const Parser parser3("My_App");
+    Parser parser1("my_app");
+    Parser parser2("MY_APP");
+    Parser parser3("My_App");
 
     EXPECT_EQ(parser1.field("test_value", std::string("default")), "mixed_case_prefix");
     EXPECT_EQ(parser2.field("test_value", std::string("default")), "mixed_case_prefix");
@@ -177,8 +173,7 @@ TEST_F(XEnvTest, ParserWithMixedCasePrefix) {
 
 /// @brief it should work correctly with an empty prefix.
 TEST_F(XEnvTest, EmptyPrefix) {
-    // Ensure empty prefix works the same as the global load function
-    const Parser parser("");
+    Parser parser("");
     EXPECT_EQ(parser.field("TEST_STRING", std::string("default")), "hello");
     EXPECT_EQ(parser.field("TEST_INT", 0), 42);
     EXPECT_EQ(parser.field("NONEXISTENT_VAR", std::string("default")), "default");
@@ -189,13 +184,67 @@ TEST_F(XEnvTest, MultipleParserInstances) {
     set("APP1_VALUE", "first");
     set("APP2_VALUE", "second");
 
-    const Parser parser1("app1");
-    const Parser parser2("app2");
+    Parser parser1("app1");
+    Parser parser2("app2");
 
     EXPECT_EQ(parser1.field("value", std::string("default")), "first");
     EXPECT_EQ(parser2.field("value", std::string("default")), "second");
 
     unset("APP1_VALUE");
     unset("APP2_VALUE");
+}
+
+/// @brief it should return true from ok() when all conversions succeed.
+TEST_F(XEnvTest, TestOk) {
+    Parser parser("");
+    parser.field("TEST_STRING", std::string("default"));
+    parser.field("TEST_INT", 0);
+    ASSERT_TRUE(parser.ok());
+    ASSERT_NIL(parser.error());
+}
+
+/// @brief it should return a VALIDATION error on conversion failure.
+TEST_F(XEnvTest, TestError) {
+    Parser parser("");
+    parser.field("TEST_INVALID_NUM", 0);
+    ASSERT_FALSE(parser.ok());
+    ASSERT_OCCURRED_AS(parser.error(), errors::VALIDATION);
+    ASSERT_NE(parser.error().message().find("TEST_INVALID_NUM"), std::string::npos);
+    ASSERT_NE(parser.error().message().find("failed to convert"), std::string::npos);
+}
+
+/// @brief it should accumulate errors via field_err with a message.
+TEST_F(XEnvTest, TestFieldErr) {
+    Parser parser("");
+    ASSERT_TRUE(parser.ok());
+    parser.field_err("host", "must not be empty");
+    ASSERT_FALSE(parser.ok());
+    ASSERT_OCCURRED_AS(parser.error(), errors::VALIDATION);
+    ASSERT_EQ(parser.error().message(), "[sy.validation] host: must not be empty");
+}
+
+/// @brief it should accumulate errors via field_err with an existing error.
+TEST_F(XEnvTest, TestFieldErrWithError) {
+    Parser parser("");
+    errors::Error err(errors::VALIDATION, "connection refused");
+    parser.field_err("host", err);
+    ASSERT_FALSE(parser.ok());
+    ASSERT_OCCURRED_AS(parser.error(), errors::VALIDATION);
+    ASSERT_EQ(parser.error().message(), "[sy.validation] host: connection refused");
+}
+
+/// @brief it should accumulate multiple conversion errors.
+TEST_F(XEnvTest, TestMultipleConversionErrors) {
+    set("BAD_INT", "not_a_number");
+    set("BAD_FLOAT", "also_not_a_number");
+
+    Parser parser("");
+    parser.field("BAD_INT", 0);
+    parser.field("BAD_FLOAT", 0.0);
+    ASSERT_FALSE(parser.ok());
+    ASSERT_EQ(parser.errors.size(), 2);
+
+    unset("BAD_INT");
+    unset("BAD_FLOAT");
 }
 }
