@@ -313,11 +313,7 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
     this->update_cycle_time();
 
     if (auto err = this->reconfigure(); err) {
-        std::lock_guard lock(this->registration_mu);
-        std::erase_if(
-            this->read_registrations,
-            [reg_id](const std::shared_ptr<Registration> &r) { return r->id == reg_id; }
-        );
+        this->unregister_reader(reg_id);
         return {nullptr, err};
     }
 
@@ -342,11 +338,7 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
     this->update_cycle_time();
 
     if (auto err = this->reconfigure(); err) {
-        std::lock_guard lock(this->write_mu);
-        std::erase_if(
-            this->write_registrations,
-            [reg_id](const std::shared_ptr<Registration> &r) { return r->id == reg_id; }
-        );
+        this->unregister_writer(reg_id);
         return {nullptr, err};
     }
 
