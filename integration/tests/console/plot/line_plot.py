@@ -108,8 +108,10 @@ class LinePlot(ConsoleCase):
 
         new_label = f"Custom Label {suffix}"
         plot.set_line_label(new_label)
-        value = plot.get_line_label()
-        assert value == new_label, f"Expected label '{new_label}', got '{value}'"
+        labels = plot.get_line_labels()
+        assert (
+            labels[0] == new_label
+        ), f"Expected label '{new_label}', got '{labels[0]}'"
 
     def test_set_plot_title(self, plot: Plot, suffix: str) -> None:
         """Test setting the plot title via Properties tab."""
