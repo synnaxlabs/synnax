@@ -161,9 +161,9 @@ class MosaicOperations(ConsoleCase):
             bottom_box["y"] > top_box["y"]
         ), f"Bottom pane ({bottom_box['y']}) should be below top pane ({top_box['y']})"
 
-        # Clean up
-        console.workspace.close_page(top_name)
+        # Clean up (close bottom first while split is intact to avoid merge timing)
         console.workspace.close_page(bottom_name)
+        console.workspace.close_page(top_name)
 
     def test_focus_via_context_menu(self) -> None:
         """Should focus a leaf via context menu, showing a modal overlay."""
