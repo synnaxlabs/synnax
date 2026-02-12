@@ -12,14 +12,14 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from freighter import Payload
+from pydantic import BaseModel
 
 from synnax.ontology.payload import ID
 
 ONTOLOGY_TYPE = ID(type="role")
 
 
-class Role(Payload):
+class Role(BaseModel):
     key: UUID | None = None
     name: str
     description: str = ""

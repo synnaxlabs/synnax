@@ -10,7 +10,7 @@
 from typing import Any, Literal
 from uuid import UUID
 
-from freighter import Payload
+
 from pydantic import BaseModel
 
 from synnax.ontology.payload import ID
@@ -82,7 +82,7 @@ class Text(BaseModel):
     """The raw source code of the Arc program."""
 
 
-class ArcPayload(Payload):
+class ArcPayload(BaseModel):
     """Network transportable payload representing an Arc program."""
 
     key: UUID = UUID(int=0)

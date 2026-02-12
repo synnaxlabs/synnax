@@ -12,9 +12,10 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import overload
 
-from freighter import Payload
+from pydantic import BaseModel, Field
+
+
 from pandas import DataFrame
-from pydantic import Field
 
 from synnax.channel.payload import (
     ChannelKey,
@@ -26,7 +27,7 @@ from synnax.exceptions import ValidationError
 from synnax.telem import CrudeSeries, MultiSeries, Series, TypedCrudeSeries
 
 
-class FramePayload(Payload):
+class FramePayload(BaseModel):
     keys: ChannelKeys
     series: list[Series]
 

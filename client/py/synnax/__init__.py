@@ -55,7 +55,7 @@ from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
 from synnax.synnax import Synnax
-from synnax.task import Task, TaskStatus, TaskStatusDetails
+from synnax.task import Task, Status, StatusDetails
 from synnax.telem import (
     Alignment,
     Authority,
@@ -137,8 +137,8 @@ __all__ = [
     "Synnax",
     "Options",
     "Task",
-    "TaskStatus",
-    "TaskStatusDetails",
+    "Status",
+    "StatusDetails",
     "Text",
     "Timer",
     "TimeRange",

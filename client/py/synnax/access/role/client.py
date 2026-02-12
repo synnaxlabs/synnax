@@ -11,40 +11,42 @@ from typing import overload
 from uuid import UUID
 
 from alamos import NOOP, Instrumentation
-from freighter import Empty, Payload, UnaryClient, send_required
+from freighter import Empty, UnaryClient, send_required
+
+from pydantic import BaseModel
 
 from synnax.access.role.payload import Role
 from synnax.util.normalize import normalize
 
 
-class _CreateRequest(Payload):
+class _CreateRequest(BaseModel):
     roles: list[Role]
 
 
 _CreateResponse = _CreateRequest
 
 
-class _RetrieveRequest(Payload):
+class _RetrieveRequest(BaseModel):
     keys: list[UUID] | None = None
     limit: int | None = None
     offset: int | None = None
     internal: bool | None = None
 
 
-class _RetrieveResponse(Payload):
+class _RetrieveResponse(BaseModel):
     roles: list[Role] | None
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     keys: list[UUID]
 
 
-class _AssignRequest(Payload):
+class _AssignRequest(BaseModel):
     user: UUID
     role: UUID
 
 
-class _UnassignRequest(Payload):
+class _UnassignRequest(BaseModel):
     user: UUID
     role: UUID
 

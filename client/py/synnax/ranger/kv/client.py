@@ -10,32 +10,34 @@
 import uuid
 from typing import overload
 
-from freighter import Payload, UnaryClient, send_required
+from freighter import UnaryClient, send_required
+
+from pydantic import BaseModel
 
 from synnax.ranger.kv.payload import Pair
 from synnax.util.normalize import normalize
 
 
-class _GetRequest(Payload):
+class _GetRequest(BaseModel):
     range: uuid.UUID
     keys: list[str]
 
 
-class _GetResponse(Payload):
+class _GetResponse(BaseModel):
     pairs: list[Pair]
 
 
-class _SetRequest(Payload):
+class _SetRequest(BaseModel):
     range: uuid.UUID
     pairs: list[Pair]
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     range: uuid.UUID
     keys: list[str]
 
 
-class _EmptyResponse(Payload): ...
+class _EmptyResponse(BaseModel): ...
 
 
 class Client:

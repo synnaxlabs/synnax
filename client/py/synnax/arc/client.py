@@ -12,8 +12,8 @@ from __future__ import annotations
 from typing import overload
 from uuid import UUID
 
-from freighter import Empty, Payload, UnaryClient, send_required
-from pydantic import PrivateAttr
+from freighter import Empty, UnaryClient, send_required
+from pydantic import PrivateAttr, BaseModel
 
 from synnax.arc.payload import (
     ArcKey,
@@ -28,15 +28,15 @@ from synnax.ontology.payload import ID
 from synnax.util.normalize import normalize
 
 
-class _CreateRequest(Payload):
+class _CreateRequest(BaseModel):
     arcs: list[ArcPayload] = []
 
 
-class _CreateResponse(Payload):
+class _CreateResponse(BaseModel):
     arcs: list[ArcPayload] = []
 
 
-class _RetrieveRequest(Payload):
+class _RetrieveRequest(BaseModel):
     keys: list[UUID] | None = None
     names: list[str] | None = None
     search_term: str | None = None
@@ -44,11 +44,11 @@ class _RetrieveRequest(Payload):
     offset: int | None = None
 
 
-class _RetrieveResponse(Payload):
+class _RetrieveResponse(BaseModel):
     arcs: list[ArcPayload] | None = None
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     keys: list[UUID]
 
 

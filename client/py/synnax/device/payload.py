@@ -7,20 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from freighter import Payload
+
 
 from synnax.ontology import ID
 from synnax.status import Status
 
-DEVICE_ONTOLOGY_TYPE = ID(type="device")
+from pydantic import BaseModel
+
+ONTOLOGY_TYPE = ID(type="device")
 
 
 def ontology_id(key: str) -> ID:
     """Returns the ontology ID for the Device entity."""
-    return ID(type=DEVICE_ONTOLOGY_TYPE.type, key=key)
+    return ID(type=ONTOLOGY_TYPE.type, key=key)
 
 
-class DeviceStatusDetails(Payload):
+class StatusDetails(BaseModel):
     """Details about the status of a device."""
 
     rack: int = 0
@@ -29,11 +31,11 @@ class DeviceStatusDetails(Payload):
     """The key of the device."""
 
 
-DeviceStatus = Status[DeviceStatusDetails]
+Status = Status[StatusDetails]
 """The status of a device."""
 
 
-class Device(Payload):
+class Device(BaseModel):
     key: str = ""
     location: str = ""
     rack: int = 0
@@ -42,7 +44,7 @@ class Device(Payload):
     model: str = ""
     configured: bool = False
     properties: str = ""
-    status: DeviceStatus | None = None
+    status: Status | None = None
 
     @property
     def ontology_id(self) -> ID:

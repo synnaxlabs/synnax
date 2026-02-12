@@ -11,10 +11,11 @@ from enum import Enum
 from typing import Literal, TypeAlias, overload
 from uuid import uuid4
 
+from pydantic import BaseModel
+
 from freighter import (
     EOF,
     ExceptionPayload,
-    Payload,
     Stream,
     WebsocketClient,
     decode_exception,
@@ -62,7 +63,7 @@ CrudeWriterMode: TypeAlias = (
 )
 
 
-class WriterConfig(Payload):
+class WriterConfig(BaseModel):
     authorities: list[int] = Authority.ABSOLUTE
     control_subject: Subject = Subject(name="", key=str(uuid4()))
     start: TimeStamp | None = None
@@ -73,13 +74,13 @@ class WriterConfig(Payload):
     auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
 
 
-class WriterRequest(Payload):
+class WriterRequest(BaseModel):
     config: WriterConfig | None = None
     command: WriterCommand
     frame: FramePayload | None = None
 
 
-class WriterResponse(Payload):
+class WriterResponse(BaseModel):
     command: WriterCommand
     end: TimeStamp | None
     err: ExceptionPayload
@@ -100,7 +101,7 @@ class WSWriterCodec(WSFramerCodec):
             return self.lower_perf_codec.decode(data[1:], pld_t)
         frame = self.codec.decode(data, 1)
         msg = Message[WriterRequest](type="data")
-        msg.payload = Payload(command=WriterCommand.WRITE, frame=frame)
+        msg.payload = WriterRequest(command=WriterCommand.WRITE, frame=frame)
         return msg
 
 

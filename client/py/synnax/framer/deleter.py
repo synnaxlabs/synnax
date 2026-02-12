@@ -8,11 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 from alamos import Instrumentation, trace
-from freighter import (
-    Payload,
-    UnaryClient,
-    send_required,
-)
+from freighter import UnaryClient, send_required
+
+from pydantic import BaseModel
 
 from synnax.channel.payload import (
     ChannelKeys,
@@ -23,13 +21,13 @@ from synnax.channel.payload import (
 from synnax.telem import TimeRange
 
 
-class _Request(Payload):
+class _Request(BaseModel):
     keys: ChannelKeys | None = None
     names: ChannelNames | None = None
     bounds: TimeRange
 
 
-class _Response(Payload): ...
+class _Response(BaseModel): ...
 
 
 class Deleter:

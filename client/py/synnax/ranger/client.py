@@ -18,7 +18,7 @@ from uuid import UUID
 
 import numpy as np
 from freighter import UnaryClient
-from pydantic import PrivateAttr
+from pydantic import PrivateAttr, BaseModel
 
 from synnax.channel.payload import (
     ChannelKey,
@@ -38,11 +38,8 @@ from synnax.ontology.payload import ID
 from synnax.ranger.alias import Client as AliasClient
 from synnax.ranger.kv import Client as KVClient
 from synnax.ranger.payload import (
-    RangeKey,
-    RangeKeys,
-    RangeName,
-    RangeNames,
-    RangePayload,
+    Key,
+    Payload,
     ontology_id,
 )
 from synnax.ranger.retrieve import Retriever
@@ -246,7 +243,7 @@ _RANGE_NOT_CREATED = QueryError("""Cannot read from a range that has not been cr
 Please call client.ranges.create(range) before attempting to read from a range.""")
 
 
-class Range(RangePayload):
+class Range(Payload):
     """A range is a user-defined region of a cluster's data. It's identified by a name,
     time range, and uniquely generated key. See
     https://docs.synnaxlabs.com/reference/concepts/ranges for an introduction to ranges
@@ -405,8 +402,8 @@ class Range(RangePayload):
                 corrected[ch] = alias
         self._aliaser.set(corrected)
 
-    def to_payload(self) -> RangePayload:
-        return RangePayload(name=self.name, time_range=self.time_range, key=self.key)
+    def to_payload(self) -> Payload:
+        return Payload(name=self.name, time_range=self.time_range, key=self.key)
 
     @overload
     def write(
@@ -437,7 +434,7 @@ class Range(RangePayload):
         name: str,
         time_range: TimeRange,
         color: str = "",
-        key: RangeKey = UUID(int=0),
+        key: Key = UUID(int=0),
     ) -> Range:
         return self._client.create(
             name=name,
@@ -453,7 +450,7 @@ class Range(RangePayload):
         name: str,
         time_range: TimeRange,
         color: str = "",
-        key: RangeKey = UUID(int=0),
+        key: Key = UUID(int=0),
     ) -> Range:
         """
         This method is deprecated and will be removed in a future release.
@@ -526,7 +523,7 @@ class Client:
         color: str = "",
         retrieve_if_name_exists: bool = False,
         parent: ID | None = None,
-        key: RangeKey = UUID(int=0),
+        key: Key = UUID(int=0),
     ) -> Range:
         """Creates a named range spanning a region of time. This range is persisted
         to the cluster and is visible to all clients.
@@ -583,7 +580,7 @@ class Client:
         self,
         ranges: Range | list[Range] | None = None,
         *,
-        key: RangeKey = UUID(int=0),
+        key: Key = UUID(int=0),
         name: str = "",
         time_range: TimeRange | None = None,
         color: str = "",
@@ -593,7 +590,7 @@ class Client:
         is_single = True
         if ranges is None:
             to_create = [
-                RangePayload(key=key, name=name, time_range=time_range, color=color)
+                Payload(key=key, name=name, time_range=time_range, color=color)
             ]
         elif isinstance(ranges, Range):
             to_create = [ranges.to_payload()]
@@ -629,10 +626,10 @@ class Client:
     def retrieve(
         self,
         *,
-        key: RangeKey | None = None,
-        name: RangeName | None = None,
-        names: RangeNames | None = None,
-        keys: RangeKeys | None = None,
+        key: Key | None = None,
+        name: str | None = None,
+        names: list[str] | tuple[str] | None = None,
+        keys: list[Key] | tuple[Key] | None = None,
     ) -> Range | list[Range]:
         is_single = check_for_none(keys, names)
         _ranges = self._retriever.retrieve(key=key, name=name, names=names, keys=keys)
@@ -647,7 +644,7 @@ class Client:
 
     def delete(
         self,
-        key: RangeKey | RangeKeys,
+        key: Key | RangeKeys,
     ) -> None:
         self._writer.delete(normalize(key))
 
@@ -658,7 +655,7 @@ class Client:
         _ranges = self._retriever.search(term)
         return self.__sugar(_ranges)
 
-    def __sugar(self, ranges: list[RangePayload]):
+    def __sugar(self, ranges: list[Payload]):
         return [
             Range(
                 **r.model_dump(),

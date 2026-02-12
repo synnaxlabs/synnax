@@ -9,27 +9,29 @@
 
 import uuid
 
-from freighter import Payload, UnaryClient
+from freighter import UnaryClient
+
+from pydantic import BaseModel
 
 from synnax.channel import ChannelKey
 from synnax.util.normalize import normalize
 
 
-class _ResolveRequest(Payload):
+class _ResolveRequest(BaseModel):
     range: uuid.UUID
     aliases: list[str]
 
 
-class _ResolveResponse(Payload):
+class _ResolveResponse(BaseModel):
     aliases: dict[str, ChannelKey]
 
 
-class _SetRequest(Payload):
+class _SetRequest(BaseModel):
     range: uuid.UUID
     aliases: dict[ChannelKey, str]
 
 
-class _EmptyResponse(Payload): ...
+class _EmptyResponse(BaseModel): ...
 
 
 class Client:

@@ -17,14 +17,14 @@ from synnax.task.client import (
     Task,
     TaskProtocol,
 )
-from synnax.task.payload import TaskPayload, TaskStatus, TaskStatusDetails
+from synnax.task.payload import Payload, Status, StatusDetails
 
 __all__ = [
     "Client",
     "Task",
-    "TaskPayload",
-    "TaskStatus",
-    "TaskStatusDetails",
+    "Payload",
+    "Status",
+    "StatusDetails",
     "BaseTaskConfig",
     "BaseReadTaskConfig",
     "BaseWriteTaskConfig",

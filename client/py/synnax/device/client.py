@@ -10,25 +10,27 @@
 from typing import overload
 
 from alamos import NOOP, Instrumentation, trace
-from freighter import Empty, Payload, UnaryClient, send_required
+from freighter import Empty, UnaryClient, send_required
+
+from pydantic import BaseModel
 
 from synnax.device.payload import Device
 from synnax.exceptions import NotFoundError
 from synnax.util.normalize import check_for_none, normalize, override
 
 
-class _CreateRequest(Payload):
+class _CreateRequest(BaseModel):
     devices: list[Device]
 
 
 _CreateResponse = _CreateRequest
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     keys: list[str]
 
 
-class _RetrieveRequest(Payload):
+class _RetrieveRequest(BaseModel):
     keys: list[str] | None = None
     names: list[str] | None = None
     makes: list[str] | None = None
@@ -37,7 +39,7 @@ class _RetrieveRequest(Payload):
     ignore_not_found: bool = False
 
 
-class _RetrieveResponse(Payload):
+class _RetrieveResponse(BaseModel):
     devices: list[Device] | None = None
 
 

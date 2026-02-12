@@ -15,8 +15,8 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from freighter import Payload
-from pydantic import PrivateAttr
+
+from pydantic import PrivateAttr, BaseModel
 
 from synnax.telem.telem import (
     Alignment,
@@ -32,7 +32,7 @@ from synnax.telem.telem import (
 from synnax.util.interop import overload_comparison_operators
 
 
-class Series(Payload):
+class Series(BaseModel):
     """Series is a strongly typed array of telemetry samples backed by an underlying
     binary buffer. It is interoperable with np.ndarray, meaning that it can be safely
     passed as an argument to any function/method that accepts a numpy array.

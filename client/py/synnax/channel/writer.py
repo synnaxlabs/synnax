@@ -8,7 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 from alamos import Instrumentation, trace
-from freighter import Empty, Payload, UnaryClient, send_required
+from freighter import Empty, UnaryClient, send_required
+
+from pydantic import BaseModel
 
 from synnax.channel.payload import (
     ChannelKeys,
@@ -20,19 +22,19 @@ from synnax.channel.payload import (
 from synnax.channel.retrieve import CacheRetriever
 
 
-class _CreateRequest(Payload):
+class _CreateRequest(BaseModel):
     channels: list[ChannelPayload]
 
 
 _Response = _CreateRequest
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     keys: ChannelKeys | None = None
     names: ChannelNames | None = None
 
 
-class _RenameRequest(Payload):
+class _RenameRequest(BaseModel):
     keys: ChannelKeys
     names: ChannelNames
 

@@ -9,14 +9,16 @@
 
 from typing import overload
 
-from freighter import Empty, Payload, UnaryClient, send_required
+from freighter import Empty, UnaryClient, send_required
 from pydantic import Field
+
+from pydantic import BaseModel
 
 from synnax.ontology.payload import ID, CrudeID, Resource
 from synnax.util.normalize import normalize
 
 
-class RetrieveReq(Payload):
+class RetrieveReq(BaseModel):
     ids: list[ID]
     children: bool = False
     parents: bool = False
@@ -28,23 +30,23 @@ class RetrieveReq(Payload):
     types: list[str] | None = None
 
 
-class AddChildrenReq(Payload):
+class AddChildrenReq(BaseModel):
     id: ID
     children: list[ID]
 
 
-class RemoveChildrenReq(Payload):
+class RemoveChildrenReq(BaseModel):
     id: ID
     children: list[ID]
 
 
-class MoveChildrenReq(Payload):
+class MoveChildrenReq(BaseModel):
     from_: ID = Field(alias="from")
     to: ID
     children: list[ID]
 
 
-class RetrieveRes(Payload):
+class RetrieveRes(BaseModel):
     resources: list[Resource]
 
 

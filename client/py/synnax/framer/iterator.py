@@ -10,7 +10,9 @@
 from enum import Enum
 
 from alamos import NOOP, Instrumentation
-from freighter import EOF, Payload, Stream, StreamClient
+from freighter import EOF, Stream, StreamClient
+
+from pydantic import BaseModel
 
 from synnax.channel.payload import ChannelKeys
 from synnax.exceptions import UnexpectedError
@@ -39,7 +41,7 @@ class _ResponseVariant(int, Enum):
     DATA = 2
 
 
-class _Request(Payload):
+class _Request(BaseModel):
     command: _Command
     span: TimeSpan | None = None
     bounds: TimeRange | None = None
@@ -49,7 +51,7 @@ class _Request(Payload):
     downsample_factor: int | None = None
 
 
-class _Response(Payload):
+class _Response(BaseModel):
     variant: _ResponseVariant
     command: _Command
     ack: bool

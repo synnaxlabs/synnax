@@ -9,12 +9,12 @@
 
 from uuid import UUID
 
-from freighter import Payload
+from pydantic import BaseModel
 
 from synnax.ontology.payload import ID
 
 
-class NewUser(Payload):
+class NewUser(BaseModel):
     username: str
     password: str
     first_name: str = ""
@@ -22,7 +22,7 @@ class NewUser(Payload):
     key: UUID | None = None
 
 
-class User(Payload):
+class User(BaseModel):
     key: UUID
     username: str
     first_name: str

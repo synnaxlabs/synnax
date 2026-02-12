@@ -8,22 +8,24 @@
 #  included in the file licenses/APL.txt.
 
 from alamos import NOOP, Instrumentation, trace
-from freighter import Empty, Payload, UnaryClient, send_required
+from freighter import Empty, UnaryClient, send_required
 
 from synnax.ontology.payload import ID
-from synnax.ranger.payload import RangeKey, RangePayload
+from synnax.ranger.payload import Key, Payload
+
+from pydantic import BaseModel
 
 
-class _CreateRequest(Payload):
+class _CreateRequest(BaseModel):
     parent: ID | None = None
-    ranges: list[RangePayload] = []
+    ranges: list[Payload] = []
 
 
 _CreateResponse = _CreateRequest
 
 
-class _DeleteRequest(Payload):
-    keys: list[RangeKey]
+class _DeleteRequest(BaseModel):
+    keys: list[Key]
 
 
 class Writer:
@@ -40,12 +42,12 @@ class Writer:
 
     @trace("debug", "range.create")
     def create(
-        self, ranges: list[RangePayload], *, parent: ID | None = None
-    ) -> list[RangePayload]:
+        self, ranges: list[Payload], *, parent: ID | None = None
+    ) -> list[Payload]:
         req = _CreateRequest(ranges=ranges, parent=parent)
         return send_required(self._client, "/range/create", req, _CreateResponse).ranges
 
     @trace("debug", "range.delete")
-    def delete(self, keys: list[RangeKey]):
+    def delete(self, keys: list[Key]):
         req = _DeleteRequest(keys=keys)
         send_required(self._client, "/range/delete", req, Empty)

@@ -13,11 +13,12 @@ from freighter import (
     EOF,
     AsyncStream,
     AsyncStreamClient,
-    Payload,
     Stream,
     WebsocketClient,
 )
 from freighter.websocket import Message
+
+from pydantic import BaseModel
 
 from synnax.channel.payload import ChannelKeys, ChannelParams
 from synnax.exceptions import UnexpectedError
@@ -27,13 +28,13 @@ from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeSpan
 
 
-class _Request(Payload):
+class _Request(BaseModel):
     keys: ChannelKeys
     downsample_factor: int
     throttle_rate_hz: float | None = None
 
 
-class _Response(Payload):
+class _Response(BaseModel):
     frame: FramePayload
 
 

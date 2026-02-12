@@ -25,34 +25,34 @@ from synnax.exceptions import ConfigurationError, UnexpectedError
 from synnax.framer import Client as FrameClient
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
-from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
-from synnax.task.payload import TaskPayload, TaskStatus, ontology_id
+from synnax.status import VARIANT_ERROR, VARIANT_SUCCESS
+from synnax.task.payload import Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
 
 
-class _CreateRequest(Payload):
-    tasks: list[TaskPayload]
+class _CreateRequest(BaseModel):
+    tasks: list[Payload]
 
 
 _CreateResponse = _CreateRequest
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     keys: list[int]
 
 
-class _CopyRequest(Payload):
+class _CopyRequest(BaseModel):
     key: int
     name: str
     snapshot: bool
 
 
-class _CopyResponse(Payload):
-    task: TaskPayload
+class _CopyResponse(BaseModel):
+    task: Payload
 
 
-class _RetrieveRequest(Payload):
+class _RetrieveRequest(BaseModel):
     rack: int | None = None
     keys: list[int] | None = None
     names: list[str] | None = None
@@ -62,8 +62,8 @@ class _RetrieveRequest(Payload):
     snapshot: bool | None = None
 
 
-class _RetrieveResponse(Payload):
-    tasks: list[TaskPayload] | None = None
+class _RetrieveResponse(BaseModel):
+    tasks: list[Payload] | None = None
 
 
 _CREATE_ENDPOINT = "/task/create"
@@ -136,7 +136,7 @@ class Task:
     type: str = ""
     config: str = ""
     snapshot: bool = False
-    status: TaskStatus | None = None
+    status: Status | None = None
     _frame_client: FrameClient | None = None
 
     def __init__(
@@ -148,7 +148,7 @@ class Task:
         type: str = "",
         config: str = "",
         snapshot: bool = False,
-        status: TaskStatus | None = None,
+        status: Status | None = None,
         _frame_client: FrameClient | None = None,
     ):
         if key == 0:
@@ -161,8 +161,8 @@ class Task:
         self.status = status
         self._frame_client = _frame_client
 
-    def to_payload(self) -> TaskPayload:
-        return TaskPayload(
+    def to_payload(self) -> Payload:
+        return Payload(
             key=self.key,
             name=self.name,
             type=self.type,
@@ -220,7 +220,7 @@ class Task:
         type_: str,
         args: dict | None = None,
         timeout: float | TimeSpan = 5,
-    ) -> TaskStatus:
+    ) -> Status:
         """Executes a command on the task and waits for the driver to acknowledge the
         command with a state.
 
@@ -241,7 +241,7 @@ class Task:
                     warnings.warn("task - unexpected missing state in frame")
                     continue
                 try:
-                    status = TaskStatus.model_validate(frame[_TASK_STATE_CHANNEL][0])
+                    status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
                     if status.details.cmd is not None and status.details.cmd == key:
                         return status
                 except ValidationError as e:
@@ -253,7 +253,7 @@ class Task:
 class TaskProtocol(Protocol):
     key: int
 
-    def to_payload(self) -> TaskPayload: ...
+    def to_payload(self) -> Payload: ...
 
     def set_internal(self, task: Task): ...
 
@@ -322,7 +322,7 @@ class JSONConfigMixin(TaskProtocol):
         """Implements TaskProtocol protocol"""
         return self._internal.key
 
-    def to_payload(self) -> TaskPayload:
+    def to_payload(self) -> Payload:
         """Implements TaskProtocol protocol"""
         pld = self._internal.to_payload()
         pld.config = json.dumps(self.config.model_dump())
@@ -385,7 +385,7 @@ class Client:
     ) -> Task | list[Task]:
         is_single = True
         if tasks is None:
-            tasks = [TaskPayload(key=key, name=name, type=type, config=config)]
+            tasks = [Payload(key=key, name=name, type=type, config=config)]
         elif isinstance(tasks, Task):
             tasks = [tasks.to_payload()]
         else:
@@ -398,11 +398,11 @@ class Client:
         sugared = self.sugar(tasks)
         return sugared[0] if is_single else sugared
 
-    def __exec_create(self, req: _CreateRequest) -> list[TaskPayload]:
+    def __exec_create(self, req: _CreateRequest) -> list[Payload]:
         res = send_required(self._client, "/task/create", req, _CreateResponse)
         return res.tasks
 
-    def maybe_assign_def_rack(self, pld: TaskPayload, rack: int = 0) -> Rack:
+    def maybe_assign_def_rack(self, pld: Payload, rack: int = 0) -> Rack:
         if self._default_rack is None:
             # Hardcoded as this value for now. Will be changed once we have multi-rack
             # systems
@@ -436,12 +436,12 @@ class Client:
                 ):
                     warnings.warn("task - unexpected missing state in frame")
                     continue
-                status = TaskStatus.model_validate(frame[_TASK_STATE_CHANNEL][0])
+                status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
                 if status.details.task != task.key:
                     continue
-                if status.variant == SUCCESS_VARIANT:
+                if status.variant == VARIANT_SUCCESS:
                     break
-                if status.variant == ERROR_VARIANT:
+                if status.variant == VARIANT_ERROR:
                     raise ConfigurationError(status.message)
         return task
 

@@ -11,8 +11,10 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from pydantic import BaseModel
+
 from alamos import NOOP, Instrumentation, trace
-from freighter import Payload, UnaryClient, send_required
+from freighter import UnaryClient, send_required
 
 from synnax.channel.payload import (
     ChannelKey,
@@ -26,13 +28,13 @@ from synnax.channel.payload import (
 from synnax.exceptions import NotFoundError
 
 
-class _Request(Payload):
+class _Request(BaseModel):
     names: list[str] | None = None
     keys: list[int] | None = None
     leaseholder: int | None = None
 
 
-class _Response(Payload):
+class _Response(BaseModel):
     channels: list[ChannelPayload] = list()
     not_found: list[str] | None = list()
 

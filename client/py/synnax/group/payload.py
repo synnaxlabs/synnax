@@ -10,12 +10,12 @@
 
 from uuid import UUID
 
-from freighter import Payload
+from pydantic import BaseModel
 
 from synnax.ontology.payload import ID
 
 
-class Group(Payload):
+class Group(BaseModel):
     key: UUID
     name: str
 

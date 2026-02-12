@@ -9,13 +9,13 @@
 
 import uuid
 
-from freighter import Payload
+from pydantic import BaseModel
 
 from synnax.exceptions import ValidationError
 from synnax.util.primitive import is_primitive
 
 
-class Pair(Payload):
+class Pair(BaseModel):
     range: uuid.UUID
     key: str
     value: str

@@ -10,40 +10,42 @@
 from typing import overload
 from uuid import UUID
 
-from freighter import Empty, Payload, UnaryClient, send_required
+from freighter import Empty, UnaryClient, send_required
+
+from pydantic import BaseModel
 
 from synnax.user.payload import NewUser, User
 from synnax.util.normalize import normalize
 from synnax.util.params import require_named_params
 
 
-class _CreateRequest(Payload):
+class _CreateRequest(BaseModel):
     users: list[NewUser]
 
 
-class _CreateResponse(Payload):
+class _CreateResponse(BaseModel):
     users: list[User]
 
 
-class _RetrieveRequest(Payload):
+class _RetrieveRequest(BaseModel):
     keys: list[UUID] | None = None
     usernames: list[str] | None = None
 
 
-class _RetrieveResponse(Payload):
+class _RetrieveResponse(BaseModel):
     users: list[User] | None = None
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     keys: list[UUID]
 
 
-class _ChangeUsernameRequest(Payload):
+class _ChangeUsernameRequest(BaseModel):
     key: UUID
     username: str
 
 
-class _ChangeNameRequest(Payload):
+class _ChangeNameRequest(BaseModel):
     key: UUID
     first_name: str
     last_name: str

@@ -10,20 +10,22 @@
 import uuid
 
 from alamos import NOOP, Instrumentation, trace
-from freighter import Payload, UnaryClient
+from freighter import UnaryClient
 
-from synnax.ranger.payload import RangeKey, RangeName, RangePayload
+from pydantic import BaseModel
+
+from synnax.ranger.payload import Key, Payload
 from synnax.util.normalize import normalize
 
 
-class _Request(Payload):
+class _Request(BaseModel):
     keys: list[uuid.UUID | str] | None = None
     names: list[str] | None = None
     search_term: str | None = None
 
 
-class _Response(Payload):
-    ranges: list[RangePayload] | None
+class _Response(BaseModel):
+    ranges: list[Payload] | None
 
 
 class Retriever:
@@ -41,11 +43,11 @@ class Retriever:
     @trace("debug")
     def retrieve(
         self,
-        key: RangeKey | None = None,
-        name: RangeName | None = None,
-        names: list[RangeName] | None = None,
-        keys: list[RangeKey] | None = None,
-    ) -> list[RangePayload]:
+        key: Key | None = None,
+        name: str | None = None,
+        names: list[str] | tuple[str] | None = None,
+        keys: list[Key] | tuple[Key] | None = None,
+    ) -> list[Payload]:
         if key is not None:
             keys = normalize(key)
         if name is not None:
@@ -53,10 +55,10 @@ class Retriever:
         return self.__execute(_Request(keys=keys, names=names))
 
     @trace("debug")
-    def search(self, term: str) -> list[RangePayload]:
+    def search(self, term: str) -> list[Payload]:
         return self.__execute(_Request(search_term=term))
 
-    def __execute(self, req: _Request) -> list[RangePayload]:
+    def __execute(self, req: _Request) -> list[Payload]:
         res, exc = self.__client.send("/range/retrieve", req, _Response)
         if exc is not None:
             raise exc

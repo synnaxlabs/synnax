@@ -14,21 +14,22 @@ from freighter import (
     Context,
     Middleware,
     Next,
-    Payload,
     UnaryClient,
 )
+
+from pydantic import BaseModel
 
 from synnax.exceptions import ExpiredToken, InvalidToken
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
 
 
-class InsecureCredentials(Payload):
+class InsecureCredentials(BaseModel):
     username: str
     password: str
 
 
-class TokenResponse(Payload):
+class TokenResponse(BaseModel):
     token: str
     user: User
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, cast
 
-from freighter import Payload
+
 from pydantic import BaseModel
 
 from synnax.ontology import ID
@@ -45,7 +45,7 @@ class Operation(BaseModel):
     duration: TimeSpan = 0
 
 
-class ChannelPayload(Payload):
+class ChannelPayload(BaseModel):
     """A payload container that represent the properties of a channel exchanged to and
     from the Synnax server.
     """

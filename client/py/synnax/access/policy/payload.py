@@ -10,9 +10,9 @@
 
 from __future__ import annotations
 
-from uuid import UUID
+from pydantic import BaseModel
 
-from freighter import Payload
+from uuid import UUID
 
 from synnax.ontology.payload import ID
 
@@ -22,7 +22,7 @@ RETRIEVE_ACTION = "retrieve"
 UPDATE_ACTION = "update"
 
 
-class Policy(Payload):
+class Policy(BaseModel):
     key: UUID | None = None
     name: str
     objects: list[ID] = []
