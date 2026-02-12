@@ -192,12 +192,7 @@ class AccessClient:
         if user_item is None:
             raise ValueError(f"User '{username}' not found in users panel")
 
-        self.ctx_menu.open_on(user_item)
-        assign_option = self.layout.page.get_by_text("Change role", exact=True).first
-        if assign_option.count() == 0:
-            self.ctx_menu.close()
-            raise ValueError("'Change role' option not available for this user")
-        self.ctx_menu.click_option("Change role")
+        self.ctx_menu.action(user_item, "Change role")
 
         if not self.layout.is_modal_open():
             raise RuntimeError("Assign role modal did not open")
@@ -249,18 +244,7 @@ class AccessClient:
         if role_item is None:
             raise ValueError(f"Role '{old_name}' not found")
 
-        self.ctx_menu.open_on(role_item)
-
-        rename_option = self.layout.page.get_by_text("Rename", exact=True).first
-        if rename_option.count() == 0:
-            self.ctx_menu.close()
-            raise ValueError("Rename option not available (role may be internal)")
-        rename_class = rename_option.get_attribute("class") or ""
-        if "disabled" in rename_class.lower():
-            self.ctx_menu.close()
-            raise ValueError("Rename option is disabled (role may be internal)")
-
-        self.ctx_menu.click_option("Rename")
+        self.ctx_menu.action(role_item, "Rename")
 
         role_name_element = role_item.locator("p.pluto-text--editable")
         role_name_element.click()
@@ -282,18 +266,7 @@ class AccessClient:
         if role_item is None:
             raise ValueError(f"Role '{name}' not found")
 
-        self.ctx_menu.open_on(role_item)
-
-        delete_option = self.layout.page.get_by_text("Delete", exact=True).first
-        if delete_option.count() == 0:
-            self.ctx_menu.close()
-            raise ValueError("Delete option not available (role may be internal)")
-        delete_class = delete_option.get_attribute("class") or ""
-        if "disabled" in delete_class.lower():
-            self.ctx_menu.close()
-            raise ValueError("Delete option is disabled (role may be internal)")
-
-        self.ctx_menu.click_option("Delete")
+        self.ctx_menu.action(role_item, "Delete")
 
         if self.layout.is_modal_open():
             self.layout.page.get_by_role(
@@ -318,23 +291,9 @@ class AccessClient:
             raise ValueError(f"Role '{name}' not found")
 
         self.ctx_menu.open_on(role_item)
-
-        rename_option = self.layout.page.get_by_text("Rename", exact=True).first
-        delete_option = self.layout.page.get_by_text("Delete", exact=True).first
-
-        rename_available = rename_option.count() > 0
-        delete_available = delete_option.count() > 0
-
-        if rename_available:
-            rename_class = rename_option.get_attribute("class") or ""
-            rename_available = "disabled" not in rename_class.lower()
-
-        if delete_available:
-            delete_class = delete_option.get_attribute("class") or ""
-            delete_available = "disabled" not in delete_class.lower()
-
+        rename_available = self.ctx_menu.has_option("Rename")
+        delete_available = self.ctx_menu.has_option("Delete")
         self.ctx_menu.close()
-
         return rename_available and delete_available
 
     # -------------------------------------------------------------------------

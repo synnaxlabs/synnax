@@ -17,7 +17,11 @@ namespace driver::common {
 /// @brief it should correctly communicate the starting state of a task.
 TEST(TestTaskStateHandler, testStartCommunication) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    const synnax::task::Task task("task1", "ni_analog_read", "");
+    const synnax::task::Task task{
+        .name = "task1",
+        .type = "ni_analog_read",
+        .config = ""
+    };
     auto handler = StatusHandler(ctx, task);
 
     handler.send_start("cmd_key");
@@ -27,7 +31,7 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     EXPECT_EQ(first.details.cmd, "cmd_key");
     EXPECT_EQ(first.name, "task1");
     EXPECT_EQ(first.details.task, task.key);
-    EXPECT_EQ(first.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(first.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first.details.running, true);
     EXPECT_EQ(first.message, "Task started successfully");
 
@@ -39,7 +43,7 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     EXPECT_EQ(second.details.cmd, "cmd_key");
     EXPECT_EQ(second.name, "task1");
     EXPECT_EQ(second.details.task, task.key);
-    EXPECT_EQ(second.variant, x::status::variant::ERR);
+    EXPECT_EQ(second.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(second.details.running, false);
     EXPECT_EQ(second.message, "task validation error");
 }
@@ -47,7 +51,11 @@ TEST(TestTaskStateHandler, testStartCommunication) {
 /// @brief it should correctly communicate a warning to the context.
 TEST(TestTaskStateHandler, testSendWarning) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    const synnax::task::Task task("task1", "ni_analog_read", "");
+    const synnax::task::Task task{
+        .name = "task1",
+        .type = "ni_analog_read",
+        .config = ""
+    };
     auto handler = StatusHandler(ctx, task);
 
     handler.send_warning("Test warning message");
@@ -55,7 +63,7 @@ TEST(TestTaskStateHandler, testSendWarning) {
     const auto first = ctx->statuses[0];
     EXPECT_EQ(first.name, "task1");
     EXPECT_EQ(first.details.task, task.key);
-    EXPECT_EQ(first.variant, x::status::variant::WARNING);
+    EXPECT_EQ(first.variant, x::status::VARIANT_WARNING);
     EXPECT_EQ(first.message, "Test warning message");
 
     handler.error(x::errors::Error(x::errors::VALIDATION, "task validation error"));
@@ -63,14 +71,18 @@ TEST(TestTaskStateHandler, testSendWarning) {
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
     EXPECT_EQ(second.details.task, task.key);
-    EXPECT_EQ(second.variant, x::status::variant::ERR);
+    EXPECT_EQ(second.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(second.message, "task validation error");
 }
 
 /// @brief it should correctly move the task back to a nominal running state.
 TEST(TestTaskStateHandle, testClearWarning) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    const synnax::task::Task task("task1", "ni_analog_read", "");
+    const synnax::task::Task task{
+        .name = "task1",
+        .type = "ni_analog_read",
+        .config = ""
+    };
     auto handler = StatusHandler(ctx, task);
 
     // First send a warning
@@ -78,7 +90,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
     EXPECT_EQ(first.details.task, task.key);
-    EXPECT_EQ(first.variant, x::status::variant::WARNING);
+    EXPECT_EQ(first.variant, x::status::VARIANT_WARNING);
     EXPECT_EQ(first.message, "Test warning message");
 
     // Now clear the warning
@@ -86,7 +98,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
     ASSERT_GE(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
     EXPECT_EQ(second.details.task, task.key);
-    EXPECT_EQ(second.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(second.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(second.message, "Task running");
 
     // Test that clear_warning doesn't do anything if not in warning state
@@ -94,7 +106,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
     handler.send_warning("This is an error");
     ASSERT_GE(ctx->statuses.size(), 3);
     const auto third = ctx->statuses[2];
-    EXPECT_EQ(third.variant, x::status::variant::ERR);
+    EXPECT_EQ(third.variant, x::status::VARIANT_ERROR);
 
     // Clear warning should have no effect when in error state
     const size_t stateCount = ctx->statuses.size();
@@ -105,7 +117,11 @@ TEST(TestTaskStateHandle, testClearWarning) {
 /// @brief it should immediately send an error status to the context.
 TEST(TestTaskStateHandler, testSendError) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    const synnax::task::Task task("task1", "ni_analog_read", "");
+    const synnax::task::Task task{
+        .name = "task1",
+        .type = "ni_analog_read",
+        .config = ""
+    };
     auto handler = StatusHandler(ctx, task);
 
     handler.send_error(x::errors::Error(x::errors::VALIDATION, "fatal runtime error"));
@@ -114,7 +130,7 @@ TEST(TestTaskStateHandler, testSendError) {
     EXPECT_EQ(first.key, task.status_key());
     EXPECT_EQ(first.name, "task1");
     EXPECT_EQ(first.details.task, task.key);
-    EXPECT_EQ(first.variant, x::status::variant::ERR);
+    EXPECT_EQ(first.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(first.details.running, false);
     EXPECT_EQ(first.message, "fatal runtime error");
 
@@ -127,7 +143,11 @@ TEST(TestTaskStateHandler, testSendError) {
 /// @brief it should correctly communicate the stopping state of a task.
 TEST(TestTaskStateHandler, testStopCommunication) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    const synnax::task::Task task("task1", "ni_analog_read", "");
+    const synnax::task::Task task{
+        .name = "task1",
+        .type = "ni_analog_read",
+        .config = ""
+    };
     auto handler = StatusHandler(ctx, task);
 
     handler.send_stop("cmd_key");
@@ -136,7 +156,7 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     EXPECT_EQ(first.key, task.status_key());
     EXPECT_EQ(first.details.cmd, "cmd_key");
     EXPECT_EQ(first.details.task, task.key);
-    EXPECT_EQ(first.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(first.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first.details.running, false);
     EXPECT_EQ(first.message, "Task stopped successfully");
 
@@ -147,7 +167,7 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     EXPECT_EQ(second.key, task.status_key());
     EXPECT_EQ(second.details.cmd, "cmd_key");
     EXPECT_EQ(second.details.task, task.key);
-    EXPECT_EQ(second.variant, x::status::variant::ERR);
+    EXPECT_EQ(second.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(second.details.running, false);
     EXPECT_EQ(second.message, "task validation error");
 }

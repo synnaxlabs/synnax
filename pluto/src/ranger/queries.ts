@@ -19,8 +19,11 @@ import { Ontology } from "@/ontology";
 import { type ranger as aetherRanger } from "@/ranger/aether";
 import { state } from "@/state";
 
-export interface KVFluxStore extends Flux.UnaryStore<string, ranger.KVPair> {}
-export interface AliasFluxStore extends Flux.UnaryStore<ranger.Key, ranger.Alias> {}
+export interface KVFluxStore extends Flux.UnaryStore<string, ranger.kv.Pair> {}
+export interface AliasFluxStore extends Flux.UnaryStore<
+  ranger.Key,
+  ranger.alias.Alias
+> {}
 
 export const RANGE_KV_FLUX_STORE_KEY = "rangeKV";
 export const RANGE_ALIASES_FLUX_STORE_KEY = "rangeAliases";
@@ -694,11 +697,11 @@ const deleteKVPairChannelValueZ = z
   .transform((val) => val.split("<--->"))
   .transform(([range, key]) => ({ key, range }));
 
-const SET_KV_LISTENER: Flux.ChannelListener<FluxSubStore, typeof ranger.kvPairZ> = {
-  channel: ranger.KV_SET_CHANNEL,
-  schema: ranger.kvPairZ,
+const SET_KV_LISTENER: Flux.ChannelListener<FluxSubStore, typeof ranger.kv.pairZ> = {
+  channel: ranger.kv.SET_CHANNEL,
+  schema: ranger.kv.pairZ,
   onChange: ({ store, changed }) => {
-    store.rangeKV.set(ranger.kvPairKey(changed), changed);
+    store.rangeKV.set(ranger.kv.createPairKey(changed), changed);
   },
 };
 
@@ -706,9 +709,10 @@ const DELETE_KV_LISTENER: Flux.ChannelListener<
   FluxSubStore,
   typeof deleteKVPairChannelValueZ
 > = {
-  channel: ranger.KV_DELETE_CHANNEL,
+  channel: ranger.kv.DELETE_CHANNEL,
   schema: deleteKVPairChannelValueZ,
-  onChange: ({ store, changed }) => store.rangeKV.delete(ranger.kvPairKey(changed)),
+  onChange: ({ store, changed }) =>
+    store.rangeKV.delete(ranger.kv.createPairKey(changed)),
 };
 
 export const KV_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
@@ -722,7 +726,7 @@ export interface ListMetaDataQuery {
 export const useListMetaData = Flux.createList<
   ListMetaDataQuery,
   string,
-  ranger.KVPair,
+  ranger.kv.Pair,
   FluxSubStore
 >({
   name: PLURAL_KV_RESOURCE_NAME,
@@ -754,7 +758,7 @@ export const useListMetaData = Flux.createList<
   ],
 });
 
-export const kvPairFormSchema = ranger.kvPairZ;
+export const kvPairFormSchema = ranger.kv.pairZ;
 
 export interface KVFormQuery extends ListMetaDataQuery {}
 
@@ -801,7 +805,7 @@ export const { useUpdate: useDeleteKV } = Flux.createUpdate<
   },
 });
 
-export interface SetKVParams extends ListMetaDataQuery, ranger.KVPair {}
+export interface SetKVParams extends ListMetaDataQuery, ranger.kv.Pair {}
 
 export const { useUpdate: useUpdateKV } = Flux.createUpdate<SetKVParams, FluxSubStore>({
   name: KV_RESOURCE_NAME,
@@ -836,19 +840,25 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   },
 });
 
-const SET_ALIAS_LISTENER: Flux.ChannelListener<FluxSubStore, typeof ranger.aliasZ> = {
-  channel: ranger.SET_ALIAS_CHANNEL_NAME,
-  schema: ranger.aliasZ,
+const SET_ALIAS_LISTENER: Flux.ChannelListener<
+  FluxSubStore,
+  typeof ranger.alias.aliasZ
+> = {
+  channel: ranger.alias.SET_CHANNEL_NAME,
+  schema: ranger.alias.aliasZ,
   onChange: ({ store, changed }) => {
-    store.rangeAliases.set(ranger.aliasKey(changed), changed);
+    store.rangeAliases.set(ranger.alias.createKey(changed), changed);
   },
 };
-const aliasDeleteZ = z.string().transform((val) => ranger.decodeDeleteAliasChange(val));
+const aliasDeleteZ = z
+  .string()
+  .transform((val) => ranger.alias.decodeDeleteChange(val));
 
 const DELETE_ALIAS_LISTENER: Flux.ChannelListener<FluxSubStore, typeof aliasDeleteZ> = {
-  channel: ranger.DELETE_ALIAS_CHANNEL_NAME,
+  channel: ranger.alias.DELETE_CHANNEL_NAME,
   schema: aliasDeleteZ,
-  onChange: ({ store, changed }) => store.rangeAliases.delete(ranger.aliasKey(changed)),
+  onChange: ({ store, changed }) =>
+    store.rangeAliases.delete(ranger.alias.createKey(changed)),
 };
 
 export const ALIAS_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {

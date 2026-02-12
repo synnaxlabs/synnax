@@ -104,7 +104,7 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
     dev.status = synnax::device::Status{
         .key = dev.status_key(),
         .name = dev.name,
-        .variant = x::status::variant::SUCCESS,
+        .variant = x::status::VARIANT_SUCCESS,
         .message = "Device present",
         .time = x::telem::TimeStamp::now(),
         .details = synnax::device::StatusDetails{
