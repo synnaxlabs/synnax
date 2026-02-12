@@ -7,30 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package diagnostics
+// Package humanize converts Arc internal types to user-friendly strings.
+package humanize
 
 import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// HumanizeType converts an internal type representation to a user-friendly string.
+// Type converts an internal type representation to a user-friendly string.
 // Type variables with constraints are displayed by their constraint (e.g., "integer", "float")
 // rather than internal names like "$T1".
-func HumanizeType(t types.Type) string {
+func Type(t types.Type) string {
 	switch t.Kind {
 	case types.KindVariable:
 		if t.Constraint != nil {
-			return humanizeConstraint(*t.Constraint)
+			return constraint(*t.Constraint)
 		}
 		return "unknown type"
 	case types.KindChan:
 		if t.Elem != nil {
-			return "chan " + HumanizeType(*t.Elem)
+			return "chan " + Type(*t.Elem)
 		}
 		return "chan"
 	case types.KindSeries:
 		if t.Elem != nil {
-			return "series " + HumanizeType(*t.Elem)
+			return "series " + Type(*t.Elem)
 		}
 		return "series"
 	default:
@@ -38,7 +39,7 @@ func HumanizeType(t types.Type) string {
 	}
 }
 
-func humanizeConstraint(c types.Type) string {
+func constraint(c types.Type) string {
 	switch c.Kind {
 	case types.KindIntegerConstant:
 		return "integer"

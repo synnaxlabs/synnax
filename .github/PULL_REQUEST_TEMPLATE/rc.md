@@ -150,15 +150,10 @@ I can successfully:
 I can successfully:
 
 - [ ] Drag and drop a mosaic leaf into a new window.
+- [ ] Open in a new window with `Cmd + O`.
 - **Context Menu**
-  - [ ] Focus on a leaf.
-  - [ ] Rename a mosaic leaf.
   - [ ] Open a leaf in a new window.
   - [ ] Move a mosaic leaf to the main window from a secondary window.
-- [ ] Focus using `Cmd + L`.
-- [ ] Open in a new window with `Cmd + O`.
-- **Search and Command Palette**
-  - [ ] Toggle the color theme.
 
 ### Line Plots
 
@@ -166,10 +161,7 @@ I can successfully:
 
 - **Visualization**
   - [ ] Use the measuring tool on the line plot.
-- **Search and Command Palette**
-  - [ ] Open the "Import Line Plot" dialog.
 - [ ] Open a line plot from its link.
-- [ ] Import a line plot.
 
 ### Logs
 
@@ -180,18 +172,7 @@ I can successfully:
   - [ ] Pause and resume scrolling using the streaming icon in the top right.
   - [ ] Switch the logging channel and observe data switching.
   - [ ] Preserve log data from a virtual channel in the buffer.
-- **Search and Command Palette**
-  - [ ] Open an existing log.
 - [ ] Open a log from its link.
-
-### Ontology
-
-I can successfully:
-
-- [ ] Create a new group and move resources to it.
-- [ ] Move resources between groups.
-- [ ] Rename a group.
-- [ ] Delete a group.
 
 ### Permissions & Roles
 

@@ -17,6 +17,7 @@ import (
 	"go.lsp.dev/protocol"
 )
 
+// MockClient implements protocol.Client and xlsp.Client for testing LSP servers.
 type MockClient struct {
 	mu                   sync.Mutex
 	diagnostics          []protocol.Diagnostic
@@ -24,12 +25,14 @@ type MockClient struct {
 	semanticRefreshCount int
 }
 
+// Diagnostics returns the most recently published diagnostics.
 func (m *MockClient) Diagnostics() []protocol.Diagnostic {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.diagnostics
 }
 
+// PublishCount returns the number of times PublishDiagnostics has been called.
 func (m *MockClient) PublishCount() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -88,6 +91,7 @@ func (m *MockClient) ApplyEdit(context.Context, *protocol.ApplyWorkspaceEditPara
 	return false, nil
 }
 
+// PublishDiagnostics stores the diagnostics and increments the publish count.
 func (m *MockClient) PublishDiagnostics(_ context.Context, params *protocol.PublishDiagnosticsParams) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -112,6 +116,7 @@ func (m *MockClient) Request(context.Context, string, any) (any, error) {
 	return nil, nil
 }
 
+// SemanticTokensRefresh increments the semantic refresh counter.
 func (m *MockClient) SemanticTokensRefresh(context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -119,6 +124,7 @@ func (m *MockClient) SemanticTokensRefresh(context.Context) error {
 	return nil
 }
 
+// SemanticRefreshCount returns the number of times SemanticTokensRefresh has been called.
 func (m *MockClient) SemanticRefreshCount() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
