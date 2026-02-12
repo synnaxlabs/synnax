@@ -116,7 +116,7 @@ x::errors::Error Engine::reconfigure() {
     for (const auto &reg: this->read_registrations)
         all_entries.insert(all_entries.end(), reg->entries.begin(), reg->entries.end());
     for (const auto &reg: this->write_registrations)
-        all_entries.insert(all_entries.end(), reg.entries.begin(), reg.entries.end());
+        all_entries.insert(all_entries.end(), reg->entries.begin(), reg->entries.end());
 
     this->breaker.start();
     while (this->breaker.running()) {
@@ -174,7 +174,7 @@ void Engine::update_cycle_time() {
     {
         std::lock_guard lock(this->write_mu);
         for (const auto &reg: this->write_registrations)
-            if (reg.rate > max_rate) max_rate = reg.rate;
+            if (reg->rate > max_rate) max_rate = reg->rate;
     }
     if (max_rate.hz() > 0)
         this->cycle_time_ns.store(
@@ -231,9 +231,9 @@ void Engine::update_read_offsets() {
 
 void Engine::update_write_offsets_locked(const size_t total_size) {
     for (auto &reg: this->write_registrations) {
-        reg.offsets.clear();
-        for (const auto &entry: reg.entries)
-            reg.offsets.push_back(this->master->pdo_offset(entry));
+        reg->offsets.clear();
+        for (const auto &entry: reg->entries)
+            reg->offsets.push_back(this->master->pdo_offset(entry));
     }
     const std::vector<uint8_t> old_staging = std::move(this->write_staging);
     this->write_staging.resize(total_size, 0);
@@ -265,9 +265,10 @@ void Engine::unregister_reader(const size_t id) {
 void Engine::unregister_writer(const size_t id) {
     {
         std::lock_guard lock(this->write_mu);
-        std::erase_if(this->write_registrations, [id](const Registration &r) {
-            return r.id == id;
-        });
+        std::erase_if(
+            this->write_registrations,
+            [id](const std::shared_ptr<Registration> &r) { return r->id == id; }
+        );
     }
     this->update_cycle_time();
     if (!this->should_be_running()) this->stop();
@@ -313,7 +314,10 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
 
     if (auto err = this->reconfigure(); err) {
         std::lock_guard lock(this->registration_mu);
-        this->read_registrations.pop_back();
+        std::erase_if(
+            this->read_registrations,
+            [reg_id](const std::shared_ptr<Registration> &r) { return r->id == reg_id; }
+        );
         return {nullptr, err};
     }
 
@@ -328,39 +332,25 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
     const x::telem::Rate execution_rate
 ) {
     const size_t reg_id = this->next_id.fetch_add(1, std::memory_order_relaxed);
+    auto reg = std::make_shared<Registration>(
+        Registration{reg_id, entries, {}, execution_rate}
+    );
     {
         std::lock_guard lock(this->write_mu);
-        this->write_registrations.push_back({reg_id, entries, {}, execution_rate});
+        this->write_registrations.push_back(reg);
     }
     this->update_cycle_time();
 
     if (auto err = this->reconfigure(); err) {
         std::lock_guard lock(this->write_mu);
-        this->write_registrations.pop_back();
+        std::erase_if(
+            this->write_registrations,
+            [reg_id](const std::shared_ptr<Registration> &r) { return r->id == reg_id; }
+        );
         return {nullptr, err};
     }
 
-    std::vector<ResolvedPDO> resolved_pdos;
-    {
-        std::lock_guard lock(this->write_mu);
-        for (const auto &reg: this->write_registrations) {
-            if (reg.id == reg_id) {
-                resolved_pdos.reserve(reg.entries.size());
-                for (size_t i = 0; i < reg.entries.size(); ++i)
-                    resolved_pdos.push_back(
-                        {reg.offsets[i],
-                         reg.entries[i].data_type,
-                         reg.entries[i].bit_length}
-                    );
-                break;
-            }
-        }
-    }
-
-    return {
-        std::make_unique<Writer>(*this, reg_id, std::move(resolved_pdos)),
-        x::errors::NIL
-    };
+    return {std::make_unique<Writer>(*this, reg_id, std::move(reg)), x::errors::NIL};
 }
 
 x::errors::Error Engine::ensure_initialized() const {

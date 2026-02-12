@@ -44,6 +44,7 @@ class Master final : public master::Master {
     std::vector<std::string> calls;
     size_t init_calls;
     std::vector<pdo::Entry> registered_pdos;
+    size_t output_padding_ = 0;
 
 public:
     explicit Master(std::string interface_name = "mock0"):
@@ -88,6 +89,10 @@ public:
         this->inject_receive_err = x::errors::NIL;
         this->inject_send_err = x::errors::NIL;
     }
+
+    /// @brief sets padding bytes before output PDO offsets, simulating real masters
+    /// where output offsets shift after reconfigure.
+    void set_output_padding(const size_t padding) { this->output_padding_ = padding; }
 
     /// @brief sets a slave to fail state transition to the given target state.
     void
@@ -157,6 +162,7 @@ public:
                     this->output_sz += pdo.byte_length();
             }
         }
+        this->output_sz += this->output_padding_;
         if (this->input_sz == 0) this->input_sz = this->slave_list.size() * 4;
         if (this->output_sz == 0) this->output_sz = this->slave_list.size() * 4;
         this->input_iomap.resize(this->input_sz, 0);
@@ -321,7 +327,7 @@ private:
     void cache_pdo_offsets() {
         this->pdo_offset_cache.clear();
         size_t input_byte_offset = 0;
-        size_t output_byte_offset = 0;
+        size_t output_byte_offset = this->output_padding_;
         if (!this->registered_pdos.empty()) {
             for (const auto &pdo: this->registered_pdos) {
                 pdo::Key key{

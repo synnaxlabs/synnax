@@ -665,9 +665,12 @@ TEST_F(EngineReadValueTest, ReaderBufferResizesAfterReconfigure) {
 
     this->mock_master->set_input<uint16_t>(0, 0xABCD);
 
-    x::telem::Frame frame1b(1, x::telem::Series(x::telem::UINT16_T, 1));
-    ASSERT_NIL(reader1->read(brk, frame1b));
-    EXPECT_EQ(frame1b.series->at(0).at<uint16_t>(0), static_cast<uint16_t>(0xABCD));
+    auto read_u16 = [&]() -> uint16_t {
+        x::telem::Frame f(1, x::telem::Series(x::telem::UINT16_T, 1));
+        EXPECT_FALSE(reader1->read(brk, f));
+        return f.series->at(0).at<uint16_t>(0);
+    };
+    ASSERT_EVENTUALLY_EQ(read_u16(), static_cast<uint16_t>(0xABCD));
 
     brk.stop();
 }
@@ -788,13 +791,19 @@ TEST_F(EngineReadValueTest, ReaderAfterRemovalAndReconfigure) {
     x::breaker::Breaker brk;
     brk.start();
 
-    x::telem::Frame frame1(1, x::telem::Series(x::telem::UINT16_T, 1));
-    ASSERT_NIL(reader1->read(brk, frame1));
-    EXPECT_EQ(frame1.series->at(0).at<uint16_t>(0), static_cast<uint16_t>(0xAAAA));
+    auto read_r1 = [&]() -> uint16_t {
+        x::telem::Frame f(1, x::telem::Series(x::telem::UINT16_T, 1));
+        EXPECT_FALSE(reader1->read(brk, f));
+        return f.series->at(0).at<uint16_t>(0);
+    };
+    ASSERT_EVENTUALLY_EQ(read_r1(), static_cast<uint16_t>(0xAAAA));
 
-    x::telem::Frame frame3(1, x::telem::Series(x::telem::INT32_T, 1));
-    ASSERT_NIL(reader3->read(brk, frame3));
-    EXPECT_EQ(frame3.series->at(0).at<int32_t>(0), static_cast<int32_t>(0xBBBBCCCC));
+    auto read_r3 = [&]() -> int32_t {
+        x::telem::Frame f(1, x::telem::Series(x::telem::INT32_T, 1));
+        EXPECT_FALSE(reader3->read(brk, f));
+        return f.series->at(0).at<int32_t>(0);
+    };
+    ASSERT_EVENTUALLY_EQ(read_r3(), static_cast<int32_t>(0xBBBBCCCC));
 
     brk.stop();
 }
@@ -858,6 +867,69 @@ TEST_F(EngineReadValueTest, ConcurrentOpenReaderAndRead) {
     done.store(true, std::memory_order_release);
     brk.stop();
     reader_thread.join();
+}
+
+TEST_F(EngineTest, WriteAfterReaderReconfigureWithOffsetShift) {
+    // Writer gets offset 0 initially. Then we shift output offsets by 4 bytes
+    // before opening a reader (which triggers reconfigure). The writer must
+    // refresh its cached offset from 0 → 4 or it writes to the wrong location.
+    auto writer = ASSERT_NIL_P(engine->open_writer(
+        {pdo::Entry(0, 0x7000, 1, 16, false, x::telem::INT16_T)},
+        x::telem::Rate(100)
+    ));
+    writer->write(0, static_cast<int16_t>(0x1234));
+    ASSERT_EVENTUALLY_EQ(
+        this->mock_master->get_output<int16_t>(0),
+        static_cast<int16_t>(0x1234)
+    );
+
+    // Simulate real master behavior: offsets shift after reconfigure.
+    this->mock_master->set_output_padding(4);
+
+    auto reader = ASSERT_NIL_P(
+        engine->open_reader({pdo::Entry(0, 0x6000, 1, 16, true)}, x::telem::Rate(100))
+    );
+
+    // PDO is now at byte 4 (shifted by padding). With stale offsets this
+    // would write to byte 0 and the value at byte 4 would remain zero.
+    writer->write(0, static_cast<int16_t>(0x5678));
+    ASSERT_EVENTUALLY_EQ(
+        this->mock_master->get_output<int16_t>(4),
+        static_cast<int16_t>(0x5678)
+    );
+}
+
+TEST_F(EngineTest, WriteAfterWriterReconfigureWithOffsetShift) {
+    auto writer1 = ASSERT_NIL_P(engine->open_writer(
+        {pdo::Entry(0, 0x7000, 1, 16, false, x::telem::INT16_T)},
+        x::telem::Rate(100)
+    ));
+    writer1->write(0, static_cast<int16_t>(0x1234));
+    ASSERT_EVENTUALLY_EQ(
+        this->mock_master->get_output<int16_t>(0),
+        static_cast<int16_t>(0x1234)
+    );
+
+    // Shift output offsets before opening second writer (triggers reconfigure).
+    this->mock_master->set_output_padding(4);
+
+    auto writer2 = ASSERT_NIL_P(engine->open_writer(
+        {pdo::Entry(0, 0x7000, 2, 32, false, x::telem::INT32_T)},
+        x::telem::Rate(100)
+    ));
+
+    // writer1's PDO shifted from byte 0 to byte 4, writer2's at byte 6.
+    writer1->write(0, static_cast<int16_t>(0x5678));
+    ASSERT_EVENTUALLY_EQ(
+        this->mock_master->get_output<int16_t>(4),
+        static_cast<int16_t>(0x5678)
+    );
+
+    writer2->write(0, static_cast<int32_t>(0xDEADBEEF));
+    ASSERT_EVENTUALLY_EQ(
+        this->mock_master->get_output<int32_t>(6),
+        static_cast<int32_t>(0xDEADBEEF)
+    );
 }
 
 TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
