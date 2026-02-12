@@ -11,8 +11,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from synnax.color import Color
 from synnax import ontology
+from synnax.color import Color
 from synnax.telem import TimeRange
 
 ONTOLOGY_TYPE = ontology.ID(type="range")

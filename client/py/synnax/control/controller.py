@@ -16,9 +16,8 @@ from typing import Any, Protocol, overload
 
 import numpy as np
 
-from synnax import channel
+from synnax import channel, framer
 from synnax.exceptions import ValidationError
-from synnax import framer
 from synnax.telem import CrudeTimeSpan, SampleValue, TimeSpan, TimeStamp
 from synnax.telem.control import CrudeAuthority
 from synnax.timing import sleep

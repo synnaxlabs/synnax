@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from typing import overload
 
-from numpy import ndarray
 from pydantic import PrivateAttr
 
+from synnax import framer
 from synnax.channel.payload import (
     Key,
     Operation,
@@ -25,14 +25,13 @@ from synnax.channel.payload import (
 from synnax.channel.retrieve import Retriever
 from synnax.channel.writer import Writer
 from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
-from synnax import framer
 from synnax.ontology.payload import ID
 from synnax.telem import (
     CrudeDataType,
+    CrudeSeries,
     CrudeTimeStamp,
     DataType,
     MultiSeries,
-    Series,
     TimeRange,
 )
 from synnax.util.normalize import normalize
@@ -61,7 +60,7 @@ class Channel(Payload):
         internal: bool = False,
         expression: str = "",
         operations: list[Operation] | None = None,
-        _frame_client: FrameClient | None = None,
+        _frame_client: framer.Client | None = None,
         _client: Client | None = None,
     ) -> None:
         """Initializes a new Channel using the given parameters. It's important to note
@@ -137,7 +136,7 @@ class Channel(Payload):
         tr = TimeRange(start_or_range, end)
         return self.__frame_client.read(tr, self.key)
 
-    def write(self, start: CrudeTimeStamp, data: ndarray | Series) -> None:
+    def write(self, start: CrudeTimeStamp, data: CrudeSeries) -> None:
         """Writes telemetry to the channel starting at the given timestamp.
 
         :param start: The starting timestamp of the first sample in data.

@@ -10,8 +10,7 @@
 
 from pydantic import BaseModel
 
-from synnax import ontology
-from synnax import status
+from synnax import ontology, status
 
 Key = str
 

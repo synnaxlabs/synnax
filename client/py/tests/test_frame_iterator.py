@@ -27,7 +27,9 @@ class TestIterator:
             for f in i:
                 assert np.array_equal(f.get(idx_ch.key), d)
 
-    def test_auto_chunk(self, indexed_pair: sy.Channel, client: sy.Synnax):
+    def test_auto_chunk(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ):
         d = seconds_linspace(1, 10)
         idx_ch, _ = indexed_pair
         idx_ch.write(sy.TimeSpan.SECOND * 1, d)
@@ -47,7 +49,9 @@ class TestIterator:
 
             assert not i.next(sy.framer.AUTO_SPAN)
 
-    def test_auto_chunk_reverse(self, indexed_pair: sy.Channel, client: sy.Synnax):
+    def test_auto_chunk_reverse(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ):
         d = seconds_linspace(1, 10)
         idx_ch, _ = indexed_pair
         idx_ch.write(sy.TimeSpan.SECOND * 1, d)
@@ -153,7 +157,9 @@ class TestIterator:
         data = calc.read(sy.TimeRange.MAX)
         assert np.array_equal(data, np.array([0, 2, 4, 6, 8, 10]))
 
-    def test_read_latest(self, indexed_pair: sy.Channel, client: sy.Synnax):
+    def test_read_latest(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ):
         idx_ch, data_ch = indexed_pair
         time_data = seconds_linspace(1, 10)
         data = np.arange(1, 11)
@@ -162,7 +168,9 @@ class TestIterator:
         data = client.read_latest(data_ch.key, 3)
         assert np.array_equal(data, np.array([8, 9, 10]))
 
-    def test_read_latest_frame(self, indexed_pair: sy.Channel, client: sy.Synnax):
+    def test_read_latest_frame(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ):
         idx_ch, data_ch = indexed_pair
         time_data = seconds_linspace(1, 10)
         data = np.arange(1, 11)
@@ -182,7 +190,7 @@ class TestIterator:
         )
 
     def test_read_latest_empty_channel(
-        self, indexed_pair: sy.Channel, client: sy.Synnax
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ):
         """Test reading latest from an empty channel."""
         idx_ch, data_ch = indexed_pair
@@ -191,7 +199,7 @@ class TestIterator:
         assert len(result) == 0
 
     def test_read_latest_empty_channel_frame(
-        self, indexed_pair: sy.Channel, client: sy.Synnax
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ):
         """Test reading latest frame from empty channels."""
         idx_ch, data_ch = indexed_pair
@@ -201,7 +209,7 @@ class TestIterator:
         assert len(frame.get(idx_ch.key)) == 0
 
     def test_read_latest_single_sample(
-        self, indexed_pair: sy.Channel, client: sy.Synnax
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ):
         """Test reading latest when channel has only one sample."""
         idx_ch, data_ch = indexed_pair
@@ -216,7 +224,11 @@ class TestIterator:
         result = client.read_latest(data_ch.key, 1)
         assert np.array_equal(result, np.array([42.0]))
 
-    def test_read_latest_n_zero(self, indexed_pair: sy.Channel, client: sy.Synnax):
+    def test_read_latest_n_zero(
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ):
         """Test reading latest with n=0."""
         idx_ch, data_ch = indexed_pair
         time_data = seconds_linspace(1, 10)
@@ -228,7 +240,11 @@ class TestIterator:
         result = client.read_latest(data_ch.key, 0)
         assert len(result) == 0
 
-    def test_read_latest_n_negative(self, indexed_pair: sy.Channel, client: sy.Synnax):
+    def test_read_latest_n_negative(
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ):
         """Test reading latest with negative n (should handle gracefully)."""
         idx_ch, data_ch = indexed_pair
         time_data = seconds_linspace(1, 10)
@@ -246,7 +262,7 @@ class TestIterator:
             pass
 
     def test_read_latest_very_large_n(
-        self, indexed_pair: sy.Channel, client: sy.Synnax
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ):
         """Test reading latest with n much larger than available data."""
         idx_ch, data_ch = indexed_pair
@@ -300,7 +316,9 @@ class TestIterator:
         assert len(frame.get(data_ch2.key)) == 5
         assert np.array_equal(frame.get(data_ch2.key), np.arange(100, 105))
 
-    def test_read_latest_sparse_data(self, indexed_pair: sy.Channel, client: sy.Synnax):
+    def test_read_latest_sparse_data(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ):
         """Test reading latest with gaps in the data."""
         idx_ch, data_ch = indexed_pair
 
@@ -325,7 +343,9 @@ class TestIterator:
         assert len(result) >= 3  # At minimum should get the last chunk
         assert 12.0 in result  # Should definitely include the latest value
 
-    def test_read_latest_default_n(self, indexed_pair: sy.Channel, client: sy.Synnax):
+    def test_read_latest_default_n(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ):
         """Test reading latest with default n=1."""
         idx_ch, data_ch = indexed_pair
         time_data = seconds_linspace(1, 10)
@@ -337,7 +357,9 @@ class TestIterator:
         result = client.read_latest(data_ch.key)
         assert np.array_equal(result, np.array([10]))
 
-    def test_downsample_factor_2(self, indexed_pair: sy.Channel, client: sy.Synnax):
+    def test_downsample_factor_2(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ):
         """Test downsampling with factor of 2."""
         idx_ch, data_ch = indexed_pair
         time_data = seconds_linspace(1, 8)
@@ -354,7 +376,9 @@ class TestIterator:
             result = i.value.get(data_ch.key).to_numpy()
             assert np.array_equal(result, np.array([1.0, 3.0, 5.0, 7.0]))
 
-    def test_downsample_factor_3(self, indexed_pair: sy.Channel, client: sy.Synnax):
+    def test_downsample_factor_3(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ):
         """Test downsampling with factor of 3."""
         idx_ch, data_ch = indexed_pair
         time_data = seconds_linspace(1, 9)
@@ -373,7 +397,10 @@ class TestIterator:
 
     @pytest.mark.parametrize("factor", [0, 1, -1])
     def test_no_downsample_when_factor_lte_1(
-        self, factor: int, indexed_pair: sy.Channel, client: sy.Synnax
+        self,
+        factor: int,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
     ):
         """Test that downsampling does not occur when factor is 0, 1, or negative."""
         idx_ch, data_ch = indexed_pair

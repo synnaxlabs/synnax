@@ -15,6 +15,7 @@ from synnax import task
 
 TASK_TYPE = "arc"
 
+
 class TaskConfig(BaseModel):
     """Configuration for an Arc task."""
 
