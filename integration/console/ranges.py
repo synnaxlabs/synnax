@@ -262,6 +262,27 @@ class RangesClient:
         self.ctx_menu.action(item, "Remove from favorites")
         self.wait_for_removed_from_toolbar(name)
 
+    def save_to_synnax_from_toolbar(self, name: str) -> None:
+        """Save a local range to Synnax via context menu in the toolbar."""
+        self.show_toolbar()
+        item = self.get_toolbar_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(item, "Save to Synnax")
+
+    def add_to_new_plot_from_toolbar(self, name: str) -> None:
+        """Add a range to a new line plot via context menu in the toolbar."""
+        self.show_toolbar()
+        item = self.get_toolbar_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(item, "Add to new plot")
+
+    def add_to_active_plot_from_toolbar(self, name: str) -> None:
+        """Add a range to the active line plot via context menu in the toolbar."""
+        self.show_toolbar()
+        item = self.get_toolbar_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(item, "Add to active plot")
+
     def favorite(self, name: str) -> None:
         """Favorite a range by opening its overview and clicking the favorite button.
 

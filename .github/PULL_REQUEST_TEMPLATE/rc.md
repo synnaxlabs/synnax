@@ -195,12 +195,6 @@ I can successfully:
 
 I can successfully:
 
-- **Range Toolbar**
-  - **Context Menu**
-    - [ ] Remove an active range.
-    - [ ] Add to the active line plot.
-    - [ ] Add to a new line plot.
-    - [ ] Save a local range to Synnax.
 - **Range Explorer**
   - [ ] Search ranges
   - [ ] Filter ranges by labels

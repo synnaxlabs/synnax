@@ -39,6 +39,7 @@ class RangeLifecycle(ConsoleCase):
 
     def teardown(self) -> None:
         ranges_to_delete = [
+            self.local_range_name,
             self.labeled_range_name,
             self.new_child_range_name,
             self.child_range_name,
@@ -64,6 +65,7 @@ class RangeLifecycle(ConsoleCase):
 
         # Range Creation
         self.test_create_local_range()
+        self.test_save_local_range()
         self.test_create_persisted_range()
         self.test_create_range_with_stage()
         self.test_create_range_with_parent()
@@ -74,6 +76,11 @@ class RangeLifecycle(ConsoleCase):
         self.test_range_exists_in_explorer()
         self.test_favorite_range()
         self.test_set_active_range()
+        self.test_remove_active_range()
+
+        # Range Toolbar - Plot Operations
+        self.test_add_to_new_plot()
+        self.test_add_to_active_plot()
 
         # Range Details
         self.test_navigate_to_parent()
@@ -186,24 +193,13 @@ class RangeLifecycle(ConsoleCase):
         ), f"Range '{self.range_name}' should exist in explorer"
 
     def test_favorite_range(self) -> None:
-        """Test favoriting and unfavoriting a range."""
+        """Test favoriting a range from the explorer."""
         assert self.range_name is not None
         self.log("Testing: Favorite range")
         self.console.ranges.favorite_from_explorer(self.range_name)
         assert self.console.ranges.exists_in_toolbar(
             self.range_name
         ), f"Range '{self.range_name}' should appear in toolbar after favoriting"
-
-        self.log("Testing: Unfavorite range")
-        # Will raise an error if the range is still in the toolbar
-        self.console.ranges.unfavorite_from_toolbar(self.range_name)
-
-        self.log("Testing: Re-favorite range for subsequent tests")
-        self.console.ranges.open_explorer()
-        self.console.ranges.favorite_from_explorer(self.range_name)
-        assert self.console.ranges.exists_in_toolbar(
-            self.range_name
-        ), f"Range '{self.range_name}' should appear in toolbar after re-favoriting"
 
     def test_set_active_range(self) -> None:
         """Test setting a range as active from the toolbar."""
@@ -213,6 +209,50 @@ class RangeLifecycle(ConsoleCase):
         item = self.console.ranges.get_toolbar_item(self.range_name)
         class_attr = item.get_attribute("class") or ""
         assert "pluto--selected" in class_attr, "Range should be marked as active"
+
+    def test_remove_active_range(self) -> None:
+        """Test removing an active range from the toolbar via context menu."""
+        assert self.range_name is not None
+        self.log("Testing: Remove active range from toolbar")
+        self.console.ranges.unfavorite_from_toolbar(self.range_name)
+        assert not self.console.ranges.exists_in_toolbar(
+            self.range_name
+        ), "Range should be removed from toolbar"
+
+        self.log("Re-favoriting and re-activating range for subsequent tests")
+        self.console.ranges.open_explorer()
+        self.console.ranges.favorite_from_explorer(self.range_name)
+        self.console.ranges.set_active(self.range_name)
+
+    def test_add_to_new_plot(self) -> None:
+        """Test adding a range to a new line plot via toolbar context menu."""
+        assert self.range_name is not None
+        self.log("Testing: Add range to new plot")
+        self.console.ranges.add_to_new_plot_from_toolbar(self.range_name)
+        expected_tab = f"Plot for {self.range_name}"
+        self.console.layout.wait_for_tab(expected_tab)
+        self.console.layout.close_tab(expected_tab)
+
+    def test_add_to_active_plot(self) -> None:
+        """Test adding a range to the active line plot via toolbar context menu."""
+        assert self.range_name is not None
+        self.log("Testing: Add range to active plot")
+        plot_name = f"TestPlot_{self.rand_suffix}"
+        plot = self.console.workspace.create_plot(plot_name)
+        plot.add_channels("Y1", "sy_node_1_metrics_cpu_percentage")
+        self.console.layout.hide_visualization_toolbar()
+        self.console.ranges.add_to_active_plot_from_toolbar(self.range_name)
+        self.console.layout.close_tab(plot_name)
+
+    def test_save_local_range(self) -> None:
+        """Test saving a local range to Synnax via toolbar context menu."""
+        assert self.local_range_name is not None
+        self.log("Testing: Save local range to Synnax")
+        self.console.ranges.save_to_synnax_from_toolbar(self.local_range_name)
+        rng = self.client.ranges.retrieve(name=self.local_range_name)
+        assert (
+            rng.name == self.local_range_name
+        ), f"Range '{self.local_range_name}' should be persisted to Synnax"
 
     def test_change_times_in_overview(self) -> None:
         """Test changing start and end times in the range overview."""
