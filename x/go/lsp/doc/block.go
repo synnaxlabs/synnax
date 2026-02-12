@@ -57,11 +57,6 @@ func Code(language, content string) Block {
 	return code{language: language, content: content}
 }
 
-// ArcCode creates a code block with the arc language.
-func ArcCode(content string) Block {
-	return code{language: "arc", content: content}
-}
-
 // Render returns the markdown fenced code block.
 func (c code) Render() string {
 	return fmt.Sprintf("```%s\n%s\n```", c.language, c.content)
@@ -123,17 +118,18 @@ func (h Hint) Render() string {
 type fix struct {
 	description string
 	code        string
+	language    string
 }
 
-// Fix creates a fix block with a description and code example.
-func Fix(description, codeExample string) Block {
-	return fix{description: description, code: codeExample}
+// Fix creates a fix block with a description, code example, and language for syntax highlighting.
+func Fix(description, codeExample, language string) Block {
+	return fix{description: description, code: codeExample, language: language}
 }
 
 // Render returns the markdown representation of the fix.
 func (f fix) Render() string {
 	if f.code != "" {
-		return fmt.Sprintf("**Fix**: %s\n\n```arc\n%s\n```", f.description, f.code)
+		return fmt.Sprintf("**Fix**: %s\n\n```%s\n%s\n```", f.description, f.language, f.code)
 	}
 	return fmt.Sprintf("**Fix**: %s", f.description)
 }

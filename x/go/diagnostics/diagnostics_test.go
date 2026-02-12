@@ -12,7 +12,7 @@ package diagnostics_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/diagnostics"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -87,22 +87,19 @@ var _ = Describe("Diagnostics", func() {
 		})
 
 		It("Should keep higher severity when error comes first", func() {
-			// Same location + message is considered duplicate even with different severity.
-			// This prevents confusing output where the same issue is reported as both error and warning.
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "same message", Severity: diagnostics.SeverityError})
 			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "same message", Severity: diagnostics.SeverityWarning})
 			Expect(d).To(HaveLen(1))
-			Expect(d[0].Severity).To(Equal(diagnostics.SeverityError)) // Error has higher severity
+			Expect(d[0].Severity).To(Equal(diagnostics.SeverityError))
 		})
 
 		It("Should replace warning with error when error comes second", func() {
-			// When a warning is added first, a later error at the same location should replace it.
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "same message", Severity: diagnostics.SeverityWarning})
 			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "same message", Severity: diagnostics.SeverityError})
 			Expect(d).To(HaveLen(1))
-			Expect(d[0].Severity).To(Equal(diagnostics.SeverityError)) // Error replaces warning
+			Expect(d[0].Severity).To(Equal(diagnostics.SeverityError))
 		})
 
 		It("Should keep error when hint comes second", func() {
@@ -265,6 +262,37 @@ var _ = Describe("Diagnostics", func() {
 		})
 	})
 
+	Describe("Empty", func() {
+		It("Should return true when no diagnostics", func() {
+			var d diagnostics.Diagnostics
+			Expect(d.Empty()).To(BeTrue())
+		})
+
+		It("Should return false when diagnostics exist", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Warningf(nil, "warning"))
+			Expect(d.Empty()).To(BeFalse())
+		})
+	})
+
+	Describe("Merge", func() {
+		It("Should merge diagnostics from another collection", func() {
+			var d1, d2 diagnostics.Diagnostics
+			d1.Add(diagnostics.Errorf(nil, "error1"))
+			d2.Add(diagnostics.Errorf(nil, "error2"))
+			d1.Merge(d2)
+			Expect(d1).To(HaveLen(2))
+		})
+
+		It("Should deduplicate when merging", func() {
+			var d1, d2 diagnostics.Diagnostics
+			d1.Add(diagnostics.Errorf(nil, "same error"))
+			d2.Add(diagnostics.Errorf(nil, "same error"))
+			d1.Merge(d2)
+			Expect(d1).To(HaveLen(1))
+		})
+	})
+
 	Describe("String", func() {
 		It("Should return success message when empty", func() {
 			var d diagnostics.Diagnostics
@@ -332,9 +360,9 @@ var _ = Describe("Diagnostics", func() {
 	Describe("Error Codes", func() {
 		It("Should add error with code", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Errorf(nil, "type error").WithCode(diagnostics.ErrorCodeTypeMismatch))
+			d.Add(diagnostics.Errorf(nil, "type error").WithCode("TEST001"))
 			Expect(d).To(HaveLen(1))
-			Expect(d[0].Code).To(Equal(diagnostics.ErrorCodeTypeMismatch))
+			Expect(d[0].Code).To(Equal(diagnostics.ErrorCode("TEST001")))
 			Expect(d[0].Message).To(Equal("type error"))
 		})
 
@@ -343,10 +371,10 @@ var _ = Describe("Diagnostics", func() {
 			d.Add(diagnostics.Diagnostic{
 				Start:    diagnostics.Position{Line: 1, Col: 5},
 				Severity: diagnostics.SeverityError,
-				Code:     diagnostics.ErrorCodeFuncArgCount,
+				Code:     "TEST002",
 				Message:  "wrong arg count",
 			})
-			Expect(d.String()).To(Equal("1:5 error [ARC3001]: wrong arg count"))
+			Expect(d.String()).To(Equal("1:5 error [TEST002]: wrong arg count"))
 		})
 	})
 
@@ -361,9 +389,9 @@ var _ = Describe("Diagnostics", func() {
 
 		It("Should add error with code and note", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Errorf(nil, "wrong type").WithCode(diagnostics.ErrorCodeFuncArgType).WithNote("signature: add(x i64, y i64) i64"))
+			d.Add(diagnostics.Errorf(nil, "wrong type").WithCode("TEST003").WithNote("signature: add(x i64, y i64) i64"))
 			Expect(d).To(HaveLen(1))
-			Expect(d[0].Code).To(Equal(diagnostics.ErrorCodeFuncArgType))
+			Expect(d[0].Code).To(Equal(diagnostics.ErrorCode("TEST003")))
 			Expect(d[0].Notes).To(HaveLen(1))
 			Expect(d[0].Notes[0].Message).To(Equal("signature: add(x i64, y i64) i64"))
 		})

@@ -246,21 +246,7 @@ class WorkspaceClient:
     def expand_active(self) -> None:
         """Expand the active workspace in the resources toolbar to show its contents."""
         self.layout.show_resource_toolbar("workspace")
-        self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").first.wait_for(
-            state="visible", timeout=5000
-        )
-        workspace_items = self.tree.find_by_prefix(self.ITEM_PREFIX)
-        if not workspace_items:
-            return
-        workspace_item = workspace_items[0]
-        caret = workspace_item.locator(".pluto--location-bottom")
-        try:
-            caret.wait_for(state="visible", timeout=500)
-            return
-        except PlaywrightTimeoutError:
-            pass
-        workspace_item.click()
-        caret.wait_for(state="visible", timeout=5000)
+        self.tree.expand_root(self.ITEM_PREFIX)
 
     def get_page(self, name: str) -> Locator:
         """Get a page item locator from the workspace resources toolbar.
@@ -346,22 +332,9 @@ class WorkspaceClient:
         self.layout.close_left_toolbar()
 
     def delete_group(self, name: str) -> None:
-        """Delete a group via context menu.
-
-        Groups are deleted immediately without a confirmation dialog (unlike pages).
-        The context menu shows "Delete" for collapsed groups and "Ungroup" for expanded
-        groups with visible children.
-
-        Args:
-            name: Name of the group to delete
-        """
+        """Delete a group via context menu."""
         self.expand_active()
-        page_item = self.get_page(name)
-        page_item.wait_for(state="visible", timeout=5000)
-        try:
-            self.ctx_menu.action(page_item, "Delete")
-        except PlaywrightTimeoutError:
-            self.ctx_menu.click_option("Ungroup")
+        self.tree.delete_group(name)
         self.layout.close_left_toolbar()
 
     def delete_pages(self, names: list[str]) -> None:
@@ -410,30 +383,21 @@ class WorkspaceClient:
         return self.layout.read_clipboard()
 
     def group_pages(self, *, names: list[str], group_name: str) -> None:
-        """Group multiple pages into a folder via multi-select and context menu.
-
-        Args:
-            names: List of page names to group
-            group_name: Name for the new group/folder
-        """
-        if not names:
-            return
-
+        """Group multiple pages into a folder via multi-select and context menu."""
         self.expand_active()
+        self.tree.group([self.get_page(n) for n in names], group_name)
+        self.layout.close_left_toolbar()
 
-        first_item = self.get_page(names[0])
-        first_item.wait_for(state="visible", timeout=5000)
-        first_item.click()
+    def rename_group(self, old_name: str, new_name: str) -> None:
+        """Rename a group via context menu."""
+        self.expand_active()
+        self.tree.rename_group(old_name, new_name)
+        self.layout.close_left_toolbar()
 
-        for name in names[1:]:
-            page_item = self.get_page(name)
-            page_item.wait_for(state="visible", timeout=5000)
-            page_item.click(modifiers=["ControlOrMeta"])
-
-        last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        self.ctx_menu.action(last_item, "Group selection")
-        self.layout.select_all_and_type(group_name)
-        self.layout.press_enter()
+    def move_to_group(self, item_name: str, group_name: str) -> None:
+        """Move a page or group into a target group via drag-and-drop."""
+        self.expand_active()
+        self.tree.move_to_group(self.get_page(item_name), group_name)
         self.layout.close_left_toolbar()
 
     def export_page(self, name: str) -> dict[str, Any]:
