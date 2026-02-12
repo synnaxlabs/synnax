@@ -16,7 +16,7 @@
 
 #include "client/cpp/channel/channel.h"
 #include "freighter/cpp/freighter.h"
-#include "x/cpp/telem/control.h"
+#include "x/cpp/control/control.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
@@ -255,12 +255,12 @@ struct WriterConfig {
     /// @brief The control authority to set for each channel. If this vector is of
     /// length 1, then the same authority is set for all channels. Otherwise, the
     /// vector must be the same length as the channels vector. If this vector
-    /// is empty, then all writes are executed with AUTH_ABSOLUTE authority.
-    std::vector<x::telem::Authority> authorities;
+    /// is empty, then all writes are executed with AUTHORITY_ABSOLUTE authority.
+    std::vector<x::control::Authority> authorities;
 
     /// @brief sets identifying information for the writer. The subject's key and
     /// name will be used to identify the writer in control transfer scenarios.
-    x::telem::ControlSubject subject;
+    x::control::Subject subject;
 
     /// @brief sets whether the writer is configured to persist data, stream it, or
     /// both. Options are:
@@ -344,7 +344,7 @@ public:
     /// authority level.
     /// @returns true if the authority was set successfully.
     /// @param auth the authority level to set all channels to.
-    [[nodiscard]] x::errors::Error set_authority(const x::telem::Authority &auth);
+    [[nodiscard]] x::errors::Error set_authority(const x::control::Authority &auth);
 
     /// @brief changes the authority of the given channel to the given authority
     /// level. This does not affect the authority levels of any other channels in
@@ -353,7 +353,7 @@ public:
     /// @param key the channel to set the authority of.
     /// @param authority the authority level to set the channel to.
     [[nodiscard]] x::errors::Error
-    set_authority(const channel::Key &key, const x::telem::Authority &authority);
+    set_authority(const channel::Key &key, const x::control::Authority &authority);
 
     /// @brief changes the authority of the given channels to the given authority
     /// levels.
@@ -364,7 +364,7 @@ public:
     /// fire-and-forget.
     [[nodiscard]] x::errors::Error set_authority(
         const std::vector<channel::Key> &keys,
-        const std::vector<x::telem::Authority> &authorities,
+        const std::vector<x::control::Authority> &authorities,
         bool ack = true
     );
 
@@ -462,5 +462,4 @@ private:
     /// cluster.
     channel::Client channel_client;
 };
-
 }

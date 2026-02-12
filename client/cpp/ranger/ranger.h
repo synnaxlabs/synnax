@@ -13,9 +13,8 @@
 #include <string>
 #include <vector>
 
-#include "google/protobuf/empty.pb.h"
-
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/ranger/kv/kv.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
 
@@ -32,64 +31,6 @@ using RetrieveClient = freighter::
 using CreateClient = freighter::
     UnaryClient<api::v1::RangeCreateRequest, api::v1::RangeCreateResponse>;
 
-/// @brief type alias for the transport used to get range-scoped key-values.
-using KVGetClient = freighter::
-    UnaryClient<api::v1::RangeKVGetRequest, api::v1::RangeKVGetResponse>;
-
-/// @brief type alias for the transport used to set range-scoped key-values.
-using KVSetClient = freighter::
-    UnaryClient<api::v1::RangeKVSetRequest, google::protobuf::Empty>;
-
-/// @brief type alias for the transport used to delete range-scoped key-values.
-using KVDeleteClient = freighter::
-    UnaryClient<api::v1::RangeKVDeleteRequest, google::protobuf::Empty>;
-
-/// @brief a range-scoped key-value store for storing metadata and configuration
-/// about a range.
-class KV {
-    std::string range_key;
-    std::shared_ptr<KVGetClient> kv_get_client;
-    std::shared_ptr<KVSetClient> kv_set_client;
-    std::shared_ptr<KVDeleteClient> kv_delete_client;
-
-public:
-    KV(std::string range_key,
-       std::shared_ptr<KVGetClient> kv_get_client,
-       std::shared_ptr<KVSetClient> kv_set_client,
-       std::shared_ptr<KVDeleteClient> kv_delete_client):
-        range_key(std::move(range_key)),
-        kv_get_client(std::move(kv_get_client)),
-        kv_set_client(std::move(kv_set_client)),
-        kv_delete_client(std::move(kv_delete_client)) {}
-
-    /// @brief gets the value of the given key.
-    /// @param key - the key to get the value of.
-    /// @returns a pair containing the value and an error where ok() is false if the
-    /// value could not be retrieved. Use err.message() to get the error message
-    /// or err.type to get the error type.
-    [[nodiscard]] std::pair<std::string, x::errors::Error>
-    get(const std::string &key) const;
-
-    /// @brief sets the value of the given key.
-    /// @param key - the key to set the value of.
-    /// @param value - the value to set.
-    /// @returns an error where ok() is false if the value could not be set.
-    /// Use err.message() to get the error message or err.type to get the error
-    /// type.
-    /// @note this will overwrite any existing value for the given key.
-    [[nodiscard]] x::errors::Error
-    set(const std::string &key, const std::string &value) const;
-
-    /// @brief deletes the value of the given key.
-    /// @param key - the key to delete the value of.
-    /// @returns an error where ok() is false if the value could not be deleted.
-    /// Use err.message() to get the error message or err.type to get the error
-    /// type.
-    /// @note this operation is idempotent, an will not error if the key does not
-    /// exist.
-    [[nodiscard]] x::errors::Error del(const std::string &key) const;
-};
-
 /// @brief a range is a user-defined region of a cluster's data. It's identified by
 /// a name, time range, and uniquely generated. See
 /// https://docs.synnaxlabs.com/reference/concepts/ranges for an introduction to
@@ -99,7 +40,7 @@ public:
     Key key;
     std::string name;
     x::telem::TimeRange time_range{};
-    KV kv = KV("", nullptr, nullptr, nullptr);
+    kv::Client kv;
 
     /// @brief constructs the range. Note that this does not mean the range has been
     /// persisted to the cluster. To persist the range, call create, at which
@@ -147,15 +88,11 @@ public:
     Client(
         std::unique_ptr<RetrieveClient> retrieve_client,
         std::unique_ptr<CreateClient> create_client,
-        std::shared_ptr<KVGetClient> kv_get_client,
-        std::shared_ptr<KVSetClient> kv_set_client,
-        std::shared_ptr<KVDeleteClient> kv_delete_client
+        const kv::Client &kv
     ):
         retrieve_client(std::move(retrieve_client)),
         create_client(std::move(create_client)),
-        kv_get_client(std::move(kv_get_client)),
-        kv_set_client(std::move(kv_set_client)),
-        kv_delete_client(std::move(kv_delete_client)) {}
+        kv(kv) {}
 
     /// @brief retrieves the range with the given key.
     /// @param key - the key of the range to retrieve.
@@ -217,12 +154,8 @@ private:
     std::unique_ptr<RetrieveClient> retrieve_client;
     /// @brief create retrieval transport.
     std::unique_ptr<CreateClient> create_client;
-    /// @brief range kv get transport.
-    std::shared_ptr<KVGetClient> kv_get_client;
-    /// @brief range kv set transport.
-    std::shared_ptr<KVSetClient> kv_set_client;
-    /// @brief range kv delete transport.
-    std::shared_ptr<KVDeleteClient> kv_delete_client;
+    /// @brief range kv client.
+    kv::Client kv;
 
     /// @brief retrieves multiple ranges.
     std::pair<std::vector<Range>, x::errors::Error>

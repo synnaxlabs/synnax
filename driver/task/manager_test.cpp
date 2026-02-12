@@ -27,7 +27,7 @@ public:
         ctx(ctx), sy_task(task) {
         synnax::task::Status status{
             .key = task.status_key(),
-            .variant = x::status::variant::SUCCESS,
+            .variant = x::status::VARIANT_SUCCESS,
             .message = "configured",
             .details = {.task = task.key}
         };
@@ -39,7 +39,7 @@ public:
     void exec(Command &cmd) override {
         synnax::task::Status status{
             .key = sy_task.status_key(),
-            .variant = x::status::variant::SUCCESS,
+            .variant = x::status::VARIANT_SUCCESS,
             .details =
                 {.task = sy_task.key, .cmd = cmd.key, .running = true, .data = cmd.args}
         };
@@ -49,7 +49,7 @@ public:
     void stop(bool) override {
         synnax::task::Status status{
             .key = sy_task.status_key(),
-            .variant = x::status::variant::SUCCESS,
+            .variant = x::status::VARIANT_SUCCESS,
             .message = "stopped",
             .details = {.task = sy_task.key, .running = false}
         };
@@ -84,7 +84,7 @@ public:
         cv.wait(lock, [&] { return done.load(); });
         synnax::task::Status status{
             .key = task.status_key(),
-            .variant = x::status::variant::SUCCESS,
+            .variant = x::status::VARIANT_SUCCESS,
             .message = "configured",
             .details = {.task = task.key}
         };
@@ -144,7 +144,7 @@ public:
         sy_task(task), state(std::move(state)) {
         synnax::task::Status status{
             .key = task.status_key(),
-            .variant = x::status::variant::SUCCESS,
+            .variant = x::status::VARIANT_SUCCESS,
             .message = "configured",
             .details = {.task = task.key}
         };
@@ -327,7 +327,7 @@ TEST_F(TaskManagerTest, Configure) {
     auto task = synnax::task::Task(rack.key, "t", "echo", "");
     ASSERT_NIL(rack.tasks.create(task));
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
-        return s.variant == x::status::variant::SUCCESS && s.message == "configured";
+        return s.variant == x::status::VARIANT_SUCCESS && s.message == "configured";
     });
     ASSERT_EQ(s.details.task, task.key);
 }
@@ -383,7 +383,7 @@ TEST_F(TaskManagerTest, IgnoresForeignRack) {
         for (const auto &j: frame.series->at(0).json_values()) {
             auto parser = x::json::Parser(j);
             auto s = synnax::task::Status::parse(parser);
-            if (s.variant != x::status::variant::WARNING) received = true;
+            if (s.variant != x::status::VARIANT_WARNING) received = true;
         }
     });
     streamer.close_send();
@@ -419,7 +419,7 @@ TEST_F(TaskManagerTest, IgnoresSnapshot) {
         for (const auto &j: frame.series->at(0).json_values()) {
             auto parser = x::json::Parser(j);
             auto s = synnax::task::Status::parse(parser);
-            if (s.variant != x::status::variant::WARNING && s.details.task == task.key)
+            if (s.variant != x::status::VARIANT_WARNING && s.details.task == task.key)
                 received = true;
         }
     });
@@ -519,7 +519,7 @@ TEST_F(TaskManagerTest, Timeout) {
         streamer,
         task,
         [](const synnax::task::Status &s) {
-            return s.variant == x::status::variant::ERR &&
+            return s.variant == x::status::VARIANT_ERROR &&
                    s.message == "operation timed out";
         },
         5 * x::telem::SECOND
@@ -619,7 +619,7 @@ public:
         sy_task(task), destroyed(destroyed) {
         synnax::task::Status status{
             .key = task.status_key(),
-            .variant = x::status::variant::SUCCESS,
+            .variant = x::status::VARIANT_SUCCESS,
             .message = "configured",
             .details = {.task = task.key}
         };

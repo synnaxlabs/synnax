@@ -185,7 +185,7 @@ public:
                 .start = x::telem::TimeStamp::now(),
                 .authorities = std::move(initial_authorities),
                 .subject =
-                    x::telem::ControlSubject{
+                    x::control::Subject{
                         .name = task_meta.name,
                         .key = std::to_string(task_meta.key),
                     },

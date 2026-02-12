@@ -132,7 +132,7 @@ const retrieveSingle = async ({
     store.channels.set(ch.key, ch);
   }
   if (rangeKey != null) {
-    const aliasKey = ranger.aliasKey({ range: rangeKey, channel: ch.key });
+    const aliasKey = ranger.alias.createKey({ range: rangeKey, channel: ch.key });
     let alias = store.rangeAliases.get(aliasKey);
     if (alias == null) {
       const aliasName = await client.ranges.retrieveAlias(rangeKey, ch.key);
@@ -159,7 +159,7 @@ const retrieveMultiple = async ({
   }
   if (rangeKey != null) {
     const aliasKeys = keys.map((key) =>
-      ranger.aliasKey({ range: rangeKey, channel: key }),
+      ranger.alias.createKey({ range: rangeKey, channel: key }),
     );
     const aliases = store.rangeAliases.get(aliasKeys);
     aliases.forEach((alias) => {
@@ -178,7 +178,7 @@ const retrieveMultiple = async ({
         const chKey = Number(channel);
         const ch = channels.find((ch) => ch.key === chKey);
         if (ch != null) ch.alias = alias;
-        const aliasKey = ranger.aliasKey({ range: rangeKey, channel: chKey });
+        const aliasKey = ranger.alias.createKey({ range: rangeKey, channel: chKey });
         store.rangeAliases.set(aliasKey, { alias, channel: chKey, range: rangeKey });
       });
     }
@@ -209,14 +209,14 @@ export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
       const ch = store.channels.onSet((channel) => {
         if (rangeKey != null) {
           const alias = store.rangeAliases.get(
-            ranger.aliasKey({ range: rangeKey, channel: key }),
+            ranger.alias.createKey({ range: rangeKey, channel: key }),
           );
           if (alias != null) channel.alias = alias.alias;
         }
         onChange(channel);
       }, key);
       if (rangeKey == null) return ch;
-      const aliasKey = ranger.aliasKey({ range: rangeKey, channel: key });
+      const aliasKey = ranger.alias.createKey({ range: rangeKey, channel: key });
       const onSetAlias = store.rangeAliases.onSet((alias) => {
         if (alias == null) return;
         onChange(
@@ -254,7 +254,10 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
     const ch = store.channels.onSet(async (channel) => {
       if (!keysSet.has(channel.key)) return;
       if (rangeKey != null) {
-        const aliasKey = ranger.aliasKey({ range: rangeKey, channel: channel.key });
+        const aliasKey = ranger.alias.createKey({
+          range: rangeKey,
+          channel: channel.key,
+        });
         let alias = store.rangeAliases.get(aliasKey);
         if (alias == null)
           try {
@@ -287,7 +290,7 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
       );
     });
     const onRemoveAlias = store.rangeAliases.onDelete((aliasKey) => {
-      const decoded = ranger.decodeDeleteAliasChange(aliasKey);
+      const decoded = ranger.alias.decodeDeleteChange(aliasKey);
       onChange(
         state.skipUndefined((p) =>
           p.map((ch) =>
@@ -442,7 +445,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
 const ALIAS_RESOURCE_NAME = "channel alias";
 
 export interface UpdateAliasParams extends optional.Optional<
-  ranger.Alias,
+  ranger.alias.Alias,
   "range" | "channel"
 > {
   alias: string;
@@ -458,10 +461,10 @@ export const { useUpdate: useUpdateAlias } = Flux.createUpdate<
     const { range, channel, alias } = v;
     if (range == null || channel == null) return false;
     await client.ranges.setAlias(range, channel, alias);
-    store.rangeAliases.set(ranger.aliasKey({ range, channel }), {
+    store.rangeAliases.set(ranger.alias.createKey({ range, channel }), {
+      alias,
       channel,
       range,
-      alias,
     });
     return v;
   },
@@ -502,7 +505,9 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<
     if (range == null || channels == null) return false;
     const arrChannels = array.toArray(channels);
     await client.ranges.deleteAlias(range, arrChannels);
-    const aliasKeys = arrChannels.map((c) => ranger.aliasKey({ range, channel: c }));
+    const aliasKeys = arrChannels.map((c) =>
+      ranger.alias.createKey({ range, channel: c }),
+    );
     rollbacks.push(store.rangeAliases.delete(aliasKeys));
     return data;
   },

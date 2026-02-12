@@ -226,9 +226,7 @@ class RangesClient:
         name_input.fill(new_name)
         save_btn = self.layout.page.get_by_role("button", name="Save", exact=True)
         save_btn.click(timeout=5000)
-        # adding an a manual wait because range renaming does not yet have an optimistic
-        # update
-        self.layout.page.wait_for_timeout(400)
+        name_input.wait_for(state="hidden", timeout=5000)
 
     def delete_from_explorer(self, name: str) -> None:
         """Delete a range via context menu in the explorer."""
@@ -384,7 +382,6 @@ class RangesClient:
         done_btn = self.layout.page.get_by_role("button", name="Done")
         done_btn.click()
         modal.wait_for(state="hidden", timeout=5000)
-        self.layout.page.wait_for_load_state("networkidle", timeout=5000)
 
     def set_start_time_in_overview(
         self,
@@ -473,12 +470,12 @@ class RangesClient:
         try:
             item.wait_for(state="visible", timeout=5000)
             item.click(timeout=2000)
-        except Exception as e:
+        except PlaywrightTimeoutError as e:
             all_items = self.layout.page.locator(".pluto-list__item").all()
             available_labels = [
                 lbl.text_content() for lbl in all_items if lbl.is_visible()
             ]
-            raise RuntimeError(
+            raise PlaywrightTimeoutError(
                 f"Label '{label_name}' not found in dropdown. Available: {available_labels}"
             ) from e
         self.layout.press_escape()
@@ -528,7 +525,7 @@ class RangesClient:
         name_input.click()
         name_input.fill(new_name)
         name_input.blur()
-        self.layout.page.wait_for_load_state("networkidle", timeout=5000)
+        expect(name_input).to_have_value(new_name, timeout=5000)
 
     def copy_python_code_from_overview(self) -> None:
         """Click the Python code copy button in the range overview."""
