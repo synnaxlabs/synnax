@@ -1561,5 +1561,127 @@ var _ = Describe("TS Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`/** name The user's display name. */`))
 			})
 		})
+
+		Context("cross-namespace struct reference", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/common", `
+					@ts output "client/ts/src/common"
+
+					Info struct {
+						key uuid
+						description string
+					}
+				`)
+			})
+
+			It("Should import cross-namespace struct type", func() {
+				source := `
+					import "schemas/common"
+
+					@ts output "client/ts/src/task"
+
+					Task struct {
+						key uuid
+						info common.Info
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "task", loader, typesPlugin)
+				testutil.ExpectContent(resp, "types.gen.ts").
+					ToContain(
+						`import { common } from "@/common"`,
+						`common.infoZ`,
+					)
+			})
+		})
+
+		Context("cross-namespace enum reference", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/status", `
+					@ts output "client/ts/src/status"
+
+					StatusCode enum {
+						ok = 0
+						error = 1
+					}
+				`)
+			})
+
+			It("Should import cross-namespace enum type", func() {
+				source := `
+					import "schemas/status"
+
+					@ts output "client/ts/src/task"
+
+					Task struct {
+						key uuid
+						code status.StatusCode
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "task", loader, typesPlugin)
+				testutil.ExpectContent(resp, "types.gen.ts").
+					ToContain(
+						`import { status } from`,
+						`status.statusCodeZ`,
+					)
+			})
+		})
+
+		Context("same-package cross-namespace reference", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/common", `
+					@ts output "client/ts/src/common"
+
+					Info struct {
+						key uuid
+						name string
+					}
+				`)
+			})
+
+			It("Should use internal prefix for same-package imports", func() {
+				source := `
+					import "schemas/common"
+
+					@ts output "client/ts/src/task"
+
+					Task struct {
+						key uuid
+						info common.Info
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "task", loader, typesPlugin)
+				testutil.ExpectContent(resp, "types.gen.ts").
+					ToContain(`import { common } from "@/common"`)
+			})
+		})
+
+		Context("different-package cross-namespace reference", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/telem", `
+					@ts output "x/ts/src/telem"
+
+					DataType enum {
+						float32 = "float32"
+						float64 = "float64"
+					}
+				`)
+			})
+
+			It("Should use package name for different package imports", func() {
+				source := `
+					import "schemas/telem"
+
+					@ts output "client/ts/src/channel"
+
+					Channel struct {
+						key uint32
+						data_type telem.DataType
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				testutil.ExpectContent(resp, "types.gen.ts").
+					ToContain(`import { telem } from "@synnaxlabs/x"`)
+			})
+		})
 	})
 })

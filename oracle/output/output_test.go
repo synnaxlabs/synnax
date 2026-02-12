@@ -34,12 +34,12 @@ var _ = Describe("Output", func() {
 
 	AfterEach(func() {
 		os.Stdout = origStdout
-		r.Close()
+		Expect(r.Close()).To(Succeed())
 	})
 
 	captureOutput := func(fn func()) string {
 		fn()
-		w.Close()
+		Expect(w.Close()).To(Succeed())
 		out, err := io.ReadAll(r)
 		Expect(err).ToNot(HaveOccurred())
 		return string(out)
