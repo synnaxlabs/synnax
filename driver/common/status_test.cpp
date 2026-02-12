@@ -117,7 +117,11 @@ TEST(TestTaskStateHandle, testClearWarning) {
 /// @brief it should immediately send an error status to the context.
 TEST(TestTaskStateHandler, testSendError) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    const synnax::task::Task task("task1", "ni_analog_read", "");
+    const synnax::task::Task task{
+        .name = "task1",
+        .type = "ni_analog_read",
+        .config = ""
+    };
     auto handler = StatusHandler(ctx, task);
 
     handler.send_error(x::errors::Error(x::errors::VALIDATION, "fatal runtime error"));
