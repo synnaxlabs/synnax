@@ -26,7 +26,13 @@ TEST(stateTests, testNominal) {
     auto ctx = std::make_shared<task::SynnaxContext>(client);
     auto hb = Task::configure(
         ctx,
-        synnax::task::Task(rack.key, "state", "state", "", true)
+        synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "state",
+            .type = "state",
+            .config = "",
+            .internal = true
+        }
     );
     auto cmd = task::Command(0, "start", {});
     hb->exec(cmd);

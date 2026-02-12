@@ -36,40 +36,24 @@ using CreateClient = freighter::
 /// a name, time range, and uniquely generated. See
 /// https://docs.synnaxlabs.com/reference/concepts/ranges for an introduction to
 /// ranges and how they work.
-class Range {
-public:
+struct Range {
     Key key;
     std::string name;
     x::telem::TimeRange time_range{};
     kv::Client kv;
 
-    /// @brief constructs the range. Note that this does not mean the range has been
-    /// persisted to the cluster. To persist the range, call create, at which
-    /// point a unique key will be generated for the range.
-    /// @param name - a human-readable name for the range. Does not need to be
-    /// unique, and should represent the data that the range contains i.e.
-    /// "Hot fire 1", "Print 22", or "Tank Burst Test".
-    /// @param time_range - the time range of the range.
-    Range(std::string name, x::telem::TimeRange time_range);
-
     /// @brief constructs the range from its protobuf type.
     static std::pair<Range, x::errors::Error> from_proto(const api::v1::Range &rng);
 
-private:
     /// @brief binds the range's fields to the given proto.
     void to_proto(api::v1::Range *rng) const;
-
-    /// @brief constructs an empty, invalid range.
-    Range() = default;
-
-    friend class Client;
 };
 
 /// @brief Converts a range key to an ontology ID.
 /// @param key The range key.
 /// @returns An ontology ID with type "range" and the given key.
 inline ontology::ID ontology_id(const Key &key) {
-    return ontology::ID("range", key.to_string());
+    return ontology::ID{.type = "range", .key = key.to_string()};
 }
 
 /// @brief Converts a vector of range keys to a vector of ontology IDs.

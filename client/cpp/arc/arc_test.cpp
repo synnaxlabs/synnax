@@ -30,7 +30,7 @@ std::string random_arc_name(const std::string &prefix) {
 /// @brief it should create an Arc program and assign it a non-zero key.
 TEST(TestArc, testCreate) {
     const auto client = new_test_client();
-    auto arc = Arc("test_arc");
+    auto arc = Arc{.name = "test_arc"};
     arc.text.raw = "// Simple Arc program";
 
     ASSERT_NIL(client.arcs.create(arc));
@@ -50,9 +50,9 @@ TEST(TestArc, testCreateConvenience) {
 TEST(TestArc, testCreateMany) {
     const auto client = new_test_client();
     auto arcs = std::vector<Arc>{
-        Arc("arc1"),
-        Arc("arc2"),
-        Arc("arc3"),
+        Arc{.name = "arc1"},
+        Arc{.name = "arc2"},
+        Arc{.name = "arc3"},
     };
 
     ASSERT_NIL(client.arcs.create(arcs));
@@ -68,7 +68,7 @@ TEST(TestArc, testCreateMany) {
 TEST(TestArc, testRetrieveByName) {
     const auto client = new_test_client();
     auto name = random_arc_name("retrieve_test");
-    auto created = Arc(name);
+    auto created = Arc{.name = name};
     ASSERT_NIL(client.arcs.create(created));
 
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_name(name));
@@ -79,7 +79,7 @@ TEST(TestArc, testRetrieveByName) {
 /// @brief it should retrieve an Arc program by key.
 TEST(TestArc, testRetrieveByKey) {
     const auto client = new_test_client();
-    auto created = Arc("key_test");
+    auto created = Arc{.name = "key_test"};
     ASSERT_NIL(client.arcs.create(created));
 
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(created.key));
@@ -93,8 +93,8 @@ TEST(TestArc, testRetrieveMany) {
     auto name1 = random_arc_name("multi1");
     auto name2 = random_arc_name("multi2");
     auto arcs = std::vector<Arc>{
-        Arc(name1),
-        Arc(name2),
+        Arc{.name = name1},
+        Arc{.name = name2},
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
@@ -106,8 +106,8 @@ TEST(TestArc, testRetrieveMany) {
 TEST(TestArc, testRetrieveByKeys) {
     const auto client = new_test_client();
     auto arcs = std::vector<Arc>{
-        Arc("keys1"),
-        Arc("keys2"),
+        Arc{.name = "keys1"},
+        Arc{.name = "keys2"},
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
@@ -119,7 +119,7 @@ TEST(TestArc, testRetrieveByKeys) {
 /// @brief it should delete an Arc program by key.
 TEST(TestArc, testDelete) {
     const auto client = new_test_client();
-    auto arc = Arc("delete_test");
+    auto arc = Arc{.name = "delete_test"};
     ASSERT_NIL(client.arcs.create(arc));
 
     ASSERT_NIL(client.arcs.delete_arc(arc.key));
@@ -131,8 +131,8 @@ TEST(TestArc, testDelete) {
 TEST(TestArc, testDeleteMany) {
     const auto client = new_test_client();
     auto arcs = std::vector<Arc>{
-        Arc("delete1"),
-        Arc("delete2"),
+        Arc{.name = "delete1"},
+        Arc{.name = "delete2"},
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
@@ -148,7 +148,7 @@ TEST(TestArc, testDeleteMany) {
 /// @brief it should handle the module field correctly.
 TEST(TestArc, testModuleField) {
     const auto client = new_test_client();
-    auto arc = Arc("module_test");
+    auto arc = Arc{.name = "module_test"};
     arc.text.raw = "// Test program";
 
     ASSERT_NIL(client.arcs.create(arc));
@@ -177,7 +177,7 @@ TEST(TestArc, testRetrieveWithCompile) {
 
     // Create the Arc with calc.arc content
     // This matches arc/go/testdata/calc.arc
-    auto arc = Arc(random_arc_name("compile_test"));
+    auto arc = Arc{.name = random_arc_name("compile_test")};
     std::string calc_arc_text = R"(
 func calc(val f32) f32 {
     return val * 2
@@ -229,7 +229,7 @@ func calc(val f32) f32 {
 TEST(TestArc, testIntervalNodeCompiles) {
     const auto client = new_test_client();
 
-    auto arc = Arc(random_arc_name("interval_test"));
+    auto arc = Arc{.name = random_arc_name("interval_test")};
     arc.text.raw = R"(
 sequence main {
     stage initial {

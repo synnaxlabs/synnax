@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/authority"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
@@ -752,6 +753,80 @@ var _ = Describe("Graph", func() {
 				stableReturnParam := MustBeOk(stableIRNode.Outputs.Get(ir.DefaultOutputParam))
 				Expect(stableReturnParam.Type).To(Equal(types.U8()))
 			})
+		})
+
+		It("Should analyze set_authority with a non-uint8 channel", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "on",
+						Config: types.Params{
+							{Name: "channel", Type: types.Chan(types.F64())},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:    "on",
+						Type:   "on",
+						Config: map[string]any{"channel": 10057},
+					},
+					{
+						Key:  "set_auth",
+						Type: "set_authority",
+						Config: map[string]any{
+							"value":   200,
+							"channel": 10057,
+						},
+					},
+				},
+			}
+			resolver := symbol.CompoundResolver{
+				authority.SymbolResolver,
+				symbol.MapResolver{
+					"10057": symbol.Symbol{
+						Name: "f64_sensor",
+						Type: types.WriteChan(types.F64()),
+						Kind: symbol.KindChannel,
+						ID:   10057,
+					},
+				},
+			}
+			g = MustSucceed(graph.Parse(g))
+			_, diagnostics := graph.Analyze(ctx, g, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
+		It("Should reject set_authority with a read channel", func() {
+			g := arc.Graph{
+				Nodes: []graph.Node{
+					{
+						Key:  "set_auth",
+						Type: "set_authority",
+						Config: map[string]any{
+							"value":   200,
+							"channel": 10058,
+						},
+					},
+				},
+			}
+			resolver := symbol.CompoundResolver{
+				authority.SymbolResolver,
+				symbol.MapResolver{
+					"10058": symbol.Symbol{
+						Name: "f64_sensor",
+						Type: types.ReadChan(types.F64()),
+						Kind: symbol.KindChannel,
+						ID:   10058,
+					},
+				},
+			}
+			g = MustSucceed(graph.Parse(g))
+			_, diagnostics := graph.Analyze(ctx, g, resolver)
+			Expect(diagnostics.Ok()).To(BeFalse())
 		})
 
 		Describe("Edge Validation", func() {

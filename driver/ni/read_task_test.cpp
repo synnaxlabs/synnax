@@ -220,18 +220,18 @@ protected:
     std::unique_ptr<ni::ReadTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
-    synnax::channel::Channel index_channel = synnax::channel::Channel(
-        make_unique_channel_name("time_channel"),
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
-    synnax::channel::Channel data_channel = synnax::channel::Channel(
-        make_unique_channel_name("data_channel"),
-        x::telem::FLOAT64_T,
-        index_channel.key,
-        false
-    );
+    synnax::channel::Channel index_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("time_channel"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
+    synnax::channel::Channel data_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("data_channel"),
+        .data_type = x::telem::FLOAT64_T,
+        .index = index_channel.key,
+        .is_index = false
+    };
 
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -248,7 +248,12 @@ protected:
 
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::task::Task(rack.key, "my_task", "ni_analog_read", "");
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "my_task",
+            .type = "ni_analog_read",
+            .config = ""
+        };
 
         x::json::json j{
             {"data_saving", false},
@@ -514,18 +519,18 @@ protected:
     std::unique_ptr<ni::ReadTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
-    synnax::channel::Channel index_channel = synnax::channel::Channel(
-        make_unique_channel_name("time_channel"),
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
-    synnax::channel::Channel data_channel = synnax::channel::Channel(
-        make_unique_channel_name("digital_channel"),
-        x::telem::UINT8_T, // Digital data is typically boolean/uint8
-        index_channel.key,
-        false
-    );
+    synnax::channel::Channel index_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("time_channel"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
+    synnax::channel::Channel data_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("digital_channel"),
+        .data_type = x::telem::UINT8_T, // Digital data is typically boolean/uint8
+        .index = index_channel.key,
+        .is_index = false
+    };
 
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -548,7 +553,12 @@ protected:
         );
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::task::Task(rack.key, "digital_task", "ni_digital_read", "");
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "digital_task",
+            .type = "ni_digital_read",
+            .config = ""
+        };
 
         x::json::json j{
             {"data_saving", true},
@@ -672,18 +682,18 @@ protected:
     std::unique_ptr<ni::ReadTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
-    synnax::channel::Channel index_channel = synnax::channel::Channel(
-        make_unique_channel_name("time_channel"),
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
-    synnax::channel::Channel data_channel = synnax::channel::Channel(
-        make_unique_channel_name("counter_channel"),
-        x::telem::FLOAT64_T, // Counter frequency data
-        index_channel.key,
-        false
-    );
+    synnax::channel::Channel index_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("time_channel"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
+    synnax::channel::Channel data_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("counter_channel"),
+        .data_type = x::telem::FLOAT64_T, // Counter frequency data
+        .index = index_channel.key,
+        .is_index = false
+    };
 
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -706,7 +716,12 @@ protected:
         );
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::task::Task(rack.key, "counter_task", "ni_counter_read", "");
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "counter_task",
+            .type = "ni_counter_read",
+            .config = ""
+        };
 
         x::json::json j{
             {"data_saving", true},

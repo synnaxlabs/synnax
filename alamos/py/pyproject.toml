@@ -1,6 +1,6 @@
 [project]
 name = "alamos"
-version = "0.51.0"
+version = "0.51.1"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
 requires-python = ">=3.10,<4"
 dependencies = [
