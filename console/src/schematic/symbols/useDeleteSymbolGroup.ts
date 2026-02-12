@@ -30,8 +30,7 @@ export const useDeleteSymbolGroup = (): ((group: group.Group) => void) => {
         const symbolKeys = children
           .filter((c: ontology.Resource) => c.id.type === "schematic_symbol")
           .map((c: ontology.Resource) => c.id.key);
-        if (symbolKeys.length > 0)
-          await client.workspaces.schematics.symbols.delete(symbolKeys);
+        if (symbolKeys.length > 0) await client.schematics.symbols.delete(symbolKeys);
         await client.ontology.groups.delete(g.key);
         addStatus({
           variant: "success",

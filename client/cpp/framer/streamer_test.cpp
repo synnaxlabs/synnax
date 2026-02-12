@@ -38,8 +38,8 @@ TEST(StreamerTests, testStreamBasic) {
         synnax::framer::WriterConfig{
             channels,
             now,
-            {x::telem::AUTH_ABSOLUTE},
-            x::telem::ControlSubject{"test_writer"}
+            {x::control::AUTHORITY_ABSOLUTE},
+            x::control::Subject{"test_writer"}
         }
     ));
 
@@ -74,8 +74,8 @@ TEST(StreamerTests, testStreamSetChannels) {
         synnax::framer::WriterConfig{
             {data.key},
             now,
-            {x::telem::AUTH_ABSOLUTE},
-            x::telem::ControlSubject{"test_writer"}
+            {x::control::AUTHORITY_ABSOLUTE},
+            x::control::Subject{"test_writer"}
         }
     ));
     // Sleep for 5 milliseconds to allow for the streamer to process the updated keys.
@@ -166,8 +166,8 @@ TEST(StreamerTests, TestStreamVariableChannel) {
         synnax::framer::WriterConfig{
             channels,
             now,
-            std::vector{x::telem::AUTH_ABSOLUTE},
-            x::telem::ControlSubject{"test_writer"}
+            std::vector{x::control::AUTHORITY_ABSOLUTE},
+            x::control::Subject{"test_writer"}
         }
     ));
 
@@ -195,8 +195,8 @@ void test_downsample(
         synnax::framer::WriterConfig{
             channels,
             now,
-            std::vector{x::telem::AUTH_ABSOLUTE},
-            x::telem::ControlSubject{"test_writer"}
+            std::vector{x::control::AUTHORITY_ABSOLUTE},
+            x::control::Subject{"test_writer"}
         }
     ));
 
@@ -226,11 +226,11 @@ void test_downsample_string(
 ) {
     auto client = new_test_client();
 
-    synnax::channel::Channel virtual_channel(
-        make_unique_channel_name("virtual_string_channel"),
-        x::telem::STRING_T,
-        true
-    );
+    auto virtual_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("virtual_string_channel"),
+        .data_type = x::telem::STRING_T,
+        .is_virtual = true,
+    };
     ASSERT_NIL(client.channels.create(virtual_channel));
 
     auto now = x::telem::TimeStamp::now();
@@ -239,8 +239,8 @@ void test_downsample_string(
         synnax::framer::WriterConfig{
             channels,
             now,
-            std::vector{x::telem::AUTH_ABSOLUTE},
-            x::telem::ControlSubject{"test_writer"}
+            std::vector{x::control::AUTHORITY_ABSOLUTE},
+            x::control::Subject{"test_writer"}
         }
     ));
 

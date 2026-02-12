@@ -220,18 +220,18 @@ protected:
     std::unique_ptr<ni::ReadTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
-    synnax::channel::Channel index_channel = synnax::channel::Channel(
-        make_unique_channel_name("time_channel"),
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
-    synnax::channel::Channel data_channel = synnax::channel::Channel(
-        make_unique_channel_name("data_channel"),
-        x::telem::FLOAT64_T,
-        index_channel.key,
-        false
-    );
+    synnax::channel::Channel index_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("time_channel"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
+    synnax::channel::Channel data_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("data_channel"),
+        .data_type = x::telem::FLOAT64_T,
+        .index = index_channel.key,
+        .is_index = false
+    };
 
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -248,7 +248,12 @@ protected:
 
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::task::Task(rack.key, "my_task", "ni_analog_read", "");
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "my_task",
+            .type = "ni_analog_read",
+            .config = ""
+        };
 
         x::json::json j{
             {"data_saving", false},
@@ -309,7 +314,7 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.key, task.status_key());
     EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     rt->stop("stop_cmd", true);
@@ -318,7 +323,7 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.key, task.status_key());
     EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
     ASSERT_GE(mock_factory->writes->size(), 1);
     auto &fr = mock_factory->writes->at(0);
@@ -345,7 +350,7 @@ TEST_F(AnalogReadTest, testErrorOnStart) {
     EXPECT_EQ(state.key, task.status_key());
     EXPECT_EQ(state.details.cmd, "start_cmd");
     EXPECT_EQ(state.details.task, task.key);
-    EXPECT_EQ(state.variant, x::status::variant::ERR);
+    EXPECT_EQ(state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(state.message, "Failed to start hardware");
     rt->stop(false);
 }
@@ -365,14 +370,14 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
     EXPECT_EQ(stop_state.key, task.status_key());
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, task.key);
-    EXPECT_EQ(stop_state.variant, x::status::variant::ERR);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Failed to stop hardware");
 }
 
@@ -396,20 +401,20 @@ TEST_F(AnalogReadTest, testErrorOnRead) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto read_err_state = ctx->statuses[1];
     EXPECT_EQ(read_err_state.key, task.status_key());
     EXPECT_EQ(read_err_state.details.task, task.key);
-    EXPECT_EQ(read_err_state.variant, x::status::variant::ERR);
+    EXPECT_EQ(read_err_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(read_err_state.message, "Failed to read hardware");
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     const auto stop_state = ctx->statuses[2];
     EXPECT_EQ(stop_state.key, task.status_key());
     EXPECT_EQ(stop_state.details.task, task.key);
-    EXPECT_EQ(stop_state.variant, x::status::variant::ERR);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Failed to read hardware");
 }
 
@@ -431,7 +436,7 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     rt->stop("stop_cmd", true);
@@ -439,7 +444,7 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
     const auto stop_state = ctx->statuses[1];
     EXPECT_EQ(stop_state.key, task.status_key());
     EXPECT_EQ(stop_state.details.task, task.key);
-    EXPECT_EQ(stop_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_GE(mock_factory->writes->size(), 1);
 
@@ -473,7 +478,7 @@ TEST_F(AnalogReadTest, testDoubleStart) {
         EXPECT_EQ(state.key, task.status_key());
         EXPECT_EQ(state.details.cmd, "start_cmd");
         EXPECT_EQ(state.details.task, task.key);
-        EXPECT_EQ(state.variant, x::status::variant::SUCCESS);
+        EXPECT_EQ(state.variant, x::status::VARIANT_SUCCESS);
         EXPECT_EQ(state.message, "Task started successfully");
     }
     rt->stop("stop_cmd", true);
@@ -497,13 +502,13 @@ TEST_F(AnalogReadTest, testDoubleStop) {
     EXPECT_EQ(stop_state.key, task.status_key());
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd1");
     EXPECT_EQ(stop_state.details.task, task.key);
-    EXPECT_EQ(stop_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.message, "Task stopped successfully");
     const auto stop_state_2 = ctx->statuses[2];
     EXPECT_EQ(stop_state_2.key, task.status_key());
     EXPECT_EQ(stop_state_2.details.cmd, "stop_cmd2");
     EXPECT_EQ(stop_state_2.details.task, task.key);
-    EXPECT_EQ(stop_state_2.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(stop_state_2.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state_2.message, "Task stopped successfully");
 }
 
@@ -514,18 +519,18 @@ protected:
     std::unique_ptr<ni::ReadTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
-    synnax::channel::Channel index_channel = synnax::channel::Channel(
-        make_unique_channel_name("time_channel"),
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
-    synnax::channel::Channel data_channel = synnax::channel::Channel(
-        make_unique_channel_name("digital_channel"),
-        x::telem::UINT8_T, // Digital data is typically boolean/uint8
-        index_channel.key,
-        false
-    );
+    synnax::channel::Channel index_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("time_channel"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
+    synnax::channel::Channel data_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("digital_channel"),
+        .data_type = x::telem::UINT8_T, // Digital data is typically boolean/uint8
+        .index = index_channel.key,
+        .is_index = false
+    };
 
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -548,7 +553,12 @@ protected:
         );
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::task::Task(rack.key, "digital_task", "ni_digital_read", "");
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "digital_task",
+            .type = "ni_digital_read",
+            .config = ""
+        };
 
         x::json::json j{
             {"data_saving", true},
@@ -608,7 +618,7 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     EXPECT_EQ(first_state.key, task.status_key());
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
 
@@ -618,7 +628,7 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     EXPECT_EQ(second_state.key, task.status_key());
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
 
     ASSERT_GE(mock_factory->writes->size(), 1);
@@ -672,18 +682,18 @@ protected:
     std::unique_ptr<ni::ReadTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
-    synnax::channel::Channel index_channel = synnax::channel::Channel(
-        make_unique_channel_name("time_channel"),
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
-    synnax::channel::Channel data_channel = synnax::channel::Channel(
-        make_unique_channel_name("counter_channel"),
-        x::telem::FLOAT64_T, // Counter frequency data
-        index_channel.key,
-        false
-    );
+    synnax::channel::Channel index_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("time_channel"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
+    synnax::channel::Channel data_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("counter_channel"),
+        .data_type = x::telem::FLOAT64_T, // Counter frequency data
+        .index = index_channel.key,
+        .is_index = false
+    };
 
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -706,7 +716,12 @@ protected:
         );
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::task::Task(rack.key, "counter_task", "ni_counter_read", "");
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "counter_task",
+            .type = "ni_counter_read",
+            .config = ""
+        };
 
         x::json::json j{
             {"data_saving", true},
@@ -775,7 +790,7 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
     EXPECT_EQ(first_state.key, task.status_key());
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
 
@@ -785,7 +800,7 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
     EXPECT_EQ(second_state.key, task.status_key());
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
 
     ASSERT_GE(mock_factory->writes->size(), 1);
@@ -815,7 +830,7 @@ TEST_F(CounterReadTest, testCounterErrorOnStart) {
     EXPECT_EQ(state.key, task.status_key());
     EXPECT_EQ(state.details.cmd, "start_cmd");
     EXPECT_EQ(state.details.task, task.key);
-    EXPECT_EQ(state.variant, x::status::variant::ERR);
+    EXPECT_EQ(state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(state.message, "Counter failed to start");
     rt->stop(false);
 }
@@ -835,14 +850,14 @@ TEST_F(CounterReadTest, testCounterErrorOnStop) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
     EXPECT_EQ(stop_state.key, task.status_key());
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, task.key);
-    EXPECT_EQ(stop_state.variant, x::status::variant::ERR);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Counter failed to stop");
 }
 
@@ -868,19 +883,19 @@ TEST_F(CounterReadTest, testCounterErrorOnRead) {
     const auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.key, task.status_key());
     EXPECT_EQ(start_state.details.cmd, "start_cmd");
-    EXPECT_EQ(start_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto read_err_state = ctx->statuses[1];
     EXPECT_EQ(read_err_state.key, task.status_key());
-    EXPECT_EQ(read_err_state.variant, x::status::variant::ERR);
+    EXPECT_EQ(read_err_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(read_err_state.message, "Counter read failed");
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     const auto stop_state = ctx->statuses[2];
     EXPECT_EQ(stop_state.key, task.status_key());
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(stop_state.variant, x::status::variant::ERR);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.message, "Counter read failed");
 }
 
@@ -904,7 +919,7 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
     const auto start_state = ctx->statuses[0];
     EXPECT_EQ(start_state.key, task.status_key());
     EXPECT_EQ(start_state.details.cmd, "start_cmd");
-    EXPECT_EQ(start_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
 
     // Wait for multiple writes
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 3);
@@ -936,7 +951,7 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
     const auto stop_state = ctx->statuses[1];
     EXPECT_EQ(stop_state.key, task.status_key());
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(stop_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should correctly parse a counter edge count task configuration.

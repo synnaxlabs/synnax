@@ -64,7 +64,7 @@ test("client", async () => {
     expect(NotFoundError.matches(e)).toBe(true);
   }
   try {
-    await client.workspaces.schematics.retrieve({ key: uuid.create() });
+    await client.schematics.retrieve({ key: uuid.create() });
   } catch (e) {
     expect(NotFoundError.matches(e)).toBe(true);
   }

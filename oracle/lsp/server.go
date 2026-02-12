@@ -13,6 +13,7 @@ import (
 	"context"
 	"io"
 	"path/filepath"
+
 	"strings"
 	"sync"
 
@@ -72,9 +73,9 @@ func New() *Server {
 	}
 }
 
-// Serve starts the LSP server on the given reader and writer (typically stdin/stdout).
-func (s *Server) Serve(ctx context.Context, r io.Reader, w io.Writer) error {
-	stream := jsonrpc2.NewStream(&xlsp.RWCloser{R: r, W: w})
+// Serve starts the LSP server on the given ReadWriteCloser (typically xos.StdIO).
+func (s *Server) Serve(ctx context.Context, rwc io.ReadWriteCloser) error {
+	stream := jsonrpc2.NewStream(rwc)
 	conn := jsonrpc2.NewConn(stream)
 	logger := zap.NewNop() // Use noop logger to avoid nil pointer
 	s.client = protocol.ClientDispatcher(conn, logger)

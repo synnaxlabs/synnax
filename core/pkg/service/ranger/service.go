@@ -20,9 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -37,7 +38,7 @@ type ServiceConfig struct {
 	// parent of all ranges.
 	Group *group.Service
 	// Signals is used to publish signals on channels when ranges are created, updated,
-	// deleted, along with changes to aliases and key-value pairs.
+	// or deleted.
 	Signals *signals.Provider
 	// Label is the label service used to attach, remove, and query labels related to
 	// changes.
@@ -79,9 +80,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 }
 
 // Service is the main entrypoint for managing ranges within Synnax. It provides
-// mechanisms for creating, deleting, and listening to changes in ranges. It also
-// provides mechanisms for setting channel aliases for a specific range, and for setting
-// metadata on a range.
+// mechanisms for creating, deleting, and listening to changes in ranges.
 type Service struct {
 	shutdownSignals io.Closer
 	cfg             ServiceConfig
@@ -97,7 +96,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{cfg: cfg}
 	cfg.Ontology.RegisterService(s)
-	cfg.Ontology.RegisterService(&aliasOntologyService{db: cfg.DB})
 	if err := s.migrate(ctx); err != nil {
 		return nil, err
 	}
@@ -112,21 +110,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	aliasSignalsCfg := signals.GorpPublisherConfigString[Alias](cfg.DB)
-	aliasSignalsCfg.SetName = "sy_range_alias_set"
-	aliasSignalsCfg.DeleteName = "sy_range_alias_delete"
-	aliasSignals, err := signals.PublishFromGorp(ctx, cfg.Signals, aliasSignalsCfg)
-	if err != nil {
-		return nil, err
-	}
-	kvSignalsCfg := signals.GorpPublisherConfigString[KVPair](cfg.DB)
-	kvSignalsCfg.SetName = "sy_range_kv_set"
-	kvSignalsCfg.DeleteName = "sy_range_kv_delete"
-	kvSignals, err := signals.PublishFromGorp(ctx, cfg.Signals, kvSignalsCfg)
-	if err != nil {
-		return nil, err
-	}
-	s.shutdownSignals = xio.MultiCloser{rangeSignals, aliasSignals, kvSignals}
+	s.shutdownSignals = rangeSignals
 	return s, nil
 }
 
@@ -159,4 +143,28 @@ func (s *Service) NewRetrieve() Retrieve {
 		otg:    s.cfg.Ontology,
 		label:  s.cfg.Label,
 	}
+}
+
+// RetrieveParentKey returns the parent range key for the given range key.
+// Returns query.ErrNotFound if the range has no parent.
+func (s *Service) RetrieveParentKey(
+	ctx context.Context,
+	key uuid.UUID,
+	tx gorp.Tx,
+) (uuid.UUID, error) {
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	var resources []ontology.Resource
+	if err := s.cfg.Ontology.NewRetrieve().
+		WhereIDs(OntologyID(key)).
+		TraverseTo(ontology.ParentsTraverser).
+		WhereTypes(OntologyType).
+		ExcludeFieldData(true).
+		Entries(&resources).
+		Exec(ctx, tx); err != nil {
+		return uuid.Nil, err
+	}
+	if len(resources) == 0 {
+		return uuid.Nil, errors.Wrapf(query.ErrNotFound, "range %s has no parent", key)
+	}
+	return KeyFromOntologyID(resources[0].ID)
 }

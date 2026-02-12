@@ -64,7 +64,13 @@ configure_initial_factory_tasks(
     const std::string &integration_name
 ) {
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>> tasks;
-    auto sy_task = synnax::task::Task(rack.key, task_name, task_type, "", true);
+    auto sy_task = synnax::task::Task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = task_name,
+        .type = task_type,
+        .config = "",
+        .internal = true
+    };
     auto [created, err] = create_if_type_not_exists_on_rack(rack, sy_task);
     if (err) {
         LOG(ERROR) << "[" << integration_name << "] failed to create" << task_name
