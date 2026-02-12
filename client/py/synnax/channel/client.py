@@ -25,7 +25,7 @@ from synnax.channel.payload import (
 from synnax.channel.retrieve import Retriever
 from synnax.channel.writer import Writer
 from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
-from synnax.framer.client import Client as FrameClient
+from synnax import framer
 from synnax.ontology.payload import ID
 from synnax.telem import (
     CrudeDataType,
@@ -45,7 +45,7 @@ class Channel(Payload):
     channels and how they work.
     """
 
-    ___frame_client: FrameClient | None = PrivateAttr(None)
+    ___frame_client: framer.Client | None = PrivateAttr(None)
     __client: Client | None = PrivateAttr(None)
 
     def __init__(
@@ -159,7 +159,7 @@ class Channel(Payload):
         return ontology_id(self.key)
 
     @property
-    def __frame_client(self) -> FrameClient:
+    def __frame_client(self) -> framer.Client:
         if self.___frame_client is None:
             raise ValidationError(
                 "Cannot read from or write to channel that has not been created."
@@ -190,13 +190,13 @@ class Channel(Payload):
 class Client:
     """The core py class for executing channel operations against a Synnax cluster."""
 
-    _frame_client: FrameClient
+    _frame_client: framer.Client
     _retriever: Retriever
     _creator: Writer
 
     def __init__(
         self,
-        frame_client: FrameClient,
+        frame_client: framer.Client,
         retriever: Retriever,
         creator: Writer,
     ):

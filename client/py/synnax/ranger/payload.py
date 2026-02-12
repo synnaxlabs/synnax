@@ -12,15 +12,15 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from synnax.color import Color
-from synnax.ontology import ID
+from synnax import ontology
 from synnax.telem import TimeRange
 
-ONTOLOGY_TYPE = ID(type="range")
+ONTOLOGY_TYPE = ontology.ID(type="range")
 
 
-def ontology_id(key: UUID) -> ID:
+def ontology_id(key: UUID) -> ontology.ID:
     """Returns the ontology ID for the Range entity."""
-    return ID(type=ONTOLOGY_TYPE.type, key=str(key))
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
 
 
 class Payload(BaseModel):

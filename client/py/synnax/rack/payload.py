@@ -10,15 +10,15 @@
 
 from pydantic import BaseModel
 
-from synnax.ontology import ID
+from synnax import ontology
 from synnax.status import Status
 
-ONTOLOGY_TYPE = ID(type="rack")
+ONTOLOGY_TYPE = ontology.ID(type="rack")
 
 
-def ontology_id(key: int) -> ID:
+def ontology_id(key: int) -> ontology.ID:
     """Returns the ontology ID for the Rack entity."""
-    return ID(type=ONTOLOGY_TYPE.type, key=key)
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=key)
 
 
 class StatusDetails(BaseModel):
@@ -40,6 +40,6 @@ class Rack(BaseModel):
     status: Status | None = None
 
     @property
-    def ontology_id(self) -> ID:
+    def ontology_id(self) -> ontology.ID:
         """Returns the ontology ID for this Rack."""
         return ontology_id(self.key)

@@ -13,11 +13,7 @@ from pydantic import BaseModel
 
 from synnax import task
 
-# .task import JSONConfigMixin, StarterStopperMixin, Task, (
-#     TaskProtocol)
-
-TYPE = "arc"
-
+TASK_TYPE = "arc"
 
 class TaskConfig(BaseModel):
     """Configuration for an Arc task."""
@@ -31,7 +27,7 @@ class TaskConfig(BaseModel):
 class Task(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for executing Arc programs on a Synnax cluster."""
 
-    TYPE = TYPE
+    TYPE = TASK_TYPE
     config: TaskConfig
     _internal: task.Task
 

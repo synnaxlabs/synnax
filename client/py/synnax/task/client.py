@@ -17,7 +17,7 @@ from typing import overload
 from uuid import uuid4
 
 from alamos import NOOP, Instrumentation
-from freighter import Empty, Payload, UnaryClient, send_required
+from freighter import Empty, UnaryClient, send_required
 from pydantic import BaseModel, Field, ValidationError, conint, field_validator
 
 from synnax.device import Client as DeviceClient

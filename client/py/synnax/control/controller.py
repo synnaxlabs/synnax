@@ -18,9 +18,7 @@ import numpy as np
 
 from synnax import channel
 from synnax.exceptions import ValidationError
-from synnax.framer import AsyncStreamer as AsyncFrameStreamer
-from synnax.framer import Client as FrameClient
-from synnax.framer import Writer as FrameWriter
+from synnax import framer
 from synnax.telem import CrudeTimeSpan, SampleValue, TimeSpan, TimeStamp
 from synnax.telem.control import CrudeAuthority
 from synnax.timing import sleep
@@ -89,7 +87,7 @@ class RemainsTrueFor(Processor):
 
 
 class Controller:
-    _writer_opt: FrameWriter | None = None
+    _writer_opt: framer.Writer | None = None
     _receiver_opt: _Receiver | None = None
     _idx_map: dict[channel.channel.Key, channel.channel.Key]
     _retriever: channel.Retriever
@@ -99,7 +97,7 @@ class Controller:
         name: str,
         write: channel.Params | None,
         read: channel.Params | None,
-        frame_client: FrameClient,
+        frame_client: framer.Client,
         retriever: channel.Retriever,
         write_authorities: CrudeAuthority | list[CrudeAuthority],
     ) -> None:
@@ -120,7 +118,7 @@ class Controller:
             self._receiver.startup_ack.wait()
 
     @property
-    def _writer(self) -> FrameWriter:
+    def _writer(self) -> framer.Writer:
         if self._writer_opt is None:
             raise ValidationError("""
             tried to command a channel but no channels were passed into the write
@@ -447,8 +445,8 @@ class Controller:
 class _Receiver(AsyncThread):
     state: dict[channel.Key, np.number]
     channels: channel.Params
-    client: FrameClient
-    streamer: AsyncFrameStreamer
+    client: framer.Client
+    streamer: framer.AsyncStreamer
     processors: set[Processor]
     processor_lock: Lock
     retriever: channel.Retriever
@@ -458,7 +456,7 @@ class _Receiver(AsyncThread):
 
     def __init__(
         self,
-        client: FrameClient,
+        client: framer.Client,
         channels: channel.Params,
         retriever: channel.Retriever,
         controller: Controller,

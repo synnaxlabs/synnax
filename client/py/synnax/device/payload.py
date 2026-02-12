@@ -10,17 +10,17 @@
 
 from pydantic import BaseModel
 
-from synnax.ontology import ID
-from synnax.status import Status
+from synnax import ontology
+from synnax import status
 
 Key = str
 
-ONTOLOGY_TYPE = ID(type="device")
+ONTOLOGY_TYPE = ontology.ID(type="device")
 
 
-def ontology_id(key: str) -> ID:
+def ontology_id(key: str) -> ontology.ID:
     """Returns the ontology ID for the Device entity."""
-    return ID(type=ONTOLOGY_TYPE.type, key=key)
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=key)
 
 
 class StatusDetails(BaseModel):
@@ -32,7 +32,7 @@ class StatusDetails(BaseModel):
     """The key of the device."""
 
 
-Status = Status[StatusDetails]
+Status = status.Status[StatusDetails]
 """The status of a device."""
 
 
@@ -48,6 +48,6 @@ class Device(BaseModel):
     status: Status | None = None
 
     @property
-    def ontology_id(self) -> ID:
+    def ontology_id(self) -> ontology.ID:
         """Returns the ontology ID for this Device."""
         return ontology_id(self.key)

@@ -12,7 +12,7 @@ import uuid
 from freighter import UnaryClient
 from pydantic import BaseModel
 
-from synnax.channel import Key
+import synnax.channel.payload as channel
 from synnax.util.normalize import normalize
 
 
@@ -22,12 +22,12 @@ class _ResolveRequest(BaseModel):
 
 
 class _ResolveResponse(BaseModel):
-    aliases: dict[str, Key]
+    aliases: dict[str, channel.Key]
 
 
 class _SetRequest(BaseModel):
     range: uuid.UUID
-    aliases: dict[Key, str]
+    aliases: dict[channel.Key, str]
 
 
 class _EmptyResponse(BaseModel): ...
@@ -35,18 +35,18 @@ class _EmptyResponse(BaseModel): ...
 
 class Client:
     __client: UnaryClient
-    __cache: dict[str, Key]
+    __cache: dict[str, channel.Key]
 
     def __init__(self, rng: uuid.UUID, client: UnaryClient) -> None:
         self.__client = client
         self.__rng = rng
         self.__cache = {}
 
-    def resolve(self, alias: str) -> Key: ...
+    def resolve(self, alias: str) -> channel.Key: ...
 
-    def resolve(self, aliases: list[str]) -> dict[str, Key]: ...
+    def resolve(self, aliases: list[str]) -> dict[str, channel.Key]: ...
 
-    def resolve(self, aliases: str | list[str]) -> dict[str, Key] | Key:
+    def resolve(self, aliases: str | list[str]) -> dict[str, channel.Key] | channel.Key:
         to_fetch = list()
         aliases = normalize(aliases)
         is_single = isinstance(aliases, str)
@@ -74,7 +74,7 @@ class Client:
             return res.aliases[aliases]
         return {**results, **res.aliases}
 
-    def set(self, aliases: dict[Key, str]) -> None:
+    def set(self, aliases: dict[channel.Key, str]) -> None:
         req = _SetRequest(range=self.__rng, aliases=aliases)
         res, exc = self.__client.send("/range/alias/set", req, _EmptyResponse)
         if exc is not None:

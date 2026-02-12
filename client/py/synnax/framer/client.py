@@ -14,6 +14,7 @@ from alamos import NOOP, Instrumentation
 from freighter import AsyncStreamClient, UnaryClient, WebsocketClient
 
 import synnax.channel.payload as channel
+from synnax import ontology
 from synnax.channel.retrieve import Retriever
 from synnax.exceptions import QueryError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
@@ -22,7 +23,6 @@ from synnax.framer.frame import CrudeFrame, Frame
 from synnax.framer.iterator import AUTO_SPAN, Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import CrudeWriterMode, Writer, WriterMode
-from synnax.ontology import ID
 from synnax.telem import (
     CrudeSeries,
     CrudeTimeStamp,
@@ -32,7 +32,7 @@ from synnax.telem import (
 )
 from synnax.telem.control import Authority, CrudeAuthority
 
-ontology_type = ID(type="framer")
+ontology_type = ontology.ID(type="framer")
 
 
 class Client:

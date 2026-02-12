@@ -14,9 +14,9 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from synnax.ontology.payload import ID
+from synnax import ontology
 
-ONTOLOGY_TYPE = ID(type="role")
+ONTOLOGY_TYPE = ontology.ID(type="role")
 
 
 class Role(BaseModel):
@@ -26,5 +26,5 @@ class Role(BaseModel):
     internal: bool = False
 
 
-def ontology_id(key: UUID | None = None) -> ID:
-    return ID(type="role", key=key if key is None else str(key))
+def ontology_id(key: UUID | None = None) -> ontology.ID:
+    return ontology.ID(type="role", key=key if key is None else str(key))

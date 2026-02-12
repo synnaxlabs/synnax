@@ -14,7 +14,7 @@ from typing import Literal, cast
 
 from pydantic import BaseModel
 
-from synnax.ontology import ID
+from synnax import ontology
 from synnax.telem import DataType, TimeSpan
 from synnax.util.normalize import normalize
 
@@ -22,12 +22,12 @@ Key = int
 Params = Key | list[Key] | tuple[Key] | str | list[str] | tuple[str]
 
 
-ONTOLOGY_TYPE = ID(type="channel")
+ONTOLOGY_TYPE = ontology.ID(type="channel")
 
 
-def ontology_id(key: Key) -> ID:
+def ontology_id(key: Key) -> ontology.ID:
     """Returns the ontology ID for the Channel entity."""
-    return ID(type=ONTOLOGY_TYPE.type, key=key)
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=key)
 
 
 OPERATION_TYPES = Literal["min", "max", "avg", "none"]

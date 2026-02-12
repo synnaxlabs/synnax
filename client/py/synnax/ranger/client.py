@@ -21,8 +21,7 @@ from freighter import UnaryClient
 from pydantic import PrivateAttr
 
 import synnax.channel.payload as channel
-from synnax.channel.payload import Payload as ChannelPayload
-from synnax.channel.retrieve import Retriever
+from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.exceptions import QueryError
 from synnax.framer.client import Client
 from synnax.framer.frame import CrudeFrame
@@ -57,7 +56,7 @@ from synnax.util.params import require_named_params
 RANGE_SET_CHANNEL = "sy_range_set"
 
 
-class _InternalScopedChannel(ChannelPayload):
+class _InternalScopedChannel(channel.Payload):
     __range: Range | None = PrivateAttr(None)
     """The range that this channel belongs to."""
     __frame_client: Client | None = PrivateAttr(None)
@@ -246,7 +245,7 @@ class Range(Payload):
 
     __frame_client: Client | None = PrivateAttr(None)
     """The frame client for executing read and write operations."""
-    _channels: Retriever | None = PrivateAttr(None)
+    _channels: ChannelRetriever | None = PrivateAttr(None)
     """For retrieving channels from the cluster."""
     _kv: KVClient | None = PrivateAttr(None)
     """Key-value store for storing metadata about the range."""
@@ -266,7 +265,7 @@ class Range(Payload):
         color: str = "",
         *,
         _frame_client: Client | None = None,
-        _channel_retriever: Retriever | None = None,
+        _channel_retriever: ChannelRetriever | None = None,
         _kv: KVClient | None = None,
         _aliaser: AliasClient | None = None,
         _client: Client | None = None,
@@ -361,7 +360,7 @@ class Range(Payload):
         return self.__frame_client
 
     @property
-    def _channel_retriever(self) -> Retriever:
+    def _channel_retriever(self) -> ChannelRetriever:
         if self._channels is None:
             raise _RANGE_NOT_CREATED
         return self._channels
@@ -480,7 +479,7 @@ class Range(Payload):
 
 class Client:
     _frame_client: Client
-    _channels: Retriever
+    _channels: ChannelRetriever
     _retriever: Retriever
     _writer: Writer
     _unary_client: UnaryClient
@@ -494,7 +493,7 @@ class Client:
         frame_client: Client,
         writer: Writer,
         retriever: Retriever,
-        channel_retriever: Retriever,
+        channel_retriever: ChannelRetriever,
         signals: Registry,
         tasks: TaskClient,
         ontology: OntologyClient,

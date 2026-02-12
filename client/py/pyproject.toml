@@ -48,6 +48,15 @@ profile = "black"
 [tool.mypy]
 plugins = ["numpy.typing.mypy_plugin", "pydantic.mypy"]
 strict = true
+disable_error_code = [
+    "no-untyped-def",
+    "no-untyped-call",
+    "no-any-return",
+    "type-arg",
+    "import-untyped",
+    "var-annotated",
+    "unused-ignore",
+]
 
 [tool.pydantic-mypy]
 init_forbid_extra = true

@@ -12,15 +12,15 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from synnax.ontology.payload import ID
+from synnax import ontology
 
-ONTOLOGY_TYPE = ID(type="arc")
+ONTOLOGY_TYPE = ontology.ID(type="arc")
 """Ontology type identifier for Arc entities."""
 
 
-def ontology_id(key: UUID) -> ID:
+def ontology_id(key: UUID) -> ontology.ID:
     """Returns the ontology ID for the Arc entity."""
-    return ID(type=ONTOLOGY_TYPE.type, key=str(key))
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
 
 
 Key = UUID

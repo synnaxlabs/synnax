@@ -10,10 +10,10 @@
 
 from pydantic import BaseModel
 
-from synnax.ontology import ID
-from synnax.status import Status
+from synnax import ontology
+from synnax import status
 
-ONTOLOGY_TYPE = ID(type="task")
+ONTOLOGY_TYPE = ontology.ID(type="task")
 
 
 class StatusDetails(BaseModel):
@@ -30,7 +30,7 @@ class StatusDetails(BaseModel):
     cmd: str | None = None
 
 
-Status = Status[StatusDetails]
+Status = status.Status[StatusDetails]
 """The status of a task."""
 
 
@@ -45,7 +45,7 @@ class Payload(BaseModel):
     status: Status | None = None
 
 
-def ontology_id(key: int) -> ID:
+def ontology_id(key: int) -> ontology.ID:
     """Create an ontology ID for a task.
 
     Args:
@@ -54,4 +54,4 @@ def ontology_id(key: int) -> ID:
     Returns:
         An ontology ID dictionary with type "task" and the given key.
     """
-    return ID(type=ONTOLOGY_TYPE.type, key=str(key))
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))

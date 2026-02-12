@@ -14,7 +14,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from synnax.ontology.payload import ID
+from synnax import ontology
 
 ACTION_CREATE = "create"
 ACTION_DELETE = "delete"
@@ -25,10 +25,10 @@ ACTION_UPDATE = "update"
 class Policy(BaseModel):
     key: UUID | None = None
     name: str
-    objects: list[ID] = []
+    objects: list[ontology.ID] = []
     actions: list[str] = []
     internal: bool = False
 
 
-def ontology_id(key: UUID | None = None) -> ID:
-    return ID(type="policy", key=key if key is None else str(key))
+def ontology_id(key: UUID | None = None) -> ontology.ID:
+    return ontology.ID(type="policy", key=key if key is None else str(key))
