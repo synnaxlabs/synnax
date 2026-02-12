@@ -18,6 +18,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	xchange "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -56,24 +57,12 @@ func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":        zyn.UUID(),
 	"name":       zyn.String(),
-	"color":      zyn.String(),
+	"color":      color.Schema,
 	"time_range": telem.TimeRangeSchema,
 })
 
 func newResource(r Range) ontology.Resource {
-	type rangeData struct {
-		Name      string          `json:"name" msgpack:"name"`
-		Color     string          `json:"color" msgpack:"color"`
-		TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
-		Key       uuid.UUID       `json:"key" msgpack:"key"`
-	}
-	data := rangeData{
-		Name:      r.Name,
-		Color:     r.Color.Hex(),
-		TimeRange: r.TimeRange,
-		Key:       r.Key,
-	}
-	return ontology.NewResource(schema, OntologyID(r.Key), r.Name, data)
+	return ontology.NewResource(schema, OntologyID(r.Key), r.Name, r)
 }
 
 var _ ontology.Service = (*Service)(nil)

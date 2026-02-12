@@ -16,7 +16,17 @@ import (
 
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/vmihailenco/msgpack/v5/msgpcode"
+
+	"github.com/synnaxlabs/x/zyn"
 )
+
+// Schema is a zyn schema for parsing a color.
+var Schema = zyn.Object(map[string]zyn.Schema{
+	"r": zyn.Number().Uint8().Coerce(),
+	"g": zyn.Number().Uint8().Coerce(),
+	"b": zyn.Number().Uint8().Coerce(),
+	"a": zyn.Number().Float64().Coerce(),
+})
 
 // Color represents an RGBA color with 8-bit RGB channels and a float64 alpha.
 type Color struct {

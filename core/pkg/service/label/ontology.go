@@ -18,6 +18,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	xchange "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -67,21 +68,11 @@ func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":   zyn.UUID(),
 	"name":  zyn.String(),
-	"color": zyn.String(),
+	"color": color.Schema,
 })
 
 func newResource(l Label) ontology.Resource {
-	type labelData struct {
-		Name  string    `json:"name" msgpack:"name"`
-		Color string    `json:"color" msgpack:"color"`
-		Key   uuid.UUID `json:"key" msgpack:"key"`
-	}
-	data := labelData{
-		Name:  l.Name,
-		Color: l.Color.Hex(),
-		Key:   l.Key,
-	}
-	return ontology.NewResource(schema, OntologyID(l.Key), l.Name, data)
+	return ontology.NewResource(schema, OntologyID(l.Key), l.Name, l)
 }
 
 type change = xchange.Change[uuid.UUID, Label]
