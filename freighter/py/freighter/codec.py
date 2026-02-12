@@ -12,8 +12,9 @@ from typing import Protocol
 
 import msgpack
 from alamos import Instrumentation, trace
+from pydantic import BaseModel
 
-from freighter.transport import P, Payload
+from freighter.transport import P
 
 
 class Codec(Protocol):
@@ -23,7 +24,7 @@ class Codec(Protocol):
         """:returns: the HTTP content type of the encoder"""
         ...
 
-    def encode(self, data: Payload) -> bytes:
+    def encode(self, data: BaseModel) -> bytes:
         """
         Encodes the given data into a binary representation.
 
@@ -48,7 +49,7 @@ class MsgPackCodec(Codec):
     def content_type(self) -> str:
         return "application/msgpack"
 
-    def encode(self, payload: Payload) -> bytes:
+    def encode(self, payload: BaseModel) -> bytes:
         return msgpack.packb(payload.model_dump(by_alias=True))  # type: ignore[return-value]
 
     def decode(self, data: bytes, pld_t: type[P]) -> P:
@@ -63,7 +64,7 @@ class JSONCodec(Codec):
     def content_type(self) -> str:
         return "application/json"
 
-    def encode(self, payload: Payload) -> bytes:
+    def encode(self, payload: BaseModel) -> bytes:
         return payload.model_dump_json(by_alias=True).encode()
 
     def decode(self, data: bytes, pld_t: type[P]) -> P:
@@ -89,7 +90,7 @@ class TracingCodec(Codec):
         return self.wrapped.content_type()
 
     @trace("debug")
-    def encode(self, payload: Payload) -> bytes:
+    def encode(self, payload: BaseModel) -> bytes:
         return self.wrapped.encode(payload)
 
     @trace("debug")

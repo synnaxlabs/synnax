@@ -34,12 +34,15 @@ from freighter.transport import (
     Middleware,
     MiddlewareCollector,
     Next,
-    Payload,
     Transport,
 )
 from freighter.unary import AsyncUnaryClient, UnaryClient, send_required
 from freighter.url import URL
-from freighter.websocket import AsyncWebsocketClient, WebsocketClient
+from freighter.websocket import (
+    AsyncWebsocketClient,
+    AsyncWebsocketStream,
+    WebsocketClient,
+)
 
 __all__ = [
     "AsyncFinalizer",
@@ -66,7 +69,6 @@ __all__ = [
     "MiddlewareCollector",
     "MsgPackCodec",
     "Next",
-    "Payload",
     "register_exception",
     "send_required",
     "Stream",

@@ -12,12 +12,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from freighter.transport import Payload
+from pydantic import BaseModel
 
 _TYPE_NONE = "nil"
 
 
-class ExceptionPayload(Payload):
+class ExceptionPayload(BaseModel):
     """
     ExceptionPayload is a payload that can be sent between a Freighter client and
     server, so that it can be decoded into a proper exception by the implementing
