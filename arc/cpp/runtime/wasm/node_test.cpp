@@ -197,34 +197,30 @@ TEST(NodeTest, NextExecutesFunctionAndProducesOutput) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output_val");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::FLOAT32_T,
-        input_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+    };
     ASSERT_NIL(client.channels.create(input_ch));
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::FLOAT32_T,
-        output_idx.key,
-        false
-    );
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -309,22 +305,24 @@ TEST(NodeTest, NextReportsErrorOnWasmTrap) {
     auto input_name = random_name("input");
     auto output_name = random_name("output");
 
-    auto index_ch = synnax::channel::Channel(idx_name, x::telem::TIMESTAMP_T, 0, true);
+    auto index_ch = synnax::channel::Channel{
+        .name = idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(index_ch));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::INT32_T,
-        index_ch.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::INT32_T,
+        .index = index_ch.key,
+    };
     ASSERT_NIL(client.channels.create(input_ch));
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::INT32_T,
-        index_ch.key,
-        false
-    );
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::INT32_T,
+        .index = index_ch.key,
+    };
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -418,22 +416,24 @@ TEST(NodeTest, IsOutputTruthyEvaluatesOutputValues) {
     auto input_name = random_name("input");
     auto output_name = random_name("output");
 
-    auto index_ch = synnax::channel::Channel(idx_name, x::telem::TIMESTAMP_T, 0, true);
+    auto index_ch = synnax::channel::Channel{
+        .name = idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(index_ch));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::FLOAT32_T,
-        index_ch.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = index_ch.key,
+    };
     ASSERT_NIL(client.channels.create(input_ch));
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::FLOAT32_T,
-        index_ch.key,
-        false
-    );
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = index_ch.key,
+    };
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -493,19 +493,17 @@ TEST(NodeTest, NoInputNodeExecutesOncePerStageEntry) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output");
 
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(output_idx));
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::INT64_T,
-        output_idx.key,
-        false
-    );
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::INT64_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -565,34 +563,30 @@ TEST(NodeTest, NodeWithInputsExecutesNormally) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::INT64_T,
-        input_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::INT64_T,
+        .index = input_idx.key,
+    };
     ASSERT_NIL(client.channels.create(input_ch));
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::INT64_T,
-        output_idx.key,
-        false
-    );
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::INT64_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -671,19 +665,17 @@ TEST(NodeTest, FlowExpressionExecutesEveryTime) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output");
 
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(output_idx));
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::INT64_T,
-        output_idx.key,
-        false
-    );
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::INT64_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -736,19 +728,17 @@ TEST(NodeTest, FlowExpressionContinuesAfterReset) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output");
 
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(output_idx));
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::INT64_T,
-        output_idx.key,
-        false
-    );
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::INT64_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -803,19 +793,17 @@ TEST(NodeTest, NonExpressionNodeNotTreatedAsExpression) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output");
 
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(output_idx));
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::INT64_T,
-        output_idx.key,
-        false
-    );
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::INT64_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -867,34 +855,30 @@ TEST(NodeTest, ConfigParametersPassedToWasm) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::INT32_T,
-        input_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::INT32_T,
+        .index = input_idx.key,
+    };
     ASSERT_NIL(client.channels.create(input_ch));
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::INT32_T,
-        output_idx.key,
-        false
-    );
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::INT32_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client.channels.create(output_ch));
 
     // Function with config parameter 'x' and input parameter 'y'
@@ -965,34 +949,30 @@ TEST(NodeTest, MultipleConfigParametersPassedToWasm) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::INT32_T,
-        input_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::INT32_T,
+        .index = input_idx.key,
+    };
     ASSERT_NIL(client.channels.create(input_ch));
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::INT32_T,
-        output_idx.key,
-        false
-    );
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::INT32_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client.channels.create(output_ch));
 
     // Function with two config parameters 'a', 'b' and input parameter 'c'
@@ -1062,31 +1042,32 @@ TEST(NodeTest, StatefulVariablesAreIsolatedBetweenNodeInstances) {
     auto output_a_name = random_name("output_a");
     auto output_b_name = random_name("output_b");
 
-    auto index_ch = synnax::channel::Channel(idx_name, x::telem::TIMESTAMP_T, 0, true);
+    auto index_ch = synnax::channel::Channel{
+        .name = idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(index_ch));
 
-    auto trigger_ch = synnax::channel::Channel(
-        trigger_name,
-        x::telem::INT64_T,
-        index_ch.key,
-        false
-    );
+    auto trigger_ch = synnax::channel::Channel{
+        .name = trigger_name,
+        .data_type = x::telem::INT64_T,
+        .index = index_ch.key,
+    };
     ASSERT_NIL(client.channels.create(trigger_ch));
 
-    auto output_a_ch = synnax::channel::Channel(
-        output_a_name,
-        x::telem::INT64_T,
-        index_ch.key,
-        false
-    );
+    auto output_a_ch = synnax::channel::Channel{
+        .name = output_a_name,
+        .data_type = x::telem::INT64_T,
+        .index = index_ch.key,
+    };
     ASSERT_NIL(client.channels.create(output_a_ch));
 
-    auto output_b_ch = synnax::channel::Channel(
-        output_b_name,
-        x::telem::INT64_T,
-        index_ch.key,
-        false
-    );
+    auto output_b_ch = synnax::channel::Channel{
+        .name = output_b_name,
+        .data_type = x::telem::INT64_T,
+        .index = index_ch.key,
+    };
     ASSERT_NIL(client.channels.create(output_b_ch));
 
     const std::string source = R"(
@@ -1186,48 +1167,42 @@ TEST(NodeTest, ChannelConfigParamReadsChannelData) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output");
 
-    auto trigger_idx = synnax::channel::Channel(
-        trigger_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto trigger_idx = synnax::channel::Channel{
+        .name = trigger_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(trigger_idx));
-    auto data_idx = synnax::channel::Channel(
-        data_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto data_idx = synnax::channel::Channel{
+        .name = data_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(data_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client.channels.create(output_idx));
 
-    auto trigger_ch = synnax::channel::Channel(
-        trigger_name,
-        x::telem::UINT8_T,
-        trigger_idx.key,
-        false
-    );
+    auto trigger_ch = synnax::channel::Channel{
+        .name = trigger_name,
+        .data_type = x::telem::UINT8_T,
+        .index = trigger_idx.key,
+    };
     ASSERT_NIL(client.channels.create(trigger_ch));
-    auto data_ch = synnax::channel::Channel(
-        data_name,
-        x::telem::FLOAT32_T,
-        data_idx.key,
-        false
-    );
+    auto data_ch = synnax::channel::Channel{
+        .name = data_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = data_idx.key,
+    };
     ASSERT_NIL(client.channels.create(data_ch));
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::FLOAT32_T,
-        output_idx.key,
-        false
-    );
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client.channels.create(output_ch));
 
     // Function with a channel-typed config param.

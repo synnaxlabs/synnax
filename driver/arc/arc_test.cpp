@@ -1869,33 +1869,29 @@ TEST(ArcTests, testStaticAuthorityConfig) {
     auto output_idx_name = make_unique_channel_name("auth_output_idx");
     auto output_name = make_unique_channel_name("auth_output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::FLOAT32_T,
-        input_idx.key,
-        false
-    );
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::FLOAT32_T,
-        output_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
@@ -1969,48 +1965,42 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
     auto out_b_idx_name = make_unique_channel_name("pca_out_b_idx");
     auto out_b_name = make_unique_channel_name("pca_out_b");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto out_a_idx = synnax::channel::Channel(
-        out_a_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto out_a_idx = synnax::channel::Channel{
+        .name = out_a_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(out_a_idx));
-    auto out_b_idx = synnax::channel::Channel(
-        out_b_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto out_b_idx = synnax::channel::Channel{
+        .name = out_b_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(out_b_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::FLOAT32_T,
-        input_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+    };
     ASSERT_NIL(client->channels.create(input_ch));
-    auto out_a_ch = synnax::channel::Channel(
-        out_a_name,
-        x::telem::FLOAT32_T,
-        out_a_idx.key,
-        false
-    );
+    auto out_a_ch = synnax::channel::Channel{
+        .name = out_a_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = out_a_idx.key,
+    };
     ASSERT_NIL(client->channels.create(out_a_ch));
-    auto out_b_ch = synnax::channel::Channel(
-        out_b_name,
-        x::telem::FLOAT32_T,
-        out_b_idx.key,
-        false
-    );
+    auto out_b_ch = synnax::channel::Channel{
+        .name = out_b_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = out_b_idx.key,
+    };
     ASSERT_NIL(client->channels.create(out_b_ch));
 
     synnax::arc::Arc arc_prog(make_unique_channel_name("pca_test"));
@@ -2096,36 +2086,32 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
 
     auto start_cmd_idx_name = make_unique_channel_name("dyn_auth_start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("dyn_auth_start_cmd");
-    auto start_cmd_idx = synnax::channel::Channel(
-        start_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto start_cmd_idx = synnax::channel::Channel{
+        .name = start_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::channel::Channel(
-        start_cmd_name,
-        x::telem::UINT8_T,
-        start_cmd_idx.key,
-        false
-    );
+    auto start_cmd_ch = synnax::channel::Channel{
+        .name = start_cmd_name,
+        .data_type = x::telem::UINT8_T,
+        .index = start_cmd_idx.key,
+    };
     ASSERT_NIL(client->channels.create(start_cmd_ch));
 
     auto valve_cmd_idx_name = make_unique_channel_name("dyn_auth_valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("dyn_auth_valve_cmd");
-    auto valve_cmd_idx = synnax::channel::Channel(
-        valve_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto valve_cmd_idx = synnax::channel::Channel{
+        .name = valve_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::channel::Channel(
-        valve_cmd_name,
-        x::telem::INT64_T,
-        valve_cmd_idx.key,
-        false
-    );
+    auto valve_cmd_ch = synnax::channel::Channel{
+        .name = valve_cmd_name,
+        .data_type = x::telem::INT64_T,
+        .index = valve_cmd_idx.key,
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     synnax::arc::Arc arc_prog(make_unique_channel_name("dyn_auth_test"));
@@ -2198,36 +2184,32 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
 
     auto start_cmd_idx_name = make_unique_channel_name("dpc_auth_start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("dpc_auth_start_cmd");
-    auto start_cmd_idx = synnax::channel::Channel(
-        start_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto start_cmd_idx = synnax::channel::Channel{
+        .name = start_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::channel::Channel(
-        start_cmd_name,
-        x::telem::UINT8_T,
-        start_cmd_idx.key,
-        false
-    );
+    auto start_cmd_ch = synnax::channel::Channel{
+        .name = start_cmd_name,
+        .data_type = x::telem::UINT8_T,
+        .index = start_cmd_idx.key,
+    };
     ASSERT_NIL(client->channels.create(start_cmd_ch));
 
     auto valve_cmd_idx_name = make_unique_channel_name("dpc_auth_valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("dpc_auth_valve_cmd");
-    auto valve_cmd_idx = synnax::channel::Channel(
-        valve_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto valve_cmd_idx = synnax::channel::Channel{
+        .name = valve_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::channel::Channel(
-        valve_cmd_name,
-        x::telem::UINT8_T,
-        valve_cmd_idx.key,
-        false
-    );
+    auto valve_cmd_ch = synnax::channel::Channel{
+        .name = valve_cmd_name,
+        .data_type = x::telem::UINT8_T,
+        .index = valve_cmd_idx.key,
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     synnax::arc::Arc arc_prog(make_unique_channel_name("dpc_auth_test"));
@@ -2306,34 +2288,30 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
     auto output_idx_name = make_unique_channel_name("auth_calc_output_idx");
     auto output_name = make_unique_channel_name("auth_calc_output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::UINT8_T,
-        input_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::UINT8_T,
+        .index = input_idx.key,
+    };
     ASSERT_NIL(client->channels.create(input_ch));
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::UINT8_T,
-        output_idx.key,
-        false
-    );
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::UINT8_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client->channels.create(output_ch));
 
     synnax::arc::Arc arc_prog(make_unique_channel_name("auth_calc_test"));
@@ -2413,33 +2391,29 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
     auto output_idx_name = make_unique_channel_name("writer_fail_output_idx");
     auto output_name = make_unique_channel_name("writer_fail_output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::INT32_T,
-        input_idx.key,
-        false
-    );
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::INT32_T,
-        output_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::INT32_T,
+        .index = input_idx.key,
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::INT32_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
