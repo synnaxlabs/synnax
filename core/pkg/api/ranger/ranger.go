@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -61,12 +62,16 @@ type Service struct {
 	internal *ranger.Service
 }
 
-func NewService(cfg config.LayerConfig) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
 		internal: cfg.Service.Ranger,
-	}
+	}, nil
 }
 
 type (

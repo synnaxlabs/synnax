@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -30,8 +31,12 @@ type Service struct {
 	db       *gorp.DB
 }
 
-func NewService(cfg config.LayerConfig) *Service {
-	return &Service{internal: cfg.Service.RBAC, db: cfg.Distribution.DB}
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{internal: cfg.Service.RBAC, db: cfg.Distribution.DB}, nil
 }
 
 const allowInternal = false

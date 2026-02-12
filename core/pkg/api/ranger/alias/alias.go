@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -32,12 +33,16 @@ type Service struct {
 	alias  *alias.Service
 }
 
-func NewService(cfg config.LayerConfig) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		db:     cfg.Distribution.DB,
 		access: cfg.Service.RBAC,
 		alias:  cfg.Service.Alias,
-	}
+	}, nil
 }
 
 type SetRequest struct {

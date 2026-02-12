@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -37,13 +38,17 @@ type Service struct {
 
 // NewService creates a new Service that allows for registering, updating, and
 // removing users.
-func NewService(cfg config.LayerConfig) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		db:            cfg.Distribution.DB,
 		authenticator: cfg.Service.Auth,
 		access:        cfg.Service.RBAC,
 		internal:      cfg.Service.User,
-	}
+	}, nil
 }
 
 // NewUser holds information for creating a new user in a Synnax server. The username

@@ -54,14 +54,18 @@ type Service struct {
 	alamos.Instrumentation
 }
 
-func NewService(cfg config.LayerConfig) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		Instrumentation: cfg.Instrumentation,
 		Internal:        cfg.Service.Framer,
 		Channel:         cfg.Distribution.Channel,
 		db:              cfg.Distribution.DB,
 		access:          cfg.Service.RBAC,
-	}
+	}, nil
 }
 
 type DeleteRequest struct {

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -31,12 +32,16 @@ type Service struct {
 	internal *schematic.Service
 }
 
-func NewService(cfg config.LayerConfig) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		db:       cfg.Distribution.DB,
 		internal: cfg.Service.Schematic,
 		access:   cfg.Service.RBAC,
-	}
+	}, nil
 }
 
 type (

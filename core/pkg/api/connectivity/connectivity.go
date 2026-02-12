@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/version"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -23,8 +24,12 @@ type Service struct {
 	cluster cluster.Cluster
 }
 
-func NewService(cfg config.LayerConfig) *Service {
-	return &Service{cluster: cfg.Distribution.Cluster}
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{cluster: cfg.Distribution.Cluster}, nil
 }
 
 // ClusterInfo is general information about the cluster and node that the request was

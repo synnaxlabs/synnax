@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -31,13 +32,17 @@ type Service struct {
 	status *status.Service
 }
 
-func NewService(cfg config.LayerConfig) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		db:     cfg.Distribution.DB,
 		task:   cfg.Service.Task,
 		status: cfg.Service.Status,
 		access: cfg.Service.RBAC,
-	}
+	}, nil
 }
 
 type (

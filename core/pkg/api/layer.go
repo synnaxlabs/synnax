@@ -525,30 +525,75 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Layer{
-		config:       cfg,
-		Auth:         auth.NewService(cfg),
-		User:         user.NewService(cfg),
-		Access:       access.NewService(cfg),
-		Framer:       framer.NewService(cfg),
-		Channel:      channel.NewService(cfg),
-		Connectivity: connectivity.NewService(cfg),
-		Ontology:     ontology.NewService(cfg),
-		Range:        ranger.NewService(cfg),
-		KV:           kv.NewService(cfg),
-		Alias:        alias.NewService(cfg),
-		Group:        group.NewService(cfg),
-		Workspace:    workspace.NewService(cfg),
-		Schematic:    schematic.NewService(cfg),
-		LinePlot:     lineplot.NewService(cfg),
-		Label:        label.NewService(cfg),
-		Rack:         rack.NewService(cfg),
-		Task:         task.NewService(cfg),
-		Device:       device.NewService(cfg),
-		Log:          log.NewService(cfg),
-		Table:        table.NewService(cfg),
-		Status:       status.NewService(cfg),
-		Arc:          arc.NewService(cfg),
-		View:         view.NewService(cfg),
-	}, nil
+	l := &Layer{config: cfg}
+	if l.Auth, err = auth.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.User, err = user.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Access, err = access.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Framer, err = framer.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Channel, err = channel.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Connectivity, err = connectivity.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Ontology, err = ontology.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Range, err = ranger.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.KV, err = kv.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Alias, err = alias.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Group, err = group.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Workspace, err = workspace.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Schematic, err = schematic.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.LinePlot, err = lineplot.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Label, err = label.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Rack, err = rack.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Task, err = task.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Device, err = device.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Log, err = log.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Table, err = table.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Status, err = status.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Arc, err = arc.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.View, err = view.NewService(cfg); err != nil {
+		return nil, err
+	}
+	return l, nil
 }
