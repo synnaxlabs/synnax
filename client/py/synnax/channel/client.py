@@ -15,14 +15,11 @@ from numpy import ndarray
 from pydantic import PrivateAttr
 
 from synnax.channel.payload import (
-    ChannelKey,
-    ChannelKeys,
-    ChannelName,
-    ChannelNames,
-    ChannelParams,
-    ChannelPayload,
+    Key,
     Operation,
-    normalize_channel_params,
+    Params,
+    Payload,
+    normalize_params,
     ontology_id,
 )
 from synnax.channel.retrieve import Retriever
@@ -41,7 +38,7 @@ from synnax.telem import (
 from synnax.util.normalize import normalize
 
 
-class Channel(ChannelPayload):
+class Channel(Payload):
     """A channel is a logical collection of samples emitted by or representing the
     values of a single source. See
     https://docs.synnaxlabs.com/reference/concepts/channels for an introduction to
@@ -57,9 +54,9 @@ class Channel(ChannelPayload):
         name: str,
         data_type: CrudeDataType,
         is_index: bool = False,
-        index: ChannelKey = 0,
+        index: Key = 0,
         leaseholder: int = 0,
-        key: ChannelKey = 0,
+        key: Key = 0,
         virtual: bool | None = None,
         internal: bool = False,
         expression: str = "",
@@ -149,7 +146,7 @@ class Channel(ChannelPayload):
         """
         self.__frame_client.write(start, self.key, data)
 
-    def rename(self, name: ChannelName) -> None:
+    def rename(self, name: str) -> None:
         """Renames the channel.
 
         :param name: The new name for the channel.
@@ -175,8 +172,8 @@ class Channel(ChannelPayload):
     def __eq__(self, other) -> bool:
         return self.key == other.key
 
-    def to_payload(self) -> ChannelPayload:
-        return ChannelPayload(
+    def to_payload(self) -> Payload:
+        return Payload(
             data_type=self.data_type,
             name=self.name,
             leaseholder=self.leaseholder,
@@ -207,7 +204,7 @@ class Client:
         self._retriever = retriever
         self._creator = creator
 
-    def delete(self, channels: ChannelParams) -> None:
+    def delete(self, channels: Params) -> None:
         """Deletes on or more channels from the cluster"""
         self._creator.delete(channels)
 
@@ -216,8 +213,8 @@ class Client:
         self,
         *,
         data_type: CrudeDataType = DataType.UNKNOWN,
-        name: ChannelName = "",
-        index: ChannelKey = 0,
+        name: str = "",
+        index: Key = 0,
         is_index: bool = False,
         leaseholder: int = 0,
         virtual: bool | None = None,
@@ -241,9 +238,9 @@ class Client:
         channels: Channel | list[Channel] | None = None,
         *,
         data_type: CrudeDataType = DataType.UNKNOWN,
-        name: ChannelName = "",
+        name: str = "",
         is_index: bool = False,
-        index: ChannelKey = 0,
+        index: Key = 0,
         leaseholder: int = 0,
         virtual: bool | None = None,
         expression: str = "",
@@ -290,7 +287,7 @@ class Client:
             if is_index and data_type == DataType.UNKNOWN:
                 data_type = DataType.TIMESTAMP
             _channels = [
-                ChannelPayload(
+                Payload(
                     name=name,
                     leaseholder=leaseholder,
                     data_type=DataType(data_type),
@@ -319,15 +316,15 @@ class Client:
         return created if isinstance(channels, list) else created[0]
 
     @overload
-    def retrieve(self, channel: ChannelKey | ChannelName) -> Channel: ...
+    def retrieve(self, channel: Key | str) -> Channel: ...
 
     @overload
     def retrieve(
         self,
-        channel: ChannelKeys | ChannelNames,
+        channel: list[Key] | tuple[Key] | list[str] | tuple[str],
     ) -> list[Channel]: ...
 
-    def retrieve(self, channel: ChannelParams) -> Channel | list[Channel]:
+    def retrieve(self, channel: Params) -> Channel | list[Channel]:
         """Retrieves a channel or set of channels from the cluster.
 
         Overload 1:
@@ -340,7 +337,7 @@ class Client:
         :param channel: The list of keys or the list of names for the channels to retrieve.
         :returns: The retrieved channels.
         """
-        normal = normalize_channel_params(channel)
+        normal = normalize_params(channel)
         res = self._retriever.retrieve(channel)
         sug = self.__sugar(res)
         if not normal.single:
@@ -352,7 +349,7 @@ class Client:
         raise NotFoundError(f"Channel matching '{channel}' not found.")
 
     @overload
-    def rename(self, keys: ChannelKey, names: ChannelName) -> None:
+    def rename(self, keys: Key, names: str) -> None:
         """Renames a channel in the cluster.
 
         :param keys: The key of the channel to rename.
@@ -362,7 +359,9 @@ class Client:
         ...
 
     @overload
-    def rename(self, keys: ChannelKeys, names: ChannelNames) -> None:
+    def rename(
+        self, keys: list[Key] | tuple[Key], names: list[str] | tuple[str]
+    ) -> None:
         """Renames one or more channels in the cluster.
 
         :param keys: The keys of the channels to rename.
@@ -370,7 +369,9 @@ class Client:
         :returns: None.
         """
 
-    def rename(self, keys: ChannelKeys, names: ChannelNames) -> None:
+    def rename(
+        self, keys: list[Key] | tuple[Key], names: list[str] | tuple[str]
+    ) -> None:
         """Renames one or more channels in the cluster.
 
         :param keys: The keys of the channels to rename.
@@ -379,7 +380,7 @@ class Client:
         """
         self._creator.rename(normalize(keys), normalize(names))
 
-    def __sugar(self, channels: list[ChannelPayload]) -> list[Channel]:
+    def __sugar(self, channels: list[Payload]) -> list[Channel]:
         return [
             Channel(**c.model_dump(), _frame_client=self._frame_client)
             for c in channels
@@ -387,8 +388,8 @@ class Client:
 
 
 def _multiple_results_error(
-    channel: ChannelParams,
-    results: list[ChannelPayload],
+    channel: Params,
+    results: list[Payload],
 ) -> MultipleFoundError:
     msg = f"""
 

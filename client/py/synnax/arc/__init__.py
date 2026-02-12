@@ -9,26 +9,26 @@
 
 from synnax.arc.client import Arc, Client
 from synnax.arc.payload import (
-    ArcKey,
-    ArcMode,
-    ArcPayload,
     Edge,
     Graph,
     GraphNode,
     Handle,
+    Key,
+    Mode,
+    Payload,
     Position,
     Text,
 )
-from synnax.arc.types import ArcTask, ArcTaskConfig
+from synnax.arc.types import Task, TaskConfig
 
 __all__ = [
     "Arc",
     "Client",
-    "ArcKey",
-    "ArcMode",
-    "ArcPayload",
-    "ArcTask",
-    "ArcTaskConfig",
+    "Key",
+    "Mode",
+    "Payload",
+    "Task",
+    "TaskConfig",
     "Edge",
     "Graph",
     "GraphNode",

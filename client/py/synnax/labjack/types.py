@@ -13,16 +13,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, confloat, conint, field_validator
 
-from synnax import device
-from synnax.channel import ChannelKey
-from synnax.task import (
-    BaseReadTaskConfig,
-    BaseWriteTaskConfig,
-    JSONConfigMixin,
-    StarterStopperMixin,
-    Task,
-    TaskProtocol,
-)
+from synnax import channel as channel_
+from synnax import device, task
 from synnax.telem import CrudeRate
 
 # Device identifiers - must match Console expectations
@@ -102,7 +94,7 @@ class AIChan(BaseChan):
     """
 
     type: Literal["AI"] = "AI"
-    channel: ChannelKey
+    channel: channel_.Key
     "The Synnax channel key that will be written to during acquisition."
     range: confloat(gt=0) = 10.0
     "The voltage range for the channel (±range volts)."
@@ -195,7 +187,7 @@ class ThermocoupleChan(BaseChan):
     """
 
     type: Literal["TC"] = "TC"
-    channel: ChannelKey
+    channel: channel_.Key
     "The Synnax channel key that will be written to during acquisition."
     thermocouple_type: Literal["B", "E", "J", "K", "N", "R", "S", "T", "C"]
     "The type of thermocouple being used."
@@ -265,7 +257,7 @@ class DIChan(BaseChan):
     """
 
     type: Literal["DI"] = "DI"
-    channel: ChannelKey
+    channel: channel_.Key
     "The Synnax channel key that will be written to during acquisition."
 
 
@@ -327,13 +319,13 @@ class OutputChan(BaseChan):
 
     type: Literal["AO", "DO"] = "DO"
     "The type of output channel ('AO' for analog, 'DO' for digital)."
-    cmd_channel: ChannelKey
+    cmd_channel: channel_.Key
     "The Synnax channel key to read command values from."
-    state_channel: ChannelKey
+    state_channel: channel_.Key
     "The Synnax channel key to write state values to."
 
 
-class ReadTaskConfig(BaseReadTaskConfig):
+class ReadTaskConfig(task.BaseReadConfig):
     """
     Configuration for a LabJack read task.
 
@@ -357,7 +349,7 @@ class ReadTaskConfig(BaseReadTaskConfig):
         return v
 
 
-class WriteTaskConfig(BaseWriteTaskConfig):
+class WriteTaskConfig(task.BaseWriteConfig):
     """
     Configuration for a LabJack write task.
 
@@ -381,7 +373,7 @@ class WriteTaskConfig(BaseWriteTaskConfig):
         return v
 
 
-class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
     A read task for sampling data from LabJack devices and writing the data to a
     Synnax cluster. This task is a programmatic representation of the LabJack read
@@ -406,13 +398,13 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "labjack_read"
     config: ReadTaskConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         sample_rate: CrudeRate = 0,
         stream_rate: CrudeRate = 0,
@@ -424,7 +416,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
             self._internal = internal
             self.config = ReadTaskConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = ReadTaskConfig(
             device=device,
             sample_rate=sample_rate,
@@ -454,7 +446,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
         return device_client.create(dev)
 
 
-class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
     A write task for sending commands to LabJack devices. This task is a programmatic
     representation of the LabJack write task configurable within the Synnax console.
@@ -475,13 +467,13 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "labjack_write"
     config: WriteTaskConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         state_rate: CrudeRate = 0,
         data_saving: bool = False,
@@ -492,7 +484,7 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
             self._internal = internal
             self.config = WriteTaskConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = WriteTaskConfig(
             device=device,
             state_rate=state_rate,

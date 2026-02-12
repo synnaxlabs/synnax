@@ -18,16 +18,10 @@ from uuid import UUID
 
 import numpy as np
 from freighter import UnaryClient
-from pydantic import PrivateAttr, BaseModel
+from pydantic import PrivateAttr
 
-from synnax.channel.payload import (
-    ChannelKey,
-    ChannelKeys,
-    ChannelName,
-    ChannelNames,
-    ChannelParams,
-    ChannelPayload,
-)
+import synnax.channel.payload as channel
+from synnax.channel.payload import Payload as ChannelPayload
 from synnax.channel.retrieve import Retriever
 from synnax.exceptions import QueryError
 from synnax.framer.client import Client
@@ -85,7 +79,7 @@ class _InternalScopedChannel(ChannelPayload):
         frame_client: Client,
         tasks: TaskClient,
         ontology: OntologyClient,
-        payload: ChannelPayload,
+        payload: channel.Payload,
         aliaser: AliasClient | None = None,
     ):
         super().__init__(**payload.model_dump())
@@ -189,7 +183,7 @@ class ScopedChannel:
         return self.__array__()
 
     @property
-    def key(self) -> ChannelKey:
+    def key(self) -> channel.Key:
         self.__guard()
         return self.__internal[0].key
 
@@ -209,7 +203,7 @@ class ScopedChannel:
         return self.__internal[0].is_index
 
     @property
-    def index(self) -> ChannelKey:
+    def index(self) -> channel.Key:
         self.__guard()
         return self.__internal[0].index
 
@@ -258,7 +252,7 @@ class Range(Payload):
     """Key-value store for storing metadata about the range."""
     __aliaser: AliasClient | None = PrivateAttr(None)
     """For setting and resolving aliases."""
-    _cache: dict[ChannelKey, _InternalScopedChannel] = PrivateAttr(dict())
+    _cache: dict[Key, _InternalScopedChannel] = PrivateAttr(dict())
     """A writer for creating child ranges"""
     _client: Client | None = PrivateAttr(None)
     _tasks: TaskClient | None = PrivateAttr(None)
@@ -307,9 +301,7 @@ class Range(Payload):
         self._tasks = _tasks
         self._ontology = _ontology
 
-    def _get_scoped_channel(
-        self, channels: list[ChannelPayload], query: str
-    ) -> ScopedChannel:
+    def _get_scoped_channel(self, channels: list[Payload], query: str) -> ScopedChannel:
         if len(channels) == 0:
             raise QueryError(f"Channel matching {query} not found")
         return ScopedChannel(query, self.__splice_cached(channels))
@@ -324,15 +316,13 @@ class Range(Payload):
         channels.extend(self._channel_retriever.retrieve(list(aliases.values())))
         return self._get_scoped_channel(channels, query)
 
-    def __getitem__(self, name: str | ChannelKey) -> ScopedChannel:
-        if isinstance(name, ChannelKey):
+    def __getitem__(self, name: str | channel.Key) -> ScopedChannel:
+        if isinstance(name, channel.Key):
             channels = self._channel_retriever.retrieve(name)
             return self._get_scoped_channel(channels, name.__str__())
         return self.__getattr__(name)
 
-    def __splice_cached(
-        self, channels: list[ChannelPayload]
-    ) -> list[_InternalScopedChannel]:
+    def __splice_cached(self, channels: list[Payload]) -> list[_InternalScopedChannel]:
         results = list()
         for pld in channels:
             cached = self._cache.get(pld.key, None)
@@ -377,14 +367,14 @@ class Range(Payload):
         return self._channels
 
     @overload
-    def set_alias(self, channel: ChannelKey | ChannelName, alias: str): ...
+    def set_alias(self, channel: channel.Key | str, alias: str): ...
 
     @overload
-    def set_alias(self, channel: dict[ChannelKey | ChannelName, str]): ...
+    def set_alias(self, channel: dict[channel.Key | str, str]): ...
 
     def set_alias(
         self,
-        channel: ChannelKey | ChannelName | dict[ChannelKey | ChannelName, str],
+        channel: channel.Key | str | dict[channel.Key | str, str],
         alias: str = None,
     ):
         if not isinstance(channel, dict):
@@ -393,7 +383,7 @@ class Range(Payload):
             channel = {channel: alias}
         corrected = {}
         for ch, alias in channel.items():
-            if isinstance(ch, ChannelName):
+            if isinstance(ch, str):
                 res = self._channel_retriever.retrieve(ch)
                 if len(res) == 0:
                     raise QueryError(f"Channel {ch} not found")
@@ -406,14 +396,18 @@ class Range(Payload):
         return Payload(name=self.name, time_range=self.time_range, key=self.key)
 
     @overload
-    def write(
-        self, to: ChannelKey | ChannelName | ChannelPayload, data: CrudeSeries
-    ): ...
+    def write(self, to: channel.Key | str | Payload, data: CrudeSeries): ...
 
     @overload
     def write(
         self,
-        to: ChannelKeys | ChannelNames | list[ChannelPayload],
+        to: (
+            list[channel.Key]
+            | tuple[channel.Key]
+            | list[str]
+            | tuple[str]
+            | list[Payload]
+        ),
         series: list[CrudeSeries],
     ): ...
 
@@ -422,7 +416,7 @@ class Range(Payload):
 
     def write(
         self,
-        to: ChannelParams | ChannelPayload | list[ChannelPayload] | CrudeFrame,
+        to: channel.Params | Payload | list[Payload] | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> None:
         start = self.time_range.start
@@ -644,7 +638,7 @@ class Client:
 
     def delete(
         self,
-        key: Key | RangeKeys,
+        key: Key | list[Key] | tuple[Key],
     ) -> None:
         self._writer.delete(normalize(key))
 

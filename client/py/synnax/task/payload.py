@@ -8,11 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 
+from pydantic import BaseModel
 
 from synnax.ontology import ID
 from synnax.status import Status
-
-from pydantic import BaseModel
 
 ONTOLOGY_TYPE = ID(type="task")
 

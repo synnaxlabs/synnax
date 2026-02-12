@@ -8,3 +8,4 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.user.client import Client
+from synnax.user.payload import New, User

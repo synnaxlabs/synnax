@@ -44,16 +44,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, conint, field_validator
 
-from synnax import device
-from synnax.channel import ChannelKey
-from synnax.task import (
-    BaseReadTaskConfig,
-    BaseWriteTaskConfig,
-    JSONConfigMixin,
-    StarterStopperMixin,
-    Task,
-    TaskProtocol,
-)
+from synnax import device, task
+from synnax.channel import Key
 from synnax.telem import CrudeRate
 
 # Device identifiers - must match driver expectations
@@ -128,7 +120,7 @@ class AutomaticInputChan(BaseChan):
     type: Literal["automatic"] = "automatic"
     pdo: str = Field(min_length=1)
     "The name of the PDO to look up in slave device properties."
-    channel: ChannelKey
+    channel: Key
     "The Synnax channel key that will be written to during acquisition."
 
 
@@ -169,7 +161,7 @@ class ManualInputChan(BaseChan):
     "Size of the data in bits."
     data_type: str
     "Data type string (e.g., 'uint8', 'int16', 'uint32', 'int32', 'float32')."
-    channel: ChannelKey
+    channel: Key
     "The Synnax channel key that will be written to during acquisition."
 
 
@@ -203,9 +195,9 @@ class AutomaticOutputChan(BaseChan):
     type: Literal["automatic"] = "automatic"
     pdo: str = Field(min_length=1)
     "The name of the PDO to look up in slave device properties."
-    cmd_channel: ChannelKey
+    cmd_channel: Key
     "The Synnax channel key to receive command values from."
-    state_channel: ChannelKey = 0
+    state_channel: Key = 0
     "The Synnax channel key to write state feedback to (0 to disable)."
 
 
@@ -247,9 +239,9 @@ class ManualOutputChan(BaseChan):
     "Size of the data in bits."
     data_type: str
     "Data type string (e.g., 'uint8', 'int16', 'uint32', 'int32', 'float32')."
-    cmd_channel: ChannelKey
+    cmd_channel: Key
     "The Synnax channel key to receive command values from."
-    state_channel: ChannelKey = 0
+    state_channel: Key = 0
     "The Synnax channel key to write state feedback to (0 to disable)."
 
 
@@ -257,7 +249,7 @@ class ManualOutputChan(BaseChan):
 OutputChan = AutomaticOutputChan | ManualOutputChan
 
 
-class ReadTaskConfig(BaseReadTaskConfig):
+class ReadTaskConfig(task.BaseReadConfig):
     """Configuration for an EtherCAT read task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
@@ -290,7 +282,7 @@ class ReadTaskConfig(BaseReadTaskConfig):
         return v
 
 
-class WriteTaskConfig(BaseWriteTaskConfig):
+class WriteTaskConfig(task.BaseWriteConfig):
     """Configuration for an EtherCAT write task.
 
     Inherits common write task fields (device, auto_start) from BaseWriteTaskConfig
@@ -326,7 +318,7 @@ class WriteTaskConfig(BaseWriteTaskConfig):
         return v
 
 
-class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A read task for sampling data from EtherCAT slave devices.
 
     This task configures the Synnax driver to perform cyclic PDO exchange with
@@ -380,11 +372,11 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "ethercat_read"
     config: ReadTaskConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
         name: str = "",
         sample_rate: CrudeRate = 0,
@@ -397,7 +389,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
             self._internal = internal
             self.config = ReadTaskConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = ReadTaskConfig(
             sample_rate=sample_rate,
             stream_rate=stream_rate,
@@ -407,7 +399,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
         )
 
 
-class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A write task for sending commands to EtherCAT slave devices.
 
     This task configures the Synnax driver to receive commands from Synnax
@@ -467,11 +459,11 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "ethercat_write"
     config: WriteTaskConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
         name: str = "",
         state_rate: float = 1.0,
@@ -484,7 +476,7 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
             self._internal = internal
             self.config = WriteTaskConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = WriteTaskConfig(
             state_rate=state_rate,
             execution_rate=execution_rate,

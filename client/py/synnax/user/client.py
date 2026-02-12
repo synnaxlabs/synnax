@@ -11,16 +11,15 @@ from typing import overload
 from uuid import UUID
 
 from freighter import Empty, UnaryClient, send_required
-
 from pydantic import BaseModel
 
-from synnax.user.payload import NewUser, User
+from synnax.user.payload import New, User
 from synnax.util.normalize import normalize
 from synnax.util.params import require_named_params
 
 
 class _CreateRequest(BaseModel):
-    users: list[NewUser]
+    users: list[New]
 
 
 class _CreateResponse(BaseModel):
@@ -69,10 +68,10 @@ class Client:
     ) -> User: ...
 
     @overload
-    def create(self, *, user: NewUser) -> User: ...
+    def create(self, *, user: New) -> User: ...
 
     @overload
-    def create(self, *, users: list[NewUser]) -> list[User]: ...
+    def create(self, *, users: list[New]) -> list[User]: ...
 
     @require_named_params(example_params=("user", "NewUser(username='synnax')"))
     def create(
@@ -83,15 +82,15 @@ class Client:
         first_name: str | None = None,
         last_name: str | None = None,
         key: UUID | None = None,
-        user: NewUser | None = None,
-        users: list[NewUser] | None = None,
+        user: New | None = None,
+        users: list[New] | None = None,
     ) -> User | list[User]:
         if username is not None:
             if first_name is None:
                 first_name = ""
             if last_name is None:
                 last_name = ""
-            user = NewUser(
+            user = New(
                 username=username,
                 password=password,
                 first_name=first_name,

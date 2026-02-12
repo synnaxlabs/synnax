@@ -11,7 +11,6 @@ import uuid
 from typing import overload
 
 from freighter import UnaryClient, send_required
-
 from pydantic import BaseModel
 
 from synnax.ranger.kv.payload import Pair

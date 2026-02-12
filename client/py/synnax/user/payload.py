@@ -11,10 +11,10 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from synnax.ontology.payload import ID
+from synnax import ontology
 
 
-class NewUser(BaseModel):
+class New(BaseModel):
     username: str
     password: str
     first_name: str = ""
@@ -29,14 +29,14 @@ class User(BaseModel):
     last_name: str
 
     @property
-    def ontology_id(self) -> ID:
-        return ID(key=self.key, type="user")
+    def ontology_id(self) -> ontology.ID:
+        return ontology_id(self.key)
 
 
-USER_ONTOLOGY_TYPE = ID(type="user")
+ONTOLOGY_TYPE = ontology.ID(type="user")
 
 
-def ontology_id(key: UUID) -> ID:
+def ontology_id(key: UUID) -> ontology.ID:
     """Create an ontology ID for a user.
 
     Args:
@@ -45,7 +45,7 @@ def ontology_id(key: UUID) -> ID:
     Returns:
         An ontology ID dictionary with type "user" and the given key.
     """
-    return ID(type=USER_ONTOLOGY_TYPE.type, key=str(key))
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
 
 
-change_username_action = "change_username"
+ACTION_CHANGE_USERNAME = "change_username"

@@ -9,17 +9,17 @@
 
 __version__ = "0.3.0"
 
-from synnax import ethercat, labjack, modbus, ni, opcua, sequence, status
+from synnax import color, ethercat, labjack, modbus, ni, opcua, sequence, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role
 from synnax.arc import (
     Arc,
-    ArcTask,
     Edge,
     Graph,
     GraphNode,
     Handle,
     Position,
+    Task,
     Text,
 )
 from synnax.channel import Channel
@@ -55,7 +55,7 @@ from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
 from synnax.synnax import Synnax
-from synnax.task import Task, Status, StatusDetails
+from synnax.task import Status, StatusDetails, Task
 from synnax.telem import (
     Alignment,
     Authority,
@@ -86,7 +86,7 @@ from synnax.user.payload import User
 __all__ = [
     "Alignment",
     "Arc",
-    "ArcTask",
+    "Task",
     "AUTO_SPAN",
     "AuthError",
     "Authority",

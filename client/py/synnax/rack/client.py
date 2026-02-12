@@ -11,7 +11,6 @@ from typing import overload
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient, send_required
-
 from pydantic import BaseModel
 
 from synnax.exceptions import NotFoundError

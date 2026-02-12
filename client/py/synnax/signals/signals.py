@@ -12,7 +12,7 @@ from functools import wraps
 from multiprocessing import Pool
 
 from synnax import framer
-from synnax.channel.payload import ChannelKey, ChannelName, ChannelParams
+from synnax.channel.payload import Key, Params
 from synnax.channel.retrieve import Retriever
 from synnax.state import LatestState, State
 
@@ -21,7 +21,7 @@ _InternalHandler = Callable[[State], Callable[[LatestState], None] | None]
 
 class Registry:
     __handlers: list[_InternalHandler]
-    __channels: set[ChannelKey | ChannelName]
+    __channels: set[Key | str]
     __frame_client: framer.Client
     __channel_retriever: Retriever
 
@@ -33,7 +33,7 @@ class Registry:
 
     def on(
         self,
-        channels: ChannelParams,
+        channels: Params,
         filter_f: Callable[[LatestState], bool],
     ) -> Callable[[Callable[[LatestState], None]], Callable[[], None] | None]:
         self.__channels.update(channels)
@@ -63,14 +63,14 @@ class Scheduler:
     __pool: Pool
     __streamer: framer.AsyncStreamer | None = None
     __handlers: list[_InternalHandler]
-    __channels: ChannelParams
+    __channels: Params
     __state: State
     __frame_client: framer.Client
     __channel_retriever: Retriever
 
     def __init__(
         self,
-        channels: ChannelParams,
+        channels: Params,
         handlers: list[_InternalHandler],
         frame_client: framer.Client,
         channel_retriever: Retriever,

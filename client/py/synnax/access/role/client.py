@@ -12,7 +12,6 @@ from uuid import UUID
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient, send_required
-
 from pydantic import BaseModel
 
 from synnax.access.role.payload import Role

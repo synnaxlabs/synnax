@@ -11,10 +11,9 @@ from enum import Enum
 
 from alamos import NOOP, Instrumentation
 from freighter import EOF, Stream, StreamClient
-
 from pydantic import BaseModel
 
-from synnax.channel.payload import ChannelKeys
+import synnax.channel.payload as channel
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
@@ -46,7 +45,7 @@ class _Request(BaseModel):
     span: TimeSpan | None = None
     bounds: TimeRange | None = None
     stamp: TimeStamp | None = None
-    keys: ChannelKeys | None = None
+    keys: list[channel.Key] | tuple[channel.Key] | None = None
     chunk_size: int | None = None
     downsample_factor: int | None = None
 

@@ -12,12 +12,12 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from synnax.channel import ChannelKey
+from synnax.channel import Key
 from synnax.task import (
     JSONConfigMixin,
+    Protocol,
     StarterStopperMixin,
     Task,
-    TaskProtocol,
 )
 from synnax.telem import CrudeRate, Rate
 
@@ -28,8 +28,8 @@ class Config(BaseModel):
     """Configuration for a sequence task."""
 
     rate: Rate
-    read: list[ChannelKey]
-    write: list[ChannelKey]
+    read: list[Key]
+    write: list[Key]
     script: str
     globals: dict[str, Any] = {}
 
@@ -44,7 +44,7 @@ class StateDetails(BaseModel):
     message: str
 
 
-class Sequence(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class Sequence(StarterStopperMixin, JSONConfigMixin, Protocol):
     """A task for executing control sequences on a Synnax cluster."""
 
     TYPE = TYPE
@@ -57,8 +57,8 @@ class Sequence(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
         *,
         name: str = "Control Sequence",
         rate: CrudeRate = 10,
-        read: list[ChannelKey] = [],
-        write: list[ChannelKey] = [],
+        read: list[Key] = [],
+        write: list[Key] = [],
         script: str = "",
         globals: dict[str, Any] = {},
     ):

@@ -15,8 +15,7 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-
-from pydantic import PrivateAttr, BaseModel
+from pydantic import BaseModel, PrivateAttr
 
 from synnax.telem.telem import (
     Alignment,

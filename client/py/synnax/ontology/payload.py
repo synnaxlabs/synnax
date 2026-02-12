@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+
 class ID(BaseModel):
     key: str | None = ""
     type: str | None = ""

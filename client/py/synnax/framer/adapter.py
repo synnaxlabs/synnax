@@ -11,13 +11,7 @@ import warnings
 
 from pandas import DataFrame
 
-from synnax.channel.payload import (
-    ChannelKey,
-    ChannelName,
-    ChannelParams,
-    ChannelPayload,
-    normalize_channel_params,
-)
+import synnax.channel.payload as channel
 from synnax.channel.retrieve import Retriever, retrieve_required
 from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
@@ -27,9 +21,9 @@ from synnax.telem.series import CrudeSeries, Series
 
 
 class ReadFrameAdapter:
-    __adapter: dict[ChannelKey, ChannelName] | None
+    __adapter: dict[channel.Key, str] | None
     retriever: Retriever
-    keys: list[ChannelKey]
+    keys: list[channel.Key]
     codec: Codec
 
     def __init__(self, retriever: Retriever):
@@ -38,8 +32,8 @@ class ReadFrameAdapter:
         self.keys = list()
         self.codec = Codec()
 
-    def update(self, channels: ChannelParams):
-        normal = normalize_channel_params(channels)
+    def update(self, channels: channel.Params):
+        normal = channel.normalize_params(channels)
         fetched = self.retriever.retrieve(normal.channels)
         self.codec.update(
             [ch.key for ch in fetched],
@@ -69,7 +63,7 @@ class ReadFrameAdapter:
         to_purge: list[int] | None = None
         for i, k in enumerate(fr.channels):
             try:
-                if isinstance(k, ChannelKey):
+                if isinstance(k, channel.Key):
                     fr.channels[i] = self.__adapter[k]
             except KeyError:
                 if to_purge is None:
@@ -84,8 +78,8 @@ class ReadFrameAdapter:
 
 
 class WriteFrameAdapter:
-    _adapter: dict[ChannelName, ChannelKey] | None
-    _keys: list[ChannelKey] | None
+    _adapter: dict[str, channel.Key] | None
+    _keys: list[channel.Key] | None
     _err_on_extra_chans: bool
     _strict_data_types: bool
     _suppress_warnings: bool
@@ -108,7 +102,7 @@ class WriteFrameAdapter:
         self._suppress_warnings = suppress_warnings
         self.codec = Codec()
 
-    def update(self, channels: ChannelParams):
+    def update(self, channels: channel.Params):
         results = retrieve_required(self.retriever, channels)
         self._adapter = {ch.name: ch.key for ch in results}
         self._keys = [ch.key for ch in results]
@@ -118,8 +112,8 @@ class WriteFrameAdapter:
         )
 
     def adapt_dict_keys(
-        self, data: dict[ChannelPayload | ChannelKey | ChannelName, any]
-    ) -> dict[ChannelKey, any]:
+        self, data: dict[channel.Payload | channel.Key | str, any]
+    ) -> dict[channel.Key, any]:
         out = dict()
         for k in data.keys():
             out[self.__adapt_to_key(k)] = data[k]
@@ -129,29 +123,25 @@ class WriteFrameAdapter:
     def keys(self):
         return self._keys
 
-    def __adapt_to_key(
-        self, ch: ChannelPayload | ChannelKey | ChannelName
-    ) -> ChannelKey:
-        if isinstance(ch, ChannelKey):
+    def __adapt_to_key(self, ch: channel.Payload | channel.Key | str) -> channel.Key:
+        if isinstance(ch, channel.Key):
             return ch
-        if isinstance(ch, ChannelPayload):
+        if isinstance(ch, channel.Payload):
             return ch.key
         # If it's not a payload or key already, it has to be a name,
         # which means we need to resolve the key from a remote source
         # (either cache or server)
         return self.__adapt_ch(ch).key
 
-    def __adapt_ch(
-        self, ch: ChannelKey | ChannelName | ChannelPayload
-    ) -> ChannelPayload:
-        if isinstance(ch, (ChannelKey, ChannelName)):
+    def __adapt_ch(self, ch: channel.Key | str | channel.Payload) -> channel.Payload:
+        if isinstance(ch, (channel.Key, str)):
             return self.retriever.retrieve_one(ch)
         return ch
 
     def adapt(
         self,
         channels_or_data: (
-            ChannelPayload | list[ChannelPayload] | ChannelParams | CrudeFrame
+            channel.Payload | list[channel.Payload] | channel.Params | CrudeFrame
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ):
@@ -190,21 +180,21 @@ class WriteFrameAdapter:
     def _adapt(
         self,
         channels_or_data: (
-            ChannelPayload | list[ChannelPayload] | ChannelParams | CrudeFrame
+            channel.Payload | list[channel.Payload] | channel.Params | CrudeFrame
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
-        if isinstance(channels_or_data, (ChannelName, ChannelKey, ChannelPayload)):
+        if isinstance(channels_or_data, (str, channel.Key, channel.Payload)):
             if series is None:
                 raise ValidationError(f"""
-                Received a single channel {'name' if isinstance(channels_or_data, ChannelName) else 'key'}
+                Received a single channel {'name' if isinstance(channels_or_data, str) else 'key'}
                 but no data.
                 """)
             if isinstance(series, list) and len(series) > 1:
                 first = series[0]
                 if not isinstance(first, (float, int)):
                     raise ValidationError(f"""
-                    Received a single channel {'name' if isinstance(channels_or_data, ChannelName) else 'key'}
+                    Received a single channel {'name' if isinstance(channels_or_data, str) else 'key'}
                     but multiple series.
                     """)
 
@@ -239,9 +229,7 @@ class WriteFrameAdapter:
             series = list()
             for col in cols:
                 try:
-                    channels.append(
-                        self._adapter[col] if isinstance(col, ChannelName) else col
-                    )
+                    channels.append(self._adapter[col] if isinstance(col, str) else col)
                     series.append(Series(channels_or_data[col]))
                 except KeyError as e:
                     if self._err_on_extra_chans:

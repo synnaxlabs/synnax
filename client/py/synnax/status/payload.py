@@ -10,8 +10,7 @@
 from typing import Any, Generic, Literal, TypeVar
 from uuid import uuid4
 
-
-from pydantic import Field, BaseModel
+from pydantic import BaseModel, Field
 
 from synnax.ontology import ID
 from synnax.telem import TimeStamp

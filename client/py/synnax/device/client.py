@@ -11,7 +11,6 @@ from typing import overload
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, UnaryClient, send_required
-
 from pydantic import BaseModel
 
 from synnax.device.payload import Device

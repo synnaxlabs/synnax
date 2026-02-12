@@ -10,16 +10,16 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
-
 from uuid import UUID
+
+from pydantic import BaseModel
 
 from synnax.ontology.payload import ID
 
-CREATE_ACTION = "create"
-DELETE_ACTION = "delete"
-RETRIEVE_ACTION = "retrieve"
-UPDATE_ACTION = "update"
+ACTION_CREATE = "create"
+ACTION_DELETE = "delete"
+ACTION_RETRIEVE = "retrieve"
+ACTION_UPDATE = "update"
 
 
 class Policy(BaseModel):

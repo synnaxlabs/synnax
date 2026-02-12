@@ -13,16 +13,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, confloat, conint, field_validator, validator
 
-from synnax import device
+from synnax import device, task
 from synnax.exceptions import ValidationError
-from synnax.task import (
-    BaseReadTaskConfig,
-    BaseWriteTaskConfig,
-    JSONConfigMixin,
-    StarterStopperMixin,
-    Task,
-    TaskProtocol,
-)
 from synnax.telem import CrudeRate
 
 UnitsVolts = Literal["Volts"]
@@ -2410,7 +2402,7 @@ class DOChan(BaseChan):
     line: int
 
 
-class AnalogReadTaskConfig(BaseReadTaskConfig):
+class AnalogReadTaskConfig(task.BaseReadConfig):
     """Configuration for NI Analog Read Task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
@@ -2433,7 +2425,7 @@ class AnalogReadTaskConfig(BaseReadTaskConfig):
         return v
 
 
-class AnalogWriteConfig(BaseWriteTaskConfig):
+class AnalogWriteConfig(task.BaseWriteConfig):
     """Configuration for NI Analog Write Task.
 
     Inherits common write task fields (device, auto_start) from
@@ -2448,7 +2440,7 @@ class AnalogWriteConfig(BaseWriteTaskConfig):
     channels: list[AOChan]
 
 
-class CounterReadConfig(BaseReadTaskConfig):
+class CounterReadConfig(task.BaseReadConfig):
     """Configuration for NI Counter Read Task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
@@ -2471,7 +2463,7 @@ class CounterReadConfig(BaseReadTaskConfig):
         return v
 
 
-class DigitalReadConfig(BaseReadTaskConfig):
+class DigitalReadConfig(task.BaseReadConfig):
     """Configuration for NI Digital Read Task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
@@ -2485,7 +2477,7 @@ class DigitalReadConfig(BaseReadTaskConfig):
     channels: list[DIChan]
 
 
-class DigitalWriteConfig(BaseWriteTaskConfig):
+class DigitalWriteConfig(task.BaseWriteConfig):
     """Configuration for NI Digital Write Task.
 
     Inherits common write task fields (device, auto_start) from
@@ -2509,7 +2501,7 @@ class AnalogReadStateDetails(TaskStateDetails):
     errors: list[dict[str, str]] | None
 
 
-class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class AnalogReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for reading analog data from NI devices and writing them to a Synnax
     cluster. This task is a programmatic representation of the analog read task
     configurable within the Synnax console. For detailed information on
@@ -2530,13 +2522,13 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "ni_analog_read"
     config: AnalogReadTaskConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         sample_rate: CrudeRate = 0,
         stream_rate: CrudeRate = 0,
@@ -2548,7 +2540,7 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
             self._internal = internal
             self.config = AnalogReadTaskConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = AnalogReadTaskConfig(
             device=device,
             sample_rate=sample_rate,
@@ -2570,7 +2562,7 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
                 channel.device = device
 
 
-class AnalogWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class AnalogWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for writing analog output data to NI devices. This task is a programmatic
     representation of the analog write task configurable within the Synnax console.
     For detailed information on configuring/operating an analog write task, see
@@ -2589,13 +2581,13 @@ class AnalogWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "ni_analog_write"
     config: AnalogWriteConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         state_rate: CrudeRate = 0,
         data_saving: bool = False,
@@ -2606,7 +2598,7 @@ class AnalogWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
             self._internal = internal
             self.config = AnalogWriteConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = AnalogWriteConfig(
             device=device,
             state_rate=state_rate,
@@ -2616,7 +2608,7 @@ class AnalogWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
         )
 
 
-class CounterReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class CounterReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for reading counter data from NI devices and writing them to a Synnax
     cluster. This task is a programmatic representation of the counter read task
     configurable within the Synnax console. For detailed information on
@@ -2637,13 +2629,13 @@ class CounterReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "ni_counter_read"
     config: CounterReadConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         sample_rate: CrudeRate = 0,
         stream_rate: CrudeRate = 0,
@@ -2655,7 +2647,7 @@ class CounterReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
             self._internal = internal
             self.config = CounterReadConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = CounterReadConfig(
             device=device,
             sample_rate=sample_rate,
@@ -2677,7 +2669,7 @@ class CounterReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
                 channel.device = device
 
 
-class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class DigitalReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for reading digital data from NI devices and writing them to a Synnax
     cluster. This task is a programmatic representation of the digital read task
     configurable within the Synnax console. For detailed information on
@@ -2698,13 +2690,13 @@ class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "ni_digital_read"
     config: DigitalReadConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         sample_rate: CrudeRate = 0,
         stream_rate: CrudeRate = 0,
@@ -2716,7 +2708,7 @@ class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
             self._internal = internal
             self.config = DigitalReadConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = DigitalReadConfig(
             device=device,
             sample_rate=sample_rate,
@@ -2727,7 +2719,7 @@ class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
         )
 
 
-class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class DigitalWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for reading digital data from NI devices and writing them to a Synnax
     cluster. This task is a programmatic representation of the digital write task
     configurable within the Synnax console. For detailed information on
@@ -2745,13 +2737,13 @@ class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "ni_digital_write"
     config: DigitalWriteConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         state_rate: CrudeRate = 0,
         data_saving: bool = False,
@@ -2762,7 +2754,7 @@ class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
             self._internal = internal
             self.config = DigitalWriteConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = DigitalWriteConfig(
             device=device,
             state_rate=state_rate,

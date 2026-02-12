@@ -12,7 +12,8 @@ from __future__ import annotations
 import json
 import warnings
 from contextlib import contextmanager
-from typing import Protocol, overload
+from typing import Protocol as BaseProtocol
+from typing import overload
 from uuid import uuid4
 
 from alamos import NOOP, Instrumentation
@@ -75,7 +76,7 @@ _TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
 
 
-class BaseTaskConfig(BaseModel):
+class BaseConfig(BaseModel):
     """
     Base configuration shared by all hardware task types.
 
@@ -86,7 +87,7 @@ class BaseTaskConfig(BaseModel):
     auto_start: bool = False
 
 
-class BaseReadTaskConfig(BaseTaskConfig):
+class BaseReadConfig(BaseConfig):
     """
     Base configuration for hardware read/acquisition tasks.
 
@@ -116,7 +117,7 @@ class BaseReadTaskConfig(BaseTaskConfig):
         return v
 
 
-class BaseWriteTaskConfig(BaseTaskConfig):
+class BaseWriteConfig(BaseConfig):
     """
     Base configuration for hardware write/control tasks.
 
@@ -250,7 +251,7 @@ class Task:
                     """) from e
 
 
-class TaskProtocol(Protocol):
+class Protocol(BaseProtocol):
     key: int
 
     def to_payload(self) -> Payload: ...
@@ -309,7 +310,7 @@ class StarterStopperMixin:
             self.stop(timeout)
 
 
-class JSONConfigMixin(TaskProtocol):
+class JSONConfigMixin(Protocol):
     _internal: Task
     config: BaseModel
 
@@ -413,7 +414,7 @@ class Client:
             pld.key = (rack << 32) + 0
         return pld
 
-    def configure(self, task: TaskProtocol, timeout: float = 5) -> TaskProtocol:
+    def configure(self, task: Protocol, timeout: float = 5) -> Protocol:
         # Call task-specific device property update (e.g., for Modbus, OPC UA, LabJack)
         if self._device_client is not None:
             task.update_device_properties(self._device_client)

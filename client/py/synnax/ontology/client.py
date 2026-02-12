@@ -10,9 +10,7 @@
 from typing import overload
 
 from freighter import Empty, UnaryClient, send_required
-from pydantic import Field
-
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from synnax.ontology.payload import ID, CrudeID, Resource
 from synnax.util.normalize import normalize

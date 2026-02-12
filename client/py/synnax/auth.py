@@ -16,7 +16,6 @@ from freighter import (
     Next,
     UnaryClient,
 )
-
 from pydantic import BaseModel
 
 from synnax.exceptions import ExpiredToken, InvalidToken

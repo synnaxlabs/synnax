@@ -9,34 +9,32 @@
 
 from alamos import Instrumentation, trace
 from freighter import Empty, UnaryClient, send_required
-
 from pydantic import BaseModel
 
 from synnax.channel.payload import (
-    ChannelKeys,
-    ChannelNames,
-    ChannelParams,
-    ChannelPayload,
-    normalize_channel_params,
+    Key,
+    Params,
+    Payload,
+    normalize_params,
 )
 from synnax.channel.retrieve import CacheRetriever
 
 
 class _CreateRequest(BaseModel):
-    channels: list[ChannelPayload]
+    channels: list[Payload]
 
 
 _Response = _CreateRequest
 
 
 class _DeleteRequest(BaseModel):
-    keys: ChannelKeys | None = None
-    names: ChannelNames | None = None
+    keys: list[Key] | tuple[Key] | None = None
+    names: list[str] | tuple[str] | None = None
 
 
 class _RenameRequest(BaseModel):
-    keys: ChannelKeys
-    names: ChannelNames
+    keys: list[Key] | tuple[Key]
+    names: list[str] | tuple[str]
 
 
 class Writer:
@@ -57,8 +55,8 @@ class Writer:
     @trace("debug")
     def create(
         self,
-        channels: list[ChannelPayload],
-    ) -> list[ChannelPayload]:
+        channels: list[Payload],
+    ) -> list[Payload]:
         req = _CreateRequest(channels=channels)
         res = send_required(self._client, "/channel/create", req, _Response)
         if self._cache is not None:
@@ -66,15 +64,17 @@ class Writer:
         return res.channels
 
     @trace("debug")
-    def delete(self, channels: ChannelParams) -> None:
-        normal = normalize_channel_params(channels)
+    def delete(self, channels: Params) -> None:
+        normal = normalize_params(channels)
         req = _DeleteRequest(**{normal.variant: normal.channels})
         send_required(self._client, "/channel/delete", req, Empty)
         if self._cache is not None:
             self._cache.delete(normal.channels)
 
     @trace("debug")
-    def rename(self, keys: ChannelKeys, names: ChannelNames) -> None:
+    def rename(
+        self, keys: list[Key] | tuple[Key], names: list[str] | tuple[str]
+    ) -> None:
         req = _RenameRequest(keys=keys, names=names)
         send_required(self._client, "/channel/rename", req, Empty)
         if self._cache is not None:

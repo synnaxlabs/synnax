@@ -9,11 +9,10 @@
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, UnaryClient, send_required
+from pydantic import BaseModel
 
 from synnax.ontology.payload import ID
 from synnax.ranger.payload import Key, Payload
-
-from pydantic import BaseModel
 
 
 class _CreateRequest(BaseModel):

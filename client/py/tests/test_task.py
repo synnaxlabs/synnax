@@ -54,9 +54,7 @@ class TestTaskClient:
                         key=str(sy.task.payload.ontology_id(cmd["task"])),
                         variant=sy.status.VARIANT_SUCCESS,
                         message="Command executed.",
-                        details=sy.StatusDetails(
-                            task=int(cmd["task"]), cmd=cmd["key"]
-                        ),
+                        details=sy.StatusDetails(task=int(cmd["task"]), cmd=cmd["key"]),
                     )
                 )
 

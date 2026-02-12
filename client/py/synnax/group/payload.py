@@ -14,6 +14,8 @@ from pydantic import BaseModel
 
 from synnax.ontology.payload import ID
 
+ONTOLOGY_TYPE = ID(type="group")
+
 
 class Group(BaseModel):
     key: UUID
@@ -21,4 +23,4 @@ class Group(BaseModel):
 
     @property
     def ontology_id(self) -> ID:
-        return ID(key=str(self.key), type="group")
+        return ID(key=str(self.key), type=ONTOLOGY_TYPE.type)

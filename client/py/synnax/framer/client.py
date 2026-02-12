@@ -11,17 +11,9 @@ from typing import overload
 
 import pandas as pd
 from alamos import NOOP, Instrumentation
-from freighter import AsyncStreamClient, StreamClient, UnaryClient, WebsocketClient
+from freighter import AsyncStreamClient, UnaryClient, WebsocketClient
 
-from synnax.channel.payload import (
-    ChannelKey,
-    ChannelKeys,
-    ChannelName,
-    ChannelNames,
-    ChannelParams,
-    ChannelPayload,
-    normalize_channel_params,
-)
+import synnax.channel.payload as channel
 from synnax.channel.retrieve import Retriever
 from synnax.exceptions import QueryError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
@@ -75,7 +67,7 @@ class Client:
     def open_writer(
         self,
         start: CrudeTimeStamp,
-        channels: ChannelParams,
+        channels: channel.Params,
         authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
         *,
         name: str = "",
@@ -140,7 +132,7 @@ class Client:
     def open_iterator(
         self,
         tr: TimeRange,
-        channels: ChannelParams,
+        channels: channel.Params,
         chunk_size: int = 1e5,
         downsample_factor: int = 1,
     ) -> Iterator:
@@ -179,7 +171,7 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        channel: ChannelKey | ChannelName | ChannelPayload,
+        channel: channel.Key | str | channel.Payload,
         data: CrudeSeries,
         strict: bool = False,
     ):
@@ -196,7 +188,13 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        channel: ChannelKeys | ChannelNames | list[ChannelPayload],
+        channel: (
+            list[channel.Key]
+            | tuple[channel.Key]
+            | list[str]
+            | tuple[str]
+            | list[channel.Payload]
+        ),
         series: list[CrudeSeries],
         strict: bool = False,
     ): ...
@@ -204,12 +202,12 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        channels: ChannelParams | ChannelPayload | list[ChannelPayload] | CrudeFrame,
+        channels: channel.Params | channel.Payload | list[channel.Payload] | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
         strict: bool = False,
     ):
         parsed_channels = list()
-        if isinstance(channels, (list, ChannelKey, ChannelPayload, ChannelName)):
+        if isinstance(channels, (list, channel.Key, channel.Payload, str)):
             parsed_channels = channels
         elif isinstance(channels, dict):
             parsed_channels = list(channels.keys())
@@ -231,20 +229,20 @@ class Client:
     def read(
         self,
         tr: TimeRange,
-        channels: ChannelKeys | ChannelNames,
+        channels: list[channel.Key] | tuple[channel.Key] | list[str] | tuple[str],
     ) -> Frame: ...
 
     @overload
     def read(
         self,
         tr: TimeRange,
-        channels: ChannelKey | ChannelName,
+        channels: channel.Key | str,
     ) -> MultiSeries: ...
 
     def read(
         self,
         tr: TimeRange,
-        channels: ChannelParams,
+        channels: channel.Params,
     ) -> MultiSeries | Frame:
         """
         Reads telemetry from the channel between the two timestamps.
@@ -255,7 +253,7 @@ class Client:
         :returns: A tuple where the first item is a numpy array containing the telemetry
         and the second item is the time range occupied by that array.
         """
-        normal = normalize_channel_params(channels)
+        normal = channel.normalize_params(channels)
         frame = self._read_frame(tr, channels)
         if len(normal.channels) > 1:
             return frame
@@ -268,19 +266,19 @@ class Client:
 
     def read_latest(
         self,
-        channels: ChannelKey | ChannelName,
+        channels: channel.Key | str,
         n: int = 1,
     ) -> MultiSeries: ...
 
     def read_latest(
         self,
-        channels: ChannelKeys | ChannelNames,
+        channels: list[channel.Key] | tuple[channel.Key] | list[str] | tuple[str],
         n: int = 1,
     ) -> Frame: ...
 
     def read_latest(
         self,
-        channels: ChannelParams,
+        channels: channel.Params,
         n: int = 1,
     ) -> Frame:
         """
@@ -292,7 +290,7 @@ class Client:
         Returns:
             A frame containing the latest n samples from time_channel and data_channel
         """
-        normal = normalize_channel_params(channels)
+        normal = channel.normalize_params(channels)
         aggregate = Frame()
         if n > 0:
             with self.open_iterator(
@@ -309,7 +307,7 @@ class Client:
 
     def open_streamer(
         self,
-        channels: ChannelParams,
+        channels: channel.Params,
         downsample_factor: int = 1,
         throttle_rate: float = 0,
         use_experimental_codec: bool = True,
@@ -335,7 +333,7 @@ class Client:
 
     async def open_async_streamer(
         self,
-        channels: ChannelParams,
+        channels: channel.Params,
         downsample_factor: int = 1,
         throttle_rate: float = 0,
     ) -> AsyncStreamer:
@@ -350,7 +348,7 @@ class Client:
         await s._open()
         return s
 
-    def delete(self, channels: ChannelParams, tr: TimeRange) -> None:
+    def delete(self, channels: channel.Params, tr: TimeRange) -> None:
         """
         delete deletes data in the specified channels in the specified time range.
         Note that the time range is start-inclusive and end-exclusive.
@@ -364,7 +362,7 @@ class Client:
     def _read_frame(
         self,
         tr: TimeRange,
-        channels: ChannelParams,
+        channels: channel.Params,
     ) -> Frame:
         aggregate = Frame()
         with self.open_iterator(tr, channels) as it:

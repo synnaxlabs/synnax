@@ -12,23 +12,16 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import overload
 
+from pandas import DataFrame
 from pydantic import BaseModel, Field
 
-
-from pandas import DataFrame
-
-from synnax.channel.payload import (
-    ChannelKey,
-    ChannelKeys,
-    ChannelName,
-    ChannelNames,
-)
+import synnax.channel.payload as channel
 from synnax.exceptions import ValidationError
 from synnax.telem import CrudeSeries, MultiSeries, Series, TypedCrudeSeries
 
 
 class FramePayload(BaseModel):
-    keys: ChannelKeys
+    keys: list[channel.Key] | tuple[channel.Key]
     series: list[Series]
 
     def __init__(
@@ -52,19 +45,21 @@ class Frame:
     can be keyed by channel name or channel key, but not both.
     """
 
-    channels: list[ChannelKey | ChannelName]
+    channels: list[channel.Key | str]
     series: list[Series] = Field(default_factory=list)
 
     def __init__(
         self,
         channels: (
-            ChannelKeys
-            | ChannelNames
+            list[channel.Key]
+            | tuple[channel.Key]
+            | list[str]
+            | tuple[str]
             | DataFrame
             | Frame
             | FramePayload
-            | dict[ChannelKey, TypedCrudeSeries]
-            | dict[ChannelName, TypedCrudeSeries]
+            | dict[channel.Key, TypedCrudeSeries]
+            | dict[str, TypedCrudeSeries]
             | None
         ) = None,
         series: list[TypedCrudeSeries] | None = None,
@@ -85,7 +80,7 @@ class Frame:
             channels is None or isinstance(channels, list)
         ):
             self.series = list() if series is None else [Series(d) for d in series]
-            self.channels = channels or list[ChannelKey]()
+            self.channels = channels or list[channel.Key]()
         else:
             raise ValueError(f"""
                 [Frame] - invalid construction arguments. Received {channels}
@@ -96,7 +91,7 @@ class Frame:
         return self.to_df().__str__()
 
     @overload
-    def append(self, col_or_frame: ChannelKey | ChannelName, series: Series) -> None:
+    def append(self, col_or_frame: channel.Key | str, series: Series) -> None:
         """Adds a new series to the frame for the given channel.
         :param col_or_frame: The channel key or name to append the series to.
         :param series: The series to append to the frame
@@ -112,7 +107,7 @@ class Frame:
 
     def append(
         self,
-        col_or_frame: ChannelKey | ChannelName | Frame,
+        col_or_frame: channel.Key | str | Frame,
         series: Series | None = None,
     ) -> None:
         """Appends a frame or series to the current frame. If a frame is provided, the
@@ -132,21 +127,21 @@ class Frame:
 
     def items(
         self,
-    ) -> Iterator[tuple[ChannelKey | ChannelName, Series]]:
+    ) -> Iterator[tuple[channel.Key | str, Series]]:
         """
         Returns a generator of tuples containing the channel and series for each channel
         in the frame.
         """
         return zip(self.channels, self.series)  # type: ignore
 
-    def __getitem__(self, key: ChannelKey | ChannelName | any) -> MultiSeries:
-        if not isinstance(key, (ChannelKey, ChannelName)):
+    def __getitem__(self, key: channel.Key | str | any) -> MultiSeries:
+        if not isinstance(key, (channel.Key, str)):
             return self.to_df()[key]
         indexes = [i for i, k in enumerate(self.channels) if k == key]
         return MultiSeries([self.series[i] for i in indexes])
 
     def get(
-        self, key: ChannelKey | ChannelName, default: Series | None = None
+        self, key: channel.Key | str, default: Series | None = None
     ) -> MultiSeries | None:
         """Gets the series for the given channel key or name. If the channel does not
         exist in the frame, returns the default value or None if no default is provided.
@@ -163,8 +158,8 @@ class Frame:
         network. This method should typically only be used internally.
         :raises: ValidationError if the frame is keyed by channel name instead of key.
         """
-        if not all(isinstance(k, ChannelKey) for k in self.channels):
-            diff = [k for k in self.channels if not isinstance(k, ChannelKey)]
+        if not all(isinstance(k, channel.Key) for k in self.channels):
+            diff = [k for k in self.channels if not isinstance(k, channel.Key)]
             raise ValidationError(f"""
             Cannot convert a frame that contains channel names to a payload.
             The following channels are invalid: {diff}
@@ -185,8 +180,8 @@ class Frame:
                 base[k] = list(self.get(k))
         return DataFrame(base)
 
-    def __contains__(self, key: ChannelKey | ChannelName) -> bool:
+    def __contains__(self, key: channel.Key | str) -> bool:
         return key in self.channels
 
 
-CrudeFrame = Frame | FramePayload | dict[ChannelKey, CrudeSeries] | DataFrame
+CrudeFrame = Frame | FramePayload | dict[channel.Key, CrudeSeries] | DataFrame

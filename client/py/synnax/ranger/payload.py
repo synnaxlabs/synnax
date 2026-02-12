@@ -9,8 +9,7 @@
 
 from uuid import UUID
 
-
-from pydantic import ConfigDict, BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from synnax.color import Color
 from synnax.ontology import ID
