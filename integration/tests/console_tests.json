@@ -3,7 +3,10 @@
   "sequences": [
     {
       "sequence_name": "workspace",
-      "tests": [{ "case": "console/workspace/workspace" }]
+      "tests": [
+        { "case": "console/workspace/workspace" },
+        { "case": "console/workspace/ontology" }
+      ]
     },
     {
       "sequence_name": "lifecycle",

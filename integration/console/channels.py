@@ -409,36 +409,14 @@ class ChannelClient:
         """
         if len(names) < 2:
             raise ValueError("At least 2 channels are required to create a group")
-
         self.show_channels()
-
-        # Select all channels (first one normal click, rest with Ctrl+Click)
-        last_item = None
-        for i, name in enumerate(names):
-            item = self.tree.find_by_name(self.ITEM_PREFIX, name)
+        items = []
+        for name in names:
+            item = self.tree.find_by_name(self.ITEM_PREFIX, str(name))
             if item is None:
                 raise ValueError(f"Channel {name} not found")
-            if i == 0:
-                item.click()
-            else:
-                item.click(modifiers=["ControlOrMeta"])
-            last_item = item
-
-        # Right-click last item and select "Group selection"
-        assert last_item is not None
-        self.ctx_menu.action(last_item, "Group selection")
-
-        editable_input = self.layout.page.locator(
-            "input.pluto-text__input--editable"
-        ).first
-        try:
-            editable_input.wait_for(state="visible", timeout=500)
-            editable_input.fill(group_name)
-            self.layout.press_enter()
-        except Exception:
-            self.layout.page.keyboard.type(group_name)
-            self.layout.press_enter()
-
+            items.append(item)
+        self.tree.group(items, group_name)
         self.hide_channels()
 
     def copy_link(self, name: ChannelName) -> str:

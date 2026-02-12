@@ -9,8 +9,11 @@
 
 """Tree navigation utilities for Console UI automation."""
 
-import synnax as sy
 from playwright.sync_api import Locator, Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+from console.context_menu import ContextMenu
+from console.layout import LayoutClient
 
 
 class Tree:
@@ -23,9 +26,13 @@ class Tree:
     """
 
     page: Page
+    layout: LayoutClient
+    ctx_menu: ContextMenu
 
     def __init__(self, page: Page):
         self.page = page
+        self.layout = LayoutClient(page)
+        self.ctx_menu = ContextMenu(page)
 
     def find_by_prefix(self, prefix: str) -> list[Locator]:
         """Find all visible tree items with the given ID prefix.
@@ -104,6 +111,29 @@ class Tree:
             return text_element.inner_text().strip()
         return item.inner_text().strip()
 
+    def expand_root(self, prefix: str) -> None:
+        """Expand the first root-level tree node with the given prefix.
+
+        Waits for the item to appear, then clicks to expand if not already expanded.
+
+        :param prefix: The ID prefix (e.g., 'workspace:', 'channel:').
+        """
+        self.page.locator(f"div[id^='{prefix}']").first.wait_for(
+            state="visible", timeout=5000
+        )
+        items = self.find_by_prefix(prefix)
+        if not items:
+            return
+        root = items[0]
+        caret = root.locator(".pluto--location-bottom")
+        try:
+            caret.wait_for(state="visible", timeout=500)
+            return
+        except PlaywrightTimeoutError:
+            pass
+        root.click()
+        caret.wait_for(state="visible", timeout=5000)
+
     def expand(self, item: Locator) -> None:
         """Expand a tree node to show its children.
 
@@ -117,7 +147,6 @@ class Tree:
             expand_icon.click()
         else:
             item.click()
-        sy.sleep(0.5)
 
     def collapse(self, item: Locator) -> None:
         """Collapse a tree node to hide its children.
@@ -152,6 +181,58 @@ class Tree:
             return text_element.inner_text().strip()
         return item.inner_text().strip()
 
+    def rename(self, item: Locator, new_name: str) -> None:
+        """Rename a tree item via context menu.
+
+        :param item: The Locator for the tree item to rename.
+        :param new_name: The new name for the item.
+        """
+        self.ctx_menu.action(item, "Rename")
+        self.page.locator(
+            "p.pluto-text--editable[contenteditable='true']"
+        ).first.wait_for(state="visible", timeout=5000)
+        self.layout.select_all_and_type(new_name)
+        self.layout.press_enter()
+
+    def group(self, items: list[Locator], group_name: str) -> None:
+        """Group multiple tree items into a new group via multi-select and context menu.
+
+        :param items: List of Locators for the tree items to group.
+        :param group_name: Name for the new group.
+        """
+        if not items:
+            return
+        items[0].click()
+        for item in items[1:]:
+            item.click(modifiers=["ControlOrMeta"])
+        last_item = items[-1]
+        self.ctx_menu.action(last_item, "Group selection")
+        # "Group selection" creates a group but doesn't enter name edit mode.
+        # The newly created group gets the "selected" class.
+        new_group = self.page.locator("div.pluto--selected[id^='group:']").first
+        new_group.wait_for(state="visible", timeout=5000)
+        new_group.locator("p.pluto-text--editable").dblclick()
+        self.layout.press_key("ControlOrMeta+a")
+        self.layout.type_text(group_name)
+        self.layout.press_enter()
+
+    def delete_group(self, item: Locator) -> None:
+        """Delete a group via context menu.
+
+        Groups are deleted immediately without a confirmation dialog.
+        The context menu shows "Delete" for collapsed groups and "Ungroup"
+        for expanded groups with visible children.
+
+        :param item: The Locator for the group to delete.
+        """
+        self.ctx_menu.open_on(item)
+        if self.ctx_menu.has_option("Delete"):
+            self.ctx_menu.click_option("Delete")
+        elif self.ctx_menu.has_option("Ungroup"):
+            self.ctx_menu.click_option("Ungroup")
+        else:
+            self.ctx_menu.close()
+
     def set_editable_text(self, item: Locator, text: str) -> None:
         """Set the editable text content of a tree item.
 
@@ -163,5 +244,4 @@ class Tree:
         text_element = item.locator("p.pluto-text--editable")
         text_element.click()
         text_element.fill(text)
-        self.page.keyboard.press("Enter")
-        sy.sleep(0.2)
+        self.layout.press_enter()
