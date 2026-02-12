@@ -7,27 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package diagnostics_test
+package humanize_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/diagnostics"
+	"github.com/synnaxlabs/arc/analyzer/humanize"
 	"github.com/synnaxlabs/arc/types"
 )
 
-var _ = Describe("HumanizeType", func() {
+var _ = Describe("Type", func() {
 	Describe("Concrete Types", func() {
 		It("Should return string representation for i64", func() {
-			Expect(diagnostics.HumanizeType(types.I64())).To(Equal("i64"))
+			Expect(humanize.Type(types.I64())).To(Equal("i64"))
 		})
 
 		It("Should return string representation for f32", func() {
-			Expect(diagnostics.HumanizeType(types.F32())).To(Equal("f32"))
+			Expect(humanize.Type(types.F32())).To(Equal("f32"))
 		})
 
 		It("Should return string representation for string", func() {
-			Expect(diagnostics.HumanizeType(types.String())).To(Equal("str"))
+			Expect(humanize.Type(types.String())).To(Equal("str"))
 		})
 	})
 
@@ -35,24 +35,24 @@ var _ = Describe("HumanizeType", func() {
 		It("Should return 'integer' for integer constraint", func() {
 			intConstraint := types.IntegerConstraint()
 			tv := types.Variable("$T1", &intConstraint)
-			Expect(diagnostics.HumanizeType(tv)).To(Equal("integer"))
+			Expect(humanize.Type(tv)).To(Equal("integer"))
 		})
 
 		It("Should return 'float' for float constraint", func() {
 			floatConstraint := types.FloatConstraint()
 			tv := types.Variable("$T2", &floatConstraint)
-			Expect(diagnostics.HumanizeType(tv)).To(Equal("float"))
+			Expect(humanize.Type(tv)).To(Equal("float"))
 		})
 
 		It("Should return 'numeric' for numeric constraint", func() {
 			numConstraint := types.NumericConstraint()
 			tv := types.Variable("$T3", &numConstraint)
-			Expect(diagnostics.HumanizeType(tv)).To(Equal("numeric"))
+			Expect(humanize.Type(tv)).To(Equal("numeric"))
 		})
 
 		It("Should return 'unknown type' for unconstrained variable", func() {
 			tv := types.Variable("$T4", nil)
-			Expect(diagnostics.HumanizeType(tv)).To(Equal("unknown type"))
+			Expect(humanize.Type(tv)).To(Equal("unknown type"))
 		})
 	})
 
@@ -61,12 +61,12 @@ var _ = Describe("HumanizeType", func() {
 			intConstraint := types.IntegerConstraint()
 			tv := types.Variable("$T", &intConstraint)
 			ch := types.Chan(tv)
-			Expect(diagnostics.HumanizeType(ch)).To(Equal("chan integer"))
+			Expect(humanize.Type(ch)).To(Equal("chan integer"))
 		})
 
 		It("Should humanize series element type", func() {
 			s := types.Series(types.F64())
-			Expect(diagnostics.HumanizeType(s)).To(Equal("series f64"))
+			Expect(humanize.Type(s)).To(Equal("series f64"))
 		})
 	})
 })

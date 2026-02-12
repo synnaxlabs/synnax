@@ -29,7 +29,7 @@ var _ = Describe("FoldingRange", func() {
 	Describe("Functions", func() {
 		It("Should return folding range for a simple function", func() {
 			server, uri := SetupTestServer()
-			OpenDocument(server, ctx, uri, "func test() {\n\tx := 1\n}")
+			OpenArcDocument(server, ctx, uri, "func test() {\n\tx := 1\n}")
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -45,7 +45,7 @@ var _ = Describe("FoldingRange", func() {
 
 		It("Should return folding ranges for multiple functions", func() {
 			server, uri := SetupTestServer()
-			OpenDocument(server, ctx, uri, "func foo() {\n\tx := 1\n}\n\nfunc bar() {\n\ty := 2\n}")
+			OpenArcDocument(server, ctx, uri, "func foo() {\n\tx := 1\n}\n\nfunc bar() {\n\ty := 2\n}")
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -62,7 +62,7 @@ var _ = Describe("FoldingRange", func() {
 
 		It("Should not return folding range for single-line function", func() {
 			server, uri := SetupTestServer()
-			OpenDocument(server, ctx, uri, "func test() { x := 1 }")
+			OpenArcDocument(server, ctx, uri, "func test() { x := 1 }")
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -77,7 +77,7 @@ var _ = Describe("FoldingRange", func() {
 	Describe("Sequences", func() {
 		It("Should return folding range for a sequence", func() {
 			server, uri := SetupTestServer()
-			OpenDocument(server, ctx, uri, "sequence main {\n\tstage first {\n\t}\n}")
+			OpenArcDocument(server, ctx, uri, "sequence main {\n\tstage first {\n\t}\n}")
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -98,7 +98,7 @@ var _ = Describe("FoldingRange", func() {
 
 		It("Should return folding ranges for nested stages", func() {
 			server, uri := SetupTestServer()
-			OpenDocument(server, ctx, uri, "sequence main {\n\tstage first {\n\t}\n\tstage second {\n\t}\n}")
+			OpenArcDocument(server, ctx, uri, "sequence main {\n\tstage first {\n\t}\n\tstage second {\n\t}\n}")
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -113,7 +113,7 @@ var _ = Describe("FoldingRange", func() {
 	Describe("Edge Cases", func() {
 		It("Should return empty ranges for empty document", func() {
 			server, uri := SetupTestServer()
-			OpenDocument(server, ctx, uri, "")
+			OpenArcDocument(server, ctx, uri, "")
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -139,7 +139,7 @@ var _ = Describe("FoldingRange", func() {
 		It("Should handle block URIs", func() {
 			server, _ := SetupTestServer()
 			blockURI := protocol.DocumentURI("arc://block/test")
-			OpenDocument(server, ctx, blockURI, "if x > 0 {\n\ty := 1\n}")
+			OpenArcDocument(server, ctx, blockURI, "if x > 0 {\n\ty := 1\n}")
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
