@@ -1895,7 +1895,7 @@ TEST(ArcTests, testStaticAuthorityConfig) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("auth_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("auth_test")};
     arc_prog.text = ::arc::text::Text(
         "authority 200\n"
         "func calc(val f32) f32 {\n"
@@ -2003,7 +2003,7 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
     };
     ASSERT_NIL(client->channels.create(out_b_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("pca_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("pca_test")};
     arc_prog.text = ::arc::text::Text(
         "authority (\n"
         "    100\n"
@@ -2114,7 +2114,7 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
     };
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("dyn_auth_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("dyn_auth_test")};
     arc_prog.text = ::arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
@@ -2212,7 +2212,7 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
     };
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("dpc_auth_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("dpc_auth_test")};
     arc_prog.text = ::arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
@@ -2314,7 +2314,7 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
     };
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("auth_calc_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("auth_calc_test")};
     arc_prog.text = ::arc::text::Text(
         "func double(val u8) u8 {\n"
         "    return val * 2\n"
@@ -2417,7 +2417,7 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("writer_fail_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("writer_fail_test")};
     arc_prog.text = ::arc::text::Text(
         "func double(val i32) i32 { return val * 2 }\n" + input_name +
         " -> double{} -> " + output_name + "\n"
