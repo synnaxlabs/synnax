@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <limits>
+#include <stdexcept>
 #include <string>
 
 #include "x/cpp/date/date.h"
@@ -268,6 +269,11 @@ nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format) {
             return static_cast<double>(ts.nanoseconds()) / 1e9;
         case TimeFormat::ISO8601:
             return ts.iso8601();
+        default:
+            throw std::runtime_error(
+                "unexpected TimeFormat value: " +
+                std::to_string(static_cast<int>(format))
+            );
     }
 }
 
@@ -279,6 +285,10 @@ nlohmann::json zero_value(Type format) {
             return "";
         case Type::Boolean:
             return false;
+        default:
+            throw std::runtime_error(
+                "unexpected Type value: " + std::to_string(static_cast<int>(format))
+            );
     }
 }
 
