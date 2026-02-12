@@ -41,7 +41,7 @@ import (
 
 // Config is the configuration for opening the distribution layer.  See fields for
 // details on defining the configuration.
-type Config struct {
+type LayerConfig struct {
 	// ChannelTransport is the network transport used for channel-related RPCs.
 	//
 	// [REQUIRED]
@@ -111,11 +111,11 @@ type Config struct {
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for opening the distribution layer.
+	_ config.Config[LayerConfig] = LayerConfig{}
+	// DefaultLayerConfig is the default configuration for opening the distribution layer.
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
-	DefaultConfig = Config{
+	DefaultLayerConfig = LayerConfig{
 		EnableSearch:         config.True(),
 		GorpCodec:            &binary.MsgPackCodec{},
 		EnableServiceSignals: config.True(),
@@ -124,7 +124,7 @@ var (
 )
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.AdvertiseAddress = override.String(c.AdvertiseAddress, other.AdvertiseAddress)
@@ -144,7 +144,7 @@ func (c Config) Override(other Config) Config {
 
 // Validate implements config.Config. It does nothing and leaves
 // validation to the individual components.
-func (c Config) Validate() error {
+func (c LayerConfig) Validate() error {
 	v := validate.New("distribution")
 	validate.NotNil(v, "storage", c.Storage)
 	validate.NotEmptyString(v, "advertise_address", c.AdvertiseAddress)
@@ -197,8 +197,8 @@ type Layer struct {
 // If the returned error is nil, the Layer must be closed by calling Close after use.
 // None of the services in the Layer should be used after Close is called. It is the
 // caller's responsibility to ensure that the Layer is not accessed after it is closed.
-func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (*Layer, error) {
+	cfg, err := config.New(DefaultLayerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

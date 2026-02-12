@@ -27,21 +27,21 @@ var _ = Describe("storage", func() {
 	Describe("Open", func() {
 		var (
 			tempDir string
-			cfg     storage.Config
+			cfg     storage.LayerConfig
 		)
 		BeforeEach(func() {
 			var err error
 			tempDir, err = os.MkdirTemp("", "synnax-test")
 			Expect(err).ToNot(HaveOccurred())
-			cfg = storage.Config{Dirname: filepath.Join(tempDir, "storage")}
+			cfg = storage.LayerConfig{Dirname: filepath.Join(tempDir, "storage")}
 			ShouldNotLeakGoroutines()
 		})
 		AfterEach(func() { Expect(os.RemoveAll(tempDir)).ToNot(HaveOccurred()) })
 		Describe("Acquiring a lock", func() {
 			It("Should return an error if the lock is already acquired", func() {
-				store, err := storage.Open(ctx, cfg)
+				store, err := storage.OpenLayer(ctx, cfg)
 				Expect(err).NotTo(HaveOccurred())
-				_, err = storage.Open(ctx, cfg)
+				_, err = storage.OpenLayer(ctx, cfg)
 				Expect(err).To(HaveOccurred())
 				Expect(store.Close()).To(Succeed())
 			})
@@ -53,8 +53,8 @@ var _ = Describe("storage", func() {
 			if !strings.HasPrefix(runtime.GOOS, "windows") {
 				Describe("Name Directory", func() {
 					It("Should set the correct permissions on the storage directory", func() {
-						cfg.Perm = storage.DefaultConfig.Perm
-						store, err := storage.Open(ctx, cfg)
+						cfg.Perm = storage.DefaultLayerConfig.Perm
+						store, err := storage.OpenLayer(ctx, cfg)
 						Expect(err).NotTo(HaveOccurred())
 						stat, err := os.Stat(cfg.Dirname)
 						Expect(err).ToNot(HaveOccurred())
@@ -73,7 +73,7 @@ var _ = Describe("storage", func() {
 					It("Should return an error if the directory exists but has insufficient permissions", func() {
 						// use os.Stat to check the dir permissions
 						cfg.Perm = xfs.UserRWX
-						_, err := storage.Open(ctx, cfg)
+						_, err := storage.OpenLayer(ctx, cfg)
 						Expect(err).To(HaveOccurred())
 					})
 				})
@@ -82,7 +82,7 @@ var _ = Describe("storage", func() {
 		Describe("In-Memory", func() {
 			It("Should open a memory backed version of storage", func() {
 				cfg.InMemory = config.True()
-				store, err := storage.Open(ctx, cfg)
+				store, err := storage.OpenLayer(ctx, cfg)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(store.Close()).To(Succeed())
 			})
@@ -90,10 +90,10 @@ var _ = Describe("storage", func() {
 	})
 	Describe("ServiceConfig", func() {
 		DescribeTable("Validate", func(
-			spec func(cfg storage.Config) storage.Config,
+			spec func(cfg storage.LayerConfig) storage.LayerConfig,
 			contains string,
 		) {
-			iCfg := storage.DefaultConfig
+			iCfg := storage.DefaultLayerConfig
 			iCfg.Dirname = "foo"
 			err := spec(iCfg).Validate()
 			if contains == "" {
@@ -104,7 +104,7 @@ var _ = Describe("storage", func() {
 			}
 		},
 			Entry("Directory not set",
-				func(cfg storage.Config) storage.Config {
+				func(cfg storage.LayerConfig) storage.LayerConfig {
 					cfg.Dirname = ""
 					*cfg.InMemory = false
 					return cfg
@@ -112,7 +112,7 @@ var _ = Describe("storage", func() {
 				"dirname",
 			),
 			Entry("Directory not set, mem-backed",
-				func(cfg storage.Config) storage.Config {
+				func(cfg storage.LayerConfig) storage.LayerConfig {
 					cfg.Dirname = ""
 					*cfg.InMemory = true
 					return cfg
@@ -120,14 +120,14 @@ var _ = Describe("storage", func() {
 				"",
 			),
 			Entry("Invalid key-value engine",
-				func(cfg storage.Config) storage.Config {
+				func(cfg storage.LayerConfig) storage.LayerConfig {
 					cfg.KVEngine = 12
 					return cfg
 				},
 				"key-value engine",
 			),
 			Entry("Invalid permissions",
-				func(cfg storage.Config) storage.Config {
+				func(cfg storage.LayerConfig) storage.LayerConfig {
 					cfg.Perm = 0
 					return cfg
 				},
