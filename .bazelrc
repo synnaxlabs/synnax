@@ -94,7 +94,11 @@ build:windows --copt=/wd4996  # disables warning C4996 (deprecated declarations)
 # Use a fixed PATH so that different shell environments (e.g. with/without a Python venv
 # activated) don't invalidate the entire action cache.
 build --incompatible_strict_action_env
-build --action_env=PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
+build:macos --action_env=PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
+build:linux --action_env=PATH=/usr/local/bin:/usr/bin:/bin
+# On Windows, inherit PATH from the host environment since tool install locations vary
+# more across machines (CMake, Git, MSVC, etc.)
+build:windows --action_env=PATH
 
 # ===== Warning Suppression for External Dependencies =====
 
