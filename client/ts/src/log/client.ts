@@ -22,7 +22,7 @@ import {
 } from "@/log/payload";
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
+import { workspace } from "@/workspace";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
@@ -41,7 +41,7 @@ export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ logs: array.nullableZ(logZ) });
 
-const createReqZ = z.object({ workspace: workspaceKeyZ, logs: newZ.array() });
+const createReqZ = z.object({ workspace: workspace.keyZ, logs: newZ.array() });
 const createResZ = z.object({ logs: logZ.array() });
 
 const emptyResZ = z.object({});
@@ -53,9 +53,9 @@ export class Client {
     this.client = client;
   }
 
-  async create(workspace: WorkspaceKey, log: New): Promise<Log>;
-  async create(workspace: WorkspaceKey, logs: New[]): Promise<Log[]>;
-  async create(workspace: WorkspaceKey, logs: New | New[]): Promise<Log | Log[]> {
+  async create(workspace: workspace.Key, log: New): Promise<Log>;
+  async create(workspace: workspace.Key, logs: New[]): Promise<Log[]>;
+  async create(workspace: workspace.Key, logs: New | New[]): Promise<Log | Log[]> {
     const isMany = Array.isArray(logs);
     const res = await sendRequired(
       this.client,

@@ -76,6 +76,11 @@ func (s *Service) Type() ontology.Type { return OntologyType }
 // Schema returns the schema for the device ontology service.
 func (s *Service) Schema() zyn.Schema { return schema }
 
+// SearchableFields implements ontology.SearchableFieldsProvider.
+func (s *Service) SearchableFields() []string {
+	return []string{"make", "model", "location"}
+}
+
 // RetrieveResource allows for retrieving a device with a given key from the ontology.
 func (s *Service) RetrieveResource(
 	ctx context.Context,

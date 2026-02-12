@@ -29,15 +29,14 @@ from synnax.channel.payload import (
     ChannelPayload,
 )
 from synnax.channel.retrieve import ChannelRetriever
-from synnax.color import Color
 from synnax.exceptions import QueryError
 from synnax.framer.client import Client
 from synnax.framer.frame import CrudeFrame
 from synnax.ni import AnalogReadTask
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.payload import ID
-from synnax.ranger.alias.client import Aliaser
-from synnax.ranger.kv.client import KV
+from synnax.ranger.alias import Client as AliasClient
+from synnax.ranger.kv import Client as KVClient
 from synnax.ranger.payload import (
     RangeKey,
     RangeKeys,
@@ -72,7 +71,7 @@ class _InternalScopedChannel(ChannelPayload):
     """The range that this channel belongs to."""
     __frame_client: Client | None = PrivateAttr(None)
     """The frame client for executing read operations."""
-    __aliaser: Aliaser | None = PrivateAttr(None)
+    __aliaser: AliasClient | None = PrivateAttr(None)
     """An aliaser for setting the channel's alias."""
     __cache: Series | None = PrivateAttr(None)
     """An internal cache to prevent repeated reads from the same channel."""
@@ -90,7 +89,7 @@ class _InternalScopedChannel(ChannelPayload):
         tasks: TaskClient,
         ontology: OntologyClient,
         payload: ChannelPayload,
-        aliaser: Aliaser | None = None,
+        aliaser: AliasClient | None = None,
     ):
         super().__init__(**payload.model_dump())
         self.__range = rng
@@ -258,9 +257,9 @@ class Range(RangePayload):
     """The frame client for executing read and write operations."""
     _channels: ChannelRetriever | None = PrivateAttr(None)
     """For retrieving channels from the cluster."""
-    _kv: KV | None = PrivateAttr(None)
+    _kv: KVClient | None = PrivateAttr(None)
     """Key-value store for storing metadata about the range."""
-    __aliaser: Aliaser | None = PrivateAttr(None)
+    __aliaser: AliasClient | None = PrivateAttr(None)
     """For setting and resolving aliases."""
     _cache: dict[ChannelKey, _InternalScopedChannel] = PrivateAttr(dict())
     """A writer for creating child ranges"""
@@ -273,12 +272,12 @@ class Range(RangePayload):
         name: str,
         time_range: TimeRange,
         key: UUID = UUID(int=0),
-        color: Color | str = "",
+        color: str = "",
         *,
         _frame_client: Client | None = None,
         _channel_retriever: ChannelRetriever | None = None,
-        _kv: KV | None = None,
-        _aliaser: Aliaser | None = None,
+        _kv: KVClient | None = None,
+        _aliaser: AliasClient | None = None,
         _client: RangeClient | None = None,
         _tasks: TaskClient | None = None,
         _ontology: OntologyClient | None = None,
@@ -437,7 +436,7 @@ class Range(RangePayload):
         *,
         name: str,
         time_range: TimeRange,
-        color: Color | str = "",
+        color: str = "",
         key: RangeKey = UUID(int=0),
     ) -> Range:
         return self._client.create(
@@ -453,7 +452,7 @@ class Range(RangePayload):
         *,
         name: str,
         time_range: TimeRange,
-        color: Color | str = "",
+        color: str = "",
         key: RangeKey = UUID(int=0),
     ) -> Range:
         """
@@ -524,7 +523,7 @@ class RangeClient:
         *,
         name: str,
         time_range: TimeRange,
-        color: Color | str = "",
+        color: str = "",
         retrieve_if_name_exists: bool = False,
         parent: ID | None = None,
         key: RangeKey = UUID(int=0),
@@ -587,7 +586,7 @@ class RangeClient:
         key: RangeKey = UUID(int=0),
         name: str = "",
         time_range: TimeRange | None = None,
-        color: Color | str = "",
+        color: str = "",
         retrieve_if_name_exists: bool = False,
         parent: ID | None = None,
     ) -> Range | list[Range]:
@@ -665,8 +664,8 @@ class RangeClient:
                 **r.model_dump(),
                 _frame_client=self._frame_client,
                 _channel_retriever=self._channels,
-                _kv=KV(r.key, self._unary_client),
-                _aliaser=Aliaser(r.key, self._unary_client),
+                _kv=KVClient(r.key, self._unary_client),
+                _aliaser=AliasClient(r.key, self._unary_client),
                 _client=self,
                 _ontology=self._ontology,
                 _tasks=self._tasks,
@@ -688,8 +687,8 @@ class RangeClient:
                     ),
                     _frame_client=self._frame_client,
                     _channel_retriever=self._channels,
-                    _kv=KV(d["key"], self._unary_client),
-                    _aliaser=Aliaser(d["key"], self._unary_client),
+                    _kv=KVClient(d["key"], self._unary_client),
+                    _aliaser=AliasClient(d["key"], self._unary_client),
                 )
             )
 

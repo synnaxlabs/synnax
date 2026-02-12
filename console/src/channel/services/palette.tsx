@@ -17,7 +17,7 @@ const useVisible = () => Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
 
 export const CreateCommand = Palette.createSimpleCommand({
   key: "create-channel",
-  name: "Create a Channel",
+  name: "Create a channel",
   icon: <Icon.Channel />,
   layout: Channel.CREATE_LAYOUT,
   useVisible,
@@ -25,7 +25,7 @@ export const CreateCommand = Palette.createSimpleCommand({
 
 export const CreateCalculatedCommand = Palette.createSimpleCommand({
   key: "create-calculated-channel",
-  name: "Create a Calculated Channel",
+  name: "Create a calculated channel",
   icon: <Icon.Channel />,
   layout: Channel.CALCULATED_LAYOUT,
   useVisible,

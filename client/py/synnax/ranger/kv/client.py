@@ -10,20 +10,35 @@
 import uuid
 from typing import overload
 
-from freighter import UnaryClient, send_required
+from freighter import Payload, UnaryClient, send_required
 
-from synnax.ranger.kv.payload import (
-    DeleteRequest,
-    EmptyResponse,
-    GetRequest,
-    GetResponse,
-    KVPair,
-    SetRequest,
-)
+from synnax.ranger.kv.payload import Pair
 from synnax.util.normalize import normalize
 
 
-class KV:
+class _GetRequest(Payload):
+    range: uuid.UUID
+    keys: list[str]
+
+
+class _GetResponse(Payload):
+    pairs: list[Pair]
+
+
+class _SetRequest(Payload):
+    range: uuid.UUID
+    pairs: list[Pair]
+
+
+class _DeleteRequest(Payload):
+    range: uuid.UUID
+    keys: list[str]
+
+
+class _EmptyResponse(Payload): ...
+
+
+class Client:
     _client: UnaryClient
     _rng_key: uuid.UUID
 
@@ -35,8 +50,8 @@ class KV:
     def get(self, keys: str) -> str: ...
 
     def get(self, keys: str | list[str]) -> dict[str, str] | str:
-        req = GetRequest(range=self._rng_key, keys=normalize(keys))
-        res = send_required(self._client, "/range/kv/get", req, GetResponse)
+        req = _GetRequest(range=self._rng_key, keys=normalize(keys))
+        res = send_required(self._client, "/range/kv/get", req, _GetResponse)
         if isinstance(keys, str):
             return res.pairs[0].value
         return {pair.key: pair.value for pair in res.pairs}
@@ -50,16 +65,16 @@ class KV:
     def set(self, key: str | dict[str, any], value: any = None) -> None:
         pairs = list()
         if isinstance(key, str):
-            pairs.append(KVPair(range=self._rng_key, key=key, value=value))
+            pairs.append(Pair(range=self._rng_key, key=key, value=value))
         else:
             for k, v in key.items():
-                pairs.append(KVPair(range=self._rng_key, key=k, value=v))
-        req = SetRequest(range=self._rng_key, pairs=pairs)
-        send_required(self._client, "/range/kv/set", req, EmptyResponse)
+                pairs.append(Pair(range=self._rng_key, key=k, value=v))
+        req = _SetRequest(range=self._rng_key, pairs=pairs)
+        send_required(self._client, "/range/kv/set", req, _EmptyResponse)
 
     def delete(self, keys: str | list[str]) -> None:
-        req = DeleteRequest(range=self._rng_key, keys=normalize(keys))
-        send_required(self._client, "/range/kv/delete", req, EmptyResponse)
+        req = _DeleteRequest(range=self._rng_key, keys=normalize(keys))
+        send_required(self._client, "/range/kv/delete", req, _EmptyResponse)
 
     def __getitem__(self, key: str) -> str:
         return self.get(key)

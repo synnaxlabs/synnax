@@ -49,6 +49,7 @@ var _ = Describe("Hover", func() {
 		Entry("if", "if x > 10 { return 1 }", uint32(1), "if", "Conditional"),
 		Entry("return", "return 42", uint32(3), "return", ""),
 		Entry("sequence", "sequence main { stage first {} }", uint32(4), "sequence", "state machine"),
+		Entry("authority", "authority 200", uint32(4), "authority", "control authority"),
 	)
 
 	DescribeTable("type hover with range",
@@ -98,6 +99,22 @@ var _ = Describe("Hover", func() {
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### len"))
 			Expect(hover.Contents.Value).To(ContainSubstring("length of a series"))
+		})
+
+		It("should provide hover for 'set_authority' function", func() {
+			content := "set_authority{value=255}"
+			OpenDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 5},
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### set_authority"))
+			Expect(hover.Contents.Value).To(ContainSubstring("control authority"))
 		})
 
 		It("should provide hover for 'now' function", func() {

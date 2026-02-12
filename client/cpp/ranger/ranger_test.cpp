@@ -17,6 +17,8 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/test/test.h"
 
+#include "core/pkg/api/grpc/v1/ranger.pb.h"
+
 namespace synnax::ranger {
 std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
 
@@ -202,5 +204,72 @@ TEST(RangerTests, testRangeOntologyIdsEmpty) {
     const std::vector<Key> keys;
     const auto ids = ontology_ids(keys);
     ASSERT_TRUE(ids.empty());
+}
+
+/// @brief it should correctly parse all fields from a valid Range proto.
+TEST(RangerTests, testRangeFromProto) {
+    api::v1::Range pb;
+    pb.set_key("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
+    pb.set_name("test range");
+    pb.mutable_time_range()->set_start(100);
+    pb.mutable_time_range()->set_end(200);
+    const auto range = ASSERT_NIL_P(Range::from_proto(pb));
+    ASSERT_EQ(range.key.to_string(), "748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
+    ASSERT_EQ(range.name, "test range");
+    ASSERT_EQ(range.time_range.start, x::telem::TimeStamp(100));
+    ASSERT_EQ(range.time_range.end, x::telem::TimeStamp(200));
+}
+
+/// @brief it should return an error when parsing a Range proto with an invalid key.
+TEST(RangerTests, testRangeFromProtoInvalidKey) {
+    api::v1::Range pb;
+    pb.set_key("not-a-valid-uuid");
+    pb.set_name("bad range");
+    pb.mutable_time_range()->set_start(0);
+    pb.mutable_time_range()->set_end(100);
+    ASSERT_OCCURRED_AS_P(Range::from_proto(pb), x::uuid::INVALID);
+}
+
+/// @brief it should return an error when parsing a Range proto with an empty key.
+TEST(RangerTests, testRangeFromProtoEmptyKey) {
+    api::v1::Range pb;
+    pb.set_name("empty key range");
+    pb.mutable_time_range()->set_start(0);
+    pb.mutable_time_range()->set_end(100);
+    ASSERT_OCCURRED_AS_P(Range::from_proto(pb), x::uuid::INVALID);
+}
+
+/// @brief it should correctly handle large nanosecond timestamp values.
+TEST(RangerTests, testRangeFromProtoLargeTimestamps) {
+    api::v1::Range pb;
+    pb.set_key("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
+    pb.set_name("large ts range");
+    const int64_t start = 1700000000000000000LL;
+    const int64_t end = 1700000001000000000LL;
+    pb.mutable_time_range()->set_start(start);
+    pb.mutable_time_range()->set_end(end);
+    const auto range = ASSERT_NIL_P(Range::from_proto(pb));
+    ASSERT_EQ(range.time_range.start, x::telem::TimeStamp(start));
+    ASSERT_EQ(range.time_range.end, x::telem::TimeStamp(end));
+}
+
+/// @brief it should roundtrip Range through proto -> C++ -> proto -> C++.
+TEST(RangerTests, testRangeFromProtoRoundtrip) {
+    api::v1::Range pb;
+    pb.set_key("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
+    pb.set_name("roundtrip range");
+    pb.mutable_time_range()->set_start(500);
+    pb.mutable_time_range()->set_end(1000);
+    const auto first = ASSERT_NIL_P(Range::from_proto(pb));
+    api::v1::Range pb2;
+    pb2.set_key(first.key.to_string());
+    pb2.set_name(first.name);
+    pb2.mutable_time_range()->set_start(first.time_range.start.nanoseconds());
+    pb2.mutable_time_range()->set_end(first.time_range.end.nanoseconds());
+    const auto second = ASSERT_NIL_P(Range::from_proto(pb2));
+    ASSERT_EQ(first.key, second.key);
+    ASSERT_EQ(first.name, second.name);
+    ASSERT_EQ(first.time_range.start, second.time_range.start);
+    ASSERT_EQ(first.time_range.end, second.time_range.end);
 }
 }

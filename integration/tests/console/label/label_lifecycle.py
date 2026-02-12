@@ -29,6 +29,7 @@ class LabelLifecycle(ConsoleCase):
         self.console.ranges.favorite_from_explorer(self.shared_range)
 
     def teardown(self) -> None:
+        self.page.keyboard.press("Escape")
         self.console.ranges.delete_from_explorer(self.shared_range)
         if self.console.labels.exists(self.shared_label):
             self.console.labels.delete(self.shared_label)

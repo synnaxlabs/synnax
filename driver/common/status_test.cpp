@@ -114,6 +114,32 @@ TEST(TestTaskStateHandle, testClearWarning) {
     EXPECT_EQ(ctx->statuses.size(), stateCount); // No new state should be added
 }
 
+/// @brief it should immediately send an error status to the context.
+TEST(TestTaskStateHandler, testSendError) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{
+        .name = "task1",
+        .type = "ni_analog_read",
+        .config = ""
+    };
+    auto handler = StatusHandler(ctx, task);
+
+    handler.send_error(x::errors::Error(x::errors::VALIDATION, "fatal runtime error"));
+    ASSERT_GE(ctx->statuses.size(), 1);
+    const auto first = ctx->statuses[0];
+    EXPECT_EQ(first.key, task.status_key());
+    EXPECT_EQ(first.name, "task1");
+    EXPECT_EQ(first.details.task, task.key);
+    EXPECT_EQ(first.variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(first.details.running, false);
+    EXPECT_EQ(first.message, "fatal runtime error");
+
+    // Verify nil errors are ignored
+    const size_t count = ctx->statuses.size();
+    handler.send_error(x::errors::NIL);
+    EXPECT_EQ(ctx->statuses.size(), count);
+}
+
 /// @brief it should correctly communicate the stopping state of a task.
 TEST(TestTaskStateHandler, testStopCommunication) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);

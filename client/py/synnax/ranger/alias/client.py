@@ -9,19 +9,30 @@
 
 import uuid
 
-from freighter import UnaryClient
+from freighter import Payload, UnaryClient
 
 from synnax.channel import ChannelKey
-from synnax.ranger.alias.payload import (
-    EmptyResponse,
-    ResolveRequest,
-    ResolveResponse,
-    SetRequest,
-)
 from synnax.util.normalize import normalize
 
 
-class Aliaser:
+class _ResolveRequest(Payload):
+    range: uuid.UUID
+    aliases: list[str]
+
+
+class _ResolveResponse(Payload):
+    aliases: dict[str, ChannelKey]
+
+
+class _SetRequest(Payload):
+    range: uuid.UUID
+    aliases: dict[ChannelKey, str]
+
+
+class _EmptyResponse(Payload): ...
+
+
+class Client:
     __client: UnaryClient
     __cache: dict[str, ChannelKey]
 
@@ -50,8 +61,8 @@ class Aliaser:
         if len(to_fetch) == 0:
             return results
 
-        req = ResolveRequest(range=self.__rng, aliases=to_fetch)
-        res, exc = self.__client.send("/range/alias/resolve", req, ResolveResponse)
+        req = _ResolveRequest(range=self.__rng, aliases=to_fetch)
+        res, exc = self.__client.send("/range/alias/resolve", req, _ResolveResponse)
         if exc is not None:
             raise exc
 
@@ -63,7 +74,7 @@ class Aliaser:
         return {**results, **res.aliases}
 
     def set(self, aliases: dict[ChannelKey, str]) -> None:
-        req = SetRequest(range=self.__rng, aliases=aliases)
-        res, exc = self.__client.send("/range/alias/set", req, EmptyResponse)
+        req = _SetRequest(range=self.__rng, aliases=aliases)
+        res, exc = self.__client.send("/range/alias/set", req, _EmptyResponse)
         if exc is not None:
             raise exc

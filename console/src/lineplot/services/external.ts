@@ -17,4 +17,4 @@ export * from "@/lineplot/services/link";
 export * from "@/lineplot/services/ontology";
 export * from "@/lineplot/services/palette";
 
-export const FILE_INGESTORS: Import.FileIngestors = { [LinePlot.LAYOUT_TYPE]: ingest };
+export const FILE_INGESTERS: Import.FileIngesters = { [LinePlot.LAYOUT_TYPE]: ingest };

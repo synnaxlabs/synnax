@@ -64,20 +64,22 @@ class RenameSynchronization(ConsoleCase):
         )
 
         self.log("Setting up Line Plot with channel")
-        plot = Plot(console, f"Sync Test Plot {self.suffix}")
+        plot = console.workspace.create_plot(f"Sync Test Plot {self.suffix}")
         plot.add_channels("Y1", [self.data_name])
 
         self.log("Setting up Log with channel")
-        log_page = Log(console, f"Sync Test Log {self.suffix}")
+        log_page = console.workspace.create_log(f"Sync Test Log {self.suffix}")
         log_page.set_channel(self.data_name)
 
         self.log("Setting up Schematic with channel")
-        schematic = Schematic(console, f"Sync Test Schematic {self.suffix}")
+        schematic = console.workspace.create_schematic(
+            f"Sync Test Schematic {self.suffix}"
+        )
         value_symbol = Value(label=self.data_name, channel_name=self.data_name)
         schematic.create_symbol(value_symbol)
 
         self.log("Setting up Table with channel")
-        table = Table(console, f"Sync Test Table {self.suffix}")
+        table = console.workspace.create_table(f"Sync Test Table {self.suffix}")
         table.set_cell_channel(self.data_name)
 
         self.log("Renaming channel")

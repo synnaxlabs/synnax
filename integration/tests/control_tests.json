@@ -2,24 +2,21 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "Console Press Control - Valves",
+      "sequence_name": "Console Press Control",
+      "tests": [{ "case": "console/schematic/simple_press_valves" }]
+    },
+    {
+      "sequence_name": "Console Setpoint Control",
+      "sequence_order": "asynchronous",
       "tests": [
-        {
-          "case": "console/schematic/simple_press_valves"
-        }
+        { "case": "console/schematic/setpoint_press_user" },
+        { "case": "client/setpoint_press_auto" }
       ]
     },
     {
       "sequence_name": "Client Press Control & Bad Actor",
       "sequence_order": "asynchronous",
-      "tests": [
-        {
-          "case": "client/simple_press"
-        },
-        {
-          "case": "console/bad_actor"
-        }
-      ]
+      "tests": [{ "case": "client/simple_press" }, { "case": "console/bad_actor" }]
     }
   ]
 }

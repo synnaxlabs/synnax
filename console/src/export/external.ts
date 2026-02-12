@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/export/extractor";
+export * from "@/export/ExtractorsProvider";
 export * from "@/export/MenuItem";
 export * from "@/export/ToolbarButton";
 export * from "@/export/use";

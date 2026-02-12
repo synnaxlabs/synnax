@@ -9,16 +9,14 @@
 
 """Test custom schematic symbol operations."""
 
-import os
-
 import synnax as sy
 
 from console.case import ConsoleCase
 from console.schematic import CustomSymbol, Schematic
 from console.schematic.symbol_toolbar import SymbolToolbar
-from framework.utils import get_random_name
+from framework.utils import get_fixture_path, get_random_name
 
-TEST_SYMBOL_SVG = os.path.join(os.path.dirname(__file__), "test_symbol.svg")
+TEST_SYMBOL_SVG = get_fixture_path("test_symbol.svg")
 
 
 class CustomSymbols(ConsoleCase):
@@ -61,22 +59,21 @@ class CustomSymbols(ConsoleCase):
 
     def teardown(self) -> None:
         if self.console.workspace.page_exists(self.schematic_name):
-            schematic = Schematic.from_open_page(self.console, self.schematic_name)
-            toolbar = SymbolToolbar(self.page, self.console)
+            toolbar = SymbolToolbar(self.console.layout)
             toolbar.show()
 
             if toolbar.group_exists(self.test_group_name):
                 toolbar.delete_group(self.test_group_name)
 
-            schematic.close()
+            self.console.layout.close_tab(self.schematic_name)
             self.console.workspace.delete_page(self.schematic_name)
 
         super().teardown()
 
     def run(self) -> None:
         """Run all custom symbol tests."""
-        schematic = Schematic(self.console, self.schematic_name)
-        toolbar = SymbolToolbar(self.page, self.console)
+        schematic = self.console.workspace.create_schematic(self.schematic_name)
+        toolbar = SymbolToolbar(self.console.layout)
         toolbar.show()
         self.console.notifications.close_all()
 
@@ -129,7 +126,7 @@ class CustomSymbols(ConsoleCase):
         editor.save()
 
         assert toolbar.symbol_exists(
-            self.test_symbol_name
+            self.test_symbol_name, select_group=self.test_group_name
         ), f"Symbol '{self.test_symbol_name}' should exist after creation"
 
         custom_symbol_config = CustomSymbol(
@@ -184,23 +181,13 @@ class CustomSymbols(ConsoleCase):
 
         self.log("Pressing custom symbol actuator (expecting 1)")
         self.custom_symbol.press()
-        self._wait_for_channel_value(expected=1)
+        self.wait_for_eq(self.cmd_channel_name, 1)
+        self.log("Received expected value: 1")
 
         self.log("Pressing custom symbol actuator again (expecting 0)")
         self.custom_symbol.press()
-        self._wait_for_channel_value(expected=0)
-
-    def _wait_for_channel_value(self, expected: int) -> None:
-        """Wait for the command channel to have the expected value."""
-        for _ in range(30):
-            value = self.get_value(self.cmd_channel_name)
-            if value is not None and int(value) == expected:
-                self.log(f"Received expected value: {int(value)}")
-                return
-            sy.sleep(0.1)
-        self.fail(
-            f"Did not receive expected value {expected} from {self.cmd_channel_name}"
-        )
+        self.wait_for_eq(self.cmd_channel_name, 0)
+        self.log("Received expected value: 0")
 
     def test_export_symbol(self, toolbar: SymbolToolbar) -> None:
         """Test exporting a symbol via context menu."""

@@ -10,11 +10,11 @@
 import { schematic } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
-import { Import } from "@/import";
+import { type Import } from "@/import";
 import { create, LAYOUT_TYPE } from "@/schematic/Schematic";
 import { anyStateZ } from "@/schematic/slice";
 
-export const ingest: Import.FileIngestor = (
+export const ingest: Import.FileIngester = (
   data,
   { layout, placeLayout, store, client },
 ) => {
@@ -25,7 +25,3 @@ export const ingest: Import.FileIngestor = (
   // the imported data overwriting existing schematics in the cluster
   placeLayout(create({ ...state, key: layout?.key, ...layout, type: LAYOUT_TYPE }));
 };
-
-export const import_ = Import.createImporter(ingest, "schematic");
-
-export const useImport = (workspaceKey?: string) => Import.use(import_, workspaceKey);

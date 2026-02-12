@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import Any, Literal, Optional
 
+from console.layout import LayoutClient
 from console.task.channels.counter import Counter
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 
 class EdgeCount(Counter):
@@ -29,7 +27,7 @@ class EdgeCount(Counter):
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         active_edge: Optional[Literal["Rising", "Falling"]] = None,
@@ -42,44 +40,14 @@ class EdgeCount(Counter):
     ) -> None:
         """Initialize edge count channel with configuration."""
         super().__init__(
-            console=console,
+            layout=layout,
             name=name,
             device=device,
             chan_type="Edge Count",
             **kwargs,
         )
 
-        # Active Edge
-        if active_edge is not None:
-            console.click_btn("Active Edge")
-            console.select_from_dropdown(active_edge)
-            self.form_values["Active Edge"] = active_edge
-        else:
-            self.form_values["Active Edge"] = console.get_dropdown_value("Active Edge")
-
-        # Count Direction
-        if count_direction is not None:
-            console.click_btn("Count Direction")
-            console.select_from_dropdown(count_direction)
-            self.form_values["Count Direction"] = count_direction
-        else:
-            self.form_values["Count Direction"] = console.get_dropdown_value(
-                "Count Direction"
-            )
-
-        # Terminal
-        if terminal is not None:
-            console.click_btn("Input Terminal")
-            console.select_from_dropdown(terminal)
-            self.form_values["Input Terminal"] = terminal
-        else:
-            self.form_values["Input Terminal"] = console.get_dropdown_value(
-                "Input Terminal"
-            )
-
-        # Initial Count
-        if initial_count is not None:
-            console.fill_input_field("Initial Count", str(initial_count))
-            self.form_values["Initial Count"] = str(initial_count)
-        else:
-            self.form_values["Initial Count"] = console.get_input_field("Initial Count")
+        self._configure_dropdown("Active Edge", active_edge)
+        self._configure_dropdown("Count Direction", count_direction)
+        self._configure_dropdown("Input Terminal", terminal)
+        self._configure_input("Initial Count", initial_count)

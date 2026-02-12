@@ -7,20 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from __future__ import annotations
-
-import json
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal, TypedDict
 
 import synnax as sy
+from playwright.sync_api import Locator
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from framework.utils import get_results_path
-
-from ..page import ConsolePage
-
-if TYPE_CHECKING:
-    from console.console import Console
-from .symbol import (
+from console.layout import LayoutClient
+from console.page import ConsolePage
+from console.schematic.symbol import (
     Symbol,
     box_bottom,
     box_center_x,
@@ -31,6 +26,12 @@ from .symbol import (
 )
 
 PropertyDict = dict[str, float | str | bool]
+
+
+class SchematicProperties(TypedDict):
+    control_authority: int
+    show_control_legend: bool
+
 
 SCHEMATIC_VERSION = "5.0.0"
 
@@ -69,35 +70,16 @@ class Schematic(ConsolePage):
     page_type: str = "Schematic"
     pluto_label: str = ".react-flow__pane"
 
-    @classmethod
-    def open_from_search(cls, console: "Console", name: str) -> "Schematic":
-        """Open an existing schematic by searching its name in the command palette.
-
-        Args:
-            console: Console instance.
-            name: Name of the schematic to search for and open.
-
-        Returns:
-            Schematic instance for the opened schematic.
-        """
-        console.search_palette(name)
-
-        schematic_pane = console.page.locator(cls.pluto_label)
-        schematic_pane.first.wait_for(state="visible", timeout=5000)
-
-        schematic = cls(console, name, _skip_create=True)
-        schematic.pane_locator = schematic_pane.first
-        return schematic
-
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
+        client: sy.Synnax,
         page_name: str,
         *,
-        _skip_create: bool = False,
+        pane_locator: Locator,
     ):
-        """Initialize a Schematic page."""
-        super().__init__(console, page_name, _skip_create=_skip_create)
+        """Initialize a Schematic page wrapper (see ConsolePage.__init__ for details)."""
+        super().__init__(layout, client, page_name, pane_locator=pane_locator)
 
     def create_symbol(self, symbol: Symbol) -> Symbol:
         """Add a symbol to the schematic and configure it.
@@ -117,50 +99,9 @@ class Schematic(ConsolePage):
             configured_valve = schematic.create_symbol(valve)
             configured_valve.move(delta_x=-90, delta_y=-100)
         """
-
-        symbol.create(self.page, self.console)
+        self.enable_edit()
+        symbol.create(self.layout)
         return symbol
-
-    def copy_link(self) -> str:
-        """Copy link to the schematic via the toolbar link button.
-
-        Returns:
-            The copied link from clipboard (empty string if clipboard access fails)
-        """
-        self.console.notifications.close_all()
-        self.console.layout.show_visualization_toolbar()
-        link_button = self.page.locator(".pluto-icon--link").locator("..")
-        link_button.click(timeout=5000)
-
-        try:
-            link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
-            return link
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                return ""
-            raise RuntimeError(f"Error copying schematic link: {e}") from e
-
-    def export_json(self) -> dict[str, Any]:
-        """Export the schematic as a JSON file via the toolbar export button.
-
-        The file is saved to the tests/results directory with the schematic name.
-
-        Returns:
-            The exported JSON content as a dictionary.
-        """
-        self.console.layout.show_visualization_toolbar()
-        export_button = self.page.locator(".pluto-icon--export").locator("..")
-        self.page.evaluate("delete window.showSaveFilePicker")
-
-        with self.page.expect_download(timeout=5000) as download_info:
-            export_button.click()
-
-        download = download_info.value
-        save_path = get_results_path(f"{self.page_name}.json")
-        download.save_as(save_path)
-        with open(save_path, "r") as f:
-            result: dict[str, Any] = json.load(f)
-            return result
 
     def get_control_legend_entries(self) -> list[str]:
         """Get list of writer names from the control legend.
@@ -363,9 +304,9 @@ class Schematic(ConsolePage):
             raise ValueError(
                 f"Control Authority must be between 0 and 255, got {authority}"
             )
-        self.console.notifications.close_all()
-        self.console.click("Control")
-        self.console.fill_input_field("Control Authority", str(authority))
+        self.notifications.close_all()
+        self.layout.click("Control")
+        self.layout.fill_input_field("Control Authority", str(authority))
 
     def set_properties(
         self,
@@ -373,15 +314,15 @@ class Schematic(ConsolePage):
         show_control_legend: bool | None = None,
     ) -> None:
         """Set schematic properties."""
-        self.console.notifications.close_all()
-        self.console.click("Control")
+        self.notifications.close_all()
+        self.layout.click("Control")
 
         if control_authority is not None:
             if control_authority < 0 or control_authority > 255:
                 raise ValueError(
                     f"Control Authority must be between 0 and 255, got {control_authority}"
                 )
-            self.console.fill_input_field("Control Authority", str(control_authority))
+            self.layout.fill_input_field("Control Authority", str(control_authority))
             self.page.keyboard.press("Enter")
 
         if show_control_legend is not None:
@@ -436,9 +377,19 @@ class Schematic(ConsolePage):
             if control_button.count() > 0:
                 control_button.click()
                 self.page.wait_for_selector(
-                    ".console-controls button.pluto-btn--outlined", timeout=1000
+                    ".console-controls button.pluto-btn--outlined", timeout=5000
                 )
             sy.sleep(0.1)  # Wait for Core update
+
+    def fit_view(self) -> None:
+        """Fit the schematic view to its contents."""
+        fit_button = (
+            self.page.locator(".console-controls button")
+            .filter(has=self.page.locator("svg.pluto-icon--expand"))
+            .first
+        )
+        if fit_button.count() > 0:
+            fit_button.click()
 
     def get_edit_status(self) -> bool:
         """Get whether edit is currently enabled for this schematic."""
@@ -492,28 +443,31 @@ class Schematic(ConsolePage):
                 )
         sy.sleep(0.1)
 
-    def get_properties(self) -> tuple[int, bool]:
+    def get_properties(self) -> SchematicProperties:
         """Get the current properties of the schematic.
 
         Returns:
-            Tuple of (control_authority, show_control_legend)
+            Dict with control_authority and show_control_legend keys.
         """
-        self.console.notifications.close_all()
-        self.console.click("Control")
+        self.notifications.close_all()
+        self.layout.show_visualization_toolbar()
+        self.layout.click("Control")
 
-        control_authority = int(self.console.get_input_field("Control Authority"))
+        control_authority = int(self.layout.get_input_field("Control Authority"))
 
         try:
-            show_control_legend = self.console.get_toggle("Show Control State Legend")
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                show_control_legend = True
-            else:
-                raise RuntimeError(
-                    f"Error getting show control legend toggle: {e}"
-                ) from e
+            show_control_legend = self.layout.get_toggle("Show Control State Legend")
+        except PlaywrightTimeoutError:
+            show_control_legend = True
 
-        return (control_authority, show_control_legend)
+        return {
+            "control_authority": control_authority,
+            "show_control_legend": show_control_legend,
+        }
+
+    def get_symbol_count(self) -> int:
+        """Get the number of symbol nodes on the schematic pane."""
+        return self.page.locator(".react-flow__node").count()
 
     @property
     def control_legend_visible(self) -> bool:

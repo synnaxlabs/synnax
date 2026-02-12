@@ -162,8 +162,14 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
-    ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
-    ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_writer_factory->writer_opens.load(std::memory_order_acquire),
+        1
+    );
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 6);
 
     wt->stop("stop_cmd", true);

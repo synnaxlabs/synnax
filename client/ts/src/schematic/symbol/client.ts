@@ -120,7 +120,7 @@ export class Client {
   async retrieveGroup(): Promise<group.Group> {
     const res = await sendRequired(
       this.client,
-      "/schematic/symbol/retrieve_group",
+      "/schematic/symbol/retrieve-group",
       {},
       retrieveGroupReqZ,
       retrieveGroupResZ,

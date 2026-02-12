@@ -79,7 +79,6 @@ export const ListAndDetailsChannelItem = <K extends string>({
         direction={nameDirection}
         gap="small"
         align={nameDirection === "x" ? "center" : "start"}
-        y
       >
         <Text.Text
           color={8}

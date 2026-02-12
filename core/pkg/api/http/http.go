@@ -14,153 +14,182 @@ import (
 
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/x/httputil"
+	"github.com/synnaxlabs/synnax/pkg/api/access"
+	"github.com/synnaxlabs/synnax/pkg/api/arc"
+	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
+	"github.com/synnaxlabs/synnax/pkg/api/device"
+	"github.com/synnaxlabs/synnax/pkg/api/framer"
+	"github.com/synnaxlabs/synnax/pkg/api/group"
+	httpframer "github.com/synnaxlabs/synnax/pkg/api/http/framer"
+	"github.com/synnaxlabs/synnax/pkg/api/label"
+	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/api/log"
+	"github.com/synnaxlabs/synnax/pkg/api/ontology"
+	"github.com/synnaxlabs/synnax/pkg/api/rack"
+	"github.com/synnaxlabs/synnax/pkg/api/ranger"
+	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
+	"github.com/synnaxlabs/synnax/pkg/api/schematic"
+	"github.com/synnaxlabs/synnax/pkg/api/status"
+	"github.com/synnaxlabs/synnax/pkg/api/table"
+	"github.com/synnaxlabs/synnax/pkg/api/task"
+	"github.com/synnaxlabs/synnax/pkg/api/user"
+	"github.com/synnaxlabs/synnax/pkg/api/view"
+	"github.com/synnaxlabs/synnax/pkg/api/workspace"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 )
 
-func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transport {
+func NewTransport(router *fhttp.Router, ch *distchannel.Service) api.Transport {
+	framerResolver := fhttp.WithCodecResolver(httpframer.NewCodecResolver(ch))
 	return api.Transport{
 		// AUTH
-		AuthLogin:          fhttp.UnaryServer[api.AuthLoginRequest, api.AuthLoginResponse](router, "/api/v1/auth/login"),
-		AuthChangePassword: fhttp.UnaryServer[api.AuthChangePasswordRequest, types.Nil](router, "/api/v1/auth/change-password"),
+		AuthLogin:          fhttp.UnaryServer[auth.LoginRequest, auth.LoginResponse](router, "/api/v1/auth/login"),
+		AuthChangePassword: fhttp.UnaryServer[auth.ChangePasswordRequest, types.Nil](router, "/api/v1/auth/change-password"),
 
 		// USER
-		UserRename:         fhttp.UnaryServer[api.UserRenameRequest, types.Nil](router, "/api/v1/user/rename"),
-		UserChangeUsername: fhttp.UnaryServer[api.UserChangeUsernameRequest, types.Nil](router, "/api/v1/user/change-username"),
-		UserCreate:         fhttp.UnaryServer[api.UserCreateRequest, api.UserCreateResponse](router, "/api/v1/user/create"),
-		UserDelete:         fhttp.UnaryServer[api.UserDeleteRequest, types.Nil](router, "/api/v1/user/delete"),
-		UserRetrieve:       fhttp.UnaryServer[api.UserRetrieveRequest, api.UserRetrieveResponse](router, "/api/v1/user/retrieve"),
+		UserRename:         fhttp.UnaryServer[user.RenameRequest, types.Nil](router, "/api/v1/user/rename"),
+		UserChangeUsername: fhttp.UnaryServer[user.ChangeUsernameRequest, types.Nil](router, "/api/v1/user/change-username"),
+		UserCreate:         fhttp.UnaryServer[user.CreateRequest, user.CreateResponse](router, "/api/v1/user/create"),
+		UserDelete:         fhttp.UnaryServer[user.DeleteRequest, types.Nil](router, "/api/v1/user/delete"),
+		UserRetrieve:       fhttp.UnaryServer[user.RetrieveRequest, user.RetrieveResponse](router, "/api/v1/user/retrieve"),
 
 		// CHANNEL
-		ChannelCreate:        fhttp.UnaryServer[api.ChannelCreateRequest, api.ChannelCreateResponse](router, "/api/v1/channel/create"),
-		ChannelRetrieve:      fhttp.UnaryServer[api.ChannelRetrieveRequest, api.ChannelRetrieveResponse](router, "/api/v1/channel/retrieve"),
-		ChannelDelete:        fhttp.UnaryServer[api.ChannelDeleteRequest, types.Nil](router, "/api/v1/channel/delete"),
-		ChannelRename:        fhttp.UnaryServer[api.ChannelRenameRequest, types.Nil](router, "/api/v1/channel/rename"),
-		ChannelRetrieveGroup: fhttp.UnaryServer[api.ChannelRetrieveGroupRequest, api.ChannelRetrieveGroupResponse](router, "/api/v1/channel/retrieve-group"),
+		ChannelCreate:        fhttp.UnaryServer[channel.CreateRequest, channel.CreateResponse](router, "/api/v1/channel/create"),
+		ChannelRetrieve:      fhttp.UnaryServer[channel.RetrieveRequest, channel.RetrieveResponse](router, "/api/v1/channel/retrieve"),
+		ChannelDelete:        fhttp.UnaryServer[channel.DeleteRequest, types.Nil](router, "/api/v1/channel/delete"),
+		ChannelRename:        fhttp.UnaryServer[channel.RenameRequest, types.Nil](router, "/api/v1/channel/rename"),
+		ChannelRetrieveGroup: fhttp.UnaryServer[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse](router, "/api/v1/channel/retrieve-group"),
 
 		// CONNECTIVITY
-		ConnectivityCheck: fhttp.UnaryServer[types.Nil, api.ConnectivityCheckResponse](router, "/api/v1/connectivity/check"),
+		ConnectivityCheck: fhttp.UnaryServer[types.Nil, connectivity.CheckResponse](router, "/api/v1/connectivity/check"),
 
 		// FRAME
-		FrameWriter:   fhttp.StreamServer[api.FrameWriterRequest, api.FrameWriterResponse](router, "/api/v1/frame/write", fhttp.WithCodecResolver(codecResolver)),
-		FrameIterator: fhttp.StreamServer[api.FrameIteratorRequest, api.FrameIteratorResponse](router, "/api/v1/frame/iterate"),
-		FrameStreamer: fhttp.StreamServer[api.FrameStreamerRequest, api.FrameStreamerResponse](router, "/api/v1/frame/stream", fhttp.WithCodecResolver(codecResolver)),
-		FrameDelete:   fhttp.UnaryServer[api.FrameDeleteRequest, types.Nil](router, "/api/v1/frame/delete"),
+		FrameWriter:   fhttp.StreamServer[framer.WriterRequest, framer.WriterResponse](router, "/api/v1/frame/write", framerResolver),
+		FrameIterator: fhttp.StreamServer[framer.IteratorRequest, framer.IteratorResponse](router, "/api/v1/frame/iterate"),
+		FrameStreamer: fhttp.StreamServer[framer.StreamerRequest, framer.StreamerResponse](router, "/api/v1/frame/stream", framerResolver),
+		FrameDelete:   fhttp.UnaryServer[framer.DeleteRequest, types.Nil](router, "/api/v1/frame/delete"),
 
 		// ONTOLOGY
-		OntologyRetrieve:       fhttp.UnaryServer[api.OntologyRetrieveRequest, api.OntologyRetrieveResponse](router, "/api/v1/ontology/retrieve"),
-		OntologyAddChildren:    fhttp.UnaryServer[api.OntologyAddChildrenRequest, types.Nil](router, "/api/v1/ontology/add-children"),
-		OntologyRemoveChildren: fhttp.UnaryServer[api.OntologyRemoveChildrenRequest, types.Nil](router, "/api/v1/ontology/remove-children"),
-		OntologyMoveChildren:   fhttp.UnaryServer[api.OntologyMoveChildrenRequest, types.Nil](router, "/api/v1/ontology/move-children"),
+		OntologyRetrieve:       fhttp.UnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse](router, "/api/v1/ontology/retrieve"),
+		OntologyAddChildren:    fhttp.UnaryServer[ontology.AddChildrenRequest, types.Nil](router, "/api/v1/ontology/add-children"),
+		OntologyRemoveChildren: fhttp.UnaryServer[ontology.RemoveChildrenRequest, types.Nil](router, "/api/v1/ontology/remove-children"),
+		OntologyMoveChildren:   fhttp.UnaryServer[ontology.MoveChildrenRequest, types.Nil](router, "/api/v1/ontology/move-children"),
 
 		// GROUP
-		GroupCreate: fhttp.UnaryServer[api.GroupCreateRequest, api.GroupCreateResponse](router, "/api/v1/ontology/create-group"),
-		GroupDelete: fhttp.UnaryServer[api.GroupDeleteRequest, types.Nil](router, "/api/v1/ontology/delete-group"),
-		GroupRename: fhttp.UnaryServer[api.GroupRenameRequest, types.Nil](router, "/api/v1/ontology/rename-group"),
+		GroupCreate: fhttp.UnaryServer[group.CreateRequest, group.CreateResponse](router, "/api/v1/ontology/create-group"),
+		GroupDelete: fhttp.UnaryServer[group.DeleteRequest, types.Nil](router, "/api/v1/ontology/delete-group"),
+		GroupRename: fhttp.UnaryServer[group.RenameRequest, types.Nil](router, "/api/v1/ontology/rename-group"),
 
 		// RANGE
-		RangeRetrieve:      fhttp.UnaryServer[api.RangeRetrieveRequest, api.RangeRetrieveResponse](router, "/api/v1/range/retrieve"),
-		RangeCreate:        fhttp.UnaryServer[api.RangeCreateRequest, api.RangeCreateResponse](router, "/api/v1/range/create"),
-		RangeDelete:        fhttp.UnaryServer[api.RangeDeleteRequest, types.Nil](router, "/api/v1/range/delete"),
-		RangeRename:        fhttp.UnaryServer[api.RangeRenameRequest, types.Nil](router, "/api/v1/range/rename"),
-		RangeKVGet:         fhttp.UnaryServer[api.RangeKVGetRequest, api.RangeKVGetResponse](router, "/api/v1/range/kv/get"),
-		RangeKVSet:         fhttp.UnaryServer[api.RangeKVSetRequest, types.Nil](router, "/api/v1/range/kv/set"),
-		RangeKVDelete:      fhttp.UnaryServer[api.RangeKVDeleteRequest, types.Nil](router, "/api/v1/range/kv/delete"),
-		RangeAliasSet:      fhttp.UnaryServer[api.RangeAliasSetRequest, types.Nil](router, "/api/v1/range/alias/set"),
-		RangeAliasResolve:  fhttp.UnaryServer[api.RangeAliasResolveRequest, api.RangeAliasResolveResponse](router, "/api/v1/range/alias/resolve"),
-		RangeAliasRetrieve: fhttp.UnaryServer[api.RangeAliasRetrieveRequest, api.RangeAliasRetrieveResponse](router, "/api/v1/range/alias/retrieve"),
-		RangeAliasList:     fhttp.UnaryServer[api.RangeAliasListRequest, api.RangeAliasListResponse](router, "/api/v1/range/alias/list"),
-		RangeAliasDelete:   fhttp.UnaryServer[api.RangeAliasDeleteRequest, types.Nil](router, "/api/v1/range/alias/delete"),
+		RangeRetrieve: fhttp.UnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse](router, "/api/v1/range/retrieve"),
+		RangeCreate:   fhttp.UnaryServer[ranger.CreateRequest, ranger.CreateResponse](router, "/api/v1/range/create"),
+		RangeDelete:   fhttp.UnaryServer[ranger.DeleteRequest, types.Nil](router, "/api/v1/range/delete"),
+		RangeRename:   fhttp.UnaryServer[ranger.RenameRequest, types.Nil](router, "/api/v1/range/rename"),
+
+		// KV
+		KVGet:    fhttp.UnaryServer[kv.GetRequest, kv.GetResponse](router, "/api/v1/range/kv/get"),
+		KVSet:    fhttp.UnaryServer[kv.SetRequest, types.Nil](router, "/api/v1/range/kv/set"),
+		KVDelete: fhttp.UnaryServer[kv.DeleteRequest, types.Nil](router, "/api/v1/range/kv/delete"),
+
+		// ALIAS
+		AliasSet:      fhttp.UnaryServer[alias.SetRequest, types.Nil](router, "/api/v1/range/alias/set"),
+		AliasResolve:  fhttp.UnaryServer[alias.ResolveRequest, alias.ResolveResponse](router, "/api/v1/range/alias/resolve"),
+		AliasRetrieve: fhttp.UnaryServer[alias.RetrieveRequest, alias.RetrieveResponse](router, "/api/v1/range/alias/retrieve"),
+		AliasList:     fhttp.UnaryServer[alias.ListRequest, alias.ListResponse](router, "/api/v1/range/alias/list"),
+		AliasDelete:   fhttp.UnaryServer[alias.DeleteRequest, types.Nil](router, "/api/v1/range/alias/delete"),
 
 		// WORKSPACE
-		WorkspaceCreate:    fhttp.UnaryServer[api.WorkspaceCreateRequest, api.WorkspaceCreateResponse](router, "/api/v1/workspace/create"),
-		WorkspaceRetrieve:  fhttp.UnaryServer[api.WorkspaceRetrieveRequest, api.WorkspaceRetrieveResponse](router, "/api/v1/workspace/retrieve"),
-		WorkspaceDelete:    fhttp.UnaryServer[api.WorkspaceDeleteRequest, types.Nil](router, "/api/v1/workspace/delete"),
-		WorkspaceRename:    fhttp.UnaryServer[api.WorkspaceRenameRequest, types.Nil](router, "/api/v1/workspace/rename"),
-		WorkspaceSetLayout: fhttp.UnaryServer[api.WorkspaceSetLayoutRequest, types.Nil](router, "/api/v1/workspace/set-layout"),
+		WorkspaceCreate:    fhttp.UnaryServer[workspace.CreateRequest, workspace.CreateResponse](router, "/api/v1/workspace/create"),
+		WorkspaceRetrieve:  fhttp.UnaryServer[workspace.RetrieveRequest, workspace.RetrieveResponse](router, "/api/v1/workspace/retrieve"),
+		WorkspaceDelete:    fhttp.UnaryServer[workspace.DeleteRequest, types.Nil](router, "/api/v1/workspace/delete"),
+		WorkspaceRename:    fhttp.UnaryServer[workspace.RenameRequest, types.Nil](router, "/api/v1/workspace/rename"),
+		WorkspaceSetLayout: fhttp.UnaryServer[workspace.SetLayoutRequest, types.Nil](router, "/api/v1/workspace/set-layout"),
 
 		// SCHEMATIC
-		SchematicCreate:   fhttp.UnaryServer[api.SchematicCreateRequest, api.SchematicCreateResponse](router, "/api/v1/schematic/create"),
-		SchematicRetrieve: fhttp.UnaryServer[api.SchematicRetrieveRequest, api.SchematicRetrieveResponse](router, "/api/v1/schematic/retrieve"),
-		SchematicDelete:   fhttp.UnaryServer[api.SchematicDeleteRequest, types.Nil](router, "/api/v1/schematic/delete"),
-		SchematicRename:   fhttp.UnaryServer[api.SchematicRenameRequest, types.Nil](router, "/api/v1/schematic/rename"),
-		SchematicSetData:  fhttp.UnaryServer[api.SchematicSetDataRequest, types.Nil](router, "/api/v1/schematic/set-data"),
-		SchematicCopy:     fhttp.UnaryServer[api.SchematicCopyRequest, api.SchematicCopyResponse](router, "/api/v1/schematic/copy"),
+		SchematicCreate:   fhttp.UnaryServer[schematic.CreateRequest, schematic.CreateResponse](router, "/api/v1/schematic/create"),
+		SchematicRetrieve: fhttp.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse](router, "/api/v1/schematic/retrieve"),
+		SchematicDelete:   fhttp.UnaryServer[schematic.DeleteRequest, types.Nil](router, "/api/v1/schematic/delete"),
+		SchematicRename:   fhttp.UnaryServer[schematic.RenameRequest, types.Nil](router, "/api/v1/schematic/rename"),
+		SchematicSetData:  fhttp.UnaryServer[schematic.SetDataRequest, types.Nil](router, "/api/v1/schematic/set-data"),
+		SchematicCopy:     fhttp.UnaryServer[schematic.CopyRequest, schematic.CopyResponse](router, "/api/v1/schematic/copy"),
 
 		// SCHEMATIC SYMBOL
-		SchematicCreateSymbol:        fhttp.UnaryServer[api.SchematicCreateSymbolRequest, api.SchematicCreateSymbolResponse](router, "/api/v1/schematic/symbol/create"),
-		SchematicRetrieveSymbol:      fhttp.UnaryServer[api.SchematicRetrieveSymbolRequest, api.SchematicRetrieveSymbolResponse](router, "/api/v1/schematic/symbol/retrieve"),
-		SchematicDeleteSymbol:        fhttp.UnaryServer[api.SchematicDeleteSymbolRequest, types.Nil](router, "/api/v1/schematic/symbol/delete"),
-		SchematicRenameSymbol:        fhttp.UnaryServer[api.SchematicRenameSymbolRequest, types.Nil](router, "/api/v1/schematic/symbol/rename"),
-		SchematicRetrieveSymbolGroup: fhttp.UnaryServer[api.SchematicRetrieveSymbolGroupRequest, api.SchematicRetrieveSymbolGroupResponse](router, "/api/v1/schematic/symbol/retrieve_group"),
+		SchematicCreateSymbol:        fhttp.UnaryServer[schematic.CreateSymbolRequest, schematic.CreateSymbolResponse](router, "/api/v1/schematic/symbol/create"),
+		SchematicRetrieveSymbol:      fhttp.UnaryServer[schematic.RetrieveSymbolRequest, schematic.RetrieveSymbolResponse](router, "/api/v1/schematic/symbol/retrieve"),
+		SchematicDeleteSymbol:        fhttp.UnaryServer[schematic.DeleteSymbolRequest, types.Nil](router, "/api/v1/schematic/symbol/delete"),
+		SchematicRenameSymbol:        fhttp.UnaryServer[schematic.RenameSymbolRequest, types.Nil](router, "/api/v1/schematic/symbol/rename"),
+		SchematicRetrieveSymbolGroup: fhttp.UnaryServer[schematic.RetrieveSymbolGroupRequest, schematic.RetrieveSymbolGroupResponse](router, "/api/v1/schematic/symbol/retrieve-group"),
 
 		// LINE PLOT
-		LinePlotCreate:   fhttp.UnaryServer[api.LinePlotCreateRequest, api.LinePlotCreateResponse](router, "/api/v1/lineplot/create"),
-		LinePlotRetrieve: fhttp.UnaryServer[api.LinePlotRetrieveRequest, api.LinePlotRetrieveResponse](router, "/api/v1/lineplot/retrieve"),
-		LinePlotDelete:   fhttp.UnaryServer[api.LinePlotDeleteRequest, types.Nil](router, "/api/v1/lineplot/delete"),
-		LinePlotRename:   fhttp.UnaryServer[api.LinePlotRenameRequest, types.Nil](router, "/api/v1/lineplot/rename"),
-		LinePlotSetData:  fhttp.UnaryServer[api.LinePlotSetDataRequest, types.Nil](router, "/api/v1/lineplot/set-data"),
+		LinePlotCreate:   fhttp.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse](router, "/api/v1/lineplot/create"),
+		LinePlotRetrieve: fhttp.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse](router, "/api/v1/lineplot/retrieve"),
+		LinePlotDelete:   fhttp.UnaryServer[lineplot.DeleteRequest, types.Nil](router, "/api/v1/lineplot/delete"),
+		LinePlotRename:   fhttp.UnaryServer[lineplot.RenameRequest, types.Nil](router, "/api/v1/lineplot/rename"),
+		LinePlotSetData:  fhttp.UnaryServer[lineplot.SetDataRequest, types.Nil](router, "/api/v1/lineplot/set-data"),
 
 		// LOG
-		LogCreate:   fhttp.UnaryServer[api.LogCreateRequest, api.LogCreateResponse](router, "/api/v1/log/create"),
-		LogRetrieve: fhttp.UnaryServer[api.LogRetrieveRequest, api.LogRetrieveResponse](router, "/api/v1/log/retrieve"),
-		LogDelete:   fhttp.UnaryServer[api.LogDeleteRequest, types.Nil](router, "/api/v1/log/delete"),
-		LogRename:   fhttp.UnaryServer[api.LogRenameRequest, types.Nil](router, "/api/v1/log/rename"),
-		LogSetData:  fhttp.UnaryServer[api.LogSetDataRequest, types.Nil](router, "/api/v1/log/set-data"),
+		LogCreate:   fhttp.UnaryServer[log.CreateRequest, log.CreateResponse](router, "/api/v1/log/create"),
+		LogRetrieve: fhttp.UnaryServer[log.RetrieveRequest, log.RetrieveResponse](router, "/api/v1/log/retrieve"),
+		LogDelete:   fhttp.UnaryServer[log.DeleteRequest, types.Nil](router, "/api/v1/log/delete"),
+		LogRename:   fhttp.UnaryServer[log.RenameRequest, types.Nil](router, "/api/v1/log/rename"),
+		LogSetData:  fhttp.UnaryServer[log.SetDataRequest, types.Nil](router, "/api/v1/log/set-data"),
 
 		// TABLE
-		TableCreate:   fhttp.UnaryServer[api.TableCreateRequest, api.TableCreateResponse](router, "/api/v1/table/create"),
-		TableRetrieve: fhttp.UnaryServer[api.TableRetrieveRequest, api.TableRetrieveResponse](router, "/api/v1/table/retrieve"),
-		TableDelete:   fhttp.UnaryServer[api.TableDeleteRequest, types.Nil](router, "/api/v1/table/delete"),
-		TableRename:   fhttp.UnaryServer[api.TableRenameRequest, types.Nil](router, "/api/v1/table/rename"),
-		TableSetData:  fhttp.UnaryServer[api.TableSetDataRequest, types.Nil](router, "/api/v1/table/set-data"),
+		TableCreate:   fhttp.UnaryServer[table.CreateRequest, table.CreateResponse](router, "/api/v1/table/create"),
+		TableRetrieve: fhttp.UnaryServer[table.RetrieveRequest, table.RetrieveResponse](router, "/api/v1/table/retrieve"),
+		TableDelete:   fhttp.UnaryServer[table.DeleteRequest, types.Nil](router, "/api/v1/table/delete"),
+		TableRename:   fhttp.UnaryServer[table.RenameRequest, types.Nil](router, "/api/v1/table/rename"),
+		TableSetData:  fhttp.UnaryServer[table.SetDataRequest, types.Nil](router, "/api/v1/table/set-data"),
 
 		// LABEL
-		LabelCreate:   fhttp.UnaryServer[api.LabelCreateRequest, api.LabelCreateResponse](router, "/api/v1/label/create"),
-		LabelRetrieve: fhttp.UnaryServer[api.LabelRetrieveRequest, api.LabelRetrieveResponse](router, "/api/v1/label/retrieve"),
-		LabelDelete:   fhttp.UnaryServer[api.LabelDeleteRequest, types.Nil](router, "/api/v1/label/delete"),
-		LabelAdd:      fhttp.UnaryServer[api.LabelAddRequest, types.Nil](router, "/api/v1/label/set"),
-		LabelRemove:   fhttp.UnaryServer[api.LabelRemoveRequest, types.Nil](router, "/api/v1/label/remove"),
+		LabelCreate:   fhttp.UnaryServer[label.CreateRequest, label.CreateResponse](router, "/api/v1/label/create"),
+		LabelRetrieve: fhttp.UnaryServer[label.RetrieveRequest, label.RetrieveResponse](router, "/api/v1/label/retrieve"),
+		LabelDelete:   fhttp.UnaryServer[label.DeleteRequest, types.Nil](router, "/api/v1/label/delete"),
+		LabelAdd:      fhttp.UnaryServer[label.AddRequest, types.Nil](router, "/api/v1/label/set"),
+		LabelRemove:   fhttp.UnaryServer[label.RemoveRequest, types.Nil](router, "/api/v1/label/remove"),
 
 		// RACK
-		RackCreate:   fhttp.UnaryServer[api.RackCreateRequest, api.RackCreateResponse](router, "/api/v1/rack/create"),
-		RackRetrieve: fhttp.UnaryServer[api.RackRetrieveRequest, api.RackRetrieveResponse](router, "/api/v1/rack/retrieve"),
-		RackDelete:   fhttp.UnaryServer[api.RackDeleteRequest, types.Nil](router, "/api/v1/rack/delete"),
+		RackCreate:   fhttp.UnaryServer[rack.CreateRequest, rack.CreateResponse](router, "/api/v1/rack/create"),
+		RackRetrieve: fhttp.UnaryServer[rack.RetrieveRequest, rack.RetrieveResponse](router, "/api/v1/rack/retrieve"),
+		RackDelete:   fhttp.UnaryServer[rack.DeleteRequest, types.Nil](router, "/api/v1/rack/delete"),
 
 		// TASK
-		TaskCreate:   fhttp.UnaryServer[api.TaskCreateRequest, api.TaskCreateResponse](router, "/api/v1/task/create"),
-		TaskRetrieve: fhttp.UnaryServer[api.TaskRetrieveRequest, api.TaskRetrieveResponse](router, "/api/v1/task/retrieve"),
-		TaskDelete:   fhttp.UnaryServer[api.TaskDeleteRequest, types.Nil](router, "/api/v1/task/delete"),
-		TaskCopy:     fhttp.UnaryServer[api.TaskCopyRequest, api.TaskCopyResponse](router, "/api/v1/task/copy"),
+		TaskCreate:   fhttp.UnaryServer[task.CreateRequest, task.CreateResponse](router, "/api/v1/task/create"),
+		TaskRetrieve: fhttp.UnaryServer[task.RetrieveRequest, task.RetrieveResponse](router, "/api/v1/task/retrieve"),
+		TaskDelete:   fhttp.UnaryServer[task.DeleteRequest, types.Nil](router, "/api/v1/task/delete"),
+		TaskCopy:     fhttp.UnaryServer[task.CopyRequest, task.CopyResponse](router, "/api/v1/task/copy"),
 
 		// DEVICE
-		DeviceCreate:   fhttp.UnaryServer[api.DeviceCreateRequest, api.DeviceCreateResponse](router, "/api/v1/device/create"),
-		DeviceRetrieve: fhttp.UnaryServer[api.DeviceRetrieveRequest, api.DeviceRetrieveResponse](router, "/api/v1/device/retrieve"),
-		DeviceDelete:   fhttp.UnaryServer[api.DeviceDeleteRequest, types.Nil](router, "/api/v1/device/delete"),
+		DeviceCreate:   fhttp.UnaryServer[device.CreateRequest, device.CreateResponse](router, "/api/v1/device/create"),
+		DeviceRetrieve: fhttp.UnaryServer[device.RetrieveRequest, device.RetrieveResponse](router, "/api/v1/device/retrieve"),
+		DeviceDelete:   fhttp.UnaryServer[device.DeleteRequest, types.Nil](router, "/api/v1/device/delete"),
 
 		// ACCESS
-		AccessCreatePolicy:   fhttp.UnaryServer[api.AccessCreatePolicyRequest, api.AccessCreatePolicyResponse](router, "/api/v1/access/policy/create"),
-		AccessDeletePolicy:   fhttp.UnaryServer[api.AccessDeletePolicyRequest, types.Nil](router, "/api/v1/access/policy/delete"),
-		AccessRetrievePolicy: fhttp.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse](router, "/api/v1/access/policy/retrieve"),
-		AccessCreateRole:     fhttp.UnaryServer[api.AccessCreateRoleRequest, api.AccessCreateRoleResponse](router, "/api/v1/access/role/create"),
-		AccessDeleteRole:     fhttp.UnaryServer[api.AccessDeleteRoleRequest, types.Nil](router, "/api/v1/access/role/delete"),
-		AccessRetrieveRole:   fhttp.UnaryServer[api.AccessRetrieveRoleRequest, api.AccessRetrieveRoleResponse](router, "/api/v1/access/role/retrieve"),
-		AccessAssignRole:     fhttp.UnaryServer[api.AccessAssignRoleRequest, types.Nil](router, "/api/v1/access/role/assign"),
-		AccessUnassignRole:   fhttp.UnaryServer[api.AccessUnassignRoleRequest, types.Nil](router, "/api/v1/access/role/unassign"),
+		AccessCreatePolicy:   fhttp.UnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse](router, "/api/v1/access/policy/create"),
+		AccessDeletePolicy:   fhttp.UnaryServer[access.DeletePolicyRequest, types.Nil](router, "/api/v1/access/policy/delete"),
+		AccessRetrievePolicy: fhttp.UnaryServer[access.RetrievePolicyRequest, access.RetrievePolicyResponse](router, "/api/v1/access/policy/retrieve"),
+		AccessCreateRole:     fhttp.UnaryServer[access.CreateRoleRequest, access.CreateRoleResponse](router, "/api/v1/access/role/create"),
+		AccessDeleteRole:     fhttp.UnaryServer[access.DeleteRoleRequest, types.Nil](router, "/api/v1/access/role/delete"),
+		AccessRetrieveRole:   fhttp.UnaryServer[access.RetrieveRoleRequest, access.RetrieveRoleResponse](router, "/api/v1/access/role/retrieve"),
+		AccessAssignRole:     fhttp.UnaryServer[access.AssignRoleRequest, types.Nil](router, "/api/v1/access/role/assign"),
+		AccessUnassignRole:   fhttp.UnaryServer[access.UnassignRoleRequest, types.Nil](router, "/api/v1/access/role/unassign"),
 
 		// ARC
-		ArcCreate:   fhttp.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse](router, "/api/v1/arc/create"),
-		ArcDelete:   fhttp.UnaryServer[api.ArcDeleteRequest, types.Nil](router, "/api/v1/arc/delete"),
-		ArcRetrieve: fhttp.UnaryServer[api.ArcRetrieveRequest, api.ArcRetrieveResponse](router, "/api/v1/arc/retrieve"),
-		ArcLSP:      fhttp.StreamServer[api.ArcLSPMessage, api.ArcLSPMessage](router, "/api/v1/arc/lsp"),
+		ArcCreate:   fhttp.UnaryServer[arc.CreateRequest, arc.CreateResponse](router, "/api/v1/arc/create"),
+		ArcDelete:   fhttp.UnaryServer[arc.DeleteRequest, types.Nil](router, "/api/v1/arc/delete"),
+		ArcRetrieve: fhttp.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse](router, "/api/v1/arc/retrieve"),
+		ArcLSP:      fhttp.StreamServer[arc.LSPMessage, arc.LSPMessage](router, "/api/v1/arc/lsp"),
 
 		// STATUS
-		StatusSet:      fhttp.UnaryServer[api.StatusSetRequest, api.StatusSetResponse](router, "/api/v1/status/set"),
-		StatusRetrieve: fhttp.UnaryServer[api.StatusRetrieveRequest, api.StatusRetrieveResponse](router, "/api/v1/status/retrieve"),
-		StatusDelete:   fhttp.UnaryServer[api.StatusDeleteRequest, types.Nil](router, "/api/v1/status/delete"),
+		StatusSet:      fhttp.UnaryServer[status.SetRequest, status.SetResponse](router, "/api/v1/status/set"),
+		StatusRetrieve: fhttp.UnaryServer[status.RetrieveRequest, status.RetrieveResponse](router, "/api/v1/status/retrieve"),
+		StatusDelete:   fhttp.UnaryServer[status.DeleteRequest, types.Nil](router, "/api/v1/status/delete"),
 
 		// VIEW
-		ViewCreate:   fhttp.UnaryServer[api.ViewCreateRequest, api.ViewCreateResponse](router, "/api/v1/view/create"),
-		ViewRetrieve: fhttp.UnaryServer[api.ViewRetrieveRequest, api.ViewRetrieveResponse](router, "/api/v1/view/retrieve"),
-		ViewDelete:   fhttp.UnaryServer[api.ViewDeleteRequest, types.Nil](router, "/api/v1/view/delete"),
+		ViewCreate:   fhttp.UnaryServer[view.CreateRequest, view.CreateResponse](router, "/api/v1/view/create"),
+		ViewRetrieve: fhttp.UnaryServer[view.RetrieveRequest, view.RetrieveResponse](router, "/api/v1/view/retrieve"),
+		ViewDelete:   fhttp.UnaryServer[view.DeleteRequest, types.Nil](router, "/api/v1/view/delete"),
 	}
 }

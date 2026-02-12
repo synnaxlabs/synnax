@@ -226,11 +226,11 @@ void test_downsample_string(
 ) {
     auto client = new_test_client();
 
-    synnax::channel::Channel virtual_channel(
-        make_unique_channel_name("virtual_string_channel"),
-        x::telem::STRING_T,
-        true
-    );
+    auto virtual_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("virtual_string_channel"),
+        .data_type = x::telem::STRING_T,
+        .is_virtual = true,
+    };
     ASSERT_NIL(client.channels.create(virtual_channel));
 
     auto now = x::telem::TimeStamp::now();

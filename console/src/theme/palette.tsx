@@ -18,13 +18,13 @@ export const ToggleCommand: Palette.Command = ({ store, ...listProps }) => {
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Toggle Color Theme"
+      name="Toggle color theme"
       icon={<MdDarkMode />}
       onSelect={handleSelect}
     />
   );
 };
 ToggleCommand.key = "toggle-theme";
-ToggleCommand.commandName = "Toggle Color Theme";
+ToggleCommand.commandName = "Toggle color theme";
 
 export const COMMANDS = [ToggleCommand];

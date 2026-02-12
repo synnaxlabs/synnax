@@ -67,7 +67,7 @@ class SetOutput(ConsoleCase):
         )
 
         self.log("Creating schematic symbols")
-        schematic = Schematic(console, "set_output_schematic")
+        schematic = console.workspace.create_schematic("set_output_schematic")
 
         setpoint_symbol = schematic.create_symbol(
             Setpoint(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
@@ -84,11 +84,11 @@ class SetOutput(ConsoleCase):
         set_p_value = 47.23
         setpoint_symbol.set_value(set_p_value)
         self.log(f"Verifying setpoint value: {set_p_value}")
-        assert_setpoint(schematic, CHANNEL_NAME, set_p_value)
+        self.wait_for_eq(CHANNEL_NAME, set_p_value)
 
         set_p_value = 1.0101
         setpoint_symbol.set_value(set_p_value)
         self.log(f"Verifying setpoint value: {set_p_value}")
-        assert_setpoint(schematic, CHANNEL_NAME, set_p_value)
+        self.wait_for_eq(CHANNEL_NAME, set_p_value)
 
         schematic.screenshot()

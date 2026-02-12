@@ -389,24 +389,11 @@ I can successfully:
 
 I can successfully:
 
-- **Search and Command Palette**
-  - [ ] Created a named arc automation.
-  - [ ] Open an existing arc automation.
-
 - **Arc Toolbar**
   - [ ] Toggle Arc toolbar visibility with "A" keyboard shortcut
-  - [ ] Create a new Arc automation with the "+" button
-  - [ ] Start/stop an Arc automation with the play/pause button
-  - [ ] Double-click an Arc to open the editor
-  - [ ] Rename the arc automation via the context menu, ensuring that a warning that arcs will get redeployed on rename.
-  - [ ] Delete the arc automation via the context menu, ensuring that any arc layouts get removes from the console mosaic.
-  - [ ] View Arc status indicators (deployed/not deployed, running/stopped)
 
 - **Arc Editor**
   - [ ] Create an alarm automation that changes statuses and includes the following blocks: channel source, constant, comparison, stable for, select, and status change.
-  - [ ] Deploy the arc automation using `press_simulated_daq` and see statuses change based on the constant condition.
-  - [ ] Stop the arc deployment.
-  - [ ] Rename an arc, re-deploy it, and ensure that the new name is displayed.
 
 ### Statuses
 
@@ -439,7 +426,6 @@ I can successfully:
 
 I can successfully:
 
-- [ ] View the correct version in the bottom navbar.
 - [ ] Verify that the auto-update functionality works correctly.
 
 ### Workspaces
@@ -447,17 +433,7 @@ I can successfully:
 I can successfully:
 
 - [ ] Import a workspace by drag and dropping from a directory.
-
-- **Resources Toolbar**
-  - **Context Menu**
-    - [ ] Export a workspace.
-    - [ ] Import a line plot.
-    - [ ] Import a schematic.
-    - [ ] Import a log.
-    - [ ] Import a table.
 - [ ] Open a workspace from a link.
-- **Search and Command Palette**
-  - [ ] Import a workspace.
 - [ ] Create a workspace in a previous version of Synnax, add visualizations, and open it in the release candidate.
 
 ## Driver
