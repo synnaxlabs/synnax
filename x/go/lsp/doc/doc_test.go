@@ -12,7 +12,7 @@ package doc_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/lsp/doc"
+	"github.com/synnaxlabs/x/lsp/doc"
 )
 
 var _ = Describe("Doc", func() {
@@ -38,7 +38,7 @@ var _ = Describe("Doc", func() {
 		It("Should skip empty blocks in rendering", func() {
 			d := doc.New(
 				doc.Paragraph("First"),
-				doc.List(), // empty list renders as ""
+				doc.List(),
 				doc.Paragraph("Second"),
 			)
 			Expect(d.Render()).To(Equal("First\n\nSecond"))
@@ -85,7 +85,7 @@ var _ = Describe("Doc", func() {
 		})
 
 		It("Should render arc code block", func() {
-			c := doc.ArcCode("func add(a i32, b i32) i32")
+			c := doc.Code("arc", "func add(a i32, b i32) i32")
 			Expect(c.Render()).To(Equal("```arc\nfunc add(a i32, b i32) i32\n```"))
 		})
 	})
@@ -123,12 +123,12 @@ var _ = Describe("Doc", func() {
 
 	Describe("Fix", func() {
 		It("Should render fix without code", func() {
-			f := doc.Fix("Remove the unused variable", "")
+			f := doc.Fix("Remove the unused variable", "", "arc")
 			Expect(f.Render()).To(Equal("**Fix**: Remove the unused variable"))
 		})
 
 		It("Should render fix with code example", func() {
-			f := doc.Fix("Cast the value explicitly", "i32(myFloat)")
+			f := doc.Fix("Cast the value explicitly", "i32(myFloat)", "arc")
 			expected := "**Fix**: Cast the value explicitly\n\n```arc\ni32(myFloat)\n```"
 			Expect(f.Render()).To(Equal(expected))
 		})
@@ -206,7 +206,7 @@ var _ = Describe("Doc", func() {
 			d := doc.New(
 				doc.Title("func"),
 				doc.Paragraph("Declares a function."),
-				doc.ArcCode("func name(param type) returnType {\n    // body\n}"),
+				doc.Code("arc", "func name(param type) returnType {\n    // body\n}"),
 			)
 			expected := "#### func\n\nDeclares a function.\n\n```arc\nfunc name(param type) returnType {\n    // body\n}\n```"
 			Expect(d.Render()).To(Equal(expected))
