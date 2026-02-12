@@ -17,11 +17,12 @@
 #include "client/cpp/ranger/kv/kv.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/api/grpc/v1/ranger.pb.h"
 
 namespace synnax::ranger {
-using Key = std::string;
+using Key = x::uuid::UUID;
 
 /// @brief type alias for the transport used to retrieve ranges.
 using RetrieveClient = freighter::
@@ -52,7 +53,7 @@ public:
     Range(std::string name, x::telem::TimeRange time_range);
 
     /// @brief constructs the range from its protobuf type.
-    explicit Range(const api::v1::Range &rng);
+    static std::pair<Range, x::errors::Error> from_proto(const api::v1::Range &rng);
 
 private:
     /// @brief binds the range's fields to the given proto.
@@ -67,14 +68,14 @@ private:
 /// @brief Converts a range key to an ontology ID.
 /// @param key The range key.
 /// @returns An ontology ID with type "range" and the given key.
-inline ontology::ID ontology_id(const std::string &key) {
-    return ontology::ID("range", key);
+inline ontology::ID ontology_id(const Key &key) {
+    return ontology::ID("range", key.to_string());
 }
 
 /// @brief Converts a vector of range keys to a vector of ontology IDs.
 /// @param keys The range keys.
 /// @returns A vector of ontology IDs.
-inline std::vector<ontology::ID> ontology_ids(const std::vector<std::string> &keys) {
+inline std::vector<ontology::ID> ontology_ids(const std::vector<Key> &keys) {
     std::vector<ontology::ID> ids;
     ids.reserve(keys.size());
     for (const auto &key: keys)
@@ -100,7 +101,7 @@ public:
     /// false if the range could not be retrieved. Use err.message() to get the
     /// error message or err.type to get the error type.
     [[nodiscard]] std::pair<Range, x::errors::Error>
-    retrieve_by_key(const std::string &key) const;
+    retrieve_by_key(const Key &key) const;
 
     /// @brief retrieves the range with the given name.
     /// @param name - the name of the range to retrieve.
@@ -116,7 +117,7 @@ public:
     /// false if the ranges could not be retrieved. Use err.message() to get the
     /// error message or err.type to get the error type.
     [[nodiscard]] std::pair<std::vector<Range>, x::errors::Error>
-    retrieve_by_key(const std::vector<std::string> &keys) const;
+    retrieve_by_key(const std::vector<Key> &keys) const;
 
     /// @brief retrieves the ranges with the given names.
     /// @param names - the names of the ranges to retrieve.
