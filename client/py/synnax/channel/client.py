@@ -25,8 +25,8 @@ from synnax.channel.payload import (
     normalize_channel_params,
     ontology_id,
 )
-from synnax.channel.retrieve import ChannelRetriever
-from synnax.channel.writer import ChannelWriter
+from synnax.channel.retrieve import Retriever
+from synnax.channel.writer import Writer
 from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
 from synnax.framer.client import Client as FrameClient
 from synnax.ontology.payload import ID
@@ -49,7 +49,7 @@ class Channel(ChannelPayload):
     """
 
     ___frame_client: FrameClient | None = PrivateAttr(None)
-    __client: ChannelClient | None = PrivateAttr(None)
+    __client: Client | None = PrivateAttr(None)
 
     def __init__(
         self,
@@ -65,7 +65,7 @@ class Channel(ChannelPayload):
         expression: str = "",
         operations: list[Operation] | None = None,
         _frame_client: FrameClient | None = None,
-        _client: ChannelClient | None = None,
+        _client: Client | None = None,
     ) -> None:
         """Initializes a new Channel using the given parameters. It's important to note
         that this does not create the Channel in the cluster. To create the channel,
@@ -190,18 +190,18 @@ class Channel(ChannelPayload):
         )
 
 
-class ChannelClient:
+class Client:
     """The core py class for executing channel operations against a Synnax cluster."""
 
     _frame_client: FrameClient
-    _retriever: ChannelRetriever
-    _creator: ChannelWriter
+    _retriever: Retriever
+    _creator: Writer
 
     def __init__(
         self,
         frame_client: FrameClient,
-        retriever: ChannelRetriever,
-        creator: ChannelWriter,
+        retriever: Retriever,
+        creator: Writer,
     ):
         self._frame_client = frame_client
         self._retriever = retriever

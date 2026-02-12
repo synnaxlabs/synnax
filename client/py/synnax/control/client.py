@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.channel.payload import ChannelParams
-from synnax.channel.retrieve import ChannelRetriever
+from synnax.channel.retrieve import Retriever
 from synnax.control.controller import Controller
 from synnax.framer import Client as FrameClient
 from synnax.telem.control import Authority, CrudeAuthority
@@ -20,9 +20,9 @@ class Client:
     """
 
     framer: FrameClient
-    retriever: ChannelRetriever
+    retriever: Retriever
 
-    def __init__(self, framer: FrameClient, channels: ChannelRetriever) -> None:
+    def __init__(self, framer: FrameClient, channels: Retriever) -> None:
         self.framer = framer
         self.retriever = channels
 

@@ -17,7 +17,7 @@ from synnax.channel.payload import (
     ChannelPayload,
     normalize_channel_params,
 )
-from synnax.channel.retrieve import CacheChannelRetriever
+from synnax.channel.retrieve import CacheRetriever
 
 
 class _CreateRequest(Payload):
@@ -37,16 +37,16 @@ class _RenameRequest(Payload):
     names: ChannelNames
 
 
-class ChannelWriter:
+class Writer:
     _client: UnaryClient
-    _cache: CacheChannelRetriever | None
+    _cache: CacheRetriever | None
     instrumentation: Instrumentation
 
     def __init__(
         self,
         client: UnaryClient,
         instrumentation: Instrumentation,
-        cache: CacheChannelRetriever | None,
+        cache: CacheRetriever | None,
     ):
         self._client = client
         self.instrumentation = instrumentation

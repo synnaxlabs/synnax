@@ -39,7 +39,7 @@ RETRY_ON_ERRORS = (InvalidToken, ExpiredToken)
 TOKEN_PREFIX = "Bearer "
 
 
-class AuthenticationClient:
+class Client:
     client: UnaryClient
     username: str
     password: str

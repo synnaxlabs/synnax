@@ -26,7 +26,7 @@ class _DeleteRequest(Payload):
     keys: list[RangeKey]
 
 
-class RangeWriter:
+class Writer:
     _client: UnaryClient
     instrumentation: Instrumentation
 

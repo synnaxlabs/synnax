@@ -58,30 +58,30 @@ def compare_users(user: User, new_user: NewUser):
 
 class TestUserClient:
     def test_create_params(self, client: sy.Synnax):
-        user = client.user.create(username="test", password="test")
+        user = client.users.create(username="test", password="test")
         compare_users(user, NewUser(username="test", password="test"))
-        client.user.delete(user.key)
+        client.users.delete(user.key)
         key = uuid()
         username = uuid().__str__()
-        user = client.user.create(
+        user = client.users.create(
             username=username, password="test", first_name="silly", key=key
         )
         compare_users(
             user,
             NewUser(username=username, password="test", first_name="silly", key=key),
         )
-        client.user.delete(user.key)
+        client.users.delete(user.key)
 
     def test_create_user(self, client: sy.Synnax, new_user):
-        repeated_user = client.user.create(user=new_user)
+        repeated_user = client.users.create(user=new_user)
         compare_users(repeated_user, new_user)
 
     def test_create_repeated(self, client: sy.Synnax):
         with pytest.raises(sy.AuthError):
-            client.user.create(username="synnax", password="test")
+            client.users.create(username="synnax", password="test")
 
     def test_create_many(self, client: sy.Synnax, new_user_list):
-        repeated_user_list = client.user.create(users=new_user_list)
+        repeated_user_list = client.users.create(users=new_user_list)
         assert len(repeated_user_list) == len(new_user_list)
         for i in range(len(repeated_user_list)):
             compare_users(repeated_user_list[i], new_user_list[i])

@@ -60,7 +60,7 @@ class Arc(ArcPayload):
     - 'graph': Visual programming using a node-based editor
     """
 
-    __client: ArcClient | None = PrivateAttr(None)
+    __client: Client | None = PrivateAttr(None)
 
     def __init__(
         self,
@@ -71,7 +71,7 @@ class Arc(ArcPayload):
         text: Text | None = None,
         version: str = "",
         mode: ArcMode = "text",
-        _client: ArcClient | None = None,
+        _client: Client | None = None,
     ):
         super().__init__(
             key=key,
@@ -98,7 +98,7 @@ class Arc(ArcPayload):
         )
 
 
-class ArcClient:
+class Client:
     """Client for managing Arc programs in the Synnax cluster."""
 
     _client: UnaryClient

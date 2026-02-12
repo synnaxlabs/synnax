@@ -13,7 +13,7 @@ from multiprocessing import Pool
 
 from synnax import framer
 from synnax.channel.payload import ChannelKey, ChannelName, ChannelParams
-from synnax.channel.retrieve import ChannelRetriever
+from synnax.channel.retrieve import Retriever
 from synnax.state import LatestState, State
 
 _InternalHandler = Callable[[State], Callable[[LatestState], None] | None]
@@ -23,9 +23,9 @@ class Registry:
     __handlers: list[_InternalHandler]
     __channels: set[ChannelKey | ChannelName]
     __frame_client: framer.Client
-    __channel_retriever: ChannelRetriever
+    __channel_retriever: Retriever
 
-    def __init__(self, frame_client: framer.Client, channels: ChannelRetriever):
+    def __init__(self, frame_client: framer.Client, channels: Retriever):
         self.__handlers = list()
         self.__channels = set()
         self.__frame_client = frame_client
@@ -66,14 +66,14 @@ class Scheduler:
     __channels: ChannelParams
     __state: State
     __frame_client: framer.Client
-    __channel_retriever: ChannelRetriever
+    __channel_retriever: Retriever
 
     def __init__(
         self,
         channels: ChannelParams,
         handlers: list[_InternalHandler],
         frame_client: framer.Client,
-        channel_retriever: ChannelRetriever,
+        channel_retriever: Retriever,
     ):
         self.__frame_client = frame_client
         self.__channels = channels

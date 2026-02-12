@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.arc.client import Arc, ArcClient
+from synnax.arc.client import Arc, Client
 from synnax.arc.payload import (
     ArcKey,
     ArcMode,
@@ -23,7 +23,7 @@ from synnax.arc.types import ArcTask, ArcTaskConfig
 
 __all__ = [
     "Arc",
-    "ArcClient",
+    "Client",
     "ArcKey",
     "ArcMode",
     "ArcPayload",

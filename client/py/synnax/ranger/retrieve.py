@@ -26,7 +26,7 @@ class _Response(Payload):
     ranges: list[RangePayload] | None
 
 
-class RangeRetriever:
+class Retriever:
     __client: UnaryClient
     instrumentation: Instrumentation = NOOP
 

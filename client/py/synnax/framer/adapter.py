@@ -18,7 +18,7 @@ from synnax.channel.payload import (
     ChannelPayload,
     normalize_channel_params,
 )
-from synnax.channel.retrieve import ChannelRetriever, retrieve_required
+from synnax.channel.retrieve import Retriever, retrieve_required
 from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
 from synnax.framer.frame import CrudeFrame, Frame
@@ -28,11 +28,11 @@ from synnax.telem.series import CrudeSeries, Series
 
 class ReadFrameAdapter:
     __adapter: dict[ChannelKey, ChannelName] | None
-    retriever: ChannelRetriever
+    retriever: Retriever
     keys: list[ChannelKey]
     codec: Codec
 
-    def __init__(self, retriever: ChannelRetriever):
+    def __init__(self, retriever: Retriever):
         self.retriever = retriever
         self.__adapter = None
         self.keys = list()
@@ -90,12 +90,12 @@ class WriteFrameAdapter:
     _strict_data_types: bool
     _suppress_warnings: bool
 
-    retriever: ChannelRetriever
+    retriever: Retriever
     codec: Codec
 
     def __init__(
         self,
-        retriever: ChannelRetriever,
+        retriever: Retriever,
         err_on_extra_chans: bool = True,
         strict_data_types: bool = False,
         suppress_warnings: bool = True,

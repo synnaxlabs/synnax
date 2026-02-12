@@ -42,7 +42,7 @@ class _DeleteRequest(Payload):
 ONTOLOGY_TYPE = ID(type="policy")
 
 
-class PolicyClient:
+class Client:
     _client: UnaryClient
     instrumentation: Instrumentation
 

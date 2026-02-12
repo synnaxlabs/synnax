@@ -50,7 +50,7 @@ from synnax.framer import (
     Writer,
     WriterMode,
 )
-from synnax.options import SynnaxOptions
+from synnax.options import Options
 from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
@@ -135,7 +135,7 @@ __all__ = [
     "sleep",
     "Streamer",
     "Synnax",
-    "SynnaxOptions",
+    "Options",
     "Task",
     "TaskStatus",
     "TaskStatusDetails",

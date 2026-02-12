@@ -22,7 +22,7 @@ from synnax.channel.payload import (
     ChannelPayload,
     normalize_channel_params,
 )
-from synnax.channel.retrieve import ChannelRetriever
+from synnax.channel.retrieve import Retriever
 from synnax.exceptions import QueryError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.deleter import Deleter
@@ -52,7 +52,7 @@ class Client:
     __stream_client: WebsocketClient
     __async_client: AsyncStreamClient
     __unary_client: UnaryClient
-    __channels: ChannelRetriever
+    __channels: Retriever
     __deleter: Deleter
     instrumentation: Instrumentation
 
@@ -61,7 +61,7 @@ class Client:
         stream_client: WebsocketClient,
         async_client: AsyncStreamClient,
         unary_client: UnaryClient,
-        retriever: ChannelRetriever,
+        retriever: Retriever,
         deleter: Deleter,
         instrumentation: Instrumentation = NOOP,
     ):

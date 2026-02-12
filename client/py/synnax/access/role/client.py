@@ -49,7 +49,7 @@ class _UnassignRequest(Payload):
     role: UUID
 
 
-class RoleClient:
+class Client:
     _client: UnaryClient
     instrumentation: Instrumentation
 

@@ -28,7 +28,7 @@ from synnax.channel.payload import (
     ChannelParams,
     ChannelPayload,
 )
-from synnax.channel.retrieve import ChannelRetriever
+from synnax.channel.retrieve import Retriever
 from synnax.exceptions import QueryError
 from synnax.framer.client import Client
 from synnax.framer.frame import CrudeFrame
@@ -45,8 +45,8 @@ from synnax.ranger.payload import (
     RangePayload,
     ontology_id,
 )
-from synnax.ranger.retrieve import RangeRetriever
-from synnax.ranger.writer import RangeWriter
+from synnax.ranger.retrieve import Retriever
+from synnax.ranger.writer import Writer
 from synnax.signals.signals import Registry
 from synnax.state import LatestState
 from synnax.task import Client as TaskClient
@@ -255,7 +255,7 @@ class Range(RangePayload):
 
     __frame_client: Client | None = PrivateAttr(None)
     """The frame client for executing read and write operations."""
-    _channels: ChannelRetriever | None = PrivateAttr(None)
+    _channels: Retriever | None = PrivateAttr(None)
     """For retrieving channels from the cluster."""
     _kv: KVClient | None = PrivateAttr(None)
     """Key-value store for storing metadata about the range."""
@@ -263,7 +263,7 @@ class Range(RangePayload):
     """For setting and resolving aliases."""
     _cache: dict[ChannelKey, _InternalScopedChannel] = PrivateAttr(dict())
     """A writer for creating child ranges"""
-    _client: RangeClient | None = PrivateAttr(None)
+    _client: Client | None = PrivateAttr(None)
     _tasks: TaskClient | None = PrivateAttr(None)
     _ontology: OntologyClient | None = PrivateAttr(None)
 
@@ -275,10 +275,10 @@ class Range(RangePayload):
         color: str = "",
         *,
         _frame_client: Client | None = None,
-        _channel_retriever: ChannelRetriever | None = None,
+        _channel_retriever: Retriever | None = None,
         _kv: KVClient | None = None,
         _aliaser: AliasClient | None = None,
-        _client: RangeClient | None = None,
+        _client: Client | None = None,
         _tasks: TaskClient | None = None,
         _ontology: OntologyClient | None = None,
     ):
@@ -374,7 +374,7 @@ class Range(RangePayload):
         return self.__frame_client
 
     @property
-    def _channel_retriever(self) -> ChannelRetriever:
+    def _channel_retriever(self) -> Retriever:
         if self._channels is None:
             raise _RANGE_NOT_CREATED
         return self._channels
@@ -487,11 +487,11 @@ class Range(RangePayload):
         return self._tasks.retrieve(keys=[t.id.key for t in tasks])
 
 
-class RangeClient:
+class Client:
     _frame_client: Client
-    _channels: ChannelRetriever
-    _retriever: RangeRetriever
-    _writer: RangeWriter
+    _channels: Retriever
+    _retriever: Retriever
+    _writer: Writer
     _unary_client: UnaryClient
     _signals: Registry
     _tasks: TaskClient
@@ -501,9 +501,9 @@ class RangeClient:
         self,
         unary_client: UnaryClient,
         frame_client: Client,
-        writer: RangeWriter,
-        retriever: RangeRetriever,
-        channel_retriever: ChannelRetriever,
+        writer: Writer,
+        retriever: Retriever,
+        channel_retriever: Retriever,
         signals: Registry,
         tasks: TaskClient,
         ontology: OntologyClient,

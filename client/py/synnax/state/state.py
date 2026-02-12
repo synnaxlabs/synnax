@@ -8,16 +8,16 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.channel import ChannelKey, ChannelName
-from synnax.channel.retrieve import ChannelRetriever, retrieve_required
+from synnax.channel.retrieve import Retriever, retrieve_required
 from synnax.framer import Frame
 from synnax.telem import Series
 
 
 class State:
     value: dict[ChannelKey, Series]
-    __retriever: ChannelRetriever
+    __retriever: Retriever
 
-    def __init__(self, retriever: ChannelRetriever):
+    def __init__(self, retriever: Retriever):
         self.__retriever = retriever
         self.value = dict()
 

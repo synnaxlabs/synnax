@@ -22,7 +22,7 @@ from synnax.channel.payload import (
     ChannelParams,
     ChannelPayload,
 )
-from synnax.channel.retrieve import ChannelRetriever, retrieve_required
+from synnax.channel.retrieve import Retriever, retrieve_required
 from synnax.exceptions import ValidationError
 from synnax.framer import AsyncStreamer as AsyncFrameStreamer
 from synnax.framer import Client as FrameClient
@@ -98,7 +98,7 @@ class Controller:
     _writer_opt: FrameWriter | None = None
     _receiver_opt: _Receiver | None = None
     _idx_map: dict[ChannelKey, ChannelKey]
-    _retriever: ChannelRetriever
+    _retriever: Retriever
 
     def __init__(
         self,
@@ -106,7 +106,7 @@ class Controller:
         write: ChannelParams | None,
         read: ChannelParams | None,
         frame_client: FrameClient,
-        retriever: ChannelRetriever,
+        retriever: Retriever,
         write_authorities: CrudeAuthority | list[CrudeAuthority],
     ) -> None:
         self._retriever = retriever
@@ -461,7 +461,7 @@ class _Receiver(AsyncThread):
     streamer: AsyncFrameStreamer
     processors: set[Processor]
     processor_lock: Lock
-    retriever: ChannelRetriever
+    retriever: Retriever
     controller: Controller
     startup_ack: Event
     shutdown_future: Future
@@ -470,7 +470,7 @@ class _Receiver(AsyncThread):
         self,
         client: FrameClient,
         channels: ChannelParams,
-        retriever: ChannelRetriever,
+        retriever: Retriever,
         controller: Controller,
     ):
         super().__init__()

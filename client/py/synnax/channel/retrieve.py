@@ -37,7 +37,7 @@ class _Response(Payload):
     not_found: list[str] | None = list()
 
 
-class ChannelRetriever(Protocol):
+class Retriever(Protocol):
     """Protocol for retrieving channel payloads from the cluster."""
 
     def retrieve(self, channels: ChannelParams) -> list[ChannelPayload]: ...
@@ -45,7 +45,7 @@ class ChannelRetriever(Protocol):
     def retrieve_one(self, param: ChannelKey | ChannelName) -> ChannelPayload: ...
 
 
-class ClusterChannelRetriever:
+class ClusterRetriever:
     _client: UnaryClient
     instrumentation: Instrumentation
 
@@ -57,7 +57,7 @@ class ClusterChannelRetriever:
         self._client = client
         self.instrumentation = instrumentation
 
-    def _(self) -> ChannelRetriever:
+    def _(self) -> Retriever:
         return self
 
     @trace("debug")
@@ -84,15 +84,15 @@ class ClusterChannelRetriever:
         return send_required(self._client, "/channel/retrieve", req, _Response).channels
 
 
-class CacheChannelRetriever:
-    _retriever: ChannelRetriever
+class CacheRetriever:
+    _retriever: Retriever
     _channels: dict[ChannelKey, ChannelPayload]
     _names_to_keys: dict[ChannelName, set[ChannelKey]]
     instrumentation: Instrumentation
 
     def __init__(
         self,
-        retriever: ChannelRetriever,
+        retriever: Retriever,
         instrumentation: Instrumentation,
     ) -> None:
         self._channels = dict()
@@ -133,7 +133,7 @@ class CacheChannelRetriever:
             else:
                 existing_keys.add(channel.key)
 
-    def _(self) -> ChannelRetriever:
+    def _(self) -> Retriever:
         return self
 
     def _get(self, param: ChannelKey | ChannelName) -> list[ChannelPayload] | None:
@@ -198,9 +198,7 @@ class CacheChannelRetriever:
         return retrieved
 
 
-def retrieve_required(
-    r: ChannelRetriever, channels: ChannelParams
-) -> list[ChannelPayload]:
+def retrieve_required(r: Retriever, channels: ChannelParams) -> list[ChannelPayload]:
     normal = normalize_channel_params(channels)
     results = r.retrieve(channels)
     not_found = list()
