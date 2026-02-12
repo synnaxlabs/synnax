@@ -344,11 +344,12 @@ export const convertOntologyResourceToPayload = ({
   name,
 }: ontology.Resource): Payload => {
   const timeRange = TimeRange.z.parse(data?.timeRange);
+  const c = color.colorZ.safeParse(data?.color);
   return {
     key,
     name,
     timeRange,
-    color: data?.color != null ? color.construct(data.color as color.Crude) : undefined,
+    color: c.success ? c.data : undefined,
     labels: [],
     parent: null,
   };

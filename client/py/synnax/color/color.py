@@ -18,7 +18,7 @@ class Color(BaseModel):
     r: int = 0
     g: int = 0
     b: int = 0
-    a: float = 0
+    a: float = 1
 
     def __init__(self, __value: object = None, /, **kwargs: object):
         if __value is not None:

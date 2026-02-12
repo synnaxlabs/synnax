@@ -61,7 +61,8 @@ class TestColor:
         assert len(h) == 9
 
     def test_is_zero(self):
-        assert Color().is_zero
+        assert Color(r=0, g=0, b=0, a=0).is_zero
+        assert not Color().is_zero
         assert not Color(r=1).is_zero
         assert not Color(a=0.5).is_zero
 
@@ -96,3 +97,7 @@ class TestColor:
     def test_invalid_array_length(self):
         with pytest.raises(ValueError):
             Color([1, 2])
+
+    def test_default_alpha_is_opaque(self):
+        c = Color(r=255, g=0, b=0)
+        assert c.a == 1.0
