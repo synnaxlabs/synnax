@@ -195,10 +195,6 @@ I can successfully:
 
 I can successfully:
 
-- **Range Explorer**
-  - [ ] Search ranges
-  - [ ] Filter ranges by labels
-
 - [ ] Open a range from its link.
 - [ ] Change the time of a range and ensure synchronization across:
   - Range Details

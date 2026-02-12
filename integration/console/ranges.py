@@ -136,7 +136,7 @@ class RangesClient:
         labels: list[str] | None = None,
         stage: str | None = None,
     ) -> None:
-        """Create a new range.
+        """Create a new range via the command palette.
 
         Args:
             name: The name for the new range.
@@ -146,10 +146,26 @@ class RangesClient:
             stage: Optional stage to set ("To Do", "In Progress", "Completed").
         """
         self.layout.command_palette("Create a range")
-
         modal = self.layout.page.locator(self.CREATE_MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
+        self._fill_create_modal(
+            name, persisted=persisted, parent=parent, labels=labels, stage=stage
+        )
 
+    def _fill_create_modal(
+        self,
+        name: str,
+        *,
+        persisted: bool = True,
+        parent: str | None = None,
+        labels: list[str] | None = None,
+        stage: str | None = None,
+    ) -> None:
+        """Fill and submit the range creation modal.
+
+        Assumes the modal is already open and visible.
+        """
+        modal = self.layout.page.locator(self.CREATE_MODAL_SELECTOR)
         name_input = self.layout.page.locator(
             f"input[placeholder='{self.NAME_INPUT_PLACEHOLDER}']"
         )
@@ -1090,17 +1106,116 @@ class RangesClient:
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.action(item, "Copy link")
 
-    def create_child_range_from_explorer(self, parent_name: str) -> None:
-        """Open the create child range dialog via context menu in the explorer.
+    def create_child_range_from_explorer(
+        self, parent_name: str, child_name: str
+    ) -> None:
+        """Create a child range via context menu in the explorer.
 
         Args:
             parent_name: The name of the parent range.
+            child_name: The name for the new child range.
         """
         item = self.get_explorer_item(parent_name)
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.action(item, "Create child range")
         modal = self.layout.page.locator(self.CREATE_MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
+        self._fill_create_modal(child_name)
+
+    # ── Explorer Search & Filter ──────────────────────────────────────────
+
+    SEARCH_INPUT_PLACEHOLDER = "Search ranges..."
+
+    def enable_explorer_editing(self) -> None:
+        """Enable editing mode in the explorer to show search/filter controls."""
+        search_input = self.layout.page.locator(
+            f"input[placeholder='{self.SEARCH_INPUT_PLACEHOLDER}']"
+        )
+        if search_input.is_visible():
+            return
+        edit_button = (
+            self.layout.page.locator("button")
+            .filter(has=self.layout.page.locator("svg.pluto-icon--edit"))
+            .first
+        )
+        edit_button.click()
+        search_input.wait_for(state="visible", timeout=5000)
+
+    def search_explorer(self, term: str) -> None:
+        """Type a search term in the explorer search input.
+
+        Args:
+            term: The search string to type.
+        """
+        self.enable_explorer_editing()
+        search_input = self.layout.page.get_by_placeholder(
+            self.SEARCH_INPUT_PLACEHOLDER
+        )
+        search_input.fill(term)
+        search_input.dispatch_event(
+            "input",
+            {"bubbles": True, "data": term, "inputType": "insertText"},
+        )
+
+    def clear_explorer_search(self) -> None:
+        """Clear the explorer search input."""
+        self.search_explorer("")
+
+    def open_explorer_label_filter(self) -> Locator:
+        """Open the label filter dropdown in the explorer.
+
+        Returns:
+            Locator for the visible filter dialog.
+        """
+        self.enable_explorer_editing()
+        filter_button = (
+            self.layout.page.locator("button")
+            .filter(has=self.layout.page.locator("svg.pluto-icon--filter"))
+            .first
+        )
+        filter_button.click()
+        dialog = self.layout.page.locator(".pluto-dialog__dialog.pluto--visible")
+        dialog.wait_for(state="visible", timeout=5000)
+        return dialog
+
+    def select_explorer_label_filter(self, label_name: str) -> None:
+        """Select a label in the explorer's label filter dropdown.
+
+        The filter is a two-level dialog:
+        1. Filter button → first dialog with "Select labels" trigger
+        2. "Select labels" → second dialog with label list
+
+        Args:
+            label_name: The name of the label to select.
+        """
+        filter_dialog = self.open_explorer_label_filter()
+        select_labels_trigger = filter_dialog.get_by_text("Select labels")
+        select_labels_trigger.click()
+        label_dialog = self.layout.page.locator(".pluto-select__dialog.pluto--visible")
+        label_dialog.wait_for(state="visible", timeout=5000)
+        item = (
+            label_dialog.locator(".pluto-list__item").filter(has_text=label_name).first
+        )
+        item.wait_for(state="visible", timeout=5000)
+        item.click()
+        self.layout.press_escape()
+        self.layout.press_escape()
+
+    def clear_explorer_label_filter(self, label_name: str) -> None:
+        """Remove a label from the active filter by clicking its chip close button.
+
+        Args:
+            label_name: The name of the label chip to remove.
+        """
+        tag = (
+            self.layout.page.locator(".pluto-tag:has(button)")
+            .filter(has_text=label_name)
+            .first
+        )
+        tag.wait_for(state="visible", timeout=5000)
+        close_btn = tag.locator("button")
+        close_btn.click()
+        tag.wait_for(state="hidden", timeout=5000)
 
     # ── Range Label Operations ─────────────────────────────────────────────
 

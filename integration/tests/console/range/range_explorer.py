@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from uuid import UUID
+
 import synnax as sy
 
 from console.case import ConsoleCase
@@ -43,34 +45,38 @@ class RangeExplorer(ConsoleCase):
         now = sy.TimeStamp.now()
         tr = sy.TimeRange(now - sy.TimeSpan.HOUR, now + sy.TimeSpan.HOUR)
         for name in [
-            self.range_a_name,
-            self.range_b_name,
             self.range_c_name,
             self.range_d_name,
             self.range_e_name,
         ]:
             self.client.ranges.create(name=name, time_range=tr)
 
+        self.console.ranges.create(
+            self.range_a_name, persisted=True, labels=[self.label_a_name]
+        )
+        self.console.ranges.create(
+            self.range_b_name, persisted=True, labels=[self.label_b_name]
+        )
+
         self.console.ranges.open_explorer()
 
     def teardown(self) -> None:
-        ranges_to_delete = [
+        names = [
             self.child_range_name,
             self.range_a_name,
             self.range_b_name,
             self.range_c_name,
         ]
+        keys: list[UUID] = []
+        for name in filter(None, names):
+            keys.extend(
+                r.key for r in self.client.ranges.search(name) if r.name == name
+            )
+        if len(keys) > 0:
+            self.client.ranges.delete(keys)
 
-        self.console.ranges.open_explorer()
-        for name in ranges_to_delete:
-            if name and self.console.ranges.exists_in_explorer(name):
-                self.console.ranges.delete_from_explorer(name)
-
-        if self.console.labels.exists(self.label_a_name):
-            self.console.labels.delete(self.label_a_name)
-        if self.console.labels.exists(self.label_b_name):
-            self.console.labels.delete(self.label_b_name)
-
+        self.console.labels.delete(self.label_a_name)
+        self.console.labels.delete(self.label_b_name)
         super().teardown()
 
     def run(self) -> None:
@@ -83,21 +89,17 @@ class RangeExplorer(ConsoleCase):
         self.test_copy_link()
         self.test_delete_multiple_ranges()
 
+        # Search & Filter
+        self.test_search_ranges()
+        self.test_filter_by_labels()
+
     def test_create_child_range(self) -> None:
         """Test creating a child range via explorer context menu."""
         self.log("Testing: Create child range from explorer context menu")
         self.child_range_name = f"ExplorerChild_{self.suffix}"
-        self.console.ranges.create_child_range_from_explorer(self.range_a_name)
-
-        name_input = self.page.locator(
-            f"input[placeholder='{self.console.ranges.NAME_INPUT_PLACEHOLDER}']"
+        self.console.ranges.create_child_range_from_explorer(
+            self.range_a_name, self.child_range_name
         )
-        name_input.fill(self.child_range_name)
-        save_button = self.page.get_by_role("button", name="Save to Synnax")
-        save_button.click(timeout=2000)
-        modal = self.page.locator(self.console.ranges.CREATE_MODAL_SELECTOR)
-        modal.wait_for(state="hidden", timeout=5000)
-
         assert self.console.ranges.exists_in_explorer(
             self.child_range_name
         ), f"Child range '{self.child_range_name}' should exist in explorer"
@@ -159,3 +161,31 @@ class RangeExplorer(ConsoleCase):
                 raise AssertionError(f"Range '{name}' should be deleted from server")
             except sy.QueryError:
                 pass
+
+    def test_search_ranges(self) -> None:
+        """Test searching ranges by name in the explorer."""
+        self.log("Testing: Search ranges in explorer")
+        self.console.ranges.open_explorer()
+
+        self.console.ranges.search_explorer(self.range_a_name)
+
+        assert self.console.ranges.exists_in_explorer(
+            self.range_a_name
+        ), f"'{self.range_a_name}' should be visible when searching for it"
+
+        self.console.ranges.clear_explorer_search()
+        assert self.console.ranges.exists_in_explorer(
+            self.range_b_name
+        ), f"'{self.range_b_name}' should be visible after clearing search"
+
+    def test_filter_by_labels(self) -> None:
+        """Test filtering ranges by label in the explorer."""
+        self.log("Testing: Filter ranges by label")
+        self.console.ranges.open_explorer()
+        self.console.ranges.select_explorer_label_filter(self.label_a_name)
+
+        assert self.console.ranges.exists_in_explorer(
+            self.range_a_name
+        ), f"'{self.range_a_name}' should be visible when filtering by its label"
+
+        self.console.ranges.wait_for_removed_from_explorer(self.range_b_name)
