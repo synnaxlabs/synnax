@@ -19,7 +19,9 @@ from synnax.arc import (
     GraphNode,
     Handle,
     Position,
-    Task,
+)
+from synnax.arc import Task as ArcTask
+from synnax.arc import (
     Text,
 )
 from synnax.channel import Channel
@@ -53,7 +55,6 @@ from synnax.framer import (
 from synnax.options import Options
 from synnax.rack import Rack
 from synnax.ranger import Range
-from synnax.status import Status
 from synnax.synnax import Synnax
 from synnax.task import Status, StatusDetails, Task
 from synnax.telem import (
@@ -86,7 +87,7 @@ from synnax.user.payload import User
 __all__ = [
     "Alignment",
     "Arc",
-    "Task",
+    "ArcTask",
     "AUTO_SPAN",
     "AuthError",
     "Authority",
@@ -160,5 +161,4 @@ __all__ = [
     "ontology",
     "auth",
     "status",
-    "Status",
 ]

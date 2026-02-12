@@ -13,6 +13,7 @@ from synnax.channel.payload import (
     Operation,
     Params,
     Payload,
+    has_params,
     normalize_params,
 )
 from synnax.channel.retrieve import (
@@ -36,4 +37,5 @@ __all__ = [
     "Retriever",
     "retrieve_required",
     "Writer",
+    "has_params",
 ]

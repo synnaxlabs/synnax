@@ -15,6 +15,8 @@ from synnax.config.file import ConfigFile
 from synnax.exceptions import ValidationError
 from synnax.options import Options
 
+__all__ = ["ClusterConfig", "ClustersConfig", "ConfigFile"]
+
 CONFIG_FILE_PATH = Path(os.path.expanduser("~/.synnax"))
 
 

@@ -22,7 +22,7 @@ class ID(BaseModel):
         elif isinstance(key, tuple):
             key, type = key
             super().__init__(key=key, type=type)
-        elif type is None:
+        elif type is None and key is not None:
             type, key = key.split(":")
             super().__init__(key=key, type=type)
         else:

@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import warnings
+from typing import Any
 
 from pandas import DataFrame
 
@@ -40,7 +41,7 @@ class ReadFrameAdapter:
             [ch.data_type for ch in fetched],
         )
 
-        if normal.variant == "keys":
+        if isinstance(normal, channel.NormalizedChannelKeyResult):
             self.__adapter = None
             self.keys = normal.channels
             return
@@ -79,7 +80,7 @@ class ReadFrameAdapter:
 
 class WriteFrameAdapter:
     _adapter: dict[str, channel.Key] | None
-    _keys: list[channel.Key] | None
+    _keys: list[channel.Key]
     _err_on_extra_chans: bool
     _strict_data_types: bool
     _suppress_warnings: bool
@@ -96,7 +97,7 @@ class WriteFrameAdapter:
     ):
         self.retriever = retriever
         self._adapter = None
-        self._keys = None
+        self._keys = list()
         self._err_on_extra_chans = err_on_extra_chans
         self._strict_data_types = strict_data_types
         self._suppress_warnings = suppress_warnings
@@ -112,15 +113,15 @@ class WriteFrameAdapter:
         )
 
     def adapt_dict_keys(
-        self, data: dict[channel.Payload | channel.Key | str, any]
-    ) -> dict[channel.Key, any]:
+        self, data: dict[channel.Payload | channel.Key | str, Any]
+    ) -> dict[channel.Key, Any]:
         out = dict()
         for k in data.keys():
             out[self.__adapt_to_key(k)] = data[k]
         return out
 
     @property
-    def keys(self):
+    def keys(self) -> list[channel.Key]:
         return self._keys
 
     def __adapt_to_key(self, ch: channel.Payload | channel.Key | str) -> channel.Key:
@@ -206,8 +207,10 @@ class WriteFrameAdapter:
                 raise ValidationError(f"""
                 Received {len(channels_or_data)} channels but no series.
                 """)
-            channels = list()
-            o_series = list()
+            if not isinstance(series, list):
+                series = [series]
+            channels: list[channel.Key | str] = list()
+            o_series: list[CrudeSeries] = list()
             for i, ch in enumerate(channels_or_data):
                 pld = self.__adapt_ch(ch)
                 if i >= len(series):
@@ -219,35 +222,42 @@ class WriteFrameAdapter:
 
             return Frame(channels, o_series)
 
-        is_frame = isinstance(channels_or_data, Frame)
-        is_df = isinstance(channels_or_data, DataFrame)
-        if is_frame or is_df:
-            cols = channels_or_data.channels if is_frame else channels_or_data.columns
+        if isinstance(channels_or_data, (Frame, DataFrame)):
+            if isinstance(channels_or_data, Frame):
+                cols: list[channel.Key | str] = channels_or_data.channels
+            else:
+                cols = list(channels_or_data.columns)
             if self._adapter is None:
-                return channels_or_data
-            channels = list()
-            series = list()
+                return (
+                    Frame(channels_or_data)
+                    if isinstance(channels_or_data, DataFrame)
+                    else channels_or_data
+                )
+            adapted_channels: list[channel.Key | str] = list()
+            adapted_series: list[Series] = list()
             for col in cols:
                 try:
-                    channels.append(self._adapter[col] if isinstance(col, str) else col)
-                    series.append(Series(channels_or_data[col]))
+                    adapted_channels.append(
+                        self._adapter[col] if isinstance(col, str) else col
+                    )
+                    adapted_series.append(Series(channels_or_data[col]))
                 except KeyError as e:
                     if self._err_on_extra_chans:
                         raise ValidationError(
                             f"Channel {e} was not provided in the list of "
                             f"channels when the writer was opened."
                         )
-            return Frame(channels=channels, series=series)
+            return Frame(channels=adapted_channels, series=adapted_series)
 
         if isinstance(channels_or_data, dict):
-            channels = list()
-            series = list()
+            dict_channels: list[channel.Key | str] = list()
+            dict_series: list[Series] = list()
             for k, v in channels_or_data.items():
                 pld = self.__adapt_ch(k)
-                channels.append(pld.key)
-                series.append(Series(v))
+                dict_channels.append(pld.key)
+                dict_series.append(Series(v))
 
-            return Frame(channels, series)
+            return Frame(dict_channels, dict_series)
 
         raise TypeError(
             f"""Cannot construct frame from {channels_or_data} and {series}"""

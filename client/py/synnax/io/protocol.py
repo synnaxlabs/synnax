@@ -16,6 +16,16 @@ from pandas import DataFrame
 
 from synnax.io.meta import ChannelMeta
 
+__all__ = [
+    "ChannelMeta",
+    "ReaderType",
+    "BaseReader",
+    "RowFileReader",
+    "ColumnFileReader",
+    "DataFrameWriter",
+    "FileWriter",
+]
+
 
 class ReaderType(Enum):
     Row = "row"

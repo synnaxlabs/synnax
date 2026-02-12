@@ -45,7 +45,7 @@ class _Request(BaseModel):
     span: TimeSpan | None = None
     bounds: TimeRange | None = None
     stamp: TimeStamp | None = None
-    keys: list[channel.Key] | tuple[channel.Key] | None = None
+    keys: list[channel.Key] | None = None
     chunk_size: int | None = None
     downsample_factor: int | None = None
 
@@ -82,7 +82,7 @@ class Iterator:
         tr: TimeRange,
         client: StreamClient,
         adapter: ReadFrameAdapter,
-        chunk_size: int = 1e5,
+        chunk_size: int = 100000,
         downsample_factor: int = 1,
         instrumentation: Instrumentation = NOOP,
     ) -> None:

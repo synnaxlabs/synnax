@@ -8,3 +8,5 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.signals.signals import Registry
+
+__all__ = ["Registry"]

@@ -42,7 +42,7 @@ import json
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, conint, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from synnax import device, task
 from synnax.channel import Key

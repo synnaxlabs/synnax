@@ -123,7 +123,8 @@ class Client:
         name: str | None = None,
         model: str | None = None,
         location: str | None = None,
-    ) -> Device: ...
+        ignore_not_found: bool = False,
+    ) -> Device | None: ...
 
     @overload
     def retrieve(
@@ -137,7 +138,6 @@ class Client:
         ignore_not_found: bool = False,
     ) -> list[Device]: ...
 
-    @trace("debug")
     def retrieve(
         self,
         *,
@@ -152,7 +152,7 @@ class Client:
         names: list[str] | None = None,
         locations: list[str] | None = None,
         ignore_not_found: bool = False,
-    ) -> list[Device] | Device:
+    ) -> list[Device] | Device | None:
         is_single = check_for_none(keys, makes, models, locations, names)
         res = send_required(
             self._client,

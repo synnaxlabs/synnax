@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, cast
+from typing import Literal, Sequence, TypeAlias, cast
 
 from pydantic import BaseModel
 
@@ -19,15 +19,13 @@ from synnax.telem import DataType, TimeSpan
 from synnax.util.normalize import normalize
 
 Key = int
-Params = Key | list[Key] | tuple[Key] | str | list[str] | tuple[str]
-
 
 ONTOLOGY_TYPE = ontology.ID(type="channel")
 
 
 def ontology_id(key: Key) -> ontology.ID:
     """Returns the ontology ID for the Channel entity."""
-    return ontology.ID(type=ONTOLOGY_TYPE.type, key=key)
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
 
 
 OPERATION_TYPES = Literal["min", "max", "avg", "none"]
@@ -38,7 +36,7 @@ class Operation(BaseModel):
 
     type: OPERATION_TYPES
     reset_channel: Key = 0
-    duration: TimeSpan = 0
+    duration: TimeSpan = TimeSpan(0)
 
 
 class Payload(BaseModel):
@@ -68,7 +66,7 @@ class Payload(BaseModel):
 class NormalizedChannelKeyResult:
     single: bool
     variant: Literal["keys"]
-    channels: list[str] | tuple[str]
+    channels: list[Key]
 
 
 @dataclass
@@ -88,7 +86,8 @@ def normalize_params(
     single = isinstance(channels, (Key, str))
     if isinstance(normalized[0], str):
         try:
-            numeric_strings = [Key(s) for s in normalized]
+            str_list = cast(list[str], normalized)
+            numeric_strings = [Key(s) for s in str_list]
             return NormalizedChannelKeyResult(
                 single=single,
                 variant="keys",
@@ -98,16 +97,30 @@ def normalize_params(
             return NormalizedChannelNameResult(
                 single=single,
                 variant="names",
-                channels=cast(list[str] | tuple[str], normalized),
+                channels=cast(list[str], normalized),
             )
     elif isinstance(normalized[0], Payload):
-        return NormalizedChannelNameResult(
+        payload_list = cast(list[Payload], normalized)
+        return NormalizedChannelKeyResult(
             single=single,
             variant="keys",
-            channels=[c.key for c in normalized],
+            channels=[c.key for c in payload_list],
         )
     return NormalizedChannelKeyResult(
         single=single,
         variant="keys",
-        channels=cast(list[str] | tuple[str], normalized),
+        channels=cast(list[Key], normalized),
     )
+
+
+Params: TypeAlias = (
+    Key | Sequence[Key] | str | Sequence[str] | Sequence[Payload] | Payload
+)
+
+
+def has_params(channels: Params | None) -> bool:
+    if channels is None:
+        return False
+    if isinstance(channels, (Key, str, Payload)):
+        return True
+    return len(channels) > 0

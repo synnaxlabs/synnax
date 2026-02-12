@@ -8,16 +8,15 @@
 #  included in the file licenses/APL.txt.
 
 
-from typing import Unpack
+from typing import Any, cast
 
-from synnax.cli.console.sugared import AskKwargs
 from synnax.cli.flow import Context
 from synnax.telem import DataType, TimeSpan, TimeSpanUnits
 
 
 def select_data_type(
     ctx: Context,
-    **kwargs: Unpack[AskKwargs[str]],
+    **kwargs: Any,
 ) -> DataType | None:
     """Prompts the user to select a data type from a list of all available data
     types.
@@ -25,20 +24,21 @@ def select_data_type(
     :param ctx: The current flow Context.
     :param allow_none: Whether to allow the user to select None.
     """
-    return DataType(
-        ctx.console.select(
-            rows=[str(name) for name in DataType.ALL],
-            type_=str,
-            columns=["data_type"],
-            **kwargs,
-        )[0]
+    selected, _ = ctx.console.select(
+        rows=[str(name) for name in DataType.ALL],
+        type_=str,
+        columns=["data_type"],
+        **kwargs,
     )
+    if selected is None:
+        return None
+    return DataType(selected)
 
 
 def ask_time_units_select(
     ctx: Context,
     question: str | None = None,
-    **kwargs: Unpack[AskKwargs[str]],
+    **kwargs: Any,
 ) -> TimeSpanUnits:
     """Prompts the user to select a time unit from a list of all available time
     units.
@@ -48,9 +48,12 @@ def ask_time_units_select(
     """
     if question is not None:
         ctx.console.info(question)
-    return ctx.console.select(
-        rows=["iso", *list(TimeSpan.UNITS.keys())],
+    unit_rows: list[str] = ["iso", *list(TimeSpan.UNITS.keys())]
+    selected, _ = ctx.console.select(
+        rows=unit_rows,
         type_=str,
         columns=["unit"],
         **kwargs,
-    )[0]
+    )
+    assert selected is not None
+    return cast(TimeSpanUnits, selected)

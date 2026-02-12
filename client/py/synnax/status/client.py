@@ -79,7 +79,7 @@ class Client:
     @overload
     def set(
         self,
-        statuses: list[Status],
+        status: list[Status],
         *,
         parent: ID | None = None,
     ) -> list[Status]: ...
@@ -205,7 +205,7 @@ class Client:
                 ... )
         """
         single = key is not None
-        if single:
+        if single and key is not None:
             keys = [key]
 
         res = send_required(
@@ -223,7 +223,9 @@ class Client:
         ).statuses
 
         if res is None:
-            return [] if not single else None
+            if single:
+                raise ValueError(f"Status with key '{key}' not found")
+            return []
 
         if single:
             if len(res) == 0:

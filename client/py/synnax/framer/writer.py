@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from enum import Enum
-from typing import Literal, TypeAlias, overload
+from typing import Any, Literal, TypeAlias, overload
 from uuid import uuid4
 
 from freighter import (
@@ -22,6 +22,7 @@ from freighter.websocket import Message
 from pydantic import BaseModel
 
 import synnax.channel.payload as channel
+from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.codec import (
     HIGH_PERF_SPECIAL_CHAR,
@@ -57,10 +58,10 @@ CrudeWriterMode: TypeAlias = (
 
 
 class WriterConfig(BaseModel):
-    authorities: list[int] = Authority.ABSOLUTE
+    authorities: list[int] = [Authority.ABSOLUTE]
     control_subject: Subject = Subject(name="", key=str(uuid4()))
     start: TimeStamp | None = None
-    keys: list[channel.Key] | tuple[channel.Key]
+    keys: list[channel.Key]
     mode: WriterMode = WriterMode.PERSIST_STREAM
     err_on_unauthorized: bool = False
     enable_auto_commit: bool = True
@@ -80,20 +81,25 @@ class WriterResponse(BaseModel):
 
 
 class WSWriterCodec(WSFramerCodec):
-    def encode(self, pld: Message[WriterRequest]) -> bytes:
-        if pld.type == "close" or pld.payload.command != WriterCommand.WRITE:
+    def encode(self, pld: Any) -> bytes:
+        assert isinstance(pld, Message)
+        if (
+            pld.type == "close"
+            or pld.payload is None
+            or pld.payload.command != WriterCommand.WRITE
+        ):
             data = self.lower_perf_codec.encode(pld)
             return bytes([LOW_PERF_SPECIAL_CHAR]) + data
-        data = self.codec.encode(pld.payload.frame, 1)
-        data = bytearray(data)
-        data[0] = HIGH_PERF_SPECIAL_CHAR
-        return bytes(data)
+        encoded = self.codec.encode(pld.payload.frame, 1)
+        buf = bytearray(encoded)
+        buf[0] = HIGH_PERF_SPECIAL_CHAR
+        return bytes(buf)
 
-    def decode(self, data: bytes, pld_t: Message[WriterResponse]) -> object:
+    def decode(self, data: bytes, pld_t: type[Any]) -> Any:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             return self.lower_perf_codec.decode(data[1:], pld_t)
         frame = self.codec.decode(data, 1)
-        msg = Message[WriterRequest](type="data")
+        msg: Message[WriterRequest] = Message(type="data")
         msg.payload = WriterRequest(command=WriterCommand.WRITE, frame=frame)
         return msg
 
@@ -165,7 +171,7 @@ class Writer:
 
     _stream: Stream[WriterRequest, WriterResponse]
     _adapter: WriteFrameAdapter
-    _close_exc: Exception | None = None
+    _close_exc: BaseException | None = None
 
     start: CrudeTimeStamp
 
@@ -175,7 +181,7 @@ class Writer:
         client: WebsocketClient,
         adapter: WriteFrameAdapter,
         name: str = "",
-        authorities: list[Authority] | Authority = Authority.ABSOLUTE,
+        authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = True,
@@ -366,16 +372,21 @@ class Writer:
         if isinstance(value, int) and authority is None:
             cfg = WriterConfig(keys=[], authorities=[value])
         else:
+            auth_map: dict[channel.Key | str | channel.Payload, CrudeAuthority]
             if isinstance(value, (channel.Key, str)):
                 if authority is None:
                     raise ValueError(
                         "authority must be provided when setting a single channel"
                     )
-                value = {value: authority}
-            value = self._adapter.adapt_dict_keys(value)
+                auth_map = {value: authority}
+            elif isinstance(value, dict):
+                auth_map = value
+            else:
+                raise ValueError(f"unexpected authority value type: {type(value)}")
+            resolved = self._adapter.adapt_dict_keys(auth_map)
             cfg = WriterConfig(
-                keys=list(value.keys()),
-                authorities=list(value.values()),
+                keys=list(resolved.keys()),
+                authorities=list(resolved.values()),
             )
         self._exec(WriterRequest(command=WriterCommand.SET_AUTHORITY, config=cfg))
 
@@ -391,6 +402,9 @@ class Writer:
         if self._close_exc is not None:
             raise self._close_exc
         res = self._exec(WriterRequest(command=WriterCommand.COMMIT))
+        assert res is not None
+        if res.end is None:
+            raise UnexpectedError("commit response missing end timestamp")
         return res.end
 
     def close(self):
@@ -400,7 +414,7 @@ class Writer:
         """
         return self._close(None)
 
-    def _close(self, exc: Exception | None) -> None:
+    def _close(self, exc: BaseException | None) -> None:
         if self._close_exc is not None:
             if isinstance(self._close_exc, WriterClosed):
                 return
@@ -412,25 +426,32 @@ class Writer:
                 if isinstance(self._close_exc, WriterClosed):
                     return
                 raise self._close_exc
-            res, exc = self._stream.receive()
-            if exc is not None:
-                self._close_exc = WriterClosed() if isinstance(exc, EOF) else exc
-            else:
+            res, recv_exc = self._stream.receive()
+            if recv_exc is not None:
+                self._close_exc = (
+                    WriterClosed() if isinstance(recv_exc, EOF) else recv_exc
+                )
+            elif res is not None:
                 self._close_exc = decode_exception(res.err)
 
     def _exec(
         self, req: WriterRequest, timeout: int | None = None
     ) -> WriterResponse | None:
-        exc = self._stream.send(req)
-        if exc is not None:
-            return self._close(exc)
+        send_exc = self._stream.send(req)
+        if send_exc is not None:
+            self._close(send_exc)
+            return None
         while True:
-            res, exc = self._stream.receive(timeout)
-            if exc is not None:
-                return self._close(exc)
-            exc = decode_exception(res.err)
-            if exc is not None:
-                return self._close(exc)
+            res, recv_exc = self._stream.receive(timeout)
+            if recv_exc is not None:
+                self._close(recv_exc)
+                return None
+            if res is None:
+                continue
+            decoded_exc = decode_exception(res.err)
+            if decoded_exc is not None:
+                self._close(decoded_exc)
+                return None
             if res.command == req.command:
                 return res
 

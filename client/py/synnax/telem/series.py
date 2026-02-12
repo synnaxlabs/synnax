@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime
+from typing import TypeAlias
 
 import numpy as np
 import pandas as pd
@@ -98,7 +99,7 @@ class Series(BaseModel):
                 raise ValueError(
                     "[Series] - MultiSeries with more than one series cannot be converted to a Series"
                 )
-            data_type = data_type or data
+            data_type = data_type or data.data_type
         elif isinstance(data, pd.Series):
             data_type = data_type or DataType(data.dtype)
             data_ = data.to_numpy(dtype=data_type.np).tobytes()
@@ -112,9 +113,9 @@ class Series(BaseModel):
                     b"\n".join([json.dumps(d).encode("utf-8") for d in data]) + b"\n"
                 )
             elif data_type == DataType.STRING:
-                data_ = b"\n".join([d.encode("utf-8") for d in data]) + b"\n"
+                data_ = b"\n".join([str(d).encode("utf-8") for d in data]) + b"\n"
             elif data_type == DataType.UUID:
-                data_ = b"".join(d.bytes for d in data)
+                data_ = b"".join(d.bytes for d in data if isinstance(d, uuid.UUID))
             else:
                 data_ = np.array(data, dtype=data_type.np).tobytes()
                 data_type = data_type or DataType(data)
@@ -262,11 +263,11 @@ class Series(BaseModel):
             return False
 
 
-Series = overload_comparison_operators(Series, "__array__")
+overload_comparison_operators(Series, "__array__")
 
-SampleValue = np.number | uuid.UUID | dict | str | int | float | TimeStamp
-TypedCrudeSeries = Series | pd.Series | np.ndarray
-CrudeSeries = (
+SampleValue: TypeAlias = np.number | uuid.UUID | dict | str | int | float | TimeStamp
+TypedCrudeSeries: TypeAlias = Series | pd.Series | np.ndarray
+CrudeSeries: TypeAlias = (
     Series
     | bytes
     | pd.Series
@@ -391,4 +392,4 @@ class MultiSeries:
         return Size(sum(s.size for s in self.series))
 
 
-MultiSeries = overload_comparison_operators(MultiSeries, "__array__")
+overload_comparison_operators(MultiSeries, "__array__")

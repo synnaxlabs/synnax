@@ -98,8 +98,10 @@ class Client:
                 key=key,
             )
         single = user is not None
-        if single:
+        if single and user is not None:
             users = [user]
+        if users is None:
+            raise ValueError("Either username, user, or users must be provided")
         res = send_required(
             self.client,
             "/user/create",
@@ -153,12 +155,18 @@ class Client:
             keys = normalize(key)
         if username is not None:
             usernames = normalize(username)
-        return send_required(
+        res = send_required(
             self.client,
             "/user/retrieve",
             _RetrieveRequest(keys=keys, usernames=usernames),
             _RetrieveResponse,
-        ).users
+        )
+        if res.users is None:
+            return []
+        single = key is not None or username is not None
+        if single and len(res.users) > 0:
+            return res.users[0]
+        return res.users
 
     def delete(self, keys: UUID | list[UUID] | None = None) -> None:
         send_required(

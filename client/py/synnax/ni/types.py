@@ -8,10 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 import json
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, confloat, conint, field_validator, validator
+from pydantic import BaseModel, Field, field_validator, validator
 
 from synnax import device, task
 from synnax.exceptions import ValidationError
@@ -349,7 +349,7 @@ class AIBridgeChan(BaseAIChan, MinMaxVal):
     bridge_config: Literal["FullBridge", "HalfBridge", "QuarterBridge"]
     voltage_excit_source: ExcitationSource
     voltage_excit_val: float
-    nominal_bridge_resistance: confloat(gt=0)
+    nominal_bridge_resistance: Annotated[float, Field(gt=0)]
     custom_scale: Scale = NoScale()
 
 
@@ -425,7 +425,7 @@ class AICurrentChan(BaseAIChan, MinMaxVal):
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Amps"] = "Amps"
     shunt_resistor_loc: Literal["Default", "Internal", "External"]
-    ext_shunt_resistor_val: confloat(gt=0)
+    ext_shunt_resistor_val: Annotated[float, Field(gt=0)]
     custom_scale: Scale = NoScale()
 
 
@@ -466,7 +466,7 @@ class AICurrentRMSChan(BaseAIChan, MinMaxVal):
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Amps"] = "Amps"
     shunt_resistor_loc: Literal["Default", "Internal", "External"]
-    ext_shunt_resistor_val: confloat(gt=0)
+    ext_shunt_resistor_val: Annotated[float, Field(gt=0)]
     custom_scale: Scale = NoScale()
 
 
@@ -2412,7 +2412,7 @@ class AnalogReadTaskConfig(task.BaseReadConfig):
 
     device: str = ""
     "The key of the Synnax NI device to read from (optional, can be set per channel)."
-    sample_rate: conint(gt=0, le=1000000)
+    sample_rate: Annotated[int, Field(gt=0, le=1000000)]
     channels: list[AIChan]
 
     @field_validator("channels")
@@ -2435,7 +2435,7 @@ class AnalogWriteConfig(task.BaseWriteConfig):
 
     data_saving: bool = True
     "Whether to persist state feedback data to disk (True) or only stream it (False)."
-    state_rate: conint(gt=0, le=50000)
+    state_rate: Annotated[int, Field(gt=0, le=50000)]
     "The rate at which to write task channel states to the Synnax cluster (Hz)."
     channels: list[AOChan]
 
@@ -2450,7 +2450,7 @@ class CounterReadConfig(task.BaseReadConfig):
 
     device: str = ""
     "The key of the Synnax NI device to read from (optional, can be set per channel)."
-    sample_rate: conint(gt=0, le=1000000)
+    sample_rate: Annotated[int, Field(gt=0, le=1000000)]
     channels: list[CIChan]
 
     @field_validator("channels")
@@ -2473,7 +2473,7 @@ class DigitalReadConfig(task.BaseReadConfig):
 
     device: str = Field(min_length=1)
     "The key of the Synnax NI device to read from."
-    sample_rate: conint(gt=0, le=1000000)
+    sample_rate: Annotated[int, Field(gt=0, le=1000000)]
     channels: list[DIChan]
 
 
@@ -2487,7 +2487,7 @@ class DigitalWriteConfig(task.BaseWriteConfig):
 
     data_saving: bool = True
     "Whether to persist state feedback data to disk (True) or only stream it (False)."
-    state_rate: conint(gt=0, le=50000)
+    state_rate: Annotated[int, Field(gt=0, le=50000)]
     "The rate at which to write task channel states to the Synnax cluster (Hz)."
     channels: list[DOChan]
 
@@ -2534,7 +2534,7 @@ class AnalogReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protoc
         stream_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[AIChan] = None,
+        channels: list[AIChan] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -2592,7 +2592,7 @@ class AnalogWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
         state_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[AOChan] = None,
+        channels: list[AOChan] | None = None,
     ):
         if internal is not None:
             self._internal = internal
@@ -2641,7 +2641,7 @@ class CounterReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
         stream_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[CIChan] = None,
+        channels: list[CIChan] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -2702,7 +2702,7 @@ class DigitalReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
         stream_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[DIChan] = None,
+        channels: list[DIChan] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -2748,7 +2748,7 @@ class DigitalWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Prot
         state_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[DOChan] = None,
+        channels: list[DOChan] | None = None,
     ):
         if internal is not None:
             self._internal = internal

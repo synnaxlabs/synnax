@@ -8,13 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 import json
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, confloat, conint, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from synnax import channel as channel_
 from synnax import device, task
+from synnax.exceptions import NotFoundError
 from synnax.telem import CrudeDataType, CrudeRate
 
 # Device identifiers - must match Console expectations
@@ -392,8 +393,8 @@ class ReadTaskConfig(task.BaseReadConfig):
 
     device: str = Field(min_length=1)
     "The key of the Synnax Modbus device to read from."
-    sample_rate: conint(ge=0, le=10000)
-    stream_rate: conint(ge=0, le=10000)
+    sample_rate: Annotated[int, Field(ge=0, le=10000)]
+    stream_rate: Annotated[int, Field(ge=0, le=10000)]
     channels: list[InputChan]
     "A list of input channel configurations to acquire data from."
 
@@ -462,7 +463,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         stream_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[InputChan] = None,
+        channels: list[InputChan] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -495,6 +496,8 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         import json
 
         dev = device_client.retrieve(key=self.config.device)
+        if dev is None:
+            raise NotFoundError(f"Device not found: {self.config.device}")
         props = (
             json.loads(dev.properties)
             if isinstance(dev.properties, str)
@@ -547,7 +550,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         device: device.Key = "",
         name: str = "",
         auto_start: bool = False,
-        channels: list[OutputChan] = None,
+        channels: list[OutputChan] | None = None,
     ):
         if internal is not None:
             self._internal = internal
@@ -579,6 +582,8 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         import json
 
         dev = device_client.retrieve(key=self.config.device)
+        if dev is None:
+            raise NotFoundError(f"Device not found: {self.config.device}")
         props = (
             json.loads(dev.properties)
             if isinstance(dev.properties, str)

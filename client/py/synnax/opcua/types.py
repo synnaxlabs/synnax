@@ -17,6 +17,7 @@ from typing_extensions import deprecated
 
 from synnax import channel as channel_
 from synnax import device, task
+from synnax.exceptions import NotFoundError
 from synnax.telem import CrudeDataType, CrudeRate, Rate
 
 # Security mode constants
@@ -315,6 +316,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "opc_read"
+    config: NonArraySamplingReadTaskConfig | ArraySamplingReadTaskConfig
     _internal: task.Task
 
     def __init__(
@@ -329,7 +331,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         auto_start: bool = False,
         array_mode: bool = False,
         array_size: int = 1,
-        channels: list[ReadChannel] = None,
+        channels: list[ReadChannel] | None = None,
     ):
         if internal is not None:
             self._internal = internal
@@ -362,6 +364,8 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
+        if dev is None:
+            raise NotFoundError(f"Device not found: {self.config.device}")
         props = (
             json.loads(dev.properties)
             if isinstance(dev.properties, str)
@@ -425,7 +429,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         device: device.Key = "",
         name: str = "",
         auto_start: bool = False,
-        channels: list[WriteChannel] = None,
+        channels: list[WriteChannel] | None = None,
     ):
         if internal is not None:
             self._internal = internal
@@ -441,6 +445,8 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
+        if dev is None:
+            raise NotFoundError(f"Device not found: {self.config.device}")
         props = (
             json.loads(dev.properties)
             if isinstance(dev.properties, str)

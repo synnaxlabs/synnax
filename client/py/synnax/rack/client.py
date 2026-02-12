@@ -61,7 +61,7 @@ class Client:
     def create(self, *, key: int = 0, name: str = "") -> Rack: ...
 
     @overload
-    def create(self, rack: Rack) -> Rack: ...
+    def create(self, racks: Rack) -> Rack: ...
 
     @overload
     def create(self, racks: list[Rack]) -> list[Rack]: ...
@@ -95,9 +95,22 @@ class Client:
         self,
         key: int | None = None,
         name: str | None = None,
+        *,
         embedded: bool | None = None,
         host_is_node: bool | None = None,
     ) -> Rack: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: int | None = None,
+        name: str | None = None,
+        keys: list[int] | None = None,
+        names: list[str] | None = None,
+        *,
+        embedded: bool | None = None,
+        host_is_node: bool | None = None,
+    ) -> list[Rack]: ...
 
     def retrieve(
         self,
@@ -108,7 +121,7 @@ class Client:
         *,
         host_is_node: bool | None = None,
         embedded: bool | None = None,
-    ) -> list[Rack]:
+    ) -> Rack | list[Rack]:
         is_single = check_for_none(keys, names)
         res = send_required(
             self._client,

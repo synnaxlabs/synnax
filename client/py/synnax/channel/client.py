@@ -151,6 +151,8 @@ class Channel(Payload):
         :param name: The new name for the channel.
         :returns: None.
         """
+        if self.__client is None:
+            raise ValidationError("Cannot rename a channel that has not been created.")
         self.__client.rename(self.key, name)
 
     @property
@@ -217,7 +219,7 @@ class Client:
         is_index: bool = False,
         leaseholder: int = 0,
         virtual: bool | None = None,
-        expression: str | None = None,
+        expression: str = "",
         operations: list[Operation] | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel: ...
@@ -367,9 +369,12 @@ class Client:
         :param names: The new names for the channels.
         :returns: None.
         """
+        ...
 
     def rename(
-        self, keys: list[Key] | tuple[Key], names: list[str] | tuple[str]
+        self,
+        keys: Key | list[Key] | tuple[Key],
+        names: str | list[str] | tuple[str],
     ) -> None:
         """Renames one or more channels in the cluster.
 

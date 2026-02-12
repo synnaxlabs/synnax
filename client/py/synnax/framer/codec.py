@@ -72,13 +72,11 @@ class CodecFlags:
 
 
 class CodecState:
-    keys: list[channel.Key] | tuple[channel.Key]
+    keys: list[channel.Key]
     data_types: dict[channel.Key, DataType]
     has_variable_data_types: bool
 
-    def __init__(
-        self, keys: list[channel.Key] | tuple[channel.Key], data_types: list[DataType]
-    ) -> None:
+    def __init__(self, keys: list[channel.Key], data_types: list[DataType]) -> None:
         self.keys = sorted(keys)
         self.data_types = {k: dt for k, dt in zip(keys, data_types)}
         self.has_variable_data_types = any(dt.is_variable for dt in data_types)
@@ -88,21 +86,19 @@ class Codec:
     _has_variable_data_types: bool
     _seq_num: int
     _states: dict[int, CodecState]
-    _curr_state: CodecState = None
+    _curr_state: CodecState | None = None
 
     def __init__(
         self,
-        keys: list[channel.Key] | tuple[channel.Key] = None,
-        data_types: list[DataType] = None,
+        keys: list[channel.Key] | None = None,
+        data_types: list[DataType] | None = None,
     ) -> None:
         self._seq_num = 0
         self._states = dict()
-        if keys is not None:
+        if keys is not None and data_types is not None:
             self.update(keys, data_types)
 
-    def update(
-        self, keys: list[channel.Key] | tuple[channel.Key], data_types: list[DataType]
-    ):
+    def update(self, keys: list[channel.Key], data_types: list[DataType]) -> None:
         self._seq_num += 1
         self._curr_state = CodecState(keys, data_types)
         self._states[self._seq_num] = self._curr_state
@@ -116,6 +112,7 @@ class Codec:
 
     def encode(self, frame: Frame | FramePayload, start_offset: int = 0) -> bytes:
         self.throw_if_not_updated("encode")
+        assert self._curr_state is not None
         pld = frame if isinstance(frame, FramePayload) else frame.to_payload()
         indices = sorted(range(len(pld.keys)), key=lambda i: pld.keys[i])
         sorted_keys = [pld.keys[i] for i in indices]
@@ -228,6 +225,7 @@ class Codec:
 
     def decode(self, data: bytes, offset: int = 0) -> FramePayload:
         self.throw_if_not_updated("decode")
+        assert self._curr_state is not None
         buffer = memoryview(data)
         idx = offset
         flags = CodecFlags.decode(buffer[idx])

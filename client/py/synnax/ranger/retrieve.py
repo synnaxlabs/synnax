@@ -61,6 +61,6 @@ class Retriever:
         res, exc = self.__client.send("/range/retrieve", req, _Response)
         if exc is not None:
             raise exc
-        if res.ranges is None:
+        if res is None or res.ranges is None:
             return list()
         return res.ranges

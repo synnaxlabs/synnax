@@ -66,7 +66,7 @@ class Status(BaseModel, Generic[D]):
     """The time the status was created."""
     labels: list[Any] | None = None
     """Optional labels attached to the status (only present in responses)."""
-    details: D = None
+    details: D | None = None
     """The details are customizable details for component specific statuses."""
 
     @property

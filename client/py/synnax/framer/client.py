@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Any, overload
 
 import pandas as pd
 from alamos import NOOP, Instrumentation
@@ -133,7 +133,7 @@ class Client:
         self,
         tr: TimeRange,
         channels: channel.Params,
-        chunk_size: int = 1e5,
+        chunk_size: int = 100000,
         downsample_factor: int = 1,
     ) -> Iterator:
         """Opens a new iterator over the given channels within the provided time range.
@@ -163,7 +163,8 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        frame: CrudeFrame,
+        channels: CrudeFrame,
+        *,
         strict: bool = False,
     ): ...
 
@@ -171,42 +172,21 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        channel: channel.Key | str | channel.Payload,
-        data: CrudeSeries,
-        strict: bool = False,
-    ):
-        """Writes telemetry to the given channel starting at the given timestamp.
-
-        :param channel: The key of the channel to write to.
-        :param start: The starting timestamp of the first sample in data.
-        :param data: The telemetry to write to the channel.
-        :returns: None.
-        """
-        ...
-
-    @overload
-    def write(
-        self,
-        start: CrudeTimeStamp,
-        channel: (
-            list[channel.Key]
-            | tuple[channel.Key]
-            | list[str]
-            | tuple[str]
-            | list[channel.Payload]
-        ),
-        series: list[CrudeSeries],
+        channels: channel.Params,
+        series: CrudeSeries | list[CrudeSeries],
+        *,
         strict: bool = False,
     ): ...
 
     def write(
         self,
         start: CrudeTimeStamp,
-        channels: channel.Params | channel.Payload | list[channel.Payload] | CrudeFrame,
+        channels: channel.Params | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
+        *,
         strict: bool = False,
-    ):
-        parsed_channels = list()
+    ) -> None:
+        parsed_channels: Any = list()
         if isinstance(channels, (list, channel.Key, channel.Payload, str)):
             parsed_channels = channels
         elif isinstance(channels, dict):
@@ -264,12 +244,14 @@ class Client:
             )
         return series
 
+    @overload
     def read_latest(
         self,
         channels: channel.Key | str,
         n: int = 1,
     ) -> MultiSeries: ...
 
+    @overload
     def read_latest(
         self,
         channels: list[channel.Key] | tuple[channel.Key] | list[str] | tuple[str],
@@ -280,7 +262,7 @@ class Client:
         self,
         channels: channel.Params,
         n: int = 1,
-    ) -> Frame:
+    ) -> Frame | MultiSeries:
         """
         Reads the latest n samples from time_channel and data_channel.
 
@@ -303,7 +285,10 @@ class Client:
                 aggregate.append(i.value)
         if len(normal.channels) > 1:
             return aggregate
-        return aggregate.get(normal.channels[0], MultiSeries([]))
+        result = aggregate.get(normal.channels[0], MultiSeries([]))
+        if result is None:
+            return MultiSeries([])
+        return result
 
     def open_streamer(
         self,

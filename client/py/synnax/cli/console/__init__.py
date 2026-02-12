@@ -11,3 +11,5 @@ from synnax.cli.console.mock import MockConsole
 from synnax.cli.console.protocol import Console
 from synnax.cli.console.rich import RichConsole
 from synnax.cli.console.sugared import SugaredConsole
+
+__all__ = ["MockConsole", "Console", "RichConsole", "SugaredConsole"]

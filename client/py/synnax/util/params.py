@@ -9,7 +9,7 @@
 
 import functools
 from collections.abc import Callable
-from typing import Any, TypeVar, cast
+from typing import Any, TypeVar, cast, overload
 
 # Define a generic type variable for the function
 F = TypeVar("F", bound=Callable[..., Any])
@@ -24,9 +24,19 @@ class RequiresNamedParams(TypeError):
     pass
 
 
+@overload
+def require_named_params(func: F) -> F: ...
+
+
+@overload
+def require_named_params(
+    func: None = None, *, example_params: tuple[str, str] | None = None
+) -> Callable[[F], F]: ...
+
+
 def require_named_params(
     func: F | None = None, *, example_params: tuple[str, str] | None = None
-) -> Callable[[F], F]:
+) -> F | Callable[[F], F]:
     """
     Decorator that catches TypeError exceptions related to positional arguments
     and re-raises them with a more helpful error message.

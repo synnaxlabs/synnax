@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Any, overload
 
 from freighter import (
     EOF,
@@ -28,7 +28,7 @@ from synnax.telem import TimeSpan
 
 
 class _Request(BaseModel):
-    keys: list[channel.Key] | tuple[channel.Key]
+    keys: list[channel.Key]
     downsample_factor: int
     throttle_rate_hz: float | None = None
 
@@ -38,10 +38,10 @@ class _Response(BaseModel):
 
 
 class WSStreamerCodec(WSFramerCodec):
-    def encode(self, pld: Message) -> bytes:
+    def encode(self, pld: Any) -> bytes:
         return self.lower_perf_codec.encode(pld)
 
-    def decode(self, data: bytes, pld_t: Message[_Response]) -> object:
+    def decode(self, data: bytes, pld_t: type[Any]) -> Any:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             msg = self.lower_perf_codec.decode(data[1:], pld_t)
             return msg
@@ -140,6 +140,7 @@ class Streamer:
             res, exc = self._stream.receive(TimeSpan.to_seconds(timeout))
             if exc is not None:
                 raise exc
+            assert res is not None
             return self._adapter.adapt(Frame(res.frame))
         except TimeoutError:
             return None
@@ -253,7 +254,10 @@ class AsyncStreamer:
     @property
     def received(self) -> bool:
         """Returns True if a frame has been received, False otherwise."""
-        return self._stream.received()
+        recv_fn = getattr(self._stream, "received", None)
+        if recv_fn is not None:
+            return recv_fn()
+        return False
 
     async def read(self) -> Frame:
         """Reads the next frame of telemetry from the streamer. If an error occurs while
@@ -262,6 +266,7 @@ class AsyncStreamer:
         res, exc = await self._stream.receive()
         if exc is not None:
             raise exc
+        assert res is not None
         return self._adapter.adapt(Frame(res.frame))
 
     async def close_loop(self):

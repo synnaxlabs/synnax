@@ -8,17 +8,19 @@
 #  included in the file licenses/APL.txt.
 
 
+from typing import TypeAlias
+
 from pydantic import BaseModel
 
 from synnax import ontology
-from synnax.status import Status
+from synnax.status import Status as _StatusBase
 
 ONTOLOGY_TYPE = ontology.ID(type="rack")
 
 
 def ontology_id(key: int) -> ontology.ID:
     """Returns the ontology ID for the Rack entity."""
-    return ontology.ID(type=ONTOLOGY_TYPE.type, key=key)
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
 
 
 class StatusDetails(BaseModel):
@@ -28,7 +30,7 @@ class StatusDetails(BaseModel):
     """The key of the rack."""
 
 
-Status = Status[StatusDetails]
+RackStatus: TypeAlias = _StatusBase[StatusDetails]
 """The status of a rack."""
 
 
@@ -37,7 +39,7 @@ class Rack(BaseModel):
     name: str = ""
     task_counter: int = 0
     embedded: bool = False
-    status: Status | None = None
+    status: RackStatus | None = None
 
     @property
     def ontology_id(self) -> ontology.ID:
