@@ -15,8 +15,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/lsp/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
+
+var ctx context.Context
+
+var _ = BeforeEach(func() {
+	ctx = context.Background()
+})
 
 var _ = Describe("MockClient", func() {
 	Describe("Diagnostics", func() {
@@ -79,14 +86,10 @@ var _ = Describe("MockClient", func() {
 	})
 
 	Describe("Stubbed Methods", func() {
-		var (
-			client *testutil.MockClient
-			ctx    context.Context
-		)
+		var client *testutil.MockClient
 
 		BeforeEach(func() {
 			client = &testutil.MockClient{}
-			ctx = context.Background()
 		})
 
 		It("should return nil from ShowMessage", func() {
@@ -97,9 +100,7 @@ var _ = Describe("MockClient", func() {
 		})
 
 		It("should return nil from ShowMessageRequest", func() {
-			result, err := client.ShowMessageRequest(ctx, &protocol.ShowMessageRequestParams{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(BeNil())
+			Expect(MustSucceed(client.ShowMessageRequest(ctx, &protocol.ShowMessageRequestParams{}))).To(BeNil())
 		})
 
 		It("should return nil from LogMessage", func() {
@@ -122,21 +123,15 @@ var _ = Describe("MockClient", func() {
 		})
 
 		It("should return nil from WorkspaceFolders", func() {
-			folders, err := client.WorkspaceFolders(ctx)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(folders).To(BeNil())
+			Expect(MustSucceed(client.WorkspaceFolders(ctx))).To(BeNil())
 		})
 
 		It("should return nil from Configuration", func() {
-			result, err := client.Configuration(ctx, &protocol.ConfigurationParams{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(BeNil())
+			Expect(MustSucceed(client.Configuration(ctx, &protocol.ConfigurationParams{}))).To(BeNil())
 		})
 
 		It("should return false from ApplyEdit", func() {
-			applied, err := client.ApplyEdit(ctx, &protocol.ApplyWorkspaceEditParams{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(applied).To(BeFalse())
+			Expect(MustSucceed(client.ApplyEdit(ctx, &protocol.ApplyWorkspaceEditParams{}))).To(BeFalse())
 		})
 
 		It("should return nil from Progress", func() {
@@ -148,15 +143,11 @@ var _ = Describe("MockClient", func() {
 		})
 
 		It("should return nil from ShowDocument", func() {
-			result, err := client.ShowDocument(ctx, &protocol.ShowDocumentParams{URI: "file:///test"})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(BeNil())
+			Expect(MustSucceed(client.ShowDocument(ctx, &protocol.ShowDocumentParams{URI: "file:///test"}))).To(BeNil())
 		})
 
 		It("should return nil from Request", func() {
-			result, err := client.Request(ctx, "custom/method", nil)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(BeNil())
+			Expect(MustSucceed(client.Request(ctx, "custom/method", nil))).To(BeNil())
 		})
 	})
 })

@@ -1037,6 +1037,30 @@ class WorkspaceClient:
         self.drag_page_to_mosaic(name)
         return Schematic.from_open_page(self.layout, self.client, name)
 
+    def open_table(self, name: str) -> Table:
+        """Open a table by double-clicking it in the workspace resources toolbar.
+
+        Args:
+            name: Name of the table to open.
+
+        Returns:
+            Table instance for the opened table.
+        """
+        self.open_page(name)
+        return Table.from_open_page(self.layout, self.client, name)
+
+    def drag_table_to_mosaic(self, name: str) -> Table:
+        """Drag a table from the workspace resources toolbar onto the mosaic.
+
+        Args:
+            name: Name of the table to drag.
+
+        Returns:
+            Table instance for the opened table.
+        """
+        self.drag_page_to_mosaic(name)
+        return Table.from_open_page(self.layout, self.client, name)
+
     @overload
     def create_task(
         self, task_type: Literal["NI Analog Read Task"], name: str
