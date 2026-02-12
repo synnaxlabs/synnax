@@ -4,10 +4,14 @@ on:
   pull_request:
     paths:
       - .github/workflows/test.oracle.yaml
+      - .github/workflows/test.go.yaml
+      - .golangci.yaml
       - alamos/go/**
-      - oracle/**
+      - codecov.yaml
+      - freighter/go/**
       - go.work
       - go.work.sum
+      - oracle/**
       - scripts/check_gofmt.sh
       - x/go/**
   push:
@@ -16,54 +20,22 @@ on:
       - rc
     paths:
       - .github/workflows/test.oracle.yaml
+      - .github/workflows/test.go.yaml
+      - .golangci.yaml
       - alamos/go/**
-      - oracle/**
+      - codecov.yaml
+      - freighter/go/**
       - go.work
       - go.work.sum
+      - oracle/**
       - scripts/check_gofmt.sh
       - x/go/**
   workflow_dispatch:
 
 jobs:
   test:
-    name: Test (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            lint: true
-        exclude:
-          - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'macos-latest' }}
-          - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'windows-latest' }}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.work
-          cache-dependency-path: |
-            go.work.sum
-            **/go.sum
-
-      - name: Check Formatting
-        if: matrix.lint
-        run: scripts/check_gofmt.sh oracle
-
-      - name: Lint
-        if: matrix.lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          working-directory: oracle
-
-      - name: Test
-        run: go run github.com/onsi/ginkgo/v2/ginkgo -r --github-output
-        working-directory: oracle
+    uses: ./.github/workflows/test.go.yaml
+    secrets: inherit
+    with:
+      directory: oracle
+      coverage_flag: oracle

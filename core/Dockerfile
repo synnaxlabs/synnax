@@ -33,6 +33,7 @@ COPY x/go ./x/go
 COPY cesium ./cesium
 COPY aspen ./aspen
 COPY arc/go ./arc/go
+COPY oracle ./oracle
 COPY core ./core
 
 # Build with cache mounts for both go modules and build cache

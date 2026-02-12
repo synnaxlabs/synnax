@@ -11,17 +11,17 @@ package cli
 
 import (
 	"context"
-	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/oracle/lsp"
+	xos "github.com/synnaxlabs/x/os"
 )
 
 var lspCmd = &cobra.Command{
 	Use:   "lsp",
 	Short: "Start the language server",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return lsp.New().Serve(context.Background(), os.Stdin, os.Stdout)
+		return lsp.New().Serve(context.Background(), xos.StdIO)
 	},
 }
 

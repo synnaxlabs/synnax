@@ -93,9 +93,25 @@ spinner() {
 run() {
     local msg=$1
     shift
-    "$@" &> /dev/null &
-    spinner $! "$msg"
-    wait $!
+    local logfile
+    logfile=$(mktemp /tmp/oracle-install-XXXXXX.log)
+    "$@" > "$logfile" 2>&1 &
+    local pid=$!
+    spinner $pid "$msg"
+    local exit_code=0
+    wait $pid || exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        fail "Command failed (exit $exit_code): $*"
+        printf "\n"
+        info "Output:"
+        while IFS= read -r line; do
+            printf "       ${DIM}  %s${NC}\n" "$line"
+        done < "$logfile"
+        printf "\n"
+        rm -f "$logfile"
+        exit $exit_code
+    fi
+    rm -f "$logfile"
 }
 
 elapsed() {
@@ -300,14 +316,26 @@ if $INSTALL_EXTENSION; then
 
     ((STEP += 1))
     step $STEP $TOTAL "Package Extension"
-    yes 2> /dev/null | npx @vscode/vsce package \
-        --allow-missing-repository -o oracle-language.vsix &> /dev/null
+    vsix_log=$(mktemp /tmp/oracle-install-XXXXXX.log)
+    if ! yes 2> /dev/null | npx @vscode/vsce package \
+        --allow-missing-repository -o oracle-language.vsix > "$vsix_log" 2>&1; then
+        fail "Failed to create package"
+        printf "\n"
+        info "Output:"
+        while IFS= read -r line; do
+            printf "       ${DIM}  %s${NC}\n" "$line"
+        done < "$vsix_log"
+        printf "\n"
+        rm -f "$vsix_log"
+        exit 1
+    fi
+    rm -f "$vsix_log"
 
     if [ -f "oracle-language.vsix" ]; then
         SIZE=$(du -h oracle-language.vsix | cut -f1 | tr -d ' ')
         ok "Created → ${DIM}oracle-language.vsix ($SIZE)${NC}"
     else
-        fail "Failed to create package"
+        fail "Failed to create package (no output file)"
         exit 1
     fi
 
