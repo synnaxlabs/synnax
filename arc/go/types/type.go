@@ -67,12 +67,12 @@ package types
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"slices"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
