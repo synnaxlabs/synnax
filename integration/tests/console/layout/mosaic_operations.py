@@ -8,34 +8,38 @@
 #  included in the file licenses/APL.txt.
 
 from console.case import ConsoleCase
+from console.layout import LayoutClient
 
 
 class MosaicOperations(ConsoleCase):
     """Test layout mosaic operations: tabs, splits, focus, new windows."""
 
+    shared_page_name: str | None = None
+
+    def setup(self) -> None:
+        super().setup()
+        self.shared_page_name = "Shared Layout Plot"
+        self.console.workspace.create_page("Line Plot", self.shared_page_name)
+
     def run(self) -> None:
         """Run all mosaic operation tests."""
+        # Tests using shared page (non-destructive)
+        self.test_toggle_color_theme()
         self.test_find_tab()
+        self.test_focus_via_context_menu()
+        self.test_focus_via_cmd_l()
+        # Tests that create their own resources (destructive)
         self.test_rename_tab()
         self.test_split_horizontal()
         self.test_split_vertical()
 
     def test_find_tab(self) -> None:
         """Should find a tab by name after creating a page."""
-        self.log("test_find_tab: Creating a Line Plot page")
+        self.log("test_find_tab: Verifying shared page tab is visible")
         console = self.console
 
-        # Create a page with a specific name
-        page_name = "Layout Test Plot"
-        console.workspace.create_page("Line Plot", page_name)
-
-        # Find the tab using LayoutClient
-        tab = console.layout.get_tab(page_name)
-        assert tab.is_visible(), f"Tab '{page_name}' should be visible"
-
-        # Clean up
-        console.workspace.close_page(page_name)
-        self.log("test_find_tab: PASSED")
+        tab = console.layout.get_tab(self.shared_page_name)
+        assert tab.is_visible(), f"Tab '{self.shared_page_name}' should be visible"
 
     def test_rename_tab(self) -> None:
         """Should rename a tab by double-clicking and typing new name."""
@@ -56,7 +60,6 @@ class MosaicOperations(ConsoleCase):
 
         # Clean up
         console.workspace.close_page(new_name)
-        self.log("test_rename_tab: PASSED")
 
     def test_split_horizontal(self) -> None:
         """Should split a leaf horizontally via context menu."""
@@ -109,7 +112,6 @@ class MosaicOperations(ConsoleCase):
         # Clean up
         console.workspace.close_page(left_name)
         console.workspace.close_page(right_name)
-        self.log("test_split_horizontal: PASSED")
 
     def test_split_vertical(self) -> None:
         """Should split a leaf vertically via context menu."""
@@ -162,4 +164,59 @@ class MosaicOperations(ConsoleCase):
         # Clean up
         console.workspace.close_page(top_name)
         console.workspace.close_page(bottom_name)
-        self.log("test_split_vertical: PASSED")
+
+    def test_focus_via_context_menu(self) -> None:
+        """Should focus a leaf via context menu, showing a modal overlay."""
+        self.log("test_focus_via_context_menu: Focusing a leaf via context menu")
+        console = self.console
+
+        modal = console.layout.locator(LayoutClient.MODAL_SELECTOR)
+
+        # Focus via context menu
+        console.layout.focus(self.shared_page_name)
+        console.layout.wait_for_visible(modal)
+
+        # Unfocus by pressing Cmd+L
+        console.layout.press_key("ControlOrMeta+l")
+        console.layout.wait_for_hidden(modal)
+
+    def test_focus_via_cmd_l(self) -> None:
+        """Should toggle focus modal with Cmd+L keyboard shortcut."""
+        self.log("test_focus_via_cmd_l: Toggling focus with Cmd+L")
+        console = self.console
+
+        modal = console.layout.locator(LayoutClient.MODAL_SELECTOR)
+
+        # Focus with Cmd+L
+        console.layout.press_key("ControlOrMeta+l")
+        console.layout.wait_for_visible(modal)
+
+        # Toggle off with Cmd+L
+        console.layout.press_key("ControlOrMeta+l")
+        console.layout.wait_for_hidden(modal)
+
+    def _get_theme_class(self) -> str:
+        """Get the current pluto theme class from the <html> element."""
+        classes = self.console.layout.page.evaluate("""
+            Array.from(document.documentElement.classList)
+                .find(c => c.startsWith('pluto-theme-')) || ''
+            """)
+        return classes
+
+    def test_toggle_color_theme(self) -> None:
+        """Should toggle the color theme via the command palette."""
+        self.log("test_toggle_color_theme: Toggling color theme")
+        console = self.console
+
+        original_theme = self._get_theme_class()
+        assert original_theme, "Should have an active pluto theme class"
+
+        console.layout.command_palette("Toggle color theme")
+        console.layout.page.wait_for_function(
+            f"!document.documentElement.classList.contains('{original_theme}')",
+            timeout=5000,
+        )
+        new_theme = self._get_theme_class()
+        assert (
+            new_theme != original_theme
+        ), f"Theme should change. Before: '{original_theme}', After: '{new_theme}'"
