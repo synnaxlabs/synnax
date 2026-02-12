@@ -316,7 +316,6 @@ if $INSTALL_EXTENSION; then
 
     ((STEP += 1))
     step $STEP $TOTAL "Package Extension"
-    local vsix_log
     vsix_log=$(mktemp /tmp/oracle-install-XXXXXX.log)
     if ! yes 2> /dev/null | npx @vscode/vsce package \
         --allow-missing-repository -o oracle-language.vsix > "$vsix_log" 2>&1; then
