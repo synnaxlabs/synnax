@@ -98,8 +98,9 @@ run() {
     "$@" > "$logfile" 2>&1 &
     local pid=$!
     spinner $pid "$msg"
-    if ! wait $pid; then
-        local exit_code=$?
+    local exit_code=0
+    wait $pid || exit_code=$?
+    if [ $exit_code -ne 0 ]; then
         fail "Command failed (exit $exit_code): $*"
         printf "\n"
         info "Output:"
