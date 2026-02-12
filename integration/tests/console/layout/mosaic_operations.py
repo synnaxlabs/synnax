@@ -61,109 +61,74 @@ class MosaicOperations(ConsoleCase):
         # Clean up
         console.workspace.close_page(new_name)
 
-    def test_split_horizontal(self) -> None:
-        """Should split a leaf horizontally via context menu."""
-        self.log("test_split_horizontal: Creating two plots and splitting")
+    def _split_and_drag(self, direction: str) -> None:
+        """Split a leaf, drag a tab to the new pane, and verify positioning.
+
+        Args:
+            direction: "horizontal" or "vertical".
+        """
         console = self.console
+        horizontal = direction == "horizontal"
+        first_name = "Left Plot" if horizontal else "Top Plot"
+        second_name = "Right Plot" if horizontal else "Bottom Plot"
 
-        # Create two pages
-        left_name = "Left Plot"
-        right_name = "Right Plot"
-        console.workspace.create_page("Line Plot", left_name)
-        console.workspace.create_page("Line Plot", right_name)
+        console.workspace.create_page("Line Plot", first_name)
+        console.workspace.create_page("Line Plot", second_name)
 
-        # Split Left Plot horizontally
-        console.layout.split_horizontal(left_name)
+        if horizontal:
+            console.layout.split_horizontal(first_name)
+        else:
+            console.layout.split_vertical(first_name)
         self.page.wait_for_timeout(300)
 
-        # Drag Right Plot tab to the right pane
-        right_tab = console.layout.get_tab(right_name)
-        right_tab_box = right_tab.bounding_box()
-        assert right_tab_box is not None, "Right tab should have bounding box"
+        tab = console.layout.get_tab(second_name)
+        tab_box = tab.bounding_box()
+        assert tab_box is not None, f"{second_name} tab should have bounding box"
 
-        # Get viewport for drop target calculation
-        viewport = self.page.viewport_size
-        assert viewport is not None, "Viewport should be available"
+        mosaic = self.page.locator(".pluto-mosaic").first
+        mosaic_box = mosaic.bounding_box()
+        assert mosaic_box is not None, "Mosaic should have bounding box"
 
-        # Drag to right side of screen
         self.page.mouse.move(
-            right_tab_box["x"] + right_tab_box["width"] / 2,
-            right_tab_box["y"] + right_tab_box["height"] / 2,
+            tab_box["x"] + tab_box["width"] / 2,
+            tab_box["y"] + tab_box["height"] / 2,
         )
         self.page.mouse.down()
-        self.page.mouse.move(viewport["width"] - 100, viewport["height"] // 2, steps=10)
+        self.page.mouse.move(
+            mosaic_box["x"] + mosaic_box["width"] * (0.75 if horizontal else 0.5),
+            mosaic_box["y"] + mosaic_box["height"] * (0.5 if horizontal else 0.75),
+            steps=10,
+        )
         self.page.wait_for_timeout(200)
         self.page.mouse.up()
         self.page.wait_for_timeout(500)
 
-        # Get pane positions via the pluto-line-plot elements
-        left_pane = self.page.locator(".pluto-line-plot").first
-        right_pane = self.page.locator(".pluto-line-plot").last
+        first_pane = self.page.locator(".pluto-line-plot").first
+        second_pane = self.page.locator(".pluto-line-plot").last
+        first_box = first_pane.bounding_box()
+        second_box = second_pane.bounding_box()
+        assert first_box is not None, f"{first_name} pane should have bounding box"
+        assert second_box is not None, f"{second_name} pane should have bounding box"
 
-        left_box = left_pane.bounding_box()
-        right_box = right_pane.bounding_box()
+        axis = "x" if horizontal else "y"
+        assert second_box[axis] > first_box[axis], (
+            f"{second_name} pane ({second_box[axis]}) should be "
+            f"{'right of' if horizontal else 'below'} "
+            f"{first_name} pane ({first_box[axis]})"
+        )
 
-        assert left_box is not None, "Left pane should have bounding box"
-        assert right_box is not None, "Right pane should have bounding box"
-        assert (
-            right_box["x"] > left_box["x"]
-        ), f"Right pane ({right_box['x']}) should be to the right of left pane ({left_box['x']})"
+        console.workspace.close_page(second_name)
+        console.workspace.close_page(first_name)
 
-        # Clean up
-        console.workspace.close_page(left_name)
-        console.workspace.close_page(right_name)
+    def test_split_horizontal(self) -> None:
+        """Should split a leaf horizontally via context menu."""
+        self.log("test_split_horizontal: Creating two plots and splitting")
+        self._split_and_drag("horizontal")
 
     def test_split_vertical(self) -> None:
         """Should split a leaf vertically via context menu."""
         self.log("test_split_vertical: Creating two plots and splitting vertically")
-        console = self.console
-
-        # Create two pages
-        top_name = "Top Plot"
-        bottom_name = "Bottom Plot"
-        console.workspace.create_page("Line Plot", top_name)
-        console.workspace.create_page("Line Plot", bottom_name)
-
-        # Split Top Plot vertically
-        console.layout.split_vertical(top_name)
-        self.page.wait_for_timeout(300)
-
-        # Drag Bottom Plot tab to the bottom pane
-        bottom_tab = console.layout.get_tab(bottom_name)
-        bottom_tab_box = bottom_tab.bounding_box()
-        assert bottom_tab_box is not None, "Bottom tab should have bounding box"
-
-        # Get viewport for drop target calculation
-        viewport = self.page.viewport_size
-        assert viewport is not None, "Viewport should be available"
-
-        # Drag to bottom of screen
-        self.page.mouse.move(
-            bottom_tab_box["x"] + bottom_tab_box["width"] / 2,
-            bottom_tab_box["y"] + bottom_tab_box["height"] / 2,
-        )
-        self.page.mouse.down()
-        self.page.mouse.move(viewport["width"] // 2, viewport["height"] - 100, steps=10)
-        self.page.wait_for_timeout(200)
-        self.page.mouse.up()
-        self.page.wait_for_timeout(500)
-
-        # Get pane positions via the pluto-line-plot elements
-        top_pane = self.page.locator(".pluto-line-plot").first
-        bottom_pane = self.page.locator(".pluto-line-plot").last
-
-        top_box = top_pane.bounding_box()
-        bottom_box = bottom_pane.bounding_box()
-
-        assert top_box is not None, "Top pane should have bounding box"
-        assert bottom_box is not None, "Bottom pane should have bounding box"
-        assert (
-            bottom_box["y"] > top_box["y"]
-        ), f"Bottom pane ({bottom_box['y']}) should be below top pane ({top_box['y']})"
-
-        # Clean up (close bottom first while split is intact to avoid merge timing)
-        console.workspace.close_page(bottom_name)
-        console.workspace.close_page(top_name)
+        self._split_and_drag("vertical")
 
     def test_focus_via_context_menu(self) -> None:
         """Should focus a leaf via context menu, showing a modal overlay."""
