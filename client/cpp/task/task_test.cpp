@@ -128,7 +128,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
     ASSERT_NIL(client.racks.create(r));
     auto t = Task(r.key, "test_task_with_status", "mock", "config");
     t.status.key = "task-status-key";
-    t.status.variant = x::status::variant::SUCCESS;
+    t.status.variant = x::status::VARIANT_SUCCESS;
     t.status.message = "Task is running";
     t.status.time = x::telem::TimeStamp::now();
     t.status.details.task = 0;
@@ -138,7 +138,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key, {.include_status = true}));
     ASSERT_EQ(t2.name, "test_task_with_status");
     ASSERT_FALSE(t2.status.is_zero());
-    ASSERT_EQ(t2.status.variant, x::status::variant::SUCCESS);
+    ASSERT_EQ(t2.status.variant, x::status::VARIANT_SUCCESS);
     ASSERT_EQ(t2.status.message, "Task is running");
     ASSERT_EQ(t2.status.details.running, true);
     ASSERT_EQ(t2.status.details.cmd, "start");
@@ -152,14 +152,14 @@ TEST(TaskTests, testRetrieveTaskWithStatusByName) {
     const auto rand_name = std::to_string(gen_rand_task());
     auto t = Task(r.key, rand_name, "mock", "config");
     t.status.key = "task-status-by-name";
-    t.status.variant = x::status::variant::WARNING;
+    t.status.variant = x::status::VARIANT_WARNING;
     t.status.message = "Task warning";
     t.status.time = x::telem::TimeStamp::now();
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name, {.include_status = true}));
     ASSERT_EQ(t2.name, rand_name);
     ASSERT_FALSE(t2.status.is_zero());
-    ASSERT_EQ(t2.status.variant, x::status::variant::WARNING);
+    ASSERT_EQ(t2.status.variant, x::status::VARIANT_WARNING);
     ASSERT_EQ(t2.status.message, "Task warning");
 }
 
@@ -170,14 +170,14 @@ TEST(TaskTests, testListTasksWithStatus) {
     ASSERT_NIL(client.racks.create(r));
     auto t = Task(r.key, "test_task_list_status", "mock", "config");
     t.status.key = "task-list-status";
-    t.status.variant = x::status::variant::INFO;
+    t.status.variant = x::status::VARIANT_INFO;
     t.status.message = "Task info";
     t.status.time = x::telem::TimeStamp::now();
     ASSERT_NIL(r.tasks.create(t));
     const auto tasks = ASSERT_NIL_P(r.tasks.list({.include_status = true}));
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_FALSE(tasks[0].status.is_zero());
-    ASSERT_EQ(tasks[0].status.variant, x::status::variant::INFO);
+    ASSERT_EQ(tasks[0].status.variant, x::status::VARIANT_INFO);
     ASSERT_EQ(tasks[0].status.message, "Task info");
 }
 /// @brief it should retrieve multiple tasks by their names.

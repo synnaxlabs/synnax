@@ -155,7 +155,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     EXPECT_EQ(first_state.key, task.status_key());
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(
         mock_writer_factory->writer_opens.load(std::memory_order_acquire),
@@ -173,7 +173,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     EXPECT_EQ(second_state.key, task.status_key());
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
     ASSERT_EQ(second_state.message, "Task stopped successfully");
 
     auto first = std::move(

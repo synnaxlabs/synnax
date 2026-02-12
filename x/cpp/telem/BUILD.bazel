@@ -8,7 +8,6 @@ cc_library(
     ],
     hdrs = [
         "clock_skew.h",
-        "control.h",
         "frame.h",
         "series.h",
         "telem.h",

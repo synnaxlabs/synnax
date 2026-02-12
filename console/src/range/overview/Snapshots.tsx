@@ -49,14 +49,14 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
     icon: <Icon.Schematic />,
     onClick: async ({ id: { key } }, { client, placeLayout }) => {
       if (client == null) throw new DisconnectedError();
-      const s = await client.workspaces.schematics.retrieve({ key });
+      const s = await client.schematics.retrieve({ key });
       placeLayout(
         create({ ...s.data, key: s.key, name: s.name, snapshot: s.snapshot }),
       );
     },
     onDelete: async ({ id: { key } }, { client }) => {
       if (client == null) throw new DisconnectedError();
-      await client.workspaces.schematics.delete(key);
+      await client.schematics.delete(key);
     },
   },
   task: {
