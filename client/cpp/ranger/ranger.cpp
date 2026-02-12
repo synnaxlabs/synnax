@@ -16,23 +16,23 @@
 #include "x/go/telem/telem.pb.h"
 
 namespace synnax::ranger {
-Range::Range(std::string name, x::telem::TimeRange time_range):
-    name(std::move(name)), time_range(time_range) {}
-
 std::pair<Range, x::errors::Error> Range::from_proto(const api::v1::Range &rng) {
     auto [key, err] = x::uuid::UUID::parse(rng.key());
     if (err) return {{}, err};
-    Range r;
-    r.key = key;
-    r.name = rng.name();
-    r.time_range = {rng.time_range().start(), rng.time_range().end()};
-    return {r, x::errors::NIL};
+    return {
+        Range{
+            .key = key,
+            .name = rng.name(),
+            .time_range = {rng.time_range().start(), rng.time_range().end()},
+        },
+        x::errors::NIL,
+    };
 }
 
 void Range::to_proto(api::v1::Range *rng) const {
     rng->set_name(name);
     rng->set_key(this->key.to_string());
-    auto tr = ::telem::PBTimeRange();
+    auto tr = ::telem::PBTimeRange{};
     rng->mutable_time_range()->set_start(time_range.start.nanoseconds());
     rng->mutable_time_range()->set_end(time_range.end.nanoseconds());
 }
@@ -41,11 +41,11 @@ std::pair<Range, x::errors::Error> Client::retrieve_by_key(const Key &key) const
     auto req = api::v1::RangeRetrieveRequest();
     req.add_keys(key.to_string());
     auto [res, err] = retrieve_client->send("/range/retrieve", req);
-    if (err) return {Range(), err};
+    if (err) return {Range{}, err};
     if (res.ranges_size() == 0)
-        return {Range(), errors::not_found_error("range", "key " + key.to_string())};
+        return {Range{}, errors::not_found_error("range", "key " + key.to_string())};
     auto [rng, parse_err] = Range::from_proto(res.ranges(0));
-    if (parse_err) return {Range(), parse_err};
+    if (parse_err) return {Range{}, parse_err};
     rng.kv = this->kv.scope_to_range(rng.key.to_string());
     return {rng, x::errors::NIL};
 }
@@ -55,13 +55,13 @@ Client::retrieve_by_name(const std::string &name) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_names(name);
     auto [res, err] = retrieve_client->send("/range/retrieve", req);
-    if (err) return {Range(), err};
+    if (err) return {Range{}, err};
     if (res.ranges_size() == 0)
-        return {Range(), errors::not_found_error("range", "name " + name)};
+        return {Range{}, errors::not_found_error("range", "name " + name)};
     if (res.ranges_size() > 1)
-        return {Range(), errors::multiple_found_error("ranges", "name " + name)};
+        return {Range{}, errors::multiple_found_error("ranges", "name " + name)};
     auto [rng, parse_err] = Range::from_proto(res.ranges(0));
-    if (parse_err) return {Range(), parse_err};
+    if (parse_err) return {Range{}, parse_err};
     rng.kv = this->kv.scope_to_range(rng.key.to_string());
     return {rng, x::errors::NIL};
 }
@@ -129,7 +129,7 @@ x::errors::Error Client::create(Range &range) const {
 
 std::pair<Range, x::errors::Error>
 Client::create(const std::string &name, x::telem::TimeRange time_range) const {
-    auto rng = Range(name, time_range);
+    auto rng = Range{.name = name, .time_range = time_range};
     auto err = create(rng);
     return {rng, err};
 }

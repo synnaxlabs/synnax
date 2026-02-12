@@ -141,8 +141,7 @@ public:
 };
 
 /// @brief configuration for opening a new streamer.
-class StreamerConfig {
-public:
+struct StreamerConfig {
     /// @brief the channels to stream.
     std::vector<channel::Key> channels;
     /// @brief the downsample factor for the streamer.
@@ -150,12 +149,8 @@ public:
     /// @brief enable experimental high-performance codec for the writer.
     bool enable_experimental_codec = true;
 
-private:
     /// @brief binds the configuration fields to it's protobuf representation.
     void to_proto(api::v1::FrameStreamerRequest &f) const;
-
-    friend class Client;
-    friend class Streamer;
 };
 
 /// @brief used to stream frames of telemetry from a set of channels in real-time.
@@ -299,13 +294,8 @@ struct WriterConfig {
     /// @brief enable experimental high-performance codec for the writer.
     bool enable_experimental_codec = true;
 
-private:
     /// @brief binds the configuration fields to it's protobuf representation.
     void to_proto(api::v1::FrameWriterConfig *f) const;
-
-    friend class Client;
-
-    friend class Writer;
 };
 
 /// @brief used to write a new domain of telemetry frames to a set of channels in

@@ -86,21 +86,13 @@ struct Arc {
     /// @brief Version string for the Arc program.
     std::string version;
 
-    /// @brief Constructs an empty, invalid Arc program.
-    Arc() = default;
-    /// @brief Constructs a new Arc program with the given name.
-    /// @param name Human-readable name for the Arc program.
-    explicit Arc(std::string name);
     /// @brief Constructs an Arc program from its protobuf representation.
     /// @param pb Protobuf message representing the Arc program.
     static std::pair<Arc, x::errors::Error> from_proto(const api::v1::Arc &pb);
 
-private:
     /// @brief Converts the Arc program to its protobuf representation.
     /// @param pb Pointer to protobuf message to populate.
     void to_proto(api::v1::Arc *pb) const;
-
-    friend class Client;
 };
 
 /// @brief Client for managing Arc automation programs in a Synnax cluster.
