@@ -8,10 +8,7 @@
       "tests": [
         {
           "case": "example_basic",
-          "parameters": {
-            "wait_time": [1, 3],
-            "timeout": [5, 10]
-          }
+          "parameters": { "wait_time": [1, 3], "timeout": [5, 10] }
         }
       ]
     }
