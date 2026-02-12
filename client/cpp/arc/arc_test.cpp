@@ -17,6 +17,8 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/test/test.h"
 
+#include "core/pkg/api/grpc/v1/arc.pb.h"
+
 namespace synnax::arc {
 std::mt19937 gen_rand = random_generator(std::move("Arc Tests"));
 
@@ -33,7 +35,7 @@ TEST(TestArc, testCreate) {
 
     ASSERT_NIL(client.arcs.create(arc));
     ASSERT_EQ(arc.name, "test_arc");
-    ASSERT_FALSE(arc.key.empty());
+    ASSERT_FALSE(arc.key.is_nil());
 }
 
 /// @brief it should create an Arc program using the convenience method.
@@ -41,7 +43,7 @@ TEST(TestArc, testCreateConvenience) {
     const auto client = new_test_client();
     auto arc = ASSERT_NIL_P(client.arcs.create("convenience_arc"));
     ASSERT_EQ(arc.name, "convenience_arc");
-    ASSERT_FALSE(arc.key.empty());
+    ASSERT_FALSE(arc.key.is_nil());
 }
 
 /// @brief it should create multiple Arc programs.
@@ -56,7 +58,7 @@ TEST(TestArc, testCreateMany) {
     ASSERT_NIL(client.arcs.create(arcs));
 
     for (const auto &arc: arcs)
-        ASSERT_FALSE(arc.key.empty());
+        ASSERT_FALSE(arc.key.is_nil());
     ASSERT_EQ(arcs[0].name, "arc1");
     ASSERT_EQ(arcs[1].name, "arc2");
     ASSERT_EQ(arcs[2].name, "arc3");
@@ -109,7 +111,7 @@ TEST(TestArc, testRetrieveByKeys) {
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
-    std::vector<std::string> keys = {arcs[0].key, arcs[1].key};
+    std::vector<x::uuid::UUID> keys = {arcs[0].key, arcs[1].key};
     auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_keys(keys));
     ASSERT_EQ(retrieved.size(), 2);
 }
@@ -134,7 +136,7 @@ TEST(TestArc, testDeleteMany) {
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
-    std::vector<std::string> keys = {arcs[0].key, arcs[1].key};
+    std::vector<x::uuid::UUID> keys = {arcs[0].key, arcs[1].key};
     ASSERT_NIL(client.arcs.delete_arc(keys));
 
     auto retrieved = ASSERT_OCCURRED_AS_P(
@@ -261,5 +263,84 @@ sequence main {
     ASSERT_EQ(retrieved.module.sequences.size(), 1);
     ASSERT_EQ(retrieved.module.sequences[0].key, "main");
     ASSERT_EQ(retrieved.module.sequences[0].stages.size(), 2);
+}
+
+/// @brief it should correctly parse all fields from a valid Arc proto.
+TEST(TestArc, testArcFromProto) {
+    api::v1::Arc pb;
+    pb.set_key("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
+    pb.set_name("test arc");
+    pb.mutable_text()->set_raw("// source code");
+    pb.set_deploy(true);
+    pb.set_version("1.0.0");
+    const auto arc = ASSERT_NIL_P(Arc::from_proto(pb));
+    ASSERT_EQ(arc.key.to_string(), "748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
+    ASSERT_EQ(arc.name, "test arc");
+    ASSERT_EQ(arc.text.raw, "// source code");
+    ASSERT_TRUE(arc.deploy);
+    ASSERT_EQ(arc.version, "1.0.0");
+}
+
+/// @brief it should return an error when parsing an Arc proto with an invalid key.
+TEST(TestArc, testArcFromProtoInvalidKey) {
+    api::v1::Arc pb;
+    pb.set_key("not-a-valid-uuid");
+    pb.set_name("bad arc");
+    ASSERT_OCCURRED_AS_P(Arc::from_proto(pb), x::uuid::INVALID);
+}
+
+/// @brief it should return an error when parsing an Arc proto with an empty key.
+TEST(TestArc, testArcFromProtoEmptyKey) {
+    api::v1::Arc pb;
+    pb.set_name("empty key arc");
+    ASSERT_OCCURRED_AS_P(Arc::from_proto(pb), x::uuid::INVALID);
+}
+
+/// @brief it should handle an Arc proto without optional graph, text, and module.
+TEST(TestArc, testArcFromProtoWithoutOptionalFields) {
+    api::v1::Arc pb;
+    pb.set_key("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
+    pb.set_name("minimal arc");
+    const auto arc = ASSERT_NIL_P(Arc::from_proto(pb));
+    ASSERT_EQ(arc.name, "minimal arc");
+    ASSERT_TRUE(arc.text.raw.empty());
+    ASSERT_TRUE(arc.module.wasm.empty());
+    ASSERT_FALSE(arc.deploy);
+    ASSERT_TRUE(arc.version.empty());
+}
+
+/// @brief it should correctly parse deploy=false from the proto.
+TEST(TestArc, testArcFromProtoDeployFalse) {
+    api::v1::Arc pb;
+    pb.set_key("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
+    pb.set_name("no deploy arc");
+    pb.set_deploy(false);
+    const auto arc = ASSERT_NIL_P(Arc::from_proto(pb));
+    ASSERT_FALSE(arc.deploy);
+}
+
+/// @brief it should roundtrip Arc through proto -> C++ -> proto -> C++.
+TEST(TestArc, testArcFromProtoRoundtrip) {
+    api::v1::Arc pb;
+    pb.set_key("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
+    pb.set_name("roundtrip arc");
+    pb.mutable_text()->set_raw("func main() {}");
+    pb.set_deploy(true);
+    pb.set_version("2.0.0");
+    const auto first = ASSERT_NIL_P(Arc::from_proto(pb));
+    api::v1::Arc pb2;
+    pb2.set_key(first.key.to_string());
+    pb2.set_name(first.name);
+    first.text.to_proto(pb2.mutable_text());
+    first.graph.to_proto(pb2.mutable_graph());
+    first.module.to_proto(pb2.mutable_module());
+    pb2.set_deploy(first.deploy);
+    pb2.set_version(first.version);
+    const auto second = ASSERT_NIL_P(Arc::from_proto(pb2));
+    ASSERT_EQ(first.key, second.key);
+    ASSERT_EQ(first.name, second.name);
+    ASSERT_EQ(first.text.raw, second.text.raw);
+    ASSERT_EQ(first.deploy, second.deploy);
+    ASSERT_EQ(first.version, second.version);
 }
 }
