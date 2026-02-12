@@ -351,9 +351,8 @@ public:
             char frac[9];
             strings::put(frac, frac_ns, 9);
 
-            // find last non-zero digit (at most 9 checks, but no while on the main
-            // buffer)
-            uint8_t last = 8;
+            // find last non-zero digit
+            int8_t last = 8;
             while (last >= 0 && frac[last] == '0')
                 --last;
 
