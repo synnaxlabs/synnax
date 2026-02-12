@@ -299,6 +299,20 @@ class LayoutClient:
 
         nav_drawer.wait_for(state="hidden", timeout=5000)
 
+    def get_version(self) -> str:
+        """Get the version string displayed in the navbar badge.
+
+        Returns:
+            The version string (e.g., "v0.51.0").
+        """
+        navbar_end = self.page.locator(
+            ".pluto-navbar__content.pluto--end[data-tauri-drag-region]"
+        )
+        navbar_end.wait_for(state="visible", timeout=15000)
+        version_badge = navbar_end.locator("button").first
+        version_badge.wait_for(state="visible", timeout=5000)
+        return version_badge.inner_text().strip()
+
     def fill_input_field(self, input_label: str, value: str) -> None:
         """Fill an input field by label."""
         input_field = (
