@@ -101,7 +101,7 @@ describe("color.Color", () => {
     });
     test("with alpha", () => {
       const c = color.construct("#7a2c26", 0.5);
-      expect(color.hex(c)).toEqual("#7a2c267f");
+      expect(color.hex(c)).toEqual("#7a2c2680");
     });
   });
 
