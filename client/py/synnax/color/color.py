@@ -20,6 +20,13 @@ class Color(BaseModel):
     b: int = 0
     a: float = 0
 
+    def __init__(self, __value: object = None, /, **kwargs: object):
+        if __value is not None:
+            validated = type(self).model_validate(__value)
+            super().__init__(r=validated.r, g=validated.g, b=validated.b, a=validated.a)
+        else:
+            super().__init__(**kwargs)
+
     @model_validator(mode="before")
     @classmethod
     def _parse(cls, v: object) -> object:
@@ -49,6 +56,14 @@ class Color(BaseModel):
             return f"#{self.r:02x}{self.g:02x}{self.b:02x}"
         return f"#{self.r:02x}{self.g:02x}{self.b:02x}{alpha_byte:02x}"
 
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, (str, list, tuple)):
+            try:
+                other = Color(other)
+            except (ValueError, TypeError):
+                return NotImplemented
+        return super().__eq__(other)
+
     @property
     def is_zero(self) -> bool:
         return self.r == 0 and self.g == 0 and self.b == 0 and self.a == 0
@@ -77,8 +92,3 @@ def _from_hex(s: str) -> dict:
 
 Crude = Color | str | list[int] | tuple[int, ...]
 """Types that can be coerced into a Color."""
-
-
-def construct(color: Crude) -> Color:
-    """Construct a Color from a crude representation."""
-    return Color.model_validate(color)
