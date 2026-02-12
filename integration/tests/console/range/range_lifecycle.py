@@ -96,8 +96,6 @@ class RangeLifecycle(ConsoleCase):
         self.test_navigate_to_child_range()
         self.test_create_child_range_from_overview()
         self.test_change_child_range_stage()
-        self.test_favorite_child_range()
-        self.test_unfavorite_child_range()
 
     def test_open_range_toolbar(self) -> None:
         """Test opening the ranges toolbar."""
@@ -472,19 +470,3 @@ class RangeLifecycle(ConsoleCase):
         assert rng.time_range.start < now, "Child range start should be in the past"
         assert rng.time_range.end > now, "Child range end should be in the future"
 
-    def test_favorite_child_range(self) -> None:
-        """Test favoriting a child range from the parent overview."""
-        assert self.child_range_name is not None
-        self.log("Testing: Favorite child range")
-        self.console.ranges.favorite_child_range(self.child_range_name)
-
-        assert self.console.ranges.exists_in_toolbar(
-            self.child_range_name
-        ), "Child range should appear in toolbar after favoriting"
-
-    def test_unfavorite_child_range(self) -> None:
-        """Test unfavoriting a child range from the parent overview."""
-        assert self.child_range_name is not None
-        self.log("Testing: Unfavorite child range")
-        # Will raise an error if the range is still in the toolbar
-        self.console.ranges.unfavorite_child_range(self.child_range_name)

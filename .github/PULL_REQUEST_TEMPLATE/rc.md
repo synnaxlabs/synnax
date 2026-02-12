@@ -195,27 +195,7 @@ I can successfully:
 
 I can successfully:
 
-- **Range Details**
-  - **Child Ranges**
-    - **Context Menu**
-      - [ ] Rename a child range
-      - [ ] Favorite multiple child ranges
-      - [ ] Unfavorite multiple child ranges
-      - [ ] Copy the link to a range
-      - [ ] Delete a child range
-      - [ ] Delete multiple child ranges
-  - **Metadata**
-    - [ ] Set metadata.
-    - [ ] Update the value of metadata.
-    - [ ] Copy the value of metadata to your clipboard
-    - [ ] Open a link from metadata.
-    - [ ] Delete metadata.
-  - **Snapshots**
-    - [ ] Navigate to a snapshot by clicking on it
-    - [ ] Remove a snapshot
 - **Range Toolbar**
-  - [ ] Open the "Create Range" modal from the toolbar.
-  - [ ] Open the Range Explorer from the toolbar
   - **Context Menu**
     - [ ] Remove an active range.
     - [ ] Add to the active line plot.
@@ -232,11 +212,6 @@ I can successfully:
     - [ ] Copy the link to a range
     - [ ] Delete multiple ranges
 - [ ] Open a range from its link.
-- [ ] Rename a range and ensure synchronization across:
-  - Range Explorer
-  - Range Overview
-  - Range Overview Tab Name
-  - Ranges Toolbar
 - [ ] Change the time of a range and ensure synchronization across:
   - Range Details
   - Ranges Toolbar

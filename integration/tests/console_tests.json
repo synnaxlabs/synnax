@@ -31,7 +31,8 @@
         { "case": "console/plot/line_plot" },
         { "case": "console/schematic/alignment" },
         { "case": "console/schematic/edit_props" },
-        { "case": "console/table/table_lifecycle" }
+        { "case": "console/table/table_lifecycle" },
+        { "case": "console/range/range_details" }
       ]
     },
     {

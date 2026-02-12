@@ -59,7 +59,7 @@ class RangesClient:
         ).first
         if toolbar_header.is_visible():
             return
-        self.layout.press_key(self.SHORTCUT_KEY)
+        self.layout.show_resource_toolbar("range")
         toolbar_header.wait_for(state="visible")
 
     def hide_toolbar(self) -> None:
@@ -221,12 +221,11 @@ class RangesClient:
         item = self.get_explorer_item(old_name)
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.action(item, "Rename")
-        name_input = self.layout.page.locator("input[placeholder='Name']")
-        name_input.wait_for(state="visible", timeout=5000)
-        name_input.fill(new_name)
-        save_btn = self.layout.page.get_by_role("button", name="Save", exact=True)
-        save_btn.click(timeout=5000)
-        name_input.wait_for(state="hidden", timeout=5000)
+        modal = self.layout.page.locator(LayoutClient.MODAL_SELECTOR)
+        modal.wait_for(state="visible", timeout=5000)
+        modal.locator("input[placeholder='Name']").fill(new_name)
+        modal.get_by_role("button", name="Save", exact=True).click(timeout=5000)
+        modal.wait_for(state="hidden", timeout=5000)
 
     def delete_from_explorer(self, name: str) -> None:
         """Delete a range via context menu in the explorer."""
@@ -243,6 +242,7 @@ class RangesClient:
     def favorite_from_explorer(self, name: str) -> None:
         """Add a range to favorites via context menu in the explorer."""
         self.layout.hide_visualization_toolbar()
+        self.notifications.close_all()
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.open_on(item)
@@ -459,19 +459,14 @@ class RangesClient:
         add_button = labels_row.locator("button").last
         add_button.wait_for(state="visible", timeout=2000)
         add_button.click()
-        self.layout.page.locator(
-            ".pluto-list__item:not(.pluto--hidden)"
-        ).first.wait_for(state="visible", timeout=2000)
-        item = (
-            self.layout.page.locator(".pluto-list__item")
-            .filter(has_text=label_name)
-            .first
-        )
+        dropdown = self.layout.page.locator(".pluto-dialog__dialog.pluto--visible")
+        dropdown.wait_for(state="visible", timeout=5000)
+        item = dropdown.locator(".pluto-list__item").filter(has_text=label_name).first
         try:
             item.wait_for(state="visible", timeout=5000)
             item.click(timeout=2000)
         except PlaywrightTimeoutError as e:
-            all_items = self.layout.page.locator(".pluto-list__item").all()
+            all_items = dropdown.locator(".pluto-list__item").all()
             available_labels = [
                 lbl.text_content() for lbl in all_items if lbl.is_visible()
             ]
@@ -479,7 +474,7 @@ class RangesClient:
                 f"Label '{label_name}' not found in dropdown. Available: {available_labels}"
             ) from e
         self.layout.press_escape()
-        item.wait_for(state="hidden", timeout=2000)
+        dropdown.wait_for(state="hidden", timeout=5000)
 
     def remove_label_in_overview(self, label_name: str) -> None:
         """Remove a label from the range in the overview.
@@ -490,14 +485,12 @@ class RangesClient:
         labels_row = self.layout.page.get_by_text("Labels", exact=True).locator("..")
         add_button = labels_row.locator("button").last
         add_button.click()
-        item = (
-            self.layout.page.locator(".pluto-list__item")
-            .filter(has_text=label_name)
-            .first
-        )
-        item.click(timeout=2000)
+        dropdown = self.layout.page.locator(".pluto-dialog__dialog.pluto--visible")
+        dropdown.wait_for(state="visible", timeout=5000)
+        item = dropdown.locator(".pluto-list__item").filter(has_text=label_name).first
+        item.click(timeout=5000)
         self.layout.press_escape()
-        item.wait_for(state="hidden", timeout=2000)
+        dropdown.wait_for(state="hidden", timeout=5000)
 
     def get_labels_in_overview(self) -> list[str]:
         """Get the labels currently attached to the range in the overview.
@@ -590,6 +583,155 @@ class RangesClient:
         with open(save_path, "r") as f:
             return f.read()
 
+    # ── Metadata ──────────────────────────────────────────────────────────
+
+    METADATA_SECTION_SELECTOR = ".console-range__metadata"
+    METADATA_ITEM_SELECTOR = ".console-metadata__list-item"
+    METADATA_CREATE_SELECTOR = ".console-metadata__list-item.console--create"
+    METADATA_DELETE_SELECTOR = ".console-metadata__delete"
+
+    def _get_metadata_section(self) -> Locator:
+        """Get the Metadata section in the range overview."""
+        return self.layout.page.locator(self.METADATA_SECTION_SELECTOR)
+
+    def get_metadata_item(self, key: str) -> Locator:
+        """Get a metadata list item by key name.
+
+        Args:
+            key: The metadata key to find.
+
+        Returns:
+            The Locator for the metadata item row.
+        """
+        section = self._get_metadata_section()
+        return (
+            section.locator(
+                f"{self.METADATA_ITEM_SELECTOR}:not(.console--create)"
+            )
+            .filter(has_text=key)
+            .first
+        )
+
+    def metadata_exists(self, key: str) -> bool:
+        """Check if a metadata entry with the given key exists.
+
+        Args:
+            key: The metadata key to check.
+
+        Returns:
+            True if the metadata key exists in the overview.
+        """
+        try:
+            self.get_metadata_item(key).wait_for(state="visible", timeout=2000)
+            return True
+        except PlaywrightTimeoutError:
+            return False
+
+    def wait_for_metadata_removed(self, key: str) -> None:
+        """Wait for a metadata entry to be removed.
+
+        Args:
+            key: The metadata key to wait for removal.
+        """
+        self.get_metadata_item(key).wait_for(state="hidden", timeout=5000)
+
+    def set_metadata(self, key: str, value: str) -> None:
+        """Add a new metadata key-value pair.
+
+        Args:
+            key: The metadata key.
+            value: The metadata value.
+        """
+        section = self._get_metadata_section()
+        add_btn = section.locator("button:has(svg.pluto-icon--add)")
+        add_btn.click(timeout=5000)
+
+        create_form = section.locator(
+            f"{self.METADATA_CREATE_SELECTOR}:not(.pluto--hidden)"
+        )
+        create_form.wait_for(state="visible", timeout=5000)
+
+        key_input = create_form.locator("input[placeholder='Key']")
+        key_input.fill(key)
+
+        value_input = create_form.locator("input[placeholder='Value']")
+        value_input.fill(value)
+
+        self.layout.press_key("Enter")
+        self.get_metadata_item(key).wait_for(state="visible", timeout=5000)
+
+    def get_metadata_value(self, key: str) -> str:
+        """Get the current value of a metadata entry.
+
+        Args:
+            key: The metadata key.
+
+        Returns:
+            The value string.
+        """
+        item = self.get_metadata_item(key)
+        item.wait_for(state="visible", timeout=5000)
+        value_input = item.locator("input[placeholder='Value']")
+        return value_input.input_value()
+
+    def update_metadata_value(self, key: str, new_value: str) -> None:
+        """Update the value of an existing metadata entry.
+
+        The value input uses onlyChangeOnBlur, so we must blur it to trigger
+        the form onChange and auto-save. For existing items the key is rendered
+        as plain Text (not an input), so we click the section header to blur.
+
+        Args:
+            key: The metadata key to update.
+            new_value: The new value to set.
+        """
+        item = self.get_metadata_item(key)
+        item.wait_for(state="visible", timeout=5000)
+        value_input = item.locator("input[placeholder='Value']")
+        value_input.click()
+        value_input.fill(new_value)
+        # Press Tab to blur the value input, triggering onlyChangeOnBlur + auto-save
+        self.layout.page.keyboard.press("Tab")
+        expect(value_input).to_have_value(new_value, timeout=5000)
+
+    def copy_metadata_value(self, key: str) -> None:
+        """Click the copy button on a metadata value.
+
+        Args:
+            key: The metadata key whose value to copy.
+        """
+        item = self.get_metadata_item(key)
+        item.wait_for(state="visible", timeout=5000)
+        copy_btn = item.locator("button:has(svg.pluto-icon--copy)")
+        copy_btn.click(timeout=5000)
+
+    def delete_metadata(self, key: str) -> None:
+        """Delete a metadata entry by hovering and clicking the delete button.
+
+        Args:
+            key: The metadata key to delete.
+        """
+        item = self.get_metadata_item(key)
+        item.wait_for(state="visible", timeout=5000)
+        item.hover()
+        delete_btn = item.locator(self.METADATA_DELETE_SELECTOR)
+        delete_btn.click(timeout=5000)
+        item.wait_for(state="hidden", timeout=5000)
+
+    def open_metadata_link(self, key: str) -> None:
+        """Click the external link button on a metadata value that contains a URL.
+
+        Args:
+            key: The metadata key whose link to open.
+        """
+        item = self.get_metadata_item(key)
+        item.wait_for(state="visible", timeout=5000)
+        link_btn = item.locator("a:has(svg.pluto-icon--link-external)")
+        link_btn.wait_for(state="visible", timeout=10000)
+        link_btn.click(timeout=5000)
+
+    # ── Child Ranges ─────────────────────────────────────────────────────
+
     def _get_child_ranges_section(self) -> Locator:
         """Get the Child Ranges section in the overview."""
         return (
@@ -622,6 +764,7 @@ class RangesClient:
 
     def create_child_range_from_overview(self) -> None:
         """Click the Add button in the Child Ranges section to create a new child range."""
+        self.notifications.close_all()
         section = self._get_child_ranges_section()
         add_btn = section.locator("button:has(svg.pluto-icon--add)")
         add_btn.click(timeout=5000)
@@ -696,7 +839,147 @@ class RangesClient:
         """
         section = self._get_child_ranges_section()
         items = section.locator(".console-range__list-item").filter(has_text=name)
-        return items.count() > 0
+        try:
+            items.first.wait_for(state="visible", timeout=2000)
+            return True
+        except PlaywrightTimeoutError:
+            return False
+
+    def wait_for_child_range_removed(self, name: str) -> None:
+        """Wait for a child range to be removed from the Child Ranges section.
+
+        Args:
+            name: The name of the child range.
+        """
+        self.get_child_range_item(name).wait_for(state="hidden", timeout=5000)
+
+    def rename_child_range(self, name: str, new_name: str) -> None:
+        """Rename a child range via context menu modal dialog.
+
+        Args:
+            name: The current name of the child range.
+            new_name: The new name for the child range.
+        """
+        item = self.get_child_range_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(item, "Rename")
+        modal = self.layout.page.locator(LayoutClient.MODAL_SELECTOR)
+        modal.wait_for(state="visible", timeout=5000)
+        modal.locator("input[placeholder='Name']").fill(new_name)
+        modal.get_by_role("button", name="Save", exact=True).click(timeout=5000)
+        modal.wait_for(state="hidden", timeout=5000)
+
+    def copy_link_from_child_range(self, name: str) -> None:
+        """Copy link to a child range via context menu.
+
+        Args:
+            name: The name of the child range.
+        """
+        item = self.get_child_range_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(item, "Copy link")
+
+    def delete_child_range(self, name: str) -> None:
+        """Delete a child range via context menu with confirmation.
+
+        Args:
+            name: The name of the child range to delete.
+        """
+        item = self.get_child_range_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(item, "Delete")
+
+        delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
+        delete_btn.wait_for(state="visible", timeout=5000)
+        delete_btn.click(timeout=5000)
+        delete_btn.wait_for(state="hidden", timeout=5000)
+        item.wait_for(state="hidden", timeout=5000)
+
+    def _deselect_all_child_ranges(self) -> None:
+        """Deselect all child ranges by dispatching click on their checkbox labels."""
+        section = self._get_child_ranges_section()
+        checked = section.locator(
+            ".console-range__list-item:has(input.pluto-input__checkbox-input:checked)"
+        )
+        for _ in range(10):
+            if checked.count() == 0:
+                break
+            checked.first.locator(".pluto-input__checkbox").dispatch_event("click")
+
+    def _select_child_ranges(self, names: list[str]) -> Locator:
+        """Select multiple child ranges via their checkbox labels.
+
+        Uses dispatch_event to fire click directly on the checkbox label,
+        bypassing any overlay interception. The label has stopPropagation so
+        it selects the item without navigating to its overview.
+
+        Args:
+            names: The names of the child ranges to select.
+
+        Returns:
+            The last selected item's Locator (for context menu targeting).
+        """
+        last_item = None
+        for name in names:
+            item = self.get_child_range_item(name)
+            item.wait_for(state="visible", timeout=5000)
+            checkbox_input = item.locator("input.pluto-input__checkbox-input")
+            if not checkbox_input.is_checked():
+                item.locator(".pluto-input__checkbox").dispatch_event("click")
+            last_item = item
+        assert last_item is not None
+        return last_item
+
+    def delete_child_ranges(self, names: list[str]) -> None:
+        """Delete multiple child ranges via multi-select and context menu.
+
+        Args:
+            names: The names of the child ranges to delete.
+        """
+        if not names:
+            return
+
+        last_item = self._select_child_ranges(names)
+        self.ctx_menu.action(last_item, "Delete")
+
+        delete_btn = self.layout.page.get_by_role(
+            "button", name="Delete", exact=True
+        )
+        delete_btn.wait_for(state="visible", timeout=5000)
+        delete_btn.click(timeout=5000)
+        delete_btn.wait_for(state="hidden", timeout=5000)
+
+        for name in names:
+            self.wait_for_child_range_removed(name)
+
+    def favorite_child_ranges(self, names: list[str]) -> None:
+        """Favorite multiple child ranges via multi-select and context menu.
+
+        Args:
+            names: The names of the child ranges to favorite.
+        """
+        if not names:
+            return
+
+        last_item = self._select_child_ranges(names)
+        self.ctx_menu.action(last_item, "Add to favorites")
+        self._deselect_all_child_ranges()
+
+    def unfavorite_child_ranges(self, names: list[str]) -> None:
+        """Unfavorite multiple child ranges via multi-select and context menu.
+
+        Args:
+            names: The names of the child ranges to unfavorite.
+        """
+        if not names:
+            return
+
+        last_item = self._select_child_ranges(names)
+        self.ctx_menu.action(last_item, "Remove from favorites")
+        self._deselect_all_child_ranges()
+
+        for name in names:
+            self.wait_for_removed_from_toolbar(name)
 
     def get_label_in_toolbar(self, range_name: str, label_name: str) -> Locator:
         """Get a label tag within a range item in the toolbar."""
@@ -816,3 +1099,25 @@ class RangesClient:
         """
         items = self.layout.page.locator(".console-snapshots__list-item")
         return [items.nth(i).inner_text().strip() for i in range(items.count())]
+
+    def delete_snapshot_from_overview(self, name: str) -> None:
+        """Delete a snapshot from the Snapshots section in the range overview.
+
+        Args:
+            name: The name of the snapshot to delete.
+        """
+        item = self.get_snapshot_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        item.locator(".console-snapshots__delete").click()
+        modal = self.layout.page.locator(LayoutClient.MODAL_SELECTOR)
+        modal.wait_for(state="visible", timeout=5000)
+        modal.get_by_role("button", name="Delete").click(timeout=5000)
+        modal.wait_for(state="hidden", timeout=5000)
+
+    def wait_for_snapshot_removed(self, name: str) -> None:
+        """Wait for a snapshot to be removed from the Snapshots section.
+
+        Args:
+            name: The name of the snapshot that should be removed.
+        """
+        self.get_snapshot_item(name).wait_for(state="hidden", timeout=10000)
