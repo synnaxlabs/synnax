@@ -259,8 +259,8 @@ if $INSTALL_CLI; then
 
     BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
     run "Compiling..." go build \
-        -ldflags "-X 'github.com/synnaxlabs/oracle/cli.BuildTime=$BUILD_TIME'" \
-        -o "$INSTALL_DIR/oracle" ./cmd/oracle
+        -ldflags "-X 'github.com/synnaxlabs/oracle/cmd.BuildTime=$BUILD_TIME'" \
+        -o "$INSTALL_DIR/oracle" .
 
     chmod +x "$INSTALL_DIR/oracle"
     ok "Built → ${DIM}$INSTALL_DIR/oracle${NC}"

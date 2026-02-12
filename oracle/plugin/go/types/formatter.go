@@ -10,7 +10,7 @@
 package types
 
 import (
-	gointernal "github.com/synnaxlabs/oracle/plugin/go/internal"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 )
@@ -26,7 +26,7 @@ type GoImportResolver struct {
 }
 
 func (r *GoImportResolver) ResolveImport(outputPath string, ctx *resolver.Context) (importPath string, qualifier string, shouldImport bool) {
-	alias := gointernal.DerivePackageAlias(outputPath, r.CurrentPackage)
+	alias := naming.DerivePackageAlias(outputPath, r.CurrentPackage)
 	importPath = gomod.ResolveImportPath(outputPath, r.RepoRoot, gomod.DefaultModulePrefix)
 	return importPath, alias, true
 }

@@ -15,13 +15,15 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/framework"
-	gointernal "github.com/synnaxlabs/oracle/plugin/go/internal"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
@@ -30,6 +32,13 @@ import (
 )
 
 const goModulePrefix = "github.com/synnaxlabs/synnax/"
+
+func toPascalCase(s string) string {
+	if naming.IsScreamingCase(s) {
+		return s
+	}
+	return lo.PascalCase(s)
+}
 
 // primitiveMapper is the Go-specific primitive type mapper.
 var primitiveMapper = goprimitives.Mapper()
@@ -116,8 +125,8 @@ func generateGoFile(
 		namespace = enums[0].Namespace
 	}
 
-	pkg := gointernal.DerivePackageName(outputPath)
-	imports := gointernal.NewImportManager()
+	pkg := naming.DerivePackageName(outputPath)
+	imports := imports.NewManager()
 
 	ctx := &resolver.Context{
 		Table:                         table,
@@ -184,7 +193,7 @@ func processEnum(e resolution.Type) enumData {
 	values := make([]enumValueData, 0, len(form.Values))
 	for _, v := range form.Values {
 		values = append(values, enumValueData{
-			Name:     gointernal.ToPascalCase(v.Name),
+			Name:     toPascalCase(v.Name),
 			Value:    v.StringValue(),
 			IntValue: v.IntValue(),
 		})
@@ -384,9 +393,9 @@ func processField(field resolution.Field, data *templateData) fieldData {
 		goType = "*" + goType
 	}
 	return fieldData{
-		GoName:         gointernal.ToPascalCase(field.Name),
+		GoName:         toPascalCase(field.Name),
 		GoType:         goType,
-		JSONName:       gointernal.ToSnakeCase(field.Name),
+		JSONName:       lo.SnakeCase(field.Name),
 		IsOptional:     field.IsOptional || field.IsHardOptional,
 		IsHardOptional: field.IsHardOptional,
 		Doc:            doc.Get(field.Domains),
@@ -439,13 +448,13 @@ func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, d
 	if targetOutputPath == "" {
 		return name
 	}
-	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
+	alias := naming.DerivePackageAlias(targetOutputPath, data.Package)
 	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
 	return fmt.Sprintf("%s.%s", alias, buildGenericType(name, extendsRef.TypeArgs, &parent, data))
 }
 
 type templateData struct {
-	imports    *gointernal.ImportManager
+	imports    *imports.Manager
 	table      *resolution.Table
 	resolver   *resolver.Resolver
 	ctx        *resolver.Context
@@ -465,7 +474,7 @@ func (d *templateData) HasImports() bool { return d.imports.HasImports() }
 func (d *templateData) ExternalImports() []string { return d.imports.ExternalImports() }
 
 // InternalImports returns sorted internal imports.
-func (d *templateData) InternalImports() []gointernal.InternalImportData {
+func (d *templateData) InternalImports() []imports.InternalImportData {
 	return d.imports.InternalImports()
 }
 

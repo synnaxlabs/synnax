@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package main is the entrypoint for the Oracle CLI.
-package main
+package domain_test
 
-import "github.com/synnaxlabs/oracle/cli"
+import (
+	"testing"
 
-func main() {
-	cli.Execute()
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestDomain(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Domain Suite")
 }

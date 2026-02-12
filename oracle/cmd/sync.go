@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cli
+package cmd
 
 import (
 	"fmt"
@@ -17,7 +17,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/synnaxlabs/oracle"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -99,7 +98,7 @@ func runSync(cmd *cobra.Command) error {
 
 	registry := buildPluginRegistry()
 
-	result, diag := oracle.Generate(ctx, normalizedFiles, repoRoot, registry)
+	result, diag := generate(ctx, normalizedFiles, repoRoot, registry)
 	if diag != nil {
 		printDiagnostics(diag.String())
 		if !diag.Ok() {
@@ -107,7 +106,7 @@ func runSync(cmd *cobra.Command) error {
 		}
 	}
 
-	syncResult, err := result.SyncFiles(repoRoot)
+	syncResult, err := result.syncFiles(repoRoot)
 	if err != nil {
 		return errors.Wrap(err, "failed to sync files")
 	}
@@ -116,7 +115,7 @@ func runSync(cmd *cobra.Command) error {
 		for i, f := range syncResult.Written {
 			absPaths[i] = filepath.Join(repoRoot, f)
 		}
-		if err = oracle.UpdateLicenseHeaders(repoRoot, absPaths); err != nil {
+		if err = updateLicenseHeaders(repoRoot, absPaths); err != nil {
 			return errors.Wrapf(err, "failed to update license headers")
 		}
 	}
@@ -141,7 +140,7 @@ func runSync(cmd *cobra.Command) error {
 	}
 	// Update copyright headers on protobuf-generated files
 	if _, hasPB := syncResult.ByPlugin["pb/types"]; hasPB {
-		if err = oracle.UpdateLicenseHeaders(repoRoot, []string{"*.pb.go"}); err != nil {
+		if err = updateLicenseHeaders(repoRoot, []string{"*.pb.go"}); err != nil {
 			return errors.Wrapf(err, "failed to update license headers on .pb.go files")
 		}
 	}

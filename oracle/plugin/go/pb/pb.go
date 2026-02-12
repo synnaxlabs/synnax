@@ -24,13 +24,21 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
-	gointernal "github.com/synnaxlabs/oracle/plugin/go/internal"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
+
+func toPascalCase(s string) string {
+	if naming.IsScreamingCase(s) {
+		return s
+	}
+	return lo.PascalCase(s)
+}
 
 // Plugin generates protobuf translator functions for the pb/ subdirectory pattern.
 type Plugin struct{ Options Options }
@@ -200,7 +208,7 @@ func (p *Plugin) generateFile(
 		EnumTranslators:       make([]enumTranslatorData, 0),
 		AnyHelpers:            make([]anyHelperData, 0),
 		DelegationTranslators: make([]delegationTranslatorData, 0),
-		imports:               gointernal.NewImportManager(),
+		imports:               imports.NewManager(),
 		repoRoot:              req.RepoRoot,
 		table:                 req.Resolutions,
 		usedEnums:             make(map[string]*resolution.Type),
@@ -213,7 +221,7 @@ func (p *Plugin) generateFile(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to resolve parent package import")
 	}
-	parentAlias := gointernal.DerivePackageName(parentGoPath)
+	parentAlias := naming.DerivePackageName(parentGoPath)
 	data.imports.AddInternal(parentAlias, parentImportPath)
 	data.parentAlias = parentAlias
 
@@ -349,8 +357,8 @@ func (p *Plugin) processFieldForTranslation(
 	data *templateData,
 	parentStruct resolution.Type,
 ) fieldTranslatorData {
-	goName := gointernal.ToPascalCase(field.Name)
-	pbName := gointernal.ToPascalCase(lo.SnakeCase(field.Name))
+	goName := toPascalCase(field.Name)
+	pbName := lo.PascalCase(lo.SnakeCase(field.Name))
 
 	isHardOptional := field.IsHardOptional
 	isOptional := isHardOptional
@@ -451,8 +459,8 @@ func (p *Plugin) processGenericFieldForTranslation(
 	parentForm resolution.StructForm,
 	typeParams []typeParamData,
 ) (fieldTranslatorData, bool) {
-	goName := gointernal.ToPascalCase(field.Name)
-	pbName := gointernal.ToPascalCase(lo.SnakeCase(field.Name))
+	goName := toPascalCase(field.Name)
+	pbName := lo.PascalCase(lo.SnakeCase(field.Name))
 	typeRef := field.Type
 
 	isHardOptional := field.IsHardOptional
@@ -581,7 +589,7 @@ func (p *Plugin) processDelegationTranslator(
 	if err != nil {
 		return nil, err
 	}
-	underlyingGoAlias := gointernal.DerivePackageAlias(underlyingGoPath, data.parentAlias)
+	underlyingGoAlias := naming.DerivePackageAlias(underlyingGoPath, data.parentAlias)
 	data.imports.AddInternal(underlyingGoAlias, underlyingGoImportPath)
 
 	underlyingPBImportPath, err := resolveGoImportPath(underlyingPBPath, data.repoRoot)
@@ -754,7 +762,7 @@ func (p *Plugin) generateFixedSizeUint8ArrayConversion(
 		return fmt.Sprintf("%s[:]", goField), pbField
 	}
 
-	alias := gointernal.DerivePackageName(goOutput)
+	alias := naming.DerivePackageName(goOutput)
 	data.imports.AddInternal(alias, importPath)
 
 	forward = fmt.Sprintf("%s.Bytes()", goField)
@@ -769,8 +777,8 @@ func (p *Plugin) generateFieldConversion(
 	parentStruct resolution.Type,
 ) (forward, backward, backwardCast string, hasError, hasBackwardError bool) {
 	typeRef := field.Type
-	goFieldName := "r." + gointernal.ToPascalCase(field.Name)
-	pbFieldName := "pb." + gointernal.ToPascalCase(lo.SnakeCase(field.Name))
+	goFieldName := "r." + toPascalCase(field.Name)
+	pbFieldName := "pb." + lo.PascalCase(lo.SnakeCase(field.Name))
 
 	if p.isFixedSizeUint8Array(typeRef, data.table) {
 		f, b := p.generateFixedSizeUint8ArrayConversion(typeRef, data, goFieldName, pbFieldName)
@@ -789,7 +797,7 @@ func (p *Plugin) generateFieldConversion(
 		if goOutput != "" && goOutput != data.ParentGoPath {
 			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 			if err == nil {
-				keyPkgAlias = gointernal.DerivePackageName(goOutput)
+				keyPkgAlias = naming.DerivePackageName(goOutput)
 				data.imports.AddInternal(keyPkgAlias, importPath)
 			}
 		}
@@ -1041,7 +1049,7 @@ func (p *Plugin) generateGenericStructConversion(
 	if goOutput != "" {
 		importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 		if err == nil {
-			alias := gointernal.DerivePackageName(goOutput)
+			alias := naming.DerivePackageName(goOutput)
 			data.imports.AddInternal(alias, importPath)
 			genericGoType = fmt.Sprintf("%s.%s[%s]", alias, structName, strings.Join(explicitTypeArgs, ", "))
 		}
@@ -1158,7 +1166,7 @@ func (p *Plugin) generateTypeDefConversion(
 		if goOutput != "" {
 			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 			if err == nil {
-				alias := gointernal.DerivePackageAlias(goOutput, data.parentAlias)
+				alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
 				data.imports.AddInternal(alias, importPath)
 				typedefPrefix = alias + "."
 			}
@@ -1198,7 +1206,7 @@ func (p *Plugin) generateAliasConversion(
 		if goOutput != "" {
 			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 			if err == nil {
-				alias := gointernal.DerivePackageAlias(goOutput, data.parentAlias)
+				alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
 				data.imports.AddInternal(alias, importPath)
 				aliasPrefix = alias + "."
 			}
@@ -1307,7 +1315,7 @@ func (p *Plugin) generateEnumTranslator(
 	isGoOmitted := omit.IsType(*enumRef, "go")
 
 	for i, v := range form.Values {
-		valueName := gointernal.ToPascalCase(v.Name)
+		valueName := toPascalCase(v.Name)
 
 		var goValue string
 		if isGoOmitted {
@@ -1492,7 +1500,7 @@ func (p *Plugin) collectDistinctPrimitives(data *templateData, req *plugin.Reque
 			continue
 		}
 
-		alias := gointernal.DerivePackageName(goOutput)
+		alias := naming.DerivePackageName(goOutput)
 		data.imports.AddInternal(alias, importPath)
 
 		goTypeName := fmt.Sprintf("%s.%s", alias, typ.Name)
@@ -1574,7 +1582,7 @@ func isStructType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 type templateData struct {
 	usedEnums             map[string]*resolution.Type
 	table                 *resolution.Table
-	imports               *gointernal.ImportManager
+	imports               *imports.Manager
 	generatedAnyHelpers   map[string]bool
 	ParentGoPath          string
 	Package               string
@@ -1598,7 +1606,7 @@ func (d *templateData) HasImports() bool { return d.imports.HasImports() }
 func (d *templateData) ExternalImports() []string { return d.imports.ExternalImports() }
 
 // InternalImports returns sorted internal imports.
-func (d *templateData) InternalImports() []gointernal.InternalImportData {
+func (d *templateData) InternalImports() []imports.InternalImportData {
 	return d.imports.InternalImports()
 }
 
