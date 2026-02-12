@@ -1,0 +1,41 @@
+name: Test - Oracle
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/test.oracle.yaml
+      - .github/workflows/test.go.yaml
+      - .golangci.yaml
+      - alamos/go/**
+      - codecov.yaml
+      - freighter/go/**
+      - go.work
+      - go.work.sum
+      - oracle/**
+      - scripts/check_gofmt.sh
+      - x/go/**
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - .github/workflows/test.oracle.yaml
+      - .github/workflows/test.go.yaml
+      - .golangci.yaml
+      - alamos/go/**
+      - codecov.yaml
+      - freighter/go/**
+      - go.work
+      - go.work.sum
+      - oracle/**
+      - scripts/check_gofmt.sh
+      - x/go/**
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.go.yaml
+    secrets: inherit
+    with:
+      directory: oracle
+      coverage_flag: oracle
