@@ -32,8 +32,7 @@ enum class Type { Number, String, Boolean };
 /// @brief time format for converting between `telem::TimeStamp`s and JSON values.
 enum class TimeFormat {
     ISO8601,
-    UnixSecondFloat,
-    UnixSecondInt,
+    UnixSecond,
     UnixMillisecond,
     UnixMicrosecond,
     UnixNanosecond,

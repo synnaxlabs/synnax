@@ -24,7 +24,6 @@
 #include <google/protobuf/struct.pb.h>
 
 #include "x/cpp/date/date.h"
-#include "x/cpp/math/math.h"
 
 namespace x::telem {
 // private namespace for internal constants
@@ -319,38 +318,30 @@ public:
     /// @returns the number of nanoseconds since Unix epoch.
     [[nodiscard]] std::int64_t nanoseconds() const { return this->value; }
 
-    /// @brief returns the number of microseconds since Unix epoch, floored toward
-    /// negative infinity.
-    /// @returns the number of microseconds since Unix epoch.
-    [[nodiscard]] std::int64_t microseconds() const {
-        return math::floor_div(value, 1000);
+    /// @brief returns the number of microseconds since Unix epoch.
+    /// @returns microseconds since Unix epoch as a double.
+    [[nodiscard]] double microseconds() const {
+        return static_cast<double>(value) / 1e3;
     }
 
     /// @brief returns the number of milliseconds since Unix epoch.
-    /// @returns the number of milliseconds since Unix epoch.
-    [[nodiscard]] std::int64_t milliseconds() const {
-        return math::floor_div(value, 1000000);
+    /// @returns milliseconds since Unix epoch as a double.
+    [[nodiscard]] double milliseconds() const {
+        return static_cast<double>(value) / 1e6;
     }
 
-    /// @brief returns the number of seconds since Unix epoch, floored toward negative
-    /// infinity.
-    /// @returns the number of seconds since Unix epoch.
-    [[nodiscard]] std::int64_t seconds() const {
-        return math::floor_div(value, 1000000000);
-    }
-
-    /// @brief returns the timestamp as fractional seconds.
+    /// @brief returns the number of seconds since Unix epoch.
     /// @returns seconds since Unix epoch as a double.
-    [[nodiscard]] double seconds_double() const {
+    [[nodiscard]] double seconds() const {
         return static_cast<double>(value) / 1e9;
     }
 
     /// @brief returns the timestamp as an ISO 8601 UTC string.
     /// @returns a string like "2001-09-09T01:46:40.000000001Z".
     [[nodiscard]] std::string iso8601() const {
-        const int64_t sec = seconds();
+        const int64_t sec = value / 1000000000 - (value % 1000000000 != 0 && value < 0);
         const int64_t frac_ns = value - sec * 1000000000;
-        const int64_t day = math::floor_div(sec, 86400);
+        const int64_t day = sec / 86400 - (sec % 86400 != 0 && sec < 0);
         const int64_t sod = sec - day * 86400;
         const date::Date d = date::civil_from_days(day);
         const auto hh = sod / 3600;

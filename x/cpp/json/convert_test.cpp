@@ -275,10 +275,10 @@ TEST(ResolveReadConverter, NumberToTimestampMillisecond) {
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(1500000000));
 }
 
-TEST(ResolveReadConverter, NumberToTimestampSecondInt) {
+TEST(ResolveReadConverter, NumberToTimestampSecondInteger) {
     const auto converter = ASSERT_NIL_P(x::json::resolve_read_converter(
         x::json::Type::Number, x::telem::TIMESTAMP_T,
-        {.time_format = x::json::TimeFormat::UnixSecondInt}
+        {.time_format = x::json::TimeFormat::UnixSecond}
     ));
     const auto sv = ASSERT_NIL_P(converter(json(int64_t(1000000000))));
     ASSERT_EQ(
@@ -287,13 +287,33 @@ TEST(ResolveReadConverter, NumberToTimestampSecondInt) {
     );
 }
 
-TEST(ResolveReadConverter, NumberToTimestampSecondFloat) {
+TEST(ResolveReadConverter, NumberToTimestampSecondDecimal) {
     const auto converter = ASSERT_NIL_P(x::json::resolve_read_converter(
         x::json::Type::Number, x::telem::TIMESTAMP_T,
-        {.time_format = x::json::TimeFormat::UnixSecondFloat}
+        {.time_format = x::json::TimeFormat::UnixSecond}
     ));
     const auto sv = ASSERT_NIL_P(converter(json(1.5)));
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(1500000000));
+}
+
+TEST(ResolveReadConverter, NumberToTimestampMillisecondDecimal) {
+    const auto converter = ASSERT_NIL_P(x::json::resolve_read_converter(
+        x::json::Type::Number, x::telem::TIMESTAMP_T,
+        {.time_format = x::json::TimeFormat::UnixMillisecond}
+    ));
+    // 1500.5 ms = 1500500000 ns
+    const auto sv = ASSERT_NIL_P(converter(json(1500.5)));
+    ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(1500500000));
+}
+
+TEST(ResolveReadConverter, NumberToTimestampMicrosecondDecimal) {
+    const auto converter = ASSERT_NIL_P(x::json::resolve_read_converter(
+        x::json::Type::Number, x::telem::TIMESTAMP_T,
+        {.time_format = x::json::TimeFormat::UnixMicrosecond}
+    ));
+    // 1000000.5 us = 1000000500 ns
+    const auto sv = ASSERT_NIL_P(converter(json(1000000.5)));
+    ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(1000000500));
 }
 
 TEST(ResolveReadConverter, NumberToTimestampISO8601Error) {
@@ -928,135 +948,97 @@ TEST(FromTimestamp, UnixNanosecondNegative) {
 }
 
 TEST(FromTimestamp, UnixMicrosecond) {
-    const auto value = int64_t(1000000000000000000);
-    const auto ts = x::telem::TimeStamp(value);
-    ASSERT_EQ(
-        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMicrosecond),
-        json(value / 1000)
+    const auto ts = x::telem::TimeStamp(int64_t(1000000000000000000));
+    ASSERT_DOUBLE_EQ(
+        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMicrosecond).get<double>(),
+        1000000000000000.0
     );
 }
 
 TEST(FromTimestamp, UnixMicrosecondZero) {
-    ASSERT_EQ(
-        x::json::from_timestamp(x::telem::TimeStamp(0), x::json::TimeFormat::UnixMicrosecond),
-        json(int64_t(0))
+    ASSERT_DOUBLE_EQ(
+        x::json::from_timestamp(x::telem::TimeStamp(0), x::json::TimeFormat::UnixMicrosecond).get<double>(),
+        0.0
     );
 }
 
-TEST(FromTimestamp, UnixMicrosecondFloorsSubMicrosecond) {
-    // 789 nanoseconds floored away
-    const auto ts = x::telem::TimeStamp(int64_t(1000000000123456789));
-    ASSERT_EQ(
-        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMicrosecond),
-        json(int64_t(1000000000123456))
+TEST(FromTimestamp, UnixMicrosecondPreservesSubMicrosecond) {
+    // 789 nanoseconds preserved as fractional microseconds
+    const auto ts = x::telem::TimeStamp(int64_t(1000000500));
+    ASSERT_DOUBLE_EQ(
+        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMicrosecond).get<double>(),
+        1000000.5
     );
 }
 
-TEST(FromTimestamp, UnixMicrosecondNegativeFloors) {
-    // -1500000001 ns → floor(-1500000.001) = -1500001 (not -1500000)
-    const auto ts = x::telem::TimeStamp(int64_t(-1500000001));
-    ASSERT_EQ(
-        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMicrosecond),
-        json(int64_t(-1500001))
+TEST(FromTimestamp, UnixMicrosecondNegative) {
+    const auto ts = x::telem::TimeStamp(int64_t(-1500000000));
+    ASSERT_DOUBLE_EQ(
+        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMicrosecond).get<double>(),
+        -1500000.0
     );
 }
 
 TEST(FromTimestamp, UnixMillisecond) {
-    const int64_t value = 1000000000000000000;
-    const auto ts = x::telem::TimeStamp(value);
-    ASSERT_EQ(
-        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMillisecond),
-        json(value / 1000000)
+    const auto ts = x::telem::TimeStamp(int64_t(1000000000000000000));
+    ASSERT_DOUBLE_EQ(
+        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMillisecond).get<double>(),
+        1000000000000.0
     );
 }
 
 TEST(FromTimestamp, UnixMillisecondZero) {
-    ASSERT_EQ(
-        x::json::from_timestamp(x::telem::TimeStamp(0), x::json::TimeFormat::UnixMillisecond),
-        json(int64_t(0))
+    ASSERT_DOUBLE_EQ(
+        x::json::from_timestamp(x::telem::TimeStamp(0), x::json::TimeFormat::UnixMillisecond).get<double>(),
+        0.0
     );
 }
 
-TEST(FromTimestamp, UnixMillisecondFloorsSubMillisecond) {
-    // 456789 nanoseconds floored away
-    const auto ts = x::telem::TimeStamp(int64_t(1000000000123456789));
-    ASSERT_EQ(
-        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMillisecond),
-        json(int64_t(1000000000123))
+TEST(FromTimestamp, UnixMillisecondPreservesSubMillisecond) {
+    // 500 microseconds preserved as fractional milliseconds
+    const auto ts = x::telem::TimeStamp(int64_t(1500500000));
+    ASSERT_DOUBLE_EQ(
+        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMillisecond).get<double>(),
+        1500.5
     );
 }
 
-TEST(FromTimestamp, UnixMillisecondNegativeFloors) {
-    // -1500000001 ns → floor(-1500.000001) = -1501 (not -1500)
-    const auto ts = x::telem::TimeStamp(int64_t(-1500000001));
-    ASSERT_EQ(
-        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMillisecond),
-        json(int64_t(-1501))
-    );
-}
-
-TEST(FromTimestamp, UnixSecondInt) {
-    const int64_t value = 1000000000000000000;
-    const auto ts = x::telem::TimeStamp(value);
-    ASSERT_EQ(
-        x::json::from_timestamp(ts, x::json::TimeFormat::UnixSecondInt),
-        json(value / 1000000000)
-    );
-}
-
-TEST(FromTimestamp, UnixSecondIntZero) {
-    ASSERT_EQ(
-        x::json::from_timestamp(x::telem::TimeStamp(0), x::json::TimeFormat::UnixSecondInt),
-        json(int64_t(0))
-    );
-}
-
-TEST(FromTimestamp, UnixSecondIntFloorsSubSecond) {
-    const auto ts = x::telem::TimeStamp(int64_t(1000000000500000000));
-    ASSERT_EQ(
-        x::json::from_timestamp(ts, x::json::TimeFormat::UnixSecondInt),
-        json(int64_t(1000000000))
-    );
-}
-
-TEST(FromTimestamp, UnixSecondIntNegativeFloors) {
-    // -1500000001 ns → floor(-1.500000001) = -2 (not -1)
-    const auto ts = x::telem::TimeStamp(int64_t(-1500000001));
-    ASSERT_EQ(
-        x::json::from_timestamp(ts, x::json::TimeFormat::UnixSecondInt),
-        json(int64_t(-2))
-    );
-}
-
-TEST(FromTimestamp, UnixSecondFloat) {
-    const auto ts = x::telem::TimeStamp(int64_t(1000000000000000000));
-    ASSERT_EQ(
-        x::json::from_timestamp(ts, x::json::TimeFormat::UnixSecondFloat),
-        json(1000000000)
-    );
-}
-
-TEST(FromTimestamp, UnixSecondFloatZero) {
-    ASSERT_EQ(
-        x::json::from_timestamp(x::telem::TimeStamp(0), x::json::TimeFormat::UnixSecondFloat),
-        json(0.0)
-    );
-}
-
-TEST(FromTimestamp, UnixSecondFloatPreservesSubSecond) {
-    // 0.5 seconds preserved as float
-    const auto ts = x::telem::TimeStamp(int64_t(1000000000500000000));
-    ASSERT_EQ(
-        x::json::from_timestamp(ts, x::json::TimeFormat::UnixSecondFloat),
-        json(1000000000.5)
-    );
-}
-
-TEST(FromTimestamp, UnixSecondFloatNegative) {
+TEST(FromTimestamp, UnixMillisecondNegative) {
     const auto ts = x::telem::TimeStamp(int64_t(-1500000000));
-    ASSERT_EQ(
-        x::json::from_timestamp(ts, x::json::TimeFormat::UnixSecondFloat),
-        json(-1.5)
+    ASSERT_DOUBLE_EQ(
+        x::json::from_timestamp(ts, x::json::TimeFormat::UnixMillisecond).get<double>(),
+        -1500.0
+    );
+}
+
+TEST(FromTimestamp, UnixSecond) {
+    const auto ts = x::telem::TimeStamp(int64_t(1000000000000000000));
+    ASSERT_DOUBLE_EQ(
+        x::json::from_timestamp(ts, x::json::TimeFormat::UnixSecond).get<double>(),
+        1000000000.0
+    );
+}
+
+TEST(FromTimestamp, UnixSecondZero) {
+    ASSERT_DOUBLE_EQ(
+        x::json::from_timestamp(x::telem::TimeStamp(0), x::json::TimeFormat::UnixSecond).get<double>(),
+        0.0
+    );
+}
+
+TEST(FromTimestamp, UnixSecondPreservesSubSecond) {
+    const auto ts = x::telem::TimeStamp(int64_t(1000000000500000000));
+    ASSERT_DOUBLE_EQ(
+        x::json::from_timestamp(ts, x::json::TimeFormat::UnixSecond).get<double>(),
+        1000000000.5
+    );
+}
+
+TEST(FromTimestamp, UnixSecondNegative) {
+    const auto ts = x::telem::TimeStamp(int64_t(-1500000000));
+    ASSERT_DOUBLE_EQ(
+        x::json::from_timestamp(ts, x::json::TimeFormat::UnixSecond).get<double>(),
+        -1.5
     );
 }
 

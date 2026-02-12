@@ -131,11 +131,10 @@ clang-format -i file.cpp
 Use Doxygen-style `///` comments with `@brief`, `@param`, and `@returns` tags:
 
 ```cpp
-/// @brief computes floor division, rounding toward negative infinity.
-/// @param a the dividend.
-/// @param b the divisor.
-/// @returns the quotient rounded toward negative infinity.
-[[nodiscard]] inline constexpr int64_t floor_div(int64_t a, int64_t b);
+/// @brief computes the number of days from the civil date to the Unix epoch.
+/// @param date the civil date to convert.
+/// @returns the number of days since 1970-01-01.
+[[nodiscard]] constexpr int32_t days_from_civil(const Date &date);
 ```
 
 For struct/class members, use `///<` trailing comments:

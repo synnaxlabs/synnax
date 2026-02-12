@@ -145,73 +145,73 @@ TEST(TimeStampTests, testModuloAssignment) {
 /// @brief it should return microseconds since epoch.
 TEST(TimeStampTests, testMicroseconds) {
     const auto ts = TimeStamp(1234567890000000000LL);
-    ASSERT_EQ(ts.microseconds(), 1234567890000000LL);
+    ASSERT_DOUBLE_EQ(ts.microseconds(), 1234567890000000.0);
 }
 
-/// @brief it should floor toward negative infinity for microseconds.
-TEST(TimeStampTests, testMicrosecondsNegative) {
-    const auto ts = TimeStamp(-1);
-    ASSERT_EQ(ts.microseconds(), -1);
+/// @brief it should return fractional microseconds for sub-microsecond values.
+TEST(TimeStampTests, testMicrosecondsFractional) {
+    const auto ts = TimeStamp(1500);
+    ASSERT_DOUBLE_EQ(ts.microseconds(), 1.5);
 }
 
 /// @brief it should return zero microseconds for epoch.
 TEST(TimeStampTests, testMicrosecondsZero) {
     const auto ts = TimeStamp(0);
-    ASSERT_EQ(ts.microseconds(), 0);
+    ASSERT_DOUBLE_EQ(ts.microseconds(), 0.0);
+}
+
+/// @brief it should return negative microseconds.
+TEST(TimeStampTests, testMicrosecondsNegative) {
+    const auto ts = TimeStamp(-1500);
+    ASSERT_DOUBLE_EQ(ts.microseconds(), -1.5);
 }
 
 /// @brief it should return milliseconds since epoch.
 TEST(TimeStampTests, testMilliseconds) {
     const auto ts = TimeStamp(1234567890000000000LL);
-    ASSERT_EQ(ts.milliseconds(), 1234567890000LL);
+    ASSERT_DOUBLE_EQ(ts.milliseconds(), 1234567890000.0);
 }
 
-/// @brief it should floor toward negative infinity for milliseconds.
-TEST(TimeStampTests, testMillisecondsNegative) {
-    const auto ts = TimeStamp(-1);
-    ASSERT_EQ(ts.milliseconds(), -1);
+/// @brief it should return fractional milliseconds for sub-millisecond values.
+TEST(TimeStampTests, testMillisecondsFractional) {
+    const auto ts = TimeStamp(1500000);
+    ASSERT_DOUBLE_EQ(ts.milliseconds(), 1.5);
 }
 
 /// @brief it should return zero milliseconds for epoch.
 TEST(TimeStampTests, testMillisecondsZero) {
     const auto ts = TimeStamp(0);
-    ASSERT_EQ(ts.milliseconds(), 0);
+    ASSERT_DOUBLE_EQ(ts.milliseconds(), 0.0);
+}
+
+/// @brief it should return negative milliseconds.
+TEST(TimeStampTests, testMillisecondsNegative) {
+    const auto ts = TimeStamp(-1500000);
+    ASSERT_DOUBLE_EQ(ts.milliseconds(), -1.5);
 }
 
 /// @brief it should return seconds since epoch.
 TEST(TimeStampTests, testSeconds) {
     const auto ts = TimeStamp(1234567890000000000LL);
-    ASSERT_EQ(ts.seconds(), 1234567890LL);
+    ASSERT_DOUBLE_EQ(ts.seconds(), 1234567890.0);
 }
 
-/// @brief it should floor toward negative infinity for seconds.
-TEST(TimeStampTests, testSecondsNegative) {
-    const auto ts = TimeStamp(-1);
-    ASSERT_EQ(ts.seconds(), -1);
+/// @brief it should return fractional seconds for sub-second values.
+TEST(TimeStampTests, testSecondsFractional) {
+    const auto ts = TimeStamp(1500000000LL);
+    ASSERT_DOUBLE_EQ(ts.seconds(), 1.5);
 }
 
 /// @brief it should return zero seconds for epoch.
 TEST(TimeStampTests, testSecondsZero) {
     const auto ts = TimeStamp(0);
-    ASSERT_EQ(ts.seconds(), 0);
+    ASSERT_DOUBLE_EQ(ts.seconds(), 0.0);
 }
 
-/// @brief it should return seconds as a double with sub-second precision.
-TEST(TimeStampTests, testSecondsDouble) {
-    const auto ts = TimeStamp(1500000000LL);
-    ASSERT_DOUBLE_EQ(ts.seconds_double(), 1.5);
-}
-
-/// @brief it should return zero seconds as a double for epoch.
-TEST(TimeStampTests, testSecondsDoubleZero) {
-    const auto ts = TimeStamp(0);
-    ASSERT_DOUBLE_EQ(ts.seconds_double(), 0.0);
-}
-
-/// @brief it should return negative seconds as a double.
-TEST(TimeStampTests, testSecondsDoubleNegative) {
+/// @brief it should return negative seconds.
+TEST(TimeStampTests, testSecondsNegative) {
     const auto ts = TimeStamp(-500000000LL);
-    ASSERT_DOUBLE_EQ(ts.seconds_double(), -0.5);
+    ASSERT_DOUBLE_EQ(ts.seconds(), -0.5);
 }
 
 /// @brief it should return ISO 8601 string for epoch.

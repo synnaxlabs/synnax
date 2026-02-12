@@ -130,11 +130,13 @@ ReadConverter make_bool_numeric_reader() {
     };
 }
 
-ReadConverter make_timestamp_reader(const int64_t multiplier) {
+ReadConverter make_timestamp_reader(const double multiplier) {
     return [multiplier](const nlohmann::json &value)
                -> std::pair<telem::SampleValue, errors::Error> {
         return {
-            telem::SampleValue(telem::TimeStamp(value.get<int64_t>() * multiplier)),
+            telem::SampleValue(telem::TimeStamp(
+                static_cast<int64_t>(value.get<double>() * multiplier)
+            )),
             errors::NIL
         };
     };
@@ -150,28 +152,24 @@ std::pair<ReadConverter, errors::Error> resolve_read_converter(
         if (json_type == Type::Number) {
             switch (opts.time_format) {
                 case TimeFormat::UnixNanosecond:
-                    return {make_timestamp_reader(1), errors::NIL};
-                case TimeFormat::UnixMicrosecond:
-                    return {make_timestamp_reader(1000), errors::NIL};
-                case TimeFormat::UnixMillisecond:
-                    return {make_timestamp_reader(1000000), errors::NIL};
-                case TimeFormat::UnixSecondInt:
-                    return {make_timestamp_reader(1000000000), errors::NIL};
-                case TimeFormat::UnixSecondFloat:
                     return {
                         [](const nlohmann::json &value)
                             -> std::pair<telem::SampleValue, errors::Error> {
                             return {
-                                telem::SampleValue(telem::TimeStamp(
-                                    static_cast<int64_t>(
-                                        value.get<double>() * 1e9
-                                    )
-                                )),
+                                telem::SampleValue(
+                                    telem::TimeStamp(value.get<int64_t>())
+                                ),
                                 errors::NIL
                             };
                         },
                         errors::NIL
                     };
+                case TimeFormat::UnixMicrosecond:
+                    return {make_timestamp_reader(1e3), errors::NIL};
+                case TimeFormat::UnixMillisecond:
+                    return {make_timestamp_reader(1e6), errors::NIL};
+                case TimeFormat::UnixSecond:
+                    return {make_timestamp_reader(1e9), errors::NIL};
                 case TimeFormat::ISO8601:
                     return {nullptr, UNSUPPORTED_ERROR};
             }
@@ -337,13 +335,11 @@ nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format) {
         case TimeFormat::UnixNanosecond:
             return ts.nanoseconds();
         case TimeFormat::UnixMicrosecond:
-            return ts.microseconds();
+            return static_cast<double>(ts.nanoseconds()) / 1e3;
         case TimeFormat::UnixMillisecond:
-            return ts.milliseconds();
-        case TimeFormat::UnixSecondInt:
-            return ts.seconds();
-        case TimeFormat::UnixSecondFloat:
-            return ts.seconds_double();
+            return static_cast<double>(ts.nanoseconds()) / 1e6;
+        case TimeFormat::UnixSecond:
+            return static_cast<double>(ts.nanoseconds()) / 1e9;
         case TimeFormat::ISO8601:
             return ts.iso8601();
     }
