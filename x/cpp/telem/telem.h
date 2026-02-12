@@ -24,6 +24,7 @@
 #include <google/protobuf/struct.pb.h>
 
 #include "x/cpp/date/date.h"
+#include "x/cpp/string/put.h"
 
 namespace x::telem {
 // private namespace for internal constants
@@ -36,24 +37,6 @@ constexpr int64_t MINUTE = SECOND * 60;
 constexpr int64_t HOUR = MINUTE * 60;
 constexpr int64_t DAY = HOUR * 24;
 
-inline void put2(char *p, int v) noexcept {
-    p[0] = char('0' + (v / 10));
-    p[1] = char('0' + (v % 10));
-}
-
-inline void put4(char *p, int v) noexcept {
-    p[0] = char('0' + (v / 1000));
-    p[1] = char('0' + ((v / 100) % 10));
-    p[2] = char('0' + ((v / 10) % 10));
-    p[3] = char('0' + (v % 10));
-}
-
-inline void put9(char *p, int v) noexcept {
-    for (int i = 8; i >= 0; --i) {
-        p[i] = char('0' + (v % 10));
-        v /= 10;
-    }
-}
 }
 
 /// @brief timespan is a nanosecond-precision time duration.
@@ -332,9 +315,7 @@ public:
 
     /// @brief returns the number of seconds since Unix epoch.
     /// @returns seconds since Unix epoch as a double.
-    [[nodiscard]] double seconds() const {
-        return static_cast<double>(value) / 1e9;
-    }
+    [[nodiscard]] double seconds() const { return static_cast<double>(value) / 1e9; }
 
     /// @brief returns the timestamp as an ISO 8601 UTC string.
     /// @returns a string like "2001-09-09T01:46:40.000000001Z".
@@ -349,17 +330,17 @@ public:
         const auto ss = sod % 60;
 
         char buf[30];
-        _priv::put4(buf + 0, d.year);
+        strings::put(buf + 0, d.year, 4);
         buf[4] = '-';
-        _priv::put2(buf + 5, d.month);
+        strings::put(buf + 5, d.month, 2);
         buf[7] = '-';
-        _priv::put2(buf + 8, d.day);
+        strings::put(buf + 8, d.day, 2);
         buf[10] = 'T';
-        _priv::put2(buf + 11, hh);
+        strings::put(buf + 11, hh, 2);
         buf[13] = ':';
-        _priv::put2(buf + 14, mm);
+        strings::put(buf + 14, mm, 2);
         buf[16] = ':';
-        _priv::put2(buf + 17, ss);
+        strings::put(buf + 17, ss, 2);
 
         int len = 19;
 
@@ -368,7 +349,7 @@ public:
 
             // write 9 digits then trim without looping over the whole tail
             char frac[9];
-            _priv::put9(frac, frac_ns);
+            strings::put(frac, frac_ns, 9);
 
             // find last non-zero digit (at most 9 checks, but no while on the main
             // buffer)

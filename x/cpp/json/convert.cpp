@@ -11,8 +11,8 @@
 #include <limits>
 #include <string>
 
-#include "x/cpp/errors/errors.h"
 #include "x/cpp/date/date.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/convert.h"
 #include "x/cpp/telem/telem.h"
 
@@ -20,17 +20,30 @@ namespace x::json {
 
 namespace {
 
+const telem::SampleValue ZERO_TS = telem::SampleValue(telem::TimeStamp(0));
+
 std::pair<telem::SampleValue, errors::Error>
-parse_rfc3339(const std::string &input) {
-    if (input.size() < 20) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+iso_err(const std::string &input, const std::string &reason) {
+    return {
+        ZERO_TS,
+        errors::Error(
+            INVALID_ISO_ERROR.type,
+            "\"" + input + "\" is not a valid ISO 8601 timestamp: " + reason
+        ),
+    };
+}
 
-    if (input[4] != '-' || input[7] != '-') return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+std::pair<telem::SampleValue, errors::Error> parse_rfc3339(const std::string &input) {
+    if (input.size() < 20) return iso_err(input, "too short (minimum 20 characters)");
+    if (input[4] != '-' || input[7] != '-')
+        return iso_err(input, "expected '-' at positions 4 and 7");
     if (input[10] != 'T' && input[10] != 't' && input[10] != ' ')
-        return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
-    if (input[13] != ':' || input[16] != ':') return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+        return iso_err(input, "expected 'T', 't', or space at position 10");
+    if (input[13] != ':' || input[16] != ':')
+        return iso_err(input, "expected ':' at positions 13 and 16");
 
-    auto parse_uint = [&](const size_t start, const size_t len)
-                          -> std::pair<int32_t, bool> {
+    auto parse_uint = [&](const size_t start,
+                          const size_t len) -> std::pair<int32_t, bool> {
         int32_t result = 0;
         for (size_t i = start; i < start + len; ++i) {
             if (input[i] < '0' || input[i] > '9') return {0, false};
@@ -46,12 +59,13 @@ parse_rfc3339(const std::string &input) {
     const auto [minute, mi_ok] = parse_uint(14, 2);
     const auto [second, s_ok] = parse_uint(17, 2);
     if (!y_ok || !mo_ok || !d_ok || !h_ok || !mi_ok || !s_ok)
-        return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
-    if (month < 1 || month > 12) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
-    if (day < 1 || day > 31) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
-    if (hour > 23) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
-    if (minute > 59) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
-    if (second > 60) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+        return iso_err(input, "non-digit character in date or time fields");
+    if (month < 1 || month > 12)
+        return iso_err(input, "month must be between 1 and 12");
+    if (day < 1 || day > 31) return iso_err(input, "day must be between 1 and 31");
+    if (hour > 23) return iso_err(input, "hour must be between 0 and 23");
+    if (minute > 59) return iso_err(input, "minute must be between 0 and 59");
+    if (second > 59) return iso_err(input, "second must be between 0 and 59");
 
     int64_t frac_ns = 0;
     size_t pos = 19;
@@ -68,20 +82,25 @@ parse_rfc3339(const std::string &input) {
     }
 
     int32_t tz_offset_seconds = 0;
-    if (pos >= input.size()) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+    if (pos >= input.size()) return iso_err(input, "missing timezone designator");
     if (input[pos] == 'Z' || input[pos] == 'z') {
         // UTC
     } else if (input[pos] == '+' || input[pos] == '-') {
         const bool negative = (input[pos] == '-');
         ++pos;
         if (pos + 5 > input.size() || input[pos + 2] != ':')
-            return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+            return iso_err(input, "invalid timezone offset format");
         const auto [tz_hour, tzh_ok] = parse_uint(pos, 2);
         const auto [tz_min, tzm_ok] = parse_uint(pos + 3, 2);
-        if (!tzh_ok || !tzm_ok) return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+        if (!tzh_ok || !tzm_ok)
+            return iso_err(input, "non-digit character in timezone offset");
         tz_offset_seconds = (tz_hour * 3600 + tz_min * 60) * (negative ? -1 : 1);
     } else {
-        return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
+        return iso_err(
+            input,
+            std::string("unexpected character '") + input[pos] +
+                "' where timezone designator expected"
+        );
     }
 
     const int32_t days = date::days_from_civil(
@@ -89,10 +108,12 @@ parse_rfc3339(const std::string &input) {
          static_cast<uint8_t>(month),
          static_cast<uint8_t>(day)}
     );
-    const int64_t total_seconds =
-        static_cast<int64_t>(days) * 86400 + hour * 3600 + minute * 60 + second
-        - tz_offset_seconds;
-    return {telem::SampleValue(telem::TimeStamp(total_seconds * 1000000000 + frac_ns)), errors::NIL};
+    const int64_t total_seconds = static_cast<int64_t>(days) * 86400 + hour * 3600 +
+                                  minute * 60 + second - tz_offset_seconds;
+    return {
+        telem::SampleValue(telem::TimeStamp(total_seconds * 1000000000 + frac_ns)),
+        errors::NIL
+    };
 }
 
 template<typename T>
@@ -111,11 +132,7 @@ convert_number(const double v, const bool strict) {
 }
 
 std::pair<telem::SampleValue, errors::Error>
-number_to_numeric(
-    const double v,
-    const telem::DataType &target,
-    const bool strict
-) {
+number_to_numeric(const double v, const telem::DataType &target, const bool strict) {
     if (target == telem::FLOAT64_T) return convert_number<double>(v, strict);
     if (target == telem::FLOAT32_T) return convert_number<float>(v, strict);
     if (target == telem::INT64_T) return convert_number<int64_t>(v, strict);
@@ -126,7 +143,7 @@ number_to_numeric(
     if (target == telem::UINT32_T) return convert_number<uint32_t>(v, strict);
     if (target == telem::UINT16_T) return convert_number<uint16_t>(v, strict);
     if (target == telem::UINT8_T) return convert_number<uint8_t>(v, strict);
-    return {telem::SampleValue(int64_t(0)), UNSUPPORTED_ERROR};
+    return {telem::SampleValue(0), UNSUPPORTED_ERROR};
 }
 
 } // namespace
@@ -146,30 +163,33 @@ std::pair<telem::SampleValue, errors::Error> to_sample_value(
                     };
                 case TimeFormat::UnixMicrosecond:
                     return {
-                        telem::SampleValue(telem::TimeStamp(
-                            static_cast<int64_t>(value.get<double>() * 1e3)
-                        )),
+                        telem::SampleValue(
+                            telem::TimeStamp(
+                                static_cast<int64_t>(value.get<double>() * 1e3)
+                            )
+                        ),
                         errors::NIL
                     };
                 case TimeFormat::UnixMillisecond:
                     return {
-                        telem::SampleValue(telem::TimeStamp(
-                            static_cast<int64_t>(value.get<double>() * 1e6)
-                        )),
+                        telem::SampleValue(
+                            telem::TimeStamp(
+                                static_cast<int64_t>(value.get<double>() * 1e6)
+                            )
+                        ),
                         errors::NIL
                     };
                 case TimeFormat::UnixSecond:
                     return {
-                        telem::SampleValue(telem::TimeStamp(
-                            static_cast<int64_t>(value.get<double>() * 1e9)
-                        )),
+                        telem::SampleValue(
+                            telem::TimeStamp(
+                                static_cast<int64_t>(value.get<double>() * 1e9)
+                            )
+                        ),
                         errors::NIL
                     };
                 case TimeFormat::ISO8601:
-                    return {
-                        telem::SampleValue(telem::TimeStamp(0)),
-                        UNSUPPORTED_ERROR
-                    };
+                    return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
             }
         }
         if (value.is_string() && opts.time_format == TimeFormat::ISO8601)
@@ -178,15 +198,12 @@ std::pair<telem::SampleValue, errors::Error> to_sample_value(
     }
 
     if (target == telem::STRING_T) {
-        if (value.is_number())
-            return {telem::SampleValue(value.dump()), errors::NIL};
+        if (value.is_number()) return {telem::SampleValue(value.dump()), errors::NIL};
         if (value.is_string())
             return {telem::SampleValue(value.get<std::string>()), errors::NIL};
         if (value.is_boolean())
             return {
-                telem::SampleValue(
-                    std::string(value.get<bool>() ? "true" : "false")
-                ),
+                telem::SampleValue(std::string(value.get<bool>() ? "true" : "false")),
                 errors::NIL
             };
         return {telem::SampleValue(std::string()), UNSUPPORTED_ERROR};
@@ -198,7 +215,7 @@ std::pair<telem::SampleValue, errors::Error> to_sample_value(
     if (value.is_number())
         return number_to_numeric(value.get<double>(), target, opts.strict);
 
-    return {telem::SampleValue(int64_t(0)), UNSUPPORTED_ERROR};
+    return {telem::SampleValue(0), UNSUPPORTED_ERROR};
 }
 
 std::pair<nlohmann::json, errors::Error>
@@ -207,8 +224,7 @@ from_sample_value(const telem::SampleValue &value, Type target) {
         [target](const auto &v) -> std::pair<nlohmann::json, errors::Error> {
             using T = std::decay_t<decltype(v)>;
             if constexpr (std::is_same_v<T, std::string>) {
-                if (target == Type::String)
-                    return {nlohmann::json(v), errors::NIL};
+                if (target == Type::String) return {nlohmann::json(v), errors::NIL};
                 return {nlohmann::json(), UNSUPPORTED_ERROR};
             } else if constexpr (std::is_same_v<T, telem::TimeStamp>) {
                 return {nlohmann::json(), UNSUPPORTED_ERROR};
@@ -229,8 +245,7 @@ from_sample_value(const telem::SampleValue &value, Type target) {
     );
 }
 
-errors::Error
-check_from_sample_value(const telem::DataType &type, Type target) {
+errors::Error check_from_sample_value(const telem::DataType &type, Type target) {
     if (type == telem::STRING_T)
         return target == Type::String ? errors::NIL : UNSUPPORTED_ERROR;
     if (type == telem::FLOAT64_T || type == telem::FLOAT32_T ||

@@ -9,11 +9,10 @@
 
 #pragma once
 
-
 #include <nlohmann/json.hpp>
 
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/telem/telem.h"
 
 namespace x::json {
 
@@ -25,6 +24,8 @@ const errors::Error UNSUPPORTED_ERROR = BASE_ERROR.sub("unsupported");
 const errors::Error TRUNCATION_ERROR = BASE_ERROR.sub("truncation");
 /// @brief error for unexpected overflow.
 const errors::Error OVERFLOW_ERROR = BASE_ERROR.sub("overflow");
+/// @brief error for invalid ISO 8601 timestamp strings.
+const errors::Error INVALID_ISO_ERROR = BASE_ERROR.sub("invalid_iso");
 
 /// @brief JSON value type.
 enum class Type { Number, String, Boolean };
