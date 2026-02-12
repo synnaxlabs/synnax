@@ -556,7 +556,7 @@ var _ = Context("Name Validation Disabled", func() {
 	Describe("Channel Creation", Ordered, func() {
 		var mockCluster *mock.Cluster
 		BeforeAll(func() {
-			mockCluster = mock.ProvisionCluster(ctx, 1, distribution.Config{
+			mockCluster = mock.ProvisionCluster(ctx, 1, distribution.LayerConfig{
 				ValidateChannelNames: config.False(),
 			})
 		})

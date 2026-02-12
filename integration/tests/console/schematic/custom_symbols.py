@@ -9,16 +9,14 @@
 
 """Test custom schematic symbol operations."""
 
-import os
-
 import synnax as sy
 
 from console.case import ConsoleCase
 from console.schematic import CustomSymbol, Schematic
 from console.schematic.symbol_toolbar import SymbolToolbar
-from framework.utils import get_random_name
+from framework.utils import get_fixture_path, get_random_name
 
-TEST_SYMBOL_SVG = os.path.join(os.path.dirname(__file__), "test_symbol.svg")
+TEST_SYMBOL_SVG = get_fixture_path("test_symbol.svg")
 
 
 class CustomSymbols(ConsoleCase):

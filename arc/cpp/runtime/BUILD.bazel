@@ -22,6 +22,7 @@ cc_library(
         "//arc/cpp/stl/telem",
         "//arc/cpp/stl/time",
         "//x/cpp/thread",
+        "//x/cpp/control",
     ],
 )
 

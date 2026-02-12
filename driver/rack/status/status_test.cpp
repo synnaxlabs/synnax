@@ -26,7 +26,13 @@ TEST(stateTests, testNominal) {
     auto ctx = std::make_shared<task::SynnaxContext>(client);
     auto hb = Task::configure(
         ctx,
-        synnax::task::Task(rack.key, "state", "state", "", true)
+        synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "state",
+            .type = "state",
+            .config = "",
+            .internal = true
+        }
     );
     auto cmd = task::Command(0, "start", {});
     hb->exec(cmd);
@@ -44,7 +50,7 @@ TEST(stateTests, testNominal) {
         if (j["details"]["rack"] == rack.key) break;
     }
     EXPECT_EQ(j["details"]["rack"], rack.key);
-    EXPECT_EQ(j["variant"], x::status::variant::SUCCESS);
+    EXPECT_EQ(j["variant"], x::status::VARIANT_SUCCESS);
     EXPECT_EQ(j["message"], "Driver is running");
     ASSERT_NIL(streamer.close());
 }

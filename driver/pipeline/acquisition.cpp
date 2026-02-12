@@ -92,8 +92,8 @@ x::telem::TimeStamp resolve_start(const x::telem::Frame &frame) {
 void Acquisition::run() {
     std::unique_ptr<Writer> writer;
     bool writer_opened = false;
-    std::optional<x::telem::Authority> pending_global_auth;
-    std::map<synnax::channel::Key, x::telem::Authority> pending_channel_auths;
+    std::optional<x::control::Authority> pending_global_auth;
+    std::map<synnax::channel::Key, x::control::Authority> pending_channel_auths;
     x::errors::Error writer_err;
     x::errors::Error source_err;
     x::telem::Frame fr(0);

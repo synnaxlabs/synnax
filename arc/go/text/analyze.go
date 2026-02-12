@@ -552,6 +552,10 @@ func extractConfigValues(
 				ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 				return nil, false
 			}
+			if err := paramType.ChanDirection.CheckCompatibility(sym.Type.ChanDirection); err != nil {
+				ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+				return nil, false
+			}
 			channelKey := uint32(sym.ID)
 			node.Channels.ResolveConfigChannel(fnSym, paramName, channelKey, sym.Name)
 			return channelKey, true

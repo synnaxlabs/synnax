@@ -17,8 +17,8 @@
 
 #include "glog/logging.h"
 
+#include "x/cpp/control/control.h"
 #include "x/cpp/queue/spsc.h"
-#include "x/cpp/telem/control.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/thread/thread.h"
 
@@ -43,7 +43,7 @@
 
 namespace arc::runtime {
 
-constexpr x::telem::Authority DEFAULT_AUTHORITY = x::telem::AUTH_ABSOLUTE;
+constexpr x::control::Authority DEFAULT_AUTHORITY = x::control::AUTHORITY_ABSOLUTE;
 /// @brief combines data frames and authority changes into a single output
 /// so that authority-only changes (with no channel writes) are not starved.
 struct Output {
@@ -188,12 +188,12 @@ public:
 /// @brief Builds a per-channel authority vector from the static Authorities
 /// in the IR. Maps channel keys to authority values and returns authorities
 /// aligned with write_keys.
-inline std::vector<x::telem::Authority> build_authorities(
+inline std::vector<x::control::Authority> build_authorities(
     const ir::Authorities &auth,
     const std::vector<types::ChannelKey> &write_keys
 ) {
     if (!auth.default_authority.has_value() && auth.channels.empty()) return {};
-    std::vector<x::telem::Authority> authorities(write_keys.size());
+    std::vector<x::control::Authority> authorities(write_keys.size());
     for (size_t i = 0; i < write_keys.size(); i++)
         authorities[i] = auth.default_authority.has_value() ? *auth.default_authority
                                                             : DEFAULT_AUTHORITY;
