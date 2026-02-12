@@ -110,12 +110,16 @@ class MosaicOperations(ConsoleCase):
         assert first_box is not None, f"{first_name} pane should have bounding box"
         assert second_box is not None, f"{second_name} pane should have bounding box"
 
-        axis = "x" if horizontal else "y"
-        assert second_box[axis] > first_box[axis], (
-            f"{second_name} pane ({second_box[axis]}) should be "
-            f"{'right of' if horizontal else 'below'} "
-            f"{first_name} pane ({first_box[axis]})"
-        )
+        if horizontal:
+            assert second_box["x"] > first_box["x"], (
+                f"{second_name} ({second_box['x']}) should be "
+                f"right of {first_name} ({first_box['x']})"
+            )
+        else:
+            assert second_box["y"] > first_box["y"], (
+                f"{second_name} ({second_box['y']}) should be "
+                f"below {first_name} ({first_box['y']})"
+            )
 
         console.workspace.close_page(second_name)
         console.workspace.close_page(first_name)
