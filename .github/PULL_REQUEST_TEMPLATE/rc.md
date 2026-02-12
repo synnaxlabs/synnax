@@ -166,10 +166,7 @@ I can successfully:
 
 - **Visualization**
   - [ ] Use the measuring tool on the line plot.
-- **Search and Command Palette**
-  - [ ] Open the "Import Line Plot" dialog.
 - [ ] Open a line plot from its link.
-- [ ] Import a line plot.
 
 ### Logs
 
@@ -180,8 +177,6 @@ I can successfully:
   - [ ] Pause and resume scrolling using the streaming icon in the top right.
   - [ ] Switch the logging channel and observe data switching.
   - [ ] Preserve log data from a virtual channel in the buffer.
-- **Search and Command Palette**
-  - [ ] Open an existing log.
 - [ ] Open a log from its link.
 
 ### Ontology
