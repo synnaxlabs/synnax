@@ -38,12 +38,7 @@ enum class TimeFormat {
     UnixNanosecond,
 };
 
-/// @brief resolved read converter. Takes a JSON value and returns a SampleValue
-/// containing the converted value.
-using ReadConverter = std::function<
-    std::pair<telem::SampleValue, errors::Error>(const nlohmann::json &value)>;
-
-/// @brief options for resolve_read_converter.
+/// @brief options for to_sample_value.
 struct ReadOptions {
     /// @brief if true, numeric conversions that lose precision (e.g. float → int
     /// truncation, overflow) return an error instead of silently truncating.
@@ -53,16 +48,15 @@ struct ReadOptions {
     TimeFormat time_format = TimeFormat::ISO8601;
 };
 
-/// @brief resolves a read converter for a specific (`Type`, `DataType`) combination.
-/// The returned function captures the exact C++ types, so there is no branching on
-/// DataType at runtime.
-/// @param json_type the JSON value type to convert from.
-/// @param target_type the Synnax DataType to convert to.
+/// @brief converts a JSON value to a SampleValue of the given target DataType.
+/// Inspects the JSON value's type at runtime to determine the conversion path.
+/// @param value the JSON value to convert.
+/// @param target the Synnax DataType to convert to.
 /// @param opts conversion options (strictness, time format).
-/// @returns the converter and nil, or nullptr and an error if unsupported.
-std::pair<ReadConverter, errors::Error> resolve_read_converter(
-    Type json_type,
-    const telem::DataType &target_type,
+/// @returns the converted SampleValue and nil, or a zero SampleValue and an error.
+std::pair<telem::SampleValue, errors::Error> to_sample_value(
+    const nlohmann::json &value,
+    const telem::DataType &target,
     const ReadOptions &opts = {}
 );
 

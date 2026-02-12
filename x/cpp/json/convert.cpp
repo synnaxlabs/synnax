@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cmath>
+#include <limits>
 #include <string>
 
 #include "x/cpp/errors/errors.h"
@@ -93,201 +95,110 @@ parse_rfc3339(const std::string &input) {
     return {telem::SampleValue(telem::TimeStamp(total_seconds * 1000000000 + frac_ns)), errors::NIL};
 }
 
-} // namespace
-
 template<typename T>
-ReadConverter make_number_reader() {
-    return [](const nlohmann::json &value)
-               -> std::pair<telem::SampleValue, errors::Error> {
-        return {telem::SampleValue(static_cast<T>(value.get<double>())), errors::NIL};
-    };
-}
-
-template<typename T>
-ReadConverter make_strict_number_reader() {
-    return [](const nlohmann::json &value)
-               -> std::pair<telem::SampleValue, errors::Error> {
-        const double v = value.get<double>();
-        if constexpr (std::is_integral_v<T>) {
+std::pair<telem::SampleValue, errors::Error>
+convert_number(const double v, const bool strict) {
+    if constexpr (std::is_integral_v<T>) {
+        if (strict) {
             if (v != std::trunc(v))
                 return {telem::SampleValue(static_cast<T>(0)), TRUNCATION_ERROR};
             if (v < static_cast<double>(std::numeric_limits<T>::min()) ||
                 v > static_cast<double>(std::numeric_limits<T>::max()))
                 return {telem::SampleValue(static_cast<T>(0)), OVERFLOW_ERROR};
         }
-        return {telem::SampleValue(static_cast<T>(v)), errors::NIL};
-    };
+    }
+    return {telem::SampleValue(static_cast<T>(v)), errors::NIL};
 }
 
-template<typename T>
-ReadConverter make_bool_numeric_reader() {
-    return [](const nlohmann::json &value)
-               -> std::pair<telem::SampleValue, errors::Error> {
-        return {
-            telem::SampleValue(static_cast<T>(value.get<bool>() ? 1 : 0)),
-            errors::NIL
-        };
-    };
+std::pair<telem::SampleValue, errors::Error>
+number_to_numeric(
+    const double v,
+    const telem::DataType &target,
+    const bool strict
+) {
+    if (target == telem::FLOAT64_T) return convert_number<double>(v, strict);
+    if (target == telem::FLOAT32_T) return convert_number<float>(v, strict);
+    if (target == telem::INT64_T) return convert_number<int64_t>(v, strict);
+    if (target == telem::INT32_T) return convert_number<int32_t>(v, strict);
+    if (target == telem::INT16_T) return convert_number<int16_t>(v, strict);
+    if (target == telem::INT8_T) return convert_number<int8_t>(v, strict);
+    if (target == telem::UINT64_T) return convert_number<uint64_t>(v, strict);
+    if (target == telem::UINT32_T) return convert_number<uint32_t>(v, strict);
+    if (target == telem::UINT16_T) return convert_number<uint16_t>(v, strict);
+    if (target == telem::UINT8_T) return convert_number<uint8_t>(v, strict);
+    return {telem::SampleValue(int64_t(0)), UNSUPPORTED_ERROR};
 }
 
-ReadConverter make_timestamp_reader(const double multiplier) {
-    return [multiplier](const nlohmann::json &value)
-               -> std::pair<telem::SampleValue, errors::Error> {
-        return {
-            telem::SampleValue(telem::TimeStamp(
-                static_cast<int64_t>(value.get<double>() * multiplier)
-            )),
-            errors::NIL
-        };
-    };
-}
+} // namespace
 
-std::pair<ReadConverter, errors::Error> resolve_read_converter(
-    Type json_type,
-    const telem::DataType &target_type,
+std::pair<telem::SampleValue, errors::Error> to_sample_value(
+    const nlohmann::json &value,
+    const telem::DataType &target,
     const ReadOptions &opts
 ) {
-    // Number/String → TimeStamp
-    if (target_type == telem::TIMESTAMP_T) {
-        if (json_type == Type::Number) {
+    if (target == telem::TIMESTAMP_T) {
+        if (value.is_number()) {
             switch (opts.time_format) {
                 case TimeFormat::UnixNanosecond:
                     return {
-                        [](const nlohmann::json &value)
-                            -> std::pair<telem::SampleValue, errors::Error> {
-                            return {
-                                telem::SampleValue(
-                                    telem::TimeStamp(value.get<int64_t>())
-                                ),
-                                errors::NIL
-                            };
-                        },
+                        telem::SampleValue(telem::TimeStamp(value.get<int64_t>())),
                         errors::NIL
                     };
                 case TimeFormat::UnixMicrosecond:
-                    return {make_timestamp_reader(1e3), errors::NIL};
+                    return {
+                        telem::SampleValue(telem::TimeStamp(
+                            static_cast<int64_t>(value.get<double>() * 1e3)
+                        )),
+                        errors::NIL
+                    };
                 case TimeFormat::UnixMillisecond:
-                    return {make_timestamp_reader(1e6), errors::NIL};
+                    return {
+                        telem::SampleValue(telem::TimeStamp(
+                            static_cast<int64_t>(value.get<double>() * 1e6)
+                        )),
+                        errors::NIL
+                    };
                 case TimeFormat::UnixSecond:
-                    return {make_timestamp_reader(1e9), errors::NIL};
+                    return {
+                        telem::SampleValue(telem::TimeStamp(
+                            static_cast<int64_t>(value.get<double>() * 1e9)
+                        )),
+                        errors::NIL
+                    };
                 case TimeFormat::ISO8601:
-                    return {nullptr, UNSUPPORTED_ERROR};
+                    return {
+                        telem::SampleValue(telem::TimeStamp(0)),
+                        UNSUPPORTED_ERROR
+                    };
             }
         }
-        if (json_type == Type::String && opts.time_format == TimeFormat::ISO8601)
-            return {
-                [](const nlohmann::json &value)
-                    -> std::pair<telem::SampleValue, errors::Error> {
-                    return parse_rfc3339(value.get<std::string>());
-                },
-                errors::NIL
-            };
-        return {nullptr, UNSUPPORTED_ERROR};
+        if (value.is_string() && opts.time_format == TimeFormat::ISO8601)
+            return parse_rfc3339(value.get<std::string>());
+        return {telem::SampleValue(telem::TimeStamp(0)), UNSUPPORTED_ERROR};
     }
 
-    // Any → String
-    if (target_type == telem::STRING_T) {
-        if (json_type == Type::Number)
+    if (target == telem::STRING_T) {
+        if (value.is_number())
+            return {telem::SampleValue(value.dump()), errors::NIL};
+        if (value.is_string())
+            return {telem::SampleValue(value.get<std::string>()), errors::NIL};
+        if (value.is_boolean())
             return {
-                [](const nlohmann::json &value)
-                    -> std::pair<telem::SampleValue, errors::Error> {
-                    return {telem::SampleValue(value.dump()), errors::NIL};
-                },
+                telem::SampleValue(
+                    std::string(value.get<bool>() ? "true" : "false")
+                ),
                 errors::NIL
             };
-        if (json_type == Type::String)
-            return {
-                [](const nlohmann::json &value)
-                    -> std::pair<telem::SampleValue, errors::Error> {
-                    return {
-                        telem::SampleValue(value.get<std::string>()),
-                        errors::NIL
-                    };
-                },
-                errors::NIL
-            };
-        if (json_type == Type::Boolean)
-            return {
-                [](const nlohmann::json &value)
-                    -> std::pair<telem::SampleValue, errors::Error> {
-                    return {
-                        telem::SampleValue(
-                            std::string(value.get<bool>() ? "true" : "false")
-                        ),
-                        errors::NIL
-                    };
-                },
-                errors::NIL
-            };
+        return {telem::SampleValue(std::string()), UNSUPPORTED_ERROR};
     }
 
-    // Boolean → Numeric
-    if (json_type == Type::Boolean) {
-        if (target_type == telem::FLOAT64_T)
-            return {make_bool_numeric_reader<double>(), errors::NIL};
-        if (target_type == telem::FLOAT32_T)
-            return {make_bool_numeric_reader<float>(), errors::NIL};
-        if (target_type == telem::INT64_T)
-            return {make_bool_numeric_reader<int64_t>(), errors::NIL};
-        if (target_type == telem::INT32_T)
-            return {make_bool_numeric_reader<int32_t>(), errors::NIL};
-        if (target_type == telem::INT16_T)
-            return {make_bool_numeric_reader<int16_t>(), errors::NIL};
-        if (target_type == telem::INT8_T)
-            return {make_bool_numeric_reader<int8_t>(), errors::NIL};
-        if (target_type == telem::UINT64_T)
-            return {make_bool_numeric_reader<uint64_t>(), errors::NIL};
-        if (target_type == telem::UINT32_T)
-            return {make_bool_numeric_reader<uint32_t>(), errors::NIL};
-        if (target_type == telem::UINT16_T)
-            return {make_bool_numeric_reader<uint16_t>(), errors::NIL};
-        if (target_type == telem::UINT8_T)
-            return {make_bool_numeric_reader<uint8_t>(), errors::NIL};
-    }
+    if (value.is_boolean())
+        return number_to_numeric(value.get<bool>() ? 1 : 0, target, false);
 
-    // Number → Numeric
-    if (json_type == Type::Number) {
-        if (target_type == telem::FLOAT64_T)
-            return {make_number_reader<double>(), errors::NIL};
-        if (target_type == telem::FLOAT32_T)
-            return {make_number_reader<float>(), errors::NIL};
-        if (opts.strict) {
-            if (target_type == telem::INT64_T)
-                return {make_strict_number_reader<int64_t>(), errors::NIL};
-            if (target_type == telem::INT32_T)
-                return {make_strict_number_reader<int32_t>(), errors::NIL};
-            if (target_type == telem::INT16_T)
-                return {make_strict_number_reader<int16_t>(), errors::NIL};
-            if (target_type == telem::INT8_T)
-                return {make_strict_number_reader<int8_t>(), errors::NIL};
-            if (target_type == telem::UINT64_T)
-                return {make_strict_number_reader<uint64_t>(), errors::NIL};
-            if (target_type == telem::UINT32_T)
-                return {make_strict_number_reader<uint32_t>(), errors::NIL};
-            if (target_type == telem::UINT16_T)
-                return {make_strict_number_reader<uint16_t>(), errors::NIL};
-            if (target_type == telem::UINT8_T)
-                return {make_strict_number_reader<uint8_t>(), errors::NIL};
-        } else {
-            if (target_type == telem::INT64_T)
-                return {make_number_reader<int64_t>(), errors::NIL};
-            if (target_type == telem::INT32_T)
-                return {make_number_reader<int32_t>(), errors::NIL};
-            if (target_type == telem::INT16_T)
-                return {make_number_reader<int16_t>(), errors::NIL};
-            if (target_type == telem::INT8_T)
-                return {make_number_reader<int8_t>(), errors::NIL};
-            if (target_type == telem::UINT64_T)
-                return {make_number_reader<uint64_t>(), errors::NIL};
-            if (target_type == telem::UINT32_T)
-                return {make_number_reader<uint32_t>(), errors::NIL};
-            if (target_type == telem::UINT16_T)
-                return {make_number_reader<uint16_t>(), errors::NIL};
-            if (target_type == telem::UINT8_T)
-                return {make_number_reader<uint8_t>(), errors::NIL};
-        }
-    }
-    return {nullptr, UNSUPPORTED_ERROR};
+    if (value.is_number())
+        return number_to_numeric(value.get<double>(), target, opts.strict);
+
+    return {telem::SampleValue(int64_t(0)), UNSUPPORTED_ERROR};
 }
 
 std::pair<nlohmann::json, errors::Error>
