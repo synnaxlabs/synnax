@@ -400,7 +400,7 @@ var _ = Describe("Text", func() {
 							Name: "read_sensor",
 							Kind: symbol.KindChannel,
 							Type: types.ReadChan(types.F64()),
-							ID:   100,
+							ID:   10056,
 						},
 					},
 				}

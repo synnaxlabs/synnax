@@ -772,14 +772,14 @@ var _ = Describe("Graph", func() {
 					{
 						Key:    "on",
 						Type:   "on",
-						Config: map[string]any{"channel": 12},
+						Config: map[string]any{"channel": 10057},
 					},
 					{
 						Key:  "set_auth",
 						Type: "set_authority",
 						Config: map[string]any{
 							"value":   200,
-							"channel": 12,
+							"channel": 10057,
 						},
 					},
 				},
@@ -787,11 +787,11 @@ var _ = Describe("Graph", func() {
 			resolver := symbol.CompoundResolver{
 				authority.SymbolResolver,
 				symbol.MapResolver{
-					"12": symbol.Symbol{
+					"10057": symbol.Symbol{
 						Name: "f64_sensor",
 						Type: types.WriteChan(types.F64()),
 						Kind: symbol.KindChannel,
-						ID:   12,
+						ID:   10057,
 					},
 				},
 			}
@@ -808,7 +808,7 @@ var _ = Describe("Graph", func() {
 						Type: "set_authority",
 						Config: map[string]any{
 							"value":   200,
-							"channel": 12,
+							"channel": 10058,
 						},
 					},
 				},
@@ -816,11 +816,11 @@ var _ = Describe("Graph", func() {
 			resolver := symbol.CompoundResolver{
 				authority.SymbolResolver,
 				symbol.MapResolver{
-					"12": symbol.Symbol{
+					"10058": symbol.Symbol{
 						Name: "f64_sensor",
 						Type: types.ReadChan(types.F64()),
 						Kind: symbol.KindChannel,
-						ID:   12,
+						ID:   10058,
 					},
 				},
 			}
