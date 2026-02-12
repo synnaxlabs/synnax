@@ -137,25 +137,36 @@ class Tree:
     def expand(self, item: Locator) -> None:
         """Expand a tree node to show its children.
 
-        Uses single click on the expansion indicator (caret icon).
-        If no expansion indicator is found, clicks the item directly.
+        Checks if the node is already expanded first to avoid toggling it
+        closed. This makes the operation idempotent and safe for concurrent
+        callers.
 
         :param item: The Locator for the tree item to expand.
         """
+        if self.is_expanded(item):
+            return
         expand_icon = item.locator("svg.pluto-tree__expansion-indicator").first
         if expand_icon.count() > 0:
             expand_icon.click()
         else:
             item.click()
+        self.page.wait_for_timeout(300)
 
     def collapse(self, item: Locator) -> None:
         """Collapse a tree node to hide its children.
 
-        Same as expand - single click toggles the state.
+        Checks if the node is expanded first to avoid toggling it open.
 
         :param item: The Locator for the tree item to collapse.
         """
-        self.expand(item)
+        if not self.is_expanded(item):
+            return
+        expand_icon = item.locator("svg.pluto-tree__expansion-indicator").first
+        if expand_icon.count() > 0:
+            expand_icon.click()
+        else:
+            item.click()
+        self.page.wait_for_timeout(300)
 
     def is_expanded(self, item: Locator) -> bool:
         """Check if a tree node is currently expanded.
@@ -194,6 +205,15 @@ class Tree:
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
 
+    def rename_group(self, old_name: str, new_name: str) -> None:
+        """Rename a group by name via context menu.
+
+        :param old_name: Current name of the group.
+        :param new_name: New name for the group.
+        """
+        item = self.get_group(old_name)
+        self.rename(item, new_name)
+
     def group(self, items: list[Locator], group_name: str) -> None:
         """Group multiple tree items into a new group via multi-select and context menu.
 
@@ -216,15 +236,17 @@ class Tree:
         self.layout.type_text(group_name)
         self.layout.press_enter()
 
-    def delete_group(self, item: Locator) -> None:
-        """Delete a group via context menu.
+    def delete_group(self, item: Locator | str) -> None:
+        """Delete/ungroup a group via context menu.
 
-        Groups are deleted immediately without a confirmation dialog.
-        The context menu shows "Delete" for collapsed groups and "Ungroup"
-        for expanded groups with visible children.
+        Accepts either a Locator or a group name string. Groups are deleted
+        immediately without a confirmation dialog. The context menu shows
+        "Delete" for collapsed groups and "Ungroup" for expanded groups.
 
-        :param item: The Locator for the group to delete.
+        :param item: The Locator for the group, or the group name as a string.
         """
+        if isinstance(item, str):
+            item = self.get_group(item)
         self.ctx_menu.open_on(item)
         if self.ctx_menu.has_option("Delete"):
             self.ctx_menu.click_option("Delete")
@@ -232,6 +254,46 @@ class Tree:
             self.ctx_menu.click_option("Ungroup")
         else:
             self.ctx_menu.close()
+
+    def move_to_group(self, source: Locator, group_name: str) -> None:
+        """Move a tree item into a group via drag-and-drop.
+
+        :param source: Locator for the item to move.
+        :param group_name: Name of the target group.
+        """
+        target = self.find_by_name("group:", group_name)
+        if target is None:
+            raise ValueError(f"Group '{group_name}' not found")
+        source.drag_to(target)
+        self.page.wait_for_timeout(300)
+
+    def get_group(self, name: str) -> Locator:
+        """Get a group Locator by name, waiting for it to appear and scrolling into view.
+
+        More robust than find_by_name("group:", name) which filters by visibility.
+        This waits for the element to be attached to the DOM and scrolls it into view.
+
+        :param name: The display name of the group.
+        :returns: The Locator for the group item.
+        """
+        item = self.page.locator("div[id^='group:']").filter(
+            has=self.page.get_by_text(name, exact=True)
+        )
+        item.first.wait_for(state="attached", timeout=5000)
+        item.first.scroll_into_view_if_needed()
+        return item.first
+
+    def group_exists(self, name: str) -> bool:
+        """Check if a group is visible in the tree.
+
+        :param name: The display name of the group.
+        :returns: True if the group is visible, False otherwise.
+        """
+        try:
+            self.get_group(name).wait_for(state="visible", timeout=5000)
+            return True
+        except PlaywrightTimeoutError:
+            return False
 
     def set_editable_text(self, item: Locator, text: str) -> None:
         """Set the editable text content of a tree item.

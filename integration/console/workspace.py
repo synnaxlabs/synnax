@@ -334,7 +334,7 @@ class WorkspaceClient:
     def delete_group(self, name: str) -> None:
         """Delete a group via context menu."""
         self.expand_active()
-        self.tree.delete_group(self.get_page(name))
+        self.tree.delete_group(name)
         self.layout.close_left_toolbar()
 
     def delete_pages(self, names: list[str]) -> None:
@@ -391,13 +391,13 @@ class WorkspaceClient:
     def rename_group(self, old_name: str, new_name: str) -> None:
         """Rename a group via context menu."""
         self.expand_active()
-        self.tree.rename(self.get_page(old_name), new_name)
+        self.tree.rename_group(old_name, new_name)
         self.layout.close_left_toolbar()
 
     def move_to_group(self, item_name: str, group_name: str) -> None:
         """Move a page or group into a target group via drag-and-drop."""
         self.expand_active()
-        self.get_page(item_name).drag_to(self.get_page(group_name))
+        self.tree.move_to_group(self.get_page(item_name), group_name)
         self.layout.close_left_toolbar()
 
     def export_page(self, name: str) -> dict[str, Any]:

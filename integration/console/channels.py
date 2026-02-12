@@ -401,15 +401,25 @@ class ChannelClient:
             ".console-palette button", state="visible", timeout=30000
         )
 
-    def group(self, *, names: ChannelNames, group_name: str) -> None:
+    def group(
+        self,
+        *,
+        names: ChannelNames,
+        group_name: str,
+        parent_group: str | None = None,
+    ) -> None:
         """Group multiple channels together via context menu.
 
         :param names: List of channel names to group.
         :param group_name: The name for the new group.
+        :param parent_group: Optional parent group to expand first (e.g. "Metrics").
         """
         if len(names) < 2:
             raise ValueError("At least 2 channels are required to create a group")
-        self.show_channels()
+        if parent_group is not None:
+            self.expand_group(parent_group)
+        else:
+            self.show_channels()
         items = []
         for name in names:
             item = self.tree.find_by_name(self.ITEM_PREFIX, str(name))
@@ -417,7 +427,90 @@ class ChannelClient:
                 raise ValueError(f"Channel {name} not found")
             items.append(item)
         self.tree.group(items, group_name)
+
+    def rename_group(
+        self,
+        old_name: str,
+        new_name: str,
+        parent_group: str | None = None,
+    ) -> None:
+        """Rename a channel group via context menu.
+
+        :param old_name: Current name of the group.
+        :param new_name: New name for the group.
+        :param parent_group: Optional parent group to expand first (e.g. "Metrics").
+        """
+        if parent_group is not None:
+            self.expand_group(parent_group)
+        else:
+            self.show_channels()
+        self.tree.rename_group(old_name, new_name)
+
+    def delete_group(self, name: str, parent_group: str | None = None) -> None:
+        """Delete a channel group via context menu.
+
+        Auto-expands the group before deleting so the context menu shows
+        "Ungroup" (required for groups with children).
+
+        :param name: Name of the group to delete.
+        :param parent_group: Optional parent group to expand first (e.g. "Metrics").
+        """
+        if parent_group is not None:
+            self.expand_group(parent_group)
+        else:
+            self.show_channels()
+        group = self.tree.get_group(name)
+        if not self.tree.is_expanded(group):
+            self.tree.expand(group)
+        self.tree.delete_group(group)
+
+    def move_to_group(
+        self,
+        channel_name: str,
+        group_name: str,
+        parent_group: str | None = None,
+    ) -> None:
+        """Move a channel into a group via drag-and-drop.
+
+        :param channel_name: Name of the channel to move.
+        :param group_name: Name of the target group.
+        :param parent_group: Optional parent group to expand first (e.g. "Metrics").
+        """
+        if parent_group is not None:
+            self.expand_group(parent_group)
+        else:
+            self.show_channels()
+        source = self.tree.find_by_name(self.ITEM_PREFIX, channel_name)
+        if source is None:
+            raise ValueError(f"Channel '{channel_name}' not found")
+        self.tree.move_to_group(source, group_name)
         self.hide_channels()
+
+    def expand_group(self, name: str) -> None:
+        """Show channels pane and expand a named group.
+
+        :param name: The display name of the group to expand.
+        """
+        self.show_channels()
+        group = self.tree.get_group(name)
+        if not self.tree.is_expanded(group):
+            self.tree.expand(group)
+
+    def group_exists(self, name: str, parent_group: str | None = None) -> bool:
+        """Check if a group exists in the channel tree.
+
+        :param name: The display name of the group.
+        :param parent_group: Optional parent group to expand first (e.g. "Metrics").
+        :returns: True if the group is visible, False otherwise.
+        """
+        self.hide_channels()
+        if parent_group is not None:
+            self.expand_group(parent_group)
+        else:
+            self.show_channels()
+        result = self.tree.group_exists(name)
+        self.hide_channels()
+        return result
 
     def copy_link(self, name: ChannelName) -> str:
         """Copy link to a channel via context menu.

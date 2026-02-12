@@ -37,7 +37,8 @@
     {
       "sequence_name": "channel",
       "tests": [
-        { "case": "console/channel/channel_operations" },
+        { "case": "console/channel/ontology" },
+        { "case": "console/channel/channel_lifecycle" },
         { "case": "console/channel/rename_synchronization" },
         { "case": "console/channel/alias_synchronization" },
         {

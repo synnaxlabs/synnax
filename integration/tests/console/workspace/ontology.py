@@ -133,9 +133,7 @@ class Ontology(ConsoleCase):
         if not self.console.workspace.tree.is_expanded(parent):
             self.console.workspace.tree.expand(parent)
 
-        # Find group_b by prefix to avoid has_text matching the parent.
-        nested = self.console.workspace.tree.find_by_name("group:", self.group_b)
-        assert nested is not None, f"Group '{self.group_b}' should be visible"
+        nested = self.console.workspace.tree.get_group(self.group_b)
         self.console.workspace.tree.delete_group(nested)
         self.console.layout.close_left_toolbar()
 
