@@ -12,8 +12,6 @@
 #include "client/cpp/ontology/id.h"
 
 namespace synnax::ontology {
-ID::ID(std::string type, std::string key): type(std::move(type)), key(std::move(key)) {}
-
 std::string ID::string() const {
     return type + ":" + key;
 }
@@ -47,7 +45,7 @@ std::pair<ID, x::errors::Error> ID::parse(const std::string &s) {
         };
     const auto type = s.substr(0, colon_pos);
     const auto key = s.substr(colon_pos + 1);
-    ID id{type, key};
+    ID id{.type = type, .key = key};
     return {id, x::errors::NIL};
 }
 

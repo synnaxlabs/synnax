@@ -371,14 +371,14 @@ public:
 
     void run() override {
         if (const auto err = this->init()) {
-            this->status.variant = x::status::variant::ERR;
+            this->status.variant = x::status::VARIANT_ERROR;
             this->status.message = err.message();
             this->ctx->set_status(this->status);
             return;
         }
 
         if (const auto err = this->scanner->start()) {
-            this->status.variant = x::status::variant::ERR;
+            this->status.variant = x::status::VARIANT_ERROR;
             this->status.message = err.message();
             this->ctx->set_status(this->status);
             return;
@@ -388,12 +388,12 @@ public:
             LOG(WARNING) << this->log_prefix
                          << "failed to start signal monitoring: " << err;
 
-        this->status.variant = x::status::variant::SUCCESS;
+        this->status.variant = x::status::VARIANT_SUCCESS;
         this->status.message = "Scan task started";
         this->ctx->set_status(this->status);
         while (this->breaker.running()) {
             if (const auto err = this->scan()) {
-                this->status.variant = x::status::variant::WARNING;
+                this->status.variant = x::status::VARIANT_WARNING;
                 this->status.message = err.message();
                 this->ctx->set_status(this->status);
                 LOG(WARNING) << this->log_prefix
@@ -404,10 +404,10 @@ public:
 
         this->stop_signal_monitoring();
         if (const auto err = this->scanner->stop()) {
-            this->status.variant = x::status::variant::ERR;
+            this->status.variant = x::status::VARIANT_ERROR;
             this->status.message = err.message();
         } else {
-            this->status.variant = x::status::variant::SUCCESS;
+            this->status.variant = x::status::VARIANT_SUCCESS;
             this->status.message = "scan task stopped";
         }
         this->ctx->set_status(this->status);
@@ -422,8 +422,8 @@ public:
         }
         if (cmd.type == common::SCAN_CMD_TYPE) {
             const auto err = this->scan();
-            this->status.variant = err ? x::status::variant::ERR
-                                       : x::status::variant::SUCCESS;
+            this->status.variant = err ? x::status::VARIANT_ERROR
+                                       : x::status::VARIANT_SUCCESS;
             this->status.message = err ? err.message() : "Scan complete";
             this->ctx->set_status(this->status);
             return;
@@ -509,7 +509,7 @@ public:
 
             for (auto &[key, dev]: this->dev_states) {
                 if (present.find(key) != present.end()) continue;
-                dev.status.variant = x::status::variant::WARNING;
+                dev.status.variant = x::status::VARIANT_WARNING;
                 dev.status.message = "Device disconnected";
             }
 

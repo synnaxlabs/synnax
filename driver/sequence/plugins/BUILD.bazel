@@ -11,6 +11,7 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//driver/pipeline",
+        "//x/cpp/control",
         "//x/cpp/errors",
         "//x/cpp/lua",
         "@glog",

@@ -94,7 +94,7 @@ const loadTable = async (
   { key }: ontology.ID,
   placeLayout: Layout.Placer,
 ) => {
-  const table = await client.workspaces.tables.retrieve({ key });
+  const table = await client.tables.retrieve({ key });
   placeLayout(Table.create({ ...table.data, key: table.key, name: table.name }));
 };
 
@@ -122,7 +122,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError,
 }) =>
   handleError(async () => {
-    const table = await client.workspaces.tables.retrieve({ key });
+    const table = await client.tables.retrieve({ key });
     placeLayout(
       Table.create({
         name: table.name,

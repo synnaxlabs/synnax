@@ -19,7 +19,7 @@ TEST(StatusTest, SetSingleStatus) {
     const auto client = new_test_client();
     Status s;
     s.key = "test-status-1";
-    s.variant = x::status::variant::INFO;
+    s.variant = x::status::VARIANT_INFO;
     s.message = "Test message";
     s.time = x::telem::TimeStamp::now();
     ASSERT_NIL(client.statuses.set(s));
@@ -31,7 +31,7 @@ TEST(StatusTest, RetrieveStatus) {
     const auto client = new_test_client();
     Status s;
     s.key = "test-status-retrieve";
-    s.variant = x::status::variant::SUCCESS;
+    s.variant = x::status::VARIANT_SUCCESS;
     s.message = "Retrievable";
     s.time = x::telem::TimeStamp::now();
     ASSERT_NIL(client.statuses.set(s));
@@ -46,7 +46,7 @@ TEST(StatusTest, DeleteStatus) {
     const auto client = new_test_client();
     Status s;
     s.key = "test-status-delete";
-    s.variant = x::status::variant::INFO;
+    s.variant = x::status::VARIANT_INFO;
     s.message = "To delete";
     s.time = x::telem::TimeStamp::now();
     ASSERT_NIL(client.statuses.set(s));
@@ -61,7 +61,7 @@ TEST(StatusTest, SetMultipleStatuses) {
     for (int i = 0; i < 3; i++) {
         Status s;
         s.key = "test-batch-" + std::to_string(i);
-        s.variant = x::status::variant::INFO;
+        s.variant = x::status::VARIANT_INFO;
         s.message = "Batch status " + std::to_string(i);
         s.time = x::telem::TimeStamp::now();
         statuses.push_back(s);
@@ -79,7 +79,7 @@ TEST(StatusTest, RetrieveMultipleStatuses) {
     for (int i = 0; i < 3; i++) {
         Status s;
         s.key = "test-multi-retrieve-" + std::to_string(i);
-        s.variant = x::status::variant::SUCCESS;
+        s.variant = x::status::VARIANT_SUCCESS;
         s.message = "Multi retrieve " + std::to_string(i);
         s.time = x::telem::TimeStamp::now();
         to_create.push_back(s);
@@ -94,7 +94,7 @@ TEST(StatusTest, RetrieveMultipleStatuses) {
     EXPECT_EQ(retrieved.size(), 3);
     for (size_t i = 0; i < retrieved.size(); i++) {
         EXPECT_EQ(retrieved[i].key, "test-multi-retrieve-" + std::to_string(i));
-        EXPECT_EQ(retrieved[i].variant, x::status::variant::SUCCESS);
+        EXPECT_EQ(retrieved[i].variant, x::status::VARIANT_SUCCESS);
     }
 }
 
@@ -103,18 +103,18 @@ TEST(StatusTest, UpdateExistingStatus) {
     const auto client = new_test_client();
     Status s;
     s.key = "test-status-update";
-    s.variant = x::status::variant::INFO;
+    s.variant = x::status::VARIANT_INFO;
     s.message = "Original message";
     s.time = x::telem::TimeStamp::now();
     ASSERT_NIL(client.statuses.set(s));
-    s.variant = x::status::variant::WARNING;
+    s.variant = x::status::VARIANT_WARNING;
     s.message = "Updated message";
     s.description = "Added description";
     s.time = x::telem::TimeStamp::now();
     ASSERT_NIL(client.statuses.set(s));
     const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(s.key));
     EXPECT_EQ(retrieved.key, "test-status-update");
-    EXPECT_EQ(retrieved.variant, x::status::variant::WARNING);
+    EXPECT_EQ(retrieved.variant, x::status::VARIANT_WARNING);
     EXPECT_EQ(retrieved.message, "Updated message");
     EXPECT_EQ(retrieved.description, "Added description");
 }
@@ -135,7 +135,7 @@ TEST(StatusTest, DeleteMultipleStatuses) {
     for (int i = 0; i < 3; i++) {
         Status s;
         s.key = "test-multi-delete-" + std::to_string(i);
-        s.variant = x::status::variant::INFO;
+        s.variant = x::status::VARIANT_INFO;
         s.message = "To be deleted " + std::to_string(i);
         s.time = x::telem::TimeStamp::now();
         to_create.push_back(s);
@@ -155,7 +155,7 @@ TEST(StatusTest, DetailsRoundTrip) {
     const auto client = new_test_client();
     Status s;
     s.key = "test-status-details";
-    s.variant = x::status::variant::INFO;
+    s.variant = x::status::VARIANT_INFO;
     s.message = "Testing details";
     s.time = x::telem::TimeStamp::now();
     ASSERT_NIL(client.statuses.set(s));
@@ -195,7 +195,7 @@ TEST(StatusTest, CustomDetailsSetAndRetrieve) {
     const auto client = new_test_client();
     x::status::Status<CustomStatusDetails> s;
     s.key = "test-custom-details-1";
-    s.variant = x::status::variant::ERR;
+    s.variant = x::status::VARIANT_ERROR;
     s.message = "Device error occurred";
     s.description = "Critical device failure";
     s.time = x::telem::TimeStamp::now();
@@ -225,7 +225,7 @@ TEST(StatusTest, CustomDetailsSetMultiple) {
     for (int i = 0; i < 3; i++) {
         x::status::Status<CustomStatusDetails> s;
         s.key = "test-custom-batch-" + std::to_string(i);
-        s.variant = x::status::variant::WARNING;
+        s.variant = x::status::VARIANT_WARNING;
         s.message = "Warning " + std::to_string(i);
         s.time = x::telem::TimeStamp::now();
         s.details.device_id = "device-" + std::to_string(i);
@@ -248,7 +248,7 @@ TEST(StatusTest, CustomDetailsSetMultiple) {
 
     for (size_t i = 0; i < retrieved.size(); i++) {
         EXPECT_EQ(retrieved[i].key, "test-custom-batch-" + std::to_string(i));
-        EXPECT_EQ(retrieved[i].variant, x::status::variant::WARNING);
+        EXPECT_EQ(retrieved[i].variant, x::status::VARIANT_WARNING);
         EXPECT_EQ(retrieved[i].details.device_id, "device-" + std::to_string(i));
         EXPECT_EQ(retrieved[i].details.error_code, static_cast<int>(i * 10));
         EXPECT_EQ(retrieved[i].details.critical, (i % 2 == 0));
@@ -260,7 +260,7 @@ TEST(StatusTest, CustomDetailsUpdate) {
     const auto client = new_test_client();
     x::status::Status<CustomStatusDetails> s;
     s.key = "test-custom-update";
-    s.variant = x::status::variant::WARNING;
+    s.variant = x::status::VARIANT_WARNING;
     s.message = "Initial warning";
     s.time = x::telem::TimeStamp::now();
     s.details.device_id = "device-xyz";
@@ -270,7 +270,7 @@ TEST(StatusTest, CustomDetailsUpdate) {
     ASSERT_NIL(client.statuses.set<CustomStatusDetails>(s));
 
     // Update the status with new details
-    s.variant = x::status::variant::ERR;
+    s.variant = x::status::VARIANT_ERROR;
     s.message = "Escalated to error";
     s.details.error_code = 500;
     s.details.critical = true;
@@ -281,7 +281,7 @@ TEST(StatusTest, CustomDetailsUpdate) {
         client.statuses.retrieve<CustomStatusDetails>(s.key)
     );
     EXPECT_EQ(retrieved.key, "test-custom-update");
-    EXPECT_EQ(retrieved.variant, x::status::variant::ERR);
+    EXPECT_EQ(retrieved.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(retrieved.message, "Escalated to error");
     EXPECT_EQ(retrieved.details.device_id, "device-xyz");
     EXPECT_EQ(retrieved.details.error_code, 500);
@@ -293,7 +293,7 @@ TEST(StatusTest, CustomDetailsEmptyFields) {
     const auto client = new_test_client();
     x::status::Status<CustomStatusDetails> s;
     s.key = "test-custom-empty";
-    s.variant = x::status::variant::INFO;
+    s.variant = x::status::VARIANT_INFO;
     s.message = "Empty details test";
     s.time = x::telem::TimeStamp::now();
     // Leave details with default values
