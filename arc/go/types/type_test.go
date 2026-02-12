@@ -1087,6 +1087,26 @@ var _ = Describe("Types", func() {
 				Expect(types.ChanDirectionWrite.IsSet()).To(BeTrue())
 			})
 		})
+		Describe("CheckCompatibility", func() {
+			It("Should pass when write requires write", func() {
+				Expect(types.ChanDirectionWrite.CheckCompatibility(types.ChanDirectionWrite)).To(Succeed())
+			})
+			It("Should fail when write requires write but got read", func() {
+				Expect(types.ChanDirectionWrite.CheckCompatibility(types.ChanDirectionRead)).To(MatchError(ContainSubstring("write channel")))
+			})
+			It("Should pass when read requires read", func() {
+				Expect(types.ChanDirectionRead.CheckCompatibility(types.ChanDirectionRead)).To(Succeed())
+			})
+			It("Should fail when read requires read but got write", func() {
+				Expect(types.ChanDirectionRead.CheckCompatibility(types.ChanDirectionWrite)).To(MatchError(ContainSubstring("read channel")))
+			})
+			It("Should pass when required direction is unset", func() {
+				Expect(types.ChanDirectionNone.CheckCompatibility(types.ChanDirectionWrite)).To(Succeed())
+			})
+			It("Should pass when actual direction is unset", func() {
+				Expect(types.ChanDirectionWrite.CheckCompatibility(types.ChanDirectionNone)).To(Succeed())
+			})
+		})
 	})
 
 	Describe("ReadChan", func() {

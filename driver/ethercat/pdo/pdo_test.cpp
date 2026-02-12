@@ -197,6 +197,146 @@ TEST(PDOPropertiesTest, ToJSON) {
     EXPECT_EQ(json["data_type"], "uint16");
 }
 
+TEST(FindOffset, ReturnsOffsetForExistingEntry) {
+    Offsets offsets;
+    offsets[Key{1, 0x6000, 1, true}] = {10, 3};
+    Entry entry{.slave_position = 1, .index = 0x6000, .sub_index = 1, .is_input = true};
+    auto result = find_offset(offsets, entry);
+    EXPECT_EQ(result.byte, 10);
+    EXPECT_EQ(result.bit, 3);
+}
+
+TEST(FindOffset, ReturnsZeroOffsetForMissingEntry) {
+    Offsets offsets;
+    Entry entry{.slave_position = 1, .index = 0x6000, .sub_index = 1, .is_input = true};
+    auto result = find_offset(offsets, entry);
+    EXPECT_EQ(result.byte, 0);
+    EXPECT_EQ(result.bit, 0);
+}
+
+TEST(ComputeOffsetsProperties, ByteAlignedOffsets) {
+    Offsets offsets;
+    std::vector<Properties> pdos = {
+        {.index = 0x6000, .sub_index = 1, .bit_length = 16},
+        {.index = 0x6000, .sub_index = 2, .bit_length = 32},
+    };
+    compute_offsets(offsets, 1, pdos, true, 0);
+
+    const Key k1{1, 0x6000, 1, true};
+    const Key k2{1, 0x6000, 2, true};
+    EXPECT_EQ(offsets[k1].byte, 0);
+    EXPECT_EQ(offsets[k1].bit, 0);
+    EXPECT_EQ(offsets[k2].byte, 2);
+    EXPECT_EQ(offsets[k2].bit, 0);
+}
+
+TEST(ComputeOffsetsProperties, SubByteBitOffsets) {
+    Offsets offsets;
+    std::vector<Properties> pdos = {
+        {.index = 0x6000, .sub_index = 1, .bit_length = 1},
+        {.index = 0x6000, .sub_index = 2, .bit_length = 1},
+        {.index = 0x6000, .sub_index = 3, .bit_length = 1},
+    };
+    compute_offsets(offsets, 1, pdos, true, 0);
+
+    const Key k1{1, 0x6000, 1, true};
+    const Key k2{1, 0x6000, 2, true};
+    const Key k3{1, 0x6000, 3, true};
+    EXPECT_EQ(offsets[k1].byte, 0);
+    EXPECT_EQ(offsets[k1].bit, 0);
+    EXPECT_EQ(offsets[k2].byte, 0);
+    EXPECT_EQ(offsets[k2].bit, 1);
+    EXPECT_EQ(offsets[k3].byte, 0);
+    EXPECT_EQ(offsets[k3].bit, 2);
+}
+
+TEST(ComputeOffsetsProperties, BaseOffsetPropagation) {
+    Offsets offsets;
+    std::vector<Properties> pdos = {
+        {.index = 0x6000, .sub_index = 1, .bit_length = 8},
+    };
+    compute_offsets(offsets, 1, pdos, true, 100);
+
+    const Key k1{1, 0x6000, 1, true};
+    EXPECT_EQ(offsets[k1].byte, 100);
+    EXPECT_EQ(offsets[k1].bit, 0);
+}
+
+TEST(ComputeOffsetsProperties, EmptyPdoList) {
+    Offsets offsets;
+    std::vector<Properties> pdos;
+    compute_offsets(offsets, 1, pdos, true, 0);
+    EXPECT_TRUE(offsets.empty());
+}
+
+TEST(ComputeOffsetsProperties, MultiSlave) {
+    Offsets offsets;
+    std::vector<Properties> slave1_pdos = {
+        {.index = 0x6000, .sub_index = 1, .bit_length = 16},
+    };
+    std::vector<Properties> slave2_pdos = {
+        {.index = 0x6000, .sub_index = 1, .bit_length = 8},
+    };
+    compute_offsets(offsets, 1, slave1_pdos, true, 0);
+    compute_offsets(offsets, 2, slave2_pdos, true, 10);
+
+    const Key k1{1, 0x6000, 1, true};
+    const Key k2{2, 0x6000, 1, true};
+    EXPECT_EQ(offsets[k1].byte, 0);
+    EXPECT_EQ(offsets[k2].byte, 10);
+}
+
+TEST(ComputeOffsetsEntries, InputOutputDistinction) {
+    Offsets offsets;
+    std::vector<Entry> entries = {
+        {.slave_position = 1,
+         .index = 0x6000,
+         .sub_index = 1,
+         .bit_length = 16,
+         .is_input = true},
+        {.slave_position = 1,
+         .index = 0x7000,
+         .sub_index = 1,
+         .bit_length = 8,
+         .is_input = false},
+        {.slave_position = 1,
+         .index = 0x6000,
+         .sub_index = 2,
+         .bit_length = 32,
+         .is_input = true},
+    };
+    compute_offsets(offsets, entries, 0, 50);
+
+    const Key ki1{1, 0x6000, 1, true};
+    const Key ko1{1, 0x7000, 1, false};
+    const Key ki2{1, 0x6000, 2, true};
+    EXPECT_EQ(offsets[ki1].byte, 0);
+    EXPECT_EQ(offsets[ko1].byte, 50);
+    EXPECT_EQ(offsets[ki2].byte, 2);
+}
+
+TEST(ComputeOffsetsEntries, BaseOffsets) {
+    Offsets offsets;
+    std::vector<Entry> entries = {
+        {.slave_position = 1,
+         .index = 0x6000,
+         .sub_index = 1,
+         .bit_length = 8,
+         .is_input = true},
+        {.slave_position = 1,
+         .index = 0x7000,
+         .sub_index = 1,
+         .bit_length = 16,
+         .is_input = false},
+    };
+    compute_offsets(offsets, entries, 10, 20);
+
+    const Key ki{1, 0x6000, 1, true};
+    const Key ko{1, 0x7000, 1, false};
+    EXPECT_EQ(offsets[ki].byte, 10);
+    EXPECT_EQ(offsets[ko].byte, 20);
+}
+
 /// @brief it should preserve values through JSON parse and serialize round-trip.
 TEST(PDOPropertiesTest, JSONRoundTrip) {
     x::json::Parser parser(std::string(R"({
