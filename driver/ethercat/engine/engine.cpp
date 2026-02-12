@@ -150,9 +150,9 @@ x::errors::Error Engine::reconfigure() {
     }
 
     this->breaker.reset();
+    this->config_gen.fetch_add(1, std::memory_order_release);
     this->update_read_offsets_locked();
     this->update_write_offsets_locked(this->master->output_data().size());
-    this->config_gen.fetch_add(1, std::memory_order_release);
     this->restarting = false;
     this->breaker.start();
     this->run_thread = std::thread(&Engine::run, this);
@@ -189,10 +189,12 @@ x::telem::Rate Engine::cycle_rate() const {
 }
 
 void Engine::publish_inputs(const std::span<const uint8_t> src) {
-    DCHECK_EQ(src.size(), this->shared_input_buffer.size());
-    const size_t n = std::min(src.size(), this->shared_input_buffer.size());
+    uint8_t *ptr = this->shared_input_ptr.load(std::memory_order_acquire);
+    const size_t sz = this->shared_input_size.load(std::memory_order_acquire);
+    DCHECK_EQ(src.size(), sz);
+    const size_t n = std::min(src.size(), sz);
     this->read_seq.seq.fetch_add(1, std::memory_order_release);
-    std::memcpy(this->shared_input_buffer.data(), src.data(), n);
+    std::memcpy(ptr, src.data(), n);
     this->read_seq.seq.fetch_add(1, std::memory_order_release);
     this->read_epoch.epoch.fetch_add(1, std::memory_order_release);
     this->read_cv.notify_all();
@@ -214,9 +216,16 @@ const uint8_t *Engine::consume_outputs(size_t &out_len) {
 }
 
 void Engine::update_read_offsets_locked() {
-    const size_t input_size = this->master->input_data().size();
-    if (this->shared_input_buffer.size() != input_size)
-        this->shared_input_buffer.resize(input_size);
+    const auto input = this->master->input_data();
+    const size_t input_size = input.size();
+    auto new_buf = std::make_unique<uint8_t[]>(input_size);
+    if (input_size > 0) std::memcpy(new_buf.get(), input.data(), input_size);
+    this->read_seq.seq.fetch_add(1, std::memory_order_release);
+    this->shared_input_ptr.store(new_buf.get(), std::memory_order_release);
+    this->shared_input_size.store(input_size, std::memory_order_release);
+    this->read_seq.seq.fetch_add(1, std::memory_order_release);
+    this->shared_input_prev = std::move(this->shared_input_current);
+    this->shared_input_current = std::move(new_buf);
     for (auto &reg: this->read_registrations) {
         reg->offsets.clear();
         for (const auto &entry: reg->entries)

@@ -58,7 +58,14 @@ class Engine {
         std::atomic<uint64_t> epoch = 0;
     } read_epoch;
 
-    alignas(64) std::vector<uint8_t> shared_input_buffer;
+    /// @brief lock-free shared input buffer. Pointer and size are published
+    /// atomically under the seqlock so readers never observe a freed allocation.
+    /// Previous allocation is kept alive (deferred free) until the next reconfigure
+    /// to guarantee that any reader holding a stale pointer reads from valid memory.
+    alignas(64) std::atomic<uint8_t *> shared_input_ptr{nullptr};
+    std::atomic<size_t> shared_input_size{0};
+    std::unique_ptr<uint8_t[]> shared_input_current;
+    std::unique_ptr<uint8_t[]> shared_input_prev;
 
     mutable std::mutex notify_mu;
     std::condition_variable read_cv;

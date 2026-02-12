@@ -172,7 +172,7 @@ x::errors::Error Master::activate() {
         VLOG(1) << "[ethercat.igh] slave " << pos << " state after activation: "
                 << "al_state=0x" << std::hex << static_cast<int>(state.al_state)
                 << std::dec << " ("
-                << slave_state_to_string(convert_state(state.al_state)) << ")"
+                << slave_state_to_string(slave::from_al_state(state.al_state)) << ")"
                 << ", online=" << state.online << ", operational=" << state.operational;
     }
 
@@ -249,15 +249,7 @@ std::span<uint8_t> Master::output_data() {
 
 pdo::Offset Master::pdo_offset(const pdo::Entry &entry) const {
     std::lock_guard lock(this->mu);
-    const pdo::Key key{
-        entry.slave_position,
-        entry.index,
-        entry.sub_index,
-        entry.is_input
-    };
-    const auto it = this->pdo_offsets.find(key);
-    if (it != this->pdo_offsets.end()) return it->second;
-    return {};
+    return pdo::find_offset(this->pdo_offsets, entry);
 }
 
 std::vector<slave::DiscoveryResult> Master::slaves() const {
@@ -275,7 +267,7 @@ slave::State Master::slave_state(const uint16_t position) const {
     if (it == this->slave_configs.end()) return slave::State::UNKNOWN;
 
     this->api->slave_config_state(it->second, &state);
-    return convert_state(state.al_state);
+    return slave::from_al_state(state.al_state);
 }
 
 /// IgH EtherCAT AL (Application Layer) state value for OPERATIONAL.
@@ -510,23 +502,6 @@ std::pair<size_t, x::errors::Error> Master::register_pdo(const pdo::Entry &entry
             << entry.slave_position << " found at offset=" << it->second.byte;
 
     return {it->second.byte, x::errors::NIL};
-}
-
-slave::State Master::convert_state(const uint8_t igh_state) {
-    switch (igh_state) {
-        case 0x01:
-            return slave::State::INIT;
-        case 0x02:
-            return slave::State::PRE_OP;
-        case 0x03:
-            return slave::State::BOOT;
-        case 0x04:
-            return slave::State::SAFE_OP;
-        case 0x08:
-            return slave::State::OP;
-        default:
-            return slave::State::UNKNOWN;
-    }
 }
 
 std::string Master::read_pdo_entry_name(

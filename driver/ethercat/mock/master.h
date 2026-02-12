@@ -228,15 +228,7 @@ public:
 
     pdo::Offset pdo_offset(const pdo::Entry &entry) const override {
         std::lock_guard lock(this->mu);
-        pdo::Key key{
-            entry.slave_position,
-            entry.index,
-            entry.sub_index,
-            entry.is_input
-        };
-        auto it = this->pdo_offset_cache.find(key);
-        if (it != this->pdo_offset_cache.end()) return it->second;
-        return {};
+        return pdo::find_offset(this->pdo_offset_cache, entry);
     }
 
     std::vector<slave::DiscoveryResult> slaves() const override {
@@ -326,37 +318,36 @@ public:
 private:
     void cache_pdo_offsets() {
         this->pdo_offset_cache.clear();
-        size_t input_byte_offset = 0;
-        size_t output_byte_offset = this->output_padding_;
         if (!this->registered_pdos.empty()) {
-            for (const auto &pdo: this->registered_pdos) {
-                pdo::Key key{
-                    pdo.slave_position,
-                    pdo.index,
-                    pdo.sub_index,
-                    pdo.is_input
-                };
-                if (pdo.is_input) {
-                    this->pdo_offset_cache[key] = pdo::Offset{input_byte_offset, 0};
-                    input_byte_offset += pdo.byte_length();
-                } else {
-                    this->pdo_offset_cache[key] = pdo::Offset{output_byte_offset, 0};
-                    output_byte_offset += pdo.byte_length();
-                }
-            }
+            pdo::compute_offsets(
+                this->pdo_offset_cache,
+                this->registered_pdos,
+                0,
+                this->output_padding_
+            );
         } else {
+            size_t input_byte_offset = 0;
+            size_t output_byte_offset = this->output_padding_;
             for (const auto &slave: this->slave_list) {
                 const auto &props = slave.properties;
-                for (const auto &pdo: props.input_pdos) {
-                    pdo::Key key{props.position, pdo.index, pdo.sub_index, true};
-                    this->pdo_offset_cache[key] = pdo::Offset{input_byte_offset, 0};
+                pdo::compute_offsets(
+                    this->pdo_offset_cache,
+                    props.position,
+                    props.input_pdos,
+                    true,
+                    input_byte_offset
+                );
+                for (const auto &pdo: props.input_pdos)
                     input_byte_offset += pdo.byte_length();
-                }
-                for (const auto &pdo: props.output_pdos) {
-                    pdo::Key key{props.position, pdo.index, pdo.sub_index, false};
-                    this->pdo_offset_cache[key] = pdo::Offset{output_byte_offset, 0};
+                pdo::compute_offsets(
+                    this->pdo_offset_cache,
+                    props.position,
+                    props.output_pdos,
+                    false,
+                    output_byte_offset
+                );
+                for (const auto &pdo: props.output_pdos)
                     output_byte_offset += pdo.byte_length();
-                }
             }
         }
     }

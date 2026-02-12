@@ -37,7 +37,9 @@ void Engine::Reader::refresh_pdos() const {
              this->registration->entries[i].data_type,
              this->registration->entries[i].bit_length}
         );
-    this->private_buffer.resize(this->engine.shared_input_buffer.size());
+    this->private_buffer.resize(
+        this->engine.shared_input_size.load(std::memory_order_acquire)
+    );
     this->my_config_gen = this->engine.config_gen.load(std::memory_order_acquire);
 }
 
@@ -88,15 +90,14 @@ x::errors::Error Engine::Reader::read(
     do {
         s0 = this->engine.read_seq.seq.load(std::memory_order_acquire);
         if (s0 & 1) continue;
-        const size_t copy_len = std::min(
-            this->private_buffer.size(),
-            this->engine.shared_input_buffer.size()
+        const uint8_t *ptr = this->engine.shared_input_ptr.load(
+            std::memory_order_acquire
         );
-        std::memcpy(
-            this->private_buffer.data(),
-            this->engine.shared_input_buffer.data(),
-            copy_len
+        const size_t sz = this->engine.shared_input_size.load(
+            std::memory_order_acquire
         );
+        const size_t copy_len = std::min(this->private_buffer.size(), sz);
+        std::memcpy(this->private_buffer.data(), ptr, copy_len);
         std::atomic_thread_fence(std::memory_order_acquire);
         s1 = this->engine.read_seq.seq.load(std::memory_order_acquire);
     } while (s0 != s1);
