@@ -125,15 +125,12 @@ I can successfully:
   - [ ] See the core list on the left when multiple cores are configured.
   - [ ] Select a core from the list and see it highlighted.
   - [ ] Switch between cores and see the login form reset (username/password cleared).
-  - [x] Log in with valid credentials (username: synnax, password: seldon). (user_login_logout.py)
   - [ ] Receive meaningful error feedback when logging in with invalid credentials.
   - [ ] Add a new core using the "+" button in the core list header.
   - [ ] See connection status indicators for each core in the list.
 - **User Badge**
   - [ ] See the user avatar and username in the top-right corner after logging in.
   - [ ] Click the user badge to open the logout menu.
-  - [x] Log out using the logout button in the user badge dropdown. (user_logout_badge.py)
-  - [x] See the login screen again after logging out. (user_logout_badge.py)
 
 ### Devices
 
@@ -153,20 +150,13 @@ I can successfully:
 I can successfully:
 
 - [ ] Drag and drop a mosaic leaf into a new window.
-- [x] Rename a tab by double-clicking its name. (mosaic_operations.py)
-- [x] Close layout tabs by clicking the close icon. (pages/open_close.py)
 - **Context Menu**
-  - [x] Split a mosaic leaf horizontally. (mosaic_operations.py)
-  - [x] Split a mosaic leaf vertically. (mosaic_operations.py)
   - [ ] Focus on a leaf.
   - [ ] Rename a mosaic leaf.
   - [ ] Open a leaf in a new window.
   - [ ] Move a mosaic leaf to the main window from a secondary window.
-- [x] Rename a tab with `Cmd + E`. (keyboard_shortcuts.py)
-- [x] Close layout tabs with `Cmd + W`. (keyboard_shortcuts.py)
 - [ ] Focus using `Cmd + L`.
 - [ ] Open in a new window with `Cmd + O`.
-- [x] Create a new mosaic leaf with `Cmd + T`. (keyboard_shortcuts.py)
 - **Search and Command Palette**
   - [ ] Toggle the color theme.
 
@@ -174,7 +164,6 @@ I can successfully:
 
 I can successfully:
 
-- [x] Create a new line plot from the mosaic. (pages/open_close.py)
 - **Visualization**
   - [ ] Use the measuring tool on the line plot.
 - **Search and Command Palette**
@@ -210,7 +199,6 @@ I can successfully:
 
 - **Role Management**
   - [ ] View all available roles in the Resources Toolbar.
-  - [x] Assign a role to a user. (user_assign_role.py)
   - [ ] Unassign a role from a user.
   - [ ] Cannot delete built-in roles (Owner, Engineer, Operator, Viewer).
 
@@ -218,18 +206,9 @@ I can successfully:
   - [ ] Can register new users and assign roles.
   - [ ] Can create, edit, and delete all resource types.
 
-- **As an Engineer:**
-  - [x] Can create and edit schematics, line plots, tables, logs, and workspaces. (role_engineer_permissions.py)
-  - [x] Cannot register new users or assign roles. (role_engineer_permissions.py)
-
-- **As an Operator:**
-  - [x] Can actuate valves on a schematic. (simple_press_valves.py)
-  - [x] Cannot create or edit schematics. (role_operator_permissions.py)
-
 - **As a Viewer:**
   - [ ] Can view schematics, line plots, tables, logs.
   - [ ] Cannot actuate valves on a schematic.
-  - [x] Cannot create or edit any resources. (role_viewer_permissions.py)
 
 ### Ranges
 
@@ -316,21 +295,9 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Open a table from a link.
 - **Visualization**
-  - [ ] Add rows and columns to a table.
-  - [ ] Delete rows and columns from a table.
   - [ ] See live data in a table.
-  - [ ] Add redlines to a live value cell in a table.
-- **Resources Toolbar**
-  - [ ] Double-click a table to load it.
-  - [ ] Drag a table onto the mosaic to load it.
-  - **Context Menu**
-    - [ ] Export a table.
-    - [ ] Copy a link to a table.
-- **Search and Command Palette**
-  - [ ] Open an existing table.
-  - [ ] Import a table from a file.
+  - [ ] See redlines react to live data.
 
 ### Tasks
 
@@ -450,30 +417,6 @@ I can successfully:
   - [ ] Multiple tasks using the same channel.
   - [ ] Device disconnection during a running task.
 - [ ] Shut down the Core (`Ctrl + C`) without errors from the Driver routine.
-
-### Control Sequences
-
-I can successfully:
-
-- [ ] Create a new control sequence from the mosaic.
-- **Search and Command Palette**
-  - [ ] Create a new control sequence.
-  - [ ] Open an existing control sequence.
-- **Context Menu**
-  - [ ] Rename a control sequence.
-  - [ ] Delete a control sequence.
-- **Sequence Editing**
-  - [ ] Edit a control sequence and see auto-complete suggestions for channels.
-  - [ ] Edit a control sequence and see auto-complete suggestions for the following built-in functions:
-    - [ ] `elapsed_time_within`
-    - [ ] `elapsed_time`
-    - [ ] `iteration`
-    - [ ] `set`
-    - [ ] `set_authority`
-  - [ ] Accept channel auto-complete suggestions and see the correct channel populated in the `read_from` or `write_to` fields.
-  - [ ] Manually configure the `read_from` and `write_to` fields.
-  - [ ] Set the sequence control rate.
-  - [ ] Configure, start, and correctly operate a minimal bang bang control sequence.
 
 ### LabJack
 

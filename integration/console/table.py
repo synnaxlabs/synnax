@@ -41,7 +41,7 @@ class Table(ConsolePage):
             row: Row index (0-based)
             col: Column index (0-based)
         """
-        self._click_cell(row, col)
+        self._get_cell(row, col).click()
         self.layout.show_visualization_toolbar()
         self.layout.click_btn("Variant")
         self.layout.select_from_dropdown("Value")
@@ -109,17 +109,89 @@ class Table(ConsolePage):
         """
         return channel_name in self.get_cell_channel(row, col)
 
+    def add_row(self) -> None:
+        """Add a new row to the table by clicking the add-row button."""
+        add_row_btn = self.page.locator(".console-table__add-row").first
+        add_row_btn.wait_for(state="visible", timeout=5000)
+        add_row_btn.click()
+
+    def add_column(self) -> None:
+        """Add a new column to the table by clicking the add-column button."""
+        add_col_btn = self.page.locator(".console-table__add-col").first
+        add_col_btn.wait_for(state="visible", timeout=5000)
+        add_col_btn.click()
+
+    def delete_row(self, row: int, col: int = 0) -> None:
+        """Delete a row via context menu on a cell.
+
+        Args:
+            row: Row index (0-based)
+            col: Column index (0-based) of the cell to right-click
+        """
+        cell = self._get_cell(row, col)
+        self.ctx_menu.action(cell, "Delete row")
+
+    def delete_column(self, col: int, row: int = 0) -> None:
+        """Delete a column via context menu on a cell.
+
+        Args:
+            col: Column index (0-based) of the column to delete
+            row: Row index (0-based) of the cell to right-click
+        """
+        cell = self._get_cell(row, col)
+        self.ctx_menu.action(cell, "Delete column")
+
+    def set_redline(self, row: int, col: int, lower: float, upper: float) -> None:
+        """Configure redline bounds on a value cell.
+
+        The cell must already be set to "Value" variant with a channel configured.
+
+        Args:
+            row: Row index (0-based)
+            col: Column index (0-based)
+            lower: Lower redline bound
+            upper: Upper redline bound
+        """
+        self._select_cell(row, col)
+        self.page.get_by_text("Redline").click()
+        self.layout.fill_input_field("Lower", str(lower))
+        self.layout.fill_input_field("Upper", str(upper))
+
+    def get_redline(self, row: int, col: int) -> tuple[str, str]:
+        """Get the current redline bounds from a value cell.
+
+        Args:
+            row: Row index (0-based)
+            col: Column index (0-based)
+
+        Returns:
+            Tuple of (lower_bound, upper_bound) as strings
+        """
+        self._select_cell(row, col)
+        self.page.get_by_text("Redline").click()
+        lower = self.layout.get_input_field("Lower")
+        upper = self.layout.get_input_field("Upper")
+        return (lower, upper)
+
     def _select_cell(self, row: int, col: int) -> None:
         """Focus the tab, click a cell, and open the visualization toolbar."""
         self.layout.get_tab(self.page_name).click()
-        self._click_cell(row, col)
+        self._get_cell(row, col).click()
         self.layout.show_visualization_toolbar()
 
-    def _click_cell(self, row: int, col: int) -> None:
-        """Click on a specific cell in the table."""
+    def _get_cell(self, row: int, col: int) -> Locator:
+        """Get a locator for a specific cell in the table.
+
+        Args:
+            row: Row index (0-based)
+            col: Column index (0-based)
+
+        Returns:
+            Locator for the cell element
+        """
         cells = self.page.locator(".pluto-table__cell")
         cell_index = row * self.get_column_count() + col
-        cells.nth(cell_index).click()
+        return cells.nth(cell_index)
 
     def get_row_count(self) -> int:
         """Get the number of data rows in the table (excludes the column resizer row)."""
