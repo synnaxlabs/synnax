@@ -18,7 +18,7 @@
 #include "driver/labjack/ljm/api.h"
 #include "driver/labjack/ljm/errors.h"
 
-namespace device {
+namespace driver::labjack::device {
 class Device {
 public:
     virtual ~Device() = default;

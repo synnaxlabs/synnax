@@ -19,7 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
+	"github.com/synnaxlabs/synnax/pkg/service/table"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -29,12 +30,16 @@ type Service struct {
 	internal *table.Service
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		db:       cfg.Distribution.DB,
-		access:   cfg.Service.RBAC,
 		internal: cfg.Service.Table,
-	}
+		access:   cfg.Service.RBAC,
+	}, nil
 }
 
 type (
@@ -86,8 +91,8 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil,
 }
 
 type SetDataRequest struct {
-	Data map[string]any `json:"data" msgpack:"data"`
-	Key  uuid.UUID      `json:"key" msgpack:"key"`
+	Data string    `json:"data" msgpack:"data"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Nil, err error) {

@@ -18,14 +18,15 @@
 #include "driver/opc/read_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
+namespace driver::opc {
 class TestReadTask : public ::testing::Test {
 protected:
     synnax::task::Task task;
-    json task_cfg_json;
-    std::shared_ptr<driver::task::MockContext> ctx;
-    std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
+    x::json::json task_cfg_json;
+    std::shared_ptr<task::MockContext> ctx;
+    std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
     std::unique_ptr<mock::Server> server;
-    std::shared_ptr<driver::opc::connection::Pool> conn_pool;
+    std::shared_ptr<connection::Pool> conn_pool;
     synnax::channel::Channel index_channel;
     synnax::channel::Channel bool_channel;
     synnax::channel::Channel uint16_channel;
@@ -109,30 +110,32 @@ protected:
         ));
         auto rack = ASSERT_NIL_P(client->racks.create("opc_read_task_test_rack"));
 
-        driver::opc::connection::Config conn_cfg;
+        connection::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://localhost:4840";
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
 
-        synnax::device::Device dev{
-            .key = "opc_read_task_test_server_key",
-            .rack = rack.key,
-            .location = "opc.tcp://localhost:4840",
-            .make = "opc",
-            .model = "OPC UA Server",
-            .name = "OPC UA Read Task Test Server",
-            .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
-        };
+        synnax::device::Device dev(
+            "opc_read_task_test_server_key",
+            "OPC UA Read Task Test Server",
+            rack.key,
+            "opc.tcp://localhost:4840",
+            "opc",
+            "OPC UA Server",
+            nlohmann::to_string(
+                x::json::json::object({{"connection", conn_cfg.to_json()}})
+            )
+        );
         ASSERT_NIL(client->devices.create(dev));
 
         // Use the comprehensive default server configuration
         auto server_cfg = mock::ServerConfig::create_default();
 
-        json task_cfg{
+        x::json::json task_cfg{
             {"data_saving", true},
             {"device", dev.key},
             {"channels",
-             json::array(
+             x::json::json::array(
                  {{{"key", "NS=2;I=1"},
                    {"name", "bool_test"},
                    {"node_name", "TestBoolean"},
@@ -219,42 +222,44 @@ protected:
             {"stream_rate", 25}
         };
 
-        task = synnax::task::Task{.name = "OPC UA Read Task Test", .type = "opc_read"};
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "OPC UA Read Task Test",
+            .type = "opc_read",
+            .config = ""
+        };
 
         task_cfg_json = task_cfg;
 
-        ctx = std::make_shared<driver::task::MockContext>(client);
-        mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
-        conn_pool = std::make_shared<driver::opc::connection::Pool>();
+        ctx = std::make_shared<task::MockContext>(client);
+        mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+        conn_pool = std::make_shared<connection::Pool>();
 
         server = std::make_unique<mock::Server>(server_cfg);
         server->start();
 
         // Wait for server to be ready by attempting to connect
-        driver::opc::connection::Config test_conn_cfg;
+        connection::Config test_conn_cfg;
         test_conn_cfg.endpoint = conn_cfg.endpoint;
         test_conn_cfg.security_mode = "None";
         test_conn_cfg.security_policy = "None";
         auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            driver::opc::connection::connect(test_conn_cfg, "test"),
+            connection::connect(test_conn_cfg, "test"),
             (5 * x::telem::SECOND).chrono(),
             (250 * x::telem::MILLISECOND).chrono()
         );
         UA_Client_disconnect(test_client.get());
     }
 
-    std::unique_ptr<driver::task::common::ReadTask> create_task() {
+    std::unique_ptr<common::ReadTask> create_task() {
         auto p = x::json::Parser(task_cfg_json);
-        auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
+        auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
         return std::make_unique<driver::task::common::ReadTask>(
             task,
             ctx,
             x::breaker::default_config(task.name),
-            std::make_unique<driver::opc::UnaryReadTaskSource>(
-                conn_pool,
-                std::move(*cfg)
-            ),
+            std::make_unique<UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
             mock_factory
         );
     }
@@ -272,7 +277,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
-    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop_cmd", true);
     const auto second_state = ctx->statuses[1];
@@ -314,11 +319,11 @@ TEST_F(TestReadTask, testBasicReadTask) {
 
 /// @brief it should return error for non-existent OPC UA node.
 TEST_F(TestReadTask, testInvalidNodeId) {
-    json bad_task_cfg{
+    x::json::json bad_task_cfg{
         {"data_saving", true},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=999"},
                {"name", "nonexistent"},
                {"node_name", "NonExistent"},
@@ -334,16 +339,13 @@ TEST_F(TestReadTask, testInvalidNodeId) {
     };
 
     auto p = x::json::Parser(bad_task_cfg);
-    auto bad_cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
+    auto bad_cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
     auto rt = std::make_unique<driver::task::common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<driver::opc::UnaryReadTaskSource>(
-            conn_pool,
-            std::move(*bad_cfg)
-        ),
+        std::make_unique<UnaryReadTaskSource>(conn_pool, std::move(*bad_cfg)),
         mock_factory
     );
 
@@ -387,27 +389,27 @@ TEST_F(TestReadTask, testServerDisconnectDuringRead) {
 
 /// @brief it should return error for empty channel list.
 TEST_F(TestReadTask, testEmptyChannelList) {
-    json empty_cfg{
+    x::json::json empty_cfg{
         {"data_saving", true},
         {"device", "opc_read_task_test_server_key"},
-        {"channels", json::array()},
+        {"channels", x::json::json::array()},
         {"sample_rate", 50},
         {"array_mode", false},
         {"stream_rate", 25}
     };
 
     auto p = x::json::Parser(empty_cfg);
-    auto empty_config = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
+    auto empty_config = std::make_unique<ReadTaskConfig>(ctx->client, p);
     EXPECT_TRUE(p.error());
 }
 
 /// @brief it should return error when all channels are disabled.
 TEST_F(TestReadTask, testDisabledChannels) {
-    json disabled_cfg{
+    x::json::json disabled_cfg{
         {"data_saving", true},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=1"},
                {"name", "float_test"},
                {"node_name", "TestFloat"},
@@ -423,10 +425,7 @@ TEST_F(TestReadTask, testDisabledChannels) {
     };
 
     auto p = x::json::Parser(disabled_cfg);
-    auto disabled_config = std::make_unique<driver::opc::ReadTaskConfig>(
-        ctx->client,
-        p
-    );
+    auto disabled_config = std::make_unique<ReadTaskConfig>(ctx->client, p);
     EXPECT_TRUE(p.error());
 }
 
@@ -502,11 +501,11 @@ TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
 TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
     // Test that ArrayReadTaskSource properly handles invalid data from OPC UA server
     // by clearing the frame and returning a warning
-    json array_task_cfg{
+    x::json::json array_task_cfg{
         {"data_saving", true},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=1"},
                {"name", "float_test"},
                {"node_name", "TestFloat"},
@@ -523,13 +522,13 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
     };
 
     auto p = x::json::Parser(array_task_cfg);
-    auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
+    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
     auto rt = std::make_unique<driver::task::common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<driver::opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -691,11 +690,11 @@ TEST_F(TestReadTask, testUnsignedIntegerChannelDataHandling) {
 /// @brief it should aggregate errors from multiple channels in array mode.
 TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
     // Test that ArrayReadTaskSource aggregates multiple errors from different channels
-    json multi_channel_array_cfg{
+    x::json::json multi_channel_array_cfg{
         {"data_saving", true},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=1"},
                {"name", "float_test"},
                {"node_name", "TestFloat"},
@@ -720,13 +719,13 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
     };
 
     auto p = x::json::Parser(multi_channel_array_cfg);
-    auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
+    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
     auto rt = std::make_unique<driver::task::common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<driver::opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -778,11 +777,11 @@ TEST_F(TestReadTask, testSkipSampleOnWriteErrorInUnaryMode) {
 TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
     // Test that ArrayReadTaskSource clears the frame when errors occur
     // This exercises the frame.clear() logic in read_task.h line 268
-    json array_cfg{
+    x::json::json array_cfg{
         {"data_saving", true},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=1"},
                {"name", "bool_test"},
                {"node_name", "TestBoolean"},
@@ -799,13 +798,13 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
     };
 
     auto p = x::json::Parser(array_cfg);
-    auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
+    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
     auto rt = std::make_unique<driver::task::common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<driver::opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -850,30 +849,30 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         ctx->client->racks.create("opc_invalid_bool_rack")
     );
 
-    driver::opc::connection::Config invalid_conn_cfg;
+    connection::Config invalid_conn_cfg;
     invalid_conn_cfg.endpoint = "opc.tcp://localhost:4841";
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
-    synnax::device::Device invalid_dev{
-        .key = "opc_invalid_test_server",
-        .rack = invalid_rack.key,
-        .location = "opc.tcp://localhost:4841",
-        .make = "opc",
-        .model = "OPC UA Server",
-        .name = "OPC UA Invalid Data Test Server",
-        .properties = x::json::json::object(
-            {{"connection", invalid_conn_cfg.to_json()}}
-        ),
-    };
+    synnax::device::Device invalid_dev(
+        "opc_invalid_test_server",
+        "OPC UA Invalid Data Test Server",
+        invalid_rack.key,
+        "opc.tcp://localhost:4841",
+        "opc",
+        "OPC UA Server",
+        nlohmann::to_string(
+            x::json::json::object({{"connection", invalid_conn_cfg.to_json()}})
+        )
+    );
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     // Create a task that reads from the invalid boolean node
-    json invalid_bool_cfg{
+    x::json::json invalid_bool_cfg{
         {"data_saving", true},
         {"device", invalid_dev.key},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=1"},
                {"name", "invalid_bool_test"},
                {"node_name", "InvalidBoolean"},
@@ -889,13 +888,13 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     };
 
     auto p = x::json::Parser(invalid_bool_cfg);
-    auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
+    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
     auto rt = std::make_unique<driver::task::common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<driver::opc::UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
+        std::make_unique<UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -932,29 +931,29 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         ctx->client->racks.create("opc_invalid_float_rack")
     );
 
-    driver::opc::connection::Config invalid_conn_cfg;
+    connection::Config invalid_conn_cfg;
     invalid_conn_cfg.endpoint = "opc.tcp://localhost:4842";
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
-    synnax::device::Device invalid_dev{
-        .key = "opc_invalid_float_server",
-        .rack = invalid_rack.key,
-        .location = "opc.tcp://localhost:4842",
-        .make = "opc",
-        .model = "OPC UA Server",
-        .name = "OPC UA Invalid Float Server",
-        .properties = x::json::json::object(
-            {{"connection", invalid_conn_cfg.to_json()}}
-        ),
-    };
+    synnax::device::Device invalid_dev(
+        "opc_invalid_float_server",
+        "OPC UA Invalid Float Server",
+        invalid_rack.key,
+        "opc.tcp://localhost:4842",
+        "opc",
+        "OPC UA Server",
+        nlohmann::to_string(
+            x::json::json::object({{"connection", invalid_conn_cfg.to_json()}})
+        )
+    );
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
-    json invalid_float_cfg{
+    x::json::json invalid_float_cfg{
         {"data_saving", true},
         {"device", invalid_dev.key},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=2"},
                {"name", "invalid_float_test"},
                {"node_name", "InvalidFloat"},
@@ -970,13 +969,13 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     };
 
     auto p = x::json::Parser(invalid_float_cfg);
-    auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
+    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
     auto rt = std::make_unique<driver::task::common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<driver::opc::UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
+        std::make_unique<UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -1013,29 +1012,29 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         ctx->client->racks.create("opc_invalid_double_rack")
     );
 
-    driver::opc::connection::Config invalid_conn_cfg;
+    connection::Config invalid_conn_cfg;
     invalid_conn_cfg.endpoint = "opc.tcp://localhost:4843";
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
-    synnax::device::Device invalid_dev{
-        .key = "opc_invalid_double_server",
-        .rack = invalid_rack.key,
-        .location = "opc.tcp://localhost:4843",
-        .make = "opc",
-        .model = "OPC UA Server",
-        .name = "OPC UA Invalid Double Server",
-        .properties = x::json::json::object(
-            {{"connection", invalid_conn_cfg.to_json()}}
-        ),
-    };
+    synnax::device::Device invalid_dev(
+        "opc_invalid_double_server",
+        "OPC UA Invalid Double Server",
+        invalid_rack.key,
+        "opc.tcp://localhost:4843",
+        "opc",
+        "OPC UA Server",
+        nlohmann::to_string(
+            x::json::json::object({{"connection", invalid_conn_cfg.to_json()}})
+        )
+    );
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
-    json invalid_double_cfg{
+    x::json::json invalid_double_cfg{
         {"data_saving", true},
         {"device", invalid_dev.key},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"key", "NS=2;I=3"},
                {"name", "invalid_double_test"},
                {"node_name", "InvalidDouble"},
@@ -1052,13 +1051,13 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     };
 
     auto p = x::json::Parser(invalid_double_cfg);
-    auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
+    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
     auto rt = std::make_unique<driver::task::common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<driver::opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -1090,20 +1089,20 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     // Create rack and device
     auto rack = ASSERT_NIL_P(client->racks.create("opc_test_rack"));
 
-    driver::opc::connection::Config conn_cfg;
+    connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4840";
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
 
-    synnax::device::Device dev{
-        .key = "opc_test_device_key",
-        .rack = rack.key,
-        .location = "opc.tcp://localhost:4840",
-        .make = "opc",
-        .model = "OPC UA Server",
-        .name = "OPC UA Test Device",
-        .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
-    };
+    synnax::device::Device dev(
+        "opc_test_device_key",
+        "OPC UA Test Device",
+        rack.key,
+        "opc.tcp://localhost:4840",
+        "opc",
+        "OPC UA Server",
+        nlohmann::to_string(x::json::json::object({{"connection", conn_cfg.to_json()}}))
+    );
     ASSERT_NIL(client->devices.create(dev));
 
     // Create index and data channels
@@ -1121,21 +1120,23 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     ));
 
     // Create task config
-    json task_cfg{
+    x::json::json task_cfg{
         {"data_saving", true},
         {"device", dev.key},
         {"sample_rate", 25},
         {"stream_rate", 25},
         {"array_mode", false},
         {"array_size", 1},
-        {"channels", json::array({{{"node_id", "NS=2;I=8"}, {"channel", ch.key}}})}
+        {"channels",
+         x::json::json::array({{{"node_id", "NS=2;I=8"}, {"channel", ch.key}}})}
     };
 
     auto p = x::json::Parser(task_cfg);
-    auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(client, p);
+    auto cfg = std::make_unique<ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = cfg->writer_config();
     ASSERT_TRUE(writer_cfg.enable_auto_commit);
+}
 }

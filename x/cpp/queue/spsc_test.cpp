@@ -76,6 +76,7 @@ TEST(SPSCQueueTest, CloseQueue) {
 /// @brief it should unblock waiting pop when closed.
 TEST(SPSCQueueTest, CloseUnblocksWaitingPop) {
     SPSC<int> queue;
+
     std::thread consumer([&]() {
         int value;
         EXPECT_FALSE(queue.pop(value));

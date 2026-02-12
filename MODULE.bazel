@@ -27,3 +27,7 @@ git_override(
 bazel_dep(name = "apple_support", version = "1.24.5", dev_dependency = True)
 
 bazel_dep(name = "rules_cc", version = "0.2.14")
+
+# ESI registry blob from GitHub releases
+esi = use_extension("//vendor:esi.bzl", "esi")
+use_repo(esi, "esi_registry_blob")

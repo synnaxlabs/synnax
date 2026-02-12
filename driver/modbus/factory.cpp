@@ -10,22 +10,22 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
 
+#include "driver/common/factory.h"
+#include "driver/common/scan_task.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/modbus.h"
 #include "driver/modbus/read_task.h"
 #include "driver/modbus/scan_task.h"
 #include "driver/modbus/write_task.h"
-#include "driver/task/common/factory.h"
-#include "driver/task/common/scan_task.h"
 
 namespace driver::modbus {
 const std::string READ_TASK_TYPE = INTEGRATION_NAME + "_read";
 const std::string SCAN_TASK_TYPE = INTEGRATION_NAME + "_scan";
 const std::string WRITE_TASK_TYPE = INTEGRATION_NAME + "_write";
 
-std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_read(
+std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<device::Manager> &devs,
-    const std::shared_ptr<driver::task::Context> &ctx,
+    const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
     driver::task::common::ConfigureResult result;
@@ -43,12 +43,12 @@ std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_rea
     return {std::move(result), x::errors::NIL};
 }
 
-std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_scan(
+std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
     const std::shared_ptr<device::Manager> &devs,
-    const std::shared_ptr<driver::task::Context> &ctx,
+    const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
-    driver::task::common::ConfigureResult result;
+    common::ConfigureResult result;
     x::json::Parser parser(task.config);
     ScanTaskConfig cfg(parser);
     if (parser.error()) return {std::move(result), parser.error()};
@@ -63,9 +63,9 @@ std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_sca
     return {std::move(result), x::errors::NIL};
 }
 
-std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_write(
+std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     const std::shared_ptr<device::Manager> &devs,
-    const std::shared_ptr<driver::task::Context> &ctx,
+    const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
     driver::task::common::ConfigureResult result;
@@ -83,12 +83,12 @@ std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_wri
     return {std::move(result), x::errors::NIL};
 }
 
-std::pair<std::unique_ptr<driver::task::Task>, bool> Factory::configure_task(
-    const std::shared_ptr<driver::task::Context> &ctx,
+std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
+    const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
-    std::pair<driver::task::common::ConfigureResult, x::errors::Error> res;
+    std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == READ_TASK_TYPE)
         res = configure_read(this->devices, ctx, task);
     else if (task.type == WRITE_TASK_TYPE)
@@ -98,9 +98,9 @@ std::pair<std::unique_ptr<driver::task::Task>, bool> Factory::configure_task(
     return driver::task::common::handle_config_err(ctx, task, std::move(res));
 }
 
-std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>>
+std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
 Factory::configure_initial_tasks(
-    const std::shared_ptr<driver::task::Context> &ctx,
+    const std::shared_ptr<task::Context> &ctx,
     const synnax::rack::Rack &rack
 ) {
     return driver::task::common::configure_initial_factory_tasks(

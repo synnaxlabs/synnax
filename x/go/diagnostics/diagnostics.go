@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package diagnostics provides error, warning, and hint reporting for Arc language analysis.
+// Package diagnostics provides error, warning, and hint reporting for language analysis.
 package diagnostics
 
 import (
@@ -72,7 +72,9 @@ type Diagnostic struct {
 	Start    Position  `json:"start"`
 	End      Position  `json:"end"`
 	Notes    []Note    `json:"notes,omitempty"`
-	File     string    `json:"file,omitempty"`
+	// File identifies which source file this diagnostic belongs to. Used by
+	// multi-file analysis passes to route diagnostics to the correct LSP document.
+	File string `json:"file,omitempty"`
 }
 
 // SetRange sets the Start and End positions from an ANTLR parser rule context.
@@ -169,6 +171,9 @@ func (d Diagnostics) Ok() bool {
 	return true
 }
 
+// Empty returns true if there are no diagnostics at all.
+func (d Diagnostics) Empty() bool { return len(d) == 0 }
+
 // Error implements the error interface.
 func (d Diagnostics) Error() string { return d.String() }
 
@@ -185,16 +190,12 @@ func (d *Diagnostics) Add(diag Diagnostic) {
 	*d = append(*d, diag)
 }
 
-// Merge combines another Diagnostics collection into this one.
+// Merge appends all diagnostics from other into d, using Add to preserve
+// deduplication semantics.
 func (d *Diagnostics) Merge(other Diagnostics) {
 	for _, diag := range other {
 		d.Add(diag)
 	}
-}
-
-// Empty returns true if there are no diagnostics.
-func (d Diagnostics) Empty() bool {
-	return len(d) == 0
 }
 
 // AtLocation returns the indices of all diagnostics at the given position.

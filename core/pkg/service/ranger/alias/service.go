@@ -28,32 +28,25 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// ParentRetriever is an interface for retrieving the parent range key for a given range.
-// This allows the alias service to implement inheritance without a direct dependency on
-// the ranger service.
+// ParentRetriever is an interface for retrieving the parent range key for a
+// given range. This allows the alias service to implement inheritance without
+// a direct dependency on the ranger service.
 type ParentRetriever interface {
-	// RetrieveParentKey returns the parent range key for the given range key.
-	// Returns query.ErrNotFound if the range has no parent.
 	RetrieveParentKey(ctx context.Context, key uuid.UUID, tx gorp.Tx) (uuid.UUID, error)
 }
 
 // ServiceConfig is the configuration for opening the alias.Service.
 type ServiceConfig struct {
-	// DB is the underlying database.
-	DB *gorp.DB
-	// Ontology is used to register the alias ontology service.
-	Ontology *ontology.Ontology
-	// Signals is used to publish signals when aliases are created or deleted.
-	Signals *signals.Provider
-	// ParentRetriever is used to look up parent ranges for inheritance.
+	DB              *gorp.DB
+	Ontology        *ontology.Ontology
+	Signals         *signals.Provider
 	ParentRetriever ParentRetriever
 	alamos.Instrumentation
 }
 
 var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for opening an alias service.
-	DefaultConfig = ServiceConfig{}
+	_             config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultConfig                              = ServiceConfig{}
 )
 
 // Validate implements config.Config.
@@ -61,6 +54,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("service.ranger.alias")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "parent_retriever", c.ParentRetriever)
 	return v.Error()
 }
 
@@ -179,5 +173,8 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := gorp.WrapReader[string, Alias](s.cfg.DB).OpenNexter(ctx)
-	return xiter.Map(n, newResource), closer, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return xiter.Map(n, newResource), closer, nil
 }

@@ -13,6 +13,7 @@ import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { select } from "@/table/selectors";
 import { type State } from "@/table/slice";
+import { LAYOUT_TYPE } from "@/table/Table";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
   const storeState = store.getState();
@@ -20,11 +21,11 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   let name = Layout.select(storeState, key)?.name;
   if (state == null || name == null) {
     if (client == null) throw new DisconnectedError();
-    const table = await client.workspaces.tables.retrieve({ key });
+    const table = await client.tables.retrieve({ key });
     state ??= { ...(table.data as State), key: table.key };
     name ??= table.name;
   }
-  return { data: JSON.stringify(state), name };
+  return { data: JSON.stringify({ ...state, type: LAYOUT_TYPE }), name };
 };
 
 export const useExport = () => Export.use(extract, "table");

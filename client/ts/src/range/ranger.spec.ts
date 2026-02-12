@@ -90,7 +90,7 @@ describe("range", () => {
       });
       expect(range.key).not.toHaveLength(0);
       expect(timeRange).toEqual(range.timeRange);
-      expect(range.color).toEqual(color.construct("#E774D0"));
+      expect(range.color).toEqual([231, 116, 208, 1]);
     });
     it("should create multiple ranges", async () => {
       const ranges: range.New[] = [

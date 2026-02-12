@@ -15,13 +15,14 @@
 
 #include "driver/opc/types/types.h"
 
+namespace driver::opc::types {
 /// @brief it should properly manage NodeId lifecycle with RAII.
 TEST(TypesTest, NodeIdRAII) {
-    driver::opc::NodeId nodeId1;
+    NodeId nodeId1;
     EXPECT_TRUE(nodeId1.is_null());
 
     UA_NodeId numeric = UA_NODEID_NUMERIC(1, 1000);
-    driver::opc::NodeId nodeId2(numeric);
+    NodeId nodeId2(numeric);
     EXPECT_FALSE(nodeId2.is_null());
     EXPECT_EQ(nodeId2.get().namespaceIndex, 1);
     EXPECT_EQ(nodeId2.get().identifierType, UA_NODEIDTYPE_NUMERIC);
@@ -29,7 +30,7 @@ TEST(TypesTest, NodeIdRAII) {
 
     UA_NodeId string_id = UA_NODEID_STRING_ALLOC(2, "TestNode");
     {
-        driver::opc::NodeId nodeId3(string_id);
+        NodeId nodeId3(string_id);
         EXPECT_FALSE(nodeId3.is_null());
         EXPECT_EQ(nodeId3.get().namespaceIndex, 2);
         EXPECT_EQ(nodeId3.get().identifierType, UA_NODEIDTYPE_STRING);
@@ -40,14 +41,14 @@ TEST(TypesTest, NodeIdRAII) {
 /// @brief it should properly implement NodeId copy semantics.
 TEST(TypesTest, NodeIdCopySemantics) {
     UA_NodeId string_id = UA_NODEID_STRING_ALLOC(2, "TestNode");
-    driver::opc::NodeId nodeId1(string_id);
+    NodeId nodeId1(string_id);
     UA_NodeId_clear(&string_id);
 
-    driver::opc::NodeId nodeId2(std::move(nodeId1));
+    NodeId nodeId2(std::move(nodeId1));
     EXPECT_FALSE(nodeId2.is_null());
     EXPECT_TRUE(nodeId1.is_null());
 
-    driver::opc::NodeId nodeId3;
+    NodeId nodeId3;
     nodeId3 = std::move(nodeId2);
     EXPECT_FALSE(nodeId3.is_null());
     EXPECT_TRUE(nodeId2.is_null());
@@ -56,14 +57,14 @@ TEST(TypesTest, NodeIdCopySemantics) {
 /// @brief it should properly implement NodeId move semantics.
 TEST(TypesTest, NodeIdMoveSemantics) {
     UA_NodeId string_id = UA_NODEID_STRING_ALLOC(2, "TestNode");
-    driver::opc::NodeId nodeId1(string_id);
+    NodeId nodeId1(string_id);
     UA_NodeId_clear(&string_id);
 
-    driver::opc::NodeId nodeId2(std::move(nodeId1));
+    NodeId nodeId2(std::move(nodeId1));
     EXPECT_FALSE(nodeId2.is_null());
     EXPECT_TRUE(nodeId1.is_null());
 
-    driver::opc::NodeId nodeId3;
+    NodeId nodeId3;
     nodeId3 = std::move(nodeId2);
     EXPECT_FALSE(nodeId3.is_null());
     EXPECT_TRUE(nodeId2.is_null());
@@ -71,18 +72,18 @@ TEST(TypesTest, NodeIdMoveSemantics) {
 
 /// @brief it should parse NodeId strings in various formats.
 TEST(TypesTest, NodeIdParsing) {
-    auto [numeric, err1] = driver::opc::NodeId::parse("NS=1;I=1000");
+    auto [numeric, err1] = NodeId::parse("NS=1;I=1000");
     ASSERT_NIL(err1);
     EXPECT_EQ(numeric.get().namespaceIndex, 1);
     EXPECT_EQ(numeric.get().identifierType, UA_NODEIDTYPE_NUMERIC);
     EXPECT_EQ(numeric.get().identifier.numeric, 1000);
 
-    auto [string_node, err2] = driver::opc::NodeId::parse("NS=2;S=TestNode");
+    auto [string_node, err2] = NodeId::parse("NS=2;S=TestNode");
     ASSERT_NIL(err2);
     EXPECT_EQ(string_node.get().namespaceIndex, 2);
     EXPECT_EQ(string_node.get().identifierType, UA_NODEIDTYPE_STRING);
 
-    auto [invalid, err3] = driver::opc::NodeId::parse("InvalidFormat");
+    auto [invalid, err3] = NodeId::parse("InvalidFormat");
     ASSERT_MATCHES(err3, x::errors::VALIDATION);
     EXPECT_TRUE(invalid.is_null());
 }
@@ -90,18 +91,18 @@ TEST(TypesTest, NodeIdParsing) {
 /// @brief it should convert NodeId to string representation.
 TEST(TypesTest, NodeIdToString) {
     UA_NodeId numeric = UA_NODEID_NUMERIC(1, 1000);
-    std::string str1 = driver::opc::NodeId::to_string(numeric);
+    std::string str1 = NodeId::to_string(numeric);
     EXPECT_EQ(str1, "NS=1;I=1000");
 
     UA_NodeId string_node = UA_NODEID_STRING_ALLOC(2, "TestNode");
-    std::string str2 = driver::opc::NodeId::to_string(string_node);
+    std::string str2 = NodeId::to_string(string_node);
     EXPECT_EQ(str2, "NS=2;S=TestNode");
     UA_NodeId_clear(&string_node);
 }
 
 /// @brief it should properly manage Variant lifecycle with RAII.
 TEST(TypesTest, VariantRAII) {
-    driver::opc::Variant var1;
+    Variant var1;
     EXPECT_TRUE(UA_Variant_isEmpty(&var1.get()));
 
     UA_Variant ua_var;
@@ -110,7 +111,7 @@ TEST(TypesTest, VariantRAII) {
     UA_Variant_setScalarCopy(&ua_var, &val, &UA_TYPES[UA_TYPES_FLOAT]);
 
     {
-        driver::opc::Variant var2(ua_var);
+        Variant var2(ua_var);
         EXPECT_FALSE(UA_Variant_isEmpty(&var2.get()));
         EXPECT_TRUE(UA_Variant_hasScalarType(&var2.get(), &UA_TYPES[UA_TYPES_FLOAT]));
     }
@@ -124,13 +125,13 @@ TEST(TypesTest, VariantCopyMoveSemantics) {
     UA_Float val = 42.0f;
     UA_Variant_setScalarCopy(&ua_var, &val, &UA_TYPES[UA_TYPES_FLOAT]);
 
-    driver::opc::Variant var1(ua_var);
+    Variant var1(ua_var);
     UA_Variant_clear(&ua_var);
 
-    driver::opc::Variant var2(std::move(var1));
+    Variant var2(std::move(var1));
     EXPECT_TRUE(UA_Variant_hasScalarType(&var2.get(), &UA_TYPES[UA_TYPES_FLOAT]));
 
-    driver::opc::Variant var3(std::move(var2));
+    Variant var3(std::move(var2));
     EXPECT_TRUE(UA_Variant_hasScalarType(&var3.get(), &UA_TYPES[UA_TYPES_FLOAT]));
     EXPECT_TRUE(UA_Variant_isEmpty(&var2.get()));
 }
@@ -141,10 +142,10 @@ TEST(TypesTest, ReadResponseRAII) {
     UA_ReadResponse_init(&ua_response);
     EXPECT_EQ(ua_response.resultsSize, 0);
 
-    driver::opc::ReadResponse response(ua_response);
+    ReadResponse response(ua_response);
     EXPECT_EQ(response.get().resultsSize, 0);
 
-    driver::opc::ReadResponse response2(std::move(response));
+    ReadResponse response2(std::move(response));
     EXPECT_EQ(response2.get().resultsSize, 0);
 }
 
@@ -154,75 +155,75 @@ TEST(TypesTest, WriteResponseRAII) {
     UA_WriteResponse_init(&ua_response);
     EXPECT_EQ(ua_response.resultsSize, 0);
 
-    driver::opc::WriteResponse response(ua_response);
+    WriteResponse response(ua_response);
     EXPECT_EQ(response.get().resultsSize, 0);
 
-    driver::opc::WriteResponse response2(std::move(response));
+    WriteResponse response2(std::move(response));
     EXPECT_EQ(response2.get().resultsSize, 0);
 }
 
 /// @brief it should properly manage LocalizedText lifecycle with RAII.
 TEST(TypesTest, LocalizedTextRAII) {
-    driver::opc::LocalizedText text1;
+    LocalizedText text1;
     EXPECT_EQ(text1.get().locale.length, 0);
 
-    driver::opc::LocalizedText text2("en", "Hello");
+    LocalizedText text2("en", "Hello");
     EXPECT_GT(text2.get().text.length, 0);
 
-    driver::opc::LocalizedText text3(std::move(text2));
+    LocalizedText text3(std::move(text2));
     EXPECT_GT(text3.get().text.length, 0);
     EXPECT_EQ(text2.get().text.length, 0);
 
-    driver::opc::LocalizedText text4(std::move(text3));
+    LocalizedText text4(std::move(text3));
     EXPECT_GT(text4.get().text.length, 0);
     EXPECT_EQ(text3.get().text.length, 0);
 }
 
 /// @brief it should properly manage QualifiedName lifecycle with RAII.
 TEST(TypesTest, QualifiedNameRAII) {
-    driver::opc::QualifiedName name1;
+    QualifiedName name1;
     EXPECT_EQ(name1.get().name.length, 0);
 
-    driver::opc::QualifiedName name2(1, "TestName");
+    QualifiedName name2(1, "TestName");
     EXPECT_EQ(name2.get().namespaceIndex, 1);
     EXPECT_GT(name2.get().name.length, 0);
 
-    driver::opc::QualifiedName name3(std::move(name2));
+    QualifiedName name3(std::move(name2));
     EXPECT_EQ(name3.get().namespaceIndex, 1);
     EXPECT_EQ(name2.get().namespaceIndex, 0);
     EXPECT_EQ(name2.get().name.length, 0);
 
-    driver::opc::QualifiedName name4(std::move(name3));
+    QualifiedName name4(std::move(name3));
     EXPECT_EQ(name4.get().namespaceIndex, 1);
     EXPECT_EQ(name3.get().name.length, 0);
 }
 
 /// @brief it should properly manage String lifecycle with RAII.
 TEST(TypesTest, StringRAII) {
-    driver::opc::String str1;
+    String str1;
     EXPECT_EQ(str1.get().length, 0);
 
-    driver::opc::String str2("Hello");
+    String str2("Hello");
     EXPECT_GT(str2.get().length, 0);
 
-    driver::opc::String str3(std::move(str2));
+    String str3(std::move(str2));
     EXPECT_GT(str3.get().length, 0);
     EXPECT_EQ(str2.get().length, 0);
 
-    driver::opc::String str4(std::move(str3));
+    String str4(std::move(str3));
     EXPECT_GT(str4.get().length, 0);
     EXPECT_EQ(str3.get().length, 0);
 }
 
 /// @brief it should properly manage ByteString lifecycle with RAII.
 TEST(TypesTest, ByteStringRAII) {
-    driver::opc::ByteString bytes1;
+    ByteString bytes1;
     EXPECT_EQ(bytes1.get().length, 0);
 
-    driver::opc::ByteString bytes2(std::move(bytes1));
+    ByteString bytes2(std::move(bytes1));
     EXPECT_EQ(bytes2.get().length, 0);
 
-    driver::opc::ByteString bytes3(std::move(bytes2));
+    ByteString bytes3(std::move(bytes2));
     EXPECT_EQ(bytes3.get().length, 0);
 }
 
@@ -231,10 +232,10 @@ TEST(TypesTest, NoDoubleFree) {
     UA_NodeId string_id = UA_NODEID_STRING_ALLOC(2, "TestNode");
 
     {
-        driver::opc::NodeId nodeId1(string_id);
+        NodeId nodeId1(string_id);
         UA_NodeId_clear(&string_id);
-        driver::opc::NodeId nodeId2(std::move(nodeId1));
-        driver::opc::NodeId nodeId3;
+        NodeId nodeId2(std::move(nodeId1));
+        NodeId nodeId3;
         nodeId3 = std::move(nodeId2);
     }
 }
@@ -242,7 +243,7 @@ TEST(TypesTest, NoDoubleFree) {
 /// @brief it should parse numeric NodeId from JSON.
 TEST(TypesTest, ParseNumericNodeIdFromJSON) {
     x::json::Parser parser(std::string(R"({"nodeId": "NS=1;I=42"})"));
-    driver::opc::NodeId nodeId = driver::opc::NodeId::parse("nodeId", parser);
+    NodeId nodeId = NodeId::parse("nodeId", parser);
     EXPECT_EQ(nodeId.get().namespaceIndex, 1);
     EXPECT_EQ(nodeId.get().identifierType, UA_NODEIDTYPE_NUMERIC);
     EXPECT_EQ(nodeId.get().identifier.numeric, 42);
@@ -251,7 +252,7 @@ TEST(TypesTest, ParseNumericNodeIdFromJSON) {
 /// @brief it should parse string NodeId from JSON.
 TEST(TypesTest, ParseStringNodeIdFromJSON) {
     x::json::Parser parser(std::string(R"({"nodeId": "NS=2;S=TestString"})"));
-    driver::opc::NodeId nodeId = driver::opc::NodeId::parse("nodeId", parser);
+    NodeId nodeId = NodeId::parse("nodeId", parser);
     EXPECT_EQ(nodeId.get().namespaceIndex, 2);
     EXPECT_EQ(nodeId.get().identifierType, UA_NODEIDTYPE_STRING);
     EXPECT_EQ(
@@ -268,7 +269,7 @@ TEST(TypesTest, ParseGuidNodeIdFromJSON) {
     x::json::Parser parser(
         std::string(R"({"nodeId": "NS=3;G=12345678-1234-5678-9ABC-123456789ABC"})")
     );
-    driver::opc::NodeId nodeId = driver::opc::NodeId::parse("nodeId", parser);
+    NodeId nodeId = NodeId::parse("nodeId", parser);
     EXPECT_EQ(nodeId.get().namespaceIndex, 3);
     EXPECT_EQ(nodeId.get().identifierType, UA_NODEIDTYPE_GUID);
     EXPECT_EQ(nodeId.get().identifier.guid.data1, 0x12345678);
@@ -281,14 +282,14 @@ TEST(TypesTest, ParseGuidNodeIdFromJSON) {
 /// @brief it should return null for invalid NodeId in JSON.
 TEST(TypesTest, ParseInvalidNodeIdFromJSON) {
     x::json::Parser parser(std::string(R"({"nodeId": "Invalid"})"));
-    driver::opc::NodeId nodeId = driver::opc::NodeId::parse("nodeId", parser);
+    NodeId nodeId = NodeId::parse("nodeId", parser);
     EXPECT_TRUE(nodeId.is_null());
 }
 
 /// @brief it should return error for missing NodeId in JSON.
 TEST(TypesTest, ParseMissingNodeIdFromJSON) {
     x::json::Parser parser(std::string(R"({"otherField": "value"})"));
-    driver::opc::NodeId nodeId = driver::opc::NodeId::parse("nodeId", parser);
+    NodeId nodeId = NodeId::parse("nodeId", parser);
     EXPECT_TRUE(nodeId.is_null());
     EXPECT_FALSE(parser.ok());
 }
@@ -296,7 +297,7 @@ TEST(TypesTest, ParseMissingNodeIdFromJSON) {
 /// @brief it should convert numeric NodeId to string.
 TEST(TypesTest, NodeIdToStringNumeric) {
     UA_NodeId nodeId = UA_NODEID_NUMERIC(1, 42);
-    std::string nodeIdStr = driver::opc::NodeId::to_string(nodeId);
+    std::string nodeIdStr = NodeId::to_string(nodeId);
     EXPECT_EQ(nodeIdStr, "NS=1;I=42");
 }
 
@@ -309,7 +310,7 @@ TEST(TypesTest, NodeIdToStringString) {
     nodeId.namespaceIndex = 2;
     nodeId.identifierType = UA_NODEIDTYPE_STRING;
     nodeId.identifier.string = uaStr;
-    std::string nodeIdStr = driver::opc::NodeId::to_string(nodeId);
+    std::string nodeIdStr = NodeId::to_string(nodeId);
     EXPECT_EQ(nodeIdStr, "NS=2;S=TestString");
 }
 
@@ -331,7 +332,7 @@ TEST(TypesTest, NodeIdToStringGuid) {
     nodeId.namespaceIndex = 3;
     nodeId.identifierType = UA_NODEIDTYPE_GUID;
     nodeId.identifier.guid = guid;
-    std::string nodeIdStr = driver::opc::NodeId::to_string(nodeId);
+    std::string nodeIdStr = NodeId::to_string(nodeId);
     EXPECT_EQ(nodeIdStr, "NS=3;G=12345678-1234-5678-9abc-123456789abc");
 }
 
@@ -345,7 +346,7 @@ TEST(TypesTest, NodeIdToStringByteString) {
     nodeId.namespaceIndex = 4;
     nodeId.identifierType = UA_NODEIDTYPE_BYTESTRING;
     nodeId.identifier.byteString = byteString;
-    std::string nodeIdStr = driver::opc::NodeId::to_string(nodeId);
+    std::string nodeIdStr = NodeId::to_string(nodeId);
     EXPECT_EQ(nodeIdStr, "NS=4;B=deadbeef");
 }
 
@@ -353,22 +354,23 @@ TEST(TypesTest, NodeIdToStringByteString) {
 TEST(TypesTest, NodeIdRoundTripConversion) {
     {
         x::json::Parser parser(std::string(R"({"nodeId": "NS=1;I=42"})"));
-        driver::opc::NodeId nodeId = driver::opc::NodeId::parse("nodeId", parser);
-        std::string nodeIdStr = driver::opc::NodeId::to_string(nodeId.get());
+        NodeId nodeId = NodeId::parse("nodeId", parser);
+        std::string nodeIdStr = NodeId::to_string(nodeId.get());
         EXPECT_EQ(nodeIdStr, "NS=1;I=42");
     }
     {
         x::json::Parser parser(std::string(R"({"nodeId": "NS=2;S=TestString"})"));
-        driver::opc::NodeId nodeId = driver::opc::NodeId::parse("nodeId", parser);
-        std::string nodeIdStr = driver::opc::NodeId::to_string(nodeId.get());
+        NodeId nodeId = NodeId::parse("nodeId", parser);
+        std::string nodeIdStr = NodeId::to_string(nodeId.get());
         EXPECT_EQ(nodeIdStr, "NS=2;S=TestString");
     }
     {
         x::json::Parser parser(
             std::string(R"({"nodeId": "NS=3;G=12345678-1234-5678-9ABC-123456789ABC"})")
         );
-        driver::opc::NodeId nodeId = driver::opc::NodeId::parse("nodeId", parser);
-        std::string nodeIdStr = driver::opc::NodeId::to_string(nodeId.get());
+        NodeId nodeId = NodeId::parse("nodeId", parser);
+        std::string nodeIdStr = NodeId::to_string(nodeId.get());
         EXPECT_EQ(nodeIdStr, "NS=3;G=12345678-1234-5678-9abc-123456789abc");
     }
+}
 }

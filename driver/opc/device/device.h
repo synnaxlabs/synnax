@@ -29,12 +29,12 @@
 
 namespace driver::opc::device {
 struct Properties {
-    driver::opc::connection::Config connection;
-    std::vector<Node> channels;
+    connection::Config connection;
+    std::vector<types::Node> channels;
 
     Properties(
-        const driver::opc::connection::Config &connection,
-        const std::vector<Node> &channels
+        const connection::Config &connection,
+        const std::vector<types::Node> &channels
     ):
         connection(connection), channels(channels) {}
 

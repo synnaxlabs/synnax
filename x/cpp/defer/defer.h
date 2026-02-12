@@ -24,7 +24,7 @@ namespace x::defer {
  * ```
  * {
  *     auto resource = acquire_resource();
- *     x::defer::defer d([&resource]() { release_resource(resource); });
+ *     errors::test::defer d([&resource]() { release_resource(resource); });
  *
  *     // Use resource...
  *     // When scope ends, release_resource will be called automatically

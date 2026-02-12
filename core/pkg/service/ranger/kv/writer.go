@@ -29,12 +29,15 @@ func (w Writer) Set(ctx context.Context, rng uuid.UUID, key, value string) error
 }
 
 // SetMany sets multiple key-value pairs on the specified range.
-func (w Writer) SetMany(ctx context.Context, pairs []Pair) error {
+func (w Writer) SetMany(ctx context.Context, rng uuid.UUID, pairs []Pair) error {
+	for i := range pairs {
+		pairs[i].Range = rng
+	}
 	return gorp.NewCreate[string, Pair]().Entries(&pairs).Exec(ctx, w.tx)
 }
 
-// Delete deletes a key-value pair from the specified range.
-// Delete is idempotent and will not return an error if the key does not exist.
+// Delete deletes a key-value pair from the specified range. Delete is
+// idempotent and will not return an error if the key does not exist.
 func (w Writer) Delete(ctx context.Context, rng uuid.UUID, key string) error {
 	return gorp.NewDelete[string, Pair]().
 		WhereKeys(Pair{Range: rng, Key: key}.GorpKey()).

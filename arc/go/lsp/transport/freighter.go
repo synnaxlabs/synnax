@@ -170,6 +170,17 @@ func (c Config) Override(other Config) Config {
 
 var DefaultConfig = Config{MaxContentLength: DefaultMaxContentLength}
 
+// connClient wraps a protocol.Client with access to the underlying jsonrpc2.Conn
+// to support LSP methods missing from go.lsp.dev/protocol@v0.12.0.
+type connClient struct {
+	protocol.Client
+	conn jsonrpc2.Conn
+}
+
+func (c *connClient) SemanticTokensRefresh(ctx context.Context) error {
+	return protocol.Call(ctx, c.conn, protocol.MethodSemanticTokensRefresh, nil, nil)
+}
+
 func ServeFreighter(ctx context.Context, cfgs ...Config) error {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -178,12 +189,14 @@ func ServeFreighter(ctx context.Context, cfgs ...Config) error {
 	var (
 		adapter = &streamAdapter{stream: cfg.Stream, maxContentLength: cfg.MaxContentLength}
 		conn    = jsonrpc2.NewConn(jsonrpc2.NewStream(adapter))
-		client  = protocol.ClientDispatcher(conn, cfg.Server.Logger())
 	)
 	defer func() {
 		err = errors.Combine(err, conn.Close())
 	}()
-	cfg.Server.SetClient(client)
+	cfg.Server.SetClient(&connClient{
+		Client: protocol.ClientDispatcher(conn, cfg.Server.Logger()),
+		conn:   conn,
+	})
 	conn.Go(ctx, protocol.ServerHandler(cfg.Server, nil))
 	<-conn.Done()
 	err = conn.Err()

@@ -11,3 +11,6 @@
 [submodule "vendor/libmodbus/libmodbus"]
 	path = vendor/libmodbus/libmodbus
 	url = https://github.com/stephane/libmodbus.git
+[submodule "vendor/soem/SOEM"]
+	path = vendor/soem/SOEM
+	url = https://github.com/OpenEtherCATsociety/SOEM.git

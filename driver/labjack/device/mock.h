@@ -16,7 +16,7 @@
 
 #include "driver/labjack/device/device.h"
 
-namespace device {
+namespace driver::labjack::device {
 
 class Mock final : public Device {
 public:

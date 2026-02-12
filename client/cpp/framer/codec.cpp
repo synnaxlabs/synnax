@@ -120,7 +120,7 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
     x::telem::TimeRange ref_tr = {};
     x::telem::Alignment ref_alignment;
 
-    for (const auto &idx: sorting_indices | std::views::values) {
+    for (const auto &[key, idx]: sorting_indices) {
         const x::telem::Series &series = frame.series->at(idx);
         byte_array_size += series.byte_size();
         if (first_series) {
@@ -262,7 +262,7 @@ Codec::decode(const uint8_t *data, const size_t size) const {
     uint32_t data_len = 0;
     x::telem::TimeRange ref_tr = {};
     x::telem::Alignment ref_alignment;
-    const auto flags = CodecFlags::decode(reader.uint8());
+    auto flags = CodecFlags::decode(reader.uint8());
 
     const auto seq_n = reader.uint32();
     auto state = this->states.at(seq_n);

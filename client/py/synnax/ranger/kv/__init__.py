@@ -7,23 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.ranger.kv.client import KV, Client
-from synnax.ranger.kv.payload import (
-    DeleteRequest,
-    EmptyResponse,
-    GetRequest,
-    GetResponse,
-    Pair,
-    SetRequest,
-)
+from synnax.ranger.kv.client import Client
+from synnax.ranger.kv.payload import Pair
 
-__all__ = [
-    "Client",
-    "DeleteRequest",
-    "EmptyResponse",
-    "GetRequest",
-    "GetResponse",
-    "KV",
-    "Pair",
-    "SetRequest",
-]
+KV = Client
+"""Deprecated: Use Client instead."""
+
+KVPair = Pair
+"""Deprecated: Use Pair instead."""

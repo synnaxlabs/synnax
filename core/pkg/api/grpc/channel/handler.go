@@ -13,12 +13,14 @@ import (
 	"context"
 	"go/types"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
-	entitypb "github.com/synnaxlabs/synnax/pkg/api/channel/pb"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -31,163 +33,181 @@ type (
 	deleteRequestTranslator    struct{}
 	createServer               = fgrpc.UnaryServer[
 		apichannel.CreateRequest,
-		*CreateRequest,
+		*gapi.ChannelCreateRequest,
 		apichannel.CreateResponse,
-		*CreateResponse,
+		*gapi.ChannelCreateResponse,
 	]
 	retrieveServer = fgrpc.UnaryServer[
 		apichannel.RetrieveRequest,
-		*RetrieveRequest,
+		*gapi.ChannelRetrieveRequest,
 		apichannel.RetrieveResponse,
-		*RetrieveResponse,
+		*gapi.ChannelRetrieveResponse,
 	]
 	deleteServer = fgrpc.UnaryServer[
 		apichannel.DeleteRequest,
-		*DeleteRequest,
+		*gapi.ChannelDeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 )
 
 var (
-	_ fgrpc.Translator[apichannel.CreateRequest, *CreateRequest]       = (*createRequestTranslator)(nil)
-	_ fgrpc.Translator[apichannel.CreateResponse, *CreateResponse]     = (*createResponseTranslator)(nil)
-	_ fgrpc.Translator[apichannel.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ fgrpc.Translator[apichannel.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
-	_ fgrpc.Translator[apichannel.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
+	_ fgrpc.Translator[apichannel.CreateRequest, *gapi.ChannelCreateRequest]       = (*createRequestTranslator)(nil)
+	_ fgrpc.Translator[apichannel.CreateResponse, *gapi.ChannelCreateResponse]     = (*createResponseTranslator)(nil)
+	_ fgrpc.Translator[apichannel.RetrieveRequest, *gapi.ChannelRetrieveRequest]   = (*retrieveRequestTranslator)(nil)
+	_ fgrpc.Translator[apichannel.RetrieveResponse, *gapi.ChannelRetrieveResponse] = (*retrieveResponseTranslator)(nil)
+	_ fgrpc.Translator[apichannel.CreateRequest, *gapi.ChannelCreateRequest]       = (*createRequestTranslator)(nil)
 )
 
+func TranslateKeysForward(keys []distchannel.Key) []uint32 {
+	return unsafe.ReinterpretSlice[distchannel.Key, uint32](keys)
+}
+
+func TranslateKeysBackward(keys []uint32) []distchannel.Key {
+	return unsafe.ReinterpretSlice[uint32, distchannel.Key](keys)
+}
+
 func (t createRequestTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apichannel.CreateRequest,
-) (*CreateRequest, error) {
-	channels, err := entitypb.ChannelsToPB(ctx, msg.Channels)
-	if err != nil {
-		return nil, err
-	}
-	return &CreateRequest{
-		Channels:             channels,
+) (*gapi.ChannelCreateRequest, error) {
+	return &gapi.ChannelCreateRequest{
+		Channels:             lo.Map(msg.Channels, TranslateForward),
 		RetrieveIfNameExists: msg.RetrieveIfNameExists,
 	}, nil
 }
 
 func (t createRequestTranslator) Backward(
-	ctx context.Context,
-	msg *CreateRequest,
+	_ context.Context,
+	msg *gapi.ChannelCreateRequest,
 ) (apichannel.CreateRequest, error) {
-	channels, err := entitypb.ChannelsFromPB(ctx, msg.Channels)
-	if err != nil {
-		return apichannel.CreateRequest{}, err
-	}
 	return apichannel.CreateRequest{
-		Channels:             channels,
+		Channels:             lo.Map(msg.Channels, TranslateBackward),
 		RetrieveIfNameExists: msg.RetrieveIfNameExists,
 	}, nil
 }
 
 func (t createResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apichannel.CreateResponse,
-) (*CreateResponse, error) {
-	channels, err := entitypb.ChannelsToPB(ctx, msg.Channels)
-	if err != nil {
-		return nil, err
-	}
-	return &CreateResponse{Channels: channels}, nil
+) (*gapi.ChannelCreateResponse, error) {
+	return &gapi.ChannelCreateResponse{
+		Channels: lo.Map(msg.Channels, TranslateForward),
+	}, nil
 }
 
 func (t createResponseTranslator) Backward(
-	ctx context.Context,
-	msg *CreateResponse,
+	_ context.Context,
+	msg *gapi.ChannelCreateResponse,
 ) (apichannel.CreateResponse, error) {
-	channels, err := entitypb.ChannelsFromPB(ctx, msg.Channels)
-	if err != nil {
-		return apichannel.CreateResponse{}, err
-	}
-	return apichannel.CreateResponse{Channels: channels}, nil
+	return apichannel.CreateResponse{Channels: lo.Map(msg.Channels, TranslateBackward)}, nil
 }
 
 func (t retrieveRequestTranslator) Forward(
 	_ context.Context,
 	msg apichannel.RetrieveRequest,
-) (*RetrieveRequest, error) {
-	return &RetrieveRequest{
+) (*gapi.ChannelRetrieveRequest, error) {
+	return &gapi.ChannelRetrieveRequest{
 		NodeKey: uint32(msg.NodeKey),
 		Names:   msg.Names,
 		Search:  msg.SearchTerm,
-		Keys:    unsafe.ReinterpretSlice[channel.Key, uint32](msg.Keys),
+		Keys:    unsafe.ReinterpretSlice[distchannel.Key, uint32](msg.Keys),
 	}, nil
 }
 
 func (t retrieveRequestTranslator) Backward(
 	_ context.Context,
-	msg *RetrieveRequest,
+	msg *gapi.ChannelRetrieveRequest,
 ) (apichannel.RetrieveRequest, error) {
 	return apichannel.RetrieveRequest{
 		NodeKey:    cluster.NodeKey(msg.NodeKey),
 		Names:      msg.Names,
 		SearchTerm: msg.Search,
-		Keys:       unsafe.ReinterpretSlice[uint32, channel.Key](msg.Keys),
+		Keys:       unsafe.ReinterpretSlice[uint32, distchannel.Key](msg.Keys),
 	}, nil
 }
 
 func (t retrieveResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg apichannel.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	channels, err := entitypb.ChannelsToPB(ctx, msg.Channels)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Channels: channels}, nil
+) (*gapi.ChannelRetrieveResponse, error) {
+	return &gapi.ChannelRetrieveResponse{Channels: lo.Map(msg.Channels, TranslateForward)}, nil
 }
 
 func (t retrieveResponseTranslator) Backward(
-	ctx context.Context,
-	msg *RetrieveResponse,
+	_ context.Context,
+	msg *gapi.ChannelRetrieveResponse,
 ) (apichannel.RetrieveResponse, error) {
-	channels, err := entitypb.ChannelsFromPB(ctx, msg.Channels)
-	if err != nil {
-		return apichannel.RetrieveResponse{}, err
-	}
-	return apichannel.RetrieveResponse{Channels: channels}, nil
+	return apichannel.RetrieveResponse{Channels: lo.Map(msg.Channels, TranslateBackward)}, nil
 }
 
 func (t deleteRequestTranslator) Forward(
 	_ context.Context,
 	msg apichannel.DeleteRequest,
-) (*DeleteRequest, error) {
-	return &DeleteRequest{
-		Keys:  unsafe.ReinterpretSlice[channel.Key, uint32](msg.Keys),
+) (*gapi.ChannelDeleteRequest, error) {
+	return &gapi.ChannelDeleteRequest{
+		Keys:  TranslateKeysForward(msg.Keys),
 		Names: msg.Names,
 	}, nil
 }
 
 func (t deleteRequestTranslator) Backward(
 	_ context.Context,
-	msg *DeleteRequest,
+	msg *gapi.ChannelDeleteRequest,
 ) (apichannel.DeleteRequest, error) {
 	return apichannel.DeleteRequest{
-		Keys:  unsafe.ReinterpretSlice[uint32, channel.Key](msg.Keys),
+		Keys:  TranslateKeysBackward(msg.Keys),
 		Names: msg.Names,
 	}, nil
+}
+
+func TranslateForward(
+	msg apichannel.Channel,
+	_ int,
+) *gapi.Channel {
+	return &gapi.Channel{
+		Key:         uint32(msg.Key),
+		Name:        msg.Name,
+		Leaseholder: uint32(msg.Leaseholder),
+		DataType:    string(msg.DataType),
+		Density:     int64(msg.Density),
+		IsIndex:     msg.IsIndex,
+		Index:       uint32(msg.Index),
+		IsVirtual:   msg.Virtual,
+	}
+}
+
+func TranslateBackward(
+	msg *gapi.Channel,
+	_ int,
+) apichannel.Channel {
+	return apichannel.Channel{
+		Key:         distchannel.Key(msg.Key),
+		Name:        msg.Name,
+		Leaseholder: cluster.NodeKey(msg.Leaseholder),
+		DataType:    telem.DataType(msg.DataType),
+		Density:     telem.Density(msg.Density),
+		IsIndex:     msg.IsIndex,
+		Index:       distchannel.Key(msg.Index),
+		Virtual:     msg.IsVirtual,
+	}
 }
 
 func New(a *api.Transport) fgrpc.BindableTransport {
 	c := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
-		ServiceDesc:        &ChannelCreateService_ServiceDesc,
+		ServiceDesc:        &gapi.ChannelCreateService_ServiceDesc,
 	}
 	r := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
-		ServiceDesc:        &ChannelRetrieveService_ServiceDesc,
+		ServiceDesc:        &gapi.ChannelRetrieveService_ServiceDesc,
 	}
 	d := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: fgrpc.EmptyTranslator{},
-		ServiceDesc:        &ChannelDeleteService_ServiceDesc,
+		ServiceDesc:        &gapi.ChannelDeleteService_ServiceDesc,
 	}
 	a.ChannelCreate = c
 	a.ChannelRetrieve = r

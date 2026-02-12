@@ -11,11 +11,8 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { keyZ as userKeyZ } from "@/user/types.gen";
-import { lineplot } from "@/workspace/lineplot";
-import { log } from "@/workspace/log";
-import { schematic } from "@/workspace/schematic";
-import { table } from "@/workspace/table";
+import { ontology } from "@/ontology";
+import { keyZ as userKeyZ } from "@/user/payload";
 import {
   type Key,
   keyZ,
@@ -23,7 +20,7 @@ import {
   newZ,
   type Workspace,
   workspaceZ,
-} from "@/workspace/types.gen";
+} from "@/workspace/payload";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -51,18 +48,10 @@ export const DELETE_CHANNEL_NAME = "sy_workspace_delete";
 export interface SetLayoutArgs extends z.input<typeof setLayoutReqZ> {}
 
 export class Client {
-  readonly schematics: schematic.Client;
-  readonly lineplots: lineplot.Client;
-  readonly logs: log.Client;
-  readonly tables: table.Client;
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {
     this.client = client;
-    this.schematics = new schematic.Client(client);
-    this.lineplots = new lineplot.Client(client);
-    this.logs = new log.Client(client);
-    this.tables = new table.Client(client);
   }
 
   async create(workspace: New): Promise<Workspace>;

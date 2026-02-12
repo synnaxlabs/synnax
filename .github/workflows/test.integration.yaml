@@ -155,6 +155,7 @@ jobs:
       packages: write
     uses: ./.github/workflows/build.synnax.yaml
     with:
+      debug: true
       windows: true
       ubuntu: true
       docker: false
@@ -175,8 +176,8 @@ jobs:
       - windows-latest
     needs: [setup, build]
     if:
-      always() && needs.setup.result == 'success' && (needs.build.result == 'success' ||
-      needs.build.result == 'skipped')
+      ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
+      'success' || needs.build.result == 'skipped') }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -234,11 +235,6 @@ jobs:
           path: integration/tests/results/*
           retention-days: 7
 
-      - name: Debug Test Environment
-        if: failure()
-        shell: cmd
-        run: integration/scripts/DebugTestEnvironmentWindows.cmd
-
   deploy-and-test-ubuntu:
     name: Deploy and Test (ubuntu)
     timeout-minutes: 30
@@ -247,8 +243,8 @@ jobs:
       - ubuntu-latest
     needs: [setup, build]
     if:
-      always() && needs.setup.result == 'success' && (needs.build.result == 'success' ||
-      needs.build.result == 'skipped')
+      ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
+      'success' || needs.build.result == 'skipped') }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -298,7 +294,3 @@ jobs:
           name: test-results-linux
           path: integration/tests/results/*
           retention-days: 7
-
-      - name: Debug Test Environment
-        if: failure()
-        run: integration/scripts/debug_test_environment_unix.sh

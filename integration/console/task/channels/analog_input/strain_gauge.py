@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
+from console.layout import LayoutClient
 from console.task.channels.analog import Analog
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 
 class StrainGauge(Analog):
@@ -39,7 +37,7 @@ class StrainGauge(Analog):
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         strain_configuration: (
@@ -63,42 +61,19 @@ class StrainGauge(Analog):
         **kwargs: Any,
     ) -> None:
 
-        # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
-            console=console,
+            layout=layout,
             name=name,
             device=device,
             chan_type="Strain Gauge",
             **kwargs,
         )
 
-        # Strain Gauge-specific configurations:
-        if strain_configuration is not None:
-            console.click_btn("Strain Configuration")
-            console.select_from_dropdown(strain_configuration)
-
-        if excitation_source is not None:
-            console.click_btn("Voltage Excitation Source")
-            console.select_from_dropdown(excitation_source)
-
-        if excitation_value is not None:
-            console.fill_input_field("Voltage Excitation Value", str(excitation_value))
-
-        if gage_factor is not None:
-            console.fill_input_field("Gage Factor", str(gage_factor))
-
-        if initial_bridge_voltage is not None:
-            console.fill_input_field(
-                "Initial Bridge Voltage", str(initial_bridge_voltage)
-            )
-
-        if nominal_gage_resistance is not None:
-            console.fill_input_field(
-                "Nominal Gage Resistance", str(nominal_gage_resistance)
-            )
-
-        if poisson_ratio is not None:
-            console.fill_input_field("Poisson's Ratio", str(poisson_ratio))
-
-        if lead_wire_resistance is not None:
-            console.fill_input_field("Lead Wire Resistance", str(lead_wire_resistance))
+        self._configure_dropdown("Strain Configuration", strain_configuration)
+        self._configure_dropdown("Voltage Excitation Source", excitation_source)
+        self._configure_input("Voltage Excitation Value", excitation_value)
+        self._configure_input("Gage Factor", gage_factor)
+        self._configure_input("Initial Bridge Voltage", initial_bridge_voltage)
+        self._configure_input("Nominal Gage Resistance", nominal_gage_resistance)
+        self._configure_input("Poisson's Ratio", poisson_ratio)
+        self._configure_input("Lead Wire Resistance", lead_wire_resistance)

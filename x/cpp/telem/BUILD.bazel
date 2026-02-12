@@ -17,6 +17,7 @@ cc_library(
         "//x/cpp/pb",
         "//x/cpp/binary",
         "//x/cpp/json",
+        "//x/go/control:control_grpc",
         "//x/go/telem:telem_grpc",
         "@nlohmann_json//:json",
         "@protobuf",

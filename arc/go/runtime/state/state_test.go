@@ -260,6 +260,51 @@ var _ = Describe("State", func() {
 			})
 		})
 
+		Describe("ReadChannelValue", func() {
+			It("Should return the last series when multiple series exist", func() {
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+				fr1 := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](1, 2))
+				s.Ingest(fr1)
+				fr2 := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](3, 4))
+				s.Ingest(fr2)
+				series, ok := s.ReadChannelValue(10)
+				Expect(ok).To(BeTrue())
+				Expect(series).To(telem.MatchSeries(telem.NewSeriesV[float32](3, 4)))
+			})
+
+			It("Should return the only series when single series exists", func() {
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+				fr := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](1, 2, 3))
+				s.Ingest(fr)
+				series, ok := s.ReadChannelValue(10)
+				Expect(ok).To(BeTrue())
+				Expect(series).To(telem.MatchSeries(telem.NewSeriesV[float32](1, 2, 3)))
+			})
+
+			It("Should return false for non-existent channel", func() {
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+				_, ok := s.ReadChannelValue(999)
+				Expect(ok).To(BeFalse())
+			})
+
+			It("Should return false when channel has empty MultiSeries", func() {
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+				_, ok := s.ReadChannelValue(10)
+				Expect(ok).To(BeFalse())
+			})
+
+			It("Should handle many ingested frames without panic", func() {
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
+				for i := 0; i < 10; i++ {
+					fr := telem.UnaryFrame[uint32](5, telem.NewSeriesV[int32](int32(i*10), int32(i*10+1)))
+					s.Ingest(fr)
+				}
+				series, ok := s.ReadChannelValue(5)
+				Expect(ok).To(BeTrue())
+				Expect(series).To(telem.MatchSeries(telem.NewSeriesV[int32](90, 91)))
+			})
+		})
+
 		Describe("ClearReads", func() {
 			It("Should preserve the latest series for a channel", func() {
 				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
@@ -1797,6 +1842,67 @@ var _ = Describe("State", func() {
 				*n.Output(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
 			})
+		})
+	})
+
+	Describe("Authority Changes", func() {
+		var s *state.State
+
+		BeforeEach(func() {
+			g := graph.Graph{
+				Nodes:     []graph.Node{{Key: "test", Type: "test"}},
+				Functions: []graph.Function{{Key: "test"}},
+			}
+			testIR, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s = state.New(state.Config{IR: testIR})
+		})
+
+		It("Should buffer and flush authority changes", func() {
+			channelKey := uint32(42)
+			s.SetAuthority(&channelKey, 200)
+			changes := s.FlushAuthorityChanges()
+			Expect(changes).To(HaveLen(1))
+			Expect(changes[0].Channel).ToNot(BeNil())
+			Expect(*changes[0].Channel).To(Equal(uint32(42)))
+			Expect(changes[0].Authority).To(Equal(uint8(200)))
+		})
+
+		It("Should return nil when no authority changes", func() {
+			changes := s.FlushAuthorityChanges()
+			Expect(changes).To(BeNil())
+		})
+
+		It("Should buffer authority change for all channels", func() {
+			s.SetAuthority(nil, 254)
+			changes := s.FlushAuthorityChanges()
+			Expect(changes).To(HaveLen(1))
+			Expect(changes[0].Channel).To(BeNil())
+			Expect(changes[0].Authority).To(Equal(uint8(254)))
+		})
+
+		It("Should clear authority changes after flush", func() {
+			s.SetAuthority(nil, 200)
+			changes := s.FlushAuthorityChanges()
+			Expect(changes).To(HaveLen(1))
+			changes = s.FlushAuthorityChanges()
+			Expect(changes).To(BeNil())
+		})
+
+		It("Should buffer multiple authority changes", func() {
+			k1 := uint32(10)
+			k2 := uint32(20)
+			s.SetAuthority(&k1, 100)
+			s.SetAuthority(&k2, 200)
+			s.SetAuthority(nil, 254)
+			changes := s.FlushAuthorityChanges()
+			Expect(changes).To(HaveLen(3))
+			Expect(*changes[0].Channel).To(Equal(uint32(10)))
+			Expect(changes[0].Authority).To(Equal(uint8(100)))
+			Expect(*changes[1].Channel).To(Equal(uint32(20)))
+			Expect(changes[1].Authority).To(Equal(uint8(200)))
+			Expect(changes[2].Channel).To(BeNil())
+			Expect(changes[2].Authority).To(Equal(uint8(254)))
 		})
 	})
 })

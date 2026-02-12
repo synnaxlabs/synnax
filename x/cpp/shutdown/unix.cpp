@@ -16,7 +16,7 @@
 
 #include "x/cpp/shutdown/shutdown.h"
 
-namespace x::shutdown::details {
+namespace x::shutdown::priv {
 std::mutex shutdown_mutex;
 std::condition_variable shutdown_cv;
 bool should_stop = false;

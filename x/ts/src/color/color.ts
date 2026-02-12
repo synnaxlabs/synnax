@@ -28,6 +28,10 @@ const rgbZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ]);
 const rgbaStructZ = z.object({ r: rgbValueZ, g: rgbValueZ, b: rgbValueZ, a: alphaZ });
 /** A zod schema for a legacy color object. */
 const legacyObjectZ = z.object({ rgba255: rgbaZ });
+/** A zod schema for an RGBA struct (r, g, b, a fields). */
+const rgbaStructZ = z.object({ r: rgbValueZ, g: rgbValueZ, b: rgbValueZ, a: alphaZ });
+/** An RGBA struct with named fields. */
+export type RGBAStruct = z.infer<typeof rgbaStructZ>;
 /** A zod schema for a hue value between 0 and 360. */
 const hueZ = z.number().min(0).max(360);
 /** A zod schema for a saturation value between 0 and 100. */
@@ -118,7 +122,7 @@ export const construct = (color: Crude, alpha: number = 1): Color => {
     if (color.length === 3) return [...color, alpha];
     return color;
   }
-  if ("a" in color) return [color.r, color.g, color.b, color.a];
+  if ("a" in color && "r" in color) return [color.r, color.g, color.b, color.a];
   return color.rgba255;
 };
 

@@ -7,9 +7,9 @@ cc_library(
         "//core/pkg/api/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//freighter/cpp/grpc",
-        "//x/cpp/errors",
         "//x/cpp/status",
         "//x/cpp/telem",
+        "//x/cpp/errors",
         "@grpc//:grpc++",
     ],
 )

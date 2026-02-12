@@ -12,7 +12,6 @@
 
 #pragma once
 
-/// std
 #include <atomic>
 #include <string>
 #include <thread>
@@ -22,7 +21,6 @@
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
 
-/// internal
 #include "driver/opc/types/types.h"
 
 namespace mock {
@@ -339,8 +337,14 @@ public:
             // Set access level to allow reading and writing
             attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
 
-            driver::opc::LocalizedText description("en-US", node.description.c_str());
-            driver::opc::LocalizedText displayName("en-US", node.node_id.c_str());
+            driver::opc::types::LocalizedText description(
+                "en-US",
+                node.description.c_str()
+            );
+            driver::opc::types::LocalizedText displayName(
+                "en-US",
+                node.node_id.c_str()
+            );
             attr.description = description.get();
             attr.displayName = displayName.get();
 
@@ -348,12 +352,12 @@ public:
                 node.ns,
                 node.node_id.c_str()
             );
-            driver::opc::NodeId nodeId(raw_node_id);
+            driver::opc::types::NodeId nodeId(raw_node_id);
             UA_NodeId_clear(&raw_node_id);
             LOG(INFO) << "Creating OPC UA node: "
-                      << driver::opc::NodeId::to_string(nodeId.get());
+                      << driver::opc::types::NodeId::to_string(nodeId.get());
 
-            driver::opc::QualifiedName nodeName(node.ns, node.node_id.c_str());
+            driver::opc::types::QualifiedName nodeName(node.ns, node.node_id.c_str());
             UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
             UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
 

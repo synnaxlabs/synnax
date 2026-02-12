@@ -31,7 +31,7 @@ class NIAnalogReadForms(ConsoleCase):
         device_name = "AI_E103"
 
         self.log("Creating NI Analog Read Task")
-        ni_ai = AnalogRead(self.client, console, "Test_AI_task")
+        ni_ai = console.workspace.create_task("NI Analog Read Task", "Test_AI_task")
 
         ni_ai.set_parameters(
             task_name="Test_task",

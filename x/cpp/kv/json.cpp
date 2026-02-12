@@ -26,7 +26,6 @@
 using json = nlohmann::json;
 
 namespace x::kv {
-
 namespace {
 errors::Error
 check_minimum_permissions(const std::filesystem::path &path, const char *context) {
@@ -42,7 +41,7 @@ check_minimum_permissions(const std::filesystem::path &path, const char *context
 JSONFile::JSONFile(const std::string &path, const json &data):
     path(path), data_(data) {}
 
-std::pair<std::shared_ptr<x::kv::KV>, errors::Error>
+std::pair<std::shared_ptr<kv::KV>, errors::Error>
 JSONFile::open(const JSONFileConfig &config) {
     try {
         const auto dir = config.path.parent_path();

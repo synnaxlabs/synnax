@@ -14,30 +14,6 @@
 #include "x/cpp/test/test.h"
 
 namespace synnax::status {
-
-/// @brief Custom details type for testing templated status operations.
-struct CustomStatusDetails {
-    std::string device_id;
-    int error_code = 0;
-    bool critical = false;
-
-    static CustomStatusDetails parse(x::json::Parser parser) {
-        return CustomStatusDetails{
-            .device_id = parser.field<std::string>("device_id"),
-            .error_code = parser.field<int>("error_code"),
-            .critical = parser.field<bool>("critical"),
-        };
-    }
-
-    [[nodiscard]] x::json::json to_json() const {
-        return {
-            {"device_id", device_id},
-            {"error_code", error_code},
-            {"critical", critical},
-        };
-    }
-};
-
 /// @brief it should set a single status in the cluster.
 TEST(StatusTest, SetSingleStatus) {
     const auto client = new_test_client();
@@ -191,6 +167,29 @@ TEST(StatusTest, DetailsRoundTrip) {
     EXPECT_TRUE(details_json.empty());
 }
 
+// Custom details type for testing templated status client
+struct CustomStatusDetails {
+    std::string device_id;
+    int error_code = 0;
+    bool critical = false;
+
+    [[nodiscard]] x::json::json to_json() const {
+        return x::json::json{
+            {"device_id", device_id},
+            {"error_code", error_code},
+            {"critical", critical}
+        };
+    }
+
+    static CustomStatusDetails parse(x::json::Parser &parser) {
+        return CustomStatusDetails{
+            .device_id = parser.field<std::string>("device_id", ""),
+            .error_code = parser.field<int>("error_code", 0),
+            .critical = parser.field<bool>("critical", false),
+        };
+    }
+};
+
 /// @brief it should set and retrieve a status with custom details type.
 TEST(StatusTest, CustomDetailsSetAndRetrieve) {
     const auto client = new_test_client();
@@ -308,5 +307,4 @@ TEST(StatusTest, CustomDetailsEmptyFields) {
     EXPECT_EQ(retrieved.details.error_code, 0);
     EXPECT_EQ(retrieved.details.critical, false);
 }
-
 }

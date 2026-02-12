@@ -21,19 +21,19 @@
 /// internal
 #include "x/cpp/defer/defer.h"
 
+#include "driver/common/read_task.h"
+#include "driver/common/sample_clock.h"
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/errors/errors.h"
 #include "driver/opc/telem/telem.h"
 #include "driver/opc/types/types.h"
 #include "driver/pipeline/acquisition.h"
-#include "driver/task/common/read_task.h"
-#include "driver/task/common/sample_clock.h"
 
 namespace driver::opc {
 struct InputChan {
     const bool enabled;
     /// @brief the OPC UA node id.
-    driver::opc::NodeId node;
+    types::NodeId node;
     /// @brief the corresponding channel key to write the variable for the node
     /// from.
     const synnax::channel::Key synnax_key;
@@ -43,7 +43,7 @@ struct InputChan {
 
     explicit InputChan(x::json::Parser &parser):
         enabled(parser.field<bool>("enabled", true)),
-        node(driver::opc::NodeId::parse("node_id", parser)),
+        node(types::NodeId::parse("node_id", parser)),
         synnax_key(parser.field<synnax::channel::Key>("channel")) {}
 
     // Move constructor - needed because NodeId is move-only
@@ -58,7 +58,7 @@ struct InputChan {
     InputChan &operator=(const InputChan &) = delete;
     InputChan &operator=(InputChan &&) = delete;
 
-    // No manual destructor needed - driver::opc::NodeId handles cleanup automatically
+    // No manual destructor needed - types::NodeId handles cleanup automatically
 };
 
 struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
@@ -67,8 +67,10 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     /// @brief array_size;
     const size_t array_size;
     /// @brief the config for connecting to the OPC UA server.
-    driver::opc::connection::Config connection;
+    /// Dynamically populated from device properties.
+    connection::Config connection;
     /// @brief keys of the index channels for the input channels.
+    /// Dynamically populated by querying the core.
     std::set<synnax::channel::Key> index_keys;
     /// @brief the list of channels to read from the server.
     std::vector<std::unique_ptr<InputChan>> channels;
@@ -118,9 +120,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
             return;
         }
         const auto properties = x::json::Parser(dev.properties);
-        this->connection = driver::opc::connection::Config(
-            properties.child("connection")
-        );
+        this->connection = connection::Config(properties.child("connection"));
         if (properties.error()) {
             parser.field_err("device", properties.error().message());
             return;
@@ -181,8 +181,8 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
 
 /// @brief Helper to create a ReadRequestBuilder from config.
 /// The builder borrows NodeIds from cfg, so cfg must outlive the builder.
-static driver::opc::ReadRequestBuilder create_read_request(const ReadTaskConfig &cfg) {
-    driver::opc::ReadRequestBuilder builder;
+static types::ReadRequestBuilder create_read_request(const ReadTaskConfig &cfg) {
+    types::ReadRequestBuilder builder;
     for (const auto &ch: cfg.channels) {
         if (!ch->enabled) continue;
         builder.add_node(ch->node, UA_ATTRIBUTEID_VALUE);
@@ -193,13 +193,13 @@ static driver::opc::ReadRequestBuilder create_read_request(const ReadTaskConfig 
 class BaseReadTaskSource : public driver::task::common::Source {
 protected:
     const ReadTaskConfig cfg;
-    std::shared_ptr<driver::opc::connection::Pool> pool;
-    driver::opc::connection::Pool::Connection connection;
-    driver::opc::ReadRequestBuilder request_builder;
+    std::shared_ptr<connection::Pool> pool;
+    connection::Pool::Connection connection;
+    types::ReadRequestBuilder request_builder;
     x::loop::Timer timer;
 
     BaseReadTaskSource(
-        std::shared_ptr<driver::opc::connection::Pool> pool,
+        std::shared_ptr<connection::Pool> pool,
         ReadTaskConfig cfg,
         const ::x::telem::Rate rate
     ):
@@ -221,17 +221,14 @@ protected:
     }
 
     x::errors::Error stop() override {
-        connection = driver::opc::connection::Pool::Connection(nullptr, nullptr, "");
+        connection = connection::Pool::Connection(nullptr, nullptr, "");
         return x::errors::NIL;
     }
 };
 
 class ArrayReadTaskSource final : public BaseReadTaskSource {
 public:
-    ArrayReadTaskSource(
-        std::shared_ptr<driver::opc::connection::Pool> pool,
-        ReadTaskConfig cfg
-    ):
+    ArrayReadTaskSource(std::shared_ptr<connection::Pool> pool, ReadTaskConfig cfg):
         BaseReadTaskSource(
             std::move(pool),
             std::move(cfg),
@@ -242,17 +239,15 @@ public:
         return this->cfg.sy_channels();
     }
 
-    driver::task::common::ReadResult
+    common::ReadResult
     read(x::breaker::Breaker &breaker, ::x::telem::Frame &fr) override {
-        driver::task::common::ReadResult res;
+        common::ReadResult res;
         this->timer.wait(breaker);
-        driver::opc::ReadResponse ua_res(UA_Client_Service_read(
+        types::ReadResponse ua_res(UA_Client_Service_read(
             this->connection.get(),
             this->request_builder.build()
         ));
-        if (res.error = driver::opc::errors::parse(
-                ua_res.get().responseHeader.serviceResult
-            );
+        if (res.error = errors::parse(ua_res.get().responseHeader.serviceResult);
             res.error)
             return res;
         driver::task::common::initialize_frame(
@@ -265,17 +260,17 @@ public:
         for (std::size_t i = 0; i < ua_res.get().resultsSize; ++i) {
             auto &result = ua_res.get().results[i];
             const auto &ch = cfg.channels[i];
-            if (res.error = driver::opc::errors::parse(result.status); res.error) {
-                res.error = driver::wrap_channel_error(
+            if (res.error = errors::parse(result.status); res.error) {
+                res.error = driver::errors::wrap_channel_error(
                     res.error,
                     ch->ch.name,
-                    driver::opc::NodeId::to_string(ch->node.get())
+                    types::NodeId::to_string(ch->node.get())
                 );
                 return res;
             }
             auto &s = fr.series->at(i);
             s.clear();
-            auto [written, err] = driver::opc::telem::ua_array_write_to_series(
+            auto [written, err] = telem::ua_array_write_to_series(
                 s,
                 &result.value,
                 this->cfg.array_size,
@@ -317,16 +312,13 @@ public:
 
 class UnaryReadTaskSource final : public BaseReadTaskSource {
 public:
-    UnaryReadTaskSource(
-        std::shared_ptr<driver::opc::connection::Pool> pool,
-        ReadTaskConfig cfg
-    ):
+    UnaryReadTaskSource(std::shared_ptr<connection::Pool> pool, ReadTaskConfig cfg):
         BaseReadTaskSource(std::move(pool), std::move(cfg), cfg.sample_rate) {}
 
-    driver::task::common::ReadResult
+    common::ReadResult
     read(x::breaker::Breaker &breaker, ::x::telem::Frame &fr) override {
-        driver::task::common::ReadResult res;
-        driver::task::common::initialize_frame(
+        common::ReadResult res;
+        common::initialize_frame(
             fr,
             this->cfg.channels,
             this->cfg.index_keys,
@@ -336,28 +328,26 @@ public:
             s.clear();
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
             const auto start = ::x::telem::TimeStamp::now();
-            driver::opc::ReadResponse ua_res(UA_Client_Service_read(
+            types::ReadResponse ua_res(UA_Client_Service_read(
                 this->connection.get(),
                 this->request_builder.build()
             ));
-            if (res.error = driver::opc::errors::parse(
-                    ua_res.get().responseHeader.serviceResult
-                );
+            if (res.error = errors::parse(ua_res.get().responseHeader.serviceResult);
                 res.error)
                 return res;
             bool skip_sample = false;
             for (std::size_t j = 0; j < ua_res.get().resultsSize; ++j) {
                 UA_DataValue &result = ua_res.get().results[j];
                 const auto &ch = this->cfg.channels[j];
-                if (res.error = driver::opc::errors::parse(result.status); res.error) {
-                    res.error = driver::wrap_channel_error(
+                if (res.error = errors::parse(result.status); res.error) {
+                    res.error = driver::errors::wrap_channel_error(
                         res.error,
                         ch->ch.name,
-                        driver::opc::NodeId::to_string(ch->node.get())
+                        types::NodeId::to_string(ch->node.get())
                     );
                     return res;
                 }
-                auto [written, write_err] = driver::opc::telem::write_to_series(
+                auto [written, write_err] = telem::write_to_series(
                     fr.series->at(j),
                     result.value
                 );

@@ -16,36 +16,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
+	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
-	pb "github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
+	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
-)
-
-type (
-	createServer = fgrpc.UnaryServer[
-		apiranger.CreateRequest,
-		*CreateRequest,
-		apiranger.CreateResponse,
-		*CreateResponse,
-	]
-	retrieveServer = fgrpc.UnaryServer[
-		apiranger.RetrieveRequest,
-		*RetrieveRequest,
-		apiranger.RetrieveResponse,
-		*RetrieveResponse,
-	]
-	deleteServer = fgrpc.UnaryServer[
-		apiranger.DeleteRequest,
-		*DeleteRequest,
-		types.Nil,
-		*emptypb.Empty,
-	]
-	renameServer = fgrpc.UnaryServer[
-		apiranger.RenameRequest,
-		*RenameRequest,
-		types.Nil,
-		*emptypb.Empty,
-	]
 )
 
 type (
@@ -54,76 +28,78 @@ type (
 	retrieveRequestTranslator  struct{}
 	retrieveResponseTranslator struct{}
 	deleteRequestTranslator    struct{}
-	renameRequestTranslator    struct{}
+	createServer               = fgrpc.UnaryServer[
+		apiranger.CreateRequest,
+		*gapi.RangeCreateRequest,
+		apiranger.CreateResponse,
+		*gapi.RangeCreateResponse,
+	]
+	retrieveServer = fgrpc.UnaryServer[
+		apiranger.RetrieveRequest,
+		*gapi.RangeRetrieveRequest,
+		apiranger.RetrieveResponse,
+		*gapi.RangeRetrieveResponse,
+	]
+	deleteServer = fgrpc.UnaryServer[
+		apiranger.DeleteRequest,
+		*gapi.RangeDeleteRequest,
+		types.Nil,
+		*emptypb.Empty,
+	]
 )
 
 var (
-	_ fgrpc.Translator[apiranger.CreateRequest, *CreateRequest]       = (*createRequestTranslator)(nil)
-	_ fgrpc.Translator[apiranger.CreateResponse, *CreateResponse]     = (*createResponseTranslator)(nil)
-	_ fgrpc.Translator[apiranger.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ fgrpc.Translator[apiranger.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
-	_ fgrpc.Translator[apiranger.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
-	_ fgrpc.Translator[apiranger.RenameRequest, *RenameRequest]       = (*renameRequestTranslator)(nil)
+	_ fgrpc.Translator[apiranger.CreateRequest, *gapi.RangeCreateRequest]       = (*createRequestTranslator)(nil)
+	_ fgrpc.Translator[apiranger.CreateResponse, *gapi.RangeCreateResponse]     = (*createResponseTranslator)(nil)
+	_ fgrpc.Translator[apiranger.RetrieveRequest, *gapi.RangeRetrieveRequest]   = (*retrieveRequestTranslator)(nil)
+	_ fgrpc.Translator[apiranger.RetrieveResponse, *gapi.RangeRetrieveResponse] = (*retrieveResponseTranslator)(nil)
+	_ fgrpc.Translator[apiranger.DeleteRequest, *gapi.RangeDeleteRequest]       = (*deleteRequestTranslator)(nil)
 )
 
 func (t createRequestTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	r apiranger.CreateRequest,
-) (*CreateRequest, error) {
-	ranges, err := pb.RangesToPB(ctx, r.Ranges)
-	if err != nil {
-		return nil, err
-	}
-	return &CreateRequest{Ranges: ranges}, nil
+) (*gapi.RangeCreateRequest, error) {
+	return &gapi.RangeCreateRequest{Ranges: translateManyForward(r.Ranges)}, nil
 }
 
 func (t createRequestTranslator) Backward(
-	ctx context.Context,
-	r *CreateRequest,
+	_ context.Context,
+	r *gapi.RangeCreateRequest,
 ) (apiranger.CreateRequest, error) {
-	ranges, err := pb.RangesFromPB(ctx, r.Ranges)
-	if err != nil {
-		return apiranger.CreateRequest{}, nil
-	}
+	ranges, err := translateManyBackward(r.Ranges)
 	return apiranger.CreateRequest{Ranges: ranges}, err
 }
 
 func (t createResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	r apiranger.CreateResponse,
-) (*CreateResponse, error) {
-	ranges, err := pb.RangesToPB(ctx, r.Ranges)
-	if err != nil {
-		return nil, err
-	}
-	return &CreateResponse{Ranges: ranges}, nil
+) (*gapi.RangeCreateResponse, error) {
+	return &gapi.RangeCreateResponse{Ranges: translateManyForward(r.Ranges)}, nil
 }
 
 func (t createResponseTranslator) Backward(
-	ctx context.Context,
-	r *CreateResponse,
+	_ context.Context,
+	r *gapi.RangeCreateResponse,
 ) (apiranger.CreateResponse, error) {
-	ranges, err := pb.RangesFromPB(ctx, r.Ranges)
-	if err != nil {
-		return apiranger.CreateResponse{}, nil
-	}
+	ranges, err := translateManyBackward(r.Ranges)
 	return apiranger.CreateResponse{Ranges: ranges}, err
 }
 
 func (t retrieveRequestTranslator) Forward(
 	_ context.Context,
 	r apiranger.RetrieveRequest,
-) (*RetrieveRequest, error) {
+) (*gapi.RangeRetrieveRequest, error) {
 	keys := make([]string, len(r.Keys))
 	for i := range r.Keys {
 		keys[i] = r.Keys[i].String()
 	}
-	return &RetrieveRequest{Keys: keys, Names: r.Names}, nil
+	return &gapi.RangeRetrieveRequest{Keys: keys, Names: r.Names}, nil
 }
 
 func (t retrieveRequestTranslator) Backward(
 	_ context.Context,
-	r *RetrieveRequest,
+	r *gapi.RangeRetrieveRequest,
 ) (apiranger.RetrieveRequest, error) {
 	keys := make([]uuid.UUID, len(r.Keys))
 	for i := range r.Keys {
@@ -137,41 +113,34 @@ func (t retrieveRequestTranslator) Backward(
 }
 
 func (t retrieveResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	r apiranger.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	ranges, err := pb.RangesToPB(ctx, r.Ranges)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Ranges: ranges}, nil
+) (*gapi.RangeRetrieveResponse, error) {
+	return &gapi.RangeRetrieveResponse{Ranges: translateManyForward(r.Ranges)}, nil
 }
 
 func (t retrieveResponseTranslator) Backward(
-	ctx context.Context,
-	r *RetrieveResponse,
+	_ context.Context,
+	r *gapi.RangeRetrieveResponse,
 ) (apiranger.RetrieveResponse, error) {
-	ranges, err := pb.RangesFromPB(ctx, r.Ranges)
-	if err != nil {
-		return apiranger.RetrieveResponse{}, nil
-	}
+	ranges, err := translateManyBackward(r.Ranges)
 	return apiranger.RetrieveResponse{Ranges: ranges}, err
 }
 
 func (t deleteRequestTranslator) Forward(
 	_ context.Context,
 	r apiranger.DeleteRequest,
-) (*DeleteRequest, error) {
+) (*gapi.RangeDeleteRequest, error) {
 	keys := make([]string, len(r.Keys))
 	for i, k := range r.Keys {
 		keys[i] = k.String()
 	}
-	return &DeleteRequest{Keys: keys}, nil
+	return &gapi.RangeDeleteRequest{Keys: keys}, nil
 }
 
 func (t deleteRequestTranslator) Backward(
 	_ context.Context,
-	r *DeleteRequest,
+	r *gapi.RangeDeleteRequest,
 ) (apiranger.DeleteRequest, error) {
 	keys := make([]uuid.UUID, len(r.Keys))
 	for i := range r.Keys {
@@ -184,56 +153,68 @@ func (t deleteRequestTranslator) Backward(
 	return apiranger.DeleteRequest{Keys: keys}, nil
 }
 
-func (t renameRequestTranslator) Forward(
-	_ context.Context,
-	r apiranger.RenameRequest,
-) (*RenameRequest, error) {
-	return &RenameRequest{
-		Key:  r.Key.String(),
-		Name: r.Name,
-	}, nil
+func translateForward(r apiranger.Range) *gapi.Range {
+	return &gapi.Range{
+		Key:       r.Key.String(),
+		Name:      r.Name,
+		TimeRange: telem.TranslateTimeRangeForward(r.TimeRange),
+	}
 }
 
-func (t renameRequestTranslator) Backward(
-	_ context.Context,
-	r *RenameRequest,
-) (apiranger.RenameRequest, error) {
-	key, err := uuid.Parse(r.Key)
-	return apiranger.RenameRequest{
-		Key:  key,
-		Name: r.Name,
-	}, err
+func translateManyForward(r []apiranger.Range) []*gapi.Range {
+	ranges := make([]*gapi.Range, len(r))
+	for i := range r {
+		ranges[i] = translateForward(r[i])
+	}
+	return ranges
+}
+
+func translateBackward(r *gapi.Range) (or apiranger.Range, err error) {
+	if r.Key != "" {
+		or.Key, err = uuid.Parse(r.Key)
+		if err != nil {
+			return apiranger.Range{}, err
+		}
+	}
+	or.Name = r.Name
+	or.TimeRange = telem.TranslateTimeRangeBackward(r.TimeRange)
+	return
+}
+
+func translateManyBackward(r []*gapi.Range) ([]apiranger.Range, error) {
+	ranges := make([]apiranger.Range, len(r))
+	var err error
+	for i := range r {
+		ranges[i], err = translateBackward(r[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return ranges, nil
 }
 
 func New(a *api.Transport) fgrpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
-		ServiceDesc:        &RangeCreateService_ServiceDesc,
+		ServiceDesc:        &gapi.RangeCreateService_ServiceDesc,
 	}
 	a.RangeCreate = create
 	retrieve := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
-		ServiceDesc:        &RangeRetrieveService_ServiceDesc,
+		ServiceDesc:        &gapi.RangeRetrieveService_ServiceDesc,
 	}
 	a.RangeRetrieve = retrieve
 	rangeDelete := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: fgrpc.EmptyTranslator{},
-		ServiceDesc:        &RangeDeleteService_ServiceDesc,
+		ServiceDesc:        &gapi.RangeDeleteService_ServiceDesc,
 	}
 	a.RangeDelete = rangeDelete
-	rename := &renameServer{
-		RequestTranslator:  renameRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
-		ServiceDesc:        &RangeRenameService_ServiceDesc,
-	}
-	a.RangeRename = rename
 	return fgrpc.CompoundBindableTransport{
 		create,
 		retrieve,
 		rangeDelete,
-		rename,
 	}
 }

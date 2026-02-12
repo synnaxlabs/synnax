@@ -19,8 +19,8 @@ class BasicMiddleware final : public PassthroughMiddleware {
 public:
     explicit BasicMiddleware(std::string value): value(std::move(value)) {}
 
-    std::pair<Context, x::errors::Error>
-    operator()(Context context, Next &next) override {
+    std::pair<freighter::Context, x::errors::Error>
+    operator()(freighter::Context context, freighter::Next &next) override {
         context.set("test", value);
         return next(context);
     }
@@ -28,7 +28,8 @@ public:
 
 class BasicFinalizer final : public Finalizer<int, int> {
 public:
-    FinalizerReturn<int> operator()(const Context context, int &req) override {
+    freighter::FinalizerReturn<int>
+    operator()(const freighter::Context context, int &req) override {
         return {context, x::errors::NIL, req + 1};
     }
 };
@@ -41,7 +42,7 @@ TEST(testFreighter, testMiddlewareCollector) {
     auto f = BasicFinalizer();
     collector.use(mw1);
     collector.use(mw2);
-    const auto ctx = Context("test", x::url::URL("1"), UNARY);
+    const auto ctx = freighter::Context("test", x::url::URL("1"), freighter::UNARY);
     auto req = 1;
     const auto res = ASSERT_NIL_P(collector.exec(ctx, &f, req));
     ASSERT_EQ(res, 2);

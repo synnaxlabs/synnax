@@ -16,12 +16,12 @@
 #include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
 
+#include "driver/common/common.h"
+#include "driver/common/write_task.h"
 #include "driver/ni/channel/channels.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/ni.h"
 #include "driver/pipeline/control.h"
-#include "driver/task/common/common.h"
-#include "driver/task/common/write_task.h"
 
 namespace driver::ni {
 /// @brief WriteTaskConfig is the configuration for creating an NI Write Task.
@@ -34,10 +34,10 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
     std::map<synnax::channel::Key, std::unique_ptr<channel::Output>> channels;
     /// @brief the index channel keys for all the state channels. This is used
     /// to make sure we write correct timestamps for each state channel.
+    /// Dynamically populated by querying the core.
     std::set<synnax::channel::Key> state_index_keys;
     /// @brief a map of channel keys to their index positions within the tasks
-    /// write buffer. This map is only valid after apply() has been called on the
-    /// configuration.
+    /// write buffer. Dynamically populated during parsing.
     std::unordered_map<synnax::channel::Key, std::size_t> buf_indexes;
 
     /// @brief move constructor to deal with output channel unique pointers.
@@ -65,7 +65,7 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &cfg
     ):
-        driver::task::common::BaseWriteTaskConfig(cfg),
+        common::BaseWriteTaskConfig(cfg),
         state_rate(x::telem::Rate(cfg.field<float>("state_rate"))) {
         cfg.iter("channels", [&](x::json::Parser &ch_cfg) {
             auto ch = channel::parse_output(ch_cfg);
@@ -184,10 +184,10 @@ private:
     /// time a command is provided.
     std::vector<T> buf;
 
-    /// @brief implements driver::task::common::Task to start the hardware writer.
+    /// @brief implements common::Task to start the hardware writer.
     x::errors::Error start() override { return this->hw_writer->start(); }
 
-    /// @brief implements driver::task::common::Task to stop the hardware writer.
+    /// @brief implements common::Task to stop the hardware writer.
     x::errors::Error stop() override { return this->hw_writer->stop(); }
 
     /// @brief implements driver::pipeline::Sink to write the incoming frame to the

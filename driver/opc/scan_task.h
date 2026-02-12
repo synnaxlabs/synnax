@@ -21,21 +21,18 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
+#include "driver/common/scan_task.h"
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/types/types.h"
-#include "driver/task/common/scan_task.h"
 #include "driver/task/task.h"
 #include "opc.h"
-
-using json = x::json::json;
 
 namespace driver::opc {
 inline const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
 /// @brief Configuration for the OPC UA scanner.
 struct ScanTaskConfig : driver::task::common::ScanTaskConfig {
     ScanTaskConfig() = default;
-    explicit ScanTaskConfig(x::json::Parser &cfg):
-        driver::task::common::ScanTaskConfig(cfg) {}
+    explicit ScanTaskConfig(x::json::Parser &cfg): common::ScanTaskConfig(cfg) {}
 };
 
 ///@brief The parameters for connecting to and iterating through nodes in the OPC UA
@@ -43,15 +40,15 @@ struct ScanTaskConfig : driver::task::common::ScanTaskConfig {
 struct ScanCommandArgs {
     connection::Config connection;
     std::string node_id;
-    driver::opc::NodeId node;
+    types::NodeId node;
 
     explicit ScanCommandArgs(x::json::Parser &parser):
-        connection(driver::opc::connection::Config(parser.child("connection"))),
+        connection(opc::connection::Config(parser.child("connection"))),
         node_id(parser.field<std::string>("node_id", "")) {
         if (node_id.empty())
-            node = NodeId(UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER));
+            node = types::NodeId(UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER));
         else
-            node = NodeId::parse("node_id", parser);
+            node = types::NodeId::parse("node_id", parser);
     }
 };
 
@@ -63,7 +60,7 @@ const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 class Scanner final : public driver::task::common::Scanner {
 public:
     Scanner(
-        std::shared_ptr<driver::task::Context> ctx,
+        std::shared_ptr<task::Context> ctx,
         synnax::task::Task task,
         std::shared_ptr<connection::Pool> conn_pool
     );
@@ -73,17 +70,17 @@ public:
 
     /// @brief Periodic scan method - checks health of all tracked devices.
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
-    scan(const driver::task::common::ScannerContext &scan_ctx) override;
+    scan(const common::ScannerContext &scan_ctx) override;
 
     /// @brief Handle OPC-specific commands (scan nodes, test connection).
     bool exec(
-        synnax::task::Command &cmd,
+        task::Command &cmd,
         const synnax::task::Task &task,
-        const std::shared_ptr<driver::task::Context> &ctx
+        const std::shared_ptr<task::Context> &ctx
     ) override;
 
 private:
-    std::shared_ptr<driver::task::Context> ctx;
+    std::shared_ptr<task::Context> ctx;
     synnax::task::Task task;
     std::shared_ptr<connection::Pool> conn_pool;
     ScanTaskConfig cfg;

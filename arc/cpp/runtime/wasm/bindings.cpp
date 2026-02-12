@@ -133,21 +133,13 @@ void Bindings::channel_write_str(uint32_t channel_id, uint32_t str_handle) {
 }
 
 #define IMPL_STATE_OPS(suffix, cpptype)                                                \
-    cpptype Bindings::state_load_##suffix(                                             \
-        uint32_t func_id,                                                              \
-        uint32_t var_id,                                                               \
-        cpptype init_value                                                             \
-    ) {                                                                                \
+    cpptype Bindings::state_load_##suffix(uint32_t var_id, cpptype init_value) {       \
         if (this->state == nullptr) return init_value;                                 \
-        return this->state->var_load_##suffix(func_id, var_id, init_value);            \
+        return this->state->var_load_##suffix(var_id, init_value);                     \
     }                                                                                  \
-    void Bindings::state_store_##suffix(                                               \
-        uint32_t func_id,                                                              \
-        uint32_t var_id,                                                               \
-        cpptype value                                                                  \
-    ) {                                                                                \
+    void Bindings::state_store_##suffix(uint32_t var_id, cpptype value) {              \
         if (this->state == nullptr) return;                                            \
-        this->state->var_store_##suffix(func_id, var_id, value);                       \
+        this->state->var_store_##suffix(var_id, value);                                \
     }
 
 IMPL_STATE_OPS(u8, uint8_t)
@@ -163,22 +155,14 @@ IMPL_STATE_OPS(f64, double)
 
 #undef IMPL_STATE_OPS
 
-uint32_t Bindings::state_load_str(
-    const uint32_t func_id,
-    const uint32_t var_id,
-    const uint32_t init_handle
-) {
+uint32_t Bindings::state_load_str(const uint32_t var_id, const uint32_t init_handle) {
     if (this->state == nullptr) return init_handle;
-    return this->state->var_load_str(func_id, var_id, init_handle);
+    return this->state->var_load_str(var_id, init_handle);
 }
 
-void Bindings::state_store_str(
-    const uint32_t func_id,
-    const uint32_t var_id,
-    const uint32_t str_handle
-) {
+void Bindings::state_store_str(const uint32_t var_id, const uint32_t str_handle) {
     if (this->state == nullptr) return;
-    this->state->var_store_str(func_id, var_id, str_handle);
+    this->state->var_store_str(var_id, str_handle);
 }
 
 uint64_t Bindings::series_len(const uint32_t handle) {
@@ -419,20 +403,15 @@ std::string Bindings::string_get(const uint32_t handle) const {
         return this->state->series_store(std::move(result));                           \
     }                                                                                  \
     uint32_t Bindings::state_load_series_##suffix(                                     \
-        uint32_t func_id,                                                              \
         uint32_t var_id,                                                               \
         uint32_t init_handle                                                           \
     ) {                                                                                \
         if (this->state == nullptr) return init_handle;                                \
-        return this->state->var_load_series(func_id, var_id, init_handle);             \
+        return this->state->var_load_series(var_id, init_handle);                      \
     }                                                                                  \
-    void Bindings::state_store_series_##suffix(                                        \
-        uint32_t func_id,                                                              \
-        uint32_t var_id,                                                               \
-        uint32_t handle                                                                \
-    ) {                                                                                \
+    void Bindings::state_store_series_##suffix(uint32_t var_id, uint32_t handle) {     \
         if (this->state == nullptr) return;                                            \
-        this->state->var_store_series(func_id, var_id, handle);                        \
+        this->state->var_store_series(var_id, handle);                                 \
     }
 
 IMPL_SERIES_OPS(u8, uint8_t, x::telem::UINT8_T)

@@ -18,6 +18,7 @@
 #include "client/cpp/arc/proto.gen.h"
 #include "client/cpp/arc/types.gen.h"
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/api/grpc/arc/arc.pb.h"
 
@@ -25,15 +26,17 @@ namespace synnax::arc {
 
 /// @brief Freighter client for creating Arc programs.
 using CreateClient = freighter::
-    UnaryClient<grpc::arc::CreateRequest, grpc::arc::CreateResponse>;
+    UnaryClient<api::v1::ArcCreateRequest, api::v1::ArcCreateResponse>;
 
 /// @brief Freighter client for retrieving Arc programs.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::arc::RetrieveRequest, grpc::arc::RetrieveResponse>;
+    UnaryClient<api::v1::ArcRetrieveRequest, api::v1::ArcRetrieveResponse>;
 
 /// @brief Freighter client for deleting Arc programs.
 using DeleteClient = freighter::
-    UnaryClient<grpc::arc::DeleteRequest, google::protobuf::Empty>;
+    UnaryClient<api::v1::ArcDeleteRequest, google::protobuf::Empty>;
+
+class Client;
 
 /// @brief Options for retrieving Arc programs.
 struct RetrieveOptions {
@@ -60,6 +63,35 @@ struct RetrieveOptions {
         if (offset > 0) req.set_offset(offset);
         if (!search_term.empty()) req.set_search_term(search_term);
     }
+};
+
+/// @brief Represents an Arc automation program.
+/// @details Arc is a domain-specific language for control systems. An Arc program
+/// contains both a visual graph representation and text-based source code.
+/// See https://docs.synnaxlabs.com/reference/concepts/arc for more information.
+struct Arc {
+    /// @brief Unique identifier for the Arc program (UUID).
+    x::uuid::UUID key;
+    /// @brief Human-readable name for the Arc program.
+    std::string name;
+    /// @brief Visual graph representation of the Arc program.
+    ::arc::graph::Graph graph;
+    /// @brief Text-based source code representation.
+    ::arc::text::Text text;
+    /// @brief Compiled module with IR and WASM bytecode.
+    ::arc::module::Module module;
+    /// @brief Whether the Arc program should be deployed and running.
+    bool deploy = false;
+    /// @brief Version string for the Arc program.
+    std::string version;
+
+    /// @brief Constructs an Arc program from its protobuf representation.
+    /// @param pb Protobuf message representing the Arc program.
+    static std::pair<Arc, x::errors::Error> from_proto(const api::v1::Arc &pb);
+
+    /// @brief Converts the Arc program to its protobuf representation.
+    /// @param pb Pointer to protobuf message to populate.
+    void to_proto(api::v1::Arc *pb) const;
 };
 
 /// @brief Client for managing Arc automation programs in a Synnax cluster.
@@ -146,12 +178,13 @@ public:
     /// @brief Deletes an Arc program by its key.
     /// @param key The key of the Arc program to delete.
     /// @returns An error if the Arc program could not be deleted.
-    [[nodiscard]] x::errors::Error del(const x::uuid::UUID &key) const;
+    [[nodiscard]] x::errors::Error delete_arc(const x::uuid::UUID &key) const;
 
     /// @brief Deletes multiple Arc programs by their keys.
     /// @param keys Vector of keys of Arc programs to delete.
     /// @returns An error if the Arc programs could not be deleted.
-    [[nodiscard]] x::errors::Error del(const std::vector<x::uuid::UUID> &keys) const;
+    [[nodiscard]] x::errors::Error
+    delete_arc(const std::vector<x::uuid::UUID> &keys) const;
 
 private:
     /// @brief Client for retrieving Arc programs.

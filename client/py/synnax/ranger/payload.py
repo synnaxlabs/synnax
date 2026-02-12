@@ -9,9 +9,30 @@
 
 from uuid import UUID
 
+from freighter import Payload
+from pydantic import ConfigDict
+
+from synnax.color import Color
 from synnax.ontology import ID
 
 RANGE_ONTOLOGY_TYPE = ID(type="range")
+
+
+def ontology_id(key: UUID) -> ID:
+    """Returns the ontology ID for the Range entity."""
+    return ID(type=RANGE_ONTOLOGY_TYPE.type, key=str(key))
+
+
+class RangePayload(Payload):
+    """Network transportable payload representing a range."""
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    key: UUID = UUID(int=0)
+    name: str = ""
+    time_range: TimeRange
+    color: Color = Color()
+
 
 RangeKey = UUID | str
 """The type for the key of a Range. A UUID."""

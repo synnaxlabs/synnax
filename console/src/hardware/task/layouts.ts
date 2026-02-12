@@ -10,6 +10,7 @@
 import { DisconnectedError, type Synnax, type task } from "@synnaxlabs/client";
 
 import { type Common } from "@/hardware/common";
+import { EtherCAT } from "@/hardware/ethercat";
 import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
@@ -18,6 +19,7 @@ import { Sequence } from "@/hardware/task/sequence";
 import { type Layout } from "@/layout";
 
 const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
+  ...EtherCAT.Task.ZERO_LAYOUTS,
   ...LabJack.Task.ZERO_LAYOUTS,
   ...Modbus.Task.ZERO_LAYOUTS,
   ...NI.Task.ZERO_LAYOUTS,

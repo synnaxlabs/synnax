@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -28,13 +29,16 @@ type Service struct {
 	internal *view.Service
 }
 
-// NewService creates a new service for managing views.
-func NewService(cfg config.Config) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
+		internal: cfg.Service.View,
 		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
-		internal: cfg.Service.View,
-	}
+	}, nil
 }
 
 type View = view.View

@@ -9,109 +9,86 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias
-
-from pydantic import model_validator
-
-from synnax.color.types_gen import Payload
+from pydantic import BaseModel, model_validator
 
 
-class Color(Payload):
+class Color(BaseModel):
+    """An RGBA color with 8-bit RGB channels and a float alpha."""
+
+    r: int = 0
+    g: int = 0
+    b: int = 0
+    a: float = 1
+
+    def __init__(self, __value: object = None, /, **kwargs: object):
+        if __value is not None:
+            validated = type(self).model_validate(__value)
+            super().__init__(r=validated.r, g=validated.g, b=validated.b, a=validated.a)
+        else:
+            super().__init__(**kwargs)
+
     @model_validator(mode="before")
     @classmethod
-    def _parse_input(cls, data: Any) -> dict[str, Any]:
-        if isinstance(data, dict) and "r" in data:
-            return data
-        if isinstance(data, str):
-            r, g, b, a = cls._from_hex(data)
-            return {"r": r, "g": g, "b": b, "a": a}
-        if isinstance(data, (list, tuple)):
-            if len(data) == 4:
+    def _parse(cls, v: object) -> object:
+        if isinstance(v, Color):
+            return v
+        if isinstance(v, str):
+            return _from_hex(v)
+        if isinstance(v, (list, tuple)):
+            if len(v) == 3:
+                return {"r": int(v[0]), "g": int(v[1]), "b": int(v[2]), "a": 1.0}
+            if len(v) == 4:
                 return {
-                    "r": int(data[0]),
-                    "g": int(data[1]),
-                    "b": int(data[2]),
-                    "a": float(data[3]),
+                    "r": int(v[0]),
+                    "g": int(v[1]),
+                    "b": int(v[2]),
+                    "a": float(v[3]),
                 }
-            if len(data) == 3:
-                return {
-                    "r": int(data[0]),
-                    "g": int(data[1]),
-                    "b": int(data[2]),
-                    "a": 1.0,
-                }
-        raise ValueError(
-            "Color must be hex string, [R,G,B,A] array, [R,G,B] array, or {r,g,b,a} dict"
-        )
+            raise ValueError(f"Invalid color array length: {len(v)}")
+        if isinstance(v, dict):
+            return v
+        raise ValueError(f"Cannot parse color from: {v!r}")
 
-    def hex(self, include_alpha: bool = True) -> str:
-        alpha_byte = int(self.a * 255)
-        if include_alpha or alpha_byte != 255:
-            return f"#{self.r:02x}{self.g:02x}{self.b:02x}{alpha_byte:02x}"
-        return f"#{self.r:02x}{self.g:02x}{self.b:02x}"
+    def hex(self) -> str:
+        """Return the hex string representation of the color."""
+        alpha_byte = round(self.a * 255)
+        if alpha_byte == 255:
+            return f"#{self.r:02x}{self.g:02x}{self.b:02x}"
+        return f"#{self.r:02x}{self.g:02x}{self.b:02x}{alpha_byte:02x}"
 
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, (str, list, tuple)):
+            try:
+                other = Color(other)
+            except (ValueError, TypeError):
+                return NotImplemented
+        return super().__eq__(other)
+
+    @property
     def is_zero(self) -> bool:
         return self.r == 0 and self.g == 0 and self.b == 0 and self.a == 0
 
-    @staticmethod
-    def _from_hex(hex_str: str) -> tuple[int, int, int, float]:
-        hex_str = hex_str.lstrip("#")
-        if len(hex_str) == 0:
-            return (0, 0, 0, 0.0)
-        if len(hex_str) not in (6, 8):
-            raise ValueError("Hex color must be 6 or 8 hex digits")
-        alpha = int(hex_str[6:8], 16) / 255.0 if len(hex_str) == 8 else 1.0
-        return (
-            int(hex_str[0:2], 16),
-            int(hex_str[2:4], 16),
-            int(hex_str[4:6], 16),
-            alpha,
-        )
 
-    def __repr__(self) -> str:
-        return f"Color({self.hex()})"
-
-    def __eq__(self, other: object) -> bool:
-        other_color = Color.model_validate(other)
-        return (
-            other_color.r == self.r
-            and other_color.g == self.g
-            and other_color.b == self.b
-            and abs(self.a - other_color.a) < 0.004
-        )
-
-    def __hash__(self) -> int:
-        return hash((self.r, self.g, self.b, round(self.a, 2)))
+def _from_hex(s: str) -> dict:
+    s = s.lstrip("#")
+    if len(s) == 0:
+        return {"r": 0, "g": 0, "b": 0, "a": 0}
+    if len(s) == 6:
+        return {
+            "r": int(s[0:2], 16),
+            "g": int(s[2:4], 16),
+            "b": int(s[4:6], 16),
+            "a": 1.0,
+        }
+    if len(s) == 8:
+        return {
+            "r": int(s[0:2], 16),
+            "g": int(s[2:4], 16),
+            "b": int(s[4:6], 16),
+            "a": int(s[6:8], 16) / 255.0,
+        }
+    raise ValueError(f"Invalid hex color: #{s}")
 
 
-# Crude color representations - defined after Color class to avoid forward reference issues
-Crude: TypeAlias = (
-    str
-    | tuple[int, int, int, float]
-    | tuple[int, int, int]
-    | dict[str, int | float]
-    | Color
-)
-"""
-An unparsed representation of a color that can be converted into a Color object.
-Supports:
-- Hex strings: '#ff0000', '#ff0000ff'
-- RGBA tuples: (255, 0, 0, 1.0)
-- RGB tuples: (255, 0, 0) - alpha defaults to 1.0
-- Dicts: {'r': 255, 'g': 0, 'b': 0, 'a': 1.0}
-- Color objects
-"""
-
-
-def is_crude(value: Any) -> bool:
-    """Check if a value can be parsed into a valid Color."""
-    try:
-        Color.model_validate(value)
-        return True
-    except (ValueError, TypeError):
-        return False
-
-
-def construct(color: Crude) -> Color:
-    """Construct a Color from a crude representation."""
-    return Color.model_validate(color)
+Crude = Color | str | list[int] | tuple[int, ...]
+"""Types that can be coerced into a Color."""

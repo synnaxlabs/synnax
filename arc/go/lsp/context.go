@@ -25,6 +25,7 @@ const (
 	ContextStatementStart
 	ContextConfigParamName
 	ContextConfigParamValue
+	ContextAuthorityEntry
 )
 
 type configContextInfo struct {
@@ -92,6 +93,9 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 		return ContextStatementStart
 	}
 	lastToken := tokensBeforeCursor[len(tokensBeforeCursor)-1]
+	if isAuthorityEntryContext(tokensBeforeCursor) {
+		return ContextAuthorityEntry
+	}
 	if configCtx := detectConfigContext(tokensBeforeCursor); configCtx != ContextUnknown {
 		return configCtx
 	}
@@ -289,6 +293,63 @@ func isStatementStartContext(tokens []antlr.Token, lastToken antlr.Token, pos pr
 	return false
 }
 
+// isAuthorityEntryContext checks if the cursor is inside an authority(...) block.
+func isAuthorityEntryContext(tokens []antlr.Token) bool {
+	parenDepth := 0
+	for i := len(tokens) - 1; i >= 0; i-- {
+		tokenType := tokens[i].GetTokenType()
+		switch tokenType {
+		case parser.ArcLexerRPAREN:
+			parenDepth++
+		case parser.ArcLexerLPAREN:
+			if parenDepth > 0 {
+				parenDepth--
+			} else {
+				return i > 0 && tokens[i-1].GetTokenType() == parser.ArcLexerAUTHORITY
+			}
+		}
+	}
+	return false
+}
+
+// extractAuthorityExistingChannels returns channel names already listed in the
+// authority block before the cursor position.
+func extractAuthorityExistingChannels(content string, pos protocol.Position) []string {
+	tokens := tokenizeContent(content)
+	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
+	// Find the opening paren of the authority block.
+	parenDepth := 0
+	parenIdx := -1
+	for i := len(tokensBeforeCursor) - 1; i >= 0; i-- {
+		tokenType := tokensBeforeCursor[i].GetTokenType()
+		switch tokenType {
+		case parser.ArcLexerRPAREN:
+			parenDepth++
+		case parser.ArcLexerLPAREN:
+			if parenDepth > 0 {
+				parenDepth--
+			} else {
+				parenIdx = i
+			}
+		}
+		if parenIdx >= 0 {
+			break
+		}
+	}
+	if parenIdx < 0 {
+		return nil
+	}
+	// Collect identifiers inside the block — these are channel names in entries
+	// like `valve 100`.
+	var existing []string
+	for i := parenIdx + 1; i < len(tokensBeforeCursor); i++ {
+		if tokensBeforeCursor[i].GetTokenType() == parser.ArcLexerIDENTIFIER {
+			existing = append(existing, tokensBeforeCursor[i].GetText())
+		}
+	}
+	return existing
+}
+
 func detectConfigContext(tokens []antlr.Token) CompletionContext {
 	result := findConfigBrace(tokens)
 	if result == nil {
@@ -305,6 +366,51 @@ func detectConfigContext(tokens []antlr.Token) CompletionContext {
 		return ContextConfigParamName
 	}
 	return ContextUnknown
+}
+
+// NestingKind represents the kind of nesting context the cursor is in.
+type NestingKind int
+
+const (
+	NestingTopLevel     NestingKind = iota
+	NestingFunction                 // inside func body, if block, etc.
+	NestingSequenceBody             // inside sequence body (only stage declarations)
+	NestingStageBody                // inside stage body (flow statements)
+)
+
+// detectNesting walks the tokens before the cursor and determines the
+// innermost nesting context. It tracks SEQUENCE/STAGE/FUNC keywords
+// followed by brace patterns, and any other braces (if blocks, etc.)
+// are treated as function-level nesting.
+func detectNesting(tokens []antlr.Token) NestingKind {
+	type frame struct{ kind NestingKind }
+	var stack []frame
+	for i := 0; i < len(tokens); i++ {
+		tt := tokens[i].GetTokenType()
+		switch tt {
+		case parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE:
+			kind := NestingSequenceBody
+			if tt == parser.ArcLexerSTAGE {
+				kind = NestingStageBody
+			}
+			if i+2 < len(tokens) &&
+				tokens[i+1].GetTokenType() == parser.ArcLexerIDENTIFIER &&
+				tokens[i+2].GetTokenType() == parser.ArcLexerLBRACE {
+				stack = append(stack, frame{kind: kind})
+				i += 2
+			}
+		case parser.ArcLexerLBRACE:
+			stack = append(stack, frame{kind: NestingFunction})
+		case parser.ArcLexerRBRACE:
+			if len(stack) > 0 {
+				stack = stack[:len(stack)-1]
+			}
+		}
+	}
+	if len(stack) == 0 {
+		return NestingTopLevel
+	}
+	return stack[len(stack)-1].kind
 }
 
 func extractConfigContext(content string, pos protocol.Position) *configContextInfo {

@@ -16,9 +16,21 @@
 #include "x/cpp/telem/telem.h"
 
 namespace arc::runtime::node {
+
+/// @brief Indicates what triggered the current scheduler run.
+enum class RunReason {
+    /// @brief Scheduler run triggered by timer expiration.
+    TimerTick,
+    /// @brief Scheduler run triggered by input data arrival.
+    ChannelInput,
+};
+
 struct Context {
     x::telem::TimeSpan elapsed;
     x::telem::TimeSpan tolerance;
+    /// @brief Indicates what triggered this scheduler run.
+    /// Time-based nodes should only fire when reason is TimerTick.
+    RunReason reason;
     std::function<void(const std::string &output_param)> mark_changed;
     std::function<void(const x::errors::Error &)> report_error;
     std::function<void()> activate_stage;

@@ -14,12 +14,12 @@
 
 #include "x/cpp/json/json.h"
 
+#include "driver/common/status.h"
 #include "driver/modbus/scan_task.h"
-#include "driver/task/common/status.h"
 
 namespace driver::modbus {
 Scanner::Scanner(
-    std::shared_ptr<driver::task::Context> ctx,
+    std::shared_ptr<task::Context> ctx,
     synnax::task::Task task,
     std::shared_ptr<device::Manager> devices
 ):
@@ -33,7 +33,7 @@ driver::task::common::ScannerConfig Scanner::config() const {
 }
 
 std::pair<std::vector<synnax::device::Device>, x::errors::Error>
-Scanner::scan(const driver::task::common::ScannerContext &scan_ctx) {
+Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::device::Device> devices_out;
     if (scan_ctx.devices == nullptr) return {devices_out, x::errors::NIL};
     for (auto [key, dev]: *scan_ctx.devices) {
@@ -44,9 +44,9 @@ Scanner::scan(const driver::task::common::ScannerContext &scan_ctx) {
 }
 
 bool Scanner::exec(
-    synnax::task::Command &cmd,
+    task::Command &cmd,
     const synnax::task::Task &,
-    const std::shared_ptr<driver::task::Context> &
+    const std::shared_ptr<task::Context> &
 ) {
     if (cmd.type == TEST_CONNECTION_CMD_TYPE) {
         this->test_connection(cmd);
@@ -61,7 +61,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
     const auto conn_cfg = device::ConnectionConfig(parser.child("connection"));
     if (parser.error()) {
         dev.status = synnax::device::Status{
-            .key = synnax::device::status_key(dev),
+            .key = dev.status_key(),
             .name = dev.name,
             .variant = x::status::VARIANT_WARNING,
             .message = "Invalid device properties",
@@ -75,7 +75,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
     auto [conn, conn_err] = this->devices->acquire(conn_cfg);
     if (conn_err)
         dev.status = synnax::device::Status{
-            .key = synnax::device::status_key(dev),
+            .key = dev.status_key(),
             .name = dev.name,
             .variant = x::status::VARIANT_WARNING,
             .message = "Failed to reach device",
@@ -85,7 +85,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         };
     else
         dev.status = synnax::device::Status{
-            .key = synnax::device::status_key(dev),
+            .key = dev.status_key(),
             .name = dev.name,
             .variant = x::status::VARIANT_SUCCESS,
             .message = "Device connected",
@@ -94,11 +94,11 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         };
 }
 
-void Scanner::test_connection(const synnax::task::Command &cmd) const {
+void Scanner::test_connection(const task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
+        .key = this->task.status_key(),
         .name = this->task.name,
         .variant = x::status::VARIANT_ERROR,
         .details = synnax::task::StatusDetails{

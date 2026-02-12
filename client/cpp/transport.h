@@ -30,16 +30,16 @@ struct Transport {
 
     void use(const std::shared_ptr<freighter::Middleware> &) const;
 
-    std::unique_ptr<AuthLoginClient> auth_login;
+    std::unique_ptr<auth::LoginClient> auth_login;
     std::unique_ptr<framer::StreamerClient> frame_stream;
     std::unique_ptr<framer::WriterClient> frame_write;
     std::shared_ptr<channel::CreateClient> chan_create;
     std::shared_ptr<channel::RetrieveClient> chan_retrieve;
     std::unique_ptr<ranger::RetrieveClient> range_retrieve;
     std::unique_ptr<ranger::CreateClient> range_create;
-    std::shared_ptr<kv::DeleteClient> kv_delete;
-    std::shared_ptr<kv::GetClient> kv_get;
-    std::shared_ptr<kv::SetClient> kv_set;
+    std::shared_ptr<ranger::kv::DeleteClient> range_kv_delete;
+    std::shared_ptr<ranger::kv::GetClient> range_kv_get;
+    std::shared_ptr<ranger::kv::SetClient> range_kv_set;
     std::unique_ptr<rack::CreateClient> rack_create_client;
     std::unique_ptr<rack::RetrieveClient> rack_retrieve;
     std::unique_ptr<rack::DeleteClient> rack_delete;

@@ -211,8 +211,8 @@ var _ = Describe("Ranger", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(2))
 			})
-			Context("RetrieveParentKey Method", func() {
-				It("Should get the parent key of the range", func() {
+			Context("RetrieveParent", func() {
+				It("Should get the parent of the range", func() {
 					parent := ranger.Range{
 						Name:      "Parent",
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
@@ -234,6 +234,30 @@ var _ = Describe("Ranger", Ordered, func() {
 					Expect(w.Create(ctx, &p)).To(Succeed())
 					_, err := svc.RetrieveParentKey(ctx, p.Key, tx)
 					Expect(err).To(HaveOccurredAs(query.ErrNotFound))
+				})
+			})
+			Context("RetrieveParentKey", func() {
+				It("Should get the parent key of the range", func() {
+					parent := ranger.Range{
+						Name:      "Parent",
+						TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					}
+					Expect(w.Create(ctx, &parent)).To(Succeed())
+					r := ranger.Range{
+						Name:      "Range",
+						TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					}
+					Expect(w.CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
+					pKey := MustSucceed(svc.RetrieveParentKey(ctx, r.Key, tx))
+					Expect(pKey).To(Equal(parent.Key))
+				})
+				It("Should return an error if the range has no parent", func() {
+					p := ranger.Range{
+						Name:      "Parent",
+						TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					}
+					Expect(w.Create(ctx, &p)).To(Succeed())
+					Expect(svc.RetrieveParentKey(ctx, p.Key, tx)).Error().To(HaveOccurredAs(query.ErrNotFound))
 				})
 			})
 		})

@@ -36,6 +36,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
+	"github.com/synnaxlabs/synnax/pkg/api/ranger"
+	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
@@ -44,7 +46,7 @@ import (
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 )
 
-func New(channelSvc *distchannel.Service) (api.Transport, []fgrpc.BindableTransport) {
+func NewTransport(channelSvc *distchannel.Service) (api.Transport, []fgrpc.BindableTransport) {
 	var a api.Transport
 	transports := fgrpc.CompoundBindableTransport{
 		channelgrpc.New(&a),
@@ -74,6 +76,10 @@ func New(channelSvc *distchannel.Service) (api.Transport, []fgrpc.BindableTransp
 	a.UserCreate = fnoop.UnaryServer[user.CreateRequest, user.CreateResponse]{}
 	a.UserDelete = fnoop.UnaryServer[user.DeleteRequest, types.Nil]{}
 	a.UserRetrieve = fnoop.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]{}
+
+	// RANGE
+	a.RangeRename = fnoop.UnaryServer[ranger.RenameRequest, types.Nil]{}
+	a.AliasRetrieve = fnoop.UnaryServer[alias.RetrieveRequest, alias.RetrieveResponse]{}
 
 	// ONTOLOGY
 	a.OntologyRetrieve = fnoop.UnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse]{}

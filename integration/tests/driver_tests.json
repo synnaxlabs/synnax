@@ -4,15 +4,9 @@
     {
       "sequence_name": "Driver Task Lifecycle",
       "tests": [
-        {
-          "case": "driver/disconnect_task"
-        },
-        {
-          "case": "driver/modbus_read"
-        },
-        {
-          "case": "driver/opcua_read"
-        }
+        { "case": "driver/disconnect_task" },
+        { "case": "driver/modbus_read" },
+        { "case": "driver/opcua_read" }
       ]
     }
   ]

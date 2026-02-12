@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package lsp provides shared utilities for implementing Language Server Protocol servers.
 package lsp
 
 import (
@@ -16,20 +15,8 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// NoopServer provides stub implementations for all LSP methods that return nil.
-// Embed this struct in your server implementation to inherit all stubs, then
-// override only the methods you need.
-//
-// Example:
-//
-//	type MyServer struct {
-//	    lsp.NoopServer
-//	    // your fields...
-//	}
-//
-//	func (s *MyServer) Hover(...) (*protocol.Hover, error) {
-//	    // your implementation
-//	}
+// NoopServer provides stub implementations for all protocol.Server methods.
+// Embed this in your server struct and override only the methods you need.
 type NoopServer struct{}
 
 func (NoopServer) CodeAction(context.Context, *protocol.CodeActionParams) ([]protocol.CodeAction, error) {
@@ -56,10 +43,6 @@ func (NoopServer) Declaration(context.Context, *protocol.DeclarationParams) ([]p
 	return nil, nil
 }
 
-func (NoopServer) Definition(context.Context, *protocol.DefinitionParams) ([]protocol.Location, error) {
-	return nil, nil
-}
-
 func (NoopServer) DidChangeConfiguration(context.Context, *protocol.DidChangeConfigurationParams) error {
 	return nil
 }
@@ -81,10 +64,6 @@ func (NoopServer) DidDeleteFiles(context.Context, *protocol.DeleteFilesParams) e
 }
 
 func (NoopServer) DidRenameFiles(context.Context, *protocol.RenameFilesParams) error {
-	return nil
-}
-
-func (NoopServer) DidSave(context.Context, *protocol.DidSaveTextDocumentParams) error {
 	return nil
 }
 
@@ -116,15 +95,7 @@ func (NoopServer) Exit(context.Context) error {
 	return nil
 }
 
-func (NoopServer) FoldingRange(context.Context, *protocol.FoldingRangeParams) ([]protocol.FoldingRange, error) {
-	return nil, nil
-}
-
 func (NoopServer) FoldingRanges(context.Context, *protocol.FoldingRangeParams) ([]protocol.FoldingRange, error) {
-	return nil, nil
-}
-
-func (NoopServer) Formatting(context.Context, *protocol.DocumentFormattingParams) ([]protocol.TextEdit, error) {
 	return nil, nil
 }
 
@@ -160,19 +131,7 @@ func (NoopServer) PrepareCallHierarchy(context.Context, *protocol.CallHierarchyP
 	return nil, nil
 }
 
-func (NoopServer) PrepareRename(context.Context, *protocol.PrepareRenameParams) (*protocol.Range, error) {
-	return nil, nil
-}
-
-func (NoopServer) RangeFormatting(context.Context, *protocol.DocumentRangeFormattingParams) ([]protocol.TextEdit, error) {
-	return nil, nil
-}
-
 func (NoopServer) References(context.Context, *protocol.ReferenceParams) ([]protocol.Location, error) {
-	return nil, nil
-}
-
-func (NoopServer) Rename(context.Context, *protocol.RenameParams) (*protocol.WorkspaceEdit, error) {
 	return nil, nil
 }
 
@@ -253,5 +212,68 @@ func (NoopServer) Request(context.Context, string, interface{}) (interface{}, er
 }
 
 func (NoopServer) ShowDocument(context.Context, *protocol.ShowDocumentParams) (*protocol.ShowDocumentResult, error) {
+	return nil, nil
+}
+
+// Methods that are typically implemented by language servers but provided here
+// as no-ops so embedders only override what they need.
+
+func (NoopServer) Initialize(context.Context, *protocol.InitializeParams) (*protocol.InitializeResult, error) {
+	return &protocol.InitializeResult{}, nil
+}
+
+func (NoopServer) Initialized(context.Context, *protocol.InitializedParams) error {
+	return nil
+}
+
+func (NoopServer) Shutdown(context.Context) error {
+	return nil
+}
+
+func (NoopServer) DidOpen(context.Context, *protocol.DidOpenTextDocumentParams) error {
+	return nil
+}
+
+func (NoopServer) DidChange(context.Context, *protocol.DidChangeTextDocumentParams) error {
+	return nil
+}
+
+func (NoopServer) DidClose(context.Context, *protocol.DidCloseTextDocumentParams) error {
+	return nil
+}
+
+func (NoopServer) DidSave(context.Context, *protocol.DidSaveTextDocumentParams) error {
+	return nil
+}
+
+func (NoopServer) Completion(context.Context, *protocol.CompletionParams) (*protocol.CompletionList, error) {
+	return nil, nil
+}
+
+func (NoopServer) Hover(context.Context, *protocol.HoverParams) (*protocol.Hover, error) {
+	return nil, nil
+}
+
+func (NoopServer) Definition(context.Context, *protocol.DefinitionParams) ([]protocol.Location, error) {
+	return nil, nil
+}
+
+func (NoopServer) Formatting(context.Context, *protocol.DocumentFormattingParams) ([]protocol.TextEdit, error) {
+	return nil, nil
+}
+
+func (NoopServer) RangeFormatting(context.Context, *protocol.DocumentRangeFormattingParams) ([]protocol.TextEdit, error) {
+	return nil, nil
+}
+
+func (NoopServer) Rename(context.Context, *protocol.RenameParams) (*protocol.WorkspaceEdit, error) {
+	return nil, nil
+}
+
+func (NoopServer) PrepareRename(context.Context, *protocol.PrepareRenameParams) (*protocol.Range, error) {
+	return nil, nil
+}
+
+func (NoopServer) SemanticTokensFull(context.Context, *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
 	return nil, nil
 }

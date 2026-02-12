@@ -114,7 +114,7 @@ TEST_F(TareTests, BasicTare) {
     ASSERT_EQ(frame.at<double>(1, -1), 20.0);
     ASSERT_EQ(frame.at<float>(2, -1), 15.0f);
 
-    json tare_args = json::object();
+    x::json::json tare_args = x::json::json::object();
     ASSERT_NIL(tare.tare(tare_args));
 
     x::telem::Frame new_frame(2);
@@ -144,7 +144,7 @@ TEST_F(TareTests, TareSpecificChannels) {
     ASSERT_NIL(tare.transform(frame));
 
     // Request tare of only channel 1
-    json tare_args = {{"keys", {1}}};
+    x::json::json tare_args = {{"keys", {1}}};
     ASSERT_NIL(tare.tare(tare_args));
 
     x::telem::Frame new_frame(2);
@@ -191,14 +191,14 @@ TEST_F(TareTests, InvalidChannelKey) {
 
     ASSERT_NIL(tare.transform(frame));
 
-    json tare_args = {{"keys", {999}}};
+    x::json::json tare_args = {{"keys", {999}}};
     const auto err = tare.tare(tare_args);
     ASSERT_TRUE(err);
 }
 
 /// @brief it should correctly apply a linear scale to a channel
 TEST(ScaleTests, LinearScale) {
-    json config = {
+    x::json::json config = {
         {"channels",
          {{{"channel", 1},
            {"scale", {{"type", "linear"}, {"slope", 2.0}, {"offset", 5.0}}}}}}
@@ -228,7 +228,7 @@ TEST(ScaleTests, LinearScale) {
 
 /// @brief it should properly apply a map scale to a channel.
 TEST(ScaleTests, MapScale) {
-    json config = {
+    x::json::json config = {
         {"channels",
          {{{"channel", 1},
            {"scale",
@@ -264,7 +264,7 @@ TEST(ScaleTests, MapScale) {
 
 /// @brief it should correctly apply a scale to multiple channels.
 TEST(ScaleTests, MultipleChannels) {
-    json config = {
+    x::json::json config = {
         {"channels",
          {{{"channel", 1},
            {"scale", {{"type", "linear"}, {"slope", 2.0}, {"offset", 0.0}}}},
@@ -306,7 +306,7 @@ TEST(ScaleTests, MultipleChannels) {
 
 /// @brief it should correctly ignore channels that are not configured for scaling.
 TEST(ScaleTests, IgnoreUnknownChannels) {
-    json config = {
+    x::json::json config = {
         {"channels",
          {{{"channel", 1},
            {"scale", {{"type", "linear"}, {"slope", 2.0}, {"offset", 0.0}}}}}}
@@ -339,7 +339,7 @@ TEST(ScaleTests, IgnoreUnknownChannels) {
 
 /// @brief it should correctly ignore disabled channels.
 TEST(ScaleTests, DisabledChannel) {
-    json config = {
+    x::json::json config = {
         {"channels",
          {{{"channel", 1},
            {"enabled", true},
@@ -377,7 +377,7 @@ TEST(ScaleTests, DisabledChannel) {
 
 /// @brief it should apply transformations directly to the frame.
 TEST(ScaleTests, TransformInplaceUsage) {
-    json config = {
+    x::json::json config = {
         {"channels",
          {{{"channel", 1},
            {"scale", {{"type", "linear"}, {"slope", 3.0}, {"offset", 2.0}}}}}}
@@ -460,7 +460,7 @@ TEST_F(TareTests, TareWithDifferentDataTypes) {
 
     ASSERT_NIL(tare.transform(frame));
 
-    json tare_args = json::object();
+    x::json::json tare_args = x::json::json::object();
     ASSERT_NIL(tare.tare(tare_args));
 
     x::telem::Frame new_frame(3);
@@ -529,7 +529,7 @@ TEST(ChainTests, ComplexTransformChain) {
 
     auto tare = std::make_shared<Tare>(channels);
 
-    json config = {
+    x::json::json config = {
         {"channels",
          {{{"channel", 1},
            {"scale", {{"type", "linear"}, {"slope", 2.0}, {"offset", 10.0}}}}}}
@@ -545,7 +545,7 @@ TEST(ChainTests, ComplexTransformChain) {
     chain.add(tare);
     chain.add(scale);
 
-    json tare_args = json::object();
+    x::json::json tare_args = x::json::json::object();
     ASSERT_NIL(tare->tare(tare_args));
 
     x::telem::Frame frame(1);

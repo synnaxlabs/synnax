@@ -73,7 +73,105 @@ import (
 	"slices"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+)
+
+// ChanDirection is a bitmask indicating whether a channel is used for reading,
+// writing, or both.
+type ChanDirection int
+
+const (
+	ChanDirectionNone  ChanDirection = 0
+	ChanDirectionRead  ChanDirection = 1
+	ChanDirectionWrite ChanDirection = 2
+)
+
+// IsRead returns true if the direction includes read.
+func (d ChanDirection) IsRead() bool { return d&ChanDirectionRead != 0 }
+
+// IsWrite returns true if the direction includes write.
+func (d ChanDirection) IsWrite() bool { return d&ChanDirectionWrite != 0 }
+
+// IsSet returns true if any direction has been specified.
+func (d ChanDirection) IsSet() bool { return d != ChanDirectionNone }
+
+// CheckCompatibility returns an error if actual is incompatible with the
+// required direction d. Returns nil when compatible or when either side
+// has no direction set.
+func (d ChanDirection) CheckCompatibility(actual ChanDirection) error {
+	if !d.IsSet() || !actual.IsSet() {
+		return nil
+	}
+	if d.IsWrite() && !actual.IsWrite() {
+		return errors.New("expected a write channel, but got a read channel")
+	}
+	if d.IsRead() && !actual.IsRead() {
+		return errors.New("expected a read channel, but got a write channel")
+	}
+	return nil
+}
+
+// Kind represents the different categories of types in the Arc type system.
+// It is used as a discriminator in the Type tagged union.
+type Kind int
+
+//go:generate stringer -type=Kind
+const (
+	// KindInvalid represents an invalid or uninitialized type.
+	KindInvalid Kind = iota
+
+	// KindU8 is an 8-bit unsigned integer type.
+	KindU8
+	// KindU16 is a 16-bit unsigned integer type.
+	KindU16
+	// KindU32 is a 32-bit unsigned integer type.
+	KindU32
+	// KindU64 is a 64-bit unsigned integer type.
+	KindU64
+
+	// KindI8 is an 8-bit signed integer type.
+	KindI8
+	// KindI16 is a 16-bit signed integer type.
+	KindI16
+	// KindI32 is a 32-bit signed integer type.
+	KindI32
+	// KindI64 is a 64-bit signed integer type.
+	KindI64
+
+	// KindF32 is a 32-bit floating-point type.
+	KindF32
+	// KindF64 is a 64-bit floating-point type.
+	KindF64
+
+	// KindString is a UTF-8 string type.
+	KindString
+
+	// KindChan is a channel type (requires Elem).
+	KindChan
+	// KindSeries is a series/array type (requires Elem).
+	KindSeries
+
+	// KindVariable is a generic type variable (requires Name, optional Constraint).
+	KindVariable
+
+	// KindNumericConstant is a constraint for any numeric type (integers or floats).
+	KindNumericConstant
+	// KindIntegerConstant is a constraint for any integer type (signed or unsigned).
+	KindIntegerConstant
+	// KindFloatConstant is a constraint for any floating-point type.
+	KindFloatConstant
+	// KindExactIntegerFloatConstant is a constraint for float literals that represent
+	// exact integers (like 5.0, 0.0). Defaults to f64 but can unify with integer types.
+	KindExactIntegerFloatConstant
+
+	// KindFunction is a function type (requires Inputs, Outputs, optional Config).
+	KindFunction
+
+	// KindSequence represents a sequence (state machine) declaration.
+	KindSequence
+	// KindStage represents a stage within a sequence.
+	KindStage
 )
 
 // Params are named, ordered parameters for a function.
@@ -130,6 +228,44 @@ func (p Params) RequiredCount() int {
 		}
 	}
 	return count
+}
+
+type Param struct {
+	Value any    `json:"value,omitempty"`
+	Name  string `json:"name"`
+	Type  Type   `json:"type"`
+}
+
+// FunctionProperties holds the inputs, outputs, and configuration parameters for function
+// types.
+type FunctionProperties struct {
+	// Inputs are the input parameters for the function.
+	Inputs Params `json:"inputs,omitempty" msgpack:"inputs,omitempty"`
+	// Outputs are the output/return values for the function.
+	Outputs Params `json:"outputs,omitempty" msgpack:"outputs,omitempty"`
+	// Config are the configuration parameters for the function.
+	Config Params `json:"config,omitempty" msgpack:"config,omitempty"`
+}
+
+// Type represents a type in the Arc type system using a tagged union.
+type Type struct {
+	// Elem is the element type for compound types (chan, series).
+	Elem *Type `json:"elem,omitempty" msgpack:"elem"`
+	// Constraint is the optional constraint for type variables.
+	Constraint *Type `json:"constraint,omitempty" msgpack:"constraint"`
+	// Unit holds optional unit metadata for numeric types.
+	// When non-nil, this type represents a quantity with physical dimensions.
+	Unit *Unit `json:"unit,omitempty" msgpack:"unit"`
+	// Name is the identifier for type variables.
+	Name string `json:"name,omitempty" msgpack:"name"`
+	// FunctionProperties contains inputs, outputs, and config for function types.
+	FunctionProperties
+	// Kind is the discriminator that determines which type this represents.
+	Kind Kind `json:"kind" msgpack:"kind"`
+	// ChanDirection indicates whether a channel-typed parameter is used for reading,
+	// writing, or both. Only meaningful for KindChan types used in config params.
+	// This field is intentionally excluded from type equality checks.
+	ChanDirection ChanDirection `json:"chan_direction,omitempty" msgpack:"chan_direction,omitempty"`
 }
 
 // IntegerMaxValue returns the maximum value representable by this integer type.
@@ -338,6 +474,16 @@ func TimeSpan() Type {
 // Chan returns a channel type wrapping the given value type.
 func Chan(valueType Type) Type {
 	return Type{Kind: KindChan, Elem: &valueType}
+}
+
+// ReadChan returns a channel type annotated for read access.
+func ReadChan(valueType Type) Type {
+	return Type{Kind: KindChan, Elem: &valueType, ChanDirection: ChanDirectionRead}
+}
+
+// WriteChan returns a channel type annotated for write access.
+func WriteChan(valueType Type) Type {
+	return Type{Kind: KindChan, Elem: &valueType, ChanDirection: ChanDirectionWrite}
 }
 
 // Series returns a series/array type wrapping the given value type.

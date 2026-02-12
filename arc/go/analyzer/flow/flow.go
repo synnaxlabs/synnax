@@ -318,7 +318,7 @@ func validateFuncConfig[T antlr.ParserRuleContext](
 	}
 
 	for _, param := range fnType.Config {
-		if !configParams[param.Name] {
+		if !configParams[param.Name] && param.Value == nil {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				configNode,
 				"missing required config parameter '%s' for func '%s'",

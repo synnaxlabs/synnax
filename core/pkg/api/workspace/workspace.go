@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -30,12 +31,16 @@ type Service struct {
 	internal *workspace.Service
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
 		internal: cfg.Service.Workspace,
-	}
+	}, nil
 }
 
 type (
@@ -46,6 +51,7 @@ type (
 )
 
 func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResponse, err error) {
+
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
@@ -90,8 +96,8 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil,
 }
 
 type SetLayoutRequest struct {
-	Layout map[string]any `json:"layout" msgpack:"layout"`
-	Key    uuid.UUID      `json:"key" msgpack:"key"`
+	Layout string    `json:"layout" msgpack:"layout"`
+	Key    uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *Service) SetLayout(ctx context.Context, req SetLayoutRequest) (res types.Nil, err error) {

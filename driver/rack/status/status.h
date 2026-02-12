@@ -14,8 +14,8 @@
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/status/status.h"
 
+#include "driver/common/factory.h"
 #include "driver/pipeline/acquisition.h"
-#include "driver/task/common/factory.h"
 #include "driver/task/task.h"
 
 namespace driver::rack::status {
@@ -56,9 +56,9 @@ public:
 
     void run() override {
         synnax::task::Status stat{
-            .key = synnax::task::status_key(this->task),
+            .key = this->task.status_key(),
             .name = this->task.name,
-            .variant = x::status::VARIANT_SUCCESS,
+            .variant = ::x::status::VARIANT_SUCCESS,
             .message = "Started",
             .time = x::telem::TimeStamp::now(),
             .details = synnax::task::StatusDetails{
@@ -70,9 +70,9 @@ public:
         while (breaker.running()) {
             this->loop.wait(breaker);
             synnax::rack::Status status{
-                .key = synnax::rack::rack_ontology_id(this->rack.key).string(),
+                .key = synnax::rack::ontology_id(this->rack.key).string(),
                 .name = this->rack.name,
-                .variant = x::status::VARIANT_SUCCESS,
+                .variant = ::x::status::VARIANT_SUCCESS,
                 .message = "Driver is running",
                 .time = x::telem::TimeStamp::now(),
                 .details = synnax::rack::StatusDetails{.rack = this->rack.key}
@@ -82,7 +82,7 @@ public:
                 err)
                 LOG(ERROR) << "[rack_status] error updating status: " << err;
             else
-                VLOG(1) << "[rack_status] successfully set status" << this->rack.key;
+                VLOG(1) << "[rack_status] successfully set status for " << this->rack;
         }
     };
 };
@@ -96,7 +96,7 @@ public:
     Task(
         const synnax::rack::Rack &rack,
         const synnax::task::Task &task,
-        const std::shared_ptr<driver::task::Context> &ctx
+        const std::shared_ptr<task::Context> &ctx
     ):
         pipe(rack, task, ctx->client) {
         this->pipe.start();
@@ -109,17 +109,17 @@ public:
     void stop(bool will_reconfigure) override { this->pipe.stop(); }
 
     /// @brief configures the heartbeat task.
-    static std::unique_ptr<driver::task::Task> configure(
-        const std::shared_ptr<driver::task::Context> &ctx,
+    static std::unique_ptr<task::Task> configure(
+        const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task
     ) {
         auto rack_key = synnax::task::rack_key_from_task_key(task.key);
         auto [rack, rack_err] = ctx->client->racks.retrieve(rack_key);
         if (rack_err) {
             synnax::task::Status stat{
-                .key = synnax::task::status_key(task),
+                .key = task.status_key(),
                 .name = TASK_NAME,
-                .variant = x::status::VARIANT_ERROR,
+                .variant = ::x::status::VARIANT_ERROR,
                 .message = "Failed to retrieve rack for status task",
                 .description = rack_err.message(),
                 .details = synnax::task::StatusDetails{
@@ -133,18 +133,18 @@ public:
     }
 };
 
-struct Factory final : driver::task::Factory {
-    std::pair<std::unique_ptr<driver::task::Task>, bool> configure_task(
-        const std::shared_ptr<driver::task::Context> &ctx,
+struct Factory final : task::Factory {
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
+        const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task
     ) override {
         if (task.type == TASK_TYPE) return {Task::configure(ctx, task), true};
         return {nullptr, false};
     }
 
-    std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>>
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
-        const std::shared_ptr<driver::task::Context> &ctx,
+        const std::shared_ptr<task::Context> &ctx,
         const synnax::rack::Rack &rack
     ) override {
         driver::task::common::delete_legacy_task_by_type(

@@ -10,11 +10,12 @@
 #include <regex>
 #include <string>
 
-#include "driver/ni/errors.h"
 #include "driver/ni/scan_task.h"
+#include "errors/errors.h"
 
-driver::ni::Scanner::Scanner(
-    const std::shared_ptr<::syscfg::SugaredAPI> &syscfg,
+namespace driver::ni {
+Scanner::Scanner(
+    const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
     ScanTaskConfig cfg,
     synnax::task::Task task
 ):
@@ -23,8 +24,8 @@ driver::ni::Scanner::Scanner(
 const auto SKIP_DEVICE_ERR = x::errors::Error("ni.skip_device", "");
 const std::size_t NO_DEVICES_LOG_MULTIPLIER = 12;
 
-std::pair<driver::ni::Device, x::errors::Error>
-driver::ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
+std::pair<Device, x::errors::Error>
+Scanner::parse_device(NISysCfgResourceHandle resource) const {
     char property_value_buf[1024];
     Device dev;
     dev.make = MAKE;
@@ -101,7 +102,7 @@ driver::ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
     if (is_simulated) dev.key = dev.resource_name;
 
     dev.status = synnax::device::Status{
-        .key = synnax::device::status_key(dev),
+        .key = dev.status_key(),
         .name = dev.name,
         .variant = x::status::VARIANT_SUCCESS,
         .message = "Device present",
@@ -125,7 +126,7 @@ driver::ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
 }
 
 std::pair<std::vector<synnax::device::Device>, x::errors::Error>
-driver::ni::Scanner::scan(const driver::task::common::ScannerContext &ctx) {
+Scanner::scan(const common::ScannerContext &ctx) {
     std::vector<synnax::device::Device> devices;
     NISysCfgEnumResourceHandle resources = nullptr;
     NISysCfgResourceHandle curr_resource = nullptr;
@@ -138,7 +139,7 @@ driver::ni::Scanner::scan(const driver::task::common::ScannerContext &ctx) {
         &resources
     );
     if (err) {
-        if (err.matches(driver::ni::END_OF_ENUM)) {
+        if (err.matches(errors::END_OF_ENUM)) {
             if (ctx.count % NO_DEVICES_LOG_MULTIPLIER == 0)
                 LOG(INFO) << SCAN_LOG_PREFIX << "no devices found.";
             return {devices, x::errors::NIL};
@@ -169,12 +170,12 @@ driver::ni::Scanner::scan(const driver::task::common::ScannerContext &ctx) {
     return {devices, close_err};
 }
 
-x::errors::Error driver::ni::Scanner::stop() {
+x::errors::Error Scanner::stop() {
     this->syscfg->CloseHandle(this->filter);
     return this->syscfg->CloseHandle(this->session);
 }
 
-x::errors::Error driver::ni::Scanner::start() {
+x::errors::Error Scanner::start() {
     if (const auto err = this->syscfg->InitializeSession(
             nullptr,
             nullptr,
@@ -214,4 +215,5 @@ x::errors::Error driver::ni::Scanner::start() {
         ))
         return err;
     return x::errors::NIL;
+}
 }

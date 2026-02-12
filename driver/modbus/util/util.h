@@ -12,7 +12,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
-namespace util {
+namespace driver::modbus::util {
 /// @brief parses data from a modbus register into a compatible x::telem::SampleValue.
 /// @param data buffer of register values to parse from. Must be at least as large as
 /// the density of the data type (dt.density()).

@@ -11,12 +11,13 @@ cc_library(
         "//arc/cpp/runtime",
         "//arc/cpp/runtime/loop",
         "//client/cpp/arc",
+        "//driver/common",
         "//driver/pipeline",
         "//driver/task",
-        "//driver/task/common",
         "//x/cpp/breaker",
         "//x/cpp/json",
         "//x/cpp/telem",
+        "//x/cpp/uuid",
     ],
 )
 

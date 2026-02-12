@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "x/cpp/thread/rt/rt.h"
 #include "x/cpp/thread/thread.h"
 
 #include "rack.h"
@@ -30,6 +31,7 @@ Rack::~Rack() {
 
 void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) {
     x::thread::set_name("rack");
+    LOG(INFO) << x::thread::rt::get_capabilities();
     while (this->breaker.running()) {
         auto [cfg, err] = Config::load(args, this->breaker);
         if (err) {

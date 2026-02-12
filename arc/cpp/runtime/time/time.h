@@ -21,7 +21,6 @@
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::time {
-
 /// @brief Sentinel value indicating base_interval hasn't been set yet.
 /// Using TimeSpan::max() ensures any real interval will be smaller and will replace it.
 inline const x::telem::TimeSpan UNSET_BASE_INTERVAL = x::telem::TimeSpan::max();
@@ -47,9 +46,8 @@ inline x::telem::TimeSpan calculate_tolerance(
 struct IntervalConfig {
     x::telem::TimeSpan interval;
 
-    explicit IntervalConfig(const types::Params &params) {
-        const auto param = types::find_param(params, "period");
-        const auto interval_ns = param ? param->get().value.get<std::int64_t>() : 0;
+    explicit IntervalConfig(const ir::Params &params) {
+        const auto interval_ns = params["period"].get<std::int64_t>();
         this->interval = x::telem::TimeSpan(interval_ns);
     }
 };
@@ -64,6 +62,7 @@ public:
         state(std::move(state)), cfg(cfg), last_fired(-1 * this->cfg.interval) {}
 
     x::errors::Error next(node::Context &ctx) override {
+        if (ctx.reason != node::RunReason::TimerTick) return x::errors::NIL;
         if (ctx.elapsed - this->last_fired < this->cfg.interval - ctx.tolerance)
             return x::errors::NIL;
         this->last_fired = ctx.elapsed;
@@ -87,9 +86,8 @@ public:
 struct WaitConfig {
     x::telem::TimeSpan duration;
 
-    explicit WaitConfig(const types::Params &params) {
-        const auto param = types::find_param(params, "duration");
-        const auto duration_ns = param ? param->get().value.get<std::int64_t>() : 0;
+    explicit WaitConfig(const ir::Params &params) {
+        const auto duration_ns = params["duration"].get<std::int64_t>();
         this->duration = x::telem::TimeSpan(duration_ns);
     }
 };
@@ -107,13 +105,14 @@ public:
         state(std::move(state)), cfg(cfg) {}
 
     x::errors::Error next(node::Context &ctx) override {
+        if (ctx.reason != node::RunReason::TimerTick) return x::errors::NIL;
         if (this->fired) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
-        if (ctx.elapsed - start_time < cfg.duration - ctx.tolerance)
+        if (ctx.elapsed - this->start_time < this->cfg.duration - ctx.tolerance)
             return x::errors::NIL;
         this->fired = true;
-        const auto &o = state.output(0);
-        const auto &o_time = state.output_time(0);
+        const auto &o = this->state.output(0);
+        const auto &o_time = this->state.output_time(0);
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));

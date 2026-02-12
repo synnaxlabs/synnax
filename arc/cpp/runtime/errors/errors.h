@@ -18,7 +18,6 @@
 namespace arc::runtime::errors {
 /// @brief Callback invoked when a runtime error or warning occurs.
 using Handler = std::function<void(const x::errors::Error &)>;
-
 /// @brief No-op error handler for testing.
 inline Handler noop_handler = [](const x::errors::Error &) {};
 /// @brief Base error type for all arc runtime errors.

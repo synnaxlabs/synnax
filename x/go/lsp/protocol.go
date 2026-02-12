@@ -7,26 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package lsp provides shared LSP utilities for language servers.
 package lsp
 
 import (
-	"io"
+	"context"
 
 	"github.com/synnaxlabs/x/diagnostics"
 	"go.lsp.dev/protocol"
 )
 
-// Severity converts a diagnostics.Severity to the corresponding LSP protocol severity.
-func Severity(s diagnostics.Severity) protocol.DiagnosticSeverity {
-	switch s {
-	case diagnostics.SeverityError:
-		return protocol.DiagnosticSeverityError
+// Client extends protocol.Client with LSP 3.16+ methods missing from
+// go.lsp.dev/protocol@v0.12.0.
+type Client interface {
+	protocol.Client
+	SemanticTokensRefresh(ctx context.Context) error
+}
+
+// Severity converts an internal Severity to an LSP protocol DiagnosticSeverity.
+func Severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
+	switch in {
 	case diagnostics.SeverityWarning:
 		return protocol.DiagnosticSeverityWarning
 	case diagnostics.SeverityInfo:
 		return protocol.DiagnosticSeverityInformation
 	case diagnostics.SeverityHint:
 		return protocol.DiagnosticSeverityHint
+	case diagnostics.SeverityError:
+		return protocol.DiagnosticSeverityError
 	default:
 		return protocol.DiagnosticSeverityError
 	}
@@ -34,84 +42,86 @@ func Severity(s diagnostics.Severity) protocol.DiagnosticSeverity {
 
 // TranslateConfig configures how diagnostics are translated to LSP format.
 type TranslateConfig struct {
-	// Source is the source name to include in the LSP diagnostic (e.g., "arc-analyzer").
+	// Source is the name shown in the LSP client's diagnostic source field
+	// (e.g. "arc-analyzer", "oracle").
 	Source string
 }
 
-// TranslateDiagnostics converts internal Diagnostics to LSP protocol Diagnostics.
-func TranslateDiagnostics(diags diagnostics.Diagnostics, cfg TranslateConfig) []protocol.Diagnostic {
-	result := make([]protocol.Diagnostic, 0, len(diags))
-	for _, d := range diags {
-		// Lines are 1-indexed in diagnostics, but 0-indexed in LSP
-		startLine := uint32(d.Start.Line - 1)
-		if d.Start.Line <= 0 {
+// TranslateDiagnostics converts internal diagnostics to LSP protocol diagnostics.
+// Line numbers are converted from 1-indexed (ANTLR) to 0-indexed (LSP).
+func TranslateDiagnostics(
+	analysisDiag diagnostics.Diagnostics,
+	cfg TranslateConfig,
+) []protocol.Diagnostic {
+	oDiagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
+	for _, diag := range analysisDiag {
+		end := diag.End
+		if end.Line == 0 && end.Col == 0 {
+			end.Line = diag.Start.Line
+			end.Col = diag.Start.Col + 1
+		}
+
+		startLine := diag.Start.Line - 1
+		if startLine < 0 {
 			startLine = 0
 		}
-		endLine := uint32(d.End.Line - 1)
-		if d.End.Line <= 0 {
-			endLine = startLine
+		endLine := end.Line - 1
+		if endLine < 0 {
+			endLine = 0
 		}
+
 		pDiag := protocol.Diagnostic{
 			Range: protocol.Range{
 				Start: protocol.Position{
-					Line:      startLine,
-					Character: uint32(d.Start.Col),
+					Line:      uint32(startLine),
+					Character: uint32(diag.Start.Col),
 				},
 				End: protocol.Position{
-					Line:      endLine,
-					Character: uint32(d.End.Col),
+					Line:      uint32(endLine),
+					Character: uint32(end.Col),
 				},
 			},
-			Severity: Severity(d.Severity),
+			Severity: Severity(diag.Severity),
 			Source:   cfg.Source,
-			Message:  d.Message,
+			Message:  diag.Message,
 		}
-		// Add error code if present
-		if d.Code != "" {
-			pDiag.Code = string(d.Code)
+
+		if diag.Code != "" {
+			pDiag.Code = string(diag.Code)
 		}
-		// Convert notes to related information
-		if len(d.Notes) > 0 {
-			pDiag.RelatedInformation = make([]protocol.DiagnosticRelatedInformation, len(d.Notes))
-			for i, note := range d.Notes {
-				noteLine := uint32(note.Start.Line - 1)
-				if note.Start.Line <= 0 {
-					noteLine = startLine
-				}
-				pDiag.RelatedInformation[i] = protocol.DiagnosticRelatedInformation{
-					Location: protocol.Location{
-						Range: protocol.Range{
-							Start: protocol.Position{
-								Line:      noteLine,
-								Character: uint32(note.Start.Col),
-							},
-							End: protocol.Position{
-								Line:      noteLine,
-								Character: uint32(note.Start.Col),
-							},
+
+		if len(diag.Notes) > 0 {
+			related := make([]protocol.DiagnosticRelatedInformation, 0, len(diag.Notes))
+			for _, note := range diag.Notes {
+				loc := protocol.Location{
+					Range: protocol.Range{
+						Start: protocol.Position{
+							Line:      uint32(max(note.Start.Line-1, 0)),
+							Character: uint32(note.Start.Col),
+						},
+						End: protocol.Position{
+							Line:      uint32(max(note.Start.Line-1, 0)),
+							Character: uint32(note.Start.Col + 1),
 						},
 					},
-					Message: note.Message,
 				}
+				if note.Start.Line == 0 {
+					loc.Range = pDiag.Range
+				}
+				related = append(related, protocol.DiagnosticRelatedInformation{
+					Location: loc,
+					Message:  note.Message,
+				})
 			}
+			pDiag.RelatedInformation = related
 		}
-		result = append(result, pDiag)
+
+		oDiagnostics = append(oDiagnostics, pDiag)
 	}
-	return result
+	return oDiagnostics
 }
 
-// RWCloser wraps an io.Reader and io.Writer to implement io.ReadWriteCloser.
-// Useful for creating LSP streams from stdin/stdout.
-type RWCloser struct {
-	R io.Reader
-	W io.Writer
-}
-
-func (rw *RWCloser) Read(p []byte) (int, error)  { return rw.R.Read(p) }
-func (rw *RWCloser) Write(p []byte) (int, error) { return rw.W.Write(p) }
-func (rw *RWCloser) Close() error                { return nil }
-
-// ConvertToSemanticTokenTypes converts a slice of string token type names to LSP protocol types.
+// ConvertToSemanticTokenTypes converts a string slice to protocol SemanticTokenTypes.
 func ConvertToSemanticTokenTypes(types []string) []protocol.SemanticTokenTypes {
 	result := make([]protocol.SemanticTokenTypes, len(types))
 	for i, t := range types {

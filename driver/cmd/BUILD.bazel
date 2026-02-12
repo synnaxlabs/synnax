@@ -28,6 +28,7 @@ cc_library(
         "//x/cpp/args",
         "//x/cpp/breaker",
         "//x/cpp/cli",
+        "//x/cpp/args",
         "//x/cpp/log",
         "//x/cpp/shutdown",
         "@gflags",

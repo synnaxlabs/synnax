@@ -13,6 +13,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 import { Status } from "@/status";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -791,6 +792,122 @@ describe("Status queries", () => {
         const updated = result.current.data?.find((s) => s.key === status1.key);
         expect(updated?.name).toEqual("Retrieve Multiple 1 Updated");
       });
+    });
+  });
+
+  describe("retrieveMultiple", () => {
+    it("should retrieve multiple statuses from the server when none are cached", async () => {
+      const status1 = await client.statuses.set({
+        name: "Retrieve Multiple Direct 1",
+        key: `retrieve-multiple-direct-${id.create()}`,
+        variant: "info",
+        message: "First status",
+        time: TimeStamp.now(),
+      });
+      const status2 = await client.statuses.set({
+        name: "Retrieve Multiple Direct 2",
+        key: `retrieve-multiple-direct-${id.create()}`,
+        variant: "success",
+        message: "Second status",
+        time: TimeStamp.now(),
+      });
+
+      const { result } = renderHook(() => Flux.useStore<Status.FluxSubStore>(), {
+        wrapper,
+      });
+
+      const statuses = await Status.retrieveMultiple({
+        client,
+        store: result.current,
+        query: { keys: [status1.key, status2.key] },
+      });
+
+      expect(statuses).toHaveLength(2);
+      expect(statuses.map((s) => s.key)).toContain(status1.key);
+      expect(statuses.map((s) => s.key)).toContain(status2.key);
+    });
+
+    it("should use cached statuses and only fetch missing ones", async () => {
+      const status1 = await client.statuses.set({
+        name: "Cached Status",
+        key: `cached-status-${id.create()}`,
+        variant: "info",
+        message: "Cached",
+        time: TimeStamp.now(),
+      });
+      const status2 = await client.statuses.set({
+        name: "Uncached Status",
+        key: `uncached-status-${id.create()}`,
+        variant: "success",
+        message: "Uncached",
+        time: TimeStamp.now(),
+      });
+
+      const { result } = renderHook(() => Flux.useStore<Status.FluxSubStore>(), {
+        wrapper,
+      });
+
+      result.current.statuses.set(status1);
+
+      const statuses = await Status.retrieveMultiple({
+        client,
+        store: result.current,
+        query: { keys: [status1.key, status2.key] },
+      });
+
+      expect(statuses).toHaveLength(2);
+      expect(statuses.map((s) => s.key)).toContain(status1.key);
+      expect(statuses.map((s) => s.key)).toContain(status2.key);
+      expect(result.current.statuses.get(status1.key)).toBeDefined();
+      expect(result.current.statuses.get(status2.key)).toBeDefined();
+    });
+
+    it("should return all cached statuses when all are in the store", async () => {
+      const status1 = await client.statuses.set({
+        name: "All Cached 1",
+        key: `all-cached-${id.create()}`,
+        variant: "info",
+        message: "All cached 1",
+        time: TimeStamp.now(),
+      });
+      const status2 = await client.statuses.set({
+        name: "All Cached 2",
+        key: `all-cached-${id.create()}`,
+        variant: "success",
+        message: "All cached 2",
+        time: TimeStamp.now(),
+      });
+
+      const { result } = renderHook(() => Flux.useStore<Status.FluxSubStore>(), {
+        wrapper,
+      });
+
+      result.current.statuses.set(status1);
+      result.current.statuses.set(status2);
+
+      const statuses = await Status.retrieveMultiple({
+        client,
+        store: result.current,
+        query: { keys: [status1.key, status2.key] },
+      });
+
+      expect(statuses).toHaveLength(2);
+      expect(statuses.map((s) => s.key)).toContain(status1.key);
+      expect(statuses.map((s) => s.key)).toContain(status2.key);
+    });
+
+    it("should return an empty array when given empty keys", async () => {
+      const { result } = renderHook(() => Flux.useStore<Status.FluxSubStore>(), {
+        wrapper,
+      });
+
+      const statuses = await Status.retrieveMultiple({
+        client,
+        store: result.current,
+        query: { keys: [] },
+      });
+
+      expect(statuses).toHaveLength(0);
     });
   });
 });

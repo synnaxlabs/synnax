@@ -22,17 +22,17 @@ const std::string SCAN_TASK_TYPE = "opc_scan";
 const std::string WRITE_TASK_TYPE = "opc_write";
 const std::string READ_TASK_TYPE = "opc_read";
 
-struct Factory final : public driver::task::Factory {
+struct Factory final : task::Factory {
     Factory(): conn_pool_(std::make_shared<connection::Pool>()) {}
 
-    std::pair<std::unique_ptr<driver::task::Task>, bool> configure_task(
-        const std::shared_ptr<driver::task::Context> &ctx,
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
+        const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task
     ) override;
 
-    std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>>
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
-        const std::shared_ptr<driver::task::Context> &ctx,
+        const std::shared_ptr<task::Context> &ctx,
         const synnax::rack::Rack &rack
     ) override;
 

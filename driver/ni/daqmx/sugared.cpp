@@ -9,7 +9,7 @@
 
 #include "driver/ni/daqmx/sugared.h"
 
-namespace daqmx {
+namespace driver::ni::daqmx {
 using Status = int32;
 
 inline std::string get_error_msg(const std::shared_ptr<API> &dmx) {

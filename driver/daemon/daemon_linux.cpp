@@ -24,7 +24,7 @@
 
 namespace fs = std::filesystem;
 
-namespace daemond {
+namespace driver::daemon {
 const std::string BINARY_INSTALL_DIR = "/usr/local/bin";
 const std::string BINARY_NAME = "synnax-driver";
 const std::string SYSTEMD_SERVICE_PATH = "/etc/systemd/system/synnax-driver.service";

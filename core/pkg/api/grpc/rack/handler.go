@@ -15,9 +15,10 @@ import (
 
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
+	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	rackpb "github.com/synnaxlabs/synnax/pkg/service/rack/pb"
+	svcrack "github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -25,19 +26,19 @@ import (
 type (
 	createServer = fgrpc.UnaryServer[
 		apirack.CreateRequest,
-		*CreateRequest,
+		*gapi.RackCreateRequest,
 		apirack.CreateResponse,
-		*CreateResponse,
+		*gapi.RackCreateResponse,
 	]
 	retrieveServer = fgrpc.UnaryServer[
 		apirack.RetrieveRequest,
-		*RetrieveRequest,
+		*gapi.RackRetrieveRequest,
 		apirack.RetrieveResponse,
-		*RetrieveResponse,
+		*gapi.RackRetrieveResponse,
 	]
 	deleteServer = fgrpc.UnaryServer[
 		apirack.DeleteRequest,
-		*DeleteRequest,
+		*gapi.RackDeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
@@ -52,106 +53,155 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[apirack.CreateRequest, *CreateRequest]       = createRequestTranslator{}
-	_ fgrpc.Translator[apirack.CreateResponse, *CreateResponse]     = createResponseTranslator{}
-	_ fgrpc.Translator[apirack.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
-	_ fgrpc.Translator[apirack.RetrieveResponse, *RetrieveResponse] = retrieveResponseTranslator{}
-	_ fgrpc.Translator[apirack.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
+	_ fgrpc.Translator[apirack.CreateRequest, *gapi.RackCreateRequest]       = createRequestTranslator{}
+	_ fgrpc.Translator[apirack.CreateResponse, *gapi.RackCreateResponse]     = createResponseTranslator{}
+	_ fgrpc.Translator[apirack.RetrieveRequest, *gapi.RackRetrieveRequest]   = retrieveRequestTranslator{}
+	_ fgrpc.Translator[apirack.RetrieveResponse, *gapi.RackRetrieveResponse] = retrieveResponseTranslator{}
+	_ fgrpc.Translator[apirack.DeleteRequest, *gapi.RackDeleteRequest]       = deleteRequestTranslator{}
 )
 
-func (createRequestTranslator) Forward(ctx context.Context, req apirack.CreateRequest) (*CreateRequest, error) {
-	racks, err := rackpb.RacksToPB(ctx, req.Racks)
+func translateForward(r *apirack.Rack) (*gapi.Rack, error) {
+	gr := &gapi.Rack{Key: uint32(r.Key), Name: r.Name}
+	if r.Status != nil {
+		var err error
+		gr.Status, err = status.TranslateToPB[svcrack.StatusDetails](status.Status[svcrack.StatusDetails](*r.Status))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return gr, nil
+}
+
+func translateBackward(r *gapi.Rack) (*apirack.Rack, error) {
+	ar := &apirack.Rack{Key: svcrack.Key(r.Key), Name: r.Name}
+	if r.Status != nil {
+		s, err := status.TranslateFromPB[svcrack.StatusDetails](r.Status)
+		if err != nil {
+			return nil, err
+		}
+		rs := svcrack.Status(s)
+		ar.Status = &rs
+	}
+	return ar, nil
+}
+
+func translateManyForward(rs []apirack.Rack) ([]*gapi.Rack, error) {
+	res := make([]*gapi.Rack, len(rs))
+	for i, r := range rs {
+		var err error
+		res[i], err = translateForward(&r)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func translateManyBackward(rs []*gapi.Rack) ([]apirack.Rack, error) {
+	res := make([]apirack.Rack, len(rs))
+	for i, r := range rs {
+		rr, err := translateBackward(r)
+		if err != nil {
+			return nil, err
+		}
+		res[i] = *rr
+	}
+	return res, nil
+}
+
+func (createRequestTranslator) Forward(_ context.Context, req apirack.CreateRequest) (*gapi.RackCreateRequest, error) {
+	racks, err := translateManyForward(req.Racks)
 	if err != nil {
 		return nil, err
 	}
-	return &CreateRequest{Racks: racks}, nil
+	return &gapi.RackCreateRequest{Racks: racks}, nil
 }
 
-func (createRequestTranslator) Backward(ctx context.Context, req *CreateRequest) (apirack.CreateRequest, error) {
-	racks, err := rackpb.RacksFromPB(ctx, req.Racks)
+func (createRequestTranslator) Backward(_ context.Context, req *gapi.RackCreateRequest) (apirack.CreateRequest, error) {
+	racks, err := translateManyBackward(req.Racks)
 	if err != nil {
 		return apirack.CreateRequest{}, err
 	}
 	return apirack.CreateRequest{Racks: racks}, nil
 }
 
-func (createResponseTranslator) Forward(ctx context.Context, res apirack.CreateResponse) (*CreateResponse, error) {
-	racks, err := rackpb.RacksToPB(ctx, res.Racks)
+func (createResponseTranslator) Forward(_ context.Context, res apirack.CreateResponse) (*gapi.RackCreateResponse, error) {
+	racks, err := translateManyForward(res.Racks)
 	if err != nil {
 		return nil, err
 	}
-	return &CreateResponse{Racks: racks}, nil
+	return &gapi.RackCreateResponse{Racks: racks}, nil
 }
 
-func (createResponseTranslator) Backward(ctx context.Context, res *CreateResponse) (apirack.CreateResponse, error) {
-	racks, err := rackpb.RacksFromPB(ctx, res.Racks)
+func (createResponseTranslator) Backward(_ context.Context, res *gapi.RackCreateResponse) (apirack.CreateResponse, error) {
+	racks, err := translateManyBackward(res.Racks)
 	if err != nil {
 		return apirack.CreateResponse{}, err
 	}
 	return apirack.CreateResponse{Racks: racks}, nil
 }
 
-func (retrieveRequestTranslator) Forward(_ context.Context, req apirack.RetrieveRequest) (*RetrieveRequest, error) {
-	return &RetrieveRequest{
-		Keys:  unsafe.ReinterpretSlice[rack.Key, uint32](req.Keys),
+func (retrieveRequestTranslator) Forward(_ context.Context, req apirack.RetrieveRequest) (*gapi.RackRetrieveRequest, error) {
+	return &gapi.RackRetrieveRequest{
+		Keys:  unsafe.ReinterpretSlice[svcrack.Key, uint32](req.Keys),
 		Names: req.Names,
 	}, nil
 }
 
-func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveRequest) (apirack.RetrieveRequest, error) {
+func (retrieveRequestTranslator) Backward(_ context.Context, req *gapi.RackRetrieveRequest) (apirack.RetrieveRequest, error) {
 	return apirack.RetrieveRequest{
-		Keys:  unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys),
+		Keys:  unsafe.ReinterpretSlice[uint32, svcrack.Key](req.Keys),
 		Names: req.Names,
 	}, nil
 }
 
-func (retrieveResponseTranslator) Forward(ctx context.Context, res apirack.RetrieveResponse) (*RetrieveResponse, error) {
-	racks, err := rackpb.RacksToPB(ctx, res.Racks)
+func (retrieveResponseTranslator) Forward(_ context.Context, res apirack.RetrieveResponse) (*gapi.RackRetrieveResponse, error) {
+	racks, err := translateManyForward(res.Racks)
 	if err != nil {
 		return nil, err
 	}
-	return &RetrieveResponse{Racks: racks}, nil
+	return &gapi.RackRetrieveResponse{Racks: racks}, nil
 }
 
-func (retrieveResponseTranslator) Backward(ctx context.Context, res *RetrieveResponse) (apirack.RetrieveResponse, error) {
-	racks, err := rackpb.RacksFromPB(ctx, res.Racks)
+func (retrieveResponseTranslator) Backward(_ context.Context, res *gapi.RackRetrieveResponse) (apirack.RetrieveResponse, error) {
+	racks, err := translateManyBackward(res.Racks)
 	if err != nil {
 		return apirack.RetrieveResponse{}, err
 	}
 	return apirack.RetrieveResponse{Racks: racks}, nil
 }
 
-func (deleteRequestTranslator) Forward(_ context.Context, req apirack.DeleteRequest) (*DeleteRequest, error) {
-	return &DeleteRequest{Keys: unsafe.ReinterpretSlice[rack.Key, uint32](req.Keys)}, nil
+func (deleteRequestTranslator) Forward(_ context.Context, req apirack.DeleteRequest) (*gapi.RackDeleteRequest, error) {
+	return &gapi.RackDeleteRequest{Keys: unsafe.ReinterpretSlice[svcrack.Key, uint32](req.Keys)}, nil
 }
 
-func (deleteRequestTranslator) Backward(_ context.Context, req *DeleteRequest) (apirack.DeleteRequest, error) {
-	return apirack.DeleteRequest{Keys: unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys)}, nil
+func (deleteRequestTranslator) Backward(_ context.Context, req *gapi.RackDeleteRequest) (apirack.DeleteRequest, error) {
+	return apirack.DeleteRequest{Keys: unsafe.ReinterpretSlice[uint32, svcrack.Key](req.Keys)}, nil
 }
 
 func New(a *api.Transport) fgrpc.BindableTransport {
-	create := &createServer{
+	createRack := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
-		ServiceDesc:        &RackCreateService_ServiceDesc,
+		ServiceDesc:        &gapi.RackCreateService_ServiceDesc,
 	}
-	a.RackCreate = create
-	retrieve := &retrieveServer{
+	a.RackCreate = createRack
+	retrieveRack := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
-		ServiceDesc:        &RackRetrieveService_ServiceDesc,
+		ServiceDesc:        &gapi.RackRetrieveService_ServiceDesc,
 	}
-	a.RackRetrieve = retrieve
-	del := &deleteServer{
+	a.RackRetrieve = retrieveRack
+	deleteRack := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: fgrpc.EmptyTranslator{},
-		ServiceDesc:        &RackDeleteService_ServiceDesc,
+		ServiceDesc:        &gapi.RackDeleteService_ServiceDesc,
 	}
-	a.RackDelete = del
+	a.RackDelete = deleteRack
 
 	return fgrpc.CompoundBindableTransport{
-		create,
-		retrieve,
-		del,
+		createRack,
+		retrieveRack,
+		deleteRack,
 	}
 }

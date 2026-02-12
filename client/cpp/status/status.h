@@ -22,21 +22,22 @@
 #include "core/pkg/api/grpc/status/status.pb.h"
 
 namespace synnax::status {
-using Status = x::status::Status<x::json::json>;
+/// @brief Alias for status with default details (no custom details).
+using Status = x::status::Status<>;
 
 const std::string STATUS_SET_CHANNEL_NAME = "sy_status_set";
 
 /// @brief Freighter retrieve transport.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::status::RetrieveRequest, grpc::status::RetrieveResponse>;
+    UnaryClient<api::v1::StatusRetrieveRequest, api::v1::StatusRetrieveResponse>;
 
 /// @brief Freighter set transport.
 using SetClient = freighter::
-    UnaryClient<grpc::status::SetRequest, grpc::status::SetResponse>;
+    UnaryClient<api::v1::StatusSetRequest, api::v1::StatusSetResponse>;
 
 /// @brief Freighter delete transport.
 using DeleteClient = freighter::
-    UnaryClient<grpc::status::DeleteRequest, google::protobuf::Empty>;
+    UnaryClient<api::v1::StatusDeleteRequest, google::protobuf::Empty>;
 
 /// @brief StatusClient for creating, retrieving, and deleting statuses in a Synnax
 /// cluster.
@@ -59,13 +60,13 @@ public:
     /// @modifies status May update the key if auto-generated.
     /// @returns An error where ok() is false if the status could not be created.
     /// Use err.message() to get the error message or err.type to get the error type.
-    template<typename Details = x::json::json>
+    template<typename Details = x::status::DefaultDetails>
     [[nodiscard]] x::errors::Error set(x::status::Status<Details> &status) const {
-        grpc::status::SetRequest req;
-        *req.add_statuses() = status.to_proto();
+        api::v1::StatusSetRequest req;
+        status.to_proto(req.add_statuses());
         auto [res, err] = this->set_client->send("/status/set", req);
         if (err) return err;
-        if (res.statuses_size() == 0) return unexpected_missing_error("status");
+        if (res.statuses_size() == 0) return errors::unexpected_missing_error("status");
         auto [decoded, decode_err] = x::status::Status<Details>::from_proto(
             res.statuses(0)
         );
@@ -81,10 +82,10 @@ public:
     /// @modifies statuses May update keys if auto-generated.
     /// @returns An error where ok() is false if the statuses could not be created.
     /// Use err.message() to get the error message or err.type to get the error type.
-    template<typename Details = x::json::json>
+    template<typename Details = x::status::DefaultDetails>
     [[nodiscard]] x::errors::Error
     set(std::vector<x::status::Status<Details>> &statuses) const {
-        grpc::status::SetRequest req;
+        api::v1::StatusSetRequest req;
         req.mutable_statuses()->Reserve(static_cast<int>(statuses.size()));
         for (const auto &s: statuses)
             *req.add_statuses() = s.to_proto();
@@ -107,7 +108,7 @@ public:
     /// false if the status could not be retrieved. In the case of an error, the
     /// returned status will be invalid. Use err.message() to get the error message
     /// or err.type to get the error type.
-    template<typename Details = x::json::json>
+    template<typename Details = x::status::DefaultDetails>
     [[nodiscard]] std::pair<x::status::Status<Details>, x::errors::Error>
     retrieve(const std::string &key) const {
         auto [statuses, err] = this->retrieve<Details>(std::vector{key});
@@ -115,7 +116,7 @@ public:
         if (statuses.empty()) {
             return {
                 x::status::Status<Details>(),
-                not_found_error("status", "key " + key)
+                errors::not_found_error("status", "key " + key)
             };
         }
         return {statuses[0], x::errors::NIL};
@@ -127,7 +128,7 @@ public:
     /// @returns A pair containing all statuses matching the given keys and an error
     /// where ok() is false if the statuses could not be retrieved. Statuses that
     /// don't exist will not be in the returned vector.
-    template<typename Details = x::json::json>
+    template<typename Details = x::status::DefaultDetails>
     [[nodiscard]] std::pair<std::vector<x::status::Status<Details>>, x::errors::Error>
     retrieve(const std::vector<std::string> &keys) const {
         grpc::status::RetrieveRequest req;
@@ -164,7 +165,7 @@ public:
     /// @returns An error where ok() is false if the statuses could not be deleted.
     /// Use err.message() to get the error message or err.type to get the error type.
     [[nodiscard]] x::errors::Error del(const std::vector<std::string> &keys) const {
-        grpc::status::DeleteRequest req;
+        api::v1::StatusDeleteRequest req;
         req.mutable_keys()->Add(keys.begin(), keys.end());
         return this->delete_client->send("/status/delete", req).second;
     }

@@ -9,7 +9,7 @@
 
 #include "driver/arc/arc.h"
 #include "driver/arc/task.h"
-#include "driver/task/common/status.h"
+#include "driver/common/status.h"
 
 namespace driver::arc {
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
@@ -20,11 +20,11 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     return task::common::handle_config_err(ctx, task, configure(ctx, task));
 }
 
-std::pair<task::common::ConfigureResult, x::errors::Error> Factory::configure(
+std::pair<common::ConfigureResult, x::errors::Error> Factory::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
-    task::common::ConfigureResult result;
+    common::ConfigureResult result;
     auto parser = x::json::Parser(task.config);
     auto [cfg, cfg_err] = TaskConfig::parse(ctx->client, parser);
     if (cfg_err) return {std::move(result), cfg_err};

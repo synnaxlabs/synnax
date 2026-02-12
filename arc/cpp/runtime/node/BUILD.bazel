@@ -7,8 +7,8 @@ cc_library(
     visibility = ["//arc/cpp/runtime:__subpackages__"],
     deps = [
         "//arc/cpp/ir",
-        "//x/cpp/errors",
         "//x/cpp/queue",
         "//x/cpp/telem",
+        "//x/cpp/errors",
     ],
 )

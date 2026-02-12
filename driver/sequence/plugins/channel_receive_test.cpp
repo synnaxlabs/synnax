@@ -15,7 +15,6 @@ extern "C" {
 #include <lualib.h>
 }
 
-/// internal.
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/sequence/plugins/plugins.h"
 

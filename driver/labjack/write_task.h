@@ -15,9 +15,9 @@
 #include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
 
+#include "driver/common/write_task.h"
 #include "driver/labjack/device/device.h"
 #include "driver/labjack/labjack.h"
-#include "driver/task/common/write_task.h"
 
 namespace driver::labjack {
 /// @brief configuration for an output channel on a LabJack device.
@@ -56,11 +56,12 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
     const x::telem::Rate state_rate;
     /// @brief the connection method to the device.
     const std::string conn_method;
-    /// @brief the model of the device.
+    /// @brief the model of the device. Dynamically populated by querying the core.
     std::string dev_model;
     /// @brief configurations for the enabled channels on the device.
     std::map<synnax::channel::Key, std::unique_ptr<OutputChan>> channels;
     /// @brief the set of index channel keys for the state channels.
+    /// Dynamically populated by querying the core.
     std::set<synnax::channel::Key> state_index_keys;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
@@ -79,7 +80,7 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &parser
     ):
-        driver::task::common::BaseWriteTaskConfig(parser),
+        common::BaseWriteTaskConfig(parser),
         state_rate(x::telem::Rate(parser.field<int>("state_rate", 1))),
         conn_method(parser.field<std::string>("connection_type", "")) {
         std::unordered_map<synnax::channel::Key, synnax::channel::Key> state_to_cmd;
@@ -212,7 +213,7 @@ public:
         );
     }
 
-    /// @brief implements driver::pipeline::Sink to write to the LabJack device.
+    /// @brief implements pipeline::Sink to write to the LabJack device.
     x::errors::Error write(x::telem::Frame &frame) override {
         this->reset_buffer(this->cfg.channels.size());
         for (const auto &[cmd_key, s]: frame)

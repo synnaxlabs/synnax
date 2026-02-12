@@ -21,8 +21,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
+
+type Pair = kv.Pair
 
 type Service struct {
 	db     *gorp.DB
@@ -30,12 +33,16 @@ type Service struct {
 	kv     *kv.Service
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		db:     cfg.Distribution.DB,
 		access: cfg.Service.RBAC,
 		kv:     cfg.Service.KV,
-	}
+	}, nil
 }
 
 type (
@@ -59,20 +66,19 @@ func (s *Service) Get(
 	}); err != nil {
 		return GetResponse{}, err
 	}
-
-	r := s.kv.NewReader(nil)
+	reader := s.kv.NewReader(nil)
 	var (
 		res GetResponse
 		err error
 	)
 	if len(req.Keys) == 0 {
-		res.Pairs, err = r.List(ctx, req.Range)
+		res.Pairs, err = reader.List(ctx, req.Range)
 		if err != nil {
 			return GetResponse{}, err
 		}
 		return res, nil
 	}
-	res.Pairs, err = r.GetMany(ctx, req.Range, req.Keys)
+	res.Pairs, err = reader.GetMany(ctx, req.Range, req.Keys)
 	if err != nil {
 		return GetResponse{}, err
 	}
@@ -96,8 +102,7 @@ func (s *Service) Set(
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.kv.NewWriter(tx)
-		return w.SetMany(ctx, req.Pairs)
+		return s.kv.NewWriter(tx).SetMany(ctx, req.Range, req.Pairs)
 	})
 }
 

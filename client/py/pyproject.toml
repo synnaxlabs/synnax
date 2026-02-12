@@ -1,6 +1,6 @@
 [project]
 name = "synnax"
-version = "0.50.0"
+version = "0.51.1"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
@@ -64,6 +64,7 @@ markers = [
     "color: mark test as a color test",
     "control: mark test as a control test",
     "device: mark test as a device test",
+    "ethercat: mark test as an ethercat test",
     "framer: mark test as a framer test",
     "frame_codec: mark test as a frame codec test",
     "iterator: mark test as a reader test",

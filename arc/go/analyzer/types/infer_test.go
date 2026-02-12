@@ -349,11 +349,11 @@ var _ = Describe("Type Inference", func() {
 				Expect(t.Elem.Kind).To(Equal(types.KindI32))
 			})
 
-			It("should infer series with channel references as series of channels", func() {
+			It("should infer series with channel references as series of unwrapped value type", func() {
 				t := inferExprType(bCtx, testResolver, "[temp_sensor, temp_sensor]")
 				Expect(t.Kind).To(Equal(types.KindSeries))
 				Expect(t.Elem).ToNot(BeNil())
-				Expect(t.Elem.Kind).To(Equal(types.KindChan))
+				Expect(t.Elem.Kind).To(Equal(types.KindF32))
 			})
 
 			It("should infer series with channel expression as series of unwrapped type", func() {

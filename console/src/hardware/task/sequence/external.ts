@@ -26,7 +26,7 @@ export * from "@/hardware/task/sequence/types";
 
 export const EXTRACTORS: Export.Extractors = { [TYPE]: Common.Task.extract };
 
-export const FILE_INGESTORS: Import.FileIngestors = { [TYPE]: ingest };
+export const FILE_INGESTERS: Import.FileIngesters = { [TYPE]: ingest };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = { [TYPE]: Sequence };
 

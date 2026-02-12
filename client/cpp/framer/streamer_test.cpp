@@ -29,12 +29,16 @@ TEST(StreamerTests, testStreamBasic) {
     auto now = x::telem::TimeStamp::now();
 
     std::vector channels = {data.key};
-    auto [streamer, sErr] = client.telem.open_streamer(StreamerConfig{channels});
+    auto [streamer, sErr] = client.telem.open_streamer(
+        synnax::framer::StreamerConfig{
+            channels,
+        }
+    );
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        WriterConfig{
+        synnax::framer::WriterConfig{
             channels,
             now,
-            {x::control::AUTH_ABSOLUTE},
+            {x::control::AUTHORITY_ABSOLUTE},
             x::control::Subject{"test_writer"}
         }
     ));
@@ -59,7 +63,7 @@ TEST(StreamerTests, testStreamSetChannels) {
     auto now = x::telem::TimeStamp::now();
 
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
-        StreamerConfig{
+        synnax::framer::StreamerConfig{
             {},
         }
     ));
@@ -67,10 +71,10 @@ TEST(StreamerTests, testStreamSetChannels) {
     auto set_err = streamer.set_channels({data.key});
 
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        WriterConfig{
+        synnax::framer::WriterConfig{
             {data.key},
             now,
-            {x::control::AUTH_ABSOLUTE},
+            {x::control::AUTHORITY_ABSOLUTE},
             x::control::Subject{"test_writer"}
         }
     ));
@@ -135,7 +139,9 @@ TEST(StreamerTests, TestStreamDownsample) {
 TEST(StreamerTests, TestStreamDownsampleNegative) {
     auto client = new_test_client();
     ASSERT_OCCURRED_AS_P(
-        client.telem.open_streamer(StreamerConfig{.downsample_factor = -1}),
+        client.telem.open_streamer(
+            synnax::framer::StreamerConfig{.downsample_factor = -1}
+        ),
         x::errors::VALIDATION
     );
 }
@@ -151,16 +157,16 @@ TEST(StreamerTests, TestStreamVariableChannel) {
     auto now = x::telem::TimeStamp::now();
     std::vector channels = {data.key};
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
-        StreamerConfig{
+        synnax::framer::StreamerConfig{
             .channels = {data.key},
         }
     ));
 
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        WriterConfig{
+        synnax::framer::WriterConfig{
             channels,
             now,
-            std::vector{x::control::AUTH_ABSOLUTE},
+            std::vector{x::control::AUTHORITY_ABSOLUTE},
             x::control::Subject{"test_writer"}
         }
     ));
@@ -186,16 +192,16 @@ void test_downsample(
     auto now = x::telem::TimeStamp::now();
     std::vector channels = {data.key};
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        WriterConfig{
+        synnax::framer::WriterConfig{
             channels,
             now,
-            std::vector{x::control::AUTH_ABSOLUTE},
+            std::vector{x::control::AUTHORITY_ABSOLUTE},
             x::control::Subject{"test_writer"}
         }
     ));
 
     auto [streamer, sErr] = client.telem.open_streamer(
-        StreamerConfig{channels, downsample_factor}
+        synnax::framer::StreamerConfig{channels, downsample_factor}
     );
 
     // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
@@ -220,7 +226,7 @@ void test_downsample_string(
 ) {
     auto client = new_test_client();
 
-    channel::Channel virtual_channel{
+    auto virtual_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("virtual_string_channel"),
         .data_type = x::telem::STRING_T,
         .is_virtual = true,
@@ -230,17 +236,17 @@ void test_downsample_string(
     auto now = x::telem::TimeStamp::now();
     std::vector channels = {virtual_channel.key};
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        WriterConfig{
+        synnax::framer::WriterConfig{
             channels,
             now,
-            std::vector{x::control::AUTH_ABSOLUTE},
+            std::vector{x::control::AUTHORITY_ABSOLUTE},
             x::control::Subject{"test_writer"}
         }
     ));
 
-    auto streamer = ASSERT_NIL_P(
-        client.telem.open_streamer(StreamerConfig{channels, downsample_factor})
-    );
+    auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
+        synnax::framer::StreamerConfig{channels, downsample_factor}
+    ));
 
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 

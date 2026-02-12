@@ -19,7 +19,7 @@
 #include "driver/ni/channel/units.h"
 #include "driver/ni/daqmx/sugared.h"
 
-namespace channel {
+namespace driver::ni::channel {
 static int32_t parse_terminal_config(x::json::Parser &p) {
     const auto s = p.field<std::string>("terminal_config");
     if (s == "PseudoDiff") return DAQmx_Val_PseudoDiff;

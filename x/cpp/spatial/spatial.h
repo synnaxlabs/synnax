@@ -21,15 +21,15 @@ struct XY {
     XY() = default;
     XY(const float x, const float y): x(x), y(y) {}
 
-    explicit XY(x::json::Parser p): x(p.field<float>("x")), y(p.field<float>("y")) {}
+    explicit XY(json::Parser p): x(p.field<float>("x")), y(p.field<float>("y")) {}
 
-    explicit XY(const x::spatial::pb::XY &pb): x(pb.x()), y(pb.y()) {}
+    explicit XY(const v1::spatial::PBXY &pb): x(pb.x()), y(pb.y()) {}
 
     [[nodiscard]] nlohmann::json to_json() const {
         return {{"x", this->x}, {"y", this->y}};
     }
 
-    void to_proto(x::v1::spatial::PBXY *pb) const {
+    void to_proto(v1::spatial::PBXY *pb) const {
         pb->set_x(this->x);
         pb->set_y(this->y);
     }

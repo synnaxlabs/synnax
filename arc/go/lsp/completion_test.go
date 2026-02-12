@@ -18,6 +18,7 @@ import (
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
@@ -39,7 +40,7 @@ var _ = Describe("Completion", func() {
 	Describe("Basic Completion", func() {
 		It("should return built-in completions", func() {
 			content := "func test() {\n    i\n}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 1, 5)
 			Expect(completions).ToNot(BeNil())
@@ -50,7 +51,7 @@ var _ = Describe("Completion", func() {
 	Describe("Context-Aware Completion", func() {
 		It("should return empty completions in single-line comment", func() {
 			content := "// comment here"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 0, 10)
 			Expect(completions).ToNot(BeNil())
@@ -59,7 +60,7 @@ var _ = Describe("Completion", func() {
 
 		It("should return empty completions in multi-line comment", func() {
 			content := "/* multi\nline\ncomment */"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 1, 2)
 			Expect(completions).ToNot(BeNil())
@@ -68,7 +69,7 @@ var _ = Describe("Completion", func() {
 
 		It("should return only types in type annotation position", func() {
 			content := "func foo(x "
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 0, 11)
 			Expect(completions).ToNot(BeNil())
@@ -81,11 +82,14 @@ var _ = Describe("Completion", func() {
 
 			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' keyword in type annotation context")
 			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' keyword in type annotation context")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' keyword in type annotation context")
+			Expect(HasCompletion(completions.Items, "stage")).To(BeFalse(), "Should not show 'stage' keyword in type annotation context")
+			Expect(HasCompletion(completions.Items, "next")).To(BeFalse(), "Should not show 'next' keyword in type annotation context")
 		})
 
 		It("should return types matching prefix in type annotation position", func() {
 			content := "func foo(x i"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 0, 12)
 			Expect(completions).ToNot(BeNil())
@@ -98,18 +102,21 @@ var _ = Describe("Completion", func() {
 
 		It("should not show keywords in expression context", func() {
 			content := "x := "
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 0, 5)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' keyword in expression context")
 			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' keyword in expression context")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' keyword in expression context")
+			Expect(HasCompletion(completions.Items, "stage")).To(BeFalse(), "Should not show 'stage' keyword in expression context")
+			Expect(HasCompletion(completions.Items, "next")).To(BeFalse(), "Should not show 'next' keyword in expression context")
 		})
 
 		It("should show functions and values in expression context", func() {
 			content := "x := "
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 0, 5)
 			Expect(completions).ToNot(BeNil())
@@ -118,25 +125,145 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "now")).To(BeTrue(), "Should show 'now' function in expression context")
 		})
 
-		It("should show keywords at statement start", func() {
+		It("should show function keywords at statement start inside func body", func() {
 			content := "func foo() { "
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 0, 13)
 			Expect(completions).ToNot(BeNil())
 
-			Expect(HasCompletion(completions.Items, "if")).To(BeTrue(), "Should show 'if' keyword at statement start")
-			Expect(HasCompletion(completions.Items, "return")).To(BeTrue(), "Should show 'return' keyword at statement start")
+			Expect(HasCompletion(completions.Items, "if")).To(BeTrue(), "Should show 'if' keyword at statement start in func body")
+			Expect(HasCompletion(completions.Items, "return")).To(BeTrue(), "Should show 'return' keyword at statement start in func body")
+			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' inside func body")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' inside func body")
+			Expect(HasCompletion(completions.Items, "stage")).To(BeFalse(), "Should not show 'stage' inside func body")
+			Expect(HasCompletion(completions.Items, "next")).To(BeFalse(), "Should not show 'next' inside func body")
+		})
+
+		It("should show top-level keywords at top level", func() {
+			content := "seq"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 0, 3)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeTrue(), "Should show 'sequence' keyword at top level")
+			Expect(HasCompletion(completions.Items, "i32")).To(BeFalse(), "Should not show 'i32' type at top level")
+			Expect(HasCompletion(completions.Items, "f64")).To(BeFalse(), "Should not show 'f64' type at top level")
+			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' at top level")
+			Expect(HasCompletion(completions.Items, "return")).To(BeFalse(), "Should not show 'return' at top level")
+			Expect(HasCompletion(completions.Items, "stage")).To(BeFalse(), "Should not show 'stage' at top level")
+			Expect(HasCompletion(completions.Items, "next")).To(BeFalse(), "Should not show 'next' at top level")
+		})
+
+		It("should show func keyword at top level", func() {
+			content := "fu"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 0, 2)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "func")).To(BeTrue(), "Should show 'func' keyword at top level")
+		})
+
+		It("should show only stage keyword inside a sequence body", func() {
+			content := "sequence main {\n    \n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 4)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "stage")).To(BeTrue(), "Should show 'stage' keyword inside sequence body")
+			Expect(HasCompletion(completions.Items, "next")).To(BeFalse(), "Should not show 'next' inside sequence body")
+			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' inside sequence body")
+			Expect(HasCompletion(completions.Items, "return")).To(BeFalse(), "Should not show 'return' inside sequence body")
+			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' inside sequence body")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' inside sequence body")
+			Expect(HasCompletion(completions.Items, "i32")).To(BeFalse(), "Should not show 'i32' type inside sequence body")
+			Expect(HasCompletion(completions.Items, "f64")).To(BeFalse(), "Should not show 'f64' type inside sequence body")
+			Expect(HasCompletion(completions.Items, "len")).To(BeFalse(), "Should not show 'len' inside sequence body")
+			Expect(HasCompletion(completions.Items, "now")).To(BeFalse(), "Should not show 'now' inside sequence body")
+		})
+
+		It("should show next keyword inside a stage body", func() {
+			content := "sequence main {\n    stage first {\n        \n    }\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 2, 8)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "next")).To(BeTrue(), "Should show 'next' keyword inside stage body")
+			Expect(HasCompletion(completions.Items, "stage")).To(BeFalse(), "Should not show 'stage' inside stage body")
+			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' inside stage body")
+			Expect(HasCompletion(completions.Items, "return")).To(BeFalse(), "Should not show 'return' inside stage body")
+			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' inside stage body")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' inside stage body")
 		})
 
 		It("should not show types at statement start", func() {
 			content := "func foo() { "
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 0, 13)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "i32")).To(BeFalse(), "Should not show 'i32' type at statement start")
+		})
+	})
+
+	Describe("Nested If Inside Function", func() {
+		It("should show function keywords inside nested if block", func() {
+			content := "func foo() {\n    if x > 0 {\n        \n    }\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 2, 8)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "if")).To(BeTrue(), "Should show 'if' inside nested if block")
+			Expect(HasCompletion(completions.Items, "return")).To(BeTrue(), "Should show 'return' inside nested if block")
+			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' inside nested if block")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' inside nested if block")
+		})
+	})
+
+	Describe("Block Expression Completion", func() {
+		It("should show function keywords in block expression", func() {
+			blockURI := protocol.DocumentURI("arc://block/test")
+			content := ""
+			OpenArcDocument(server, ctx, blockURI, content)
+
+			completions := Completion(server, ctx, blockURI, 0, 0)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "if")).To(BeTrue(), "Should show 'if' in block expression")
+			Expect(HasCompletion(completions.Items, "return")).To(BeTrue(), "Should show 'return' in block expression")
+			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' in block expression")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' in block expression")
+		})
+	})
+
+	Describe("Sequence Body Suppresses Symbols", func() {
+		It("should not show channel symbols inside sequence body", func() {
+			globalResolver := symbol.MapResolver{
+				"sensor": symbol.Symbol{
+					Name: "sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   1,
+				},
+			}
+
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "sequence main {\n    \n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 4)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "sensor")).To(BeFalse(), "Should not show channel symbols inside sequence body")
+			Expect(HasCompletion(completions.Items, "stage")).To(BeTrue(), "Should show 'stage' inside sequence body")
 		})
 	})
 
@@ -157,7 +284,7 @@ var _ = Describe("Completion", func() {
 
 			// Use the same pattern as hover test - valid Arc code
 			content := "func test() i32 {\n    return myGlobal\n}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Request completion in the middle of typing "myGlobal" -> "myG|"
 			// Simulating user typing "myG" and requesting completion
@@ -184,7 +311,7 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return xyz\n}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 1, 14)
 			Expect(completions).ToNot(BeNil())
@@ -222,7 +349,7 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    myTask{}\n}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 1, 11)
 			Expect(completions).ToNot(BeNil())
@@ -237,7 +364,7 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    myTask{threshold=1.0, timeout=100}\n}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 1, 26)
 			Expect(completions).ToNot(BeNil())
@@ -251,7 +378,7 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    myTask{threshold=1.0}\n}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 1, 13)
 			Expect(completions).ToNot(BeNil())
@@ -265,7 +392,7 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    myTask{}\n}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 1, 11)
 			Expect(completions).ToNot(BeNil())
@@ -281,12 +408,105 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    myTask{channel=sensorCh}\n}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 1, 19)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "sensorCh")).To(BeTrue(), "Should suggest 'sensorCh' channel for chan type parameter")
+		})
+	})
+
+	Describe("Authority Block Completion", func() {
+		var globalResolver symbol.MapResolver
+
+		BeforeEach(func() {
+			globalResolver = symbol.MapResolver{
+				"vent_vlv_cmd": symbol.Symbol{
+					Name: "vent_vlv_cmd",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   1,
+				},
+				"press_vlv_cmd": symbol.Symbol{
+					Name: "press_vlv_cmd",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   2,
+				},
+				"myGlobal": symbol.Symbol{
+					Name: "myGlobal",
+					Kind: symbol.KindVariable,
+					Type: types.I32(),
+				},
+			}
+		})
+
+		It("should suggest authority keyword at top level", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "auth"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 0, 4)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "authority")).To(BeTrue())
+		})
+
+		It("should suggest channels inside authority block", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "authority (\n    200\n    \n)"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 2, 4)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeTrue())
+		})
+
+		It("should not suggest non-channel symbols inside authority block", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "authority (\n    200\n    \n)"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 2, 4)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "myGlobal")).To(BeFalse())
+		})
+
+		It("should filter out already-listed channels", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "authority (\n    200\n    vent_vlv_cmd 100\n    \n)"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 3, 4)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeFalse())
+			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeTrue())
+		})
+
+		It("should filter by prefix inside authority block", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "authority (\n    200\n    v\n)"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 2, 5)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeFalse())
 		})
 	})
 
@@ -321,7 +541,7 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "sequence main {\n    stage first {\n        \n    }\n}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 2, 8)
 			Expect(completions).ToNot(BeNil())
@@ -336,7 +556,7 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "sequence main {\n    stage first {\n        v\n    }\n}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 2, 9)
 			Expect(completions).ToNot(BeNil())
@@ -350,7 +570,7 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd,\n        \n    }\n}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 3, 8)
 			Expect(completions).ToNot(BeNil())
@@ -364,7 +584,7 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd,\n        v\n    }\n}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 3, 9)
 			Expect(completions).ToNot(BeNil())

@@ -9,7 +9,7 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { Flex, type List, Select, Text, Tooltip } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import { type direction, type record } from "@synnaxlabs/x";
 import { cloneElement, type JSX } from "react";
 
 import { ChannelName, type ChannelNameProps } from "@/hardware/common/task/ChannelName";
@@ -35,6 +35,7 @@ export interface ListAndDetailsChannelItemProps<
   onTare?: (channel: channel.Key) => void;
   path: string;
   hasTareButton: boolean;
+  nameDirection?: direction.Direction;
 }
 
 const getChannelNameProps = (
@@ -60,6 +61,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
   channel,
   icon,
   stateChannel,
+  nameDirection = "x",
   ...rest
 }: ListAndDetailsChannelItemProps<K>) => {
   const { itemKey } = rest;
@@ -73,7 +75,11 @@ export const ListAndDetailsChannelItem = <K extends string>({
       align="center"
       style={{ padding: "1.25rem 2rem" }}
     >
-      <Flex.Box direction="x" gap="small" align="center">
+      <Flex.Box
+        direction={nameDirection}
+        gap="small"
+        align={nameDirection === "x" ? "center" : "start"}
+      >
         <Text.Text
           color={8}
           weight={500}

@@ -46,8 +46,8 @@ public:
 
     ~PollingLoop() override { this->timer_.reset(); }
 
-    void wait(x::breaker::Breaker &breaker) override {
-        if (!this->started_) return;
+    WakeReason wait(x::breaker::Breaker &breaker) override {
+        if (!this->started_) return WakeReason::Shutdown;
 
         if (this->config_.interval.nanoseconds() > 0 && this->timer_) {
             const auto now = std::chrono::steady_clock::now();
@@ -84,13 +84,14 @@ public:
                 std::this_thread::sleep_for(timing::HIGH_RATE_POLL_INTERVAL.chrono());
             }
         }
+        return WakeReason::Timer;
     }
 
     x::errors::Error start() override {
         if (this->started_) return x::errors::NIL;
 
         if (this->config_.interval.nanoseconds() > 0) {
-            this->timer_ = std::make_unique<x::loop::Timer>(this->config_.interval);
+            this->timer_ = std::make_unique<::x::loop::Timer>(this->config_.interval);
         }
 
         this->last_tick_ = std::chrono::steady_clock::now();

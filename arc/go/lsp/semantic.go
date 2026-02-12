@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
-	xlsp "github.com/synnaxlabs/x/lsp"
+	"github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/protocol"
 )
 
@@ -79,7 +79,7 @@ func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.Semant
 
 func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []uint32 {
 	allTokens := tokenizeContent(content)
-	var tokens []xlsp.Token
+	var tokens []lsp.Token
 	for _, t := range allTokens {
 		if t.GetTokenType() == antlr.TokenEOF {
 			continue
@@ -88,14 +88,14 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 		if tokenType == nil {
 			continue
 		}
-		tokens = append(tokens, xlsp.Token{
+		tokens = append(tokens, lsp.Token{
 			Line:      uint32(t.GetLine() - 1),
 			StartChar: uint32(t.GetColumn()),
 			Length:    uint32(len(t.GetText())),
 			TokenType: *tokenType,
 		})
 	}
-	return xlsp.EncodeSemanticTokens(tokens)
+	return lsp.EncodeSemanticTokens(tokens)
 }
 
 func classifyToken(ctx context.Context, t antlr.Token, docIR ir.IR) *uint32 {
@@ -127,7 +127,7 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 		tokenType = SemanticTokenTypeFunction
 	case symbol.KindVariable:
 		tokenType = SemanticTokenTypeVariable
-	case symbol.KindConstant:
+	case symbol.KindConstant, symbol.KindGlobalConstant:
 		tokenType = SemanticTokenTypeConstant
 	case symbol.KindStatefulVariable:
 		tokenType = SemanticTokenTypeStatefulVariable
@@ -158,7 +158,7 @@ func mapLexerTokenType(antlrType int) *uint32 {
 		parser.ArcLexerELSE, parser.ArcLexerRETURN,
 		parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
 		parser.ArcLexerNEXT, parser.ArcLexerAND, parser.ArcLexerOR,
-		parser.ArcLexerNOT:
+		parser.ArcLexerNOT, parser.ArcLexerAUTHORITY:
 		tokenType = SemanticTokenTypeKeyword
 	case parser.ArcLexerI8, parser.ArcLexerI16, parser.ArcLexerI32, parser.ArcLexerI64,
 		parser.ArcLexerU8, parser.ArcLexerU16, parser.ArcLexerU32, parser.ArcLexerU64,

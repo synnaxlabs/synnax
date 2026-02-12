@@ -31,7 +31,7 @@ class NICounterReadForms(ConsoleCase):
         device_name = "CI_E103"
 
         self.log("Creating NI Counter Read Task")
-        ni_ci = CounterRead(self.client, console, "CI_Test_task")
+        ni_ci = console.workspace.create_task("NI Counter Read Task", "CI_Test_task")
 
         ni_ci.set_parameters(
             task_name="CI_Test_task",

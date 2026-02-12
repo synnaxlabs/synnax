@@ -46,7 +46,6 @@ export type Mode = arc.Mode | undefined;
 
 export const stateZ = z.object({
   key: z.string(),
-  type: z.literal(TYPE),
   version: z.literal(VERSION),
   remoteCreated: z.boolean(),
   graph: graphStateZ,
@@ -105,7 +104,6 @@ export const ZERO_GRAPH_STATE: GraphState = {
 
 export const ZERO_STATE: State = {
   key: "",
-  type: TYPE,
   version: VERSION,
   graph: ZERO_GRAPH_STATE,
   remoteCreated: false,

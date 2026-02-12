@@ -23,17 +23,14 @@ import (
 
 // ServiceConfig is the configuration for opening the kv.Service.
 type ServiceConfig struct {
-	// DB is the underlying database.
-	DB *gorp.DB
-	// Signals is used to publish signals when key-value pairs are created or deleted.
+	DB      *gorp.DB
 	Signals *signals.Provider
 	alamos.Instrumentation
 }
 
 var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for opening a kv service.
-	DefaultConfig = ServiceConfig{}
+	_             config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultConfig                              = ServiceConfig{}
 )
 
 // Validate implements config.Config.

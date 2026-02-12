@@ -8,7 +8,6 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/cpp/pb",
         "//x/cpp/json",
         "//x/go/spatial:spatial_grpc",
     ],

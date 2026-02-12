@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -32,21 +32,23 @@ import (
 type Service struct {
 	db            *gorp.DB
 	authenticator svcauth.Authenticator
-	token         *token.Service
 	access        *rbac.Service
 	internal      *user.Service
 }
 
 // NewService creates a new Service that allows for registering, updating, and
 // removing users.
-func NewService(cfg config.Config) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		db:            cfg.Distribution.DB,
 		authenticator: cfg.Service.Auth,
-		token:         cfg.Service.Token,
 		access:        cfg.Service.RBAC,
 		internal:      cfg.Service.User,
-	}
+	}, nil
 }
 
 // NewUser holds information for creating a new user in a Synnax server. The username
@@ -69,8 +71,8 @@ type (
 
 // Create registers the new users with the provided credentials. If successful, Create
 // returns a slice of the new users.
-func (svc *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse, error) {
-	if err := svc.access.Enforce(ctx, access.Request{
+func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse, error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{{Type: user.OntologyType}},
@@ -78,11 +80,11 @@ func (svc *Service) Create(ctx context.Context, req CreateRequest) (CreateRespon
 		return CreateResponse{}, err
 	}
 	var res CreateResponse
-	return res, svc.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := svc.internal.NewWriter(tx)
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.internal.NewWriter(tx)
 		newUsers := make([]user.User, len(req.Users))
 		for i, u := range req.Users {
-			if err := svc.authenticator.NewWriter(tx).Register(ctx, u.InsecureCredentials); err != nil {
+			if err := s.authenticator.NewWriter(tx).Register(ctx, u.InsecureCredentials); err != nil {
 				return err
 			}
 			newUsers[i].Username = u.Username

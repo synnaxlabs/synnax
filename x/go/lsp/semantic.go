@@ -9,7 +9,7 @@
 
 package lsp
 
-// Token represents a semantic token for LSP semantic highlighting.
+// Token represents a single semantic token for LSP semantic highlighting.
 type Token struct {
 	Line      uint32
 	StartChar uint32
@@ -17,9 +17,9 @@ type Token struct {
 	TokenType uint32
 }
 
-// EncodeSemanticTokens encodes a slice of tokens into the delta-encoded format
-// required by the LSP semantic tokens specification.
-// The format is: [deltaLine, deltaStartChar, length, tokenType, tokenModifiers]
+// EncodeSemanticTokens delta-encodes a list of tokens per the LSP semantic tokens spec.
+// Each token is encoded as 5 uint32 values: deltaLine, deltaStartChar, length,
+// tokenType, tokenModifiers (always 0).
 func EncodeSemanticTokens(tokens []Token) []uint32 {
 	if len(tokens) == 0 {
 		return []uint32{}
@@ -35,7 +35,6 @@ func EncodeSemanticTokens(tokens []Token) []uint32 {
 		} else {
 			deltaChar = t.StartChar
 		}
-		// 5 values per token: deltaLine, deltaStartChar, length, tokenType, tokenModifiers
 		encoded = append(encoded, deltaLine, deltaChar, t.Length, t.TokenType, 0)
 		prevLine = t.Line
 		prevChar = t.StartChar

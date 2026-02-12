@@ -20,7 +20,7 @@
 #include "grpcpp/security/credentials.h"
 
 namespace freighter::grpc {
-namespace details {
+namespace priv {
 const std::string PROTOCOL = "grpc";
 const std::string ERROR_KEY = "error";
 
@@ -28,7 +28,7 @@ const std::string ERROR_KEY = "error";
 inline x::errors::Error err_from_status(const ::grpc::Status &status) {
     if (status.ok()) return x::errors::NIL;
     if (status.error_code() == ::grpc::StatusCode::UNAVAILABLE)
-        return {freighter::ERR_UNREACHABLE.type, status.error_message()};
+        return {UNREACHABLE.type, status.error_message()};
     return x::errors::Error(status.error_message());
 }
 }
@@ -116,15 +116,14 @@ public:
     }
 };
 
-/// @brief An implementation of freighter::UnaryClient that uses GRPC as the backing
+/// @brief An implementation of UnaryClient that uses GRPC as the backing
 /// transport. Safe to be shared between threads.
-/// @implements freighter::UnaryClient
-/// @see freighter::UnaryClient
+/// @implements UnaryClient
+/// @see UnaryClient
 template<typename RQ, typename RS, typename RPC>
-class UnaryClient final : public freighter::UnaryClient<RQ, RS>,
-                          freighter::Finalizer<RQ, RS> {
+class UnaryClient final : public freighter::UnaryClient<RQ, RS>, Finalizer<RQ, RS> {
     /// Middleware collector.
-    freighter::MiddlewareCollector<RQ, RS> mw;
+    MiddlewareCollector<RQ, RS> mw;
     /// GRPCPool to pool connections across clients.
     const std::shared_ptr<Pool> pool;
     /// Base target for all requests.
@@ -138,7 +137,7 @@ public:
 
     /// @brief Adds a middleware to the chain.
     /// @implements UnaryClient::use
-    void use(const std::shared_ptr<freighter::Middleware> middleware) override {
+    void use(const std::shared_ptr<Middleware> middleware) override {
         this->mw.use(middleware);
     }
 
@@ -148,17 +147,12 @@ public:
     /// @returns Should be of a generated proto message type.
     std::pair<RS, x::errors::Error>
     send(const std::string &target, RQ &request) override {
-        freighter::Context ctx(
-            details::PROTOCOL,
-            this->base_target.child(target),
-            freighter::UNARY
-        );
+        Context ctx(priv::PROTOCOL, this->base_target.child(target), UNARY);
         return mw.exec(ctx, this, request);
     }
 
     /// @brief the finalizer that executes the request.
-    freighter::FinalizerReturn<RS>
-    operator()(freighter::Context req_ctx, RQ &req) override {
+    FinalizerReturn<RS> operator()(Context req_ctx, RQ &req) override {
         // Set outbound metadata.
         ::grpc::ClientContext grpc_ctx;
         for (const auto &[k, v]: req_ctx.params)
@@ -170,12 +164,8 @@ public:
         auto res = RS();
 
         const auto stat = stub->Exec(&grpc_ctx, req, &res);
-        auto res_ctx = freighter::Context(
-            req_ctx.protocol,
-            req_ctx.target,
-            freighter::UNARY
-        );
-        if (!stat.ok()) return {res_ctx, details::err_from_status(stat), res};
+        auto res_ctx = Context(req_ctx.protocol, req_ctx.target, UNARY);
+        if (!stat.ok()) return {res_ctx, priv::err_from_status(stat), res};
 
         // Set inbound metadata.
         for (const auto &[k, v]: grpc_ctx.GetServerInitialMetadata())
@@ -186,12 +176,10 @@ public:
 
 /// @brief freighter stream object.
 template<typename RQ, typename RS, typename RPC>
-class Stream final
-    : public freighter::Stream<RQ, RS>,
-      freighter::Finalizer<nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> {
-    freighter::
-        MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>>
-            mw;
+class Stream final : public freighter::Stream<RQ, RS>,
+                     Finalizer<nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> {
+
+    MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> mw;
 
     /// @brief the underlying grpc stream.
     std::unique_ptr<::grpc::ClientReaderWriter<RQ, RS>> stream;
@@ -212,11 +200,11 @@ class Stream final
 public:
     Stream(
         std::shared_ptr<::grpc::Channel> ch,
-        const freighter::MiddlewareCollector<
+        const MiddlewareCollector<
             std::nullptr_t,
             std::unique_ptr<freighter::Stream<RQ, RS>>> &mw,
-        freighter::Context &req_ctx,
-        freighter::Context &res_ctx
+        Context &req_ctx,
+        Context &res_ctx
     ):
         mw(mw), stub(RPC::NewStub(ch)), channel(ch) {
         for (const auto &[k, v]: req_ctx.params)
@@ -230,18 +218,14 @@ public:
     /// @brief implements Stream::send.
     x::errors::Error send(RQ &request) const override {
         if (this->stream->Write(request)) return x::errors::NIL;
-        return freighter::ERR_STREAM_CLOSED;
+        return STREAM_CLOSED;
     }
 
     /// @brief implements Stream::receive.
     std::pair<RS, x::errors::Error> receive() override {
         RS res;
         if (this->stream->Read(&res)) return {res, x::errors::NIL};
-        const auto ctx = freighter::Context(
-            details::PROTOCOL,
-            x::url::URL(),
-            freighter::STREAM
-        );
+        const auto ctx = Context(priv::PROTOCOL, x::url::URL(), STREAM);
         auto v = nullptr;
         const auto err = this->mw.exec(ctx, this, v).second;
         return {res, err};
@@ -257,33 +241,31 @@ public:
         this->stream->WritesDone();
     }
 
-    freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>>
-    operator()(freighter::Context outbound, std::nullptr_t &_) override {
+    FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>>
+    operator()(Context outbound, std::nullptr_t &_) override {
         if (this->closed) return {outbound, this->close_err};
         const ::grpc::Status status = this->stream->Finish();
         this->closed = true;
-        this->close_err = status.ok() ? freighter::ERR_EOF
-                                      : details::err_from_status(status);
+        this->close_err = status.ok() ? EOF_ERR : priv::err_from_status(status);
         return {outbound, this->close_err, nullptr};
     }
 };
 
-/// @brief An implementation of freighter::StreamClient that uses GRPC as the
+/// @brief An implementation of StreamClient that uses GRPC as the
 /// backing transport. Safe to be shared between threads.
-/// @implements freighter::StreamClient
-/// @see freighter::StreamClient
+/// @implements StreamClient
+/// @see StreamClient
 template<typename RQ, typename RS, typename RPC>
 class StreamClient final
     : public freighter::StreamClient<RQ, RS>,
-      freighter::Finalizer<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> {
+      Finalizer<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> {
     /// GRPCPool to pool connections across clients.
     const std::shared_ptr<Pool> pool;
     /// Base target for all requests.
     const x::url::URL base_target;
     /// Middleware collector.
-    freighter::
-        MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>>
-            mw;
+
+    MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> mw;
 
 public:
     StreamClient(const std::shared_ptr<Pool> &pool, const std::string &base_target):
@@ -293,7 +275,7 @@ public:
 
     /// @brief Adds a middleware to the chain.
     /// @implements StreamClient::use
-    void use(std::shared_ptr<freighter::Middleware> middleware) override {
+    void use(std::shared_ptr<Middleware> middleware) override {
         this->mw.use(middleware);
     }
 
@@ -304,33 +286,25 @@ public:
     /// It is suggested to create one StreamClient and create a stream per thread.
     std::pair<std::unique_ptr<freighter::Stream<RQ, RS>>, x::errors::Error>
     stream(const std::string &target) override {
-        auto ctx = freighter::Context(
-            details::PROTOCOL,
-            this->base_target.child(target),
-            freighter::STREAM
-        );
+        auto ctx = Context(priv::PROTOCOL, this->base_target.child(target), STREAM);
         auto v = nullptr;
         auto [stream, err] = this->mw.exec(ctx, this, v);
         return {std::move(stream), err};
     }
 
     /// @brief the finalizer that opens the stream.
-    freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>>
-    operator()(freighter::Context req_ctx, std::nullptr_t &_) override {
+    FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>>
+    operator()(Context req_ctx, std::nullptr_t &_) override {
         auto channel = this->pool->get_channel(req_ctx.target);
-        auto res_ctx = freighter::Context(
-            req_ctx.protocol,
-            req_ctx.target,
-            freighter::STREAM
-        );
+        auto res_ctx = Context(req_ctx.protocol, req_ctx.target, STREAM);
         auto stream = std::make_unique<Stream<RQ, RS, RPC>>(
             channel,
             this->mw,
             req_ctx,
             res_ctx
         );
-        if (res_ctx.has(details::ERROR_KEY))
-            return {res_ctx, x::errors::Error(res_ctx.get(details::ERROR_KEY))};
+        if (res_ctx.has(priv::ERROR_KEY))
+            return {res_ctx, x::errors::Error(res_ctx.get(priv::ERROR_KEY))};
         return {res_ctx, x::errors::NIL, std::move(stream)};
     }
 };

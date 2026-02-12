@@ -18,10 +18,7 @@ extern "C" {
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
-/// internal.
 #include "driver/sequence/plugins/plugins.h"
-
-using json = x::json::json;
 
 namespace driver::sequence::plugins {
 /// @brief it should apply JSON variables as Lua globals.
@@ -29,7 +26,7 @@ TEST(JSONPluginTest, BasicVariableApplication) {
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
 
-    const json test_data = {
+    const x::json::json test_data = {
         {"number", 42.5},
         {"string", "hello"},
         {"boolean", true},
@@ -79,7 +76,7 @@ TEST(JSONPluginTest, BasicVariableApplication) {
 TEST(JSONPluginTest, InvalidJSON) {
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
-    const json invalid_json = json::array();
+    const x::json::json invalid_json = x::json::json::array();
     JSON plugin(invalid_json);
     ASSERT_FALSE(plugin.before_all(L).ok());
     lua_close(L);

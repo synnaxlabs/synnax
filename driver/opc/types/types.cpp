@@ -28,7 +28,7 @@
 #include "driver/opc/telem/telem.h"
 #include "driver/opc/types/types.h"
 
-namespace driver::opc {
+namespace driver::opc::types {
 namespace {
 /// @brief Helper function to convert string GUID to UA_Guid
 UA_Guid string_to_guid(const std::string &guidStr) {
@@ -177,7 +177,7 @@ x::errors::Error WriteRequestBuilder::add_value(
     const UA_NodeId &node_id,
     const ::x::telem::Series &series
 ) {
-    auto [variant, err] = driver::opc::telem::series_to_variant(series);
+    auto [variant, err] = telem::series_to_variant(series);
     if (err) return err;
     add_value(node_id, variant);
     return x::errors::NIL;

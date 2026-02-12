@@ -25,20 +25,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -47,9 +47,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for opening the service layer. See fields for
+// LayerConfig is the configuration for opening the service layer. See fields for
 // details on defining the configuration.
-type Config struct {
+type LayerConfig struct {
 	// Security provides TLS certificates and encryption keys for the service layer.
 	//
 	// [REQUIRED]
@@ -69,15 +69,15 @@ type Config struct {
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for opening the service layer.
+	_ config.Config[LayerConfig] = LayerConfig{}
+	// DefaultLayerConfig is the default configuration for opening the service layer.
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specified in Config.
-	DefaultConfig = Config{}
+	DefaultLayerConfig = LayerConfig{}
 )
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Distribution = override.Nil(c.Distribution, other.Distribution)
 	c.Security = override.Nil(c.Security, other.Security)
@@ -86,7 +86,7 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c LayerConfig) Validate() error {
 	v := validate.New("service")
 	validate.NotNil(v, "distribution", c.Distribution)
 	validate.NotNil(v, "security", c.Security)
@@ -152,8 +152,8 @@ func (l *Layer) Close() error { return l.closer.Close() }
 // override the fields set in previous ones. If the configuration is invalid, or
 // any services fail to open, Open returns a nil layer and an error. If the returned
 // error is nil, the Layer must be closed by calling Close after use.
-func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (*Layer, error) {
+	cfg, err := config.New(DefaultLayerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

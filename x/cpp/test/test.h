@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// GTest
 #include <chrono>
 #include <functional>
 #include <sstream>
@@ -449,7 +448,7 @@ auto assert_nil_p(Pair &&pair_result, const char *file, const int line) ->
 template<typename Pair>
 auto assert_occurred_as_p(
     Pair &&pair_result,
-    const x::errors::Error &expected,
+    const errors::Error &expected,
     const char *file,
     const int line
 ) -> typename std::remove_reference<decltype(pair_result.first)>::type {
@@ -470,8 +469,8 @@ auto assert_occurred_as_p(
         ASSERT_FALSE(_xtest_err) << _xtest_err;                                        \
     } while (0)
 
-/// @brief macro asserting that the provided errors::Error is the same as the provided
-/// error.
+/// @brief macro asserting that the provided errors::Error is the same as the
+/// provided error.
 #define ASSERT_OCCURRED_AS(expr, err)                                                  \
     do {                                                                               \
         const auto _xtest_err = (expr);                                                \

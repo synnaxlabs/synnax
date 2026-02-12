@@ -12,8 +12,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//driver/errors",
-        "//driver/ni:ni_errors",
         "//driver/ni/daqmx:nidaqmx_official",
+        "//driver/ni/errors",
         "//x/cpp/lib",
         "//x/cpp/os",
     ],

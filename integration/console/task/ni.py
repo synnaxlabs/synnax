@@ -11,19 +11,19 @@ from abc import abstractmethod
 from typing import Any, TypeVar, cast
 
 import synnax as sy
+from playwright.sync_api import Locator
 
-from console.console import Console
+from console.layout import LayoutClient
 from console.task.channels.analog import Analog
 from console.task.channels.counter import Counter
-
-from ..page import ConsolePage
+from console.task_page import TaskPage
 
 # Union type for all NI channel types
 NIChannel = Analog | Counter
 NIChannelT = TypeVar("NIChannelT", bound=NIChannel)
 
 
-class NITask(ConsolePage):
+class NITask(TaskPage):
     """NI Task automation interface for managing channels."""
 
     channels: list[NIChannel]
@@ -32,19 +32,14 @@ class NITask(ConsolePage):
 
     def __init__(
         self,
+        layout: LayoutClient,
         client: sy.Synnax,
-        console: Console,
         page_name: str,
+        *,
+        pane_locator: Locator,
     ) -> None:
-        """
-        Initialize an NITask page.
-
-        Args:
-            client: Synnax client instance
-            console: Console instance
-            page_name: Name for the page
-        """
-        super().__init__(client, console, page_name)
+        """Initialize an NITask page wrapper (see ConsolePage.__init__ for details)."""
+        super().__init__(layout, client, page_name, pane_locator=pane_locator)
         self.channels: list[NIChannel] = []
         self.channels_by_name: list[str] = []
 
@@ -96,40 +91,40 @@ class NITask(ConsolePage):
         Returns:
             The created channel instance
         """
-        console = self.console
+        layout = self.layout
 
         # Add first channel or subsequent channels
         if len(self.channels) == 0:
-            console.click("Add a channel")
+            layout.click("Add a channel")
         else:
-            console.page.locator("header:has-text('Channels') .pluto-icon--add").click()
+            layout.page.locator("header:has-text('Channels') .pluto-icon--add").click()
 
         # Click the channel in the list
         idx = len(self.channels)
-        console.page.locator(".pluto-list__item").nth(idx).click()
+        layout.page.locator(".pluto-list__item").nth(idx).click()
 
         # Configure device
-        console.click_btn("Device")
-        console.select_from_dropdown(device)
+        layout.click_btn("Device")
+        layout.select_from_dropdown(device)
 
         if dev_name is None:
             dev_name = name[:12]
         # Handle device creation modal if it appears
         sy.sleep(0.2)  # Give modal time to appear
-        if console.check_for_modal():
+        if layout.is_modal_open():
             sy.sleep(0.2)
-            console.fill_input_field("Name", dev_name)
-            console.click_btn("Next")
+            layout.fill_input_field("Name", dev_name)
+            layout.click_btn("Next")
             sy.sleep(0.2)
-            console.fill_input_field("Identifier", dev_name)
-            console.click_btn("Save")
+            layout.fill_input_field("Identifier", dev_name)
+            layout.click_btn("Save")
             sy.sleep(0.2)
 
-        if console.check_for_modal():
+        if layout.is_modal_open():
             raise RuntimeError("Blocking modal is still open")
 
         # Create channel using provided class
-        channel = channel_class(console=console, name=name, device=device, **kwargs)
+        channel = channel_class(layout=self.layout, name=name, device=device, **kwargs)
 
         self.channels.append(channel)
         self.channels_by_name.append(name)
@@ -144,86 +139,11 @@ class NITask(ConsolePage):
 
         Returns: None
         """
-        console = self.console
         names = [name] if isinstance(name, str) else name
 
         for channel_name in names:
             idx = self.channels_by_name.index(channel_name)
-            console.page.locator(".pluto-list__item").nth(idx).click()
+            self.layout.page.locator(".pluto-list__item").nth(idx).click()
             channel = self.channels[idx]
-            sy.sleep(0.1)
+            sy.sleep(0.3)
             channel.assert_form()
-
-    def set_parameters(
-        self,
-        task_name: str | None = None,
-        data_saving: bool | None = None,
-        auto_start: bool | None = None,
-    ) -> None:
-        """
-        Set the parameters for the task.
-
-        Args:
-            sample_rate: The sample rate for the task.
-            stream_rate: The stream rate for the task.
-            data_saving: Whether to save data to the core.
-            auto_start: Whether to start the task automatically.
-        """
-        console = self.console
-
-        if task_name is not None:
-            console.fill_input_field("Name", task_name)
-            console.ENTER
-
-        if data_saving is not None:
-            if data_saving != console.get_toggle("Data Saving"):
-                console.click_checkbox("Data Saving")
-
-        if auto_start is not None:
-            if auto_start != console.get_toggle("Auto Start"):
-                console.click_checkbox("Auto Start")
-
-    def configure(self) -> None:
-        self.console.page.get_by_role("button", name="Configure", exact=True).click(
-            force=True
-        )
-
-    def run(self) -> None:
-        sy.sleep(0.2)
-        play_button = self.console.page.locator("button .pluto-icon--play").locator(
-            ".."
-        )
-        play_button.wait_for(state="visible", timeout=3000)
-        play_button.click(timeout=1000)
-        sy.sleep(0.2)
-
-    def status(self) -> dict[str, str]:
-        """
-        Get the current status information from the task status box.
-
-        Returns:
-            Dictionary containing:
-                - text: The status message (e.g., "Task has not been configured")
-                - level: The alert level (e.g., "disabled", "info", "success", "error")
-                - name: Status field name
-                - time: Timestamp if available
-        """
-        sy.sleep(0.2)
-        status_element = self.console.page.locator(
-            ".console-task-state p.pluto-status__text, .console-task-state p.pluto-text"
-        ).first
-
-        # status
-        class_attr = status_element.get_attribute("class") or ""
-        level = "unknown"
-        for cls in class_attr.split():
-            if cls.startswith("pluto--status-"):
-                level = cls.replace("pluto--status-", "")
-                break
-
-        msg = status_element.inner_text()
-
-        return {
-            "msg": msg,
-            "level": level,
-        }

@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -38,14 +39,18 @@ type Service struct {
 	alamos.Instrumentation
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
-		Instrumentation: cfg.Instrumentation,
 		db:              cfg.Distribution.DB,
 		access:          cfg.Service.RBAC,
+		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Service.Arc,
 		status:          cfg.Service.Status,
-	}
+	}, nil
 }
 
 type (
@@ -156,6 +161,14 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 		return RetrieveResponse{}, err
 	}
 	return res, nil
+}
+
+func translateArcsToService(arcs []Arc) []arc.Arc {
+	return lo.Map(arcs, func(a Arc, _ int) arc.Arc { return a.Arc })
+}
+
+func translateArcsFromService(arcs []arc.Arc) []Arc {
+	return lo.Map(arcs, func(a arc.Arc, _ int) Arc { return Arc{Arc: a} })
 }
 
 // LSPMessage represents a single JSON-RPC message for the LSP

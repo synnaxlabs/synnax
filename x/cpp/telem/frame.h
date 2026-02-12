@@ -25,6 +25,11 @@ class Frame {
     /// @brief private copy constructor that deep copies the frame.
     Frame(const Frame &other);
 
+    /// @brief ensures the internal vectors are allocated with at least the given
+    /// capacity. No-op if already allocated.
+    /// @param size the minimum capacity to reserve.
+    void ensure_reserved(size_t size);
+
 public:
     /// @brief the channels in the frame.
     std::unique_ptr<std::vector<std::uint32_t>> channels;
@@ -43,37 +48,28 @@ public:
     /// @param size the number of series to allocate space for.
     explicit Frame(size_t size);
 
+    /// @brief constructs the frame from its protobuf representation.
+    /// @param f the protobuf representation of the frame.
+    explicit Frame(const ::telem::PBFrame &f);
+
     /// @brief constructs a frame with a single channel and series.
     /// @param chan the channel key corresponding to the given series.
     /// @param ser the series to add to the frame.
-    Frame(const std::uint32_t &chan, x::telem::Series &&ser);
+    Frame(const std::uint32_t &chan, Series &&ser);
 
     explicit Frame(
-        std::unordered_map<std::uint32_t, x::telem::SampleValue> &data,
+        std::unordered_map<std::uint32_t, SampleValue> &data,
         size_t cap = 0
     );
 
-    /// @brief converts the frame to its protobuf representation.
-    /// @return the protobuf representation of the frame.
-    [[nodiscard]] ::x::telem::pb::Frame to_proto() const;
+    /// @brief binds the frame to the given protobuf representation.
+    /// @param f the protobuf representation to bind to. This pb must be non-null.
+    void to_proto(::telem::PBFrame *f) const;
 
-    /// @brief constructs a frame from its protobuf representation.
-    /// @param pb the protobuf representation to convert from.
-    /// @return a pair containing the frame and any error that occurred.
-    static std::pair<Frame, x::errors::Error>
-    from_proto(const ::x::telem::pb::Frame &pb);
-
-    /// @brief adds a channel and series to the frame.
+    /// @brief adds the given channel and series to the frame, moving the series.
     /// @param chan the channel key to add.
     /// @param ser the series to add for the channel key.
-    void add(const std::uint32_t &chan, x::telem::Series &ser) const;
-
-    /// @brief adds the given series to the frame for the given channel key. Unlike
-    /// add,
-    ///  this method moves the series into the frame, rather than copying it.
-    /// @param chan the channel key to add.
-    /// @param ser the series to add for the channel key.
-    void emplace(const std::uint32_t &chan, x::telem::Series &&ser) const;
+    void emplace(const std::uint32_t &chan, Series &&ser);
 
     /// @brief returns true if the frame has no series.
     [[nodiscard]] bool empty() const;
@@ -83,13 +79,14 @@ public:
     /// @brief returns the sample for the given channel and index.
     template<typename NumericType>
     NumericType at(const std::uint32_t &key, const int &index) const {
-        for (size_t i = 0; i < channels->size(); i++)
-            if (channels->at(i) == key) return series->at(i).at<NumericType>(index);
+        if (this->channels != nullptr && this->series != nullptr)
+            for (size_t i = 0; i < this->channels->size(); i++)
+                if (this->channels->at(i) == key)
+                    return this->series->at(i).at<NumericType>(index);
         throw std::runtime_error("channel not found");
     }
 
-    [[nodiscard]] telem::SampleValue
-    at(const std::uint32_t &key, const int &index) const;
+    [[nodiscard]] SampleValue at(const std::uint32_t &key, const int &index) const;
 
     /// @brief returns the number of series in the frame.
     [[nodiscard]] size_t size() const { return series != nullptr ? series->size() : 0; }
@@ -100,7 +97,9 @@ public:
     }
 
     [[nodiscard]] bool contains(const std::uint32_t &key) const {
-        return std::find(channels->begin(), channels->end(), key) != channels->end();
+        if (this->channels == nullptr) return false;
+        return std::find(this->channels->begin(), this->channels->end(), key) !=
+               this->channels->end();
     }
 
     /// @brief returns the number of channel-series pairs that the frame can hold
@@ -125,14 +124,14 @@ public:
     /// traverse the channel keys and series in the frame.
     struct Iterator {
         using iterator_category = std::forward_iterator_tag;
-        using value_type = std::pair<std::uint32_t, x::telem::Series &>;
+        using value_type = std::pair<std::uint32_t, Series &>;
         using difference_type = std::ptrdiff_t;
         using pointer = value_type *;
         using reference = value_type &;
 
         Iterator(
             std::vector<std::uint32_t> &channels_ref,
-            std::vector<telem::Series> &series_ref,
+            std::vector<Series> &series_ref,
             const size_t pos
         ):
             channels(&channels_ref), series(&series_ref), pos(pos) {}
@@ -155,15 +154,25 @@ public:
         // lifecycle concerns because the Iterator is only valid while the parent Frame
         // exists - the same contract as STL container iterators.
         std::vector<std::uint32_t> *channels;
-        std::vector<telem::Series> *series;
+        std::vector<Series> *series;
         size_t pos;
     };
 
-    [[nodiscard]] Iterator begin() const { return {*channels, *series, 0}; }
+    [[nodiscard]] Iterator begin() const {
+        if (this->channels == nullptr || this->series == nullptr)
+            return {empty_channels, empty_series, 0};
+        return {*this->channels, *this->series, 0};
+    }
 
     [[nodiscard]] Iterator end() const {
-        return {*channels, *series, channels->size()};
+        if (this->channels == nullptr || this->series == nullptr)
+            return {empty_channels, empty_series, 0};
+        return {*this->channels, *this->series, this->channels->size()};
     }
+
+private:
+    static inline std::vector<std::uint32_t> empty_channels{};
+    static inline std::vector<Series> empty_series{};
 };
 
 // ==================== Protobuf translators ====================

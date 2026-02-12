@@ -71,6 +71,27 @@ describe("color.Color", () => {
       expect(color.bValue(c)).toEqual(38);
       expect(color.aValue(c)).toBeCloseTo(0.5);
     });
+
+    test("from rgba struct", () => {
+      const c = color.construct({ r: 255, g: 0, b: 0, a: 1 });
+      expect(color.rValue(c)).toEqual(255);
+      expect(color.gValue(c)).toEqual(0);
+      expect(color.bValue(c)).toEqual(0);
+      expect(color.aValue(c)).toEqual(1);
+    });
+
+    test("from rgba struct with alpha", () => {
+      const c = color.construct({ r: 122, g: 44, b: 38, a: 0.5 });
+      expect(color.rValue(c)).toEqual(122);
+      expect(color.gValue(c)).toEqual(44);
+      expect(color.bValue(c)).toEqual(38);
+      expect(color.aValue(c)).toEqual(0.5);
+    });
+
+    test("colorZ parses rgba struct", () => {
+      const c = color.colorZ.parse({ r: 255, g: 0, b: 0, a: 1 });
+      expect(c).toEqual([255, 0, 0, 1]);
+    });
   });
 
   describe("to hex", () => {
@@ -712,6 +733,10 @@ describe("color.Color", () => {
     test("rejects invalid RGBA arrays", () => {
       expect(color.isCrude([255, 0, 0, 1.5])).toBe(false);
       expect(color.isCrude([255, 0, 0, -0.1])).toBe(false);
+    });
+
+    test("RGBA struct is a crude color", () => {
+      expect(color.isCrude({ r: 255, g: 0, b: 0, a: 1 })).toBe(true);
     });
 
     test("rejects non-color values", () => {

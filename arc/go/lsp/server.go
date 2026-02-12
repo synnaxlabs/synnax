@@ -12,6 +12,7 @@ package lsp
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -23,7 +24,10 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/config"
-	xlsp "github.com/synnaxlabs/x/lsp"
+	"github.com/synnaxlabs/x/debounce"
+	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
+	lsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"go.lsp.dev/protocol"
@@ -43,13 +47,23 @@ type Config struct {
 	// RepublishTimeout is the maximum time to wait for a republish operation to complete.
 	// If zero, defaults to 30 seconds.
 	RepublishTimeout time.Duration
+	// DebounceDelay is the trailing-edge delay after the last keystroke before
+	// diagnostics are published. Defaults to 200ms.
+	DebounceDelay time.Duration
+	// MaxDebounceDelay caps the total delay from the first unprocessed change,
+	// ensuring fast typists still get periodic diagnostic updates. Defaults to 1s.
+	MaxDebounceDelay time.Duration
 	// Instrumentation is used for logging, tracing, metrics, etc.
 	alamos.Instrumentation
 }
 
 var (
 	_             config.Config[Config] = &Config{}
-	DefaultConfig                       = Config{RepublishTimeout: 30 * time.Second}
+	DefaultConfig                       = Config{
+		RepublishTimeout: 30 * time.Second,
+		DebounceDelay:    200 * time.Millisecond,
+		MaxDebounceDelay: 1 * time.Second,
+	}
 )
 
 // Override implements config.Config.
@@ -58,17 +72,21 @@ func (c Config) Override(other Config) Config {
 	c.GlobalResolver = override.Nil(c.GlobalResolver, other.GlobalResolver)
 	c.OnExternalChange = override.Nil(c.OnExternalChange, other.OnExternalChange)
 	c.RepublishTimeout = override.Numeric(c.RepublishTimeout, other.RepublishTimeout)
+	c.DebounceDelay = override.Numeric(c.DebounceDelay, other.DebounceDelay)
+	c.MaxDebounceDelay = override.Numeric(c.MaxDebounceDelay, other.MaxDebounceDelay)
 	return c
 }
 
 // Validate implements config.Config.
 func (c Config) Validate() error { return nil }
 
+var translateCfg = lsp.TranslateConfig{Source: "arc-analyzer"}
+
 // Server implements the Language Server Protocol for arc
 type Server struct {
-	xlsp.NoopServer
+	lsp.NoopServer
 	capabilities             protocol.ServerCapabilities
-	client                   protocol.Client
+	client                   lsp.Client
 	documents                map[protocol.DocumentURI]*Document
 	cfg                      Config
 	mu                       sync.RWMutex
@@ -91,7 +109,8 @@ func New(cfgs ...Config) (*Server, error) {
 		capabilities: protocol.ServerCapabilities{
 			TextDocumentSync: protocol.TextDocumentSyncOptions{
 				OpenClose: true,
-				Change:    protocol.TextDocumentSyncKindFull,
+				Change:    protocol.TextDocumentSyncKindIncremental,
+				Save:      &protocol.SaveOptions{IncludeText: false},
 			},
 			HoverProvider: true,
 			CompletionProvider: &protocol.CompletionOptions{
@@ -113,7 +132,7 @@ func New(cfgs ...Config) (*Server, error) {
 			RenameProvider:                  true,
 			SemanticTokensProvider: map[string]any{
 				"legend": protocol.SemanticTokensLegend{
-					TokenTypes: xlsp.ConvertToSemanticTokenTypes(semanticTokenTypes),
+					TokenTypes: lsp.ConvertToSemanticTokenTypes(semanticTokenTypes),
 				},
 				"full": true,
 			},
@@ -122,7 +141,7 @@ func New(cfgs ...Config) (*Server, error) {
 }
 
 // SetClient sets the LSP client for sending notifications
-func (s *Server) SetClient(client protocol.Client) {
+func (s *Server) SetClient(client lsp.Client) {
 	s.client = client
 	if s.cfg.OnExternalChange != nil {
 		s.externalChangeDisconnect = s.cfg.OnExternalChange.OnChange(func(ctx context.Context, _ struct{}) {
@@ -156,8 +175,6 @@ func (s *Server) getDocument(uri protocol.DocumentURI) (*Document, bool) {
 	return doc, ok
 }
 
-var translateCfg = xlsp.TranslateConfig{Source: "arc-analyzer"}
-
 // Initialize handles the initialize request
 func (s *Server) Initialize(_ context.Context, params *protocol.InitializeParams) (*protocol.InitializeResult, error) {
 	s.cfg.L.Debug("initializing arc lsp", zap.String("client", params.ClientInfo.Name))
@@ -184,6 +201,15 @@ func (s *Server) Shutdown(_ context.Context) error {
 		s.cancelRepublish()
 	}
 	s.republishMu.Unlock()
+	s.mu.RLock()
+	docs := make([]*Document, 0, len(s.documents))
+	for _, doc := range s.documents {
+		docs = append(docs, doc)
+	}
+	s.mu.RUnlock()
+	for _, doc := range docs {
+		doc.debouncer.Stop()
+	}
 	return nil
 }
 
@@ -196,13 +222,17 @@ func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocume
 		zap.String("uri", string(uri)),
 		zap.Bool("hasMetadata", metadata != nil),
 		zap.Bool("isBlock", metadata != nil && metadata.isFunctionBlock))
-	s.mu.Lock()
-	s.documents[uri] = &Document{
+	doc := &Document{
 		URI:      uri,
 		Version:  params.TextDocument.Version,
 		Content:  params.TextDocument.Text,
 		metadata: metadata,
 	}
+	doc.debouncer = debounce.New(s.cfg.DebounceDelay, s.cfg.MaxDebounceDelay, func(ctx context.Context) {
+		s.runAnalysis(ctx, doc, uri)
+	})
+	s.mu.Lock()
+	s.documents[uri] = doc
 	s.mu.Unlock()
 
 	s.publishDiagnostics(ctx, uri, params.TextDocument.Text)
@@ -211,23 +241,45 @@ func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocume
 }
 
 // DidChange handles document changes
-func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDocumentParams) error {
+func (s *Server) DidChange(_ context.Context, params *protocol.DidChangeTextDocumentParams) error {
 	uri := params.TextDocument.URI
 	s.cfg.L.Debug("Document changed", zap.String("uri", string(uri)))
+
 	s.mu.Lock()
-	if doc, ok := s.documents[uri]; ok {
-		if len(params.ContentChanges) > 0 {
-			doc.Version = params.TextDocument.Version
-			doc.Content = params.ContentChanges[0].Text
+	doc, ok := s.documents[uri]
+	if !ok {
+		s.mu.Unlock()
+		return nil
+	}
+	for _, change := range params.ContentChanges {
+		if lsp.IsFullReplacement(change) {
+			doc.Content = change.Text
+		} else {
+			doc.Content = lsp.ApplyIncrementalChange(doc.Content, change)
 		}
 	}
+	doc.Version = params.TextDocument.Version
 	s.mu.Unlock()
+
+	doc.debouncer.Trigger()
+	return nil
+}
+
+// DidSave handles document save - force-flushes any pending analysis.
+func (s *Server) DidSave(ctx context.Context, params *protocol.DidSaveTextDocumentParams) error {
+	uri := params.TextDocument.URI
+	s.cfg.L.Debug("Document saved", zap.String("uri", string(uri)))
+
 	s.mu.RLock()
-	content := ""
-	if doc, ok := s.documents[uri]; ok {
-		content = doc.Content
+	doc, ok := s.documents[uri]
+	if !ok {
+		s.mu.RUnlock()
+		return nil
 	}
+	content := doc.Content
 	s.mu.RUnlock()
+
+	doc.debouncer.Stop()
 	s.publishDiagnostics(ctx, uri, content)
 	return nil
 }
@@ -238,8 +290,13 @@ func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocu
 	s.cfg.L.Debug("Document closed", zap.String("uri", string(uri)))
 
 	s.mu.Lock()
+	doc, ok := s.documents[uri]
 	delete(s.documents, uri)
 	s.mu.Unlock()
+
+	if ok {
+		doc.debouncer.Stop()
+	}
 
 	return s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         uri,
@@ -247,54 +304,136 @@ func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocu
 	})
 }
 
-// publishDiagnostics parses the document and publishes syntax and semantic errors
-func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentURI, content string) {
-	s.mu.Lock()
-	doc, ok := s.documents[uri]
-	s.mu.Unlock()
-	s.cfg.L.Debug("analyzing program")
-	if !ok {
+func (s *Server) runAnalysis(
+	ctx context.Context,
+	doc *Document,
+	uri protocol.DocumentURI,
+) {
+	if ctx.Err() != nil {
 		return
 	}
 
-	var pDiagnostics []protocol.Diagnostic
-	if doc.metadata.isFunctionBlock {
-		wrappedContent := fmt.Sprintf("{%s}", content)
-		doc.Content = wrappedContent
-		t, err := parser.ParseBlock(wrappedContent)
-		if err != nil {
-			pDiagnostics = xlsp.TranslateDiagnostics(*err, translateCfg)
-		} else {
-			aCtx := acontext.CreateRoot[parser.IBlockContext](
-				ctx,
-				t,
-				s.cfg.GlobalResolver,
-			)
-			statement.AnalyzeFunctionBody(aCtx)
-			doc.IR = ir.IR{Symbols: aCtx.Scope}
-			doc.Diagnostics = *aCtx.Diagnostics
-			pDiagnostics = xlsp.TranslateDiagnostics(*aCtx.Diagnostics, translateCfg)
-		}
-	} else {
-		t, diag := text.Parse(text.Text{Raw: content})
-		if diag != nil {
-			pDiagnostics = xlsp.TranslateDiagnostics(*diag, translateCfg)
-		} else {
-			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.GlobalResolver)
-			doc.IR = analyzedIR
-			if analysisDiag != nil {
-				doc.Diagnostics = *analysisDiag
-				pDiagnostics = xlsp.TranslateDiagnostics(*analysisDiag, translateCfg)
-			}
-		}
+	s.mu.RLock()
+	content := doc.Content
+	isBlock := doc.metadata.isFunctionBlock
+	s.mu.RUnlock()
+
+	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, isBlock)
+	if ctx.Err() != nil {
+		return
 	}
+
+	s.mu.Lock()
+	if _, ok := s.documents[uri]; ok {
+		doc.IR = docIR
+		doc.Diagnostics = docDiag
+	}
+	s.mu.Unlock()
 
 	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         uri,
 		Diagnostics: pDiagnostics,
 	}); err != nil {
 		s.cfg.L.Error(
-			"failed to publish pDiagnostics",
+			"failed to publish diagnostics",
+			zap.Error(err),
+			zap.String("uri", string(uri)),
+		)
+	}
+
+	s.refreshSemanticTokens(ctx, uri)
+}
+
+func (s *Server) refreshSemanticTokens(ctx context.Context, uri protocol.DocumentURI) {
+	if s.client == nil {
+		return
+	}
+	if err := s.client.SemanticTokensRefresh(ctx); err != nil &&
+		!errors.Is(err, io.ErrClosedPipe) {
+		s.cfg.L.Warn(
+			"failed to refresh semantic tokens",
+			zap.Error(err),
+			zap.String("uri", string(uri)),
+		)
+	}
+}
+
+// analyze performs parse+analyze on the given content and returns protocol
+// diagnostics, the resulting IR, and the raw diagnostics. It does NOT
+// mutate any Document fields.
+func (s *Server) analyze(
+	ctx context.Context,
+	content string,
+	isBlock bool,
+) ([]protocol.Diagnostic, ir.IR, diagnostics.Diagnostics) {
+	s.cfg.L.Debug("analyzing program")
+	var (
+		pDiagnostics []protocol.Diagnostic
+		docIR        ir.IR
+		docDiag      diagnostics.Diagnostics
+	)
+
+	if isBlock {
+		wrappedContent := fmt.Sprintf("{%s}", content)
+		t, err := parser.ParseBlock(wrappedContent)
+		if err != nil {
+			pDiagnostics = lsp.TranslateDiagnostics(*err, translateCfg)
+		} else {
+			aCtx := acontext.CreateRoot[parser.IBlockContext](
+				ctx, t, s.cfg.GlobalResolver,
+			)
+			statement.AnalyzeFunctionBody(aCtx)
+			docIR = ir.IR{Symbols: aCtx.Scope}
+			docDiag = *aCtx.Diagnostics
+			pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateCfg)
+		}
+	} else {
+		t, diag := text.Parse(text.Text{Raw: content})
+		if diag != nil {
+			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateCfg)
+		} else {
+			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.GlobalResolver)
+			docIR = analyzedIR
+			if analysisDiag != nil {
+				docDiag = *analysisDiag
+				pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateCfg)
+			}
+		}
+	}
+	return pDiagnostics, docIR, docDiag
+}
+
+// publishDiagnostics synchronously parses and publishes diagnostics.
+// Used for DidOpen, DidSave, and republish where immediate feedback is expected.
+func (s *Server) publishDiagnostics(
+	ctx context.Context,
+	uri protocol.DocumentURI,
+	content string,
+) {
+	s.mu.RLock()
+	doc, ok := s.documents[uri]
+	if !ok {
+		s.mu.RUnlock()
+		return
+	}
+	isBlock := doc.metadata.isFunctionBlock
+	s.mu.RUnlock()
+
+	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, isBlock)
+
+	s.mu.Lock()
+	if _, stillOpen := s.documents[uri]; stillOpen {
+		doc.IR = docIR
+		doc.Diagnostics = docDiag
+	}
+	s.mu.Unlock()
+
+	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+		URI:         uri,
+		Diagnostics: pDiagnostics,
+	}); err != nil {
+		s.cfg.L.Error(
+			"failed to publish diagnostics",
 			zap.Error(err),
 			zap.String("uri", string(uri)),
 		)
@@ -313,4 +452,5 @@ func (s *Server) republishAllDiagnostics(ctx context.Context) {
 	for uri, content := range docs {
 		s.publishDiagnostics(ctx, uri, content)
 	}
+	s.refreshSemanticTokens(ctx, "")
 }

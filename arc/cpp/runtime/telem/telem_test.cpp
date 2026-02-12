@@ -17,8 +17,7 @@
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/telem/telem.h"
 
-using namespace arc::runtime;
-
+namespace arc::runtime::io {
 namespace {
 node::Context make_context(bool *changed = nullptr) {
     return node::Context{
@@ -35,27 +34,27 @@ node::Context make_context(bool *changed = nullptr) {
 
 /// @brief Test factory creates source node for "on" type.
 TEST(TelemFactoryTest, CreateSourceNode) {
-    arc::types::Param output_param;
-    output_param.name = arc::ir::default_output_param;
-    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    ir::Param output_param;
+    output_param.name = ir::default_output_param;
+    output_param.type = types::Type(types::Kind::F32);
 
-    arc::ir::Node ir_node;
+    ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
     ir_node.outputs.push_back(output_param);
 
-    arc::types::Param channel_config;
+    ir::Param channel_config;
     channel_config.name = "channel";
     channel_config.value = static_cast<uint32_t>(10);
     ir_node.config.push_back(channel_config);
 
-    arc::ir::IR ir;
+    ir::IR ir;
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{10, x::telem::FLOAT32_T, 11}}};
-    state::State s(cfg, arc::runtime::errors::noop_handler);
+    state::State s(cfg, errors::noop_handler);
 
-    io::Factory factory;
+    Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         factory.create(node::Config(ir, ir_node, std::move(state_node)))
@@ -65,27 +64,27 @@ TEST(TelemFactoryTest, CreateSourceNode) {
 
 /// @brief Test factory creates sink node for "write" type.
 TEST(TelemFactoryTest, CreateSinkNode) {
-    arc::types::Param input_param;
-    input_param.name = arc::ir::default_input_param;
-    input_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    ir::Param input_param;
+    input_param.name = ir::default_input_param;
+    input_param.type = types::Type(types::Kind::F32);
 
-    arc::ir::Node ir_node;
+    ir::Node ir_node;
     ir_node.key = "sink";
     ir_node.type = "write";
     ir_node.inputs.push_back(input_param);
 
-    arc::types::Param channel_config;
+    ir::Param channel_config;
     channel_config.name = "channel";
     channel_config.value = static_cast<uint32_t>(10);
     ir_node.config.push_back(channel_config);
 
-    arc::ir::IR ir;
+    ir::IR ir;
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {}};
-    state::State s(cfg, arc::runtime::errors::noop_handler);
+    state::State s(cfg, errors::noop_handler);
 
-    io::Factory factory;
+    Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("sink"));
     auto node = ASSERT_NIL_P(
         factory.create(node::Config(ir, ir_node, std::move(state_node)))
@@ -95,22 +94,22 @@ TEST(TelemFactoryTest, CreateSinkNode) {
 
 /// @brief Test factory returns NOT_FOUND for unknown node type.
 TEST(TelemFactoryTest, UnknownNodeType) {
-    arc::ir::Node ir_node;
+    ir::Node ir_node;
     ir_node.key = "unknown";
     ir_node.type = "unknown_type";
 
-    arc::types::Param channel_config;
+    ir::Param channel_config;
     channel_config.name = "channel";
     channel_config.value = static_cast<uint32_t>(10);
     ir_node.config.push_back(channel_config);
 
-    arc::ir::IR ir;
+    ir::IR ir;
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {}};
-    state::State s(cfg, arc::runtime::errors::noop_handler);
+    state::State s(cfg, errors::noop_handler);
 
-    io::Factory factory;
+    Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("unknown"));
     auto [node, create_err] = factory.create(
         node::Config(ir, ir_node, std::move(state_node))
@@ -121,7 +120,7 @@ TEST(TelemFactoryTest, UnknownNodeType) {
 
 /// @brief Test factory handles() returns true for "on" and "write" types.
 TEST(TelemFactoryTest, HandlesOnAndWrite) {
-    io::Factory factory;
+    Factory factory;
     EXPECT_TRUE(factory.handles("on"));
     EXPECT_TRUE(factory.handles("write"));
     EXPECT_FALSE(factory.handles("unknown"));
@@ -130,27 +129,27 @@ TEST(TelemFactoryTest, HandlesOnAndWrite) {
 
 /// @brief Test source node reads channel data after ingestion.
 TEST(OnTest, NextReadsChannelData) {
-    arc::types::Param output_param;
-    output_param.name = arc::ir::default_output_param;
-    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    ir::Param output_param;
+    output_param.name = ir::default_output_param;
+    output_param.type = types::Type(types::Kind::F32);
 
-    arc::ir::Node ir_node;
+    ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
     ir_node.outputs.push_back(output_param);
 
-    arc::types::Param channel_config;
+    ir::Param channel_config;
     channel_config.name = "channel";
     channel_config.value = static_cast<uint32_t>(10);
     ir_node.config.push_back(channel_config);
 
-    arc::ir::IR ir;
+    ir::IR ir;
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{10, x::telem::FLOAT32_T, 11}}};
-    state::State s(cfg, arc::runtime::errors::noop_handler);
+    state::State s(cfg, errors::noop_handler);
 
-    io::Factory factory;
+    Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         factory.create(node::Config(ir, ir_node, std::move(state_node)))
@@ -184,27 +183,27 @@ TEST(OnTest, NextReadsChannelData) {
 
 /// @brief Test source node generates synthetic timestamps when no index channel.
 TEST(OnTest, NextHandlesChannelWithoutIndex) {
-    arc::types::Param output_param;
-    output_param.name = arc::ir::default_output_param;
-    output_param.type = arc::types::Type{.kind = arc::types::Kind::I32};
+    ir::Param output_param;
+    output_param.name = ir::default_output_param;
+    output_param.type = types::Type(types::Kind::I32);
 
-    arc::ir::Node ir_node;
+    ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
     ir_node.outputs.push_back(output_param);
 
-    arc::types::Param channel_config;
+    ir::Param channel_config;
     channel_config.name = "channel";
     channel_config.value = static_cast<uint32_t>(20);
     ir_node.config.push_back(channel_config);
 
-    arc::ir::IR ir;
+    ir::IR ir;
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{20, x::telem::INT32_T, 0}}};
-    state::State s(cfg, arc::runtime::errors::noop_handler);
+    state::State s(cfg, errors::noop_handler);
 
-    io::Factory factory;
+    Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         factory.create(node::Config(ir, ir_node, std::move(state_node)))
@@ -233,27 +232,27 @@ TEST(OnTest, NextHandlesChannelWithoutIndex) {
 
 /// @brief Test source node returns early when no data available.
 TEST(OnTest, NextReturnsEarlyOnEmptyChannel) {
-    arc::types::Param output_param;
-    output_param.name = arc::ir::default_output_param;
-    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    ir::Param output_param;
+    output_param.name = ir::default_output_param;
+    output_param.type = types::Type(types::Kind::F32);
 
-    arc::ir::Node ir_node;
+    ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
     ir_node.outputs.push_back(output_param);
 
-    arc::types::Param channel_config;
+    ir::Param channel_config;
     channel_config.name = "channel";
     channel_config.value = static_cast<uint32_t>(999);
     ir_node.config.push_back(channel_config);
 
-    arc::ir::IR ir;
+    ir::IR ir;
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{999, x::telem::FLOAT32_T, 0}}};
-    state::State s(cfg, arc::runtime::errors::noop_handler);
+    state::State s(cfg, errors::noop_handler);
 
-    io::Factory factory;
+    Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         factory.create(node::Config(ir, ir_node, std::move(state_node)))
@@ -268,27 +267,27 @@ TEST(OnTest, NextReturnsEarlyOnEmptyChannel) {
 
 /// @brief Test source node handles multiple series with high water mark.
 TEST(OnTest, NextHandlesMultipleSeries) {
-    arc::types::Param output_param;
-    output_param.name = arc::ir::default_output_param;
-    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    ir::Param output_param;
+    output_param.name = ir::default_output_param;
+    output_param.type = types::Type(types::Kind::F32);
 
-    arc::ir::Node ir_node;
+    ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
     ir_node.outputs.push_back(output_param);
 
-    arc::types::Param channel_config;
+    ir::Param channel_config;
     channel_config.name = "channel";
     channel_config.value = static_cast<uint32_t>(10);
     ir_node.config.push_back(channel_config);
 
-    arc::ir::IR ir;
+    ir::IR ir;
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{10, x::telem::FLOAT32_T, 11}}};
-    state::State s(cfg, arc::runtime::errors::noop_handler);
+    state::State s(cfg, errors::noop_handler);
 
-    io::Factory factory;
+    Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         factory.create(node::Config(ir, ir_node, std::move(state_node)))
@@ -333,27 +332,27 @@ TEST(OnTest, NextHandlesMultipleSeries) {
 
 /// @brief Test source node skips data when index series count mismatches.
 TEST(OnTest, NextSkipsOnIndexCountMismatch) {
-    arc::types::Param output_param;
-    output_param.name = arc::ir::default_output_param;
-    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    ir::Param output_param;
+    output_param.name = ir::default_output_param;
+    output_param.type = types::Type(types::Kind::F32);
 
-    arc::ir::Node ir_node;
+    ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
     ir_node.outputs.push_back(output_param);
 
-    arc::types::Param channel_config;
+    ir::Param channel_config;
     channel_config.name = "channel";
     channel_config.value = static_cast<uint32_t>(10);
     ir_node.config.push_back(channel_config);
 
-    arc::ir::IR ir;
+    ir::IR ir;
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{10, x::telem::FLOAT32_T, 11}}};
-    state::State s(cfg, arc::runtime::errors::noop_handler);
+    state::State s(cfg, errors::noop_handler);
 
-    io::Factory factory;
+    Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         factory.create(node::Config(ir, ir_node, std::move(state_node)))
@@ -385,27 +384,27 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
 
 /// @brief Test source node skips data when alignment mismatches.
 TEST(OnTest, NextSkipsOnAlignmentMismatch) {
-    arc::types::Param output_param;
-    output_param.name = arc::ir::default_output_param;
-    output_param.type = arc::types::Type{.kind = arc::types::Kind::F64};
+    ir::Param output_param;
+    output_param.name = ir::default_output_param;
+    output_param.type = types::Type(types::Kind::F64);
 
-    arc::ir::Node ir_node;
+    ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
     ir_node.outputs.push_back(output_param);
 
-    arc::types::Param channel_config;
+    ir::Param channel_config;
     channel_config.name = "channel";
     channel_config.value = static_cast<uint32_t>(30);
     ir_node.config.push_back(channel_config);
 
-    arc::ir::IR ir;
+    ir::IR ir;
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{30, x::telem::FLOAT64_T, 31}}};
-    state::State s(cfg, arc::runtime::errors::noop_handler);
+    state::State s(cfg, errors::noop_handler);
 
-    io::Factory factory;
+    Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         factory.create(node::Config(ir, ir_node, std::move(state_node)))
@@ -434,27 +433,27 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
 
 /// @brief Test source node calls mark_changed callback.
 TEST(OnTest, NextCallsMarkChanged) {
-    arc::types::Param output_param;
-    output_param.name = arc::ir::default_output_param;
-    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    ir::Param output_param;
+    output_param.name = ir::default_output_param;
+    output_param.type = types::Type(types::Kind::F32);
 
-    arc::ir::Node ir_node;
+    ir::Node ir_node;
     ir_node.key = "source";
     ir_node.type = "on";
     ir_node.outputs.push_back(output_param);
 
-    arc::types::Param channel_config;
+    ir::Param channel_config;
     channel_config.name = "channel";
     channel_config.value = static_cast<uint32_t>(10);
     ir_node.config.push_back(channel_config);
 
-    arc::ir::IR ir;
+    ir::IR ir;
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{10, x::telem::FLOAT32_T, 11}}};
-    state::State s(cfg, arc::runtime::errors::noop_handler);
+    state::State s(cfg, errors::noop_handler);
 
-    io::Factory factory;
+    Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         factory.create(node::Config(ir, ir_node, std::move(state_node)))
@@ -476,47 +475,47 @@ TEST(OnTest, NextCallsMarkChanged) {
     };
 
     ASSERT_NIL(node->next(ctx));
-    EXPECT_EQ(changed_param, arc::ir::default_output_param);
+    EXPECT_EQ(changed_param, ir::default_output_param);
 }
 
 /// @brief Test sink node writes data when input is available.
 TEST(WriteTest, NextWritesDataWhenInputAvailable) {
-    arc::types::Param upstream_output;
-    upstream_output.name = arc::ir::default_output_param;
-    upstream_output.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    ir::Param upstream_output;
+    upstream_output.name = ir::default_output_param;
+    upstream_output.type = types::Type(types::Kind::F32);
 
-    arc::ir::Node upstream_node;
+    ir::Node upstream_node;
     upstream_node.key = "upstream";
     upstream_node.type = "producer";
     upstream_node.outputs.push_back(upstream_output);
 
-    arc::types::Param sink_input;
-    sink_input.name = arc::ir::default_input_param;
-    sink_input.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    ir::Param sink_input;
+    sink_input.name = ir::default_input_param;
+    sink_input.type = types::Type(types::Kind::F32);
 
-    arc::ir::Node sink_node;
+    ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
     sink_node.inputs.push_back(sink_input);
 
-    arc::types::Param channel_config;
+    ir::Param channel_config;
     channel_config.name = "channel";
     channel_config.value = static_cast<uint32_t>(100);
     sink_node.config.push_back(channel_config);
 
-    arc::ir::Edge edge;
-    edge.source = arc::ir::Handle("upstream", arc::ir::default_output_param);
-    edge.target = arc::ir::Handle("sink", arc::ir::default_input_param);
+    ir::Edge edge;
+    edge.source = ir::Handle("upstream", ir::default_output_param);
+    edge.target = ir::Handle("sink", ir::default_input_param);
 
-    arc::ir::IR ir;
+    ir::IR ir;
     ir.nodes.push_back(upstream_node);
     ir.nodes.push_back(sink_node);
     ir.edges.push_back(edge);
 
     state::Config cfg{.ir = ir, .channels = {{100, x::telem::FLOAT32_T, 101}}};
-    state::State s(cfg, arc::runtime::errors::noop_handler);
+    state::State s(cfg, errors::noop_handler);
 
-    io::Factory factory;
+    Factory factory;
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
         factory.create(node::Config(ir, sink_node, std::move(sink_state)))
@@ -552,42 +551,42 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
 
 /// @brief Test sink node respects RefreshInputs guard.
 TEST(WriteTest, NextRespectsRefreshInputsGuard) {
-    arc::types::Param upstream_output;
-    upstream_output.name = arc::ir::default_output_param;
-    upstream_output.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    ir::Param upstream_output;
+    upstream_output.name = ir::default_output_param;
+    upstream_output.type = types::Type(types::Kind::F32);
 
-    arc::ir::Node upstream_node;
+    ir::Node upstream_node;
     upstream_node.key = "upstream";
     upstream_node.type = "producer";
     upstream_node.outputs.push_back(upstream_output);
 
-    arc::types::Param sink_input;
-    sink_input.name = arc::ir::default_input_param;
-    sink_input.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    ir::Param sink_input;
+    sink_input.name = ir::default_input_param;
+    sink_input.type = types::Type(types::Kind::F32);
 
-    arc::ir::Node sink_node;
+    ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
     sink_node.inputs.push_back(sink_input);
 
-    arc::types::Param channel_config;
+    ir::Param channel_config;
     channel_config.name = "channel";
     channel_config.value = static_cast<uint32_t>(100);
     sink_node.config.push_back(channel_config);
 
-    arc::ir::Edge edge;
-    edge.source = arc::ir::Handle("upstream", arc::ir::default_output_param);
-    edge.target = arc::ir::Handle("sink", arc::ir::default_input_param);
+    ir::Edge edge;
+    edge.source = ir::Handle("upstream", ir::default_output_param);
+    edge.target = ir::Handle("sink", ir::default_input_param);
 
-    arc::ir::IR ir;
+    ir::IR ir;
     ir.nodes.push_back(upstream_node);
     ir.nodes.push_back(sink_node);
     ir.edges.push_back(edge);
 
     state::Config cfg{.ir = ir, .channels = {{100, x::telem::FLOAT32_T, 101}}};
-    state::State s(cfg, arc::runtime::errors::noop_handler);
+    state::State s(cfg, errors::noop_handler);
 
-    io::Factory factory;
+    Factory factory;
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
         factory.create(node::Config(ir, sink_node, std::move(sink_state)))
@@ -602,42 +601,42 @@ TEST(WriteTest, NextRespectsRefreshInputsGuard) {
 
 /// @brief Test sink node skips empty input.
 TEST(WriteTest, NextSkipsEmptyInput) {
-    arc::types::Param upstream_output;
-    upstream_output.name = arc::ir::default_output_param;
-    upstream_output.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    ir::Param upstream_output;
+    upstream_output.name = ir::default_output_param;
+    upstream_output.type = types::Type(types::Kind::F32);
 
-    arc::ir::Node upstream_node;
+    ir::Node upstream_node;
     upstream_node.key = "upstream";
     upstream_node.type = "producer";
     upstream_node.outputs.push_back(upstream_output);
 
-    arc::types::Param sink_input;
-    sink_input.name = arc::ir::default_input_param;
-    sink_input.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    ir::Param sink_input;
+    sink_input.name = ir::default_input_param;
+    sink_input.type = types::Type(types::Kind::F32);
 
-    arc::ir::Node sink_node;
+    ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
     sink_node.inputs.push_back(sink_input);
 
-    arc::types::Param channel_config;
+    ir::Param channel_config;
     channel_config.name = "channel";
     channel_config.value = static_cast<uint32_t>(100);
     sink_node.config.push_back(channel_config);
 
-    arc::ir::Edge edge;
-    edge.source = arc::ir::Handle("upstream", arc::ir::default_output_param);
-    edge.target = arc::ir::Handle("sink", arc::ir::default_input_param);
+    ir::Edge edge;
+    edge.source = ir::Handle("upstream", ir::default_output_param);
+    edge.target = ir::Handle("sink", ir::default_input_param);
 
-    arc::ir::IR ir;
+    ir::IR ir;
     ir.nodes.push_back(upstream_node);
     ir.nodes.push_back(sink_node);
     ir.edges.push_back(edge);
 
     state::Config cfg{.ir = ir, .channels = {{100, x::telem::FLOAT32_T, 101}}};
-    state::State s(cfg, arc::runtime::errors::noop_handler);
+    state::State s(cfg, errors::noop_handler);
 
-    io::Factory factory;
+    Factory factory;
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
         factory.create(node::Config(ir, sink_node, std::move(sink_state)))
@@ -663,42 +662,42 @@ TEST(WriteTest, NextSkipsEmptyInput) {
 
 /// @brief Test sink node handles sequential writes.
 TEST(WriteTest, NextHandlesSequentialWrites) {
-    arc::types::Param upstream_output;
-    upstream_output.name = arc::ir::default_output_param;
-    upstream_output.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    ir::Param upstream_output;
+    upstream_output.name = ir::default_output_param;
+    upstream_output.type = types::Type(types::Kind::F32);
 
-    arc::ir::Node upstream_node;
+    ir::Node upstream_node;
     upstream_node.key = "upstream";
     upstream_node.type = "producer";
     upstream_node.outputs.push_back(upstream_output);
 
-    arc::types::Param sink_input;
-    sink_input.name = arc::ir::default_input_param;
-    sink_input.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    ir::Param sink_input;
+    sink_input.name = ir::default_input_param;
+    sink_input.type = types::Type(types::Kind::F32);
 
-    arc::ir::Node sink_node;
+    ir::Node sink_node;
     sink_node.key = "sink";
     sink_node.type = "write";
     sink_node.inputs.push_back(sink_input);
 
-    arc::types::Param channel_config;
+    ir::Param channel_config;
     channel_config.name = "channel";
     channel_config.value = static_cast<uint32_t>(100);
     sink_node.config.push_back(channel_config);
 
-    arc::ir::Edge edge;
-    edge.source = arc::ir::Handle("upstream", arc::ir::default_output_param);
-    edge.target = arc::ir::Handle("sink", arc::ir::default_input_param);
+    ir::Edge edge;
+    edge.source = ir::Handle("upstream", ir::default_output_param);
+    edge.target = ir::Handle("sink", ir::default_input_param);
 
-    arc::ir::IR ir;
+    ir::IR ir;
     ir.nodes.push_back(upstream_node);
     ir.nodes.push_back(sink_node);
     ir.edges.push_back(edge);
 
     state::Config cfg{.ir = ir, .channels = {{100, x::telem::FLOAT32_T, 101}}};
-    state::State s(cfg, arc::runtime::errors::noop_handler);
+    state::State s(cfg, errors::noop_handler);
 
-    io::Factory factory;
+    Factory factory;
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
         factory.create(node::Config(ir, sink_node, std::move(sink_state)))
@@ -745,39 +744,39 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
 
 /// @brief Test end-to-end flow from source through sink.
 TEST(IntegrationTest, SourceToSinkFlow) {
-    arc::types::Param read_output;
-    read_output.name = arc::ir::default_output_param;
-    read_output.type = arc::types::Type{.kind = arc::types::Kind::I32};
+    ir::Param read_output;
+    read_output.name = ir::default_output_param;
+    read_output.type = types::Type(types::Kind::I32);
 
-    arc::ir::Node read_node;
+    ir::Node read_node;
     read_node.key = "read";
     read_node.type = "on";
     read_node.outputs.push_back(read_output);
 
-    arc::types::Param read_channel;
+    ir::Param read_channel;
     read_channel.name = "channel";
     read_channel.value = static_cast<uint32_t>(1);
     read_node.config.push_back(read_channel);
 
-    arc::types::Param write_input;
-    write_input.name = arc::ir::default_input_param;
-    write_input.type = arc::types::Type{.kind = arc::types::Kind::I32};
+    ir::Param write_input;
+    write_input.name = ir::default_input_param;
+    write_input.type = types::Type(types::Kind::I32);
 
-    arc::ir::Node write_node;
+    ir::Node write_node;
     write_node.key = "write";
     write_node.type = "write";
     write_node.inputs.push_back(write_input);
 
-    arc::types::Param write_channel;
+    ir::Param write_channel;
     write_channel.name = "channel";
     write_channel.value = static_cast<uint32_t>(3);
     write_node.config.push_back(write_channel);
 
-    arc::ir::Edge edge;
-    edge.source = arc::ir::Handle("read", arc::ir::default_output_param);
-    edge.target = arc::ir::Handle("write", arc::ir::default_input_param);
+    ir::Edge edge;
+    edge.source = ir::Handle("read", ir::default_output_param);
+    edge.target = ir::Handle("write", ir::default_input_param);
 
-    arc::ir::IR ir;
+    ir::IR ir;
     ir.nodes.push_back(read_node);
     ir.nodes.push_back(write_node);
     ir.edges.push_back(edge);
@@ -786,9 +785,9 @@ TEST(IntegrationTest, SourceToSinkFlow) {
         .ir = ir,
         .channels = {{1, x::telem::INT32_T, 2}, {3, x::telem::INT32_T, 4}}
     };
-    state::State s(cfg, arc::runtime::errors::noop_handler);
+    state::State s(cfg, errors::noop_handler);
 
-    io::Factory factory;
+    Factory factory;
 
     auto read_state = ASSERT_NIL_P(s.node("read"));
     auto source = ASSERT_NIL_P(
@@ -827,4 +826,5 @@ TEST(IntegrationTest, SourceToSinkFlow) {
         }
     }
     EXPECT_TRUE(found_data);
+}
 }

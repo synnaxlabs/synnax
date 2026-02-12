@@ -20,7 +20,8 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/status",
-        "@nlohmann_json//:json",
+        "//x/cpp/json",
+        "//x/cpp/errors",
     ],
 )
 

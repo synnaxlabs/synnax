@@ -141,8 +141,7 @@ public:
 };
 
 /// @brief configuration for opening a new streamer.
-class StreamerConfig {
-public:
+struct StreamerConfig {
     /// @brief the channels to stream.
     std::vector<channel::Key> channels;
     /// @brief the downsample factor for the streamer.
@@ -150,12 +149,8 @@ public:
     /// @brief enable experimental high-performance codec for the writer.
     bool enable_experimental_codec = true;
 
-private:
     /// @brief binds the configuration fields to it's protobuf representation.
-    void to_proto(grpc::framer::StreamerRequest &f) const;
-
-    friend class Client;
-    friend class Streamer;
+    void to_proto(api::v1::FrameStreamerRequest &f) const;
 };
 
 /// @brief used to stream frames of telemetry from a set of channels in real-time.
@@ -255,7 +250,7 @@ struct WriterConfig {
     /// @brief The control authority to set for each channel. If this vector is of
     /// length 1, then the same authority is set for all channels. Otherwise, the
     /// vector must be the same length as the channels vector. If this vector
-    /// is empty, then all writes are executed with AUTH_ABSOLUTE authority.
+    /// is empty, then all writes are executed with AUTHORITY_ABSOLUTE authority.
     std::vector<x::control::Authority> authorities;
 
     /// @brief sets identifying information for the writer. The subject's key and
@@ -299,13 +294,8 @@ struct WriterConfig {
     /// @brief enable experimental high-performance codec for the writer.
     bool enable_experimental_codec = true;
 
-private:
     /// @brief binds the configuration fields to it's protobuf representation.
-    void to_proto(grpc::framer::WriterConfig *f) const;
-
-    friend class Client;
-
-    friend class Writer;
+    void to_proto(api::v1::FrameWriterConfig *f) const;
 };
 
 /// @brief used to write a new domain of telemetry frames to a set of channels in
@@ -360,9 +350,12 @@ public:
     /// @returns true if the authority was set successfully.
     /// @param keys the channels to set the authority of.
     /// @param authorities the authority levels to set the channels to.
+    /// @param ack if true, waits for server acknowledgement. If false, sends
+    /// fire-and-forget.
     [[nodiscard]] x::errors::Error set_authority(
         const std::vector<channel::Key> &keys,
-        const std::vector<x::control::Authority> &authorities
+        const std::vector<x::control::Authority> &authorities,
+        bool ack = true
     );
 
     /// @brief commits all pending writes to the Synnax cluster. Commit can be
@@ -378,7 +371,7 @@ public:
     [[nodiscard]] x::errors::Error close();
 
 private:
-    [[nodiscard]] x::errors::Error close(const x::errors::Error &err);
+    [[nodiscard]] x::errors::Error close(const x::errors::Error &with_err);
 
     /// @brief the error accumulated if the writer has closed with an error.
     x::errors::Error close_err = x::errors::NIL;
@@ -398,12 +391,12 @@ private:
     /// @brief cached request for reuse during writes
     std::unique_ptr<grpc::framer::WriterRequest> cached_write_req;
     /// @brief cached frame within the request for reuse
-    ::x::telem::pb::Frame *cached_frame = nullptr;
+    ::telem::PBFrame *cached_frame = nullptr;
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.
-    std::pair<grpc::framer::WriterResponse, x::errors::Error>
-    exec(grpc::framer::WriterRequest &req, bool ack);
+    std::pair<api::v1::FrameWriterResponse, x::errors::Error>
+    exec(api::v1::FrameWriterRequest &req, bool ack);
 
     /// @brief opens a writer to the Synnax cluster.
     explicit Writer(
@@ -459,5 +452,4 @@ private:
     /// cluster.
     channel::Client channel_client;
 };
-
 }

@@ -9,6 +9,7 @@
 
 #include "driver/cmd/cmd.h"
 
+namespace driver::cmd::sub {
 // Updated helper function with C++ strings
 int exec_svc_cmd(
     const std::function<x::errors::Error()> &cmd,
@@ -27,30 +28,31 @@ int exec_svc_cmd(
     return 0;
 }
 
-int driver::cmd::sub::service_start(x::args::Parser &args) {
-    return exec_svc_cmd(driver::daemon::start_service, "start", "started");
+int service_start(x::args::Parser &args) {
+    return exec_svc_cmd(daemon::start_service, "start", "started");
 }
 
-int driver::cmd::sub::service_stop(x::args::Parser &args) {
-    return exec_svc_cmd(driver::daemon::stop_service, "stop", "stopped");
+int service_stop(x::args::Parser &args) {
+    return exec_svc_cmd(daemon::stop_service, "stop", "stopped");
 }
 
-int driver::cmd::sub::service_restart(x::args::Parser &args) {
-    return exec_svc_cmd(driver::daemon::restart_service, "restart", "restarted");
+int service_restart(x::args::Parser &args) {
+    return exec_svc_cmd(daemon::restart_service, "restart", "restarted");
 }
 
-int driver::cmd::sub::service_install(x::args::Parser &args) {
-    return exec_svc_cmd(driver::daemon::install_service, "install", "installed");
+int service_install(x::args::Parser &args) {
+    return exec_svc_cmd(daemon::install_service, "install", "installed");
 }
 
-int driver::cmd::sub::service_uninstall(x::args::Parser &args) {
-    return exec_svc_cmd(driver::daemon::uninstall_service, "uninstall", "uninstalled");
+int service_uninstall(x::args::Parser &args) {
+    return exec_svc_cmd(daemon::uninstall_service, "uninstall", "uninstalled");
 }
 
-int driver::cmd::sub::service_view_logs(x::args::Parser &args) {
-    return exec_svc_cmd(driver::daemon::view_logs, "view logs");
+int service_view_logs(x::args::Parser &args) {
+    return exec_svc_cmd(daemon::view_logs, "view logs");
 }
 
-int driver::cmd::sub::service_status(x::args::Parser &args) {
-    return exec_svc_cmd(driver::daemon::status, "status");
+int service_status(x::args::Parser &args) {
+    return exec_svc_cmd(daemon::status, "status");
+}
 }

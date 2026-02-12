@@ -27,10 +27,10 @@
 
 #include "client/cpp/synnax.h"
 
+#include "driver/common/scan_task.h"
 #include "driver/ni/ni.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/sugared.h"
-#include "driver/task/common/scan_task.h"
 
 namespace driver::ni {
 const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
@@ -65,16 +65,15 @@ struct Device : synnax::device::Device {
     /// @brief returns the synnax device representation along with json serialized
     /// properties.
     synnax::device::Device to_synnax() {
-        auto dev = synnax::device::Device{
-            .key = this->key,
-            .rack = this->rack,
-            .location = this->location,
-            .make = this->make,
-            .model = this->model,
-            .name = this->name,
-            .configured = this->configured,
-            .properties =
-                json{
+        auto dev = synnax::device::Device(
+            this->key,
+            this->name,
+            this->rack,
+            this->location,
+            this->make,
+            this->model,
+            nlohmann::to_string(
+                x::json::json{
                     {"is_simulated", this->is_simulated},
                     {"resource_name", this->resource_name}
                 },
@@ -91,8 +90,7 @@ struct ScanTaskConfig : driver::task::common::ScanTaskConfig {
     /// @brief a set of regex patterns to ignore certain devices when scanning.
     std::vector<std::regex> ignored_models;
 
-    explicit ScanTaskConfig(x::json::Parser &cfg):
-        driver::task::common::ScanTaskConfig(cfg) {
+    explicit ScanTaskConfig(x::json::Parser &cfg): common::ScanTaskConfig(cfg) {
         const auto i = cfg.field<std::vector<std::string>>(
             "ignored_models",
             DEFAULT_IGNORED_MODELS
@@ -126,7 +124,7 @@ class Scanner final : public driver::task::common::Scanner {
     /// @returns the device and an SKIP_DEVICE_ERR error if the device should be
     /// skipped.
     /// @returns an empty device and an error if the device could not be parsed.
-    std::pair<driver::ni::Device, x::errors::Error>
+    std::pair<ni::Device, x::errors::Error>
     parse_device(NISysCfgResourceHandle resource) const;
 
     driver::task::common::ScannerConfig config() const override {
@@ -146,7 +144,7 @@ public:
     x::errors::Error start() override;
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
-    scan(const driver::task::common::ScannerContext &ctx) override;
+    scan(const common::ScannerContext &ctx) override;
 
     x::errors::Error stop() override;
 };

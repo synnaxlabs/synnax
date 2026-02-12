@@ -15,7 +15,7 @@
 
 namespace driver::sequence::plugins {
 ChannelReceive::ChannelReceive(
-    const std::shared_ptr<driver::pipeline::StreamerFactory> &factory,
+    const std::shared_ptr<pipeline::StreamerFactory> &factory,
     const std::vector<synnax::channel::Channel> &read_from
 ):
     pipe(
@@ -27,7 +27,7 @@ ChannelReceive::ChannelReceive(
         x::breaker::default_config("sequence.plugins.channel_receive")
     ),
     latest_values(read_from.size()),
-    channels(synnax::channel::map_channel_Keys(read_from)) {}
+    channels(synnax::channel::map_channel_keys(read_from)) {}
 
 ChannelReceive::ChannelReceive(
     const std::shared_ptr<synnax::Synnax> &client,
@@ -50,8 +50,8 @@ x::errors::Error ChannelReceive::after_all(lua_State *L) {
     return x::errors::NIL;
 }
 
-/// @brief implements driver::pipeline::Sink to receive values from a streamer and bind
-/// them into the latest values state.
+/// @brief implements pipeline::Sink to receive values from a streamer and bind them
+/// into the latest values state.
 x::errors::Error ChannelReceive::Sink::write(x::telem::Frame &frame) {
     std::lock_guard lock(this->receiver.mu);
     for (size_t i = 0; i < frame.size(); i++) {

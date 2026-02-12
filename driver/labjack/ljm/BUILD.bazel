@@ -7,7 +7,6 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//driver/errors",
-        "//driver/labjack:labjack_errors",
         "//driver/labjack/ljm:ljm_official",
         "//x/cpp/lib",
     ],

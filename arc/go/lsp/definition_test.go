@@ -18,6 +18,7 @@ import (
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
@@ -45,7 +46,7 @@ var _ = Describe("Definition", func() {
 func main() {
     result := add(1, 2)
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'add' in the function call
 			locations := Definition(server, ctx, uri, 5, 15) // add|(1, 2)
@@ -60,7 +61,7 @@ func main() {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'multiply' in the declaration itself
 			locations := Definition(server, ctx, uri, 0, 7) // func m|ultiply
@@ -80,7 +81,7 @@ func main() {
     }
     return max_val
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'max' in the declaration
 			locations := Definition(server, ctx, uri, 0, 6) // func m|ax
@@ -97,7 +98,7 @@ func main() {
     x i32 := 42
     y := x + 10
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'x' in the expression
 			locations := Definition(server, ctx, uri, 2, 9) // x| + 10
@@ -113,7 +114,7 @@ func main() {
     count = count + 1
     return count
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'count' in the assignment
 			locations := Definition(server, ctx, uri, 2, 5) // count| = count + 1
@@ -129,7 +130,7 @@ func main() {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'x' in the return statement
 			locations := Definition(server, ctx, uri, 1, 11) // x| * y
@@ -145,7 +146,7 @@ func main() {
 			content := `func test() {
     return 42
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'return' keyword - keywords don't have definitions
 			locations := Definition(server, ctx, uri, 1, 5) // ret|urn
@@ -156,7 +157,7 @@ func main() {
 			content := `func test() {
     x := undefined_symbol
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'undefined_symbol' - undefined symbols should return nil
 			locations := Definition(server, ctx, uri, 1, 13) // undefined_symbol|
@@ -172,7 +173,7 @@ func main() {
 			content := `func test() {
 
 }`
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on empty line
 			locations := Definition(server, ctx, uri, 1, 0) // Empty line
@@ -196,7 +197,7 @@ func main() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
-			OpenDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Try to jump to definition of myGlobal - GlobalResolver symbols have no AST
 			locations := Definition(server, ctx, uri, 1, 12) // myGl|obal

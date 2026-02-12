@@ -20,14 +20,13 @@
 #include "driver/task/task.h"
 
 namespace driver::task {
-const std::string TASK_SET_CHANNEL = "sy_task_set";
-const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
-const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
 x::errors::Error Manager::open_streamer() {
     VLOG(1) << "opening streamer";
     auto [channels, task_set_err] = this->ctx->client->channels.retrieve(
-        {TASK_SET_CHANNEL, TASK_DELETE_CHANNEL, TASK_CMD_CHANNEL}
+        {synnax::task::SET_CHANNEL,
+         synnax::task::DELETE_CHANNEL,
+         synnax::task::CMD_CHANNEL}
     );
     if (task_set_err) return task_set_err;
     if (channels.size() != 3)
@@ -35,11 +34,11 @@ x::errors::Error Manager::open_streamer() {
             "expected 3 channels, got " + std::to_string(channels.size())
         );
     for (const auto &channel: channels)
-        if (channel.name == TASK_SET_CHANNEL)
+        if (channel.name == synnax::task::SET_CHANNEL)
             this->channels.task_set = channel;
-        else if (channel.name == TASK_DELETE_CHANNEL)
+        else if (channel.name == synnax::task::DELETE_CHANNEL)
             this->channels.task_delete = channel;
-        else if (channel.name == TASK_CMD_CHANNEL)
+        else if (channel.name == synnax::task::CMD_CHANNEL)
             this->channels.task_cmd = channel;
 
     if (this->exit_early) return x::errors::NIL;
@@ -184,7 +183,7 @@ void Manager::process_task_cmd(const x::telem::Series &series) {
     const auto commands = series.strings();
     for (const auto &cmd_str: commands) {
         auto parser = x::json::Parser(cmd_str);
-        auto cmd = synnax::task::Command::parse(parser);
+        auto cmd = Command(parser);
         if (!parser.ok()) {
             LOG(WARNING) << "failed to parse command: " << parser.error_json().dump();
             continue;

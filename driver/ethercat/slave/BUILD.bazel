@@ -1,0 +1,18 @@
+cc_library(
+    name = "slave",
+    hdrs = ["slave.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/ethercat/pdo",
+        "//x/cpp/json",
+    ],
+)
+
+cc_test(
+    name = "slave_test",
+    srcs = ["slave_test.cpp"],
+    deps = [
+        ":slave",
+        "@googletest//:gtest_main",
+    ],
+)

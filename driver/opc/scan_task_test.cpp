@@ -14,40 +14,46 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/test/test.h"
 
+#include "driver/common/scan_task.h"
 #include "driver/opc/mock/server.h"
 #include "driver/opc/opc.h"
 #include "driver/opc/scan_task.h"
-#include "driver/task/common/scan_task.h"
 
+namespace driver::opc {
 class TestScanTask : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
-    std::shared_ptr<driver::task::MockContext> ctx;
-    std::shared_ptr<driver::opc::connection::Pool> conn_pool;
+    std::shared_ptr<task::MockContext> ctx;
+    std::shared_ptr<connection::Pool> conn_pool;
     std::unique_ptr<mock::Server> server;
     synnax::task::Task task;
     synnax::rack::Rack rack;
 
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
-        ctx = std::make_shared<driver::task::MockContext>(client);
-        conn_pool = std::make_shared<driver::opc::connection::Pool>();
+        ctx = std::make_shared<task::MockContext>(client);
+        conn_pool = std::make_shared<connection::Pool>();
 
         rack = ASSERT_NIL_P(client->racks.create("opc_scan_task_test_rack"));
 
-        task = synnax::task::Task{.name = "OPC UA Scan Task Test", .type = "opc_scan"};
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "OPC UA Scan Task Test",
+            .type = "opc_scan",
+            .config = ""
+        };
 
         auto server_cfg = mock::ServerConfig::create_default();
         server = std::make_unique<mock::Server>(server_cfg);
         server->start();
 
         // Wait for server to be ready by attempting to connect
-        driver::opc::connection::Config test_conn_cfg;
+        connection::Config test_conn_cfg;
         test_conn_cfg.endpoint = "opc.tcp://localhost:4840";
         test_conn_cfg.security_mode = "None";
         test_conn_cfg.security_policy = "None";
         auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            driver::opc::connection::connect(test_conn_cfg, "test"),
+            connection::connect(test_conn_cfg, "test"),
             (5 * x::telem::SECOND).chrono(),
             (250 * x::telem::MILLISECOND).chrono()
         );
@@ -57,30 +63,26 @@ protected:
 
 /// @brief it should browse and return OPC UA server nodes.
 TEST_F(TestScanTask, testBasicScan) {
-    const auto cfg = driver::opc::ScanTaskConfig{};
-    auto scan_task = std::make_unique<driver::task::common::ScanTask>(
-        std::make_unique<driver::opc::Scanner>(ctx, task, conn_pool),
+    const auto cfg = ScanTaskConfig{};
+    auto scan_task = std::make_unique<common::ScanTask>(
+        std::make_unique<Scanner>(ctx, task, conn_pool),
         ctx,
         task,
         x::breaker::default_config(task.name),
         cfg.scan_rate
     );
 
-    driver::opc::connection::Config conn_cfg;
+    connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4840";
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
 
-    json scan_cmd{
+    x::json::json scan_cmd{
         {"connection", conn_cfg.to_json()},
     };
 
-    synnax::task::Command cmd{
-        .task = task.key,
-        .type = driver::opc::BROWSE_CMD_TYPE,
-        .key = "scan_cmd",
-        .args = scan_cmd
-    };
+    task::Command cmd(task.key, BROWSE_CMD_TYPE, scan_cmd);
+    cmd.key = "scan_cmd";
 
     scan_task->exec(cmd);
 
@@ -136,41 +138,33 @@ TEST_F(TestScanTask, testBasicScan) {
 
 /// @brief it should reuse pooled connections for multiple scans.
 TEST_F(TestScanTask, testConnectionPooling) {
-    const auto cfg = driver::opc::ScanTaskConfig{};
-    auto scan_task = std::make_unique<driver::task::common::ScanTask>(
-        std::make_unique<driver::opc::Scanner>(ctx, task, conn_pool),
+    const auto cfg = ScanTaskConfig{};
+    auto scan_task = std::make_unique<common::ScanTask>(
+        std::make_unique<Scanner>(ctx, task, conn_pool),
         ctx,
         task,
         x::breaker::default_config(task.name),
         cfg.scan_rate
     );
 
-    driver::opc::connection::Config conn_cfg;
+    connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4840";
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
 
-    json scan_cmd{
+    x::json::json scan_cmd{
         {"connection", conn_cfg.to_json()},
     };
 
-    synnax::task::Command cmd1{
-        .task = task.key,
-        .type = driver::opc::BROWSE_CMD_TYPE,
-        .key = "scan_cmd_1",
-        .args = scan_cmd
-    };
+    task::Command cmd1(task.key, BROWSE_CMD_TYPE, scan_cmd);
+    cmd1.key = "scan_cmd_1";
 
     scan_task->exec(cmd1);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
 
-    synnax::task::Command cmd2{
-        .task = task.key,
-        .type = driver::opc::BROWSE_CMD_TYPE,
-        .key = "scan_cmd_2",
-        .args = scan_cmd
-    };
+    task::Command cmd2(task.key, BROWSE_CMD_TYPE, scan_cmd);
+    cmd2.key = "scan_cmd_2";
 
     scan_task->exec(cmd2);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
@@ -179,30 +173,26 @@ TEST_F(TestScanTask, testConnectionPooling) {
 
 /// @brief it should successfully test connection to OPC UA server.
 TEST_F(TestScanTask, testTestConnection) {
-    const auto cfg = driver::opc::ScanTaskConfig{};
-    auto scan_task = std::make_unique<driver::task::common::ScanTask>(
-        std::make_unique<driver::opc::Scanner>(ctx, task, conn_pool),
+    const auto cfg = ScanTaskConfig{};
+    const auto scan_task = std::make_unique<common::ScanTask>(
+        std::make_unique<Scanner>(ctx, task, conn_pool),
         ctx,
         task,
         x::breaker::default_config(task.name),
         cfg.scan_rate
     );
 
-    driver::opc::connection::Config conn_cfg;
+    connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4840";
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
 
-    json test_conn_cmd{
+    x::json::json test_conn_cmd{
         {"connection", conn_cfg.to_json()},
     };
 
-    synnax::task::Command cmd{
-        .task = task.key,
-        .type = driver::opc::TEST_CONNECTION_CMD_TYPE,
-        .key = "test_conn_cmd",
-        .args = test_conn_cmd
-    };
+    task::Command cmd(task.key, TEST_CONNECTION_CMD_TYPE, test_conn_cmd);
+    cmd.key = "test_conn_cmd";
 
     scan_task->exec(cmd);
 
@@ -216,30 +206,26 @@ TEST_F(TestScanTask, testTestConnection) {
 
 /// @brief it should return error for invalid connection endpoint.
 TEST_F(TestScanTask, testInvalidConnection) {
-    auto cfg = driver::opc::ScanTaskConfig{};
-    const auto scan_task = std::make_unique<driver::task::common::ScanTask>(
-        std::make_unique<driver::opc::Scanner>(ctx, task, conn_pool),
+    auto cfg = ScanTaskConfig{};
+    const auto scan_task = std::make_unique<common::ScanTask>(
+        std::make_unique<Scanner>(ctx, task, conn_pool),
         ctx,
         task,
         x::breaker::default_config(task.name),
         cfg.scan_rate
     );
 
-    driver::opc::connection::Config conn_cfg;
+    connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:9999";
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
 
-    json scan_cmd{
+    x::json::json scan_cmd{
         {"connection", conn_cfg.to_json()},
     };
 
-    synnax::task::Command cmd{
-        .task = task.key,
-        .type = driver::opc::BROWSE_CMD_TYPE,
-        .key = "invalid_scan_cmd",
-        .args = scan_cmd
-    };
+    task::Command cmd(task.key, BROWSE_CMD_TYPE, scan_cmd);
+    cmd.key = "invalid_scan_cmd";
 
     scan_task->exec(cmd);
 
@@ -250,28 +236,24 @@ TEST_F(TestScanTask, testInvalidConnection) {
     EXPECT_EQ(state.variant, x::status::VARIANT_ERROR);
 }
 
-/// @brief Tests that driver::opc::Scanner::config() returns correct values.
+/// @brief Tests that Scanner::config() returns correct values.
 TEST_F(TestScanTask, testConfigReturnsCorrectValues) {
-    const driver::opc::Scanner scanner(ctx, task, conn_pool);
+    const Scanner scanner(ctx, task, conn_pool);
     auto cfg = scanner.config();
     EXPECT_EQ(cfg.make, "opc");
 }
 
 /// @brief Tests that exec() returns false for unknown commands.
 TEST_F(TestScanTask, testExecReturnsFalseForUnknownCommand) {
-    driver::opc::Scanner scanner(ctx, task, conn_pool);
-    synnax::task::Command cmd{
-        .task = task.key,
-        .type = "unknown_command",
-        .args = json{}
-    };
+    Scanner scanner(ctx, task, conn_pool);
+    task::Command cmd(task.key, "unknown_command", x::json::json{});
     bool handled = scanner.exec(cmd, task, ctx);
     EXPECT_FALSE(handled);
 }
 
 /// @brief Tests that scan() checks device health and updates status.
 TEST_F(TestScanTask, testScanChecksDeviceHealth) {
-    driver::opc::Scanner scanner(ctx, task, conn_pool);
+    Scanner scanner(ctx, task, conn_pool);
 
     // Create device with valid OPC connection properties
     synnax::device::Device dev;
@@ -279,13 +261,13 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
     dev.name = "Health Test Device";
     dev.make = "opc";
     dev.rack = rack.key;
-    dev.properties = json{
+    dev.properties = x::json::json{
         {"connection",
          {{"endpoint", "opc.tcp://localhost:4840"},
           {"security_mode", "None"},
           {"security_policy", "None"}}},
-        {"channels", json::array()}
-    };
+        {"channels", x::json::json::array()}
+    }.dump();
 
     // Pass devices via ScannerContext
     std::unordered_map<std::string, synnax::device::Device> devices_map;
@@ -295,8 +277,8 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(devices[0].status->message, "Server connected");
+    EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devices[0].status.message, "Server connected");
 }
 
 /// @brief Tests that health check detects connection state changes (server up/down/up).
@@ -307,13 +289,13 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     dev.name = "Connection State Test Device";
     dev.make = "opc";
     dev.rack = rack.key;
-    dev.properties = json{
+    dev.properties = x::json::json{
         {"connection",
          {{"endpoint", "opc.tcp://localhost:4840"},
           {"security_mode", "None"},
           {"security_policy", "None"}}},
-        {"channels", json::array()}
-    };
+        {"channels", x::json::json::array()}
+    }.dump();
 
     std::unordered_map<std::string, synnax::device::Device> devices_map;
     devices_map[dev.key] = dev;
@@ -321,29 +303,29 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     scan_ctx.devices = &devices_map;
 
     // Use a fresh connection pool to avoid cached connections
-    auto fresh_conn_pool = std::make_shared<driver::opc::connection::Pool>();
-    driver::opc::Scanner scanner(ctx, task, fresh_conn_pool);
+    auto fresh_conn_pool = std::make_shared<connection::Pool>();
+    Scanner scanner(ctx, task, fresh_conn_pool);
 
     // Step 1: Server is running (started in SetUp) - health should be good
     {
         auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
-        EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
-        EXPECT_EQ(devices[0].status->message, "Server connected");
+        EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(devices[0].status.message, "Server connected");
     }
 
     // Step 2: Stop the server - health should be bad
     server->stop();
     // Clear the connection pool to force new connection attempts
-    fresh_conn_pool = std::make_shared<driver::opc::connection::Pool>();
+    fresh_conn_pool = std::make_shared<connection::Pool>();
     // Recreate scanner with fresh pool
-    driver::opc::Scanner scanner2(ctx, task, fresh_conn_pool);
+    Scanner scanner2(ctx, task, fresh_conn_pool);
 
     {
         auto devices = ASSERT_NIL_P(scanner2.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
         // When server is down, health check should return WARNING with connection error
-        EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_WARNING);
+        EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_WARNING);
         // The message should indicate a connection failure (not empty)
         EXPECT_FALSE(devices[0].status->message.empty());
         EXPECT_NE(devices[0].status->message, "Server connected");
@@ -357,25 +339,26 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     server->start();
 
     // Wait for server to be ready
-    driver::opc::connection::Config test_conn_cfg;
+    connection::Config test_conn_cfg;
     test_conn_cfg.endpoint = "opc.tcp://localhost:4840";
     test_conn_cfg.security_mode = "None";
     test_conn_cfg.security_policy = "None";
     auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        driver::opc::connection::connect(test_conn_cfg, "test"),
+        connection::connect(test_conn_cfg, "test"),
         (5 * x::telem::SECOND).chrono(),
         (250 * x::telem::MILLISECOND).chrono()
     );
     UA_Client_disconnect(test_client.get());
 
     // Use fresh connection pool again
-    fresh_conn_pool = std::make_shared<driver::opc::connection::Pool>();
-    driver::opc::Scanner scanner3(ctx, task, fresh_conn_pool);
+    fresh_conn_pool = std::make_shared<connection::Pool>();
+    Scanner scanner3(ctx, task, fresh_conn_pool);
 
     {
         auto devices = ASSERT_NIL_P(scanner3.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
-        EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
-        EXPECT_EQ(devices[0].status->message, "Server connected");
+        EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(devices[0].status.message, "Server connected");
     }
+}
 }

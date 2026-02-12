@@ -21,11 +21,32 @@ from typing import Any
 # Centralized results directory for all test artifacts (screenshots, CSVs, etc.)
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "results")
 
+# Fixtures directory for test data (SVGs, JSONs, etc.)
+FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures")
+
 
 def get_results_path(filename: str) -> str:
     """Get the full path for a results file, ensuring the directory exists."""
     os.makedirs(RESULTS_DIR, exist_ok=True)
     return os.path.join(RESULTS_DIR, filename)
+
+
+def get_fixture_path(filename: str) -> str:
+    """Get the full path for a test fixture file.
+
+    Args:
+        filename: Name of the fixture file (e.g., "test_valve.svg")
+
+    Returns:
+        Full path to the fixture file.
+
+    Raises:
+        FileNotFoundError: If the fixture file doesn't exist.
+    """
+    path = os.path.join(FIXTURES_DIR, filename)
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Test fixture not found: {path}")
+    return path
 
 
 # SY-2920: Websocket Error handling improvements

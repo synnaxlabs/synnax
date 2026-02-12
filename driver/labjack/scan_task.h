@@ -11,13 +11,11 @@
 
 #include <string>
 
-#include "nlohmann/json.hpp"
-
 #include "client/cpp/synnax.h"
 
 #include "device/device.h"
+#include "driver/common/scan_task.h"
 #include "driver/labjack/labjack.h"
-#include "driver/task/common/scan_task.h"
 #include "ljm/LJM_Utilities.h"
 
 namespace driver::labjack {
@@ -33,7 +31,7 @@ struct ScanTaskConfig : driver::task::common::ScanTaskConfig {
     const int tcp_scan_multiplier;
 
     explicit ScanTaskConfig(x::json::Parser &cfg):
-        driver::task::common::ScanTaskConfig(cfg),
+        common::ScanTaskConfig(cfg),
         tcp_scan_multiplier(cfg.field<int>("tcp_scan_multiplier", 10)) {}
 };
 
@@ -87,16 +85,17 @@ class Scanner final : public driver::task::common::Scanner {
             auto name = device_type_str + "-" + last_four;
 
             auto rack = synnax::task::rack_key_from_task_key(this->task.key);
-            auto sy_dev = synnax::device::Device{
-                .key = serial_str,
-                .rack = rack,
-                .location = conn_type_str,
-                .make = MAKE,
-                .model = device_type_str,
-                .name = name,
-            };
+            auto sy_dev = synnax::device::Device(
+                serial_str,
+                name,
+                rack,
+                conn_type_str,
+                MAKE,
+                device_type_str,
+                "" // Properties will be set in Device constructor
+            );
             sy_dev.status = synnax::device::Status{
-                .key = synnax::device::status_key(sy_dev),
+                .key = sy_dev.status_key(),
                 .name = name,
                 .variant = x::status::VARIANT_SUCCESS,
                 .message = "Device present",
@@ -112,7 +111,7 @@ class Scanner final : public driver::task::common::Scanner {
     }
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
-    scan(const driver::task::common::ScannerContext &ctx) override {
+    scan(const common::ScannerContext &ctx) override {
         std::vector<synnax::device::Device> devs;
         x::errors::Error err;
         if (err = this->scan_for(LJM_ctUSB, devs); err) return {devs, err};

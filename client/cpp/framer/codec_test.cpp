@@ -291,7 +291,7 @@ TEST(CodecTests, EncodeDecodeChannelSubset) {
 
 /// @brief it should handle a large frame to ensure robustness.
 TEST(CodecTests, LargeFrame) {
-    const auto frame = x::telem::Frame(1);
+    auto frame = x::telem::Frame(1);
     std::vector large_data(100000, 3.14159f);
     auto large_series = x::telem::Series(large_data);
     large_series.time_range = {x::telem::TimeStamp(1000), x::telem::TimeStamp(2000)};

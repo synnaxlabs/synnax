@@ -22,14 +22,15 @@
 #include "driver/opc/write_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
+namespace driver::opc {
 class TestWriteTask : public ::testing::Test {
 protected:
     synnax::task::Task task;
-    std::unique_ptr<driver::opc::WriteTaskConfig> cfg;
-    std::shared_ptr<driver::task::MockContext> ctx;
-    std::shared_ptr<driver::pipeline::mock::StreamerFactory> mock_factory;
+    std::unique_ptr<WriteTaskConfig> cfg;
+    std::shared_ptr<task::MockContext> ctx;
+    std::shared_ptr<pipeline::mock::StreamerFactory> mock_factory;
     std::unique_ptr<mock::Server> server;
-    std::shared_ptr<driver::opc::connection::Pool> conn_pool;
+    std::shared_ptr<connection::Pool> conn_pool;
 
     // Command channels for different data types
     synnax::channel::Channel bool_cmd_channel;
@@ -100,27 +101,29 @@ protected:
 
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
-        driver::opc::connection::Config conn_cfg;
+        connection::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
 
-        synnax::device::Device dev{
-            .key = "abc123",
-            .rack = rack.key,
-            .location = "dev1",
-            .make = "ni",
-            .model = "PXI-6255",
-            .name = "my_device",
-            .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
-        };
+        synnax::device::Device dev(
+            "abc123",
+            "my_device",
+            rack.key,
+            "dev1",
+            "ni",
+            "PXI-6255",
+            nlohmann::to_string(
+                x::json::json::object({{"connection", conn_cfg.to_json()}})
+            )
+        );
         ASSERT_NIL(client->devices.create(dev));
 
-        json task_cfg = {
+        x::json::json task_cfg = {
             {"data_saving", true},
             {"device", dev.key},
             {"channels",
-             json::array(
+             x::json::json::array(
                  {{{"key", "NS=2;I=1"},
                    {"name", "bool_write_test"},
                    {"node_name", "TestBoolean"},
@@ -195,21 +198,23 @@ protected:
         };
 
         task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
             .name = "opc_ua_write_task_test",
-            .type = "opc_write"
+            .type = "opc_write",
+            .config = ""
         };
 
         auto p = x::json::Parser(task_cfg);
-        this->cfg = std::make_unique<driver::opc::WriteTaskConfig>(client, p);
+        this->cfg = std::make_unique<WriteTaskConfig>(client, p);
 
         // Use the comprehensive default server configuration
         auto server_cfg = mock::ServerConfig::create_default();
 
-        ctx = std::make_shared<driver::task::MockContext>(client);
-        auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+        ctx = std::make_shared<task::MockContext>(client);
+        auto reads = std::make_shared<std::vector<::x::telem::Frame>>();
 
         // Create test frames with different data types
-        auto fr = x::telem::Frame(10);
+        auto fr = ::x::telem::Frame(10);
 
         // Create Series with single values using the value constructor
         fr.emplace(
@@ -268,14 +273,14 @@ protected:
             reads
         );
 
-        conn_pool = std::make_shared<driver::opc::connection::Pool>();
+        conn_pool = std::make_shared<connection::Pool>();
 
         server = std::make_unique<mock::Server>(server_cfg);
         server->start();
 
         // Wait for server to be ready by attempting to connect
         auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            driver::opc::connection::connect(conn_cfg, "test"),
+            connection::connect(conn_cfg, "test"),
             (5 * x::telem::SECOND).chrono(),
             (250 * x::telem::MILLISECOND).chrono()
         );
@@ -287,7 +292,7 @@ protected:
             task,
             ctx,
             x::breaker::default_config(task.name),
-            std::make_unique<driver::opc::WriteTaskSink>(conn_pool, std::move(*cfg)),
+            std::make_unique<WriteTaskSink>(conn_pool, std::move(*cfg)),
             nullptr,
             mock_factory
         );
@@ -304,7 +309,10 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
-    ASSERT_EVENTUALLY_GE(mock_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
 
     wt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
@@ -323,31 +331,34 @@ TEST_F(TestWriteTask, testWriteValuesArePersisted) {
     auto wt = create_task();
     wt->start("start_cmd");
     x::defer::defer stop_task([&wt]() { wt->stop("defer_stop", true); });
-    ASSERT_EVENTUALLY_GE(mock_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
 
     // Give the write task time to process the frame
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // Connect and read back the values to verify they were written
     auto client = ASSERT_NIL_P(
-        driver::opc::connection::connect(conn_cfg, "[test.write_verification] ")
+        connection::connect(conn_cfg, "[test.write_verification] ")
     );
 
     // Verify boolean value (should be 1)
     const auto bool_result = ASSERT_NIL_P(
-        driver::opc::testutil::simple_read(client, "NS=1;S=TestBoolean")
+        testutil::simple_read(client, "NS=1;S=TestBoolean")
     );
     EXPECT_EQ(bool_result.at<uint8_t>(0), 1);
 
     // Verify uint32 value (should be 12345)
     const auto uint32_result = ASSERT_NIL_P(
-        driver::opc::testutil::simple_read(client, "NS=1;S=TestUInt32")
+        testutil::simple_read(client, "NS=1;S=TestUInt32")
     );
     EXPECT_EQ(uint32_result.at<uint32_t>(0), 12345);
 
     // Verify float value (should be 2.718f)
     const auto float_result = ASSERT_NIL_P(
-        driver::opc::testutil::simple_read(client, "NS=1;S=TestFloat")
+        testutil::simple_read(client, "NS=1;S=TestFloat")
     );
     EXPECT_FLOAT_EQ(float_result.at<float>(0), 2.718f);
 }
@@ -356,14 +367,11 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     // Save connection config before moving cfg
     auto conn_cfg = cfg->connection;
 
-    auto sink = std::make_unique<driver::opc::WriteTaskSink>(
-        conn_pool,
-        std::move(*cfg)
-    );
+    auto sink = std::make_unique<WriteTaskSink>(conn_pool, std::move(*cfg));
     ASSERT_NIL(sink->start());
 
     // First write should succeed
-    auto fr1 = x::telem::Frame(1);
+    auto fr1 = ::x::telem::Frame(1);
     fr1.emplace(
         this->uint32_cmd_channel.key,
         x::telem::Series(static_cast<uint32_t>(11111), x::telem::UINT32_T)
@@ -375,24 +383,24 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // Write while server is down - should fail
-    auto fr2 = x::telem::Frame(1);
+    auto fr2 = ::x::telem::Frame(1);
     fr2.emplace(
         this->uint32_cmd_channel.key,
         x::telem::Series(static_cast<uint32_t>(22222), x::telem::UINT32_T)
     );
-    ASSERT_OCCURRED_AS(sink->write(fr2), driver::opc::errors::UNREACHABLE);
+    ASSERT_OCCURRED_AS(sink->write(fr2), errors::UNREACHABLE);
 
     // Restart the server and wait for it to be ready
     server->start();
     auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        driver::opc::connection::connect(conn_cfg, "test"),
+        connection::connect(conn_cfg, "test"),
         (5 * x::telem::SECOND).chrono(),
         (250 * x::telem::MILLISECOND).chrono()
     );
     UA_Client_disconnect(test_client.get());
 
     // Write after server restart - should trigger reconnect and succeed
-    auto fr3 = x::telem::Frame(1);
+    auto fr3 = ::x::telem::Frame(1);
     fr3.emplace(
         this->uint32_cmd_channel.key,
         x::telem::Series(static_cast<uint32_t>(33333), x::telem::UINT32_T)
@@ -400,11 +408,9 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     ASSERT_NIL(sink->write(fr3));
 
     // Verify the third value was written
-    auto client = ASSERT_NIL_P(
-        driver::opc::connection::connect(conn_cfg, "[test.reconnect] ")
-    );
+    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, "[test.reconnect] "));
     const auto result = ASSERT_NIL_P(
-        driver::opc::testutil::simple_read(client, "NS=1;S=TestUInt32")
+        testutil::simple_read(client, "NS=1;S=TestUInt32")
     );
     EXPECT_EQ(result.at<uint32_t>(0), 33333);
 
@@ -415,15 +421,12 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     // Save connection config before moving cfg
     auto conn_cfg = cfg->connection;
 
-    auto sink = std::make_unique<driver::opc::WriteTaskSink>(
-        conn_pool,
-        std::move(*cfg)
-    );
+    auto sink = std::make_unique<WriteTaskSink>(conn_pool, std::move(*cfg));
     ASSERT_NIL(sink->start());
 
     // Perform multiple writes with different values
     for (int i = 0; i < 5; i++) {
-        auto fr = x::telem::Frame(1);
+        auto fr = ::x::telem::Frame(1);
         fr.emplace(
             this->uint32_cmd_channel.key,
             x::telem::Series(static_cast<uint32_t>(i * 1000), x::telem::UINT32_T)
@@ -433,11 +436,9 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     }
 
     // Verify the final value
-    auto client = ASSERT_NIL_P(
-        driver::opc::connection::connect(conn_cfg, "[test.multi_write] ")
-    );
+    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, "[test.multi_write] "));
     const auto result = ASSERT_NIL_P(
-        driver::opc::testutil::simple_read(client, "NS=1;S=TestUInt32")
+        testutil::simple_read(client, "NS=1;S=TestUInt32")
     );
     EXPECT_EQ(result.at<uint32_t>(0), 4000);
 
@@ -455,28 +456,28 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
 
     auto rack = ASSERT_NIL_P(client->racks.create("invalid_node_test_rack"));
 
-    driver::opc::connection::Config conn_cfg;
+    connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
 
-    synnax::device::Device dev{
-        .key = "invalid_node_dev",
-        .rack = rack.key,
-        .location = "dev_invalid",
-        .make = "ni",
-        .model = "PXI-6255",
-        .name = "invalid_node_device",
-        .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
-    };
+    synnax::device::Device dev(
+        "invalid_node_dev",
+        "invalid_node_device",
+        rack.key,
+        "dev_invalid",
+        "ni",
+        "PXI-6255",
+        nlohmann::to_string(x::json::json::object({{"connection", conn_cfg.to_json()}}))
+    );
     ASSERT_NIL(client->devices.create(dev));
 
     // Create config with an invalid node ID that doesn't exist on the server
-    json task_cfg = {
+    x::json::json task_cfg = {
         {"data_saving", true},
         {"device", dev.key},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"node_id", "NS=99;I=99999"},
                {"cmd_channel", invalid_cmd_channel.key},
                {"enabled", true}}}
@@ -484,13 +485,10 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
     };
 
     auto p = x::json::Parser(task_cfg);
-    auto invalid_cfg = driver::opc::WriteTaskConfig(client, p);
+    auto invalid_cfg = WriteTaskConfig(client, p);
     ASSERT_FALSE(p.error()) << p.error().message();
 
-    auto sink = std::make_unique<driver::opc::WriteTaskSink>(
-        conn_pool,
-        std::move(invalid_cfg)
-    );
+    auto sink = std::make_unique<WriteTaskSink>(conn_pool, std::move(invalid_cfg));
     ASSERT_NIL(sink->start());
 
     // Attempt to write to the invalid node
@@ -510,4 +508,5 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
         << "Error message should contain node ID. Got: " << err_msg;
 
     ASSERT_NIL(sink->stop());
+}
 }

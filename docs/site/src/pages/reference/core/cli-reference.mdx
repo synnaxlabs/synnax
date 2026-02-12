@@ -10,7 +10,7 @@ prevURL: "/reference/core/requirements"
 
 import { Divider } from "@synnaxlabs/pluto";
 import { Table, Tabs } from "@/components";
-import VersionOutput from "@/components/deploy/SynnaxVersionOutput.astro";
+import VersionOutput from "@/components/core/VersionOutput.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -150,13 +150,13 @@ synnax start -l localhost:9090 -im
       option: "--disable-integrations",
       default: "[]",
       description:
-        "List of device integrations to disable. This is useful when you don't want particular integrations. All integrations are enabled by default. Options are: labjack, modbus, ni, opc, sequence",
+        "List of device integrations to disable. This is useful when you don't want particular integrations. All integrations are enabled by default. Options are: arc, ethercat, labjack, modbus, ni, opc, sequence",
     },
     {
       option: "--enable-integrations",
       default: "[]",
       description:
-        "List of device integrations to enable. This is useful when you only want particular integrations. All integrations are enabled by default. Options are: labjack, modbus, ni, opc, sequence",
+        "List of device integrations to enable. This is useful when you only want particular integrations. All integrations are enabled by default. Options are: arc, ethercat, labjack, modbus, ni, opc, sequence",
     },
     {
       option: "--task-op-timeout",
@@ -506,13 +506,13 @@ synnax service install --auto-start=false --insecure
       option: "--enable-integrations",
       default: "[]",
       description:
-        "Device integrations to enable (labjack, modbus, ni, opc, sequence).",
+        "Device integrations to enable (arc, ethercat, labjack, modbus, ni, opc, sequence).",
     },
     {
       option: "--disable-integrations",
       default: "[]",
       description:
-        "Device integrations to disable (labjack, modbus, ni, opc, sequence).",
+        "Device integrations to disable (arc, ethercat, labjack, modbus, ni, opc, sequence).",
     },
     {
       option: "--peers/-p",

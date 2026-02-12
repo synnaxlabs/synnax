@@ -1,0 +1,58 @@
+cc_library(
+    name = "util",
+    hdrs = ["util.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "util_test",
+    srcs = ["util_test.cpp"],
+    deps = [
+        ":util",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "soem_api",
+    hdrs = ["api.h"],
+    visibility = ["//driver/ethercat:__subpackages__"],
+    deps = ["//vendor/soem"],
+)
+
+cc_library(
+    name = "soem_mock_api",
+    hdrs = ["mock_api.h"],
+    visibility = ["//driver/ethercat:__subpackages__"],
+    deps = [":soem_api"],
+)
+
+cc_library(
+    name = "soem",
+    srcs = ["master.cpp"],
+    hdrs = ["master.h"],
+    visibility = ["//driver/ethercat:__pkg__"],
+    deps = [
+        ":soem_api",
+        ":util",
+        "//driver/ethercat/errors",
+        "//driver/ethercat/esi",
+        "//driver/ethercat/master",
+        "//driver/ethercat/slave",
+        "//driver/ethercat/telem",
+        "//x/cpp/errors",
+        "@glog",
+    ],
+)
+
+cc_test(
+    name = "soem_test",
+    srcs = ["master_test.cpp"],
+    deps = [
+        ":soem",
+        ":soem_mock_api",
+        "//driver/ethercat/errors",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

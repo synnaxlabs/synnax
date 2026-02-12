@@ -15,12 +15,9 @@
 #include "open62541/client_highlevel.h"
 #include "open62541/common.h"
 
-#include "driver/opc/connection/connection.h"
-
-/// module
 #include "x/cpp/errors/errors.h"
 
-/// internal
+#include "driver/opc/connection/connection.h"
 #include "driver/opc/errors/errors.h"
 #include "driver/task/task.h"
 

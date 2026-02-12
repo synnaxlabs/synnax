@@ -13,6 +13,7 @@ cc_library(
 
 cc_test(
     name = "grpc_test",
+    size = "small",
     srcs = ["grpc_test.cpp"],
     deps = [
         "//freighter/cpp/grpc/mock:server",

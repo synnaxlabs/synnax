@@ -11,7 +11,6 @@
 #include "client/cpp/device/proto.gen.h"
 #include "client/cpp/device/types.gen.h"
 #include "client/cpp/errors/errors.h"
-#include "client/cpp/rack/rack.h"
 #include "x/cpp/errors/errors.h"
 
 namespace synnax::device {
@@ -25,29 +24,25 @@ Client::Client(
     device_delete_client(std::move(device_delete_client)) {}
 
 std::pair<Device, x::errors::Error> Client::retrieve(const std::string &key) const {
-    auto req = grpc::device::RetrieveRequest();
+    auto req = api::v1::DeviceRetrieveRequest();
     req.add_keys(key);
     auto [res, err] = device_retrieve_client->send("/device/retrieve", req);
     if (err) return {Device(), err};
     if (res.devices_size() == 0)
-        return {Device(), not_found_error("device", "key " + key)};
-    auto [pld, proto_err] = Device::from_proto(res.devices(0));
-    if (proto_err) return {Device(), proto_err};
-    return {Device(std::move(pld)), x::errors::NIL};
+        return {Device(), errors::not_found_error("device", "key " + key)};
+    return Device::from_proto(res.devices(0));
 }
 
 std::pair<Device, x::errors::Error>
 Client::retrieve(const std::string &key, const RetrieveOptions &options) const {
-    auto req = grpc::device::RetrieveRequest();
+    auto req = api::v1::DeviceRetrieveRequest();
     req.add_keys(key);
     req.set_include_status(options.include_status);
     auto [res, err] = device_retrieve_client->send("/device/retrieve", req);
     if (err) return {Device(), err};
     if (res.devices_size() == 0)
-        return {Device(), not_found_error("device", "key " + key)};
-    auto [pld, proto_err] = Device::from_proto(res.devices(0));
-    if (proto_err) return {Device(), proto_err};
-    return {Device(std::move(pld)), x::errors::NIL};
+        return {Device(), errors::not_found_error("device", "key " + key)};
+    return Device::from_proto(res.devices(0));
 }
 
 std::pair<std::vector<Device>, x::errors::Error>
@@ -70,7 +65,7 @@ std::pair<std::vector<Device>, x::errors::Error> Client::retrieve(
 
 std::pair<std::vector<Device>, x::errors::Error>
 Client::retrieve(RetrieveRequest &req) const {
-    auto api_req = grpc::device::RetrieveRequest();
+    auto api_req = api::v1::DeviceRetrieveRequest();
     req.to_proto(api_req);
     auto [res, err] = device_retrieve_client->send("/device/retrieve", api_req);
     if (err) return {std::vector<Device>(), err};
@@ -85,17 +80,17 @@ Client::retrieve(RetrieveRequest &req) const {
 }
 
 x::errors::Error Client::create(Device &device) const {
-    auto req = grpc::device::CreateRequest();
-    *req.add_devices() = device.to_proto();
+    auto req = api::v1::DeviceCreateRequest();
+    device.to_proto(req.add_devices());
     auto [res, err] = device_create_client->send("/device/create", req);
     if (err) return err;
-    if (res.devices_size() == 0) return unexpected_missing_error("device");
+    if (res.devices_size() == 0) return errors::unexpected_missing_error("device");
     device.key = res.devices().at(0).key();
     return err;
 }
 
 x::errors::Error Client::create(const std::vector<Device> &devs) const {
-    auto req = grpc::device::CreateRequest();
+    auto req = api::v1::DeviceCreateRequest();
     req.mutable_devices()->Reserve(static_cast<int>(devs.size()));
     for (const auto &device: devs)
         *req.add_devices() = device.to_proto();
@@ -104,16 +99,59 @@ x::errors::Error Client::create(const std::vector<Device> &devs) const {
 }
 
 x::errors::Error Client::del(const std::string &key) const {
-    auto req = grpc::device::DeleteRequest();
+    auto req = api::v1::DeviceDeleteRequest();
     req.add_keys(key);
     auto [res, err] = device_delete_client->send("/device/delete", req);
     return err;
 }
 
 x::errors::Error Client::del(const std::vector<std::string> &keys) const {
-    auto req = grpc::device::DeleteRequest();
+    auto req = api::v1::DeviceDeleteRequest();
     req.mutable_keys()->Add(keys.begin(), keys.end());
     auto [res, err] = device_delete_client->send("/device/delete", req);
     return err;
+}
+
+std::pair<Device, x::errors::Error> Device::from_proto(const api::v1::Device &device) {
+    Device d;
+    d.key = device.key();
+    d.name = device.name();
+    d.rack = device.rack();
+    d.location = device.location();
+    d.make = device.make();
+    d.model = device.model();
+    d.properties = device.properties();
+    d.configured = device.configured();
+    if (device.has_status()) {
+        auto [s, err] = Status::from_proto(device.status());
+        if (err) return {d, err};
+        d.status = s;
+    }
+    return {d, x::errors::NIL};
+}
+
+void Device::to_proto(api::v1::Device *device) const {
+    device->set_key(key);
+    device->set_name(name);
+    device->set_rack(rack);
+    device->set_location(location);
+    device->set_make(make);
+    device->set_model(model);
+    device->set_properties(properties);
+    device->set_configured(configured);
+    if (!status.is_zero()) status.to_proto(device->mutable_status());
+}
+
+Device Device::parse(x::json::Parser &parser) {
+    Device d;
+    d.key = parser.field<std::string>("key", "");
+    d.name = parser.field<std::string>("name", "");
+    d.rack = parser.field<rack::Key>("rack", 0);
+    d.location = parser.field<std::string>("location", "");
+    d.make = parser.field<std::string>("make", "");
+    d.model = parser.field<std::string>("model", "");
+    d.configured = parser.field<bool>("configured", false);
+    d.properties = parser.field<std::string>("properties", "");
+    return d;
 }
 }

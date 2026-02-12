@@ -1044,4 +1044,111 @@ var _ = Describe("Types", func() {
 			Entry("channel to series", types.Chan(types.I32()), types.Series(types.I32())),
 		)
 	})
+
+	Describe("ChanDirection", func() {
+		Describe("IsRead", func() {
+			It("Should return true for ChanDirectionRead", func() {
+				Expect(types.ChanDirectionRead.IsRead()).To(BeTrue())
+			})
+			It("Should return false for ChanDirectionWrite", func() {
+				Expect(types.ChanDirectionWrite.IsRead()).To(BeFalse())
+			})
+			It("Should return false for ChanDirectionNone", func() {
+				Expect(types.ChanDirectionNone.IsRead()).To(BeFalse())
+			})
+			It("Should return true for combined read+write", func() {
+				combined := types.ChanDirectionRead | types.ChanDirectionWrite
+				Expect(combined.IsRead()).To(BeTrue())
+			})
+		})
+		Describe("IsWrite", func() {
+			It("Should return true for ChanDirectionWrite", func() {
+				Expect(types.ChanDirectionWrite.IsWrite()).To(BeTrue())
+			})
+			It("Should return false for ChanDirectionRead", func() {
+				Expect(types.ChanDirectionRead.IsWrite()).To(BeFalse())
+			})
+			It("Should return false for ChanDirectionNone", func() {
+				Expect(types.ChanDirectionNone.IsWrite()).To(BeFalse())
+			})
+			It("Should return true for combined read+write", func() {
+				combined := types.ChanDirectionRead | types.ChanDirectionWrite
+				Expect(combined.IsWrite()).To(BeTrue())
+			})
+		})
+		Describe("IsSet", func() {
+			It("Should return false for ChanDirectionNone", func() {
+				Expect(types.ChanDirectionNone.IsSet()).To(BeFalse())
+			})
+			It("Should return true for ChanDirectionRead", func() {
+				Expect(types.ChanDirectionRead.IsSet()).To(BeTrue())
+			})
+			It("Should return true for ChanDirectionWrite", func() {
+				Expect(types.ChanDirectionWrite.IsSet()).To(BeTrue())
+			})
+		})
+		Describe("CheckCompatibility", func() {
+			It("Should pass when write requires write", func() {
+				Expect(types.ChanDirectionWrite.CheckCompatibility(types.ChanDirectionWrite)).To(Succeed())
+			})
+			It("Should fail when write requires write but got read", func() {
+				Expect(types.ChanDirectionWrite.CheckCompatibility(types.ChanDirectionRead)).To(MatchError(ContainSubstring("write channel")))
+			})
+			It("Should pass when read requires read", func() {
+				Expect(types.ChanDirectionRead.CheckCompatibility(types.ChanDirectionRead)).To(Succeed())
+			})
+			It("Should fail when read requires read but got write", func() {
+				Expect(types.ChanDirectionRead.CheckCompatibility(types.ChanDirectionWrite)).To(MatchError(ContainSubstring("read channel")))
+			})
+			It("Should pass when required direction is unset", func() {
+				Expect(types.ChanDirectionNone.CheckCompatibility(types.ChanDirectionWrite)).To(Succeed())
+			})
+			It("Should pass when actual direction is unset", func() {
+				Expect(types.ChanDirectionWrite.CheckCompatibility(types.ChanDirectionNone)).To(Succeed())
+			})
+		})
+	})
+
+	Describe("ReadChan", func() {
+		It("Should return the inner type for read channels", func() {
+			readChan := types.ReadChan(types.I32())
+			Expect(readChan.Unwrap()).To(Equal(types.I32()))
+		})
+
+		It("Should return true on IsRead", func() {
+			readonlyChan := types.ReadChan(types.I32())
+			Expect(readonlyChan.ChanDirection.IsRead()).To(BeTrue())
+		})
+
+		It("Should return false on IsWrite", func() {
+			readonlyChan := types.ReadChan(types.I32())
+			Expect(readonlyChan.ChanDirection.IsWrite()).To(BeFalse())
+		})
+
+		It("Should return true on IsSet", func() {
+			readonlyChan := types.ReadChan(types.I32())
+			Expect(readonlyChan.ChanDirection.IsSet()).To(BeTrue())
+		})
+	})
+	Describe("WriteChan", func() {
+		It("Should return the inner type for write channels", func() {
+			writeChan := types.WriteChan(types.I32())
+			Expect(writeChan.Unwrap()).To(Equal(types.I32()))
+		})
+
+		It("Should return false on IsRead", func() {
+			writeChan := types.WriteChan(types.I32())
+			Expect(writeChan.ChanDirection.IsRead()).To(BeFalse())
+		})
+
+		It("Should return true on IsWrite", func() {
+			writeChan := types.WriteChan(types.I32())
+			Expect(writeChan.ChanDirection.IsWrite()).To(BeTrue())
+		})
+
+		It("Should return true on IsSet", func() {
+			writeChan := types.WriteChan(types.I32())
+			Expect(writeChan.ChanDirection.IsSet()).To(BeTrue())
+		})
+	})
 })

@@ -22,7 +22,7 @@ UUID::UUID(): value(boost::uuids::nil_uuid()) {}
 UUID::UUID(const boost::uuids::uuid &u): value(u) {}
 
 UUID::UUID(const std::array<std::uint8_t, 16> &bytes) {
-    std::copy(bytes.begin(), bytes.end(), value.begin());
+    std::copy(bytes.begin(), bytes.end(), this->value.begin());
 }
 
 std::pair<UUID, errors::Error> UUID::parse(const std::string &str) {
@@ -47,47 +47,47 @@ UUID UUID::parse(json::Parser parser) {
 }
 
 bool UUID::is_nil() const {
-    return value.is_nil();
+    return this->value.is_nil();
 }
 
 std::string UUID::to_string() const {
-    return boost::uuids::to_string(value);
+    return boost::uuids::to_string(this->value);
 }
 
 json::json UUID::to_json() const {
-    return to_string();
+    return this->to_string();
 }
 
 const boost::uuids::uuid &UUID::underlying() const {
-    return value;
+    return this->value;
 }
 
 const std::uint8_t *UUID::data() const {
-    return value.data;
+    return this->value.data;
 }
 
 bool UUID::operator==(const UUID &other) const {
-    return value == other.value;
+    return this->value == other.value;
 }
 
 bool UUID::operator!=(const UUID &other) const {
-    return value != other.value;
+    return this->value != other.value;
 }
 
 bool UUID::operator<(const UUID &other) const {
-    return value < other.value;
+    return this->value < other.value;
 }
 
 bool UUID::operator>(const UUID &other) const {
-    return value > other.value;
+    return this->value > other.value;
 }
 
 bool UUID::operator<=(const UUID &other) const {
-    return value <= other.value;
+    return this->value <= other.value;
 }
 
 bool UUID::operator>=(const UUID &other) const {
-    return value >= other.value;
+    return this->value >= other.value;
 }
 
 std::ostream &operator<<(std::ostream &os, const UUID &uuid) {
@@ -95,8 +95,4 @@ std::ostream &operator<<(std::ostream &os, const UUID &uuid) {
     return os;
 }
 
-}
-
-size_t std::hash<x::uuid::UUID>::operator()(const x::uuid::UUID &uuid) const noexcept {
-    return boost::uuids::hash_value(uuid.underlying());
 }

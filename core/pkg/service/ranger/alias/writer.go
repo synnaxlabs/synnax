@@ -28,16 +28,26 @@ type Writer struct {
 }
 
 // Set sets an alias for the given channel on the specified range.
-func (w Writer) Set(ctx context.Context, rng uuid.UUID, ch channel.Key, alias string) error {
-	exists, err := gorp.NewRetrieve[channel.Key, channel.Channel]().WhereKeys(ch).Exists(ctx, w.tx)
+func (w Writer) Set(
+	ctx context.Context,
+	rng uuid.UUID,
+	ch channel.Key,
+	al string,
+) error {
+	exists, err := gorp.NewRetrieve[channel.Key, channel.Channel]().
+		WhereKeys(ch).Exists(ctx, w.tx)
 	if err != nil {
 		return err
 	}
 	if !exists {
-		return errors.Wrapf(query.ErrNotFound, "[alias] - cannot alias non-existent channel %s", ch)
+		return errors.Wrapf(
+			query.ErrNotFound,
+			"[alias] - cannot alias non-existent channel %s",
+			ch,
+		)
 	}
 	if err := gorp.NewCreate[string, Alias]().
-		Entry(&Alias{Range: rng, Channel: ch, Alias: alias}).
+		Entry(&Alias{Range: rng, Channel: ch, Alias: al}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
@@ -45,8 +55,13 @@ func (w Writer) Set(ctx context.Context, rng uuid.UUID, ch channel.Key, alias st
 }
 
 // Delete deletes the alias for the given channel on the specified range.
-// Delete is idempotent and will not return an error if the alias does not exist.
-func (w Writer) Delete(ctx context.Context, rng uuid.UUID, ch channel.Key) error {
+// Delete is idempotent and will not return an error if the alias does not
+// exist.
+func (w Writer) Delete(
+	ctx context.Context,
+	rng uuid.UUID,
+	ch channel.Key,
+) error {
 	return gorp.
 		NewDelete[string, Alias]().
 		WhereKeys(Alias{Range: rng, Channel: ch}.GorpKey()).

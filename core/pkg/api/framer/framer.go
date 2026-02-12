@@ -54,14 +54,18 @@ type Service struct {
 	alamos.Instrumentation
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		Instrumentation: cfg.Instrumentation,
 		Internal:        cfg.Service.Framer,
 		Channel:         cfg.Distribution.Channel,
 		db:              cfg.Distribution.DB,
 		access:          cfg.Service.RBAC,
-	}
+	}, nil
 }
 
 type DeleteRequest struct {
@@ -82,18 +86,13 @@ func (s *Service) Delete(
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		c := errors.NewCatcher(errors.WithAggregation())
 		w := s.Internal.NewDeleter()
 		if len(req.Keys) > 0 {
-			c.Exec(func() error {
-				return w.DeleteTimeRangeMany(ctx, req.Keys, req.Bounds)
-			})
+			return w.DeleteTimeRangeMany(ctx, req.Keys, req.Bounds)
 		} else if len(req.Names) > 0 {
-			c.Exec(func() error {
-				return w.DeleteTimeRangeManyByNames(ctx, req.Names, req.Bounds)
-			})
+			return w.DeleteTimeRangeManyByNames(ctx, req.Names, req.Bounds)
 		}
-		return c.Error()
+		return nil
 	})
 }
 

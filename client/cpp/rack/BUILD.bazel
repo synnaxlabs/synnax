@@ -20,6 +20,8 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/status",
+        "//x/cpp/json",
+        "//x/cpp/errors",
     ],
 )
 

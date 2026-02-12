@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
+from console.layout import LayoutClient
 from console.task.channels.analog import Analog
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 
 class PressureBridgeTwoPointLinear(Analog):
@@ -42,7 +40,7 @@ class PressureBridgeTwoPointLinear(Analog):
 
     def __init__(
         self,
-        console: "Console",
+        layout: LayoutClient,
         name: str,
         device: str,
         pressure_units: Literal["Pascals", "PSI"] | None = None,
@@ -61,50 +59,22 @@ class PressureBridgeTwoPointLinear(Analog):
         **kwargs: Any,
     ) -> None:
 
-        # Initialize base analog channel (remaining kwargs passed through)
         super().__init__(
-            console=console,
+            layout=layout,
             name=name,
             device=device,
             chan_type="Pressure Bridge Two-Point Linear",
             **kwargs,
         )
 
-        # Pressure Bridge Two-Point Linear-specific configurations:
-        if pressure_units is not None:
-            console.click_btn("Pressure Units")
-            console.select_from_dropdown(pressure_units)
-
-        if bridge_configuration is not None:
-            console.click_btn("Bridge Configuration")
-            console.select_from_dropdown(bridge_configuration)
-
-        if resistance is not None:
-            console.fill_input_field("Nominal Bridge Resistance", str(resistance))
-
-        if excitation_source is not None:
-            console.click_btn("Voltage Excitation Source")
-            console.select_from_dropdown(excitation_source)
-
-        if excitation_value is not None:
-            console.fill_input_field("Voltage Excitation Value", str(excitation_value))
-
-        if physical_units is not None:
-            console.click_btn("Physical Units")
-            console.select_from_dropdown(physical_units)
-
-        if electrical_units is not None:
-            console.click_btn("Electrical Units")
-            console.select_from_dropdown(electrical_units)
-
-        if physical_value_one is not None:
-            console.fill_input_field("Physical Value One", str(physical_value_one))
-
-        if physical_value_two is not None:
-            console.fill_input_field("Physical Value Two", str(physical_value_two))
-
-        if electrical_value_one is not None:
-            console.fill_input_field("Electrical Value One", str(electrical_value_one))
-
-        if electrical_value_two is not None:
-            console.fill_input_field("Electrical Value Two", str(electrical_value_two))
+        self._configure_dropdown("Pressure Units", pressure_units)
+        self._configure_dropdown("Bridge Configuration", bridge_configuration)
+        self._configure_input("Nominal Bridge Resistance", resistance)
+        self._configure_dropdown("Voltage Excitation Source", excitation_source)
+        self._configure_input("Voltage Excitation Value", excitation_value)
+        self._configure_dropdown("Physical Units", physical_units)
+        self._configure_dropdown("Electrical Units", electrical_units)
+        self._configure_input("Physical Value One", physical_value_one)
+        self._configure_input("Physical Value Two", physical_value_two)
+        self._configure_input("Electrical Value One", electrical_value_one)
+        self._configure_input("Electrical Value Two", electrical_value_two)

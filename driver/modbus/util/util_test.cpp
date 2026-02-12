@@ -13,6 +13,7 @@
 
 #include "driver/modbus/util/util.h"
 
+namespace driver::modbus::util {
 class ModbusUtilTest : public ::testing::Test {
 protected:
     template<typename T>
@@ -113,4 +114,5 @@ TEST_F(ModbusUtilTest, testInvalidDataType) {
         util::format_register(0, registers, x::telem::UNKNOWN_T, false, false),
         x::errors::VALIDATION
     );
+}
 }

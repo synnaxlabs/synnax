@@ -20,10 +20,10 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
+#include "driver/common/scan_task.h"
+#include "driver/common/status.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/modbus.h"
-#include "driver/task/common/scan_task.h"
-#include "driver/task/common/status.h"
 #include "driver/task/task.h"
 
 namespace driver::modbus {
@@ -33,8 +33,7 @@ const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 /// @brief Configuration for the Modbus scanner.
 struct ScanTaskConfig : driver::task::common::ScanTaskConfig {
     ScanTaskConfig() = default;
-    explicit ScanTaskConfig(x::json::Parser &cfg):
-        driver::task::common::ScanTaskConfig(cfg) {}
+    explicit ScanTaskConfig(x::json::Parser &cfg): common::ScanTaskConfig(cfg) {}
 };
 
 /// @brief Arguments for testing connection to a Modbus server.
@@ -52,7 +51,7 @@ struct ScanCommandArgs {
 class Scanner final : public driver::task::common::Scanner {
 public:
     Scanner(
-        std::shared_ptr<driver::task::Context> ctx,
+        std::shared_ptr<task::Context> ctx,
         synnax::task::Task task,
         std::shared_ptr<device::Manager> devices
     );
@@ -62,17 +61,17 @@ public:
 
     /// @brief Periodic scan method - checks health of all tracked devices.
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
-    scan(const driver::task::common::ScannerContext &scan_ctx) override;
+    scan(const common::ScannerContext &scan_ctx) override;
 
     /// @brief Handle Modbus-specific commands (test connection).
     bool exec(
-        synnax::task::Command &cmd,
+        task::Command &cmd,
         const synnax::task::Task &task,
-        const std::shared_ptr<driver::task::Context> &ctx
+        const std::shared_ptr<task::Context> &ctx
     ) override;
 
 private:
-    std::shared_ptr<driver::task::Context> ctx;
+    std::shared_ptr<task::Context> ctx;
     synnax::task::Task task;
     std::shared_ptr<device::Manager> devices;
 

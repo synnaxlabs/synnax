@@ -22,6 +22,12 @@ type ArcParserListener interface {
 	// EnterTopLevelItem is called when entering the topLevelItem production.
 	EnterTopLevelItem(c *TopLevelItemContext)
 
+	// EnterAuthorityBlock is called when entering the authorityBlock production.
+	EnterAuthorityBlock(c *AuthorityBlockContext)
+
+	// EnterAuthorityEntry is called when entering the authorityEntry production.
+	EnterAuthorityEntry(c *AuthorityEntryContext)
+
 	// EnterFunctionDeclaration is called when entering the functionDeclaration production.
 	EnterFunctionDeclaration(c *FunctionDeclarationContext)
 
@@ -63,6 +69,9 @@ type ArcParserListener interface {
 
 	// EnterSingleInvocation is called when entering the singleInvocation production.
 	EnterSingleInvocation(c *SingleInvocationContext)
+
+	// EnterGlobalConstant is called when entering the globalConstant production.
+	EnterGlobalConstant(c *GlobalConstantContext)
 
 	// EnterFlowStatement is called when entering the flowStatement production.
 	EnterFlowStatement(c *FlowStatementContext)
@@ -220,6 +229,12 @@ type ArcParserListener interface {
 	// ExitTopLevelItem is called when exiting the topLevelItem production.
 	ExitTopLevelItem(c *TopLevelItemContext)
 
+	// ExitAuthorityBlock is called when exiting the authorityBlock production.
+	ExitAuthorityBlock(c *AuthorityBlockContext)
+
+	// ExitAuthorityEntry is called when exiting the authorityEntry production.
+	ExitAuthorityEntry(c *AuthorityEntryContext)
+
 	// ExitFunctionDeclaration is called when exiting the functionDeclaration production.
 	ExitFunctionDeclaration(c *FunctionDeclarationContext)
 
@@ -261,6 +276,9 @@ type ArcParserListener interface {
 
 	// ExitSingleInvocation is called when exiting the singleInvocation production.
 	ExitSingleInvocation(c *SingleInvocationContext)
+
+	// ExitGlobalConstant is called when exiting the globalConstant production.
+	ExitGlobalConstant(c *GlobalConstantContext)
 
 	// ExitFlowStatement is called when exiting the flowStatement production.
 	ExitFlowStatement(c *FlowStatementContext)

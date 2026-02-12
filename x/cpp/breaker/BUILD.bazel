@@ -3,8 +3,8 @@ cc_library(
     hdrs = ["breaker.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/cpp/telem",
         "//x/cpp/errors",
+        "//x/cpp/telem",
         "@glog",
     ],
 )

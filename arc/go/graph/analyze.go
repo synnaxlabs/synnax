@@ -116,6 +116,10 @@ func Analyze(
 				}
 				channelSym, err := resolver.Resolve(ctx, strconv.Itoa(int(k)))
 				if err == nil && channelSym.Type.Kind == types.KindChan {
+					if err := configParam.Type.ChanDirection.CheckCompatibility(channelSym.Type.ChanDirection); err != nil {
+						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
+						return ir.IR{}, aCtx.Diagnostics
+					}
 					if err = atypes.Check(
 						aCtx.Constraints,
 						channelSym.Type,
@@ -126,7 +130,12 @@ func Analyze(
 						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 						return ir.IR{}, aCtx.Diagnostics
 					}
-					node.Channels.Read[k] = ""
+					node.Channels.ResolveConfigChannel(
+						fnSym,
+						configParam.Name,
+						k,
+						channelSym.Name,
+					)
 				}
 			}
 			node.Config[j].Value = configValue

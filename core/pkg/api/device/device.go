@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -33,13 +34,17 @@ type Service struct {
 	status *status.Service
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		db:     cfg.Distribution.DB,
-		access: cfg.Service.RBAC,
 		device: cfg.Service.Device,
 		status: cfg.Service.Status,
-	}
+		access: cfg.Service.RBAC,
+	}, nil
 }
 
 type (
@@ -51,16 +56,27 @@ type (
 	}
 )
 
-func (svc *Service) Create(ctx context.Context, req CreateRequest) (res CreateResponse, _ error) {
-	if err := svc.access.Enforce(ctx, access.Request{
+type CreateRequest struct {
+	Devices []device.Device `json:"devices" msgpack:"devices"`
+}
+
+type CreateResponse struct {
+	Devices []device.Device `json:"devices" msgpack:"devices"`
+}
+
+func (s *Service) Create(
+	ctx context.Context,
+	req CreateRequest,
+) (res CreateResponse, _ error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: device.OntologyIDsFromDevices(req.Devices),
 	}); err != nil {
 		return res, err
 	}
-	return res, svc.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := svc.device.NewWriter(tx)
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.device.NewWriter(tx)
 		for _, d := range req.Devices {
 			if err := w.Create(ctx, d); err != nil {
 				return err
@@ -89,7 +105,10 @@ type RetrieveResponse struct {
 	Devices []device.Device `json:"devices" msgpack:"devices"`
 }
 
-func (svc *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res RetrieveResponse, _ error) {
+func (s *Service) Retrieve(
+	ctx context.Context,
+	req RetrieveRequest,
+) (res RetrieveResponse, _ error) {
 	var (
 		hasSearch    = len(req.SearchTerm) > 0
 		hasKeys      = len(req.Keys) > 0
@@ -101,7 +120,7 @@ func (svc *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retr
 		hasModels    = len(req.Models) > 0
 		hasRacks     = len(req.Racks) > 0
 	)
-	q := svc.device.NewRetrieve()
+	q := s.device.NewRetrieve()
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
 	}
@@ -133,7 +152,7 @@ func (svc *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retr
 
 	if req.IncludeStatus {
 		statuses := make([]device.Status, 0, len(res.Devices))
-		if err := status.NewRetrieve[device.StatusDetails](svc.status).
+		if err := status.NewRetrieve[device.StatusDetails](s.status).
 			WhereKeys(ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
@@ -144,7 +163,7 @@ func (svc *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retr
 		}
 	}
 
-	if err := svc.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: device.OntologyIDsFromDevices(res.Devices),
@@ -161,16 +180,19 @@ type DeleteRequest struct {
 	Keys []string `json:"keys" msgpack:"keys"`
 }
 
-func (svc *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil, _ error) {
-	if err := svc.access.Enforce(ctx, access.Request{
+func (s *Service) Delete(
+	ctx context.Context,
+	req DeleteRequest,
+) (res types.Nil, _ error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: device.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}
-	return res, svc.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := svc.device.NewWriter(tx)
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.device.NewWriter(tx)
 		for _, k := range req.Keys {
 			if err := w.Delete(ctx, k); err != nil {
 				return err

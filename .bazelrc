@@ -84,6 +84,7 @@ build:windows --copt=/wd4435  # object layout under /vd2 will change due to virt
 build:windows --copt=/wd4589  # constructor ignores initializer for virtual base class (NI channel hierarchy)
 build:windows --copt=/wd4201  # nonstandard extension used: nameless struct/union (wasmtime headers)
 build:windows --copt=/wd4324  # structure was padded due to alignment specifier (queue/spsc.h)
+build:windows --copt=/wd4005  # macro redefinition (SOEM wpcap headers vs Windows SDK)
 build:windows --per_file_copt=external/.*@/WX-,/w
 build:windows --per_file_copt=vendor/.*@/WX-,/w
 
@@ -158,8 +159,10 @@ build:asan --copt=-Wno-macro-redefined
 build:asan-leak --config=asan
 build:asan-leak --copt=-fsanitize=leak
 build:asan-leak --linkopt=-fsanitize=leak
-build:asan-leak --action_env=ASAN_OPTIONS=detect_leaks=1:abort_on_error=0:halt_on_error=0:detect_stack_use_after_return=1
-build:asan-leak --test_env=ASAN_OPTIONS=detect_leaks=1:abort_on_error=0:halt_on_error=0:detect_stack_use_after_return=1
+build:asan-leak --action_env=ASAN_OPTIONS=detect_leaks=1:abort_on_error=1:halt_on_error=1:detect_stack_use_after_return=1
+build:asan-leak --test_env=ASAN_OPTIONS=detect_leaks=1:abort_on_error=1:halt_on_error=1:detect_stack_use_after_return=1
+build:asan-leak --action_env=LSAN_OPTIONS=exitcode=0
+build:asan-leak --test_env=LSAN_OPTIONS=exitcode=0
 
 # LeakSanitizer (LSan) - Standalone leak detection (Linux only)
 build:lsan --copt=-fsanitize=leak

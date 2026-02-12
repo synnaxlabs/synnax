@@ -20,12 +20,12 @@ const std::string ERR_TYPE_UNREACHABLE = "freighter.unreachable";
 const std::string ERR_TYPE_NIL = "nil";
 const std::string ERR_TYPE_UNKNOWN = "unknown";
 
-const x::errors::Error ERR_STREAM_CLOSED = {
-    ERR_TYPE_UNREACHABLE + ".stream_closed",
+const x::errors::Error STREAM_CLOSED = {
+    TYPE_UNREACHABLE + ".stream_closed",
     "Stream closed"
 };
-const x::errors::Error ERR_EOF = {"freighter.eof", "EOF"};
-const x::errors::Error ERR_UNREACHABLE = {ERR_TYPE_UNREACHABLE, "Unreachable"};
+const x::errors::Error EOF_ERR = {"freighter.eof", "EOF"};
+const x::errors::Error UNREACHABLE = {TYPE_UNREACHABLE, "Unreachable"};
 
 enum TransportVariant { UNARY, STREAM };
 
@@ -175,8 +175,11 @@ public:
     /// @param finalizer - A finalizer that represents the last middleware in the
     /// chain, and is responsible for executing the request.
     /// @param req - the request to execute.
-    std::pair<RS, x::errors::Error>
-    exec(const Context &context, Finalizer<RQ, RS> *finalizer, RQ &req) const {
+    std::pair<RS, x::errors::Error> exec(
+        const freighter::Context &context,
+        freighter::Finalizer<RQ, RS> *finalizer,
+        RQ &req
+    ) const {
         class NextImpl : public Next {
             std::size_t index;
             const MiddlewareCollector &collector;
@@ -193,7 +196,8 @@ public:
             ):
                 index(0), collector(collector), req(req), finalizer(finalizer) {}
 
-            std::pair<Context, x::errors::Error> operator()(Context context) override {
+            std::pair<Context, x::errors::Error>
+            operator()(freighter::Context context) override {
                 if (this->index >= this->collector.middlewares.size()) {
                     auto f_res = this->finalizer->operator()(context, req);
                     this->res = std::move(f_res.response);

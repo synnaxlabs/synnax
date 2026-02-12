@@ -15,10 +15,10 @@
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/nisyscfg_wide.h"
 
-namespace syscfg {
+namespace driver::ni::syscfg {
 class ProdAPI final : public API {
 public:
-    explicit ProdAPI(std::unique_ptr<x::lib::Shared> &lib_);
+    explicit ProdAPI(std::unique_ptr<x::lib::SharedLib> &lib_);
 
     static std::pair<std::shared_ptr<API>, x::errors::Error> load();
 
@@ -114,7 +114,7 @@ private:
         FreeDetailedStringWPtr FreeDetailedStringW;
     } FunctionPointers;
 
-    std::unique_ptr<x::lib::Shared> lib;
+    std::unique_ptr<x::lib::SharedLib> lib;
     FunctionPointers function_pointers_;
 };
 }

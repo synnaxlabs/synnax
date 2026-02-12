@@ -16,8 +16,6 @@ from synnax.util.primitive import is_primitive
 
 
 class Pair(Payload):
-    """A key-value pair scoped to a range."""
-
     range: uuid.UUID
     key: str
     value: str
@@ -32,35 +30,3 @@ class Pair(Payload):
                 """)
         kwargs["value"] = str(value)
         super().__init__(**kwargs)
-
-
-class GetRequest(Payload):
-    """Request to get key-value pairs."""
-
-    range: uuid.UUID
-    keys: list[str]
-
-
-class GetResponse(Payload):
-    """Response containing key-value pairs."""
-
-    pairs: list[Pair]
-
-
-class SetRequest(Payload):
-    """Request to set key-value pairs."""
-
-    pairs: list[Pair]
-
-
-class DeleteRequest(Payload):
-    """Request to delete keys."""
-
-    range: uuid.UUID
-    keys: list[str]
-
-
-class EmptyResponse(Payload):
-    """Empty response payload."""
-
-    ...

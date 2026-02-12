@@ -8,12 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import synnax as sy
 from playwright.sync_api import FloatRect, Locator, Page
 
-from ..console import Console
+from console.layout import LayoutClient
+from console.notifications import NotificationsClient
 
 """ Symbol Box helpers """
 
@@ -52,12 +53,13 @@ class Symbol(ABC):
     """Base class for all schematic symbols"""
 
     page: Page
-    console: Console
+    layout: LayoutClient
     locator: Locator
     symbol_id: str | None
     label: str
     rotatable: bool
     _symbol_type: str
+    _symbol_group: str | None = None
 
     def __init__(self, label: str, symbol_type: str, rotatable: bool = False):
         """Initialize a symbol with configuration parameters.
@@ -78,54 +80,25 @@ class Symbol(ABC):
         self.rotatable = rotatable
         self.symbol_id = None
 
-    def create(self, page: Page, console: Console) -> None:
+    def create(self, layout: LayoutClient) -> None:
         """Attach this symbol to a schematic (called by Schematic.create_symbol).
 
-        This method adds the symbol to the schematic UI and configures it.
+        This method adds the symbol to the schematic UI using the SymbolToolbar factory.
 
         Args:
-            page: Playwright Page instance
-            console: Console instance for UI interactions
+            layout: LayoutClient for UI interactions (includes notifications)
         """
-        self.page = page
-        self.console = console
+        from console.schematic.symbol_toolbar import SymbolToolbar
 
-        # Add symbol to schematic
-        self.symbol_id = self._add_symbol_to_schematic(self._symbol_type)
+        self.page = layout.page
+        self.layout = layout
+        self.notifications = NotificationsClient(layout.page)
+
+        toolbar = SymbolToolbar(self.layout)
+        self.symbol_id = toolbar.add_symbol(self._symbol_type, self._symbol_group)
         self.locator = self.page.get_by_test_id(self.symbol_id)
         self.set_label(self.label)
-
-        # Apply properties
         self._apply_properties()
-
-    def _add_symbol_to_schematic(self, symbol_type: str) -> str:
-        """Add a symbol to the schematic and return its ID.
-
-        Args:
-            symbol_type: The type of symbol to add (e.g., "Valve", "Button", "Three Way")
-
-        Returns:
-            The symbol ID of the newly created symbol
-        """
-        if self.page is None or self.console is None:
-            raise RuntimeError("Symbol not attached to schematic")
-
-        self.console.notifications.close_all()
-        self.console.click("Symbols")
-        initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())
-
-        search_input = self.page.locator(
-            "div:has-text('Search Symbols') input[role='textbox']"
-        ).first
-        search_input.fill(symbol_type)
-        self.console.click(symbol_type)
-
-        self.page.wait_for_function(
-            f"document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > {initial_count}"
-        )
-
-        all_symbols = self.page.locator("[data-testid^='rf__node-']").all()
-        return all_symbols[-1].get_attribute("data-testid") or "unknown"
 
     @abstractmethod
     def _apply_properties(self) -> None:
@@ -136,33 +109,42 @@ class Symbol(ABC):
         pass
 
     def _disable_edit_mode(self) -> None:
+        self.notifications.close_all()
         edit_off_icon = self.page.get_by_label("pluto-icon--edit-off")
         if edit_off_icon.count() > 0:
             edit_off_icon.click()
+            self.page.get_by_label("pluto-icon--edit").wait_for(
+                state="visible", timeout=3000
+            )
 
-    def click(self, sleep: int = 100) -> None:
-        """Click the symbol to select it.
+    def _enable_edit_mode(self) -> None:
+        self.notifications.close_all()
+        enable_editing_link = self.page.get_by_text("enable editing", exact=False)
+        if enable_editing_link.count() > 0:
+            enable_editing_link.click()
+            self.page.get_by_label("pluto-icon--edit-off").wait_for(
+                state="visible", timeout=2000
+            )
+            return
+        edit_icon = self.page.get_by_label("pluto-icon--edit")
+        if edit_icon.count() > 0:
+            edit_icon.click()
 
-        Args:
-            sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
-        """
+    def click(self) -> None:
+        """Click the symbol to select it."""
+        self.layout.click(self.locator)
 
-        self.console.click(self.locator, sleep=sleep)
-
-    def meta_click(self, sleep: int = 0) -> None:
-        """
-        Click the symbol with the platform-appropriate modifier key (Cmd/Ctrl) held down.
-
-        Args:
-            sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
-        """
-
-        self.console.meta_click(self.locator, sleep=sleep)
+    def meta_click(self) -> None:
+        """Click the symbol with the platform-appropriate modifier key (Cmd/Ctrl) held down."""
+        self.layout.meta_click(self.locator)
 
     def set_label(self, label: str) -> None:
         self.click()
-        self.page.get_by_text("Style").click(force=True)
-        self.console.fill_input_field("Label", label)
+        selected_node = self.page.locator(".react-flow__node.selected")
+        selected_node.wait_for(state="visible", timeout=5000)
+        self.layout.show_visualization_toolbar()
+        self.layout.click("Style")
+        self.layout.fill_input_field("Label", label)
         self.label = label
 
     @abstractmethod
@@ -185,19 +167,15 @@ class Symbol(ABC):
 
     def set_channel(self, *, input_field: str, channel_name: str) -> None:
         if channel_name is not None:
-            self.console.click_btn(input_field)
-            self.console.select_from_dropdown(channel_name, "Search")
+            self.layout.click_btn(input_field)
+            self.layout.select_from_dropdown(channel_name, "Search", exact=True)
 
     def set_value(self, value: float) -> None:
         """Set the symbol's value if applicable. Default implementation does nothing."""
         pass
 
-    def press(self, sleep: int = 100) -> None:
-        """Press/activate the symbol if applicable. Default implementation does nothing.
-
-        Args:
-            sleep: Time in milliseconds to wait after pressing. Buffer for network delays and slow animations.
-        """
+    def press(self) -> None:
+        """Press/activate the symbol if applicable. Default implementation does nothing."""
         pass
 
     def move(self, *, delta_x: int, delta_y: int) -> None:
@@ -231,13 +209,13 @@ class Symbol(ABC):
 
     def delete(self) -> None:
         self.click()
-        self.console.DELETE
+        self.layout.press_delete()
 
     def toggle_absolute_control(self) -> None:
         """Toggle absolute control authority for this symbol by clicking its control chip button."""
         # Locate the control chip button within this specific symbol's container
         control_chip = self.locator.locator(".pluto-control-chip").first
-        self.console.click(control_chip)
+        self.layout.click(control_chip)
 
     def get_properties(self, tab: str = "Symbols") -> dict[str, Any]:
         """

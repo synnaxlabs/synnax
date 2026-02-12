@@ -17,15 +17,37 @@
 #include "x/cpp/errors/errors.h"
 
 namespace synnax::channel {
-x::errors::Error Client::create(Channel &channel) const {
-    auto req = grpc::channel::CreateRequest();
-    *req.add_channels() = channel.to_proto();
+Channel Channel::from_proto(const api::v1::Channel &ch) {
+    return Channel{
+        .name = ch.name(),
+        .data_type = x::telem::DataType(ch.data_type()),
+        .key = ch.key(),
+        .index = ch.index(),
+        .is_index = ch.is_index(),
+        .leaseholder = ch.leaseholder(),
+        .is_virtual = ch.is_virtual(),
+        .internal = ch.internal(),
+    };
+}
+
+void Channel::to_proto(api::v1::Channel *ch) const {
+    ch->set_name(name);
+    ch->set_data_type(data_type.name());
+    ch->set_is_index(is_index);
+    ch->set_leaseholder(leaseholder);
+    ch->set_index(index);
+    ch->set_key(key);
+    ch->set_is_virtual(is_virtual);
+}
+
+x::errors::Error Client::create(synnax::channel::Channel &channel) const {
+    auto req = api::v1::ChannelCreateRequest();
+    channel.to_proto(req.add_channels());
     auto [res, err] = create_client->send("/channel/create", req);
     if (err) return err;
-    if (res.channels_size() == 0) return unexpected_missing_error("channel");
-    auto [ch, parse_err] = Channel::from_proto(res.channels(0));
-    if (parse_err) return parse_err;
-    channel = ch;
+    if (res.channels_size() == 0) return errors::unexpected_missing_error("channel");
+    auto created = Channel::from_proto(res.channels(0));
+    channel = created;
     return x::errors::NIL;
 }
 
@@ -38,8 +60,8 @@ std::pair<Channel, x::errors::Error> Client::create(
     auto ch = Channel{
         .name = name,
         .data_type = data_type,
-        .is_index = is_index,
         .index = index,
+        .is_index = is_index,
     };
     auto err = create(ch);
     return {ch, err};
@@ -60,71 +82,62 @@ std::pair<Channel, x::errors::Error> Client::create(
 }
 
 x::errors::Error Client::create(std::vector<Channel> &channels) const {
-    auto req = grpc::channel::CreateRequest();
+    auto req = api::v1::ChannelCreateRequest();
     req.mutable_channels()->Reserve(static_cast<int>(channels.size()));
     for (const auto &ch: channels)
         *req.add_channels() = ch.to_proto();
     auto [res, exc] = create_client->send("/channel/create", req);
-    if (exc) return exc;
-    for (auto i = 0; i < res.channels_size(); i++) {
-        auto [ch, err] = Channel::from_proto(res.channels(i));
-        if (err) return err;
-        channels[i] = ch;
-    }
-    return x::errors::NIL;
+    for (auto i = 0; i < res.channels_size(); i++)
+        channels[i] = Channel::from_proto(res.channels(i));
+    return exc;
 }
 
 std::pair<Channel, x::errors::Error> Client::retrieve(const Key key) const {
-    auto req = grpc::channel::RetrieveRequest();
+    auto req = api::v1::ChannelRetrieveRequest();
     req.add_keys(key);
     auto [res, err] = retrieve_client->send("/channel/retrieve", req);
     if (err) return {Channel{}, err};
     if (res.channels_size() == 0)
-        return {Channel{}, not_found_error("channel", "key " + std::to_string(key))};
-    return Channel::from_proto(res.channels(0));
+        return {
+            Channel{},
+            errors::not_found_error("channel", "key " + std::to_string(key))
+        };
+    return {Channel::from_proto(res.channels(0)), err};
 }
 
 std::pair<Channel, x::errors::Error> Client::retrieve(const std::string &name) const {
-    auto payload = grpc::channel::RetrieveRequest();
+    auto payload = api::v1::ChannelRetrieveRequest();
     payload.add_names(name);
     auto [res, err] = retrieve_client->send("/channel/retrieve", payload);
     if (err) return {Channel{}, err};
     if (res.channels_size() == 0)
-        return {Channel{}, not_found_error("channel", "name " + name)};
+        return {Channel{}, errors::not_found_error("channel", "name " + name)};
     if (res.channels_size() > 1)
-        return {Channel{}, multiple_found_error("channels", "name " + name)};
-    return Channel::from_proto(res.channels(0));
+        return {Channel{}, errors::multiple_found_error("channels", "name " + name)};
+    return {Channel::from_proto(res.channels(0)), err};
 }
 
 std::pair<std::vector<Channel>, x::errors::Error>
 Client::retrieve(const std::vector<Key> &keys) const {
-    grpc::channel::RetrieveRequest req;
+    api::v1::ChannelRetrieveRequest req;
     req.mutable_keys()->Add(keys.begin(), keys.end());
     auto [res, exc] = this->retrieve_client->send("/channel/retrieve", req);
-    if (exc) return {{}, exc};
     std::vector<Channel> channels;
     channels.reserve(res.channels_size());
-    for (const auto &pb: res.channels()) {
-        auto [ch, err] = Channel::from_proto(pb);
-        if (err) return {{}, err};
-        channels.push_back(ch);
-    }
-    return {channels, x::errors::NIL};
+    for (const auto &ch: res.channels())
+        channels.push_back(Channel::from_proto(ch));
+    return {channels, exc};
 }
 
 std::pair<std::vector<Channel>, x::errors::Error>
 Client::retrieve(const std::vector<std::string> &names) const {
-    auto req = grpc::channel::RetrieveRequest();
+    auto req = api::v1::ChannelRetrieveRequest();
     req.mutable_names()->Add(names.begin(), names.end());
     auto [res, err] = retrieve_client->send("/channel/retrieve", req);
-    if (err) return {{}, err};
     std::vector<Channel> channels;
     channels.reserve(res.channels_size());
-    for (const auto &pb: res.channels()) {
-        auto [ch, parse_err] = Channel::from_proto(pb);
-        if (parse_err) return {{}, parse_err};
-        channels.push_back(ch);
-    }
-    return {channels, x::errors::NIL};
+    for (const auto &ch: res.channels())
+        channels.push_back(Channel::from_proto(ch));
+    return {channels, err};
 }
 }

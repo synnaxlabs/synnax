@@ -29,7 +29,7 @@ public:
     ):
         responses(responses), response_errors(std::move(response_errors)) {}
 
-    UnaryClient(RS response, const x::errors::Error &response_error):
+    MockUnaryClient(RS response, const x::errors::Error &response_error):
         responses({response}), response_errors({response_error}) {}
 
     void use(std::shared_ptr<Middleware> middleware) override { mw.use(middleware); }
@@ -39,7 +39,11 @@ public:
         requests.push_back(request);
         if (responses.empty())
             throw std::runtime_error("mock unary client has no responses left!");
-        const auto ctx = Context("mock", x::url::URL(target), TransportVariant::STREAM);
+        const auto ctx = freighter::Context(
+            "mock",
+            x::url::URL(target),
+            freighter::TransportVariant::STREAM
+        );
         auto [res, err] = mw.exec(ctx, this, request);
         return {res, err};
     }

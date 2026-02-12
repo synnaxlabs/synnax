@@ -27,7 +27,41 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
 
-using json = x::json::json;
+namespace driver::task {
+/// @brief A command that can be executed on a task in order to change its state.
+struct Command {
+    /// @brief the key of the task to be commanded.
+    synnax::task::Key task = 0;
+    /// @brief the type of the command to execute.
+    std::string type;
+    /// @brief an optional key to assign to the command. This is useful for tracking
+    /// state updates related to the command.
+    std::string key;
+    /// @brief json arguments to the command.
+    x::json::json args = {};
+
+    Command() = default;
+
+    /// @brief constructs the command from the provided configuration parser.
+    explicit Command(x::json::Parser parser):
+        task(parser.field<synnax::task::Key>("task")),
+        type(parser.field<std::string>("type")),
+        key(parser.field<std::string>("key", "")),
+        args(parser.field<x::json::json>("args", x::json::json{})) {}
+
+    /// @brief Construct a new Task Command object
+    Command(const synnax::task::Key task, std::string type, x::json::json args):
+        task(task), type(std::move(type)), args(std::move(args)) {}
+
+    [[nodiscard]] x::json::json to_json() const {
+        return {{"task", task}, {"type", type}, {"key", key}, {"args", args}};
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Command &cmd) {
+        os << cmd.type << " (key=" << cmd.key << ",task=" << cmd.task << ")";
+        return os;
+    }
+};
 
 namespace driver::task {
 /// @brief interface for a task that can be executed by the driver. Tasks should be
@@ -260,7 +294,7 @@ private:
         Type type;
         synnax::task::Key task_key;
         synnax::task::Task task;
-        synnax::task::Command cmd;
+        Command cmd;
     };
 
     /// @brief per-task state tracked by the manager.

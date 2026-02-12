@@ -22,11 +22,8 @@ extern "C" {
 #include "client/cpp/synnax.h"
 #include "x/cpp/errors/errors.h"
 
-/// internal.
 #include "driver/sequence/plugins/plugins.h"
 #include "driver/task/task.h"
-
-using json = nlohmann::json;
 
 namespace driver::sequence {
 /// @brief integration name for use in driver configuration.
@@ -55,7 +52,7 @@ struct TaskConfig {
     std::vector<synnax::channel::Key> write;
     /// @brief globals is a JSON object whose keys are global variables that will be
     /// available within the Lua script.
-    json globals;
+    x::json::json globals;
     /// @brief authority is the base authority level that the sequence will have;
     x::control::Authority authority;
 
@@ -65,7 +62,7 @@ struct TaskConfig {
         script(parser.field<std::string>("script")),
         read(parser.field<std::vector<synnax::channel::Key>>("read")),
         write(parser.field<std::vector<synnax::channel::Key>>("write")),
-        globals(parser.field<json>("globals", json::object())),
+        globals(parser.field<x::json::json>("globals", x::json::json::object())),
         authority(parser.field<x::control::Authority>("authority", 150)) {}
 };
 

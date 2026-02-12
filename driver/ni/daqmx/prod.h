@@ -17,10 +17,10 @@
 #include "driver/ni/daqmx/api.h"
 #include "driver/ni/daqmx/nidaqmx.h"
 
-namespace daqmx {
+namespace driver::ni::daqmx {
 class ProdAPI final : public API {
 public:
-    explicit ProdAPI(std::unique_ptr<x::lib::Shared> &lib_);
+    explicit ProdAPI(std::unique_ptr<x::lib::SharedLib> &lib_);
 
     ~ProdAPI() override;
 
@@ -5374,6 +5374,6 @@ private:
     } FunctionLoadStatus;
 
     FunctionPointers function_pointers_{};
-    std::unique_ptr<x::lib::Shared> lib;
+    std::unique_ptr<x::lib::SharedLib> lib;
 };
 }

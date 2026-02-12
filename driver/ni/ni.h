@@ -11,10 +11,10 @@
 
 #include "client/cpp/synnax.h"
 
+#include "driver/common/common.h"
+#include "driver/common/sample_clock.h"
 #include "driver/ni/daqmx/sugared.h"
 #include "driver/ni/syscfg/sugared.h"
-#include "driver/task/common/common.h"
-#include "driver/task/common/sample_clock.h"
 #include "driver/task/task.h"
 
 namespace driver::ni {
@@ -44,7 +44,7 @@ inline x::errors::Error translate_error(const x::errors::Error &err) {
     if (err.matches(REQUIRES_RESTART_ERRORS)) return daqmx::REQUIRES_RESTART;
     if (err.matches(daqmx::APPLICATION_TOO_SLOW))
         return {x::errors::Error(
-            driver::CRITICAL_HARDWARE_ERROR,
+            errors::CRITICAL_HARDWARE_ERROR,
             "the network cannot keep up with the stream rate specified. try making "
             "the "
             "sample rate a higher multiple of the stream rate"
@@ -100,11 +100,11 @@ public:
     ) override;
 
     template<typename HardwareT, typename ConfigT, typename SourceSinkT, typename TaskT>
-    std::pair<task::common::ConfigureResult, x::errors::Error> configure(
+    std::pair<common::ConfigureResult, x::errors::Error> configure(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task
     ) {
-        task::common::ConfigureResult result;
+        common::ConfigureResult result;
         auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task, this->timing_cfg);
         if (cfg_err) return {std::move(result), cfg_err};
         TaskHandle handle;
@@ -136,7 +136,7 @@ public:
 
     std::string name() override { return INTEGRATION_NAME; }
 
-    std::pair<task::common::ConfigureResult, x::errors::Error> configure_scan(
+    std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task
     );

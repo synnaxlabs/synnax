@@ -23,8 +23,8 @@ typedef void *LibraryHandle;
 #endif
 
 namespace x::lib {
-const errors::Error ERR_BASE = errors::SY.sub("shared");
-const errors::Error ERR_LOAD = ERR_BASE.sub("load");
+const errors::Error BASE_ERROR = errors::SY.sub("shared");
+const errors::Error LOAD_ERROR = BASE_ERROR.sub("load");
 
 #ifdef _WIN32
 /// Shared is a shared library loader and lifecycle manager implemented for

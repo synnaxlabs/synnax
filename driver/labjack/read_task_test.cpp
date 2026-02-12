@@ -17,9 +17,10 @@
 
 #include "driver/labjack/read_task.h"
 
+namespace driver::labjack {
 /// @brief it should parse analog input channel configuration.
 TEST(TestInputChannelParse, testAIChan) {
-    const json cfg{
+    const x::json::json cfg{
         {"port", "AIN0"},
         {"enabled", true},
         {"key", "8hYJO9zt6eS"},
@@ -29,9 +30,9 @@ TEST(TestInputChannelParse, testAIChan) {
         {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}}
     };
     auto p = x::json::Parser(cfg);
-    const auto chan = driver::labjack::parse_input_chan(p);
+    const auto chan = parse_input_chan(p);
     ASSERT_NIL(p.error());
-    const auto ai_chan = dynamic_cast<driver::labjack::AIChan *>(chan.get());
+    const auto ai_chan = dynamic_cast<AIChan *>(chan.get());
     ASSERT_NE(ai_chan, nullptr);
     ASSERT_EQ(ai_chan->port, "AIN0");
     ASSERT_EQ(ai_chan->enabled, true);
@@ -41,7 +42,7 @@ TEST(TestInputChannelParse, testAIChan) {
 
 /// @brief it should parse digital input channel configuration.
 TEST(TestInputChannelParse, testDIChan) {
-    const json cfg{
+    const x::json::json cfg{
         {"port", "DIO0"},
         {"enabled", true},
         {"key", "8hYJO9zt6eS"},
@@ -49,9 +50,9 @@ TEST(TestInputChannelParse, testDIChan) {
         {"type", "DI"}
     };
     auto p = x::json::Parser(cfg);
-    const auto chan = driver::labjack::parse_input_chan(p);
+    const auto chan = parse_input_chan(p);
     ASSERT_NIL(p.error());
-    const auto di_chan = dynamic_cast<driver::labjack::DIChan *>(chan.get());
+    const auto di_chan = dynamic_cast<DIChan *>(chan.get());
     ASSERT_NE(di_chan, nullptr);
     ASSERT_EQ(di_chan->port, "DIO0");
     ASSERT_EQ(di_chan->enabled, true);
@@ -60,7 +61,7 @@ TEST(TestInputChannelParse, testDIChan) {
 
 /// @brief it should parse thermocouple channel configuration.
 TEST(TestInputChannelParse, testTCChan) {
-    const json cfg{
+    const x::json::json cfg{
         {"port", "AIN0"},
         {"enabled", true},
         {"key", "8hYJO9zt6eS"},
@@ -77,9 +78,9 @@ TEST(TestInputChannelParse, testTCChan) {
         {"cjc_offset", 0}
     };
     auto p = x::json::Parser(cfg);
-    const auto chan = driver::labjack::parse_input_chan(p);
+    const auto chan = parse_input_chan(p);
     ASSERT_NIL(p.error());
-    const auto tc_chan = dynamic_cast<driver::labjack::ThermocoupleChan *>(chan.get());
+    const auto tc_chan = dynamic_cast<ThermocoupleChan *>(chan.get());
     ASSERT_NE(tc_chan, nullptr);
     ASSERT_EQ(tc_chan->port, "AIN0_EF_READ_A");
     ASSERT_EQ(tc_chan->enabled, true);
@@ -87,7 +88,7 @@ TEST(TestInputChannelParse, testTCChan) {
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 0);
     ASSERT_EQ(tc_chan->neg_chan, 199);
-    ASSERT_EQ(tc_chan->units, driver::labjack::LJM_KELVIN);
+    ASSERT_EQ(tc_chan->units, LJM_KELVIN);
     ASSERT_EQ(tc_chan->cjc_addr, LJM_TEMPERATURE_DEVICE_K_ADDRESS);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
     ASSERT_EQ(tc_chan->cjc_offset, 0);
@@ -95,7 +96,7 @@ TEST(TestInputChannelParse, testTCChan) {
 
 /// @brief it should reject invalid channel type in configuration.
 TEST(TestInputChannelParse, testInvalidChannelType) {
-    const json cfg{
+    const x::json::json cfg{
         {"port", "AIN0"},
         {"enabled", true},
         {"key", "8hYJO9zt6eS"},
@@ -105,18 +106,18 @@ TEST(TestInputChannelParse, testInvalidChannelType) {
         {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}}
     };
     auto p = x::json::Parser(cfg);
-    const auto chan = driver::labjack::parse_input_chan(p);
+    const auto chan = parse_input_chan(p);
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
-json basic_read_task_config() {
+x::json::json basic_read_task_config() {
     return {
         {"device", "230227d9-02aa-47e4-b370-0d590add1bc1"},
         {"sample_rate", 10},
         {"stream_rate", 5},
         {"data_saving", true},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"port", "AIN0"},
                {"enabled", true},
                {"key", "8hYJO9zt6eS"},
@@ -151,14 +152,15 @@ json basic_read_task_config() {
 TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::device::Device{
-        .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
-        .rack = rack.key,
-        .location = "dev1",
-        .make = "labjack",
-        .model = "T7",
-        .name = "my_device"
-    };
+    auto dev = synnax::device::Device(
+        "230227d9-02aa-47e4-b370-0d590add1bc1",
+        "my_device",
+        rack.key,
+        "dev1",
+        "labjack",
+        "T7",
+        ""
+    );
     ASSERT_NIL(client->devices.create(dev));
 
     // Create channels for each input type
@@ -184,7 +186,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     j["channels"][2]["channel"] = ai_ch.key;
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<driver::labjack::ReadTaskConfig>(client, p);
+    auto cfg = std::make_unique<ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     ASSERT_EQ(cfg->sample_rate, x::telem::HERTZ * 10);
@@ -192,9 +194,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(cfg->data_saving, true);
     ASSERT_EQ(cfg->channels.size(), 3);
 
-    const auto tc_chan = dynamic_cast<driver::labjack::ThermocoupleChan *>(
-        cfg->channels[0].get()
-    );
+    const auto tc_chan = dynamic_cast<ThermocoupleChan *>(cfg->channels[0].get());
     ASSERT_NE(tc_chan, nullptr);
     ASSERT_EQ(tc_chan->port, "AIN0_EF_READ_A");
     ASSERT_EQ(tc_chan->enabled, true);
@@ -202,22 +202,18 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 0);
     ASSERT_EQ(tc_chan->neg_chan, 199);
-    ASSERT_EQ(tc_chan->units, driver::labjack::LJM_KELVIN);
+    ASSERT_EQ(tc_chan->units, LJM_KELVIN);
     ASSERT_EQ(tc_chan->cjc_addr, LJM_TEMPERATURE_DEVICE_K_ADDRESS);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
     ASSERT_EQ(tc_chan->cjc_offset, 0);
 
-    const auto di_chan = dynamic_cast<driver::labjack::DIChan *>(
-        cfg->channels[1].get()
-    );
+    const auto di_chan = dynamic_cast<DIChan *>(cfg->channels[1].get());
     ASSERT_NE(di_chan, nullptr);
     ASSERT_EQ(di_chan->port, "DIO4");
     ASSERT_EQ(di_chan->enabled, true);
     ASSERT_EQ(di_chan->synnax_key, di_ch.key);
 
-    const auto ai_chan = dynamic_cast<driver::labjack::AIChan *>(
-        cfg->channels[2].get()
-    );
+    const auto ai_chan = dynamic_cast<AIChan *>(cfg->channels[2].get());
     ASSERT_NE(ai_chan, nullptr);
     ASSERT_EQ(ai_chan->port, "AIN6");
     ASSERT_EQ(ai_chan->enabled, true);
@@ -229,14 +225,15 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
 TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::device::Device{
-        .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
-        .rack = rack.key,
-        .location = "dev1",
-        .make = "labjack",
-        .model = "T7",
-        .name = "my_device"
-    };
+    auto dev = synnax::device::Device(
+        "230227d9-02aa-47e4-b370-0d590add1bc1",
+        "my_device",
+        rack.key,
+        "dev1",
+        "labjack",
+        "T7",
+        ""
+    );
     ASSERT_NIL(client->devices.create(dev));
 
     // Create a channel
@@ -248,7 +245,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
 
     // Create a config with an invalid channel type
     auto j = basic_read_task_config();
-    j["channels"] = json::array(
+    j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
           {"enabled", true},
           {"key", "8hYJO9zt6eS"},
@@ -258,7 +255,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     );
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<driver::labjack::ReadTaskConfig>(client, p);
+    auto cfg = std::make_unique<ReadTaskConfig>(client, p);
 
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
@@ -267,14 +264,15 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
 TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    auto dev = synnax::device::Device{
-        .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
-        .rack = rack.key,
-        .location = "dev1",
-        .make = "labjack",
-        .model = "T7",
-        .name = "test_device"
-    };
+    auto dev = synnax::device::Device(
+        "230227d9-02aa-47e4-b370-0d590add1bc1",
+        "test_device",
+        rack.key,
+        "dev1",
+        "labjack",
+        "T7",
+        ""
+    );
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("test_channel"),
@@ -284,7 +282,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
 
     auto j = basic_read_task_config();
     j["data_saving"] = true;
-    j["channels"] = json::array(
+    j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
           {"enabled", true},
           {"key", "8hYJO9zt6eS"},
@@ -295,10 +293,11 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     );
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<driver::labjack::ReadTaskConfig>(client, p);
+    auto cfg = std::make_unique<ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = cfg->writer();
     ASSERT_TRUE(writer_cfg.enable_auto_commit);
+}
 }

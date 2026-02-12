@@ -15,7 +15,7 @@ cc_library(
         "//client/cpp/errors",
         "//client/cpp/ontology",
         "//client/cpp/rack",
-        "//core/pkg/api/grpc:api_grpc",
+        "//core/pkg/api/grpc/v1:api_grpc",
         "//freighter/cpp:freighter",
         "//x/cpp/errors",
         "//x/cpp/json",

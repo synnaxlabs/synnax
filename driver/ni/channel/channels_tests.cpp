@@ -13,10 +13,9 @@
 
 #include "driver/ni/channel/channels.h"
 
-using json = x::json::json;
-
+namespace driver::ni::channel {
 TEST(ChannelsTest, ParseAIAccelChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_accel"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -55,7 +54,7 @@ TEST(ChannelsTest, ParseAIAccelChan) {
 }
 
 TEST(ChannelsTest, ParseAIBridgeChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_bridge"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -88,7 +87,7 @@ TEST(ChannelsTest, ParseAIBridgeChan) {
 }
 
 TEST(ChannelsTest, ParseAICurrentChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_current"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -121,7 +120,7 @@ TEST(ChannelsTest, ParseAICurrentChan) {
 }
 
 TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_force_bridge_table"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -167,7 +166,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
 }
 
 TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_force_bridge_two_point_lin"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -212,7 +211,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
 }
 
 TEST(ChannelsTest, ParseAIForceIEPEChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_force_iepe"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -248,7 +247,7 @@ TEST(ChannelsTest, ParseAIForceIEPEChan) {
 }
 
 TEST(ChannelsTest, ParseAIMicrophoneChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_microphone"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -281,7 +280,7 @@ TEST(ChannelsTest, ParseAIMicrophoneChan) {
 }
 
 TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_pressure_bridge_table"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -328,7 +327,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
 }
 
 TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_pressure_bridge_two_point_lin"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -377,7 +376,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
 }
 
 TEST(ChannelsTest, ParseAIRTDChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_rtd"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -413,7 +412,7 @@ TEST(ChannelsTest, ParseAIRTDChan) {
 }
 
 TEST(ChannelsTest, ParseAIStrainGaugeChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_strain_gauge"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -456,7 +455,7 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
 }
 
 TEST(ChannelsTest, ParseAITempBuiltInChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_temp_builtin"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -479,7 +478,7 @@ TEST(ChannelsTest, ParseAITempBuiltInChan) {
 }
 
 TEST(ChannelsTest, ParseAIThermoChan) {
-    json j = {
+    x::json::json j = {
         {"channels.0",
          {{"type", "ai_thermocouple"},
           {"key", "ks1VnWdrSVA"},
@@ -515,7 +514,7 @@ TEST(ChannelsTest, ParseAIThermoChan) {
 }
 
 TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_torque_bridge_table"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -559,7 +558,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
 }
 
 TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_torque_bridge_two_point_lin"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -604,7 +603,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
 }
 
 TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_velocity_iepe"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -640,7 +639,7 @@ TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
 }
 
 TEST(ChannelsTest, ParseAIVoltageChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ai_voltage"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -669,7 +668,7 @@ TEST(ChannelsTest, ParseAIVoltageChan) {
 }
 
 TEST(ChannelsTest, ParseAOVoltageChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ao_voltage"},
         {"key", "XBQejNmAyaO"},
         {"port", 0},
@@ -696,7 +695,7 @@ TEST(ChannelsTest, ParseAOVoltageChan) {
 }
 
 TEST(ChannelsTest, ParseAOFuncGenChan) {
-    json j = {
+    x::json::json j = {
         {"type", "ao_func_gen"},
         {"key", "AepqBDjsgwx"},
         {"port", 1},
@@ -724,7 +723,7 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
 }
 
 TEST(ChannelsTest, ParseDIChan) {
-    json j = {
+    x::json::json j = {
         {"type", "digital_input"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -748,7 +747,7 @@ TEST(ChannelsTest, ParseDIChan) {
 }
 
 TEST(ChannelsTest, ParseDOChan) {
-    json j = {
+    x::json::json j = {
         {"type", "digital_output"},
         {"key", "XBQejNmAyaO"},
         {"port", 0},
@@ -773,7 +772,7 @@ TEST(ChannelsTest, ParseDOChan) {
 }
 
 TEST(ChannelsTest, ParseCIFrequencyChanHz) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_frequency"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -813,7 +812,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanHz) {
 }
 
 TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_frequency"},
         {"key", "ks1VnWdrSVB"},
         {"port", 1},
@@ -853,7 +852,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
 }
 
 TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_edge_count"},
         {"key", "ks1VnWdrSVC"},
         {"port", 0},
@@ -884,7 +883,7 @@ TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
 }
 
 TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_edge_count"},
         {"key", "ks1VnWdrSVD"},
         {"port", 2},
@@ -915,7 +914,7 @@ TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
 }
 
 TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_period"},
         {"key", "ks1VnWdrSVE"},
         {"port", 0},
@@ -950,7 +949,7 @@ TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
 }
 
 TEST(ChannelsTest, ParseCIPeriodChanTicks) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_period"},
         {"key", "ks1VnWdrSVF"},
         {"port", 1},
@@ -985,7 +984,7 @@ TEST(ChannelsTest, ParseCIPeriodChanTicks) {
 }
 
 TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_pulse_width"},
         {"key", "ks1VnWdrSVG"},
         {"port", 0},
@@ -1016,7 +1015,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
 }
 
 TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_pulse_width"},
         {"key", "ks1VnWdrSVH"},
         {"port", 1},
@@ -1047,7 +1046,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
 }
 
 TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_semi_period"},
         {"key", "ks1VnWdrSVI"},
         {"port", 0},
@@ -1074,7 +1073,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
 }
 
 TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_semi_period"},
         {"key", "ks1VnWdrSVJ"},
         {"port", 1},
@@ -1101,7 +1100,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
 }
 
 TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_two_edge_sep"},
         {"key", "ks1VnWdrSVK"},
         {"port", 0},
@@ -1132,7 +1131,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
 }
 
 TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_two_edge_sep"},
         {"key", "ks1VnWdrSVL"},
         {"port", 1},
@@ -1163,7 +1162,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
 }
 
 TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_velocity_linear"},
         {"key", "ks1VnWdrSVW"},
         {"port", 0},
@@ -1201,7 +1200,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
 }
 
 TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_velocity_linear"},
         {"key", "ks1VnWdrSVX"},
         {"port", 1},
@@ -1239,7 +1238,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
 }
 
 TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_velocity_angular"},
         {"key", "ks1VnWdrSVY"},
         {"port", 0},
@@ -1277,7 +1276,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
 }
 
 TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_velocity_angular"},
         {"key", "ks1VnWdrSVZ"},
         {"port", 2},
@@ -1315,7 +1314,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
 }
 
 TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_position_linear"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -1363,7 +1362,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
 }
 
 TEST(ChannelsTest, ParseCILinearPositionChanInches) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_position_linear"},
         {"key", "ks1VnWdrSVB"},
         {"port", 1},
@@ -1411,7 +1410,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanInches) {
 }
 
 TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_position_angular"},
         {"key", "ks1VnWdrSVC"},
         {"port", 0},
@@ -1459,7 +1458,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
 }
 
 TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_position_angular"},
         {"key", "ks1VnWdrSVD"},
         {"port", 2},
@@ -1507,7 +1506,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
 }
 
 TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_duty_cycle"},
         {"key", "ks1VnWdrSVA"},
         {"port", 0},
@@ -1539,7 +1538,7 @@ TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
 }
 
 TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
-    json j = {
+    x::json::json j = {
         {"type", "ci_duty_cycle"},
         {"key", "ks1VnWdrSVB"},
         {"port", 1},
@@ -1568,4 +1567,5 @@ TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
     EXPECT_EQ(ci_duty_cycle_chan->terminal, "");
     ci_duty_cycle_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_duty_cycle_chan->loc(), "cDAQ1Mod3/ctr1");
+}
 }

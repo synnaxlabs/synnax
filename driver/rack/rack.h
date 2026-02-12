@@ -22,21 +22,19 @@
 
 #include "x/cpp/args/args.h"
 #include "x/cpp/log/log.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/labjack/labjack.h"
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
-#include "x/cpp/uuid/uuid.h"
-
+#include "driver/common/sample_clock.h"
+#include "driver/ethercat/ethercat.h"
 #include "driver/ni/ni.h"
 #include "driver/opc/opc.h"
 #include "driver/rack/status/status.h"
 #include "driver/sequence/sequence.h"
-#include "driver/task/common/sample_clock.h"
 #include "driver/task/task.h"
-
-using json = x::json::json;
 
 namespace driver::rack {
 struct RemoteInfo {
@@ -46,13 +44,19 @@ struct RemoteInfo {
     template<typename Parser>
     void override(Parser &p) {
         this->rack_key = p.field("rack_key", this->rack_key);
-        this->cluster_key = p.field("cluster_key", this->cluster_key);
+        auto [ck, ck_err] = x::uuid::UUID::parse(
+            p.field("cluster_key", this->cluster_key.to_string())
+        );
+        if (ck_err)
+            p.field_err("cluster_key", ck_err);
+        else
+            this->cluster_key = ck;
     }
 
-    [[nodiscard]] json to_json() const {
+    [[nodiscard]] x::json::json to_json() const {
         return {
             {"rack_key", this->rack_key},
-            {"cluster_key", this->cluster_key.to_json()},
+            {"cluster_key", this->cluster_key.to_string()},
         };
     }
 };
@@ -64,6 +68,7 @@ inline std::vector<std::string> default_integrations() {
         sequence::INTEGRATION_NAME,
         labjack::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,
+        ethercat::INTEGRATION_NAME
     };
 #ifndef SYNNAX_NILINUXRT
     integrations.push_back(driver::modbus::INTEGRATION_NAME);
@@ -128,7 +133,7 @@ struct Config {
 
     static std::pair<Config, x::errors::Error>
     load(x::args::Parser &parser, x::breaker::Breaker &breaker) {
-        driver::rack::Config cfg{
+        rack::Config cfg{
             .connection =
                 {
                     .host = "localhost",
@@ -206,7 +211,7 @@ x::errors::Error clear_persisted_state();
 /// of tasks that are assigned to it.
 class Rack {
     std::thread run_thread;
-    std::unique_ptr<driver::task::Manager> task_manager;
+    std::unique_ptr<task::Manager> task_manager;
     x::breaker::Breaker breaker = x::breaker::Breaker({
         .name = "driver",
         .base_interval = x::telem::SECOND,

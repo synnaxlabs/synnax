@@ -13,14 +13,15 @@
 
 #include "driver/pipeline/base.h"
 
-class ThrowingPipeline final : public driver::pipeline::Base {
+namespace driver::pipeline {
+class ThrowingPipeline final : public Base {
 public:
     explicit ThrowingPipeline(const x::breaker::Config &config): Base(config) {}
 
     void run() override { throw std::runtime_error("test exception"); }
 };
 
-class StdExceptionPipeline final : public driver::pipeline::Base {
+class StdExceptionPipeline final : public Base {
 public:
     explicit StdExceptionPipeline(const x::breaker::Config &config): Base(config) {}
 
@@ -41,4 +42,5 @@ TEST(BasePipeline, testStdExceptionHandling) {
     ASSERT_TRUE(pipeline.start());
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     ASSERT_TRUE(pipeline.stop());
+}
 }

@@ -21,7 +21,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/series.h"
 
-namespace driver::opc {
+namespace driver::opc::types {
 struct Node {
     ::x::telem::DataType data_type;
     std::string node_class;

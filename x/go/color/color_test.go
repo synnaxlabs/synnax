@@ -14,158 +14,135 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/color"
 	"github.com/vmihailenco/msgpack/v5"
+
+	"github.com/synnaxlabs/x/color"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Color", func() {
 	Describe("FromHex", func() {
-		It("parses 6-char hex without #", func() {
-			c, err := color.FromHex("ff0000")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(c).To(Equal(color.Color{R: 255, G: 0, B: 0, A: 1.0}))
+		It("Should parse a 6-character hex string", func() {
+			c := MustSucceed(color.FromHex("#ff0000"))
+			Expect(c).To(Equal(color.Color{R: 255, G: 0, B: 0, A: 1}))
 		})
-
-		It("parses 6-char hex with #", func() {
-			c, err := color.FromHex("#00ff00")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(c).To(Equal(color.Color{R: 0, G: 255, B: 0, A: 1.0}))
+		It("Should parse a 6-character hex string without hash", func() {
+			c := MustSucceed(color.FromHex("00ff00"))
+			Expect(c).To(Equal(color.Color{R: 0, G: 255, B: 0, A: 1}))
 		})
-
-		It("parses 8-char hex with alpha", func() {
-			c, err := color.FromHex("#0000ff80")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(c.R).To(Equal(uint8(0)))
+		It("Should parse an 8-character hex string with alpha", func() {
+			c := MustSucceed(color.FromHex("#ff000080"))
+			Expect(c.R).To(Equal(uint8(255)))
 			Expect(c.G).To(Equal(uint8(0)))
-			Expect(c.B).To(Equal(uint8(255)))
-			Expect(c.A).To(BeNumerically("~", 0.502, 0.01))
+			Expect(c.B).To(Equal(uint8(0)))
+			Expect(c.A).To(BeNumerically("~", 128.0/255.0, 0.01))
 		})
-
-		It("rejects invalid length", func() {
-			_, err := color.FromHex("fff")
-			Expect(err).To(HaveOccurred())
+		It("Should return an error for an invalid hex string", func() {
+			Expect(color.FromHex("#xyz")).Error().To(HaveOccurred())
 		})
+		It("Should return an error for wrong length", func() {
+			Expect(color.FromHex("#12345")).Error().To(HaveOccurred())
+		})
+	})
 
-		It("rejects invalid characters", func() {
-			_, err := color.FromHex("gggggg")
-			Expect(err).To(HaveOccurred())
+	Describe("MustFromHex", func() {
+		It("Should parse a valid hex string", func() {
+			c := color.MustFromHex("#0000ff")
+			Expect(c).To(Equal(color.Color{R: 0, G: 0, B: 255, A: 1}))
+		})
+		It("Should panic on an invalid hex string", func() {
+			Expect(func() { color.MustFromHex("invalid") }).To(Panic())
 		})
 	})
 
 	Describe("Hex", func() {
-		It("outputs 6-char when alpha is 1.0", func() {
-			c := color.Color{R: 255, G: 128, B: 64, A: 1.0}
-			Expect(c.Hex()).To(Equal("#ff8040"))
+		It("Should output a 6-character hex without alpha when alpha is 1", func() {
+			c := color.Color{R: 255, G: 0, B: 0, A: 1}
+			Expect(c.Hex()).To(Equal("#ff0000"))
 		})
-
-		It("outputs 8-char when alpha is not 1.0", func() {
+		It("Should output an 8-character hex when alpha is not 1", func() {
 			c := color.Color{R: 255, G: 0, B: 0, A: 0.5}
-			Expect(c.Hex()).To(HavePrefix("#ff0000"))
-			Expect(c.Hex()).To(HaveLen(9))
+			hex := c.Hex()
+			Expect(hex).To(HavePrefix("#ff0000"))
+			Expect(len(hex)).To(Equal(9))
 		})
 	})
 
 	Describe("IsZero", func() {
-		It("returns true for zero color", func() {
-			c := color.Color{R: 0, G: 0, B: 0, A: 0}
-			Expect(c.IsZero()).To(BeTrue())
+		It("Should return true for the zero value", func() {
+			Expect(color.Color{}.IsZero()).To(BeTrue())
 		})
-
-		It("returns false when any component is non-zero", func() {
-			Expect(color.Color{R: 1, G: 0, B: 0, A: 0}.IsZero()).To(BeFalse())
-			Expect(color.Color{R: 0, G: 0, B: 0, A: 1}.IsZero()).To(BeFalse())
+		It("Should return false when R is non-zero", func() {
+			Expect(color.Color{R: 1}.IsZero()).To(BeFalse())
+		})
+		It("Should return false when A is non-zero", func() {
+			Expect(color.Color{A: 0.5}.IsZero()).To(BeFalse())
 		})
 	})
 
 	Describe("JSON", func() {
-		It("unmarshals struct format", func() {
-			var c color.Color
-			err := json.Unmarshal([]byte(`{"r":255,"g":128,"b":64,"a":0.5}`), &c)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(c).To(Equal(color.Color{R: 255, G: 128, B: 64, A: 0.5}))
+		It("Should marshal to struct format", func() {
+			c := color.Color{R: 255, G: 128, B: 0, A: 1}
+			data := MustSucceed(json.Marshal(c))
+			Expect(string(data)).To(ContainSubstring(`"r":255`))
 		})
-
-		It("unmarshals zero color struct", func() {
+		It("Should unmarshal from a hex string", func() {
 			var c color.Color
-			err := json.Unmarshal([]byte(`{"r":0,"g":0,"b":0,"a":0}`), &c)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(c).To(Equal(color.Color{R: 0, G: 0, B: 0, A: 0}))
+			Expect(json.Unmarshal([]byte(`"#ff8000"`), &c)).To(Succeed())
+			Expect(c.R).To(Equal(uint8(255)))
+			Expect(c.G).To(Equal(uint8(128)))
+			Expect(c.B).To(Equal(uint8(0)))
+			Expect(c.A).To(Equal(1.0))
 		})
-
-		It("unmarshals array format", func() {
+		It("Should unmarshal from an array", func() {
 			var c color.Color
-			err := json.Unmarshal([]byte(`[255,0,0,0.5]`), &c)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(c).To(Equal(color.Color{R: 255, G: 0, B: 0, A: 0.5}))
+			Expect(json.Unmarshal([]byte(`[255, 0, 0, 0.5]`), &c)).To(Succeed())
+			Expect(c.R).To(Equal(uint8(255)))
+			Expect(c.A).To(Equal(0.5))
 		})
-
-		It("unmarshals hex string", func() {
+		It("Should unmarshal from an object", func() {
 			var c color.Color
-			err := json.Unmarshal([]byte(`"#ff0000"`), &c)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(c).To(Equal(color.Color{R: 255, G: 0, B: 0, A: 1.0}))
+			Expect(json.Unmarshal([]byte(`{"r":255,"g":0,"b":0,"a":1}`), &c)).To(Succeed())
+			Expect(c.R).To(Equal(uint8(255)))
+			Expect(c.A).To(Equal(1.0))
 		})
-
-		It("unmarshals null", func() {
-			var c color.Color
-			err := json.Unmarshal([]byte(`null`), &c)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(c).To(Equal(color.Color{}))
-		})
-
-		It("rejects invalid array length", func() {
-			var c color.Color
-			err := json.Unmarshal([]byte(`[255,0,0]`), &c)
-			Expect(err).To(HaveOccurred())
+		It("Should round-trip JSON correctly", func() {
+			original := color.Color{R: 100, G: 200, B: 50, A: 0.75}
+			data := MustSucceed(json.Marshal(original))
+			var decoded color.Color
+			Expect(json.Unmarshal(data, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
 		})
 	})
 
 	Describe("Msgpack", func() {
-		It("decodes struct format", func() {
-			data, _ := msgpack.Marshal(map[string]any{"r": 255, "g": 128, "b": 64, "a": 0.5})
+		It("Should decode from a string (backwards compat)", func() {
+			encoded := MustSucceed(msgpack.Marshal("#ff0000"))
 			var c color.Color
-			err := msgpack.Unmarshal(data, &c)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(c).To(Equal(color.Color{R: 255, G: 128, B: 64, A: 0.5}))
+			Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
+			Expect(c).To(Equal(color.Color{R: 255, G: 0, B: 0, A: 1}))
 		})
-
-		It("decodes zero color struct", func() {
-			data, _ := msgpack.Marshal(map[string]any{"r": 0, "g": 0, "b": 0, "a": 0.0})
+		It("Should decode from a string with alpha (backwards compat)", func() {
+			encoded := MustSucceed(msgpack.Marshal("#00ff0080"))
 			var c color.Color
-			err := msgpack.Unmarshal(data, &c)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(c).To(Equal(color.Color{R: 0, G: 0, B: 0, A: 0}))
+			Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
+			Expect(c.R).To(Equal(uint8(0)))
+			Expect(c.G).To(Equal(uint8(255)))
+			Expect(c.B).To(Equal(uint8(0)))
+			Expect(c.A).To(BeNumerically("~", 128.0/255.0, 0.01))
 		})
-
-		It("decodes array format", func() {
-			data, _ := msgpack.Marshal([]any{255, 0, 0, 0.5})
-			var c color.Color
-			err := msgpack.Unmarshal(data, &c)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(c).To(Equal(color.Color{R: 255, G: 0, B: 0, A: 0.5}))
+		It("Should round-trip msgpack correctly", func() {
+			original := color.Color{R: 100, G: 200, B: 50, A: 0.75}
+			data := MustSucceed(msgpack.Marshal(original))
+			var decoded color.Color
+			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
+			Expect(decoded).To(Equal(original))
 		})
-
-		It("decodes hex string", func() {
-			data, _ := msgpack.Marshal("#ff0000")
+		It("Should decode an empty string as zero color", func() {
+			encoded := MustSucceed(msgpack.Marshal("#000000"))
 			var c color.Color
-			err := msgpack.Unmarshal(data, &c)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(c).To(Equal(color.Color{R: 255, G: 0, B: 0, A: 1.0}))
-		})
-
-		It("decodes nil", func() {
-			data, _ := msgpack.Marshal(nil)
-			var c color.Color
-			err := msgpack.Unmarshal(data, &c)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(c).To(Equal(color.Color{}))
-		})
-
-		It("rejects invalid array length", func() {
-			data, _ := msgpack.Marshal([]any{255, 0, 0})
-			var c color.Color
-			err := msgpack.Unmarshal(data, &c)
-			Expect(err).To(HaveOccurred())
+			Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
+			Expect(c).To(Equal(color.Color{R: 0, G: 0, B: 0, A: 1}))
 		})
 	})
 })

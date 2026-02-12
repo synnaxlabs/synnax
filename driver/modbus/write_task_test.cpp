@@ -18,21 +18,22 @@
 #include "driver/modbus/write_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
+namespace driver::modbus {
 class ModbusWriteTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
     synnax::task::Task task;
-    std::unique_ptr<driver::modbus::WriteTaskConfig> cfg;
-    std::shared_ptr<driver::task::MockContext> ctx;
-    std::shared_ptr<driver::pipeline::mock::StreamerFactory> mock_streamer_factory;
-    std::shared_ptr<driver::modbus::device::Manager> devs;
+    std::unique_ptr<WriteTaskConfig> cfg;
+    std::shared_ptr<task::MockContext> ctx;
+    std::shared_ptr<pipeline::mock::StreamerFactory> mock_streamer_factory;
+    std::shared_ptr<device::Manager> devs;
     synnax::channel::Channel coil_ch;
     synnax::channel::Channel reg_ch;
 
     void setup_task_config() {
         this->client = std::make_shared<synnax::Synnax>(new_test_client());
-        this->devs = std::make_shared<driver::modbus::device::Manager>();
-        this->ctx = std::make_shared<driver::task::MockContext>(client);
+        this->devs = std::make_shared<device::Manager>();
+        this->ctx = std::make_shared<task::MockContext>(client);
         if (this->coil_ch.name.empty())
             this->coil_ch.name = make_unique_channel_name("coil");
         if (this->coil_ch.data_type == x::telem::UNKNOWN_T)
@@ -46,7 +47,7 @@ protected:
         this->reg_ch.is_virtual = true;
         ASSERT_NIL(client->channels.create(this->reg_ch));
         auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-        json properties{
+        x::json::json properties{
             {"connection",
              {{"host", "127.0.0.1"},
               {"port", 1502},
@@ -54,36 +55,41 @@ protected:
               {"swap_words", false}}}
         };
 
-        synnax::device::Device dev{
-            .key = "modbus_test_dev",
-            .rack = rack.key,
-            .location = "dev1",
-            .make = "modbus",
-            .model = "Modbus Device",
-            .name = "modbus_test_dev",
-            .properties = properties,
-        };
+        synnax::device::Device dev(
+            "modbus_test_dev",
+            "modbus_test_dev",
+            rack.key,
+            "dev1",
+            "modbus",
+            "Modbus Device",
+            nlohmann::to_string(properties)
+        );
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::task::Task(rack.key, "modbus_write_test", "modbus_write", "");
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "modbus_write_test",
+            .type = "modbus_write",
+            .config = ""
+        };
     }
 };
 
 /// @brief it should write coil and register values to Modbus device.
 TEST_F(ModbusWriteTest, testBasicWrite) {
     this->setup_task_config();
-    driver::modbus::mock::SlaveConfig slave_cfg;
+    mock::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = driver::modbus::mock::Slave(slave_cfg);
+    auto slave = mock::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
-    json task_cfg{
+    x::json::json task_cfg{
         {"device", "modbus_test_dev"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"type", "coil_output"},
                {"address", 0},
                {"enabled", true},
@@ -97,7 +103,7 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
     };
 
     auto p = x::json::Parser(task_cfg);
-    cfg = std::make_unique<driver::modbus::WriteTaskConfig>(client, p);
+    cfg = std::make_unique<WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
     const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame fr(2);
@@ -116,13 +122,16 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<driver::modbus::WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );
 
     wt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
     ASSERT_EVENTUALLY_EQ(slave.get_coil(0), 1);
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(1), 12345);
     wt->stop("stop_cmd", true);
@@ -131,11 +140,11 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
 /// @brief it should write multiple data types to holding registers.
 TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     this->setup_task_config();
-    driver::modbus::mock::SlaveConfig slave_cfg;
+    mock::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = driver::modbus::mock::Slave(slave_cfg);
+    auto slave = mock::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -165,10 +174,10 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
         true
     ));
 
-    json task_cfg{
+    x::json::json task_cfg{
         {"device", "modbus_test_dev"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"type", "holding_register_output"},
                {"address", 0},
                {"enabled", true},
@@ -198,7 +207,7 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     };
 
     auto p = x::json::Parser(task_cfg);
-    cfg = std::make_unique<driver::modbus::WriteTaskConfig>(client, p);
+    cfg = std::make_unique<WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
@@ -221,13 +230,16 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<driver::modbus::WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );
 
     wt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(0), static_cast<uint16_t>(-1234));
     uint32_t uint32_val = (static_cast<uint32_t>(slave.get_holding_register(2)) << 16) |
                           slave.get_holding_register(1);
@@ -239,10 +251,10 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
 TEST_F(ModbusWriteTest, testInvalidWriteConfiguration) {
     this->setup_task_config();
 
-    json task_cfg{
+    x::json::json task_cfg{
         {"device", "non_existent_device"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"type", "coil_output"},
                {"address", 0},
                {"enabled", true},
@@ -251,37 +263,37 @@ TEST_F(ModbusWriteTest, testInvalidWriteConfiguration) {
     };
 
     auto p1 = x::json::Parser(task_cfg);
-    cfg = std::make_unique<driver::modbus::WriteTaskConfig>(client, p1);
+    cfg = std::make_unique<WriteTaskConfig>(client, p1);
     ASSERT_OCCURRED_AS(p1.error(), x::errors::VALIDATION);
 
     task_cfg["device"] = "modbus_test_dev";
     task_cfg["channels"][0]["type"] = "invalid_type";
     auto p2 = x::json::Parser(task_cfg);
-    cfg = std::make_unique<driver::modbus::WriteTaskConfig>(client, p2);
+    cfg = std::make_unique<WriteTaskConfig>(client, p2);
     ASSERT_OCCURRED_AS(p2.error(), x::errors::VALIDATION);
 
     task_cfg["channels"][0]["type"] = "coil_output";
     task_cfg["channels"][0].erase("channel");
     auto p3 = x::json::Parser(task_cfg);
-    cfg = std::make_unique<driver::modbus::WriteTaskConfig>(client, p3);
+    cfg = std::make_unique<WriteTaskConfig>(client, p3);
     ASSERT_OCCURRED_AS(p3.error(), x::errors::VALIDATION);
 
     task_cfg["channels"][0]["channel"] = reg_ch.key;
     task_cfg["channels"][0]["type"] = "holding_register_output";
     task_cfg["channels"][0].erase("data_type");
     auto p4 = x::json::Parser(task_cfg);
-    cfg = std::make_unique<driver::modbus::WriteTaskConfig>(client, p4);
+    cfg = std::make_unique<WriteTaskConfig>(client, p4);
     ASSERT_OCCURRED_AS(p4.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should handle concurrent writes to multiple channels.
 TEST_F(ModbusWriteTest, testConcurrentWrites) {
     this->setup_task_config();
-    driver::modbus::mock::SlaveConfig slave_cfg;
+    mock::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = driver::modbus::mock::Slave(slave_cfg);
+    auto slave = mock::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -306,10 +318,10 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
         true
     ));
 
-    json task_cfg{
+    x::json::json task_cfg{
         {"device", "modbus_test_dev"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"type", "coil_output"},
                {"address", 0},
                {"enabled", true},
@@ -332,7 +344,7 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
     };
 
     auto p = x::json::Parser(task_cfg);
-    cfg = std::make_unique<driver::modbus::WriteTaskConfig>(client, p);
+    cfg = std::make_unique<WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
@@ -354,13 +366,16 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<driver::modbus::WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );
 
     wt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
     ASSERT_EVENTUALLY_EQ(slave.get_coil(0), 1);
     ASSERT_EVENTUALLY_EQ(slave.get_coil(1), 0);
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(0), 1000);
@@ -371,21 +386,21 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
 /// @brief it should verify written values match expected values.
 TEST_F(ModbusWriteTest, testWriteVerification) {
     this->setup_task_config();
-    driver::modbus::mock::SlaveConfig slave_cfg;
+    mock::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
     slave_cfg.coils[0] = 0;
     slave_cfg.holding_registers[0] = 0;
     slave_cfg.holding_registers[1] = 0;
 
-    auto slave = driver::modbus::mock::Slave(slave_cfg);
+    auto slave = mock::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
-    json task_cfg{
+    x::json::json task_cfg{
         {"device", "modbus_test_dev"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"type", "coil_output"},
                {"address", 0},
                {"enabled", true},
@@ -399,7 +414,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     };
 
     auto p = x::json::Parser(task_cfg);
-    cfg = std::make_unique<driver::modbus::WriteTaskConfig>(client, p);
+    cfg = std::make_unique<WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
@@ -419,7 +434,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<driver::modbus::WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );
@@ -428,7 +443,10 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     ASSERT_EQ(slave.get_holding_register(1), 0);
 
     wt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
 
     ASSERT_EVENTUALLY_EQ(slave.get_coil(0), 1);
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(1), 42);
@@ -457,11 +475,11 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
 /// division).
 TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     this->setup_task_config();
-    driver::modbus::mock::SlaveConfig slave_cfg;
+    mock::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = driver::modbus::mock::Slave(slave_cfg);
+    auto slave = mock::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -482,10 +500,10 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
         true
     ));
 
-    json task_cfg{
+    x::json::json task_cfg{
         {"device", "modbus_test_dev"},
         {"channels",
-         json::array(
+         x::json::json::array(
              {{{"type", "holding_register_output"},
                {"address", 0},
                {"enabled", true},
@@ -505,7 +523,7 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     };
 
     auto p = x::json::Parser(task_cfg);
-    cfg = std::make_unique<driver::modbus::WriteTaskConfig>(client, p);
+    cfg = std::make_unique<WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
@@ -526,16 +544,20 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<driver::modbus::WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );
 
     wt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
     // All three registers should be written correctly, including the last one
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(0), 50);
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(1), 100);
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(2), 150);
     wt->stop("stop_cmd", true);
+}
 }

@@ -41,7 +41,7 @@ export const retrieveSingle = async ({
 }: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   const cached = store.lineplots.get(key);
   if (cached != null) return cached;
-  const plot = await client.workspaces.lineplots.retrieve({ key });
+  const plot = await client.lineplots.retrieve({ key });
   store.lineplots.set(plot);
   return plot;
 };
@@ -66,7 +66,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
     const ids = lineplot.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
-    await client.workspaces.lineplots.delete(data);
+    await client.lineplots.delete(data);
     return data;
   },
 });
@@ -88,7 +88,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store }) => {
     const { workspace, ...rest } = data;
-    const l = await client.workspaces.lineplots.create(workspace, rest);
+    const l = await client.lineplots.create(workspace, rest);
     store.lineplots.set(l.key, l);
     return { ...l, workspace };
   },
@@ -103,7 +103,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     const { key, name } = data;
     rollbacks.push(Flux.partialUpdate(store.lineplots, key, { name }));
     rollbacks.push(Ontology.renameFluxResource(store, lineplot.ontologyID(key), name));
-    await client.workspaces.lineplots.rename(key, name);
+    await client.lineplots.rename(key, name);
     return data;
   },
 });

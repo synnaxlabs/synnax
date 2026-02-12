@@ -15,12 +15,24 @@
 
 #include "driver/rack/status/status.h"
 
+namespace driver::rack::status {
 /// @brief it should report nominal driver status via state streamer.
 TEST(stateTests, testNominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto ch = ASSERT_NIL_P(
         client->channels.retrieve(synnax::status::STATUS_SET_CHANNEL_NAME)
+    );
+    auto ctx = std::make_shared<task::SynnaxContext>(client);
+    auto hb = Task::configure(
+        ctx,
+        synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "state",
+            .type = "state",
+            .config = "",
+            .internal = true
+        }
     );
     auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
     auto task = synnax::task::Task{.name = "state", .type = "state", .internal = true};
@@ -34,7 +46,7 @@ TEST(stateTests, testNominal) {
             .channels = {ch.key},
         }
     ));
-    json j;
+    x::json::json j;
     for (int i = 0; i < 50; i++) {
         auto frm = ASSERT_NIL_P(streamer.read());
         ASSERT_EQ(frm.size(), 1);
@@ -45,4 +57,5 @@ TEST(stateTests, testNominal) {
     EXPECT_EQ(j["variant"], x::status::VARIANT_SUCCESS);
     EXPECT_EQ(j["message"], "Driver is running");
     ASSERT_NIL(streamer.close());
+}
 }

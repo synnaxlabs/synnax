@@ -21,12 +21,12 @@
 #include "x/cpp/json/json.h"
 
 #include "device/device.h"
+#include "driver/common/read_task.h"
+#include "driver/common/sample_clock.h"
 #include "driver/labjack/labjack.h"
 #include "driver/labjack/ljm/LJM_Utilities.h"
 #include "driver/labjack/ljm/LabJackM.h"
 #include "driver/labjack/ljm/LabJackMModbusMap.h"
-#include "driver/task/common/read_task.h"
-#include "driver/task/common/sample_clock.h"
 #include "driver/transform/transform.h"
 
 namespace driver::labjack {
@@ -289,13 +289,17 @@ inline std::unique_ptr<InputChan> parse_input_chan(x::json::Parser &cfg) {
 struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     const std::string device_key;
     /// @brief the connection method used to communicate with the device.
+    /// Dynamically populated by querying the core.
     std::string conn_method;
+    /// @brief the indexes of the channels in the task.
+    /// Dynamically populated by querying the core.
     std::set<synnax::channel::Key> indexes;
     /// @brief the number of samples per channel to connect on each call to read.
     const std::size_t samples_per_chan;
     /// @brief the configurations for each channel in the task.
     std::vector<std::unique_ptr<InputChan>> channels;
     /// @brief the model of device being read from.
+    /// Dynamically populated by querying the core.
     std::string dev_model;
     /// @brief a set of transforms to apply to the frame after reading. Applies
     /// scaling information to channels.
@@ -324,8 +328,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &parser,
-        const driver::task::common::TimingConfig timing_cfg =
-            driver::task::common::TimingConfig()
+        const common::TimingConfig timing_cfg = common::TimingConfig()
     ):
         driver::task::common::BaseReadTaskConfig(parser, timing_cfg),
         device_key(parser.field<std::string>("device", "cross-device")),
@@ -375,11 +378,8 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
             if (ch.index != 0) this->indexes.insert(ch.index);
             this->channels[i++]->ch = ch;
         }
-        const auto channel_map = map_channel_Keys(sy_channels);
-        auto scale_transform = std::make_unique<driver::transform::Scale>(
-            parser,
-            channel_map
-        );
+        const auto channel_map = map_channel_keys(sy_channels);
+        auto scale_transform = std::make_unique<transform::Scale>(parser, channel_map);
         this->transform.add(std::move(scale_transform));
     }
 
@@ -414,7 +414,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     static std::pair<ReadTaskConfig, x::errors::Error> parse(
         const std::shared_ptr<synnax::Synnax> &client,
         const synnax::task::Task &task,
-        const driver::task::common::TimingConfig timing_cfg
+        const common::TimingConfig timing_cfg
     ) {
         auto parser = x::json::Parser(task.config);
         return {ReadTaskConfig(client, parser, timing_cfg), parser.error()};
@@ -466,15 +466,10 @@ public:
         return this->dev->clean_interval(this->interval_handle);
     }
 
-    driver::task::common::ReadResult
+    common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &data) override {
-        driver::task::common::ReadResult res;
-        driver::task::common::initialize_frame(
-            data,
-            this->cfg.channels,
-            this->cfg.indexes,
-            1
-        );
+        common::ReadResult res;
+        common::initialize_frame(data, this->cfg.channels, this->cfg.indexes, 1);
         int err_addr;
         std::vector<const char *> locations;
         std::vector<double> values;
@@ -605,9 +600,9 @@ public:
 
     x::errors::Error stop() override { return this->dev->e_stream_stop(); }
 
-    driver::task::common::ReadResult
+    common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
-        driver::task::common::ReadResult res;
+        common::ReadResult res;
         const auto n_channels = this->cfg.channels.size();
         const auto n_samples = this->cfg.samples_per_chan;
         driver::task::common::initialize_frame(

@@ -88,7 +88,7 @@ TEST(testGRPC, testFailedUnary) {
     auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool, base_target);
     auto mes = test::Message();
     mes.set_payload("Sending to Server");
-    ASSERT_OCCURRED_AS_P(client.send("", mes), ERR_UNREACHABLE);
+    ASSERT_OCCURRED_AS_P(client.send("", mes), UNREACHABLE);
 }
 
 /// @brief it should send messages to multiple targets.
@@ -131,7 +131,7 @@ TEST(testGRPC, testBasicStream) {
     streamer->close_send();
     auto res = ASSERT_NIL_P(streamer->receive());
     ASSERT_EQ(res.payload(), "Read request: Sending to Streaming Server");
-    ASSERT_OCCURRED_AS_P(streamer->receive(), ERR_EOF);
+    ASSERT_OCCURRED_AS_P(streamer->receive(), EOF_ERR);
     mock::stop_servers();
     s.join();
 }
@@ -167,8 +167,8 @@ TEST(testGRPC, testMultipleStreamObjects) {
         res_two.payload(),
         "Read request: Sending to Streaming Server from Streamer Two"
     );
-    ASSERT_OCCURRED_AS_P(streamer_one->receive(), ERR_EOF);
-    ASSERT_OCCURRED_AS_P(streamer_two->receive(), ERR_EOF);
+    ASSERT_OCCURRED_AS_P(streamer_one->receive(), EOF_ERR);
+    ASSERT_OCCURRED_AS_P(streamer_two->receive(), EOF_ERR);
 
     mock::stop_servers();
     s1.join();
@@ -198,7 +198,7 @@ TEST(testGRPC, testSendMultipleMessages) {
     auto res_two = ASSERT_NIL_P(streamer->receive());
     ASSERT_EQ(res_two.payload(), "Read request: Sending New Message");
 
-    ASSERT_OCCURRED_AS_P(streamer->receive(), ERR_EOF);
+    ASSERT_OCCURRED_AS_P(streamer->receive(), EOF_ERR);
 
     mock::stop_servers();
     s.join();
@@ -212,9 +212,9 @@ TEST(testGRPC, testStreamError) {
     auto mes = test::Message();
 
     auto streamer = ASSERT_NIL_P(client.stream(target));
-    ASSERT_OCCURRED_AS(streamer->send(mes), ERR_UNREACHABLE);
+    ASSERT_OCCURRED_AS(streamer->send(mes), UNREACHABLE);
 
-    ASSERT_OCCURRED_AS_P(streamer->receive(), ERR_UNREACHABLE);
+    ASSERT_OCCURRED_AS_P(streamer->receive(), UNREACHABLE);
 }
 
 void client_send(
@@ -319,13 +319,13 @@ TEST(testGRPC, testPoolChannelReuse) {
 
 /// @brief it should not crash when calling close_send on a dead connection.
 TEST(testGRPC, testCloseSendOnDeadConnection) {
-    const auto pool = std::make_shared<Pool>();
+    auto pool = std::make_shared<Pool>();
     auto client = StreamClient<RQ, RS, STREAM_RPC>(pool, "localhost:9999");
-    const auto streamer = ASSERT_NIL_P(client.stream(""));
+    auto streamer = ASSERT_NIL_P(client.stream(""));
     auto mes = test::Message();
     mes.set_payload("test");
     streamer->send(mes);
-    ASSERT_OCCURRED_AS_P(streamer->receive(), freighter::ERR_UNREACHABLE);
+    ASSERT_OCCURRED_AS_P(streamer->receive(), UNREACHABLE);
     streamer->close_send();
 }
 
@@ -334,9 +334,9 @@ TEST(testGRPC, testCloseSendIdempotent) {
     std::string target("localhost:8080");
     std::thread s(mock::server, target);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    const auto pool = std::make_shared<Pool>();
+    auto pool = std::make_shared<Pool>();
     auto client = StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
-    const auto streamer = ASSERT_NIL_P(client.stream(""));
+    auto streamer = ASSERT_NIL_P(client.stream(""));
     streamer->close_send();
     streamer->close_send();
     mock::stop_servers();

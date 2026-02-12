@@ -131,8 +131,8 @@ TEST(TestSeries, testStringConstruction) {
 /// @brief it should correctly construct a series from a single json::json string.
 TEST(TestSeries, testJSONStringConstruction) {
     const std::string raw = R"({ "key": "abc" })";
-    const Series s(raw, x::telem::JSON_T);
-    ASSERT_EQ(s.data_type(), x::telem::JSON_T);
+    const Series s(raw, JSON_T);
+    ASSERT_EQ(s.data_type(), JSON_T);
     ASSERT_EQ(s.size(), 1);
     ASSERT_EQ(s.byte_size(), 17);
     const auto v = s.strings();
@@ -190,6 +190,18 @@ TEST(TestSeries, testInlineVectorConstruction) {
     ASSERT_EQ(s.at<float>(2), 3);
 }
 
+/// @brief it should correctly serialize and deserialize the series from protobuf.
+TEST(TestSeries, testProto) {
+    const std::vector<uint16_t> vals = {1, 2, 3, 4, 5};
+    const Series s{vals};
+    ::telem::PBSeries s2;
+    s.to_proto(&s2);
+    const Series s3{s2};
+    const auto v = s3.values<std::uint16_t>();
+    for (size_t i = 0; i < vals.size(); i++)
+        ASSERT_EQ(v[i], vals[i]);
+}
+
 /// @brief it should correctly construct a series from a single value.
 TEST(TestSeries, testConstructionSingleValue) {
     constexpr std::uint64_t value = 1;
@@ -207,8 +219,9 @@ TEST(TestSeries, testConstructionSingleValue) {
 TEST(TestSeries, testConstrucitonFromVariableProtoSeries) {
     const std::vector<std::string> vals = {"hello", "world22"};
     const Series s{vals};
-    auto s2 = s.to_proto();
-    auto [s3, err] = Series::from_proto(s2);
+    ::telem::PBSeries s2;
+    s.to_proto(&s2);
+    const Series s3{s2};
     const auto v = s3.strings();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);
@@ -442,11 +455,11 @@ TEST_F(SeriesAtTest, testAtTimestamp) {
     ASSERT_EQ(std::get<TimeStamp>(sample).nanoseconds(), 1000);
 }
 
-/// @brief it should construct a series from json::json values.
-TEST(TestSeries, testJsonValueConstruction) {
+/// @brief it should construct a series from JSON values.
+TEST(TestSeries, testJSONValueConstruction) {
     json::json obj = {{"key", "value"}};
     Series s1(obj);
-    ASSERT_EQ(s1.data_type(), x::telem::JSON_T);
+    ASSERT_EQ(s1.data_type(), JSON_T);
     ASSERT_EQ(s1.size(), 1);
     auto v1 = s1.strings();
     ASSERT_EQ(v1[0], obj.dump());
@@ -458,14 +471,14 @@ TEST(TestSeries, testJsonValueConstruction) {
         {"nested", {{"a", 1}, {"b", 2}}}
     };
     Series s2(complex_obj);
-    ASSERT_EQ(s2.data_type(), x::telem::JSON_T);
+    ASSERT_EQ(s2.data_type(), JSON_T);
     ASSERT_EQ(s2.size(), 1);
     auto v2 = s2.strings();
     ASSERT_EQ(v2[0], complex_obj.dump());
 
     json::json arr = json::json::array({1, 2, 3});
     Series s3(arr);
-    ASSERT_EQ(s3.data_type(), x::telem::JSON_T);
+    ASSERT_EQ(s3.data_type(), JSON_T);
     ASSERT_EQ(s3.size(), 1);
     auto v3 = s3.strings();
     ASSERT_EQ(v3[0], arr.dump());
@@ -826,13 +839,13 @@ TEST(TestSeries, testJSONVectorConstruction) {
         json::json{{"key2", "value2"}}
     };
     Series s1(simple_values);
-    ASSERT_EQ(s1.data_type(), x::telem::JSON_T);
+    ASSERT_EQ(s1.data_type(), JSON_T);
     ASSERT_EQ(s1.size(), 2);
     auto strings1 = s1.strings();
     ASSERT_EQ(strings1[0], R"({"key1":"value1"})");
     ASSERT_EQ(strings1[1], R"({"key2":"value2"})");
 
-    // Test with mixed json::json types including nulls and booleans
+    // Test with mixed JSON types including nulls and booleans
     std::vector<json::json> complex_values = {
         json::json{{"string", "hello"}},
         json::json{{"number", 42}},
@@ -842,7 +855,7 @@ TEST(TestSeries, testJSONVectorConstruction) {
         json::json{{"nested", {{"a", 1}, {"b", 2}, {"c", false}, {"d", nullptr}}}}
     };
     Series s2(complex_values);
-    ASSERT_EQ(s2.data_type(), x::telem::JSON_T);
+    ASSERT_EQ(s2.data_type(), JSON_T);
     ASSERT_EQ(s2.size(), 6);
     auto strings2 = s2.strings();
     ASSERT_EQ(strings2[0], R"({"string":"hello"})");
@@ -855,7 +868,7 @@ TEST(TestSeries, testJSONVectorConstruction) {
     // Test with empty vector
     std::vector<json::json> empty_values;
     Series s3(empty_values);
-    ASSERT_EQ(s3.data_type(), x::telem::JSON_T);
+    ASSERT_EQ(s3.data_type(), JSON_T);
     ASSERT_EQ(s3.size(), 0);
     ASSERT_EQ(s3.byte_size(), 0);
 }
@@ -1173,7 +1186,7 @@ TEST(SeriesOperators, AdditionSameLength) {
     auto b = Series(std::vector<double>{4.0, 5.0, 6.0});
     auto result = a + b;
     ASSERT_EQ(result.size(), 3);
-    ASSERT_EQ(result.data_type(), x::telem::FLOAT64_T);
+    ASSERT_EQ(result.data_type(), FLOAT64_T);
     ASSERT_DOUBLE_EQ(result.at<double>(0), 5.0);
     ASSERT_DOUBLE_EQ(result.at<double>(1), 7.0);
     ASSERT_DOUBLE_EQ(result.at<double>(2), 9.0);
@@ -1318,7 +1331,7 @@ TEST(SeriesOperators, GreaterThanReturnsUint8) {
     auto a = Series(std::vector<double>{1.0, 5.0, 3.0});
     auto b = Series(std::vector<double>{2.0, 3.0, 3.0});
     auto result = a > b;
-    ASSERT_EQ(result.data_type(), x::telem::UINT8_T);
+    ASSERT_EQ(result.data_type(), UINT8_T);
     ASSERT_EQ(result.size(), 3);
     ASSERT_EQ(result.at<uint8_t>(0), 0); // 1.0 > 2.0 = false
     ASSERT_EQ(result.at<uint8_t>(1), 1); // 5.0 > 3.0 = true
@@ -1330,7 +1343,7 @@ TEST(SeriesOperators, LessThanReturnsUint8) {
     auto a = Series(std::vector<double>{1.0, 5.0, 3.0});
     auto b = Series(std::vector<double>{2.0, 3.0, 3.0});
     auto result = a < b;
-    ASSERT_EQ(result.data_type(), x::telem::UINT8_T);
+    ASSERT_EQ(result.data_type(), UINT8_T);
     ASSERT_EQ(result.at<uint8_t>(0), 1); // 1.0 < 2.0 = true
     ASSERT_EQ(result.at<uint8_t>(1), 0); // 5.0 < 3.0 = false
     ASSERT_EQ(result.at<uint8_t>(2), 0); // 3.0 < 3.0 = false
@@ -1341,7 +1354,7 @@ TEST(SeriesOperators, GreaterThanOrEqualReturnsUint8) {
     auto a = Series(std::vector<double>{1.0, 5.0, 3.0});
     auto b = Series(std::vector<double>{2.0, 3.0, 3.0});
     auto result = a >= b;
-    ASSERT_EQ(result.data_type(), x::telem::UINT8_T);
+    ASSERT_EQ(result.data_type(), UINT8_T);
     ASSERT_EQ(result.at<uint8_t>(0), 0); // 1.0 >= 2.0 = false
     ASSERT_EQ(result.at<uint8_t>(1), 1); // 5.0 >= 3.0 = true
     ASSERT_EQ(result.at<uint8_t>(2), 1); // 3.0 >= 3.0 = true
@@ -1352,7 +1365,7 @@ TEST(SeriesOperators, LessThanOrEqualReturnsUint8) {
     auto a = Series(std::vector<double>{1.0, 5.0, 3.0});
     auto b = Series(std::vector<double>{2.0, 3.0, 3.0});
     auto result = a <= b;
-    ASSERT_EQ(result.data_type(), x::telem::UINT8_T);
+    ASSERT_EQ(result.data_type(), UINT8_T);
     ASSERT_EQ(result.at<uint8_t>(0), 1); // 1.0 <= 2.0 = true
     ASSERT_EQ(result.at<uint8_t>(1), 0); // 5.0 <= 3.0 = false
     ASSERT_EQ(result.at<uint8_t>(2), 1); // 3.0 <= 3.0 = true
@@ -1363,7 +1376,7 @@ TEST(SeriesOperators, EqualityReturnsUint8) {
     auto a = Series(std::vector<double>{1.0, 3.0, 3.0});
     auto b = Series(std::vector<double>{2.0, 3.0, 4.0});
     auto result = a == b;
-    ASSERT_EQ(result.data_type(), x::telem::UINT8_T);
+    ASSERT_EQ(result.data_type(), UINT8_T);
     ASSERT_EQ(result.at<uint8_t>(0), 0); // 1.0 == 2.0 = false
     ASSERT_EQ(result.at<uint8_t>(1), 1); // 3.0 == 3.0 = true
     ASSERT_EQ(result.at<uint8_t>(2), 0); // 3.0 == 4.0 = false
@@ -1374,7 +1387,7 @@ TEST(SeriesOperators, InequalityReturnsUint8) {
     auto a = Series(std::vector<double>{1.0, 3.0, 3.0});
     auto b = Series(std::vector<double>{2.0, 3.0, 4.0});
     auto result = a != b;
-    ASSERT_EQ(result.data_type(), x::telem::UINT8_T);
+    ASSERT_EQ(result.data_type(), UINT8_T);
     ASSERT_EQ(result.at<uint8_t>(0), 1); // 1.0 != 2.0 = true
     ASSERT_EQ(result.at<uint8_t>(1), 0); // 3.0 != 3.0 = false
     ASSERT_EQ(result.at<uint8_t>(2), 1); // 3.0 != 4.0 = true
@@ -1394,8 +1407,8 @@ TEST(SeriesOperators, ComparisonLengthMismatchThrows) {
 
 /// @brief Tests operations with empty series.
 TEST(SeriesOperators, EmptySeriesOperations) {
-    auto a = Series(x::telem::FLOAT64_T, 0);
-    auto b = Series(x::telem::FLOAT64_T, 0);
+    auto a = Series(FLOAT64_T, 0);
+    auto b = Series(FLOAT64_T, 0);
     auto result = a + b;
     ASSERT_EQ(result.size(), 0);
 }
@@ -1414,7 +1427,7 @@ TEST(SeriesOperators, Int32Operations) {
     auto a = Series(std::vector<int32_t>{1, 2, 3});
     auto b = Series(std::vector<int32_t>{4, 5, 6});
     auto result = a + b;
-    ASSERT_EQ(result.data_type(), x::telem::INT32_T);
+    ASSERT_EQ(result.data_type(), INT32_T);
     ASSERT_EQ(result.at<int32_t>(0), 5);
     ASSERT_EQ(result.at<int32_t>(1), 7);
     ASSERT_EQ(result.at<int32_t>(2), 9);
@@ -1425,7 +1438,7 @@ TEST(SeriesOperators, Float32Operations) {
     auto a = Series(std::vector<float>{1.0f, 2.0f, 3.0f});
     auto b = Series(std::vector<float>{4.0f, 5.0f, 6.0f});
     auto result = a + b;
-    ASSERT_EQ(result.data_type(), x::telem::FLOAT32_T);
+    ASSERT_EQ(result.data_type(), FLOAT32_T);
     ASSERT_FLOAT_EQ(result.at<float>(0), 5.0f);
     ASSERT_FLOAT_EQ(result.at<float>(1), 7.0f);
     ASSERT_FLOAT_EQ(result.at<float>(2), 9.0f);
@@ -1436,7 +1449,7 @@ TEST(SeriesOperators, Uint8Operations) {
     auto a = Series(std::vector<uint8_t>{10, 20, 30});
     auto b = Series(std::vector<uint8_t>{5, 10, 15});
     auto result = a + b;
-    ASSERT_EQ(result.data_type(), x::telem::UINT8_T);
+    ASSERT_EQ(result.data_type(), UINT8_T);
     ASSERT_EQ(result.at<uint8_t>(0), 15);
     ASSERT_EQ(result.at<uint8_t>(1), 30);
     ASSERT_EQ(result.at<uint8_t>(2), 45);
@@ -1447,7 +1460,7 @@ TEST(SeriesOperators, Int64Operations) {
     auto a = Series(std::vector<int64_t>{100, 200, 300});
     auto b = Series(std::vector<int64_t>{10, 20, 30});
     auto result = a - b;
-    ASSERT_EQ(result.data_type(), x::telem::INT64_T);
+    ASSERT_EQ(result.data_type(), INT64_T);
     ASSERT_EQ(result.at<int64_t>(0), 90);
     ASSERT_EQ(result.at<int64_t>(1), 180);
     ASSERT_EQ(result.at<int64_t>(2), 270);
@@ -1483,7 +1496,7 @@ TEST(SeriesOperators, OriginalUnmodified) {
 TEST(SeriesOperators, UnaryNegateFloat64) {
     auto a = Series(std::vector<double>{1.0, -2.0, 3.0, 0.0});
     auto result = -a;
-    ASSERT_EQ(result.data_type(), x::telem::FLOAT64_T);
+    ASSERT_EQ(result.data_type(), FLOAT64_T);
     ASSERT_EQ(result.size(), 4);
     ASSERT_DOUBLE_EQ(result.at<double>(0), -1.0);
     ASSERT_DOUBLE_EQ(result.at<double>(1), 2.0);
@@ -1497,7 +1510,7 @@ TEST(SeriesOperators, UnaryNegateFloat64) {
 TEST(SeriesOperators, UnaryNegateFloat32) {
     auto a = Series(std::vector<float>{1.5f, -2.5f, 3.5f});
     auto result = -a;
-    ASSERT_EQ(result.data_type(), x::telem::FLOAT32_T);
+    ASSERT_EQ(result.data_type(), FLOAT32_T);
     ASSERT_FLOAT_EQ(result.at<float>(0), -1.5f);
     ASSERT_FLOAT_EQ(result.at<float>(1), 2.5f);
     ASSERT_FLOAT_EQ(result.at<float>(2), -3.5f);
@@ -1507,7 +1520,7 @@ TEST(SeriesOperators, UnaryNegateFloat32) {
 TEST(SeriesOperators, UnaryNegateInt32) {
     auto a = Series(std::vector<int32_t>{1, -2, 3, 0, -100});
     auto result = -a;
-    ASSERT_EQ(result.data_type(), x::telem::INT32_T);
+    ASSERT_EQ(result.data_type(), INT32_T);
     ASSERT_EQ(result.at<int32_t>(0), -1);
     ASSERT_EQ(result.at<int32_t>(1), 2);
     ASSERT_EQ(result.at<int32_t>(2), -3);
@@ -1519,7 +1532,7 @@ TEST(SeriesOperators, UnaryNegateInt32) {
 TEST(SeriesOperators, UnaryNegateInt64) {
     auto a = Series(std::vector<int64_t>{1000000000LL, -2000000000LL});
     auto result = -a;
-    ASSERT_EQ(result.data_type(), x::telem::INT64_T);
+    ASSERT_EQ(result.data_type(), INT64_T);
     ASSERT_EQ(result.at<int64_t>(0), -1000000000LL);
     ASSERT_EQ(result.at<int64_t>(1), 2000000000LL);
 }
@@ -1528,7 +1541,7 @@ TEST(SeriesOperators, UnaryNegateInt64) {
 TEST(SeriesOperators, UnaryNegateInt16) {
     auto a = Series(std::vector<int16_t>{100, -200, 300});
     auto result = -a;
-    ASSERT_EQ(result.data_type(), x::telem::INT16_T);
+    ASSERT_EQ(result.data_type(), INT16_T);
     ASSERT_EQ(result.at<int16_t>(0), -100);
     ASSERT_EQ(result.at<int16_t>(1), 200);
     ASSERT_EQ(result.at<int16_t>(2), -300);
@@ -1538,7 +1551,7 @@ TEST(SeriesOperators, UnaryNegateInt16) {
 TEST(SeriesOperators, UnaryNegateInt8) {
     auto a = Series(std::vector<int8_t>{10, -20, 30});
     auto result = -a;
-    ASSERT_EQ(result.data_type(), x::telem::INT8_T);
+    ASSERT_EQ(result.data_type(), INT8_T);
     ASSERT_EQ(result.at<int8_t>(0), -10);
     ASSERT_EQ(result.at<int8_t>(1), 20);
     ASSERT_EQ(result.at<int8_t>(2), -30);
@@ -1546,10 +1559,10 @@ TEST(SeriesOperators, UnaryNegateInt8) {
 
 /// @brief Tests unary negation with empty series.
 TEST(SeriesOperators, UnaryNegateEmpty) {
-    auto a = Series(x::telem::FLOAT64_T, 0);
+    auto a = Series(FLOAT64_T, 0);
     auto result = -a;
     ASSERT_EQ(result.size(), 0);
-    ASSERT_EQ(result.data_type(), x::telem::FLOAT64_T);
+    ASSERT_EQ(result.data_type(), FLOAT64_T);
 }
 
 /// @brief Tests unary negation with single element.
@@ -1564,7 +1577,7 @@ TEST(SeriesOperators, UnaryNegateSingleElement) {
 TEST(SeriesOperators, BitwiseNotUint8) {
     auto a = Series(std::vector<uint8_t>{0x00, 0xFF, 0x0F, 0xF0, 0xAA});
     auto result = ~a;
-    ASSERT_EQ(result.data_type(), x::telem::UINT8_T);
+    ASSERT_EQ(result.data_type(), UINT8_T);
     ASSERT_EQ(result.size(), 5);
     ASSERT_EQ(result.at<uint8_t>(0), 0xFF);
     ASSERT_EQ(result.at<uint8_t>(1), 0x00);
@@ -1577,7 +1590,7 @@ TEST(SeriesOperators, BitwiseNotUint8) {
 TEST(SeriesOperators, BitwiseNotUint16) {
     auto a = Series(std::vector<uint16_t>{0x0000, 0xFFFF, 0x00FF});
     auto result = ~a;
-    ASSERT_EQ(result.data_type(), x::telem::UINT16_T);
+    ASSERT_EQ(result.data_type(), UINT16_T);
     ASSERT_EQ(result.at<uint16_t>(0), 0xFFFF);
     ASSERT_EQ(result.at<uint16_t>(1), 0x0000);
     ASSERT_EQ(result.at<uint16_t>(2), 0xFF00);
@@ -1587,7 +1600,7 @@ TEST(SeriesOperators, BitwiseNotUint16) {
 TEST(SeriesOperators, BitwiseNotUint32) {
     auto a = Series(std::vector<uint32_t>{0x00000000, 0xFFFFFFFF, 0x0000FFFF});
     auto result = ~a;
-    ASSERT_EQ(result.data_type(), x::telem::UINT32_T);
+    ASSERT_EQ(result.data_type(), UINT32_T);
     ASSERT_EQ(result.at<uint32_t>(0), 0xFFFFFFFF);
     ASSERT_EQ(result.at<uint32_t>(1), 0x00000000);
     ASSERT_EQ(result.at<uint32_t>(2), 0xFFFF0000);
@@ -1599,7 +1612,7 @@ TEST(SeriesOperators, BitwiseNotUint64) {
         std::vector<uint64_t>{0x0000000000000000ULL, 0xFFFFFFFFFFFFFFFFULL}
     );
     auto result = ~a;
-    ASSERT_EQ(result.data_type(), x::telem::UINT64_T);
+    ASSERT_EQ(result.data_type(), UINT64_T);
     ASSERT_EQ(result.at<uint64_t>(0), 0xFFFFFFFFFFFFFFFFULL);
     ASSERT_EQ(result.at<uint64_t>(1), 0x0000000000000000ULL);
 }
@@ -1608,7 +1621,7 @@ TEST(SeriesOperators, BitwiseNotUint64) {
 TEST(SeriesOperators, BitwiseNotInt32) {
     auto a = Series(std::vector<int32_t>{0, -1, 1});
     auto result = ~a;
-    ASSERT_EQ(result.data_type(), x::telem::INT32_T);
+    ASSERT_EQ(result.data_type(), INT32_T);
     ASSERT_EQ(result.at<int32_t>(0), -1); // ~0 = -1 in two's complement
     ASSERT_EQ(result.at<int32_t>(1), 0); // ~(-1) = 0
     ASSERT_EQ(result.at<int32_t>(2), -2); // ~1 = -2 in two's complement
@@ -1648,7 +1661,7 @@ TEST(SeriesOperators, DoubleBitwiseNot) {
 TEST(SeriesOperators, LogicalNotUint8) {
     auto a = Series(std::vector<uint8_t>{0, 1, 255, 0, 42});
     auto result = a.logical_not();
-    ASSERT_EQ(result.data_type(), x::telem::UINT8_T);
+    ASSERT_EQ(result.data_type(), UINT8_T);
     ASSERT_EQ(result.at<uint8_t>(0), 1); // 0 -> 1
     ASSERT_EQ(result.at<uint8_t>(1), 0); // 1 -> 0
     ASSERT_EQ(result.at<uint8_t>(2), 0); // 255 -> 0
@@ -1660,7 +1673,7 @@ TEST(SeriesOperators, LogicalNotUint8) {
 TEST(SeriesOperators, LogicalNotInt32) {
     auto a = Series(std::vector<int32_t>{0, 1, -1, 100, 0});
     auto result = a.logical_not();
-    ASSERT_EQ(result.data_type(), x::telem::UINT8_T);
+    ASSERT_EQ(result.data_type(), UINT8_T);
     ASSERT_EQ(result.at<uint8_t>(0), 1); // 0 -> 1
     ASSERT_EQ(result.at<uint8_t>(1), 0); // 1 -> 0
     ASSERT_EQ(result.at<uint8_t>(2), 0); // -1 -> 0
@@ -1672,7 +1685,7 @@ TEST(SeriesOperators, LogicalNotInt32) {
 TEST(SeriesOperators, LogicalNotFloat64) {
     auto a = Series(std::vector<double>{0.0, 1.0, -1.0, 0.5, 0.0});
     auto result = a.logical_not();
-    ASSERT_EQ(result.data_type(), x::telem::UINT8_T);
+    ASSERT_EQ(result.data_type(), UINT8_T);
     ASSERT_EQ(result.at<uint8_t>(0), 1); // 0.0 -> 1
     ASSERT_EQ(result.at<uint8_t>(1), 0); // 1.0 -> 0
     ASSERT_EQ(result.at<uint8_t>(2), 0); // -1.0 -> 0

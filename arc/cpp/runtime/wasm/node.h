@@ -62,7 +62,8 @@ public:
         int64_t max_length = 0;
         int64_t longest_input_idx = 0;
         for (size_t i = 0; i < this->ir.inputs.size(); i++) {
-            const auto data_len = static_cast<int64_t>(this->state.input(i)->size());
+            const auto inp = this->state.input(i);
+            const auto data_len = static_cast<int64_t>(inp->size());
             if (data_len > max_length) {
                 max_length = data_len;
                 longest_input_idx = static_cast<int64_t>(i);
@@ -82,6 +83,8 @@ public:
         state::Series longest_input_time;
         if (!this->ir.inputs.empty())
             longest_input_time = this->state.input_time(longest_input_idx);
+
+        this->state.set_current_node_key(this->ir.key);
 
         for (int i = 0; i < max_length; i++) {
             for (size_t j = 0; j < this->ir.inputs.size(); j++) {

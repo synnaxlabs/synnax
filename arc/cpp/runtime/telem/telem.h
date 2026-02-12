@@ -23,7 +23,6 @@
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::io {
-
 /// On is a source node that reads from a channel and outputs the data.
 /// Tracks a high water mark to avoid duplicate processing of the same data.
 class On : public node::Node {
@@ -127,11 +126,7 @@ public:
     std::pair<std::unique_ptr<node::Node>, x::errors::Error>
     create(node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        const auto channel_param = types::find_param(cfg.node.config, "channel");
-        assert(
-            channel_param.has_value() && "on/write node requires a channel config param"
-        );
-        auto channel_key = channel_param->get().value.get<types::ChannelKey>();
+        auto channel_key = cfg.node.config["channel"].get<types::ChannelKey>();
         if (cfg.node.type == "on")
             return {
                 std::make_unique<On>(std::move(cfg.state), channel_key),

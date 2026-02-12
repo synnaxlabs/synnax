@@ -9,11 +9,12 @@
 
 #pragma once
 
+#include "driver/common/sample_clock.h"
 #include "driver/labjack/device/device.h"
-#include "driver/task/common/sample_clock.h"
 #include "driver/task/task.h"
 
 namespace driver::labjack {
+
 /// @brief make of LabJack devices.
 const std::string MAKE = "LabJack";
 /// @brief labjack integration name.

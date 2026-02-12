@@ -11,10 +11,10 @@
 
 #include "glog/logging.h"
 
+#include "driver/common/read_task.h"
 #include "driver/ni/daqmx/sugared.h"
-#include "driver/task/common/read_task.h"
 
-namespace hardware {
+namespace driver::ni::hardware {
 struct Hardware {
     virtual ~Hardware() = default;
 
@@ -60,11 +60,11 @@ protected:
     /// @brief the handle for the task.
     TaskHandle task_handle;
     /// @brief the NI-DAQmx API.
-    std::shared_ptr<::daqmx::SugaredAPI> dmx;
+    std::shared_ptr<ni::daqmx::SugaredAPI> dmx;
     /// @brief a flag to indicate if the task is running.
     std::atomic<bool> running = false;
 
-    Base(TaskHandle task_handle, std::shared_ptr<::daqmx::SugaredAPI> dmx);
+    Base(TaskHandle task_handle, std::shared_ptr<ni::daqmx::SugaredAPI> dmx);
     ~Base() override;
 
 public:
@@ -81,7 +81,7 @@ struct DigitalWriter final : Base, Writer<uint8_t> {
     /// @param dmx The DAQmx API interface
     /// @param task_handle Handle to the DAQmx task
     DigitalWriter(
-        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+        const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
     x::errors::Error write(const std::vector<uint8_t> &data) override;
@@ -93,7 +93,7 @@ struct AnalogWriter final : Base, Writer<double> {
     /// @param dmx The DAQmx API interface
     /// @param task_handle Handle to the DAQmx task
     AnalogWriter(
-        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+        const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
     x::errors::Error write(const std::vector<double> &data) override;
@@ -102,7 +102,7 @@ struct AnalogWriter final : Base, Writer<double> {
 /// @brief a hardware interface for digital tasks.
 struct DigitalReader final : Base, Reader<uint8_t> {
     DigitalReader(
-        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+        const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
     ReadResult
@@ -121,7 +121,7 @@ protected:
     uInt64 total_samples_acquired = 0;
 
     SkewTrackingReader(
-        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+        const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ):
         Base(task_handle, dmx) {}
@@ -138,7 +138,7 @@ public:
 /// @brief a hardware interface for analog tasks.
 struct AnalogReader final : SkewTrackingReader<double> {
     AnalogReader(
-        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+        const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
     ReadResult read(size_t samples_per_channel, std::vector<double> &data) override;
@@ -147,7 +147,7 @@ struct AnalogReader final : SkewTrackingReader<double> {
 /// @brief a hardware interface for counter input tasks.
 struct CounterReader final : SkewTrackingReader<double> {
     CounterReader(
-        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+        const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
     ReadResult read(size_t samples_per_channel, std::vector<double> &data) override;
@@ -156,7 +156,7 @@ struct CounterReader final : SkewTrackingReader<double> {
 
 namespace mock {
 /// @brief Base mock implementation for testing hardware interfaces
-struct Base : virtual hardware::Hardware {
+struct Base : virtual Hardware {
     /// @brief Errors to return from start() calls in sequence
     std::vector<x::errors::Error> start_errors;
     /// @brief Errors to return from stop() calls in sequence

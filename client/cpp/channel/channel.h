@@ -15,17 +15,59 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/channel/pb/channel.pb.h"
-#include "core/pkg/api/grpc/channel/channel.pb.h"
+#include "core/pkg/api/grpc/v1/channel.pb.h"
+
+namespace synnax::channel {
+/// @brief an alias for the type of channel's key.
+using Key = std::uint32_t;
 
 namespace synnax::channel {
 /// @brief freighter retrieve transport.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::channel::RetrieveRequest, grpc::channel::RetrieveResponse>;
+    UnaryClient<api::v1::ChannelRetrieveRequest, api::v1::ChannelRetrieveResponse>;
 
 /// @brief freighter create transport.
 using CreateClient = freighter::
-    UnaryClient<grpc::channel::CreateRequest, grpc::channel::CreateResponse>;
+    UnaryClient<api::v1::ChannelCreateRequest, api::v1::ChannelCreateResponse>;
+
+class Client;
+
+/// @brief A channel is a logical collection of samples emitted by or representing
+/// the values of a single source, typically a sensor, actuator, or software
+/// generated value. See https://docs.synnaxlabs.com/reference/concepts/channels for
+/// an introduction to channels and how they work.
+struct Channel {
+    /// @brief A human-readable name for the channel.
+    std::string name;
+    /// @brief the data type of the channel.
+    x::telem::DataType data_type;
+    /// @brief the key of the channel. This is auto-assigned by the cluster on calls
+    /// to create and retrieve.
+    Key key = 0;
+    /// @brief The key of the channel that indexes this channel. This field must be
+    /// set if the channel is not an index channel.
+    Key index = 0;
+    /// @brief Sets whether the channel itself is an index channel.
+    bool is_index = false;
+    /// @brief The leaseholder of the channel.
+    std::uint32_t leaseholder = 0;
+    /// @brief Whether the channel is virtual. Virtual channels are not stored in
+    /// the Synnax database, and are purely used for streaming and communication
+    /// purposes.
+    bool is_virtual = false;
+    /// @brief Whether the channel is an internal channel. Internal channels are
+    /// created by the DB and generally should not be interacted with unless you
+    /// know what you're doing.
+    bool internal = false;
+
+    /// @brief Constructs a channel from its protobuf representation.
+    /// @param ch The protobuf representation of the channel.
+    /// @returns The channel.
+    static Channel from_proto(const api::v1::Channel &ch);
+
+    /// @brief binds the channel's fields to the protobuf type.
+    void to_proto(api::v1::Channel *ch) const;
+};
 
 /// @brief creates a vector of channel keys from a variadic list of channels.
 template<typename... Channels>
@@ -46,12 +88,30 @@ inline std::vector<Key> keys_from_channels(const std::vector<Channel> &channels)
 }
 
 inline std::unordered_map<Key, Channel>
-map_channel_Keys(const std::vector<Channel> &channels) {
+map_channel_keys(const std::vector<Channel> &channels) {
     std::unordered_map<Key, Channel> map;
     map.reserve(channels.size());
     for (const auto &channel: channels)
         map[channel.key] = channel;
     return map;
+}
+
+/// @brief Converts a channel key to an ontology ID.
+/// @param key The channel key.
+/// @returns An ontology ID with type "channel" and the given key.
+inline ontology::ID ontology_id(const Key key) {
+    return ontology::ID{.type = "channel", .key = std::to_string(key)};
+}
+
+/// @brief Converts a vector of channel keys to a vector of ontology IDs.
+/// @param keys The channel keys.
+/// @returns A vector of ontology IDs.
+inline std::vector<ontology::ID> ontology_ids(const std::vector<Key> &keys) {
+    std::vector<ontology::ID> ids;
+    ids.reserve(keys.size());
+    for (const auto &key: keys)
+        ids.push_back(ontology_id(key));
+    return ids;
 }
 
 /// @brief ChannelClient for creating and retrieving channels from a Synnax cluster.

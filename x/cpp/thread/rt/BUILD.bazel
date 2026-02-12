@@ -1,0 +1,32 @@
+cc_library(
+    name = "rt",
+    srcs = select({
+        "@platforms//os:linux": ["rt_linux.cpp"],
+        "@platforms//os:macos": ["rt_darwin.cpp"],
+        "@platforms//os:windows": ["rt_windows.cpp"],
+        "//conditions:default": ["rt_default.cpp"],
+    }),
+    hdrs = [
+        "rt.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/errors",
+        "//x/cpp/log",
+        "//x/cpp/telem",
+        "@glog",
+    ],
+)
+
+cc_test(
+    name = "rt_test",
+    srcs = [
+        "rt_test.cpp",
+    ],
+    deps = [
+        "//x/cpp/telem",
+        "//x/cpp/test",
+        "//x/cpp/thread/rt",
+        "@googletest//:gtest_main",
+    ],
+)

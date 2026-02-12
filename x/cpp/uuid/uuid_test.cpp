@@ -12,6 +12,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/test/test.h"
 #include "x/cpp/uuid/uuid.h"
 
 namespace x::uuid {
@@ -32,49 +33,37 @@ TEST(UUID, testNilConstant) {
 /// @brief it should parse a valid UUID string.
 TEST(UUID, testParseValidUUID) {
     const std::string str = "748d31e2-5732-4cb5-8bc9-64d4ad51efe8";
-    auto [uuid, err] = UUID::parse(str);
-    ASSERT_TRUE(err.ok());
+    const auto uuid = ASSERT_NIL_P(UUID::parse(str));
     ASSERT_FALSE(uuid.is_nil());
     ASSERT_EQ(uuid.to_string(), str);
 }
 
 /// @brief it should parse a valid UUID string with uppercase letters.
 TEST(UUID, testParseUppercaseUUID) {
-    const std::string str = "748D31E2-5732-4CB5-8BC9-64D4AD51EFE8";
-    auto [uuid, err] = UUID::parse(str);
-    ASSERT_TRUE(err.ok());
+    const auto uuid = ASSERT_NIL_P(UUID::parse("748D31E2-5732-4CB5-8BC9-64D4AD51EFE8"));
     ASSERT_FALSE(uuid.is_nil());
-    // boost::uuid normalizes to lowercase
     ASSERT_EQ(uuid.to_string(), "748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
 }
 
 /// @brief it should fail to parse an empty string.
 TEST(UUID, testParseEmptyString) {
-    auto [uuid, err] = UUID::parse("");
-    ASSERT_FALSE(err.ok());
-    ASSERT_TRUE(err.matches(INVALID));
-    ASSERT_TRUE(uuid.is_nil());
+    ASSERT_OCCURRED_AS_P(UUID::parse(""), INVALID);
 }
 
 /// @brief it should fail to parse an invalid UUID string.
 TEST(UUID, testParseInvalidString) {
-    auto [uuid, err] = UUID::parse("not-a-valid-uuid");
-    ASSERT_FALSE(err.ok());
-    ASSERT_TRUE(err.matches(INVALID));
-    ASSERT_TRUE(uuid.is_nil());
+    ASSERT_OCCURRED_AS_P(UUID::parse("not-a-valid-uuid"), INVALID);
 }
 
 /// @brief it should fail to parse a UUID with wrong length.
 TEST(UUID, testParseWrongLength) {
-    auto [uuid, err] = UUID::parse("748d31e2-5732-4cb5-8bc9");
-    ASSERT_FALSE(err.ok());
-    ASSERT_TRUE(err.matches(INVALID));
+    ASSERT_OCCURRED_AS_P(UUID::parse("748d31e2-5732-4cb5-8bc9"), INVALID);
 }
 
 /// @brief it should generate unique UUIDs.
 TEST(UUID, testGenerate) {
-    const auto uuid1 = generate();
-    const auto uuid2 = generate();
+    const auto uuid1 = create();
+    const auto uuid2 = create();
     ASSERT_FALSE(uuid1.is_nil());
     ASSERT_FALSE(uuid2.is_nil());
     ASSERT_NE(uuid1, uuid2);
@@ -82,45 +71,52 @@ TEST(UUID, testGenerate) {
 
 /// @brief it should compare equal UUIDs.
 TEST(UUID, testEqualityOperator) {
-    auto [uuid1, err1] = UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
-    auto [uuid2, err2] = UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
-    ASSERT_TRUE(err1.ok());
-    ASSERT_TRUE(err2.ok());
+    const auto uuid1 = ASSERT_NIL_P(
+        UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8")
+    );
+    const auto uuid2 = ASSERT_NIL_P(
+        UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8")
+    );
     ASSERT_EQ(uuid1, uuid2);
 }
 
 /// @brief it should compare different UUIDs.
 TEST(UUID, testInequalityOperator) {
-    auto [uuid1, err1] = UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
-    auto [uuid2, err2] = UUID::parse("00000000-0000-0000-0000-000000000001");
-    ASSERT_TRUE(err1.ok());
-    ASSERT_TRUE(err2.ok());
+    const auto uuid1 = ASSERT_NIL_P(
+        UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8")
+    );
+    const auto uuid2 = ASSERT_NIL_P(
+        UUID::parse("00000000-0000-0000-0000-000000000001")
+    );
     ASSERT_NE(uuid1, uuid2);
 }
 
 /// @brief it should support less than comparison for ordering.
 TEST(UUID, testLessThanOperator) {
-    auto [uuid1, err1] = UUID::parse("00000000-0000-0000-0000-000000000001");
-    auto [uuid2, err2] = UUID::parse("00000000-0000-0000-0000-000000000002");
-    ASSERT_TRUE(err1.ok());
-    ASSERT_TRUE(err2.ok());
+    const auto uuid1 = ASSERT_NIL_P(
+        UUID::parse("00000000-0000-0000-0000-000000000001")
+    );
+    const auto uuid2 = ASSERT_NIL_P(
+        UUID::parse("00000000-0000-0000-0000-000000000002")
+    );
     ASSERT_TRUE(uuid1 < uuid2);
     ASSERT_FALSE(uuid2 < uuid1);
 }
 
 /// @brief it should support greater than comparison.
 TEST(UUID, testGreaterThanOperator) {
-    auto [uuid1, err1] = UUID::parse("00000000-0000-0000-0000-000000000002");
-    auto [uuid2, err2] = UUID::parse("00000000-0000-0000-0000-000000000001");
-    ASSERT_TRUE(err1.ok());
-    ASSERT_TRUE(err2.ok());
+    const auto uuid1 = ASSERT_NIL_P(
+        UUID::parse("00000000-0000-0000-0000-000000000002")
+    );
+    const auto uuid2 = ASSERT_NIL_P(
+        UUID::parse("00000000-0000-0000-0000-000000000001")
+    );
     ASSERT_TRUE(uuid1 > uuid2);
 }
 
 /// @brief it should convert to JSON as a string.
 TEST(UUID, testToJson) {
-    auto [uuid, err] = UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
-    ASSERT_TRUE(err.ok());
+    const auto uuid = ASSERT_NIL_P(UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8"));
     const auto j = uuid.to_json();
     ASSERT_TRUE(j.is_string());
     ASSERT_EQ(j.get<std::string>(), "748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
@@ -155,8 +151,7 @@ TEST(UUID, testParseFromJsonParserInvalid) {
 
 /// @brief it should stream UUID to output stream.
 TEST(UUID, testStreamOperator) {
-    auto [uuid, err] = UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
-    ASSERT_TRUE(err.ok());
+    const auto uuid = ASSERT_NIL_P(UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8"));
     std::stringstream ss;
     ss << uuid;
     ASSERT_EQ(ss.str(), "748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
@@ -164,11 +159,12 @@ TEST(UUID, testStreamOperator) {
 
 /// @brief it should be usable in unordered containers via std::hash.
 TEST(UUID, testHashSupport) {
-    auto [uuid1, err1] = UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
-    auto [uuid2, err2] = UUID::parse("00000000-0000-0000-0000-000000000001");
-    ASSERT_TRUE(err1.ok());
-    ASSERT_TRUE(err2.ok());
-
+    const auto uuid1 = ASSERT_NIL_P(
+        UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8")
+    );
+    const auto uuid2 = ASSERT_NIL_P(
+        UUID::parse("00000000-0000-0000-0000-000000000001")
+    );
     std::unordered_set<UUID> set;
     set.insert(uuid1);
     set.insert(uuid2);
@@ -208,8 +204,7 @@ TEST(UUID, testSize) {
 
 /// @brief it should provide access to raw data.
 TEST(UUID, testDataAccess) {
-    auto [uuid, err] = UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
-    ASSERT_TRUE(err.ok());
+    const auto uuid = ASSERT_NIL_P(UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8"));
     const auto *data = uuid.data();
     ASSERT_NE(data, nullptr);
     ASSERT_EQ(data[0], 0x74);
@@ -218,24 +213,22 @@ TEST(UUID, testDataAccess) {
 
 /// @brief it should provide access to underlying boost::uuid.
 TEST(UUID, testUnderlyingAccess) {
-    auto [uuid, err] = UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
-    ASSERT_TRUE(err.ok());
+    const auto uuid = ASSERT_NIL_P(UUID::parse("748d31e2-5732-4cb5-8bc9-64d4ad51efe8"));
     const auto &underlying = uuid.underlying();
     ASSERT_FALSE(underlying.is_nil());
 }
 
 /// @brief it should round-trip through string conversion.
 TEST(UUID, testStringRoundTrip) {
-    const auto original = generate();
+    const auto original = create();
     const auto str = original.to_string();
-    auto [parsed, err] = UUID::parse(str);
-    ASSERT_TRUE(err.ok());
+    const auto parsed = ASSERT_NIL_P(UUID::parse(str));
     ASSERT_EQ(original, parsed);
 }
 
 /// @brief it should round-trip through JSON conversion.
 TEST(UUID, testJsonRoundTrip) {
-    const auto original = generate();
+    const auto original = create();
     const auto j = original.to_json();
     json::Parser parser(j);
     const auto parsed = UUID::parse(parser);

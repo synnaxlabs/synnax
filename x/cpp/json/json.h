@@ -21,10 +21,9 @@
 #include "nlohmann/json.hpp"
 
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/mem/indirect.h"
-
 /// @brief general utilities for parsing configurations.
 namespace x::json {
+
 using json = nlohmann::json;
 
 /// @brief Type trait to detect std::vector types

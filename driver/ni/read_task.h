@@ -17,12 +17,12 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
 
+#include "driver/common/read_task.h"
+#include "driver/common/sample_clock.h"
 #include "driver/ni/channel/channels.h"
 #include "driver/ni/daqmx/nidaqmx.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/ni.h"
-#include "driver/task/common/read_task.h"
-#include "driver/task/common/sample_clock.h"
 
 namespace driver::ni {
 /// @brief the configuration for a read task.
@@ -39,6 +39,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     /// @brief whether the task should be software timed.
     const bool software_timed;
     /// @brief the indexes of the channels in the task.
+    /// Dynamically populated by querying the core.
     std::set<synnax::channel::Key> indexes;
     /// @brief the configurations for each channel in the task.
     std::vector<std::unique_ptr<channel::Input>> channels;
@@ -110,7 +111,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
             );
             return;
         }
-        auto remote_channels = map_channel_Keys(channel_vec);
+        auto remote_channels = map_channel_keys(channel_vec);
         std::unordered_map<std::string, synnax::device::Device> devices;
         if (this->device_key != "cross-device") {
             auto [device, device_err] = client->devices.retrieve(this->device_key);
@@ -149,7 +150,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     static std::pair<ReadTaskConfig, x::errors::Error> parse(
         std::shared_ptr<synnax::Synnax> &client,
         const synnax::task::Task &task,
-        const driver::task::common::TimingConfig timing_cfg
+        const common::TimingConfig timing_cfg
     ) {
         auto parser = x::json::Parser(task.config);
         return {ReadTaskConfig(client, parser, task.type, timing_cfg), parser.error()};
@@ -301,9 +302,9 @@ private:
         return this->cfg.writer();
     }
 
-    driver::task::common::ReadResult
+    common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
-        driver::task::common::ReadResult res;
+        common::ReadResult res;
         const auto n_channels = this->cfg.channels.size();
         const auto n_samples = this->cfg.samples_per_chan;
         driver::task::common::initialize_frame(

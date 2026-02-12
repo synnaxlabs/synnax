@@ -14,26 +14,24 @@ extern "C" {
 /// internal.
 #include "driver/sequence/sequence.h"
 
-driver::sequence::Sequence::Sequence(
-    const std::shared_ptr<plugins::Plugin> &plugins,
-    std::string script
-):
+namespace driver::sequence {
+Sequence::Sequence(const std::shared_ptr<plugins::Plugin> &plugins, std::string script):
     plugins(plugins), L(luaL_newstate()), script(std::move(script)) {
     luaL_openlibs(L.get());
 }
 
-driver::sequence::Sequence::~Sequence() {
+Sequence::~Sequence() {
     if (script_ref != LUA_NOREF) luaL_unref(L.get(), LUA_REGISTRYINDEX, script_ref);
 }
 
-[[nodiscard]] x::errors::Error driver::sequence::Sequence::begin() {
+[[nodiscard]] x::errors::Error Sequence::begin() {
     L.reset(luaL_newstate());
     luaL_openlibs(L.get());
     if (auto err = this->compile(); err) return err;
     return this->plugins->before_all(this->L.get());
 }
 
-[[nodiscard]] x::errors::Error driver::sequence::Sequence::next() const {
+[[nodiscard]] x::errors::Error Sequence::next() const {
     lua_State *raw_L = L.get();
     if (const auto err = this->plugins->before_next(raw_L)) return err;
     lua_rawgeti(raw_L, LUA_REGISTRYINDEX, script_ref);
@@ -46,11 +44,11 @@ driver::sequence::Sequence::~Sequence() {
     return x::errors::NIL;
 }
 
-[[nodiscard]] x::errors::Error driver::sequence::Sequence::end() const {
+[[nodiscard]] x::errors::Error Sequence::end() const {
     return this->plugins->after_all(this->L.get());
 }
 
-x::errors::Error driver::sequence::Sequence::compile() {
+x::errors::Error Sequence::compile() {
     if (luaL_loadstring(L.get(), this->script.c_str()) != LUA_OK) {
         const char *error_msg = lua_tostring(L.get(), -1);
         lua_pop(L.get(), 1);
@@ -58,4 +56,5 @@ x::errors::Error driver::sequence::Sequence::compile() {
     }
     script_ref = luaL_ref(this->L.get(), LUA_REGISTRYINDEX);
     return x::errors::NIL;
+}
 }

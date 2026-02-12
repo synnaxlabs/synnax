@@ -11,23 +11,16 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type range } from "@/range";
-import {
-  deleteRequestZ,
-  getRequestZ,
-  getResponseZ,
-  type Pair,
-  setRequestZ,
-} from "@/range/kv/payload";
+import { type Pair, pairZ } from "@/ranger/kv/payload";
+import { type Key, keyZ } from "@/ranger/payload";
 
-export const SET_CHANNEL = "sy_range_kv_set";
-export const DELETE_CHANNEL = "sy_range_kv_delete";
+const getReqZ = z.object({ range: keyZ, keys: z.string().array() });
+const getResZ = z.object({ pairs: array.nullableZ(pairZ) });
+const setReqZ = z.object({ range: keyZ, pairs: pairZ.array() });
+const deleteReqZ = z.object({ range: keyZ, keys: z.string().array() });
 
-/**
- * KV provides key-value storage operations scoped to a range.
- */
-export class KV {
-  private readonly rangeKey: range.Key;
+export class Client {
+  private readonly rangeKey: Key;
   private readonly client: UnaryClient;
 
   constructor(rangeKey: range.Key, client: UnaryClient) {

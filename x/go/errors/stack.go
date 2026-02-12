@@ -18,8 +18,8 @@ import (
 	"github.com/samber/lo"
 )
 
-// GetStackTrace attempts to pull the stack trace from the given error. If the
-// stack trace is not available, returns an empty stack trace.
+// GetStackTrace attempts to pull the stack trace from the given error. If the stack
+// trace is not available, returns an empty stack trace.
 func GetStackTrace(err error) *StackTrace {
 	return &StackTrace{ReportableStackTrace: errors.GetReportableStackTrace(err)}
 }
@@ -89,9 +89,9 @@ func WithStack(err error) error {
 	return WithStackDepth(err, 1)
 }
 
-// WithStackDepth annotates an error with a stack trace starting from the given call depth.
-// Zero identifies the caller of WithStackDepth itself. See the documentation
-// of WithStack() for more details.
+// WithStackDepth annotates an error with a stack trace starting from the given call
+// depth. Zero identifies the caller of WithStackDepth itself. See the documentation of
+// WithStack() for more details.
 func WithStackDepth(err error, depth int) error {
 	return errors.WithStackDepth(err, depth+1)
 }

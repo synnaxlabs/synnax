@@ -686,3 +686,42 @@ TEST(StateTest, IsSeriesTruthy_Int64Series) {
     x::telem::Series non_zero_series(static_cast<int64_t>(-42));
     EXPECT_TRUE(Node::is_series_truthy(non_zero_series));
 }
+
+TEST(StateTest, SetAuthority_BufferAndFlush) {
+    State s = create_minimal_state();
+    s.set_authority(42, 200);
+    auto changes = s.flush_authority_changes();
+    ASSERT_EQ(changes.size(), 1);
+    ASSERT_TRUE(changes[0].channel_key.has_value());
+    EXPECT_EQ(*changes[0].channel_key, 42);
+    EXPECT_EQ(changes[0].authority, 200);
+    EXPECT_TRUE(s.flush_authority_changes().empty());
+}
+
+TEST(StateTest, SetAuthority_GlobalAuthority) {
+    State s = create_minimal_state();
+    s.set_authority(std::nullopt, 150);
+    auto changes = s.flush_authority_changes();
+    ASSERT_EQ(changes.size(), 1);
+    ASSERT_FALSE(changes[0].channel_key.has_value());
+    EXPECT_EQ(changes[0].authority, 150);
+    EXPECT_TRUE(s.flush_authority_changes().empty());
+}
+
+TEST(StateTest, SetAuthority_MultipleChanges) {
+    State s = create_minimal_state();
+    s.set_authority(1, 100);
+    s.set_authority(std::nullopt, 200);
+    s.set_authority(2, 50);
+    auto changes = s.flush_authority_changes();
+    ASSERT_EQ(changes.size(), 3);
+    ASSERT_TRUE(changes[0].channel_key.has_value());
+    EXPECT_EQ(*changes[0].channel_key, 1);
+    EXPECT_EQ(changes[0].authority, 100);
+    ASSERT_FALSE(changes[1].channel_key.has_value());
+    EXPECT_EQ(changes[1].authority, 200);
+    ASSERT_TRUE(changes[2].channel_key.has_value());
+    EXPECT_EQ(*changes[2].channel_key, 2);
+    EXPECT_EQ(changes[2].authority, 50);
+    EXPECT_TRUE(s.flush_authority_changes().empty());
+}

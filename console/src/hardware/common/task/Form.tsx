@@ -17,7 +17,7 @@ import { useDispatch, useStore } from "react-redux";
 import { type z } from "zod";
 
 import { CSS } from "@/css";
-import { Controls } from "@/hardware/common/task/Controls";
+import { Controls } from "@/hardware/common/task/controls";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
 import { Rack } from "@/hardware/common/task/Rack";
 import { useStatus } from "@/hardware/common/task/useStatus";
@@ -235,7 +235,11 @@ export const wrapForm = <
               />
             </Flex.Box>
             {showControls && (
-              <Controls layoutKey={layoutKey} formStatus={status} onConfigure={save} />
+              <Controls.Controls
+                layoutKey={layoutKey}
+                formStatus={status}
+                onConfigure={save}
+              />
             )}
           </PForm.Form>
         </Flex.Box>

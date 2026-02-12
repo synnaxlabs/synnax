@@ -25,11 +25,31 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
+
+type Key = channel.Key
+
+// Channel is an API-friendly version of the channel.Channel type. It is
+// simplified for use purely as a data container.
+type Channel struct {
+	Name        string              `json:"name" msgpack:"name"`
+	DataType    telem.DataType      `json:"data_type" msgpack:"data_type"`
+	Alias       string              `json:"alias" msgpack:"alias"`
+	Expression  string              `json:"expression" msgpack:"expression"`
+	Operations  []channel.Operation `json:"operations" msgpack:"operations"`
+	Key         channel.Key         `json:"key" msgpack:"key"`
+	Density     telem.Density       `json:"density" msgpack:"density"`
+	Index       channel.Key         `json:"index" msgpack:"index"`
+	Leaseholder cluster.NodeKey     `json:"leaseholder" msgpack:"leaseholder"`
+	IsIndex     bool                `json:"is_index" msgpack:"is_index"`
+	Virtual     bool                `json:"virtual" msgpack:"virtual"`
+	Internal    bool                `json:"internal" msgpack:"internal"`
+}
 
 // Service is the central service for all things Channel related.
 type Service struct {
@@ -40,19 +60,23 @@ type Service struct {
 	alias    *alias.Service
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		access:   cfg.Service.RBAC,
 		internal: cfg.Distribution.Channel,
 		ranger:   cfg.Service.Ranger,
-		db:       cfg.Distribution.DB,
 		alias:    cfg.Service.Alias,
-	}
+		db:       cfg.Distribution.DB,
+	}, nil
 }
 
 // CreateRequest is a request to create a Channel in the cluster.
 type CreateRequest struct {
-	// Channel is a template for the Channel to create.
+	// Channels is a template for the Channels to create.
 	Channels             []Channel `json:"channels" msgpack:"channels"`
 	RetrieveIfNameExists bool      `json:"retrieve_if_name_exists" msgpack:"retrieve_if_name_exists"`
 }
@@ -103,27 +127,34 @@ func (s *Service) Create(
 // RetrieveRequest is a request for retrieving information about a Channel
 // from the cluster.
 type RetrieveRequest struct {
-	// Virtual filters for channels that are virtual if true, or are not virtual if false.
+	// Virtual filters for channels that are virtual if true, or are not
+	// virtual if false.
 	Virtual *bool `json:"virtual" msgpack:"virtual"`
-	// IsIndex filters for channels that are indexes if true, or are not indexes if false.
+	// IsIndex filters for channels that are indexes if true, or are not
+	// indexes if false.
 	IsIndex *bool `json:"is_index" msgpack:"is_index"`
-	// Internal filters for channels that are internal if true, or are not internal if false.
+	// Internal filters for channels that are internal if true, or are not
+	// internal if false.
 	Internal *bool `json:"internal" msgpack:"internal"`
-	// Optional search parameters that fuzzy match a Channel's properties.
+	// SearchTerm is an optional search parameter that fuzzy matches a
+	// Channel's properties.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Optional parameter that queries a Channel by its key.
+	// Keys is an optional parameter that queries a Channel by its key.
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
-	// Optional parameter that queries a Channel by its name.
+	// Names is an optional parameter that queries a Channel by its name.
 	Names []string `json:"names" msgpack:"names"`
-	// DataTypes filters for channels whose DataType attribute matches the provided data types.
+	// DataTypes filters for channels whose DataType attribute matches the
+	// provided data types.
 	DataTypes []telem.DataType `json:"data_types" msgpack:"data_types"`
-	// NotDataTypes filters for channels whose DataType attribute does not match the provided data types.
+	// NotDataTypes filters for channels whose DataType attribute does not
+	// match the provided data types.
 	NotDataTypes []telem.DataType `json:"not_data_types" msgpack:"not_data_types"`
 	// Limit limits the number of results returned.
 	Limit int `json:"limit" msgpack:"limit"`
 	// Offset offsets the results returned.
 	Offset int `json:"offset" msgpack:"offset"`
-	// Optional parameter that queries a Channel by its node Name.
+	// NodeKey is an optional parameter that queries a Channel by its node
+	// Name.
 	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
 	// RangeKey is used for fetching aliases.
 	RangeKey uuid.UUID `json:"range_key" msgpack:"range_key"`
@@ -135,8 +166,8 @@ type RetrieveResponse struct {
 	Channels []Channel `json:"channels" msgpack:"channels"`
 }
 
-// Retrieve retrieves a Channel based on the parameters given in the request. If no
-// parameters are specified, retrieves all channels.
+// Retrieve retrieves a Channel based on the parameters given in the request.
+// If no parameters are specified, retrieves all channels.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
@@ -159,17 +190,16 @@ func (s *Service) Retrieve(
 		if err != nil && !isNotFound {
 			return RetrieveResponse{}, err
 		}
-		// We can still do a best effort search without the range even if we don't find it.
+		// We can still do a best effort search without the range even if
+		// we don't find it.
 		if !isNotFound && hasSearch {
 			keys, err := s.alias.NewReader(nil).Search(ctx, resRng.Key, req.SearchTerm)
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
 			aliasChannels = make([]channel.Channel, 0, len(keys))
-			if err = s.internal.NewRetrieve().
-				WhereKeys(keys...).
-				Entries(&aliasChannels).
-				Exec(ctx, nil); err != nil {
+			err = s.internal.NewRetrieve().WhereKeys(keys...).Entries(&aliasChannels).Exec(ctx, nil)
+			if err != nil {
 				return RetrieveResponse{}, err
 			}
 		}
@@ -212,9 +242,12 @@ func (s *Service) Retrieve(
 	}
 	if len(aliasChannels) > 0 {
 		aliasKeys := channel.KeysFromChannels(aliasChannels)
-		resChannels = append(aliasChannels, lo.Filter(resChannels, func(ch channel.Channel, _ int) bool {
-			return !aliasKeys.Contains(ch.Key())
-		})...)
+		resChannels = append(
+			aliasChannels,
+			lo.Filter(resChannels, func(ch channel.Channel, _ int) bool {
+				return !aliasKeys.Contains(ch.Key())
+			})...,
+		)
 	}
 	oChannels := translateChannelsForward(resChannels)
 	if resRng.Key != uuid.Nil {
@@ -255,9 +288,11 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 	return translated
 }
 
-// translateChannelsBackward translates a slice of api channel structs to a slice of
-// internal channel structs.
-func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
+// translateChannelsBackward translates a slice of api channel structs to a
+// slice of internal channel structs.
+func translateChannelsBackward(
+	channels []Channel,
+) ([]channel.Channel, error) {
 	translated := make([]channel.Channel, len(channels))
 	for i, ch := range channels {
 		tCh := channel.Channel{
@@ -291,38 +326,39 @@ func (s *Service) Delete(
 	req DeleteRequest,
 ) (types.Nil, error) {
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		c := errors.NewCatcher(errors.WithAggregation())
 		w := s.internal.NewWriter(tx)
 		if len(req.Keys) > 0 {
-			c.Exec(func() error {
-				if err := s.access.Enforce(ctx, access.Request{
-					Subject: auth.GetSubject(ctx),
-					Action:  access.ActionDelete,
-					Objects: req.Keys.OntologyIDs(),
-				}); err != nil {
-					return err
-				}
-				return w.DeleteMany(ctx, req.Keys, false)
-			})
+			if err := s.access.Enforce(ctx, access.Request{
+				Subject: auth.GetSubject(ctx),
+				Action:  access.ActionDelete,
+				Objects: req.Keys.OntologyIDs(),
+			}); err != nil {
+				return err
+			}
+			if err := w.DeleteMany(ctx, req.Keys, false); err != nil {
+				return err
+			}
 		}
 		if len(req.Names) > 0 {
-			c.Exec(func() error {
-				res := make([]channel.Channel, 0, len(req.Names))
-				err := s.internal.NewRetrieve().WhereNames(req.Names...).Entries(&res).Exec(ctx, tx)
-				if err != nil {
-					return err
-				}
-				if err = s.access.Enforce(ctx, access.Request{
-					Subject: auth.GetSubject(ctx),
-					Action:  access.ActionDelete,
-					Objects: channel.OntologyIDsFromChannels(res),
-				}); err != nil {
-					return err
-				}
-				return w.DeleteManyByNames(ctx, req.Names, false)
-			})
+			res := make([]channel.Channel, 0, len(req.Names))
+			if err := s.
+				internal.
+				NewRetrieve().
+				WhereNames(req.Names...).
+				Entries(&res).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
+			if err := s.access.Enforce(ctx, access.Request{
+				Subject: auth.GetSubject(ctx),
+				Action:  access.ActionDelete,
+				Objects: channel.OntologyIDsFromChannels(res),
+			}); err != nil {
+				return err
+			}
+			return w.DeleteManyByNames(ctx, req.Names, false)
 		}
-		return c.Error()
+		return nil
 	})
 }
 
@@ -343,7 +379,9 @@ func (s *Service) Rename(
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).RenameMany(ctx, req.Keys, req.Names, false)
+		return s.internal.NewWriter(tx).RenameMany(
+			ctx, req.Keys, req.Names, false,
+		)
 	})
 }
 

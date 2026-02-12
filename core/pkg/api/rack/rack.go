@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
@@ -36,15 +37,19 @@ type Service struct {
 	status *status.Service
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		db:     cfg.Distribution.DB,
-		access: cfg.Service.RBAC,
 		rack:   cfg.Service.Rack,
 		device: cfg.Service.Device,
 		task:   cfg.Service.Task,
 		status: cfg.Service.Status,
-	}
+		access: cfg.Service.RBAC,
+	}, nil
 }
 
 type (
@@ -56,20 +61,20 @@ type (
 	}
 )
 
-func (svc *Service) Create(
+func (s *Service) Create(
 	ctx context.Context,
 	req CreateRequest,
 ) (CreateResponse, error) {
 	var res CreateResponse
-	if err := svc.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: rack.OntologyIDsFromRacks(req.Racks),
 	}); err != nil {
 		return res, err
 	}
-	if err := svc.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := svc.rack.NewWriter(tx)
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.rack.NewWriter(tx)
 		for i, r := range req.Racks {
 			if err := w.Create(ctx, &r); err != nil {
 				return err
@@ -100,7 +105,7 @@ type (
 	}
 )
 
-func (svc *Service) Retrieve(
+func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
@@ -113,7 +118,7 @@ func (svc *Service) Retrieve(
 		hasOffset = req.Offset > 0
 	)
 	resRacks := make([]rack.Rack, 0, len(req.Keys)+len(req.Names))
-	q := svc.rack.NewRetrieve()
+	q := s.rack.NewRetrieve()
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
 	}
@@ -145,7 +150,7 @@ func (svc *Service) Retrieve(
 			keys[i] = resRacks[i].Key
 		}
 		statuses := make([]rack.Status, 0, len(resRacks))
-		if err := status.NewRetrieve[rack.StatusDetails](svc.status).
+		if err := status.NewRetrieve[rack.StatusDetails](s.status).
 			WhereKeys(ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
@@ -156,7 +161,7 @@ func (svc *Service) Retrieve(
 		}
 	}
 
-	if err := svc.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: rack.OntologyIDsFromRacks(resRacks),
@@ -178,34 +183,43 @@ func embeddedGuard(_ gorp.Context, r rack.Rack) error {
 	return errors.Wrapf(validate.ErrValidation, "cannot delete embedded rack")
 }
 
-func (svc *Service) Delete(
+func (s *Service) Delete(
 	ctx context.Context,
 	req DeleteRequest,
 ) (types.Nil, error) {
 	var res types.Nil
-	if err := svc.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: rack.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}
-	return res, svc.db.WithTx(ctx, func(tx gorp.Tx) error {
-		exists, err := svc.device.NewRetrieve().WhereRacks(req.Keys...).Exists(ctx, tx)
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		exists, err := s.device.NewRetrieve().WhereRacks(req.Keys...).Exists(ctx, tx)
 		if err != nil {
 			return err
 		}
 		if exists {
-			return errors.Wrapf(validate.ErrValidation, "cannot delete rack when devices are still attached")
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"cannot delete rack when devices are still attached",
+			)
 		}
-		exists, err = svc.task.NewRetrieve().WhereInternal(false, gorp.Required()).WhereRacks(req.Keys...).Exists(ctx, tx)
+		exists, err = s.task.NewRetrieve().
+			WhereInternal(false, gorp.Required()).
+			WhereRacks(req.Keys...).
+			Exists(ctx, tx)
 		if err != nil {
 			return err
 		}
 		if exists {
-			return errors.Wrapf(validate.ErrValidation, "cannot delete rack when tasks are still attached")
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"cannot delete rack when tasks are still attached",
+			)
 		}
-		w := svc.rack.NewWriter(tx)
+		w := s.rack.NewWriter(tx)
 		for _, k := range req.Keys {
 			if err = w.DeleteGuard(ctx, k, embeddedGuard); err != nil {
 				return err

@@ -272,7 +272,7 @@ TEST(ConfigTest, AutoModeResolvesToRTEventGetsCpuPinning) {
     cfg.mode = ExecutionMode::AUTO;
     cfg.cpu_affinity = CPU_AFFINITY_AUTO;
     const auto resolved = cfg.apply_defaults(500 * x::telem::MICROSECOND);
-    if (has_rt_scheduling() && std::thread::hardware_concurrency() > 1) {
+    if (x::thread::rt::has_support() && std::thread::hardware_concurrency() > 1) {
         EXPECT_GE(resolved.cpu_affinity, 0);
     }
 }
@@ -546,6 +546,26 @@ TEST(WatchTest, WatchMultipleNotifiers) {
     EXPECT_TRUE(woke_up.load());
 }
 
+#endif // defined(__linux__) || defined(__APPLE__)
+
+#if defined(_WIN32)
+
+/// @brief watch() should fail for a second notifier on Windows (only one supported).
+TEST(WatchTest, WatchSecondNotifierFails_Windows) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = x::telem::TimeSpan(0);
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    auto notifier1 = x::notify::create();
+    auto notifier2 = x::notify::create();
+    EXPECT_TRUE(loop->watch(*notifier1));
+    EXPECT_FALSE(loop->watch(*notifier2));
+}
+
+#endif // defined(_WIN32)
+
 /// @brief watch() should be idempotent - calling twice with same notifier succeeds.
 TEST(WatchTest, WatchSameNotifierTwice_Succeeds) {
     Config config;
@@ -556,7 +576,7 @@ TEST(WatchTest, WatchSameNotifierTwice_Succeeds) {
 
     auto notifier = x::notify::create();
     EXPECT_TRUE(loop->watch(*notifier));
-    EXPECT_TRUE(loop->watch(*notifier)); // Should succeed, not fail with EEXIST
+    EXPECT_TRUE(loop->watch(*notifier));
 }
 
 /// @brief watch() called twice should still allow notifier to wake wait().
@@ -569,7 +589,7 @@ TEST(WatchTest, WatchSameNotifierTwice_StillWakes) {
 
     auto notifier = x::notify::create();
     ASSERT_TRUE(loop->watch(*notifier));
-    ASSERT_TRUE(loop->watch(*notifier)); // Re-register
+    ASSERT_TRUE(loop->watch(*notifier));
 
     std::atomic<bool> woke_up{false};
     x::breaker::Breaker breaker;
@@ -596,7 +616,6 @@ TEST(WatchTest, WatchAfterSimulatedRestart_Works) {
 
     auto notifier = x::notify::create();
 
-    // First "run" - watch and use
     ASSERT_TRUE(loop->watch(*notifier));
     x::breaker::Breaker breaker1;
     std::thread t1([&]() { loop->wait(breaker1); });
@@ -604,7 +623,6 @@ TEST(WatchTest, WatchAfterSimulatedRestart_Works) {
     loop->wake();
     t1.join();
 
-    // Second "run" - watch same notifier again (simulates restart scenario)
     ASSERT_TRUE(loop->watch(*notifier));
     x::breaker::Breaker breaker2;
     std::atomic<bool> woke{false};
@@ -618,26 +636,6 @@ TEST(WatchTest, WatchAfterSimulatedRestart_Works) {
 
     EXPECT_TRUE(woke.load());
 }
-
-#endif // defined(__linux__) || defined(__APPLE__)
-
-#if defined(_WIN32)
-
-/// @brief watch() should fail for a second notifier on Windows (only one supported).
-TEST(WatchTest, WatchSecondNotifierFails_Windows) {
-    Config config;
-    config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = x::telem::TimeSpan(0);
-
-    const auto loop = ASSERT_NIL_P(create(config));
-
-    auto notifier1 = x::notify::create();
-    auto notifier2 = x::notify::create();
-    EXPECT_TRUE(loop->watch(*notifier1));
-    EXPECT_FALSE(loop->watch(*notifier2));
-}
-
-#endif // defined(_WIN32)
 
 //
 // Breaker Cancellation Tests
@@ -740,4 +738,74 @@ TEST(WakeTest, Wake_UnblocksWait) {
 
     EXPECT_TRUE(woke_up.load());
     EXPECT_LE(sw.elapsed(), test_timing::THREAD_STARTUP);
+}
+
+TEST(WakeReasonTest, ReturnsTimerOnTimerFire) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = 10 * x::telem::MILLISECOND;
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    x::breaker::Breaker breaker;
+    breaker.start();
+
+    const auto reason = loop->wait(breaker);
+    ASSERT_EQ(reason, WakeReason::Timer);
+
+    breaker.stop();
+}
+
+TEST(WakeReasonTest, ReturnsInputOnNotifierSignal) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = x::telem::TimeSpan(0);
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    auto notifier = x::notify::create();
+    ASSERT_TRUE(loop->watch(*notifier));
+
+    x::breaker::Breaker breaker;
+    breaker.start();
+
+    std::atomic<WakeReason> reason{WakeReason::Shutdown};
+    std::thread waiter([&]() { reason.store(loop->wait(breaker)); });
+
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
+    notifier->signal();
+    waiter.join();
+
+    ASSERT_EQ(reason.load(), WakeReason::Input);
+
+    breaker.stop();
+}
+
+TEST(WakeReasonTest, DistinguishesTimerFromInputWhenBothConfigured) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = 100 * x::telem::MILLISECOND;
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    auto notifier = x::notify::create();
+    ASSERT_TRUE(loop->watch(*notifier));
+
+    x::breaker::Breaker breaker;
+    breaker.start();
+
+    std::atomic<WakeReason> reason{WakeReason::Shutdown};
+    std::thread waiter([&]() { reason.store(loop->wait(breaker)); });
+
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
+    notifier->signal();
+    waiter.join();
+
+    ASSERT_EQ(reason.load(), WakeReason::Input);
+
+    reason.store(WakeReason::Shutdown);
+    const auto wait_reason = loop->wait(breaker);
+    ASSERT_EQ(wait_reason, WakeReason::Timer);
+
+    breaker.stop();
 }

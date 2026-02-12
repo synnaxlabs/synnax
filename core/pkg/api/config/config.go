@@ -18,21 +18,21 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is all required configuration parameters and services necessary to instantiate
-// the API.
-type Config struct {
+// LayerConfig is all required configuration parameters and services necessary to
+// instantiate the API.
+type LayerConfig struct {
 	Service      *service.Layer
 	Distribution *distribution.Layer
 	alamos.Instrumentation
 }
 
 var (
-	_       config.Config[Config] = Config{}
-	Default                       = Config{}
+	_                  config.Config[LayerConfig] = LayerConfig{}
+	DefaultLayerConfig                            = LayerConfig{}
 )
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c LayerConfig) Validate() error {
 	v := validate.New("api")
 	validate.NotNil(v, "service", c.Service)
 	validate.NotNil(v, "distribution", c.Distribution)
@@ -40,7 +40,7 @@ func (c Config) Validate() error {
 }
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Service = override.Nil(c.Service, other.Service)
 	c.Distribution = override.Nil(c.Distribution, other.Distribution)

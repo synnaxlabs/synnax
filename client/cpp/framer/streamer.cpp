@@ -12,7 +12,7 @@
 #include "client/cpp/framer/framer.h"
 
 namespace synnax::framer {
-void StreamerConfig::to_proto(grpc::framer::StreamerRequest &f) const {
+void StreamerConfig::to_proto(api::v1::FrameStreamerRequest &f) const {
     f.mutable_keys()->Add(channels.begin(), channels.end());
     f.set_downsample_factor(downsample_factor);
     f.set_enable_experimental_codec(enable_experimental_codec);
@@ -46,10 +46,7 @@ std::pair<x::telem::Frame, x::errors::Error> Streamer::read() const {
             reinterpret_cast<const std::uint8_t *>(fr.buffer().data()),
             fr.buffer().size()
         );
-    if (exc) return {x::telem::Frame(), exc};
-    auto [frame, proto_err] = x::telem::Frame::from_proto(fr.frame());
-    if (proto_err) return {x::telem::Frame(), proto_err};
-    return {std::move(frame), x::errors::NIL};
+    return {x::telem::Frame(fr.frame()), exc};
 }
 
 void Streamer::close_send() const {

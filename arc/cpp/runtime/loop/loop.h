@@ -20,9 +20,9 @@
 #include "x/cpp/log/log.h"
 #include "x/cpp/notify/notify.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/thread/rt/rt.h"
 
 namespace arc::runtime::loop {
-
 /// @brief Named constants for timing parameters used across loop implementations.
 namespace timing {
 /// @brief Default spin duration for HYBRID mode before blocking (100 microseconds).
@@ -87,6 +87,18 @@ enum class ExecutionMode {
     EVENT_DRIVEN,
 };
 
+/// @brief Indicates what caused the loop to wake from wait().
+enum class WakeReason {
+    /// @brief Timer interval expired.
+    Timer,
+    /// @brief External input/notifier signaled.
+    Input,
+    /// @brief Wait timed out (no specific event).
+    Timeout,
+    /// @brief Breaker stopped or wake() called.
+    Shutdown,
+};
+
 inline std::ostream &operator<<(std::ostream &os, ExecutionMode mode) {
     switch (mode) {
         case ExecutionMode::AUTO:
@@ -106,17 +118,14 @@ inline std::ostream &operator<<(std::ostream &os, ExecutionMode mode) {
     }
 }
 
-/// @brief Returns true if the platform supports real-time scheduling.
-/// Platform-specific implementation in loop_*.cpp files.
-bool has_rt_scheduling();
-
 /// @brief Auto-selects execution mode based on timing requirements and platform.
 /// Never returns BUSY_WAIT or AUTO.
 inline ExecutionMode
 select_mode(const x::telem::TimeSpan timing_interval, const bool has_intervals) {
     if (!has_intervals) return ExecutionMode::EVENT_DRIVEN;
     if (timing_interval < timing::HIGH_RATE_THRESHOLD)
-        return has_rt_scheduling() ? ExecutionMode::RT_EVENT : ExecutionMode::HIGH_RATE;
+        return x::thread::rt::has_support() ? ExecutionMode::RT_EVENT
+                                            : ExecutionMode::HIGH_RATE;
     if (timing_interval < timing::HYBRID_THRESHOLD) return ExecutionMode::HYBRID;
     return ExecutionMode::EVENT_DRIVEN;
 }
@@ -192,6 +201,24 @@ struct Config {
         return cfg;
     }
 
+    /// @brief Converts this loop Config to an x::thread::rt::Config for applying RT
+    /// settings to the current thread. Platform-specific flags
+    /// (prefer_deadline_scheduler, use_mmcss) should be set by the caller after
+    /// conversion.
+    [[nodiscard]] x::thread::rt::Config rt() const {
+        x::thread::rt::Config cfg;
+        cfg.enabled = this->rt_priority > 0;
+        cfg.priority = this->rt_priority;
+        cfg.cpu_affinity = this->cpu_affinity;
+        cfg.lock_memory = this->lock_memory;
+        if (cfg.enabled && this->interval.nanoseconds() > 0) {
+            cfg.period = this->interval;
+            cfg.computation = this->interval * 0.2;
+            cfg.deadline = this->interval * 0.8;
+        }
+        return cfg;
+    }
+
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
         os << "  " << x::log::SHALE() << "execution mode" << x::log::RESET() << ": "
            << cfg.mode << "\n";
@@ -222,7 +249,8 @@ struct Loop {
     /// @brief Block until timer/external event or breaker stops.
     /// Must be called from the runtime thread only.
     /// @param breaker Controls loop termination; wait() returns when breaker stops.
-    virtual void wait(x::breaker::Breaker &breaker) = 0;
+    /// @return WakeReason indicating why wait() returned.
+    virtual WakeReason wait(x::breaker::Breaker &breaker) = 0;
 
     /// @brief Initialize loop resources. Must be called before wait().
     /// Applies RT configuration (priority, affinity, memory lock) if configured.

@@ -13,9 +13,25 @@ program
     ;
 
 topLevelItem
-    : functionDeclaration
+    : authorityBlock
+    | functionDeclaration
     | flowStatement
     | sequenceDeclaration
+    | globalConstant
+    ;
+
+// =============================================================================
+// Authority Declarations
+// =============================================================================
+
+authorityBlock
+    : AUTHORITY INTEGER_LITERAL
+    | AUTHORITY LPAREN authorityEntry* RPAREN
+    ;
+
+authorityEntry
+    : INTEGER_LITERAL
+    | IDENTIFIER INTEGER_LITERAL
     ;
 
 // =============================================================================
@@ -57,7 +73,7 @@ configList
     ;
 
 config
-    : IDENTIFIER type
+    : IDENTIFIER type (ASSIGN literal)?
     ;
 
 // =============================================================================
@@ -87,6 +103,17 @@ stageItem
 singleInvocation
     : function
     | expression
+    ;
+
+// =============================================================================
+// Global Constants
+// =============================================================================
+
+// Top-level variable declarations are compile-time constants.
+// Only literals are allowed (no expressions), and stateful declarations ($=) are prohibited.
+globalConstant
+    : IDENTIFIER DECLARE literal
+    | IDENTIFIER type DECLARE literal
     ;
 
 // =============================================================================

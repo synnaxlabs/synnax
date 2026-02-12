@@ -14,8 +14,9 @@
 
 #include "driver/cmd/cmd.h"
 
-int driver::cmd::sub::start(x::args::Parser &args) {
-    LOG(INFO) << x::log::BLUE() << "starting Synnax Driver " << driver::cmd::version()
+namespace driver::cmd::sub {
+int start(x::args::Parser &args) {
+    LOG(INFO) << x::log::BLUE() << "starting Synnax Driver " << ::driver::cmd::version()
               << x::log::RESET();
 
     const bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");
@@ -55,4 +56,5 @@ int driver::cmd::sub::start(x::args::Parser &args) {
     else
         LOG(INFO) << x::log::BLUE() << "stopped" << x::log::RESET();
     return 0;
+}
 }

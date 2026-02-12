@@ -61,7 +61,7 @@ TEST(Sequence, nominal) {
         set("write_channel", read_channel)
     )";
 
-    auto seq = driver::sequence::Sequence(plugins, script);
+    auto seq = Sequence(plugins, script);
     const auto start_err = seq.begin();
     const auto next_err = seq.next();
 
@@ -89,8 +89,8 @@ TEST(Sequence, compileError) {
         end
     )";
 
-    auto seq = driver::sequence::Sequence(plugins, script);
-    ASSERT_OCCURRED_AS(seq.compile(), driver::sequence::COMPILATION_ERROR);
+    auto seq = Sequence(plugins, script);
+    ASSERT_OCCURRED_AS(seq.compile(), COMPILATION_ERROR);
 }
 
 /// @brief it should return an error when the caller tries to compare a number with
@@ -104,9 +104,9 @@ TEST(Sequence, compareNil) {
             return
         end
     )";
-    auto seq = driver::sequence::Sequence(plugins, script);
+    auto seq = Sequence(plugins, script);
     ASSERT_NIL(seq.begin());
-    ASSERT_OCCURRED_AS(seq.next(), driver::sequence::RUNTIME_ERROR);
+    ASSERT_OCCURRED_AS(seq.next(), RUNTIME_ERROR);
     ASSERT_NIL(seq.end());
 }
 
@@ -127,10 +127,10 @@ TEST(Sequence, channelNotFound) {
     const auto script = R"(
         set("nonexistent_channel", 42)
     )";
-    auto seq = driver::sequence::Sequence(plugins, script);
+    auto seq = Sequence(plugins, script);
     ASSERT_NIL(seq.begin());
     const auto next_err = seq.next();
-    ASSERT_MATCHES(next_err, driver::sequence::RUNTIME_ERROR);
+    ASSERT_MATCHES(next_err, RUNTIME_ERROR);
     EXPECT_NE(next_err.message().find("nonexistent_channel"), std::string::npos);
     EXPECT_NE(next_err.message().find("not found"), std::string::npos);
     ASSERT_NIL(seq.end());
@@ -184,7 +184,7 @@ TEST(Sequence, restart) {
         set("write_channel", read_channel)
     )";
 
-    auto seq = driver::sequence::Sequence(plugins, script);
+    auto seq = Sequence(plugins, script);
 
     auto check_writes = [&]() -> size_t {
         auto _ = seq.next();

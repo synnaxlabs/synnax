@@ -13,11 +13,12 @@
 
 #include "driver/sequence/sequence.h"
 
-driver::sequence::Task::Task(
-    const std::shared_ptr<driver::task::Context> &ctx,
+namespace driver::sequence {
+Task::Task(
+    const std::shared_ptr<task::Context> &ctx,
     synnax::task::Task task,
     TaskConfig cfg,
-    std::unique_ptr<driver::sequence::Sequence> seq,
+    std::unique_ptr<Sequence> seq,
     const x::breaker::Config &breaker_config
 ):
     cfg(std::move(cfg)),
@@ -27,7 +28,7 @@ driver::sequence::Task::Task(
     seq(std::move(seq)),
     status(
         synnax::task::Status{
-            .key = synnax::task::status_key(task),
+            .key = task.status_key(),
             .variant = x::status::VARIANT_SUCCESS,
             .details = synnax::task::StatusDetails{
                 .task = task.key,
@@ -36,7 +37,7 @@ driver::sequence::Task::Task(
         }
     ) {}
 
-void driver::sequence::Task::run() {
+void Task::run() {
     x::thread::set_name(this->task.name.c_str());
     if (const auto err = this->seq->begin(); err) {
         if (const auto end_err = this->seq->end())
@@ -77,16 +78,16 @@ void driver::sequence::Task::run() {
     this->status.message = "Sequence stopped";
 }
 
-void driver::sequence::Task::stop(bool will_reconfigure) {
+void Task::stop(bool will_reconfigure) {
     this->stop("", will_reconfigure);
 }
 
-void driver::sequence::Task::exec(synnax::task::Command &cmd) {
+void Task::exec(task::Command &cmd) {
     if (cmd.type == "start") return this->start(cmd.key);
     if (cmd.type == "stop") return this->stop(cmd.key, false);
 }
 
-void driver::sequence::Task::start(const std::string &key) {
+void Task::start(const std::string &key) {
     if (this->breaker.running()) return;
     this->breaker.reset();
     this->breaker.start();
@@ -94,7 +95,7 @@ void driver::sequence::Task::start(const std::string &key) {
     this->thread = std::thread([this] { this->run(); });
 }
 
-void driver::sequence::Task::stop(const std::string &key, bool will_reconfigure) {
+void Task::stop(const std::string &key, bool will_reconfigure) {
     if (!this->breaker.running()) return;
     this->breaker.stop();
     this->breaker.reset();
@@ -103,8 +104,8 @@ void driver::sequence::Task::stop(const std::string &key, bool will_reconfigure)
     this->ctx->set_status(this->status);
 }
 
-std::unique_ptr<driver::task::Task> driver::sequence::Task::configure(
-    const std::shared_ptr<driver::task::Context> &ctx,
+std::unique_ptr<task::Task> Task::configure(
+    const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
     synnax::task::Status cfg_status;
@@ -164,6 +165,7 @@ std::unique_ptr<driver::task::Task> driver::sequence::Task::configure(
             .start = x::telem::TimeStamp::now(),
             .authorities = {cfg.authority},
             .subject = x::control::Subject{
+                .name = task.name,
                 .key = std::to_string(task.key),
                 .name = task.name,
             }
@@ -177,7 +179,7 @@ std::unique_ptr<driver::task::Task> driver::sequence::Task::configure(
     }
 
     auto breaker_config = x::breaker::default_config("sequence (" + task.name + ")");
-    auto seq = std::make_unique<driver::sequence::Sequence>(
+    auto seq = std::make_unique<Sequence>(
         std::make_shared<plugins::MultiPlugin>(plugins_list),
         cfg.script
     );
@@ -194,4 +196,5 @@ std::unique_ptr<driver::task::Task> driver::sequence::Task::configure(
     cfg_status.message = "Sequence configured successfully";
     ctx->set_status(cfg_status);
     return std::make_unique<Task>(ctx, task, cfg, std::move(seq), breaker_config);
+}
 }

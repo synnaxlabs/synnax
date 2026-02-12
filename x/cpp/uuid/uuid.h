@@ -28,9 +28,6 @@ namespace x::uuid {
 /// @brief Error type for invalid UUID parsing.
 const errors::Error INVALID = errors::SY.sub("uuid.invalid");
 
-/// @brief Generate a new random UUID (v4).
-/// @returns A newly generated random UUID.
-
 /// @brief A wrapper class around boost::uuid::uuid providing value semantics
 /// and integration with Synnax's serialization infrastructure.
 class UUID {
@@ -51,7 +48,7 @@ public:
     /// @returns A pair of (UUID, Error) - Error is nil on success.
     static std::pair<UUID, errors::Error> parse(const std::string &str);
 
-    /// @brief Parse from JSON parser (for Oracle integration).
+    /// @brief Parse from JSON parser.
     /// Reads the current value as a string and parses it as a UUID.
     /// @param parser The JSON parser positioned at a string value.
     /// @returns The parsed UUID, or a nil UUID if parsing fails.
@@ -80,7 +77,6 @@ public:
     /// @brief Size of UUID in bytes (always 16).
     [[nodiscard]] static constexpr std::size_t size() { return 16; }
 
-    // Comparison operators
     bool operator==(const UUID &other) const;
     bool operator!=(const UUID &other) const;
     bool operator<(const UUID &other) const;
@@ -88,14 +84,15 @@ public:
     bool operator<=(const UUID &other) const;
     bool operator>=(const UUID &other) const;
 
-    // Stream output
     friend std::ostream &operator<<(std::ostream &os, const UUID &uuid);
 };
 
 /// @brief A nil (all-zeros) UUID constant.
 inline const UUID NIL;
 
-inline UUID generate() {
+/// @brief Generate a new random UUID (v4).
+/// @returns A newly generated random UUID.
+inline UUID create() {
     static thread_local boost::uuids::random_generator gen;
     return UUID{gen()};
 }
@@ -105,5 +102,7 @@ inline UUID generate() {
 /// @brief Hash support for use in std::unordered_map/set.
 template<>
 struct std::hash<x::uuid::UUID> {
-    size_t operator()(const x::uuid::UUID &uuid) const noexcept;
+    size_t operator()(const x::uuid::UUID &uuid) const noexcept {
+        return boost::uuids::hash_value(uuid.underlying());
+    }
 };

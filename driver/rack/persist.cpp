@@ -11,7 +11,6 @@
 
 #include "x/cpp/kv/kv.h"
 
-// internal
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
@@ -54,7 +53,7 @@ open_kv(x::args::Parser &parser) {
     );
 }
 
-x::errors::Error Config::load_persisted_state(x::args::Parser &args) {
+x::errors::Error rack::Config::load_persisted_state(x::args::Parser &args) {
     auto [kv, open_err] = open_kv(args);
     if (open_err) return open_err;
 
@@ -66,28 +65,30 @@ x::errors::Error Config::load_persisted_state(x::args::Parser &args) {
     this->connection.override(conn_parser);
 
     // Load the cached remote info
-    std::string rem_info = "{}";
-    const auto r_err = kv->get("remote_info", rem_info);
+    std::string remote_info = "{}";
+    const auto r_err = kv->get("remote_info", remote_info);
     if (r_err && !x::errors::NOT_FOUND.matches(r_err)) return r_err;
-    auto remote_parser = x::json::Parser(rem_info);
+    auto remote_parser = x::json::Parser(remote_info);
     this->remote_info.override(remote_parser);
 
     return x::errors::NIL;
 }
 
-x::errors::Error
-Config::save_conn_params(x::args::Parser &args, const synnax::Config &conn_params) {
+x::errors::Error rack::Config::save_conn_params(
+    x::args::Parser &args,
+    const synnax::Config &conn_params
+) {
     auto [kv, err] = open_kv(args);
     return kv->set("conn_params", conn_params.to_json().dump());
 }
 
 x::errors::Error
-Config::save_remote_info(x::args::Parser &args, const RemoteInfo &remote_info) {
+rack::Config::save_remote_info(x::args::Parser &args, const RemoteInfo &remote_info) {
     auto [kv, err] = open_kv(args);
     return kv->set("remote_info", remote_info.to_json().dump());
 }
 
-x::errors::Error Config::clear_persisted_state(x::args::Parser &args) {
+x::errors::Error rack::Config::clear_persisted_state(x::args::Parser &args) {
     auto [kv, err] = open_kv(args);
     if (err) return err;
     if (const auto d1_err = kv->del("conn_params")) return d1_err;

@@ -15,14 +15,11 @@
 
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/thread/rt/rt.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 
 namespace arc::runtime::loop {
-
-bool has_rt_scheduling() {
-    return false;
-}
 
 class WindowsLoop final : public Loop {
     static constexpr DWORD MAX_HANDLES = MAXIMUM_WAIT_OBJECTS;
@@ -37,27 +34,23 @@ public:
 
     ~WindowsLoop() override { this->close_handles(); }
 
-    void wait(x::breaker::Breaker &breaker) override {
-        if (this->wake_event_ == NULL) return;
+    WakeReason wait(x::breaker::Breaker &breaker) override {
+        if (this->wake_event_ == NULL) return WakeReason::Shutdown;
 
         switch (this->config_.mode) {
             case ExecutionMode::BUSY_WAIT:
-                this->busy_wait(breaker);
-                break;
+                return this->busy_wait(breaker);
             case ExecutionMode::HIGH_RATE:
-                this->high_rate_wait(breaker);
-                break;
+                return this->high_rate_wait(breaker);
             case ExecutionMode::RT_EVENT:
-                this->event_driven_wait(false);
-                break;
+                return this->event_driven_wait(false);
             case ExecutionMode::HYBRID:
-                this->hybrid_wait(breaker);
-                break;
+                return this->hybrid_wait(breaker);
             case ExecutionMode::AUTO:
             case ExecutionMode::EVENT_DRIVEN:
-                this->event_driven_wait(true);
-                break;
+                return this->event_driven_wait(true);
         }
+        return WakeReason::Shutdown;
     }
 
     x::errors::Error start() override {
@@ -73,7 +66,9 @@ public:
         if (this->config_.interval.nanoseconds() > 0) {
             if (this->config_.mode == ExecutionMode::HIGH_RATE) {
                 // HIGH_RATE uses precise software timer
-                this->timer_ = std::make_unique<x::loop::Timer>(this->config_.interval);
+                this->timer_ = std::make_unique<::x::loop::Timer>(
+                    this->config_.interval
+                );
             } else {
                 // Other modes use WaitableTimer
                 this->timer_event_ = CreateWaitableTimer(NULL, FALSE, NULL);
@@ -115,18 +110,10 @@ public:
             }
         }
 
-        if (this->config_.rt_priority > 0) {
-            if (auto err = this->set_thread_priority(this->config_.rt_priority); err) {
-                LOG(WARNING) << "[loop] Failed to set thread priority: "
-                             << err.message();
-            }
-        }
-
-        if (this->config_.cpu_affinity >= 0) {
-            if (auto err = this->set_cpu_affinity(this->config_.cpu_affinity); err) {
-                LOG(WARNING) << "[loop] Failed to set CPU affinity: " << err.message();
-            }
-        }
+        auto rt_cfg = this->config_.rt();
+        rt_cfg.use_mmcss = true;
+        if (auto err = x::thread::rt::apply_config(rt_cfg); err)
+            LOG(WARNING) << "[loop] Failed to apply RT config: " << err.message();
 
         return x::errors::NIL;
     }
@@ -142,7 +129,7 @@ public:
             LOG(ERROR) << "[loop] Notifier has no native handle";
             return false;
         }
-        if (this->watched_handle_ != NULL) {
+        if (this->watched_handle_ != NULL && this->watched_handle_ != handle) {
             LOG(ERROR) << "[loop] Only one external notifier can be watched";
             return false;
         }
@@ -168,31 +155,34 @@ private:
         this->timer_enabled_ = false;
     }
 
-    void busy_wait(x::breaker::Breaker &breaker) {
+    WakeReason busy_wait(x::breaker::Breaker &breaker) {
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
-        if (count == 0) return;
+        if (count == 0) return WakeReason::Shutdown;
 
         while (breaker.running()) {
             const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
-            if (result < WAIT_OBJECT_0 + count) return;
+            if (result < WAIT_OBJECT_0 + count)
+                return this->classify_result(result, handles);
             if (result == WAIT_FAILED) {
                 LOG(ERROR) << "[loop] WaitForMultipleObjects failed: "
                            << GetLastError();
-                return;
+                return WakeReason::Shutdown;
             }
         }
+        return WakeReason::Shutdown;
     }
 
-    void high_rate_wait(x::breaker::Breaker &breaker) { this->timer_->wait(breaker); }
+    WakeReason high_rate_wait(x::breaker::Breaker &breaker) {
+        this->timer_->wait(breaker);
+        return WakeReason::Timer;
+    }
 
-    void event_driven_wait(bool blocking) {
+    WakeReason event_driven_wait(bool blocking) {
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
-        if (count == 0) return;
+        if (count == 0) return WakeReason::Shutdown;
 
-        // Use timeout to ensure we periodically check breaker.running()
-        // in the caller's loop.
         const DWORD timeout_ms = blocking
                                    ? static_cast<DWORD>(
                                          timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
@@ -202,14 +192,18 @@ private:
                                      );
 
         const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
-        if (result == WAIT_FAILED)
+        if (result == WAIT_TIMEOUT) return WakeReason::Timeout;
+        if (result == WAIT_FAILED) {
             LOG(ERROR) << "[loop] WaitForMultipleObjects failed: " << GetLastError();
+            return WakeReason::Shutdown;
+        }
+        return this->classify_result(result, handles);
     }
 
-    void hybrid_wait(x::breaker::Breaker &breaker) {
+    WakeReason hybrid_wait(x::breaker::Breaker &breaker) {
         HANDLE handles[3];
         const DWORD count = this->build_handles(handles);
-        if (count == 0) return;
+        if (count == 0) return WakeReason::Shutdown;
 
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
@@ -217,49 +211,30 @@ private:
         );
 
         while (std::chrono::steady_clock::now() - spin_start < spin_duration) {
-            if (!breaker.running()) return;
+            if (!breaker.running()) return WakeReason::Shutdown;
 
             const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
-            if (result < WAIT_OBJECT_0 + count) return;
+            if (result < WAIT_OBJECT_0 + count)
+                return this->classify_result(result, handles);
         }
 
         const DWORD timeout_ms = static_cast<DWORD>(
             timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
         );
-        WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
+        const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
+        if (result == WAIT_TIMEOUT) return WakeReason::Timeout;
+        if (result < WAIT_OBJECT_0 + count)
+            return this->classify_result(result, handles);
+        return WakeReason::Shutdown;
     }
 
-    x::errors::Error set_thread_priority(int priority) {
-        int win_priority;
-        if (priority >= 90) {
-            win_priority = THREAD_PRIORITY_TIME_CRITICAL;
-        } else if (priority >= 70) {
-            win_priority = THREAD_PRIORITY_HIGHEST;
-        } else if (priority >= 50) {
-            win_priority = THREAD_PRIORITY_ABOVE_NORMAL;
-        } else {
-            win_priority = THREAD_PRIORITY_NORMAL;
-        }
-
-        if (!SetThreadPriority(GetCurrentThread(), win_priority)) {
-            return x::errors::Error(
-                "Failed to set thread priority: " + std::to_string(GetLastError())
-            );
-        }
-
-        return x::errors::NIL;
-    }
-
-    x::errors::Error set_cpu_affinity(int cpu) {
-        const DWORD_PTR mask = static_cast<DWORD_PTR>(1) << cpu;
-
-        if (!SetThreadAffinityMask(GetCurrentThread(), mask)) {
-            return x::errors::Error(
-                "Failed to set thread affinity: " + std::to_string(GetLastError())
-            );
-        }
-
-        return x::errors::NIL;
+    /// @brief Classifies which handle was signaled to determine wake reason.
+    WakeReason classify_result(const DWORD result, const HANDLE *handles) const {
+        const DWORD index = result - WAIT_OBJECT_0;
+        if (this->timer_enabled_ && handles[index] == this->timer_event_)
+            return WakeReason::Timer;
+        if (handles[index] == this->watched_handle_) return WakeReason::Input;
+        return WakeReason::Shutdown;
     }
 
     DWORD build_handles(HANDLE *handles) const {
@@ -275,7 +250,7 @@ private:
     HANDLE timer_event_ = NULL;
     HANDLE watched_handle_ = NULL;
     bool timer_enabled_ = false;
-    std::unique_ptr<x::loop::Timer> timer_;
+    std::unique_ptr<::x::loop::Timer> timer_;
 };
 
 std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {

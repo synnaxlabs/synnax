@@ -14,7 +14,7 @@
 #include "driver/ni/syscfg/api.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 
-namespace syscfg {
+namespace driver::ni::syscfg {
 class SugaredAPI {
     std::shared_ptr<API> syscfg;
 

@@ -94,6 +94,37 @@ var _ = Describe("Function Analyzer", func() {
 				fn := ctx.Scope.Children[0]
 				Expect(fn.Type.Config).To(BeEmpty())
 			})
+			It("should collect config with default value", func() {
+				ctx := analyzeExpectSuccess(`func foo{gain f64 = 1.0}() {}`, nil)
+				fn := ctx.Scope.Children[0]
+				Expect(fn.Type.Config).To(HaveLen(1))
+				Expect(fn.Type.Config[0].Name).To(Equal("gain"))
+				Expect(fn.Type.Config[0].Type).To(Equal(types.F64()))
+				Expect(fn.Type.Config[0].Value).To(Equal(1.0))
+			})
+			It("should collect mixed required and optional config params", func() {
+				ctx := analyzeExpectSuccess(`func foo{setpoint f64, gain f64 = 1.0}() {}`, nil)
+				fn := ctx.Scope.Children[0]
+				Expect(fn.Type.Config).To(HaveLen(2))
+				Expect(fn.Type.Config[0].Name).To(Equal("setpoint"))
+				Expect(fn.Type.Config[0].Value).To(BeNil())
+				Expect(fn.Type.Config[1].Name).To(Equal("gain"))
+				Expect(fn.Type.Config[1].Value).To(Equal(1.0))
+			})
+			It("should reject required config after optional config", func() {
+				analyzeExpectError(
+					`func foo{gain f64 = 1.0, setpoint f64}() {}`,
+					nil,
+					ContainSubstring("required config parameter setpoint cannot follow optional config parameters"),
+				)
+			})
+			It("should reject invalid default value for config", func() {
+				analyzeExpectError(
+					`func foo{x i8 = 128}() {}`,
+					nil,
+					ContainSubstring("out of range for i8"),
+				)
+			})
 		})
 		Describe("input parameter collection", func() {
 			It("should collect multiple inputs without defaults", func() {
@@ -374,8 +405,8 @@ var _ = Describe("Function Analyzer", func() {
 	Describe("Channel Binding", func() {
 		It("should bind global channels used in function body", func() {
 			resolver := symbol.MapResolver{
-				"ox_pt_1": {Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 12},
-				"ox_pt_2": {Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 13},
+				"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 12},
+				"ox_pt_2": {Name: "ox_pt_2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 13},
 			}
 			ctx := analyzeExpectSuccess(`
 				func add() f32 {
@@ -386,8 +417,25 @@ var _ = Describe("Function Analyzer", func() {
 			f := MustSucceed(ctx.Scope.Resolve(ctx, "add"))
 			Expect(f.Channels.Read).To(HaveLen(2))
 			Expect(f.Channels.Write).To(BeEmpty())
-			Expect(f.Channels.Read).To(HaveKey(uint32(12)))
-			Expect(f.Channels.Read).To(HaveKey(uint32(13)))
+			Expect(f.Channels.Read[12]).To(Equal("ox_pt_1"))
+			Expect(f.Channels.Read[13]).To(Equal("ox_pt_2"))
+		})
+
+		It("should bind channel name when writing to a global channel", func() {
+			resolver := symbol.MapResolver{
+				"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 12},
+				"valve":   {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+			}
+			ctx := analyzeExpectSuccess(`
+				func setValve() {
+					valve = ox_pt_1 * 2
+				}
+			`, resolver)
+			f := MustSucceed(ctx.Scope.Resolve(ctx, "setValve"))
+			Expect(f.Channels.Read).To(HaveLen(1))
+			Expect(f.Channels.Read[12]).To(Equal("ox_pt_1"))
+			Expect(f.Channels.Write).To(HaveLen(1))
+			Expect(f.Channels.Write[20]).To(Equal("valve"))
 		})
 	})
 

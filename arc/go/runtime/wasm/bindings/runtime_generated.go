@@ -28,38 +28,42 @@ type Runtime struct {
 	state  *state.State
 	memory api.Memory // WASM memory for reading string literals
 
+	// currentNodeKey is the key of the node currently executing WASM.
+	// This is set before each WASM call to ensure stateful variables are isolated per node instance.
+	currentNodeKey string
+
 	// State storage for stateful variables
-	// Key: (funcID << 32) | varID
-	stateU8     map[uint64]uint8
-	stateU16    map[uint64]uint16
-	stateU32    map[uint64]uint32
-	stateU64    map[uint64]uint64
-	stateI8     map[uint64]int8
-	stateI16    map[uint64]int16
-	stateI32    map[uint64]int32
-	stateI64    map[uint64]int64
-	stateF32    map[uint64]float32
-	stateF64    map[uint64]float64
-	stateString map[uint64]string
-	stateSeries map[uint64]telem.Series
+	// Outer map key: node key, inner map key: variable ID
+	stateU8     map[string]map[uint32]uint8
+	stateU16    map[string]map[uint32]uint16
+	stateU32    map[string]map[uint32]uint32
+	stateU64    map[string]map[uint32]uint64
+	stateI8     map[string]map[uint32]int8
+	stateI16    map[string]map[uint32]int16
+	stateI32    map[string]map[uint32]int32
+	stateI64    map[string]map[uint32]int64
+	stateF32    map[string]map[uint32]float32
+	stateF64    map[string]map[uint32]float64
+	stateString map[string]map[uint32]string
+	stateSeries map[string]map[uint32]telem.Series
 }
 
 func NewRuntime(state *state.State, memory api.Memory) *Runtime {
 	return &Runtime{
 		state:       state,
 		memory:      memory,
-		stateU8:     make(map[uint64]uint8),
-		stateU16:    make(map[uint64]uint16),
-		stateU32:    make(map[uint64]uint32),
-		stateU64:    make(map[uint64]uint64),
-		stateI8:     make(map[uint64]int8),
-		stateI16:    make(map[uint64]int16),
-		stateI32:    make(map[uint64]int32),
-		stateI64:    make(map[uint64]int64),
-		stateF32:    make(map[uint64]float32),
-		stateF64:    make(map[uint64]float64),
-		stateString: make(map[uint64]string),
-		stateSeries: make(map[uint64]telem.Series),
+		stateU8:     make(map[string]map[uint32]uint8),
+		stateU16:    make(map[string]map[uint32]uint16),
+		stateU32:    make(map[string]map[uint32]uint32),
+		stateU64:    make(map[string]map[uint32]uint64),
+		stateI8:     make(map[string]map[uint32]int8),
+		stateI16:    make(map[string]map[uint32]int16),
+		stateI32:    make(map[string]map[uint32]int32),
+		stateI64:    make(map[string]map[uint32]int64),
+		stateF32:    make(map[string]map[uint32]float32),
+		stateF64:    make(map[string]map[uint32]float64),
+		stateString: make(map[string]map[uint32]string),
+		stateSeries: make(map[string]map[uint32]telem.Series),
 	}
 }
 
@@ -76,9 +80,10 @@ func (r *Runtime) GetString(handle uint32) string {
 	return ""
 }
 
-// stateKey combines funcID and varID into a single key for state storage.
-func stateKey(funcID uint32, varID uint32) uint64 {
-	return (uint64(funcID) << 32) | uint64(varID)
+// SetCurrentNodeKey sets the current node key for state isolation.
+// This must be called before each WASM function invocation.
+func (r *Runtime) SetCurrentNodeKey(key string) {
+	r.currentNodeKey = key
 }
 
 // ChannelReadU8 reads the latest value from a channel.
@@ -282,173 +287,263 @@ func (r *Runtime) ChannelWriteF64(ctx context.Context, channelID uint32, value f
 }
 
 // StateLoadU8 loads a stateful variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoadU8(ctx context.Context, funcID uint32, varID uint32, initValue uint8) uint8 {
-	key := stateKey(funcID, varID)
-	if value, ok := r.stateU8[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadU8(ctx context.Context, varID uint32, initValue uint8) uint8 {
+	inner, ok := r.stateU8[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]uint8)
+		r.stateU8[r.currentNodeKey] = inner
+	}
+	if value, ok := inner[varID]; ok {
 		return value
 	}
-	// Not found - initialize and return
-	r.stateU8[key] = initValue
+	inner[varID] = initValue
 	return initValue
 }
 
 // StateStoreU8 stores a stateful variable's value.
-func (r *Runtime) StateStoreU8(ctx context.Context, funcID uint32, varID uint32, value uint8) {
-	key := stateKey(funcID, varID)
-	r.stateU8[key] = value
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreU8(ctx context.Context, varID uint32, value uint8) {
+	inner, ok := r.stateU8[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]uint8)
+		r.stateU8[r.currentNodeKey] = inner
+	}
+	inner[varID] = value
 }
 
 // StateLoadU16 loads a stateful variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoadU16(ctx context.Context, funcID uint32, varID uint32, initValue uint16) uint16 {
-	key := stateKey(funcID, varID)
-	if value, ok := r.stateU16[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadU16(ctx context.Context, varID uint32, initValue uint16) uint16 {
+	inner, ok := r.stateU16[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]uint16)
+		r.stateU16[r.currentNodeKey] = inner
+	}
+	if value, ok := inner[varID]; ok {
 		return value
 	}
-	// Not found - initialize and return
-	r.stateU16[key] = initValue
+	inner[varID] = initValue
 	return initValue
 }
 
 // StateStoreU16 stores a stateful variable's value.
-func (r *Runtime) StateStoreU16(ctx context.Context, funcID uint32, varID uint32, value uint16) {
-	key := stateKey(funcID, varID)
-	r.stateU16[key] = value
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreU16(ctx context.Context, varID uint32, value uint16) {
+	inner, ok := r.stateU16[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]uint16)
+		r.stateU16[r.currentNodeKey] = inner
+	}
+	inner[varID] = value
 }
 
 // StateLoadU32 loads a stateful variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoadU32(ctx context.Context, funcID uint32, varID uint32, initValue uint32) uint32 {
-	key := stateKey(funcID, varID)
-	if value, ok := r.stateU32[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadU32(ctx context.Context, varID uint32, initValue uint32) uint32 {
+	inner, ok := r.stateU32[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]uint32)
+		r.stateU32[r.currentNodeKey] = inner
+	}
+	if value, ok := inner[varID]; ok {
 		return value
 	}
-	// Not found - initialize and return
-	r.stateU32[key] = initValue
+	inner[varID] = initValue
 	return initValue
 }
 
 // StateStoreU32 stores a stateful variable's value.
-func (r *Runtime) StateStoreU32(ctx context.Context, funcID uint32, varID uint32, value uint32) {
-	key := stateKey(funcID, varID)
-	r.stateU32[key] = value
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreU32(ctx context.Context, varID uint32, value uint32) {
+	inner, ok := r.stateU32[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]uint32)
+		r.stateU32[r.currentNodeKey] = inner
+	}
+	inner[varID] = value
 }
 
 // StateLoadU64 loads a stateful variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoadU64(ctx context.Context, funcID uint32, varID uint32, initValue uint64) uint64 {
-	key := stateKey(funcID, varID)
-	if value, ok := r.stateU64[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadU64(ctx context.Context, varID uint32, initValue uint64) uint64 {
+	inner, ok := r.stateU64[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]uint64)
+		r.stateU64[r.currentNodeKey] = inner
+	}
+	if value, ok := inner[varID]; ok {
 		return value
 	}
-	// Not found - initialize and return
-	r.stateU64[key] = initValue
+	inner[varID] = initValue
 	return initValue
 }
 
 // StateStoreU64 stores a stateful variable's value.
-func (r *Runtime) StateStoreU64(ctx context.Context, funcID uint32, varID uint32, value uint64) {
-	key := stateKey(funcID, varID)
-	r.stateU64[key] = value
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreU64(ctx context.Context, varID uint32, value uint64) {
+	inner, ok := r.stateU64[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]uint64)
+		r.stateU64[r.currentNodeKey] = inner
+	}
+	inner[varID] = value
 }
 
 // StateLoadI8 loads a stateful variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoadI8(ctx context.Context, funcID uint32, varID uint32, initValue int8) int8 {
-	key := stateKey(funcID, varID)
-	if value, ok := r.stateI8[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadI8(ctx context.Context, varID uint32, initValue int8) int8 {
+	inner, ok := r.stateI8[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]int8)
+		r.stateI8[r.currentNodeKey] = inner
+	}
+	if value, ok := inner[varID]; ok {
 		return value
 	}
-	// Not found - initialize and return
-	r.stateI8[key] = initValue
+	inner[varID] = initValue
 	return initValue
 }
 
 // StateStoreI8 stores a stateful variable's value.
-func (r *Runtime) StateStoreI8(ctx context.Context, funcID uint32, varID uint32, value int8) {
-	key := stateKey(funcID, varID)
-	r.stateI8[key] = value
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreI8(ctx context.Context, varID uint32, value int8) {
+	inner, ok := r.stateI8[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]int8)
+		r.stateI8[r.currentNodeKey] = inner
+	}
+	inner[varID] = value
 }
 
 // StateLoadI16 loads a stateful variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoadI16(ctx context.Context, funcID uint32, varID uint32, initValue int16) int16 {
-	key := stateKey(funcID, varID)
-	if value, ok := r.stateI16[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadI16(ctx context.Context, varID uint32, initValue int16) int16 {
+	inner, ok := r.stateI16[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]int16)
+		r.stateI16[r.currentNodeKey] = inner
+	}
+	if value, ok := inner[varID]; ok {
 		return value
 	}
-	// Not found - initialize and return
-	r.stateI16[key] = initValue
+	inner[varID] = initValue
 	return initValue
 }
 
 // StateStoreI16 stores a stateful variable's value.
-func (r *Runtime) StateStoreI16(ctx context.Context, funcID uint32, varID uint32, value int16) {
-	key := stateKey(funcID, varID)
-	r.stateI16[key] = value
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreI16(ctx context.Context, varID uint32, value int16) {
+	inner, ok := r.stateI16[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]int16)
+		r.stateI16[r.currentNodeKey] = inner
+	}
+	inner[varID] = value
 }
 
 // StateLoadI32 loads a stateful variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoadI32(ctx context.Context, funcID uint32, varID uint32, initValue int32) int32 {
-	key := stateKey(funcID, varID)
-	if value, ok := r.stateI32[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadI32(ctx context.Context, varID uint32, initValue int32) int32 {
+	inner, ok := r.stateI32[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]int32)
+		r.stateI32[r.currentNodeKey] = inner
+	}
+	if value, ok := inner[varID]; ok {
 		return value
 	}
-	// Not found - initialize and return
-	r.stateI32[key] = initValue
+	inner[varID] = initValue
 	return initValue
 }
 
 // StateStoreI32 stores a stateful variable's value.
-func (r *Runtime) StateStoreI32(ctx context.Context, funcID uint32, varID uint32, value int32) {
-	key := stateKey(funcID, varID)
-	r.stateI32[key] = value
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreI32(ctx context.Context, varID uint32, value int32) {
+	inner, ok := r.stateI32[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]int32)
+		r.stateI32[r.currentNodeKey] = inner
+	}
+	inner[varID] = value
 }
 
 // StateLoadI64 loads a stateful variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoadI64(ctx context.Context, funcID uint32, varID uint32, initValue int64) int64 {
-	key := stateKey(funcID, varID)
-	if value, ok := r.stateI64[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadI64(ctx context.Context, varID uint32, initValue int64) int64 {
+	inner, ok := r.stateI64[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]int64)
+		r.stateI64[r.currentNodeKey] = inner
+	}
+	if value, ok := inner[varID]; ok {
 		return value
 	}
-	// Not found - initialize and return
-	r.stateI64[key] = initValue
+	inner[varID] = initValue
 	return initValue
 }
 
 // StateStoreI64 stores a stateful variable's value.
-func (r *Runtime) StateStoreI64(ctx context.Context, funcID uint32, varID uint32, value int64) {
-	key := stateKey(funcID, varID)
-	r.stateI64[key] = value
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreI64(ctx context.Context, varID uint32, value int64) {
+	inner, ok := r.stateI64[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]int64)
+		r.stateI64[r.currentNodeKey] = inner
+	}
+	inner[varID] = value
 }
 
 // StateLoadF32 loads a stateful variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoadF32(ctx context.Context, funcID uint32, varID uint32, initValue float32) float32 {
-	key := stateKey(funcID, varID)
-	if value, ok := r.stateF32[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadF32(ctx context.Context, varID uint32, initValue float32) float32 {
+	inner, ok := r.stateF32[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]float32)
+		r.stateF32[r.currentNodeKey] = inner
+	}
+	if value, ok := inner[varID]; ok {
 		return value
 	}
-	// Not found - initialize and return
-	r.stateF32[key] = initValue
+	inner[varID] = initValue
 	return initValue
 }
 
 // StateStoreF32 stores a stateful variable's value.
-func (r *Runtime) StateStoreF32(ctx context.Context, funcID uint32, varID uint32, value float32) {
-	key := stateKey(funcID, varID)
-	r.stateF32[key] = value
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreF32(ctx context.Context, varID uint32, value float32) {
+	inner, ok := r.stateF32[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]float32)
+		r.stateF32[r.currentNodeKey] = inner
+	}
+	inner[varID] = value
 }
 
 // StateLoadF64 loads a stateful variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoadF64(ctx context.Context, funcID uint32, varID uint32, initValue float64) float64 {
-	key := stateKey(funcID, varID)
-	if value, ok := r.stateF64[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadF64(ctx context.Context, varID uint32, initValue float64) float64 {
+	inner, ok := r.stateF64[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]float64)
+		r.stateF64[r.currentNodeKey] = inner
+	}
+	if value, ok := inner[varID]; ok {
 		return value
 	}
-	// Not found - initialize and return
-	r.stateF64[key] = initValue
+	inner[varID] = initValue
 	return initValue
 }
 
 // StateStoreF64 stores a stateful variable's value.
-func (r *Runtime) StateStoreF64(ctx context.Context, funcID uint32, varID uint32, value float64) {
-	key := stateKey(funcID, varID)
-	r.stateF64[key] = value
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreF64(ctx context.Context, varID uint32, value float64) {
+	inner, ok := r.stateF64[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]float64)
+		r.stateF64[r.currentNodeKey] = inner
+	}
+	inner[varID] = value
 }
 
 // Now returns the current timestamp.
@@ -568,7 +663,7 @@ func (r *Runtime) ChannelReadStr(ctx context.Context, channelID uint32) uint32 {
 	}
 
 	// Unmarshal strings from series
-	strings := telem.UnmarshalStrings(series.Data)
+	strings := telem.UnmarshalSeries[string](series)
 	if len(strings) == 0 {
 		return 0
 	}
@@ -585,43 +680,47 @@ func (r *Runtime) ChannelWriteStr(ctx context.Context, channelID uint32, handle 
 		return // Invalid handle, do nothing
 	}
 
-	// Create series from string
-	data := telem.MarshalStrings([]string{str}, telem.StringT)
-	series := telem.Series{
-		DataType: telem.StringT,
-		Data:     data,
-	}
+	series := telem.NewSeriesV(str)
 
 	// Queue for output
 	r.state.WriteChannelValue(channelID, series)
 }
 
 // StateLoadStr loads a stateful string variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoadStr(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	key := stateKey(funcID, varID)
-	str, ok := r.stateString[key]
-	if ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadStr(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+	inner, ok := r.stateString[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]string)
+		r.stateString[r.currentNodeKey] = inner
+	}
+	if str, ok := inner[varID]; ok {
 		// Exists - create a new handle for the stored string
 		return r.state.StringCreate(str)
 	}
 
 	// Not found - store the init string and return the same handle
 	if initStr, ok := r.state.StringGet(initHandle); ok {
-		r.stateString[key] = initStr
+		inner[varID] = initStr
 	}
 	return initHandle
 }
 
 // StateStoreStr stores a stateful string variable's value.
-func (r *Runtime) StateStoreStr(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreStr(ctx context.Context, varID uint32, handle uint32) {
 	// Look up string by handle
 	str, ok := r.state.StringGet(handle)
 	if !ok {
 		return // Invalid handle, do nothing
 	}
 
-	key := stateKey(funcID, varID)
-	r.stateString[key] = str
+	inner, ok := r.stateString[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]string)
+		r.stateString[r.currentNodeKey] = inner
+	}
+	inner[varID] = str
 }
 
 // SeriesCreateEmptyU8 creates an empty series of the given length.
@@ -999,22 +1098,33 @@ func (r *Runtime) SeriesCompareNEScalarU8(ctx context.Context, handle uint32, sc
 }
 
 // StateLoadSeriesU8 loads a persisted series, returns new handle.
-func (r *Runtime) StateLoadSeriesU8(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	key := stateKey(funcID, varID)
-	if s, ok := r.stateSeries[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadSeriesU8(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
+	if s, ok := inner[varID]; ok {
 		return r.state.SeriesStore(s)
 	}
 	// Initialize from provided handle
 	if initS, ok := r.state.SeriesGet(initHandle); ok {
-		r.stateSeries[key] = initS
+		inner[varID] = initS
 	}
 	return initHandle
 }
 
 // StateStoreSeriesU8 persists a series to state.
-func (r *Runtime) StateStoreSeriesU8(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreSeriesU8(ctx context.Context, varID uint32, handle uint32) {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
 	if s, ok := r.state.SeriesGet(handle); ok {
-		r.stateSeries[stateKey(funcID, varID)] = s
+		inner[varID] = s
 	}
 }
 
@@ -1393,22 +1503,33 @@ func (r *Runtime) SeriesCompareNEScalarU16(ctx context.Context, handle uint32, s
 }
 
 // StateLoadSeriesU16 loads a persisted series, returns new handle.
-func (r *Runtime) StateLoadSeriesU16(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	key := stateKey(funcID, varID)
-	if s, ok := r.stateSeries[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadSeriesU16(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
+	if s, ok := inner[varID]; ok {
 		return r.state.SeriesStore(s)
 	}
 	// Initialize from provided handle
 	if initS, ok := r.state.SeriesGet(initHandle); ok {
-		r.stateSeries[key] = initS
+		inner[varID] = initS
 	}
 	return initHandle
 }
 
 // StateStoreSeriesU16 persists a series to state.
-func (r *Runtime) StateStoreSeriesU16(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreSeriesU16(ctx context.Context, varID uint32, handle uint32) {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
 	if s, ok := r.state.SeriesGet(handle); ok {
-		r.stateSeries[stateKey(funcID, varID)] = s
+		inner[varID] = s
 	}
 }
 
@@ -1787,22 +1908,33 @@ func (r *Runtime) SeriesCompareNEScalarU32(ctx context.Context, handle uint32, s
 }
 
 // StateLoadSeriesU32 loads a persisted series, returns new handle.
-func (r *Runtime) StateLoadSeriesU32(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	key := stateKey(funcID, varID)
-	if s, ok := r.stateSeries[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadSeriesU32(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
+	if s, ok := inner[varID]; ok {
 		return r.state.SeriesStore(s)
 	}
 	// Initialize from provided handle
 	if initS, ok := r.state.SeriesGet(initHandle); ok {
-		r.stateSeries[key] = initS
+		inner[varID] = initS
 	}
 	return initHandle
 }
 
 // StateStoreSeriesU32 persists a series to state.
-func (r *Runtime) StateStoreSeriesU32(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreSeriesU32(ctx context.Context, varID uint32, handle uint32) {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
 	if s, ok := r.state.SeriesGet(handle); ok {
-		r.stateSeries[stateKey(funcID, varID)] = s
+		inner[varID] = s
 	}
 }
 
@@ -2181,22 +2313,33 @@ func (r *Runtime) SeriesCompareNEScalarU64(ctx context.Context, handle uint32, s
 }
 
 // StateLoadSeriesU64 loads a persisted series, returns new handle.
-func (r *Runtime) StateLoadSeriesU64(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	key := stateKey(funcID, varID)
-	if s, ok := r.stateSeries[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadSeriesU64(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
+	if s, ok := inner[varID]; ok {
 		return r.state.SeriesStore(s)
 	}
 	// Initialize from provided handle
 	if initS, ok := r.state.SeriesGet(initHandle); ok {
-		r.stateSeries[key] = initS
+		inner[varID] = initS
 	}
 	return initHandle
 }
 
 // StateStoreSeriesU64 persists a series to state.
-func (r *Runtime) StateStoreSeriesU64(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreSeriesU64(ctx context.Context, varID uint32, handle uint32) {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
 	if s, ok := r.state.SeriesGet(handle); ok {
-		r.stateSeries[stateKey(funcID, varID)] = s
+		inner[varID] = s
 	}
 }
 
@@ -2575,22 +2718,33 @@ func (r *Runtime) SeriesCompareNEScalarI8(ctx context.Context, handle uint32, sc
 }
 
 // StateLoadSeriesI8 loads a persisted series, returns new handle.
-func (r *Runtime) StateLoadSeriesI8(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	key := stateKey(funcID, varID)
-	if s, ok := r.stateSeries[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadSeriesI8(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
+	if s, ok := inner[varID]; ok {
 		return r.state.SeriesStore(s)
 	}
 	// Initialize from provided handle
 	if initS, ok := r.state.SeriesGet(initHandle); ok {
-		r.stateSeries[key] = initS
+		inner[varID] = initS
 	}
 	return initHandle
 }
 
 // StateStoreSeriesI8 persists a series to state.
-func (r *Runtime) StateStoreSeriesI8(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreSeriesI8(ctx context.Context, varID uint32, handle uint32) {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
 	if s, ok := r.state.SeriesGet(handle); ok {
-		r.stateSeries[stateKey(funcID, varID)] = s
+		inner[varID] = s
 	}
 }
 
@@ -2969,22 +3123,33 @@ func (r *Runtime) SeriesCompareNEScalarI16(ctx context.Context, handle uint32, s
 }
 
 // StateLoadSeriesI16 loads a persisted series, returns new handle.
-func (r *Runtime) StateLoadSeriesI16(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	key := stateKey(funcID, varID)
-	if s, ok := r.stateSeries[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadSeriesI16(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
+	if s, ok := inner[varID]; ok {
 		return r.state.SeriesStore(s)
 	}
 	// Initialize from provided handle
 	if initS, ok := r.state.SeriesGet(initHandle); ok {
-		r.stateSeries[key] = initS
+		inner[varID] = initS
 	}
 	return initHandle
 }
 
 // StateStoreSeriesI16 persists a series to state.
-func (r *Runtime) StateStoreSeriesI16(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreSeriesI16(ctx context.Context, varID uint32, handle uint32) {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
 	if s, ok := r.state.SeriesGet(handle); ok {
-		r.stateSeries[stateKey(funcID, varID)] = s
+		inner[varID] = s
 	}
 }
 
@@ -3363,22 +3528,33 @@ func (r *Runtime) SeriesCompareNEScalarI32(ctx context.Context, handle uint32, s
 }
 
 // StateLoadSeriesI32 loads a persisted series, returns new handle.
-func (r *Runtime) StateLoadSeriesI32(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	key := stateKey(funcID, varID)
-	if s, ok := r.stateSeries[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadSeriesI32(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
+	if s, ok := inner[varID]; ok {
 		return r.state.SeriesStore(s)
 	}
 	// Initialize from provided handle
 	if initS, ok := r.state.SeriesGet(initHandle); ok {
-		r.stateSeries[key] = initS
+		inner[varID] = initS
 	}
 	return initHandle
 }
 
 // StateStoreSeriesI32 persists a series to state.
-func (r *Runtime) StateStoreSeriesI32(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreSeriesI32(ctx context.Context, varID uint32, handle uint32) {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
 	if s, ok := r.state.SeriesGet(handle); ok {
-		r.stateSeries[stateKey(funcID, varID)] = s
+		inner[varID] = s
 	}
 }
 
@@ -3757,22 +3933,33 @@ func (r *Runtime) SeriesCompareNEScalarI64(ctx context.Context, handle uint32, s
 }
 
 // StateLoadSeriesI64 loads a persisted series, returns new handle.
-func (r *Runtime) StateLoadSeriesI64(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	key := stateKey(funcID, varID)
-	if s, ok := r.stateSeries[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadSeriesI64(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
+	if s, ok := inner[varID]; ok {
 		return r.state.SeriesStore(s)
 	}
 	// Initialize from provided handle
 	if initS, ok := r.state.SeriesGet(initHandle); ok {
-		r.stateSeries[key] = initS
+		inner[varID] = initS
 	}
 	return initHandle
 }
 
 // StateStoreSeriesI64 persists a series to state.
-func (r *Runtime) StateStoreSeriesI64(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreSeriesI64(ctx context.Context, varID uint32, handle uint32) {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
 	if s, ok := r.state.SeriesGet(handle); ok {
-		r.stateSeries[stateKey(funcID, varID)] = s
+		inner[varID] = s
 	}
 }
 
@@ -4151,22 +4338,33 @@ func (r *Runtime) SeriesCompareNEScalarF32(ctx context.Context, handle uint32, s
 }
 
 // StateLoadSeriesF32 loads a persisted series, returns new handle.
-func (r *Runtime) StateLoadSeriesF32(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	key := stateKey(funcID, varID)
-	if s, ok := r.stateSeries[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadSeriesF32(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
+	if s, ok := inner[varID]; ok {
 		return r.state.SeriesStore(s)
 	}
 	// Initialize from provided handle
 	if initS, ok := r.state.SeriesGet(initHandle); ok {
-		r.stateSeries[key] = initS
+		inner[varID] = initS
 	}
 	return initHandle
 }
 
 // StateStoreSeriesF32 persists a series to state.
-func (r *Runtime) StateStoreSeriesF32(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreSeriesF32(ctx context.Context, varID uint32, handle uint32) {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
 	if s, ok := r.state.SeriesGet(handle); ok {
-		r.stateSeries[stateKey(funcID, varID)] = s
+		inner[varID] = s
 	}
 }
 
@@ -4545,22 +4743,33 @@ func (r *Runtime) SeriesCompareNEScalarF64(ctx context.Context, handle uint32, s
 }
 
 // StateLoadSeriesF64 loads a persisted series, returns new handle.
-func (r *Runtime) StateLoadSeriesF64(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	key := stateKey(funcID, varID)
-	if s, ok := r.stateSeries[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadSeriesF64(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
+	if s, ok := inner[varID]; ok {
 		return r.state.SeriesStore(s)
 	}
 	// Initialize from provided handle
 	if initS, ok := r.state.SeriesGet(initHandle); ok {
-		r.stateSeries[key] = initS
+		inner[varID] = initS
 	}
 	return initHandle
 }
 
 // StateStoreSeriesF64 persists a series to state.
-func (r *Runtime) StateStoreSeriesF64(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreSeriesF64(ctx context.Context, varID uint32, handle uint32) {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
 	if s, ok := r.state.SeriesGet(handle); ok {
-		r.stateSeries[stateKey(funcID, varID)] = s
+		inner[varID] = s
 	}
 }
 

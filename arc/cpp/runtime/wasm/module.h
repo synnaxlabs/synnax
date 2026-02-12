@@ -66,23 +66,6 @@ sample_to_wasm(const x::telem::SampleValue &val, const types::Type &type) {
     }
 }
 
-/// @brief Convert JSON value to wasmtime::Val using the declared type.
-/// @note JSON stores numbers as double, so we cast to the appropriate type.
-inline wasmtime::Val json_to_wasm(const x::json::json &val, const types::Type &type) {
-    const auto as_double = val.get<double>();
-    switch (type.kind) {
-        case types::Kind::F64:
-            return wasmtime::Val(as_double);
-        case types::Kind::F32:
-            return wasmtime::Val(static_cast<float>(as_double));
-        case types::Kind::I64:
-        case types::Kind::U64:
-            return wasmtime::Val(static_cast<int64_t>(as_double));
-        default:
-            return wasmtime::Val(static_cast<int32_t>(as_double));
-    }
-}
-
 /// Convert wasmtime::Val to SampleValue after WASM function returns
 inline x::telem::SampleValue
 sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
@@ -111,7 +94,10 @@ sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
             return x::telem::SampleValue(val.f32());
         case types::Kind::F64:
             return x::telem::SampleValue(val.f64());
-        default:
+        case types::Kind::Invalid:
+        case types::Kind::String:
+        case types::Kind::Chan:
+        case types::Kind::Series:
             return x::telem::SampleValue(0);
     }
     return x::telem::SampleValue(0);
@@ -151,7 +137,10 @@ sample_from_bits(const uint64_t bits, const types::Type &type) {
             memcpy(&d, &bits, sizeof(double));
             return x::telem::SampleValue(d);
         }
-        default:
+        case types::Kind::Invalid:
+        case types::Kind::String:
+        case types::Kind::Chan:
+        case types::Kind::Series:
             return x::telem::SampleValue(static_cast<int32_t>(0));
     }
     return x::telem::SampleValue(static_cast<int32_t>(0));
@@ -368,7 +357,7 @@ public:
     /// @param node_config The node's config params with values. If empty, uses the
     /// function's config.
     std::pair<Function, x::errors::Error>
-    func(const std::string &name, const types::Params &node_config = {}) {
+    func(const std::string &name, const ir::Params &node_config = {}) {
         const auto export_opt = this->instance.get(this->store, name);
         const Function zero_func(*this, wasmtime::Func({}), {}, {}, {}, 0);
         if (!export_opt) return {zero_func, x::errors::NOT_FOUND};

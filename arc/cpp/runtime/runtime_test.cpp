@@ -278,8 +278,8 @@ TEST(RuntimeLifecycleTest, ReadReturnsFalseAfterStop) {
     ASSERT_TRUE(runtime->start());
     ASSERT_TRUE(runtime->stop());
 
-    x::telem::Frame frame;
-    EXPECT_FALSE(runtime->read(frame)) << "Read should return false when stopped";
+    Output out;
+    EXPECT_FALSE(runtime->read(out)) << "Read should return false when stopped";
 }
 
 /// @brief Test that double stop returns false on second call.
@@ -290,4 +290,65 @@ TEST(RuntimeLifecycleTest, DoubleStopReturnsFalse) {
     ASSERT_TRUE(runtime->start());
     ASSERT_TRUE(runtime->stop());
     EXPECT_FALSE(runtime->stop()) << "Second stop should return false";
+}
+
+TEST(BuildAuthoritiesTest, ReturnsEmptyWhenNoConfig) {
+    arc::ir::Authorities auth;
+    std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};
+    auto result = build_authorities(auth, write_keys);
+    EXPECT_TRUE(result.empty());
+}
+
+TEST(BuildAuthoritiesTest, DefaultAuthorityAppliesToAllKeys) {
+    arc::ir::Authorities auth;
+    auth.default_authority = 100;
+    std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};
+    auto result = build_authorities(auth, write_keys);
+    ASSERT_EQ(result.size(), 3);
+    for (const auto &a: result)
+        EXPECT_EQ(a, 100);
+}
+
+TEST(BuildAuthoritiesTest, PerChannelOverridesDefault) {
+    arc::ir::Authorities auth;
+    auth.default_authority = 100;
+    auth.channels[2] = 200;
+
+    std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};
+    auto result = build_authorities(auth, write_keys);
+    ASSERT_EQ(result.size(), 3);
+    EXPECT_EQ(result[0], 100);
+    EXPECT_EQ(result[1], 200);
+    EXPECT_EQ(result[2], 100);
+}
+
+TEST(BuildAuthoritiesTest, NoDefaultUsesAbsolute) {
+    arc::ir::Authorities auth;
+    auth.channels[1] = 50;
+
+    std::vector<arc::types::ChannelKey> write_keys = {1, 2};
+    auto result = build_authorities(auth, write_keys);
+    ASSERT_EQ(result.size(), 2);
+    EXPECT_EQ(result[0], 50);
+    EXPECT_EQ(result[1], x::control::AUTHORITY_ABSOLUTE);
+}
+
+TEST(MockLoopTest, WakeReasonIsConfigurable) {
+    testutil::MockLoop loop;
+    x::breaker::Breaker breaker(x::breaker::Config{});
+    breaker.start();
+
+    loop.wake_reason = loop::WakeReason::Timer;
+    ASSERT_EQ(loop.wait(breaker), loop::WakeReason::Timer);
+
+    loop.wake_reason = loop::WakeReason::Input;
+    ASSERT_EQ(loop.wait(breaker), loop::WakeReason::Input);
+
+    loop.wake_reason = loop::WakeReason::Timeout;
+    ASSERT_EQ(loop.wait(breaker), loop::WakeReason::Timeout);
+
+    loop.wake_reason = loop::WakeReason::Shutdown;
+    ASSERT_EQ(loop.wait(breaker), loop::WakeReason::Shutdown);
+
+    breaker.stop();
 }

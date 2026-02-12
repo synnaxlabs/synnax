@@ -22,6 +22,12 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#topLevelItem.
 	VisitTopLevelItem(ctx *TopLevelItemContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#authorityBlock.
+	VisitAuthorityBlock(ctx *AuthorityBlockContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#authorityEntry.
+	VisitAuthorityEntry(ctx *AuthorityEntryContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#functionDeclaration.
 	VisitFunctionDeclaration(ctx *FunctionDeclarationContext) interface{}
 
@@ -63,6 +69,9 @@ type ArcParserVisitor interface {
 
 	// Visit a parse tree produced by ArcParser#singleInvocation.
 	VisitSingleInvocation(ctx *SingleInvocationContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#globalConstant.
+	VisitGlobalConstant(ctx *GlobalConstantContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#flowStatement.
 	VisitFlowStatement(ctx *FlowStatementContext) interface{}

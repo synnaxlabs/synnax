@@ -33,6 +33,8 @@ public:
     std::atomic<int> wait_count{0};
     /// @brief Count of watch() invocations.
     std::atomic<int> watch_count{0};
+    /// @brief Configurable return value for wait().
+    std::atomic<loop::WakeReason> wake_reason{loop::WakeReason::Timer};
 
     x::errors::Error start() override {
         start_count++;
@@ -41,12 +43,13 @@ public:
         return x::errors::NIL;
     }
 
-    void wait(x::breaker::Breaker &breaker) override {
-        wait_count++;
-        std::unique_lock lock(mu);
-        cv.wait_for(lock, std::chrono::milliseconds(10), [&] {
-            return !should_block || !breaker.running();
+    loop::WakeReason wait(x::breaker::Breaker &breaker) override {
+        this->wait_count++;
+        std::unique_lock lock(this->mu);
+        this->cv.wait_for(lock, std::chrono::milliseconds(10), [&] {
+            return !this->should_block || !breaker.running();
         });
+        return this->wake_reason.load();
     }
 
     void wake() override {

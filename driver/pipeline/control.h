@@ -150,8 +150,8 @@ public:
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Control(
         std::shared_ptr<synnax::Synnax> client,
-        synnax::framer::StreamerConfig streamer_config,
-        std::shared_ptr<Sink> sink,
+        const synnax::framer::StreamerConfig &streamer_config,
+        const std::shared_ptr<Sink> &sink,
         const x::breaker::Config &breaker_config,
         std::string thread_name = ""
     );

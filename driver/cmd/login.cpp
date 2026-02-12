@@ -11,7 +11,8 @@
 
 #include "driver/cmd/cmd.h"
 
-int driver::cmd::sub::login(x::args::Parser &args) {
+namespace driver::cmd::sub {
+int login(x::args::Parser &args) {
     synnax::Config config;
     config.host = x::cli::prompt("Host", "localhost");
     config.port = x::cli::prompt<uint16_t>("Port", static_cast<uint16_t>(9090));
@@ -31,7 +32,7 @@ int driver::cmd::sub::login(x::args::Parser &args) {
         return 1;
     }
     LOG(INFO) << x::log::GREEN() << "successfully logged in!" << x::log::RESET();
-    if (const auto err = driver::rack::Config::save_conn_params(args, config)) {
+    if (const auto err = rack::Config::save_conn_params(args, config)) {
         LOG(ERROR) << x::log::RED() << "failed to save credentials: " << err
                    << x::log::RESET();
         return 1;
@@ -39,4 +40,5 @@ int driver::cmd::sub::login(x::args::Parser &args) {
     LOG(INFO) << x::log::GREEN() << "credentials saved successfully!"
               << x::log::RESET();
     return 0;
+}
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -32,12 +33,16 @@ type Service struct {
 	alias  *alias.Service
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		db:     cfg.Distribution.DB,
 		access: cfg.Service.RBAC,
 		alias:  cfg.Service.Alias,
-	}
+	}, nil
 }
 
 type SetRequest struct {
@@ -82,11 +87,10 @@ func (s *Service) Resolve(
 	ctx context.Context,
 	req ResolveRequest,
 ) (ResolveResponse, error) {
-	r := s.alias.NewReader(nil)
+	reader := s.alias.NewReader(nil)
 	aliases := make(map[string]channel.Key, len(req.Aliases))
-
 	for _, a := range req.Aliases {
-		ch, err := r.Resolve(ctx, req.Range, a)
+		ch, err := reader.Resolve(ctx, req.Range, a)
 		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return ResolveResponse{}, err
 		}
@@ -94,9 +98,7 @@ func (s *Service) Resolve(
 			aliases[a] = ch
 		}
 	}
-
 	keys := lo.Values(aliases)
-
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
@@ -104,7 +106,6 @@ func (s *Service) Resolve(
 	}); err != nil {
 		return ResolveResponse{}, err
 	}
-
 	return ResolveResponse{Aliases: aliases}, nil
 }
 
@@ -148,8 +149,8 @@ func (s *Service) List(
 	ctx context.Context,
 	req ListRequest,
 ) (ListResponse, error) {
-	r := s.alias.NewReader(nil)
-	aliases, err := r.List(ctx, req.Range)
+	reader := s.alias.NewReader(nil)
+	aliases, err := reader.List(ctx, req.Range)
 	if err != nil {
 		return ListResponse{}, err
 	}
@@ -161,7 +162,6 @@ func (s *Service) List(
 	}); err != nil {
 		return ListResponse{}, err
 	}
-
 	return ListResponse{Aliases: aliases}, nil
 }
 
@@ -186,18 +186,16 @@ func (s *Service) Retrieve(
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-
-	r := s.alias.NewReader(nil)
+	reader := s.alias.NewReader(nil)
 	aliases := make(map[channel.Key]string)
 	for _, ch := range req.Channels {
-		a, err := r.Retrieve(ctx, req.Range, ch)
+		al, err := reader.Retrieve(ctx, req.Range, ch)
 		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return RetrieveResponse{}, err
 		}
-		if a != "" {
-			aliases[ch] = a
+		if al != "" {
+			aliases[ch] = al
 		}
 	}
-
 	return RetrieveResponse{Aliases: aliases}, nil
 }

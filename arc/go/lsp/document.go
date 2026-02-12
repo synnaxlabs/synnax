@@ -15,7 +15,9 @@ import (
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/diagnostics"
+	lsp "github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/protocol"
 )
 
@@ -37,6 +39,7 @@ type Document struct {
 	IR          ir.IR
 	Diagnostics diagnostics.Diagnostics
 	Version     int32
+	debouncer   *debounce.Debouncer
 }
 
 func (d *Document) isBlock() bool {
@@ -44,9 +47,6 @@ func (d *Document) isBlock() bool {
 }
 
 func (d *Document) displayContent() string {
-	if d.isBlock() && len(d.Content) >= 2 {
-		return d.Content[1 : len(d.Content)-1]
-	}
 	return d.Content
 }
 
@@ -99,40 +99,11 @@ func (d *Document) toDocLocations(locs []protocol.Location) []protocol.Location 
 }
 
 func (d *Document) getWordAtPosition(pos protocol.Position) string {
-	content := d.displayContent()
-	line, ok := getLine(content, pos.Line)
-	if !ok || int(pos.Character) >= len(line) {
-		return ""
-	}
-	start := int(pos.Character)
-	end := int(pos.Character)
-	for start > 0 && isWordChar(line[start-1]) {
-		start--
-	}
-	for end < len(line) && isWordChar(line[end]) {
-		end++
-	}
-	return line[start:end]
+	return lsp.GetWordAtPosition(d.displayContent(), pos)
 }
 
 func (d *Document) getWordRangeAtPosition(pos protocol.Position) *protocol.Range {
-	word := d.getWordAtPosition(pos)
-	if word == "" {
-		return nil
-	}
-	content := d.displayContent()
-	line, ok := getLine(content, pos.Line)
-	if !ok || int(pos.Character) >= len(line) {
-		return nil
-	}
-	start := int(pos.Character)
-	for start > 0 && isWordChar(line[start-1]) {
-		start--
-	}
-	return &protocol.Range{
-		Start: protocol.Position{Line: pos.Line, Character: uint32(start)},
-		End:   protocol.Position{Line: pos.Line, Character: uint32(start + len(word))},
-	}
+	return lsp.GetWordRangeAtPosition(d.displayContent(), pos)
 }
 
 func (d *Document) findScopeAtPosition(pos protocol.Position) *symbol.Scope {

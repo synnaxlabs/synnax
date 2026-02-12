@@ -47,10 +47,10 @@ type Cluster struct {
 	deleteNet   *tmock.FramerDeleterNetwork
 	aspenNet    *aspentransmock.Network
 	addrFactory *address.Factory
-	cfg         distribution.Config
+	cfg         distribution.LayerConfig
 }
 
-func ProvisionCluster(ctx context.Context, n int, cfgs ...distribution.Config) *Cluster {
+func ProvisionCluster(ctx context.Context, n int, cfgs ...distribution.LayerConfig) *Cluster {
 	b := NewCluster(cfgs...)
 	for range n {
 		b.Provision(ctx)
@@ -58,12 +58,12 @@ func ProvisionCluster(ctx context.Context, n int, cfgs ...distribution.Config) *
 	return b
 }
 
-func NewCluster(cfgs ...distribution.Config) *Cluster {
+func NewCluster(cfgs ...distribution.LayerConfig) *Cluster {
 	// NOTE: We don't use config.New here because it returns a zero-value when
 	// validation fails (which it will since we don't have required fields).
 	// Instead, we manually merge the configs to preserve values like
 	// ValidateChannelNames.
-	var cfg distribution.Config
+	var cfg distribution.LayerConfig
 	for _, c := range cfgs {
 		cfg = cfg.Override(c)
 	}
@@ -83,13 +83,13 @@ func NewCluster(cfgs ...distribution.Config) *Cluster {
 
 func (c *Cluster) Provision(
 	ctx context.Context,
-	cfgs ...distribution.Config,
+	cfgs ...distribution.LayerConfig,
 ) Node {
 	var (
 		peers             = c.addrFactory.Generated()
 		addr              = c.addrFactory.Next()
 		storageLayer      = c.storage.Provision(ctx)
-		distributionLayer = testutil.MustSucceed(distribution.Open(ctx, append([]distribution.Config{{
+		distributionLayer = testutil.MustSucceed(distribution.OpenLayer(ctx, append([]distribution.LayerConfig{{
 			Storage: storageLayer,
 			FrameTransport: mockFramerTransport{
 				iter:    c.iterNet.New(addr, 1),
@@ -125,12 +125,11 @@ func (c *Cluster) WaitForTopologyToStabilize() {
 }
 
 func (b *Cluster) Close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
+	var err error
 	for _, node := range b.Nodes {
-		c.Exec(node.Close)
+		err = errors.Join(err, node.Close())
 	}
-	c.Exec(b.storage.Close)
-	return c.Error()
+	return errors.Join(err, b.storage.Close())
 }
 
 type mockFramerTransport struct {

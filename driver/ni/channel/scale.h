@@ -17,7 +17,7 @@
 #include "driver/ni/channel/units.h"
 #include "driver/ni/daqmx/sugared.h"
 
-namespace channel {
+namespace driver::ni::channel {
 /// @brief Generates a unique scale key using an atomic counter
 /// @return A unique string identifier for a scale in the format "scale_<number>"
 static std::string next_scale_key() {

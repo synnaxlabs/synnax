@@ -14,19 +14,18 @@
 #include "x/cpp/telem/telem.h"
 
 namespace x::telem {
-
 /// @brief ClockSkewCalculator calculates and tracks clock skew between two systems
 /// using a midpoint synchronization algorithm. This is useful for distributed
 /// systems where clock synchronization is critical.
 class ClockSkewCalculator {
 public:
     /// @brief function to get the current timestamp, defaults to
-    /// telem::TimeStamp::now
-    std::function<telem::TimeStamp()> now = telem::TimeStamp::now;
+    /// TimeStamp::now
+    std::function<TimeStamp()> now = TimeStamp::now;
     /// @brief timestamp when the most recent measurement started
-    telem::TimeStamp local_start_t = telem::TimeStamp(0);
+    TimeStamp local_start_t = TimeStamp(0);
     /// @brief running sum of all measured clock skews
-    telem::TimeSpan accumulated_skew = telem::TimeSpan::ZERO();
+    TimeSpan accumulated_skew = TimeSpan::ZERO();
     /// @brief number of measurements taken
     std::uint64_t n = 0;
 
@@ -35,8 +34,7 @@ public:
 
     /// @brief constructor with custom time source
     /// @param now Function that returns the current timestamp
-    explicit ClockSkewCalculator(const std::function<telem::TimeStamp()> &now):
-        now(now) {}
+    explicit ClockSkewCalculator(const std::function<TimeStamp()> &now): now(now) {}
 
     /// @brief starts a new clock skew measurement
     void start() { this->local_start_t = this->now(); }
@@ -45,7 +43,7 @@ public:
     /// @param remote_midpoint_t The timestamp from the remote system to compare
     /// against Uses the midpoint method: local_midpoint = start + (end - start)/2
     /// The skew is then calculated as: local_midpoint - remote_midpoint
-    void end(const telem::TimeStamp &remote_midpoint_t) {
+    void end(const TimeStamp &remote_midpoint_t) {
         const auto local_end_t = this->now();
         const auto this_midpoint_t = this->local_start_t +
                                      (local_end_t - this->local_start_t) / 2;
@@ -56,8 +54,8 @@ public:
 
     /// @brief returns the average clock skew across all measurements
     /// @return TimeSpan representing the average clock skew
-    telem::TimeSpan skew() const {
-        if (this->n == 0) return telem::TimeSpan::ZERO();
+    TimeSpan skew() const {
+        if (this->n == 0) return TimeSpan::ZERO();
         return this->accumulated_skew / this->n;
     }
 
@@ -65,8 +63,6 @@ public:
     /// threshold
     /// @param threshold The maximum acceptable clock skew
     /// @return true if the absolute skew exceeds the threshold, false otherwise
-    bool exceeds(const telem::TimeSpan &threshold) const {
-        return skew().abs() > threshold;
-    }
+    bool exceeds(const TimeSpan &threshold) const { return skew().abs() > threshold; }
 };
 }

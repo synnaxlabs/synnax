@@ -21,8 +21,6 @@ extern "C" {
 
 #include "driver/pipeline/control.h"
 
-using json = nlohmann::json;
-
 namespace driver::sequence::plugins {
 /// @brief an interface that allows for plugins to inject custom functions
 /// and variables into a sequence.
@@ -214,7 +212,7 @@ public:
     /// @brief alternative constructor that can be used to stub Synnax for test
     /// cases.
     explicit ChannelReceive(
-        const std::shared_ptr<driver::pipeline::StreamerFactory> &factory,
+        const std::shared_ptr<pipeline::StreamerFactory> &factory,
         const std::vector<synnax::channel::Channel> &read_from
     );
 
@@ -227,10 +225,10 @@ public:
 
 /// @brief a plugin that binds JSON data as global variables to the sequence.
 class JSON final : public Plugin {
-    const json data;
+    const x::json::json data;
 
 public:
-    explicit JSON(json source_data);
+    explicit JSON(x::json::json source_data);
 
     x::errors::Error before_all(lua_State *L) override;
 };

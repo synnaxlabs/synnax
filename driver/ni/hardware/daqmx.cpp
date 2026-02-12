@@ -11,8 +11,8 @@
 
 #include "driver/ni/hardware/hardware.h"
 
-namespace hardware::daqmx {
-Base::Base(TaskHandle task_handle, std::shared_ptr<::daqmx::SugaredAPI> dmx):
+namespace driver::ni::hardware::daqmx {
+Base::Base(TaskHandle task_handle, std::shared_ptr<ni::daqmx::SugaredAPI> dmx):
     task_handle(task_handle), dmx(std::move(dmx)) {}
 
 Base::~Base() {
@@ -31,7 +31,7 @@ x::errors::Error Base::stop() {
 }
 
 DigitalWriter::DigitalWriter(
-    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+    const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ):
     Base(task_handle, dmx) {}
@@ -50,7 +50,7 @@ x::errors::Error DigitalWriter::write(const std::vector<uint8_t> &data) {
 }
 
 AnalogWriter::AnalogWriter(
-    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+    const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ):
     Base(task_handle, dmx) {}
@@ -69,7 +69,7 @@ x::errors::Error AnalogWriter::write(const std::vector<double> &data) {
 }
 
 DigitalReader::DigitalReader(
-    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+    const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ):
     Base(task_handle, dmx) {}
@@ -95,7 +95,7 @@ ReadResult DigitalReader::read(
 }
 
 AnalogReader::AnalogReader(
-    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+    const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ):
     SkewTrackingReader<double>(dmx, task_handle) {}
@@ -154,7 +154,7 @@ int64 SkewTrackingReader<T>::update_skew(const size_t &n_requested) {
 template struct SkewTrackingReader<double>;
 
 CounterReader::CounterReader(
-    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+    const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ):
     SkewTrackingReader<double>(dmx, task_handle) {}

@@ -16,7 +16,7 @@
 
 #include "client/cpp/synnax.h"
 
-#include "driver/task/common/common.h"
+#include "driver/common/common.h"
 #include "driver/task/task.h"
 
 namespace driver::arc {
@@ -28,7 +28,7 @@ const std::string TASK_TYPE = INTEGRATION_NAME;
 /// @brief factory for creating arc runtime tasks.
 class Factory final : public task::Factory {
     /// @brief configures an arc runtime task.
-    std::pair<task::common::ConfigureResult, x::errors::Error> configure(
+    std::pair<common::ConfigureResult, x::errors::Error> configure(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task
     );

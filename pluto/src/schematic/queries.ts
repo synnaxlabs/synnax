@@ -42,8 +42,7 @@ export const retrieveSingle = async ({
 }: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   const cached = store.schematics.get(key);
   if (cached != null) return cached;
-  const s = await client.workspaces.schematics.retrieve({ key });
-  console.log(s.data);
+  const s = await client.schematics.retrieve({ key });
   store.schematics.set(s);
   return s;
 };
@@ -70,7 +69,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     const ids = schematic.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
-    await client.workspaces.schematics.delete(data);
+    await client.schematics.delete(data);
     return data;
   },
 });
@@ -85,7 +84,7 @@ export const { useUpdate: useCopy } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.COPY_VERBS,
   update: async ({ client, data, store }) => {
-    const copy = await client.workspaces.schematics.copy(data);
+    const copy = await client.schematics.copy(data);
     store.schematics.set(copy);
     return copy;
   },
@@ -108,7 +107,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store }) => {
     const { workspace, ...rest } = data;
-    const s = await client.workspaces.schematics.create(workspace, rest);
+    const s = await client.schematics.create(workspace, rest);
     store.schematics.set(s.key, s);
     return { ...s, workspace };
   },
@@ -131,7 +130,7 @@ export const { useUpdate: useSnapshot } = Flux.createUpdate<
     const { schematics, parentID } = data;
     const ids = await Promise.all(
       array.toArray(schematics).map(async (s) => {
-        const newSchematic = await client.workspaces.schematics.copy({
+        const newSchematic = await client.schematics.copy({
           key: s.key,
           name: `${s.name} (Snapshot)`,
           snapshot: true,
@@ -151,7 +150,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
     const { key, name } = data;
-    await client.workspaces.schematics.rename(key, name);
+    await client.schematics.rename(key, name);
     rollbacks.push(Flux.partialUpdate(store.schematics, key, { name }));
     rollbacks.push(Ontology.renameFluxResource(store, schematic.ontologyID(key), name));
     return data;

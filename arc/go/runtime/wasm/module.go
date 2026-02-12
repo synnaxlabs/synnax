@@ -24,7 +24,7 @@ import (
 type Module struct {
 	wasmRuntime wazero.Runtime
 	wasmModule  api.Module
-	arcRuntime  *runtimebindings.Runtime
+	runtime     *runtimebindings.Runtime
 }
 
 func (m *Module) Close() error {
@@ -32,10 +32,7 @@ func (m *Module) Close() error {
 	// don't use. Creating the context here means we can maintain the io.Closer interface
 	// for the module, which means a simpler shutdown callstack.
 	ctx := context.TODO()
-	c := errors.NewCatcher(errors.WithAggregation())
-	c.Exec(func() error { return m.wasmModule.Close(ctx) })
-	c.Exec(func() error { return m.wasmRuntime.Close(ctx) })
-	return c.Error()
+	return errors.Join(m.wasmModule.Close(ctx), m.wasmRuntime.Close(ctx))
 }
 
 type ModuleConfig struct {
@@ -59,6 +56,6 @@ func OpenModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 	return &Module{
 		wasmModule:  wasmModule,
 		wasmRuntime: wasmRuntime,
-		arcRuntime:  arcRuntime,
+		runtime:     arcRuntime,
 	}, nil
 }

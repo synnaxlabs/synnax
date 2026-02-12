@@ -3,15 +3,15 @@ cc_library(
     hdrs = ["lua.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/cpp/telem",
         "//x/cpp/errors",
+        "//x/cpp/telem",
         "@lua//:liblua",
         "@nlohmann_json//:json",
     ],
 )
 
 cc_test(
-    name = "lua_test",
+    name = "test_lua",
     srcs = ["lua_test.cpp"],
     linkopts = select({
         "@platforms//os:macos": [
@@ -21,8 +21,8 @@ cc_test(
         "//conditions:default": [],
     }),
     deps = [
-        "//x/cpp/lua",
-        "//x/cpp/test",
+        "@//x/cpp/lua",
+        "@//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

@@ -45,6 +45,13 @@ func parseGorpKey(key string) (uuid.UUID, channel.Key, error) {
 	return r, c, nil
 }
 
+// Alias represents a channel alias on a range.
+type Alias struct {
+	Alias   string      `json:"alias" msgpack:"alias"`
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	Range   uuid.UUID   `json:"range" msgpack:"range"`
+}
+
 var _ gorp.Entry[string] = Alias{}
 
 // GorpKey implements gorp.Entry.

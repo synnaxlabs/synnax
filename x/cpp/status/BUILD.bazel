@@ -13,6 +13,7 @@ cc_library(
         "//x/cpp/json",
         "//x/cpp/label",
         "//x/cpp/telem",
+        "//x/cpp/json",
         "//x/go/status:status_grpc",
         "@protobuf",
     ],

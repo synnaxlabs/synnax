@@ -24,14 +24,17 @@ class Factory final : public driver::task::Factory {
 public:
     Factory(): devices(std::make_shared<device::Manager>()) {}
 
-    std::pair<std::unique_ptr<driver::task::Task>, bool> configure_task(
-        const std::shared_ptr<driver::task::Context> &ctx,
+    /// Returns the integration name for logging.
+    std::string name() override { return INTEGRATION_NAME; }
+
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
+        const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task
     ) override;
 
-    std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>>
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
-        const std::shared_ptr<driver::task::Context> &ctx,
+        const std::shared_ptr<task::Context> &ctx,
         const synnax::rack::Rack &rack
     ) override;
 };

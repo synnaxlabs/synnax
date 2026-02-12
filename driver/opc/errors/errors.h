@@ -19,8 +19,8 @@
 #include "driver/errors/errors.h"
 
 namespace driver::opc::errors {
-const x::errors::Error CRITICAL = driver::CRITICAL_HARDWARE_ERROR.sub("opc");
-const x::errors::Error TEMPORARY = driver::TEMPORARY_HARDWARE_ERROR.sub("opc");
+const x::errors::Error CRITICAL = driver::errors::CRITICAL_HARDWARE_ERROR.sub("opc");
+const x::errors::Error TEMPORARY = driver::errors::TEMPORARY_HARDWARE_ERROR.sub("opc");
 const x::errors::Error UNREACHABLE = CRITICAL.sub("unreachable");
 const x::errors::Error NO_CONNECTION = UNREACHABLE.sub("no_connection");
 

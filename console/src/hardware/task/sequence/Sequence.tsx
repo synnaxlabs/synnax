@@ -20,7 +20,7 @@ import {
   Status,
   Synnax,
 } from "@synnaxlabs/pluto";
-import { unique } from "@synnaxlabs/x";
+import { type status, unique } from "@synnaxlabs/x";
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { Code } from "@/code";
@@ -126,11 +126,20 @@ const EditorField = Form.fieldBuilder<string, string, EditorProps>(Editor)({
   inputProps: {},
 });
 
+const DEPRECATION_WARNING: status.Crude = {
+  variant: "warning",
+  message: "Lua based sequences are deprecated",
+  description:
+    "Lua based sequences will be removed in a future release. Use Arc automations instead.",
+};
+
 const Internal = ({
   layoutKey,
   onConfigure,
   status,
 }: Common.Task.FormProps<typeof typeZ, typeof configZ, typeof statusDetailsZ>) => {
+  const addStatus = Status.useAdder();
+  useEffect(() => addStatus(DEPRECATION_WARNING), [addStatus]);
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
   const globals = usePhantomGlobals({
@@ -254,7 +263,7 @@ const Internal = ({
             )}
           </Form.Field>
         </Flex.Box>
-        <Common.Task.Controls
+        <Common.Task.Controls.Controls
           layoutKey={layoutKey}
           formStatus={status}
           onConfigure={onConfigure}

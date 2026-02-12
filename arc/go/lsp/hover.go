@@ -15,13 +15,16 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/lsp/doc"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	lsp "github.com/synnaxlabs/x/lsp"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
 )
+
+func arcCode(content string) doc.Block { return doc.Code("arc", content) }
 
 func (s *Server) Hover(
 	_ context.Context,
@@ -91,7 +94,7 @@ var operatorDocs = map[string]string{
 		doc.TitleWithKind(parser.LiteralDECLARE, "Operator"),
 		doc.Paragraph("Declares and initializes a new local variable."),
 		doc.Divider(),
-		doc.ArcCode("x := 42\nname := \"hello\""),
+		arcCode("x := 42\nname := \"hello\""),
 		doc.Divider(),
 		doc.Paragraph("The variable type is inferred from the right-hand side expression."),
 	).Render(),
@@ -99,7 +102,7 @@ var operatorDocs = map[string]string{
 		doc.TitleWithKind(parser.LiteralSTATEDECLARE, "Operator"),
 		doc.Paragraph("Declares a stateful variable that persists across executions."),
 		doc.Divider(),
-		doc.ArcCode("count $= 0\ncount = count + 1"),
+		arcCode("count $= 0\ncount = count + 1"),
 		doc.Divider(),
 		doc.Paragraph("Stateful variables retain their values between reactive stage executions, making them useful for counters, accumulators, and maintaining state."),
 	).Render(),
@@ -107,7 +110,7 @@ var operatorDocs = map[string]string{
 		doc.TitleWithKind(parser.LiteralTRANSITION, "Operator"),
 		doc.Paragraph("Transitions to another stage in a sequence."),
 		doc.Divider(),
-		doc.ArcCode("sequence main {\n    stage first {\n        if ready => second\n    }\n    stage second {}\n}"),
+		arcCode("sequence main {\n    stage first {\n        if ready => second\n    }\n    stage second {}\n}"),
 		doc.Divider(),
 		doc.Paragraph("When the condition is true, execution transitions to the specified stage on the next cycle."),
 	).Render(),
@@ -115,7 +118,7 @@ var operatorDocs = map[string]string{
 		doc.TitleWithKind(parser.LiteralARROW, "Operator"),
 		doc.Paragraph("Writes a value to a channel."),
 		doc.Divider(),
-		doc.ArcCode("value -> outputChannel"),
+		arcCode("value -> outputChannel"),
 		doc.Divider(),
 		doc.Paragraph("Sends the left-hand value to the channel on the right."),
 	).Render(),
@@ -123,55 +126,55 @@ var operatorDocs = map[string]string{
 		doc.TitleWithKind(parser.LiteralPLUSASSIGN, "Operator"),
 		doc.Paragraph("Adds and assigns."),
 		doc.Divider(),
-		doc.ArcCode("x += 5  // equivalent to: x = x + 5"),
+		arcCode("x += 5  // equivalent to: x = x + 5"),
 	).Render(),
 	parser.LiteralMINUSASSIGN: doc.New(
 		doc.TitleWithKind(parser.LiteralMINUSASSIGN, "Operator"),
 		doc.Paragraph("Subtracts and assigns."),
 		doc.Divider(),
-		doc.ArcCode("x -= 5  // equivalent to: x = x - 5"),
+		arcCode("x -= 5  // equivalent to: x = x - 5"),
 	).Render(),
 	parser.LiteralSTARASSIGN: doc.New(
 		doc.TitleWithKind(parser.LiteralSTARASSIGN, "Operator"),
 		doc.Paragraph("Multiplies and assigns."),
 		doc.Divider(),
-		doc.ArcCode("x *= 2  // equivalent to: x = x * 2"),
+		arcCode("x *= 2  // equivalent to: x = x * 2"),
 	).Render(),
 	parser.LiteralSLASHASSIGN: doc.New(
 		doc.TitleWithKind(parser.LiteralSLASHASSIGN, "Operator"),
 		doc.Paragraph("Divides and assigns."),
 		doc.Divider(),
-		doc.ArcCode("x /= 2  // equivalent to: x = x / 2"),
+		arcCode("x /= 2  // equivalent to: x = x / 2"),
 	).Render(),
 	parser.LiteralPERCENTASSIGN: doc.New(
 		doc.TitleWithKind(parser.LiteralPERCENTASSIGN, "Operator"),
 		doc.Paragraph("Computes modulo and assigns."),
 		doc.Divider(),
-		doc.ArcCode("x %= 3  // equivalent to: x = x % 3"),
+		arcCode("x %= 3  // equivalent to: x = x % 3"),
 	).Render(),
 	parser.LiteralEQ: doc.New(
 		doc.TitleWithKind(parser.LiteralEQ, "Operator"),
 		doc.Paragraph("Tests equality between two values."),
 		doc.Divider(),
-		doc.ArcCode("if x == 10 { ... }"),
+		arcCode("if x == 10 { ... }"),
 	).Render(),
 	parser.LiteralNEQ: doc.New(
 		doc.TitleWithKind(parser.LiteralNEQ, "Operator"),
 		doc.Paragraph("Tests inequality between two values."),
 		doc.Divider(),
-		doc.ArcCode("if x != 0 { ... }"),
+		arcCode("if x != 0 { ... }"),
 	).Render(),
 	parser.LiteralLEQ: doc.New(
 		doc.TitleWithKind(parser.LiteralLEQ, "Operator"),
 		doc.Paragraph("Tests if left value is less than or equal to right value."),
 		doc.Divider(),
-		doc.ArcCode("if x <= 100 { ... }"),
+		arcCode("if x <= 100 { ... }"),
 	).Render(),
 	parser.LiteralGEQ: doc.New(
 		doc.TitleWithKind(parser.LiteralGEQ, "Operator"),
 		doc.Paragraph("Tests if left value is greater than or equal to right value."),
 		doc.Divider(),
-		doc.ArcCode("if x >= 0 { ... }"),
+		arcCode("if x >= 0 { ... }"),
 	).Render(),
 }
 
@@ -181,31 +184,31 @@ var keywordDocs = map[string]string{
 		doc.TitleWithKind(parser.LiteralFUNC, "Keyword"),
 		doc.Paragraph("Declares a function."),
 		doc.Divider(),
-		doc.ArcCode("func name(param type) returnType {\n    // body\n}"),
+		arcCode("func name(param type) returnType {\n    // body\n}"),
 	).Render(),
 	parser.LiteralSTAGE: doc.New(
 		doc.TitleWithKind(parser.LiteralSTAGE, "Keyword"),
 		doc.Paragraph("Declares a stage within a sequence."),
 		doc.Divider(),
-		doc.ArcCode("sequence name {\n    stage stageName {\n        // body\n    }\n}"),
+		arcCode("sequence name {\n    stage stageName {\n        // body\n    }\n}"),
 	).Render(),
 	parser.LiteralSEQUENCE: doc.New(
 		doc.TitleWithKind(parser.LiteralSEQUENCE, "Keyword"),
 		doc.Paragraph("Declares a sequence (state machine)."),
 		doc.Divider(),
-		doc.ArcCode("sequence name {\n    stage first {\n        // initial stage\n    }\n}"),
+		arcCode("sequence name {\n    stage first {\n        // initial stage\n    }\n}"),
 	).Render(),
 	parser.LiteralIF: doc.New(
 		doc.TitleWithKind(parser.LiteralIF, "Keyword"),
 		doc.Paragraph("Conditional statement."),
 		doc.Divider(),
-		doc.ArcCode("if condition {\n    // body\n}"),
+		arcCode("if condition {\n    // body\n}"),
 	).Render(),
 	parser.LiteralELSE: doc.New(
 		doc.TitleWithKind(parser.LiteralELSE, "Keyword"),
 		doc.Paragraph("Alternative branch for if statement."),
 		doc.Divider(),
-		doc.ArcCode("if condition {\n    // body\n} else {\n    // alternative\n}"),
+		arcCode("if condition {\n    // body\n} else {\n    // alternative\n}"),
 	).Render(),
 	parser.LiteralRETURN: doc.New(
 		doc.TitleWithKind(parser.LiteralRETURN, "Keyword"),
@@ -215,7 +218,7 @@ var keywordDocs = map[string]string{
 		doc.TitleWithKind(parser.LiteralNEXT, "Keyword"),
 		doc.Paragraph("Transitions to a stage unconditionally."),
 		doc.Divider(),
-		doc.ArcCode("stage first {\n    next second\n}"),
+		arcCode("stage first {\n    next second\n}"),
 	).Render(),
 	parser.LiteralI8: doc.New(
 		doc.TitleWithKind(parser.LiteralI8, "Type"),
@@ -281,30 +284,54 @@ var keywordDocs = map[string]string{
 		doc.TitleWithKind(parser.LiteralSERIES, "Type"),
 		doc.Paragraph("Homogeneous array of values."),
 		doc.Divider(),
-		doc.ArcCode("series f64"),
+		arcCode("series f64"),
 	).Render(),
 	parser.LiteralCHAN: doc.New(
 		doc.TitleWithKind(parser.LiteralCHAN, "Type"),
 		doc.Paragraph("Bidirectional channel for communication."),
 		doc.Divider(),
-		doc.ArcCode("chan f64"),
+		arcCode("chan f64"),
+	).Render(),
+	parser.LiteralAUTHORITY: doc.New(
+		doc.TitleWithKind(parser.LiteralAUTHORITY, "Keyword"),
+		doc.Paragraph("Declares the initial control authority for write channels. Authority determines which writer takes priority when multiple writers target the same channel. Higher values take precedence (range 0-255)."),
+		doc.Divider(),
+		arcCode("authority 200"),
+		doc.Divider(),
+		doc.Paragraph("Use a grouped block to set per-channel authority:"),
+		doc.Divider(),
+		arcCode("authority (\n    200\n    valve_cmd 255\n)"),
+		doc.Divider(),
+		doc.Paragraph("Must appear before all function, flow, and sequence declarations."),
+	).Render(),
+	"set_authority": doc.New(
+		doc.TitleWithKind("set_authority", "Function"),
+		doc.Paragraph("Dynamically changes the control authority of write channels at runtime."),
+		doc.Divider(),
+		arcCode("set_authority{value=255}"),
+		doc.Divider(),
+		doc.Paragraph("Set authority for a specific channel:"),
+		doc.Divider(),
+		arcCode("set_authority{value=255, channel=valve_cmd}"),
+		doc.Divider(),
+		doc.Paragraph("Authority is a u8 (0-255). Higher values take priority. Setting authority to 0 releases control of the channel."),
 	).Render(),
 	"len": doc.New(
 		doc.TitleWithKind("len", "Function"),
 		doc.Paragraph("Returns the length of a series."),
 		doc.Divider(),
-		doc.ArcCode("length := len(data)"),
+		arcCode("length := len(data)"),
 	).Render(),
 	"now": doc.New(
 		doc.TitleWithKind("now", "Function"),
 		doc.Paragraph("Returns the current timestamp."),
 		doc.Divider(),
-		doc.ArcCode("time := now()"),
+		arcCode("time := now()"),
 	).Render(),
 }
 
 func (s *Server) getOperatorAtPosition(content string, pos protocol.Position) string {
-	line, ok := getLine(content, pos.Line)
+	line, ok := lsp.GetLine(content, pos.Line)
 	if !ok {
 		return ""
 	}
@@ -447,7 +474,7 @@ func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string, content st
 	case symbol.KindFunction:
 		d = doc.New(doc.TitleWithKind(sym.Name, formatFunctionKindDescription(sym)))
 		d.Add(doc.Divider())
-		d.Add(doc.ArcCode(formatFunctionSignatureContent(sym)))
+		d.Add(arcCode(formatFunctionSignatureContent(sym)))
 	case symbol.KindVariable:
 		d = doc.New(doc.TitleWithKind(sym.Name, "Variable"))
 		d.Add(doc.Detail("Type", sym.Type.String(), true))

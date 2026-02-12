@@ -40,9 +40,15 @@ func (r Reader) Get(ctx context.Context, rng uuid.UUID, key string) (string, err
 }
 
 // GetMany retrieves multiple key-value pairs from the specified range.
-func (r Reader) GetMany(ctx context.Context, rng uuid.UUID, keys []string) ([]Pair, error) {
+func (r Reader) GetMany(
+	ctx context.Context,
+	rng uuid.UUID,
+	keys []string,
+) ([]Pair, error) {
 	res := make([]Pair, 0, len(keys))
-	tKeys := lo.Map(keys, func(k string, _ int) string { return Pair{Range: rng, Key: k}.GorpKey() })
+	tKeys := lo.Map(keys, func(k string, _ int) string {
+		return Pair{Range: rng, Key: k}.GorpKey()
+	})
 	err := gorp.NewRetrieve[string, Pair]().
 		WhereKeys(tKeys...).
 		Entries(&res).

@@ -17,7 +17,7 @@
 namespace x::notify {
 /// @brief it should create a notifier successfully.
 TEST(NotifierTest, Create) {
-    auto notifier = create();
+    const auto notifier = create();
     ASSERT_NE(notifier, nullptr);
 }
 
@@ -44,7 +44,7 @@ TEST(NotifierTest, SignalBeforeWait) {
 
 /// @brief it should return false when timeout expires without signal.
 TEST(NotifierTest, TimeoutExpires) {
-    auto notifier = notify::create();
+    auto notifier = create();
     const auto sw = telem::Stopwatch();
     EXPECT_FALSE(notifier->wait(x::telem::MILLISECOND * 50));
     EXPECT_GE(sw.elapsed(), 40 * telem::MILLISECOND);
@@ -106,7 +106,7 @@ TEST(NotifierTest, ProducerConsumerPattern) {
 
 /// @brief it should return immediately with zero timeout.
 TEST(NotifierTest, ZeroTimeout) {
-    auto notifier = notify::create();
+    auto notifier = create();
     const auto sw = telem::Stopwatch();
     EXPECT_FALSE(notifier->wait(x::telem::TimeSpan(0)));
     EXPECT_LE(sw.elapsed(), 10 * telem::MILLISECOND);

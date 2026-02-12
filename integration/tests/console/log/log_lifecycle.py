@@ -51,7 +51,7 @@ class LogLifecycle(ConsoleCase):
         """Run all log lifecycle tests."""
         self.setup_channels()
 
-        log = Log(self.client, self.console, f"Log Test {self.suffix}")
+        log = self.console.workspace.create_log(f"Log Test {self.suffix}")
 
         self.test_no_channel_configured(log)
         self.test_no_data_received(log)
@@ -64,7 +64,7 @@ class LogLifecycle(ConsoleCase):
         log_link = log.copy_link()
         log_name = log.page_name
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
         # Resources Toolbar
         self.test_open_log_from_resources(log_name, log_link)
@@ -111,16 +111,14 @@ class LogLifecycle(ConsoleCase):
                 w.write({self.idx_name: sy.TimeStamp.now(), self.data_name: (42.0 + i)})
                 sy.sleep(0.1)
 
-        assert log.wait_until_streaming(
-            timeout_ms=5000
-        ), "Log should be streaming after data write"
+        assert log.wait_until_streaming(), "Log should be streaming after data write"
         assert not log.is_empty(), "Log should not be empty after data write"
         assert not log.is_waiting_for_data(), "Log should not be waiting for data"
 
         self.console.reload()
 
-        assert log.wait_until_streaming(
-            timeout_ms=5000
+        assert (
+            log.wait_until_streaming()
         ), "Log should still be streaming after reload (persisted)"
         assert (
             not log.is_waiting_for_data()
@@ -131,8 +129,8 @@ class LogLifecycle(ConsoleCase):
         self.log("Testing virtual channel streaming")
 
         log.set_channel(self.virtual_name)
-        assert log.wait_until_waiting_for_data(
-            timeout_ms=2000
+        assert (
+            log.wait_until_waiting_for_data()
         ), "Log should be waiting for data initially (virtual channel)"
 
         with self.client.open_writer(
@@ -143,15 +141,15 @@ class LogLifecycle(ConsoleCase):
             for i in range(5):
                 writer.write({self.virtual_name: float(i)})
                 sy.sleep(0.1)
-            assert log.wait_until_streaming(
-                timeout_ms=5000
+            assert (
+                log.wait_until_streaming()
             ), "Log should be streaming virtual channel data"
             assert not log.is_empty(), "Log should not be empty with virtual data"
 
         self.console.reload()
 
-        assert log.wait_until_waiting_for_data(
-            timeout_ms=5000
+        assert (
+            log.wait_until_waiting_for_data()
         ), "Log should be waiting for data after reload (virtual channel not persisted)"
 
     def test_rename_from_tab(self, log: Log) -> None:
@@ -197,7 +195,7 @@ class LogLifecycle(ConsoleCase):
         """Test opening a log by double-clicking it in the workspace resources toolbar."""
         self.log("Testing open log from resources toolbar")
 
-        log = self.console.workspace.open_log(self.client, log_name)
+        log = self.console.workspace.open_log(log_name)
 
         assert log.pane_locator is not None, "Log pane should be visible"
         assert log.pane_locator.is_visible(), "Log pane should be visible"
@@ -208,13 +206,13 @@ class LogLifecycle(ConsoleCase):
         ), f"Opened log link should match: expected {expected_link}, got {opened_link}"
 
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
     def test_drag_log_onto_mosaic(self, log_name: str, expected_link: str) -> None:
         """Test dragging a log from the resources toolbar onto the mosaic."""
         self.log("Testing drag log onto mosaic")
 
-        log = self.console.workspace.drag_log_to_mosaic(self.client, log_name)
+        log = self.console.workspace.drag_log_to_mosaic(log_name)
 
         assert log.pane_locator is not None, "Log pane should be visible"
         assert log.pane_locator.is_visible(), "Log pane should be visible"
@@ -225,13 +223,13 @@ class LogLifecycle(ConsoleCase):
         ), f"Opened log link should match: expected {expected_link}, got {opened_link}"
 
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
     def test_open_log_from_search(self, log_name: str, expected_link: str) -> None:
         """Test opening a log by searching its name in the command palette."""
         self.log("Testing open log from search palette")
 
-        log = Log.open_from_search(self.client, self.console, log_name)
+        log = self.console.workspace.open_from_search(Log, log_name)
 
         assert log.pane_locator is not None, "Log pane should be visible"
         assert log.pane_locator.is_visible(), "Log pane should be visible"
@@ -242,17 +240,18 @@ class LogLifecycle(ConsoleCase):
         ), f"Opened log link should match: expected {expected_link}, got {opened_link}"
 
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
     def test_ctx_rename_log(self) -> None:
         """Test renaming a log via context menu in the workspace resources toolbar."""
         self.log("Testing rename log via context menu")
+        self.console.layout.close_left_toolbar()
 
         suffix = get_random_name()
-        log = Log(self.client, self.console, f"Rename Test {suffix}")
+        log = self.console.workspace.create_log(f"Rename Test {suffix}")
         original_name = log.page_name
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
         new_name = f"Renamed Log {suffix}"
         self.console.workspace.rename_page(original_name, new_name)
@@ -267,13 +266,13 @@ class LogLifecycle(ConsoleCase):
     def test_ctx_delete_log(self) -> None:
         """Test deleting a log via context menu in the workspace resources toolbar."""
         self.log("Testing delete log via context menu")
-        self.console.close_nav_drawer()
+        self.console.layout.close_left_toolbar()
 
         suffix = get_random_name()
-        log = Log(self.client, self.console, f"Delete Test {suffix}")
+        log = self.console.workspace.create_log(f"Delete Test {suffix}")
         log_name = log.page_name
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
         assert self.console.workspace.page_exists(
             log_name
@@ -284,16 +283,16 @@ class LogLifecycle(ConsoleCase):
     def test_ctx_delete_multiple_logs(self) -> None:
         """Test deleting multiple logs via multi-select and context menu."""
         self.log("Testing delete multiple logs via context menu")
-        self.console.close_nav_drawer()
+        self.console.layout.close_left_toolbar()
 
         suffix = get_random_name()
         log_names = []
 
         for i in range(3):
-            log = Log(self.client, self.console, f"Multi Delete {suffix} {i}")
+            log = self.console.workspace.create_log(f"Multi Delete {suffix} {i}")
             log_names.append(log.page_name)
             log.close()
-            assert not log.is_open(), f"Log {i} should be closed after close()"
+            assert not log.is_open, f"Log {i} should be closed after close()"
 
         for name in log_names:
             assert self.console.workspace.page_exists(
@@ -305,16 +304,16 @@ class LogLifecycle(ConsoleCase):
     def test_ctx_group_logs(self) -> None:
         """Test grouping multiple logs via multi-select and context menu."""
         self.log("Testing group logs via context menu")
-        self.console.close_nav_drawer()
+        self.console.layout.close_left_toolbar()
 
         suffix = get_random_name()
         log_names = []
 
         for i in range(2):
-            log = Log(self.client, self.console, f"Group Test {suffix} {i}")
+            log = self.console.workspace.create_log(f"Group Test {suffix} {i}")
             log_names.append(log.page_name)
             log.close()
-            assert not log.is_open(), f"Log {i} should be closed after close()"
+            assert not log.is_open, f"Log {i} should be closed after close()"
 
         self.console.workspace.group_pages(
             names=log_names, group_name=f"Log Group {suffix}"
@@ -329,13 +328,13 @@ class LogLifecycle(ConsoleCase):
     def test_ctx_export_json(self) -> None:
         """Test exporting a log as JSON via context menu."""
         self.log("Testing export log via context menu")
-        self.console.close_nav_drawer()
+        self.console.layout.close_left_toolbar()
 
         suffix = get_random_name()
-        log = Log(self.client, self.console, f"Export Test {suffix}")
+        log = self.console.workspace.create_log(f"Export Test {suffix}")
         log_name = log.page_name
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
         exported = self.console.workspace.export_page(log_name)
 
@@ -347,14 +346,14 @@ class LogLifecycle(ConsoleCase):
     def test_ctx_copy_link(self) -> None:
         """Test copying a link to a log via context menu."""
         self.log("Testing copy link via context menu")
-        self.console.close_nav_drawer()
+        self.console.layout.close_left_toolbar()
 
         suffix = get_random_name()
-        log = Log(self.client, self.console, f"Copy Link Test {suffix}")
+        log = self.console.workspace.create_log(f"Copy Link Test {suffix}")
         log_name = log.page_name
         expected_link = log.copy_link()
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
         link = self.console.workspace.copy_page_link(log_name)
 

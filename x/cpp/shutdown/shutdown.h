@@ -12,7 +12,7 @@
 #include <condition_variable>
 #include <mutex>
 
-/// @brief xshutdown implements a utility for listening to various shutdown signals
+/// @brief shutdown implements a utility for listening to various shutdown signals
 /// in order to gracefully exit a program. By default, it listens to SIGINT, SIGTERM,
 /// and for the user to type STOP into stdin. These can be enabled or disabled as
 /// needed.
@@ -36,8 +36,8 @@ void listen_stdin();
 
 /// @brief returns true if the shutdown condition has been signaled.
 inline bool should_shutdown() {
-    std::lock_guard lock(details::shutdown_mutex);
-    return details::should_stop;
+    std::lock_guard lock(shutdown_mutex);
+    return should_stop;
 }
 }
 

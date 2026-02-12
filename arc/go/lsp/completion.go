@@ -15,17 +15,22 @@ import (
 
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
+	lsp "github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/protocol"
+	"go.uber.org/zap"
 )
 
 type completionCategory int
 
 const (
 	categoryType completionCategory = 1 << iota
-	categoryKeyword
+	categoryTopLevelKeyword
+	categoryFunctionKeyword
 	categoryFunction
 	categoryUnit
 	categoryValue
+	categorySequenceKeyword
+	categoryStageKeyword
 )
 
 type completionInfo struct {
@@ -230,13 +235,49 @@ var completions = []completionInfo{
 		Category: categoryUnit | categoryValue,
 	},
 	{
+		Label:        parser.LiteralSEQUENCE,
+		Detail:       "sequence declaration",
+		Doc:          "Declares a sequence (state machine)",
+		Insert:       "sequence ${1:name} {\n\tstage ${2:first} {\n\t\t$0\n\t}\n}",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     categoryTopLevelKeyword,
+	},
+	{
+		Label:        parser.LiteralSTAGE,
+		Detail:       "stage declaration",
+		Doc:          "Declares a stage within a sequence",
+		Insert:       "stage ${1:name} {\n\t$0\n}",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     categorySequenceKeyword,
+	},
+	{
+		Label:        parser.LiteralNEXT,
+		Detail:       "next statement",
+		Doc:          "Transitions to a stage unconditionally",
+		Insert:       "next ${1:stage}",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     categoryStageKeyword,
+	},
+	{
+		Label:        parser.LiteralAUTHORITY,
+		Detail:       "authority declaration",
+		Doc:          "Sets control authority for output channels",
+		Insert:       "authority ${1:255}",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     categoryTopLevelKeyword,
+	},
+	{
 		Label:        parser.LiteralFUNC,
 		Detail:       "func declaration",
 		Doc:          "Declares a function",
 		Insert:       "func ${1:name}($2) $3 {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categoryKeyword,
+		Category:     categoryTopLevelKeyword,
 	},
 	{
 		Label:        parser.LiteralIF,
@@ -245,7 +286,7 @@ var completions = []completionInfo{
 		Insert:       "if ${1:condition} {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categoryKeyword,
+		Category:     categoryFunctionKeyword,
 	},
 	{
 		Label:        parser.LiteralELSE,
@@ -254,7 +295,7 @@ var completions = []completionInfo{
 		Insert:       "else {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categoryKeyword,
+		Category:     categoryFunctionKeyword,
 	},
 	{
 		Label:        parser.LiteralELSE + " " + parser.LiteralIF,
@@ -263,7 +304,7 @@ var completions = []completionInfo{
 		Insert:       "else if ${1:condition} {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categoryKeyword,
+		Category:     categoryFunctionKeyword,
 	},
 	{
 		Label:        parser.LiteralRETURN,
@@ -272,7 +313,7 @@ var completions = []completionInfo{
 		Insert:       "return $0",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categoryKeyword,
+		Category:     categoryFunctionKeyword,
 	},
 }
 
@@ -287,7 +328,7 @@ func (s *Server) Completion(
 
 	displayContent := doc.displayContent()
 
-	line, ok := getLine(displayContent, params.Position.Line)
+	line, ok := lsp.GetLine(displayContent, params.Position.Line)
 	if !ok {
 		return &protocol.CompletionList{}, nil
 	}
@@ -295,7 +336,7 @@ func (s *Server) Completion(
 	prefix := ""
 	if int(params.Position.Character) <= len(line) {
 		start := int(params.Position.Character)
-		for start > 0 && isWordChar(line[start-1]) {
+		for start > 0 && lsp.IsWordChar(line[start-1]) {
 			start--
 		}
 		prefix = line[start:params.Position.Character]
@@ -321,6 +362,10 @@ func (s *Server) getCompletionItems(
 		return []protocol.CompletionItem{}
 	}
 
+	if completionCtx == ContextAuthorityEntry {
+		return s.getAuthorityEntryCompletions(ctx, doc, prefix, pos)
+	}
+
 	if completionCtx == ContextConfigParamName || completionCtx == ContextConfigParamValue {
 		configInfo := extractConfigContext(doc.displayContent(), pos)
 		if configInfo != nil {
@@ -332,6 +377,24 @@ func (s *Server) getCompletionItems(
 	}
 
 	allowed := getAllowedCategories(completionCtx)
+	tokens := tokenizeContent(doc.displayContent())
+	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
+	nesting := detectNesting(tokensBeforeCursor)
+	if doc.isBlock() && nesting == NestingTopLevel {
+		nesting = NestingFunction
+	}
+	if nesting == NestingSequenceBody {
+		allowed = categorySequenceKeyword
+	} else if completionCtx == ContextStatementStart || completionCtx == ContextUnknown {
+		switch nesting {
+		case NestingTopLevel:
+			allowed |= categoryTopLevelKeyword
+		case NestingFunction:
+			allowed |= categoryFunctionKeyword
+		case NestingStageBody:
+			allowed |= categoryStageKeyword
+		}
+	}
 	items := make([]protocol.CompletionItem, 0, len(completions))
 
 	for _, c := range completions {
@@ -354,7 +417,7 @@ func (s *Server) getCompletionItems(
 		items = append(items, item)
 	}
 
-	if completionCtx != ContextTypeAnnotation && doc.IR.Symbols != nil {
+	if completionCtx != ContextTypeAnnotation && nesting != NestingSequenceBody && doc.IR.Symbols != nil {
 		scopeAtCursor := doc.findScopeAtPosition(pos)
 		if scopeAtCursor != nil {
 			scopes, err := scopeAtCursor.Search(ctx, prefix)
@@ -382,9 +445,9 @@ func getAllowedCategories(ctx CompletionContext) completionCategory {
 	case ContextExpression:
 		return categoryValue | categoryFunction | categoryUnit
 	case ContextStatementStart:
-		return categoryKeyword | categoryValue | categoryFunction
+		return categoryValue | categoryFunction
 	default:
-		return categoryType | categoryKeyword | categoryFunction | categoryUnit | categoryValue
+		return categoryFunction | categoryUnit | categoryValue
 	}
 }
 
@@ -408,6 +471,49 @@ func symbolCompletionItem(name string, t types.Type) protocol.CompletionItem {
 		Kind:   kind,
 		Detail: detail,
 	}
+}
+
+func (s *Server) getAuthorityEntryCompletions(
+	ctx context.Context,
+	doc *Document,
+	prefix string,
+	pos protocol.Position,
+) []protocol.CompletionItem {
+	existing := extractAuthorityExistingChannels(doc.displayContent(), pos)
+	existingSet := make(map[string]bool, len(existing))
+	for _, name := range existing {
+		existingSet[name] = true
+	}
+	var items []protocol.CompletionItem
+	appendChanCompletions := func(name string, t types.Type) {
+		if t.Kind != types.KindChan || existingSet[name] {
+			return
+		}
+		items = append(items, protocol.CompletionItem{
+			Label:  name,
+			Kind:   protocol.CompletionItemKindVariable,
+			Detail: t.String(),
+		})
+	}
+	if s.cfg.GlobalResolver != nil {
+		symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
+		if err != nil {
+			s.cfg.L.Error("failed to search global resolver for authority completions", zap.Error(err))
+		}
+		for _, sym := range symbols {
+			appendChanCompletions(sym.Name, sym.Type)
+		}
+	}
+	if doc.IR.Symbols != nil {
+		scopes, err := doc.IR.Symbols.Search(ctx, prefix)
+		if err != nil {
+			s.cfg.L.Error("failed to search scope for authority completions", zap.Error(err))
+		}
+		for _, scope := range scopes {
+			appendChanCompletions(scope.Name, scope.Type)
+		}
+	}
+	return items
 }
 
 func (s *Server) resolveFunctionType(

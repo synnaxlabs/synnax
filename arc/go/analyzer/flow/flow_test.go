@@ -336,6 +336,57 @@ int_chan -> consumer{}
 			Expect((*ctx.Diagnostics)[1].Message).To(Equal("missing required config parameter 'output' for func 'filter'"))
 		})
 
+		It("Should allow omitting config param with default value", func() {
+			ast := MustSucceed(parser.Parse(`
+			func controller{
+				setpoint f64,
+				gain f64 = 1.0
+			} () {}
+
+			sensor_chan -> controller{
+				setpoint=100.0
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should allow overriding config param default value", func() {
+			ast := MustSucceed(parser.Parse(`
+			func controller{
+				setpoint f64,
+				gain f64 = 1.0
+			} () {}
+
+			sensor_chan -> controller{
+				setpoint=100.0,
+				gain=2.5
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should still require config params without defaults", func() {
+			ast := MustSucceed(parser.Parse(`
+			func controller{
+				setpoint f64,
+				gain f64 = 1.0
+			} () {}
+
+			sensor_chan -> controller{
+				gain=2.5
+			}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("missing required config parameter 'setpoint' for func 'controller'"))
+		})
+
 		It("Should detect when func is invoked with extra parameters not in signature", func() {
 			ast := MustSucceed(parser.Parse(`
 			func simple{

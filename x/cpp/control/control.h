@@ -15,5 +15,16 @@
 #include "x/cpp/control/types.gen.h"
 
 namespace x::control {
-constexpr Authority AUTH_ABSOLUTE = 255;
+using Authority = std::uint8_t;
+constexpr Authority AUTHORITY_ABSOLUTE = 255;
+
+struct Subject {
+    std::string name;
+    std::string key;
+
+    void to_proto(::control::ControlSubject *s) const {
+        s->set_name(name);
+        s->set_key(key);
+    }
+};
 }

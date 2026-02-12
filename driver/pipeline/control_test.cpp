@@ -14,6 +14,7 @@
 #include "driver/pipeline/control.h"
 #include "driver/pipeline/mock/pipeline.h"
 
+namespace driver::pipeline {
 /// @brief it should read frames from streamer and write to sink.
 TEST(ControlPipeline, testHappyPath) {
     auto fr_1 = x::telem::Frame(1);
@@ -30,19 +31,14 @@ TEST(ControlPipeline, testHappyPath) {
         }
     );
     const auto streamer_config = synnax::framer::StreamerConfig{.channels = {1}};
-    const auto
-        streamer_factory = std::make_shared<driver::pipeline::mock::StreamerFactory>(
-            std::vector<x::errors::Error>{},
-            std::make_shared<std::vector<driver::pipeline::mock::StreamerConfig>>(
-                std::vector{driver::pipeline::mock::StreamerConfig{
-                    reads,
-                    read_errors,
-                    x::errors::NIL
-                }}
-            )
-        );
-    const auto sink = std::make_shared<driver::pipeline::mock::Sink>();
-    auto control = driver::pipeline::Control(
+    const auto streamer_factory = std::make_shared<mock::StreamerFactory>(
+        std::vector<x::errors::Error>{},
+        std::make_shared<std::vector<mock::StreamerConfig>>(
+            std::vector{mock::StreamerConfig{reads, read_errors, x::errors::NIL}}
+        )
+    );
+    const auto sink = std::make_shared<mock::Sink>();
+    auto control = Control(
         streamer_factory,
         streamer_config,
         sink,
@@ -55,13 +51,12 @@ TEST(ControlPipeline, testHappyPath) {
 
 /// @brief it should stop and report error when streamer open fails with unknown error.
 TEST(ControlPipeline, testUnknownErrOnOpen) {
-    const auto
-        streamer_factory = std::make_shared<driver::pipeline::mock::StreamerFactory>(
-            std::vector{x::errors::UNKNOWN},
-            std::make_shared<std::vector<driver::pipeline::mock::StreamerConfig>>()
-        );
-    const auto sink = std::make_shared<driver::pipeline::mock::Sink>();
-    auto control = driver::pipeline::Control(
+    const auto streamer_factory = std::make_shared<mock::StreamerFactory>(
+        std::vector{x::errors::UNKNOWN},
+        std::make_shared<std::vector<mock::StreamerConfig>>()
+    );
+    const auto sink = std::make_shared<mock::Sink>();
+    auto control = Control(
         streamer_factory,
         synnax::framer::StreamerConfig{},
         sink,
@@ -89,30 +84,24 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
         }
     );
     const auto streamer_config = synnax::framer::StreamerConfig{.channels = {1}};
-    const auto streamer_factory = std::make_shared<
-        driver::pipeline::mock::StreamerFactory>(
-        std::vector{
-            freighter::ERR_UNREACHABLE,
-            freighter::ERR_UNREACHABLE,
-            x::errors::NIL
-        },
-        std::make_shared<
-            std::vector<driver::pipeline::mock::StreamerConfig>>(std::vector{
-            driver::pipeline::mock::StreamerConfig{
+    const auto streamer_factory = std::make_shared<mock::StreamerFactory>(
+        std::vector{freighter::UNREACHABLE, freighter::UNREACHABLE, x::errors::NIL},
+        std::make_shared<std::vector<mock::StreamerConfig>>(std::vector{
+            mock::StreamerConfig{
                 reads,
                 read_errors,
                 x::errors::NIL,
             },
-            driver::pipeline::mock::StreamerConfig{
+            mock::StreamerConfig{
                 reads,
                 read_errors,
                 x::errors::NIL,
             },
-            driver::pipeline::mock::StreamerConfig{reads, read_errors, x::errors::NIL}
+            mock::StreamerConfig{reads, read_errors, x::errors::NIL}
         })
     );
-    const auto sink = std::make_shared<driver::pipeline::mock::Sink>();
-    auto control = driver::pipeline::Control(
+    const auto sink = std::make_shared<mock::Sink>();
+    auto control = Control(
         streamer_factory,
         streamer_config,
         sink,
@@ -123,7 +112,11 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
     );
 
     control.start();
-    ASSERT_EVENTUALLY_EQ(streamer_factory->streamer_opens, 3);
+    ASSERT_EVENTUALLY_EQ(
+        streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        3
+    );
     ASSERT_EVENTUALLY_EQ(sink->writes->size(), 2);
     control.stop();
+}
 }

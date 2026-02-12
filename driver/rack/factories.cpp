@@ -11,13 +11,14 @@
 #include "driver/modbus/modbus.h"
 #endif
 #include "driver/arc/arc.h"
+#include "driver/ethercat/ethercat.h"
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
 using FactoryList = std::vector<std::unique_ptr<task::Factory>>;
 
 bool Config::integration_enabled(const std::string &i) const {
-    return std::find(integrations.begin(), integrations.end(), i) != integrations.end();
+    return std::ranges::find(integrations, i) != integrations.end();
 }
 
 template<typename F>
@@ -54,12 +55,9 @@ void configure_sequences(const Config &config, FactoryList &factories) {
 }
 
 void configure_labjack(const Config &config, FactoryList &factories) {
-    configure_integration(
-        config,
-        factories,
-        driver::labjack::INTEGRATION_NAME,
-        [&config]() { return labjack::Factory::create(config.timing); }
-    );
+    configure_integration(config, factories, labjack::INTEGRATION_NAME, [&config]() {
+        return labjack::Factory::create(config.timing);
+    });
 }
 
 void configure_state(FactoryList &factories) {
@@ -79,6 +77,12 @@ void configure_arc(const Config &config, FactoryList &factories) {
     });
 }
 
+void configure_ethercat(const Config &config, FactoryList &factories) {
+    configure_integration(config, factories, ethercat::INTEGRATION_NAME, []() {
+        return std::make_unique<ethercat::Factory>();
+    });
+}
+
 std::unique_ptr<task::Factory> Config::new_factory() const {
     FactoryList factories;
     configure_state(factories);
@@ -87,6 +91,7 @@ std::unique_ptr<task::Factory> Config::new_factory() const {
     configure_sequences(*this, factories);
     configure_labjack(*this, factories);
     configure_arc(*this, factories);
+    configure_ethercat(*this, factories);
 #ifndef SYNNAX_NILINUXRT
     configure_modbus(*this, factories);
 #endif

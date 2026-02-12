@@ -20,8 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -31,12 +32,16 @@ type Service struct {
 	internal *schematic.Service
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		db:       cfg.Distribution.DB,
-		access:   cfg.Service.RBAC,
 		internal: cfg.Service.Schematic,
-	}
+		access:   cfg.Service.RBAC,
+	}, nil
 }
 
 type (
@@ -58,11 +63,11 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 		return res, err
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		for i, schem := range req.Schematics {
-			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &schem); err != nil {
+		for i, sch := range req.Schematics {
+			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &sch); err != nil {
 				return err
 			}
-			req.Schematics[i] = schem
+			req.Schematics[i] = sch
 		}
 		res.Schematics = req.Schematics
 		return nil
@@ -88,8 +93,8 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil,
 }
 
 type SetDataRequest struct {
-	Data map[string]any `json:"data" msgpack:"data"`
-	Key  uuid.UUID      `json:"key" msgpack:"key"`
+	Data string    `json:"data" msgpack:"data"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Nil, err error) {

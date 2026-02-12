@@ -23,14 +23,14 @@ import (
 // The provisioned
 type Cluster struct {
 	// cfg is the configuration used to provision new stores.
-	cfg storage.Config
+	cfg storage.LayerConfig
 	// Stores is a slice all stores provisioned by the Cluster.
 	Stores []*storage.Layer
 }
 
 // NewCluster opens a new Cluster that provisions stores using the given configuration.
-func NewCluster(configs ...storage.Config) *Cluster {
-	cfg := lo.Must(config.New(storage.DefaultConfig, append([]storage.Config{{
+func NewCluster(configs ...storage.LayerConfig) *Cluster {
+	cfg := lo.Must(config.New(storage.DefaultLayerConfig, append([]storage.LayerConfig{{
 		InMemory: config.True(),
 	}}, configs...)...))
 	if !*cfg.InMemory {
@@ -54,18 +54,18 @@ func (b *Cluster) Provision(ctx context.Context) (store *storage.Layer) {
 // Close closes all stores provisioned by the Cluster. Close is not safe to call
 // concurrently with any other Cluster or provisioned storage.Layer methods.
 func (b *Cluster) Close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
+	var err error
 	for _, store := range b.Stores {
-		c.Exec(store.Close)
+		err = errors.Join(err, store.Close())
 	}
 	if !*b.cfg.InMemory {
-		c.Exec(func() error { return os.RemoveAll(b.cfg.Dirname) })
+		err = errors.Join(err, os.RemoveAll(b.cfg.Dirname))
 	}
-	return c.Error()
+	return err
 }
 
 func (b *Cluster) newMemBacked(ctx context.Context) *storage.Layer {
-	return lo.Must(storage.Open(ctx, b.cfg))
+	return lo.Must(storage.OpenLayer(ctx, b.cfg))
 }
 
 func (b *Cluster) newFSBacked(ctx context.Context) *storage.Layer {
@@ -73,5 +73,5 @@ func (b *Cluster) newFSBacked(ctx context.Context) *storage.Layer {
 	tempDir := lo.Must(os.MkdirTemp(b.cfg.Dirname, "delta-test-"))
 	nCfg := b.cfg
 	nCfg.Dirname = tempDir
-	return lo.Must(storage.Open(ctx, nCfg))
+	return lo.Must(storage.OpenLayer(ctx, nCfg))
 }

@@ -9,9 +9,7 @@
 
 #include "gtest/gtest.h"
 
-/// local.
 #include "x/cpp/json/json.h"
-#include "x/cpp/test/test.h"
 
 namespace x::json {
 /// @brief it should parse valid JSON fields successfully.
@@ -1366,9 +1364,7 @@ TEST(testConfig, testMapMethod) {
     Parser parser(j);
     const auto items = parser.map<ArrayItem>(
         "items",
-        [](const Parser &p) -> std::pair<ArrayItem, bool> {
-            return {ArrayItem(p), true};
-        }
+        [](Parser &p) -> std::pair<ArrayItem, bool> { return {ArrayItem(p), true}; }
     );
     EXPECT_TRUE(parser.ok());
     ASSERT_EQ(items.size(), 3);
@@ -1388,10 +1384,10 @@ TEST(testConfig, testMapMethodWithFilter) {
           {{"name", "skip"}, {"id", 2}},
           {{"name", "item3"}, {"id", 3}}}}
     };
-    const Parser parser(j);
+    Parser parser(j);
     const auto items = parser.map<ArrayItem>(
         "items",
-        [](const Parser &p) -> std::pair<ArrayItem, bool> {
+        [](Parser &p) -> std::pair<ArrayItem, bool> {
             ArrayItem item(p);
             // Skip items with name "skip"
             if (item.name == "skip") return {item, false};
@@ -1410,9 +1406,7 @@ TEST(testConfig, testMapMethodFieldDoesNotExist) {
     Parser parser(j);
     const auto items = parser.map<ArrayItem>(
         "items",
-        [](const Parser &p) -> std::pair<ArrayItem, bool> {
-            return {ArrayItem(p), true};
-        }
+        [](Parser &p) -> std::pair<ArrayItem, bool> { return {ArrayItem(p), true}; }
     );
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
@@ -1427,9 +1421,7 @@ TEST(testConfig, testMapMethodFieldNotArray) {
     Parser parser(j);
     const auto items = parser.map<ArrayItem>(
         "items",
-        [](const Parser &p) -> std::pair<ArrayItem, bool> {
-            return {ArrayItem(p), true};
-        }
+        [](Parser &p) -> std::pair<ArrayItem, bool> { return {ArrayItem(p), true}; }
     );
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
@@ -1449,9 +1441,7 @@ TEST(testConfig, testMapMethodWithErrors) {
     Parser parser(j);
     const auto items = parser.map<ArrayItem>(
         "items",
-        [](const Parser &p) -> std::pair<ArrayItem, bool> {
-            return {ArrayItem(p), true};
-        }
+        [](Parser &p) -> std::pair<ArrayItem, bool> { return {ArrayItem(p), true}; }
     );
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
@@ -1499,8 +1489,8 @@ TEST(testConfig, testOptionalChildInvalidType) {
 /// @brief it should handle arrays in optional child parser.
 TEST(testConfig, testOptionalChildArray) {
     const json j = {{"items", {{{"name", "a"}}, {{"name", "b"}}}}};
-    const Parser parser(j);
-    const auto items_parser = parser.optional_child("items");
+    Parser parser(j);
+    auto items_parser = parser.optional_child("items");
     EXPECT_TRUE(parser.ok());
     // Arrays are valid for optional_child - verify we can use it
     EXPECT_TRUE(items_parser.ok());
@@ -1545,7 +1535,7 @@ TEST(testConfig, testVectorStringToNumberInvalid) {
 /// @brief it should return true for existing fields via has method.
 TEST(testConfig, testHasFieldExists) {
     const json j = {{"name", "test"}, {"value", 42}};
-    const Parser parser(j);
+    Parser parser(j);
     EXPECT_TRUE(parser.has("name"));
     EXPECT_TRUE(parser.has("value"));
     EXPECT_TRUE(parser.ok());
@@ -1554,7 +1544,7 @@ TEST(testConfig, testHasFieldExists) {
 /// @brief it should return false for non-existing fields via has method.
 TEST(testConfig, testHasFieldDoesNotExist) {
     const json j = {{"name", "test"}};
-    const Parser parser(j);
+    Parser parser(j);
     EXPECT_FALSE(parser.has("missing"));
     EXPECT_FALSE(parser.has("value"));
     EXPECT_TRUE(parser.ok()); // has() should not accumulate errors
@@ -1562,7 +1552,7 @@ TEST(testConfig, testHasFieldDoesNotExist) {
 
 /// @brief it should return false for any field on noop parser.
 TEST(testConfig, testHasNoopParser) {
-    const Parser parser; // Default constructor creates noop parser
+    Parser parser; // Default constructor creates noop parser
     EXPECT_FALSE(parser.has("anything"));
     EXPECT_FALSE(parser.ok()); // noop parser is never ok
 }
@@ -1581,7 +1571,7 @@ TEST(testConfig, testHasOnChildParser) {
 /// @brief it should return true for field with null value via has method.
 TEST(testConfig, testHasWithNullValue) {
     const json j = {{"null_field", nullptr}, {"string_field", "test"}};
-    const Parser parser(j);
+    Parser parser(j);
     EXPECT_TRUE(parser.has("null_field")); // Field exists even if value is null
     EXPECT_TRUE(parser.has("string_field"));
     EXPECT_TRUE(parser.ok());

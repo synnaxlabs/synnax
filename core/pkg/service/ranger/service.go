@@ -147,8 +147,11 @@ func (s *Service) NewRetrieve() Retrieve {
 
 // RetrieveParentKey returns the parent range key for the given range key.
 // Returns query.ErrNotFound if the range has no parent.
-// This method implements the alias.ParentRetriever interface.
-func (s *Service) RetrieveParentKey(ctx context.Context, key uuid.UUID, tx gorp.Tx) (uuid.UUID, error) {
+func (s *Service) RetrieveParentKey(
+	ctx context.Context,
+	key uuid.UUID,
+	tx gorp.Tx,
+) (uuid.UUID, error) {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	var resources []ontology.Resource
 	if err := s.cfg.Ontology.NewRetrieve().

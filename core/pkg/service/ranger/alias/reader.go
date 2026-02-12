@@ -29,8 +29,13 @@ type Reader struct {
 }
 
 // Retrieve gets the alias for the given channel on the specified range.
-// If the alias is not found on the range, it will recursively check parent ranges.
-func (r Reader) Retrieve(ctx context.Context, rng uuid.UUID, ch channel.Key) (string, error) {
+// If the alias is not found on the range, it will recursively check parent
+// ranges.
+func (r Reader) Retrieve(
+	ctx context.Context,
+	rng uuid.UUID,
+	ch channel.Key,
+) (string, error) {
 	var res Alias
 	err := gorp.NewRetrieve[string, Alias]().
 		WhereKeys(Alias{Range: rng, Channel: ch}.GorpKey()).
@@ -52,9 +57,14 @@ func (r Reader) Retrieve(ctx context.Context, rng uuid.UUID, ch channel.Key) (st
 	return res.Alias, err
 }
 
-// Resolve attempts to resolve the given alias to a channel key on the specified range.
-// Supports regex matching. If not found on the range, it will recursively check parent ranges.
-func (r Reader) Resolve(ctx context.Context, rng uuid.UUID, alias string) (channel.Key, error) {
+// Resolve attempts to resolve the given alias to a channel key on the
+// specified range. Supports regex matching. If not found on the range, it will
+// recursively check parent ranges.
+func (r Reader) Resolve(
+	ctx context.Context,
+	rng uuid.UUID,
+	alias string,
+) (channel.Key, error) {
 	var res Alias
 	matcher := func(ctx gorp.Context, a *Alias) (bool, error) {
 		return a.Range == rng && a.Alias == alias, nil
@@ -89,9 +99,13 @@ func (r Reader) Resolve(ctx context.Context, rng uuid.UUID, alias string) (chann
 	return res.Channel, nil
 }
 
-// List retrieves all aliases on the specified range, including inherited aliases from
-// parent ranges. Local aliases take precedence over inherited ones.
-func (r Reader) List(ctx context.Context, rng uuid.UUID) (map[channel.Key]string, error) {
+// List retrieves all aliases on the specified range, including inherited
+// aliases from parent ranges. Local aliases take precedence over inherited
+// ones.
+func (r Reader) List(
+	ctx context.Context,
+	rng uuid.UUID,
+) (map[channel.Key]string, error) {
 	res := make(map[channel.Key]string)
 	if err := r.listAliases(ctx, rng, res); err != nil {
 		return nil, err
@@ -128,8 +142,13 @@ func (r Reader) listAliases(
 	return r.listAliases(ctx, parentKey, accumulated)
 }
 
-// Search searches for aliases fuzzily matching the given term on the specified range.
-func (r Reader) Search(ctx context.Context, rng uuid.UUID, term string) ([]channel.Key, error) {
+// Search searches for aliases fuzzily matching the given term on the
+// specified range.
+func (r Reader) Search(
+	ctx context.Context,
+	rng uuid.UUID,
+	term string,
+) ([]channel.Key, error) {
 	ids, err := r.otg.SearchIDs(
 		ctx,
 		ontology.SearchRequest{Term: term, Type: OntologyType},

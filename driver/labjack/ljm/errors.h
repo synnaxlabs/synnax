@@ -12,7 +12,7 @@
 #include "api.h"
 #include "driver/errors/errors.h"
 
-namespace ljm {
+namespace driver::labjack::ljm {
 static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"LJ_SUCCESS", ""},
     {"LJME_FRAMES_OMITTED_DUE_TO_PACKET_SIZE",
@@ -701,8 +701,8 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"FILE_IO_END_OF_CWD", "There are no more files in the current working directory."}
 };
 
-const x::errors::Error CRITICAL_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("labjack");
-const x::errors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub(
+const x::errors::Error CRITICAL_ERROR = errors::CRITICAL_HARDWARE_ERROR.sub("labjack");
+const x::errors::Error TEMPORARY_ERROR = errors::TEMPORARY_HARDWARE_ERROR.sub(
     "labjack"
 );
 const x::errors::Error RECONNECT_FAILED = CRITICAL_ERROR.sub("LJME_RECONNECT_FAILED");

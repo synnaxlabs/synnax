@@ -24,7 +24,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// TokenMiddleware creates a middleware that validates JWT tokens.
 func TokenMiddleware(svc *token.Service) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
@@ -83,7 +82,6 @@ func tryParseToken(params freighter.Params) (string, error) {
 
 const subjectKey = "Subject"
 
-// GetSubject retrieves the authenticated subject's ontology ID from the context.
 func GetSubject(ctx context.Context) ontology.ID {
 	s, ok := freighter.MDFromContext(ctx).Get(subjectKey)
 	if !ok {

@@ -14,6 +14,7 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -31,27 +33,36 @@ type Service struct {
 	label    *label.Service
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
-		db:       cfg.Distribution.DB,
-		access:   cfg.Service.RBAC,
 		internal: cfg.Service.Status,
 		label:    cfg.Service.Label,
-	}
+		db:       cfg.Distribution.DB,
+		access:   cfg.Service.RBAC,
+	}, nil
 }
 
-// SetRequest is a request to set (create or update) statuses in the cluster.
-type SetRequest struct {
-	// Parent is the parent ontology ID for the statuses.
-	Parent ontology.ID `json:"parent" msgpack:"parent"`
-	// Statuses are the statuses to set.
-	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
+type Status struct {
+	status.Status[any]
+	Labels []label.Label
 }
 
-// SetResponse is a response to a SetRequest.
-type SetResponse struct {
-	// Statuses are the statuses that were set.
-	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
+func translateStatusesToService(statuses []Status) []status.Status[any] {
+	return lo.Map(statuses, func(s Status, _ int) status.Status[any] {
+		return s.Status
+	})
+}
+
+func translateStatusesFromService(
+	statuses []status.Status[any],
+) []Status {
+	return lo.Map(statuses, func(s status.Status[any], _ int) Status {
+		return Status{Status: s}
+	})
 }
 
 func statusAccessOntologyIDs(statuses []status.Status[any]) []ontology.ID {
@@ -61,6 +72,20 @@ func statusAccessOntologyIDs(statuses []status.Status[any]) []ontology.ID {
 		ids = append(ids, label.OntologyIDsFromLabels(s.Labels)...)
 	}
 	return ids
+}
+
+// SetRequest is a request to set (create or update) statuses in the cluster.
+type SetRequest struct {
+	// Parent is the parent ontology ID for the statuses.
+	Parent ontology.ID `json:"parent" msgpack:"parent"`
+	// Statuses are the statuses to set.
+	Statuses []Status `json:"statuses" msgpack:"statuses"`
+}
+
+// SetResponse is a response to a SetRequest.
+type SetResponse struct {
+	// Statuses are the statuses that were set.
+	Statuses []Status `json:"statuses" msgpack:"statuses"`
 }
 
 // Set creates or updates statuses in the cluster.
@@ -77,6 +102,7 @@ func (s *Service) Set(
 		return res, err
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		translated := translateStatusesToService(req.Statuses)
 		if err = s.internal.NewWriter(tx).SetManyWithParent(
 			ctx,
 			&req.Statuses,

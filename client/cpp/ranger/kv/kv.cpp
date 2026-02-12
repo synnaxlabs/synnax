@@ -7,40 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <string>
-#include <utility>
-
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/ranger/kv/kv.h"
 #include "x/cpp/errors/errors.h"
 
-namespace synnax::kv {
+namespace synnax::ranger::kv {
 std::pair<std::string, x::errors::Error> Client::get(const std::string &key) const {
-    auto req = grpc::kv::GetRequest();
+    auto req = api::v1::RangeKVGetRequest();
     req.add_keys(key);
-    req.set_range(this->range_key.to_string());
-    auto [res, err] = this->kv_get_client->send("/range/kv/get", req);
+    req.set_range_key(range_key);
+    auto [res, err] = get_client->send("/range/kv/get", req);
     if (err) return {"", err};
     if (res.pairs_size() == 0)
-        return {"", not_found_error("range key-value pair", "key " + key)};
+        return {"", errors::not_found_error("range key-value pair", "key " + key)};
     return {res.pairs().at(0).value(), err};
 }
 
 x::errors::Error Client::set(const std::string &key, const std::string &value) const {
-    auto req = grpc::kv::SetRequest();
+    auto req = api::v1::RangeKVSetRequest();
+    req.set_range_key(range_key);
     const auto pair = req.add_pairs();
     pair->set_key(key);
     pair->set_value(value);
-    pair->set_range(this->range_key.to_string());
-    auto [res, err] = this->kv_set_client->send("/range/kv/set", req);
+    auto [res, err] = set_client->send("/range/kv/set", req);
     return err;
 }
 
 x::errors::Error Client::del(const std::string &key) const {
-    auto req = grpc::kv::DeleteRequest();
-    req.set_range(this->range_key.to_string());
+    auto req = api::v1::RangeKVDeleteRequest();
+    req.set_range_key(range_key);
     req.add_keys(key);
-    auto [res, err] = this->kv_delete_client->send("/range/kv/delete", req);
+    auto [res, err] = delete_client->send("/range/kv/delete", req);
     return err;
 }
 }

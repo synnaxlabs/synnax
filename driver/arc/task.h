@@ -16,6 +16,7 @@
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/module/module.h"
 #include "arc/cpp/runtime/errors/errors.h"
@@ -23,16 +24,17 @@
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/arc.h"
+#include "driver/common/common.h"
+#include "driver/common/status.h"
+#include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
-#include "driver/task/common/common.h"
-#include "driver/task/common/status.h"
 #include "driver/task/task.h"
 
 namespace driver::arc {
 /// @brief configuration for an arc runtime task.
-struct TaskConfig : task::common::BaseTaskConfig {
-    x::uuid::UUID arc_key;
+struct TaskConfig : common::BaseTaskConfig {
+    std::string arc_key;
     ::arc::module::Module module;
     ::arc::runtime::loop::Config loop;
 
@@ -54,12 +56,14 @@ struct TaskConfig : task::common::BaseTaskConfig {
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
+        auto [arc_key, key_err] = x::uuid::UUID::parse(cfg.arc_key);
+        if (key_err) return {std::move(cfg), key_err};
         auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
-            cfg.arc_key,
+            arc_key,
             synnax::arc::RetrieveOptions{.compile = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};
-        cfg.module = *arc_data.module;
+        cfg.module = ::arc::module::Module(arc_data.module);
         return {std::move(cfg), x::errors::NIL};
     }
 };
@@ -78,15 +82,25 @@ class Task final : public task::Task {
     public:
         explicit Source(Task &task): task(task) {}
 
-        x::errors::Error
-        read(x::breaker::Breaker &breaker, x::telem::Frame &data) override {
-            if (!this->task.runtime->read(data))
-                return x::errors::Error("runtime closed");
+        x::errors::Error read(
+            x::breaker::Breaker &breaker,
+            x::telem::Frame &fr,
+            pipeline::Authorities &authorities
+        ) override {
+            ::arc::runtime::Output out;
+            if (!this->task.runtime->read(out)) return errors::NOMINAL_SHUTDOWN_ERROR;
+            fr = std::move(out.frame);
+            for (auto &c: out.authority_changes) {
+                if (c.channel_key.has_value())
+                    authorities.keys.push_back(*c.channel_key);
+                authorities.authorities.push_back(c.authority);
+            }
             return x::errors::NIL;
         }
 
         void stopped_with_err(const x::errors::Error &err) override {
-            this->task.stop(false);
+            this->task.state.error(err);
+            this->task.stop("", true);
         }
     };
 
@@ -144,7 +158,7 @@ public:
                 if (err.matches(::arc::runtime::errors::WARNING))
                     task_ptr->state.send_warning(err);
                 else {
-                    task_ptr->state.error(err);
+                    task_ptr->state.send_error(err);
                     task_ptr->runtime->close_outputs();
                 }
             }
@@ -163,11 +177,16 @@ public:
             streamer_factory = std::make_shared<pipeline::SynnaxStreamerFactory>(
                 ctx->client
             );
+        auto initial_authorities = ::arc::runtime::build_authorities(
+            cfg.module.authorities,
+            task->runtime->write_channels
+        );
         task->acquisition = std::make_unique<pipeline::Acquisition>(
             writer_factory,
             synnax::framer::WriterConfig{
                 .channels = task->runtime->write_channels,
                 .start = x::telem::TimeStamp::now(),
+                .authorities = std::move(initial_authorities),
                 .subject =
                     x::control::Subject{
                         .name = task_meta.name,

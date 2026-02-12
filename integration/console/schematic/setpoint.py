@@ -9,11 +9,13 @@
 
 from typing import Any
 
-from .symbol import Symbol
+from console.schematic.symbol import Symbol
 
 
 class Setpoint(Symbol):
     """Schematic setpoint/control symbol"""
+
+    _symbol_group = "General"
 
     def __init__(self, *, label: str, channel_name: str, symbol_type: str = "Setpoint"):
         """Initialize a setpoint symbol with configuration.
@@ -52,7 +54,7 @@ class Setpoint(Symbol):
 
     def set_value(self, value: float) -> None:
         self._disable_edit_mode()
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         self.click()
 
         # Fill the input and set the value

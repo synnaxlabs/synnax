@@ -11,6 +11,8 @@ cc_library(
         "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
         "//x/cpp/telem",
+        "//x/cpp/errors",
+        "//x/cpp/mem",
         "@glog",
     ],
 )

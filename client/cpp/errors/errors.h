@@ -11,7 +11,7 @@
 
 #include "x/cpp/errors/errors.h"
 
-namespace synnax {
+namespace synnax::errors {
 inline x::errors::Error unexpected_missing_error(const std::string &name) {
     return x::errors::Error(
         x::errors::UNEXPECTED,

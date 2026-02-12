@@ -9,7 +9,7 @@
 
 #include "driver/ni/hardware/hardware.h"
 
-namespace hardware::mock {
+namespace driver::ni::hardware::mock {
 
 Base::Base(
     const std::vector<x::errors::Error> &start_errors,

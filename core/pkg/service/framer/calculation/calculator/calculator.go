@@ -173,7 +173,7 @@ func (c *Calculator) Next(
 		changed     bool
 	)
 	for {
-		c.scheduler.Next(ctx, telem.Since(c.start))
+		c.scheduler.Next(ctx, telem.Since(c.start), node.ReasonChannelInput)
 		ofr, currChanged = c.state.Flush(ofr)
 		if !currChanged {
 			break

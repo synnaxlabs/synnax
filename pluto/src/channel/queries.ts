@@ -291,7 +291,7 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
       );
     });
     const onRemoveAlias = store.rangeAliases.onDelete((aliasKey) => {
-      const decoded = ranger.alias.decodeDeleteAliasChange(aliasKey);
+      const decoded = ranger.alias.decodeDeleteChange(aliasKey);
       onChange(
         state.skipUndefined((p) =>
           p.map((ch) =>
@@ -463,9 +463,9 @@ export const { useUpdate: useUpdateAlias } = Flux.createUpdate<
     if (range == null || channel == null) return false;
     await client.ranges.setAlias(range, channel, alias);
     store.rangeAliases.set(ranger.alias.createKey({ range, channel }), {
+      alias,
       channel,
       range,
-      alias,
     });
     return v;
   },

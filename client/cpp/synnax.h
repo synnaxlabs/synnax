@@ -114,7 +114,7 @@ struct Config {
         return this->host + ":" + std::to_string(this->port);
     }
 
-    [[nodiscard]] json to_json() const {
+    [[nodiscard]] x::json::json to_json() const {
         return {
             {"host", this->host},
             {"port", this->port},
@@ -135,66 +135,70 @@ class Synnax {
 
 public:
     /// @brief Client for creating and retrieving channels in a cluster.
-    channel::Client channels;
-    std::shared_ptr<AuthMiddleware> auth;
+    channel::Client channels = channel::Client(nullptr, nullptr);
     /// @brief Client for creating, retrieving, and performing operations on ranges
     /// in a cluster.
-    ranger::Client ranges;
-    task::Client tasks;
+    ranger::Client ranges = ranger::Client(nullptr, nullptr, ranger::kv::Client());
     /// @brief Client for reading and writing telemetry to a cluster.
-    framer::Client telem;
+    framer::Client telem = framer::Client(nullptr, nullptr, channel::Client());
     /// @brief Client for managing racks.
-    rack::Client racks;
+    rack::Client
+        racks = rack::Client(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     /// @brief Client for managing devices.
-    device::Client devices;
+    device::Client devices = device::Client(nullptr, nullptr, nullptr);
     /// @brief Client for managing statuses.
-    status::Client statuses;
+    status::Client statuses = status::Client();
     /// @brief Client for managing Arc automation programs.
-    arc::Client arcs;
+    arc::Client arcs = arc::Client(nullptr, nullptr, nullptr);
+    std::shared_ptr<auth::Middleware> auth = nullptr;
 
     /// @brief constructs the Synnax client from the provided configuration.
-    explicit Synnax(const Config &cfg):
-        t(cfg.port,
-          cfg.host,
-          cfg.ca_cert_file,
-          cfg.client_cert_file,
-          cfg.client_key_file),
-        channels(this->t.chan_retrieve, this->t.chan_create),
-        auth([&]() -> std::shared_ptr<AuthMiddleware> {
-            auto mw = std::make_shared<AuthMiddleware>(
-                std::move(this->t.auth_login),
-                cfg.username,
-                cfg.password,
-                cfg.clock_skew_threshold
-            );
-            this->t.use(mw);
-            return mw;
-        }()),
-        ranges(
-            std::move(this->t.range_retrieve),
-            std::move(this->t.range_create),
-            kv::Client(this->t.kv_get, this->t.kv_set, this->t.kv_delete)
-        ),
-        tasks(this->t.task_create, this->t.task_retrieve, this->t.task_delete),
-        telem(
-            std::move(this->t.frame_stream),
-            std::move(this->t.frame_write),
-            channel::Client(this->t.chan_retrieve, this->t.chan_create)
-        ),
-        racks(
-            std::move(this->t.rack_create_client),
-            std::move(this->t.rack_retrieve),
-            std::move(this->t.rack_delete),
-            this->tasks
-        ),
-        devices(
-            std::move(this->t.device_create),
-            std::move(this->t.device_retrieve),
-            std::move(this->t.device_delete)
-        ),
-        statuses(this->t.status_retrieve, this->t.status_set, this->t.status_delete),
-        arcs(this->t.arc_retrieve, this->t.arc_create, this->t.arc_delete) {
-        details::check_little_endian();
+    explicit Synnax(const Config &cfg) {
+        auto t = Transport::configure(
+            cfg.port,
+            cfg.host,
+            cfg.ca_cert_file,
+            cfg.client_cert_file,
+            cfg.client_key_file
+        );
+        priv::check_little_endian();
+        this->auth = std::make_shared<auth::Middleware>(
+            std::move(t.auth_login),
+            cfg.username,
+            cfg.password,
+            cfg.clock_skew_threshold
+        );
+        t.use(this->auth);
+        this->channels = channel::Client(t.chan_retrieve, t.chan_create);
+        this->ranges = ranger::Client(
+            std::move(t.range_retrieve),
+            std::move(t.range_create),
+            ranger::kv::Client(t.range_kv_get, t.range_kv_set, t.range_kv_delete)
+        );
+        this->telem = framer::Client(
+            std::move(t.frame_stream),
+            std::move(t.frame_write),
+            channel::Client(t.chan_retrieve, t.chan_create)
+        );
+        this->racks = rack::Client(
+            std::move(t.rack_create_client),
+            std::move(t.rack_retrieve),
+            std::move(t.rack_delete),
+            t.task_create,
+            t.task_retrieve,
+            t.task_delete
+        );
+        this->devices = device::Client(
+            std::move(t.device_create),
+            std::move(t.device_retrieve),
+            std::move(t.device_delete)
+        );
+        this->statuses = status::Client(
+            t.status_retrieve,
+            t.status_set,
+            t.status_delete
+        );
+        this->arcs = arc::Client(t.arc_retrieve, t.arc_create, t.arc_delete);
     }
 };
 }

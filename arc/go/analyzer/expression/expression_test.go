@@ -934,11 +934,13 @@ var _ = Describe("Expressions", func() {
 					Kind: symbol.KindChannel,
 					Name: "ox_pt_1",
 					Type: types.Chan(types.I32()),
+					ID:   20001,
 				},
 				"ox_pt_2": symbol.Symbol{
 					Kind: symbol.KindChannel,
 					Name: "ox_pt_2",
 					Type: types.Chan(types.I32()),
+					ID:   20002,
 				},
 			}
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -957,11 +959,13 @@ var _ = Describe("Expressions", func() {
 					Kind: symbol.KindChannel,
 					Name: "ox_pt_1",
 					Type: types.Chan(types.I32()),
+					ID:   20003,
 				},
 				"ox_pt_2": symbol.Symbol{
 					Kind: symbol.KindChannel,
 					Name: "ox_pt_2",
 					Type: types.Chan(types.F32()),
+					ID:   20004,
 				},
 			}
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -982,6 +986,7 @@ var _ = Describe("Expressions", func() {
 					Kind: symbol.KindChannel,
 					Name: "ox_pt_1",
 					Type: types.Chan(types.I32()),
+					ID:   20005,
 				},
 			}
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -1002,6 +1007,7 @@ var _ = Describe("Expressions", func() {
 					Kind: symbol.KindChannel,
 					Name: "sensor",
 					Type: types.Chan(types.F32()),
+					ID:   20006,
 				},
 			}),
 			Entry("comparison", `
@@ -1013,6 +1019,7 @@ var _ = Describe("Expressions", func() {
 					Kind: symbol.KindChannel,
 					Name: "sensor",
 					Type: types.Chan(types.F32()),
+					ID:   20007,
 				},
 			}),
 			Entry("multiple channels in expression", `
@@ -1020,9 +1027,9 @@ var _ = Describe("Expressions", func() {
 					return (temp1 + temp2 + temp3) / 3
 				}
 			`, symbol.MapResolver{
-				"temp1": symbol.Symbol{Kind: symbol.KindChannel, Name: "temp1", Type: types.Chan(types.F64())},
-				"temp2": symbol.Symbol{Kind: symbol.KindChannel, Name: "temp2", Type: types.Chan(types.F64())},
-				"temp3": symbol.Symbol{Kind: symbol.KindChannel, Name: "temp3", Type: types.Chan(types.F64())},
+				"temp1": symbol.Symbol{Kind: symbol.KindChannel, Name: "temp1", Type: types.Chan(types.F64()), ID: 20008},
+				"temp2": symbol.Symbol{Kind: symbol.KindChannel, Name: "temp2", Type: types.Chan(types.F64()), ID: 20009},
+				"temp3": symbol.Symbol{Kind: symbol.KindChannel, Name: "temp3", Type: types.Chan(types.F64()), ID: 20010},
 			}),
 		)
 
@@ -1032,6 +1039,7 @@ var _ = Describe("Expressions", func() {
 					Kind: symbol.KindChannel,
 					Name: "sensor",
 					Type: types.Chan(types.F32()),
+					ID:   20011,
 				},
 			}
 			expectFailure(`

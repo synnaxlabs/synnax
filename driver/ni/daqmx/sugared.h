@@ -14,9 +14,9 @@
 #include "driver/errors/errors.h"
 #include "driver/ni/daqmx/api.h"
 
-namespace daqmx {
-const x::errors::Error CRITICAL_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("ni");
-const x::errors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub("ni");
+namespace driver::ni::daqmx {
+const x::errors::Error CRITICAL_ERROR = errors::CRITICAL_HARDWARE_ERROR.sub("ni");
+const x::errors::Error TEMPORARY_ERROR = errors::TEMPORARY_HARDWARE_ERROR.sub("ni");
 const x::errors::Error FIELD_ERROR = CRITICAL_ERROR.sub("field");
 const x::errors::Error ANALOG_WRITE_OUT_OF_BOUNDS = CRITICAL_ERROR.sub("200561");
 const x::errors::Error APPLICATION_TOO_SLOW = CRITICAL_ERROR.sub("200729");

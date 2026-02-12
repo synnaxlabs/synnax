@@ -17,8 +17,8 @@
 namespace driver::pipeline {
 Control::Control(
     std::shared_ptr<synnax::Synnax> client,
-    synnax::framer::StreamerConfig streamer_config,
-    std::shared_ptr<driver::pipeline::Sink> sink,
+    const synnax::framer::StreamerConfig &streamer_config,
+    const std::shared_ptr<Sink> &sink,
     const x::breaker::Config &breaker_config,
     std::string thread_name
 ):
@@ -44,7 +44,7 @@ Control::Control(
 
 bool Control::stop() {
     if (this->streamer != nullptr) this->streamer->close_send();
-    const bool was_running = driver::pipeline::Base::stop();
+    const bool was_running = Base::stop();
     return was_running;
 }
 
@@ -63,7 +63,7 @@ void Control::run() {
         auto [cmd_frame, cmd_err] = this->streamer->read();
         if (cmd_err) break;
         if (sink_err = this->sink->write(cmd_frame); sink_err) {
-            if (sink_err.matches(driver::TEMPORARY_HARDWARE_ERROR) &&
+            if (sink_err.matches(errors::TEMPORARY_HARDWARE_ERROR) &&
                 breaker.wait(sink_err.message()))
                 continue;
             break;
@@ -99,7 +99,7 @@ SynnaxStreamerFactory::SynnaxStreamerFactory(
 ):
     client(std::move(client)) {}
 
-std::pair<std::unique_ptr<driver::pipeline::Streamer>, x::errors::Error>
+std::pair<std::unique_ptr<Streamer>, x::errors::Error>
 SynnaxStreamerFactory::open_streamer(synnax::framer::StreamerConfig config) {
     auto [ss, err] = client->telem.open_streamer(config);
     if (err) return {nullptr, err};

@@ -61,9 +61,9 @@ class Tare final : public Transform {
 
 public:
     explicit Tare(const std::vector<synnax::channel::Channel> &channels):
-        tare_channels(map_channel_Keys(channels)), tare_all(false) {}
+        tare_channels(map_channel_keys(channels)), tare_all(false) {}
 
-    x::errors::Error tare(json &arg) {
+    x::errors::Error tare(x::json::json &arg) {
         x::json::Parser parser(arg);
         const auto channels = parser.field<std::vector<synnax::channel::Key>>(
             "keys",

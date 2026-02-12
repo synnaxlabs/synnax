@@ -13,6 +13,7 @@
 #include <utility>
 
 namespace x::mem {
+
 /// @brief A non-atomic reference-counted smart pointer for single-threaded use.
 ///
 /// local_shared provides shared ownership semantics similar to std::shared_ptr,

@@ -62,20 +62,24 @@ type Runtime struct {
 	state *state.State
 	memory api.Memory  // WASM memory for reading string literals
 
+	// currentNodeKey is the key of the node currently executing WASM.
+	// This is set before each WASM call to ensure stateful variables are isolated per node instance.
+	currentNodeKey string
+
 	// State storage for stateful variables
-	// Key: (funcID << 32) | varID
-{{range .NumericTypes}}	state{{.IRType | title}} map[uint64]{{.GoType}}
-{{end}}	stateString map[uint64]string
-	stateSeries map[uint64]telem.Series
+	// Outer map key: node key, inner map key: variable ID
+{{range .NumericTypes}}	state{{.IRType | title}} map[string]map[uint32]{{.GoType}}
+{{end}}	stateString map[string]map[uint32]string
+	stateSeries map[string]map[uint32]telem.Series
 }
 
 func NewRuntime(state *state.State, memory api.Memory) *Runtime {
 	return &Runtime{
 		state: state,
 		memory: memory,
-{{range .NumericTypes}}		state{{.IRType | title}}: make(map[uint64]{{.GoType}}),
-{{end}}		stateString: make(map[uint64]string),
-		stateSeries: make(map[uint64]telem.Series),
+{{range .NumericTypes}}		state{{.IRType | title}}: make(map[string]map[uint32]{{.GoType}}),
+{{end}}		stateString: make(map[string]map[uint32]string),
+		stateSeries: make(map[string]map[uint32]telem.Series),
 	}
 }
 
@@ -92,9 +96,10 @@ func (r *Runtime) GetString(handle uint32) string {
 	return ""
 }
 
-// stateKey combines funcID and varID into a single key for state storage.
-func stateKey(funcID uint32, varID uint32) uint64 {
-	return (uint64(funcID) << 32) | uint64(varID)
+// SetCurrentNodeKey sets the current node key for state isolation.
+// This must be called before each WASM function invocation.
+func (r *Runtime) SetCurrentNodeKey(key string) {
+	r.currentNodeKey = key
 }
 
 {{range .Types}}{{if ne .IRType "str"}}
@@ -121,20 +126,29 @@ func (r *Runtime) ChannelWrite{{.IRType | title}}(ctx context.Context, channelID
 
 {{range .Types}}{{if ne .IRType "str"}}
 // StateLoad{{.IRType | title}} loads a stateful variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoad{{.IRType | title}}(ctx context.Context, funcID uint32, varID uint32, initValue {{.GoType}}) {{.GoType}} {
-	key := stateKey(funcID, varID)
-	if value, ok := r.state{{.IRType | title}}[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoad{{.IRType | title}}(ctx context.Context, varID uint32, initValue {{.GoType}}) {{.GoType}} {
+	inner, ok := r.state{{.IRType | title}}[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]{{.GoType}})
+		r.state{{.IRType | title}}[r.currentNodeKey] = inner
+	}
+	if value, ok := inner[varID]; ok {
 		return value
 	}
-	// Not found - initialize and return
-	r.state{{.IRType | title}}[key] = initValue
+	inner[varID] = initValue
 	return initValue
 }
 
 // StateStore{{.IRType | title}} stores a stateful variable's value.
-func (r *Runtime) StateStore{{.IRType | title}}(ctx context.Context, funcID uint32, varID uint32, value {{.GoType}}) {
-	key := stateKey(funcID, varID)
-	r.state{{.IRType | title}}[key] = value
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStore{{.IRType | title}}(ctx context.Context, varID uint32, value {{.GoType}}) {
+	inner, ok := r.state{{.IRType | title}}[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]{{.GoType}})
+		r.state{{.IRType | title}}[r.currentNodeKey] = inner
+	}
+	inner[varID] = value
 }
 {{end}}{{end}}
 
@@ -222,7 +236,7 @@ func (r *Runtime) ChannelReadStr(ctx context.Context, channelID uint32) uint32 {
 	}
 
 	// Unmarshal strings from series
-	strings := telem.UnmarshalStrings(series.Data)
+	strings := telem.UnmarshalSeries[string](series)
 	if len(strings) == 0 {
 		return 0
 	}
@@ -239,43 +253,47 @@ func (r *Runtime) ChannelWriteStr(ctx context.Context, channelID uint32, handle 
 		return // Invalid handle, do nothing
 	}
 
-	// Create series from string
-	data := telem.MarshalStrings([]string{str}, telem.StringT)
-	series := telem.Series{
-		DataType: telem.StringT,
-		Data:     data,
-	}
+	series := telem.NewSeriesV(str)
 
 	// Queue for output
 	r.state.WriteChannelValue(channelID, series)
 }
 
 // StateLoadStr loads a stateful string variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoadStr(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	key := stateKey(funcID, varID)
-	str, ok := r.stateString[key]
-	if ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadStr(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+	inner, ok := r.stateString[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]string)
+		r.stateString[r.currentNodeKey] = inner
+	}
+	if str, ok := inner[varID]; ok {
 		// Exists - create a new handle for the stored string
 		return r.state.StringCreate(str)
 	}
 
 	// Not found - store the init string and return the same handle
 	if initStr, ok := r.state.StringGet(initHandle); ok {
-		r.stateString[key] = initStr
+		inner[varID] = initStr
 	}
 	return initHandle
 }
 
 // StateStoreStr stores a stateful string variable's value.
-func (r *Runtime) StateStoreStr(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreStr(ctx context.Context, varID uint32, handle uint32) {
 	// Look up string by handle
 	str, ok := r.state.StringGet(handle)
 	if !ok {
 		return // Invalid handle, do nothing
 	}
 
-	key := stateKey(funcID, varID)
-	r.stateString[key] = str
+	inner, ok := r.stateString[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]string)
+		r.stateString[r.currentNodeKey] = inner
+	}
+	inner[varID] = str
 }
 
 {{range .NumericTypes}}
@@ -654,22 +672,33 @@ func (r *Runtime) SeriesCompareNEScalar{{.IRType | title}}(ctx context.Context, 
 }
 
 // StateLoadSeries{{.IRType | title}} loads a persisted series, returns new handle.
-func (r *Runtime) StateLoadSeries{{.IRType | title}}(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	key := stateKey(funcID, varID)
-	if s, ok := r.stateSeries[key]; ok {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateLoadSeries{{.IRType | title}}(ctx context.Context, varID uint32, initHandle uint32) uint32 {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
+	if s, ok := inner[varID]; ok {
 		return r.state.SeriesStore(s)
 	}
 	// Initialize from provided handle
 	if initS, ok := r.state.SeriesGet(initHandle); ok {
-		r.stateSeries[key] = initS
+		inner[varID] = initS
 	}
 	return initHandle
 }
 
 // StateStoreSeries{{.IRType | title}} persists a series to state.
-func (r *Runtime) StateStoreSeries{{.IRType | title}}(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+// Node isolation is determined by currentNodeKey (set before WASM calls).
+func (r *Runtime) StateStoreSeries{{.IRType | title}}(ctx context.Context, varID uint32, handle uint32) {
+	inner, ok := r.stateSeries[r.currentNodeKey]
+	if !ok {
+		inner = make(map[uint32]telem.Series)
+		r.stateSeries[r.currentNodeKey] = inner
+	}
 	if s, ok := r.state.SeriesGet(handle); ok {
-		r.stateSeries[stateKey(funcID, varID)] = s
+		inner[varID] = s
 	}
 }
 {{end}}

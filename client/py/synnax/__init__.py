@@ -9,7 +9,7 @@
 
 __version__ = "0.3.0"
 
-from synnax import group, labjack, modbus, ni, ontology, opcua, sequence, status
+from synnax import ethercat, labjack, modbus, ni, opcua, sequence, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role
 from synnax.arc import (
@@ -23,6 +23,7 @@ from synnax.arc import (
     Text,
 )
 from synnax.channel import Channel
+from synnax.color import Color
 from synnax.control import Controller
 from synnax.device import Device
 from synnax.exceptions import (
@@ -94,6 +95,7 @@ __all__ = [
     "Controller",
     "Bounds",
     "Channel",
+    "Color",
     "Edge",
     "ConfigurationError",
     "ContiguityError",
@@ -151,6 +153,7 @@ __all__ = [
     "ValidationError",
     "Writer",
     "WriterMode",
+    "ethercat",
     "modbus",
     "ni",
     "labjack",

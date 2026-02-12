@@ -51,9 +51,9 @@ public:
 TEST(MultiPlugin, testCallOrder) {
     auto plugin1 = std::make_shared<MockPlugin>();
     auto plugin2 = std::make_shared<MockPlugin>();
-    std::vector<std::shared_ptr<plugins::Plugin>> plugins = {plugin1, plugin2};
+    std::vector<std::shared_ptr<Plugin>> plugins = {plugin1, plugin2};
 
-    auto multi = plugins::MultiPlugin(plugins);
+    auto multi = MultiPlugin(plugins);
 
     ASSERT_EQ(multi.before_all(nullptr), x::errors::NIL);
     ASSERT_EQ(multi.before_next(nullptr), x::errors::NIL);
@@ -73,8 +73,8 @@ TEST(MultiPlugin, testErrorPropagationBeforeAll) {
     plugin2->should_error = true;
     plugin2->error_on = "before_all";
 
-    std::vector<std::shared_ptr<plugins::Plugin>> plugins = {plugin1, plugin2};
-    auto multi = plugins::MultiPlugin(plugins);
+    std::vector<std::shared_ptr<Plugin>> plugins = {plugin1, plugin2};
+    auto multi = MultiPlugin(plugins);
 
     auto err = multi.before_all(nullptr);
     ASSERT_NE(err, x::errors::NIL);
@@ -89,8 +89,8 @@ TEST(MultiPlugin, testErrorPropagationAfterAll) {
     plugin2->should_error = true;
     plugin2->error_on = "after_all";
 
-    std::vector<std::shared_ptr<plugins::Plugin>> plugins = {plugin1, plugin2};
-    auto multi = plugins::MultiPlugin(plugins);
+    std::vector<std::shared_ptr<Plugin>> plugins = {plugin1, plugin2};
+    auto multi = MultiPlugin(plugins);
 
     auto err = multi.after_all(nullptr);
     ASSERT_NE(err, x::errors::NIL);
@@ -105,8 +105,8 @@ TEST(MultiPlugin, testErrorPropagationBeforeNext) {
     plugin2->should_error = true;
     plugin2->error_on = "before_next";
 
-    std::vector<std::shared_ptr<plugins::Plugin>> plugins = {plugin1, plugin2};
-    auto multi = plugins::MultiPlugin(plugins);
+    std::vector<std::shared_ptr<Plugin>> plugins = {plugin1, plugin2};
+    auto multi = MultiPlugin(plugins);
 
     auto err = multi.before_next(nullptr);
     ASSERT_NE(err, x::errors::NIL);
@@ -121,8 +121,8 @@ TEST(MultiPlugin, testErrorPropagationAfterNext) {
     plugin2->should_error = true;
     plugin2->error_on = "after_next";
 
-    std::vector<std::shared_ptr<plugins::Plugin>> plugins = {plugin1, plugin2};
-    auto multi = plugins::MultiPlugin(plugins);
+    std::vector<std::shared_ptr<Plugin>> plugins = {plugin1, plugin2};
+    auto multi = MultiPlugin(plugins);
 
     auto err = multi.after_next(nullptr);
     ASSERT_NE(err, x::errors::NIL);
@@ -140,8 +140,8 @@ TEST(MultiPlugin, testAfterAllCallsAllPlugins) {
     plugin2->should_error = true;
     plugin2->error_on = "after_all";
 
-    std::vector<std::shared_ptr<plugins::Plugin>> plugins = {plugin1, plugin2, plugin3};
-    auto multi = plugins::MultiPlugin(plugins);
+    std::vector<std::shared_ptr<Plugin>> plugins = {plugin1, plugin2, plugin3};
+    auto multi = MultiPlugin(plugins);
 
     auto err = multi.after_all(nullptr);
     ASSERT_NE(err, x::errors::NIL);

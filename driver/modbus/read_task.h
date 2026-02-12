@@ -11,11 +11,11 @@
 
 #include <set>
 
+#include "driver/common/read_task.h"
+#include "driver/common/sample_clock.h"
 #include "driver/modbus/channels.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/util/util.h"
-#include "driver/task/common/read_task.h"
-#include "driver/task/common/sample_clock.h"
 
 namespace driver::modbus {
 /// @brief interface for reading from different types of Modbus registers/bits.
@@ -154,10 +154,12 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     /// @brief the key of the device to read from.
     std::string device_key;
     /// @brief the indexes of all data channels in the task.
+    /// Dynamically populated by querying the core.
     std::set<synnax::channel::Key> indexes;
     /// @brief the list of readers to use for reading data from the device.
     std::vector<std::unique_ptr<Reader>> readers;
     /// @brief the connection configuration for the device.
+    /// Dynamically populated from device properties.
     device::ConnectionConfig conn;
     /// @brief the number of samples per channel to read on each read() call.
     std::size_t samples_per_chan;
@@ -336,9 +338,9 @@ public:
     ):
         config(std::move(cfg)), dev(dev), sample_clock(this->config.sample_rate) {}
 
-    driver::task::common::ReadResult
+    common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
-        driver::task::common::ReadResult res;
+        common::ReadResult res;
         const auto n_channels = this->config.data_channel_count;
         const auto n_samples = this->config.samples_per_chan;
         auto total_channel_count = n_channels + this->config.indexes.size();
