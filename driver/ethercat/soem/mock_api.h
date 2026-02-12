@@ -94,23 +94,17 @@ public:
         return reqstate;
     }
 
-    int SDOread(
-        uint16_t, uint16_t, uint8_t, int, int *, void *, int
-    ) override {
+    int SDOread(uint16_t, uint16_t, uint8_t, int, int *, void *, int) override {
         return 0;
     }
 
-    int16_t siifind(uint16_t, uint16_t) override {
-        return this->siifind_return;
-    }
+    int16_t siifind(uint16_t, uint16_t) override { return this->siifind_return; }
 
     uint8_t siigetbyte(uint16_t, uint16_t) override { return 0; }
 
     void siistring(char *str, uint16_t, uint16_t) override { str[0] = '\0'; }
 
-    int readODlist(uint16_t, ec_ODlistt *) override {
-        return this->readODlist_return;
-    }
+    int readODlist(uint16_t, ec_ODlistt *) override { return this->readODlist_return; }
 
     int readOEsingle(uint16_t, uint8_t, ec_ODlistt *, ec_OElistt *) override {
         return 0;
@@ -202,13 +196,9 @@ public:
 
     uint32_t group_Obytes(uint8_t) const override { return this->obytes; }
 
-    uint16_t group_outputsWKC(uint8_t) const override {
-        return this->outputs_wkc;
-    }
+    uint16_t group_outputsWKC(uint8_t) const override { return this->outputs_wkc; }
 
-    uint16_t group_inputsWKC(uint8_t) const override {
-        return this->inputs_wkc;
-    }
+    uint16_t group_inputsWKC(uint8_t) const override { return this->inputs_wkc; }
 };
 
 }

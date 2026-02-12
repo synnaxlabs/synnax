@@ -9,10 +9,11 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/test/test.h"
+
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/soem/mock_api.h"
-#include "x/cpp/test/test.h"
 
 namespace driver::ethercat::soem {
 
@@ -277,7 +278,7 @@ TEST_F(SOEMMasterTest, DeactivateRequestsInitState) {
     this->mock->state_change_requests.clear();
     this->master->deactivate();
     bool found_init = false;
-    for (const auto &[pos, state] : this->mock->state_change_requests)
+    for (const auto &[pos, state]: this->mock->state_change_requests)
         if (state == EC_STATE_INIT) found_init = true;
     EXPECT_TRUE(found_init);
 }

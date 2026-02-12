@@ -79,17 +79,13 @@ class MockAPI final : public API {
     bool master_deactivate_called_val = false;
 
 public:
-    MockAPI(): API(MockTag{}) {
-        this->request_master_result = this->sentinel_master;
-    }
+    MockAPI(): API(MockTag{}) { this->request_master_result = this->sentinel_master; }
 
     void set_request_master_result(ec_master_t *result) {
         this->request_master_result = result;
     }
 
-    void set_master_info_result(int result) {
-        this->master_info_result = result;
-    }
+    void set_master_info_result(int result) { this->master_info_result = result; }
 
     void set_slave_count(unsigned int count) {
         this->mock_master_info.slave_count = count;
@@ -161,22 +157,19 @@ public:
     }
 
     void set_all_slaves_al_state(uint8_t al_state) {
-        for (auto &[addr, state] : this->slave_config_states)
+        for (auto &[addr, state]: this->slave_config_states)
             state.al_state = al_state;
     }
 
     bool release_master_called() const { return this->release_master_called_val; }
 
-    bool master_deactivate_called() const {
-        return this->master_deactivate_called_val;
-    }
+    bool master_deactivate_called() const { return this->master_deactivate_called_val; }
 
     ec_domain_t *get_output_domain() const { return this->sentinel_output_domain; }
 
     ec_domain_t *get_input_domain() const { return this->sentinel_input_domain; }
 
-    ec_master_t *
-    request_master(unsigned int) const override {
+    ec_master_t *request_master(unsigned int) const override {
         return this->request_master_result;
     }
 
@@ -184,9 +177,7 @@ public:
         const_cast<MockAPI *>(this)->release_master_called_val = true;
     }
 
-    int master_activate(ec_master_t *) const override {
-        return this->activate_result;
-    }
+    int master_activate(ec_master_t *) const override { return this->activate_result; }
 
     int master_deactivate(ec_master_t *) const override {
         const_cast<MockAPI *>(this)->master_deactivate_called_val = true;
@@ -227,8 +218,8 @@ public:
 
     int domain_queue(ec_domain_t *) const override { return 0; }
 
-    int domain_state(const ec_domain_t *domain, ec_domain_state_t *state)
-        const override {
+    int
+    domain_state(const ec_domain_t *domain, ec_domain_state_t *state) const override {
         if (domain == this->sentinel_output_domain)
             *state = this->output_domain_state_val;
         else if (domain == this->sentinel_input_domain)
@@ -290,8 +281,11 @@ public:
         return 0;
     }
 
-    int slave_config_pdos(ec_slave_config_t *, unsigned int, const ec_sync_info_t[])
-        const override {
+    int slave_config_pdos(
+        ec_slave_config_t *,
+        unsigned int,
+        const ec_sync_info_t[]
+    ) const override {
         return this->slave_config_pdos_result;
     }
 

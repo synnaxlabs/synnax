@@ -47,8 +47,7 @@ public:
     virtual int writestate(uint16_t slave) = 0;
 
     /// @brief polls slave state change with timeout in microseconds.
-    virtual uint16_t
-    statecheck(uint16_t slave, uint16_t reqstate, int timeout) = 0;
+    virtual uint16_t statecheck(uint16_t slave, uint16_t reqstate, int timeout) = 0;
 
     /// @brief reads from slave object dictionary via SDO.
     virtual int SDOread(
@@ -149,9 +148,7 @@ class ProdAPI final : public API {
 public:
     ProdAPI() { std::memset(&this->context, 0, sizeof(this->context)); }
 
-    int init(const char *ifname) override {
-        return ecx_init(&this->context, ifname);
-    }
+    int init(const char *ifname) override { return ecx_init(&this->context, ifname); }
 
     void close() override { ecx_close(&this->context); }
 
@@ -161,9 +158,7 @@ public:
         return ecx_config_map_group(&this->context, iomap, group);
     }
 
-    int send_processdata() override {
-        return ecx_send_processdata(&this->context);
-    }
+    int send_processdata() override { return ecx_send_processdata(&this->context); }
 
     int receive_processdata(int timeout) override {
         return ecx_receive_processdata(&this->context, timeout);
@@ -187,7 +182,14 @@ public:
         int timeout
     ) override {
         return ecx_SDOread(
-            &this->context, slave, index, subindex, ca, psize, p, timeout
+            &this->context,
+            slave,
+            index,
+            subindex,
+            ca,
+            psize,
+            p,
+            timeout
         );
     }
 
