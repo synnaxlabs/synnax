@@ -1909,7 +1909,11 @@ TEST(ArcTests, testStaticAuthorityConfig) {
         client->racks.create(make_unique_channel_name("arc_auth_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_auth_test", "arc_runtime", "");
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_auth_test",
+        .type = "arc_runtime",
+    };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
@@ -2023,7 +2027,11 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
         client->racks.create(make_unique_channel_name("arc_pca_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_pca_test", "arc_runtime", "");
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_pca_test",
+        .type = "arc_runtime",
+    };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
@@ -2133,7 +2141,11 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
         client->racks.create(make_unique_channel_name("arc_dyn_auth_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_dyn_auth_test", "arc_runtime", "");
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_dyn_auth_test",
+        .type = "arc_runtime",
+    };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
@@ -2233,7 +2245,11 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
         client->racks.create(make_unique_channel_name("arc_dpc_auth_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_dpc_auth_test", "arc_runtime", "");
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_dpc_auth_test",
+        .type = "arc_runtime",
+    };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
@@ -2328,7 +2344,11 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
         client->racks.create(make_unique_channel_name("arc_auth_calc_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_auth_calc_test", "arc_runtime", "");
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_auth_calc_test",
+        .type = "arc_runtime",
+    };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
@@ -2428,7 +2448,11 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
         client->racks.create(make_unique_channel_name("arc_writer_fail_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_writer_fail_test", "arc_runtime", "");
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_writer_fail_test",
+        .type = "arc_runtime",
+    };
     nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
