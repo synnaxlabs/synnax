@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -32,7 +34,7 @@ type (
 		Labels []label.Label `json:"labels" msgpack:"labels"`
 		ranger.Range
 	}
-	RangeKVPair = ranger.KVPair
+	RangeKVPair = kv.Pair
 )
 
 func translateRangesToService(ranges []Range) []ranger.Range {
@@ -60,6 +62,8 @@ type RangeService struct {
 	dbProvider
 	accessProvider
 	internal *ranger.Service
+	alias    *alias.Service
+	kv       *kv.Service
 }
 
 func NewRangeService(p Provider) *RangeService {
@@ -67,6 +71,8 @@ func NewRangeService(p Provider) *RangeService {
 		dbProvider:     p.db,
 		accessProvider: p.access,
 		internal:       p.Service.Ranger,
+		alias:          p.Service.Alias,
+		kv:             p.Service.KV,
 	}
 }
 
@@ -252,7 +258,7 @@ type (
 		Range uuid.UUID `json:"range" msgpack:"range"`
 	}
 	RangeKVGetResponse struct {
-		Pairs []ranger.KVPair `json:"pairs" msgpack:"pairs"`
+		Pairs []kv.Pair `json:"pairs" msgpack:"pairs"`
 	}
 )
 
@@ -267,28 +273,19 @@ func (s *RangeService) KVGet(
 	}); err != nil {
 		return RangeKVGetResponse{}, err
 	}
-	var r ranger.Range
-	if err := s.
-		internal.
-		NewRetrieve().
-		Entry(&r).
-		WhereKeys(req.Range).
-		Exec(ctx, nil); err != nil {
-		return RangeKVGetResponse{}, err
-	}
-
+	reader := s.kv.NewReader(nil)
 	var (
 		res RangeKVGetResponse
 		err error
 	)
 	if len(req.Keys) == 0 {
-		res.Pairs, err = r.ListKV(ctx)
+		res.Pairs, err = reader.List(ctx, req.Range)
 		if err != nil {
 			return RangeKVGetResponse{}, err
 		}
 		return res, nil
 	}
-	res.Pairs, err = r.GetManyKV(ctx, req.Keys)
+	res.Pairs, err = reader.GetMany(ctx, req.Range, req.Keys)
 	if err != nil {
 		return RangeKVGetResponse{}, err
 	}
@@ -296,8 +293,8 @@ func (s *RangeService) KVGet(
 }
 
 type RangeKVSetRequest struct {
-	Pairs []ranger.KVPair `json:"pairs" msgpack:"pairs"`
-	Range uuid.UUID       `json:"range" msgpack:"range"`
+	Pairs []kv.Pair `json:"pairs" msgpack:"pairs"`
+	Range uuid.UUID `json:"range" msgpack:"range"`
 }
 
 func (s *RangeService) KVSet(
@@ -312,17 +309,7 @@ func (s *RangeService) KVSet(
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		var rng ranger.Range
-		if err := s.
-			internal.
-			NewRetrieve().
-			Entry(&rng).
-			WhereKeys(req.Range).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		rng = rng.UseTx(tx)
-		return rng.SetManyKV(ctx, req.Pairs)
+		return s.kv.NewWriter(tx).SetMany(ctx, req.Range, req.Pairs)
 	})
 }
 
@@ -343,18 +330,9 @@ func (s *RangeService) KVDelete(
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		var rng ranger.Range
-		if err := s.
-			internal.
-			NewRetrieve().
-			Entry(&rng).
-			WhereKeys(req.Range).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		rng = rng.UseTx(tx)
+		w := s.kv.NewWriter(tx)
 		for _, key := range req.Keys {
-			if err := rng.DeleteKV(ctx, key); err != nil {
+			if err := w.Delete(ctx, req.Range, key); err != nil {
 				return err
 			}
 		}
@@ -375,23 +353,14 @@ func (s *RangeService) AliasSet(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: ranger.AliasOntologyIDs(req.Range, keys),
+		Objects: alias.OntologyIDs(req.Range, keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		var rng ranger.Range
-		if err := s.
-			internal.
-			NewRetrieve().
-			Entry(&rng).
-			WhereKeys(req.Range).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		rng = rng.UseTx(tx)
+		w := s.alias.NewWriter(tx)
 		for k, v := range req.Aliases {
-			if err := rng.SetAlias(ctx, k, v); err != nil {
+			if err := w.Set(ctx, req.Range, k, v); err != nil {
 				return err
 			}
 		}
@@ -413,37 +382,25 @@ func (s *RangeService) AliasResolve(
 	ctx context.Context,
 	req RangeAliasResolveRequest,
 ) (RangeAliasResolveResponse, error) {
-	var r ranger.Range
-	if err := s.
-		internal.
-		NewRetrieve().
-		Entry(&r).
-		WhereKeys(req.Range).
-		Exec(ctx, nil); err != nil {
-		return RangeAliasResolveResponse{}, err
-	}
+	reader := s.alias.NewReader(nil)
 	aliases := make(map[string]channel.Key, len(req.Aliases))
-
-	for _, alias := range req.Aliases {
-		ch, err := r.ResolveAlias(ctx, alias)
+	for _, a := range req.Aliases {
+		ch, err := reader.Resolve(ctx, req.Range, a)
 		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return RangeAliasResolveResponse{}, err
 		}
 		if ch != 0 {
-			aliases[alias] = ch
+			aliases[a] = ch
 		}
 	}
-
 	keys := lo.Values(aliases)
-
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: ranger.AliasOntologyIDs(req.Range, keys),
+		Objects: alias.OntologyIDs(req.Range, keys),
 	}); err != nil {
 		return RangeAliasResolveResponse{}, err
 	}
-
 	return RangeAliasResolveResponse{Aliases: aliases}, nil
 }
 
@@ -459,23 +416,14 @@ func (s *RangeService) AliasDelete(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: ranger.AliasOntologyIDs(req.Range, req.Channels),
+		Objects: alias.OntologyIDs(req.Range, req.Channels),
 	}); err != nil {
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		var rng ranger.Range
-		if err := s.
-			internal.
-			NewRetrieve().
-			Entry(&rng).
-			WhereKeys(req.Range).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		rng = rng.UseTx(tx)
-		for _, alias := range req.Channels {
-			if err := rng.DeleteAlias(ctx, alias); err != nil {
+		w := s.alias.NewWriter(tx)
+		for _, ch := range req.Channels {
+			if err := w.Delete(ctx, req.Range, ch); err != nil {
 				return err
 			}
 		}
@@ -496,16 +444,8 @@ func (s *RangeService) AliasList(
 	ctx context.Context,
 	req RangeAliasListRequest,
 ) (RangeAliasListResponse, error) {
-	var r ranger.Range
-	if err := s.
-		internal.
-		NewRetrieve().
-		Entry(&r).
-		WhereKeys(req.Range).
-		Exec(ctx, nil); err != nil {
-		return RangeAliasListResponse{}, err
-	}
-	aliases, err := r.RetrieveAliases(ctx)
+	reader := s.alias.NewReader(nil)
+	aliases, err := reader.List(ctx, req.Range)
 	if err != nil {
 		return RangeAliasListResponse{}, err
 	}
@@ -513,11 +453,10 @@ func (s *RangeService) AliasList(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: ranger.AliasOntologyIDs(req.Range, keys),
+		Objects: alias.OntologyIDs(req.Range, keys),
 	}); err != nil {
 		return RangeAliasListResponse{}, err
 	}
-
 	return RangeAliasListResponse{Aliases: aliases}, nil
 }
 
@@ -538,30 +477,20 @@ func (s *RangeService) AliasRetrieve(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: ranger.AliasOntologyIDs(req.Range, req.Channels),
+		Objects: alias.OntologyIDs(req.Range, req.Channels),
 	}); err != nil {
 		return RangeAliasRetrieveResponse{}, err
 	}
-	var r ranger.Range
-	if err := s.
-		internal.
-		NewRetrieve().
-		Entry(&r).
-		WhereKeys(req.Range).
-		Exec(ctx, nil); err != nil {
-		return RangeAliasRetrieveResponse{}, err
-	}
-
+	reader := s.alias.NewReader(nil)
 	aliases := make(map[channel.Key]string)
 	for _, ch := range req.Channels {
-		alias, err := r.RetrieveAlias(ctx, ch)
+		al, err := reader.Retrieve(ctx, req.Range, ch)
 		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return RangeAliasRetrieveResponse{}, err
 		}
-		if alias != "" {
-			aliases[ch] = alias
+		if al != "" {
+			aliases[ch] = al
 		}
 	}
-
 	return RangeAliasRetrieveResponse{Aliases: aliases}, nil
 }

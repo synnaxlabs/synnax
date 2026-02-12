@@ -424,7 +424,7 @@ TEST(DeviceTests, testCreateDeviceWithStatus) {
         "model",
         "properties"
     );
-    d.status.variant = x::status::variant::SUCCESS;
+    d.status.variant = x::status::VARIANT_SUCCESS;
     d.status.message = "Device is connected";
     d.status.time = x::telem::TimeStamp::now();
     d.status.details.rack = r.key;
@@ -435,7 +435,7 @@ TEST(DeviceTests, testCreateDeviceWithStatus) {
     );
     ASSERT_EQ(d2.name, "device_with_status");
     ASSERT_FALSE(d2.status.is_zero());
-    ASSERT_EQ(d2.status.variant, x::status::variant::SUCCESS);
+    ASSERT_EQ(d2.status.variant, x::status::VARIANT_SUCCESS);
     ASSERT_EQ(d2.status.message, "Device is connected");
     ASSERT_EQ(d2.status.details.rack, r.key);
 }
@@ -455,7 +455,7 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
         "model1",
         "props1"
     );
-    d1.status.variant = x::status::variant::SUCCESS;
+    d1.status.variant = x::status::VARIANT_SUCCESS;
     d1.status.message = "Device 1 OK";
     d1.status.time = x::telem::TimeStamp::now();
     auto d2 = Device(
@@ -467,7 +467,7 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
         "model2",
         "props2"
     );
-    d2.status.variant = x::status::variant::WARNING;
+    d2.status.variant = x::status::VARIANT_WARNING;
     d2.status.message = "Device 2 warning";
     d2.status.time = x::telem::TimeStamp::now();
     ASSERT_NIL(client.devices.create(d1));
@@ -479,10 +479,10 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
     ASSERT_EQ(devices.size(), 2);
     auto dm = map_device_keys(devices);
     ASSERT_FALSE(dm[d1.key].status.is_zero());
-    ASSERT_EQ(dm[d1.key].status.variant, x::status::variant::SUCCESS);
+    ASSERT_EQ(dm[d1.key].status.variant, x::status::VARIANT_SUCCESS);
     ASSERT_EQ(dm[d1.key].status.message, "Device 1 OK");
     ASSERT_FALSE(dm[d2.key].status.is_zero());
-    ASSERT_EQ(dm[d2.key].status.variant, x::status::variant::WARNING);
+    ASSERT_EQ(dm[d2.key].status.variant, x::status::VARIANT_WARNING);
     ASSERT_EQ(dm[d2.key].status.message, "Device 2 warning");
 }
 

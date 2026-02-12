@@ -274,7 +274,7 @@ TEST(ReadTask, testBasicReadTask) {
     const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.key, tsk.status_key());
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.details.task, tsk.key);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 1);
@@ -283,7 +283,7 @@ TEST(ReadTask, testBasicReadTask) {
     const auto second_state = ctx->statuses[1];
     EXPECT_EQ(second_state.key, tsk.status_key());
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.details.task, tsk.key);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
 
@@ -705,7 +705,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     bool found_start = false;
     for (const auto &s: ctx->statuses) {
-        if (s.details.running && s.variant == x::status::variant::SUCCESS) {
+        if (s.details.running && s.variant == x::status::VARIANT_SUCCESS) {
             found_start = true;
             break;
         }
@@ -774,7 +774,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &initial_state = ctx->statuses[0];
     ASSERT_FALSE(initial_state.details.running);
-    ASSERT_EQ(initial_state.variant, x::status::variant::SUCCESS);
+    ASSERT_EQ(initial_state.variant, x::status::VARIANT_SUCCESS);
     ASSERT_EQ(initial_state.message, "Task configured successfully");
 
     // Manually start the task
@@ -785,7 +785,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     bool found_start = false;
     for (const auto &s: ctx->statuses) {
-        if (s.details.running && s.variant == x::status::variant::SUCCESS) {
+        if (s.details.running && s.variant == x::status::VARIANT_SUCCESS) {
             found_start = true;
             break;
         }
