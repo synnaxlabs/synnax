@@ -32,10 +32,7 @@ export interface ProviderProps extends PropsWithChildren {
   initServices: Service[];
 }
 
-export const Provider = ({
-  children,
-  initServices: services,
-}: ProviderProps) => {
+export const Provider = ({ children, initServices: services }: ProviderProps) => {
   const [monaco, setMonaco, monacoRef] = useCombinedStateAndRef<Monaco | null>(null);
   const destructorRef = useRef<destructor.Async>(null);
   const requestInit = useCallback(() => {
