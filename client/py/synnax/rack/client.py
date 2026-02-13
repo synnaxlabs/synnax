@@ -10,26 +10,27 @@
 from typing import overload
 
 from alamos import NOOP, Instrumentation
-from freighter import Empty, Payload, UnaryClient, send_required
+from freighter import Empty, UnaryClient, send_required
+from pydantic import BaseModel
 
 from synnax.exceptions import NotFoundError
 from synnax.rack.payload import Rack
 from synnax.util.normalize import check_for_none, override
 
 
-class _CreateRequest(Payload):
+class _CreateRequest(BaseModel):
     racks: list[Rack]
 
 
-class _CreateResponse(Payload):
+class _CreateResponse(BaseModel):
     racks: list[Rack]
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     keys: list[int]
 
 
-class _RetrieveRequest(Payload):
+class _RetrieveRequest(BaseModel):
     keys: list[int] | None = None
     names: list[str] | None = None
     search: str | None = None
@@ -39,7 +40,7 @@ class _RetrieveRequest(Payload):
     limit: int | None = None
 
 
-class _RetrieveResponse(Payload):
+class _RetrieveResponse(BaseModel):
     racks: list[Rack] | None = None
 
 
@@ -60,7 +61,7 @@ class Client:
     def create(self, *, key: int = 0, name: str = "") -> Rack: ...
 
     @overload
-    def create(self, rack: Rack) -> Rack: ...
+    def create(self, racks: Rack) -> Rack: ...
 
     @overload
     def create(self, racks: list[Rack]) -> list[Rack]: ...
@@ -94,9 +95,22 @@ class Client:
         self,
         key: int | None = None,
         name: str | None = None,
+        *,
         embedded: bool | None = None,
         host_is_node: bool | None = None,
     ) -> Rack: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: int | None = None,
+        name: str | None = None,
+        keys: list[int] | None = None,
+        names: list[str] | None = None,
+        *,
+        embedded: bool | None = None,
+        host_is_node: bool | None = None,
+    ) -> list[Rack]: ...
 
     def retrieve(
         self,
@@ -107,7 +121,7 @@ class Client:
         *,
         host_is_node: bool | None = None,
         embedded: bool | None = None,
-    ) -> list[Rack]:
+    ) -> Rack | list[Rack]:
         is_single = check_for_none(keys, names)
         res = send_required(
             self._client,

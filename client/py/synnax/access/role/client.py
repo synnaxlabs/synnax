@@ -11,45 +11,46 @@ from typing import overload
 from uuid import UUID
 
 from alamos import NOOP, Instrumentation
-from freighter import Empty, Payload, UnaryClient, send_required
+from freighter import Empty, UnaryClient, send_required
+from pydantic import BaseModel
 
 from synnax.access.role.payload import Role
 from synnax.util.normalize import normalize
 
 
-class _CreateRequest(Payload):
+class _CreateRequest(BaseModel):
     roles: list[Role]
 
 
 _CreateResponse = _CreateRequest
 
 
-class _RetrieveRequest(Payload):
+class _RetrieveRequest(BaseModel):
     keys: list[UUID] | None = None
     limit: int | None = None
     offset: int | None = None
     internal: bool | None = None
 
 
-class _RetrieveResponse(Payload):
+class _RetrieveResponse(BaseModel):
     roles: list[Role] | None
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     keys: list[UUID]
 
 
-class _AssignRequest(Payload):
+class _AssignRequest(BaseModel):
     user: UUID
     role: UUID
 
 
-class _UnassignRequest(Payload):
+class _UnassignRequest(BaseModel):
     user: UUID
     role: UUID
 
 
-class RoleClient:
+class Client:
     _client: UnaryClient
     instrumentation: Instrumentation
 
@@ -64,7 +65,7 @@ class RoleClient:
     @overload
     def create(
         self,
-        role: Role,
+        roles: Role,
     ) -> Role: ...
 
     @overload
@@ -88,6 +89,7 @@ class RoleClient:
     @overload
     def retrieve(
         self,
+        *,
         keys: list[UUID] | None = None,
         limit: int | None = None,
         offset: int | None = None,
@@ -103,7 +105,7 @@ class RoleClient:
         internal: bool | None = None,
     ) -> Role | list[Role]:
         is_single = key is not None
-        if is_single:
+        if is_single and key is not None:
             keys = [key]
         req = _RetrieveRequest(keys=keys, limit=limit, offset=offset, internal=internal)
         res = send_required(

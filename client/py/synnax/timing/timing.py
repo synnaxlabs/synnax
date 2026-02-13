@@ -18,7 +18,7 @@ RESOLUTION = (100 * TimeSpan.MICROSECOND).seconds
 def _precise_sleep(dur: float | int):
     estimate = RESOLUTION * 10  # Initial overestimate
     mean = RESOLUTION * 10
-    m2 = 0
+    m2: float = 0
     count = 1
     end_time = time.perf_counter() + dur
     nanoseconds = dur * 1e9
@@ -146,7 +146,7 @@ class Loop:
     def __call__(self):
         return self.__next__()
 
-    def wait(self) -> True:
+    def wait(self) -> bool:
         """Waits for the next iteration of the loop, automatically sleeping for the
         remainder of the interval if the calling block of code executes faster than the
         interval.

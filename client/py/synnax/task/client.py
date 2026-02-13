@@ -12,47 +12,50 @@ from __future__ import annotations
 import json
 import warnings
 from contextlib import contextmanager
-from typing import Protocol, overload
+from typing import Annotated
+from typing import Protocol as BaseProtocol
+from typing import overload
 from uuid import uuid4
 
 from alamos import NOOP, Instrumentation
-from freighter import Empty, Payload, UnaryClient, send_required
-from pydantic import BaseModel, Field, ValidationError, conint, field_validator
+from freighter import Empty, UnaryClient, send_required
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
 from synnax.exceptions import ConfigurationError, UnexpectedError
 from synnax.framer import Client as FrameClient
+from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
-from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
-from synnax.task.payload import TaskPayload, TaskStatus, ontology_id
+from synnax.status import VARIANT_ERROR, VARIANT_SUCCESS
+from synnax.task.payload import Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
 
 
-class _CreateRequest(Payload):
-    tasks: list[TaskPayload]
+class _CreateRequest(BaseModel):
+    tasks: list[Payload]
 
 
 _CreateResponse = _CreateRequest
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     keys: list[int]
 
 
-class _CopyRequest(Payload):
+class _CopyRequest(BaseModel):
     key: int
     name: str
     snapshot: bool
 
 
-class _CopyResponse(Payload):
-    task: TaskPayload
+class _CopyResponse(BaseModel):
+    task: Payload
 
 
-class _RetrieveRequest(Payload):
+class _RetrieveRequest(BaseModel):
     rack: int | None = None
     keys: list[int] | None = None
     names: list[str] | None = None
@@ -62,8 +65,8 @@ class _RetrieveRequest(Payload):
     snapshot: bool | None = None
 
 
-class _RetrieveResponse(Payload):
-    tasks: list[TaskPayload] | None = None
+class _RetrieveResponse(BaseModel):
+    tasks: list[Payload] | None = None
 
 
 _CREATE_ENDPOINT = "/task/create"
@@ -73,9 +76,10 @@ _COPY_ENDPOINT = "/task/copy"
 
 _TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
+_list = list
 
 
-class BaseTaskConfig(BaseModel):
+class BaseConfig(BaseModel):
     """
     Base configuration shared by all hardware task types.
 
@@ -86,7 +90,7 @@ class BaseTaskConfig(BaseModel):
     auto_start: bool = False
 
 
-class BaseReadTaskConfig(BaseTaskConfig):
+class BaseReadConfig(BaseConfig):
     """
     Base configuration for hardware read/acquisition tasks.
 
@@ -101,9 +105,9 @@ class BaseReadTaskConfig(BaseTaskConfig):
 
     data_saving: bool = True
     "Whether to persist acquired data to disk (True) or only stream it (False)."
-    sample_rate: conint(ge=0, le=50000)
+    sample_rate: Annotated[int, Field(ge=0, le=50000)]
     "The rate at which to sample data from the hardware device (Hz)."
-    stream_rate: conint(ge=0, le=50000)
+    stream_rate: Annotated[int, Field(ge=0, le=50000)]
     "The rate at which acquired data will be streamed to the Synnax cluster (Hz)."
 
     @field_validator("stream_rate")
@@ -116,7 +120,7 @@ class BaseReadTaskConfig(BaseTaskConfig):
         return v
 
 
-class BaseWriteTaskConfig(BaseTaskConfig):
+class BaseWriteConfig(BaseConfig):
     """
     Base configuration for hardware write/control tasks.
 
@@ -136,8 +140,8 @@ class Task:
     type: str = ""
     config: str = ""
     snapshot: bool = False
-    status: TaskStatus | None = None
-    _frame_client: FrameClient | None = None
+    status: Status | None = None
+    __frame_client: FrameClient | None = None
 
     def __init__(
         self,
@@ -148,7 +152,7 @@ class Task:
         type: str = "",
         config: str = "",
         snapshot: bool = False,
-        status: TaskStatus | None = None,
+        status: Status | None = None,
         _frame_client: FrameClient | None = None,
     ):
         if key == 0:
@@ -159,10 +163,19 @@ class Task:
         self.config = config
         self.snapshot = snapshot
         self.status = status
-        self._frame_client = _frame_client
+        self.__frame_client = _frame_client
 
-    def to_payload(self) -> TaskPayload:
-        return TaskPayload(
+    @property
+    def _frame_client(self) -> FrameClient:
+        if self.__frame_client is None:
+            raise RuntimeError(
+                "Cannot execute commands on a task that has not been "
+                "created or retrieved from the cluster."
+            )
+        return self.__frame_client
+
+    def to_payload(self) -> Payload:
+        return Payload(
             key=self.key,
             name=self.name,
             type=self.type,
@@ -175,15 +188,10 @@ class Task:
         self.type = task.type
         self.config = task.config
         self.snapshot = task.snapshot
-        self._frame_client = task._frame_client
+        self.__frame_client = task.__frame_client
 
     @property
-    def ontology_id(self) -> dict:
-        """Get the ontology ID for the task.
-
-        Returns:
-            An ontology ID dictionary with type "task" and the task key.
-        """
+    def ontology_id(self) -> ID:
         return ontology_id(self.key)
 
     def update_device_properties(self, device_client: DeviceClient) -> Device | None:
@@ -220,7 +228,7 @@ class Task:
         type_: str,
         args: dict | None = None,
         timeout: float | TimeSpan = 5,
-    ) -> TaskStatus:
+    ) -> Status:
         """Executes a command on the task and waits for the driver to acknowledge the
         command with a state.
 
@@ -241,8 +249,12 @@ class Task:
                     warnings.warn("task - unexpected missing state in frame")
                     continue
                 try:
-                    status = TaskStatus.model_validate(frame[_TASK_STATE_CHANNEL][0])
-                    if status.details.cmd is not None and status.details.cmd == key:
+                    status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
+                    if (
+                        status.details is not None
+                        and status.details.cmd is not None
+                        and status.details.cmd == key
+                    ):
                         return status
                 except ValidationError as e:
                     raise UnexpectedError(f"""
@@ -250,10 +262,11 @@ class Task:
                     """) from e
 
 
-class TaskProtocol(Protocol):
-    key: int
+class Protocol(BaseProtocol):
+    @property
+    def key(self) -> int: ...
 
-    def to_payload(self) -> TaskPayload: ...
+    def to_payload(self) -> Payload: ...
 
     def set_internal(self, task: Task): ...
 
@@ -309,7 +322,7 @@ class StarterStopperMixin:
             self.stop(timeout)
 
 
-class JSONConfigMixin(TaskProtocol):
+class JSONConfigMixin(Protocol):
     _internal: Task
     config: BaseModel
 
@@ -322,7 +335,7 @@ class JSONConfigMixin(TaskProtocol):
         """Implements TaskProtocol protocol"""
         return self._internal.key
 
-    def to_payload(self) -> TaskPayload:
+    def to_payload(self) -> Payload:
         """Implements TaskProtocol protocol"""
         pld = self._internal.to_payload()
         pld.config = json.dumps(self.config.model_dump())
@@ -385,24 +398,24 @@ class Client:
     ) -> Task | list[Task]:
         is_single = True
         if tasks is None:
-            tasks = [TaskPayload(key=key, name=name, type=type, config=config)]
+            payloads = [Payload(key=key, name=name, type=type, config=config)]
         elif isinstance(tasks, Task):
-            tasks = [tasks.to_payload()]
+            payloads = [tasks.to_payload()]
         else:
             is_single = False
-            tasks = [t.to_payload() for t in tasks]
-        for pld in tasks:
+            payloads = [t.to_payload() for t in tasks]
+        for pld in payloads:
             self.maybe_assign_def_rack(pld, rack)
-        req = _CreateRequest(tasks=tasks)
-        tasks = self.__exec_create(req)
-        sugared = self.sugar(tasks)
+        req = _CreateRequest(tasks=payloads)
+        created = self.__exec_create(req)
+        sugared = self.sugar(created)
         return sugared[0] if is_single else sugared
 
-    def __exec_create(self, req: _CreateRequest) -> list[TaskPayload]:
+    def __exec_create(self, req: _CreateRequest) -> list[Payload]:
         res = send_required(self._client, "/task/create", req, _CreateResponse)
         return res.tasks
 
-    def maybe_assign_def_rack(self, pld: TaskPayload, rack: int = 0) -> Rack:
+    def maybe_assign_def_rack(self, pld: Payload, rack: int = 0) -> Payload:
         if self._default_rack is None:
             # Hardcoded as this value for now. Will be changed once we have multi-rack
             # systems
@@ -413,7 +426,7 @@ class Client:
             pld.key = (rack << 32) + 0
         return pld
 
-    def configure(self, task: TaskProtocol, timeout: float = 5) -> TaskProtocol:
+    def configure(self, task: Protocol, timeout: float = 5) -> Protocol:
         # Call task-specific device property update (e.g., for Modbus, OPC UA, LabJack)
         if self._device_client is not None:
             task.update_device_properties(self._device_client)
@@ -436,12 +449,12 @@ class Client:
                 ):
                     warnings.warn("task - unexpected missing state in frame")
                     continue
-                status = TaskStatus.model_validate(frame[_TASK_STATE_CHANNEL][0])
-                if status.details.task != task.key:
+                status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
+                if status.details is None or status.details.task != task.key:
                     continue
-                if status.variant == SUCCESS_VARIANT:
+                if status.variant == VARIANT_SUCCESS:
                     break
-                if status.variant == ERROR_VARIANT:
+                if status.variant == VARIANT_ERROR:
                     raise ConfigurationError(status.message)
         return task
 
@@ -461,6 +474,7 @@ class Client:
     @overload
     def retrieve(
         self,
+        *,
         names: list[str] | None = None,
         keys: list[int] | None = None,
         types: list[str] | None = None,
@@ -468,6 +482,7 @@ class Client:
 
     def retrieve(
         self,
+        *,
         key: int | None = None,
         name: str | None = None,
         type: str | None = None,
@@ -486,7 +501,7 @@ class Client:
             ),
             _RetrieveResponse,
         )
-        sug = self.sugar(res.tasks)
+        sug = self.sugar(res.tasks or [])
 
         # Warn if multiple tasks found when retrieving by name
         if is_single and name is not None and len(sug) > 1:
@@ -507,9 +522,9 @@ class Client:
         :param rack: The rack key to list tasks from. If None, uses the default rack.
         :return: A list of all user-created tasks on the specified rack.
         """
-        if rack is None and self._default_rack is None:
-            self._default_rack = self._racks.retrieve_embedded_rack()
         if rack is None:
+            if self._default_rack is None:
+                self._default_rack = self._racks.retrieve_embedded_rack()
             rack = self._default_rack.key
 
         res = send_required(
@@ -518,7 +533,7 @@ class Client:
             _RetrieveRequest(rack=rack, internal=False),
             _RetrieveResponse,
         )
-        return self.sugar(res.tasks)
+        return self.sugar(res.tasks or [])
 
     def copy(
         self,
@@ -535,5 +550,5 @@ class Client:
         res = send_required(self._client, _COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]
 
-    def sugar(self, tasks: list[Payload]):
+    def sugar(self, tasks: _list[Payload]) -> _list[Task]:
         return [Task(**t.model_dump(), _frame_client=self._frame_client) for t in tasks]

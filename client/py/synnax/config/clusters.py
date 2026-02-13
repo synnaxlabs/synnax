@@ -11,11 +11,11 @@ import keyring
 from pydantic import BaseModel
 
 from synnax.config.file import ConfigFile
-from synnax.options import SynnaxOptions
+from synnax.options import Options
 
 
 class ClusterConfig(BaseModel):
-    options: SynnaxOptions
+    options: Options
 
 
 class ClustersConfig:
@@ -31,7 +31,7 @@ class ClustersConfig:
         opts = c["options"]
         pwd = keyring.get_password("synnax", key)
         pwd = pwd or ""
-        return ClusterConfig(options=SynnaxOptions(**opts, password=pwd))
+        return ClusterConfig(options=Options(**opts, password=pwd))
 
     def set(self, c: ClusterConfig, key: str = "default"):
         p = c.model_dump()

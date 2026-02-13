@@ -142,11 +142,14 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
                 return UnexpectedError(encoded.data)
             try:
                 data = json.loads(encoded.data)
+                decoded_err = freighter.decode_exception(
+                    freighter.ExceptionPayload(**data["error"])
+                )
+                if decoded_err is None:
+                    return UnexpectedError(encoded.data)
                 return PathError(
                     data["path"],
-                    freighter.decode_exception(
-                        freighter.ExceptionPayload(**data["error"])
-                    ),
+                    decoded_err,
                 )
             except Exception as e:
                 return UnexpectedError(f"Failed to decode PathError: {e}")

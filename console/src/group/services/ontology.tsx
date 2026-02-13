@@ -119,7 +119,7 @@ const baseUngroup = Flux.createUpdate<UngroupParams, Group.FluxSubStore>({
       );
       await client.ontology.moveChildren(id, parentID, ...childKeys);
     }
-    await client.ontology.groups.delete(selection.ids.map((id) => id.key));
+    await client.groups.delete(selection.ids.map((id) => id.key));
     return args;
   },
 });

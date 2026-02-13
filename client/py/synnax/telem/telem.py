@@ -12,7 +12,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta, tzinfo
 from math import trunc
-from typing import Any, ClassVar, Literal, TypeAlias, cast, get_args
+from typing import Any, ClassVar, Literal, TypeAlias
 
 import numpy as np
 import pandas as pd
@@ -171,9 +171,11 @@ class TimeStamp(int):
         return self.after(rhs)
 
     def __eq__(self, rhs: object) -> bool:
-        if not isinstance(rhs, get_args(CrudeTimeStamp)):
+        if not isinstance(
+            rhs, (int, TimeSpan, datetime, timedelta, np.datetime64, np.int64)
+        ):
             return False
-        return super().__eq__(TimeStamp(cast(CrudeTimeStamp, rhs)))
+        return super().__eq__(TimeStamp(rhs))
 
     def __str__(self) -> str:
         return self.datetime().isoformat()
@@ -412,25 +414,25 @@ class TimeSpan(int):
     def __mod__(self, rhs: CrudeTimeSpan) -> TimeSpan:
         return TimeSpan(super().__mod__(TimeSpan(rhs)))
 
-    def __rmul__(self, rhs: CrudeTimeSpan) -> TimeSpan:
+    def __rmul__(self, rhs: CrudeTimeSpan) -> TimeSpan:  # type: ignore[misc]
         return self.__mul__(rhs)
 
-    def __gt__(self, rhs: CrudeTimeSpan) -> bool:
+    def __gt__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
         return super().__gt__(TimeSpan(rhs))
 
-    def __ge__(self, rhs: CrudeTimeSpan) -> bool:
+    def __ge__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
         return super().__ge__(TimeSpan(rhs))
 
-    def __lt__(self, rhs: CrudeTimeSpan) -> bool:
+    def __lt__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
         return super().__lt__(TimeSpan(rhs))
 
-    def __le__(self, rhs: CrudeTimeSpan) -> bool:
+    def __le__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
         return super().__le__(TimeSpan(rhs))
 
     def __eq__(self, rhs: object) -> bool:
-        if not isinstance(rhs, get_args(CrudeTimeSpan)):
+        if not isinstance(rhs, (int, float, timedelta, np.timedelta64)):
             return NotImplemented
-        return super().__eq__(int(TimeSpan(cast(CrudeTimeSpan, rhs))))
+        return super().__eq__(int(TimeSpan(rhs)))
 
     NANOSECOND: TimeSpan
     """A nanosecond."""
@@ -643,19 +645,19 @@ class TimeRange(BaseModel):
         **kwargs,
     ):
         if isinstance(start, TimeRange):
-            start_ = cast(TimeRange, start)
-            start, end = start_.start, start_.end
+            end = start.end
+            start = start.start
         end = start if end is None else end
         super().__init__(start=TimeStamp(start), end=TimeStamp(end))
 
     @classmethod
-    def validate(cls, v, *args, **kwargs):
+    def validate(cls, value: Any) -> TimeRange:  # type: ignore[override]
         """Implemented for pydantic validation. Should not be used externally."""
-        if isinstance(v, TimeRange):
-            return cls(v.start, v.end)
-        elif isinstance(v, dict):
-            return cls(**v)
-        return cls(start=v[0], end=v[1])
+        if isinstance(value, TimeRange):
+            return cls(value.start, value.end)
+        elif isinstance(value, dict):
+            return cls(**value)
+        return cls(start=value[0], end=value[1])
 
     @property
     def span(self) -> TimeSpan:
@@ -899,13 +901,13 @@ class Size(int):
         return Size(int(self) + Size(rhs))
 
     BYTE: Size
-    BYTE_UNITS: SizeUnits
+    BYTE_UNITS: str
     KB: Size
-    KB_UNITS: SizeUnits
+    KB_UNITS: str
     MB: Size
-    MB_UNITS: SizeUnits
+    MB_UNITS: str
     GB: Size
-    GB_UNITS: SizeUnits
+    GB_UNITS: str
 
 
 Size.BYTE = Size(1)
@@ -931,9 +933,9 @@ class DataType(str):
             return super().__new__(cls, value)
 
         if isinstance(value, np.number):
-            value = DataType._FROM_NUMPY.get(np.dtype(value), None)
-            if value is not None:
-                return value
+            result = DataType._FROM_NUMPY.get(np.dtype(value), None)
+            if result is not None:
+                return result
 
         if isinstance(value, float):
             return DataType.FLOAT64
@@ -971,9 +973,9 @@ class DataType(str):
         if isinstance(value, dict):
             return DataType.JSON
 
-        value = DataType._FROM_NUMPY.get(np.dtype(value), None)
-        if value is not None:
-            return value
+        result = DataType._FROM_NUMPY.get(np.dtype(value), None)
+        if result is not None:
+            return result
 
         raise TypeError(f"Cannot convert {type(value)} to DataType")
 
@@ -1005,9 +1007,9 @@ class DataType(str):
         :return: The numpy type
         """
         npt = DataType._TO_NUMPY.get(self, None)
-        if npt is None:
+        if not isinstance(npt, np.dtype):
             raise TypeError(f"Cannot convert {self} to numpy type")
-        return cast(np.dtype, npt)
+        return npt
 
     @property
     def is_variable(self) -> bool:
@@ -1088,7 +1090,7 @@ CrudeTimeSpan: TypeAlias = (
 )
 CrudeRate: TypeAlias = int | float | TimeSpan | Rate
 CrudeDensity: TypeAlias = Density | int
-CrudeDataType: TypeAlias = DTypeLike | DataType | str | list | np.number
+CrudeDataType: TypeAlias = DTypeLike | DataType | str | list | np.number | int | float
 CrudeSize: TypeAlias = int | float | Size
 
 DataType._TO_NUMPY = {

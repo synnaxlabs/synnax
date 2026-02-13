@@ -13,13 +13,14 @@ from freighter import (
     EOF,
     AsyncStream,
     AsyncStreamClient,
-    Payload,
     Stream,
     WebsocketClient,
 )
+from freighter.transport import P
 from freighter.websocket import Message
+from pydantic import BaseModel
 
-from synnax.channel.payload import ChannelKeys, ChannelParams
+import synnax.channel.payload as channel
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
@@ -27,26 +28,25 @@ from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeSpan
 
 
-class _Request(Payload):
-    keys: ChannelKeys
+class _Request(BaseModel):
+    keys: list[channel.Key]
     downsample_factor: int
     throttle_rate_hz: float | None = None
 
 
-class _Response(Payload):
+class _Response(BaseModel):
     frame: FramePayload
 
 
 class WSStreamerCodec(WSFramerCodec):
-    def encode(self, pld: Message) -> bytes:
-        return self.lower_perf_codec.encode(pld)
+    def encode(self, data: BaseModel) -> bytes:
+        return self.lower_perf_codec.encode(data)
 
-    def decode(self, data: bytes, pld_t: Message[_Response]) -> object:
+    def decode(self, data: bytes, pld_t: type[P]) -> P:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
-            msg = self.lower_perf_codec.decode(data[1:], pld_t)
-            return msg
+            return self.lower_perf_codec.decode(data[1:], pld_t)
         frame = self.codec.decode(data, 1)
-        return Message(type="data", payload=_Response(frame=frame))
+        return Message(type="data", payload=_Response(frame=frame))  # type: ignore[return-value]
 
 
 _ENDPOINT = "/frame/stream"
@@ -140,11 +140,12 @@ class Streamer:
             res, exc = self._stream.receive(TimeSpan.to_seconds(timeout))
             if exc is not None:
                 raise exc
+            assert res is not None
             return self._adapter.adapt(Frame(res.frame))
         except TimeoutError:
             return None
 
-    def update_channels(self, channels: ChannelParams):
+    def update_channels(self, channels: channel.Params):
         """Updates the list of channels to stream. This method will replace the current
         list of channels with the new list, not add to it.
 
@@ -253,7 +254,7 @@ class AsyncStreamer:
     @property
     def received(self) -> bool:
         """Returns True if a frame has been received, False otherwise."""
-        return self._stream.received()
+        return self._stream.received()  # type: ignore[attr-defined]
 
     async def read(self) -> Frame:
         """Reads the next frame of telemetry from the streamer. If an error occurs while
@@ -262,6 +263,7 @@ class AsyncStreamer:
         res, exc = await self._stream.receive()
         if exc is not None:
             raise exc
+        assert res is not None
         return self._adapter.adapt(Frame(res.frame))
 
     async def close_loop(self):

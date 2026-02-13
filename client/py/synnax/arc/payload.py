@@ -10,22 +10,21 @@
 from typing import Any, Literal
 from uuid import UUID
 
-from freighter import Payload
 from pydantic import BaseModel
 
-from synnax.ontology.payload import ID
+from synnax import ontology
 
-ARC_ONTOLOGY_TYPE = ID(type="arc")
+ONTOLOGY_TYPE = ontology.ID(type="arc")
 """Ontology type identifier for Arc entities."""
 
 
-def ontology_id(key: UUID) -> ID:
+def ontology_id(key: UUID) -> ontology.ID:
     """Returns the ontology ID for the Arc entity."""
-    return ID(type=ARC_ONTOLOGY_TYPE.type, key=str(key))
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
 
 
-ArcKey = UUID
-ArcMode = Literal["graph", "text"]
+Key = UUID
+Mode = Literal["graph", "text"]
 
 
 class Handle(BaseModel):
@@ -82,7 +81,7 @@ class Text(BaseModel):
     """The raw source code of the Arc program."""
 
 
-class ArcPayload(Payload):
+class Payload(BaseModel):
     """Network transportable payload representing an Arc program."""
 
     key: UUID = UUID(int=0)
@@ -93,7 +92,7 @@ class ArcPayload(Payload):
     """Text-based representation of the program."""
     version: str = ""
     """Version string for the Arc."""
-    mode: ArcMode = "text"
+    mode: Mode = "text"
     """The active mode of the Arc (graph or text)."""
     graph: Graph = Graph()
     """Visual graph representation of the program."""

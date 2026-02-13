@@ -12,34 +12,30 @@ import warnings
 from alamos import NOOP, Instrumentation
 from freighter import URL
 
-from synnax.access import Client as AccessClient
-from synnax.access.policy.client import PolicyClient
-from synnax.access.role.client import RoleClient
-from synnax.arc import ArcClient
-from synnax.auth import AuthenticationClient
-from synnax.channel import ChannelClient
-from synnax.channel.retrieve import CacheChannelRetriever, ClusterChannelRetriever
-from synnax.channel.writer import ChannelWriter
+from synnax import (
+    access,
+    arc,
+    auth,
+    channel,
+    control,
+    device,
+    framer,
+    group,
+    ontology,
+    rack,
+    ranger,
+    signals,
+    status,
+    task,
+    user,
+)
 from synnax.config import try_load_options_if_none_provided
-from synnax.control import Client as ControlClient
-from synnax.device import Client as DeviceClient
-from synnax.framer import Client
-from synnax.framer.deleter import Deleter
-from synnax.ontology import Client as OntologyClient
-from synnax.ontology.group import Client as GroupClient
-from synnax.options import SynnaxOptions
-from synnax.rack import Client as RackClient
-from synnax.ranger import RangeRetriever, RangeWriter
-from synnax.ranger.client import RangeClient
-from synnax.signals.signals import Registry
-from synnax.status.client import Client as StatusClient
-from synnax.task import Client as TaskClient
+from synnax.options import Options
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
-from synnax.user.client import Client as UserClient
 
 
-class Synnax(Client):
+class Synnax(framer.Client):
     """Client to perform operations against a Synnax cluster.
 
     If using the python client for data analysis/personal use, the easiest way to
@@ -61,18 +57,19 @@ class Synnax(Client):
         )
     """
 
-    channels: ChannelClient
-    access: AccessClient
-    user: UserClient
-    ranges: RangeClient
-    control: ControlClient
-    signals: Registry
-    racks: RackClient
-    devices: DeviceClient
-    tasks: TaskClient
-    ontology: OntologyClient
-    statuses: StatusClient
-    arcs: ArcClient
+    channels: channel.Client
+    access: access.Client
+    users: user.Client
+    ranges: ranger.Client
+    control: control.Client
+    signals: signals.Registry
+    racks: rack.Client
+    devices: device.Client
+    tasks: task.Client
+    ontology: ontology.Client
+    statuses: status.Client
+    arcs: arc.Client
+    groups: group.Client
 
     _transport: Transport
 
@@ -114,7 +111,7 @@ class Synnax(Client):
             max_retries=max_retries,
             instrumentation=instrumentation,
         )
-        self.auth = AuthenticationClient(
+        self.auth = auth.Client(
             transport=self._transport.unary,
             username=opts.username,
             password=opts.password,
@@ -123,14 +120,21 @@ class Synnax(Client):
         self._transport.use(self.auth.middleware())
         self._transport.use_async(self.auth.async_middleware())
 
-        ch_retriever = ClusterChannelRetriever(self._transport.unary, instrumentation)
+        cluster_retriever = channel.ClusterRetriever(
+            self._transport.unary, instrumentation
+        )
+        cache_retriever: channel.CacheRetriever | None = None
+        ch_retriever: channel.Retriever
         if cache_channels:
-            ch_retriever = CacheChannelRetriever(ch_retriever, instrumentation)
-        deleter = Deleter(self._transport.unary, instrumentation)
-        ch_creator = ChannelWriter(
+            cache_retriever = channel.CacheRetriever(cluster_retriever, instrumentation)
+            ch_retriever = cache_retriever
+        else:
+            ch_retriever = cluster_retriever
+        deleter = framer.Deleter(self._transport.unary, instrumentation)
+        ch_creator = channel.Writer(
             self._transport.unary,
             instrumentation,
-            ch_retriever if cache_channels else None,
+            cache_retriever,
         )
         super().__init__(
             stream_client=self._transport.stream,
@@ -140,21 +144,21 @@ class Synnax(Client):
             deleter=deleter,
             instrumentation=instrumentation,
         )
-        groups = GroupClient(self._transport.unary)
-        self.ontology = OntologyClient(client=self._transport.unary, groups=groups)
-        self.channels = ChannelClient(self, ch_retriever, ch_creator)
-        range_retriever = RangeRetriever(self._transport.unary, instrumentation)
-        range_creator = RangeWriter(self._transport.unary, instrumentation)
-        self.signals = Registry(frame_client=self, channels=ch_retriever)
-        self.racks = RackClient(client=self._transport.unary)
-        self.devices = DeviceClient(client=self._transport.unary)
-        self.tasks = TaskClient(
+        self.groups = group.Client(self._transport.unary)
+        self.ontology = ontology.Client(client=self._transport.unary)
+        self.channels = channel.Client(self, ch_retriever, ch_creator)
+        range_retriever = ranger.Retriever(self._transport.unary, instrumentation)
+        range_creator = ranger.Writer(self._transport.unary, instrumentation)
+        self.signals = signals.Registry(frame_client=self, channels=ch_retriever)
+        self.racks = rack.Client(client=self._transport.unary)
+        self.devices = device.Client(client=self._transport.unary)
+        self.tasks = task.Client(
             client=self._transport.unary,
             frame_client=self,
             rack_client=self.racks,
             device_client=self.devices,
         )
-        self.ranges = RangeClient(
+        self.ranges = ranger.Client(
             unary_client=self._transport.unary,
             frame_client=self,
             channel_retriever=ch_retriever,
@@ -164,14 +168,11 @@ class Synnax(Client):
             ontology=self.ontology,
             tasks=self.tasks,
         )
-        self.control = ControlClient(self, ch_retriever)
-        self.user = UserClient(self._transport.unary)
-        self.statuses = StatusClient(self._transport.unary)
-        self.arcs = ArcClient(self._transport.unary)
-        self.access = AccessClient(
-            roles=RoleClient(self._transport.unary, instrumentation),
-            policies=PolicyClient(self._transport.unary, instrumentation),
-        )
+        self.control = control.Client(self, ch_retriever)
+        self.users = user.Client(self._transport.unary)
+        self.statuses = status.Client(self._transport.unary)
+        self.arcs = arc.Client(self._transport.unary)
+        self.access = access.Client(self._transport.unary)
 
     @property
     def hardware(self) -> "Synnax":
@@ -194,7 +195,7 @@ class Synnax(Client):
 
 
 def _configure_transport(
-    opts: SynnaxOptions,
+    opts: Options,
     open_timeout: TimeSpan,
     read_timeout: TimeSpan,
     keep_alive: TimeSpan,

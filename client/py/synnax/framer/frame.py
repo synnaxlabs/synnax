@@ -9,25 +9,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from typing import overload
+from collections.abc import Iterator, Sequence
+from typing import Any, TypeAlias, overload
 
-from freighter import Payload
 from pandas import DataFrame
-from pydantic import Field
+from pydantic import BaseModel, Field
 
-from synnax.channel.payload import (
-    ChannelKey,
-    ChannelKeys,
-    ChannelName,
-    ChannelNames,
-)
+import synnax.channel.payload as channel
 from synnax.exceptions import ValidationError
 from synnax.telem import CrudeSeries, MultiSeries, Series, TypedCrudeSeries
 
 
-class FramePayload(Payload):
-    keys: ChannelKeys
+class FramePayload(BaseModel):
+    keys: list[channel.Key]
     series: list[Series]
 
     def __init__(
@@ -35,9 +29,6 @@ class FramePayload(Payload):
         keys: list[int] | None = None,
         series: list[Series] | None = None,
     ):
-        # This is a workaround to allow for a None value to be
-        # passed to the arrays field, but still have required
-        # type hinting.
         if series is None:
             series = list()
         if keys is None:
@@ -51,28 +42,30 @@ class Frame:
     can be keyed by channel name or channel key, but not both.
     """
 
-    channels: list[ChannelKey | ChannelName]
+    channels: list[channel.Key | str]
     series: list[Series] = Field(default_factory=list)
 
     def __init__(
         self,
         channels: (
-            ChannelKeys
-            | ChannelNames
+            list[channel.Key]
+            | tuple[channel.Key]
+            | list[str]
+            | tuple[str]
             | DataFrame
             | Frame
             | FramePayload
-            | dict[ChannelKey, TypedCrudeSeries]
-            | dict[ChannelName, TypedCrudeSeries]
+            | dict[channel.Key, TypedCrudeSeries]
+            | dict[str, TypedCrudeSeries]
             | None
         ) = None,
-        series: list[TypedCrudeSeries] | None = None,
+        series: Sequence[TypedCrudeSeries] | None = None,
     ):
         if isinstance(channels, Frame):
             self.channels = channels.channels
             self.series = channels.series
         elif isinstance(channels, FramePayload):
-            self.channels = channels.keys
+            self.channels = list(channels.keys)
             self.series = channels.series
         elif isinstance(channels, DataFrame):
             self.channels = channels.columns.to_list()
@@ -84,7 +77,7 @@ class Frame:
             channels is None or isinstance(channels, list)
         ):
             self.series = list() if series is None else [Series(d) for d in series]
-            self.channels = channels or list[ChannelKey]()
+            self.channels = list(channels) if channels else list()
         else:
             raise ValueError(f"""
                 [Frame] - invalid construction arguments. Received {channels}
@@ -95,7 +88,7 @@ class Frame:
         return self.to_df().__str__()
 
     @overload
-    def append(self, col_or_frame: ChannelKey | ChannelName, series: Series) -> None:
+    def append(self, col_or_frame: channel.Key | str, series: Series) -> None:
         """Adds a new series to the frame for the given channel.
         :param col_or_frame: The channel key or name to append the series to.
         :param series: The series to append to the frame
@@ -111,7 +104,7 @@ class Frame:
 
     def append(
         self,
-        col_or_frame: ChannelKey | ChannelName | Frame,
+        col_or_frame: channel.Key | str | Frame,
         series: Series | None = None,
     ) -> None:
         """Appends a frame or series to the current frame. If a frame is provided, the
@@ -126,26 +119,28 @@ class Frame:
             self.series.extend(col_or_frame.series)  # type: ignore
             self.channels.extend(col_or_frame.channels)  # type: ignore
         else:
+            if series is None:
+                raise ValueError("series must be provided when appending a channel")
             self.series.append(series)
-            self.channels.append(col_or_frame)  # type: ignore
+            self.channels.append(col_or_frame)
 
     def items(
         self,
-    ) -> Iterator[tuple[ChannelKey | ChannelName, Series]]:
+    ) -> Iterator[tuple[channel.Key | str, Series]]:
         """
         Returns a generator of tuples containing the channel and series for each channel
         in the frame.
         """
         return zip(self.channels, self.series)  # type: ignore
 
-    def __getitem__(self, key: ChannelKey | ChannelName | any) -> MultiSeries:
-        if not isinstance(key, (ChannelKey, ChannelName)):
+    def __getitem__(self, key: channel.Key | str | Any) -> MultiSeries:
+        if not isinstance(key, (channel.Key, str)):
             return self.to_df()[key]
         indexes = [i for i, k in enumerate(self.channels) if k == key]
         return MultiSeries([self.series[i] for i in indexes])
 
     def get(
-        self, key: ChannelKey | ChannelName, default: Series | None = None
+        self, key: channel.Key | str, default: MultiSeries | None = None
     ) -> MultiSeries | None:
         """Gets the series for the given channel key or name. If the channel does not
         exist in the frame, returns the default value or None if no default is provided.
@@ -162,30 +157,34 @@ class Frame:
         network. This method should typically only be used internally.
         :raises: ValidationError if the frame is keyed by channel name instead of key.
         """
-        if not all(isinstance(k, ChannelKey) for k in self.channels):
-            diff = [k for k in self.channels if not isinstance(k, ChannelKey)]
+        if not all(isinstance(k, channel.Key) for k in self.channels):
+            diff = [k for k in self.channels if not isinstance(k, channel.Key)]
             raise ValidationError(f"""
             Cannot convert a frame that contains channel names to a payload.
             The following channels are invalid: {diff}
             """)
-        return FramePayload(keys=self.channels, series=self.series)
+        keys: list[int] = [k for k in self.channels if isinstance(k, int)]
+        return FramePayload(keys=keys, series=self.series)
 
     def to_df(self) -> DataFrame:
         """Converts the frame to a pandas DataFrame. Each column in the DataFrame
         corresponds to a channel in the frame.
         """
-        base = dict()
+        base: dict[channel.Key | str, Any] = dict()
         for k in set(self.channels):
-            # Try to convert the value to a numpy array. If it fails (such as in the
-            # case of strings or JSON objects), convert it to a primitive list instead.
+            v = self.get(k)
+            if v is None:
+                continue
             try:
-                base[k] = self.get(k).__array__()
+                base[k] = v.__array__()
             except TypeError:
-                base[k] = list(self.get(k))
+                base[k] = list(v)
         return DataFrame(base)
 
-    def __contains__(self, key: ChannelKey | ChannelName) -> bool:
+    def __contains__(self, key: channel.Key | str) -> bool:
         return key in self.channels
 
 
-CrudeFrame = Frame | FramePayload | dict[ChannelKey, CrudeSeries] | DataFrame
+CrudeFrame: TypeAlias = (
+    Frame | FramePayload | dict[channel.Key, CrudeSeries] | DataFrame
+)

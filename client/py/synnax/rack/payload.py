@@ -7,31 +7,34 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from freighter import Payload
 
-from synnax.ontology import ID
-from synnax.status import Status
+from typing import TypeAlias
 
-RACK_ONTOLOGY_TYPE = ID(type="rack")
+from pydantic import BaseModel
+
+from synnax import ontology
+from synnax.status import Status as _StatusBase
+
+ONTOLOGY_TYPE = ontology.ID(type="rack")
 
 
-def ontology_id(key: int) -> ID:
+def ontology_id(key: int) -> ontology.ID:
     """Returns the ontology ID for the Rack entity."""
-    return ID(type=RACK_ONTOLOGY_TYPE.type, key=key)
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
 
 
-class RackStatusDetails(Payload):
+class StatusDetails(BaseModel):
     """Details about the status of a rack."""
 
     rack: int = 0
     """The key of the rack."""
 
 
-RackStatus = Status[RackStatusDetails]
+RackStatus: TypeAlias = _StatusBase[StatusDetails]
 """The status of a rack."""
 
 
-class Rack(Payload):
+class Rack(BaseModel):
     key: int = 0
     name: str = ""
     task_counter: int = 0
@@ -39,6 +42,6 @@ class Rack(Payload):
     status: RackStatus | None = None
 
     @property
-    def ontology_id(self) -> ID:
+    def ontology_id(self) -> ontology.ID:
         """Returns the ontology ID for this Rack."""
         return ontology_id(self.key)

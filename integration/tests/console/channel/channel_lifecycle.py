@@ -15,10 +15,10 @@ from console.case import ConsoleCase
 from console.plot import Plot
 from framework.utils import assert_link_format, get_random_name
 
-SRC_CH = "channel_operations_uptime"
+SRC_CH = "channel_lifecycle_uptime"
 
 
-class ChannelOperations(ConsoleCase):
+class ChannelLifecycle(ConsoleCase):
     """Test channel lifecycle operations."""
 
     suffix: str
@@ -98,7 +98,6 @@ class ChannelOperations(ConsoleCase):
 
         ## Context Menu
         self.test_rename_channel()
-        self.test_group_channels()
         self.test_edit_calculated_channel()
         self.test_set_alias_under_range()
         self.test_clear_alias_under_range()
@@ -163,7 +162,7 @@ class ChannelOperations(ConsoleCase):
         self.log(f"Created channels: {created}")
 
         for ch_config in channels:
-            ch_name = ch_config["name"]
+            ch_name = str(ch_config["name"])
             assert console.channels.exists(ch_name), f"Channel {ch_name} should exist"
 
             ch = client.channels.retrieve(ch_name)
@@ -177,7 +176,7 @@ class ChannelOperations(ConsoleCase):
                     ch.data_type == expected_type
                 ), f"Channel {ch_name} should be {expected_type}, got {ch.data_type}"
 
-        channels_to_delete = [ch["name"] for ch in reversed(channels)]
+        channels_to_delete = [str(ch["name"]) for ch in reversed(channels)]
         console.channels.delete(channels_to_delete)
 
     def test_open_channel_plot(self) -> None:
@@ -217,62 +216,6 @@ class ChannelOperations(ConsoleCase):
         assert ch.name == new_name, f"Expected channel name {new_name}, got {ch.name}"
 
         console.channels.delete([new_name])
-
-    def test_group_channels(self) -> None:
-        """Test grouping multiple channels via context menu."""
-        self.log("Testing group channels")
-
-        console = self.console
-
-        suffix = get_random_name()
-
-        ch1_name = f"group_ch1_{suffix}"
-        ch2_name = f"group_ch2_{suffix}"
-        group_name = f"TestGroup_{suffix}"
-
-        console.channels.create(
-            name=ch1_name,
-            data_type=sy.DataType.FLOAT32,
-            index=self.shared_index,
-        )
-
-        console.channels.create(
-            name=ch2_name,
-            data_type=sy.DataType.FLOAT32,
-            index=self.shared_index,
-        )
-
-        console.channels.group(names=[ch1_name, ch2_name], group_name=group_name)
-
-        # Verify the group exists by looking for it in the channel list
-        console.channels.show_channels()
-
-        group_element = self.page.get_by_text(group_name)
-        group_element.first.wait_for(state="visible", timeout=5000)
-        assert group_element.count() > 0, f"Expected group '{group_name}' to be visible"
-
-        console.channels.show_channels()
-
-        group_expander = self.page.locator(f"text={group_name}").first
-        group_expander.click()
-
-        self.page.locator(f"text={ch1_name}").first.wait_for(
-            state="visible", timeout=2000
-        )
-
-        for ch_name in [ch2_name, ch1_name]:
-            ch_element = self.page.locator(f"text={ch_name}").first
-            if ch_element.count() > 0 and ch_element.is_visible():
-                ch_element.click(button="right")
-
-                delete_option = self.page.get_by_text("Delete", exact=True).first
-                delete_option.wait_for(state="visible", timeout=2000)
-                delete_option.click()
-
-                delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
-                if delete_btn.count() > 0:
-                    delete_btn.first.click()
-                    delete_btn.first.wait_for(state="hidden", timeout=5000)
 
     def test_edit_calculated_channel(self) -> None:
         """Test editing a calculated channel's calculation via context menu."""

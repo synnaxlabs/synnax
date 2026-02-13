@@ -8,6 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.device.client import Client
-from synnax.device.payload import Device
+from synnax.device.payload import Device, Key
 
-__all__ = ["Client", "Device"]
+__all__ = ["Client", "Device", "Key"]

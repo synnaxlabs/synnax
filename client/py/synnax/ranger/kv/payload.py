@@ -9,13 +9,13 @@
 
 import uuid
 
-from freighter import Payload
+from pydantic import BaseModel
 
 from synnax.exceptions import ValidationError
 from synnax.util.primitive import is_primitive
 
 
-class Pair(Payload):
+class Pair(BaseModel):
     range: uuid.UUID
     key: str
     value: str
@@ -23,7 +23,8 @@ class Pair(Payload):
     def __init__(self, **kwargs):
         value = kwargs.get("value")
         if not isinstance(value, str):
-            if not is_primitive(value) and type(value).__str__ == object.__str__:
+            str_method = getattr(type(value), "__str__", None)
+            if not is_primitive(value) and str_method is object.__str__:
                 raise ValidationError(f"""
                 Synnax has no way of casting {value} to a string when setting metadata
                 on a range. Please convert the value to a string before setting it.

@@ -8,28 +8,20 @@
 #  included in the file licenses/APL.txt.
 
 from alamos import Instrumentation, trace
-from freighter import (
-    Payload,
-    UnaryClient,
-    send_required,
-)
+from freighter import UnaryClient, send_required
+from pydantic import BaseModel
 
-from synnax.channel.payload import (
-    ChannelKeys,
-    ChannelNames,
-    ChannelParams,
-    normalize_channel_params,
-)
+import synnax.channel.payload as channel
 from synnax.telem import TimeRange
 
 
-class _Request(Payload):
-    keys: ChannelKeys | None = None
-    names: ChannelNames | None = None
+class _Request(BaseModel):
+    keys: list[channel.Key] | tuple[channel.Key] | None = None
+    names: list[str] | tuple[str] | None = None
     bounds: TimeRange
 
 
-class _Response(Payload): ...
+class _Response(BaseModel): ...
 
 
 class Deleter:
@@ -47,10 +39,10 @@ class Deleter:
     @trace("debug")
     def delete(
         self,
-        channels: ChannelParams,
+        channels: channel.Params,
         tr: TimeRange,
     ) -> None:
-        normal = normalize_channel_params(channels)
+        normal = channel.normalize_params(channels)
         req = _Request(
             **{
                 normal.variant: normal.channels,

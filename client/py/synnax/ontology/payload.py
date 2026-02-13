@@ -9,10 +9,10 @@
 
 from __future__ import annotations
 
-from freighter import Payload
+from pydantic import BaseModel
 
 
-class ID(Payload):
+class ID(BaseModel):
     key: str | None = ""
     type: str | None = ""
 
@@ -22,7 +22,7 @@ class ID(Payload):
         elif isinstance(key, tuple):
             key, type = key
             super().__init__(key=key, type=type)
-        elif type is None:
+        elif type is None and key is not None:
             type, key = key.split(":")
             super().__init__(key=key, type=type)
         else:
@@ -37,13 +37,13 @@ ROOT_ID = ID(key="root", type="builtin")
 CrudeID = str | ID
 
 
-class Resource(Payload):
+class Resource(BaseModel):
     id: ID
     name: str
     data: dict
 
 
-class Relationship(Payload):
+class Relationship(BaseModel):
     from_: ID
     type: str
     to: ID

@@ -9,10 +9,10 @@
 
 import functools
 from collections.abc import Callable
-from typing import Any, TypeVar, cast
+from typing import ParamSpec, TypeVar, overload
 
-# Define a generic type variable for the function
-F = TypeVar("F", bound=Callable[..., Any])
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 class RequiresNamedParams(TypeError):
@@ -24,33 +24,42 @@ class RequiresNamedParams(TypeError):
     pass
 
 
+@overload
+def require_named_params(func: Callable[P, R]) -> Callable[P, R]: ...
+
+
+@overload
 def require_named_params(
-    func: F | None = None, *, example_params: tuple[str, str] | None = None
-) -> Callable[[F], F]:
+    func: None = None, *, example_params: tuple[str, str] | None = None
+) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
+
+
+def require_named_params(
+    func: Callable[P, R] | None = None,
+    *,
+    example_params: tuple[str, str] | None = None,
+) -> Callable[P, R] | Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator that catches TypeError exceptions related to positional arguments
     and re-raises them with a more helpful error message.
 
     Args:
         func: The function to decorate
-        example_params: Optional tuple of (param_name, param_value) to show in the error message
-                        Example: example_params=("user_id", "12345")
+        example_params: Optional tuple of (param_name, param_value) to show in the
+            error message. Example: example_params=("user_id", "12345")
 
     Returns:
         The decorated function with improved error messages for positional arguments
     """
 
-    def decorator(func: F) -> F:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def decorator(f: Callable[P, R]) -> Callable[P, R]:
+        @functools.wraps(f)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             try:
-                return func(*args, **kwargs)
+                return f(*args, **kwargs)
             except TypeError as e:
-                # Check if this is the "takes X positional arguments but Y were given" error
                 if "positional argument" in str(e) and "were given" in str(e):
-                    func_name = func.__qualname__
-
-                    # Use custom example if provided, otherwise use generic example
+                    func_name = f.__qualname__
                     if example_params:
                         param_name, param_value = example_params
                         param_example = f"{func_name}({param_name}='{param_value}')"
@@ -58,18 +67,17 @@ def require_named_params(
                     else:
                         param_example = f"{func_name}(name='value')"
                         value_example = "'value'"
-
                     message = (
-                        f"{str(e)}. '{func_name}' only accepts named parameters.\n"
-                        f"Try using named parameters like: {param_example} instead of {func_name}({value_example})"
+                        f"{str(e)}. '{func_name}' only accepts named"
+                        f" parameters.\nTry using named parameters"
+                        f" like: {param_example} instead of"
+                        f" {func_name}({value_example})"
                     )
                     raise RequiresNamedParams(message) from None
-                # Re-raise other TypeErrors unchanged
                 raise
 
-        return cast(F, wrapper)
+        return wrapper
 
-    # Handle both @require_named_params and @require_named_params(example_params="...")
     if func is None:
         return decorator
     return decorator(func)

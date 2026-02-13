@@ -98,6 +98,7 @@ def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
         raise NotImplementedError("Only row ingestion is supported at this time.")
     ctx.console.info("Starting ingestion process...")
     engine.run()
+    assert cli.name is not None
     cli.client.ranges.create(name=cli.name, time_range=TimeRange(cli.start, engine.end))
 
 
@@ -157,6 +158,7 @@ def skip_invalid_channels(ctx: Context, cli: IngestionCLI) -> str | None:
         channel_name_table(ctx, [ch for ch in data_types.keys()])
         if not ctx.console.ask("Skip these channels?", default=True):
             return None
+        assert cli.filtered_channels is not None
         cli.filtered_channels = [
             ch for ch in cli.filtered_channels if ch.name not in data_types.keys()
         ]
@@ -179,7 +181,8 @@ def validate_data_types(ctx: Context, cli: IngestionCLI) -> str | None:
         samples_type = d_types[ch.name].np
         ch_type = ch.data_type.np
         if not np.can_cast(samples_type, ch_type):
-            return cannot_cast_error(ctx, samples_type, ch)
+            cannot_cast_error(ctx, samples_type, ch)
+            return None
         elif samples_type != ch_type:
             ctx.console.warn(
                 f"""Channel {ch.name} has data type {ch_type} but the file data type is
@@ -258,8 +261,10 @@ def validate_start_time(ctx: Context, cli: IngestionCLI) -> str | None:
             """Please enter the start timestamp of the file as a
             nanosecond UTC integer. If you'd like a converter,
             use https://www.epochconverter.com/""",
-            default=TimeStamp.now(),
+            type_=int,
+            default=int(TimeStamp.now()),
         )
+        assert _start is not None
         cli.start = TimeStamp(_start)
     else:
         idx = _idx[0]
@@ -307,8 +312,8 @@ def assign_data_type(
 ) -> dict[DataType, list[ChannelMeta]] | None:
     assert cli.not_found is not None
 
-    grouped = {GROUP_ALL: cli.db_channels}
-    assigned = {}
+    grouped: dict[str, list[ChannelMeta]] = {GROUP_ALL: cli.not_found}
+    assigned: dict[DataType, list[ChannelMeta]] = {}
     ctx.console.info("Please select an option for assigning data types:")
     opt, _ = ctx.console.select(
         rows=DATA_TYPE_OPTIONS,
@@ -316,7 +321,6 @@ def assign_data_type(
     )
     if opt == DATA_TYPE_OPTIONS[0]:
         data_types = read_data_types(ctx, cli)
-        assigned = {}
         for ch in cli.not_found:
             dt = data_types[ch.name]
             if dt not in assigned:
@@ -334,22 +338,24 @@ def assign_data_type(
     for key, group in grouped.items():
         if key != GROUP_ALL:
             ctx.console.info(f"Assigning data type to {key}")
-        dt = select_data_type(ctx)
-        assigned[dt] = group
+        selected_dt = select_data_type(ctx)
+        if selected_dt is None:
+            return None
+        assigned[selected_dt] = group
     return assigned
 
 
 def assign_index_or_rate(
     ctx: Context,
     cli: IngestionCLI,
-) -> dict[Rate | str, list[ChannelMeta]] | None:
+) -> dict[Rate | int, list[ChannelMeta]] | None:
     """Prompts the user to assign an index/rate to the channels in the given
     group"""
     assert cli.client is not None
     assert cli.not_found is not None
     client = cli.client
 
-    grouped = {GROUP_ALL: cli.not_found}
+    grouped: dict[str, list[ChannelMeta]] = {GROUP_ALL: cli.not_found}
     if not ctx.console.ask(
         "Do all non-indexed channels have the same data rate or index?",
         bool,
@@ -359,11 +365,11 @@ def assign_index_or_rate(
             "Can you group channels by data rate or index?", default=True
         ):
             grouped = {v.name: [v] for v in cli.not_found}
-        grouped = prompt_group_channel_names(ctx, [ch.name for ch in cli.not_found])
-        if grouped is None or len(grouped) == 0:
+        groups = prompt_group_channel_names(ctx, [ch.name for ch in cli.not_found])
+        if groups is None or len(groups) == 0:
             return None
         grouped = {
-            k: [ch for ch in cli.not_found if ch.name in v] for k, v in grouped.items()
+            k: [ch for ch in cli.not_found if ch.name in v] for k, v in groups.items()
         }
 
     def assign_to_group(key: str, group: list[ChannelMeta]):
@@ -385,7 +391,7 @@ def assign_index_or_rate(
                 return None
             return idx.key
 
-    assigned: dict[Rate | str, list[ChannelMeta]] = dict()
+    assigned: dict[Rate | int, list[ChannelMeta]] = dict()
     for key, group in grouped.items():
         idx = assign_to_group(key, group)
         if idx is None:
@@ -409,13 +415,16 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
 
     to_create = list()
     for rate_or_index, channels in idx_grouped.items():
-        is_rate = isinstance(rate_or_index, Rate)
+        if isinstance(rate_or_index, Rate):
+            index = 0
+        else:
+            index = rate_or_index
         for ch in channels:
             to_create.append(
                 Channel(
                     name=ch.name,
                     is_index=False,
-                    index="" if is_rate else rate_or_index,
+                    index=index,
                     data_type=[dt for dt, chs in dt_grouped.items() if ch in chs][0],
                 )
             )
@@ -429,6 +438,7 @@ def prompt_name(ctx: Context, cli: IngestionCLI) -> str | None:
     assert cli.db_channels is not None
     assert cli.not_found is not None
     assert cli.client is not None
+    assert cli.path is not None
     path: Path = cli.path
     ctx.console.info("Please enter a name for the data set")
     cli.name = ctx.console.ask("Name", default=path.name)

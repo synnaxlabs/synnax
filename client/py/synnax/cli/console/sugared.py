@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Generic, NotRequired, TypedDict, Unpack, overload
+from typing import Any, Generic, NotRequired, TypedDict
 
 from synnax.cli.console.protocol import Print, Prompt, R
 from synnax.exceptions import ValidationError
@@ -56,46 +56,13 @@ class SugaredConsole:
         if self.enabled:
             self.print.table(columns, rows)
 
-    @overload
     def ask(
         self,
         question: str,
         type_: type[R] | None = None,
         choices: list[R] | None = None,
         password: bool = False,
-        **kwargs: Unpack[AskKwargs[R]],
-    ) -> R: ...
-
-    @overload
-    def ask(
-        self,
-        question: str,
-        type_: type[R] | None = None,
-        choices: list[str] | None = None,
-        password: bool = False,
-        **kwargs: Unpack[DefaultAskKwargs[R]],
-    ) -> R: ...
-
-    @overload
-    def ask(
-        self,
-        question: str,
-        type_: type[R] | None = None,
-        choices: list[R] | None = None,
-        password: bool = False,
-        **kwargs: Unpack[NoneDefaultAskKwargs[R]],
-    ) -> R | None:
-        ...
-
-        ...
-
-    def ask(
-        self,
-        question: str,
-        type_: type[R] | None = None,
-        choices: list[R] | None = None,
-        password: bool = False,
-        **kwargs: Unpack[NoneDefaultAskKwargs[R]],
+        **kwargs: Any,
     ) -> R | None:
         v, default, should_return, has_default = self._validate(kwargs)
         if should_return:
@@ -113,9 +80,7 @@ class SugaredConsole:
             self.print.error("You must provide a value.")
         return self.ask(question, type_, choices, **kwargs)
 
-    def _validate(
-        self, kwargs: NoneDefaultAskKwargs[R]
-    ) -> tuple[R | None, R | None, bool, bool]:
+    def _validate(self, kwargs: dict[str, Any]) -> tuple[Any, Any, bool, bool]:
         has_default = "default" in kwargs
 
         default = kwargs.get("default", None)
@@ -129,46 +94,13 @@ class SugaredConsole:
 
         return default, default, not self.enabled, has_default
 
-    @overload
-    def select(
-        self, rows: list[R], type_: type[R] = str, **kwargs: Unpack[DefaultAskKwargs[R]]
-    ) -> tuple[R, int]: ...
-
-    @overload
     def select(
         self,
-        rows: list[dict[str, Any]],
-        type_: type[R] = str,
+        rows: list[R] | list[dict[str, Any]],
+        type_: type[R] | None = None,
         columns: list[str] | None = None,
         key: str | None = None,
-        **kwargs: Unpack[DefaultAskKwargs[R]],
-    ) -> tuple[R, int]: ...
-
-    @overload
-    def select(
-        self,
-        rows: list[R] | list[dict[str, Any]],
-        type_: type[R],
-        columns: list[str] | None = None,
-        **kwargs: Unpack[AskKwargs[R]],
-    ) -> tuple[R, int]: ...
-
-    @overload
-    def select(
-        self,
-        rows: list[R] | list[dict[str, Any]],
-        type_: type[R],
-        columns: list[str] | None = None,
-        **kwargs: Unpack[NoneDefaultAskKwargs[R]],
-    ) -> tuple[R | None, int | None]: ...
-
-    def select(
-        self,
-        rows: list[R] | list[dict[str, Any]],
-        type_: type[R] = str,
-        columns: list[str] | None = None,
-        key: str | None = None,
-        **kwargs: Unpack[NoneDefaultAskKwargs[R]],
+        **kwargs: Any,
     ) -> tuple[R | None, int | None]:
         """Prompts the user to select a row from a table.
 
@@ -187,7 +119,7 @@ class SugaredConsole:
             raise ValidationError("Missing key argument.")
         _key: str = key or "value"
 
-        _rows = list()
+        _rows: list[dict[str, Any]] = list()
         default_idx = 0
         no_cols = columns is None
         _columns = columns or list()
@@ -202,10 +134,10 @@ class SugaredConsole:
                             _columns.append(k)
             else:
                 is_default = row == default
-                key = "value"
+                col_key = "value"
                 if len(_columns) > 0:
-                    key = _columns[0]
-                _rows.append({"choice": str(i), key: row})
+                    col_key = _columns[0]
+                _rows.append({"choice": str(i), col_key: row})
             if is_default:
                 default_idx = len(_rows) - 1
 
@@ -219,19 +151,19 @@ class SugaredConsole:
             return v, default_idx
 
         self.table(columns=_columns, rows=_rows)
-        i = self.ask(
+        selected: int | None = self.ask(
             "Select an option #",
             int,
             choices=[i for i in range(len(rows))],
             default=default_idx,
         )
 
-        if i is not None:
-            r = rows[i]
+        if selected is not None:
+            r = rows[selected]
             assert r is not None
-            return (r[_key], i) if isinstance(r, dict) else (r, i)
+            return (r[_key], selected) if isinstance(r, dict) else (r, selected)
         if has_default:
             return default, default_idx
         if self.print is not None:
             self.print.error("You must make a selection.")
-        return self.select(type_, rows, columns, key, **kwargs)  # type: ignore
+        return self.select(rows, type_, columns, key, **kwargs)

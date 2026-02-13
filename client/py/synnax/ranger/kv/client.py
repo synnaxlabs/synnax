@@ -8,34 +8,35 @@
 #  included in the file licenses/APL.txt.
 
 import uuid
-from typing import overload
+from typing import Any, overload
 
-from freighter import Payload, UnaryClient, send_required
+from freighter import UnaryClient, send_required
+from pydantic import BaseModel
 
 from synnax.ranger.kv.payload import Pair
 from synnax.util.normalize import normalize
 
 
-class _GetRequest(Payload):
+class _GetRequest(BaseModel):
     range: uuid.UUID
     keys: list[str]
 
 
-class _GetResponse(Payload):
+class _GetResponse(BaseModel):
     pairs: list[Pair]
 
 
-class _SetRequest(Payload):
+class _SetRequest(BaseModel):
     range: uuid.UUID
     pairs: list[Pair]
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     range: uuid.UUID
     keys: list[str]
 
 
-class _EmptyResponse(Payload): ...
+class _EmptyResponse(BaseModel): ...
 
 
 class Client:
@@ -49,6 +50,9 @@ class Client:
     @overload
     def get(self, keys: str) -> str: ...
 
+    @overload
+    def get(self, keys: list[str]) -> dict[str, str]: ...
+
     def get(self, keys: str | list[str]) -> dict[str, str] | str:
         req = _GetRequest(range=self._rng_key, keys=normalize(keys))
         res = send_required(self._client, "/range/kv/get", req, _GetResponse)
@@ -57,12 +61,12 @@ class Client:
         return {pair.key: pair.value for pair in res.pairs}
 
     @overload
-    def set(self, key: str, value: any): ...
+    def set(self, key: str, value: Any): ...
 
     @overload
-    def set(self, key: dict[str, any]): ...
+    def set(self, key: dict[str, Any]): ...
 
-    def set(self, key: str | dict[str, any], value: any = None) -> None:
+    def set(self, key: str | dict[str, Any], value: Any = None) -> None:
         pairs = list()
         if isinstance(key, str):
             pairs.append(Pair(range=self._rng_key, key=key, value=value))
@@ -79,7 +83,7 @@ class Client:
     def __getitem__(self, key: str) -> str:
         return self.get(key)
 
-    def __setitem__(self, key: str, value: str) -> None:
+    def __setitem__(self, key: str, value: Any) -> None:
         self.set(key, value)
 
     def __delitem__(self, key: str) -> None:

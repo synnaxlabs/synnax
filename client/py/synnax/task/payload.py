@@ -7,15 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from freighter import Payload
 
-from synnax.ontology import ID
-from synnax.status import Status
+from pydantic import BaseModel
 
-TASK_ONTOLOGY_TYPE = ID(type="task")
+from synnax import ontology, status
+
+ONTOLOGY_TYPE = ontology.ID(type="task")
 
 
-class TaskStatusDetails(Payload):
+class StatusDetails(BaseModel):
     """
     Details about the status of a task.
     """
@@ -29,11 +29,11 @@ class TaskStatusDetails(Payload):
     cmd: str | None = None
 
 
-TaskStatus = Status[TaskStatusDetails]
+Status = status.Status[StatusDetails]
 """The status of a task."""
 
 
-class TaskPayload(Payload):
+class Payload(BaseModel):
     """A primitive task payload."""
 
     key: int = 0
@@ -41,10 +41,10 @@ class TaskPayload(Payload):
     type: str = ""
     config: str = ""
     snapshot: bool = False
-    status: TaskStatus | None = None
+    status: Status | None = None
 
 
-def ontology_id(key: int) -> ID:
+def ontology_id(key: int) -> ontology.ID:
     """Create an ontology ID for a task.
 
     Args:
@@ -53,4 +53,4 @@ def ontology_id(key: int) -> ID:
     Returns:
         An ontology ID dictionary with type "task" and the given key.
     """
-    return ID(type=TASK_ONTOLOGY_TYPE.type, key=str(key))
+    return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))

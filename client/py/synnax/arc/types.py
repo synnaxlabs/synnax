@@ -11,12 +11,12 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from synnax.task import JSONConfigMixin, StarterStopperMixin, Task, TaskProtocol
+from synnax import task
 
-TYPE = "arc"
+TASK_TYPE = "arc"
 
 
-class ArcTaskConfig(BaseModel):
+class TaskConfig(BaseModel):
     """Configuration for an Arc task."""
 
     arc_key: str
@@ -25,16 +25,16 @@ class ArcTaskConfig(BaseModel):
     """Whether to start the task automatically when created."""
 
 
-class ArcTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class Task(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for executing Arc programs on a Synnax cluster."""
 
-    TYPE = TYPE
-    config: ArcTaskConfig
-    _internal: Task
+    TYPE = TASK_TYPE
+    config: TaskConfig
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
         name: str = "Arc Task",
         arc_key: UUID | str | None = None,
@@ -49,9 +49,9 @@ class ArcTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
         """
         if internal is not None:
             self._internal = internal
-            self.config = ArcTaskConfig.model_validate_json(internal.config)
+            self.config = TaskConfig.model_validate_json(internal.config)
             return
         if arc_key is None:
             raise ValueError("arc_key is required when creating a new ArcTask")
-        self._internal = Task(name=name, type=self.TYPE)
-        self.config = ArcTaskConfig(arc_key=str(arc_key), auto_start=auto_start)
+        self._internal = task.Task(name=name, type=self.TYPE)
+        self.config = TaskConfig(arc_key=str(arc_key), auto_start=auto_start)

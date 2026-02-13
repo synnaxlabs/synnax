@@ -26,8 +26,6 @@ from multiprocessing.process import BaseProcess
 from typing import Callable
 
 import synnax as sy
-from synnax import modbus, opcua
-from synnax.device import Device as SynnaxDevice
 
 
 def _run_modbus_server() -> None:
@@ -73,9 +71,9 @@ class KnownDevices:
     """
 
     @staticmethod
-    def modbus_sim(rack_key: int) -> modbus.Device:
+    def modbus_sim(rack_key: int) -> sy.modbus.Device:
         """Modbus TCP simulator device configuration."""
-        return modbus.Device(
+        return sy.modbus.Device(
             host="127.0.0.1",
             port=5020,
             name="Modbus TCP Test Server",
@@ -86,9 +84,9 @@ class KnownDevices:
         )
 
     @staticmethod
-    def opcua_sim(rack_key: int) -> opcua.Device:
+    def opcua_sim(rack_key: int) -> sy.opcua.Device:
         """OPC UA simulator device configuration."""
-        return opcua.Device(
+        return sy.opcua.Device(
             endpoint="opc.tcp://127.0.0.1:4841/freeopcua/server/",
             name="OPC UA Test Server",
             location="opc.tcp://127.0.0.1:4841/freeopcua/server/",
@@ -105,7 +103,7 @@ class SimulatorConfig:
 
     server_setup: Callable[[], BaseProcess]
     startup_delay_seconds: float
-    device_factory: Callable[[int], SynnaxDevice]
+    device_factory: Callable[[int], sy.Device]
     device_name: str
 
 
@@ -145,7 +143,7 @@ def connect_device(
     client: sy.Synnax,
     *,
     rack_name: str,
-    device_factory: Callable[[int], SynnaxDevice],
+    device_factory: Callable[[int], sy.Device],
     max_retries: int = 10,
     retry_delay: float = 1.0,
 ) -> sy.Device:

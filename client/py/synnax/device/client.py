@@ -7,28 +7,29 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Literal, overload
 
 from alamos import NOOP, Instrumentation, trace
-from freighter import Empty, Payload, UnaryClient, send_required
+from freighter import Empty, UnaryClient, send_required
+from pydantic import BaseModel
 
 from synnax.device.payload import Device
 from synnax.exceptions import NotFoundError
 from synnax.util.normalize import check_for_none, normalize, override
 
 
-class _CreateRequest(Payload):
+class _CreateRequest(BaseModel):
     devices: list[Device]
 
 
 _CreateResponse = _CreateRequest
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     keys: list[str]
 
 
-class _RetrieveRequest(Payload):
+class _RetrieveRequest(BaseModel):
     keys: list[str] | None = None
     names: list[str] | None = None
     makes: list[str] | None = None
@@ -37,7 +38,7 @@ class _RetrieveRequest(Payload):
     ignore_not_found: bool = False
 
 
-class _RetrieveResponse(Payload):
+class _RetrieveResponse(BaseModel):
     devices: list[Device] | None = None
 
 
@@ -122,6 +123,31 @@ class Client:
         name: str | None = None,
         model: str | None = None,
         location: str | None = None,
+        ignore_not_found: Literal[True],
+    ) -> Device | None: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        keys: list[str] | None = None,
+        makes: list[str] | None = None,
+        models: list[str] | None = None,
+        names: list[str] | None = None,
+        locations: list[str] | None = None,
+        ignore_not_found: Literal[True],
+    ) -> list[Device]: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: str | None = None,
+        make: str | None = None,
+        name: str | None = None,
+        model: str | None = None,
+        location: str | None = None,
+        ignore_not_found: Literal[False] = ...,
     ) -> Device: ...
 
     @overload
@@ -133,10 +159,9 @@ class Client:
         models: list[str] | None = None,
         names: list[str] | None = None,
         locations: list[str] | None = None,
-        ignore_not_found: bool = False,
+        ignore_not_found: Literal[False] = ...,
     ) -> list[Device]: ...
 
-    @trace("debug")
     def retrieve(
         self,
         *,
@@ -151,7 +176,7 @@ class Client:
         names: list[str] | None = None,
         locations: list[str] | None = None,
         ignore_not_found: bool = False,
-    ) -> list[Device] | Device:
+    ) -> list[Device] | Device | None:
         is_single = check_for_none(keys, makes, models, locations, names)
         res = send_required(
             self._client,

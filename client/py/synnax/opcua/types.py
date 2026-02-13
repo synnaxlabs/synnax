@@ -15,6 +15,10 @@ from warnings import warn
 from pydantic import BaseModel, Field, field_validator
 from typing_extensions import deprecated
 
+from synnax import channel as channel_
+from synnax import device, task
+from synnax.telem import CrudeDataType, CrudeRate, Rate
+
 # Security mode constants
 SecurityMode = Literal["None", "Sign", "SignAndEncrypt"]
 
@@ -27,18 +31,6 @@ SecurityPolicy = Literal[
     "Aes128_Sha256_RsaOaep",
     "Aes256_Sha256_RsaPss",
 ]
-
-from synnax import device
-from synnax.channel import ChannelKey
-from synnax.task import (
-    BaseTaskConfig,
-    BaseWriteTaskConfig,
-    JSONConfigMixin,
-    StarterStopperMixin,
-    Task,
-    TaskProtocol,
-)
-from synnax.telem import CrudeDataType, CrudeRate, Rate
 
 
 class ReadChannel(BaseModel):
@@ -110,7 +102,7 @@ class ReadChannel(BaseModel):
     "Whether acquisition for this channel is enabled."
     key: str = ""
     "A unique key to identify this channel."
-    channel: ChannelKey = 0
+    channel: channel_.Key = 0
     "The Synnax channel key that will be written to during acquisition."
     node_id: str = ""
     "The OPC UA node ID to read from."
@@ -130,7 +122,7 @@ class ReadChannel(BaseModel):
         *,
         enabled: bool = True,
         key: str = "",
-        channel: ChannelKey = 0,
+        channel: channel_.Key = 0,
         node_id: str = "",
         node_name: str = "",
         data_type: CrudeDataType = "float32",
@@ -157,7 +149,7 @@ def Channel(
     *,
     enabled: bool = True,
     key: str = "",
-    channel: ChannelKey = 0,
+    channel: channel_.Key = 0,
     node_id: str = "",
     node_name: str = "",
     data_type: CrudeDataType = "float32",
@@ -236,7 +228,7 @@ class WriteChannel(BaseModel):
     "Whether output for this channel is enabled."
     key: str = ""
     "A unique key to identify this channel."
-    cmd_channel: ChannelKey = 0
+    cmd_channel: channel_.Key = 0
     "The Synnax channel key to read command values from."
     node_id: str = ""
     "The OPC UA node ID to write to."
@@ -246,7 +238,7 @@ class WriteChannel(BaseModel):
         *,
         enabled: bool = True,
         key: str = "",
-        cmd_channel: ChannelKey = 0,
+        cmd_channel: channel_.Key = 0,
         node_id: str = "",
     ):
         if not key:
@@ -259,7 +251,7 @@ class WriteChannel(BaseModel):
         )
 
 
-class OPCReadTaskConfigBase(BaseTaskConfig):
+class BaseConfig(task.BaseConfig):
     """Base configuration for OPC UA read tasks.
 
     Inherits auto_start from BaseTaskConfig and adds OPC UA-specific fields.
@@ -277,12 +269,12 @@ class OPCReadTaskConfigBase(BaseTaskConfig):
     channels: list[ReadChannel]
 
 
-class NonArraySamplingReadTaskConfig(OPCReadTaskConfigBase):
+class NonArraySamplingReadTaskConfig(BaseConfig):
     stream_rate: Rate = Field(gt=0, le=10000)
     array_mode: Literal[False]
 
 
-class ArraySamplingReadTaskConfig(OPCReadTaskConfigBase):
+class ArraySamplingReadTaskConfig(BaseConfig):
     array_mode: Literal[True]
     array_size: int = Field(gt=0)
 
@@ -293,7 +285,7 @@ class WrappedReadTaskConfig(BaseModel):
     )
 
 
-class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A read task for sampling data from OPC UA devices and writing the data to a
     Synnax cluster. This task is a programmatic representation of the OPC UA read
     task configurable within the Synnax console. For detailed information on configuring/
@@ -323,13 +315,14 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     """
 
     TYPE = "opc_read"
-    _internal: Task
+    config: NonArraySamplingReadTaskConfig | ArraySamplingReadTaskConfig
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         sample_rate: CrudeRate = 1000,
         stream_rate: CrudeRate = 1000,
@@ -337,7 +330,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
         auto_start: bool = False,
         array_mode: bool = False,
         array_size: int = 1,
-        channels: list[ReadChannel] = None,
+        channels: list[ReadChannel] | None = None,
     ):
         if internal is not None:
             self._internal = internal
@@ -345,7 +338,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
                 {"config": json.loads(internal.config)}
             ).config
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         if array_mode:
             self.config = ArraySamplingReadTaskConfig(
                 device=device,
@@ -388,7 +381,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
         return device_client.create(dev)
 
 
-class WriteTaskConfig(BaseWriteTaskConfig):
+class WriteTaskConfig(task.BaseWriteConfig):
     """Configuration for an OPC UA write task.
 
     Inherits common write task fields (device, auto_start) from
@@ -408,7 +401,7 @@ class WriteTaskConfig(BaseWriteTaskConfig):
         return v
 
 
-class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A write task for sending commands to OPC UA devices. This task is a programmatic
     representation of the OPC UA write task configurable within the Synnax console.
     For detailed information on configuring/operating an OPC UA write task,
@@ -424,22 +417,22 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "opc_write"
     config: WriteTaskConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         auto_start: bool = False,
-        channels: list[WriteChannel] = None,
+        channels: list[WriteChannel] | None = None,
     ):
         if internal is not None:
             self._internal = internal
             self.config = WriteTaskConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = WriteTaskConfig(
             device=device,
             auto_start=auto_start,
@@ -480,7 +473,7 @@ class Device(device.Device):
 
     Example:
         >>> from synnax import opcua
-        >>> device = opcua.Device(
+        >>> dev = opcua.Device(
         ...     name="OPC UA Server",
         ...     location="opc.tcp://localhost:4840/",
         ...     rack=rack.key,
@@ -490,7 +483,7 @@ class Device(device.Device):
         ...     security_mode="SignAndEncrypt",
         ...     security_policy="Basic256Sha256"
         ... )
-        >>> client.devices.create(device)
+        >>> client.devices.create(dev)
 
     :param endpoint: The OPC UA server endpoint URL (e.g., "opc.tcp://localhost:4840/")
     :param username: Username for authentication (optional)

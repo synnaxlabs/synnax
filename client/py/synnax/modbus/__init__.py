@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.modbus.types import (
+    BaseChan,
     CoilInputChan,
     CoilOutputChan,
     Device,
@@ -20,3 +21,17 @@ from synnax.modbus.types import (
     WriteTask,
     WriteTaskConfig,
 )
+
+__all__ = [
+    "CoilInputChan",
+    "CoilOutputChan",
+    "Device",
+    "DiscreteInputChan",
+    "HoldingRegisterInputChan",
+    "HoldingRegisterOutputChan",
+    "InputRegisterChan",
+    "ReadTask",
+    "ReadTaskConfig",
+    "WriteTask",
+    "WriteTaskConfig",
+]
