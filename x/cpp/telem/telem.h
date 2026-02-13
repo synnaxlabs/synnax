@@ -330,17 +330,17 @@ public:
         const auto ss = sod % 60;
 
         char buf[30];
-        strings::put(buf + 0, d.year, 4);
+        strings::writeNumber(buf + 0, d.year, 4);
         buf[4] = '-';
-        strings::put(buf + 5, d.month, 2);
+        strings::writeNumber(buf + 5, d.month, 2);
         buf[7] = '-';
-        strings::put(buf + 8, d.day, 2);
+        strings::writeNumber(buf + 8, d.day, 2);
         buf[10] = 'T';
-        strings::put(buf + 11, hh, 2);
+        strings::writeNumber(buf + 11, hh, 2);
         buf[13] = ':';
-        strings::put(buf + 14, mm, 2);
+        strings::writeNumber(buf + 14, mm, 2);
         buf[16] = ':';
-        strings::put(buf + 17, ss, 2);
+        strings::writeNumber(buf + 17, ss, 2);
 
         int len = 19;
 
@@ -349,7 +349,7 @@ public:
 
             // write 9 digits then trim without looping over the whole tail
             char frac[9];
-            strings::put(frac, frac_ns, 9);
+            strings::writeNumber(frac, frac_ns, 9);
 
             // find last non-zero digit
             int8_t last = 8;

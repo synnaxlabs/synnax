@@ -147,7 +147,7 @@ number_to_numeric(const double v, const telem::DataType &target, const bool stri
     return {telem::SampleValue(0), UNSUPPORTED_ERROR};
 }
 
-} // namespace
+}
 
 std::pair<telem::SampleValue, errors::Error> to_sample_value(
     const nlohmann::json &value,

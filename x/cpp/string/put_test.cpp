@@ -15,78 +15,78 @@
 
 TEST(Put, Width2Zero) {
     char buf[2];
-    x::strings::put(buf, 0, 2);
+    x::strings::writeNumber(buf, 0, 2);
     EXPECT_EQ(std::string(buf, 2), "00");
 }
 
 TEST(Put, Width2SingleDigit) {
     char buf[2];
-    x::strings::put(buf, 7, 2);
+    x::strings::writeNumber(buf, 7, 2);
     EXPECT_EQ(std::string(buf, 2), "07");
 }
 
 TEST(Put, Width2TwoDigits) {
     char buf[2];
-    x::strings::put(buf, 42, 2);
+    x::strings::writeNumber(buf, 42, 2);
     EXPECT_EQ(std::string(buf, 2), "42");
 }
 
 TEST(Put, Width2Max) {
     char buf[2];
-    x::strings::put(buf, 99, 2);
+    x::strings::writeNumber(buf, 99, 2);
     EXPECT_EQ(std::string(buf, 2), "99");
 }
 
 TEST(Put, Width4Zero) {
     char buf[4];
-    x::strings::put(buf, 0, 4);
+    x::strings::writeNumber(buf, 0, 4);
     EXPECT_EQ(std::string(buf, 4), "0000");
 }
 
 TEST(Put, Width4Year) {
     char buf[4];
-    x::strings::put(buf, 2026, 4);
+    x::strings::writeNumber(buf, 2026, 4);
     EXPECT_EQ(std::string(buf, 4), "2026");
 }
 
 TEST(Put, Width4SmallValue) {
     char buf[4];
-    x::strings::put(buf, 5, 4);
+    x::strings::writeNumber(buf, 5, 4);
     EXPECT_EQ(std::string(buf, 4), "0005");
 }
 
 TEST(Put, Width4Max) {
     char buf[4];
-    x::strings::put(buf, 9999, 4);
+    x::strings::writeNumber(buf, 9999, 4);
     EXPECT_EQ(std::string(buf, 4), "9999");
 }
 
 TEST(Put, Width9Zero) {
     char buf[9];
-    x::strings::put(buf, 0, 9);
+    x::strings::writeNumber(buf, 0, 9);
     EXPECT_EQ(std::string(buf, 9), "000000000");
 }
 
 TEST(Put, Width9One) {
     char buf[9];
-    x::strings::put(buf, 1, 9);
+    x::strings::writeNumber(buf, 1, 9);
     EXPECT_EQ(std::string(buf, 9), "000000001");
 }
 
 TEST(Put, Width9Nanoseconds) {
     char buf[9];
-    x::strings::put(buf, 123456789, 9);
+    x::strings::writeNumber(buf, 123456789, 9);
     EXPECT_EQ(std::string(buf, 9), "123456789");
 }
 
 TEST(Put, Width9Max) {
     char buf[9];
-    x::strings::put(buf, 999999999, 9);
+    x::strings::writeNumber(buf, 999999999, 9);
     EXPECT_EQ(std::string(buf, 9), "999999999");
 }
 
 TEST(Put, Width1) {
     char buf[1];
-    x::strings::put(buf, 5, 1);
+    x::strings::writeNumber(buf, 5, 1);
     EXPECT_EQ(buf[0], '5');
 }
