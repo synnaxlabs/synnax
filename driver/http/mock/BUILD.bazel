@@ -1,11 +1,38 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+exports_files(
+    [
+        "test_cert.pem",
+        "test_key.pem",
+    ],
+    visibility = ["//visibility:public"],
+)
 
 cc_library(
     name = "mock",
     hdrs = ["server.h"],
+    defines = ["CPPHTTPLIB_OPENSSL_SUPPORT"],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/http/device",
         "//x/cpp/errors",
+        "@boringssl//:crypto",
+        "@boringssl//:ssl",
         "@cpp-httplib//:cpp-httplib",
+    ],
+)
+
+cc_test(
+    name = "server_test",
+    srcs = ["server_test.cpp"],
+    data = [
+        "test_cert.pem",
+        "test_key.pem",
+    ],
+    deps = [
+        ":mock",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
     ],
 )

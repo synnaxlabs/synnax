@@ -11,6 +11,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -20,10 +21,12 @@
 
 #include "x/cpp/errors/errors.h"
 
+#include "driver/http/device/device.h"
+
 namespace driver::http::mock {
 /// @brief a single route to register on the mock server.
 struct Route {
-    std::string method; ///< HTTP method (GET, POST, PUT, DELETE, PATCH).
+    Method method = Method::GET; ///< HTTP method.
     std::string path; ///< URL path pattern (e.g., "/api/data").
     int status_code = 200; ///< HTTP status code to respond with.
     std::string response_body; ///< Response body content.
@@ -33,7 +36,7 @@ struct Route {
 
 /// @brief a received request logged by the mock server.
 struct ReceivedRequest {
-    std::string method; ///< HTTP method.
+    Method method; ///< HTTP method.
     std::string path; ///< Request path.
     std::string body; ///< Request body.
     httplib::Headers headers; ///< Request headers.
@@ -42,22 +45,42 @@ struct ReceivedRequest {
 /// @brief configuration for the mock HTTP server.
 struct ServerConfig {
     std::string host = "127.0.0.1"; ///< Bind address.
-    int port = 0; ///< Port (0 = auto-select).
     std::vector<Route> routes; ///< Routes to register.
+    bool secure = false; ///< Use HTTPS with self-signed certificate.
+    std::string cert_path; ///< Path to TLS certificate (when secure).
+    std::string key_path; ///< Path to TLS private key (when secure).
 };
 
 /// @brief a mock HTTP server for testing, backed by cpp-httplib.
 class Server {
-    httplib::Server svr_;
+    std::unique_ptr<httplib::Server> svr_;
     std::thread thread_;
     std::atomic<bool> running_{false};
     std::string host_;
-    int port_;
+    bool secure_;
+    int port_ = 0;
     mutable std::mutex mu_;
     std::vector<ReceivedRequest> requests_;
 
+    static Method parse_httplib_method(const std::string &m) {
+        if (m == "POST") return Method::POST;
+        if (m == "PUT") return Method::PUT;
+        if (m == "DELETE") return Method::DELETE;
+        if (m == "PATCH") return Method::PATCH;
+        if (m == "GET") return Method::GET;
+        throw std::runtime_error("unsupported HTTP method: " + m);
+    }
+
 public:
-    explicit Server(const ServerConfig &config): host_(config.host), port_(config.port) {
+    explicit Server(const ServerConfig &config):
+        host_(config.host), secure_(config.secure) {
+        if (secure_) {
+            svr_ = std::make_unique<httplib::SSLServer>(
+                config.cert_path.c_str(), config.key_path.c_str()
+            );
+        } else {
+            svr_ = std::make_unique<httplib::Server>();
+        }
         for (const auto &route: config.routes) register_route(route);
     }
 
@@ -69,19 +92,14 @@ public:
     /// @brief starts the server in a background thread.
     x::errors::Error start() {
         if (running_) return x::errors::NIL;
-        if (port_ == 0) {
-            port_ = svr_.bind_to_any_port(host_);
-            if (port_ < 0)
-                return x::errors::Error("failed to bind mock HTTP server");
-        } else {
-            if (!svr_.bind_to_port(host_, port_))
-                return x::errors::Error(
-                    "failed to bind mock HTTP server to port " +
-                    std::to_string(port_)
-                );
-        }
+        if (!svr_->is_valid())
+            return x::errors::Error("mock server is not valid (bad TLS cert?)");
+        port_ = svr_->bind_to_any_port(host_);
+        if (port_ < 0)
+            return x::errors::Error("failed to bind mock HTTP server");
         running_ = true;
-        thread_ = std::thread([this] { svr_.listen_after_bind(); });
+        thread_ = std::thread([this] { svr_->listen_after_bind(); });
+        svr_->wait_until_ready();
         return x::errors::NIL;
     }
 
@@ -89,18 +107,17 @@ public:
     void stop() {
         if (!running_) return;
         running_ = false;
-        svr_.stop();
+        svr_->stop();
         if (thread_.joinable()) thread_.join();
     }
 
-    /// @brief returns the base URL of the running server (e.g.,
-    /// "http://127.0.0.1:8080").
+    /// @brief returns the base URL of the running server.
     [[nodiscard]] std::string base_url() const {
-        return "http://" + host_ + ":" + std::to_string(port_);
+        const auto scheme = secure_ ? "https" : "http";
+        return std::string(scheme) + "://" + host_ + ":" +
+               std::to_string(port_);
     }
 
-    /// @brief returns the port the server is listening on.
-    [[nodiscard]] int port() const { return port_; }
 
     /// @brief returns all requests received by the server.
     [[nodiscard]] std::vector<ReceivedRequest> received_requests() const {
@@ -118,7 +135,7 @@ private:
     void log_request(const httplib::Request &req) {
         std::lock_guard lock(mu_);
         requests_.push_back({
-            .method = req.method,
+            .method = parse_httplib_method(req.method),
             .path = req.path,
             .body = req.body,
             .headers = req.headers,
@@ -136,16 +153,13 @@ private:
             res.set_content(route.response_body, route.content_type);
         };
 
-        if (route.method == "GET")
-            svr_.Get(route.path, handler);
-        else if (route.method == "POST")
-            svr_.Post(route.path, handler);
-        else if (route.method == "PUT")
-            svr_.Put(route.path, handler);
-        else if (route.method == "DELETE")
-            svr_.Delete(route.path, handler);
-        else if (route.method == "PATCH")
-            svr_.Patch(route.path, handler);
+        switch (route.method) {
+            case Method::GET: svr_->Get(route.path, handler); break;
+            case Method::POST: svr_->Post(route.path, handler); break;
+            case Method::PUT: svr_->Put(route.path, handler); break;
+            case Method::DELETE: svr_->Delete(route.path, handler); break;
+            case Method::PATCH: svr_->Patch(route.path, handler); break;
+        }
     }
 };
 }
