@@ -71,7 +71,7 @@ struct ConnectionConfig {
     uint32_t timeout_ms; ///< Request timeout in milliseconds.
     AuthConfig auth; ///< Authentication configuration.
     std::map<std::string, std::string> headers; ///< Custom headers.
-    bool verify_ssl = true; ///< Whether to verify SSL certificates.
+    bool verify_ssl; ///< Whether to verify SSL certificates.
 
     /// @param parser the JSON parser to read configuration from.
     /// @param verify_ssl whether to verify SSL certificates (false only in tests).
@@ -110,8 +110,10 @@ struct RequestConfig {
     std::string path; ///< URL path (appended to base_url).
     std::map<std::string, std::string> query_params; ///< Query parameters.
     std::map<std::string, std::string> headers; ///< Per-request headers.
-    std::string content_type; ///< Expected response Content-Type; also sent as Accept.
-    std::string request_content_type; ///< Request body Content-Type; omitted when empty.
+    std::string
+        response_content_type; ///< Expected response Content-Type; also sent as Accept.
+    std::string
+        request_content_type; ///< Request body Content-Type; omitted when empty.
 };
 
 /// @brief an HTTP response.

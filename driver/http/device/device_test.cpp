@@ -586,7 +586,8 @@ TEST(ClientTest, ParallelRequestsWithMixedStatusCodes) {
 
     auto results = client.request({"", "", ""});
     ASSERT_EQ(results.size(), 3);
-    for (auto &r: results) ASSERT_NIL(r.second);
+    for (auto &r: results)
+        ASSERT_NIL(r.second);
     EXPECT_EQ(results[0].first.status_code, 200);
     EXPECT_EQ(results[0].first.body, "success");
     EXPECT_EQ(results[1].first.status_code, 404);
@@ -1030,7 +1031,7 @@ TEST(ClientTest, ContentTypeValidation) {
         {{
             .method = Method::GET,
             .path = "/api/json",
-            .content_type = "application/json",
+            .response_content_type = "application/json",
         }}
     );
 
@@ -1060,7 +1061,7 @@ TEST(ClientTest, ContentTypeMismatch) {
         {{
             .method = Method::GET,
             .path = "/api/text",
-            .content_type = "application/json",
+            .response_content_type = "application/json",
         }}
     );
 
@@ -1111,7 +1112,7 @@ TEST(ClientTest, ContentTypeCharsetSuffix) {
         {{
             .method = Method::GET,
             .path = "/api/charset",
-            .content_type = "application/json",
+            .response_content_type = "application/json",
         }}
     );
 
@@ -1208,7 +1209,7 @@ TEST(ClientTest, AcceptHeaderSent) {
         {{
             .method = Method::GET,
             .path = "/api/accept",
-            .content_type = "application/json",
+            .response_content_type = "application/json",
         }}
     );
 

@@ -52,7 +52,7 @@ x::errors::Error parse_curl_error(CURLcode code) {
             );
     }
 }
-} // namespace
+}
 
 /// @brief internal handle that wraps a pre-configured curl easy handle.
 struct Client::Handle {
@@ -82,22 +82,6 @@ struct Client::Handle {
         result(other.result) {
         other.handle = nullptr;
         other.headers = nullptr;
-    }
-
-    Handle &operator=(Handle &&other) noexcept {
-        if (this != &other) {
-            if (headers != nullptr) curl_slist_free_all(headers);
-            if (handle != nullptr) curl_easy_cleanup(handle);
-            handle = other.handle;
-            headers = other.headers;
-            response_body = std::move(other.response_body);
-            accepts_body = other.accepts_body;
-            expected_content_type = std::move(other.expected_content_type);
-            result = other.result;
-            other.handle = nullptr;
-            other.headers = nullptr;
-        }
-        return *this;
     }
 };
 
@@ -206,9 +190,9 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
         }
 
         // Accept header and expected content type validation (static).
-        if (!req.content_type.empty()) {
-            h.expected_content_type = req.content_type;
-            const std::string accept_hdr = "Accept: " + req.content_type;
+        if (!req.response_content_type.empty()) {
+            h.expected_content_type = req.response_content_type;
+            const std::string accept_hdr = "Accept: " + req.response_content_type;
             h.headers = curl_slist_append(h.headers, accept_hdr.c_str());
         }
 
