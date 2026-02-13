@@ -197,9 +197,13 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
             h.headers = curl_slist_append(h.headers, hdr.c_str());
         }
 
-        // Content-Type header (static).
-        if (h.accepts_body)
-            h.headers = curl_slist_append(h.headers, "Content-Type: application/json");
+        // Content-Type header (static). An empty entry suppresses curl's default.
+        if (!req.request_content_type.empty()) {
+            const std::string ct_hdr = "Content-Type: " + req.request_content_type;
+            h.headers = curl_slist_append(h.headers, ct_hdr.c_str());
+        } else if (h.accepts_body) {
+            h.headers = curl_slist_append(h.headers, "Content-Type:");
+        }
 
         // Accept header and expected content type validation (static).
         if (!req.content_type.empty()) {

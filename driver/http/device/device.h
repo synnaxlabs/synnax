@@ -111,6 +111,7 @@ struct RequestConfig {
     std::map<std::string, std::string> query_params; ///< Query parameters.
     std::map<std::string, std::string> headers; ///< Per-request headers.
     std::string content_type; ///< Expected response Content-Type; also sent as Accept.
+    std::string request_content_type; ///< Request body Content-Type; omitted when empty.
 };
 
 /// @brief an HTTP response.

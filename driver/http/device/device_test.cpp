@@ -1123,6 +1123,73 @@ TEST(ClientTest, ContentTypeCharsetSuffix) {
     server.stop();
 }
 
+TEST(ClientTest, RequestContentTypeHeaderSent) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::POST,
+        .path = "/api/xml",
+        .status_code = 200,
+        .response_body = "<ok/>",
+        .content_type = "application/xml",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    Client client(
+        config,
+        {{
+            .method = Method::POST,
+            .path = "/api/xml",
+            .request_content_type = "application/xml",
+        }}
+    );
+
+    auto results = client.request({"<req/>"});
+    ASSERT_EQ(results.size(), 1);
+    ASSERT_NIL_P(results[0]);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+
+    bool found_ct = false;
+    for (const auto &[k, v]: reqs[0].headers)
+        if (k == "Content-Type" && v == "application/xml") found_ct = true;
+    EXPECT_TRUE(found_ct);
+
+    server.stop();
+}
+
+TEST(ClientTest, RequestContentTypeOmittedWhenEmpty) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::POST,
+        .path = "/api/raw",
+        .status_code = 200,
+        .response_body = "ok",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    Client client(config, {{.method = Method::POST, .path = "/api/raw"}});
+
+    auto results = client.request({"data"});
+    ASSERT_EQ(results.size(), 1);
+    ASSERT_NIL_P(results[0]);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+
+    bool found_ct = false;
+    for (const auto &[k, v]: reqs[0].headers)
+        if (k == "Content-Type") found_ct = true;
+    EXPECT_FALSE(found_ct);
+
+    server.stop();
+}
+
 TEST(ClientTest, AcceptHeaderSent) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
