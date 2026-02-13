@@ -63,42 +63,51 @@ x::errors::Error parse_curl_error(CURLcode code) {
         case CURLE_COULDNT_RESOLVE_HOST:
         case CURLE_COULDNT_RESOLVE_PROXY:
         case CURLE_OPERATION_TIMEDOUT:
-            return x::errors::Error(http::errors::UNREACHABLE_ERROR, curl_easy_strerror(code));
+            return x::errors::Error(
+                http::errors::UNREACHABLE_ERROR, curl_easy_strerror(code)
+            );
         default:
-            return x::errors::Error(http::errors::CLIENT_ERROR, curl_easy_strerror(code));
+            return x::errors::Error(
+                http::errors::CLIENT_ERROR, curl_easy_strerror(code)
+            );
     }
 }
+} // namespace
 
-struct EasyHandle {
+/// @brief internal handle that wraps a pre-configured curl easy handle.
+struct Client::Handle {
     CURL *handle = nullptr;
     struct curl_slist *headers = nullptr;
     std::string response_body;
+    bool accepts_body = false;
 
-    EasyHandle() = default;
+    Handle() = default;
 
-    ~EasyHandle() {
+    ~Handle() {
         if (headers != nullptr) curl_slist_free_all(headers);
         if (handle != nullptr) curl_easy_cleanup(handle);
     }
 
-    EasyHandle(const EasyHandle &) = delete;
-    EasyHandle &operator=(const EasyHandle &) = delete;
+    Handle(const Handle &) = delete;
+    Handle &operator=(const Handle &) = delete;
 
-    EasyHandle(EasyHandle &&other) noexcept:
+    Handle(Handle &&other) noexcept:
         handle(other.handle),
         headers(other.headers),
-        response_body(std::move(other.response_body)) {
+        response_body(std::move(other.response_body)),
+        accepts_body(other.accepts_body) {
         other.handle = nullptr;
         other.headers = nullptr;
     }
 
-    EasyHandle &operator=(EasyHandle &&other) noexcept {
+    Handle &operator=(Handle &&other) noexcept {
         if (this != &other) {
             if (headers != nullptr) curl_slist_free_all(headers);
             if (handle != nullptr) curl_easy_cleanup(handle);
             handle = other.handle;
             headers = other.headers;
             response_body = std::move(other.response_body);
+            accepts_body = other.accepts_body;
             other.handle = nullptr;
             other.headers = nullptr;
         }
@@ -106,90 +115,104 @@ struct EasyHandle {
     }
 };
 
-void apply_auth(CURL *handle, const AuthConfig &auth, struct curl_slist **slist) {
-    if (auth.type == "bearer") {
-        const std::string hdr = "Authorization: Bearer " + auth.token;
-        *slist = curl_slist_append(*slist, hdr.c_str());
-    } else if (auth.type == "basic") {
-        curl_easy_setopt(handle, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-        const std::string userpwd = auth.username + ":" + auth.password;
-        curl_easy_setopt(handle, CURLOPT_USERPWD, userpwd.c_str());
-    } else if (auth.type == "api_key") {
-        const std::string hdr = auth.header + ": " + auth.key;
-        *slist = curl_slist_append(*slist, hdr.c_str());
-    }
-}
-
-EasyHandle create_easy_handle(
-    const ConnectionConfig &config,
-    const Request &req
-) {
-    EasyHandle eh;
-    eh.handle = curl_easy_init();
-    if (eh.handle == nullptr) return eh;
-
-    const auto url = build_url(config.base_url, req.path, req.query_params);
-    curl_easy_setopt(eh.handle, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(
-        eh.handle, CURLOPT_TIMEOUT_MS,
-        static_cast<long>(config.timeout_ms)
-    );
-    curl_easy_setopt(eh.handle, CURLOPT_WRITEFUNCTION, write_callback);
-
-    if (!config.verify_ssl) {
-        curl_easy_setopt(eh.handle, CURLOPT_SSL_VERIFYPEER, 0L);
-        curl_easy_setopt(eh.handle, CURLOPT_SSL_VERIFYHOST, 0L);
-    }
-
-    switch (req.method) {
-        case Method::POST:
-            curl_easy_setopt(eh.handle, CURLOPT_POST, 1L);
-            curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDS, req.body.c_str());
-            curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDSIZE, req.body.size());
-            break;
-        case Method::PUT:
-            curl_easy_setopt(eh.handle, CURLOPT_CUSTOMREQUEST, "PUT");
-            curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDS, req.body.c_str());
-            curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDSIZE, req.body.size());
-            break;
-        case Method::DELETE:
-            curl_easy_setopt(eh.handle, CURLOPT_CUSTOMREQUEST, "DELETE");
-            break;
-        case Method::PATCH:
-            curl_easy_setopt(eh.handle, CURLOPT_CUSTOMREQUEST, "PATCH");
-            curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDS, req.body.c_str());
-            curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDSIZE, req.body.size());
-            break;
-        case Method::GET:
-            break;
-    }
-
-    apply_auth(eh.handle, config.auth, &eh.headers);
-
-    for (const auto &[k, v]: config.headers) {
-        const std::string hdr = k + ": " + v;
-        eh.headers = curl_slist_append(eh.headers, hdr.c_str());
-    }
-    for (const auto &[k, v]: req.headers) {
-        const std::string hdr = k + ": " + v;
-        eh.headers = curl_slist_append(eh.headers, hdr.c_str());
-    }
-
-    if (!req.body.empty()) {
-        const std::string ct = "Content-Type: " + req.content_type;
-        eh.headers = curl_slist_append(eh.headers, ct.c_str());
-    }
-
-    if (eh.headers != nullptr)
-        curl_easy_setopt(eh.handle, CURLOPT_HTTPHEADER, eh.headers);
-
-    return eh;
-}
-} // namespace
-
-Client::Client(ConnectionConfig config): config_(std::move(config)) {
+Client::Client(
+    ConnectionConfig config,
+    const std::vector<RequestConfig> &requests
+): config_(std::move(config)) {
     ensure_curl_initialized();
     multi_handle_ = curl_multi_init();
+    handles_.reserve(requests.size());
+
+    for (const auto &req: requests) {
+        Handle h;
+        h.handle = curl_easy_init();
+        if (h.handle == nullptr) continue;
+
+        // URL (static per handle).
+        const auto url = build_url(
+            config_.base_url, req.path, req.query_params
+        );
+        curl_easy_setopt(h.handle, CURLOPT_URL, url.c_str());
+
+        // Timeout (static per handle).
+        curl_easy_setopt(
+            h.handle, CURLOPT_TIMEOUT_MS,
+            static_cast<long>(config_.timeout_ms)
+        );
+
+        // Write callback (static).
+        curl_easy_setopt(h.handle, CURLOPT_WRITEFUNCTION, write_callback);
+
+        // SSL verification (static).
+        if (!config_.verify_ssl) {
+            curl_easy_setopt(h.handle, CURLOPT_SSL_VERIFYPEER, 0L);
+            curl_easy_setopt(h.handle, CURLOPT_SSL_VERIFYHOST, 0L);
+        }
+
+        // HTTP method (static per handle).
+        h.accepts_body = req.method != Method::GET &&
+                         req.method != Method::DELETE;
+        switch (req.method) {
+            case Method::POST:
+                curl_easy_setopt(h.handle, CURLOPT_POST, 1L);
+                break;
+            case Method::PUT:
+                curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "PUT");
+                break;
+            case Method::DELETE:
+                curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "DELETE");
+                break;
+            case Method::PATCH:
+                curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "PATCH");
+                break;
+            case Method::GET:
+                break;
+        }
+
+        // Auth headers (static).
+        if (config_.auth.type == "bearer") {
+            const std::string hdr =
+                "Authorization: Bearer " + config_.auth.token;
+            h.headers = curl_slist_append(h.headers, hdr.c_str());
+        } else if (config_.auth.type == "basic") {
+            curl_easy_setopt(h.handle, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+            const std::string userpwd =
+                config_.auth.username + ":" + config_.auth.password;
+            curl_easy_setopt(h.handle, CURLOPT_USERPWD, userpwd.c_str());
+        } else if (config_.auth.type == "api_key") {
+            const std::string hdr =
+                config_.auth.header + ": " + config_.auth.key;
+            h.headers = curl_slist_append(h.headers, hdr.c_str());
+        }
+
+        // Connection-level headers (static).
+        for (const auto &[k, v]: config_.headers) {
+            const std::string hdr = k + ": " + v;
+            h.headers = curl_slist_append(h.headers, hdr.c_str());
+        }
+
+        // Per-request headers (static).
+        for (const auto &[k, v]: req.headers) {
+            const std::string hdr = k + ": " + v;
+            h.headers = curl_slist_append(h.headers, hdr.c_str());
+        }
+
+        // Content-Type header (static).
+        if (h.accepts_body)
+            h.headers = curl_slist_append(
+                h.headers, "Content-Type: application/json"
+            );
+
+        if (h.headers != nullptr)
+            curl_easy_setopt(h.handle, CURLOPT_HTTPHEADER, h.headers);
+
+        handles_.push_back(std::move(h));
+        // Set WRITEDATA after push_back to avoid dangling pointer.
+        curl_easy_setopt(
+            handles_.back().handle, CURLOPT_WRITEDATA,
+            &handles_.back().response_body
+        );
+    }
 }
 
 Client::~Client() {
@@ -197,24 +220,27 @@ Client::~Client() {
 }
 
 std::pair<std::vector<Response>, x::errors::Error>
-Client::request(const std::vector<Request> &requests) {
-    std::lock_guard lock(mu_);
-
-    std::vector<EasyHandle> handles;
-    handles.reserve(requests.size());
-
+Client::request(const std::vector<std::string> &bodies) {
     auto *multi = static_cast<CURLM *>(multi_handle_);
 
-    for (const auto &req: requests) {
-        auto eh = create_easy_handle(config_, req);
-        if (eh.handle == nullptr)
-            return {{}, x::errors::Error(http::errors::CLIENT_ERROR, "failed to create curl handle")};
-        curl_multi_add_handle(multi, eh.handle);
-        handles.push_back(std::move(eh));
-        curl_easy_setopt(
-            handles.back().handle, CURLOPT_WRITEDATA,
-            &handles.back().response_body
-        );
+    // Set bodies and add handles to multi.
+    for (size_t i = 0; i < handles_.size(); i++) {
+        auto &h = handles_[i];
+        h.response_body.clear();
+        if (h.accepts_body) {
+            if (i < bodies.size() && !bodies[i].empty()) {
+                curl_easy_setopt(
+                    h.handle, CURLOPT_POSTFIELDS, bodies[i].c_str()
+                );
+                curl_easy_setopt(
+                    h.handle, CURLOPT_POSTFIELDSIZE, bodies[i].size()
+                );
+            } else {
+                curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, nullptr);
+                curl_easy_setopt(h.handle, CURLOPT_POSTFIELDSIZE, 0L);
+            }
+        }
+        curl_multi_add_handle(multi, h.handle);
     }
 
     const auto start = x::telem::TimeStamp::now();
@@ -222,15 +248,15 @@ Client::request(const std::vector<Request> &requests) {
     int still_running = 0;
     do {
         const CURLMcode mc = curl_multi_perform(multi, &still_running);
-        if (mc != CURLM_OK)
-            break;
-        if (still_running > 0) curl_multi_wait(multi, nullptr, 0, 1000, nullptr);
+        if (mc != CURLM_OK) break;
+        if (still_running > 0)
+            curl_multi_wait(multi, nullptr, 0, 1000, nullptr);
     } while (still_running > 0);
 
     const auto end = x::telem::TimeStamp::now();
 
     std::vector<Response> responses;
-    responses.reserve(handles.size());
+    responses.reserve(handles_.size());
 
     x::errors::Error first_err = x::errors::NIL;
 
@@ -242,30 +268,18 @@ Client::request(const std::vector<Request> &requests) {
             first_err = parse_curl_error(msg->data.result);
     }
 
-    for (auto &eh: handles) {
+    for (auto &h: handles_) {
         long status_code = 0;
-        curl_easy_getinfo(eh.handle, CURLINFO_RESPONSE_CODE, &status_code);
+        curl_easy_getinfo(h.handle, CURLINFO_RESPONSE_CODE, &status_code);
         responses.push_back(Response{
             .status_code = static_cast<int>(status_code),
-            .body = std::move(eh.response_body),
+            .body = std::move(h.response_body),
             .time_range = {start, end},
         });
-        curl_multi_remove_handle(multi, eh.handle);
+        curl_multi_remove_handle(multi, h.handle);
     }
 
     return {std::move(responses), first_err};
 }
 
-std::pair<std::shared_ptr<Client>, x::errors::Error>
-Manager::acquire(const ConnectionConfig &config) {
-    std::lock_guard lock(mu_);
-    auto it = clients_.find(config.base_url);
-    if (it != clients_.end()) {
-        if (auto existing = it->second.lock()) return {existing, x::errors::NIL};
-        clients_.erase(it);
-    }
-    auto client = std::make_shared<Client>(config);
-    clients_[config.base_url] = client;
-    return {client, x::errors::NIL};
-}
 }

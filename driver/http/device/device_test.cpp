@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <chrono>
-#include <thread>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -197,10 +196,9 @@ TEST(ClientTest, GetRequest) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config);
+    Client client(config, {{.method = Method::GET, .path = "/api/data"}});
 
-    auto [responses, err] = client.request({{.method = Method::GET, .path = "/api/data"}});
-    ASSERT_NIL(err);
+    const auto responses = ASSERT_NIL_P(client.request({""}));
     ASSERT_EQ(responses.size(), 1);
     EXPECT_EQ(responses[0].status_code, 200);
     EXPECT_EQ(responses[0].body, R"({"value": 42})");
@@ -223,14 +221,9 @@ TEST(ClientTest, PostWithBody) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config);
+    Client client(config, {{.method = Method::POST, .path = "/api/submit"}});
 
-    auto [responses, err] = client.request({{
-        .method = Method::POST,
-        .path = "/api/submit",
-        .body = R"({"name": "test"})",
-    }});
-    ASSERT_NIL(err);
+    const auto responses = ASSERT_NIL_P(client.request({R"({"name": "test"})"}));
     ASSERT_EQ(responses.size(), 1);
     EXPECT_EQ(responses[0].status_code, 201);
 
@@ -259,14 +252,13 @@ TEST(ClientTest, CustomHeaders) {
         {"base_url", server.base_url()},
         {"headers", {{"X-Global", "global-val"}}},
     });
-    Client client(config);
-
-    auto [responses, err] = client.request({{
+    Client client(config, {{
         .method = Method::GET,
         .path = "/api/check",
         .headers = {{"X-Request", "req-val"}},
     }});
-    ASSERT_NIL(err);
+
+    const auto responses = ASSERT_NIL_P(client.request({""}));
     ASSERT_EQ(responses.size(), 1);
     EXPECT_EQ(responses[0].status_code, 200);
 
@@ -303,10 +295,9 @@ TEST(ClientTest, BearerAuth) {
         {"base_url", server.base_url()},
         {"auth", {{"type", "bearer"}, {"token", "my-token"}}},
     });
-    Client client(config);
+    Client client(config, {{.method = Method::GET, .path = "/api/secure"}});
 
-    auto [responses, err] = client.request({{.method = Method::GET, .path = "/api/secure"}});
-    ASSERT_NIL(err);
+    ASSERT_NIL_P(client.request({""}));
 
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
@@ -337,10 +328,9 @@ TEST(ClientTest, ApiKeyAuth) {
         {"base_url", server.base_url()},
         {"auth", {{"type", "api_key"}, {"header", "X-API-Key"}, {"key", "secret123"}}},
     });
-    Client client(config);
+    Client client(config, {{.method = Method::GET, .path = "/api/keyed"}});
 
-    auto [responses, err] = client.request({{.method = Method::GET, .path = "/api/keyed"}});
-    ASSERT_NIL(err);
+    ASSERT_NIL_P(client.request({""}));
 
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
@@ -368,14 +358,13 @@ TEST(ClientTest, QueryParams) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config);
-
-    auto [responses, err] = client.request({{
+    Client client(config, {{
         .method = Method::GET,
         .path = "/api/search",
         .query_params = {{"q", "hello"}, {"limit", "10"}},
     }});
-    ASSERT_NIL(err);
+
+    const auto responses = ASSERT_NIL_P(client.request({""}));
     ASSERT_EQ(responses.size(), 1);
     EXPECT_EQ(responses[0].status_code, 200);
 
@@ -401,9 +390,9 @@ TEST(ClientTest, TimeoutError) {
         {"base_url", server.base_url()},
         {"timeout_ms", 500},
     });
-    Client client(config);
+    Client client(config, {{.method = Method::GET, .path = "/api/slow"}});
 
-    auto [responses, err] = client.request({{.method = Method::GET, .path = "/api/slow"}});
+    auto [responses, err] = client.request({""});
     EXPECT_TRUE(err);
     EXPECT_TRUE(err.matches(errors::UNREACHABLE_ERROR));
 
@@ -414,9 +403,9 @@ TEST(ClientTest, TimeoutError) {
 
 TEST(ClientTest, UnreachableError) {
     auto config = make_config({{"base_url", "http://192.0.2.1:1"}});
-    Client client(config);
+    Client client(config, {{.method = Method::GET, .path = "/"}});
 
-    auto [responses, err] = client.request({{.method = Method::GET, .path = "/"}});
+    auto [responses, err] = client.request({""});
     EXPECT_TRUE(err);
 }
 
@@ -441,21 +430,18 @@ TEST(ClientTest, ErrorStatusCodesReturnResponse) {
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
-    auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config);
-
     {
-        auto [responses, err] =
-            client.request({{.method = Method::GET, .path = "/api/notfound"}});
-        ASSERT_NIL(err);
+        auto config = make_config({{"base_url", server.base_url()}});
+        Client client(config, {{.method = Method::GET, .path = "/api/notfound"}});
+        const auto responses = ASSERT_NIL_P(client.request({""}));
         ASSERT_EQ(responses.size(), 1);
         EXPECT_EQ(responses[0].status_code, 404);
     }
 
     {
-        auto [responses, err] =
-            client.request({{.method = Method::GET, .path = "/api/error"}});
-        ASSERT_NIL(err);
+        auto config = make_config({{"base_url", server.base_url()}});
+        Client client(config, {{.method = Method::GET, .path = "/api/error"}});
+        const auto responses = ASSERT_NIL_P(client.request({""}));
         ASSERT_EQ(responses.size(), 1);
         EXPECT_EQ(responses[0].status_code, 500);
     }
@@ -476,16 +462,75 @@ TEST(ClientTest, ParallelRequests) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config);
-
-    auto [responses, err] = client.request({
+    Client client(config, {
         {.method = Method::GET, .path = "/api/a"},
         {.method = Method::GET, .path = "/api/b"},
         {.method = Method::GET, .path = "/api/c"},
     });
-    ASSERT_NIL(err);
+
+    const auto responses = ASSERT_NIL_P(client.request({"", "", ""}));
     ASSERT_EQ(responses.size(), 3);
     for (const auto &resp: responses) EXPECT_EQ(resp.status_code, 200);
+
+    server.stop();
+}
+
+// ─── Repeated Requests ───────────────────────────────────────────────────── //
+
+TEST(ClientTest, RepeatedGETRequests) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/poll",
+        .status_code = 200,
+        .response_body = "ok",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    Client client(config, {{.method = Method::GET, .path = "/api/poll"}});
+
+    for (int i = 0; i < 5; i++) {
+        const auto responses = ASSERT_NIL_P(client.request({""}));
+        ASSERT_EQ(responses.size(), 1);
+        EXPECT_EQ(responses[0].status_code, 200);
+        EXPECT_EQ(responses[0].body, "ok");
+    }
+
+    EXPECT_EQ(server.received_requests().size(), 5);
+
+    server.stop();
+}
+
+TEST(ClientTest, RepeatedPOSTRequests) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::POST,
+        .path = "/api/send",
+        .status_code = 201,
+        .response_body = "created",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    Client client(config, {{.method = Method::POST, .path = "/api/send"}});
+
+    for (int i = 0; i < 3; i++) {
+        const auto body = R"({"i": )" + std::to_string(i) + "}";
+        const auto responses = ASSERT_NIL_P(client.request({body}));
+        ASSERT_EQ(responses.size(), 1);
+        EXPECT_EQ(responses[0].status_code, 201);
+    }
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 3);
+    EXPECT_EQ(reqs[0].body, R"({"i": 0})");
+    EXPECT_EQ(reqs[1].body, R"({"i": 1})");
+    EXPECT_EQ(reqs[2].body, R"({"i": 2})");
 
     server.stop();
 }
@@ -507,11 +552,9 @@ TEST(ClientTest, HTTPSGetRequest) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}}, false);
-    Client client(config);
+    Client client(config, {{.method = Method::GET, .path = "/api/secure"}});
 
-    auto [responses, err] =
-        client.request({{.method = Method::GET, .path = "/api/secure"}});
-    ASSERT_NIL(err);
+    const auto responses = ASSERT_NIL_P(client.request({""}));
     ASSERT_EQ(responses.size(), 1);
     EXPECT_EQ(responses[0].status_code, 200);
     EXPECT_EQ(responses[0].body, R"({"secure": true})");
@@ -534,14 +577,9 @@ TEST(ClientTest, HTTPSPostWithBody) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}}, false);
-    Client client(config);
+    Client client(config, {{.method = Method::POST, .path = "/api/submit"}});
 
-    auto [responses, err] = client.request({{
-        .method = Method::POST,
-        .path = "/api/submit",
-        .body = R"({"name": "test"})",
-    }});
-    ASSERT_NIL(err);
+    const auto responses = ASSERT_NIL_P(client.request({R"({"name": "test"})"}));
     ASSERT_EQ(responses.size(), 1);
     EXPECT_EQ(responses[0].status_code, 201);
 
@@ -550,89 +588,5 @@ TEST(ClientTest, HTTPSPostWithBody) {
     EXPECT_EQ(reqs[0].body, R"({"name": "test"})");
 
     server.stop();
-}
-
-// ─── Manager ─────────────────────────────────────────────────────────────── //
-
-TEST(ManagerTest, CreatesClient) {
-    mock::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/ping",
-        .status_code = 200,
-        .response_body = "pong",
-        .content_type = "text/plain",
-    }};
-    mock::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    Manager manager;
-    auto config = make_config({{"base_url", server.base_url()}});
-
-    auto client = ASSERT_NIL_P(manager.acquire(config));
-    EXPECT_NE(client, nullptr);
-
-    auto [responses, err] = client->request({{.method = Method::GET, .path = "/ping"}});
-    ASSERT_NIL(err);
-    ASSERT_EQ(responses.size(), 1);
-    EXPECT_EQ(responses[0].status_code, 200);
-    EXPECT_EQ(responses[0].body, "pong");
-
-    server.stop();
-}
-
-TEST(ManagerTest, ReusesSameBaseURL) {
-    Manager manager;
-    auto config = make_config({{"base_url", "http://127.0.0.1:9999"}});
-
-    auto c1 = ASSERT_NIL_P(manager.acquire(config));
-    auto c2 = ASSERT_NIL_P(manager.acquire(config));
-    EXPECT_EQ(c1.get(), c2.get());
-}
-
-TEST(ManagerTest, DifferentBaseURLsDifferentClients) {
-    Manager manager;
-
-    auto config1 = make_config({{"base_url", "http://127.0.0.1:9991"}});
-    auto c1 = ASSERT_NIL_P(manager.acquire(config1));
-
-    auto config2 = make_config({{"base_url", "http://127.0.0.1:9992"}});
-    auto c2 = ASSERT_NIL_P(manager.acquire(config2));
-
-    EXPECT_NE(c1.get(), c2.get());
-}
-
-TEST(ManagerTest, ExpiredClientRecreated) {
-    Manager manager;
-    auto config = make_config({{"base_url", "http://127.0.0.1:9993"}});
-
-    {
-        auto c1 = ASSERT_NIL_P(manager.acquire(config));
-        EXPECT_NE(c1, nullptr);
-    }
-
-    // After the shared_ptr expires, acquire should succeed with a new client.
-    auto c2 = ASSERT_NIL_P(manager.acquire(config));
-    EXPECT_NE(c2, nullptr);
-}
-
-TEST(ManagerTest, ConcurrentAcquireIsThreadSafe) {
-    Manager manager;
-    std::atomic<int> success_count{0};
-
-    std::vector<std::thread> threads;
-    for (int i = 0; i < 20; i++) {
-        threads.emplace_back([&manager, &success_count, i]() {
-            auto config = make_config({
-                {"base_url",
-                 "http://127.0.0.1:" + std::to_string(7000 + (i % 4))},
-            });
-            auto [client, err] = manager.acquire(config);
-            if (!err && client != nullptr) success_count++;
-        });
-    }
-
-    for (auto &t: threads) t.join();
-    EXPECT_EQ(success_count.load(), 20);
 }
 }

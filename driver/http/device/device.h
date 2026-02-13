@@ -10,8 +10,6 @@
 #pragma once
 
 #include <map>
-#include <memory>
-#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -107,14 +105,12 @@ struct ConnectionConfig {
     }
 };
 
-/// @brief an outgoing HTTP request.
-struct Request {
+/// @brief static request configuration, set once at task setup time.
+struct RequestConfig {
     Method method = Method::GET; ///< HTTP method.
     std::string path; ///< URL path (appended to base_url).
-    std::string body; ///< Request body.
     std::map<std::string, std::string> query_params; ///< Query parameters.
     std::map<std::string, std::string> headers; ///< Per-request headers.
-    std::string content_type = "application/json"; ///< Content-Type header.
 };
 
 /// @brief an HTTP response.
@@ -125,40 +121,34 @@ struct Response {
 };
 
 /// @brief RAII wrapper around libcurl for making HTTP requests.
+/// Curl handles are pre-built at construction time from the connection
+/// and request configurations so the hot-path request() only needs to
+/// set the body, perform I/O, and read results.
 class Client {
+    struct Handle;
     ConnectionConfig config_;
     void *multi_handle_;
-    mutable std::mutex mu_;
+    std::vector<Handle> handles_;
 
     Client(const Client &) = delete;
     Client &operator=(const Client &) = delete;
 
 public:
-    /// @brief constructs a client with the given connection configuration.
-    explicit Client(ConnectionConfig config);
+    /// @brief constructs a client and pre-builds curl handles.
+    /// @param config the connection configuration.
+    /// @param requests the static request configurations.
+    Client(
+        ConnectionConfig config,
+        const std::vector<RequestConfig> &requests
+    );
 
     ~Client();
 
-    /// @brief executes one or more HTTP requests in parallel.
-    /// @param requests the requests to execute.
+    /// @brief executes pre-configured requests with the given bodies.
+    /// @param bodies one body per pre-configured request. For GET or DELETE
+    /// requests, pass an empty string.
     /// @returns the responses and any connection-level error.
     std::pair<std::vector<Response>, x::errors::Error>
-    request(const std::vector<Request> &requests);
-};
-
-/// @brief manages HTTP client connections, pooling by base URL.
-class Manager {
-    mutable std::mutex mu_;
-    std::map<std::string, std::weak_ptr<Client>> clients_;
-
-public:
-    Manager() = default;
-
-    /// @brief acquires a client for the given connection configuration. Reuses existing
-    /// clients when possible (keyed by base_url).
-    /// @param config the connection configuration.
-    /// @returns a shared pointer to the client and any error.
-    std::pair<std::shared_ptr<Client>, x::errors::Error>
-    acquire(const ConnectionConfig &config);
+    request(const std::vector<std::string> &bodies);
 };
 }

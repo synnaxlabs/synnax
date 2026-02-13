@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include "driver/http/device/device.h"
 #include "driver/task/task.h"
 
 namespace driver::http {
@@ -18,11 +17,8 @@ const std::string INTEGRATION_NAME = "http";
 
 /// @brief implements the task::Factory to configure and operate HTTP tasks.
 class Factory final : public task::Factory {
-    /// @brief central device manager that pools HTTP client connections.
-    const std::shared_ptr<device::Manager> devices;
-
 public:
-    Factory(): devices(std::make_shared<device::Manager>()) {}
+    Factory() = default;
 
     std::string name() override { return INTEGRATION_NAME; }
 
