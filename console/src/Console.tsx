@@ -141,7 +141,6 @@ const ArcLSPClientSetter = ({ children }: { children: ReactElement }): ReactElem
   return children;
 };
 
-const MONACO_EXTENSIONS: never[] = [];
 const MONACO_SERVICES = [...ArcCode.SERVICES];
 
 const MainUnderContext = (): ReactElement => {
@@ -160,7 +159,7 @@ const MainUnderContext = (): ReactElement => {
       color={{ useState: useColorContextState }}
       alamos={{ level: "info" }}
     >
-      <Code.Provider importExtensions={MONACO_EXTENSIONS} initServices={MONACO_SERVICES}>
+      <Code.Provider initServices={MONACO_SERVICES}>
         <ArcLSPClientSetter>
           <Vis.Canvas>
             <Layout.Window />
