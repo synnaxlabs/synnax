@@ -44,8 +44,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
-from synnax import device, task
-from synnax.channel import Key
+from synnax import channel, device, task
 from synnax.telem import CrudeRate
 
 # Device identifiers - must match driver expectations
@@ -120,7 +119,7 @@ class AutomaticInputChan(BaseChan):
     type: Literal["automatic"] = "automatic"
     pdo: str = Field(min_length=1)
     "The name of the PDO to look up in slave device properties."
-    channel: Key
+    channel: channel.Key
     "The Synnax channel key that will be written to during acquisition."
 
 
@@ -161,7 +160,7 @@ class ManualInputChan(BaseChan):
     "Size of the data in bits."
     data_type: str
     "Data type string (e.g., 'uint8', 'int16', 'uint32', 'int32', 'float32')."
-    channel: Key
+    channel: channel.Key
     "The Synnax channel key that will be written to during acquisition."
 
 
@@ -195,9 +194,9 @@ class AutomaticOutputChan(BaseChan):
     type: Literal["automatic"] = "automatic"
     pdo: str = Field(min_length=1)
     "The name of the PDO to look up in slave device properties."
-    cmd_channel: Key
+    cmd_channel: channel.Key
     "The Synnax channel key to receive command values from."
-    state_channel: Key = 0
+    state_channel: channel.Key = 0
     "The Synnax channel key to write state feedback to (0 to disable)."
 
 
@@ -239,9 +238,9 @@ class ManualOutputChan(BaseChan):
     "Size of the data in bits."
     data_type: str
     "Data type string (e.g., 'uint8', 'int16', 'uint32', 'int32', 'float32')."
-    cmd_channel: Key
+    cmd_channel: channel.Key
     "The Synnax channel key to receive command values from."
-    state_channel: Key = 0
+    state_channel: channel.Key = 0
     "The Synnax channel key to write state feedback to (0 to disable)."
 
 

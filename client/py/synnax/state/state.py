@@ -9,17 +9,16 @@
 
 from typing import Any
 
-from synnax.channel import Key
-from synnax.channel.retrieve import Retriever, retrieve_required
+from synnax import channel
 from synnax.framer import Frame
 from synnax.telem import MultiSeries
 
 
 class State:
-    value: dict[Key, MultiSeries]
-    _retriever: Retriever
+    value: dict[channel.Key, MultiSeries]
+    _retriever: channel.Retriever
 
-    def __init__(self, retriever: Retriever):
+    def __init__(self, retriever: channel.Retriever):
         self._retriever = retriever
         self.value = dict()
 
@@ -28,8 +27,8 @@ class State:
             if isinstance(key, int):
                 self.value[key] = frame[key]
 
-    def __getitem__(self, ch: Key | str) -> MultiSeries:
-        payload = retrieve_required(self._retriever, ch)[0]
+    def __getitem__(self, ch: channel.Key | str) -> MultiSeries:
+        payload = channel.retrieve_required(self._retriever, ch)[0]
         return self.value[payload.key]
 
     def __getattr__(self, name: str) -> Any:
@@ -42,7 +41,7 @@ class LatestState:
     def __init__(self, state: State) -> None:
         self._state = state
 
-    def __getitem__(self, ch: Key | str) -> Any:
+    def __getitem__(self, ch: channel.Key | str) -> Any:
         return self._state[ch][-1]
 
     def __getattr__(self, name: str) -> Any:

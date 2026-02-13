@@ -13,7 +13,8 @@ from typing import Any
 from pandas import DataFrame
 
 import synnax.channel.payload as channel
-from synnax.channel.retrieve import Retriever, retrieve_required
+from synnax.channel.retrieve import Retriever as ChannelRetriever
+from synnax.channel.retrieve import retrieve_required as retrieve_required_channel
 from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
 from synnax.framer.frame import CrudeFrame, Frame
@@ -23,11 +24,11 @@ from synnax.telem.series import CrudeSeries, Series
 
 class ReadFrameAdapter:
     __adapter: dict[channel.Key, str] | None
-    retriever: Retriever
+    retriever: ChannelRetriever
     keys: list[channel.Key]
     codec: Codec
 
-    def __init__(self, retriever: Retriever):
+    def __init__(self, retriever: ChannelRetriever):
         self.retriever = retriever
         self.__adapter = None
         self.keys = list()
@@ -85,12 +86,12 @@ class WriteFrameAdapter:
     _strict_data_types: bool
     _suppress_warnings: bool
 
-    retriever: Retriever
+    retriever: ChannelRetriever
     codec: Codec
 
     def __init__(
         self,
-        retriever: Retriever,
+        retriever: ChannelRetriever,
         err_on_extra_chans: bool = True,
         strict_data_types: bool = False,
         suppress_warnings: bool = True,
@@ -104,7 +105,7 @@ class WriteFrameAdapter:
         self.codec = Codec()
 
     def update(self, channels: channel.Params):
-        results = retrieve_required(self.retriever, channels)
+        results = retrieve_required_channel(self.retriever, channels)
         self._adapter = {ch.name: ch.key for ch in results}
         self._keys = [ch.key for ch in results]
         self.codec.update(

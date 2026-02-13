@@ -12,9 +12,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from functools import wraps
 
-from synnax import framer
-from synnax.channel.payload import Key, Params, normalize_params
-from synnax.channel.retrieve import Retriever
+from synnax import channel, framer
 from synnax.state import LatestState, State
 
 _InternalHandler = Callable[[State], Callable[[LatestState], None] | None]
@@ -22,11 +20,11 @@ _InternalHandler = Callable[[State], Callable[[LatestState], None] | None]
 
 class Registry:
     _handlers: list[_InternalHandler]
-    _channels: list[Key]
+    _channels: list[channel.Key | str]
     _frame_client: framer.Client
-    _channel_retriever: Retriever
+    _channel_retriever: channel.Retriever
 
-    def __init__(self, frame_client: framer.Client, channels: Retriever):
+    def __init__(self, frame_client: framer.Client, channels: channel.Retriever):
         self._handlers = list()
         self._channels = list()
         self._frame_client = frame_client
@@ -34,10 +32,10 @@ class Registry:
 
     def on(
         self,
-        channels: Params,
+        channels: channel.Params,
         filter_f: Callable[[LatestState], bool],
     ) -> Callable[[Callable[[LatestState], None]], Callable[[LatestState], None]]:
-        normal = normalize_params(channels)
+        normal = channel.normalize_params(channels)
         if normal.variant == "keys":
             self._channels.extend(normal.channels)
         else:
@@ -70,17 +68,17 @@ class Registry:
 class Scheduler:
     _streamer: framer.AsyncStreamer | None = None
     _handlers: list[_InternalHandler]
-    _channels: list[Key]
+    _channels: list[channel.Key]
     _state: State
     _frame_client: framer.Client
-    _channel_retriever: Retriever
+    _channel_retriever: channel.Retriever
 
     def __init__(
         self,
-        channels: list[Key],
+        channels: channel.Params,
         handlers: list[_InternalHandler],
         frame_client: framer.Client,
-        channel_retriever: Retriever,
+        channel_retriever: channel.Retriever,
     ):
         self._frame_client = frame_client
         self._channels = channels
