@@ -8,10 +8,12 @@
 // included in the file licenses/APL.txt.
 
 #include <chrono>
+#include <string>
 #include <vector>
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/base64/base64.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/http/device/device.h"
@@ -273,7 +275,37 @@ TEST(ClientTest, CustomHeaders) {
     server.stop();
 }
 
-// ─── Client Auth: Bearer ─────────────────────────────────────────────────── //
+TEST(ClientTest, BasicAuth) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/secure",
+        .status_code = 200,
+        .response_body = "ok",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({
+        {"base_url", server.base_url()},
+        {"auth", {{"type", "basic"}, {"username", "user"}, {"password", "pass"}}},
+    });
+    Client client(config, {{.method = Method::GET, .path = "/api/secure"}});
+
+    ASSERT_NIL_P(client.request({""}));
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+
+    const auto expected = "Basic " + x::base64::encode("user:pass");
+    bool found_auth = false;
+    for (const auto &[k, v]: reqs[0].headers)
+        if (k == "Authorization" && v == expected) found_auth = true;
+    EXPECT_TRUE(found_auth);
+
+    server.stop();
+}
 
 TEST(ClientTest, BearerAuth) {
     mock::ServerConfig server_cfg;

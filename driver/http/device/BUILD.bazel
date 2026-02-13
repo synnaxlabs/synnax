@@ -31,5 +31,6 @@ cc_test(
         "//driver/http/mock",
         "//x/cpp/test",
         "@googletest//:gtest_main",
+        "//x/cpp/base64",
     ],
 )
