@@ -223,6 +223,8 @@ Client::request(const std::vector<std::string> &bodies) {
         h.response_body.clear();
         h.result = CURLE_OK;
         if (h.accepts_body) {
+            // CURLOPT_POSTFIELDS does not copy — it stores the pointer. This is
+            // safe because bodies is a const ref that outlives curl_multi_perform.
             if (i < bodies.size() && !bodies[i].empty()) {
                 curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, bodies[i].c_str());
                 curl_easy_setopt(h.handle, CURLOPT_POSTFIELDSIZE, bodies[i].size());
