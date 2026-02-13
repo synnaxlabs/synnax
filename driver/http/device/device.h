@@ -110,6 +110,7 @@ struct RequestConfig {
     std::string path; ///< URL path (appended to base_url).
     std::map<std::string, std::string> query_params; ///< Query parameters.
     std::map<std::string, std::string> headers; ///< Per-request headers.
+    std::string content_type; ///< Expected response Content-Type; also sent as Accept.
 };
 
 /// @brief an HTTP response.
@@ -142,8 +143,8 @@ public:
     /// @brief executes pre-configured requests with the given bodies.
     /// @param bodies one body per pre-configured request. For GET or DELETE requests,
     /// pass an empty string.
-    /// @returns the responses and any connection-level error.
-    std::pair<std::vector<Response>, x::errors::Error>
+    /// @returns the responses paired with per-response errors.
+    std::vector<std::pair<Response, x::errors::Error>>
     request(const std::vector<std::string> &bodies);
 };
 }

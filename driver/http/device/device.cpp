@@ -60,6 +60,8 @@ struct Client::Handle {
     struct curl_slist *headers = nullptr;
     std::string response_body;
     bool accepts_body = false;
+    std::string expected_content_type;
+    CURLcode result = CURLE_OK;
 
     Handle() = default;
 
@@ -75,7 +77,9 @@ struct Client::Handle {
         handle(other.handle),
         headers(other.headers),
         response_body(std::move(other.response_body)),
-        accepts_body(other.accepts_body) {
+        accepts_body(other.accepts_body),
+        expected_content_type(std::move(other.expected_content_type)),
+        result(other.result) {
         other.handle = nullptr;
         other.headers = nullptr;
     }
@@ -88,6 +92,8 @@ struct Client::Handle {
             headers = other.headers;
             response_body = std::move(other.response_body);
             accepts_body = other.accepts_body;
+            expected_content_type = std::move(other.expected_content_type);
+            result = other.result;
             other.handle = nullptr;
             other.headers = nullptr;
         }
@@ -195,6 +201,13 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
         if (h.accepts_body)
             h.headers = curl_slist_append(h.headers, "Content-Type: application/json");
 
+        // Accept header and expected content type validation (static).
+        if (!req.content_type.empty()) {
+            h.expected_content_type = req.content_type;
+            const std::string accept_hdr = "Accept: " + req.content_type;
+            h.headers = curl_slist_append(h.headers, accept_hdr.c_str());
+        }
+
         if (h.headers != nullptr)
             curl_easy_setopt(h.handle, CURLOPT_HTTPHEADER, h.headers);
 
@@ -212,7 +225,7 @@ Client::~Client() {
     if (multi_handle_ != nullptr) curl_multi_cleanup(multi_handle_);
 }
 
-std::pair<std::vector<Response>, x::errors::Error>
+std::vector<std::pair<Response, x::errors::Error>>
 Client::request(const std::vector<std::string> &bodies) {
     auto *multi = static_cast<CURLM *>(multi_handle_);
 
@@ -220,6 +233,7 @@ Client::request(const std::vector<std::string> &bodies) {
     for (size_t i = 0; i < handles_.size(); i++) {
         auto &h = handles_[i];
         h.response_body.clear();
+        h.result = CURLE_OK;
         if (h.accepts_body) {
             if (i < bodies.size() && !bodies[i].empty()) {
                 curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, bodies[i].c_str());
@@ -242,18 +256,21 @@ Client::request(const std::vector<std::string> &bodies) {
             curl_multi_poll(multi, nullptr, 0, config_.timeout_ms, nullptr);
     } while (still_running > 0);
 
-    std::vector<Response> responses;
-    responses.reserve(handles_.size());
-
-    x::errors::Error first_err = x::errors::NIL;
-
+    // Store each result code on its handle.
     CURLMsg *msg;
     int msgs_left;
     while ((msg = curl_multi_info_read(multi, &msgs_left)) != nullptr) {
         if (msg->msg != CURLMSG_DONE) continue;
-        if (msg->data.result != CURLE_OK && !first_err)
-            first_err = parse_curl_error(msg->data.result);
+        for (auto &h: handles_) {
+            if (h.handle == msg->easy_handle) {
+                h.result = msg->data.result;
+                break;
+            }
+        }
     }
+
+    std::vector<std::pair<Response, x::errors::Error>> results;
+    results.reserve(handles_.size());
 
     for (auto &h: handles_) {
         long status_code = 0;
@@ -261,17 +278,38 @@ Client::request(const std::vector<std::string> &bodies) {
         double total_secs = 0;
         curl_easy_getinfo(h.handle, CURLINFO_TOTAL_TIME, &total_secs);
         const auto elapsed = x::telem::TimeSpan(static_cast<int64_t>(total_secs * 1e9));
-        responses.push_back(
+
+        x::errors::Error err = x::errors::NIL;
+        if (h.result != CURLE_OK) {
+            err = parse_curl_error(h.result);
+        } else if (!h.expected_content_type.empty()) {
+            char *ct = nullptr;
+            curl_easy_getinfo(h.handle, CURLINFO_CONTENT_TYPE, &ct);
+            if (ct != nullptr) {
+                const std::string actual(ct);
+                if (actual.substr(0, h.expected_content_type.size()) !=
+                    h.expected_content_type) {
+                    err = x::errors::Error(
+                        http::errors::PARSE_ERROR,
+                        "expected content type '" + h.expected_content_type +
+                            "', got '" + actual + "'"
+                    );
+                }
+            }
+        }
+
+        results.push_back({
             Response{
                 .status_code = static_cast<int>(status_code),
                 .body = h.response_body,
                 .time_range = {start, start + elapsed},
-            }
-        );
+            },
+            err,
+        });
         curl_multi_remove_handle(multi, h.handle);
     }
 
-    return {std::move(responses), first_err};
+    return results;
 }
 
 }

@@ -195,11 +195,12 @@ TEST(ClientTest, GETRequest) {
     auto config = make_config({{"base_url", server.base_url()}});
     Client client(config, {{.method = Method::GET, .path = "/api/data"}});
 
-    const auto responses = ASSERT_NIL_P(client.request({""}));
-    ASSERT_EQ(responses.size(), 1);
-    EXPECT_EQ(responses[0].status_code, 200);
-    EXPECT_EQ(responses[0].body, R"({"value": 42})");
-    EXPECT_GT(responses[0].time_range.end, responses[0].time_range.start);
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
+    EXPECT_EQ(resp.body, R"({"value": 42})");
+    EXPECT_GT(resp.time_range.end, resp.time_range.start);
 
     server.stop();
 }
@@ -218,9 +219,10 @@ TEST(ClientTest, POSTRequestWithBody) {
     auto config = make_config({{"base_url", server.base_url()}});
     Client client(config, {{.method = Method::POST, .path = "/api/submit"}});
 
-    const auto responses = ASSERT_NIL_P(client.request({R"({"name": "test"})"}));
-    ASSERT_EQ(responses.size(), 1);
-    EXPECT_EQ(responses[0].status_code, 201);
+    auto results = client.request({R"({"name": "test"})"});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 201);
 
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
@@ -254,9 +256,10 @@ TEST(ClientTest, CustomHeaders) {
         }}
     );
 
-    const auto responses = ASSERT_NIL_P(client.request({""}));
-    ASSERT_EQ(responses.size(), 1);
-    EXPECT_EQ(responses[0].status_code, 200);
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
 
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
@@ -291,7 +294,9 @@ TEST(ClientTest, BasicAuth) {
     });
     Client client(config, {{.method = Method::GET, .path = "/api/secure"}});
 
-    ASSERT_NIL_P(client.request({""}));
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    ASSERT_NIL_P(results[0]);
 
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
@@ -323,7 +328,9 @@ TEST(ClientTest, BearerAuth) {
     });
     Client client(config, {{.method = Method::GET, .path = "/api/secure"}});
 
-    ASSERT_NIL_P(client.request({""}));
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    ASSERT_NIL_P(results[0]);
 
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
@@ -354,7 +361,9 @@ TEST(ClientTest, APIKeyAuth) {
     });
     Client client(config, {{.method = Method::GET, .path = "/api/keyed"}});
 
-    ASSERT_NIL_P(client.request({""}));
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    ASSERT_NIL_P(results[0]);
 
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
@@ -389,9 +398,10 @@ TEST(ClientTest, QueryParams) {
         }}
     );
 
-    const auto responses = ASSERT_NIL_P(client.request({""}));
-    ASSERT_EQ(responses.size(), 1);
-    EXPECT_EQ(responses[0].status_code, 200);
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
 
     server.stop();
 }
@@ -418,9 +428,10 @@ TEST(ClientTest, QueryParamsPercentEncoded) {
         }}
     );
 
-    const auto responses = ASSERT_NIL_P(client.request({""}));
-    ASSERT_EQ(responses.size(), 1);
-    EXPECT_EQ(responses[0].status_code, 200);
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
 
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
@@ -449,7 +460,9 @@ TEST(ClientTest, TimeoutError) {
     });
     Client client(config, {{.method = Method::GET, .path = "/api/slow"}});
 
-    ASSERT_OCCURRED_AS_P(client.request({""}), errors::UNREACHABLE_ERROR);
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
 
     server.stop();
 }
@@ -458,7 +471,9 @@ TEST(ClientTest, UnreachableError) {
     auto config = make_config({{"base_url", "http://192.0.2.1:1"}});
     Client client(config, {{.method = Method::GET, .path = "/"}});
 
-    ASSERT_OCCURRED_AS_P(client.request({""}), errors::UNREACHABLE_ERROR);
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
 }
 
 TEST(ClientTest, ErrorStatusCodesReturnResponse) {
@@ -483,17 +498,19 @@ TEST(ClientTest, ErrorStatusCodesReturnResponse) {
     {
         auto config = make_config({{"base_url", server.base_url()}});
         Client client(config, {{.method = Method::GET, .path = "/api/notfound"}});
-        const auto responses = ASSERT_NIL_P(client.request({""}));
-        ASSERT_EQ(responses.size(), 1);
-        EXPECT_EQ(responses[0].status_code, 404);
+        auto results = client.request({""});
+        ASSERT_EQ(results.size(), 1);
+        const auto resp = ASSERT_NIL_P(results[0]);
+        EXPECT_EQ(resp.status_code, 404);
     }
 
     {
         auto config = make_config({{"base_url", server.base_url()}});
         Client client(config, {{.method = Method::GET, .path = "/api/error"}});
-        const auto responses = ASSERT_NIL_P(client.request({""}));
-        ASSERT_EQ(responses.size(), 1);
-        EXPECT_EQ(responses[0].status_code, 500);
+        auto results = client.request({""});
+        ASSERT_EQ(results.size(), 1);
+        const auto resp = ASSERT_NIL_P(results[0]);
+        EXPECT_EQ(resp.status_code, 500);
     }
 
     server.stop();
@@ -528,10 +545,12 @@ TEST(ClientTest, ParallelRequests) {
         }
     );
 
-    const auto responses = ASSERT_NIL_P(client.request({"", "", ""}));
-    ASSERT_EQ(responses.size(), 3);
-    for (const auto &resp: responses)
+    auto results = client.request({"", "", ""});
+    ASSERT_EQ(results.size(), 3);
+    for (auto &r: results) {
+        const auto resp = ASSERT_NIL_P(r);
         EXPECT_EQ(resp.status_code, 200);
+    }
 
     server.stop();
 }
@@ -565,14 +584,15 @@ TEST(ClientTest, ParallelRequestsWithMixedStatusCodes) {
         }
     );
 
-    const auto responses = ASSERT_NIL_P(client.request({"", "", ""}));
-    ASSERT_EQ(responses.size(), 3);
-    EXPECT_EQ(responses[0].status_code, 200);
-    EXPECT_EQ(responses[0].body, "success");
-    EXPECT_EQ(responses[1].status_code, 404);
-    EXPECT_EQ(responses[1].body, R"({"error": "not found"})");
-    EXPECT_EQ(responses[2].status_code, 500);
-    EXPECT_EQ(responses[2].body, R"({"error": "internal"})");
+    auto results = client.request({"", "", ""});
+    ASSERT_EQ(results.size(), 3);
+    for (auto &r: results) ASSERT_NIL(r.second);
+    EXPECT_EQ(results[0].first.status_code, 200);
+    EXPECT_EQ(results[0].first.body, "success");
+    EXPECT_EQ(results[1].first.status_code, 404);
+    EXPECT_EQ(results[1].first.body, R"({"error": "not found"})");
+    EXPECT_EQ(results[2].first.status_code, 500);
+    EXPECT_EQ(results[2].first.body, R"({"error": "internal"})");
 
     server.stop();
 }
@@ -605,14 +625,13 @@ TEST(ClientTest, ParallelOneTimesOut) {
         }
     );
 
-    const auto responses = ASSERT_OCCURRED_AS_P(
-        client.request({"", ""}),
-        errors::UNREACHABLE_ERROR
-    );
-    ASSERT_EQ(responses.size(), 2);
-    EXPECT_EQ(responses[0].status_code, 200);
-    EXPECT_EQ(responses[0].body, "fast");
-    EXPECT_EQ(responses[1].status_code, 0);
+    auto results = client.request({"", ""});
+    ASSERT_EQ(results.size(), 2);
+    const auto fast = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(fast.status_code, 200);
+    EXPECT_EQ(fast.body, "fast");
+    ASSERT_OCCURRED_AS_P(results[1], errors::UNREACHABLE_ERROR);
+    EXPECT_EQ(results[1].first.status_code, 0);
 
     server.stop();
 }
@@ -645,14 +664,13 @@ TEST(ClientTest, ParallelFirstTimesOutSecondSucceeds) {
         }
     );
 
-    const auto responses = ASSERT_OCCURRED_AS_P(
-        client.request({"", ""}),
-        errors::UNREACHABLE_ERROR
-    );
-    ASSERT_EQ(responses.size(), 2);
-    EXPECT_EQ(responses[0].status_code, 0);
-    EXPECT_EQ(responses[1].status_code, 200);
-    EXPECT_EQ(responses[1].body, "fast");
+    auto results = client.request({"", ""});
+    ASSERT_EQ(results.size(), 2);
+    ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
+    EXPECT_EQ(results[0].first.status_code, 0);
+    const auto fast = ASSERT_NIL_P(results[1]);
+    EXPECT_EQ(fast.status_code, 200);
+    EXPECT_EQ(fast.body, "fast");
 
     server.stop();
 }
@@ -684,14 +702,16 @@ TEST(ClientTest, ParallelPerResponseTimeRanges) {
         }
     );
 
-    const auto responses = ASSERT_NIL_P(client.request({"", ""}));
-    ASSERT_EQ(responses.size(), 2);
+    auto results = client.request({"", ""});
+    ASSERT_EQ(results.size(), 2);
+    const auto fast = ASSERT_NIL_P(results[0]);
+    const auto slow = ASSERT_NIL_P(results[1]);
 
     // Both share the same start time.
-    EXPECT_EQ(responses[0].time_range.start, responses[1].time_range.start);
+    EXPECT_EQ(fast.time_range.start, slow.time_range.start);
 
     // The slow response should have a later end time than the fast one.
-    EXPECT_GT(responses[1].time_range.end, responses[0].time_range.end);
+    EXPECT_GT(slow.time_range.end, fast.time_range.end);
 
     server.stop();
 }
@@ -712,10 +732,11 @@ TEST(ClientTest, RepeatedGETRequests) {
     Client client(config, {{.method = Method::GET, .path = "/api/poll"}});
 
     for (int i = 0; i < 5; i++) {
-        const auto responses = ASSERT_NIL_P(client.request({""}));
-        ASSERT_EQ(responses.size(), 1);
-        EXPECT_EQ(responses[0].status_code, 200);
-        EXPECT_EQ(responses[0].body, "ok");
+        auto results = client.request({""});
+        ASSERT_EQ(results.size(), 1);
+        const auto resp = ASSERT_NIL_P(results[0]);
+        EXPECT_EQ(resp.status_code, 200);
+        EXPECT_EQ(resp.body, "ok");
     }
 
     EXPECT_EQ(server.received_requests().size(), 5);
@@ -740,9 +761,10 @@ TEST(ClientTest, RepeatedPOSTRequests) {
 
     for (int i = 0; i < 3; i++) {
         const auto body = R"({"i": )" + std::to_string(i) + "}";
-        const auto responses = ASSERT_NIL_P(client.request({body}));
-        ASSERT_EQ(responses.size(), 1);
-        EXPECT_EQ(responses[0].status_code, 201);
+        auto results = client.request({body});
+        ASSERT_EQ(results.size(), 1);
+        const auto resp = ASSERT_NIL_P(results[0]);
+        EXPECT_EQ(resp.status_code, 201);
     }
 
     auto reqs = server.received_requests();
@@ -780,12 +802,14 @@ TEST(ClientTest, MixedGETAndPOST) {
         }
     );
 
-    const auto responses = ASSERT_NIL_P(client.request({"", R"({"val": 1})"}));
-    ASSERT_EQ(responses.size(), 2);
-    EXPECT_EQ(responses[0].status_code, 200);
-    EXPECT_EQ(responses[0].body, "read-ok");
-    EXPECT_EQ(responses[1].status_code, 201);
-    EXPECT_EQ(responses[1].body, "write-ok");
+    auto results = client.request({"", R"({"val": 1})"});
+    ASSERT_EQ(results.size(), 2);
+    const auto read_resp = ASSERT_NIL_P(results[0]);
+    const auto write_resp = ASSERT_NIL_P(results[1]);
+    EXPECT_EQ(read_resp.status_code, 200);
+    EXPECT_EQ(read_resp.body, "read-ok");
+    EXPECT_EQ(write_resp.status_code, 201);
+    EXPECT_EQ(write_resp.body, "write-ok");
 
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 2);
@@ -808,9 +832,10 @@ TEST(ClientTest, POSTWithEmptyBody) {
     auto config = make_config({{"base_url", server.base_url()}});
     Client client(config, {{.method = Method::POST, .path = "/api/ping"}});
 
-    const auto responses = ASSERT_NIL_P(client.request({""}));
-    ASSERT_EQ(responses.size(), 1);
-    EXPECT_EQ(responses[0].status_code, 200);
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
 
     server.stop();
 }
@@ -828,9 +853,10 @@ TEST(ClientTest, DeleteRequest) {
     auto config = make_config({{"base_url", server.base_url()}});
     Client client(config, {{.method = Method::DELETE, .path = "/api/item/42"}});
 
-    const auto responses = ASSERT_NIL_P(client.request({""}));
-    ASSERT_EQ(responses.size(), 1);
-    EXPECT_EQ(responses[0].status_code, 204);
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 204);
 
     server.stop();
 }
@@ -849,9 +875,10 @@ TEST(ClientTest, PutRequest) {
     auto config = make_config({{"base_url", server.base_url()}});
     Client client(config, {{.method = Method::PUT, .path = "/api/item/1"}});
 
-    const auto responses = ASSERT_NIL_P(client.request({R"({"name": "new"})"}));
-    ASSERT_EQ(responses.size(), 1);
-    EXPECT_EQ(responses[0].status_code, 200);
+    auto results = client.request({R"({"name": "new"})"});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
 
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
@@ -875,9 +902,10 @@ TEST(ClientTest, PathWithoutLeadingSlash) {
     auto config = make_config({{"base_url", server.base_url()}});
     Client client(config, {{.method = Method::GET, .path = "api/data"}});
 
-    const auto responses = ASSERT_NIL_P(client.request({""}));
-    ASSERT_EQ(responses.size(), 1);
-    EXPECT_EQ(responses[0].status_code, 200);
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
 
     server.stop();
 }
@@ -897,9 +925,10 @@ TEST(ClientTest, BaseURLWithTrailingSlash) {
     auto config = make_config({{"base_url", server.base_url() + "/"}});
     Client client(config, {{.method = Method::GET, .path = "/api/data"}});
 
-    const auto responses = ASSERT_NIL_P(client.request({""}));
-    ASSERT_EQ(responses.size(), 1);
-    EXPECT_EQ(responses[0].status_code, 200);
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
 
     server.stop();
 }
@@ -919,10 +948,11 @@ TEST(ClientTest, EmptyPath) {
     auto config = make_config({{"base_url", server.base_url()}});
     Client client(config, {{.method = Method::GET}});
 
-    const auto responses = ASSERT_NIL_P(client.request({""}));
-    ASSERT_EQ(responses.size(), 1);
-    EXPECT_EQ(responses[0].status_code, 200);
-    EXPECT_EQ(responses[0].body, "root");
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
+    EXPECT_EQ(resp.body, "root");
 
     server.stop();
 }
@@ -944,10 +974,11 @@ TEST(ClientTest, HTTPSGETRequest) {
     auto config = make_config({{"base_url", server.base_url()}}, false);
     Client client(config, {{.method = Method::GET, .path = "/api/secure"}});
 
-    const auto responses = ASSERT_NIL_P(client.request({""}));
-    ASSERT_EQ(responses.size(), 1);
-    EXPECT_EQ(responses[0].status_code, 200);
-    EXPECT_EQ(responses[0].body, R"({"secure": true})");
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
+    EXPECT_EQ(resp.body, R"({"secure": true})");
 
     server.stop();
 }
@@ -969,13 +1000,162 @@ TEST(ClientTest, HTTPSPOSTRequestWithBody) {
     auto config = make_config({{"base_url", server.base_url()}}, false);
     Client client(config, {{.method = Method::POST, .path = "/api/submit"}});
 
-    const auto responses = ASSERT_NIL_P(client.request({R"({"name": "test"})"}));
-    ASSERT_EQ(responses.size(), 1);
-    EXPECT_EQ(responses[0].status_code, 201);
+    auto results = client.request({R"({"name": "test"})"});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 201);
 
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
     EXPECT_EQ(reqs[0].body, R"({"name": "test"})");
+
+    server.stop();
+}
+
+TEST(ClientTest, ContentTypeValidation) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/json",
+        .status_code = 200,
+        .response_body = R"({"ok": true})",
+        .content_type = "application/json",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    Client client(
+        config,
+        {{
+            .method = Method::GET,
+            .path = "/api/json",
+            .content_type = "application/json",
+        }}
+    );
+
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
+
+    server.stop();
+}
+
+TEST(ClientTest, ContentTypeMismatch) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/text",
+        .status_code = 200,
+        .response_body = "not json",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    Client client(
+        config,
+        {{
+            .method = Method::GET,
+            .path = "/api/text",
+            .content_type = "application/json",
+        }}
+    );
+
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    ASSERT_OCCURRED_AS_P(results[0], errors::PARSE_ERROR);
+
+    server.stop();
+}
+
+TEST(ClientTest, ContentTypeNotCheckedWhenEmpty) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/any",
+        .status_code = 200,
+        .response_body = "whatever",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    Client client(config, {{.method = Method::GET, .path = "/api/any"}});
+
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    ASSERT_NIL_P(results[0]);
+
+    server.stop();
+}
+
+TEST(ClientTest, ContentTypeCharsetSuffix) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/charset",
+        .status_code = 200,
+        .response_body = R"({"ok": true})",
+        .content_type = "application/json; charset=utf-8",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    Client client(
+        config,
+        {{
+            .method = Method::GET,
+            .path = "/api/charset",
+            .content_type = "application/json",
+        }}
+    );
+
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
+
+    server.stop();
+}
+
+TEST(ClientTest, AcceptHeaderSent) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/accept",
+        .status_code = 200,
+        .response_body = R"({"ok": true})",
+        .content_type = "application/json",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    Client client(
+        config,
+        {{
+            .method = Method::GET,
+            .path = "/api/accept",
+            .content_type = "application/json",
+        }}
+    );
+
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    ASSERT_NIL_P(results[0]);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+
+    bool found_accept = false;
+    for (const auto &[k, v]: reqs[0].headers)
+        if (k == "Accept" && v == "application/json") found_accept = true;
+    EXPECT_TRUE(found_accept);
 
     server.stop();
 }
