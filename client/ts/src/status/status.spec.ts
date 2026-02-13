@@ -11,8 +11,8 @@ import { TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 
+import { group } from "@/group";
 import { ontology } from "@/ontology";
-import { group } from "@/ontology/group";
 import { status } from "@/status";
 import { createTestClient } from "@/testutil/client";
 
@@ -82,7 +82,7 @@ describe("Status", () => {
     });
 
     it("should set a status with a parent", async () => {
-      const parentGroup = await client.ontology.groups.create({
+      const parentGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "Parent Group",
       });

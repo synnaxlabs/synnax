@@ -11,8 +11,8 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
+import { group } from "@/group";
 import { ontology } from "@/ontology";
-import { group } from "@/ontology/group";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -21,19 +21,19 @@ describe("Group", () => {
   describe("create", () => {
     it("should correctly create a group", async () => {
       const name = `group-${Math.random()}`;
-      const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
+      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       expect(g.name).toEqual(name);
     });
     it("should update an existing group", async () => {
-      const parent = await client.ontology.groups.create({
+      const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: `test-parent-key${id.create()}`,
       });
-      const g = await client.ontology.groups.create({
+      const g = await client.groups.create({
         parent: group.ontologyID(parent.key),
         name: `original-name-${id.create()}`,
       });
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: group.ontologyID(parent.key),
         key: g.key,
         name: "updated-name",
@@ -45,9 +45,9 @@ describe("Group", () => {
   describe("rename", () => {
     it("should correctly rename a group", async () => {
       const name = `group-${Math.random()}`;
-      const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
+      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const newName = `group-${Math.random()}`;
-      await client.ontology.groups.rename(g.key, newName);
+      await client.groups.rename(g.key, newName);
       const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
       expect(g2.name).toEqual(newName);
     });
@@ -55,8 +55,8 @@ describe("Group", () => {
   describe("delete", () => {
     it("should correctly delete the group", async () => {
       const name = `group-${Math.random()}`;
-      const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
-      await client.ontology.groups.delete(g.key);
+      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
+      await client.groups.delete(g.key);
       await expect(
         async () => await client.ontology.retrieve(group.ontologyID(g.key)),
       ).rejects.toThrowError(NotFoundError);

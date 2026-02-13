@@ -11,7 +11,7 @@ from uuid import UUID
 
 from freighter import Empty, Payload, UnaryClient, send_required
 
-from synnax.ontology.group.payload import Group
+from synnax.group.payload import Group
 from synnax.ontology.payload import ID, CrudeID
 
 
@@ -31,7 +31,7 @@ class RenameReq(Payload):
 
 
 class DeleteReq(Payload):
-    key: list[UUID]
+    keys: list[UUID]
 
 
 class Client:
@@ -48,18 +48,18 @@ class Client:
             CreateRes,
         ).group
 
-    def rename(self, key: CrudeID, name: str) -> Empty:
+    def rename(self, key: UUID, name: str) -> Empty:
         return send_required(
             self._client,
             "/ontology/rename-group",
-            RenameReq(key=ID(key), name=name),
+            RenameReq(key=key, name=name),
             Empty,
         )
 
-    def delete(self, keys: list[CrudeID]) -> Empty:
+    def delete(self, keys: list[UUID]) -> Empty:
         return send_required(
             self._client,
             "/ontology/delete-group",
-            DeleteReq(key=[ID(key) for key in keys]),
+            DeleteReq(keys=keys),
             Empty,
         )
