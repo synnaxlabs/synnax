@@ -25,6 +25,10 @@ inputs:
     description: Whether to run mypy type checking
     required: false
     default: "true"
+  type_check_dir:
+    description: The directory to run mypy type checking in
+    required: false
+    default: "."
   format_check:
     description: Whether to run formatting checks (isort, black)
     required: false
@@ -62,7 +66,7 @@ runs:
 
     - name: Check types
       if: inputs.type_check == 'true'
-      run: uv run mypy .
+      run: uv run mypy ${inputs.type_check_dir}
       shell: bash
       working-directory: ${{ inputs.directory }}
 

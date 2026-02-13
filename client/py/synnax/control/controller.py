@@ -224,9 +224,7 @@ class Controller:
             ch = self._retriever.retrieve_one(value)
             self._writer.set_authority({ch.key: authority, ch.index: authority})
         elif isinstance(value, str):
-            raise TypeError(
-                "authority must be provided when setting by channel name"
-            )
+            raise TypeError("authority must be provided when setting by channel name")
         else:
             self._writer.set_authority(value)
 

@@ -62,9 +62,7 @@ def require_named_params(
                     func_name = f.__qualname__
                     if example_params:
                         param_name, param_value = example_params
-                        param_example = (
-                            f"{func_name}({param_name}='{param_value}')"
-                        )
+                        param_example = f"{func_name}({param_name}='{param_value}')"
                         value_example = f"'{param_value}'"
                     else:
                         param_example = f"{func_name}(name='value')"
