@@ -15,7 +15,7 @@ bazel_dep(name = "lua", version = "5.4.6")
 bazel_dep(name = "boost.uuid", version = "1.87.0")
 bazel_dep(name = "curl", version = "8.11.0.bcr.4")
 bazel_dep(name = "cpp-httplib", version = "0.22.0")
-bazel_dep(name = "boringssl", version = "0.20241024.0")
+bazel_dep(name = "boringssl", version = "0.20260211.0")
 
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
 
