@@ -44,8 +44,8 @@ import {
 import { type Writer } from "@/channel/writer";
 import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
+import { group } from "@/group";
 import { type ontology } from "@/ontology";
-import { group } from "@/ontology/group";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 interface CreateOptions {
