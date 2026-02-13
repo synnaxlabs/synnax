@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 #include "glog/logging.h"
@@ -61,7 +62,6 @@ struct Client::Handle {
     std::string response_body;
     bool accepts_body = false;
     std::string expected_content_type;
-    CURLcode result = CURLE_OK;
 
     Handle() = default;
 
@@ -78,8 +78,7 @@ struct Client::Handle {
         headers(other.headers),
         response_body(std::move(other.response_body)),
         accepts_body(other.accepts_body),
-        expected_content_type(std::move(other.expected_content_type)),
-        result(other.result) {
+        expected_content_type(std::move(other.expected_content_type)) {
         other.handle = nullptr;
         other.headers = nullptr;
     }
@@ -221,7 +220,6 @@ Client::request(const std::vector<std::string> &bodies) {
     for (size_t i = 0; i < handles_.size(); i++) {
         auto &h = handles_[i];
         h.response_body.clear();
-        h.result = CURLE_OK;
         if (h.accepts_body) {
             // CURLOPT_POSTFIELDS does not copy — it stores the pointer. This is
             // safe because bodies is a const ref that outlives curl_multi_perform.
@@ -246,17 +244,12 @@ Client::request(const std::vector<std::string> &bodies) {
             curl_multi_poll(multi, nullptr, 0, config_.timeout_ms, nullptr);
     } while (still_running > 0);
 
-    // Store each result code on its handle.
+    std::unordered_map<CURL *, CURLcode> result_codes;
     CURLMsg *msg;
     int msgs_left;
     while ((msg = curl_multi_info_read(multi, &msgs_left)) != nullptr) {
         if (msg->msg != CURLMSG_DONE) continue;
-        for (auto &h: handles_) {
-            if (h.handle == msg->easy_handle) {
-                h.result = msg->data.result;
-                break;
-            }
-        }
+        result_codes[msg->easy_handle] = msg->data.result;
     }
 
     std::vector<std::pair<Response, x::errors::Error>> results;
@@ -270,8 +263,9 @@ Client::request(const std::vector<std::string> &bodies) {
         const auto elapsed = x::telem::TimeSpan(static_cast<int64_t>(total_secs * 1e9));
 
         x::errors::Error err = x::errors::NIL;
-        if (h.result != CURLE_OK) {
-            err = parse_curl_error(h.result);
+        const auto it = result_codes.find(h.handle);
+        if (it != result_codes.end() && it->second != CURLE_OK) {
+            err = parse_curl_error(it->second);
         } else if (!h.expected_content_type.empty()) {
             char *ct = nullptr;
             curl_easy_getinfo(h.handle, CURLINFO_CONTENT_TYPE, &ct);
