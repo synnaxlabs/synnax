@@ -274,13 +274,12 @@ Client::request(const std::vector<std::string> &bodies) {
             char *ct = nullptr;
             curl_easy_getinfo(h.handle, CURLINFO_CONTENT_TYPE, &ct);
             if (ct != nullptr) {
-                const std::string actual(ct);
-                if (actual.substr(0, h.expected_content_type.size()) !=
-                    h.expected_content_type) {
+                const std::string_view actual(ct);
+                if (!actual.starts_with(h.expected_content_type)) {
                     err = x::errors::Error(
                         http::errors::PARSE_ERROR,
                         "expected content type '" + h.expected_content_type +
-                            "', got '" + actual + "'"
+                            "', got '" + std::string(actual) + "'"
                     );
                 }
             }
