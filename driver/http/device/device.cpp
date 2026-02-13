@@ -97,13 +97,12 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
 
         // URL (static per handle).
         CURLU *u = curl_url();
-        std::string base = config_.base_url;
-        if (!base.empty() && base.back() == '/') base.pop_back();
+        curl_url_set(u, CURLUPART_URL, config_.base_url.c_str(), 0);
         if (!req.path.empty()) {
-            if (req.path.front() != '/') base += '/';
-            base += req.path;
+            std::string path = req.path;
+            if (path.front() != '/') path.insert(path.begin(), '/');
+            curl_url_set(u, CURLUPART_PATH, path.c_str(), 0);
         }
-        curl_url_set(u, CURLUPART_URL, base.c_str(), 0);
         for (const auto &[k, v]: req.query_params) {
             const auto param = k + "=" + v;
             curl_url_set(
