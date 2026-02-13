@@ -162,7 +162,7 @@ class ChannelLifecycle(ConsoleCase):
         self.log(f"Created channels: {created}")
 
         for ch_config in channels:
-            ch_name = ch_config["name"]
+            ch_name = str(ch_config["name"])
             assert console.channels.exists(ch_name), f"Channel {ch_name} should exist"
 
             ch = client.channels.retrieve(ch_name)
@@ -176,7 +176,7 @@ class ChannelLifecycle(ConsoleCase):
                     ch.data_type == expected_type
                 ), f"Channel {ch_name} should be {expected_type}, got {ch.data_type}"
 
-        channels_to_delete = [ch["name"] for ch in reversed(channels)]
+        channels_to_delete = [str(ch["name"]) for ch in reversed(channels)]
         console.channels.delete(channels_to_delete)
 
     def test_open_channel_plot(self) -> None:

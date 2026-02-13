@@ -103,7 +103,7 @@ class ChannelClient:
         name: str,
         data_type: sy.telem.CrudeDataType = sy.DataType.UNKNOWN,
         is_index: bool = False,
-        index: int = 0,
+        index: str | int = 0,
         virtual: bool = False,
     ) -> bool:
         """Creates a new channel via console UI.
@@ -117,8 +117,8 @@ class ChannelClient:
         channels do not store any data, and are used for streaming purposes only.
         :returns: True if the channel was created successfully.
         """
-        if is_index and data_type == DataType.UNKNOWN:
-            data_type = DataType.TIMESTAMP
+        if is_index and data_type == sy.DataType.UNKNOWN:
+            data_type = sy.DataType.TIMESTAMP
 
         self.open_create_modal()
         self.layout.fill_input_field("Name", name)
@@ -133,14 +133,14 @@ class ChannelClient:
                 raise ValueError("Index must be provided if is_index is False")
 
             # Set data type
-            data_type_str = str(DataType(data_type))
+            data_type_str = str(sy.DataType(data_type))
 
             self.layout.click_btn("Data Type")
             self.layout.select_from_dropdown(data_type_str, "Search Data Types")
 
             # Set index - index should be the channel name
             self.layout.click_btn("Index")
-            self.layout.select_from_dropdown(index, "Search Channels")
+            self.layout.select_from_dropdown(str(index), "Search Channels")
 
         self.layout.page.get_by_role("button", name="Create", exact=True).click()
         modal = self.layout.page.locator(self.layout.MODAL_SELECTOR)
