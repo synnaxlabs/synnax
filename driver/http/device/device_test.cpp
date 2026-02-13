@@ -181,8 +181,6 @@ TEST(ConnectionConfigTest, EmptyJSONErrors) {
     EXPECT_FALSE(parser.ok());
 }
 
-
-
 TEST(ClientTest, GETRequest) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
@@ -368,7 +366,6 @@ TEST(ClientTest, APIKeyAuth) {
 
     server.stop();
 }
-
 
 TEST(ClientTest, QueryParams) {
     mock::ServerConfig server_cfg;
@@ -608,8 +605,10 @@ TEST(ClientTest, ParallelOneTimesOut) {
         }
     );
 
-    const auto responses =
-        ASSERT_OCCURRED_AS_P(client.request({"", ""}), errors::UNREACHABLE_ERROR);
+    const auto responses = ASSERT_OCCURRED_AS_P(
+        client.request({"", ""}),
+        errors::UNREACHABLE_ERROR
+    );
     ASSERT_EQ(responses.size(), 2);
     EXPECT_EQ(responses[0].status_code, 200);
     EXPECT_EQ(responses[0].body, "fast");
@@ -646,8 +645,10 @@ TEST(ClientTest, ParallelFirstTimesOutSecondSucceeds) {
         }
     );
 
-    const auto responses =
-        ASSERT_OCCURRED_AS_P(client.request({"", ""}), errors::UNREACHABLE_ERROR);
+    const auto responses = ASSERT_OCCURRED_AS_P(
+        client.request({"", ""}),
+        errors::UNREACHABLE_ERROR
+    );
     ASSERT_EQ(responses.size(), 2);
     EXPECT_EQ(responses[0].status_code, 0);
     EXPECT_EQ(responses[1].status_code, 200);
