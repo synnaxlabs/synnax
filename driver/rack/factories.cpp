@@ -14,6 +14,7 @@
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"
 #include "driver/rack/rack.h"
+#include "driver/rack/status/status.h"
 
 namespace driver::rack {
 using FactoryList = std::vector<std::unique_ptr<task::Factory>>;

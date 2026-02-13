@@ -18,7 +18,6 @@
 #include <winsock2.h>
 #endif
 
-#include "nlohmann/json.hpp"
 
 #include "x/cpp/args/args.h"
 #include "x/cpp/log/log.h"
@@ -33,7 +32,6 @@
 #include "driver/http/http.h"
 #include "driver/ni/ni.h"
 #include "driver/opc/opc.h"
-#include "driver/rack/status/status.h"
 #include "driver/sequence/sequence.h"
 #include "driver/task/task.h"
 
