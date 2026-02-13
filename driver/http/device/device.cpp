@@ -289,7 +289,7 @@ Client::request(const std::vector<std::string> &bodies) {
         results.push_back({
             Response{
                 .status_code = static_cast<int>(status_code),
-                .body = h.response_body,
+                .body = std::move(h.response_body),
                 .time_range = {start, start + elapsed},
             },
             err,
