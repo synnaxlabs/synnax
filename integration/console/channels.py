@@ -103,7 +103,7 @@ class ChannelClient:
         name: str,
         data_type: sy.telem.CrudeDataType = sy.DataType.UNKNOWN,
         is_index: bool = False,
-        index: str | int = 0,
+        index: sy.channel.Key = 0,
         virtual: bool = False,
     ) -> bool:
         """Creates a new channel via console UI.
