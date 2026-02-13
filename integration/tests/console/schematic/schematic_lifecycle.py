@@ -301,7 +301,7 @@ class SchematicLifecycle(ConsoleCase):
         single_snapshot_name = f"Snapshot Single {self.suffix}"
         schematic = self.console.workspace.create_schematic(single_snapshot_name)
         schematic.close()
-        self.console.workspace.snapshot_page_to_active_range(
+        self.console.ranges.snapshot_to_active_range(
             single_snapshot_name, self.shared_range_name
         )
         self.console.workspace.delete_page(single_snapshot_name)
@@ -328,7 +328,7 @@ class SchematicLifecycle(ConsoleCase):
         original_name = f"Snapshot Original {self.suffix}"
         schematic = self.console.workspace.create_schematic(original_name)
         schematic.close()
-        self.console.workspace.snapshot_page_to_active_range(
+        self.console.ranges.snapshot_to_active_range(
             original_name, self.shared_range_name
         )
 

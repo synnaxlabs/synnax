@@ -283,6 +283,26 @@ class RangeLifecycle(ConsoleCase):
         assert start_utc.day == 1, f"Start day should be 1, got {start_utc.day}"
         assert end_utc.day == 2, f"End day should be 2, got {end_utc.day}"
 
+        self.log("Verifying time sync to Ranges Toolbar")
+        self.console.ranges.favorite(self.labeled_range_name)
+        toolbar_time = self.console.ranges.get_toolbar_item_time(
+            self.labeled_range_name
+        )
+        assert (
+            "Jan" in toolbar_time
+        ), f"Toolbar should show Jan time, got '{toolbar_time}'"
+
+        self.log("Verifying time sync to Range Explorer")
+        self.console.ranges.open_explorer()
+        explorer_time = self.console.ranges.get_explorer_item_time(
+            self.labeled_range_name
+        )
+        assert (
+            "Jan" in explorer_time
+        ), f"Explorer should show Jan time, got '{explorer_time}'"
+
+        self.console.ranges.unfavorite_from_toolbar(self.labeled_range_name)
+
     def test_change_stage_in_overview(self) -> None:
         """Test changing stage in the range overview (which also changes times)."""
         assert self.labeled_range_name is not None

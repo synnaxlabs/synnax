@@ -196,14 +196,6 @@ I can successfully:
 I can successfully:
 
 - [ ] Open a range from its link.
-- [ ] Change the time of a range and ensure synchronization across:
-  - Range Details
-  - Ranges Toolbar
-  - Range explorer
-- [ ] Add or remove child ranges and ensure synchronization across:
-  - Range Details (both parent and child view)
-- [ ] Snapshot a schematic or task and ensure synchronization across:
-  - Range Details
 - [ ] Ensure channel aliases synchronize correctly across:
   - Line Plot
   - Line Plot Toolbar

@@ -117,6 +117,31 @@ class RangesClient:
         """Get a range item locator from the explorer by name."""
         return self.layout.get_list_item(self.EXPLORER_ITEM_SELECTOR, name)
 
+    def get_toolbar_item_time(self, name: str) -> str:
+        """Get the displayed time text from a toolbar range item.
+
+        Args:
+            name: The name of the range.
+
+        Returns:
+            The time range text (e.g. "Today 16:23:35 → 16:23:35").
+        """
+        self.show_toolbar()
+        item = self.get_toolbar_item(name)
+        return item.locator("small.pluto-text--small").first.inner_text()
+
+    def get_explorer_item_time(self, name: str) -> str:
+        """Get the displayed time text from an explorer range item.
+
+        Args:
+            name: The name of the range.
+
+        Returns:
+            The time range text (e.g. "Jan 1 00:00:00 → Jan 2 00:00:00").
+        """
+        item = self.get_explorer_item(name)
+        return item.locator("small.pluto-text--small").first.inner_text()
+
     def exists_in_toolbar(self, name: str) -> bool:
         """Check if a range exists in the toolbar (is favorited)."""
         self.show_toolbar()
@@ -1076,9 +1101,7 @@ class RangesClient:
     ) -> None:
         """Wait until a label is removed from a range in the toolbar."""
         self.show_toolbar()
-        self.layout.wait_for_hidden(
-            self.get_label_in_toolbar(range_name, label_name)
-        )
+        self.layout.wait_for_hidden(self.get_label_in_toolbar(range_name, label_name))
 
     def get_label_color_in_toolbar(
         self, range_name: str, label_name: str
@@ -1169,6 +1192,34 @@ class RangesClient:
         item.wait_for(state="visible", timeout=5000)
         item.locator(".console-snapshots__delete").click()
         self.layout.confirm_delete()
+
+    def snapshot_to_active_range(self, name: str, range_name: str) -> None:
+        """Snapshot a page or task to the active range via context menu.
+
+        Searches the workspace tree first (for schematics, line plots, etc.),
+        then falls back to the task toolbar (for hardware tasks).
+
+        Args:
+            name: Name of the page or task to snapshot.
+            range_name: Name of the active range (for menu text matching).
+        """
+        self.layout.show_resource_toolbar("workspace")
+        self.tree.expand_root("workspace:")
+        page_item = (
+            self.layout.page.locator(".pluto-tree__item").filter(has_text=name).first
+        )
+        if self.layout.locator_exists(page_item):
+            self.ctx_menu.action(page_item, f"Snapshot to {range_name}")
+        else:
+            self.layout.show_resource_toolbar("task")
+            task_item = (
+                self.layout.page.locator(".pluto-list__item")
+                .filter(has_text=name)
+                .first
+            )
+            task_item.wait_for(state="visible", timeout=5000)
+            self.ctx_menu.action(task_item, f"Snapshot to {range_name}")
+        self.layout.close_left_toolbar()
 
     def wait_for_snapshot_removed(self, name: str) -> None:
         """Wait for a snapshot to be removed from the Snapshots section.

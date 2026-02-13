@@ -804,7 +804,7 @@ class LayoutClient:
         """Get a list item locator by CSS selector filtered by text content."""
         return self.page.locator(selector).filter(has_text=name).first
 
-    def deselect_all_items(self, container: Locator, item_selector: str) -> None:
+    def deselect_all_items(self, container: Locator | Page, item_selector: str) -> None:
         """Deselect all checked items by dispatching click on their checkbox labels."""
         checked = container.locator(
             f"{item_selector}:has(input.pluto-input__checkbox-input:checked)"
