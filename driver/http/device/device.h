@@ -75,15 +75,13 @@ struct ConnectionConfig {
 
     /// @param parser the JSON parser to read configuration from.
     /// @param verify_ssl whether to verify SSL certificates (false only in tests).
-    explicit ConnectionConfig(
-        x::json::Parser parser,
-        const bool verify_ssl = true
-    ):
+    explicit ConnectionConfig(x::json::Parser parser, const bool verify_ssl = true):
         base_url(parser.field<std::string>("base_url")),
         timeout_ms(parser.field<uint32_t>("timeout_ms", 1000)),
         auth(AuthConfig(parser.optional_child("auth"))),
         headers(parser.field<std::map<std::string, std::string>>(
-            "headers", std::map<std::string, std::string>{}
+            "headers",
+            std::map<std::string, std::string>{}
         )),
         verify_ssl(verify_ssl) {
         if (timeout_ms == 0)
@@ -98,7 +96,8 @@ struct ConnectionConfig {
         };
         if (!headers.empty()) {
             x::json::json h;
-            for (const auto &[k, v]: headers) h[k] = v;
+            for (const auto &[k, v]: headers)
+                h[k] = v;
             j["headers"] = h;
         }
         return j;
@@ -137,10 +136,7 @@ public:
     /// @brief constructs a client and pre-builds curl handles.
     /// @param config the connection configuration.
     /// @param requests the static request configurations.
-    Client(
-        ConnectionConfig config,
-        const std::vector<RequestConfig> &requests
-    );
+    Client(ConnectionConfig config, const std::vector<RequestConfig> &requests);
 
     ~Client();
 

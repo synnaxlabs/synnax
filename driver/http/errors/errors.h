@@ -15,15 +15,19 @@
 
 namespace driver::http::errors {
 /// @brief HTTP client error (4xx responses or configuration issues).
-const x::errors::Error CLIENT_ERROR =
-    driver::errors::CRITICAL_HARDWARE_ERROR.sub("http.client");
+const x::errors::Error CLIENT_ERROR = driver::errors::CRITICAL_HARDWARE_ERROR.sub(
+    "http.client"
+);
 /// @brief HTTP server error (5xx responses).
-const x::errors::Error SERVER_ERROR =
-    driver::errors::TEMPORARY_HARDWARE_ERROR.sub("http.server");
+const x::errors::Error SERVER_ERROR = driver::errors::TEMPORARY_HARDWARE_ERROR.sub(
+    "http.server"
+);
 /// @brief HTTP server unreachable (connection refused, DNS failure, or timeout).
-const x::errors::Error UNREACHABLE_ERROR =
-    driver::errors::TEMPORARY_HARDWARE_ERROR.sub("http.unreachable");
+const x::errors::Error UNREACHABLE_ERROR = driver::errors::TEMPORARY_HARDWARE_ERROR.sub(
+    "http.unreachable"
+);
 /// @brief HTTP response parse error.
-const x::errors::Error PARSE_ERROR =
-    driver::errors::CRITICAL_HARDWARE_ERROR.sub("http.parse");
+const x::errors::Error PARSE_ERROR = driver::errors::CRITICAL_HARDWARE_ERROR.sub(
+    "http.parse"
+);
 }

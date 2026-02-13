@@ -18,7 +18,6 @@
 #include <winsock2.h>
 #endif
 
-
 #include "x/cpp/args/args.h"
 #include "x/cpp/log/log.h"
 #include "x/cpp/uuid/uuid.h"

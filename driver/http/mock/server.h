@@ -17,11 +17,10 @@
 #include <thread>
 #include <vector>
 
-#include "httplib.h"
-
 #include "x/cpp/errors/errors.h"
 
 #include "driver/http/types/types.h"
+#include "httplib.h"
 
 namespace driver::http::mock {
 /// @brief a single route to register on the mock server.
@@ -77,12 +76,14 @@ public:
         host_(config.host), secure_(config.secure) {
         if (secure_) {
             svr_ = std::make_unique<httplib::SSLServer>(
-                config.cert_path.c_str(), config.key_path.c_str()
+                config.cert_path.c_str(),
+                config.key_path.c_str()
             );
         } else {
             svr_ = std::make_unique<httplib::Server>();
         }
-        for (const auto &route: config.routes) register_route(route);
+        for (const auto &route: config.routes)
+            register_route(route);
     }
 
     ~Server() { stop(); }
@@ -96,8 +97,7 @@ public:
         if (!svr_->is_valid())
             return x::errors::Error("mock server is not valid (bad TLS cert?)");
         port_ = svr_->bind_to_any_port(host_);
-        if (port_ < 0)
-            return x::errors::Error("failed to bind mock HTTP server");
+        if (port_ < 0) return x::errors::Error("failed to bind mock HTTP server");
         running_ = true;
         thread_ = std::thread([this] { svr_->listen_after_bind(); });
         svr_->wait_until_ready();
@@ -115,10 +115,8 @@ public:
     /// @brief returns the base URL of the running server.
     [[nodiscard]] std::string base_url() const {
         const auto scheme = secure_ ? "https" : "http";
-        return std::string(scheme) + "://" + host_ + ":" +
-               std::to_string(port_);
+        return std::string(scheme) + "://" + host_ + ":" + std::to_string(port_);
     }
-
 
     /// @brief returns all requests received by the server.
     [[nodiscard]] std::vector<ReceivedRequest> received_requests() const {
@@ -145,22 +143,30 @@ private:
     }
 
     void register_route(const Route &route) {
-        auto handler = [this, route](
-                           const httplib::Request &req, httplib::Response &res
-                       ) {
+        auto handler = [this,
+                        route](const httplib::Request &req, httplib::Response &res) {
             log_request(req);
-            if (route.delay.count() > 0)
-                std::this_thread::sleep_for(route.delay);
+            if (route.delay.count() > 0) std::this_thread::sleep_for(route.delay);
             res.status = route.status_code;
             res.set_content(route.response_body, route.content_type);
         };
 
         switch (route.method) {
-            case Method::GET: svr_->Get(route.path, handler); break;
-            case Method::POST: svr_->Post(route.path, handler); break;
-            case Method::PUT: svr_->Put(route.path, handler); break;
-            case Method::DELETE: svr_->Delete(route.path, handler); break;
-            case Method::PATCH: svr_->Patch(route.path, handler); break;
+            case Method::GET:
+                svr_->Get(route.path, handler);
+                break;
+            case Method::POST:
+                svr_->Post(route.path, handler);
+                break;
+            case Method::PUT:
+                svr_->Put(route.path, handler);
+                break;
+            case Method::DELETE:
+                svr_->Delete(route.path, handler);
+                break;
+            case Method::PATCH:
+                svr_->Patch(route.path, handler);
+                break;
         }
     }
 };

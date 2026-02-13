@@ -10,9 +10,8 @@
 #include <string>
 #include <utility>
 
-#include <curl/curl.h>
-
 #include "glog/logging.h"
+#include <curl/curl.h>
 
 #include "driver/http/device/device.h"
 #include "driver/http/errors/errors.h"
@@ -24,7 +23,9 @@ struct CurlGlobal {
     ~CurlGlobal() { curl_global_cleanup(); }
 };
 
-void ensure_curl_initialized() { static CurlGlobal instance; }
+void ensure_curl_initialized() {
+    static CurlGlobal instance;
+}
 
 size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {
     auto *response = static_cast<std::string *>(userdata);
@@ -41,11 +42,13 @@ x::errors::Error parse_curl_error(CURLcode code) {
         case CURLE_COULDNT_RESOLVE_PROXY:
         case CURLE_OPERATION_TIMEDOUT:
             return x::errors::Error(
-                http::errors::UNREACHABLE_ERROR, curl_easy_strerror(code)
+                http::errors::UNREACHABLE_ERROR,
+                curl_easy_strerror(code)
             );
         default:
             return x::errors::Error(
-                http::errors::CLIENT_ERROR, curl_easy_strerror(code)
+                http::errors::CLIENT_ERROR,
+                curl_easy_strerror(code)
             );
     }
 }
@@ -92,10 +95,8 @@ struct Client::Handle {
     }
 };
 
-Client::Client(
-    ConnectionConfig config,
-    const std::vector<RequestConfig> &requests
-): config_(std::move(config)) {
+Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &requests):
+    config_(std::move(config)) {
     ensure_curl_initialized();
     multi_handle_ = curl_multi_init();
     handles_.reserve(requests.size());
@@ -117,7 +118,9 @@ Client::Client(
         for (const auto &[k, v]: req.query_params) {
             const auto param = k + "=" + v;
             curl_url_set(
-                u, CURLUPART_QUERY, param.c_str(),
+                u,
+                CURLUPART_QUERY,
+                param.c_str(),
                 CURLU_APPENDQUERY | CURLU_URLENCODE
             );
         }
@@ -129,7 +132,8 @@ Client::Client(
 
         // Timeout (static per handle).
         curl_easy_setopt(
-            h.handle, CURLOPT_TIMEOUT_MS,
+            h.handle,
+            CURLOPT_TIMEOUT_MS,
             static_cast<long>(config_.timeout_ms)
         );
 
@@ -143,8 +147,7 @@ Client::Client(
         }
 
         // HTTP method (static per handle).
-        h.accepts_body = req.method != Method::GET &&
-                         req.method != Method::DELETE;
+        h.accepts_body = req.method != Method::GET && req.method != Method::DELETE;
         switch (req.method) {
             case Method::POST:
                 curl_easy_setopt(h.handle, CURLOPT_POST, 1L);
@@ -164,17 +167,15 @@ Client::Client(
 
         // Auth headers (static).
         if (config_.auth.type == "bearer") {
-            const std::string hdr =
-                "Authorization: Bearer " + config_.auth.token;
+            const std::string hdr = "Authorization: Bearer " + config_.auth.token;
             h.headers = curl_slist_append(h.headers, hdr.c_str());
         } else if (config_.auth.type == "basic") {
             curl_easy_setopt(h.handle, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-            const std::string userpwd =
-                config_.auth.username + ":" + config_.auth.password;
+            const std::string userpwd = config_.auth.username + ":" +
+                                        config_.auth.password;
             curl_easy_setopt(h.handle, CURLOPT_USERPWD, userpwd.c_str());
         } else if (config_.auth.type == "api_key") {
-            const std::string hdr =
-                config_.auth.header + ": " + config_.auth.key;
+            const std::string hdr = config_.auth.header + ": " + config_.auth.key;
             h.headers = curl_slist_append(h.headers, hdr.c_str());
         }
 
@@ -192,9 +193,7 @@ Client::Client(
 
         // Content-Type header (static).
         if (h.accepts_body)
-            h.headers = curl_slist_append(
-                h.headers, "Content-Type: application/json"
-            );
+            h.headers = curl_slist_append(h.headers, "Content-Type: application/json");
 
         if (h.headers != nullptr)
             curl_easy_setopt(h.handle, CURLOPT_HTTPHEADER, h.headers);
@@ -202,7 +201,8 @@ Client::Client(
         handles_.push_back(std::move(h));
         // Set WRITEDATA after push_back to avoid dangling pointer.
         curl_easy_setopt(
-            handles_.back().handle, CURLOPT_WRITEDATA,
+            handles_.back().handle,
+            CURLOPT_WRITEDATA,
             &handles_.back().response_body
         );
     }
@@ -222,12 +222,8 @@ Client::request(const std::vector<std::string> &bodies) {
         h.response_body.clear();
         if (h.accepts_body) {
             if (i < bodies.size() && !bodies[i].empty()) {
-                curl_easy_setopt(
-                    h.handle, CURLOPT_POSTFIELDS, bodies[i].c_str()
-                );
-                curl_easy_setopt(
-                    h.handle, CURLOPT_POSTFIELDSIZE, bodies[i].size()
-                );
+                curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, bodies[i].c_str());
+                curl_easy_setopt(h.handle, CURLOPT_POSTFIELDSIZE, bodies[i].size());
             } else {
                 curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, nullptr);
                 curl_easy_setopt(h.handle, CURLOPT_POSTFIELDSIZE, 0L);
@@ -264,14 +260,14 @@ Client::request(const std::vector<std::string> &bodies) {
         curl_easy_getinfo(h.handle, CURLINFO_RESPONSE_CODE, &status_code);
         double total_secs = 0;
         curl_easy_getinfo(h.handle, CURLINFO_TOTAL_TIME, &total_secs);
-        const auto elapsed = x::telem::TimeSpan(
-            static_cast<int64_t>(total_secs * 1e9)
+        const auto elapsed = x::telem::TimeSpan(static_cast<int64_t>(total_secs * 1e9));
+        responses.push_back(
+            Response{
+                .status_code = static_cast<int>(status_code),
+                .body = h.response_body,
+                .time_range = {start, start + elapsed},
+            }
         );
-        responses.push_back(Response{
-            .status_code = static_cast<int>(status_code),
-            .body = h.response_body,
-            .time_range = {start, start + elapsed},
-        });
         curl_multi_remove_handle(multi, h.handle);
     }
 

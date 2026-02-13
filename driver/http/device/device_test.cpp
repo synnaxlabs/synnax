@@ -20,10 +20,7 @@
 
 namespace driver::http::device {
 namespace {
-ConnectionConfig make_config(
-    const x::json::json &j,
-    const bool verify_ssl = true
-) {
+ConnectionConfig make_config(const x::json::json &j, const bool verify_ssl = true) {
     x::json::Parser p(j);
     return ConnectionConfig(p, verify_ssl);
 }
@@ -252,11 +249,14 @@ TEST(ClientTest, CustomHeaders) {
         {"base_url", server.base_url()},
         {"headers", {{"X-Global", "global-val"}}},
     });
-    Client client(config, {{
-        .method = Method::GET,
-        .path = "/api/check",
-        .headers = {{"X-Request", "req-val"}},
-    }});
+    Client client(
+        config,
+        {{
+            .method = Method::GET,
+            .path = "/api/check",
+            .headers = {{"X-Request", "req-val"}},
+        }}
+    );
 
     const auto responses = ASSERT_NIL_P(client.request({""}));
     ASSERT_EQ(responses.size(), 1);
@@ -358,11 +358,14 @@ TEST(ClientTest, QueryParams) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {{
-        .method = Method::GET,
-        .path = "/api/search",
-        .query_params = {{"q", "hello"}, {"limit", "10"}},
-    }});
+    Client client(
+        config,
+        {{
+            .method = Method::GET,
+            .path = "/api/search",
+            .query_params = {{"q", "hello"}, {"limit", "10"}},
+        }}
+    );
 
     const auto responses = ASSERT_NIL_P(client.request({""}));
     ASSERT_EQ(responses.size(), 1);
@@ -384,11 +387,14 @@ TEST(ClientTest, QueryParamsPercentEncoded) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {{
-        .method = Method::GET,
-        .path = "/api/search",
-        .query_params = {{"q", "hello world"}, {"tag", "a&b=c"}},
-    }});
+    Client client(
+        config,
+        {{
+            .method = Method::GET,
+            .path = "/api/search",
+            .query_params = {{"q", "hello world"}, {"tag", "a&b=c"}},
+        }}
+    );
 
     const auto responses = ASSERT_NIL_P(client.request({""}));
     ASSERT_EQ(responses.size(), 1);
@@ -485,23 +491,36 @@ TEST(ClientTest, ErrorStatusCodesReturnResponse) {
 TEST(ClientTest, ParallelRequests) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {
-        {.method = Method::GET, .path = "/api/a", .status_code = 200, .response_body = "A"},
-        {.method = Method::GET, .path = "/api/b", .status_code = 200, .response_body = "B"},
-        {.method = Method::GET, .path = "/api/c", .status_code = 200, .response_body = "C"},
+        {.method = Method::GET,
+         .path = "/api/a",
+         .status_code = 200,
+         .response_body = "A"},
+        {.method = Method::GET,
+         .path = "/api/b",
+         .status_code = 200,
+         .response_body = "B"},
+        {.method = Method::GET,
+         .path = "/api/c",
+         .status_code = 200,
+         .response_body = "C"},
     };
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {
-        {.method = Method::GET, .path = "/api/a"},
-        {.method = Method::GET, .path = "/api/b"},
-        {.method = Method::GET, .path = "/api/c"},
-    });
+    Client client(
+        config,
+        {
+            {.method = Method::GET, .path = "/api/a"},
+            {.method = Method::GET, .path = "/api/b"},
+            {.method = Method::GET, .path = "/api/c"},
+        }
+    );
 
     const auto responses = ASSERT_NIL_P(client.request({"", "", ""}));
     ASSERT_EQ(responses.size(), 3);
-    for (const auto &resp: responses) EXPECT_EQ(resp.status_code, 200);
+    for (const auto &resp: responses)
+        EXPECT_EQ(resp.status_code, 200);
 
     server.stop();
 }
@@ -509,22 +528,31 @@ TEST(ClientTest, ParallelRequests) {
 TEST(ClientTest, ParallelMixedStatusCodes) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {
-        {.method = Method::GET, .path = "/ok", .status_code = 200,
+        {.method = Method::GET,
+         .path = "/ok",
+         .status_code = 200,
          .response_body = "success"},
-        {.method = Method::GET, .path = "/not-found", .status_code = 404,
+        {.method = Method::GET,
+         .path = "/not-found",
+         .status_code = 404,
          .response_body = R"({"error": "not found"})"},
-        {.method = Method::GET, .path = "/error", .status_code = 500,
+        {.method = Method::GET,
+         .path = "/error",
+         .status_code = 500,
          .response_body = R"({"error": "internal"})"},
     };
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {
-        {.method = Method::GET, .path = "/ok"},
-        {.method = Method::GET, .path = "/not-found"},
-        {.method = Method::GET, .path = "/error"},
-    });
+    Client client(
+        config,
+        {
+            {.method = Method::GET, .path = "/ok"},
+            {.method = Method::GET, .path = "/not-found"},
+            {.method = Method::GET, .path = "/error"},
+        }
+    );
 
     const auto responses = ASSERT_NIL_P(client.request({"", "", ""}));
     ASSERT_EQ(responses.size(), 3);
@@ -541,9 +569,13 @@ TEST(ClientTest, ParallelMixedStatusCodes) {
 TEST(ClientTest, ParallelOneTimesOut) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {
-        {.method = Method::GET, .path = "/fast", .status_code = 200,
+        {.method = Method::GET,
+         .path = "/fast",
+         .status_code = 200,
          .response_body = "fast"},
-        {.method = Method::GET, .path = "/slow", .status_code = 200,
+        {.method = Method::GET,
+         .path = "/slow",
+         .status_code = 200,
          .response_body = "slow",
          .delay = std::chrono::milliseconds(2000)},
     };
@@ -554,10 +586,13 @@ TEST(ClientTest, ParallelOneTimesOut) {
         {"base_url", server.base_url()},
         {"timeout_ms", 500},
     });
-    Client client(config, {
-        {.method = Method::GET, .path = "/fast"},
-        {.method = Method::GET, .path = "/slow"},
-    });
+    Client client(
+        config,
+        {
+            {.method = Method::GET, .path = "/fast"},
+            {.method = Method::GET, .path = "/slow"},
+        }
+    );
 
     auto [responses, err] = client.request({"", ""});
     EXPECT_TRUE(err);
@@ -572,10 +607,14 @@ TEST(ClientTest, ParallelOneTimesOut) {
 TEST(ClientTest, ParallelFirstTimesOutSecondSucceeds) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {
-        {.method = Method::GET, .path = "/slow", .status_code = 200,
+        {.method = Method::GET,
+         .path = "/slow",
+         .status_code = 200,
          .response_body = "slow",
          .delay = std::chrono::milliseconds(2000)},
-        {.method = Method::GET, .path = "/fast", .status_code = 200,
+        {.method = Method::GET,
+         .path = "/fast",
+         .status_code = 200,
          .response_body = "fast"},
     };
     mock::Server server(server_cfg);
@@ -585,10 +624,13 @@ TEST(ClientTest, ParallelFirstTimesOutSecondSucceeds) {
         {"base_url", server.base_url()},
         {"timeout_ms", 500},
     });
-    Client client(config, {
-        {.method = Method::GET, .path = "/slow"},
-        {.method = Method::GET, .path = "/fast"},
-    });
+    Client client(
+        config,
+        {
+            {.method = Method::GET, .path = "/slow"},
+            {.method = Method::GET, .path = "/fast"},
+        }
+    );
 
     auto [responses, err] = client.request({"", ""});
     EXPECT_TRUE(err);
@@ -603,20 +645,29 @@ TEST(ClientTest, ParallelFirstTimesOutSecondSucceeds) {
 TEST(ClientTest, ParallelPerResponseTimeRanges) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {
-        {.method = Method::GET, .path = "/fast", .status_code = 200,
-         .response_body = "fast", .content_type = "text/plain"},
-        {.method = Method::GET, .path = "/slow", .status_code = 200,
-         .response_body = "slow", .content_type = "text/plain",
+        {.method = Method::GET,
+         .path = "/fast",
+         .status_code = 200,
+         .response_body = "fast",
+         .content_type = "text/plain"},
+        {.method = Method::GET,
+         .path = "/slow",
+         .status_code = 200,
+         .response_body = "slow",
+         .content_type = "text/plain",
          .delay = std::chrono::milliseconds(300)},
     };
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {
-        {.method = Method::GET, .path = "/fast"},
-        {.method = Method::GET, .path = "/slow"},
-    });
+    Client client(
+        config,
+        {
+            {.method = Method::GET, .path = "/fast"},
+            {.method = Method::GET, .path = "/slow"},
+        }
+    );
 
     const auto responses = ASSERT_NIL_P(client.request({"", ""}));
     ASSERT_EQ(responses.size(), 2);
@@ -695,23 +746,30 @@ TEST(ClientTest, RepeatedPOSTRequests) {
 TEST(ClientTest, MixedGETAndPOST) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {
-        {.method = Method::GET, .path = "/api/read", .status_code = 200,
-         .response_body = "read-ok", .content_type = "text/plain"},
-        {.method = Method::POST, .path = "/api/write", .status_code = 201,
-         .response_body = "write-ok", .content_type = "text/plain"},
+        {.method = Method::GET,
+         .path = "/api/read",
+         .status_code = 200,
+         .response_body = "read-ok",
+         .content_type = "text/plain"},
+        {.method = Method::POST,
+         .path = "/api/write",
+         .status_code = 201,
+         .response_body = "write-ok",
+         .content_type = "text/plain"},
     };
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {
-        {.method = Method::GET, .path = "/api/read"},
-        {.method = Method::POST, .path = "/api/write"},
-    });
-
-    const auto responses = ASSERT_NIL_P(
-        client.request({"", R"({"val": 1})"})
+    Client client(
+        config,
+        {
+            {.method = Method::GET, .path = "/api/read"},
+            {.method = Method::POST, .path = "/api/write"},
+        }
     );
+
+    const auto responses = ASSERT_NIL_P(client.request({"", R"({"val": 1})"}));
     ASSERT_EQ(responses.size(), 2);
     EXPECT_EQ(responses[0].status_code, 200);
     EXPECT_EQ(responses[0].body, "read-ok");
@@ -786,9 +844,7 @@ TEST(ClientTest, PutRequest) {
     auto config = make_config({{"base_url", server.base_url()}});
     Client client(config, {{.method = Method::PUT, .path = "/api/item/1"}});
 
-    const auto responses = ASSERT_NIL_P(
-        client.request({R"({"name": "new"})"})
-    );
+    const auto responses = ASSERT_NIL_P(client.request({R"({"name": "new"})"}));
     ASSERT_EQ(responses.size(), 1);
     EXPECT_EQ(responses[0].status_code, 200);
 

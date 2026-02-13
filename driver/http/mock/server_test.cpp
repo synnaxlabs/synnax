@@ -18,7 +18,6 @@
 
 using namespace driver::http;
 
-
 TEST(MockServerTest, ServesGetRoute) {
     mock::ServerConfig cfg;
     cfg.routes = {{
@@ -31,7 +30,6 @@ TEST(MockServerTest, ServesGetRoute) {
     mock::Server server(cfg);
     ASSERT_NIL(server.start());
     EXPECT_TRUE(server.base_url().find("http://") == 0);
-
 
     httplib::Client client(server.base_url());
     auto res = client.Get("/ping");
@@ -52,7 +50,6 @@ TEST(MockServerTest, ServesPostRoute) {
     }};
     mock::Server server(cfg);
     ASSERT_NIL(server.start());
-
 
     httplib::Client cli(server.base_url());
     auto res = cli.Post("/submit", R"({"name": "test"})", "application/json");
@@ -75,7 +72,6 @@ TEST(MockServerTest, ServesPutRoute) {
     mock::Server server(cfg);
     ASSERT_NIL(server.start());
 
-
     httplib::Client cli(server.base_url());
     auto res = cli.Put("/update", "{}", "application/json");
     ASSERT_NE(res, nullptr);
@@ -95,7 +91,6 @@ TEST(MockServerTest, ServesDeleteRoute) {
     }};
     mock::Server server(cfg);
     ASSERT_NIL(server.start());
-
 
     httplib::Client cli(server.base_url());
     auto res = cli.Delete("/remove");
@@ -117,7 +112,6 @@ TEST(MockServerTest, ServesPatchRoute) {
     mock::Server server(cfg);
     ASSERT_NIL(server.start());
 
-
     httplib::Client cli(server.base_url());
     auto res = cli.Patch("/patch", "{}", "application/json");
     ASSERT_NE(res, nullptr);
@@ -136,7 +130,6 @@ TEST(MockServerTest, MultipleRoutes) {
     };
     mock::Server server(cfg);
     ASSERT_NIL(server.start());
-
 
     httplib::Client cli(server.base_url());
 
@@ -167,7 +160,6 @@ TEST(MockServerTest, CustomStatusCode) {
     mock::Server server(cfg);
     ASSERT_NIL(server.start());
 
-
     httplib::Client cli(server.base_url());
     auto res = cli.Get("/error");
     ASSERT_NE(res, nullptr);
@@ -188,7 +180,6 @@ TEST(MockServerTest, ResponseDelay) {
     }};
     mock::Server server(cfg);
     ASSERT_NIL(server.start());
-
 
     httplib::Client cli(server.base_url());
     const auto before = std::chrono::steady_clock::now();
@@ -218,7 +209,6 @@ TEST(MockServerTest, LogsReceivedRequests) {
     mock::Server server(cfg);
     ASSERT_NIL(server.start());
 
-
     httplib::Client cli(server.base_url());
     cli.Post("/log", "hello", "text/plain");
 
@@ -241,7 +231,6 @@ TEST(MockServerTest, ClearRequests) {
     }};
     mock::Server server(cfg);
     ASSERT_NIL(server.start());
-
 
     httplib::Client cli(server.base_url());
     cli.Get("/hit");
@@ -326,7 +315,6 @@ TEST(MockServerTest, SecureServesGetRoute) {
     ASSERT_NIL(server.start());
     EXPECT_TRUE(server.base_url().find("https://") == 0);
 
-
     httplib::Client cli(server.base_url());
     cli.enable_server_certificate_verification(false);
     auto res = cli.Get("/secure");
@@ -351,12 +339,9 @@ TEST(MockServerTest, SecureServesPostRoute) {
     mock::Server server(cfg);
     ASSERT_NIL(server.start());
 
-
     httplib::Client cli(server.base_url());
     cli.enable_server_certificate_verification(false);
-    auto res = cli.Post(
-        "/secure-post", R"({"data": 42})", "application/json"
-    );
+    auto res = cli.Post("/secure-post", R"({"data": 42})", "application/json");
     ASSERT_NE(res, nullptr);
     EXPECT_EQ(res->status, 201);
     EXPECT_EQ(res->body, R"({"ok": true})");
@@ -381,7 +366,6 @@ TEST(MockServerTest, SecureLogsRequests) {
     }};
     mock::Server server(cfg);
     ASSERT_NIL(server.start());
-
 
     httplib::Client cli(server.base_url());
     cli.enable_server_certificate_verification(false);
