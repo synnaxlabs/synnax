@@ -11,6 +11,7 @@ import time
 from uuid import uuid4
 
 import pytest
+from pydantic import BaseModel
 
 import freighter.exceptions
 from freighter.codec import Codec, JSONCodec, MsgPackCodec
@@ -23,8 +24,9 @@ from freighter.websocket import (
     ConnectionClosedError,
 )
 from freighter.websocket import Message as WebsocketMessage
-from freighter.websocket import WebsocketClient
-from pydantic import BaseModel
+from freighter.websocket import (
+    WebsocketClient,
+)
 
 from .interface import Error, Message
 

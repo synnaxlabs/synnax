@@ -10,7 +10,7 @@
 import json
 
 import msgpack
-from pydantic import ConfigDict, Field, BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from freighter import JSONCodec, MsgPackCodec
 

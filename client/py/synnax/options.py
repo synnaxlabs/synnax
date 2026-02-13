@@ -21,4 +21,4 @@ class Options(BaseModel):
 
 
 SynnaxOptions = Options
-"""Options class for the Synnax py."""
+"""Deprecated: Use Options instead."""

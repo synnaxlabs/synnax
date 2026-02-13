@@ -88,7 +88,7 @@ class RemainsTrueFor(Processor):
 class Controller:
     _writer_opt: framer.Writer | None = None
     _receiver_opt: _Receiver | None = None
-    _idx_map: dict[channel.channel.Key, channel.channel.Key]
+    _idx_map: dict[channel.Key, channel.Key]
     _retriever: channel.Retriever
 
     def __init__(

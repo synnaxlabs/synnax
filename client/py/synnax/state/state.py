@@ -7,17 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.channel import Key
-from synnax.channel.retrieve import Retriever, retrieve_required
+from synnax import channel
 from synnax.framer import Frame
 from synnax.telem import Series
 
 
 class State:
-    value: dict[Key, Series]
-    __retriever: Retriever
+    value: dict[channel.Key, Series]
+    __retriever: channel.Retriever
 
-    def __init__(self, retriever: Retriever):
+    def __init__(self, retriever: channel.Retriever):
         self.__retriever = retriever
         self.value = dict()
 
@@ -25,11 +24,11 @@ class State:
         for key in frame.channels:
             self.value[key] = frame[key]
 
-    def __getitem__(self, ch: Key):
-        ch = retrieve_required(self.__retriever, ch)[0]
+    def __getitem__(self, ch: channel.Key):
+        ch = channel.retrieve_required(self.__retriever, ch)[0]
         return self.value[ch.key]
 
-    def __getattr__(self, ch: Key):
+    def __getattr__(self, ch: channel.Key):
         return self.__getitem__(ch)
 
 
@@ -39,8 +38,8 @@ class LatestState:
     def __init__(self, state: State) -> None:
         self.__state = state
 
-    def __getitem__(self, ch: Key | str):
+    def __getitem__(self, ch: channel.Key | str):
         return self.__state.value[ch][-1]
 
-    def __getattr__(self, ch: Key | str):
+    def __getattr__(self, ch: channel.Key | str):
         return self.__getitem__(ch)

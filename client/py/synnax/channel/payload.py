@@ -68,7 +68,7 @@ class Payload(BaseModel):
 class NormalizedChannelKeyResult:
     single: bool
     variant: Literal["keys"]
-    channels: list[str] | tuple[str]
+    channels: list[Key] | tuple[Key]
 
 
 @dataclass
@@ -109,5 +109,5 @@ def normalize_params(
     return NormalizedChannelKeyResult(
         single=single,
         variant="keys",
-        channels=cast(list[str] | tuple[str], normalized),
+        channels=normalized,
     )
