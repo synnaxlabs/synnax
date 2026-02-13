@@ -12,6 +12,7 @@ package gomod_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -106,11 +107,9 @@ var _ = Describe("ResolveImportPath", func() {
 
 var _ = Describe("FindRepoRoot", func() {
 	It("should find the repo root from the current file", func() {
-		root := gomod.FindRepoRoot(filepath.Join(
-			"/Users/emilianobonilla/Desktop/synnaxlabs/synnax",
-			"oracle/plugin/gomod/parser.go",
-		))
-		Expect(root).To(Equal("/Users/emilianobonilla/Desktop/synnaxlabs/synnax"))
+		_, thisFile, _, _ := runtime.Caller(0)
+		root := gomod.FindRepoRoot(thisFile)
+		Expect(root).To(Equal(filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(thisFile))))))
 	})
 
 	It("should return empty string when no .git directory exists", func() {
