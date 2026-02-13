@@ -26,7 +26,6 @@ class LabelLifecycle(ConsoleCase):
             self.shared_range, persisted=True, labels=[self.shared_label]
         )
         self.console.ranges.open_explorer()
-        self.console.ranges.favorite_from_explorer(self.shared_range)
 
     def teardown(self) -> None:
         self.page.keyboard.press("Escape")
