@@ -3,7 +3,10 @@
   "sequences": [
     {
       "sequence_name": "workspace",
-      "tests": [{ "case": "console/workspace/workspace" }]
+      "tests": [
+        { "case": "console/workspace/workspace" },
+        { "case": "console/workspace/ontology" }
+      ]
     },
     {
       "sequence_name": "lifecycle",
@@ -28,13 +31,16 @@
         { "case": "console/plot/line_plot" },
         { "case": "console/schematic/alignment" },
         { "case": "console/schematic/edit_props" },
-        { "case": "console/table/table_lifecycle" }
+        { "case": "console/table/table_lifecycle" },
+        { "case": "console/range/range_details" },
+        { "case": "console/range/range_explorer" }
       ]
     },
     {
       "sequence_name": "channel",
       "tests": [
-        { "case": "console/channel/channel_operations" },
+        { "case": "console/channel/ontology" },
+        { "case": "console/channel/channel_lifecycle" },
         { "case": "console/channel/rename_synchronization" },
         { "case": "console/channel/alias_synchronization" },
         {

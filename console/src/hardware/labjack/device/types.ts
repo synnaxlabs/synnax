@@ -148,7 +148,10 @@ const T4_PORTS: PortsInfo = {
   [DO_PORT_TYPE]: T4_DO_PORTS,
 };
 
-const T7_AI_PORTS: AIPort[] = aiFactory({ lower: 0, upper: 13 });
+const T7_AI_PORTS: AIPort[] = [
+  ...aiFactory({ lower: 0, upper: 13 }),
+  ...aiFactory({ lower: 48, upper: 127 }), //Channels for use with LabJack MUX80
+];
 const T7_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
 const T7_DI_PORTS: DIPort[] = [
   ...diFactory({ lower: 0, upper: 7 }, { prefix: "FIO", offset: 0 }),
