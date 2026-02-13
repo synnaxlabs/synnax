@@ -10,7 +10,9 @@
 from uuid import UUID
 
 from freighter import Payload
+from pydantic import ConfigDict
 
+from synnax.color import Color
 from synnax.ontology import ID
 from synnax.telem import TimeRange
 
@@ -25,10 +27,12 @@ def ontology_id(key: UUID) -> ID:
 class RangePayload(Payload):
     """Network transportable payload representing a range."""
 
+    model_config = ConfigDict(validate_assignment=True)
+
     key: UUID = UUID(int=0)
     name: str = ""
     time_range: TimeRange
-    color: str = "#000000"
+    color: Color = Color()
 
 
 RangeKey = UUID | str

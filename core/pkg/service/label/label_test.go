@@ -57,7 +57,7 @@ var _ = Describe("Label", Ordered, func() {
 		It("Should create a new label", func() {
 			l := &label.Label{
 				Name:  "Label",
-				Color: color.Color("#000000"),
+				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(l.Key).ToNot(Equal(uuid.Nil))
@@ -66,11 +66,11 @@ var _ = Describe("Label", Ordered, func() {
 			ls := []label.Label{
 				{
 					Name:  "Label1",
-					Color: color.Color("#000000"),
+					Color: color.MustFromHex("#000000"),
 				},
 				{
 					Name:  "label",
-					Color: color.Color("#000000"),
+					Color: color.MustFromHex("#000000"),
 				},
 			}
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
@@ -83,7 +83,7 @@ var _ = Describe("Label", Ordered, func() {
 		It("Should delete a label", func() {
 			l := &label.Label{
 				Name:  "Label",
-				Color: color.Color("#000000"),
+				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(w.Delete(ctx, l.Key)).To(Succeed())
@@ -93,11 +93,11 @@ var _ = Describe("Label", Ordered, func() {
 			ls := []label.Label{
 				{
 					Name:  "Label1",
-					Color: color.Color("#000000"),
+					Color: color.MustFromHex("#000000"),
 				},
 				{
 					Name:  "label",
-					Color: color.Color("#000000"),
+					Color: color.MustFromHex("#000000"),
 				},
 			}
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
@@ -111,12 +111,12 @@ var _ = Describe("Label", Ordered, func() {
 		It("Should get the labels for an ontology resource", func() {
 			l := &label.Label{
 				Name:  "Label",
-				Color: color.Color("#000000"),
+				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			labeled := &label.Label{
 				Name:  "Labeled",
-				Color: color.Color("#000000"),
+				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, labeled)).To(Succeed())
 			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
@@ -129,12 +129,12 @@ var _ = Describe("Label", Ordered, func() {
 		It("Should remove a label", func() {
 			l := &label.Label{
 				Name:  "Label",
-				Color: color.Color("#000000"),
+				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			labeled := &label.Label{
 				Name:  "Labeled",
-				Color: color.Color("#000000"),
+				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, labeled)).To(Succeed())
 			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
@@ -150,12 +150,12 @@ var _ = Describe("Label", Ordered, func() {
 		It("Should remove all labels on an object", func() {
 			l := &label.Label{
 				Name:  "Label",
-				Color: color.Color("#000000"),
+				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			labeled := &label.Label{
 				Name:  "Labeled",
-				Color: color.Color("#000000"),
+				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, labeled)).To(Succeed())
 			Expect(w.Label(ctx, label.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())

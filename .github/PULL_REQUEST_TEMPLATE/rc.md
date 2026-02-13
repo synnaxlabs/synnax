@@ -150,15 +150,10 @@ I can successfully:
 I can successfully:
 
 - [ ] Drag and drop a mosaic leaf into a new window.
+- [ ] Open in a new window with `Cmd + O`.
 - **Context Menu**
-  - [ ] Focus on a leaf.
-  - [ ] Rename a mosaic leaf.
   - [ ] Open a leaf in a new window.
   - [ ] Move a mosaic leaf to the main window from a secondary window.
-- [ ] Focus using `Cmd + L`.
-- [ ] Open in a new window with `Cmd + O`.
-- **Search and Command Palette**
-  - [ ] Toggle the color theme.
 
 ### Line Plots
 
@@ -166,10 +161,7 @@ I can successfully:
 
 - **Visualization**
   - [ ] Use the measuring tool on the line plot.
-- **Search and Command Palette**
-  - [ ] Open the "Import Line Plot" dialog.
 - [ ] Open a line plot from its link.
-- [ ] Import a line plot.
 
 ### Logs
 
@@ -180,18 +172,7 @@ I can successfully:
   - [ ] Pause and resume scrolling using the streaming icon in the top right.
   - [ ] Switch the logging channel and observe data switching.
   - [ ] Preserve log data from a virtual channel in the buffer.
-- **Search and Command Palette**
-  - [ ] Open an existing log.
 - [ ] Open a log from its link.
-
-### Ontology
-
-I can successfully:
-
-- [ ] Create a new group and move resources to it.
-- [ ] Move resources between groups.
-- [ ] Rename a group.
-- [ ] Delete a group.
 
 ### Permissions & Roles
 
@@ -214,56 +195,7 @@ I can successfully:
 
 I can successfully:
 
-- **Range Details**
-  - **Child Ranges**
-    - **Context Menu**
-      - [ ] Rename a child range
-      - [ ] Favorite multiple child ranges
-      - [ ] Unfavorite multiple child ranges
-      - [ ] Copy the link to a range
-      - [ ] Delete a child range
-      - [ ] Delete multiple child ranges
-  - **Metadata**
-    - [ ] Set metadata.
-    - [ ] Update the value of metadata.
-    - [ ] Copy the value of metadata to your clipboard
-    - [ ] Open a link from metadata.
-    - [ ] Delete metadata.
-  - **Snapshots**
-    - [ ] Navigate to a snapshot by clicking on it
-    - [ ] Remove a snapshot
-- **Range Toolbar**
-  - [ ] Open the "Create Range" modal from the toolbar.
-  - [ ] Open the Range Explorer from the toolbar
-  - **Context Menu**
-    - [ ] Remove an active range.
-    - [ ] Add to the active line plot.
-    - [ ] Add to a new line plot.
-    - [ ] Save a local range to Synnax.
-- **Range Explorer**
-  - [ ] Search ranges
-  - [ ] Filter ranges by labels
-  - **Context Menu**
-    - [ ] Create a child range
-    - [ ] Favorite multiple ranges
-    - [ ] Unfavorite a range
-    - [ ] Unfavorite multiple ranges
-    - [ ] Copy the link to a range
-    - [ ] Delete multiple ranges
 - [ ] Open a range from its link.
-- [ ] Rename a range and ensure synchronization across:
-  - Range Explorer
-  - Range Overview
-  - Range Overview Tab Name
-  - Ranges Toolbar
-- [ ] Change the time of a range and ensure synchronization across:
-  - Range Details
-  - Ranges Toolbar
-  - Range explorer
-- [ ] Add or remove child ranges and ensure synchronization across:
-  - Range Details (both parent and child view)
-- [ ] Snapshot a schematic or task and ensure synchronization across:
-  - Range Details
 - [ ] Ensure channel aliases synchronize correctly across:
   - Line Plot
   - Line Plot Toolbar
