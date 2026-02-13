@@ -26,7 +26,83 @@ ConnectionConfig make_config(const x::json::json &j, const bool verify_ssl = tru
 }
 }
 
-TEST(ConnectionConfigTest, FromJSONWorks) {
+TEST(AuthConfigTest, ParsesAPIKey) {
+    x::json::json j = {
+        {"type", "api_key"},
+        {"header", "X-API-Key"},
+        {"key", "secret123"}
+    };
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(auth.type, "api_key");
+    EXPECT_EQ(auth.header, "X-API-Key");
+    EXPECT_EQ(auth.key, "secret123");
+}
+
+TEST(AuthConfigTest, ParsesBearerToken) {
+    x::json::json j = {{"type", "bearer"}, {"token", "my-jwt"}};
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(auth.type, "bearer");
+    EXPECT_EQ(auth.token, "my-jwt");
+}
+
+TEST(AuthConfigTest, ParsesBasic) {
+    x::json::json j = {{"type", "basic"}, {"username", "user"}, {"password", "pass"}};
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(auth.type, "basic");
+    EXPECT_EQ(auth.username, "user");
+    EXPECT_EQ(auth.password, "pass");
+}
+
+TEST(AuthConfigTest, BearerMissingTokenErrors) {
+    x::json::json j = {{"type", "bearer"}};
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(AuthConfigTest, BasicMissingFieldsErrors) {
+    x::json::json j = {{"type", "basic"}, {"username", "user"}};
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(AuthConfigTest, APIKeyMissingFieldsErrors) {
+    x::json::json j = {{"type", "api_key"}, {"header", "X-Key"}};
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(AuthConfigTest, UnknownTypeError) {
+    x::json::json j = {{"type", "oauth2"}};
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(AuthConfigTest, NoneTypeNoErrors) {
+    x::json::json j = {{"type", "none"}};
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_TRUE(parser.ok());
+}
+
+TEST(AuthConfigTest, DefaultsToNone) {
+    x::json::json j = x::json::json::object();
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(auth.type, "none");
+}
+
+TEST(ConnectionConfigTest, FromJSON) {
     x::json::json j = {
         {"base_url", "http://192.168.1.100:8080"},
         {"timeout_ms", 5000},
@@ -103,85 +179,9 @@ TEST(ConnectionConfigTest, EmptyJSONErrors) {
     EXPECT_FALSE(parser.ok());
 }
 
-TEST(AuthConfigTest, ParsesApiKey) {
-    x::json::json j = {
-        {"type", "api_key"},
-        {"header", "X-API-Key"},
-        {"key", "secret123"}
-    };
-    x::json::Parser parser(j);
-    AuthConfig auth(parser);
-    EXPECT_TRUE(parser.ok());
-    EXPECT_EQ(auth.type, "api_key");
-    EXPECT_EQ(auth.header, "X-API-Key");
-    EXPECT_EQ(auth.key, "secret123");
-}
 
-TEST(AuthConfigTest, ParsesBearer) {
-    x::json::json j = {{"type", "bearer"}, {"token", "my-jwt"}};
-    x::json::Parser parser(j);
-    AuthConfig auth(parser);
-    EXPECT_TRUE(parser.ok());
-    EXPECT_EQ(auth.type, "bearer");
-    EXPECT_EQ(auth.token, "my-jwt");
-}
 
-TEST(AuthConfigTest, ParsesBasic) {
-    x::json::json j = {{"type", "basic"}, {"username", "user"}, {"password", "pass"}};
-    x::json::Parser parser(j);
-    AuthConfig auth(parser);
-    EXPECT_TRUE(parser.ok());
-    EXPECT_EQ(auth.type, "basic");
-    EXPECT_EQ(auth.username, "user");
-    EXPECT_EQ(auth.password, "pass");
-}
-
-TEST(AuthConfigTest, BearerMissingTokenErrors) {
-    x::json::json j = {{"type", "bearer"}};
-    x::json::Parser parser(j);
-    AuthConfig auth(parser);
-    EXPECT_FALSE(parser.ok());
-}
-
-TEST(AuthConfigTest, BasicMissingFieldsErrors) {
-    x::json::json j = {{"type", "basic"}, {"username", "user"}};
-    x::json::Parser parser(j);
-    AuthConfig auth(parser);
-    EXPECT_FALSE(parser.ok());
-}
-
-TEST(AuthConfigTest, ApiKeyMissingFieldsErrors) {
-    x::json::json j = {{"type", "api_key"}, {"header", "X-Key"}};
-    x::json::Parser parser(j);
-    AuthConfig auth(parser);
-    EXPECT_FALSE(parser.ok());
-}
-
-TEST(AuthConfigTest, UnknownTypeErrors) {
-    x::json::json j = {{"type", "oauth2"}};
-    x::json::Parser parser(j);
-    AuthConfig auth(parser);
-    EXPECT_FALSE(parser.ok());
-}
-
-TEST(AuthConfigTest, NoneTypeNoErrors) {
-    x::json::json j = {{"type", "none"}};
-    x::json::Parser parser(j);
-    AuthConfig auth(parser);
-    EXPECT_TRUE(parser.ok());
-}
-
-TEST(AuthConfigTest, DefaultsToNone) {
-    x::json::json j = x::json::json::object();
-    x::json::Parser parser(j);
-    AuthConfig auth(parser);
-    EXPECT_TRUE(parser.ok());
-    EXPECT_EQ(auth.type, "none");
-}
-
-// ─── Client GET ──────────────────────────────────────────────────────────── //
-
-TEST(ClientTest, GetRequest) {
+TEST(ClientTest, GETRequest) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
@@ -204,9 +204,7 @@ TEST(ClientTest, GetRequest) {
     server.stop();
 }
 
-// ─── Client POST ─────────────────────────────────────────────────────────── //
-
-TEST(ClientTest, PostWithBody) {
+TEST(ClientTest, POSTRequestWithBody) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::POST,
@@ -230,8 +228,6 @@ TEST(ClientTest, PostWithBody) {
 
     server.stop();
 }
-
-// ─── Client Custom Headers ───────────────────────────────────────────────── //
 
 TEST(ClientTest, CustomHeaders) {
     mock::ServerConfig server_cfg;
@@ -310,9 +306,7 @@ TEST(ClientTest, BearerAuth) {
     server.stop();
 }
 
-// ─── Client Auth: API Key ────────────────────────────────────────────────── //
-
-TEST(ClientTest, ApiKeyAuth) {
+TEST(ClientTest, APIKeyAuth) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
@@ -343,7 +337,6 @@ TEST(ClientTest, ApiKeyAuth) {
     server.stop();
 }
 
-// ─── Client Query Params ─────────────────────────────────────────────────── //
 
 TEST(ClientTest, QueryParams) {
     mock::ServerConfig server_cfg;
@@ -408,8 +401,6 @@ TEST(ClientTest, QueryParamsPercentEncoded) {
     server.stop();
 }
 
-// ─── Client Timeout ──────────────────────────────────────────────────────── //
-
 TEST(ClientTest, TimeoutError) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
@@ -425,28 +416,21 @@ TEST(ClientTest, TimeoutError) {
 
     auto config = make_config({
         {"base_url", server.base_url()},
-        {"timeout_ms", 500},
+        {"timeout_ms", 1},
     });
     Client client(config, {{.method = Method::GET, .path = "/api/slow"}});
 
-    auto [responses, err] = client.request({""});
-    EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches(errors::UNREACHABLE_ERROR));
+    ASSERT_OCCURRED_AS_P(client.request({""}), errors::UNREACHABLE_ERROR);
 
     server.stop();
 }
-
-// ─── Client Unreachable ──────────────────────────────────────────────────── //
 
 TEST(ClientTest, UnreachableError) {
     auto config = make_config({{"base_url", "http://192.0.2.1:1"}});
     Client client(config, {{.method = Method::GET, .path = "/"}});
 
-    auto [responses, err] = client.request({""});
-    EXPECT_TRUE(err);
+    ASSERT_OCCURRED_AS_P(client.request({""}), errors::UNREACHABLE_ERROR);
 }
-
-// ─── Client 4xx/5xx returns response, not error ──────────────────────────── //
 
 TEST(ClientTest, ErrorStatusCodesReturnResponse) {
     mock::ServerConfig server_cfg;
@@ -486,8 +470,6 @@ TEST(ClientTest, ErrorStatusCodesReturnResponse) {
     server.stop();
 }
 
-// ─── Parallel Requests ───────────────────────────────────────────────────── //
-
 TEST(ClientTest, ParallelRequests) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {
@@ -525,7 +507,7 @@ TEST(ClientTest, ParallelRequests) {
     server.stop();
 }
 
-TEST(ClientTest, ParallelMixedStatusCodes) {
+TEST(ClientTest, ParallelRequestsWithMixedStatusCodes) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {
         {.method = Method::GET,
@@ -594,8 +576,8 @@ TEST(ClientTest, ParallelOneTimesOut) {
         }
     );
 
-    auto [responses, err] = client.request({"", ""});
-    EXPECT_TRUE(err);
+    const auto responses =
+        ASSERT_OCCURRED_AS_P(client.request({"", ""}), errors::UNREACHABLE_ERROR);
     ASSERT_EQ(responses.size(), 2);
     EXPECT_EQ(responses[0].status_code, 200);
     EXPECT_EQ(responses[0].body, "fast");
@@ -632,8 +614,8 @@ TEST(ClientTest, ParallelFirstTimesOutSecondSucceeds) {
         }
     );
 
-    auto [responses, err] = client.request({"", ""});
-    EXPECT_TRUE(err);
+    const auto responses =
+        ASSERT_OCCURRED_AS_P(client.request({"", ""}), errors::UNREACHABLE_ERROR);
     ASSERT_EQ(responses.size(), 2);
     EXPECT_EQ(responses[0].status_code, 0);
     EXPECT_EQ(responses[1].status_code, 200);
@@ -680,8 +662,6 @@ TEST(ClientTest, ParallelPerResponseTimeRanges) {
 
     server.stop();
 }
-
-// ─── Repeated Requests ───────────────────────────────────────────────────── //
 
 TEST(ClientTest, RepeatedGETRequests) {
     mock::ServerConfig server_cfg;
@@ -741,8 +721,6 @@ TEST(ClientTest, RepeatedPOSTRequests) {
     server.stop();
 }
 
-// ─── Mixed Methods ──────────────────────────────────────────────────────── //
-
 TEST(ClientTest, MixedGETAndPOST) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {
@@ -782,8 +760,6 @@ TEST(ClientTest, MixedGETAndPOST) {
     server.stop();
 }
 
-// ─── POST With Empty Body ───────────────────────────────────────────────── //
-
 TEST(ClientTest, POSTWithEmptyBody) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
@@ -806,8 +782,6 @@ TEST(ClientTest, POSTWithEmptyBody) {
     server.stop();
 }
 
-// ─── DELETE Request ─────────────────────────────────────────────────────── //
-
 TEST(ClientTest, DeleteRequest) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
@@ -827,8 +801,6 @@ TEST(ClientTest, DeleteRequest) {
 
     server.stop();
 }
-
-// ─── PUT Request ────────────────────────────────────────────────────────── //
 
 TEST(ClientTest, PutRequest) {
     mock::ServerConfig server_cfg;
@@ -854,8 +826,6 @@ TEST(ClientTest, PutRequest) {
 
     server.stop();
 }
-
-// ─── URL Building Edge Cases ────────────────────────────────────────────── //
 
 TEST(ClientTest, PathWithoutLeadingSlash) {
     mock::ServerConfig server_cfg;
@@ -924,9 +894,7 @@ TEST(ClientTest, EmptyPath) {
     server.stop();
 }
 
-// ─── HTTPS ──────────────────────────────────────────────────────────────── //
-
-TEST(ClientTest, HTTPSGetRequest) {
+TEST(ClientTest, HTTPSGETRequest) {
     mock::ServerConfig server_cfg;
     server_cfg.secure = true;
     server_cfg.cert_path = "driver/http/mock/test_cert.pem";
@@ -951,7 +919,7 @@ TEST(ClientTest, HTTPSGetRequest) {
     server.stop();
 }
 
-TEST(ClientTest, HTTPSPostWithBody) {
+TEST(ClientTest, HTTPSPOSTRequestWithBody) {
     mock::ServerConfig server_cfg;
     server_cfg.secure = true;
     server_cfg.cert_path = "driver/http/mock/test_cert.pem";

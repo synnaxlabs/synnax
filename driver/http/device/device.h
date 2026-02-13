@@ -68,7 +68,7 @@ struct AuthConfig {
 /// @brief connection configuration for an HTTP device.
 struct ConnectionConfig {
     std::string base_url; ///< Base URL (e.g., "http://192.168.1.100:8080").
-    uint32_t timeout_ms = 1000; ///< Request timeout in milliseconds.
+    uint32_t timeout_ms; ///< Request timeout in milliseconds.
     AuthConfig auth; ///< Authentication configuration.
     std::map<std::string, std::string> headers; ///< Custom headers.
     bool verify_ssl = true; ///< Whether to verify SSL certificates.
@@ -119,10 +119,9 @@ struct Response {
     x::telem::TimeRange time_range; ///< Time range spanning the request.
 };
 
-/// @brief RAII wrapper around libcurl for making HTTP requests.
-/// Curl handles are pre-built at construction time from the connection
-/// and request configurations so the hot-path request() only needs to
-/// set the body, perform I/O, and read results.
+/// @brief RAII wrapper around libcurl for making HTTP requests. Curl handles are
+/// pre-built at construction time from the connection and request configurations so the
+/// hot-path request() only needs to set the body, perform I/O, and read results.
 class Client {
     struct Handle;
     ConnectionConfig config_;
@@ -141,8 +140,8 @@ public:
     ~Client();
 
     /// @brief executes pre-configured requests with the given bodies.
-    /// @param bodies one body per pre-configured request. For GET or DELETE
-    /// requests, pass an empty string.
+    /// @param bodies one body per pre-configured request. For GET or DELETE requests,
+    /// pass an empty string.
     /// @returns the responses and any connection-level error.
     std::pair<std::vector<Response>, x::errors::Error>
     request(const std::vector<std::string> &bodies);
