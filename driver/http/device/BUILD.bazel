@@ -7,7 +7,8 @@ cc_library(
     hdrs = ["device.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//driver/errors",
+        "//driver/http/errors",
+        "//driver/http/types",
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/telem",
@@ -19,9 +20,14 @@ cc_library(
 cc_test(
     name = "device_test",
     srcs = ["device_test.cpp"],
+    data = [
+        "//driver/http/mock:test_cert.pem",
+        "//driver/http/mock:test_key.pem",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":device",
+        "//driver/http/errors",
         "//driver/http/mock",
         "//x/cpp/test",
         "@googletest//:gtest_main",

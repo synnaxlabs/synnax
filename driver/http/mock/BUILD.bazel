@@ -15,7 +15,7 @@ cc_library(
     defines = ["CPPHTTPLIB_OPENSSL_SUPPORT"],
     visibility = ["//visibility:public"],
     deps = [
-        "//driver/http/device",
+        "//driver/http/types",
         "//x/cpp/errors",
         "@boringssl//:crypto",
         "@boringssl//:ssl",

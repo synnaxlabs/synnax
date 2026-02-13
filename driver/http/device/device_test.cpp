@@ -16,12 +16,21 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/http/device/device.h"
+#include "driver/http/errors/errors.h"
 #include "driver/http/mock/server.h"
 
 namespace driver::http::device {
-// ─── ConnectionConfig ────────────────────────────────────────────────────── //
+namespace {
+ConnectionConfig make_config(
+    const x::json::json &j,
+    const bool verify_ssl = true
+) {
+    x::json::Parser p(j);
+    return ConnectionConfig(p, verify_ssl);
+}
+}
 
-TEST(ConnectionConfigTest, FromJsonWorks) {
+TEST(ConnectionConfigTest, FromJSONWorks) {
     x::json::json j = {
         {"base_url", "http://192.168.1.100:8080"},
         {"timeout_ms", 5000},
@@ -42,19 +51,18 @@ TEST(ConnectionConfigTest, DefaultsApplied) {
     x::json::Parser parser(j);
     ConnectionConfig config(parser);
     EXPECT_EQ(config.base_url, "http://localhost");
-    EXPECT_EQ(config.timeout_ms, 30000);
+    EXPECT_EQ(config.timeout_ms, 1000);
     EXPECT_EQ(config.auth.type, "none");
     EXPECT_TRUE(config.headers.empty());
 }
 
-TEST(ConnectionConfigTest, ToJsonRoundtrip) {
-    ConnectionConfig config;
-    config.base_url = "http://10.0.0.1:9090";
-    config.timeout_ms = 10000;
-    config.auth.type = "basic";
-    config.auth.username = "user";
-    config.auth.password = "pass";
-    config.headers["Accept"] = "application/json";
+TEST(ConnectionConfigTest, ToJSONRoundtrip) {
+    auto config = make_config({
+        {"base_url", "http://10.0.0.1:9090"},
+        {"timeout_ms", 10000},
+        {"auth", {{"type", "basic"}, {"username", "user"}, {"password", "pass"}}},
+        {"headers", {{"Accept", "application/json"}}},
+    });
 
     auto j = config.to_json();
     x::json::Parser parser(j);
@@ -65,9 +73,41 @@ TEST(ConnectionConfigTest, ToJsonRoundtrip) {
     EXPECT_EQ(parsed.auth.type, config.auth.type);
     EXPECT_EQ(parsed.auth.username, config.auth.username);
     EXPECT_EQ(parsed.auth.password, config.auth.password);
+    EXPECT_EQ(parsed.headers, config.headers);
 }
 
-TEST(AuthConfigTest, ParsesAllTypes) {
+TEST(ConnectionConfigTest, MissingBaseURLErrors) {
+    x::json::json j = {{"timeout_ms", 5000}};
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(ConnectionConfigTest, InvalidAuthErrors) {
+    x::json::json j = {
+        {"base_url", "http://localhost"},
+        {"auth", {{"type", "bearer"}}}
+    };
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(ConnectionConfigTest, ZeroTimeoutErrors) {
+    x::json::json j = {{"base_url", "http://localhost"}, {"timeout_ms", 0}};
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(ConnectionConfigTest, EmptyJSONErrors) {
+    x::json::json j = x::json::json::object();
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(AuthConfigTest, ParsesApiKey) {
     x::json::json j = {
         {"type", "api_key"},
         {"header", "X-API-Key"},
@@ -75,9 +115,72 @@ TEST(AuthConfigTest, ParsesAllTypes) {
     };
     x::json::Parser parser(j);
     AuthConfig auth(parser);
+    EXPECT_TRUE(parser.ok());
     EXPECT_EQ(auth.type, "api_key");
     EXPECT_EQ(auth.header, "X-API-Key");
     EXPECT_EQ(auth.key, "secret123");
+}
+
+TEST(AuthConfigTest, ParsesBearer) {
+    x::json::json j = {{"type", "bearer"}, {"token", "my-jwt"}};
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(auth.type, "bearer");
+    EXPECT_EQ(auth.token, "my-jwt");
+}
+
+TEST(AuthConfigTest, ParsesBasic) {
+    x::json::json j = {{"type", "basic"}, {"username", "user"}, {"password", "pass"}};
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(auth.type, "basic");
+    EXPECT_EQ(auth.username, "user");
+    EXPECT_EQ(auth.password, "pass");
+}
+
+TEST(AuthConfigTest, BearerMissingTokenErrors) {
+    x::json::json j = {{"type", "bearer"}};
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(AuthConfigTest, BasicMissingFieldsErrors) {
+    x::json::json j = {{"type", "basic"}, {"username", "user"}};
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(AuthConfigTest, ApiKeyMissingFieldsErrors) {
+    x::json::json j = {{"type", "api_key"}, {"header", "X-Key"}};
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(AuthConfigTest, UnknownTypeErrors) {
+    x::json::json j = {{"type", "oauth2"}};
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(AuthConfigTest, NoneTypeNoErrors) {
+    x::json::json j = {{"type", "none"}};
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_TRUE(parser.ok());
+}
+
+TEST(AuthConfigTest, DefaultsToNone) {
+    x::json::json j = x::json::json::object();
+    x::json::Parser parser(j);
+    AuthConfig auth(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(auth.type, "none");
 }
 
 // ─── Client GET ──────────────────────────────────────────────────────────── //
@@ -85,28 +188,23 @@ TEST(AuthConfigTest, ParsesAllTypes) {
 TEST(ClientTest, GetRequest) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
-        .method = "GET",
+        .method = Method::GET,
         .path = "/api/data",
         .status_code = 200,
         .response_body = R"({"value": 42})",
     }};
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    ConnectionConfig config;
-    config.base_url = server.base_url();
+    auto config = make_config({{"base_url", server.base_url()}});
     Client client(config);
 
-    Request req;
-    req.method = "GET";
-    req.path = "/api/data";
-
-    auto [resp, err] = client.request(req);
+    auto [responses, err] = client.request({{.method = Method::GET, .path = "/api/data"}});
     ASSERT_NIL(err);
-    EXPECT_EQ(resp.status_code, 200);
-    EXPECT_EQ(resp.body, R"({"value": 42})");
-    EXPECT_GT(resp.request_end, resp.request_start);
+    ASSERT_EQ(responses.size(), 1);
+    EXPECT_EQ(responses[0].status_code, 200);
+    EXPECT_EQ(responses[0].body, R"({"value": 42})");
+    EXPECT_GT(responses[0].time_range.end, responses[0].time_range.start);
 
     server.stop();
 }
@@ -116,27 +214,25 @@ TEST(ClientTest, GetRequest) {
 TEST(ClientTest, PostWithBody) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
-        .method = "POST",
+        .method = Method::POST,
         .path = "/api/submit",
         .status_code = 201,
         .response_body = R"({"id": 1})",
     }};
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    ConnectionConfig config;
-    config.base_url = server.base_url();
+    auto config = make_config({{"base_url", server.base_url()}});
     Client client(config);
 
-    Request req;
-    req.method = "POST";
-    req.path = "/api/submit";
-    req.body = R"({"name": "test"})";
-
-    auto [resp, err] = client.request(req);
+    auto [responses, err] = client.request({{
+        .method = Method::POST,
+        .path = "/api/submit",
+        .body = R"({"name": "test"})",
+    }});
     ASSERT_NIL(err);
-    EXPECT_EQ(resp.status_code, 201);
+    ASSERT_EQ(responses.size(), 1);
+    EXPECT_EQ(responses[0].status_code, 201);
 
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
@@ -150,7 +246,7 @@ TEST(ClientTest, PostWithBody) {
 TEST(ClientTest, CustomHeaders) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
-        .method = "GET",
+        .method = Method::GET,
         .path = "/api/check",
         .status_code = 200,
         .response_body = "ok",
@@ -158,21 +254,21 @@ TEST(ClientTest, CustomHeaders) {
     }};
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    ConnectionConfig config;
-    config.base_url = server.base_url();
-    config.headers["X-Global"] = "global-val";
+    auto config = make_config({
+        {"base_url", server.base_url()},
+        {"headers", {{"X-Global", "global-val"}}},
+    });
     Client client(config);
 
-    Request req;
-    req.method = "GET";
-    req.path = "/api/check";
-    req.headers["X-Request"] = "req-val";
-
-    auto [resp, err] = client.request(req);
+    auto [responses, err] = client.request({{
+        .method = Method::GET,
+        .path = "/api/check",
+        .headers = {{"X-Request", "req-val"}},
+    }});
     ASSERT_NIL(err);
-    EXPECT_EQ(resp.status_code, 200);
+    ASSERT_EQ(responses.size(), 1);
+    EXPECT_EQ(responses[0].status_code, 200);
 
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
@@ -194,7 +290,7 @@ TEST(ClientTest, CustomHeaders) {
 TEST(ClientTest, BearerAuth) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
-        .method = "GET",
+        .method = Method::GET,
         .path = "/api/secure",
         .status_code = 200,
         .response_body = "ok",
@@ -202,19 +298,14 @@ TEST(ClientTest, BearerAuth) {
     }};
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    ConnectionConfig config;
-    config.base_url = server.base_url();
-    config.auth.type = "bearer";
-    config.auth.token = "my-token";
+    auto config = make_config({
+        {"base_url", server.base_url()},
+        {"auth", {{"type", "bearer"}, {"token", "my-token"}}},
+    });
     Client client(config);
 
-    Request req;
-    req.method = "GET";
-    req.path = "/api/secure";
-
-    auto [resp, err] = client.request(req);
+    auto [responses, err] = client.request({{.method = Method::GET, .path = "/api/secure"}});
     ASSERT_NIL(err);
 
     auto reqs = server.received_requests();
@@ -233,7 +324,7 @@ TEST(ClientTest, BearerAuth) {
 TEST(ClientTest, ApiKeyAuth) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
-        .method = "GET",
+        .method = Method::GET,
         .path = "/api/keyed",
         .status_code = 200,
         .response_body = "ok",
@@ -241,20 +332,14 @@ TEST(ClientTest, ApiKeyAuth) {
     }};
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    ConnectionConfig config;
-    config.base_url = server.base_url();
-    config.auth.type = "api_key";
-    config.auth.header = "X-API-Key";
-    config.auth.key = "secret123";
+    auto config = make_config({
+        {"base_url", server.base_url()},
+        {"auth", {{"type", "api_key"}, {"header", "X-API-Key"}, {"key", "secret123"}}},
+    });
     Client client(config);
 
-    Request req;
-    req.method = "GET";
-    req.path = "/api/keyed";
-
-    auto [resp, err] = client.request(req);
+    auto [responses, err] = client.request({{.method = Method::GET, .path = "/api/keyed"}});
     ASSERT_NIL(err);
 
     auto reqs = server.received_requests();
@@ -273,7 +358,7 @@ TEST(ClientTest, ApiKeyAuth) {
 TEST(ClientTest, QueryParams) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
-        .method = "GET",
+        .method = Method::GET,
         .path = "/api/search",
         .status_code = 200,
         .response_body = "found",
@@ -281,21 +366,18 @@ TEST(ClientTest, QueryParams) {
     }};
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    ConnectionConfig config;
-    config.base_url = server.base_url();
+    auto config = make_config({{"base_url", server.base_url()}});
     Client client(config);
 
-    Request req;
-    req.method = "GET";
-    req.path = "/api/search";
-    req.query_params["q"] = "hello";
-    req.query_params["limit"] = "10";
-
-    auto [resp, err] = client.request(req);
+    auto [responses, err] = client.request({{
+        .method = Method::GET,
+        .path = "/api/search",
+        .query_params = {{"q", "hello"}, {"limit", "10"}},
+    }});
     ASSERT_NIL(err);
-    EXPECT_EQ(resp.status_code, 200);
+    ASSERT_EQ(responses.size(), 1);
+    EXPECT_EQ(responses[0].status_code, 200);
 
     server.stop();
 }
@@ -305,7 +387,7 @@ TEST(ClientTest, QueryParams) {
 TEST(ClientTest, TimeoutError) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
-        .method = "GET",
+        .method = Method::GET,
         .path = "/api/slow",
         .status_code = 200,
         .response_body = "delayed",
@@ -314,20 +396,16 @@ TEST(ClientTest, TimeoutError) {
     }};
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    ConnectionConfig config;
-    config.base_url = server.base_url();
-    config.timeout_ms = 500;
+    auto config = make_config({
+        {"base_url", server.base_url()},
+        {"timeout_ms", 500},
+    });
     Client client(config);
 
-    Request req;
-    req.method = "GET";
-    req.path = "/api/slow";
-
-    auto [resp, err] = client.request(req);
+    auto [responses, err] = client.request({{.method = Method::GET, .path = "/api/slow"}});
     EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches(TIMEOUT_ERR));
+    EXPECT_TRUE(err.matches(errors::UNREACHABLE_ERROR));
 
     server.stop();
 }
@@ -335,16 +413,10 @@ TEST(ClientTest, TimeoutError) {
 // ─── Client Unreachable ──────────────────────────────────────────────────── //
 
 TEST(ClientTest, UnreachableError) {
-    ConnectionConfig config;
-    config.base_url = "http://192.0.2.1:1";
-    config.timeout_ms = 1000;
+    auto config = make_config({{"base_url", "http://192.0.2.1:1"}});
     Client client(config);
 
-    Request req;
-    req.method = "GET";
-    req.path = "/";
-
-    auto [resp, err] = client.request(req);
+    auto [responses, err] = client.request({{.method = Method::GET, .path = "/"}});
     EXPECT_TRUE(err);
 }
 
@@ -354,13 +426,13 @@ TEST(ClientTest, ErrorStatusCodesReturnResponse) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {
         {
-            .method = "GET",
+            .method = Method::GET,
             .path = "/api/notfound",
             .status_code = 404,
             .response_body = R"({"error": "not found"})",
         },
         {
-            .method = "GET",
+            .method = Method::GET,
             .path = "/api/error",
             .status_code = 500,
             .response_body = R"({"error": "internal"})",
@@ -368,28 +440,24 @@ TEST(ClientTest, ErrorStatusCodesReturnResponse) {
     };
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    ConnectionConfig config;
-    config.base_url = server.base_url();
+    auto config = make_config({{"base_url", server.base_url()}});
     Client client(config);
 
     {
-        Request req;
-        req.method = "GET";
-        req.path = "/api/notfound";
-        auto [resp, err] = client.request(req);
+        auto [responses, err] =
+            client.request({{.method = Method::GET, .path = "/api/notfound"}});
         ASSERT_NIL(err);
-        EXPECT_EQ(resp.status_code, 404);
+        ASSERT_EQ(responses.size(), 1);
+        EXPECT_EQ(responses[0].status_code, 404);
     }
 
     {
-        Request req;
-        req.method = "GET";
-        req.path = "/api/error";
-        auto [resp, err] = client.request(req);
+        auto [responses, err] =
+            client.request({{.method = Method::GET, .path = "/api/error"}});
         ASSERT_NIL(err);
-        EXPECT_EQ(resp.status_code, 500);
+        ASSERT_EQ(responses.size(), 1);
+        EXPECT_EQ(responses[0].status_code, 500);
     }
 
     server.stop();
@@ -400,28 +468,86 @@ TEST(ClientTest, ErrorStatusCodesReturnResponse) {
 TEST(ClientTest, ParallelRequests) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {
-        {.method = "GET", .path = "/api/a", .status_code = 200, .response_body = "A"},
-        {.method = "GET", .path = "/api/b", .status_code = 200, .response_body = "B"},
-        {.method = "GET", .path = "/api/c", .status_code = 200, .response_body = "C"},
+        {.method = Method::GET, .path = "/api/a", .status_code = 200, .response_body = "A"},
+        {.method = Method::GET, .path = "/api/b", .status_code = 200, .response_body = "B"},
+        {.method = Method::GET, .path = "/api/c", .status_code = 200, .response_body = "C"},
     };
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    ConnectionConfig config;
-    config.base_url = server.base_url();
+    auto config = make_config({{"base_url", server.base_url()}});
     Client client(config);
 
-    std::vector<Request> requests = {
-        {.method = "GET", .path = "/api/a"},
-        {.method = "GET", .path = "/api/b"},
-        {.method = "GET", .path = "/api/c"},
-    };
-
-    auto [responses, err] = client.request_parallel(requests);
+    auto [responses, err] = client.request({
+        {.method = Method::GET, .path = "/api/a"},
+        {.method = Method::GET, .path = "/api/b"},
+        {.method = Method::GET, .path = "/api/c"},
+    });
     ASSERT_NIL(err);
     ASSERT_EQ(responses.size(), 3);
     for (const auto &resp: responses) EXPECT_EQ(resp.status_code, 200);
+
+    server.stop();
+}
+
+// ─── HTTPS ──────────────────────────────────────────────────────────────── //
+
+TEST(ClientTest, HTTPSGetRequest) {
+    mock::ServerConfig server_cfg;
+    server_cfg.secure = true;
+    server_cfg.cert_path = "driver/http/mock/test_cert.pem";
+    server_cfg.key_path = "driver/http/mock/test_key.pem";
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/secure",
+        .status_code = 200,
+        .response_body = R"({"secure": true})",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}}, false);
+    Client client(config);
+
+    auto [responses, err] =
+        client.request({{.method = Method::GET, .path = "/api/secure"}});
+    ASSERT_NIL(err);
+    ASSERT_EQ(responses.size(), 1);
+    EXPECT_EQ(responses[0].status_code, 200);
+    EXPECT_EQ(responses[0].body, R"({"secure": true})");
+
+    server.stop();
+}
+
+TEST(ClientTest, HTTPSPostWithBody) {
+    mock::ServerConfig server_cfg;
+    server_cfg.secure = true;
+    server_cfg.cert_path = "driver/http/mock/test_cert.pem";
+    server_cfg.key_path = "driver/http/mock/test_key.pem";
+    server_cfg.routes = {{
+        .method = Method::POST,
+        .path = "/api/submit",
+        .status_code = 201,
+        .response_body = R"({"id": 1})",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}}, false);
+    Client client(config);
+
+    auto [responses, err] = client.request({{
+        .method = Method::POST,
+        .path = "/api/submit",
+        .body = R"({"name": "test"})",
+    }});
+    ASSERT_NIL(err);
+    ASSERT_EQ(responses.size(), 1);
+    EXPECT_EQ(responses[0].status_code, 201);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].body, R"({"name": "test"})");
 
     server.stop();
 }
@@ -431,7 +557,7 @@ TEST(ClientTest, ParallelRequests) {
 TEST(ManagerTest, CreatesClient) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
-        .method = "GET",
+        .method = Method::GET,
         .path = "/ping",
         .status_code = 200,
         .response_body = "pong",
@@ -439,46 +565,38 @@ TEST(ManagerTest, CreatesClient) {
     }};
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     Manager manager;
-    ConnectionConfig config;
-    config.base_url = server.base_url();
+    auto config = make_config({{"base_url", server.base_url()}});
 
     auto client = ASSERT_NIL_P(manager.acquire(config));
     EXPECT_NE(client, nullptr);
 
-    Request req;
-    req.method = "GET";
-    req.path = "/ping";
-
-    auto [resp, err] = client->request(req);
+    auto [responses, err] = client->request({{.method = Method::GET, .path = "/ping"}});
     ASSERT_NIL(err);
-    EXPECT_EQ(resp.status_code, 200);
-    EXPECT_EQ(resp.body, "pong");
+    ASSERT_EQ(responses.size(), 1);
+    EXPECT_EQ(responses[0].status_code, 200);
+    EXPECT_EQ(responses[0].body, "pong");
 
     server.stop();
 }
 
-TEST(ManagerTest, ReusesSameBaseUrl) {
+TEST(ManagerTest, ReusesSameBaseURL) {
     Manager manager;
-    ConnectionConfig config;
-    config.base_url = "http://127.0.0.1:9999";
+    auto config = make_config({{"base_url", "http://127.0.0.1:9999"}});
 
     auto c1 = ASSERT_NIL_P(manager.acquire(config));
     auto c2 = ASSERT_NIL_P(manager.acquire(config));
     EXPECT_EQ(c1.get(), c2.get());
 }
 
-TEST(ManagerTest, DifferentBaseUrlsDifferentClients) {
+TEST(ManagerTest, DifferentBaseURLsDifferentClients) {
     Manager manager;
 
-    ConnectionConfig config1;
-    config1.base_url = "http://127.0.0.1:9991";
+    auto config1 = make_config({{"base_url", "http://127.0.0.1:9991"}});
     auto c1 = ASSERT_NIL_P(manager.acquire(config1));
 
-    ConnectionConfig config2;
-    config2.base_url = "http://127.0.0.1:9992";
+    auto config2 = make_config({{"base_url", "http://127.0.0.1:9992"}});
     auto c2 = ASSERT_NIL_P(manager.acquire(config2));
 
     EXPECT_NE(c1.get(), c2.get());
@@ -486,8 +604,7 @@ TEST(ManagerTest, DifferentBaseUrlsDifferentClients) {
 
 TEST(ManagerTest, ExpiredClientRecreated) {
     Manager manager;
-    ConnectionConfig config;
-    config.base_url = "http://127.0.0.1:9993";
+    auto config = make_config({{"base_url", "http://127.0.0.1:9993"}});
 
     {
         auto c1 = ASSERT_NIL_P(manager.acquire(config));
@@ -506,9 +623,10 @@ TEST(ManagerTest, ConcurrentAcquireIsThreadSafe) {
     std::vector<std::thread> threads;
     for (int i = 0; i < 20; i++) {
         threads.emplace_back([&manager, &success_count, i]() {
-            ConnectionConfig config;
-            config.base_url =
-                "http://127.0.0.1:" + std::to_string(7000 + (i % 4));
+            auto config = make_config({
+                {"base_url",
+                 "http://127.0.0.1:" + std::to_string(7000 + (i % 4))},
+            });
             auto [client, err] = manager.acquire(config);
             if (!err && client != nullptr) success_count++;
         });

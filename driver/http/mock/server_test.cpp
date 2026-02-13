@@ -258,7 +258,7 @@ TEST(MockServerTest, ClearRequests) {
 
 // ─── Base URL ───────────────────────────────────────────────────────────── //
 
-TEST(MockServerTest, BaseUrlUsesHttpScheme) {
+TEST(MockServerTest, BaseURLUsesHTTPScheme) {
     mock::ServerConfig cfg;
     cfg.routes = {{.path = "/x", .response_body = "x"}};
     mock::Server server(cfg);
@@ -270,7 +270,7 @@ TEST(MockServerTest, BaseUrlUsesHttpScheme) {
     server.stop();
 }
 
-TEST(MockServerTest, BaseUrlUsesHttpsScheme) {
+TEST(MockServerTest, BaseURLUsesHTTPSScheme) {
     mock::ServerConfig cfg;
     cfg.secure = true;
     cfg.cert_path = "driver/http/mock/test_cert.pem";

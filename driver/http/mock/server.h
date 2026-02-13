@@ -21,7 +21,7 @@
 
 #include "x/cpp/errors/errors.h"
 
-#include "driver/http/device/device.h"
+#include "driver/http/types/types.h"
 
 namespace driver::http::mock {
 /// @brief a single route to register on the mock server.

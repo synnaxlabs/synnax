@@ -20,24 +20,9 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
-#include "driver/errors/errors.h"
+#include "driver/http/types/types.h"
 
 namespace driver::http::device {
-/// @brief HTTP client error (4xx responses or configuration issues).
-const x::errors::Error CLIENT_ERR =
-    errors::CRITICAL_HARDWARE_ERROR.sub("http.client");
-/// @brief HTTP server error (5xx responses).
-const x::errors::Error SERVER_ERR =
-    errors::TEMPORARY_HARDWARE_ERROR.sub("http.server");
-/// @brief HTTP request timeout.
-const x::errors::Error TIMEOUT_ERR =
-    errors::TEMPORARY_HARDWARE_ERROR.sub("http.timeout");
-/// @brief HTTP server unreachable.
-const x::errors::Error UNREACHABLE_ERR =
-    errors::TEMPORARY_HARDWARE_ERROR.sub("http.unreachable");
-/// @brief HTTP response parse error.
-const x::errors::Error PARSE_ERR =
-    errors::CRITICAL_HARDWARE_ERROR.sub("http.parse");
 
 /// @brief authentication configuration for HTTP connections.
 struct AuthConfig {
@@ -48,44 +33,64 @@ struct AuthConfig {
     std::string header; ///< API key header name (when type == "api_key").
     std::string key; ///< API key value (when type == "api_key").
 
-    AuthConfig() = default;
-
     explicit AuthConfig(x::json::Parser parser):
-        type(parser.field<std::string>("type", "none")),
-        token(parser.field<std::string>("token", "")),
-        username(parser.field<std::string>("username", "")),
-        password(parser.field<std::string>("password", "")),
-        header(parser.field<std::string>("header", "")),
-        key(parser.field<std::string>("key", "")) {}
+        type(parser.field<std::string>("type", "none")) {
+        if (type == "bearer") {
+            token = parser.field<std::string>("token");
+        } else if (type == "basic") {
+            username = parser.field<std::string>("username");
+            password = parser.field<std::string>("password");
+        } else if (type == "api_key") {
+            header = parser.field<std::string>("header");
+            key = parser.field<std::string>("key");
+        } else if (type != "none") {
+            parser.field_err(
+                "type",
+                "unknown auth type '" + type +
+                    "': must be 'none', 'bearer', 'basic', or 'api_key'"
+            );
+        }
+    }
 
     [[nodiscard]] x::json::json to_json() const {
-        return {
-            {"type", type},
-            {"token", token},
-            {"username", username},
-            {"password", password},
-            {"header", header},
-            {"key", key},
-        };
+        x::json::json j = {{"type", type}};
+        if (type == "bearer") {
+            j["token"] = token;
+        } else if (type == "basic") {
+            j["username"] = username;
+            j["password"] = password;
+        } else if (type == "api_key") {
+            j["header"] = header;
+            j["key"] = key;
+        }
+        return j;
     }
 };
 
 /// @brief connection configuration for an HTTP device.
 struct ConnectionConfig {
     std::string base_url; ///< Base URL (e.g., "http://192.168.1.100:8080").
-    uint32_t timeout_ms = 30000; ///< Request timeout in milliseconds.
+    uint32_t timeout_ms = 1000; ///< Request timeout in milliseconds.
     AuthConfig auth; ///< Authentication configuration.
     std::map<std::string, std::string> headers; ///< Custom headers.
+    bool verify_ssl = true; ///< Whether to verify SSL certificates.
 
-    ConnectionConfig() = default;
-
-    explicit ConnectionConfig(x::json::Parser parser):
+    /// @param parser the JSON parser to read configuration from.
+    /// @param verify_ssl whether to verify SSL certificates (false only in tests).
+    explicit ConnectionConfig(
+        x::json::Parser parser,
+        const bool verify_ssl = true
+    ):
         base_url(parser.field<std::string>("base_url")),
-        timeout_ms(parser.field<uint32_t>("timeout_ms", 30000)),
+        timeout_ms(parser.field<uint32_t>("timeout_ms", 1000)),
         auth(AuthConfig(parser.optional_child("auth"))),
         headers(parser.field<std::map<std::string, std::string>>(
             "headers", std::map<std::string, std::string>{}
-        )) {}
+        )),
+        verify_ssl(verify_ssl) {
+        if (timeout_ms == 0)
+            parser.field_err("timeout_ms", "must be greater than zero");
+    }
 
     [[nodiscard]] x::json::json to_json() const {
         x::json::json j = {
@@ -104,7 +109,7 @@ struct ConnectionConfig {
 
 /// @brief an outgoing HTTP request.
 struct Request {
-    std::string method = "GET"; ///< HTTP method.
+    Method method = Method::GET; ///< HTTP method.
     std::string path; ///< URL path (appended to base_url).
     std::string body; ///< Request body.
     std::map<std::string, std::string> query_params; ///< Query parameters.
@@ -116,8 +121,7 @@ struct Request {
 struct Response {
     int status_code = 0; ///< HTTP status code.
     std::string body; ///< Response body.
-    x::telem::TimeStamp request_start; ///< Timestamp before the request.
-    x::telem::TimeStamp request_end; ///< Timestamp after the response.
+    x::telem::TimeRange time_range; ///< Time range spanning the request.
 };
 
 /// @brief RAII wrapper around libcurl for making HTTP requests.
@@ -135,16 +139,11 @@ public:
 
     ~Client();
 
-    /// @brief executes a single HTTP request.
-    /// @param req the request to execute.
-    /// @returns the response and any connection-level error.
-    std::pair<Response, x::errors::Error> request(const Request &req);
-
-    /// @brief executes multiple HTTP requests in parallel.
+    /// @brief executes one or more HTTP requests in parallel.
     /// @param requests the requests to execute.
-    /// @returns the responses and any error.
+    /// @returns the responses and any connection-level error.
     std::pair<std::vector<Response>, x::errors::Error>
-    request_parallel(const std::vector<Request> &requests);
+    request(const std::vector<Request> &requests);
 };
 
 /// @brief manages HTTP client connections, pooling by base URL.
@@ -155,8 +154,8 @@ class Manager {
 public:
     Manager() = default;
 
-    /// @brief acquires a client for the given connection configuration. Reuses
-    /// existing clients when possible (keyed by base_url).
+    /// @brief acquires a client for the given connection configuration. Reuses existing
+    /// clients when possible (keyed by base_url).
     /// @param config the connection configuration.
     /// @returns a shared pointer to the client and any error.
     std::pair<std::shared_ptr<Client>, x::errors::Error>

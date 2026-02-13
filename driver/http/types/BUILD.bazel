@@ -1,0 +1,18 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "types",
+    hdrs = ["types.h"],
+    visibility = ["//visibility:public"],
+    deps = ["//x/cpp/json"],
+)
+
+cc_test(
+    name = "types_test",
+    srcs = ["types_test.cpp"],
+    deps = [
+        ":types",
+        "@googletest//:gtest_main",
+    ],
+)

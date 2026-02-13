@@ -16,6 +16,7 @@
 #include "glog/logging.h"
 
 #include "driver/http/device/device.h"
+#include "driver/http/errors/errors.h"
 
 namespace driver::http::device {
 namespace {
@@ -61,11 +62,10 @@ x::errors::Error parse_curl_error(CURLcode code) {
         case CURLE_COULDNT_CONNECT:
         case CURLE_COULDNT_RESOLVE_HOST:
         case CURLE_COULDNT_RESOLVE_PROXY:
-            return x::errors::Error(UNREACHABLE_ERR, curl_easy_strerror(code));
         case CURLE_OPERATION_TIMEDOUT:
-            return x::errors::Error(TIMEOUT_ERR, curl_easy_strerror(code));
+            return x::errors::Error(http::errors::UNREACHABLE_ERROR, curl_easy_strerror(code));
         default:
-            return x::errors::Error(CLIENT_ERR, curl_easy_strerror(code));
+            return x::errors::Error(http::errors::CLIENT_ERROR, curl_easy_strerror(code));
     }
 }
 
@@ -135,22 +135,33 @@ EasyHandle create_easy_handle(
         static_cast<long>(config.timeout_ms)
     );
     curl_easy_setopt(eh.handle, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(eh.handle, CURLOPT_WRITEDATA, &eh.response_body);
 
-    if (req.method == "POST") {
-        curl_easy_setopt(eh.handle, CURLOPT_POST, 1L);
-        curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDS, req.body.c_str());
-        curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDSIZE, req.body.size());
-    } else if (req.method == "PUT") {
-        curl_easy_setopt(eh.handle, CURLOPT_CUSTOMREQUEST, "PUT");
-        curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDS, req.body.c_str());
-        curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDSIZE, req.body.size());
-    } else if (req.method == "DELETE") {
-        curl_easy_setopt(eh.handle, CURLOPT_CUSTOMREQUEST, "DELETE");
-    } else if (req.method == "PATCH") {
-        curl_easy_setopt(eh.handle, CURLOPT_CUSTOMREQUEST, "PATCH");
-        curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDS, req.body.c_str());
-        curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDSIZE, req.body.size());
+    if (!config.verify_ssl) {
+        curl_easy_setopt(eh.handle, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(eh.handle, CURLOPT_SSL_VERIFYHOST, 0L);
+    }
+
+    switch (req.method) {
+        case Method::POST:
+            curl_easy_setopt(eh.handle, CURLOPT_POST, 1L);
+            curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDS, req.body.c_str());
+            curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDSIZE, req.body.size());
+            break;
+        case Method::PUT:
+            curl_easy_setopt(eh.handle, CURLOPT_CUSTOMREQUEST, "PUT");
+            curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDS, req.body.c_str());
+            curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDSIZE, req.body.size());
+            break;
+        case Method::DELETE:
+            curl_easy_setopt(eh.handle, CURLOPT_CUSTOMREQUEST, "DELETE");
+            break;
+        case Method::PATCH:
+            curl_easy_setopt(eh.handle, CURLOPT_CUSTOMREQUEST, "PATCH");
+            curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDS, req.body.c_str());
+            curl_easy_setopt(eh.handle, CURLOPT_POSTFIELDSIZE, req.body.size());
+            break;
+        case Method::GET:
+            break;
     }
 
     apply_auth(eh.handle, config.auth, &eh.headers);
@@ -185,36 +196,8 @@ Client::~Client() {
     if (multi_handle_ != nullptr) curl_multi_cleanup(multi_handle_);
 }
 
-std::pair<Response, x::errors::Error> Client::request(const Request &req) {
-    std::lock_guard lock(mu_);
-
-    auto eh = create_easy_handle(config_, req);
-    if (eh.handle == nullptr)
-        return {{}, x::errors::Error(CLIENT_ERR, "failed to create curl handle")};
-
-    const auto start = x::telem::TimeStamp::now();
-    const CURLcode res = curl_easy_perform(eh.handle);
-    const auto end = x::telem::TimeStamp::now();
-
-    if (res != CURLE_OK)
-        return {{}, parse_curl_error(res)};
-
-    long status_code = 0;
-    curl_easy_getinfo(eh.handle, CURLINFO_RESPONSE_CODE, &status_code);
-
-    return {
-        Response{
-            .status_code = static_cast<int>(status_code),
-            .body = std::move(eh.response_body),
-            .request_start = start,
-            .request_end = end,
-        },
-        x::errors::NIL
-    };
-}
-
 std::pair<std::vector<Response>, x::errors::Error>
-Client::request_parallel(const std::vector<Request> &requests) {
+Client::request(const std::vector<Request> &requests) {
     std::lock_guard lock(mu_);
 
     std::vector<EasyHandle> handles;
@@ -225,9 +208,13 @@ Client::request_parallel(const std::vector<Request> &requests) {
     for (const auto &req: requests) {
         auto eh = create_easy_handle(config_, req);
         if (eh.handle == nullptr)
-            return {{}, x::errors::Error(CLIENT_ERR, "failed to create curl handle")};
+            return {{}, x::errors::Error(http::errors::CLIENT_ERROR, "failed to create curl handle")};
         curl_multi_add_handle(multi, eh.handle);
         handles.push_back(std::move(eh));
+        curl_easy_setopt(
+            handles.back().handle, CURLOPT_WRITEDATA,
+            &handles.back().response_body
+        );
     }
 
     const auto start = x::telem::TimeStamp::now();
@@ -261,8 +248,7 @@ Client::request_parallel(const std::vector<Request> &requests) {
         responses.push_back(Response{
             .status_code = static_cast<int>(status_code),
             .body = std::move(eh.response_body),
-            .request_start = start,
-            .request_end = end,
+            .time_range = {start, end},
         });
         curl_multi_remove_handle(multi, eh.handle);
     }
