@@ -11,16 +11,6 @@ import synnax as sy
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import expect
-from synnax.channel.payload import (
-    ChannelKey,
-    ChannelName,
-    ChannelNames,
-    normalize_channel_params,
-)
-from synnax.telem import (
-    CrudeDataType,
-    DataType,
-)
 
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
@@ -76,7 +66,7 @@ class ChannelClient:
             self._get_channels_button().click(force=True, timeout=2000)
 
     def _find_channel_item(
-        self, name: ChannelName, retry_with_refresh: bool = True
+        self, name: str, retry_with_refresh: bool = True
     ) -> Locator | None:
         """Find a channel item in the list by name.
 
@@ -93,7 +83,7 @@ class ChannelClient:
             return self.tree.find_by_name(self.ITEM_PREFIX, str(name))
         return item
 
-    def _right_click_channel(self, name: ChannelName) -> Locator:
+    def _right_click_channel(self, name: str) -> Locator:
         """Find a channel and right-click it to open context menu.
 
         :param name: The channel name to right-click.
@@ -110,10 +100,10 @@ class ChannelClient:
     def create(
         self,
         *,
-        name: ChannelName,
-        data_type: CrudeDataType = DataType.UNKNOWN,
+        name: str,
+        data_type: sy.telem.CrudeDataType = sy.DataType.UNKNOWN,
         is_index: bool = False,
-        index: ChannelKey = 0,
+        index: int = 0,
         virtual: bool = False,
     ) -> bool:
         """Creates a new channel via console UI.
@@ -165,7 +155,7 @@ class ChannelClient:
     def create_with_create_more(
         self,
         channels: list[dict[str, str | int | bool]],
-    ) -> list[ChannelName]:
+    ) -> list[str]:
         """Creates multiple channels using the 'Create More' checkbox.
 
         Each channel dict should contain:
@@ -181,18 +171,18 @@ class ChannelClient:
         if not channels:
             return []
 
-        created_channels: list[ChannelName] = []
+        created_channels: list[str] = []
 
         for i, ch_config in enumerate(channels):
             name = str(ch_config["name"])
-            data_type = ch_config.get("data_type", DataType.UNKNOWN)
+            data_type = ch_config.get("data_type", sy.DataType.UNKNOWN)
             is_index = ch_config.get("is_index", False)
             index = ch_config.get("index", 0)
             virtual = ch_config.get("virtual", False)
             index_str = str(index) if index != 0 else ""
 
-            if is_index and data_type == DataType.UNKNOWN:
-                data_type = DataType.TIMESTAMP
+            if is_index and data_type == sy.DataType.UNKNOWN:
+                data_type = sy.DataType.TIMESTAMP
 
             # Open command palette for first channel
             if i == 0:
@@ -229,7 +219,7 @@ class ChannelClient:
                     )
 
                 # Set data type
-                data_type_str = str(DataType(data_type))
+                data_type_str = str(sy.DataType(data_type))
                 self.layout.click_btn("Data Type")
                 self.layout.select_from_dropdown(data_type_str, "Search Data Types")
 
@@ -276,7 +266,7 @@ class ChannelClient:
         self.hide_channels()
         return created_channels
 
-    def create_calculated(self, *, name: ChannelName, expression: str) -> str | None:
+    def create_calculated(self, *, name: str, expression: str) -> str | None:
         """Creates a calculated channel via console UI.
 
         :param name: The name for the calculated channel.
@@ -330,7 +320,7 @@ class ChannelClient:
         finally:
             self.hide_channels()
 
-    def edit_calculated(self, name: ChannelName, new_expression: str) -> None:
+    def edit_calculated(self, name: str, new_expression: str) -> None:
         """Edit a calculated channel's expression via context menu.
 
         :param name: The name of the calculated channel to edit.
@@ -353,7 +343,7 @@ class ChannelClient:
 
         self.hide_channels()
 
-    def set_alias(self, *, name: ChannelName, alias: str) -> None:
+    def set_alias(self, *, name: str, alias: str) -> None:
         """Set an alias for a channel under the active range via context menu.
 
         Note: Requires an active range to be set before calling this method.
@@ -372,7 +362,7 @@ class ChannelClient:
 
         self.hide_channels()
 
-    def clear_alias(self, name: ChannelName) -> None:
+    def clear_alias(self, name: str) -> None:
         """Clear an alias for a channel under the active range via context menu.
 
         Note: Requires an active range to be set before calling this method.
@@ -404,7 +394,7 @@ class ChannelClient:
     def group(
         self,
         *,
-        names: ChannelNames,
+        names: str | list[str] | tuple[str],
         group_name: str,
         parent_group: str | None = None,
     ) -> None:
@@ -512,7 +502,7 @@ class ChannelClient:
         self.hide_channels()
         return result
 
-    def copy_link(self, name: ChannelName) -> str:
+    def copy_link(self, name: str) -> str:
         """Copy link to a channel via context menu.
 
         :param name: The name of the channel to copy link for.
@@ -523,7 +513,7 @@ class ChannelClient:
         self.hide_channels()
         return self.layout.read_clipboard()
 
-    def exists(self, name: ChannelName) -> bool:
+    def exists(self, name: str) -> bool:
         """
         Checks if a channel with the given name exists.
 
@@ -541,14 +531,14 @@ class ChannelClient:
         finally:
             self.hide_channels()
 
-    def wait_for_channel_removed(self, name: ChannelName) -> None:
+    def wait_for_channel_removed(self, name: str) -> None:
         """Wait for a channel to be removed from the channel list."""
         self.show_channels()
         self.tree.wait_for_removal(self.ITEM_PREFIX, str(name), exact=True)
         self.hide_channels()
 
     def wait_for_channels(
-        self, names: ChannelNames, timeout: sy.CrudeTimeSpan = 10.0
+        self, names: str | list[str] | tuple[str], timeout: sy.CrudeTimeSpan = 10.0
     ) -> bool:
         """Wait for one or more channels to appear in the console UI.
 
@@ -558,7 +548,7 @@ class ChannelClient:
         :param timeout: Maximum time to wait in seconds (default: 10.0).
         :returns: True if all channels exist, False if timeout reached.
         """
-        normalized_names = normalize_channel_params(names)
+        normalized_names = sy.channel.normalize_params(names)
         timeout_ms = int(timeout * 1000)
 
         self.show_channels()
@@ -581,7 +571,12 @@ class ChannelClient:
             self.hide_channels()
             return False
 
-    def rename(self, *, names: ChannelNames, new_names: ChannelNames) -> bool:
+    def rename(
+        self,
+        *,
+        names: str | list[str] | tuple[str],
+        new_names: str | list[str] | tuple[str],
+    ) -> bool:
         """Renames one or more channels via console UI.
 
         :param names: The name(s) of the channel(s) to rename.
@@ -590,8 +585,8 @@ class ChannelClient:
         """
         try:
             # Normalize inputs to lists
-            normalized_names = normalize_channel_params(names)
-            normalized_new_names = normalize_channel_params(new_names)
+            normalized_names = sy.channel.normalize_params(names)
+            normalized_new_names = sy.channel.normalize_params(new_names)
 
             # Ensure we have the same number of names and new names
             if len(normalized_names.channels) != len(normalized_new_names.channels):
@@ -626,9 +621,9 @@ class ChannelClient:
 
         self.hide_channels()
 
-    def delete(self, names: ChannelNames) -> None:
+    def delete(self, names: str | list[str] | tuple[str]) -> None:
         """Deletes one or more channels via console UI."""
-        normalized_names = normalize_channel_params(names)
+        normalized_names = sy.channel.normalize_params(names)
         for name in normalized_names.channels:
             self._delete_single_channel(str(name))
 
@@ -651,7 +646,7 @@ class ChannelClient:
         self.tree.wait_for_removal(self.ITEM_PREFIX, name, exact=True)
         self.hide_channels()
 
-    def list_all(self) -> list[ChannelName]:
+    def list_all(self) -> list[str]:
         """List all visible channels in the sidebar.
 
         Returns:

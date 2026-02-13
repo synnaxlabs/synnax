@@ -16,7 +16,8 @@ from typing import Any, Protocol, overload
 
 import numpy as np
 
-from synnax import channel, framer
+from synnax import channel as channel_
+from synnax import framer
 from synnax.exceptions import ValidationError
 from synnax.telem import CrudeTimeSpan, SampleValue, TimeSpan, TimeStamp
 from synnax.telem.control import CrudeAuthority
@@ -88,21 +89,21 @@ class RemainsTrueFor(Processor):
 class Controller:
     _writer_opt: framer.Writer | None = None
     _receiver_opt: _Receiver | None = None
-    _idx_map: dict[channel.Key, channel.Key]
-    _retriever: channel.Retriever
+    _idx_map: dict[channel_.Key, channel_.Key]
+    _retriever: channel_.Retriever
 
     def __init__(
         self,
         name: str,
-        write: channel.Params | None,
-        read: channel.Params | None,
+        write: channel_.Params | None,
+        read: channel_.Params | None,
         frame_client: framer.Client,
-        retriever: channel.Retriever,
+        retriever: channel_.Retriever,
         write_authorities: CrudeAuthority | list[CrudeAuthority],
     ) -> None:
         self._retriever = retriever
         if write is not None and len(write) > 0:
-            write_channels = channel.retrieve_required(self._retriever, write)
+            write_channels = channel_.retrieve_required(self._retriever, write)
             write_keys = [ch.index for ch in write_channels if ch.index != 0]
             write_keys.extend([ch.key for ch in write_channels])
             self._writer_opt = frame_client.open_writer(
@@ -135,14 +136,14 @@ class Controller:
         return self._receiver_opt
 
     @overload
-    def set(self, ch: channel.Key | str, value: SampleValue): ...
+    def set(self, ch: channel_.Key | str, value: SampleValue): ...
 
     @overload
-    def set(self, ch: dict[channel.Key | str, SampleValue]): ...
+    def set(self, ch: dict[channel_.Key | str, SampleValue]): ...
 
     def set(
         self,
-        channel: channel.Key | str | dict[channel.Key | str, SampleValue],
+        channel: channel_.Key | str | dict[channel_.Key | str, SampleValue],
         value: SampleValue | None = None,
     ):
         """Sets the provided channel(s) to the provided value(s).
@@ -161,7 +162,7 @@ class Controller:
         """
         if isinstance(channel, dict):
             values = list(channel.values())
-            channels = channel.retrieve_required(self._retriever, list(channel.keys()))
+            channels = channel_.retrieve_required(self._retriever, list(channel.keys()))
             now = TimeStamp.now()
             updated = {channels[i].key: values[i] for i in range(len(channels))}
             updated_idx = {
@@ -186,28 +187,28 @@ class Controller:
     @overload
     def set_authority(
         self,
-        value: dict[channel.Key | str, CrudeAuthority],
+        value: dict[channel_.Key | str, CrudeAuthority],
     ) -> bool: ...
 
     @overload
     def set_authority(
         self,
-        ch: channel.Key | str,
+        ch: channel_.Key | str,
         value: CrudeAuthority,
     ) -> bool: ...
 
     def set_authority(
         self,
         value: (
-            dict[channel.Key | str | channel.Payload, CrudeAuthority]
-            | channel.Key
+            dict[channel_.Key | str | channel_.Payload, CrudeAuthority]
+            | channel_.Key
             | str
             | CrudeAuthority
         ),
         authority: CrudeAuthority | None = None,
     ) -> bool:
         if isinstance(value, dict):
-            channels = channel.retrieve_required(self._retriever, list(value.keys()))
+            channels = channel_.retrieve_required(self._retriever, list(value.keys()))
             for ch in channels:
                 value[ch.index] = value.get(ch.key, value.get(ch.name))
         elif authority is not None:
@@ -290,7 +291,7 @@ class Controller:
 
     def wait_until_defined(
         self,
-        channels: channel.Key | str | list[channel.Key | str],
+        channels: channel_.Key | str | list[channel_.Key | str],
         timeout: CrudeTimeSpan = None,
     ) -> bool:
         """Blocks until the controller has received at least one value from all the
@@ -306,7 +307,7 @@ class Controller:
         >>> controller.wait_until_defined("my_channel")
         >>> controller.wait_until_defined(["channel_1", "channel_2"])
         """
-        res = channel.retrieve_required(self._retriever, channels)
+        res = channel_.retrieve_required(self._retriever, channels)
         return self.wait_until(lambda c: all(v.key in c.state for v in res), timeout)
 
     def remains_true_for(
@@ -359,11 +360,13 @@ class Controller:
         if self._receiver_opt is not None:
             self._receiver.stop()
 
-    def __setitem__(self, ch: channel.Key | str | channel.Payload, value: int | float):
+    def __setitem__(
+        self, ch: channel_.Key | str | channel_.Payload, value: int | float
+    ):
         self.set(ch, value)
 
     @property
-    def state(self) -> dict[channel.Key, np.number]:
+    def state(self) -> dict[channel_.Key, np.number]:
         """
         :returns: The current state of all channels passed to read_from in the acquire
         method. This is a dictionary of channel keys to their most recent values. It's
@@ -379,13 +382,13 @@ class Controller:
             self.set(key, value)
 
     @overload
-    def get(self, ch: channel.Key | str) -> int | float | None: ...
+    def get(self, ch: channel_.Key | str) -> int | float | None: ...
 
     @overload
-    def get(self, ch: channel.Key | str, default: int | float) -> int | float: ...
+    def get(self, ch: channel_.Key | str, default: int | float) -> int | float: ...
 
     def get(
-        self, ch: channel.Key | str, default: int | float = None
+        self, ch: channel_.Key | str, default: int | float = None
     ) -> int | float | None:
         """Gets the most recent value for the provided channel, and returns the default
         value if no value has been received yet.
@@ -442,13 +445,13 @@ class Controller:
 
 
 class _Receiver(AsyncThread):
-    state: dict[channel.Key, np.number]
-    channels: channel.Params
+    state: dict[channel_.Key, np.number]
+    channels: channel_.Params
     client: framer.Client
     streamer: framer.AsyncStreamer
     processors: set[Processor]
     processor_lock: Lock
-    retriever: channel.Retriever
+    retriever: channel_.Retriever
     controller: Controller
     startup_ack: Event
     shutdown_future: Future
@@ -456,8 +459,8 @@ class _Receiver(AsyncThread):
     def __init__(
         self,
         client: framer.Client,
-        channels: channel.Params,
-        retriever: channel.Retriever,
+        channels: channel_.Params,
+        retriever: channel_.Retriever,
         controller: Controller,
     ):
         super().__init__()
