@@ -12,7 +12,7 @@ from __future__ import annotations
 from asyncio import Future
 from collections.abc import Callable
 from threading import Event, Lock
-from typing import Any, Protocol, cast, overload
+from typing import Any, Protocol, overload
 
 import numpy as np
 
@@ -102,8 +102,7 @@ class Controller:
         write_authorities: CrudeAuthority | list[CrudeAuthority],
     ) -> None:
         self._retriever = retriever
-        if channel.has_params(write):
-            assert write is not None
+        if write is not None and channel.has_params(write):
             write_channels = channel.retrieve_required(self._retriever, write)
             write_keys = [ch.index for ch in write_channels if ch.index != 0]
             write_keys.extend([ch.key for ch in write_channels])
@@ -113,8 +112,7 @@ class Controller:
                 channels=write_keys,
                 authorities=write_authorities,
             )
-        if channel.has_params(read):
-            assert read is not None
+        if read is not None and channel.has_params(read):
             self._receiver_opt = _Receiver(frame_client, read, retriever, self)
             self._receiver.start()
             self._receiver.startup_ack.wait()
@@ -145,7 +143,7 @@ class Controller:
 
     def set(
         self,
-        channel: channel.Params | dict[channel.Key | str, SampleValue],
+        channel: channel.Key | str | dict[channel.Key | str, SampleValue],
         value: SampleValue | None = None,
     ):
         """Sets the provided channel(s) to the provided value(s).
@@ -166,7 +164,7 @@ class Controller:
             values = list(channel.values())
             channels = _retrieve_required(
                 self._retriever,
-                cast(list[int], list(channel.keys())),
+                list(channel.keys()),
             )
             now = TimeStamp.now()
             updated = {channels[i].key: values[i] for i in range(len(channels))}
@@ -177,7 +175,6 @@ class Controller:
             }
             self._writer.write({**updated, **updated_idx})
             return
-        assert isinstance(channel, (int, str))
         ch = self._retriever.retrieve_one(channel)
         to_write = {ch.key: value}
         if not ch.virtual:
@@ -188,20 +185,20 @@ class Controller:
     def set_authority(
         self,
         value: CrudeAuthority,
-    ) -> bool: ...
+    ) -> None: ...
 
     @overload
     def set_authority(
         self,
         value: dict[channel.Key | str | channel.Payload, CrudeAuthority],
-    ) -> bool: ...
+    ) -> None: ...
 
     @overload
     def set_authority(
         self,
         value: channel.Key | str,
         authority: CrudeAuthority,
-    ) -> bool: ...
+    ) -> None: ...
 
     def set_authority(
         self,
@@ -212,22 +209,26 @@ class Controller:
             | CrudeAuthority
         ),
         authority: CrudeAuthority | None = None,
-    ) -> bool | None:
+    ) -> None:
         if isinstance(value, dict):
             channels = _retrieve_required(
                 self._retriever,
-                cast(list[int], list(value.keys())),
+                list(value.keys()),
             )
             for ch in channels:
                 resolved = value.get(ch.key) or value.get(ch.name)
                 if resolved is not None:
                     value[ch.index] = resolved
+            self._writer.set_authority(value)
         elif authority is not None:
             ch = self._retriever.retrieve_one(value)
-            value = {ch.key: authority, ch.index: authority}
+            self._writer.set_authority({ch.key: authority, ch.index: authority})
+        elif isinstance(value, str):
+            raise TypeError(
+                "authority must be provided when setting by channel name"
+            )
         else:
-            return None
-        return self._writer.set_authority(value)
+            self._writer.set_authority(value)
 
     def wait_until(
         self,

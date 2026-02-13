@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from enum import Enum
-from typing import Any, Literal, TypeAlias, overload
+from typing import Literal, TypeAlias, overload
 from uuid import uuid4
 
 from freighter import (
@@ -18,6 +18,7 @@ from freighter import (
     WebsocketClient,
     decode_exception,
 )
+from freighter.transport import P
 from freighter.websocket import Message
 from pydantic import BaseModel
 
@@ -81,27 +82,27 @@ class WriterResponse(BaseModel):
 
 
 class WSWriterCodec(WSFramerCodec):
-    def encode(self, pld: Any) -> bytes:
-        assert isinstance(pld, Message)
+    def encode(self, data: BaseModel) -> bytes:
+        if not isinstance(data, Message):
+            raise TypeError(f"expected Message, got {type(data)}")
         if (
-            pld.type == "close"
-            or pld.payload is None
-            or pld.payload.command != WriterCommand.WRITE
+            data.type == "close"
+            or data.payload is None
+            or data.payload.command != WriterCommand.WRITE
         ):
-            data = self.lower_perf_codec.encode(pld)
-            return bytes([LOW_PERF_SPECIAL_CHAR]) + data
-        encoded = self.codec.encode(pld.payload.frame, 1)
+            return bytes([LOW_PERF_SPECIAL_CHAR]) + self.lower_perf_codec.encode(data)
+        encoded = self.codec.encode(data.payload.frame, 1)
         buf = bytearray(encoded)
         buf[0] = HIGH_PERF_SPECIAL_CHAR
         return bytes(buf)
 
-    def decode(self, data: bytes, pld_t: type[Any]) -> Any:
+    def decode(self, data: bytes, pld_t: type[P]) -> P:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             return self.lower_perf_codec.decode(data[1:], pld_t)
         frame = self.codec.decode(data, 1)
         msg: Message[WriterRequest] = Message(type="data")
         msg.payload = WriterRequest(command=WriterCommand.WRITE, frame=frame)
-        return msg
+        return msg  # type: ignore[return-value]
 
 
 def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
@@ -402,7 +403,8 @@ class Writer:
         if self._close_exc is not None:
             raise self._close_exc
         res = self._exec(WriterRequest(command=WriterCommand.COMMIT))
-        assert res is not None
+        if res is None:
+            raise UnexpectedError("commit did not receive a response")
         if res.end is None:
             raise UnexpectedError("commit response missing end timestamp")
         return res.end

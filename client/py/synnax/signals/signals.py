@@ -20,7 +20,7 @@ _InternalHandler = Callable[[State], Callable[[LatestState], None] | None]
 
 class Registry:
     _handlers: list[_InternalHandler]
-    _channels: list[channel.Key | str]
+    _channels: list[channel.Key]
     _frame_client: framer.Client
     _channel_retriever: channel.Retriever
 
@@ -75,7 +75,7 @@ class Scheduler:
 
     def __init__(
         self,
-        channels: channel.Params,
+        channels: list[channel.Key],
         handlers: list[_InternalHandler],
         frame_client: framer.Client,
         channel_retriever: channel.Retriever,

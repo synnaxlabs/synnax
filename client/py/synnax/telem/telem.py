@@ -12,7 +12,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta, tzinfo
 from math import trunc
-from typing import Any, ClassVar, Literal, TypeAlias, cast, get_args
+from typing import Any, ClassVar, Literal, TypeAlias
 
 import numpy as np
 import pandas as pd
@@ -171,9 +171,11 @@ class TimeStamp(int):
         return self.after(rhs)
 
     def __eq__(self, rhs: object) -> bool:
-        if not isinstance(rhs, get_args(CrudeTimeStamp)):
+        if not isinstance(
+            rhs, (int, TimeSpan, datetime, timedelta, np.datetime64, np.int64)
+        ):
             return False
-        return super().__eq__(TimeStamp(cast(CrudeTimeStamp, rhs)))
+        return super().__eq__(TimeStamp(rhs))
 
     def __str__(self) -> str:
         return self.datetime().isoformat()
@@ -428,9 +430,9 @@ class TimeSpan(int):
         return super().__le__(TimeSpan(rhs))
 
     def __eq__(self, rhs: object) -> bool:
-        if not isinstance(rhs, get_args(CrudeTimeSpan)):
+        if not isinstance(rhs, (int, float, timedelta, np.timedelta64)):
             return NotImplemented
-        return super().__eq__(int(TimeSpan(cast(CrudeTimeSpan, rhs))))
+        return super().__eq__(int(TimeSpan(rhs)))
 
     NANOSECOND: TimeSpan
     """A nanosecond."""
@@ -1005,9 +1007,9 @@ class DataType(str):
         :return: The numpy type
         """
         npt = DataType._TO_NUMPY.get(self, None)
-        if npt is None:
+        if not isinstance(npt, np.dtype):
             raise TypeError(f"Cannot convert {self} to numpy type")
-        return cast(np.dtype, npt)
+        return npt
 
     @property
     def is_variable(self) -> bool:

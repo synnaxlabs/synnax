@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from synnax.channel.payload import (
     Key,
-    NormalizedChannelNameResult,
+    NormalizedNameResult,
     Params,
     Payload,
     normalize_params,
@@ -64,7 +64,7 @@ class ClusterRetriever:
         normal = normalize_params(channels)
         if len(normal.channels) == 0:
             return list()
-        if isinstance(normal, NormalizedChannelNameResult):
+        if isinstance(normal, NormalizedNameResult):
             req = _Request(names=normal.channels)
         else:
             req = _Request(keys=normal.channels)
@@ -104,7 +104,7 @@ class CacheRetriever:
 
     def delete(self, keys: Params) -> None:
         normal = normalize_params(keys)
-        if isinstance(normal, NormalizedChannelNameResult):
+        if isinstance(normal, NormalizedNameResult):
             matches = {
                 ch for ch in self._channels.values() if ch.name in normal.channels
             }
@@ -202,17 +202,12 @@ class CacheRetriever:
 def retrieve_required(r: Retriever, channels: Params) -> list[Payload]:
     normal = normalize_params(channels)
     results = r.retrieve(channels)
-    not_found: list[Key | str] = list()
-    if isinstance(normal, NormalizedChannelNameResult):
-        for p in normal.channels:
-            ch = next((c for c in results if c.name == p), None)
-            if ch is None:
-                not_found.append(p)
+    found: set[Key | str]
+    if isinstance(normal, NormalizedNameResult):
+        found = {c.name for c in results}
     else:
-        for k in normal.channels:
-            ch = next((c for c in results if c.key == k), None)
-            if ch is None:
-                not_found.append(k)
+        found = {c.key for c in results}
+    not_found: list[Key | str] = [p for p in normal.channels if p not in found]
     if len(not_found) > 0:
         raise NotFoundError(f"Could not find channels: {not_found}")
     return results

@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Sequence, TypeAlias, cast
+from typing import Literal, Sequence, TypeAlias
 
 from pydantic import BaseModel
 
@@ -63,14 +63,14 @@ class Payload(BaseModel):
 
 
 @dataclass
-class NormalizedChannelKeyResult:
+class NormalizedKeyResult:
     single: bool
     variant: Literal["keys"]
     channels: list[Key] | tuple[Key]
 
 
 @dataclass
-class NormalizedChannelNameResult:
+class NormalizedNameResult:
     single: bool
     variant: Literal["names"]
     channels: list[str]
@@ -78,43 +78,48 @@ class NormalizedChannelNameResult:
 
 def normalize_params(
     channels: Params,
-) -> NormalizedChannelKeyResult | NormalizedChannelNameResult:
+) -> NormalizedKeyResult | NormalizedNameResult:
     """Determine if a list of keys or names is a single key or name."""
     normalized = normalize(channels)
     if len(normalized) == 0:
-        return NormalizedChannelKeyResult(single=False, variant="keys", channels=[])
+        return NormalizedKeyResult(single=False, variant="keys", channels=[])
     single = isinstance(channels, (Key, str))
     if isinstance(normalized[0], str):
+        str_list = [s for s in normalized if isinstance(s, str)]
         try:
-            str_list = cast(list[str], normalized)
-            numeric_strings = [Key(s) for s in str_list]
-            return NormalizedChannelKeyResult(
+            return NormalizedKeyResult(
                 single=single,
                 variant="keys",
-                channels=numeric_strings,
+                channels=[Key(s) for s in str_list],
             )
-        except ValueError:
-            return NormalizedChannelNameResult(
+        except (ValueError, TypeError):
+            return NormalizedNameResult(
                 single=single,
                 variant="names",
-                channels=cast(list[str], normalized),
+                channels=str_list,
             )
     elif isinstance(normalized[0], Payload):
-        payload_list = cast(list[Payload], normalized)
-        return NormalizedChannelKeyResult(
+        return NormalizedKeyResult(
             single=single,
             variant="keys",
-            channels=[c.key for c in payload_list],
+            channels=[c.key for c in normalized if isinstance(c, Payload)],
         )
-    return NormalizedChannelKeyResult(
+    return NormalizedKeyResult(
         single=single,
         variant="keys",
-        channels=normalized,
+        channels=[k for k in normalized if isinstance(k, int)],
     )
 
 
 Params: TypeAlias = (
-    Key | Sequence[Key] | str | Sequence[str] | Sequence[Payload] | Payload
+    Key
+    | str
+    | Payload
+    | Sequence[Key]
+    | Sequence[str]
+    | Sequence[Key | str]
+    | Sequence[Key | str | Payload]
+    | Sequence[Payload]
 )
 
 

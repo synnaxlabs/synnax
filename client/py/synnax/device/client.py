@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Literal, overload
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, UnaryClient, send_required
@@ -123,7 +123,7 @@ class Client:
         name: str | None = None,
         model: str | None = None,
         location: str | None = None,
-        ignore_not_found: bool = False,
+        ignore_not_found: Literal[True],
     ) -> Device | None: ...
 
     @overload
@@ -135,7 +135,31 @@ class Client:
         models: list[str] | None = None,
         names: list[str] | None = None,
         locations: list[str] | None = None,
-        ignore_not_found: bool = False,
+        ignore_not_found: Literal[True],
+    ) -> list[Device]: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: str | None = None,
+        make: str | None = None,
+        name: str | None = None,
+        model: str | None = None,
+        location: str | None = None,
+        ignore_not_found: Literal[False] = ...,
+    ) -> Device: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        keys: list[str] | None = None,
+        makes: list[str] | None = None,
+        models: list[str] | None = None,
+        names: list[str] | None = None,
+        locations: list[str] | None = None,
+        ignore_not_found: Literal[False] = ...,
     ) -> list[Device]: ...
 
     def retrieve(

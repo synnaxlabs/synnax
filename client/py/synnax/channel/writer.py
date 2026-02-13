@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from synnax.channel.payload import (
     Key,
-    NormalizedChannelNameResult,
+    NormalizedNameResult,
     Params,
     Payload,
     normalize_params,
@@ -67,7 +67,7 @@ class Writer:
     @trace("debug")
     def delete(self, channels: Params) -> None:
         normal = normalize_params(channels)
-        if isinstance(normal, NormalizedChannelNameResult):
+        if isinstance(normal, NormalizedNameResult):
             req = _DeleteRequest(names=normal.channels)
         else:
             req = _DeleteRequest(keys=normal.channels)

@@ -42,9 +42,9 @@ class ReadFrameAdapter:
             [ch.data_type for ch in fetched],
         )
 
-        if isinstance(normal, channel.NormalizedChannelKeyResult):
+        if isinstance(normal, channel.NormalizedKeyResult):
             self.__adapter = None
-            self.keys = normal.channels
+            self.keys = list(normal.channels)
             return
 
         self.__adapter = dict[int, str]()

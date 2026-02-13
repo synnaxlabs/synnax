@@ -17,7 +17,6 @@ from typing_extensions import deprecated
 
 from synnax import channel as channel_
 from synnax import device, task
-from synnax.exceptions import NotFoundError
 from synnax.telem import CrudeDataType, CrudeRate, Rate
 
 # Security mode constants
@@ -364,8 +363,6 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        if dev is None:
-            raise NotFoundError(f"Device not found: {self.config.device}")
         props = (
             json.loads(dev.properties)
             if isinstance(dev.properties, str)
@@ -445,8 +442,6 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        if dev is None:
-            raise NotFoundError(f"Device not found: {self.config.device}")
         props = (
             json.loads(dev.properties)
             if isinstance(dev.properties, str)

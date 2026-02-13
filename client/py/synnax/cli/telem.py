@@ -8,10 +8,21 @@
 #  included in the file licenses/APL.txt.
 
 
-from typing import Any, cast
+from typing import Any
 
 from synnax.cli.flow import Context
 from synnax.telem import DataType, TimeSpan, TimeSpanUnits
+
+_VALID_TIME_UNITS: dict[str, TimeSpanUnits] = {
+    "iso": "iso",
+    "ns": "ns",
+    "us": "us",
+    "ms": "ms",
+    "s": "s",
+    "m": "m",
+    "h": "h",
+    "d": "d",
+}
 
 
 def select_data_type(
@@ -55,5 +66,9 @@ def ask_time_units_select(
         columns=["unit"],
         **kwargs,
     )
-    assert selected is not None
-    return cast(TimeSpanUnits, selected)
+    if selected is None:
+        raise ValueError("no time unit selected")
+    unit = _VALID_TIME_UNITS.get(selected)
+    if unit is None:
+        raise ValueError(f"invalid time unit: {selected}")
+    return unit

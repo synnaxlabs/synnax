@@ -15,7 +15,6 @@ from pydantic import BaseModel, Field, field_validator
 
 from synnax import channel as channel_
 from synnax import device, task
-from synnax.exceptions import NotFoundError
 from synnax.telem import CrudeDataType, CrudeRate
 
 # Device identifiers - must match Console expectations
@@ -496,8 +495,6 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         import json
 
         dev = device_client.retrieve(key=self.config.device)
-        if dev is None:
-            raise NotFoundError(f"Device not found: {self.config.device}")
         props = (
             json.loads(dev.properties)
             if isinstance(dev.properties, str)
@@ -582,8 +579,6 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         import json
 
         dev = device_client.retrieve(key=self.config.device)
-        if dev is None:
-            raise NotFoundError(f"Device not found: {self.config.device}")
         props = (
             json.loads(dev.properties)
             if isinstance(dev.properties, str)

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, overload
+from typing import overload
 
 from freighter import (
     EOF,
@@ -16,6 +16,7 @@ from freighter import (
     Stream,
     WebsocketClient,
 )
+from freighter.transport import P
 from freighter.websocket import Message
 from pydantic import BaseModel
 
@@ -38,15 +39,14 @@ class _Response(BaseModel):
 
 
 class WSStreamerCodec(WSFramerCodec):
-    def encode(self, pld: Any) -> bytes:
-        return self.lower_perf_codec.encode(pld)
+    def encode(self, data: BaseModel) -> bytes:
+        return self.lower_perf_codec.encode(data)
 
-    def decode(self, data: bytes, pld_t: type[Any]) -> Any:
+    def decode(self, data: bytes, pld_t: type[P]) -> P:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
-            msg = self.lower_perf_codec.decode(data[1:], pld_t)
-            return msg
+            return self.lower_perf_codec.decode(data[1:], pld_t)
         frame = self.codec.decode(data, 1)
-        return Message(type="data", payload=_Response(frame=frame))
+        return Message(type="data", payload=_Response(frame=frame))  # type: ignore[return-value]
 
 
 _ENDPOINT = "/frame/stream"
@@ -254,10 +254,7 @@ class AsyncStreamer:
     @property
     def received(self) -> bool:
         """Returns True if a frame has been received, False otherwise."""
-        recv_fn = getattr(self._stream, "received", None)
-        if recv_fn is not None:
-            return recv_fn()
-        return False
+        return self._stream.received()  # type: ignore[attr-defined]
 
     async def read(self) -> Frame:
         """Reads the next frame of telemetry from the streamer. If an error occurs while
