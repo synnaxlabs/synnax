@@ -7,21 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal
+import json
+from typing import Annotated, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, confloat, conint, field_validator, validator
+from pydantic import BaseModel, Field, field_validator, validator
 
-from synnax import device
+from synnax import device, task
 from synnax.exceptions import ValidationError
-from synnax.task import (
-    BaseReadTaskConfig,
-    BaseWriteTaskConfig,
-    JSONConfigMixin,
-    StarterStopperMixin,
-    Task,
-    TaskProtocol,
-)
 from synnax.telem import CrudeRate
 
 UnitsVolts = Literal["Volts"]
@@ -356,7 +349,7 @@ class AIBridgeChan(BaseAIChan, MinMaxVal):
     bridge_config: Literal["FullBridge", "HalfBridge", "QuarterBridge"]
     voltage_excit_source: ExcitationSource
     voltage_excit_val: float
-    nominal_bridge_resistance: confloat(gt=0)
+    nominal_bridge_resistance: Annotated[float, Field(gt=0)]
     custom_scale: Scale = NoScale()
 
 
@@ -432,7 +425,7 @@ class AICurrentChan(BaseAIChan, MinMaxVal):
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Amps"] = "Amps"
     shunt_resistor_loc: Literal["Default", "Internal", "External"]
-    ext_shunt_resistor_val: confloat(gt=0)
+    ext_shunt_resistor_val: Annotated[float, Field(gt=0)]
     custom_scale: Scale = NoScale()
 
 
@@ -473,7 +466,7 @@ class AICurrentRMSChan(BaseAIChan, MinMaxVal):
     terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Amps"] = "Amps"
     shunt_resistor_loc: Literal["Default", "Internal", "External"]
-    ext_shunt_resistor_val: confloat(gt=0)
+    ext_shunt_resistor_val: Annotated[float, Field(gt=0)]
     custom_scale: Scale = NoScale()
 
 
@@ -2409,7 +2402,7 @@ class DOChan(BaseChan):
     line: int
 
 
-class AnalogReadTaskConfig(BaseReadTaskConfig):
+class AnalogReadTaskConfig(task.BaseReadConfig):
     """Configuration for NI Analog Read Task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
@@ -2419,7 +2412,7 @@ class AnalogReadTaskConfig(BaseReadTaskConfig):
 
     device: str = ""
     "The key of the Synnax NI device to read from (optional, can be set per channel)."
-    sample_rate: conint(gt=0, le=1000000)
+    sample_rate: Annotated[int, Field(gt=0, le=1000000)]
     channels: list[AIChan]
 
     @field_validator("channels")
@@ -2432,7 +2425,7 @@ class AnalogReadTaskConfig(BaseReadTaskConfig):
         return v
 
 
-class AnalogWriteConfig(BaseWriteTaskConfig):
+class AnalogWriteConfig(task.BaseWriteConfig):
     """Configuration for NI Analog Write Task.
 
     Inherits common write task fields (device, auto_start) from
@@ -2442,12 +2435,12 @@ class AnalogWriteConfig(BaseWriteTaskConfig):
 
     data_saving: bool = True
     "Whether to persist state feedback data to disk (True) or only stream it (False)."
-    state_rate: conint(gt=0, le=50000)
+    state_rate: Annotated[int, Field(gt=0, le=50000)]
     "The rate at which to write task channel states to the Synnax cluster (Hz)."
     channels: list[AOChan]
 
 
-class CounterReadConfig(BaseReadTaskConfig):
+class CounterReadConfig(task.BaseReadConfig):
     """Configuration for NI Counter Read Task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
@@ -2457,7 +2450,7 @@ class CounterReadConfig(BaseReadTaskConfig):
 
     device: str = ""
     "The key of the Synnax NI device to read from (optional, can be set per channel)."
-    sample_rate: conint(gt=0, le=1000000)
+    sample_rate: Annotated[int, Field(gt=0, le=1000000)]
     channels: list[CIChan]
 
     @field_validator("channels")
@@ -2470,7 +2463,7 @@ class CounterReadConfig(BaseReadTaskConfig):
         return v
 
 
-class DigitalReadConfig(BaseReadTaskConfig):
+class DigitalReadConfig(task.BaseReadConfig):
     """Configuration for NI Digital Read Task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
@@ -2480,11 +2473,11 @@ class DigitalReadConfig(BaseReadTaskConfig):
 
     device: str = Field(min_length=1)
     "The key of the Synnax NI device to read from."
-    sample_rate: conint(gt=0, le=1000000)
+    sample_rate: Annotated[int, Field(gt=0, le=1000000)]
     channels: list[DIChan]
 
 
-class DigitalWriteConfig(BaseWriteTaskConfig):
+class DigitalWriteConfig(task.BaseWriteConfig):
     """Configuration for NI Digital Write Task.
 
     Inherits common write task fields (device, auto_start) from
@@ -2494,7 +2487,7 @@ class DigitalWriteConfig(BaseWriteTaskConfig):
 
     data_saving: bool = True
     "Whether to persist state feedback data to disk (True) or only stream it (False)."
-    state_rate: conint(gt=0, le=50000)
+    state_rate: Annotated[int, Field(gt=0, le=50000)]
     "The rate at which to write task channel states to the Synnax cluster (Hz)."
     channels: list[DOChan]
 
@@ -2508,7 +2501,7 @@ class AnalogReadStateDetails(TaskStateDetails):
     errors: list[dict[str, str]] | None
 
 
-class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class AnalogReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for reading analog data from NI devices and writing them to a Synnax
     cluster. This task is a programmatic representation of the analog read task
     configurable within the Synnax console. For detailed information on
@@ -2529,25 +2522,25 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "ni_analog_read"
     config: AnalogReadTaskConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         sample_rate: CrudeRate = 0,
         stream_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[AIChan] = None,
+        channels: list[AIChan] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = AnalogReadTaskConfig.model_validate(internal.config)
+            self.config = AnalogReadTaskConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = AnalogReadTaskConfig(
             device=device,
             sample_rate=sample_rate,
@@ -2569,7 +2562,7 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
                 channel.device = device
 
 
-class AnalogWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class AnalogWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for writing analog output data to NI devices. This task is a programmatic
     representation of the analog write task configurable within the Synnax console.
     For detailed information on configuring/operating an analog write task, see
@@ -2588,24 +2581,24 @@ class AnalogWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "ni_analog_write"
     config: AnalogWriteConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         state_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[AOChan] = None,
+        channels: list[AOChan] | None = None,
     ):
         if internal is not None:
             self._internal = internal
-            self.config = AnalogWriteConfig.model_validate(internal.config)
+            self.config = AnalogWriteConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = AnalogWriteConfig(
             device=device,
             state_rate=state_rate,
@@ -2615,7 +2608,7 @@ class AnalogWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
         )
 
 
-class CounterReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class CounterReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for reading counter data from NI devices and writing them to a Synnax
     cluster. This task is a programmatic representation of the counter read task
     configurable within the Synnax console. For detailed information on
@@ -2636,25 +2629,25 @@ class CounterReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "ni_counter_read"
     config: CounterReadConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         sample_rate: CrudeRate = 0,
         stream_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[CIChan] = None,
+        channels: list[CIChan] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = CounterReadConfig.model_validate(internal.config)
+            self.config = CounterReadConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = CounterReadConfig(
             device=device,
             sample_rate=sample_rate,
@@ -2676,7 +2669,7 @@ class CounterReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
                 channel.device = device
 
 
-class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class DigitalReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for reading digital data from NI devices and writing them to a Synnax
     cluster. This task is a programmatic representation of the digital read task
     configurable within the Synnax console. For detailed information on
@@ -2697,25 +2690,25 @@ class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "ni_digital_read"
     config: DigitalReadConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         sample_rate: CrudeRate = 0,
         stream_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[DIChan] = None,
+        channels: list[DIChan] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = DigitalReadConfig.model_validate(internal.config)
+            self.config = DigitalReadConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = DigitalReadConfig(
             device=device,
             sample_rate=sample_rate,
@@ -2726,7 +2719,7 @@ class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
         )
 
 
-class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class DigitalWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for reading digital data from NI devices and writing them to a Synnax
     cluster. This task is a programmatic representation of the digital write task
     configurable within the Synnax console. For detailed information on
@@ -2744,24 +2737,24 @@ class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "ni_digital_write"
     config: DigitalWriteConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         state_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[DOChan] = None,
+        channels: list[DOChan] | None = None,
     ):
         if internal is not None:
             self._internal = internal
-            self.config = DigitalWriteConfig.model_validate(internal.config)
+            self.config = DigitalWriteConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = DigitalWriteConfig(
             device=device,
             state_rate=state_rate,
@@ -2823,6 +2816,9 @@ class Device(device.Device):
         if not key:
             key = str(uuid4())
 
+        # Set properties with identifier
+        props = json.dumps({"identifier": identifier})
+
         super().__init__(
             key=key,
             location=location,
@@ -2831,132 +2827,5 @@ class Device(device.Device):
             make=MAKE,
             model=model,
             configured=configured,
-            properties={"identifier": identifier},
+            properties=props,
         )
-
-
-__all__ = [
-    # Units
-    "Units",
-    "UnitsAmps",
-    "UnitsBar",
-    "UnitsDegAngle",
-    "UnitsDegC",
-    "UnitsDegF",
-    "UnitsDegR",
-    "UnitsFtLbs",
-    "UnitsGravity",
-    "UnitsHz",
-    "UnitsInches",
-    "UnitsInchesPerSecond",
-    "UnitsInchLbs",
-    "UnitsInOz",
-    "UnitsKelvins",
-    "UnitsKgForce",
-    "UnitsLbsPerSquareInch",
-    "UnitsMeters",
-    "UnitsMetersPerSecond",
-    "UnitsMetersPerSecondSquared",
-    "UnitsNewtonMeters",
-    "UnitsNewtons",
-    "UnitsOhms",
-    "UnitsPascals",
-    "UnitsPounds",
-    "UnitsRadiansAngle",
-    "UnitsRadiansPerSecond",
-    "UnitsRPM",
-    "UnitsSeconds",
-    "UnitsStrain",
-    "UnitsVolts",
-    "UnitsVoltsPerVolt",
-    "UnitsmVoltsPerVolt",
-    # Scales
-    "LinScale",
-    "MapScale",
-    "NoScale",
-    "PolynomialScale",
-    "Scale",
-    "ScaleType",
-    "TableScale",
-    # Config types
-    "ExcitationSource",
-    "TerminalConfig",
-    # Base classes
-    "BaseAIChan",
-    "BaseAOChan",
-    "BaseChan",
-    "BaseCIChan",
-    "MinMaxVal",
-    # AI Channels
-    "AIAccel4WireDCVoltageChan",
-    "AIAccelChan",
-    "AIAccelChargeChan",
-    "AIBridgeChan",
-    "AIChan",
-    "AIChargeChan",
-    "AICurrentChan",
-    "AICurrentRMSChan",
-    "AIForceBridgePolynomialChan",
-    "AIForceBridgeTableChan",
-    "AIForceBridgeTwoPointLinChan",
-    "AIForceIEPEChan",
-    "AIFreqVoltageChan",
-    "AIMicrophoneChan",
-    "AIPressureBridgePolynomialChan",
-    "AIPressureBridgeTableChan",
-    "AIPressureBridgeTwoPointLinChan",
-    "AIResistanceChan",
-    "AIRosetteStrainGageChan",
-    "AIRTDChan",
-    "AIStrainGageChan",
-    "AITempBuiltInChan",
-    "AIThermocoupleChan",
-    "AIThermistorChanIex",
-    "AIThermistorChanVex",
-    "AITorqueBridgePolynomialChan",
-    "AITorqueBridgeTableChan",
-    "AITorqueBridgeTwoPointLinChan",
-    "AIVelocityIEPEChan",
-    "AIVoltageChan",
-    "AIVoltageChanWithExcit",
-    "AIVoltageRMSChan",
-    # AO Channels
-    "AOChan",
-    "AOCurrentChan",
-    "AOFuncGenChan",
-    "AOVoltageChan",
-    # CI Channels
-    "CIAngularPositionChan",
-    "CIAngularVelocityChan",
-    "CIChan",
-    "CIDutyCycleChan",
-    "CIEdgeCountChan",
-    "CIFrequencyChan",
-    "CILinearPositionChan",
-    "CILinearVelocityChan",
-    "CIPeriodChan",
-    "CIPulseWidthChan",
-    "CISemiPeriodChan",
-    "CITwoEdgeSepChan",
-    # Digital Channels
-    "DIChan",
-    "DOChan",
-    # Task Configs
-    "AnalogReadTaskConfig",
-    "AnalogWriteConfig",
-    "CounterReadConfig",
-    "DigitalReadConfig",
-    "DigitalWriteConfig",
-    # Task State
-    "AnalogReadStateDetails",
-    "TaskStateDetails",
-    # Tasks
-    "AnalogReadTask",
-    "AnalogWriteTask",
-    "CounterReadTask",
-    "DigitalReadTask",
-    "DigitalWriteTask",
-    # Device
-    "Device",
-    "MAKE",
-]

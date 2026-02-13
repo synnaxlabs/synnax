@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.modbus.types import (
+    BaseChan,
     CoilInputChan,
     CoilOutputChan,
     Device,

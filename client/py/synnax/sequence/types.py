@@ -12,13 +12,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from synnax.channel import ChannelKey
-from synnax.task import (
-    JSONConfigMixin,
-    StarterStopperMixin,
-    Task,
-    TaskProtocol,
-)
+from synnax import channel, task
 from synnax.telem import CrudeRate, Rate
 
 TYPE = "sequence"
@@ -28,8 +22,8 @@ class Config(BaseModel):
     """Configuration for a sequence task."""
 
     rate: Rate
-    read: list[ChannelKey]
-    write: list[ChannelKey]
+    read: list[channel.Key]
+    write: list[channel.Key]
     script: str
     globals: dict[str, Any] = {}
 
@@ -44,21 +38,21 @@ class StateDetails(BaseModel):
     message: str
 
 
-class Sequence(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class Sequence(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """A task for executing control sequences on a Synnax cluster."""
 
     TYPE = TYPE
     config: Config
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
         name: str = "Control Sequence",
         rate: CrudeRate = 10,
-        read: list[ChannelKey] = [],
-        write: list[ChannelKey] = [],
+        read: list[channel.Key] = [],
+        write: list[channel.Key] = [],
         script: str = "",
         globals: dict[str, Any] = {},
     ):
@@ -66,7 +60,7 @@ class Sequence(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
             self._internal = internal
             self.config = Config.model_validate(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = Config(
             rate=Rate(rate), read=read, write=write, script=script, globals=globals
         )

@@ -7,40 +7,42 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.channel import ChannelKey, ChannelName
-from synnax.channel.retrieve import ChannelRetriever, retrieve_required
+from typing import Any
+
+from synnax import channel
 from synnax.framer import Frame
-from synnax.telem import Series
+from synnax.telem import MultiSeries
 
 
 class State:
-    value: dict[ChannelKey, Series]
-    __retriever: ChannelRetriever
+    value: dict[channel.Key, MultiSeries]
+    _retriever: channel.Retriever
 
-    def __init__(self, retriever: ChannelRetriever):
-        self.__retriever = retriever
+    def __init__(self, retriever: channel.Retriever):
+        self._retriever = retriever
         self.value = dict()
 
     def update(self, frame: Frame):
         for key in frame.channels:
-            self.value[key] = frame[key]
+            if isinstance(key, int):
+                self.value[key] = frame[key]
 
-    def __getitem__(self, ch: ChannelKey):
-        ch = retrieve_required(self.__retriever, ch)[0]
-        return self.value[ch.key]
+    def __getitem__(self, ch: channel.Key | str) -> MultiSeries:
+        payload = channel.retrieve_required(self._retriever, ch)[0]
+        return self.value[payload.key]
 
-    def __getattr__(self, ch: ChannelKey):
-        return self.__getitem__(ch)
+    def __getattr__(self, name: str) -> Any:
+        return self.__getitem__(name)
 
 
 class LatestState:
-    __state: State
+    _state: State
 
     def __init__(self, state: State) -> None:
-        self.__state = state
+        self._state = state
 
-    def __getitem__(self, ch: ChannelKey | ChannelName):
-        return self.__state.value[ch][-1]
+    def __getitem__(self, ch: channel.Key | str) -> Any:
+        return self._state[ch][-1]
 
-    def __getattr__(self, ch: ChannelKey | ChannelName):
-        return self.__getitem__(ch)
+    def __getattr__(self, name: str) -> Any:
+        return self.__getitem__(name)

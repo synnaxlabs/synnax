@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 
-from synnax.access.role.client import RoleClient
+from synnax.access.role.client import Client
 from synnax.access.role.types_gen import ONTOLOGY_TYPE, Role, ontology_id
 
-__all__ = ["Role", "RoleClient", "ONTOLOGY_TYPE", "ontology_id"]
+__all__ = ["Role", "Client", "ONTOLOGY_TYPE", "ontology_id"]

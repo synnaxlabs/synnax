@@ -9,10 +9,12 @@
 
 from __future__ import annotations
 
-from freighter import ExceptionPayload, Payload, register_exception
+from pydantic import BaseModel
+
+from freighter import ExceptionPayload, register_exception
 
 
-class Message(Payload):
+class Message(BaseModel):
     id: int | None
     message: str | None
 

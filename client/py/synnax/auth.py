@@ -14,21 +14,21 @@ from freighter import (
     Context,
     Middleware,
     Next,
-    Payload,
     UnaryClient,
 )
+from pydantic import BaseModel
 
 from synnax.exceptions import ExpiredToken, InvalidToken
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
 
 
-class InsecureCredentials(Payload):
+class InsecureCredentials(BaseModel):
     username: str
     password: str
 
 
-class TokenResponse(Payload):
+class TokenResponse(BaseModel):
     token: str
     user: User
 
@@ -39,7 +39,7 @@ RETRY_ON_ERRORS = (InvalidToken, ExpiredToken)
 TOKEN_PREFIX = "Bearer "
 
 
-class AuthenticationClient:
+class Client:
     client: UnaryClient
     username: str
     password: str
@@ -69,7 +69,7 @@ class AuthenticationClient:
         self.user = res.user
         self.authenticated = True
 
-    def middleware(self) -> list[Middleware]:
+    def middleware(self) -> Middleware:
         def mw(ctx: Context, _next: Next):
             if not self.authenticated:
                 self.authenticate()
@@ -86,7 +86,7 @@ class AuthenticationClient:
 
         return mw
 
-    def async_middleware(self) -> list[AsyncMiddleware]:
+    def async_middleware(self) -> AsyncMiddleware:
         async def mw(ctx: Context, _next: AsyncNext):
             if not self.authenticated:
                 self.authenticate()

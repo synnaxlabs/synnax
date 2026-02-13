@@ -11,18 +11,18 @@ from __future__ import annotations
 
 from typing import overload
 
-from numpy import ndarray
 from pydantic import PrivateAttr
 
+from synnax import framer
 from synnax.channel.payload import (
-    ChannelKey,
-    ChannelKeys,
-    ChannelName,
-    ChannelNames,
-    ChannelParams,
-    normalize_channel_params,
+    Key,
+    Operation,
+    Params,
+    Payload,
+    normalize_params,
+    ontology_id,
 )
-from synnax.channel.retrieve import ChannelRetriever
+from synnax.channel.retrieve import Retriever
 from synnax.channel.types_gen import (
     ONTOLOGY_TYPE,
     New,
@@ -31,16 +31,15 @@ from synnax.channel.types_gen import (
     Status,
     ontology_id,
 )
-from synnax.channel.writer import ChannelWriter
+from synnax.channel.writer import Writer
 from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
-from synnax.framer.client import Client as FrameClient
 from synnax.ontology.payload import ID
 from synnax.telem import (
     CrudeDataType,
+    CrudeSeries,
     CrudeTimeStamp,
     DataType,
     MultiSeries,
-    Series,
     TimeRange,
 )
 from synnax.util.normalize import normalize
@@ -54,8 +53,8 @@ class Channel(Payload):
     channels and how they work.
     """
 
-    ___frame_client: FrameClient | None = PrivateAttr(None)
-    __client: ChannelClient | None = PrivateAttr(None)
+    ___frame_client: framer.Client | None = PrivateAttr(None)
+    __client: Client | None = PrivateAttr(None)
 
     def __init__(
         self,
@@ -63,9 +62,9 @@ class Channel(Payload):
         name: str,
         data_type: CrudeDataType,
         is_index: bool = False,
-        index: ChannelKey = 0,
+        index: Key = 0,
         leaseholder: int = 0,
-        key: ChannelKey = 0,
+        key: Key = 0,
         virtual: bool | None = None,
         internal: bool = False,
         expression: str = "",
@@ -73,8 +72,8 @@ class Channel(Payload):
         alias: str | None = None,
         concurrency: control.Concurrency | None = None,
         status: Status | None = None,
-        _frame_client: FrameClient | None = None,
-        _client: ChannelClient | None = None,
+        _frame_client: framer.Client | None = None,
+        _client: Client | None = None,
     ) -> None:
         """Initializes a new Channel using the given parameters. It's important to note
         that this does not create the Channel in the cluster. To create the channel,
@@ -149,7 +148,7 @@ class Channel(Payload):
         tr = TimeRange(start_or_range, end)
         return self.__frame_client.read(tr, self.key)
 
-    def write(self, start: CrudeTimeStamp, data: ndarray | Series) -> None:
+    def write(self, start: CrudeTimeStamp, data: CrudeSeries) -> None:
         """Writes telemetry to the channel starting at the given timestamp.
 
         :param start: The starting timestamp of the first sample in data.
@@ -158,12 +157,14 @@ class Channel(Payload):
         """
         self.__frame_client.write(start, self.key, data)
 
-    def rename(self, name: ChannelName) -> None:
+    def rename(self, name: str) -> None:
         """Renames the channel.
 
         :param name: The new name for the channel.
         :returns: None.
         """
+        if self.__client is None:
+            raise ValidationError("Cannot rename a channel that has not been created.")
         self.__client.rename(self.key, name)
 
     @property
@@ -171,7 +172,7 @@ class Channel(Payload):
         return ontology_id(self.key)
 
     @property
-    def __frame_client(self) -> FrameClient:
+    def __frame_client(self) -> framer.Client:
         if self.___frame_client is None:
             raise ValidationError(
                 "Cannot read from or write to channel that has not been created."
@@ -199,24 +200,24 @@ class Channel(Payload):
         )
 
 
-class ChannelClient:
+class Client:
     """The core py class for executing channel operations against a Synnax cluster."""
 
-    _frame_client: FrameClient
-    _retriever: ChannelRetriever
-    _creator: ChannelWriter
+    _frame_client: framer.Client
+    _retriever: Retriever
+    _creator: Writer
 
     def __init__(
         self,
-        frame_client: FrameClient,
-        retriever: ChannelRetriever,
-        creator: ChannelWriter,
+        frame_client: framer.Client,
+        retriever: Retriever,
+        creator: Writer,
     ):
         self._frame_client = frame_client
         self._retriever = retriever
         self._creator = creator
 
-    def delete(self, channels: ChannelParams) -> None:
+    def delete(self, channels: Params) -> None:
         """Deletes on or more channels from the cluster"""
         self._creator.delete(channels)
 
@@ -225,12 +226,12 @@ class ChannelClient:
         self,
         *,
         data_type: CrudeDataType = DataType.UNKNOWN,
-        name: ChannelName = "",
-        index: ChannelKey = 0,
+        name: str = "",
+        index: Key = 0,
         is_index: bool = False,
         leaseholder: int = 0,
         virtual: bool | None = None,
-        expression: str | None = None,
+        expression: str = "",
         operations: list[Operation] | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel: ...
@@ -250,9 +251,9 @@ class ChannelClient:
         channels: Channel | list[Channel] | None = None,
         *,
         data_type: CrudeDataType = DataType.UNKNOWN,
-        name: ChannelName = "",
+        name: str = "",
         is_index: bool = False,
-        index: ChannelKey = 0,
+        index: Key = 0,
         leaseholder: int = 0,
         virtual: bool | None = None,
         expression: str = "",
@@ -328,15 +329,15 @@ class ChannelClient:
         return created if isinstance(channels, list) else created[0]
 
     @overload
-    def retrieve(self, channel: ChannelKey | ChannelName) -> Channel: ...
+    def retrieve(self, channel: Key | str) -> Channel: ...
 
     @overload
     def retrieve(
         self,
-        channel: ChannelKeys | ChannelNames,
+        channel: list[Key] | tuple[Key] | list[str] | tuple[str],
     ) -> list[Channel]: ...
 
-    def retrieve(self, channel: ChannelParams) -> Channel | list[Channel]:
+    def retrieve(self, channel: Params) -> Channel | list[Channel]:
         """Retrieves a channel or set of channels from the cluster.
 
         Overload 1:
@@ -349,7 +350,7 @@ class ChannelClient:
         :param channel: The list of keys or the list of names for the channels to retrieve.
         :returns: The retrieved channels.
         """
-        normal = normalize_channel_params(channel)
+        normal = normalize_params(channel)
         res = self._retriever.retrieve(channel)
         sug = self.__sugar(res)
         if not normal.single:
@@ -361,7 +362,7 @@ class ChannelClient:
         raise NotFoundError(f"Channel matching '{channel}' not found.")
 
     @overload
-    def rename(self, keys: ChannelKey, names: ChannelName) -> None:
+    def rename(self, keys: Key, names: str) -> None:
         """Renames a channel in the cluster.
 
         :param keys: The key of the channel to rename.
@@ -371,15 +372,22 @@ class ChannelClient:
         ...
 
     @overload
-    def rename(self, keys: ChannelKeys, names: ChannelNames) -> None:
+    def rename(
+        self, keys: list[Key] | tuple[Key], names: list[str] | tuple[str]
+    ) -> None:
         """Renames one or more channels in the cluster.
 
         :param keys: The keys of the channels to rename.
         :param names: The new names for the channels.
         :returns: None.
         """
+        ...
 
-    def rename(self, keys: ChannelKeys, names: ChannelNames) -> None:
+    def rename(
+        self,
+        keys: Key | list[Key] | tuple[Key],
+        names: str | list[str] | tuple[str],
+    ) -> None:
         """Renames one or more channels in the cluster.
 
         :param keys: The keys of the channels to rename.
@@ -396,7 +404,7 @@ class ChannelClient:
 
 
 def _multiple_results_error(
-    channel: ChannelParams,
+    channel: Params,
     results: list[Payload],
 ) -> MultipleFoundError:
     msg = f"""

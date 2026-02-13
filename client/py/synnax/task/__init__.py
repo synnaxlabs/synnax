@@ -8,14 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.task.client import (
-    BaseReadTaskConfig,
-    BaseTaskConfig,
-    BaseWriteTaskConfig,
+    BaseConfig,
+    BaseReadConfig,
+    BaseWriteConfig,
     Client,
     JSONConfigMixin,
+    Protocol,
     StarterStopperMixin,
     Task,
-    TaskProtocol,
 )
 from synnax.task.types_gen import (
     ONTOLOGY_TYPE,
@@ -35,10 +35,10 @@ __all__ = [
     "StatusDetails",
     "ONTOLOGY_TYPE",
     "ontology_id",
-    "BaseTaskConfig",
-    "BaseReadTaskConfig",
-    "BaseWriteTaskConfig",
+    "BaseConfig",
+    "BaseReadConfig",
+    "BaseWriteConfig",
     "JSONConfigMixin",
     "StarterStopperMixin",
-    "TaskProtocol",
+    "Protocol",
 ]

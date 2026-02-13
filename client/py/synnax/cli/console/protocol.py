@@ -9,7 +9,7 @@
 
 from typing import Protocol, TypeVar
 
-R = TypeVar("R", str, int, float, bool, None)
+R = TypeVar("R", str, int, float, bool)
 
 
 class Prompt(Protocol):

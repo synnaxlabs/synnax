@@ -15,7 +15,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import synnax as sy
-from synnax import ni
 
 from framework.utils import (
     get_cpu_cores,
@@ -86,13 +85,13 @@ class DriverNIDigitalWrite(Latency):
 
         self.log("Creating Task")
         # Create Task
-        tsk = ni.DigitalWriteTask(
+        tsk = sy.ni.DigitalWriteTask(
             name="Basic Digital Write",
             device=dev.key,
             state_rate=sy.Rate.HZ * 2000,
             data_saving=True,
             channels=[
-                ni.DOChan(
+                sy.ni.DOChan(
                     cmd_channel=do_1_cmd.key,
                     state_channel=do_1_state.key,
                     port=0,

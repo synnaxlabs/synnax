@@ -9,17 +9,19 @@
 
 __version__ = "0.3.0"
 
-from synnax import ethercat, labjack, modbus, ni, opcua, sequence, status
+from synnax import color, ethercat, labjack, modbus, ni, opcua, sequence, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role
 from synnax.arc import (
     Arc,
-    ArcTask,
     Edge,
     Graph,
     GraphNode,
     Handle,
     Position,
+)
+from synnax.arc import Task as ArcTask
+from synnax.arc import (
     Text,
 )
 from synnax.channel import Channel
@@ -50,14 +52,11 @@ from synnax.framer import (
     Writer,
     WriterMode,
 )
-from synnax.options import SynnaxOptions
+from synnax.options import Options
 from synnax.rack import Rack
 from synnax.ranger import Range
-from synnax.status import Status
 from synnax.synnax import Synnax
-from synnax.task import Status as TaskStatus
-from synnax.task import StatusDetails as TaskStatusDetails
-from synnax.task import Task
+from synnax.task import Status, StatusDetails, Task
 from synnax.telem import (
     Alignment,
     Authority,
@@ -137,10 +136,10 @@ __all__ = [
     "sleep",
     "Streamer",
     "Synnax",
-    "SynnaxOptions",
+    "Options",
     "Task",
-    "TaskStatus",
-    "TaskStatusDetails",
+    "Status",
+    "StatusDetails",
     "Text",
     "Timer",
     "TimeRange",

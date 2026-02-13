@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Generic, TextIO
+from typing import Any, Generic, TextIO
 
 from pydantic import BaseModel
 
@@ -114,22 +114,26 @@ class MockPrompt:
         default: R | None = None,
         password: bool = False,
     ) -> R | None:
-        e = Entry(
+        resolved_type = assign_default_ask_type(type_, choices, default)
+        response: R | None = (
+            self.responses.pop(0) if len(self.responses) > 0 else default
+        )
+        e: Entry[Any] = Entry(
             message=question,
             choices=choices,
             default=default,
-            type_=assign_default_ask_type(type_, choices, default),
+            type_=resolved_type,
             password=password,
+            response=response,
         )
-        e.response = self.responses.pop(0) if len(self.responses) > 0 else default
-        if type(e.response) != e.type_:
+        if type(response) != resolved_type:
             raise TypeError(f"""
                 Mock Prompt: Invalid response type
                 Question: {question}
                 Expected type: {type_}
-                Actual response: {e.response}
+                Actual response: {response}
                 """)
-        return e.response
+        return response
 
 
 class MockConsole(MockPrint, MockPrompt):
@@ -148,3 +152,6 @@ class MockConsole(MockPrint, MockPrompt):
         """
         MockPrint.__init__(self, output, verbose)
         MockPrompt.__init__(self, output, responses or list())
+
+    def _(self) -> Console:
+        return self

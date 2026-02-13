@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package cli provides the command-line interface for Oracle.
-package cli
+// Package cmd provides the command-line interface for Oracle.
+package cmd
 
 import (
 	"os"

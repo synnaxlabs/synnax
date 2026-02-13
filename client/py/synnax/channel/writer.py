@@ -8,46 +8,46 @@
 #  included in the file licenses/APL.txt.
 
 from alamos import Instrumentation, trace
-from freighter import Empty, Payload, UnaryClient, send_required
+from freighter import Empty, UnaryClient, send_required
+from pydantic import BaseModel
 
 from synnax.channel.payload import (
-    ChannelKeys,
-    ChannelNames,
-    ChannelParams,
-    normalize_channel_params,
+    Key,
+    NormalizedNameResult,
+    Params,
+    Payload,
+    normalize_params,
 )
-from synnax.channel.retrieve import CacheChannelRetriever
-from synnax.channel.types_gen import New
-from synnax.channel.types_gen import Payload as ChannelPayload
+from synnax.channel.retrieve import CacheRetriever
 
 
-class _CreateRequest(Payload):
-    channels: list[New | ChannelPayload]
+class _CreateRequest(BaseModel):
+    channels: list[Payload]
 
 
 _Response = _CreateRequest
 
 
-class _DeleteRequest(Payload):
-    keys: ChannelKeys | None = None
-    names: ChannelNames | None = None
+class _DeleteRequest(BaseModel):
+    keys: list[Key] | tuple[Key] | None = None
+    names: list[str] | tuple[str] | None = None
 
 
-class _RenameRequest(Payload):
-    keys: ChannelKeys
-    names: ChannelNames
+class _RenameRequest(BaseModel):
+    keys: list[Key] | tuple[Key]
+    names: list[str] | tuple[str]
 
 
-class ChannelWriter:
+class Writer:
     _client: UnaryClient
-    _cache: CacheChannelRetriever | None
+    _cache: CacheRetriever | None
     instrumentation: Instrumentation
 
     def __init__(
         self,
         client: UnaryClient,
         instrumentation: Instrumentation,
-        cache: CacheChannelRetriever | None,
+        cache: CacheRetriever | None,
     ):
         self._client = client
         self.instrumentation = instrumentation
@@ -56,8 +56,8 @@ class ChannelWriter:
     @trace("debug")
     def create(
         self,
-        channels: list[New],
-    ) -> list[New]:
+        channels: list[Payload],
+    ) -> list[Payload]:
         req = _CreateRequest(channels=channels)
         res = send_required(self._client, "/channel/create", req, _Response)
         if self._cache is not None:
@@ -65,16 +65,21 @@ class ChannelWriter:
         return res.channels
 
     @trace("debug")
-    def delete(self, channels: ChannelParams) -> None:
-        normal = normalize_channel_params(channels)
-        req = _DeleteRequest(**{normal.variant: normal.channels})
+    def delete(self, channels: Params) -> None:
+        normal = normalize_params(channels)
+        if isinstance(normal, NormalizedNameResult):
+            req = _DeleteRequest(names=normal.channels)
+        else:
+            req = _DeleteRequest(keys=normal.channels)
         send_required(self._client, "/channel/delete", req, Empty)
         if self._cache is not None:
             self._cache.delete(normal.channels)
 
     @trace("debug")
-    def rename(self, keys: ChannelKeys, names: ChannelNames) -> None:
+    def rename(
+        self, keys: list[Key] | tuple[Key], names: list[str] | tuple[str]
+    ) -> None:
         req = _RenameRequest(keys=keys, names=names)
         send_required(self._client, "/channel/rename", req, Empty)
         if self._cache is not None:
-            self._cache.rename(keys, names)
+            self._cache.rename(list(keys), list(names))

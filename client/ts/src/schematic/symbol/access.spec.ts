@@ -12,7 +12,6 @@ import { describe, expect, it } from "vitest";
 import { AuthError, NotFoundError } from "@/errors";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
-import { group } from "@/ontology/group";
 import { symbol } from "@/schematic/symbol";
 import { createTestClientWithPolicy } from "@/testutil/access";
 import { createTestClient } from "@/testutil/client";

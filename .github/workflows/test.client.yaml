@@ -267,7 +267,7 @@ jobs:
           coverage: true
           coverage_module: synnax
           coverage_flag: client-py
-          type_check: false
+          type_check_dir: "./synnax"
 
   ts:
     name: Test - TypeScript

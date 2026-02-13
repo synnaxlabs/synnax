@@ -12,14 +12,14 @@ from __future__ import annotations
 from typing import overload
 from uuid import UUID
 
-from freighter import Empty, Payload, UnaryClient, send_required
-from pydantic import PrivateAttr
+from freighter import Empty, UnaryClient, send_required
+from pydantic import BaseModel, PrivateAttr
 
 from synnax.arc.payload import (
-    ArcKey,
-    ArcMode,
-    ArcPayload,
     Graph,
+    Key,
+    Mode,
+    Payload,
     Text,
     ontology_id,
 )
@@ -28,15 +28,15 @@ from synnax.ontology.payload import ID
 from synnax.util.normalize import normalize
 
 
-class _CreateRequest(Payload):
-    arcs: list[ArcPayload] = []
+class _CreateRequest(BaseModel):
+    arcs: list[Payload] = []
 
 
-class _CreateResponse(Payload):
-    arcs: list[ArcPayload] = []
+class _CreateResponse(BaseModel):
+    arcs: list[Payload] = []
 
 
-class _RetrieveRequest(Payload):
+class _RetrieveRequest(BaseModel):
     keys: list[UUID] | None = None
     names: list[str] | None = None
     search_term: str | None = None
@@ -44,15 +44,15 @@ class _RetrieveRequest(Payload):
     offset: int | None = None
 
 
-class _RetrieveResponse(Payload):
-    arcs: list[ArcPayload] | None = None
+class _RetrieveResponse(BaseModel):
+    arcs: list[Payload] | None = None
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     keys: list[UUID]
 
 
-class Arc(ArcPayload):
+class Arc(Payload):
     """An Arc is a user-defined automation sequence or control program.
 
     Arcs can be created in two modes:
@@ -60,7 +60,7 @@ class Arc(ArcPayload):
     - 'graph': Visual programming using a node-based editor
     """
 
-    __client: ArcClient | None = PrivateAttr(None)
+    __client: Client | None = PrivateAttr(None)
 
     def __init__(
         self,
@@ -70,8 +70,8 @@ class Arc(ArcPayload):
         graph: Graph | None = None,
         text: Text | None = None,
         version: str = "",
-        mode: ArcMode = "text",
-        _client: ArcClient | None = None,
+        mode: Mode = "text",
+        _client: Client | None = None,
     ):
         super().__init__(
             key=key,
@@ -87,8 +87,8 @@ class Arc(ArcPayload):
     def ontology_id(self) -> ID:
         return ontology_id(self.key)
 
-    def to_payload(self) -> ArcPayload:
-        return ArcPayload(
+    def to_payload(self) -> Payload:
+        return Payload(
             key=self.key,
             name=self.name,
             graph=self.graph,
@@ -98,7 +98,7 @@ class Arc(ArcPayload):
         )
 
 
-class ArcClient:
+class Client:
     """Client for managing Arc programs in the Synnax cluster."""
 
     _client: UnaryClient
@@ -114,7 +114,7 @@ class ArcClient:
         graph: Graph | None = None,
         text: Text | None = None,
         version: str = "",
-        mode: ArcMode = "text",
+        mode: Mode = "text",
     ) -> Arc: ...
 
     @overload
@@ -131,7 +131,7 @@ class ArcClient:
         graph: Graph | None = None,
         text: Text | None = None,
         version: str = "",
-        mode: ArcMode = "text",
+        mode: Mode = "text",
     ) -> Arc | list[Arc]:
         is_single = True
         if arc is not None:
@@ -142,7 +142,7 @@ class ArcClient:
                 to_create = [arc.to_payload()]
         else:
             to_create = [
-                ArcPayload(
+                Payload(
                     name=name,
                     graph=graph if graph is not None else Graph(),
                     text=text if text is not None else Text(),
@@ -161,7 +161,7 @@ class ArcClient:
         return created[0] if is_single else created
 
     @overload
-    def retrieve(self, *, key: ArcKey) -> Arc: ...
+    def retrieve(self, *, key: Key) -> Arc: ...
 
     @overload
     def retrieve(self, *, name: str) -> Arc: ...
@@ -170,7 +170,7 @@ class ArcClient:
     def retrieve(
         self,
         *,
-        keys: list[ArcKey] | None = None,
+        keys: list[Key] | None = None,
         names: list[str] | None = None,
         search_term: str | None = None,
         limit: int | None = None,
@@ -180,9 +180,9 @@ class ArcClient:
     def retrieve(
         self,
         *,
-        key: ArcKey | None = None,
+        key: Key | None = None,
         name: str | None = None,
-        keys: list[ArcKey] | None = None,
+        keys: list[Key] | None = None,
         names: list[str] | None = None,
         search_term: str | None = None,
         limit: int | None = None,
@@ -218,7 +218,7 @@ class ArcClient:
             raise MultipleFoundError(f"Multiple Arcs matching {identifier} found")
         return arcs[0]
 
-    def delete(self, keys: ArcKey | list[ArcKey]) -> None:
+    def delete(self, keys: Key | list[Key]) -> None:
         send_required(
             self._client,
             "/arc/delete",
@@ -226,7 +226,7 @@ class ArcClient:
             Empty,
         )
 
-    def __sugar(self, payloads: list[ArcPayload]) -> list[Arc]:
+    def __sugar(self, payloads: list[Payload]) -> list[Arc]:
         return [
             Arc(
                 key=p.key,

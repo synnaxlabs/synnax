@@ -7,21 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, get_args
+import json
+from typing import Annotated, Literal, TypeAlias, get_args
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, confloat, conint, field_validator
+from pydantic import BaseModel, Field, field_validator
 
-from synnax import device
-from synnax.channel import ChannelKey
-from synnax.task import (
-    BaseReadTaskConfig,
-    BaseWriteTaskConfig,
-    JSONConfigMixin,
-    StarterStopperMixin,
-    Task,
-    TaskProtocol,
-)
+from synnax import channel as channel_
+from synnax import device, task
 from synnax.telem import CrudeRate
 
 # Device identifiers - must match Console expectations
@@ -30,7 +23,7 @@ MAKE = "LabJack"
 T4 = "LJM_dtT4"
 T7 = "LJM_dtT7"
 T8 = "LJM_dtT8"
-SUPPORTED_MODELS = Literal[T4, T7, T8]
+SUPPORTED_MODELS: TypeAlias = Literal["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"]
 
 
 class BaseChan(BaseModel):
@@ -101,9 +94,9 @@ class AIChan(BaseChan):
     """
 
     type: Literal["AI"] = "AI"
-    channel: ChannelKey
+    channel: channel_.Key
     "The Synnax channel key that will be written to during acquisition."
-    range: confloat(gt=0) = 10.0
+    range: Annotated[float, Field(gt=0)] = 10.0
     "The voltage range for the channel (±range volts)."
     neg_chan: int = 199
     "The negative channel for differential measurements. 199 = single-ended (GND)."
@@ -194,7 +187,7 @@ class ThermocoupleChan(BaseChan):
     """
 
     type: Literal["TC"] = "TC"
-    channel: ChannelKey
+    channel: channel_.Key
     "The Synnax channel key that will be written to during acquisition."
     thermocouple_type: Literal["B", "E", "J", "K", "N", "R", "S", "T", "C"]
     "The type of thermocouple being used."
@@ -264,7 +257,7 @@ class DIChan(BaseChan):
     """
 
     type: Literal["DI"] = "DI"
-    channel: ChannelKey
+    channel: channel_.Key
     "The Synnax channel key that will be written to during acquisition."
 
 
@@ -326,13 +319,13 @@ class OutputChan(BaseChan):
 
     type: Literal["AO", "DO"] = "DO"
     "The type of output channel ('AO' for analog, 'DO' for digital)."
-    cmd_channel: ChannelKey
+    cmd_channel: channel_.Key
     "The Synnax channel key to read command values from."
-    state_channel: ChannelKey
+    state_channel: channel_.Key
     "The Synnax channel key to write state values to."
 
 
-class ReadTaskConfig(BaseReadTaskConfig):
+class ReadTaskConfig(task.BaseReadConfig):
     """
     Configuration for a LabJack read task.
 
@@ -343,8 +336,8 @@ class ReadTaskConfig(BaseReadTaskConfig):
 
     device: str = Field(min_length=1)
     "The key of the Synnax LabJack device to read from."
-    sample_rate: conint(ge=0, le=100000)
-    stream_rate: conint(ge=0, le=100000)
+    sample_rate: Annotated[int, Field(ge=0, le=100000)]
+    stream_rate: Annotated[int, Field(ge=0, le=100000)]
     channels: list[InputChan]
     "A list of input channel configurations to acquire data from."
 
@@ -356,7 +349,7 @@ class ReadTaskConfig(BaseReadTaskConfig):
         return v
 
 
-class WriteTaskConfig(BaseWriteTaskConfig):
+class WriteTaskConfig(task.BaseWriteConfig):
     """
     Configuration for a LabJack write task.
 
@@ -367,7 +360,7 @@ class WriteTaskConfig(BaseWriteTaskConfig):
 
     data_saving: bool = True
     "Whether to persist state feedback data to disk (True) or only stream it (False)."
-    state_rate: conint(ge=0, le=10000)
+    state_rate: Annotated[int, Field(ge=0, le=10000)]
     "The rate at which to write task channel states to the Synnax cluster (Hz)."
     channels: list[OutputChan]
     "A list of output channel configurations to write to."
@@ -380,7 +373,7 @@ class WriteTaskConfig(BaseWriteTaskConfig):
         return v
 
 
-class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
     A read task for sampling data from LabJack devices and writing the data to a
     Synnax cluster. This task is a programmatic representation of the LabJack read
@@ -405,25 +398,25 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "labjack_read"
     config: ReadTaskConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         sample_rate: CrudeRate = 0,
         stream_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[InputChan] = None,
+        channels: list[InputChan] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = ReadTaskConfig.model_validate(internal.config)
+            self.config = ReadTaskConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = ReadTaskConfig(
             device=device,
             sample_rate=sample_rate,
@@ -436,17 +429,24 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        if "read" not in dev.properties:
-            dev.properties["read"] = {"index": 0, "channels": {}}
+        props = (
+            json.loads(dev.properties)
+            if isinstance(dev.properties, str)
+            else dev.properties
+        )
+
+        if "read" not in props:
+            props["read"] = {"index": 0, "channels": {}}
 
         for ch in self.config.channels:
             # Map port location -> channel key for Console
-            dev.properties["read"]["channels"][ch.port] = ch.channel
+            props["read"]["channels"][ch.port] = ch.channel
 
+        dev.properties = json.dumps(props)
         return device_client.create(dev)
 
 
-class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
+class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
     A write task for sending commands to LabJack devices. This task is a programmatic
     representation of the LabJack write task configurable within the Synnax console.
@@ -467,24 +467,24 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
     TYPE = "labjack_write"
     config: WriteTaskConfig
-    _internal: Task
+    _internal: task.Task
 
     def __init__(
         self,
-        internal: Task | None = None,
+        internal: task.Task | None = None,
         *,
-        device: str = "",
+        device: device.Key = "",
         name: str = "",
         state_rate: CrudeRate = 0,
         data_saving: bool = False,
         auto_start: bool = False,
-        channels: list[OutputChan] = None,
+        channels: list[OutputChan] | None = None,
     ):
         if internal is not None:
             self._internal = internal
-            self.config = WriteTaskConfig.model_validate(internal.config)
+            self.config = WriteTaskConfig.model_validate_json(internal.config)
             return
-        self._internal = Task(name=name, type=self.TYPE)
+        self._internal = task.Task(name=name, type=self.TYPE)
         self.config = WriteTaskConfig(
             device=device,
             state_rate=state_rate,
@@ -496,14 +496,20 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        if "write" not in dev.properties:
-            dev.properties["write"] = {"channels": {}}
+        props = (
+            json.loads(dev.properties)
+            if isinstance(dev.properties, str)
+            else dev.properties
+        )
+
+        if "write" not in props:
+            props["write"] = {"channels": {}}
 
         for ch in self.config.channels:
             # Map port location -> state_channel key for Console
-            dev.properties["write"]["channels"][ch.port] = ch.state_channel
+            props["write"]["channels"][ch.port] = ch.state_channel
 
-        dev.properties = dev.properties
+        dev.properties = json.dumps(props)
         return device_client.create(dev)
 
 
@@ -585,5 +591,5 @@ class Device(device.Device):
             make=MAKE,
             model=model,
             configured=configured,
-            properties=props,
+            properties=json.dumps(props),
         )

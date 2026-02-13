@@ -600,8 +600,11 @@ class LayoutClient:
         Args:
             tab_name: Name of the tab to focus
         """
+        self.close_left_toolbar()
         tab = self.get_tab(tab_name)
-        self.ctx_menu.action(tab, "Focus", exact=False)
+        tab.wait_for(state="visible", timeout=5000)
+        tab.click()
+        self.ctx_menu.action(tab.locator("p"), "Focus", exact=False)
 
     def show_visualization_toolbar(self) -> None:
         """Show the visualization toolbar by pressing V."""

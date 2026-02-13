@@ -9,6 +9,7 @@
 
 from synnax.cluster.types_gen import NodeKey
 
-__all__ = [
-    "NodeKey",
-]
+from synnax.group.client import Client
+from synnax.group.payload import Group
+
+__all__ = ["Client", "Group", "NodeKey"]

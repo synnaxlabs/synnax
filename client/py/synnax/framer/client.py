@@ -7,22 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Any, overload
 
 import pandas as pd
 from alamos import NOOP, Instrumentation
-from freighter import AsyncStreamClient, StreamClient, UnaryClient, WebsocketClient
+from freighter import AsyncStreamClient, UnaryClient, WebsocketClient
 
-from synnax.channel.payload import (
-    ChannelKey,
-    ChannelKeys,
-    ChannelName,
-    ChannelNames,
-    ChannelParams,
-    Payload,
-    normalize_channel_params,
-)
-from synnax.channel.retrieve import ChannelRetriever
+import synnax.channel.payload as channel
+from synnax import ontology
+from synnax.channel.retrieve import Retriever
 from synnax.exceptions import QueryError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.deleter import Deleter
@@ -30,7 +23,6 @@ from synnax.framer.frame import CrudeFrame, Frame
 from synnax.framer.iterator import AUTO_SPAN, Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import CrudeWriterMode, Writer, WriterMode
-from synnax.ontology import ID
 from synnax.telem import (
     CrudeSeries,
     CrudeTimeStamp,
@@ -40,7 +32,7 @@ from synnax.telem import (
 )
 from synnax.telem.control import Authority, CrudeAuthority
 
-ontology_type = ID(type="framer")
+ontology_type = ontology.ID(type="framer")
 
 
 class Client:
@@ -52,7 +44,7 @@ class Client:
     __stream_client: WebsocketClient
     __async_client: AsyncStreamClient
     __unary_client: UnaryClient
-    __channels: ChannelRetriever
+    __channels: Retriever
     __deleter: Deleter
     instrumentation: Instrumentation
 
@@ -61,7 +53,7 @@ class Client:
         stream_client: WebsocketClient,
         async_client: AsyncStreamClient,
         unary_client: UnaryClient,
-        retriever: ChannelRetriever,
+        retriever: Retriever,
         deleter: Deleter,
         instrumentation: Instrumentation = NOOP,
     ):
@@ -75,7 +67,7 @@ class Client:
     def open_writer(
         self,
         start: CrudeTimeStamp,
-        channels: ChannelParams,
+        channels: channel.Params,
         authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
         *,
         name: str = "",
@@ -140,8 +132,8 @@ class Client:
     def open_iterator(
         self,
         tr: TimeRange,
-        channels: ChannelParams,
-        chunk_size: int = 1e5,
+        channels: channel.Params,
+        chunk_size: int = 100000,
         downsample_factor: int = 1,
     ) -> Iterator:
         """Opens a new iterator over the given channels within the provided time range.
@@ -171,7 +163,8 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        frame: CrudeFrame,
+        channels: CrudeFrame,
+        *,
         strict: bool = False,
     ): ...
 
@@ -179,37 +172,22 @@ class Client:
     def write(
         self,
         start: CrudeTimeStamp,
-        channel: ChannelKey | ChannelName | Payload,
-        data: CrudeSeries,
-        strict: bool = False,
-    ):
-        """Writes telemetry to the given channel starting at the given timestamp.
-
-        :param channel: The key of the channel to write to.
-        :param start: The starting timestamp of the first sample in data.
-        :param data: The telemetry to write to the channel.
-        :returns: None.
-        """
-        ...
-
-    @overload
-    def write(
-        self,
-        start: CrudeTimeStamp,
-        channel: ChannelKeys | ChannelNames | list[Payload],
-        series: list[CrudeSeries],
+        channels: channel.Params,
+        series: CrudeSeries | list[CrudeSeries],
+        *,
         strict: bool = False,
     ): ...
 
     def write(
         self,
         start: CrudeTimeStamp,
-        channels: ChannelParams | Payload | list[Payload] | CrudeFrame,
+        channels: channel.Params | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
+        *,
         strict: bool = False,
-    ):
-        parsed_channels = list()
-        if isinstance(channels, (list, ChannelKey, Payload, ChannelName)):
+    ) -> None:
+        parsed_channels: Any = list()
+        if isinstance(channels, (list, channel.Key, channel.Payload, str)):
             parsed_channels = channels
         elif isinstance(channels, dict):
             parsed_channels = list(channels.keys())
@@ -231,20 +209,20 @@ class Client:
     def read(
         self,
         tr: TimeRange,
-        channels: ChannelKeys | ChannelNames,
+        channels: list[channel.Key] | tuple[channel.Key] | list[str] | tuple[str],
     ) -> Frame: ...
 
     @overload
     def read(
         self,
         tr: TimeRange,
-        channels: ChannelKey | ChannelName,
+        channels: channel.Key | str,
     ) -> MultiSeries: ...
 
     def read(
         self,
         tr: TimeRange,
-        channels: ChannelParams,
+        channels: channel.Params,
     ) -> MultiSeries | Frame:
         """
         Reads telemetry from the channel between the two timestamps.
@@ -255,7 +233,7 @@ class Client:
         :returns: A tuple where the first item is a numpy array containing the telemetry
         and the second item is the time range occupied by that array.
         """
-        normal = normalize_channel_params(channels)
+        normal = channel.normalize_params(channels)
         frame = self._read_frame(tr, channels)
         if len(normal.channels) > 1:
             return frame
@@ -266,23 +244,25 @@ class Client:
             )
         return series
 
+    @overload
     def read_latest(
         self,
-        channels: ChannelKey | ChannelName,
+        channels: channel.Key | str,
         n: int = 1,
     ) -> MultiSeries: ...
 
+    @overload
     def read_latest(
         self,
-        channels: ChannelKeys | ChannelNames,
+        channels: list[channel.Key] | tuple[channel.Key] | list[str] | tuple[str],
         n: int = 1,
     ) -> Frame: ...
 
     def read_latest(
         self,
-        channels: ChannelParams,
+        channels: channel.Params,
         n: int = 1,
-    ) -> Frame:
+    ) -> Frame | MultiSeries:
         """
         Reads the latest n samples from time_channel and data_channel.
 
@@ -292,7 +272,7 @@ class Client:
         Returns:
             A frame containing the latest n samples from time_channel and data_channel
         """
-        normal = normalize_channel_params(channels)
+        normal = channel.normalize_params(channels)
         aggregate = Frame()
         if n > 0:
             with self.open_iterator(
@@ -305,11 +285,14 @@ class Client:
                 aggregate.append(i.value)
         if len(normal.channels) > 1:
             return aggregate
-        return aggregate.get(normal.channels[0], MultiSeries([]))
+        result = aggregate.get(normal.channels[0], MultiSeries([]))
+        if result is None:
+            return MultiSeries([])
+        return result
 
     def open_streamer(
         self,
-        channels: ChannelParams,
+        channels: channel.Params,
         downsample_factor: int = 1,
         throttle_rate: float = 0,
         use_experimental_codec: bool = True,
@@ -335,7 +318,7 @@ class Client:
 
     async def open_async_streamer(
         self,
-        channels: ChannelParams,
+        channels: channel.Params,
         downsample_factor: int = 1,
         throttle_rate: float = 0,
     ) -> AsyncStreamer:
@@ -350,7 +333,7 @@ class Client:
         await s._open()
         return s
 
-    def delete(self, channels: ChannelParams, tr: TimeRange) -> None:
+    def delete(self, channels: channel.Params, tr: TimeRange) -> None:
         """
         delete deletes data in the specified channels in the specified time range.
         Note that the time range is start-inclusive and end-exclusive.
@@ -364,7 +347,7 @@ class Client:
     def _read_frame(
         self,
         tr: TimeRange,
-        channels: ChannelParams,
+        channels: channel.Params,
     ) -> Frame:
         aggregate = Frame()
         with self.open_iterator(tr, channels) as it:

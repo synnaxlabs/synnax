@@ -12,25 +12,25 @@ package testutil_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/oracle/testutil"
 )
 
 var _ = Describe("MockFileLoader", func() {
 	Describe("NewMockFileLoader", func() {
 		It("should create loader with empty files map", func() {
-			loader := testutil.NewMockFileLoader()
+			loader := NewMockFileLoader()
 			Expect(loader.Files).To(BeEmpty())
 		})
 
 		It("should use default repo root", func() {
-			loader := testutil.NewMockFileLoader()
+			loader := NewMockFileLoader()
 			Expect(loader.RepoRoot()).To(Equal("/mock/repo"))
 		})
 	})
 
 	Describe("Add", func() {
 		It("should add file and return loader for chaining", func() {
-			loader := testutil.NewMockFileLoader().
+			loader := NewMockFileLoader().
 				Add("schema/user", "struct User {}").
 				Add("schema/range", "struct Range {}")
 			Expect(loader.Files).To(HaveLen(2))
@@ -38,10 +38,10 @@ var _ = Describe("MockFileLoader", func() {
 	})
 
 	Describe("Load", func() {
-		var loader *testutil.MockFileLoader
+		var loader *MockFileLoader
 
 		BeforeEach(func() {
-			loader = testutil.NewMockFileLoader().
+			loader = NewMockFileLoader().
 				Add("schema/user", "struct User { field key uuid }").
 				Add("schema/range.oracle", "struct Range { field key uuid }")
 		})
@@ -63,14 +63,14 @@ var _ = Describe("MockFileLoader", func() {
 		It("should return FileNotFoundError for missing file", func() {
 			_, _, err := loader.Load("schema/nonexistent")
 			Expect(err).To(HaveOccurred())
-			var fnf *testutil.FileNotFoundError
+			var fnf *FileNotFoundError
 			Expect(err).To(BeAssignableToTypeOf(fnf))
 		})
 	})
 
 	Describe("FileNotFoundError", func() {
 		It("should include path in error message", func() {
-			err := &testutil.FileNotFoundError{Path: "schema/missing"}
+			err := &FileNotFoundError{Path: "schema/missing"}
 			Expect(err.Error()).To(Equal("file not found: schema/missing"))
 		})
 	})

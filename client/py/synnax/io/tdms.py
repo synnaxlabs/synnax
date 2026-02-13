@@ -109,8 +109,7 @@ class TDMSReader(TDMSMatcher):  # type: ignore
         if self._current_chunk >= self.n_chunks:
             return pd.DataFrame()
 
-        # if keys is empty, use default keys
-        keys: set[str] = self.channel_keys if (len(keys) == 0) else set(keys)
+        _keys: set[str] = self.channel_keys if (len(keys) == 0) else set(keys)
 
         # https://nptdms.readthedocs.io/en/stable/reading.html
         # https://github.com/adamreeve/npTDMS/issues/263
@@ -119,7 +118,7 @@ class TDMSReader(TDMSMatcher):  # type: ignore
         with TdmsFile.open(self._path) as tdms_file:
             for group in tdms_file.groups():
                 for channel in group.channels():
-                    if channel.name in keys:
+                    if channel.name in _keys:
                         data[channel.name] = channel[
                             self._current_chunk
                             * self.chunk_size : (self._current_chunk + 1)

@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/resolution"
-	"github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/oracle/testutil"
 )
 
 func contains(slice []string, item string) bool {
@@ -31,12 +31,12 @@ func contains(slice []string, item string) bool {
 var _ = Describe("Analyzer", func() {
 	var (
 		ctx    context.Context
-		loader *testutil.MockFileLoader
+		loader *MockFileLoader
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		loader = testutil.NewMockFileLoader()
+		loader = NewMockFileLoader()
 	})
 
 	Describe("AnalyzeSource", func() {

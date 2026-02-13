@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Package formatter provides formatting functionality for Oracle schema files.
-// It reformats Oracle source code according to the canonical style defined in STYLE.md.
+// It reformats Oracle source code according to the canonical style.
 package formatter
 
 import (

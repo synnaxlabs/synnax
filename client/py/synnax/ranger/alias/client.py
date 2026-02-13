@@ -10,142 +10,81 @@
 import uuid
 from typing import overload
 
-from freighter import UnaryClient, send_required
+from freighter import UnaryClient
+from pydantic import BaseModel
 
-from synnax.channel import ChannelKey
-from synnax.ranger.alias.payload import (
-    DeleteRequest,
-    EmptyResponse,
-    ListRequest,
-    ListResponse,
-    ResolveRequest,
-    ResolveResponse,
-    RetrieveRequest,
-    RetrieveResponse,
-    SetRequest,
-)
+import synnax.channel.payload as channel
 from synnax.util.normalize import normalize
 
 
-class Aliaser:
-    """Channel alias operations scoped to a range."""
+class _ResolveRequest(BaseModel):
+    range: uuid.UUID
+    aliases: list[str]
 
-    _client: UnaryClient
-    _rng: uuid.UUID
-    _cache: dict[str, ChannelKey]
+
+class _ResolveResponse(BaseModel):
+    aliases: dict[str, channel.Key]
+
+
+class _SetRequest(BaseModel):
+    range: uuid.UUID
+    aliases: dict[channel.Key, str]
+
+
+class _EmptyResponse(BaseModel): ...
+
+
+class Client:
+    __client: UnaryClient
+    __cache: dict[str, channel.Key]
 
     def __init__(self, rng: uuid.UUID, client: UnaryClient) -> None:
-        """Create a new Aliaser instance.
-
-        :param rng: The range key to scope the alias operations to.
-        :param client: The unary client for making requests.
-        """
-        self._client = client
-        self._rng = rng
-        self._cache = {}
+        self.__client = client
+        self.__rng = rng
+        self.__cache = {}
 
     @overload
-    def resolve(self, alias: str) -> ChannelKey: ...
+    def resolve(self, aliases: str) -> channel.Key: ...
 
     @overload
-    def resolve(self, aliases: list[str]) -> dict[str, ChannelKey]: ...
+    def resolve(self, aliases: list[str]) -> dict[str, channel.Key]: ...
 
-    def resolve(self, aliases: str | list[str]) -> dict[str, ChannelKey] | ChannelKey:
-        """Resolve one or more aliases to channel keys.
-
-        :param aliases: A single alias or list of aliases to resolve.
-        :returns: The channel key if a single alias was provided,
-            otherwise a dict of aliases to channel keys.
-        """
-        to_fetch = list()
-        aliases_list = normalize(aliases)
+    def resolve(self, aliases: str | list[str]) -> dict[str, channel.Key] | channel.Key:
         is_single = isinstance(aliases, str)
+        normalized_aliases = normalize(aliases)
+        to_fetch: list[str] = list()
 
-        results: dict[str, ChannelKey] = {}
-        for alias in aliases_list:
-            key = self._cache.get(alias, None)
+        results: dict[str, channel.Key] = {}
+        for alias in normalized_aliases:
+            key = self.__cache.get(alias, None)
             if key is not None:
                 results[alias] = key
             else:
                 to_fetch.append(alias)
 
         if len(to_fetch) == 0:
+            if is_single:
+                return results[normalized_aliases[0]]
             return results
 
-        req = ResolveRequest(range=self._rng, aliases=to_fetch)
-        res = send_required(self._client, "/range/alias/resolve", req, ResolveResponse)
+        req = _ResolveRequest(range=self.__rng, aliases=to_fetch)
+        res, exc = self.__client.send("/range/alias/resolve", req, _ResolveResponse)
+        if exc is not None:
+            raise exc
+        if res is None:
+            if is_single:
+                raise KeyError(f"Alias not found: {aliases}")
+            return results
 
         for alias, key in res.aliases.items():
-            self._cache[alias] = key
+            self.__cache[alias] = key
 
         if is_single:
-            return res.aliases[aliases]
+            return res.aliases[normalized_aliases[0]]
         return {**results, **res.aliases}
 
-    def set(self, aliases: dict[ChannelKey, str]) -> None:
-        """Set aliases for channels.
-
-        :param aliases: A dict mapping channel keys to their aliases.
-        """
-        req = SetRequest(range=self._rng, aliases=aliases)
-        send_required(self._client, "/range/alias/set", req, EmptyResponse)
-
-    def list_(self) -> dict[ChannelKey, str]:
-        """List all aliases for the range.
-
-        :returns: A dict mapping channel keys to aliases.
-        """
-        req = ListRequest(range=self._rng)
-        res = send_required(self._client, "/range/alias/list", req, ListResponse)
-        return res.aliases
-
-    @overload
-    def retrieve(self, channel: ChannelKey) -> str: ...
-
-    @overload
-    def retrieve(self, channels: list[ChannelKey]) -> dict[ChannelKey, str]: ...
-
-    def retrieve(self, channels: ChannelKey) -> str | dict[ChannelKey, str]:
-        """Retrieve aliases for one or more channels.
-
-        :param channels: A single channel key or list of channel keys.
-        :returns: The alias if a single channel was provided,
-            otherwise a dict of channel keys to aliases.
-        """
-        is_single = isinstance(channels, int)
-        req = RetrieveRequest(range=self._rng, channels=normalize(channels))
-        res = send_required(
-            self._client, "/range/alias/retrieve", req, RetrieveResponse
-        )
-        if is_single:
-            return res.aliases[str(channels)]
-        return res.aliases
-
-    def delete(self, channels: ChannelKey | list[ChannelKey]) -> None:
-        """Delete aliases for one or more channels.
-
-        :param channels: A single channel key or list of channel keys to delete aliases for.
-        """
-        req = DeleteRequest(range=self._rng, channels=normalize(channels))
-        send_required(self._client, "/range/alias/delete", req, EmptyResponse)
-
-
-class Client:
-    """Client for accessing the Alias API."""
-
-    _client: UnaryClient
-
-    def __init__(self, client: UnaryClient) -> None:
-        """Create a new Alias client.
-
-        :param client: The unary client for making requests.
-        """
-        self._client = client
-
-    def get(self, range_key: uuid.UUID) -> Aliaser:
-        """Get an Aliaser instance scoped to a specific range.
-
-        :param range_key: The range key to scope the alias operations to.
-        :returns: An Aliaser instance for the specified range.
-        """
-        return Aliaser(range_key, self._client)
+    def set(self, aliases: dict[channel.Key, str]) -> None:
+        req = _SetRequest(range=self.__rng, aliases=aliases)
+        res, exc = self.__client.send("/range/alias/set", req, _EmptyResponse)
+        if exc is not None:
+            raise exc

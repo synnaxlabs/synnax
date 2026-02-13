@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/pb/types"
 	"github.com/synnaxlabs/oracle/resolution"
-	"github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/oracle/testutil"
 )
 
 func TestPBTypes(t *testing.T) {
@@ -99,13 +99,13 @@ var _ = Describe("PbImportResolver", func() {
 var _ = Describe("Plugin", func() {
 	var (
 		ctx    context.Context
-		loader *testutil.MockFileLoader
+		loader *MockFileLoader
 		p      *types.Plugin
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		loader = testutil.NewMockFileLoader()
+		loader = NewMockFileLoader()
 		p = types.New(types.DefaultOptions())
 	})
 
@@ -145,8 +145,8 @@ var _ = Describe("Plugin", func() {
 							field ` + oracleType + `
 						}
 					`
-					resp := testutil.MustGenerate(ctx, source, "test", loader, p)
-					testutil.ExpectContent(resp, "test.proto").ToContain(expectedProtoType + " field = 1;")
+					resp := MustGenerate(ctx, source, "test", loader, p)
+					ExpectContent(resp, "test.proto").ToContain(expectedProtoType + " field = 1;")
 				},
 				Entry("string", "string", "string"),
 				Entry("bool", "bool", "bool"),
@@ -168,8 +168,8 @@ var _ = Describe("Plugin", func() {
 						key uuid
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "test", loader, p)
-				testutil.ExpectContent(resp, "test.proto").ToContain("string key = 1;")
+				resp := MustGenerate(ctx, source, "test", loader, p)
+				ExpectContent(resp, "test.proto").ToContain("string key = 1;")
 			})
 
 			It("Should map json to google.protobuf.Struct", func() {
@@ -181,8 +181,8 @@ var _ = Describe("Plugin", func() {
 						data json
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "test", loader, p)
-				testutil.ExpectContent(resp, "test.proto").
+				resp := MustGenerate(ctx, source, "test", loader, p)
+				ExpectContent(resp, "test.proto").
 					ToContain(
 						`import "google/protobuf/struct.proto";`,
 						`google.protobuf.Struct data = 1;`,
@@ -492,7 +492,7 @@ var _ = Describe("Plugin", func() {
 						@pb omit
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "user", loader, p)
+				resp := MustGenerate(ctx, source, "user", loader, p)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`message User`))
 				Expect(content).NotTo(ContainSubstring(`InternalState`))
@@ -518,7 +518,7 @@ var _ = Describe("Plugin", func() {
 						status Status
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "status", loader, p)
+				resp := MustGenerate(ctx, source, "status", loader, p)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`enum Status`))
 				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
@@ -690,7 +690,7 @@ var _ = Describe("Plugin", func() {
 						value string
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "test", loader, p)
+				resp := MustGenerate(ctx, source, "test", loader, p)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring("message MyProtoMessage"))
 				Expect(content).NotTo(ContainSubstring("OriginalName"))
@@ -896,7 +896,7 @@ var _ = Describe("Plugin", func() {
 						age int32
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "user", loader, p)
+				resp := MustGenerate(ctx, source, "user", loader, p)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring("// User is a representation of a user in the system."))
 				Expect(content).To(ContainSubstring("// key is the unique identifier for the user."))

@@ -10,7 +10,8 @@
 from typing import overload
 from uuid import UUID
 
-from freighter import Empty, Payload, UnaryClient, send_required
+from freighter import Empty, UnaryClient, send_required
+from pydantic import BaseModel
 
 from synnax.ontology import ID
 from synnax.status.types_gen import Status
@@ -18,16 +19,16 @@ from synnax.util.normalize import normalize
 from synnax.util.params import require_named_params
 
 
-class _SetRequest(Payload):
+class _SetRequest(BaseModel):
     parent: ID | None = None
     statuses: list[Status]
 
 
-class _SetResponse(Payload):
+class _SetResponse(BaseModel):
     statuses: list[Status]
 
 
-class _RetrieveRequest(Payload):
+class _RetrieveRequest(BaseModel):
     keys: list[str] | None = None
     search_term: str | None = None
     offset: int | None = None
@@ -36,11 +37,11 @@ class _RetrieveRequest(Payload):
     has_labels: list[UUID] | None = None
 
 
-class _RetrieveResponse(Payload):
+class _RetrieveResponse(BaseModel):
     statuses: list[Status] | None = None
 
 
-class _DeleteRequest(Payload):
+class _DeleteRequest(BaseModel):
     keys: list[str]
 
 
@@ -81,7 +82,7 @@ class Client:
     @overload
     def set(
         self,
-        statuses: list[Status],
+        status: list[Status],
         *,
         parent: ID | None = None,
     ) -> list[Status]: ...
@@ -207,7 +208,7 @@ class Client:
                 ... )
         """
         single = key is not None
-        if single:
+        if single and key is not None:
             keys = [key]
 
         res = send_required(
@@ -225,7 +226,9 @@ class Client:
         ).statuses
 
         if res is None:
-            return [] if not single else None
+            if single:
+                raise ValueError(f"Status with key '{key}' not found")
+            return []
 
         if single:
             if len(res) == 0:

@@ -15,7 +15,6 @@ import numpy as np
 import pytest
 
 import synnax as sy
-from synnax.color import Color
 from synnax.util.params import RequiresNamedParams
 from synnax.util.random import random_name
 
@@ -46,7 +45,7 @@ class TestRangeClient:
         )
         assert rng.name == "test"
         assert rng.key != ""
-        assert rng.color == Color(r=255, g=0, b=0, a=1.0)
+        assert rng.color == sy.Color(r=255, g=0, b=0, a=1.0)
 
     def test_create_multiple(self, two_ranges: list[sy.Range]):
         """Should create multiple valid ranges"""

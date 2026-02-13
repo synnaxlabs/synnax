@@ -12,7 +12,6 @@ import { array, strings } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { QueryError } from "@/errors";
-import { type framer } from "@/framer";
 import {
   type ID,
   idToString,
@@ -48,12 +47,10 @@ export class Client {
   readonly type: string = "ontology";
   private readonly client: UnaryClient;
   private readonly writer: Writer;
-  private readonly framer: framer.Client;
 
-  constructor(unary: UnaryClient, framer: framer.Client) {
+  constructor(unary: UnaryClient) {
     this.client = unary;
     this.writer = new Writer(unary);
-    this.framer = framer;
   }
 
   /**

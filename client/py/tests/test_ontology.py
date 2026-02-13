@@ -20,16 +20,16 @@ class TestOntology:
         name = str(uuid4())
         g = client.groups.create(sy.ontology.ROOT_ID, name)
         assert g.key is not None
-        g2 = client.ontology.retrieve(sy.group.ontology_id(g.key))
+        g2 = client.ontology.retrieve(g.ontology_id)
         assert g2.name == name
 
     def test_retrieve_children(self, client: sy.Synnax):
         name = str(uuid4())
         g = client.groups.create(sy.ontology.ROOT_ID, name)
         assert g.key is not None
-        g2 = client.groups.create(sy.group.ontology_id(g.key), name)
+        g2 = client.groups.create(g.ontology_id, name)
         assert g2.key is not None
-        children = client.ontology.retrieve_children(sy.group.ontology_id(g.key))
+        children = client.ontology.retrieve_children(g.ontology_id)
         assert len(children) == 1
         assert children[0].name == name
 
@@ -37,9 +37,9 @@ class TestOntology:
         name = str(uuid4())
         g = client.groups.create(sy.ontology.ROOT_ID, name)
         assert g.key is not None
-        g2 = client.groups.create(sy.group.ontology_id(g.key), name)
+        g2 = client.groups.create(g.ontology_id, name)
         assert g2.key is not None
-        parents = client.ontology.retrieve_parents(sy.group.ontology_id(g2.key))
+        parents = client.ontology.retrieve_parents(g2.ontology_id)
         assert len(parents) == 1
         assert parents[0].name == name
 
@@ -47,12 +47,10 @@ class TestOntology:
         name = str(uuid4())
         g = client.groups.create(sy.ontology.ROOT_ID, name)
         assert g.key is not None
-        g2 = client.groups.create(sy.group.ontology_id(g.key), name)
+        g2 = client.groups.create(g.ontology_id, name)
         assert g2.key is not None
-        client.ontology.remove_children(
-            sy.group.ontology_id(g.key), sy.group.ontology_id(g2.key)
-        )
-        children = client.ontology.retrieve_children(sy.group.ontology_id(g.key))
+        client.ontology.remove_children(g.ontology_id, g2.ontology_id)
+        children = client.ontology.retrieve_children(g.ontology_id)
         assert len(children) == 0
 
     def test_move_children(self, client: sy.Synnax):
@@ -61,11 +59,7 @@ class TestOntology:
         assert g.key is not None
         g2 = client.groups.create(sy.ontology.ROOT_ID, name)
         assert g2.key is not None
-        client.ontology.move_children(
-            sy.group.ontology_id(g.key),
-            sy.group.ontology_id(g2.key),
-            sy.group.ontology_id(g.key),
-        )
-        children = client.ontology.retrieve_children(sy.group.ontology_id(g2.key))
+        client.ontology.move_children(g.ontology_id, g2.ontology_id, g.ontology_id)
+        children = client.ontology.retrieve_children(g2.ontology_id)
         assert len(children) == 1
         assert children[0].name == name

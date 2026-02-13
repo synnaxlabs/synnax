@@ -18,12 +18,12 @@ import synnax as sy
 @pytest.mark.task
 class TestTaskClient:
     def test_create_single(self, client: sy.Synnax):
-        task = client.tasks.create(name="test", type="test", config={"foo": "bar"})
+        task = client.tasks.create(name="test", type="test")
         assert task.key != 0
 
     def test_create_multiple(self, client: sy.Synnax):
-        t1 = sy.Task(name="test1", type="test", config={"foo": "bar"})
-        t2 = sy.Task(name="test2", type="test", config={"foo": "bar"})
+        t1 = sy.Task(name="test1", type="test")
+        t2 = sy.Task(name="test2", type="test")
         tasks = client.tasks.create(tasks=[t1, t2])
         assert len(tasks) == 2
         assert tasks[0].name == "test1"
@@ -31,14 +31,14 @@ class TestTaskClient:
 
     def test_retrieve_by_name(self, client: sy.Synnax):
         name = str(uuid4())
-        task = client.tasks.create(name=name, type="test", config={"foo": "bar"})
+        task = client.tasks.create(name=name, type="test")
         res = client.tasks.retrieve(name=name)
         assert res.name == name
         assert res.key == task.key
 
     def test_retrieve_by_type(self, client: sy.Synnax):
         type = str(uuid4())
-        task = client.tasks.create(type=type, config={"foo": "bar"})
+        task = client.tasks.create(type=type)
         res = client.tasks.retrieve(type=type)
         assert res.type == type
         assert res.key == task.key
@@ -50,22 +50,18 @@ class TestTaskClient:
                 f = s.read(timeout=1)
                 cmd = f["sy_task_cmd"][0]
                 client.statuses.set(
-                    sy.TaskStatus(
-                        key=str(sy.task.ontology_id(cmd["task"])),
-                        variant=sy.status.SUCCESS_VARIANT,
+                    sy.Status(
+                        key=str(sy.task.payload.ontology_id(cmd["task"])),
+                        variant=sy.status.VARIANT_SUCCESS,
                         message="Command executed.",
-                        details=sy.TaskStatusDetails(
-                            task=int(cmd["task"]),
-                            cmd=cmd["key"],
-                            running=False,
-                        ),
+                        details=sy.StatusDetails(task=int(cmd["task"]), cmd=cmd["key"]),
                     )
                 )
 
         ev = threading.Event()
         t = threading.Thread(target=driver, args=(ev,))
         t.start()
-        tsk = client.tasks.create(name="test", type="test", config={"foo": "bar"})
+        tsk = client.tasks.create(name="test", type="test")
         ev.wait()
         tsk.execute_command_sync("test", {"key": "value"})
         t.join()
@@ -79,11 +75,11 @@ class TestTaskClient:
                 f = s.read(timeout=2)
                 key = f["sy_task_set"][0]
                 client.statuses.set(
-                    sy.TaskStatus(
-                        key=str(sy.task.ontology_id(int(key))),
-                        variant=sy.status.SUCCESS_VARIANT,
+                    sy.Status(
+                        key=str(sy.task.payload.ontology_id(int(key))),
+                        variant=sy.status.VARIANT_SUCCESS,
                         message="Task configured.",
-                        details=sy.TaskStatusDetails(task=int(key), running=False),
+                        details=sy.StatusDetails(task=int(key)),
                     )
                 )
 
@@ -104,11 +100,11 @@ class TestTaskClient:
                 f = s.read(timeout=1)
                 key = f["sy_task_set"][0]
                 client.statuses.set(
-                    sy.TaskStatus(
-                        key=str(sy.task.ontology_id(int(key))),
-                        variant=sy.status.ERROR_VARIANT,
+                    sy.Status(
+                        key=str(sy.task.payload.ontology_id(int(key))),
+                        variant=sy.status.VARIANT_ERROR,
                         message="Invalid Configuration.",
-                        details=sy.TaskStatusDetails(task=int(key), running=False),
+                        details=sy.StatusDetails(task=int(key)),
                     )
                 )
 
@@ -130,14 +126,8 @@ class TestTaskClient:
     def test_list_tasks(self, client: sy.Synnax):
         """Should list all tasks on the default rack."""
         # Create some tasks
-        task1 = client.tasks.create(
-            name=str(uuid4()),
-            type="test1",
-            config={"foo": "bar"},
-        )
-        task2 = client.tasks.create(
-            name=str(uuid4()), type="test2", config={"foo": "bar"}
-        )
+        task1 = client.tasks.create(name=str(uuid4()), type="test1")
+        task2 = client.tasks.create(name=str(uuid4()), type="test2")
 
         # List all tasks
         tasks = client.tasks.list()
@@ -152,7 +142,7 @@ class TestTaskClient:
         # Create an original task
         original_name = str(uuid4())
         original = client.tasks.create(
-            name=original_name, type="test", config={"foo": "bar"}
+            name=original_name, type="test", config='{"foo": "bar"}'
         )
 
         # Copy the task

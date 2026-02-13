@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/py/types"
-	"github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/oracle/testutil"
 )
 
 func TestTypes(t *testing.T) {
@@ -72,13 +72,13 @@ var _ = Describe("PyFormatter", func() {
 var _ = Describe("Python Types Plugin", func() {
 	var (
 		ctx         context.Context
-		loader      *testutil.MockFileLoader
+		loader      *MockFileLoader
 		typesPlugin *types.Plugin
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		loader = testutil.NewMockFileLoader()
+		loader = NewMockFileLoader()
 		typesPlugin = types.New(types.DefaultOptions())
 	})
 
@@ -113,10 +113,10 @@ var _ = Describe("Python Types Plugin", func() {
 						active bool
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
 				Expect(resp.Files).To(HaveLen(1))
 
-				testutil.ExpectContent(resp, "types_gen.py").
+				ExpectContent(resp, "types_gen.py").
 					ToContain(
 						`from __future__ import annotations`,
 						`from uuid import UUID`,
@@ -261,8 +261,8 @@ var _ = Describe("Python Types Plugin", func() {
 							field ` + oracleType + `
 						}
 					`
-					resp := testutil.MustGenerate(ctx, source, "test", loader, typesPlugin)
-					testutil.ExpectContent(resp, "types_gen.py").ToContain("field: " + expectedPyType)
+					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").ToContain("field: " + expectedPyType)
 				},
 				Entry("uuid", "uuid", "UUID"),
 				Entry("string", "string", "str"),
@@ -660,7 +660,7 @@ var _ = Describe("Python Types Plugin", func() {
 						@py omit
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`class User(BaseModel):`))
 				Expect(content).NotTo(ContainSubstring(`InternalState`))
@@ -681,7 +681,7 @@ var _ = Describe("Python Types Plugin", func() {
 						@py omit
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "status", loader, typesPlugin)
+				resp := MustGenerate(ctx, source, "status", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`class Status(IntEnum):`))
 				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
@@ -695,7 +695,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 					UserID = uuid
 				`
-				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`from typing import TypeAlias`))
 				Expect(content).To(ContainSubstring(`UserID: TypeAlias = UUID`))
@@ -707,7 +707,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 					UserKey uuid
 				`
-				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`from typing import NewType`))
 				Expect(content).To(ContainSubstring(`UserKey = NewType("UserKey", UUID)`))
@@ -730,7 +730,7 @@ var _ = Describe("Python Types Plugin", func() {
 						email string
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				// Parent should have all fields
 				Expect(content).To(ContainSubstring(`class Parent(BaseModel):`))
@@ -756,7 +756,7 @@ var _ = Describe("Python Types Plugin", func() {
 						e string
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`class Child(Parent):`))
 				Expect(content).To(ContainSubstring(`e: str`))
@@ -782,12 +782,292 @@ var _ = Describe("Python Types Plugin", func() {
 						age int32
 					}
 				`
-				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`"""Is a representation of a user in the system.`))
 				Expect(content).To(ContainSubstring(`Attributes:`))
 				Expect(content).To(ContainSubstring(`key: Is the unique identifier for the user.`))
 				Expect(content).To(ContainSubstring(`name: Is the user's display name.`))
+			})
+		})
+
+		Context("generic structs", func() {
+			It("Should generate Generic[T] for struct with type parameter", func() {
+				source := `
+					@py output "out"
+
+					Response struct<T> {
+						data T
+						status int32
+					}
+				`
+				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`from typing import Generic`,
+						`TypeVar`,
+						`T = TypeVar("T")`,
+						`class Response(BaseModel, Generic[T]):`,
+						`data: T`,
+						`status: int`,
+					)
+			})
+
+			It("Should generate constrained TypeVar for bounded type param", func() {
+				source := `
+					@py output "out"
+
+					Container struct<V extends json> {
+						value V
+					}
+				`
+				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`V = TypeVar("V", bound=dict[str, Any])`,
+						`class Container(BaseModel, Generic[V]):`,
+						`value: V`,
+					)
+			})
+
+			It("Should skip type params with defaults in Generic[]", func() {
+				source := `
+					@py output "out"
+
+					Task struct<C extends json = json> {
+						config C
+					}
+				`
+				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				content := MustContentOf(resp, "types_gen.py")
+				Expect(content).To(ContainSubstring(`class Task(BaseModel):`))
+				Expect(content).To(ContainSubstring(`config: dict[str, Any]`))
+			})
+
+			It("Should generate extends with generic parent and type args", func() {
+				source := `
+					@py output "out"
+
+					Status struct<D> {
+						data D
+						variant string
+					}
+
+					TaskStatus struct extends Status<json> {
+						task_key uuid
+					}
+				`
+				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`class Status(BaseModel, Generic[D]):`,
+						`class TaskStatus(Status[dict[str, Any]]):`,
+						`task_key: UUID`,
+					)
+			})
+		})
+
+		Context("cross-namespace references", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/status", `
+					@py output "client/py/synnax/status"
+
+					StatusCode enum {
+						ok = 0
+						error = 1
+					}
+
+					StatusInfo struct {
+						code StatusCode
+						message string
+					}
+				`)
+			})
+
+			It("Should import cross-namespace struct reference", func() {
+				source := `
+					import "schemas/status"
+
+					@py output "client/py/synnax/task"
+
+					Task struct {
+						key uuid
+						info status.StatusInfo
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`from synnax import status`,
+						`info: status.StatusInfo`,
+					)
+			})
+
+			It("Should import cross-namespace enum reference", func() {
+				source := `
+					import "schemas/status"
+
+					@py output "client/py/synnax/task"
+
+					Task struct {
+						key uuid
+						code status.StatusCode
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`from synnax import status`,
+						`code: status.StatusCode`,
+					)
+			})
+
+			It("Should alias module import when it conflicts with a field name", func() {
+				source := `
+					import "schemas/status"
+
+					@py output "client/py/synnax/task"
+
+					Task struct {
+						key uuid
+						status status.StatusInfo
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`from synnax import status as status_`,
+						`status: status_.StatusInfo`,
+					)
+			})
+		})
+
+		Context("typedef with non-primitive base", func() {
+			It("Should generate NewType for distinct typedef referencing another typedef", func() {
+				source := `
+					@py output "out"
+
+					BaseID uuid
+
+					UserID = BaseID
+				`
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`BaseID = NewType("BaseID", UUID)`,
+						`UserID: TypeAlias = BaseID`,
+					)
+			})
+
+			It("Should generate NewType referencing another distinct type in same namespace", func() {
+				source := `
+					@py output "out"
+
+					Key uuid
+
+					UserKey = Key
+				`
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`Key = NewType("Key", UUID)`,
+						`UserKey: TypeAlias = Key`,
+					)
+			})
+		})
+
+		Context("fixed-size arrays", func() {
+			It("Should generate Tuple type for fixed-size arrays", func() {
+				source := `
+					@py output "out"
+
+					Point struct {
+						coords float64[3]
+					}
+				`
+				resp := MustGenerate(ctx, source, "geo", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`Tuple[float, float, float]`)
+			})
+		})
+
+		Context("@py name directive", func() {
+			It("Should override struct name in Python output", func() {
+				source := `
+					@py output "out"
+
+					GoTask struct {
+						key uuid
+						name string
+						@py name "Task"
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`class Task(BaseModel):`).
+					ToNotContain(`class GoTask`)
+			})
+		})
+
+		Context("string default values", func() {
+			It("Should generate Field with string default", func() {
+				source := `
+					@py output "out"
+
+					Config struct {
+						mode string @validate default "normal"
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`mode: str = Field(default="normal")`)
+			})
+		})
+
+		Context("constrained type param with enum", func() {
+			It("Should use enum name as TypeVar bound", func() {
+				source := `
+					@py output "out"
+
+					Priority enum {
+						low = 0
+						medium = 1
+						high = 2
+					}
+
+					Ranked struct<P extends Priority> {
+						priority P
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`P = TypeVar("P", bound=Priority)`,
+						`class Ranked(BaseModel, Generic[P]):`,
+					)
+			})
+		})
+
+		Context("constrained type param with struct", func() {
+			It("Should use struct name as TypeVar bound", func() {
+				source := `
+					@py output "out"
+
+					Base struct {
+						id uuid
+					}
+
+					Collection struct<T extends Base> {
+						items T[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`T = TypeVar("T", bound=Base)`,
+						`class Collection(BaseModel, Generic[T]):`,
+					)
 			})
 		})
 	})

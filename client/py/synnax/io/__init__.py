@@ -20,7 +20,6 @@ from .protocol import (
 
 __all__ = [
     "BaseReader",
-    "ChannelMeta",
     "ColumnFileReader",
     "DataFrameWriter",
     "FileWriter",
@@ -28,4 +27,5 @@ __all__ = [
     "IOFactory",
     "ReaderType",
     "RowFileReader",
+    "ChannelMeta",
 ]

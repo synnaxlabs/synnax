@@ -17,7 +17,6 @@ from abc import abstractmethod
 from typing import Any
 
 import synnax as sy
-from synnax import opcua
 
 from driver.devices import Simulator
 from tests.driver.simulator_task import SimulatorTaskCase
@@ -54,7 +53,7 @@ class OPCUATaskCase(SimulatorTaskCase):
         )
 
     @abstractmethod
-    def create_channels(self) -> list[opcua.ReadChannel]:
+    def create_channels(self) -> list[sy.opcua.ReadChannel]:
         """Create OPC UA-specific task channels.
 
         Returns:
@@ -69,7 +68,7 @@ class OPCUATaskCase(SimulatorTaskCase):
         task_name: str,
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
-    ) -> opcua.ReadTask:
+    ) -> sy.opcua.ReadTask:
         """
         Create an OPC UA read task.
 
@@ -84,7 +83,7 @@ class OPCUATaskCase(SimulatorTaskCase):
         """
         channels = self.create_channels()
 
-        return opcua.ReadTask(
+        return sy.opcua.ReadTask(
             name=task_name,
             device=device.key,
             sample_rate=sample_rate,

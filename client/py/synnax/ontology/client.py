@@ -9,14 +9,14 @@
 
 from typing import overload
 
-from freighter import Empty, Payload, UnaryClient, send_required
-from pydantic import Field
+from freighter import Empty, UnaryClient, send_required
+from pydantic import BaseModel, Field
 
 from synnax.ontology.payload import ID, CrudeID, Resource
 from synnax.util.normalize import normalize
 
 
-class RetrieveReq(Payload):
+class RetrieveReq(BaseModel):
     ids: list[ID]
     children: bool = False
     parents: bool = False
@@ -28,23 +28,23 @@ class RetrieveReq(Payload):
     types: list[str] | None = None
 
 
-class AddChildrenReq(Payload):
+class AddChildrenReq(BaseModel):
     id: ID
     children: list[ID]
 
 
-class RemoveChildrenReq(Payload):
+class RemoveChildrenReq(BaseModel):
     id: ID
     children: list[ID]
 
 
-class MoveChildrenReq(Payload):
+class MoveChildrenReq(BaseModel):
     from_: ID = Field(alias="from")
     to: ID
     children: list[ID]
 
 
-class RetrieveRes(Payload):
+class RetrieveRes(BaseModel):
     resources: list[Resource]
 
 
@@ -68,7 +68,7 @@ class Client:
     @overload
     def retrieve(
         self,
-        ids: list[CrudeID],
+        id: list[CrudeID],
         *,
         children: bool = False,
         parents: bool = False,
@@ -78,7 +78,7 @@ class Client:
 
     def retrieve(
         self,
-        id: CrudeID | list[CrudeID],
+        id: CrudeID | list[CrudeID] | None = None,
         *,
         children: bool = False,
         parents: bool = False,
@@ -87,8 +87,11 @@ class Client:
     ) -> Resource | list[Resource]:
         is_single = False
         if not isinstance(id, list):
-            id = [id]
-            is_single = True
+            if id is None:
+                id = []
+            else:
+                id = [id]
+                is_single = True
         req = RetrieveReq(
             ids=[ID(i) for i in id],
             children=children,
@@ -105,8 +108,9 @@ class Client:
         self,
         id: CrudeID | list[CrudeID],
     ) -> list[Resource]:
+        normalized: list[CrudeID] = normalize(id)
         return self.__exec_retrieve(
-            RetrieveReq(ids=[ID(i) for i in normalize(id)], children=True)
+            RetrieveReq(ids=[ID(i) for i in normalized], children=True)
         )
 
     def __exec_retrieve(self, req: RetrieveReq) -> list[Resource]:
@@ -118,8 +122,9 @@ class Client:
         self,
         id: CrudeID | list[CrudeID],
     ):
+        normalized: list[CrudeID] = normalize(id)
         return self.__exec_retrieve(
-            RetrieveReq(ids=[ID(i) for i in normalize(id)], parents=True)
+            RetrieveReq(ids=[ID(i) for i in normalized], parents=True)
         )
 
     def move_children(self, from_: CrudeID, to: CrudeID, *children: CrudeID) -> None:
@@ -145,6 +150,6 @@ class Client:
         send_required(
             self._client,
             "/ontology/add-children",
-            AddChildrenReq(parent=ID(id), children=[ID(i) for i in children]),
+            AddChildrenReq(id=ID(id), children=[ID(i) for i in children]),
             Empty,
         )

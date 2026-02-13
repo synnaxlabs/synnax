@@ -10,8 +10,4 @@
 from synnax.control.client import Client
 from synnax.control.controller import Controller, ScheduledCommand
 
-__all__ = [
-    "Client",
-    "Controller",
-    "ScheduledCommand",
-]
+__all__ = ["Client", "Controller", "ScheduledCommand"]
