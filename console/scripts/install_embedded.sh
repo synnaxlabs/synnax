@@ -10,7 +10,7 @@ REPO_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 CONSOLE_DIR="$REPO_ROOT/console"
 CORE_DIR="$REPO_ROOT/core"
 CONSOLE_DIST_DIR="$CONSOLE_DIR/dist"
-CORE_CONSOLE_DIR="$CORE_DIR/pkg/service/console/dist"
+CORE_CONSOLE_DIR="$CORE_DIR/pkg/console/dist"
 
 echo "Building console web assets..."
 cd "$REPO_ROOT"
