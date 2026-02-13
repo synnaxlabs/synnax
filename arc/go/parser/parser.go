@@ -36,7 +36,7 @@ package parser
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/diagnostics"
+	"github.com/synnaxlabs/x/diagnostics"
 )
 
 // Parse parses a complete Arc program from source code.
