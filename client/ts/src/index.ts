@@ -35,22 +35,22 @@ export {
 } from "@/errors";
 export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
+export { group } from "@/group";
 export { label } from "@/label";
+export { lineplot } from "@/lineplot";
+export { log } from "@/log";
 export { ontology } from "@/ontology";
-export { group } from "@/ontology/group";
 export { rack } from "@/rack";
 export { ranger } from "@/ranger";
+export { schematic } from "@/schematic";
 export { status } from "@/status";
+export { table } from "@/table";
 export { task } from "@/task";
 export { createTestClientWithPolicy } from "@/testutil/access";
 export { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil/client";
 export { user } from "@/user";
 export { view } from "@/view";
 export { workspace } from "@/workspace";
-export { lineplot } from "@/workspace/lineplot";
-export { log } from "@/workspace/log";
-export { schematic } from "@/workspace/schematic";
-export { table } from "@/workspace/table";
 export {
   type CrudeDataType,
   type CrudeDensity,

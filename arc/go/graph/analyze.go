@@ -17,12 +17,12 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -116,6 +116,10 @@ func Analyze(
 				}
 				channelSym, err := resolver.Resolve(ctx, strconv.Itoa(int(k)))
 				if err == nil && channelSym.Type.Kind == types.KindChan {
+					if err := configParam.Type.ChanDirection.CheckCompatibility(channelSym.Type.ChanDirection); err != nil {
+						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
+						return ir.IR{}, aCtx.Diagnostics
+					}
 					if err = atypes.Check(
 						aCtx.Constraints,
 						channelSym.Type,

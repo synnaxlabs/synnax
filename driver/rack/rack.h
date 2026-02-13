@@ -22,6 +22,7 @@
 
 #include "x/cpp/args/args.h"
 #include "x/cpp/log/log.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/labjack/labjack.h"
 #ifndef SYNNAX_NILINUXRT
@@ -37,18 +38,24 @@
 namespace driver::rack {
 struct RemoteInfo {
     synnax::rack::Key rack_key = 0;
-    std::string cluster_key;
+    x::uuid::UUID cluster_key;
 
     template<typename Parser>
     void override(Parser &p) {
         this->rack_key = p.field("rack_key", this->rack_key);
-        this->cluster_key = p.field("cluster_key", this->cluster_key);
+        auto [ck, ck_err] = x::uuid::UUID::parse(
+            p.field("cluster_key", this->cluster_key.to_string())
+        );
+        if (ck_err)
+            p.field_err("cluster_key", ck_err);
+        else
+            this->cluster_key = ck;
     }
 
     [[nodiscard]] x::json::json to_json() const {
         return {
             {"rack_key", this->rack_key},
-            {"cluster_key", this->cluster_key},
+            {"cluster_key", this->cluster_key.to_string()},
         };
     }
 };

@@ -59,6 +59,15 @@ class API {
     /// @brief function pointers loaded from the library.
     FunctionPointers func_ptrs;
 
+protected:
+    /// @brief tag type for constructing without loading shared library (testing only).
+    struct MockTag {};
+
+    /// @brief constructs an API without loading a shared library (for mock subclasses).
+    explicit API(MockTag): lib(nullptr) {
+        memset(&this->func_ptrs, 0, sizeof(this->func_ptrs));
+    }
+
 public:
     explicit API(std::unique_ptr<x::lib::SharedLib> lib): lib(std::move(lib)) {
         memset(&this->func_ptrs, 0, sizeof(this->func_ptrs));
@@ -142,6 +151,8 @@ public:
         );
     }
 
+    virtual ~API() = default;
+
     /// @brief loads the IgH EtherCAT library and returns an API instance.
     /// @return pair of API instance and error (nil on success).
     static std::pair<std::shared_ptr<API>, x::errors::Error> load() {
@@ -151,84 +162,74 @@ public:
     }
 
     /// @brief requests an EtherCAT master for realtime operation.
-    [[nodiscard]] ec_master_t *request_master(unsigned int master_index) const {
+    [[nodiscard]] virtual ec_master_t *request_master(unsigned int master_index) const {
         return this->func_ptrs.request_master(master_index);
     }
 
     /// @brief releases a requested EtherCAT master.
-    void release_master(ec_master_t *master) const {
+    virtual void release_master(ec_master_t *master) const {
         this->func_ptrs.release_master(master);
     }
 
     /// @brief activates the master.
-    [[nodiscard]] int master_activate(ec_master_t *master) const {
+    [[nodiscard]] virtual int master_activate(ec_master_t *master) const {
         return this->func_ptrs.master_activate(master);
     }
 
     /// @brief deactivates the master.
-    /// No [[nodiscard]]: called during cleanup/error recovery where failure cannot be
-    /// meaningfully handled - we're already shutting down.
-    int master_deactivate(ec_master_t *master) const {
+    virtual int master_deactivate(ec_master_t *master) const {
         return this->func_ptrs.master_deactivate(master);
     }
 
     /// @brief creates a new process data domain.
-    [[nodiscard]] ec_domain_t *master_create_domain(ec_master_t *master) const {
+    [[nodiscard]] virtual ec_domain_t *master_create_domain(ec_master_t *master) const {
         return this->func_ptrs.master_create_domain(master);
     }
 
     /// @brief returns the size of the domain's process data.
-    [[nodiscard]] size_t domain_size(const ec_domain_t *domain) const {
+    [[nodiscard]] virtual size_t domain_size(const ec_domain_t *domain) const {
         return this->func_ptrs.domain_size(domain);
     }
 
     /// @brief returns a pointer to the domain's process data.
-    [[nodiscard]] uint8_t *domain_data(const ec_domain_t *domain) const {
+    [[nodiscard]] virtual uint8_t *domain_data(const ec_domain_t *domain) const {
         return this->func_ptrs.domain_data(domain);
     }
 
     /// @brief processes received datagrams.
-    /// No [[nodiscard]]: cyclic function - working counter state (checked via
-    /// domain_state) is the proper error detection mechanism for communication issues.
-    int domain_process(ec_domain_t *domain) const {
+    virtual int domain_process(ec_domain_t *domain) const {
         return this->func_ptrs.domain_process(domain);
     }
 
     /// @brief queues domain datagrams for sending.
-    /// No [[nodiscard]]: cyclic function - working counter state is the proper error
-    /// detection mechanism for communication issues.
-    int domain_queue(ec_domain_t *domain) const {
+    virtual int domain_queue(ec_domain_t *domain) const {
         return this->func_ptrs.domain_queue(domain);
     }
 
     /// @brief returns the current domain state.
-    /// No [[nodiscard]]: populates state struct which is the primary output; return
-    /// value is secondary and state is checked directly after call.
-    int domain_state(const ec_domain_t *domain, ec_domain_state_t *state) const {
+    virtual int
+    domain_state(const ec_domain_t *domain, ec_domain_state_t *state) const {
         return this->func_ptrs.domain_state(domain, state);
     }
 
     /// @brief sends all queued datagrams.
-    /// No [[nodiscard]]: cyclic function - working counter state is the proper error
-    /// detection mechanism for communication issues.
-    int master_send(ec_master_t *master) const {
+    virtual int master_send(ec_master_t *master) const {
         return this->func_ptrs.master_send(master);
     }
 
     /// @brief fetches received frames from the hardware.
-    /// No [[nodiscard]]: cyclic function - working counter state is the proper error
-    /// detection mechanism for communication issues.
-    int master_receive(ec_master_t *master) const {
+    virtual int master_receive(ec_master_t *master) const {
         return this->func_ptrs.master_receive(master);
     }
 
     /// @brief obtains master information.
-    [[nodiscard]] int master(ec_master_t *master, ec_master_info_t *master_info) const {
+    [[nodiscard]] virtual int
+    master(ec_master_t *master, ec_master_info_t *master_info) const {
         return this->func_ptrs.master(master, master_info);
     }
 
     /// @brief obtains slave information.
-    [[nodiscard]] int master_get_slave(
+    [[nodiscard]] virtual int master_get_slave(
         ec_master_t *master,
         uint16_t slave_position,
         ec_slave_info_t *slave_info
@@ -237,7 +238,7 @@ public:
     }
 
     /// @brief obtains a slave configuration.
-    [[nodiscard]] ec_slave_config_t *master_slave_config(
+    [[nodiscard]] virtual ec_slave_config_t *master_slave_config(
         ec_master_t *master,
         uint16_t alias,
         uint16_t position,
@@ -249,9 +250,7 @@ public:
     }
 
     /// @brief returns the state of a slave configuration.
-    /// No [[nodiscard]]: informational query used for logging/monitoring. Populates
-    /// state struct which is the primary output; failure is non-critical.
-    int slave_config_state(
+    virtual int slave_config_state(
         const ec_slave_config_t *sc,
         ec_slave_config_state_t *state
     ) const {
@@ -259,7 +258,7 @@ public:
     }
 
     /// @brief configures PDOs using sync info structures.
-    [[nodiscard]] int slave_config_pdos(
+    [[nodiscard]] virtual int slave_config_pdos(
         ec_slave_config_t *sc,
         unsigned int n_syncs,
         const ec_sync_info_t syncs[]
@@ -268,7 +267,7 @@ public:
     }
 
     /// @brief registers a PDO entry for process data exchange.
-    [[nodiscard]] int slave_config_reg_pdo_entry(
+    [[nodiscard]] virtual int slave_config_reg_pdo_entry(
         ec_slave_config_t *sc,
         uint16_t entry_index,
         uint8_t entry_sub_index,
@@ -285,7 +284,7 @@ public:
     }
 
     /// @brief obtains sync manager information.
-    [[nodiscard]] int master_get_sync_manager(
+    [[nodiscard]] virtual int master_get_sync_manager(
         ec_master_t *master,
         uint16_t slave_position,
         uint8_t sync_index,
@@ -296,7 +295,7 @@ public:
     }
 
     /// @brief obtains PDO information.
-    [[nodiscard]] int master_get_pdo(
+    [[nodiscard]] virtual int master_get_pdo(
         ec_master_t *master,
         uint16_t slave_position,
         uint8_t sync_index,
@@ -308,7 +307,7 @@ public:
     }
 
     /// @brief obtains PDO entry information.
-    [[nodiscard]] int master_get_pdo_entry(
+    [[nodiscard]] virtual int master_get_pdo_entry(
         ec_master_t *master,
         uint16_t slave_position,
         uint8_t sync_index,

@@ -12,50 +12,6 @@
 #include "x/cpp/errors/errors.h"
 
 namespace synnax::task {
-Task::Task(
-    Key key,
-    std::string name,
-    std::string type,
-    std::string config,
-    bool internal,
-    bool snapshot
-):
-    key(key),
-    name(std::move(name)),
-    type(std::move(type)),
-    config(std::move(config)),
-    internal(internal),
-    snapshot(snapshot) {}
-
-Task::Task(
-    std::string name,
-    std::string type,
-    std::string config,
-    bool internal,
-    bool snapshot
-):
-    key(create_key(0, 0)),
-    name(std::move(name)),
-    type(std::move(type)),
-    config(std::move(config)),
-    internal(internal),
-    snapshot(snapshot) {}
-
-Task::Task(
-    rack::Key rack,
-    std::string name,
-    std::string type,
-    std::string config,
-    bool internal,
-    bool snapshot
-):
-    key(create_key(rack, 0)),
-    name(std::move(name)),
-    type(std::move(type)),
-    config(std::move(config)),
-    internal(internal),
-    snapshot(snapshot) {}
-
 std::pair<Task, x::errors::Error> Task::from_proto(const api::v1::Task &task) {
     Task t;
     t.key = task.key();

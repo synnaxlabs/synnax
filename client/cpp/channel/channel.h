@@ -59,35 +59,13 @@ struct Channel {
     /// know what you're doing.
     bool internal = false;
 
-    /// @brief constructs an empty, invalid channel.
-    Channel() = default;
+    /// @brief Constructs a channel from its protobuf representation.
+    /// @param ch The protobuf representation of the channel.
+    /// @returns The channel.
+    static Channel from_proto(const api::v1::Channel &ch);
 
-    /// @brief constructs a new index or indexed channel.
-    /// @param name a human-readable name for the channel.
-    /// @param data_type the data type of the channel.
-    /// @param index the index of the channel.
-    /// @param is_index whether the channel is an index channel.
-    Channel(
-        std::string name,
-        x::telem::DataType data_type,
-        Key index,
-        bool is_index = false
-    );
-
-    /// @brief constructs a new virtual channel.
-    /// @param name a human-readable name for the channel.
-    /// @param data_type the data type of the channel.
-    /// @param is_virtual whether the channel is virtual.
-    Channel(std::string name, x::telem::DataType data_type, bool is_virtual);
-
-    /// @brief constructs the channel from its protobuf type.
-    explicit Channel(const api::v1::Channel &ch);
-
-private:
     /// @brief binds the channel's fields to the protobuf type.
     void to_proto(api::v1::Channel *ch) const;
-
-    friend class Client;
 };
 
 /// @brief creates a vector of channel keys from a variadic list of channels.
@@ -121,7 +99,7 @@ map_channel_keys(const std::vector<Channel> &channels) {
 /// @param key The channel key.
 /// @returns An ontology ID with type "channel" and the given key.
 inline ontology::ID ontology_id(const Key key) {
-    return ontology::ID("channel", std::to_string(key));
+    return ontology::ID{.type = "channel", .key = std::to_string(key)};
 }
 
 /// @brief Converts a vector of channel keys to a vector of ontology IDs.

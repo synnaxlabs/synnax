@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/authority"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -26,6 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 )
 
 type keyGenerator struct {
@@ -549,6 +549,10 @@ func extractConfigValues(
 			channelName := parser.GetExpressionText(expr)
 			sym, err := ctx.Scope.Resolve(ctx, channelName)
 			if err != nil {
+				ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+				return nil, false
+			}
+			if err := paramType.ChanDirection.CheckCompatibility(sym.Type.ChanDirection); err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 				return nil, false
 			}

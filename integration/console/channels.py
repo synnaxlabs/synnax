@@ -10,6 +10,7 @@
 import synnax as sy
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import expect
 from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
@@ -155,10 +156,9 @@ class ChannelClient:
         modal = self.layout.page.locator(self.layout.MODAL_SELECTOR)
         modal.wait_for(state="hidden", timeout=5000)
         self.show_channels()
-        for _ in range(20):
-            if self._find_channel_item(name, retry_with_refresh=False) is not None:
-                break
-            self.layout.page.wait_for_timeout(50)
+        self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
+            has=self.layout.page.get_by_text(str(name), exact=True)
+        ).first.wait_for(state="visible", timeout=5000)
         self.hide_channels()
         return True
 
@@ -271,19 +271,7 @@ class ChannelClient:
                 name_input_after = self.layout.page.get_by_role("textbox", name="Name")
 
                 name_input_after.wait_for(state="visible", timeout=5000)
-                # Wait for input to be cleared (form reset)
-                for attempt in range(30):
-                    try:
-                        current_val = name_input_after.input_value()
-                        if current_val == "":
-                            break
-                    except Exception:
-                        pass
-                    self.layout.page.wait_for_timeout(100)
-                else:
-                    raise RuntimeError(
-                        "Form did not reset after creating channel with 'Create More'"
-                    )
+                expect(name_input_after).to_have_value("", timeout=5000)
 
         self.hide_channels()
         return created_channels
@@ -409,47 +397,120 @@ class ChannelClient:
         self.ctx_menu.action(items[0], "Reload Console")
 
         self.layout.page.wait_for_load_state("load", timeout=30000)
-        self.layout.page.wait_for_load_state("networkidle", timeout=30000)
+        self.layout.page.wait_for_selector(
+            ".console-palette button", state="visible", timeout=30000
+        )
 
-    def group(self, *, names: ChannelNames, group_name: str) -> None:
+    def group(
+        self,
+        *,
+        names: ChannelNames,
+        group_name: str,
+        parent_group: str | None = None,
+    ) -> None:
         """Group multiple channels together via context menu.
 
         :param names: List of channel names to group.
         :param group_name: The name for the new group.
+        :param parent_group: Optional parent group to expand first (e.g. "Metrics").
         """
         if len(names) < 2:
             raise ValueError("At least 2 channels are required to create a group")
-
-        self.show_channels()
-
-        # Select all channels (first one normal click, rest with Ctrl+Click)
-        last_item = None
-        for i, name in enumerate(names):
-            item = self.tree.find_by_name(self.ITEM_PREFIX, name)
+        if parent_group is not None:
+            self.expand_group(parent_group)
+        else:
+            self.show_channels()
+        items = []
+        for name in names:
+            item = self.tree.find_by_name(self.ITEM_PREFIX, str(name))
             if item is None:
                 raise ValueError(f"Channel {name} not found")
-            if i == 0:
-                item.click()
-            else:
-                item.click(modifiers=["ControlOrMeta"])
-            last_item = item
+            items.append(item)
+        self.tree.group(items, group_name)
 
-        # Right-click last item and select "Group selection"
-        assert last_item is not None
-        self.ctx_menu.action(last_item, "Group selection")
+    def rename_group(
+        self,
+        old_name: str,
+        new_name: str,
+        parent_group: str | None = None,
+    ) -> None:
+        """Rename a channel group via context menu.
 
-        editable_input = self.layout.page.locator(
-            "input.pluto-text__input--editable"
-        ).first
-        try:
-            editable_input.wait_for(state="visible", timeout=500)
-            editable_input.fill(group_name)
-            self.layout.press_enter()
-        except Exception:
-            self.layout.page.keyboard.type(group_name)
-            self.layout.press_enter()
+        :param old_name: Current name of the group.
+        :param new_name: New name for the group.
+        :param parent_group: Optional parent group to expand first (e.g. "Metrics").
+        """
+        if parent_group is not None:
+            self.expand_group(parent_group)
+        else:
+            self.show_channels()
+        self.tree.rename_group(old_name, new_name)
 
+    def delete_group(self, name: str, parent_group: str | None = None) -> None:
+        """Delete a channel group via context menu.
+
+        Auto-expands the group before deleting so the context menu shows
+        "Ungroup" (required for groups with children).
+
+        :param name: Name of the group to delete.
+        :param parent_group: Optional parent group to expand first (e.g. "Metrics").
+        """
+        if parent_group is not None:
+            self.expand_group(parent_group)
+        else:
+            self.show_channels()
+        group = self.tree.get_group(name)
+        if not self.tree.is_expanded(group):
+            self.tree.expand(group)
+        self.tree.delete_group(group)
+
+    def move_to_group(
+        self,
+        channel_name: str,
+        group_name: str,
+        parent_group: str | None = None,
+    ) -> None:
+        """Move a channel into a group via drag-and-drop.
+
+        :param channel_name: Name of the channel to move.
+        :param group_name: Name of the target group.
+        :param parent_group: Optional parent group to expand first (e.g. "Metrics").
+        """
+        if parent_group is not None:
+            self.expand_group(parent_group)
+        else:
+            self.show_channels()
+        source = self.tree.find_by_name(self.ITEM_PREFIX, channel_name)
+        if source is None:
+            raise ValueError(f"Channel '{channel_name}' not found")
+        self.tree.move_to_group(source, group_name)
         self.hide_channels()
+
+    def expand_group(self, name: str) -> None:
+        """Show channels pane and expand a named group.
+
+        :param name: The display name of the group to expand.
+        """
+        self.show_channels()
+        group = self.tree.get_group(name)
+        if not self.tree.is_expanded(group):
+            self.tree.expand(group)
+
+    def group_exists(self, name: str, parent_group: str | None = None) -> bool:
+        """Check if a group exists in the channel tree.
+
+        :param name: The display name of the group.
+        :param parent_group: Optional parent group to expand first (e.g. "Metrics").
+        :returns: True if the group is visible, False otherwise.
+        """
+        self.hide_channels()
+        if parent_group is not None:
+            self.expand_group(parent_group)
+        else:
+            self.show_channels()
+        result = self.tree.group_exists(name)
+        self.hide_channels()
+        return result
 
     def copy_link(self, name: ChannelName) -> str:
         """Copy link to a channel via context menu.

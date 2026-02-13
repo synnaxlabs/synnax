@@ -19,7 +19,6 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/vmihailenco/msgpack/v5"
@@ -332,12 +331,6 @@ func (f *decodeFallbackCodec) DecodeStream(
 		}
 	}
 	return err
-}
-
-// MustEncodeJSONToString encodes the value to a JSON string, and panics if an error
-// occurs.
-func MustEncodeJSONToString(v any) string {
-	return string(lo.Must((&JSONCodec{}).Encode(context.Background(), v)))
 }
 
 // UnmarshalMsgpackUint64 decodes a msgpack value into a uint64, handling type coercion

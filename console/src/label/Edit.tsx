@@ -59,7 +59,7 @@ const LabelListItem = ({
         Label.FluxSubStore
       >) => {
         onClose?.();
-        if (isCreate) reset({ name: "", color: "#000000" });
+        if (isCreate) reset({ name: "", color: color.construct("#000000") });
       },
       [isCreate, onClose],
     ),
