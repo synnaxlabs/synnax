@@ -21,7 +21,7 @@ import {
   Synnax,
   type Triggers,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useEffect, useMemo } from "react";
+import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Access } from "@/access";
@@ -141,13 +141,13 @@ const ArcLSPClientSetter = ({ children }: { children: ReactElement }): ReactElem
   return children;
 };
 
+const MONACO_EXTENSIONS: never[] = [];
+const MONACO_SERVICES = [...ArcCode.SERVICES];
+
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
   useBlockDefaultDropBehavior();
-
-  const monacoExtensions = useMemo(() => [], []);
-  const monacoServices = useMemo(() => [...ArcCode.SERVICES], []);
 
   return (
     <Pluto.Provider
@@ -160,7 +160,7 @@ const MainUnderContext = (): ReactElement => {
       color={{ useState: useColorContextState }}
       alamos={{ level: "info" }}
     >
-      <Code.Provider importExtensions={monacoExtensions} initServices={monacoServices}>
+      <Code.Provider importExtensions={MONACO_EXTENSIONS} initServices={MONACO_SERVICES}>
         <ArcLSPClientSetter>
           <Vis.Canvas>
             <Layout.Window />
