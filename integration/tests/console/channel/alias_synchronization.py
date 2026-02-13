@@ -58,7 +58,6 @@ class AliasSynchronization(ConsoleCase):
         self.log("Creating range and setting it active")
         console.ranges.create(self.range_name, persisted=True)
         console.ranges.open_explorer()
-        console.ranges.favorite_from_explorer(self.range_name)
         console.ranges.show_toolbar()
         console.ranges.set_active(self.range_name)
 
