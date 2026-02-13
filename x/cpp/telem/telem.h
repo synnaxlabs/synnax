@@ -12,7 +12,6 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <cstdio>
 #include <functional>
 #include <iostream>
 #include <string>
@@ -22,9 +21,6 @@
 #include <vector>
 
 #include <google/protobuf/struct.pb.h>
-
-#include "x/cpp/date/date.h"
-#include "x/cpp/string/put.h"
 
 namespace x::telem {
 // private namespace for internal constants
@@ -36,7 +32,6 @@ constexpr int64_t SECOND = MILLISECOND * 1e3;
 constexpr int64_t MINUTE = SECOND * 60;
 constexpr int64_t HOUR = MINUTE * 60;
 constexpr int64_t DAY = HOUR * 24;
-
 }
 
 /// @brief timespan is a nanosecond-precision time duration.
@@ -297,73 +292,8 @@ public:
     /// nanosecond-precision UTC timestamp.
     explicit TimeStamp(const std::int64_t value): value(value) {}
 
-    /// @brief returns the number of nanoseconds since Unix epoch.
-    /// @returns the number of nanoseconds since Unix epoch.
+    /// @brief returns the number of nanoseconds in the timestamp.
     [[nodiscard]] std::int64_t nanoseconds() const { return this->value; }
-
-    /// @brief returns the number of microseconds since Unix epoch.
-    /// @returns microseconds since Unix epoch as a double.
-    [[nodiscard]] double microseconds() const {
-        return static_cast<double>(value) / 1e3;
-    }
-
-    /// @brief returns the number of milliseconds since Unix epoch.
-    /// @returns milliseconds since Unix epoch as a double.
-    [[nodiscard]] double milliseconds() const {
-        return static_cast<double>(value) / 1e6;
-    }
-
-    /// @brief returns the number of seconds since Unix epoch.
-    /// @returns seconds since Unix epoch as a double.
-    [[nodiscard]] double seconds() const { return static_cast<double>(value) / 1e9; }
-
-    /// @brief returns the timestamp as an ISO 8601 UTC string.
-    /// @returns a string like "2001-09-09T01:46:40.000000001Z".
-    [[nodiscard]] std::string iso8601() const {
-        const int64_t sec = value / 1000000000 - (value % 1000000000 != 0 && value < 0);
-        const int64_t frac_ns = value - sec * 1000000000;
-        const int64_t day = sec / 86400 - (sec % 86400 != 0 && sec < 0);
-        const int64_t sod = sec - day * 86400;
-        const date::Date d = date::civil_from_days(day);
-        const auto hh = sod / 3600;
-        const auto mm = (sod / 60) % 60;
-        const auto ss = sod % 60;
-
-        char buf[30];
-        strings::writeNumber(buf + 0, d.year, 4);
-        buf[4] = '-';
-        strings::writeNumber(buf + 5, d.month, 2);
-        buf[7] = '-';
-        strings::writeNumber(buf + 8, d.day, 2);
-        buf[10] = 'T';
-        strings::writeNumber(buf + 11, hh, 2);
-        buf[13] = ':';
-        strings::writeNumber(buf + 14, mm, 2);
-        buf[16] = ':';
-        strings::writeNumber(buf + 17, ss, 2);
-
-        int len = 19;
-
-        if (frac_ns != 0) {
-            buf[len++] = '.';
-
-            // write 9 digits then trim without looping over the whole tail
-            char frac[9];
-            strings::writeNumber(frac, frac_ns, 9);
-
-            // find last non-zero digit
-            int8_t last = 8;
-            while (last >= 0 && frac[last] == '0')
-                --last;
-
-            // copy only needed digits
-            for (int i = 0; i <= last; ++i)
-                buf[len++] = frac[i];
-        }
-
-        buf[len++] = 'Z';
-        return std::string(buf, (size_t) len);
-    }
 
     /// @brief interprets the given TimeSpan as a TimeStamp.
     explicit TimeStamp(const TimeSpan ts): value(ts.nanoseconds()) {}
@@ -799,8 +729,7 @@ const std::string UINT64_T = "uint64";
 const std::string UUID_T = "uuid";
 const std::string STRING_T = "string";
 const std::string JSON_T = "json";
-const std::string BYTES_T = "bytes";
-const std::vector VARIABLE_TYPES = {JSON_T, STRING_T, BYTES_T};
+const std::vector VARIABLE_TYPES = {JSON_T, STRING_T};
 }
 
 /// @brief Holds the name and properties of a datatype.
@@ -1135,10 +1064,6 @@ const DataType STRING_T(_priv::STRING_T);
 /// Synnax cluster. Note that variable-length data types have reduced performance
 /// and restricted use within a Synnax cluster.
 const DataType JSON_T(_priv::JSON_T);
-/// @brief identifier for a newline separated, variable-length bytes data type in a
-/// Synnax cluster. Note that variable-length data types have reduced performance
-/// and restricted use within a Synnax cluster.
-const DataType BYTES_T(_priv::BYTES_T);
 }
 
 // Add hash specialization in std namespace

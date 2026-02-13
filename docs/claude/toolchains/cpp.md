@@ -126,27 +126,6 @@ clang-format -i file.cpp
 - **Constants**: `UPPER_CASE` or `kPascalCase`
 - **Namespaces**: `lowercase`
 
-### Documentation Style
-
-Use Doxygen-style `///` comments with `@brief`, `@param`, and `@returns` tags:
-
-```cpp
-/// @brief computes the number of days from the civil date to the Unix epoch.
-/// @param date the civil date to convert.
-/// @returns the number of days since 1970-01-01.
-[[nodiscard]] constexpr int32_t days_from_civil(const Date &date);
-```
-
-For struct/class members, use `///<` trailing comments:
-
-```cpp
-struct Date {
-    uint16_t year; ///< calendar year.
-    uint8_t month; ///< month of year [1, 12].
-    uint8_t day; ///< day of month [1, 31].
-};
-```
-
 ## Memory Management
 
 ### RAII Pattern
@@ -238,18 +217,10 @@ ASSERT_EVENTUALLY_NIL(error)
 **Error Handling:**
 
 ```cpp
-// Success path — use ASSERT_NIL_P to unwrap pair<T, Error> results:
-const auto val = ASSERT_NIL_P(some_fn_returning_pair());
-
-// Error path — use ASSERT_OCCURRED_AS_P for pair returns (no structured bindings needed):
-ASSERT_OCCURRED_AS_P(some_fn_returning_pair(), EXPECTED_ERR);
-
-// Error path — use ASSERT_OCCURRED_AS for bare Error values:
-auto [val, err] = some_fn();
-ASSERT_OCCURRED_AS(err, EXPECTED_ERR);
-
-// Always verify the specific error type, not just that an error occurred.
-// Prefer ASSERT_OCCURRED_AS / ASSERT_OCCURRED_AS_P over ASSERT_TRUE(err).
+ASSERT_NIL(error)                    // Assert xerrors::Error is nil
+ASSERT_NIL_P(pair)                   // Assert pair's error is nil and return value
+ASSERT_OCCURRED_AS(error, expected)  // Match specific error
+ASSERT_MATCHES(error, expected)      // Error pattern matching
 ```
 
 ## Common Patterns
