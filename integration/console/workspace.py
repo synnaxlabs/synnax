@@ -612,19 +612,6 @@ class WorkspaceClient:
         self.layout.close_left_toolbar()
         return result
 
-    def snapshot_page_to_active_range(self, name: str, range_name: str) -> None:
-        """Snapshot a page to the active range via context menu.
-
-        Args:
-            name: Name of the page to snapshot
-            range_name: Name of the active range (for menu text matching)
-        """
-        self.expand_active()
-        page_item = self.get_page(name)
-        page_item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(page_item, f"Snapshot to {range_name}")
-        self.layout.close_left_toolbar()
-
     def snapshot_pages_to_active_range(self, names: list[str], range_name: str) -> None:
         """Snapshot multiple pages to the active range via context menu.
 
