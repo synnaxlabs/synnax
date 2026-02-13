@@ -30,9 +30,14 @@ the Synnax Driver to make it more reliable and user-friendly.
 
 ### Embedded Control Sequences
 
-We've added a new [control sequencing system](/reference/control/embedded) that makes it
-much easier to write, manage, and operate control sequences on devices. While this new
-system does not replace the existing
+<Note.Note variant="warning">
+  Embedded control sequences (Lua-based) have been deprecated and removed. New
+  automations should use [Arc](/reference/control/arc/introduction) instead.
+</Note.Note>
+
+This release originally introduced a Lua-based embedded control sequencing system. It
+has since been replaced by [Arc](/reference/control/arc/introduction), Synnax's reactive
+automation language. While this new system does not replace the existing
 [Python-based control sequences](/reference/control/python), it can serve as an
 alternative in many situations.
 
