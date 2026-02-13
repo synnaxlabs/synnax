@@ -66,7 +66,7 @@ runs:
 
     - name: Check types
       if: inputs.type_check == 'true'
-      run: uv run mypy ${inputs.type_check_dir}
+      run: uv run mypy ${{ inputs.type_check_dir }}
       shell: bash
       working-directory: ${{ inputs.directory }}
 
