@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol, cast
+from typing import Protocol
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import UnaryClient, send_required
@@ -136,7 +136,7 @@ class CacheRetriever:
                 existing_keys.add(channel.key)
 
     def _(self) -> Retriever:
-        return cast(Retriever, self)
+        return self
 
     def _get(self, param: Key | str) -> list[Payload] | None:
         if isinstance(param, Key):
