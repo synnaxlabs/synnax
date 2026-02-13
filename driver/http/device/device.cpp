@@ -243,10 +243,8 @@ Client::request(const std::vector<std::string> &bodies) {
         const CURLMcode mc = curl_multi_perform(multi, &still_running);
         if (mc != CURLM_OK) break;
         if (still_running > 0)
-            curl_multi_wait(multi, nullptr, 0, 1000, nullptr);
+            curl_multi_poll(multi, nullptr, 0, config_.timeout_ms, nullptr);
     } while (still_running > 0);
-
-    const auto end = x::telem::TimeStamp::now();
 
     std::vector<Response> responses;
     responses.reserve(handles_.size());
@@ -264,10 +262,15 @@ Client::request(const std::vector<std::string> &bodies) {
     for (auto &h: handles_) {
         long status_code = 0;
         curl_easy_getinfo(h.handle, CURLINFO_RESPONSE_CODE, &status_code);
+        double total_secs = 0;
+        curl_easy_getinfo(h.handle, CURLINFO_TOTAL_TIME, &total_secs);
+        const auto elapsed = x::telem::TimeSpan(
+            static_cast<int64_t>(total_secs * 1e9)
+        );
         responses.push_back(Response{
             .status_code = static_cast<int>(status_code),
-            .body = std::move(h.response_body),
-            .time_range = {start, end},
+            .body = h.response_body,
+            .time_range = {start, start + elapsed},
         });
         curl_multi_remove_handle(multi, h.handle);
     }
