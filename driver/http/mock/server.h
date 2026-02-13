@@ -40,6 +40,7 @@ struct ReceivedRequest {
     std::string path; ///< Request path.
     std::string body; ///< Request body.
     httplib::Headers headers; ///< Request headers.
+    httplib::Params query_params; ///< Decoded query parameters.
 };
 
 /// @brief configuration for the mock HTTP server.
@@ -139,6 +140,7 @@ private:
             .path = req.path,
             .body = req.body,
             .headers = req.headers,
+            .query_params = req.params,
         });
     }
 

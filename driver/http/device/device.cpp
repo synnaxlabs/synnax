@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <mutex>
 #include <string>
 #include <utility>
 
@@ -20,39 +19,17 @@
 
 namespace driver::http::device {
 namespace {
-std::once_flag curl_init_flag;
+struct CurlGlobal {
+    CurlGlobal() { curl_global_init(CURL_GLOBAL_DEFAULT); }
+    ~CurlGlobal() { curl_global_cleanup(); }
+};
 
-void ensure_curl_initialized() {
-    std::call_once(curl_init_flag, [] { curl_global_init(CURL_GLOBAL_DEFAULT); });
-}
+void ensure_curl_initialized() { static CurlGlobal instance; }
 
 size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {
     auto *response = static_cast<std::string *>(userdata);
     response->append(ptr, size * nmemb);
     return size * nmemb;
-}
-
-std::string build_url(
-    const std::string &base_url,
-    const std::string &path,
-    const std::map<std::string, std::string> &query_params
-) {
-    std::string url = base_url;
-    if (!url.empty() && url.back() == '/') url.pop_back();
-    if (!path.empty()) {
-        if (path.front() != '/') url += '/';
-        url += path;
-    }
-    if (!query_params.empty()) {
-        url += '?';
-        bool first = true;
-        for (const auto &[k, v]: query_params) {
-            if (!first) url += '&';
-            url += k + "=" + v;
-            first = false;
-        }
-    }
-    return url;
 }
 
 x::errors::Error parse_curl_error(CURLcode code) {
@@ -129,10 +106,26 @@ Client::Client(
         if (h.handle == nullptr) continue;
 
         // URL (static per handle).
-        const auto url = build_url(
-            config_.base_url, req.path, req.query_params
-        );
-        curl_easy_setopt(h.handle, CURLOPT_URL, url.c_str());
+        CURLU *u = curl_url();
+        std::string base = config_.base_url;
+        if (!base.empty() && base.back() == '/') base.pop_back();
+        if (!req.path.empty()) {
+            if (req.path.front() != '/') base += '/';
+            base += req.path;
+        }
+        curl_url_set(u, CURLUPART_URL, base.c_str(), 0);
+        for (const auto &[k, v]: req.query_params) {
+            const auto param = k + "=" + v;
+            curl_url_set(
+                u, CURLUPART_QUERY, param.c_str(),
+                CURLU_APPENDQUERY | CURLU_URLENCODE
+            );
+        }
+        char *url = nullptr;
+        curl_url_get(u, CURLUPART_URL, &url, 0);
+        curl_easy_setopt(h.handle, CURLOPT_URL, url);
+        curl_free(url);
+        curl_url_cleanup(u);
 
         // Timeout (static per handle).
         curl_easy_setopt(

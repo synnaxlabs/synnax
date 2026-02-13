@@ -371,6 +371,37 @@ TEST(ClientTest, QueryParams) {
     server.stop();
 }
 
+TEST(ClientTest, QueryParamsPercentEncoded) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/search",
+        .status_code = 200,
+        .response_body = "found",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    Client client(config, {{
+        .method = Method::GET,
+        .path = "/api/search",
+        .query_params = {{"q", "hello world"}, {"tag", "a&b=c"}},
+    }});
+
+    const auto responses = ASSERT_NIL_P(client.request({""}));
+    ASSERT_EQ(responses.size(), 1);
+    EXPECT_EQ(responses[0].status_code, 200);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].query_params.find("q")->second, "hello world");
+    EXPECT_EQ(reqs[0].query_params.find("tag")->second, "a&b=c");
+
+    server.stop();
+}
+
 // ─── Client Timeout ──────────────────────────────────────────────────────── //
 
 TEST(ClientTest, TimeoutError) {

@@ -256,6 +256,30 @@ TEST(MockServerTest, ClearRequests) {
     server.stop();
 }
 
+TEST(MockServerTest, LogsQueryParams) {
+    mock::ServerConfig cfg;
+    cfg.routes = {{
+        .method = Method::GET,
+        .path = "/search",
+        .response_body = "ok",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(cfg);
+    ASSERT_NIL(server.start());
+
+    httplib::Client cli(server.base_url());
+    auto res = cli.Get("/search?q=hello%20world&tag=a%26b%3Dc");
+    ASSERT_NE(res, nullptr);
+    EXPECT_EQ(res->status, 200);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].query_params.find("q")->second, "hello world");
+    EXPECT_EQ(reqs[0].query_params.find("tag")->second, "a&b=c");
+
+    server.stop();
+}
+
 // ─── Base URL ───────────────────────────────────────────────────────────── //
 
 TEST(MockServerTest, BaseURLUsesHTTPScheme) {
