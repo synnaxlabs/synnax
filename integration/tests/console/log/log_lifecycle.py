@@ -23,13 +23,11 @@ class LogLifecycle(ConsoleCase):
     data_name: str
     virtual_name: str
     _shared_log_name: str | None
-    _cleanup_pages: list[str]
     _cleanup_groups: list[str]
 
     def setup(self) -> None:
         super().setup()
         self._shared_log_name = None
-        self._cleanup_pages = []
         self._cleanup_groups = []
 
     def setup_channels(self) -> None:
@@ -58,16 +56,9 @@ class LogLifecycle(ConsoleCase):
         )
 
     def teardown(self) -> None:
-        # Ungroup groups first so children become visible in the tree
         for name in self._cleanup_groups:
             try:
                 self.console.workspace.delete_group(name)
-            except PlaywrightTimeoutError:
-                pass
-        # Then delete individual pages (including any ungrouped children)
-        for name in self._cleanup_pages:
-            try:
-                self.console.workspace.delete_page(name)
             except PlaywrightTimeoutError:
                 pass
         if self._shared_log_name is not None:

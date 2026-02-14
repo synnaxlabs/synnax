@@ -16,6 +16,9 @@ from playwright.sync_api import (
     BrowserContext,
     BrowserType,
     Page,
+)
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import (
     sync_playwright,
 )
 
@@ -99,8 +102,14 @@ class ConsoleCase(TestCase):
         # Selecting workspace restores tabs
         self.console.close_all_tabs()
         self.console.notifications.close_connection()
+        self._cleanup_pages: list[str] = []
 
     def teardown(self) -> None:
+        for name in self._cleanup_pages:
+            try:
+                self.console.workspace.delete_page(name)
+            except PlaywrightTimeoutError:
+                pass
         self.context.close()
         self.browser.close()
         self.playwright.stop()

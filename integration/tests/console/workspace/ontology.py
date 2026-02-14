@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
 from console.case import ConsoleCase
 from framework.utils import get_fixture_path, get_random_name
 
@@ -140,9 +142,21 @@ class Ontology(ConsoleCase):
         self.console.workspace.delete_group(self.group_a)
 
     def teardown(self) -> None:
-        self.console.workspace.expand_active()
+        try:
+            self.console.workspace.expand_active()
+        except PlaywrightTimeoutError:
+            pass
+
+        for group_name in [self.group_b, self.group_a]:
+            try:
+                self.console.workspace.delete_group(group_name)
+            except PlaywrightTimeoutError:
+                pass
+
         for name in [self.page_a, self.page_b, self.page_c, self.page_d]:
-            item = self.console.workspace.get_page(name)
-            if item.count() > 0 and item.is_visible():
+            try:
                 self.console.workspace.delete_page(name)
+            except PlaywrightTimeoutError:
+                pass
+
         super().teardown()

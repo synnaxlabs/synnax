@@ -20,19 +20,12 @@ class LinePlot(ConsoleCase):
     """Test line plot operations."""
 
     _shared_plot_name: str | None
-    _cleanup_pages: list[str]
 
     def setup(self) -> None:
         super().setup()
         self._shared_plot_name = None
-        self._cleanup_pages = []
 
     def teardown(self) -> None:
-        for name in self._cleanup_pages:
-            try:
-                self.console.workspace.delete_page(name)
-            except PlaywrightTimeoutError:
-                pass
         if self._shared_plot_name is not None:
             try:
                 self.console.workspace.delete_page(self._shared_plot_name)

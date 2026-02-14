@@ -184,6 +184,7 @@ class ChannelLifecycle(ConsoleCase):
         plot = self.console.workspace.open_plot_from_click(
             self.shared_data, self.console.channels
         )
+        self._cleanup_pages.append(plot.page_name)
 
         line_plot = self.page.locator(".pluto-line-plot")
         line_plot.first.wait_for(state="visible", timeout=5000)
@@ -388,6 +389,7 @@ class ChannelLifecycle(ConsoleCase):
         client = self.client
 
         plot = self.console.workspace.create_plot(f"Nested Calc Plot {self.suffix}")
+        self._cleanup_pages.append(plot.page_name)
         plot.add_channels("Y1", [SRC_CH, self.calc_x2, self.calc_x6])
         csv_content = plot.download_csv()
 

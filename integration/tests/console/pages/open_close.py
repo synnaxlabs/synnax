@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-
 from console.case import ConsoleCase
 from console.workspace import PageType
 from framework.utils import get_random_name
@@ -18,20 +16,6 @@ class OpenClose(ConsoleCase):
     """
     Test creating and closing pages
     """
-
-    _cleanup_pages: list[str]
-
-    def setup(self) -> None:
-        super().setup()
-        self._cleanup_pages = []
-
-    def teardown(self) -> None:
-        for name in self._cleanup_pages:
-            try:
-                self.console.workspace.delete_page(name)
-            except PlaywrightTimeoutError:
-                pass
-        super().teardown()
 
     def run(self) -> None:
         """
