@@ -192,7 +192,10 @@ cc_library(
     srcs = SOEM_CORE_SRCS + select({
         "@platforms//os:linux": LINUX_OSAL_SRCS + LINUX_OSHW_SRCS,
         "@platforms//os:macos": MACOS_OSAL_SRCS + MACOS_OSHW_SRCS,
-        "@platforms//os:windows": WIN32_OSAL_SRCS + WIN32_OSHW_SRCS,
+        "@platforms//os:windows": WIN32_OSAL_SRCS + WIN32_OSHW_SRCS + [
+            "SOEM/oshw/win32/wpcap/Lib/x64/Packet.lib",
+            "SOEM/oshw/win32/wpcap/Lib/x64/wpcap.lib",
+        ],
     }),
     hdrs = SOEM_HDRS + [
         "SOEM/osal/osal.h",
@@ -238,8 +241,6 @@ cc_library(
             "-lpcap",
         ],
         "@platforms//os:windows": [
-            "Packet.lib",
-            "wpcap.lib",
             "Ws2_32.lib",
             "winmm.lib",
             "Delayimp.lib",
