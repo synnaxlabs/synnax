@@ -280,8 +280,9 @@ class RangesClient:
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.open_on(item)
-        add_btn = self.layout.page.get_by_text("Add to favorites", exact=True)
-        remove_btn = self.layout.page.get_by_text("Remove from favorites", exact=True)
+        menu = self.layout.page.locator(".pluto-menu-context")
+        add_btn = menu.get_by_text("Add to favorites", exact=True)
+        remove_btn = menu.get_by_text("Remove from favorites", exact=True)
         add_btn.or_(remove_btn).wait_for(state="visible", timeout=2000)
         if remove_btn.is_visible():
             self.ctx_menu.close()

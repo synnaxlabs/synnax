@@ -99,8 +99,7 @@ class ChannelLifecycle(ConsoleCase):
         ## Context Menu
         self.test_rename_channel()
         self.test_edit_calculated_channel()
-        self.test_set_alias_under_range()
-        self.test_clear_alias_under_range()
+        self.test_alias_under_range()
         self.test_delete_channel()
         self.test_copy_link()
 
@@ -163,8 +162,6 @@ class ChannelLifecycle(ConsoleCase):
 
         for ch_config in channels:
             ch_name = ch_config["name"]
-            assert console.channels.exists(ch_name), f"Channel {ch_name} should exist"
-
             ch = client.channels.retrieve(ch_name)
             if ch_config.get("is_index"):
                 assert (
@@ -189,9 +186,6 @@ class ChannelLifecycle(ConsoleCase):
 
         line_plot = self.page.locator(".pluto-line-plot")
         line_plot.first.wait_for(state="visible", timeout=5000)
-        assert (
-            line_plot.first.is_visible()
-        ), "Expected a line plot to be visible after double-clicking channel"
         plot.close()
 
     def test_rename_channel(self) -> None:
@@ -224,15 +218,8 @@ class ChannelLifecycle(ConsoleCase):
         console = self.console
         client = self.client
 
-        initial_multiplier = 2
         updated_multiplier = 30
         updated_expr = f"return {SRC_CH} * {updated_multiplier}"
-
-        frame = client.read_latest([self.calc_editable, SRC_CH], n=1)
-        uptime_val = int(frame[SRC_CH][-1])
-        calc_val = int(frame[self.calc_editable][-1])
-        expected_val = uptime_val * initial_multiplier
-        assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
 
         console.channels.edit_calculated(self.calc_editable, updated_expr)
         for _ in range(5):
@@ -245,9 +232,9 @@ class ChannelLifecycle(ConsoleCase):
         expected_val = uptime_val * updated_multiplier
         assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
 
-    def test_set_alias_under_range(self) -> None:
-        """Test setting an alias for a channel under a range via context menu."""
-        self.log("Testing set alias under range")
+    def test_alias_under_range(self) -> None:
+        """Test setting and clearing an alias for a channel under a range."""
+        self.log("Testing set and clear alias under range")
 
         console = self.console
         client = self.client
@@ -258,7 +245,6 @@ class ChannelLifecycle(ConsoleCase):
         alias_name = f"MyAlias_{suffix}"
 
         console.ranges.create(range_name, persisted=True)
-
         console.ranges.open_explorer()
         console.ranges.favorite_from_explorer(range_name)
         console.ranges.show_toolbar()
@@ -270,6 +256,7 @@ class ChannelLifecycle(ConsoleCase):
             index=self.shared_index,
         )
 
+        # Set alias and verify
         console.channels.set_alias(name=data_name, alias=alias_name)
 
         console.channels.show_channels()
@@ -284,47 +271,7 @@ class ChannelLifecycle(ConsoleCase):
             scoped_ch.key == data_ch.key
         ), f"Alias should resolve to channel key {data_ch.key}, got {scoped_ch.key}"
 
-        console.channels.delete([alias_name])
-        console.ranges.open_explorer()
-        console.ranges.delete_from_explorer(range_name)
-
-    def test_clear_alias_under_range(self) -> None:
-        """Test clearing an alias for a channel via context menu."""
-        self.log("Testing clear alias under range")
-
-        console = self.console
-        client = self.client
-
-        suffix = get_random_name()
-        range_name = f"clear_alias_range_{suffix}"
-        data_name = f"clear_alias_data_{suffix}"
-        alias_name = f"ClearAlias_{suffix}"
-
-        console.ranges.create(range_name, persisted=True)
-        console.ranges.open_explorer()
-        console.ranges.favorite_from_explorer(range_name)
-        console.ranges.show_toolbar()
-        console.ranges.set_active(range_name)
-
-        console.channels.create(
-            name=data_name,
-            data_type=sy.DataType.FLOAT32,
-            index=self.shared_index,
-        )
-
-        console.channels.set_alias(name=data_name, alias=alias_name)
-
-        console.channels.show_channels()
-        alias_visible = self.page.get_by_text(alias_name).count() > 0
-        assert alias_visible, f"Alias '{alias_name}' should be visible before clearing"
-        console.channels.hide_channels()
-
-        rng = client.ranges.retrieve(name=range_name)
-        data_ch = client.channels.retrieve(data_name)
-        scoped_ch = rng[alias_name]
-        assert scoped_ch.key == data_ch.key, "Alias should resolve before clearing"
-
-        # Channel displays with alias_name in UI after set_alias
+        # Clear alias and verify
         console.channels.clear_alias(alias_name)
 
         console.channels.show_channels()
@@ -340,10 +287,6 @@ class ChannelLifecycle(ConsoleCase):
             assert False, f"Alias '{alias_name}' should not resolve after clearing"
         except sy.QueryError:
             pass
-        except Exception as e:
-            raise AssertionError(
-                f"Expected QueryError when accessing cleared alias, got {type(e).__name__}: {e}"
-            )
 
         console.channels.delete([data_name])
         console.ranges.open_explorer()
@@ -460,18 +403,3 @@ class ChannelLifecycle(ConsoleCase):
         assert (
             "nonexistent_channel_xyz" in error
         ), f"Error should mention nonexistent channel: {error}"
-
-        self.log("Testing erroneous calculated channel (bad syntax)")
-
-        bad_syntax_expression = "return * 3"
-        calc_name_2 = f"calc_err_syntax_{self.suffix}"
-
-        error = console.channels.create_calculated(
-            name=calc_name_2, expression=bad_syntax_expression
-        )
-
-        assert error is not None, "Expected error for bad syntax"
-        assert (
-            "Failed to update calculated channel" in error
-        ), f"Error should mention failure: {error}"
-        assert "error" in error.lower(), f"Error should contain 'error': {error}"

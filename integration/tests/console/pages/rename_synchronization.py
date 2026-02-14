@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
 from console.case import ConsoleCase
 from console.workspace import PageType
 from framework.utils import get_random_name
@@ -14,6 +16,20 @@ from framework.utils import get_random_name
 
 class RenameSynchronization(ConsoleCase):
     """Test that renaming pages synchronizes across UI elements."""
+
+    _cleanup_pages: list[str]
+
+    def setup(self) -> None:
+        super().setup()
+        self._cleanup_pages = []
+
+    def teardown(self) -> None:
+        for name in self._cleanup_pages:
+            try:
+                self.console.workspace.delete_page(name)
+            except PlaywrightTimeoutError:
+                pass
+        super().teardown()
 
     def run(self) -> None:
         page_types: list[PageType] = ["Schematic", "Line Plot", "Log", "Table"]
@@ -32,6 +48,7 @@ class RenameSynchronization(ConsoleCase):
 
         self.log(f"1. Creating {page_type}: {original_name}")
         console.workspace.create_page(page_type, original_name)
+        self._cleanup_pages.append(original_name)
 
         self.log(f"2. Verifying page exists in Resources Toolbar")
         assert console.workspace.page_exists(
@@ -40,6 +57,8 @@ class RenameSynchronization(ConsoleCase):
 
         self.log(f"3. Renaming to: {new_name}")
         console.workspace.rename_page(original_name, new_name)
+        self._cleanup_pages.remove(original_name)
+        self._cleanup_pages.append(new_name)
 
         self.log("4. Verifying Resources Toolbar after rename")
         assert console.workspace.page_exists(
@@ -58,7 +77,9 @@ class RenameSynchronization(ConsoleCase):
         ), f"Visualization Toolbar should show '{new_name}', got '{toolbar_title}'"
         console.layout.hide_visualization_toolbar()
 
-        self.log(f"7. Cleanup: Closing {new_name}")
+        self.log(f"7. Cleanup: Deleting {new_name}")
         console.workspace.close_page(new_name)
+        console.workspace.delete_page(new_name)
+        self._cleanup_pages.remove(new_name)
 
         self.log(f"{page_type} rename synchronization passed")

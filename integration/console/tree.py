@@ -247,6 +247,7 @@ class Tree:
         """
         if isinstance(item, str):
             item = self.get_group(item)
+        self.collapse(item)
         self.ctx_menu.open_on(item)
         if self.ctx_menu.has_option("Delete"):
             self.ctx_menu.click_option("Delete")

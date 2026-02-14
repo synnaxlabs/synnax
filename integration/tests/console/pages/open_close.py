@@ -7,8 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
 from console.case import ConsoleCase
 from console.workspace import PageType
+from framework.utils import get_random_name
 
 
 class OpenClose(ConsoleCase):
@@ -16,36 +19,53 @@ class OpenClose(ConsoleCase):
     Test creating and closing pages
     """
 
+    _cleanup_pages: list[str]
+
+    def setup(self) -> None:
+        super().setup()
+        self._cleanup_pages = []
+
+    def teardown(self) -> None:
+        for name in self._cleanup_pages:
+            try:
+                self.console.workspace.delete_page(name)
+            except PlaywrightTimeoutError:
+                pass
+        super().teardown()
+
     def run(self) -> None:
         """
         Test Opening and closing pages
         """
         console = self.console
+        suffix = get_random_name()
 
         pages_renamed: list[tuple[PageType, str]] = [
-            ("Schematic", "S_Name"),
-            ("Line Plot", "L_Name"),
-            ("Log", "Log_Name"),
-            ("Table", "Table_Name"),
-            ("NI Analog Read Task", "AI"),
-            ("NI Analog Write Task", "AO"),
-            ("NI Digital Read Task", "DI"),
-            ("NI Digital Write Task", "DO"),
-            ("LabJack Read Task", "LabJack R"),
-            ("LabJack Write Task", "LabJack O"),
-            ("OPC UA Read Task", "OPC Read"),
-            ("OPC UA Write Task", "OPC Write"),
+            ("Schematic", f"Sch_{suffix}"),
+            ("Line Plot", f"LinePlt_{suffix}"),
+            ("Log", f"LogPg_{suffix}"),
+            ("Table", f"TablePg_{suffix}"),
+            ("NI Analog Read Task", f"NIAR_{suffix}"),
+            ("NI Analog Write Task", f"NIAW_{suffix}"),
+            ("NI Digital Read Task", f"NIDR_{suffix}"),
+            ("NI Digital Write Task", f"NIDW_{suffix}"),
+            ("LabJack Read Task", f"LJRead_{suffix}"),
+            ("LabJack Write Task", f"LJWrite_{suffix}"),
+            ("OPC UA Read Task", f"OPCRead_{suffix}"),
+            ("OPC UA Write Task", f"OPCWrite_{suffix}"),
         ]
 
         self.log("(1/2) Create pages by cmd palette")
         for page_type, page_name in pages_renamed:
             console.workspace.create_page_by_command_palette(page_type, page_name)
+            self._cleanup_pages.append(page_name)
         for page_type, page_name in pages_renamed:
             console.workspace.close_page(page_name)
 
         self.log("(2/2) Create pages by (+) button")
         for page_type, page_name in pages_renamed:
             console.workspace.create_page_by_new_page_button(page_type, page_name)
+            self._cleanup_pages.append(page_name)
         for page_type, page_name in pages_renamed:
             console.workspace.close_page(page_name)
 

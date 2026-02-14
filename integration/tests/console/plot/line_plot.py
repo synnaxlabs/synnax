@@ -9,6 +9,7 @@
 
 import numpy as np
 import synnax as sy
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.case import ConsoleCase
 from console.plot import Plot
@@ -18,18 +19,43 @@ from framework.utils import assert_link_format, get_random_name
 class LinePlot(ConsoleCase):
     """Test line plot operations."""
 
+    _shared_plot_name: str | None
+    _cleanup_pages: list[str]
+
+    def setup(self) -> None:
+        super().setup()
+        self._shared_plot_name = None
+        self._cleanup_pages = []
+
+    def teardown(self) -> None:
+        for name in self._cleanup_pages:
+            try:
+                self.console.workspace.delete_page(name)
+            except PlaywrightTimeoutError:
+                pass
+        if self._shared_plot_name is not None:
+            try:
+                self.console.workspace.delete_page(self._shared_plot_name)
+            except PlaywrightTimeoutError:
+                pass
+        super().teardown()
+
     def run(self) -> None:
         """Run all line plot tests."""
+
         suffix = get_random_name()
         index_name, data_name = self._setup_channels(suffix)
 
         plot = self.console.workspace.create_plot(f"Line Plot Test {suffix}")
+        self._shared_plot_name = plot.page_name
         plot.add_channels("Y1", data_name)
 
         # General
         self.test_set_line_thickness(plot)
         self.test_set_line_label(plot, suffix)
         self.test_set_plot_title(plot, suffix)
+        # Track the renamed plot title
+        self._shared_plot_name = plot.page_name
         self.test_move_channel_between_axes(plot, data_name)
         self.test_live_data(plot)
         self.test_drag_channel_to_canvas(plot)
@@ -40,6 +66,7 @@ class LinePlot(ConsoleCase):
 
         plot_link = self.test_copy_link(plot)
         plot_name = plot.page_name
+        self._shared_plot_name = plot_name
         plot.close()
 
         # Resources Toolbar
@@ -54,6 +81,10 @@ class LinePlot(ConsoleCase):
         self.test_ctx_copy_link()
 
         self.test_open_plot_by_name(plot_name, plot_link)
+
+        # Delete shared plot after all tests that reference it
+        self.console.workspace.delete_page(plot_name)
+        self._shared_plot_name = None
 
         self.client.channels.delete([data_name, index_name])
 
@@ -243,12 +274,16 @@ class LinePlot(ConsoleCase):
         suffix = get_random_name()
         plot = self.console.workspace.create_plot(f"Rename Test {suffix}")
         original_name = plot.page_name
+        self._cleanup_pages.append(original_name)
         plot.close()
 
         new_name = f"Renamed Plot {suffix}"
         self.console.workspace.rename_page(original_name, new_name)
+        self._cleanup_pages.remove(original_name)
+        self._cleanup_pages.append(new_name)
 
         self.console.workspace.delete_page(new_name)
+        self._cleanup_pages.remove(new_name)
 
     def test_ctx_delete_plot(self) -> None:
         """Test deleting a plot via context menu in the workspace resources toolbar."""
@@ -257,6 +292,7 @@ class LinePlot(ConsoleCase):
         suffix = get_random_name()
         plot = self.console.workspace.create_plot(f"Delete Test {suffix}")
         plot_name = plot.page_name
+        self._cleanup_pages.append(plot_name)
         plot.close()
 
         assert self.console.workspace.page_exists(
@@ -264,6 +300,7 @@ class LinePlot(ConsoleCase):
         ), f"Plot '{plot_name}' should exist before deletion"
 
         self.console.workspace.delete_page(plot_name)
+        self._cleanup_pages.remove(plot_name)
 
     def test_ctx_delete_multiple_plots(self) -> None:
         """Test deleting multiple plots via multi-select and context menu."""
@@ -275,6 +312,7 @@ class LinePlot(ConsoleCase):
         for i in range(3):
             plot = self.console.workspace.create_plot(f"Multi Delete {suffix} {i}")
             plot_names.append(plot.page_name)
+            self._cleanup_pages.append(plot.page_name)
             plot.close()
 
         for name in plot_names:
@@ -283,6 +321,8 @@ class LinePlot(ConsoleCase):
             ), f"Plot '{name}' should exist before deletion"
 
         self.console.workspace.delete_pages(plot_names)
+        for name in plot_names:
+            self._cleanup_pages.remove(name)
 
     def test_ctx_export_json(self) -> None:
         """Test exporting a plot as JSON via context menu."""
@@ -291,6 +331,7 @@ class LinePlot(ConsoleCase):
         suffix = get_random_name()
         plot = self.console.workspace.create_plot(f"Export Test {suffix}")
         plot_name = plot.page_name
+        self._cleanup_pages.append(plot_name)
         plot.close()
 
         exported = self.console.workspace.export_page(plot_name)
@@ -300,6 +341,7 @@ class LinePlot(ConsoleCase):
         assert "channels" in exported, "Exported JSON should contain 'channels'"
 
         self.console.workspace.delete_page(plot_name)
+        self._cleanup_pages.remove(plot_name)
 
     def test_ctx_copy_link(self) -> None:
         """Test copying a link to a plot via context menu."""
@@ -308,6 +350,7 @@ class LinePlot(ConsoleCase):
         suffix = get_random_name()
         plot = self.console.workspace.create_plot(f"Copy Link Test {suffix}")
         plot_name = plot.page_name
+        self._cleanup_pages.append(plot_name)
         expected_link = plot.copy_link()
         plot.close()
 
@@ -318,6 +361,7 @@ class LinePlot(ConsoleCase):
         ), f"Context menu link should match: expected {expected_link}, got {link}"
 
         self.console.workspace.delete_page(plot_name)
+        self._cleanup_pages.remove(plot_name)
 
     def test_open_plot_by_name(self, plot_name: str, expected_link: str) -> None:
         """Test opening an existing plot by searching its name in the command palette."""
