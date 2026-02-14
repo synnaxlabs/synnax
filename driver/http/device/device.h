@@ -153,8 +153,8 @@ public:
     ~Client();
 
     /// @brief executes pre-configured requests with the given bodies.
-    /// @param bodies one body per pre-configured request. For TRACE requests,
-    /// pass an empty string.
+    /// @param bodies one body per pre-configured request. For TRACE requests, pass an
+    /// empty string.
     /// @returns the responses paired with per-response errors.
     std::vector<std::pair<Response, x::errors::Error>>
     request(const std::vector<std::string> &bodies);

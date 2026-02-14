@@ -1416,27 +1416,4 @@ TEST(ClientTest, OPTIONSRequest) {
     server.stop();
 }
 
-TEST(ClientTest, TRACEWithBodyErrors) {
-    mock::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/",
-        .status_code = 200,
-        .response_body = "ok",
-        .content_type = "text/plain",
-    }};
-    mock::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto config = make_config({{"base_url", server.base_url()}});
-    auto client = ASSERT_NIL_P(
-        Client::make(config, {{.method = Method::TRACE, .path = "/"}})
-    );
-
-    auto results = client.request({"non-empty body"});
-    ASSERT_EQ(results.size(), 1);
-    ASSERT_OCCURRED_AS_P(results[0], errors::CLIENT_ERROR);
-
-    server.stop();
-}
 }

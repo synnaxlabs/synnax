@@ -267,16 +267,11 @@ std::vector<std::pair<Response, x::errors::Error>>
 Client::request(const std::vector<std::string> &bodies) {
     static const std::string empty;
 
-    // Sets the request body on a handle. CURLOPT_POSTFIELDS does not copy — it
-    // stores the pointer, so body must outlive the perform call.
-    const auto set_body = [](Handle &h, const std::string &body) -> x::errors::Error {
-        if (!h.accepts_body)
-            return body.empty()
-                ? x::errors::NIL
-                : x::errors::Error(
-                      http::errors::CLIENT_ERROR,
-                      "TRACE requests must not have a body"
-                  );
+    // Sets the request body on a handle. CURLOPT_POSTFIELDS does not copy — it stores
+    // the pointer, so body must outlive the perform call. Methods that don't accept
+    // bodies (TRACE) silently skip body setting.
+    const auto set_body = [](Handle &h, const std::string &body) {
+        if (!h.accepts_body) return;
         if (!body.empty()) {
             curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, body.c_str());
             curl_easy_setopt(h.handle, CURLOPT_POSTFIELDSIZE, body.size());
@@ -284,11 +279,10 @@ Client::request(const std::vector<std::string> &bodies) {
             curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, nullptr);
             curl_easy_setopt(h.handle, CURLOPT_POSTFIELDSIZE, 0L);
         }
-        return x::errors::NIL;
     };
 
-    // Builds a Response + Error pair from a completed handle whose result_code
-    // has already been set by curl_easy_perform or via CURLOPT_PRIVATE.
+    // Builds a Response + Error pair from a completed handle whose result_code has
+    // already been set by curl_easy_perform or via CURLOPT_PRIVATE.
     const auto build_result = [](
                                   Handle &h,
                                   x::telem::TimeStamp start
@@ -331,8 +325,7 @@ Client::request(const std::vector<std::string> &bodies) {
     if (handles_.size() == 1) {
         auto &h = handles_[0];
         h.response_body.clear();
-        const auto &body = !bodies.empty() ? bodies[0] : empty;
-        if (auto err = set_body(h, body)) return {{Response{}, err}};
+        set_body(h, !bodies.empty() ? bodies[0] : empty);
         const auto start = x::telem::TimeStamp::now();
         h.result_code = curl_easy_perform(h.handle);
         return {build_result(h, start)};
@@ -340,17 +333,12 @@ Client::request(const std::vector<std::string> &bodies) {
 
     // Multi-handle path.
     auto *multi = static_cast<CURLM *>(multi_handle_);
-    std::vector<bool> skipped(handles_.size(), false);
 
     for (size_t i = 0; i < handles_.size(); i++) {
         auto &h = handles_[i];
         h.response_body.clear();
         h.result_code = CURLE_OK;
-        const auto &body = i < bodies.size() ? bodies[i] : empty;
-        if (auto err = set_body(h, body)) {
-            skipped[i] = true;
-            continue;
-        }
+        set_body(h, i < bodies.size() ? bodies[i] : empty);
         curl_multi_add_handle(multi, h.handle);
     }
 
@@ -376,18 +364,7 @@ Client::request(const std::vector<std::string> &bodies) {
     std::vector<std::pair<Response, x::errors::Error>> results;
     results.reserve(handles_.size());
 
-    for (size_t i = 0; i < handles_.size(); i++) {
-        auto &h = handles_[i];
-        if (skipped[i]) {
-            results.push_back({
-                Response{},
-                x::errors::Error(
-                    http::errors::CLIENT_ERROR,
-                    "TRACE requests must not have a body"
-                ),
-            });
-            continue;
-        }
+    for (auto &h: handles_) {
         results.push_back(build_result(h, start));
         curl_multi_remove_handle(multi, h.handle);
     }
