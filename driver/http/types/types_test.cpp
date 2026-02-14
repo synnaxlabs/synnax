@@ -43,8 +43,32 @@ TEST(ParseMethodTest, ParsesPATCH) {
     EXPECT_TRUE(p.ok());
 }
 
-TEST(ParseMethodTest, UnknownMethodErrors) {
+TEST(ParseMethodTest, ParsesHEAD) {
+    x::json::Parser p(x::json::json{{"method", "HEAD"}});
+    EXPECT_EQ(parse_method(p, "method"), Method::HEAD);
+    EXPECT_TRUE(p.ok());
+}
+
+TEST(ParseMethodTest, ParsesOPTIONS) {
     x::json::Parser p(x::json::json{{"method", "OPTIONS"}});
+    EXPECT_EQ(parse_method(p, "method"), Method::OPTIONS);
+    EXPECT_TRUE(p.ok());
+}
+
+TEST(ParseMethodTest, ParsesTRACE) {
+    x::json::Parser p(x::json::json{{"method", "TRACE"}});
+    EXPECT_EQ(parse_method(p, "method"), Method::TRACE);
+    EXPECT_TRUE(p.ok());
+}
+
+TEST(ParseMethodTest, ParsesCONNECT) {
+    x::json::Parser p(x::json::json{{"method", "CONNECT"}});
+    EXPECT_EQ(parse_method(p, "method"), Method::CONNECT);
+    EXPECT_TRUE(p.ok());
+}
+
+TEST(ParseMethodTest, UnknownMethodErrors) {
+    x::json::Parser p(x::json::json{{"method", "INVALID"}});
     parse_method(p, "method");
     EXPECT_FALSE(p.ok());
 }

@@ -193,7 +193,9 @@ TEST(ClientTest, GETRequest) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {{.method = Method::GET, .path = "/api/data"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::GET, .path = "/api/data"}})
+    );
 
     auto results = client.request({""});
     ASSERT_EQ(results.size(), 1);
@@ -217,7 +219,9 @@ TEST(ClientTest, POSTRequestWithBody) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {{.method = Method::POST, .path = "/api/submit"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::POST, .path = "/api/submit"}})
+    );
 
     auto results = client.request({R"({"name": "test"})"});
     ASSERT_EQ(results.size(), 1);
@@ -247,13 +251,15 @@ TEST(ClientTest, CustomHeaders) {
         {"base_url", server.base_url()},
         {"headers", {{"X-Global", "global-val"}}},
     });
-    Client client(
-        config,
-        {{
-            .method = Method::GET,
-            .path = "/api/check",
-            .headers = {{"X-Request", "req-val"}},
-        }}
+    auto client = ASSERT_NIL_P(
+        Client::make(
+            config,
+            {{
+                .method = Method::GET,
+                .path = "/api/check",
+                .headers = {{"X-Request", "req-val"}},
+            }}
+        )
     );
 
     auto results = client.request({""});
@@ -292,7 +298,9 @@ TEST(ClientTest, BasicAuth) {
         {"base_url", server.base_url()},
         {"auth", {{"type", "basic"}, {"username", "user"}, {"password", "pass"}}},
     });
-    Client client(config, {{.method = Method::GET, .path = "/api/secure"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::GET, .path = "/api/secure"}})
+    );
 
     auto results = client.request({""});
     ASSERT_EQ(results.size(), 1);
@@ -326,7 +334,9 @@ TEST(ClientTest, BearerAuth) {
         {"base_url", server.base_url()},
         {"auth", {{"type", "bearer"}, {"token", "my-token"}}},
     });
-    Client client(config, {{.method = Method::GET, .path = "/api/secure"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::GET, .path = "/api/secure"}})
+    );
 
     auto results = client.request({""});
     ASSERT_EQ(results.size(), 1);
@@ -359,7 +369,9 @@ TEST(ClientTest, APIKeyAuth) {
         {"base_url", server.base_url()},
         {"auth", {{"type", "api_key"}, {"header", "X-API-Key"}, {"key", "secret123"}}},
     });
-    Client client(config, {{.method = Method::GET, .path = "/api/keyed"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::GET, .path = "/api/keyed"}})
+    );
 
     auto results = client.request({""});
     ASSERT_EQ(results.size(), 1);
@@ -389,13 +401,15 @@ TEST(ClientTest, QueryParams) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(
-        config,
-        {{
-            .method = Method::GET,
-            .path = "/api/search",
-            .query_params = {{"q", "hello"}, {"limit", "10"}},
-        }}
+    auto client = ASSERT_NIL_P(
+        Client::make(
+            config,
+            {{
+                .method = Method::GET,
+                .path = "/api/search",
+                .query_params = {{"q", "hello"}, {"limit", "10"}},
+            }}
+        )
     );
 
     auto results = client.request({""});
@@ -419,13 +433,15 @@ TEST(ClientTest, QueryParamsPercentEncoded) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(
-        config,
-        {{
-            .method = Method::GET,
-            .path = "/api/search",
-            .query_params = {{"q", "hello world"}, {"tag", "a&b=c"}},
-        }}
+    auto client = ASSERT_NIL_P(
+        Client::make(
+            config,
+            {{
+                .method = Method::GET,
+                .path = "/api/search",
+                .query_params = {{"q", "hello world"}, {"tag", "a&b=c"}},
+            }}
+        )
     );
 
     auto results = client.request({""});
@@ -458,7 +474,9 @@ TEST(ClientTest, TimeoutError) {
         {"base_url", server.base_url()},
         {"timeout_ms", 1},
     });
-    Client client(config, {{.method = Method::GET, .path = "/api/slow"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::GET, .path = "/api/slow"}})
+    );
 
     auto results = client.request({""});
     ASSERT_EQ(results.size(), 1);
@@ -469,7 +487,9 @@ TEST(ClientTest, TimeoutError) {
 
 TEST(ClientTest, UnreachableError) {
     auto config = make_config({{"base_url", "http://192.0.2.1:1"}});
-    Client client(config, {{.method = Method::GET, .path = "/"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::GET, .path = "/"}})
+    );
 
     auto results = client.request({""});
     ASSERT_EQ(results.size(), 1);
@@ -497,7 +517,9 @@ TEST(ClientTest, ErrorStatusCodesReturnResponse) {
 
     {
         auto config = make_config({{"base_url", server.base_url()}});
-        Client client(config, {{.method = Method::GET, .path = "/api/notfound"}});
+        auto client = ASSERT_NIL_P(
+            Client::make(config, {{.method = Method::GET, .path = "/api/notfound"}})
+        );
         auto results = client.request({""});
         ASSERT_EQ(results.size(), 1);
         const auto resp = ASSERT_NIL_P(results[0]);
@@ -506,7 +528,9 @@ TEST(ClientTest, ErrorStatusCodesReturnResponse) {
 
     {
         auto config = make_config({{"base_url", server.base_url()}});
-        Client client(config, {{.method = Method::GET, .path = "/api/error"}});
+        auto client = ASSERT_NIL_P(
+            Client::make(config, {{.method = Method::GET, .path = "/api/error"}})
+        );
         auto results = client.request({""});
         ASSERT_EQ(results.size(), 1);
         const auto resp = ASSERT_NIL_P(results[0]);
@@ -536,13 +560,15 @@ TEST(ClientTest, ParallelRequests) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(
-        config,
-        {
-            {.method = Method::GET, .path = "/api/a"},
-            {.method = Method::GET, .path = "/api/b"},
-            {.method = Method::GET, .path = "/api/c"},
-        }
+    auto client = ASSERT_NIL_P(
+        Client::make(
+            config,
+            {
+                {.method = Method::GET, .path = "/api/a"},
+                {.method = Method::GET, .path = "/api/b"},
+                {.method = Method::GET, .path = "/api/c"},
+            }
+        )
     );
 
     auto results = client.request({"", "", ""});
@@ -575,13 +601,15 @@ TEST(ClientTest, ParallelRequestsWithMixedStatusCodes) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(
-        config,
-        {
-            {.method = Method::GET, .path = "/ok"},
-            {.method = Method::GET, .path = "/not-found"},
-            {.method = Method::GET, .path = "/error"},
-        }
+    auto client = ASSERT_NIL_P(
+        Client::make(
+            config,
+            {
+                {.method = Method::GET, .path = "/ok"},
+                {.method = Method::GET, .path = "/not-found"},
+                {.method = Method::GET, .path = "/error"},
+            }
+        )
     );
 
     auto results = client.request({"", "", ""});
@@ -618,12 +646,14 @@ TEST(ClientTest, ParallelOneTimesOut) {
         {"base_url", server.base_url()},
         {"timeout_ms", 500},
     });
-    Client client(
-        config,
-        {
-            {.method = Method::GET, .path = "/fast"},
-            {.method = Method::GET, .path = "/slow"},
-        }
+    auto client = ASSERT_NIL_P(
+        Client::make(
+            config,
+            {
+                {.method = Method::GET, .path = "/fast"},
+                {.method = Method::GET, .path = "/slow"},
+            }
+        )
     );
 
     auto results = client.request({"", ""});
@@ -657,12 +687,14 @@ TEST(ClientTest, ParallelFirstTimesOutSecondSucceeds) {
         {"base_url", server.base_url()},
         {"timeout_ms", 500},
     });
-    Client client(
-        config,
-        {
-            {.method = Method::GET, .path = "/slow"},
-            {.method = Method::GET, .path = "/fast"},
-        }
+    auto client = ASSERT_NIL_P(
+        Client::make(
+            config,
+            {
+                {.method = Method::GET, .path = "/slow"},
+                {.method = Method::GET, .path = "/fast"},
+            }
+        )
     );
 
     auto results = client.request({"", ""});
@@ -695,12 +727,14 @@ TEST(ClientTest, ParallelPerResponseTimeRanges) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(
-        config,
-        {
-            {.method = Method::GET, .path = "/fast"},
-            {.method = Method::GET, .path = "/slow"},
-        }
+    auto client = ASSERT_NIL_P(
+        Client::make(
+            config,
+            {
+                {.method = Method::GET, .path = "/fast"},
+                {.method = Method::GET, .path = "/slow"},
+            }
+        )
     );
 
     auto results = client.request({"", ""});
@@ -730,7 +764,9 @@ TEST(ClientTest, RepeatedGETRequests) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {{.method = Method::GET, .path = "/api/poll"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::GET, .path = "/api/poll"}})
+    );
 
     for (int i = 0; i < 5; i++) {
         auto results = client.request({""});
@@ -758,7 +794,9 @@ TEST(ClientTest, RepeatedPOSTRequests) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {{.method = Method::POST, .path = "/api/send"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::POST, .path = "/api/send"}})
+    );
 
     for (int i = 0; i < 3; i++) {
         const auto body = R"({"i": )" + std::to_string(i) + "}";
@@ -795,12 +833,14 @@ TEST(ClientTest, MixedGETAndPOST) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(
-        config,
-        {
-            {.method = Method::GET, .path = "/api/read"},
-            {.method = Method::POST, .path = "/api/write"},
-        }
+    auto client = ASSERT_NIL_P(
+        Client::make(
+            config,
+            {
+                {.method = Method::GET, .path = "/api/read"},
+                {.method = Method::POST, .path = "/api/write"},
+            }
+        )
     );
 
     auto results = client.request({"", R"({"val": 1})"});
@@ -831,7 +871,9 @@ TEST(ClientTest, POSTWithEmptyBody) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {{.method = Method::POST, .path = "/api/ping"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::POST, .path = "/api/ping"}})
+    );
 
     auto results = client.request({""});
     ASSERT_EQ(results.size(), 1);
@@ -852,7 +894,9 @@ TEST(ClientTest, DeleteRequest) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {{.method = Method::DELETE, .path = "/api/item/42"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::DELETE, .path = "/api/item/42"}})
+    );
 
     auto results = client.request({""});
     ASSERT_EQ(results.size(), 1);
@@ -874,7 +918,9 @@ TEST(ClientTest, PutRequest) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {{.method = Method::PUT, .path = "/api/item/1"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::PUT, .path = "/api/item/1"}})
+    );
 
     auto results = client.request({R"({"name": "new"})"});
     ASSERT_EQ(results.size(), 1);
@@ -901,7 +947,9 @@ TEST(ClientTest, PathWithoutLeadingSlash) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {{.method = Method::GET, .path = "api/data"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::GET, .path = "api/data"}})
+    );
 
     auto results = client.request({""});
     ASSERT_EQ(results.size(), 1);
@@ -924,7 +972,9 @@ TEST(ClientTest, BaseURLWithTrailingSlash) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url() + "/"}});
-    Client client(config, {{.method = Method::GET, .path = "/api/data"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::GET, .path = "/api/data"}})
+    );
 
     auto results = client.request({""});
     ASSERT_EQ(results.size(), 1);
@@ -947,7 +997,7 @@ TEST(ClientTest, EmptyPath) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {{.method = Method::GET}});
+    auto client = ASSERT_NIL_P(Client::make(config, {{.method = Method::GET}}));
 
     auto results = client.request({""});
     ASSERT_EQ(results.size(), 1);
@@ -973,7 +1023,9 @@ TEST(ClientTest, HTTPSGETRequest) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}}, false);
-    Client client(config, {{.method = Method::GET, .path = "/api/secure"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::GET, .path = "/api/secure"}})
+    );
 
     auto results = client.request({""});
     ASSERT_EQ(results.size(), 1);
@@ -999,7 +1051,9 @@ TEST(ClientTest, HTTPSPOSTRequestWithBody) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}}, false);
-    Client client(config, {{.method = Method::POST, .path = "/api/submit"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::POST, .path = "/api/submit"}})
+    );
 
     auto results = client.request({R"({"name": "test"})"});
     ASSERT_EQ(results.size(), 1);
@@ -1026,13 +1080,15 @@ TEST(ClientTest, ContentTypeValidation) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(
-        config,
-        {{
-            .method = Method::GET,
-            .path = "/api/json",
-            .response_content_type = "application/json",
-        }}
+    auto client = ASSERT_NIL_P(
+        Client::make(
+            config,
+            {{
+                .method = Method::GET,
+                .path = "/api/json",
+                .response_content_type = "application/json",
+            }}
+        )
     );
 
     auto results = client.request({""});
@@ -1056,13 +1112,15 @@ TEST(ClientTest, ContentTypeMismatch) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(
-        config,
-        {{
-            .method = Method::GET,
-            .path = "/api/text",
-            .response_content_type = "application/json",
-        }}
+    auto client = ASSERT_NIL_P(
+        Client::make(
+            config,
+            {{
+                .method = Method::GET,
+                .path = "/api/text",
+                .response_content_type = "application/json",
+            }}
+        )
     );
 
     auto results = client.request({""});
@@ -1085,7 +1143,9 @@ TEST(ClientTest, ContentTypeNotCheckedWhenEmpty) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {{.method = Method::GET, .path = "/api/any"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::GET, .path = "/api/any"}})
+    );
 
     auto results = client.request({""});
     ASSERT_EQ(results.size(), 1);
@@ -1107,13 +1167,15 @@ TEST(ClientTest, ContentTypeCharsetSuffix) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(
-        config,
-        {{
-            .method = Method::GET,
-            .path = "/api/charset",
-            .response_content_type = "application/json",
-        }}
+    auto client = ASSERT_NIL_P(
+        Client::make(
+            config,
+            {{
+                .method = Method::GET,
+                .path = "/api/charset",
+                .response_content_type = "application/json",
+            }}
+        )
     );
 
     auto results = client.request({""});
@@ -1137,13 +1199,15 @@ TEST(ClientTest, RequestContentTypeHeaderSent) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(
-        config,
-        {{
-            .method = Method::POST,
-            .path = "/api/xml",
-            .request_content_type = "application/xml",
-        }}
+    auto client = ASSERT_NIL_P(
+        Client::make(
+            config,
+            {{
+                .method = Method::POST,
+                .path = "/api/xml",
+                .request_content_type = "application/xml",
+            }}
+        )
     );
 
     auto results = client.request({"<req/>"});
@@ -1174,7 +1238,9 @@ TEST(ClientTest, RequestContentTypeOmittedWhenEmpty) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(config, {{.method = Method::POST, .path = "/api/raw"}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::POST, .path = "/api/raw"}})
+    );
 
     auto results = client.request({"data"});
     ASSERT_EQ(results.size(), 1);
@@ -1204,13 +1270,15 @@ TEST(ClientTest, AcceptHeaderSent) {
     ASSERT_NIL(server.start());
 
     auto config = make_config({{"base_url", server.base_url()}});
-    Client client(
-        config,
-        {{
-            .method = Method::GET,
-            .path = "/api/accept",
-            .response_content_type = "application/json",
-        }}
+    auto client = ASSERT_NIL_P(
+        Client::make(
+            config,
+            {{
+                .method = Method::GET,
+                .path = "/api/accept",
+                .response_content_type = "application/json",
+            }}
+        )
     );
 
     auto results = client.request({""});
@@ -1224,6 +1292,150 @@ TEST(ClientTest, AcceptHeaderSent) {
     for (const auto &[k, v]: reqs[0].headers)
         if (k == "Accept" && v == "application/json") found_accept = true;
     EXPECT_TRUE(found_accept);
+
+    server.stop();
+}
+
+TEST(ClientTest, GETRequestWithBody) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/data",
+        .status_code = 200,
+        .response_body = R"({"value": 42})",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::GET, .path = "/api/data"}})
+    );
+
+    auto results = client.request({R"({"filter": true})"});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].body, R"({"filter": true})");
+
+    server.stop();
+}
+
+TEST(ClientTest, DELETERequestWithBody) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::DELETE,
+        .path = "/api/items",
+        .status_code = 200,
+        .response_body = R"({"deleted": 3})",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::DELETE, .path = "/api/items"}})
+    );
+
+    auto results = client.request({R"({"ids": [1, 2, 3]})"});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].body, R"({"ids": [1, 2, 3]})");
+
+    server.stop();
+}
+
+TEST(ClientTest, HEADRequest) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/head",
+        .status_code = 200,
+        .response_body = "body-content",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::HEAD, .path = "/api/head"}})
+    );
+
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 200);
+    EXPECT_TRUE(resp.body.empty());
+
+    server.stop();
+}
+
+TEST(ClientTest, HEADWithResponseContentTypeErrors) {
+    auto config = make_config({{"base_url", "http://localhost"}});
+    auto [client, err] = Client::make(
+        config,
+        {{
+            .method = Method::HEAD,
+            .path = "/api/head",
+            .response_content_type = "application/json",
+        }}
+    );
+    ASSERT_OCCURRED_AS(err, errors::CLIENT_ERROR);
+}
+
+TEST(ClientTest, OPTIONSRequest) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::OPTIONS,
+        .path = "/api/opts",
+        .status_code = 204,
+        .response_body = "",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::OPTIONS, .path = "/api/opts"}})
+    );
+
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    const auto resp = ASSERT_NIL_P(results[0]);
+    EXPECT_EQ(resp.status_code, 204);
+
+    server.stop();
+}
+
+TEST(ClientTest, TRACEWithBodyErrors) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/",
+        .status_code = 200,
+        .response_body = "ok",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    auto client = ASSERT_NIL_P(
+        Client::make(config, {{.method = Method::TRACE, .path = "/"}})
+    );
+
+    auto results = client.request({"non-empty body"});
+    ASSERT_EQ(results.size(), 1);
+    ASSERT_OCCURRED_AS_P(results[0], errors::CLIENT_ERROR);
 
     server.stop();
 }

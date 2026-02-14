@@ -18,7 +18,7 @@
 
 using namespace driver::http;
 
-TEST(MockServerTest, ServesGetRoute) {
+TEST(MockServerTest, ServesGETRoute) {
     mock::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::GET,
@@ -40,7 +40,7 @@ TEST(MockServerTest, ServesGetRoute) {
     server.stop();
 }
 
-TEST(MockServerTest, ServesPostRoute) {
+TEST(MockServerTest, ServesPOSTRoute) {
     mock::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::POST,
@@ -60,7 +60,7 @@ TEST(MockServerTest, ServesPostRoute) {
     server.stop();
 }
 
-TEST(MockServerTest, ServesPutRoute) {
+TEST(MockServerTest, ServesPUTRoute) {
     mock::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::PUT,
@@ -81,7 +81,7 @@ TEST(MockServerTest, ServesPutRoute) {
     server.stop();
 }
 
-TEST(MockServerTest, ServesDeleteRoute) {
+TEST(MockServerTest, ServesDELETERoute) {
     mock::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::DELETE,
@@ -100,7 +100,7 @@ TEST(MockServerTest, ServesDeleteRoute) {
     server.stop();
 }
 
-TEST(MockServerTest, ServesPatchRoute) {
+TEST(MockServerTest, ServesPATCHRoute) {
     mock::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::PATCH,
@@ -196,8 +196,6 @@ TEST(MockServerTest, ResponseDelay) {
     server.stop();
 }
 
-// ─── Request Logging ────────────────────────────────────────────────────── //
-
 TEST(MockServerTest, LogsReceivedRequests) {
     mock::ServerConfig cfg;
     cfg.routes = {{
@@ -269,8 +267,6 @@ TEST(MockServerTest, LogsQueryParams) {
     server.stop();
 }
 
-// ─── Base URL ───────────────────────────────────────────────────────────── //
-
 TEST(MockServerTest, BaseURLUsesHTTPScheme) {
     mock::ServerConfig cfg;
     cfg.routes = {{.path = "/x", .response_body = "x"}};
@@ -296,8 +292,6 @@ TEST(MockServerTest, BaseURLUsesHTTPSScheme) {
 
     server.stop();
 }
-
-// ─── HTTPS ──────────────────────────────────────────────────────────────── //
 
 TEST(MockServerTest, SecureServesGetRoute) {
     mock::ServerConfig cfg;
@@ -325,7 +319,7 @@ TEST(MockServerTest, SecureServesGetRoute) {
     server.stop();
 }
 
-TEST(MockServerTest, SecureServesPostRoute) {
+TEST(MockServerTest, SecureServesPOSTRoute) {
     mock::ServerConfig cfg;
     cfg.secure = true;
     cfg.cert_path = "driver/http/mock/test_cert.pem";
@@ -387,4 +381,42 @@ TEST(MockServerTest, SecureInvalidCertFailsStart) {
     cfg.routes = {{.path = "/x", .response_body = "x"}};
     mock::Server server(cfg);
     EXPECT_TRUE(server.start());
+}
+
+TEST(MockServerTest, ServesOptionsRoute) {
+    mock::ServerConfig cfg;
+    cfg.routes = {{
+        .method = Method::OPTIONS,
+        .path = "/api/opts",
+        .status_code = 204,
+        .response_body = "",
+        .content_type = "text/plain",
+    }};
+    mock::Server server(cfg);
+    ASSERT_NIL(server.start());
+
+    httplib::Client cli(server.base_url());
+    auto res = cli.Options("/api/opts");
+    ASSERT_NE(res, nullptr);
+    EXPECT_EQ(res->status, 204);
+
+    server.stop();
+}
+
+TEST(MockServerTest, HEADRouteRegistrationErrors) {
+    mock::ServerConfig cfg;
+    cfg.routes = {{.method = Method::HEAD, .path = "/x", .response_body = "x"}};
+    EXPECT_THROW(mock::Server server(cfg), std::runtime_error);
+}
+
+TEST(MockServerTest, TRACERouteRegistrationErrors) {
+    mock::ServerConfig cfg;
+    cfg.routes = {{.method = Method::TRACE, .path = "/x", .response_body = "x"}};
+    EXPECT_THROW(mock::Server server(cfg), std::runtime_error);
+}
+
+TEST(MockServerTest, CONNECTRouteRegistrationErrors) {
+    mock::ServerConfig cfg;
+    cfg.routes = {{.method = Method::CONNECT, .path = "/x", .response_body = "x"}};
+    EXPECT_THROW(mock::Server server(cfg), std::runtime_error);
 }

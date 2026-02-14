@@ -129,22 +129,31 @@ struct Response {
 class Client {
     struct Handle;
     ConnectionConfig config_;
-    void *multi_handle_;
+    void *multi_handle_ = nullptr;
     std::vector<Handle> handles_;
 
     Client(const Client &) = delete;
     Client &operator=(const Client &) = delete;
 
+    Client(ConnectionConfig config, const std::vector<RequestConfig> &requests);
+
+    Client();
+
 public:
-    /// @brief constructs a client and pre-builds curl handles.
+    Client(Client &&other) noexcept;
+    Client &operator=(Client &&other) noexcept;
+
+    /// @brief constructs and validates a client with pre-built curl handles.
     /// @param config the connection configuration.
     /// @param requests the static request configurations.
-    Client(ConnectionConfig config, const std::vector<RequestConfig> &requests);
+    /// @returns the client paired with a validation error (nil on success).
+    static std::pair<Client, x::errors::Error>
+    make(ConnectionConfig config, const std::vector<RequestConfig> &requests);
 
     ~Client();
 
     /// @brief executes pre-configured requests with the given bodies.
-    /// @param bodies one body per pre-configured request. For GET or DELETE requests,
+    /// @param bodies one body per pre-configured request. For TRACE requests,
     /// pass an empty string.
     /// @returns the responses paired with per-response errors.
     std::vector<std::pair<Response, x::errors::Error>>

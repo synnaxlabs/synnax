@@ -63,11 +63,15 @@ class Server {
     std::vector<ReceivedRequest> requests_;
 
     static Method parse_httplib_method(const std::string &m) {
+        if (m == "GET") return Method::GET;
+        if (m == "HEAD") return Method::HEAD;
         if (m == "POST") return Method::POST;
         if (m == "PUT") return Method::PUT;
         if (m == "DELETE") return Method::DELETE;
         if (m == "PATCH") return Method::PATCH;
-        if (m == "GET") return Method::GET;
+        if (m == "OPTIONS") return Method::OPTIONS;
+        if (m == "TRACE") return Method::TRACE;
+        if (m == "CONNECT") return Method::CONNECT;
         throw std::runtime_error("unsupported HTTP method: " + m);
     }
 
@@ -167,6 +171,15 @@ private:
             case Method::PATCH:
                 svr_->Patch(route.path, handler);
                 break;
+            case Method::OPTIONS:
+                svr_->Options(route.path, handler);
+                break;
+            case Method::HEAD:
+                throw std::runtime_error("httplib does not support HEAD methods");
+            case Method::TRACE:
+                throw std::runtime_error("httplib does not support TRACE methods");
+            case Method::CONNECT:
+                throw std::runtime_error("httplib does not support CONNECT methods");
         }
     }
 };

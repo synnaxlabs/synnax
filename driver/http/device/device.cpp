@@ -84,6 +84,41 @@ struct Client::Handle {
     }
 };
 
+Client::Client(): config_(x::json::Parser(x::json::json{{"base_url", ""}})) {}
+
+Client::Client(Client &&other) noexcept:
+    config_(std::move(other.config_)),
+    multi_handle_(other.multi_handle_),
+    handles_(std::move(other.handles_)) {
+    other.multi_handle_ = nullptr;
+}
+
+Client &Client::operator=(Client &&other) noexcept {
+    if (this != &other) {
+        if (multi_handle_ != nullptr) curl_multi_cleanup(multi_handle_);
+        config_ = std::move(other.config_);
+        multi_handle_ = other.multi_handle_;
+        handles_ = std::move(other.handles_);
+        other.multi_handle_ = nullptr;
+    }
+    return *this;
+}
+
+std::pair<Client, x::errors::Error>
+Client::make(ConnectionConfig config, const std::vector<RequestConfig> &requests) {
+    for (const auto &req: requests) {
+        if (req.method == Method::HEAD && !req.response_content_type.empty())
+            return {
+                Client(),
+                x::errors::Error(
+                    http::errors::CLIENT_ERROR,
+                    "HEAD requests must not set response_content_type"
+                ),
+            };
+    }
+    return {Client(std::move(config), requests), x::errors::NIL};
+}
+
 Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &requests):
     config_(std::move(config)) {
     ensure_curl_initialized();
@@ -135,8 +170,14 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
         }
 
         // HTTP method (static per handle).
-        h.accepts_body = req.method != Method::GET && req.method != Method::DELETE;
+        h.accepts_body = req.method != Method::TRACE;
         switch (req.method) {
+            case Method::GET:
+                curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "GET");
+                break;
+            case Method::HEAD:
+                curl_easy_setopt(h.handle, CURLOPT_NOBODY, 1L);
+                break;
             case Method::POST:
                 curl_easy_setopt(h.handle, CURLOPT_POST, 1L);
                 break;
@@ -149,7 +190,14 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
             case Method::PATCH:
                 curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "PATCH");
                 break;
-            case Method::GET:
+            case Method::OPTIONS:
+                curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "OPTIONS");
+                break;
+            case Method::TRACE:
+                curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "TRACE");
+                break;
+            case Method::CONNECT:
+                curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "CONNECT");
                 break;
         }
 
@@ -215,10 +263,17 @@ std::vector<std::pair<Response, x::errors::Error>>
 Client::request(const std::vector<std::string> &bodies) {
     auto *multi = static_cast<CURLM *>(multi_handle_);
 
+    // Track which handles were skipped due to body validation errors.
+    std::vector<bool> skipped(handles_.size(), false);
+
     // Set bodies and add handles to multi.
     for (size_t i = 0; i < handles_.size(); i++) {
         auto &h = handles_[i];
         h.response_body.clear();
+        if (!h.accepts_body && i < bodies.size() && !bodies[i].empty()) {
+            skipped[i] = true;
+            continue;
+        }
         if (h.accepts_body) {
             // CURLOPT_POSTFIELDS does not copy — it stores the pointer. This is
             // safe because bodies is a const ref that outlives curl_multi_perform.
@@ -254,7 +309,19 @@ Client::request(const std::vector<std::string> &bodies) {
     std::vector<std::pair<Response, x::errors::Error>> results;
     results.reserve(handles_.size());
 
-    for (auto &h: handles_) {
+    for (size_t i = 0; i < handles_.size(); i++) {
+        auto &h = handles_[i];
+        if (skipped[i]) {
+            results.push_back({
+                Response{},
+                x::errors::Error(
+                    http::errors::CLIENT_ERROR,
+                    "TRACE requests must not have a body"
+                ),
+            });
+            continue;
+        }
+
         long status_code = 0;
         curl_easy_getinfo(h.handle, CURLINFO_RESPONSE_CODE, &status_code);
         double total_secs = 0;
