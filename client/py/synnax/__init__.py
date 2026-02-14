@@ -9,7 +9,7 @@
 
 __version__ = "0.3.0"
 
-from synnax import ethercat, labjack, modbus, ni, opcua, sequence, status
+from synnax import ethercat, labjack, modbus, ni, opcua, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role
 from synnax.arc import (
@@ -156,7 +156,6 @@ __all__ = [
     "ni",
     "labjack",
     "opcua",
-    "sequence",
     "ontology",
     "auth",
     "status",

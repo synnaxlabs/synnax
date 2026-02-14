@@ -35,10 +35,8 @@ const getWorker = (_: string, label: string) => {
 };
 
 export type Service = () => Promise<destructor.Async>;
-export type Extension = () => Promise<void>;
 
 export interface InitializeProps {
-  extensions: Extension[];
   services: Service[];
 }
 
@@ -51,7 +49,6 @@ let monaco: typeof monacoT | null = null;
 let shutdownMonaco: destructor.Async | null = null;
 
 export const initializeMonaco = async ({
-  extensions,
   services,
 }: InitializeProps): Promise<InitializeReturn> => {
   self.MonacoEnvironment = { getWorker };
@@ -66,13 +63,11 @@ export const initializeMonaco = async ({
   initializationState.initialized = true;
   const [
     ,
-    ,
     { initialize },
     { default: getTextMateServiceOverride },
     { default: getThemeServiceOverride },
     { default: getLanguagesServiceOverride },
   ] = await Promise.all([
-    Promise.all(extensions.map(async (ext) => await ext())),
     import("@codingame/monaco-vscode-theme-defaults-default-extension"),
     import("@codingame/monaco-vscode-api"),
     import("@codingame/monaco-vscode-textmate-service-override"),
