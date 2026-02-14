@@ -15,6 +15,7 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/http/mock/server.h"
+#include "httplib.h"
 
 using namespace driver::http;
 
