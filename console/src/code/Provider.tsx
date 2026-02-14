@@ -12,7 +12,7 @@ import { type destructor } from "@synnaxlabs/x";
 import type * as monacoT from "monaco-editor";
 import { type PropsWithChildren, useCallback, useMemo, useRef } from "react";
 
-import { type Extension, initializeMonaco, type Service } from "@/code/init/initialize";
+import { initializeMonaco, type Service } from "@/code/init/initialize";
 
 export type * as Monaco from "monaco-editor";
 
@@ -29,20 +29,15 @@ const [Context, useContext] = context.create<ContextValue>({
 });
 
 export interface ProviderProps extends PropsWithChildren {
-  importExtensions: Extension[];
   initServices: Service[];
 }
 
-export const Provider = ({
-  children,
-  importExtensions: extensions,
-  initServices: services,
-}: ProviderProps) => {
+export const Provider = ({ children, initServices: services }: ProviderProps) => {
   const [monaco, setMonaco, monacoRef] = useCombinedStateAndRef<Monaco | null>(null);
   const destructorRef = useRef<destructor.Async>(null);
   const requestInit = useCallback(() => {
     if (monacoRef.current != null) return;
-    initializeMonaco({ extensions, services })
+    initializeMonaco({ services })
       .then((ret) => {
         destructorRef.current = ret.destructor;
         setMonaco(ret.monaco);

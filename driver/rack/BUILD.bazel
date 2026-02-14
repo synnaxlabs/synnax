@@ -30,7 +30,6 @@ cc_library(
         "//driver/ni",
         "//driver/opc",
         "//driver/rack/status",
-        "//driver/sequence",
         "//driver/task",
         "//x/cpp/args",
         "//x/cpp/env",
