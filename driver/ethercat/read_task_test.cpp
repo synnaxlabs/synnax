@@ -14,7 +14,6 @@
 
 #include "driver/ethercat/mock/master.h"
 #include "driver/ethercat/read_task.h"
-#include "driver/pipeline/mock/pipeline.h"
 #include "engine/engine.h"
 
 namespace driver::ethercat {
