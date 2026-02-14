@@ -29,6 +29,7 @@ cc_library(
     name = "igh",
     srcs = ["master.cpp"],
     hdrs = ["master.h"],
+    target_compatible_with = ["@platforms//os:linux"],
     visibility = ["//driver/ethercat:__pkg__"],
     deps = [
         ":ecrt_official",
@@ -47,6 +48,7 @@ cc_library(
 cc_test(
     name = "igh_test",
     srcs = ["master_test.cpp"],
+    target_compatible_with = ["@platforms//os:linux"],
     deps = [
         ":igh",
         ":mock_api",
