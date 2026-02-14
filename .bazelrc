@@ -42,6 +42,9 @@ build:linux --copt=-Wno-error=sequence-point
 build:windows --enable_runfiles
 build:windows --cxxopt=/std:c++latest
 build:windows --host_cxxopt=/std:c++latest
+# OpenSSL's crypto.lib references user32.lib functions (GetProcessWindowStation,
+# GetUserObjectInformationW, MessageBoxW) that must be linked explicitly on Windows.
+build:windows --linkopt=user32.lib
 build:windows --copt=/Zc:preprocessor      # Enable C++20 conformant preprocessor (for __VA_OPT__)
 build:windows --copt=/W3     # Use warning level 3 instead of -Wall (which is /W4 + extras on MSVC)
 build:windows --cxxopt=/W3   # Same for C++
