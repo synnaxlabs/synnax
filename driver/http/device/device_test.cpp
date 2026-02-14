@@ -1186,6 +1186,37 @@ TEST(ClientTest, ContentTypeCharsetSuffix) {
     server.stop();
 }
 
+TEST(ClientTest, ContentTypePrefixMismatch) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/jsonl",
+        .status_code = 200,
+        .response_body = "line1\nline2",
+        .content_type = "application/jsonl",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    auto client = ASSERT_NIL_P(
+        Client::make(
+            config,
+            {{
+                .method = Method::GET,
+                .path = "/api/jsonl",
+                .response_content_type = "application/json",
+            }}
+        )
+    );
+
+    auto results = client.request({""});
+    ASSERT_EQ(results.size(), 1);
+    ASSERT_OCCURRED_AS_P(results[0], errors::PARSE_ERROR);
+
+    server.stop();
+}
+
 TEST(ClientTest, RequestContentTypeHeaderSent) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{

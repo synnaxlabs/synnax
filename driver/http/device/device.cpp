@@ -302,7 +302,9 @@ Client::request(const std::vector<std::string> &bodies) {
             curl_easy_getinfo(h.handle, CURLINFO_CONTENT_TYPE, &ct);
             if (ct != nullptr) {
                 const std::string_view actual(ct);
-                if (!actual.starts_with(h.expected_content_type))
+                const auto n = h.expected_content_type.size();
+                if (!actual.starts_with(h.expected_content_type) ||
+                    (actual.size() > n && actual[n] != ';'))
                     err = x::errors::Error(
                         http::errors::PARSE_ERROR,
                         "expected content type '" +
