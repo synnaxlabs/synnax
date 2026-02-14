@@ -14,7 +14,7 @@ bazel_dep(name = "grpc", version = "1.76.0.bcr.1")
 bazel_dep(name = "boost.uuid", version = "1.87.0")
 bazel_dep(name = "curl", version = "8.11.0.bcr.4")
 bazel_dep(name = "cpp-httplib", version = "0.22.0")
-bazel_dep(name = "boringssl", version = "0.20260211.0")
+bazel_dep(name = "openssl", version = "3.5.5.bcr.0")
 
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
 
@@ -24,6 +24,12 @@ git_override(
     module_name = "hedron_compile_commands",
     commit = "f5fbd4cee671d8d908f37c83abaf70fba5928fc7",
     remote = "https://github.com/mikael-s-persson/bazel-compile-commands-extractor",
+)
+
+# Override boringssl (pulled transitively by cpp-httplib) to use openssl instead.
+local_path_override(
+    module_name = "boringssl",
+    path = "vendor/boringssl",
 )
 
 bazel_dep(name = "apple_support", version = "1.24.5", dev_dependency = True)

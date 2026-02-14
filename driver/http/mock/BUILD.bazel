@@ -17,8 +17,8 @@ cc_library(
     deps = [
         "//driver/http/types",
         "//x/cpp/errors",
-        "@boringssl//:crypto",
-        "@boringssl//:ssl",
+        "@openssl//:crypto",
+        "@openssl//:ssl",
         "@cpp-httplib//:cpp-httplib",
     ],
 )

@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <string>
 
-#include <openssl/base64.h>
+#include <openssl/evp.h>
 
 namespace x::base64 {
 

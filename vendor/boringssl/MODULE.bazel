@@ -1,0 +1,6 @@
+# DO NOT run bazel commands inside this directory. This module exists only as a
+# local_path_override target for the root workspace, redirecting all transitive
+# boringssl references to openssl.
+module(name = "boringssl")
+
+bazel_dep(name = "openssl", version = "3.5.5.bcr.0")

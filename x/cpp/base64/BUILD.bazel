@@ -5,7 +5,7 @@ cc_library(
     name = "base64",
     hdrs = ["base64.h"],
     visibility = ["//visibility:public"],
-    deps = ["@boringssl//:crypto"],
+    deps = ["@openssl//:crypto"],
 )
 
 cc_test(
