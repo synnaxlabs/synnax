@@ -15,7 +15,7 @@
 
 namespace driver::http {
 /// @brief supported HTTP methods.
-enum class Method { GET, HEAD, POST, PUT, DELETE, PATCH, OPTIONS, TRACE, CONNECT };
+enum class Method { GET, HEAD, POST, PUT, DEL, PATCH, OPTIONS, TRACE, CONNECT };
 
 /// @brief parses an HTTP method from a JSON string field.
 /// @param parser the JSON parser to read from.
@@ -27,7 +27,7 @@ inline Method parse_method(x::json::Parser &parser, const std::string &path) {
     if (str == "HEAD") return Method::HEAD;
     if (str == "POST") return Method::POST;
     if (str == "PUT") return Method::PUT;
-    if (str == "DELETE") return Method::DELETE;
+    if (str == "DELETE") return Method::DEL;
     if (str == "PATCH") return Method::PATCH;
     if (str == "OPTIONS") return Method::OPTIONS;
     if (str == "TRACE") return Method::TRACE;

@@ -886,7 +886,7 @@ TEST(ClientTest, POSTWithEmptyBody) {
 TEST(ClientTest, DeleteRequest) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
-        .method = Method::DELETE,
+        .method = Method::DEL,
         .path = "/api/item/42",
         .status_code = 204,
     }};
@@ -895,7 +895,7 @@ TEST(ClientTest, DeleteRequest) {
 
     auto config = make_config({{"base_url", server.base_url()}});
     auto client = ASSERT_NIL_P(
-        Client::make(config, {{.method = Method::DELETE, .path = "/api/item/42"}})
+        Client::make(config, {{.method = Method::DEL, .path = "/api/item/42"}})
     );
 
     auto results = ASSERT_NIL_P(client.request({""}));
@@ -1358,7 +1358,7 @@ TEST(ClientTest, GETRequestWithBody) {
 TEST(ClientTest, DELETERequestWithBody) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
-        .method = Method::DELETE,
+        .method = Method::DEL,
         .path = "/api/items",
         .status_code = 200,
         .response_body = R"({"deleted": 3})",
@@ -1368,7 +1368,7 @@ TEST(ClientTest, DELETERequestWithBody) {
 
     auto config = make_config({{"base_url", server.base_url()}});
     auto client = ASSERT_NIL_P(
-        Client::make(config, {{.method = Method::DELETE, .path = "/api/items"}})
+        Client::make(config, {{.method = Method::DEL, .path = "/api/items"}})
     );
 
     auto results = ASSERT_NIL_P(client.request({R"({"ids": [1, 2, 3]})"}));

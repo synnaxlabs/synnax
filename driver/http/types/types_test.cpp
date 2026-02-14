@@ -33,7 +33,7 @@ TEST(ParseMethodTest, ParsesPUT) {
 
 TEST(ParseMethodTest, ParsesDELETE) {
     x::json::Parser p(x::json::json{{"method", "DELETE"}});
-    EXPECT_EQ(parse_method(p, "method"), Method::DELETE);
+    EXPECT_EQ(parse_method(p, "method"), Method::DEL);
     EXPECT_TRUE(p.ok());
 }
 

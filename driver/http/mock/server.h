@@ -67,7 +67,7 @@ class Server {
         if (m == "HEAD") return Method::HEAD;
         if (m == "POST") return Method::POST;
         if (m == "PUT") return Method::PUT;
-        if (m == "DELETE") return Method::DELETE;
+        if (m == "DELETE") return Method::DEL;
         if (m == "PATCH") return Method::PATCH;
         if (m == "OPTIONS") return Method::OPTIONS;
         if (m == "TRACE") return Method::TRACE;
@@ -159,7 +159,7 @@ private:
             case Method::PUT:
                 svr_->Put(route.path, handler);
                 break;
-            case Method::DELETE:
+            case Method::DEL:
                 svr_->Delete(route.path, handler);
                 break;
             case Method::PATCH:

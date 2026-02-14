@@ -84,7 +84,7 @@ TEST(MockServerTest, ServesPUTRoute) {
 TEST(MockServerTest, ServesDELETERoute) {
     mock::ServerConfig cfg;
     cfg.routes = {{
-        .method = Method::DELETE,
+        .method = Method::DEL,
         .path = "/remove",
         .status_code = 204,
         .content_type = "text/plain",

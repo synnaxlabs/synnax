@@ -227,7 +227,7 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
             case Method::PUT:
                 curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "PUT");
                 break;
-            case Method::DELETE:
+            case Method::DEL:
                 curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "DELETE");
                 break;
             case Method::PATCH:
