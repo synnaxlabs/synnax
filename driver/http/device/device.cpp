@@ -251,11 +251,7 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
         // handle's final location in the vector (reserve prevents reallocation).
         auto &back = handles_.back();
         curl_easy_setopt(back.handle, CURLOPT_WRITEDATA, &back.response_body);
-        curl_easy_setopt(
-            back.handle,
-            CURLOPT_PRIVATE,
-            reinterpret_cast<char *>(&back)
-        );
+        curl_easy_setopt(back.handle, CURLOPT_PRIVATE, reinterpret_cast<char *>(&back));
     }
 }
 
@@ -283,17 +279,14 @@ Client::request(const std::vector<std::string> &bodies) {
 
     // Builds a Response + Error pair from a completed handle whose result_code has
     // already been set by curl_easy_perform or via CURLOPT_PRIVATE.
-    const auto build_result = [](
-                                  Handle &h,
-                                  x::telem::TimeStamp start
-                              ) -> std::pair<Response, x::errors::Error> {
+    const auto build_result =
+        [](Handle &h,
+           x::telem::TimeStamp start) -> std::pair<Response, x::errors::Error> {
         long status_code = 0;
         curl_easy_getinfo(h.handle, CURLINFO_RESPONSE_CODE, &status_code);
         double total_secs = 0;
         curl_easy_getinfo(h.handle, CURLINFO_TOTAL_TIME, &total_secs);
-        const auto elapsed = x::telem::TimeSpan(
-            static_cast<int64_t>(total_secs * 1e9)
-        );
+        const auto elapsed = x::telem::TimeSpan(static_cast<int64_t>(total_secs * 1e9));
         x::errors::Error err = x::errors::NIL;
         if (h.result_code != CURLE_OK) {
             err = parse_curl_error(h.result_code);
@@ -307,9 +300,8 @@ Client::request(const std::vector<std::string> &bodies) {
                     (actual.size() > n && actual[n] != ';'))
                     err = x::errors::Error(
                         http::errors::PARSE_ERROR,
-                        "expected content type '" +
-                            h.expected_content_type + "', got '" +
-                            std::string(actual) + "'"
+                        "expected content type '" + h.expected_content_type +
+                            "', got '" + std::string(actual) + "'"
                     );
             }
         }
