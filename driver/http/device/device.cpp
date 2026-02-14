@@ -301,7 +301,7 @@ Client::~Client() {
     if (multi_handle_ != nullptr) curl_multi_cleanup(multi_handle_);
 }
 
-std::vector<std::pair<Response, x::errors::Error>>
+std::pair<std::vector<std::pair<Response, x::errors::Error>>, x::errors::Error>
 Client::request(const std::vector<std::string> &bodies) {
     static const std::string empty;
 
@@ -312,7 +312,7 @@ Client::request(const std::vector<std::string> &bodies) {
         set_body(h, !bodies.empty() ? bodies[0] : empty);
         const auto start = x::telem::TimeStamp::now();
         h.result_code = curl_easy_perform(h.handle);
-        return {build_result(h, start)};
+        return {{build_result(h, start)}, x::errors::NIL};
     }
 
     // Multi-handle path.
@@ -330,8 +330,15 @@ Client::request(const std::vector<std::string> &bodies) {
 
     int still_running = 0;
     do {
-        const CURLMcode mc = curl_multi_perform(multi, &still_running);
-        if (mc != CURLM_OK) break;
+        const auto mc = curl_multi_perform(multi, &still_running);
+        if (mc != CURLM_OK) {
+            for (auto &h: handles_)
+                curl_multi_remove_handle(multi, h.handle);
+            return {
+                {},
+                x::errors::Error(http::errors::CLIENT_ERROR, curl_multi_strerror(mc)),
+            };
+        }
         if (still_running > 0)
             curl_multi_poll(multi, nullptr, 0, config_.timeout_ms, nullptr);
     } while (still_running > 0);
@@ -353,7 +360,7 @@ Client::request(const std::vector<std::string> &bodies) {
         curl_multi_remove_handle(multi, h.handle);
     }
 
-    return results;
+    return {std::move(results), x::errors::NIL};
 }
 
 }

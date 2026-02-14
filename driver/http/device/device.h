@@ -156,8 +156,9 @@ public:
     /// @brief executes pre-configured requests with the given bodies.
     /// @param bodies one body per pre-configured request. For TRACE requests or
     /// requests without a body, pass an empty string.
-    /// @returns the responses paired with per-response errors.
-    std::vector<std::pair<Response, x::errors::Error>>
+    /// @returns the per-request responses paired with a transfer-level error
+    /// (non-nil when the entire batch fails, e.g. curl_multi_perform error).
+    std::pair<std::vector<std::pair<Response, x::errors::Error>>, x::errors::Error>
     request(const std::vector<std::string> &bodies);
 };
 }
