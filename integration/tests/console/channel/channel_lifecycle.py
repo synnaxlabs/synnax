@@ -100,6 +100,7 @@ class ChannelLifecycle(ConsoleCase):
         self.test_rename_channel()
         self.test_edit_calculated_channel()
         self.test_alias_under_range()
+        self.test_clear_alias_under_range()
         self.test_delete_channel()
         self.test_copy_link()
 
@@ -246,7 +247,6 @@ class ChannelLifecycle(ConsoleCase):
 
         console.ranges.create(range_name, persisted=True)
         console.ranges.open_explorer()
-        console.ranges.favorite_from_explorer(range_name)
         console.ranges.show_toolbar()
         console.ranges.set_active(range_name)
 
@@ -271,7 +271,44 @@ class ChannelLifecycle(ConsoleCase):
             scoped_ch.key == data_ch.key
         ), f"Alias should resolve to channel key {data_ch.key}, got {scoped_ch.key}"
 
-        # Clear alias and verify
+        console.channels.delete([alias_name])
+        console.ranges.open_explorer()
+        console.ranges.delete_from_explorer(range_name)
+
+    def test_clear_alias_under_range(self) -> None:
+        """Test clearing an alias for a channel via context menu."""
+        self.log("Testing clear alias under range")
+
+        console = self.console
+        client = self.client
+
+        suffix = get_random_name()
+        range_name = f"clear_alias_range_{suffix}"
+        data_name = f"clear_alias_data_{suffix}"
+        alias_name = f"ClearAlias_{suffix}"
+
+        console.ranges.create(range_name, persisted=True)
+        console.ranges.open_explorer()
+        console.ranges.show_toolbar()
+        console.ranges.set_active(range_name)
+
+        console.channels.create(
+            name=data_name,
+            data_type=sy.DataType.FLOAT32,
+            index=self.shared_index,
+        )
+
+        console.channels.set_alias(name=data_name, alias=alias_name)
+
+        console.channels.show_channels()
+        alias_visible = self.page.get_by_text(alias_name).count() > 0
+        assert alias_visible, f"Alias '{alias_name}' should be visible before clearing"
+        console.channels.hide_channels()
+
+        rng = client.ranges.retrieve(name=range_name)
+        data_ch = client.channels.retrieve(data_name)
+        scoped_ch = rng[alias_name]
+        assert scoped_ch.key == data_ch.key, "Alias should resolve before clearing"
         console.channels.clear_alias(alias_name)
 
         console.channels.show_channels()
