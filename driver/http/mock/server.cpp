@@ -13,7 +13,15 @@
 #include <thread>
 
 #include "driver/http/mock/server.h"
+// Disable GCC 13 false positive warning in <regex> header (included by httplib.h)
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 #include "httplib.h"
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 namespace driver::http::mock {
 struct Server::Impl {

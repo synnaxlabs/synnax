@@ -15,7 +15,7 @@ cc_library(
     hdrs = ["server.h"],
     copts = select({
         "@platforms//os:windows": ["/wd4191"],
-        "//conditions:default": ["-Wno-maybe-uninitialized"],  #ignore because this comes from httplib.h
+        "//conditions:default": [],
     }),
     defines = ["CPPHTTPLIB_OPENSSL_SUPPORT"],
     visibility = ["//visibility:public"],
