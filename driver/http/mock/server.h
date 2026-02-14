@@ -128,12 +128,6 @@ public:
         return requests_;
     }
 
-    /// @brief clears the list of received requests.
-    void clear_requests() {
-        std::lock_guard lock(mu_);
-        requests_.clear();
-    }
-
 private:
     void log_request(const httplib::Request &req) {
         std::lock_guard lock(mu_);

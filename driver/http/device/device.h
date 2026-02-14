@@ -106,7 +106,7 @@ struct ConnectionConfig {
 
 /// @brief static request configuration, set once at task setup time.
 struct RequestConfig {
-    Method method = Method::GET; ///< HTTP method.
+    Method method ; ///< HTTP method.
     std::string path; ///< URL path (appended to base_url).
     std::map<std::string, std::string> query_params; ///< Query parameters.
     std::map<std::string, std::string> headers; ///< Per-request headers.
@@ -141,7 +141,6 @@ class Client {
 
 public:
     Client(Client &&other) noexcept;
-    Client &operator=(Client &&other) noexcept;
 
     /// @brief constructs and validates a client with pre-built curl handles.
     /// @param config the connection configuration.
@@ -153,8 +152,8 @@ public:
     ~Client();
 
     /// @brief executes pre-configured requests with the given bodies.
-    /// @param bodies one body per pre-configured request. For TRACE requests, pass an
-    /// empty string.
+    /// @param bodies one body per pre-configured request. For TRACE requests or
+    /// requests without a body, pass an empty string.
     /// @returns the responses paired with per-response errors.
     std::vector<std::pair<Response, x::errors::Error>>
     request(const std::vector<std::string> &bodies);

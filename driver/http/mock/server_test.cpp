@@ -219,30 +219,6 @@ TEST(MockServerTest, LogsReceivedRequests) {
     server.stop();
 }
 
-TEST(MockServerTest, ClearRequests) {
-    mock::ServerConfig cfg;
-    cfg.routes = {{
-        .method = Method::GET,
-        .path = "/hit",
-        .response_body = "ok",
-        .content_type = "text/plain",
-    }};
-    mock::Server server(cfg);
-    ASSERT_NIL(server.start());
-
-    httplib::Client cli(server.base_url());
-    cli.Get("/hit");
-    ASSERT_EQ(server.received_requests().size(), 1);
-
-    server.clear_requests();
-    EXPECT_EQ(server.received_requests().size(), 0);
-
-    cli.Get("/hit");
-    EXPECT_EQ(server.received_requests().size(), 1);
-
-    server.stop();
-}
-
 TEST(MockServerTest, LogsQueryParams) {
     mock::ServerConfig cfg;
     cfg.routes = {{

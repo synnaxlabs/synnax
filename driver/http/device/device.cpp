@@ -94,17 +94,6 @@ Client::Client(Client &&other) noexcept:
     other.multi_handle_ = nullptr;
 }
 
-Client &Client::operator=(Client &&other) noexcept {
-    if (this != &other) {
-        if (multi_handle_ != nullptr) curl_multi_cleanup(multi_handle_);
-        config_ = std::move(other.config_);
-        multi_handle_ = other.multi_handle_;
-        handles_ = std::move(other.handles_);
-        other.multi_handle_ = nullptr;
-    }
-    return *this;
-}
-
 std::pair<Client, x::errors::Error>
 Client::make(ConnectionConfig config, const std::vector<RequestConfig> &requests) {
     for (const auto &req: requests) {
@@ -247,8 +236,8 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
             curl_easy_setopt(h.handle, CURLOPT_HTTPHEADER, h.headers);
 
         handles_.push_back(std::move(h));
-        // Set WRITEDATA and PRIVATE after push_back so pointers target the
-        // handle's final location in the vector (reserve prevents reallocation).
+        // Set WRITEDATA and PRIVATE after push_back so pointers target the handle's
+        // final location in the vector (reserve prevents reallocation).
         auto &back = handles_.back();
         curl_easy_setopt(back.handle, CURLOPT_WRITEDATA, &back.response_body);
         curl_easy_setopt(back.handle, CURLOPT_PRIVATE, reinterpret_cast<char *>(&back));
