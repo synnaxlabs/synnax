@@ -20,7 +20,6 @@ import { type Message, type MessageReader, type MessageWriter } from "vscode-jso
 import { CloseAction, ErrorAction } from "vscode-languageclient/browser";
 
 import arcLanguageConfigurationRaw from "@/code/arc/language-configuration.json?raw";
-import { type Extension } from "@/code/init/initialize";
 
 export const LANGUAGE = "arc";
 
@@ -380,7 +379,5 @@ const applySemanticTokenColors = async (): Promise<destructor.Async> => {
   }
   return async () => {};
 };
-
-export const EXTENSIONS: Extension[] = [];
 
 export const SERVICES = [registerArcLanguage, applySemanticTokenColors];

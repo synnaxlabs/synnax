@@ -31,7 +31,6 @@
 #include "driver/http/http.h"
 #include "driver/ni/ni.h"
 #include "driver/opc/opc.h"
-#include "driver/sequence/sequence.h"
 #include "driver/task/task.h"
 
 namespace driver::rack {
@@ -63,7 +62,6 @@ inline std::vector<std::string> default_integrations() {
     std::vector<std::string> integrations = {
         opc::INTEGRATION_NAME,
         ni::INTEGRATION_NAME,
-        sequence::INTEGRATION_NAME,
         labjack::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,
         ethercat::INTEGRATION_NAME,
