@@ -11,18 +11,38 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::engine {
-Engine::Writer::Writer(Engine &eng, const size_t id, std::vector<ResolvedPDO> pdos):
-    engine(eng), id(id), pdos(std::move(pdos)) {}
+Engine::Writer::Writer(
+    Engine &eng,
+    const size_t id,
+    std::shared_ptr<Registration> registration
+):
+    engine(eng), id(id), registration(std::move(registration)) {
+    std::lock_guard lock(this->engine.write_mu);
+    this->refresh_pdos_locked();
+}
+
+void Engine::Writer::refresh_pdos_locked() const {
+    this->pdos.clear();
+    this->pdos.reserve(this->registration->entries.size());
+    for (size_t i = 0; i < this->registration->entries.size(); ++i)
+        this->pdos.push_back(
+            {this->registration->offsets[i],
+             this->registration->entries[i].data_type,
+             this->registration->entries[i].bit_length}
+        );
+    this->my_config_gen = this->engine.config_gen.load(std::memory_order_acquire);
+}
 
 Engine::Writer::~Writer() {
     this->engine.unregister_writer(this->id);
 }
 
-Engine::Writer::Transaction::Transaction(
-    Engine &eng,
-    const std::vector<ResolvedPDO> &pdos
-):
-    engine(eng), pdos(pdos), lock(eng.write_mu) {}
+Engine::Writer::Transaction::Transaction(const Writer &writer):
+    engine(writer.engine), lock(writer.engine.write_mu), pdos(writer.pdos) {
+    if (writer.engine.config_gen.load(std::memory_order_acquire) !=
+        writer.my_config_gen)
+        writer.refresh_pdos_locked();
+}
 
 void Engine::Writer::Transaction::write(
     const size_t pdo_index,
@@ -43,7 +63,7 @@ void Engine::Writer::Transaction::write(
 }
 
 Engine::Writer::Transaction Engine::Writer::open_tx() const {
-    return Transaction(this->engine, this->pdos);
+    return Transaction(*this);
 }
 
 void Engine::Writer::write(

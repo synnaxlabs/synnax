@@ -14,6 +14,8 @@ import { Divider } from "@synnaxlabs/pluto";
 import { Table, Driver } from "@/components";
 import Step from "@/components/text/Step.astro";
 import DriverDownloadURL from "@/components/driver/DownloadURL.astro";
+import DriverMoveCommand from "@/components/driver/MoveCommand.astro";
+import DriverVersionOutput from "@/components/driver/VersionOutput.astro";
 export const components = mdxOverrides;
 
 The Synnax Driver can also be installed as a separate binary, making it possible to
@@ -84,9 +86,7 @@ download the latest binary:
 We recommend you move the binary into a directory that is in your `PATH`. Most of our
 users use `/usr/local/bin`:
 
-```bash
-sudo mv synnax-driver-* /usr/local/bin/synnax-driver
-```
+<DriverMoveCommand os="linux" />
 
 If `usr/local/bin` is not in your `PATH`, you can temporarily add it by running the
 following:
@@ -121,6 +121,10 @@ To verify that the installation was successful, run:
 ```bash
 synnax-driver --version
 ```
+
+You should see the following output:
+
+<DriverVersionOutput />
 
 </Fragment>
 <Fragment slot="Windows">
@@ -163,9 +167,7 @@ binary:
 We recommend you move the binary into a directory that is in your `PATH`. Most of our
 users use `/usr/local/bin`:
 
-```bash
-sudo mv synnax-driver-* /usr/local/bin/synnax-driver
-```
+<DriverMoveCommand os="macos" />
 
 If `usr/local/bin` is not in your `PATH`, you can temporarily add it by running the
 following:
@@ -194,6 +196,10 @@ To verify that the installation was successful, run:
 ```bash
 synnax-driver --version
 ```
+
+You should see the following output:
+
+<DriverVersionOutput />
 
 </Fragment>
 </Driver.Tabs>

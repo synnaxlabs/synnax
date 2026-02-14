@@ -86,7 +86,9 @@ class Console:
         """Reload the console page."""
         self.page.reload()
         self.page.wait_for_load_state("load", timeout=30000)
-        self.page.wait_for_load_state("networkidle", timeout=30000)
+        self.page.wait_for_selector(
+            ".console-palette button", state="visible", timeout=30000
+        )
 
     def _dismiss_unsaved_changes_dialog(self) -> None:
         """Dismiss the 'Lose Unsaved Changes' dialog if present."""

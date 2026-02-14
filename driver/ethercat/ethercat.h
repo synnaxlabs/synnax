@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "driver/common/common.h"
+#include "driver/errors/errors.h"
 #include "driver/ethercat/engine/pool.h"
 #include "driver/task/task.h"
 
@@ -21,6 +22,12 @@ namespace driver::ethercat {
 
 /// @brief integration name for EtherCAT.
 const std::string INTEGRATION_NAME = "ethercat";
+
+/// @brief library info for the packet capture dependency required by SOEM.
+const LibraryInfo PCAP_LIBRARY_INFO = {
+    "Npcap (packet capture for EtherCAT)",
+    "https://npcap.com/#download"
+};
 /// @brief device make identifier.
 const std::string DEVICE_MAKE = INTEGRATION_NAME;
 /// @brief device model for slave devices.

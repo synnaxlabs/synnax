@@ -64,7 +64,7 @@ const retrieveSingle = async ({
 }: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   const cached = store.schematicSymbols.get(key);
   if (cached != null) return cached;
-  const symbol = await client.workspaces.schematics.symbols.retrieve({ key });
+  const symbol = await client.schematics.symbols.retrieve({ key });
   store.schematicSymbols.set(key, symbol);
   return symbol;
 };
@@ -116,7 +116,7 @@ export const useList = Flux.createList<
       const children = await client.ontology.retrieveChildren(parent);
       const keys = children.map((c) => c.id.key);
       if (keys.length === 0) return [];
-      const symbols = await client.workspaces.schematics.symbols.retrieve({
+      const symbols = await client.schematics.symbols.retrieve({
         ...rest,
         keys,
       });
@@ -130,7 +130,7 @@ export const useList = Flux.createList<
       });
       return symbols;
     }
-    const res = await client.workspaces.schematics.symbols.retrieve(rest);
+    const res = await client.schematics.symbols.retrieve(rest);
     store.schematicSymbols.set(res);
     return res;
   },
@@ -197,7 +197,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
   },
   update: async ({ client, value, reset, store, rollbacks }) => {
     const payload = value();
-    const created = await client.workspaces.schematics.symbols.create(payload);
+    const created = await client.schematics.symbols.create(payload);
     const newRel: ontology.Relationship = {
       from: payload.parent,
       type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -232,7 +232,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const { key, name } = data;
-    await client.workspaces.schematics.symbols.rename(key, name);
+    await client.schematics.symbols.rename(key, name);
     rollbacks.push(
       store.schematicSymbols.set(
         key,
@@ -250,7 +250,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     rollbacks.push(store.schematicSymbols.delete(data));
-    await client.workspaces.schematics.symbols.delete(data);
+    await client.schematics.symbols.delete(data);
     return data;
   },
 });
@@ -262,7 +262,7 @@ export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
 >({
   name: RESOURCE_NAME,
   retrieve: async ({ client, store }) => {
-    const g = await client.workspaces.schematics.symbols.retrieveGroup();
+    const g = await client.schematics.symbols.retrieveGroup();
     store.groups.set(g.key, g);
     return g;
   },

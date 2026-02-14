@@ -76,9 +76,10 @@ func MatchSeriesData(expected Series) types.GomegaMatcher {
 	return MatchSeries(expected, ExcludeSeriesFields("TimeRange", "Alignment"))
 }
 
-// MatchSeriesDataV is a generic variant of MatchSeriesData that creates a Series from the
-// provided sample data and returns a matcher. This is a convenience function for testing
-// when you want to directly provide data values instead of constructing a Series first.
+// MatchSeriesDataV is a generic variant of MatchSeriesData that creates a Series from
+// the provided sample data and returns a matcher. This is a convenience function for
+// testing when you want to directly provide data values instead of constructing a
+// Series first.
 func MatchSeriesDataV[T Sample](data ...T) types.GomegaMatcher {
 	return MatchSeriesData(NewSeriesV(data...))
 }

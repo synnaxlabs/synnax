@@ -465,6 +465,10 @@ class Schematic(ConsolePage):
             "show_control_legend": show_control_legend,
         }
 
+    def get_symbol_count(self) -> int:
+        """Get the number of symbol nodes on the schematic pane."""
+        return self.page.locator(".react-flow__node").count()
+
     @property
     def control_legend_visible(self) -> bool:
         """Check if the control state legend is visible."""

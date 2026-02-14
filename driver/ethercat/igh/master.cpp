@@ -172,7 +172,7 @@ x::errors::Error Master::activate() {
         VLOG(1) << "[ethercat.igh] slave " << pos << " state after activation: "
                 << "al_state=0x" << std::hex << static_cast<int>(state.al_state)
                 << std::dec << " ("
-                << slave_state_to_string(convert_state(state.al_state)) << ")"
+                << slave_state_to_string(slave::from_al_state(state.al_state)) << ")"
                 << ", online=" << state.online << ", operational=" << state.operational;
     }
 
@@ -249,15 +249,7 @@ std::span<uint8_t> Master::output_data() {
 
 pdo::Offset Master::pdo_offset(const pdo::Entry &entry) const {
     std::lock_guard lock(this->mu);
-    const pdo::Key key{
-        entry.slave_position,
-        entry.index,
-        entry.sub_index,
-        entry.is_input
-    };
-    const auto it = this->pdo_offsets.find(key);
-    if (it != this->pdo_offsets.end()) return it->second;
-    return {};
+    return pdo::find_offset(this->pdo_offsets, entry);
 }
 
 std::vector<slave::DiscoveryResult> Master::slaves() const {
@@ -275,7 +267,7 @@ slave::State Master::slave_state(const uint16_t position) const {
     if (it == this->slave_configs.end()) return slave::State::UNKNOWN;
 
     this->api->slave_config_state(it->second, &state);
-    return convert_state(state.al_state);
+    return slave::from_al_state(state.al_state);
 }
 
 /// IgH EtherCAT AL (Application Layer) state value for OPERATIONAL.
@@ -337,50 +329,60 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
     size_t registered_inputs = 0;
 
     for (const auto &pdo: slave.output_pdos) {
+        unsigned int bit_pos = 0;
         const int result = this->api->slave_config_reg_pdo_entry(
             sc,
             pdo.index,
             pdo.sub_index,
             this->output_domain,
-            nullptr
+            &bit_pos
         );
         if (result >= 0) {
             const size_t abs_offset = static_cast<size_t>(result);
-            const size_t byte_size = (pdo.bit_length + 7) / 8;
+            const size_t byte_size = telem::pdo_required_bytes(
+                static_cast<uint8_t>(bit_pos),
+                pdo.bit_length
+            );
             pdo::Key key{position, pdo.index, pdo.sub_index, false};
-            this->pdo_offsets[key] = {abs_offset, 0};
+            this->pdo_offsets[key] = {abs_offset, static_cast<uint8_t>(bit_pos)};
             if (abs_offset + byte_size > this->output_sz)
                 this->output_sz = abs_offset + byte_size;
             registered_outputs++;
         } else {
-            VLOG(2) << "[ethercat.igh] skipped sub-byte output PDO 0x" << std::hex
-                    << pdo.index << ":" << static_cast<int>(pdo.sub_index) << std::dec
-                    << " (" << static_cast<int>(pdo.bit_length) << " bits)"
-                    << " for slave " << position;
+            LOG(WARNING) << "[ethercat.igh] failed to register output PDO 0x"
+                         << std::hex << pdo.index << ":"
+                         << static_cast<int>(pdo.sub_index) << std::dec << " ("
+                         << static_cast<int>(pdo.bit_length) << " bits)"
+                         << " for slave " << position << " (error=" << result << ")";
         }
     }
 
     for (const auto &pdo: slave.input_pdos) {
-        int result = this->api->slave_config_reg_pdo_entry(
+        unsigned int bit_pos = 0;
+        const int result = this->api->slave_config_reg_pdo_entry(
             sc,
             pdo.index,
             pdo.sub_index,
             this->input_domain,
-            nullptr
+            &bit_pos
         );
         if (result >= 0) {
             const size_t abs_offset = static_cast<size_t>(result);
-            const size_t byte_size = (pdo.bit_length + 7) / 8;
+            const size_t byte_size = telem::pdo_required_bytes(
+                static_cast<uint8_t>(bit_pos),
+                pdo.bit_length
+            );
             pdo::Key key{position, pdo.index, pdo.sub_index, true};
-            this->pdo_offsets[key] = {abs_offset, 0};
+            this->pdo_offsets[key] = {abs_offset, static_cast<uint8_t>(bit_pos)};
             if (abs_offset + byte_size > this->input_sz)
                 this->input_sz = abs_offset + byte_size;
             registered_inputs++;
         } else {
-            VLOG(2) << "[ethercat.igh] skipped sub-byte input PDO 0x" << std::hex
-                    << pdo.index << ":" << static_cast<int>(pdo.sub_index) << std::dec
-                    << " (" << static_cast<int>(pdo.bit_length) << " bits)"
-                    << " for slave " << position;
+            LOG(WARNING) << "[ethercat.igh] failed to register input PDO 0x" << std::hex
+                         << pdo.index << ":" << static_cast<int>(pdo.sub_index)
+                         << std::dec << " (" << static_cast<int>(pdo.bit_length)
+                         << " bits)"
+                         << " for slave " << position << " (error=" << result << ")";
         }
     }
 
@@ -500,23 +502,6 @@ std::pair<size_t, x::errors::Error> Master::register_pdo(const pdo::Entry &entry
             << entry.slave_position << " found at offset=" << it->second.byte;
 
     return {it->second.byte, x::errors::NIL};
-}
-
-slave::State Master::convert_state(const uint8_t igh_state) {
-    switch (igh_state) {
-        case 0x01:
-            return slave::State::INIT;
-        case 0x02:
-            return slave::State::PRE_OP;
-        case 0x03:
-            return slave::State::BOOT;
-        case 0x04:
-            return slave::State::SAFE_OP;
-        case 0x08:
-            return slave::State::OP;
-        default:
-            return slave::State::UNKNOWN;
-    }
 }
 
 std::string Master::read_pdo_entry_name(

@@ -1,0 +1,571 @@
+{
+  "version": "5.0.0",
+  "snapshot": false,
+  "nodes": [
+    {
+      "key": "n0BxyFf8T7K",
+      "id": "n0BxyFf8T7K",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": {
+        "width": 102,
+        "height": 102
+      },
+      "position": {
+        "x": 133,
+        "y": 115
+      },
+      "selected": false,
+      "data": {}
+    },
+    {
+      "key": "nNKOxjYz6j9",
+      "id": "nNKOxjYz6j9",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": {
+        "width": 102,
+        "height": 102
+      },
+      "position": {
+        "x": 265,
+        "y": 115
+      },
+      "selected": false,
+      "data": {}
+    }
+  ],
+  "edges": [],
+  "props": {
+    "sCcwpIuRiCo": {
+      "key": "value",
+      "color": [250, 250, 250, 1],
+      "units": "psi",
+      "level": "h5",
+      "inlineSize": 70,
+      "label": {
+        "label": "Value",
+        "level": "small",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1,
+      "stalenessTimeout": 5,
+      "stalenessColor": [194, 157, 10, 1],
+      "telem": {
+        "variant": "source",
+        "props": {
+          "connections": [
+            {
+              "from": "valueStream",
+              "to": "rollingAverage"
+            },
+            {
+              "from": "rollingAverage",
+              "to": "stringifier"
+            }
+          ],
+          "segments": {
+            "valueStream": {
+              "type": "stream-channel-value",
+              "props": {
+                "channel": 0
+              },
+              "variant": "source",
+              "valueType": "number"
+            },
+            "rollingAverage": {
+              "props": {
+                "windowSize": 1
+              },
+              "type": "rolling-average",
+              "variant": "source",
+              "valueType": "number"
+            },
+            "stringifier": {
+              "props": {
+                "precision": 2,
+                "notation": "standard"
+              },
+              "type": "stringify-number",
+              "variant": "source",
+              "valueType": "string"
+            }
+          },
+          "outlet": "stringifier"
+        },
+        "type": "source-pipeline",
+        "valueType": "string"
+      },
+      "redline": {
+        "bounds": {
+          "lower": 0,
+          "upper": 1
+        },
+        "gradient": []
+      }
+    },
+    "fmX4wH7PX5o": {
+      "key": "button",
+      "color": [55, 116, 208, 1],
+      "label": {
+        "label": "Button",
+        "level": "small",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": null,
+      "control": {
+        "show": true
+      },
+      "sink": {
+        "variant": "sink",
+        "props": {
+          "connections": [
+            {
+              "from": "setpoint",
+              "to": "setter"
+            }
+          ],
+          "segments": {
+            "setter": {
+              "type": "controlled-numeric-telem-sink",
+              "props": {
+                "channel": 0
+              },
+              "variant": "sink",
+              "valueType": "number"
+            },
+            "setpoint": {
+              "props": {
+                "truthy": 1,
+                "falsy": 0
+              },
+              "type": "boolean-numeric-converter-sink",
+              "variant": "sink",
+              "valueType": "boolean"
+            }
+          },
+          "inlet": "setpoint"
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean"
+      },
+      "mode": "fire",
+      "onClickDelay": 0
+    },
+    "himRxfkHNPb": {
+      "key": "input",
+      "color": [250, 250, 250, 1],
+      "size": "small",
+      "label": {
+        "label": "Input",
+        "level": "small",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "variant": "sink",
+        "props": {
+          "connections": [],
+          "segments": {
+            "setter": {
+              "type": "controlled-numeric-telem-sink",
+              "props": {
+                "channel": 0
+              },
+              "variant": "sink",
+              "valueType": "number"
+            }
+          },
+          "inlet": "setter"
+        },
+        "type": "sink-pipeline",
+        "valueType": "string"
+      }
+    },
+    "XH9KfHf9Og8": {
+      "key": "gauge",
+      "color": [250, 250, 250, 1],
+      "units": "RPM",
+      "level": "h5",
+      "bounds": {
+        "lower": 0,
+        "upper": 100
+      },
+      "barWidth": 10,
+      "label": {
+        "label": "Gauge",
+        "level": "small",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "variant": "source",
+        "props": {
+          "connections": [
+            {
+              "from": "valueStream",
+              "to": "rollingAverage"
+            },
+            {
+              "from": "rollingAverage",
+              "to": "stringifier"
+            }
+          ],
+          "segments": {
+            "valueStream": {
+              "type": "stream-channel-value",
+              "props": {
+                "channel": 1048580
+              },
+              "variant": "source",
+              "valueType": "number"
+            },
+            "stringifier": {
+              "props": {
+                "precision": 2,
+                "notation": "standard"
+              },
+              "type": "stringify-number",
+              "variant": "source",
+              "valueType": "string"
+            },
+            "rollingAverage": {
+              "props": {
+                "windowSize": 1
+              },
+              "type": "rolling-average",
+              "variant": "source",
+              "valueType": "number"
+            }
+          },
+          "outlet": "stringifier"
+        },
+        "type": "source-pipeline",
+        "valueType": "string"
+      },
+      "": {
+        "tooltip": ["sy_node_1_metrics_mem_percentage"]
+      }
+    },
+    "kdH0PYiwG4a": {
+      "key": "gauge",
+      "color": [250, 250, 250, 1],
+      "units": "RPM",
+      "level": "h5",
+      "bounds": {
+        "lower": 0,
+        "upper": 100
+      },
+      "barWidth": 10,
+      "label": {
+        "label": "Gauge",
+        "level": "small",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "variant": "source",
+        "props": {
+          "connections": [
+            {
+              "from": "valueStream",
+              "to": "rollingAverage"
+            },
+            {
+              "from": "rollingAverage",
+              "to": "stringifier"
+            }
+          ],
+          "segments": {
+            "valueStream": {
+              "type": "stream-channel-value",
+              "props": {
+                "channel": 0
+              },
+              "variant": "source",
+              "valueType": "number"
+            },
+            "rollingAverage": {
+              "props": {
+                "windowSize": 1
+              },
+              "type": "rolling-average",
+              "variant": "source",
+              "valueType": "number"
+            },
+            "stringifier": {
+              "props": {
+                "precision": 2,
+                "notation": "standard"
+              },
+              "type": "stringify-number",
+              "variant": "source",
+              "valueType": "string"
+            }
+          },
+          "outlet": "stringifier"
+        },
+        "type": "source-pipeline",
+        "valueType": "string"
+      }
+    },
+    "iH8kPthKc43": {
+      "key": "gauge",
+      "color": [250, 250, 250, 1],
+      "units": "RPM",
+      "level": "h5",
+      "bounds": {
+        "lower": 0,
+        "upper": 100
+      },
+      "barWidth": 10,
+      "label": {
+        "label": "Gauge",
+        "level": "small",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "variant": "source",
+        "props": {
+          "connections": [
+            {
+              "from": "valueStream",
+              "to": "rollingAverage"
+            },
+            {
+              "from": "rollingAverage",
+              "to": "stringifier"
+            }
+          ],
+          "segments": {
+            "valueStream": {
+              "type": "stream-channel-value",
+              "props": {
+                "channel": 1048581
+              },
+              "variant": "source",
+              "valueType": "number"
+            },
+            "stringifier": {
+              "props": {
+                "precision": 2,
+                "notation": "standard"
+              },
+              "type": "stringify-number",
+              "variant": "source",
+              "valueType": "string"
+            },
+            "rollingAverage": {
+              "props": {
+                "windowSize": 1
+              },
+              "type": "rolling-average",
+              "variant": "source",
+              "valueType": "number"
+            }
+          },
+          "outlet": "stringifier"
+        },
+        "type": "source-pipeline",
+        "valueType": "string"
+      },
+      "": {
+        "tooltip": ["sy_node_1_metrics_cpu_percentage"]
+      }
+    },
+    "n0BxyFf8T7K": {
+      "key": "gauge",
+      "color": [250, 250, 250, 1],
+      "units": "%",
+      "level": "h5",
+      "bounds": {
+        "lower": 0,
+        "upper": 100
+      },
+      "barWidth": 10,
+      "label": {
+        "label": "CPU",
+        "level": "small",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "variant": "source",
+        "props": {
+          "connections": [
+            {
+              "from": "valueStream",
+              "to": "rollingAverage"
+            },
+            {
+              "from": "rollingAverage",
+              "to": "stringifier"
+            }
+          ],
+          "segments": {
+            "valueStream": {
+              "type": "stream-channel-value",
+              "props": {
+                "channel": 1048581
+              },
+              "variant": "source",
+              "valueType": "number"
+            },
+            "stringifier": {
+              "props": {
+                "precision": 2,
+                "notation": "standard"
+              },
+              "type": "stringify-number",
+              "variant": "source",
+              "valueType": "string"
+            },
+            "rollingAverage": {
+              "props": {
+                "windowSize": 1
+              },
+              "type": "rolling-average",
+              "variant": "source",
+              "valueType": "number"
+            }
+          },
+          "outlet": "stringifier"
+        },
+        "type": "source-pipeline",
+        "valueType": "string"
+      },
+      "": {
+        "tooltip": ["sy_node_1_metrics_cpu_percentage"]
+      }
+    },
+    "nNKOxjYz6j9": {
+      "key": "gauge",
+      "color": [250, 250, 250, 1],
+      "units": "%",
+      "level": "h5",
+      "bounds": {
+        "lower": 0,
+        "upper": 100
+      },
+      "barWidth": 10,
+      "label": {
+        "label": "Memory",
+        "level": "small",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "variant": "source",
+        "props": {
+          "connections": [
+            {
+              "from": "valueStream",
+              "to": "rollingAverage"
+            },
+            {
+              "from": "rollingAverage",
+              "to": "stringifier"
+            }
+          ],
+          "segments": {
+            "valueStream": {
+              "type": "stream-channel-value",
+              "props": {
+                "channel": 1048580
+              },
+              "variant": "source",
+              "valueType": "number"
+            },
+            "stringifier": {
+              "props": {
+                "precision": 2,
+                "notation": "standard"
+              },
+              "type": "stringify-number",
+              "variant": "source",
+              "valueType": "string"
+            },
+            "rollingAverage": {
+              "props": {
+                "windowSize": 1
+              },
+              "type": "rolling-average",
+              "variant": "source",
+              "valueType": "number"
+            }
+          },
+          "outlet": "stringifier"
+        },
+        "type": "source-pipeline",
+        "valueType": "string"
+      },
+      "": {
+        "tooltip": ["sy_node_1_metrics_mem_percentage"]
+      }
+    }
+  },
+  "remoteCreated": true,
+  "viewport": {
+    "position": {
+      "x": 0,
+      "y": 32.5
+    },
+    "zoom": 1
+  },
+  "editable": true,
+  "control": "released",
+  "fitViewOnResize": false,
+  "legend": {
+    "visible": false,
+    "position": {
+      "x": 50,
+      "y": 50,
+      "units": {
+        "x": "px",
+        "y": "px"
+      }
+    }
+  },
+  "key": "d2487df6-4207-4a81-ae7d-3dc63734e12f",
+  "viewportMode": "select",
+  "authority": 134,
+  "mode": "select",
+  "toolbar": {
+    "activeTab": "symbols",
+    "selectedSymbolGroup": "general"
+  },
+  "type": "schematic"
+}

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <memory>
 #include <mutex>
 #include <set>
 #include <span>
@@ -17,26 +18,24 @@
 
 #include "glog/logging.h"
 
-extern "C" {
-#include "soem/soem.h"
-}
-
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
+#include "driver/ethercat/soem/api.h"
+#include "driver/ethercat/soem/util.h"
 
 namespace driver::ethercat::soem {
 /// @brief SOEM-based implementation of the Master interface.
 class Master final : public master::Master {
     /// @brief the network interface name (e.g., "eth0", "enp3s0").
     std::string iface_name;
-    /// @brief the SOEM context containing all network state.
-    ecx_contextt context;
+    /// @brief API abstraction for SOEM operations.
+    std::unique_ptr<API> api;
     /// @brief IOmap buffer for PDO exchange.
     std::vector<uint8_t> iomap;
-    /// @brief input size in bytes (TxPDO, slave→master).
+    /// @brief input size in bytes (TxPDO, slave->master).
     size_t input_sz;
-    /// @brief output size in bytes (RxPDO, master→slave).
+    /// @brief output size in bytes (RxPDO, master->slave).
     size_t output_sz;
     /// @brief cached PDO offsets computed at activation time.
     pdo::Offsets pdo_offsets;
@@ -54,8 +53,8 @@ class Master final : public master::Master {
     int expected_wkc;
 
 public:
-    /// @brief constructs a SOEM master for the specified network interface.
-    explicit Master(std::string interface_name);
+    /// @brief constructs a SOEM master with injected API and interface name.
+    Master(std::unique_ptr<API> api, std::string interface_name);
 
     ~Master() override;
 
@@ -91,9 +90,6 @@ public:
     std::string interface_name() const override;
 
 private:
-    /// @brief converts SOEM slave state to our slave::State enum.
-    static slave::State convert_state(uint16_t soem_state);
-
     /// @brief populates the cached slave list from SOEM's slavelist.
     void populate_slaves();
 
@@ -140,57 +136,10 @@ private:
 /// @brief SOEM-based implementation of master::Manager.
 class Manager final : public master::Manager {
 public:
-    [[nodiscard]] std::vector<master::Info> enumerate() override {
-        std::vector<master::Info> masters;
-        ec_adaptert *adapter = ec_find_adapters();
-        ec_adaptert *current = adapter;
-
-        while (current != nullptr) {
-            if (is_physical_interface(current->name)) {
-                master::Info info;
-                info.key = current->name;
-                info.description = current->desc;
-                masters.push_back(std::move(info));
-            } else {
-                VLOG(2) << "[ethercat] skipping virtual interface: " << current->name;
-            }
-            current = current->next;
-        }
-
-        ec_free_adapters(adapter);
-        return masters;
-    }
+    [[nodiscard]] std::vector<master::Info> enumerate() override;
 
     [[nodiscard]] std::pair<std::shared_ptr<master::Master>, x::errors::Error>
-    create(const std::string &key) override {
-        if (key.empty())
-            return {
-                nullptr,
-                x::errors::Error(errors::MASTER_INIT_ERROR, "empty interface name")
-            };
-        if (key.size() >= 4 && key.substr(0, 4) == "igh:")
-            return {
-                nullptr,
-                x::errors::Error(
-                    errors::MASTER_INIT_ERROR,
-                    "invalid SOEM interface '" + key + "': IgH-style keys not supported"
-                )
-            };
-        return {std::make_shared<Master>(key), x::errors::NIL};
-    }
-
-private:
-    static bool is_physical_interface(const std::string &name) {
-        if (name == "lo" || name == "localhost") return false;
-        if (name.find("tailscale") != std::string::npos) return false;
-        if (name.find("tun") == 0) return false;
-        if (name.find("tap") == 0) return false;
-        if (name.find("veth") == 0) return false;
-        if (name.find("docker") != std::string::npos) return false;
-        if (name.find("br-") == 0) return false;
-        if (name.find("virbr") == 0) return false;
-        return true;
-    }
+    create(const std::string &key) override;
 };
 
 }

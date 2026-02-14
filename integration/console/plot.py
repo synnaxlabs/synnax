@@ -274,19 +274,22 @@ class Plot(ConsolePage):
         stroke_input = line_item.locator("input").nth(1)
         return int(stroke_input.input_value())
 
-    def get_line_label(self) -> str:
-        """Get the label for the first line from the Lines tab.
+    def get_line_labels(self) -> list[str]:
+        """Get labels for all lines from the Lines tab.
 
         Returns:
-            The current line label
+            List of line label strings.
         """
         self.notifications.close_all()
+        self.layout.show_visualization_toolbar()
         self.page.locator("#lines").click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
-        line_item = lines_container.locator(".pluto-list__item").first
-        label_input = line_item.locator("input").first
-        return label_input.input_value()
+        line_items = lines_container.locator(".pluto-list__item")
+        count = line_items.count()
+        return [
+            line_items.nth(i).locator("input").first.input_value() for i in range(count)
+        ]
 
     def drag_channel_to_canvas(
         self, channel_name: str, channels: ChannelClient

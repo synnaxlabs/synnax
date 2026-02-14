@@ -60,7 +60,12 @@ TEST_F(EtherCATScanTest, ScanConfigDefaultValues) {
 }
 
 TEST_F(EtherCATScanTest, ScannerConfigReturnsCorrectValues) {
-    synnax::task::Task task(rack.key, "EtherCAT Scanner", SCAN_TASK_TYPE, "", true);
+    synnax::task::Task task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true,
+    };
     ScanTaskConfig cfg;
     Scanner scanner(ctx, task, cfg, nullptr);
 
@@ -70,7 +75,12 @@ TEST_F(EtherCATScanTest, ScannerConfigReturnsCorrectValues) {
 }
 
 TEST_F(EtherCATScanTest, ScannerStartStopSucceed) {
-    synnax::task::Task task(rack.key, "EtherCAT Scanner", SCAN_TASK_TYPE, "", true);
+    synnax::task::Task task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true,
+    };
     ScanTaskConfig cfg;
     Scanner scanner(ctx, task, cfg, nullptr);
 
@@ -79,7 +89,12 @@ TEST_F(EtherCATScanTest, ScannerStartStopSucceed) {
 }
 
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
-    synnax::task::Task task(rack.key, "EtherCAT Scanner", SCAN_TASK_TYPE, "", true);
+    synnax::task::Task task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true,
+    };
     ScanTaskConfig cfg;
     Scanner scanner(ctx, task, cfg, nullptr);
 
@@ -94,7 +109,12 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
 }
 
 TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
-    synnax::task::Task task(rack.key, "EtherCAT Scanner", SCAN_TASK_TYPE, "", true);
+    synnax::task::Task task{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true,
+    };
     ScanTaskConfig cfg;
     Scanner scanner(ctx, task, cfg, nullptr);
 
@@ -135,7 +155,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
     ASSERT_FALSE(this->ctx->statuses.empty());
-    EXPECT_EQ(this->ctx->statuses.back().variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(this->ctx->statuses.back().variant, x::status::VARIANT_SUCCESS);
     EXPECT_NE(this->ctx->statuses.back().message.find("1 slaves"), std::string::npos);
 }
 
@@ -186,7 +206,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
     ASSERT_FALSE(this->ctx->statuses.empty());
-    EXPECT_EQ(this->ctx->statuses.back().variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(this->ctx->statuses.back().variant, x::status::VARIANT_SUCCESS);
     EXPECT_NE(this->ctx->statuses.back().message.find("3 slaves"), std::string::npos);
 }
 
@@ -213,6 +233,6 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     bool handled = scanner.exec(cmd, task, this->ctx);
     EXPECT_TRUE(handled);
     ASSERT_FALSE(this->ctx->statuses.empty());
-    EXPECT_EQ(this->ctx->statuses.back().variant, x::status::variant::ERR);
+    EXPECT_EQ(this->ctx->statuses.back().variant, x::status::VARIANT_ERROR);
 }
 }

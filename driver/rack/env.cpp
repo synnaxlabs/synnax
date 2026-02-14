@@ -20,6 +20,6 @@ x::errors::Error Config::load_env() {
     this->timing.override(p);
     this->manager.override(p);
     this->remote_info.override(p);
-    return x::errors::NIL;
+    return p.error();
 }
 }

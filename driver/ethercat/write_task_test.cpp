@@ -34,12 +34,11 @@ protected:
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
-        index_channel = synnax::channel::Channel(
-            make_unique_channel_name("time_channel"),
-            x::telem::TIMESTAMP_T,
-            0,
-            true
-        );
+        index_channel = synnax::channel::Channel{
+            .name = make_unique_channel_name("time_channel"),
+            .data_type = x::telem::TIMESTAMP_T,
+            .is_index = true,
+        };
         ASSERT_NIL(client->channels.create(index_channel));
 
         rack = ASSERT_NIL_P(client->racks.create("test_rack"));

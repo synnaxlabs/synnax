@@ -188,7 +188,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	}
 	cfg.L.Info("using working directory", zap.String("dir", workDir))
 
-	if storageLayer, err = storage.Open(ctx, storage.Config{
+	if storageLayer, err = storage.OpenLayer(ctx, storage.LayerConfig{
 		Instrumentation: cfg.Child("storage"),
 		InMemory:        cfg.memBacked,
 		Dirname:         cfg.dataPath,
@@ -208,7 +208,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		}
 	)
 
-	if distributionLayer, err = distribution.Open(ctx, distribution.Config{
+	if distributionLayer, err = distribution.OpenLayer(ctx, distribution.LayerConfig{
 		Instrumentation:      cfg.Child("distribution"),
 		AdvertiseAddress:     cfg.listenAddress,
 		PeerAddresses:        cfg.peers,
@@ -222,7 +222,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return err
 	}
 
-	if serviceLayer, err = service.Open(ctx, service.Config{
+	if serviceLayer, err = service.OpenLayer(ctx, service.LayerConfig{
 		Instrumentation: cfg.Child("service"),
 		Distribution:    distributionLayer,
 		Security:        securityProvider,
@@ -231,11 +231,12 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return err
 	}
 
-	if apiLayer, err = api.New(api.Config{
+	apiCfg := api.LayerConfig{
 		Instrumentation: cfg.Child("api"),
 		Service:         serviceLayer,
 		Distribution:    distributionLayer,
-	}); !ok(err, nil) {
+	}
+	if apiLayer, err = api.NewLayer(apiCfg); !ok(err, nil) {
 		return err
 	}
 	creds := auth.InsecureCredentials{
@@ -256,10 +257,10 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		Instrumentation:     cfg.Instrumentation,
 		StreamWriteDeadline: cfg.slowConsumerTimeout,
 	})
-	apiLayer.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(distributionLayer.Channel)))
+	apiLayer.BindTo(httpapi.NewTransport(r, distributionLayer.Channel))
 
 	// Configure the GRPC Layer AspenTransport.
-	grpcAPI, grpcAPITrans := grpcapi.New(distributionLayer.Channel)
+	grpcAPI, grpcAPITrans := grpcapi.NewTransport(distributionLayer.Channel)
 	apiLayer.BindTo(grpcAPI)
 
 	if rootServer, err = server.Serve(

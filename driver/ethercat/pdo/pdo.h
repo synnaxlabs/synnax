@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <vector>
 
 #pragma once
 
@@ -114,4 +115,54 @@ struct Properties {
         };
     }
 };
+
+/// @brief looks up the offset for a PDO entry in a precomputed offset map.
+inline Offset find_offset(const Offsets &offsets, const Entry &entry) {
+    Key key{entry.slave_position, entry.index, entry.sub_index, entry.is_input};
+    auto it = offsets.find(key);
+    if (it != offsets.end()) return it->second;
+    return {};
+}
+
+/// @brief computes bit-granularity offsets for a slave's PDO properties list,
+/// accumulating from a base byte offset.
+inline void compute_offsets(
+    Offsets &offsets,
+    const uint16_t slave_position,
+    const std::vector<Properties> &pdos,
+    const bool is_input,
+    const size_t base_byte_offset
+) {
+    size_t bit_offset = 0;
+    for (const auto &pdo: pdos) {
+        Key key{slave_position, pdo.index, pdo.sub_index, is_input};
+        offsets[key] = {
+            base_byte_offset + bit_offset / 8,
+            static_cast<uint8_t>(bit_offset % 8)
+        };
+        bit_offset += pdo.bit_length;
+    }
+}
+
+/// @brief computes byte-granularity offsets for registered PDO entries,
+/// splitting inputs and outputs from separate base offsets.
+inline void compute_offsets(
+    Offsets &offsets,
+    const std::vector<Entry> &entries,
+    const size_t input_base_offset,
+    const size_t output_base_offset
+) {
+    size_t input_byte_offset = input_base_offset;
+    size_t output_byte_offset = output_base_offset;
+    for (const auto &entry: entries) {
+        Key key{entry.slave_position, entry.index, entry.sub_index, entry.is_input};
+        if (entry.is_input) {
+            offsets[key] = {input_byte_offset, 0};
+            input_byte_offset += entry.byte_length();
+        } else {
+            offsets[key] = {output_byte_offset, 0};
+            output_byte_offset += entry.byte_length();
+        }
+    }
+}
 }

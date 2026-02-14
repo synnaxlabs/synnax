@@ -20,7 +20,7 @@ import (
 
 var _ = Describe("Storage", func() {
 	ShouldNotLeakGoroutinesBeforeEach()
-	DescribeTable("Name", func(cfg ...storage.Config) {
+	DescribeTable("Name", func(cfg ...storage.LayerConfig) {
 		b := mock.NewCluster(cfg...)
 		store := b.Provision(ctx)
 		Expect(store).NotTo(BeNil())
@@ -28,6 +28,6 @@ var _ = Describe("Storage", func() {
 		Expect(b.Close()).To(Succeed())
 	},
 		Entry("Memory-backed storage implementation"),
-		Entry("FS-backed storage implementation", storage.Config{InMemory: config.False(), Dirname: "./tmp"}),
+		Entry("FS-backed storage implementation", storage.LayerConfig{InMemory: config.False(), Dirname: "./tmp"}),
 	)
 })

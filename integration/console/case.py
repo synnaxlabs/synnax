@@ -53,7 +53,6 @@ class ConsoleCase(TestCase):
         browser_engine = self.determine_browser()
         self.browser = browser_engine.launch(headless=not headed, slow_mo=slow_mo)
         self.context = self.browser.new_context(
-            viewport={"width": 1920, "height": 1080},
             permissions=["clipboard-read", "clipboard-write"],
         )
         self.page = self.context.new_page()

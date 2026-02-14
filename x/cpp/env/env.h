@@ -12,14 +12,17 @@
 #include <cstdlib>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include "glog/logging.h"
 
 #include "x/cpp/caseconv/caseconv.h"
+#include "x/cpp/errors/errors.h"
 
 namespace x::env {
 class Parser {
-    std::string prefix_;
+    /// @brief the environment variable prefix.
+    std::string prefix;
 
     template<typename T>
     static T convert_value(const std::string &value, const T &default_value) {
@@ -36,13 +39,16 @@ class Parser {
     }
 
 public:
-    explicit Parser(std::string prefix = ""): prefix_(std::move(prefix)) {
-        if (!prefix_.empty() && prefix_.back() != '_') prefix_ += '_';
+    /// @brief any errors encountered during parsing.
+    std::vector<errors::Error> errors;
+
+    explicit Parser(std::string prefix = ""): prefix(std::move(prefix)) {
+        if (!this->prefix.empty() && this->prefix.back() != '_') this->prefix += '_';
     }
 
     template<typename T>
-    T field(const std::string &name, const T &default_value) const {
-        auto screaming_name = caseconv::snake_to_scream(prefix_ + name);
+    T field(const std::string &name, const T &default_value) {
+        auto screaming_name = caseconv::snake_to_scream(this->prefix + name);
         const char *value = std::getenv(screaming_name.c_str());
         if (value == nullptr) return default_value;
 
@@ -52,12 +58,34 @@ public:
         } catch (const std::exception &e) {
             LOG(WARNING) << "Failed to convert environment variable " << screaming_name
                          << " to type " << typeid(T).name() << ": " << e.what();
+            this->field_err(
+                name,
+                std::string("failed to convert ") + screaming_name + ": " + e.what()
+            );
             return default_value;
         }
     }
+
+    /// @brief binds an error to the given field name.
+    void field_err(const std::string &name, const std::string &message) {
+        this->errors.emplace_back(errors::VALIDATION, name + ": " + message);
+    }
+
+    /// @brief binds an error to the given field name from an existing error.
+    void field_err(const std::string &name, const errors::Error &err) {
+        this->field_err(name, err.data);
+    }
+
+    /// @returns true if no errors have been accumulated.
+    [[nodiscard]] bool ok() const { return this->errors.empty(); }
+
+    /// @brief returns the first error encountered during parsing, or NIL.
+    [[nodiscard]] errors::Error error() const {
+        if (this->errors.empty()) return errors::NIL;
+        return this->errors.at(0);
+    }
 };
 
-// Maintain backward compatibility with existing code
 template<typename T>
 T load(const std::string &name, const T &default_value) {
     static Parser default_parser;

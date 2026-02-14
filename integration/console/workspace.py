@@ -35,6 +35,31 @@ __all__ = ["WorkspaceClient", "PageType"]
 
 T = TypeVar("T", bound="ConsolePage")
 
+# SY-3670 — Shared JS snippet that walks the React fiber tree from #root
+# to find the Redux store. Used by import_page and export_workspace as a
+# browser-mode workaround for features that normally rely on Tauri APIs.
+_FIND_REDUX_STORE_JS = """
+const rootEl = document.getElementById('root');
+if (!rootEl) throw new Error('Root element not found');
+const containerKey = Object.keys(rootEl).find(
+    k => k.startsWith('__reactContainer$')
+);
+if (!containerKey) throw new Error('React container not found');
+let store = null;
+const stack = [rootEl[containerKey]];
+while (stack.length > 0) {
+    const fiber = stack.pop();
+    if (!fiber) continue;
+    if (fiber.memoizedProps?.store?.dispatch) {
+        store = fiber.memoizedProps.store;
+        break;
+    }
+    if (fiber.child) stack.push(fiber.child);
+    if (fiber.sibling) stack.push(fiber.sibling);
+}
+if (!store) throw new Error('Redux store not found');
+"""
+
 
 class WorkspaceClient:
     """Workspace management for Console UI automation."""
@@ -221,18 +246,7 @@ class WorkspaceClient:
     def expand_active(self) -> None:
         """Expand the active workspace in the resources toolbar to show its contents."""
         self.layout.show_resource_toolbar("workspace")
-        self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").first.wait_for(
-            state="visible", timeout=5000
-        )
-        workspace_items = self.tree.find_by_prefix(self.ITEM_PREFIX)
-        if not workspace_items:
-            return
-        workspace_item = workspace_items[0]
-        caret = workspace_item.locator(".pluto--location-bottom")
-        if caret.count() > 0:
-            return
-        workspace_item.click()
-        caret.wait_for(state="visible", timeout=5000)
+        self.tree.expand_root(self.ITEM_PREFIX)
 
     def get_page(self, name: str) -> Locator:
         """Get a page item locator from the workspace resources toolbar.
@@ -318,26 +332,9 @@ class WorkspaceClient:
         self.layout.close_left_toolbar()
 
     def delete_group(self, name: str) -> None:
-        """Delete a group via context menu.
-
-        Groups are deleted immediately without a confirmation dialog (unlike pages).
-        The context menu shows "Delete" for collapsed groups and "Ungroup" for expanded
-        groups with visible children.
-
-        Args:
-            name: Name of the group to delete
-        """
+        """Delete a group via context menu."""
         self.expand_active()
-        page_item = self.get_page(name)
-        page_item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.open_on(page_item)
-        menu = self.layout.page.locator(".pluto-menu-context")
-        delete_item = menu.get_by_text("Delete", exact=True)
-        ungroup_item = menu.get_by_text("Ungroup", exact=True)
-        if delete_item.count() > 0:
-            delete_item.click(timeout=5000)
-        else:
-            ungroup_item.click(timeout=5000)
+        self.tree.delete_group(name)
         self.layout.close_left_toolbar()
 
     def delete_pages(self, names: list[str]) -> None:
@@ -386,30 +383,21 @@ class WorkspaceClient:
         return self.layout.read_clipboard()
 
     def group_pages(self, *, names: list[str], group_name: str) -> None:
-        """Group multiple pages into a folder via multi-select and context menu.
-
-        Args:
-            names: List of page names to group
-            group_name: Name for the new group/folder
-        """
-        if not names:
-            return
-
+        """Group multiple pages into a folder via multi-select and context menu."""
         self.expand_active()
+        self.tree.group([self.get_page(n) for n in names], group_name)
+        self.layout.close_left_toolbar()
 
-        first_item = self.get_page(names[0])
-        first_item.wait_for(state="visible", timeout=5000)
-        first_item.click()
+    def rename_group(self, old_name: str, new_name: str) -> None:
+        """Rename a group via context menu."""
+        self.expand_active()
+        self.tree.rename_group(old_name, new_name)
+        self.layout.close_left_toolbar()
 
-        for name in names[1:]:
-            page_item = self.get_page(name)
-            page_item.wait_for(state="visible", timeout=5000)
-            page_item.click(modifiers=["ControlOrMeta"])
-
-        last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        self.ctx_menu.action(last_item, "Group selection")
-        self.layout.select_all_and_type(group_name)
-        self.layout.press_enter()
+    def move_to_group(self, item_name: str, group_name: str) -> None:
+        """Move a page or group into a target group via drag-and-drop."""
+        self.expand_active()
+        self.tree.move_to_group(self.get_page(item_name), group_name)
         self.layout.close_left_toolbar()
 
     def export_page(self, name: str) -> dict[str, Any]:
@@ -427,12 +415,12 @@ class WorkspaceClient:
         page_item = self.get_page(name)
         try:
             page_item.wait_for(state="visible", timeout=5000)
-        except Exception as e:
+        except PlaywrightTimeoutError as e:
             all_items = self.layout.page.locator(".pluto-tree__item").all()
             item_texts = [
                 item.text_content() for item in all_items if item.is_visible()
             ]
-            raise Exception(
+            raise PlaywrightTimeoutError(
                 f"Page '{name}' not found. Available items: {item_texts}"
             ) from e
         self.ctx_menu.open_on(page_item)
@@ -450,18 +438,179 @@ class WorkspaceClient:
             result: dict[str, Any] = json.load(f)
             return result
 
-    def snapshot_page_to_active_range(self, name: str, range_name: str) -> None:
-        """Snapshot a page to the active range via context menu.
+    def _evaluate_with_redux(self, js_body: str, args: Any = None) -> Any:
+        """Execute JS with the Redux store available as ``store``.
+
+        # SY-3670 — Uses React fiber walking to locate the Redux store
+        # from the React root. This is a browser-mode workaround for
+        # features that normally rely on Tauri APIs.
 
         Args:
-            name: Name of the page to snapshot
-            range_name: Name of the active range (for menu text matching)
+            js_body: JS code to execute. ``store`` and ``args`` are in scope.
+            args: Optional arguments forwarded to the JS function.
         """
-        self.expand_active()
-        page_item = self.get_page(name)
-        page_item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(page_item, f"Snapshot to {range_name}")
+        js = "(args) => {" + _FIND_REDUX_STORE_JS + js_body + "}"
+        return self.layout.page.evaluate(js, args)
+
+    def import_page(self, json_path: str, name: str) -> None:
+        """Import a page from a JSON file via direct JS injection.
+
+        Since the console uses Tauri's native file dialog for imports
+        (unavailable in browser mode), this method bypasses the dialog
+        by reading the JSON file and dispatching Redux actions directly.
+
+        # SY-3670 will address this issue.
+
+        Args:
+            json_path: Path to the JSON file to import.
+            name: Display name for the imported page tab.
+        """
+        with open(json_path, "r") as f:
+            data: dict[str, Any] = json.load(f)
+
+        resource_type = data.get("type")
+        if resource_type is None:
+            raise ValueError(f"JSON file missing 'type' field: {json_path}")
+
+        type_config: dict[str, dict[str, str]] = {
+            "lineplot": {"slice": "line", "icon": "Visualize"},
+            "schematic": {"slice": "schematic", "icon": "Schematic"},
+            "log": {"slice": "log", "icon": "Log"},
+            "table": {"slice": "table", "icon": "Table"},
+        }
+
+        config = type_config.get(resource_type)
+        if config is None:
+            raise ValueError(f"Unsupported resource type: {resource_type}")
+
+        self._evaluate_with_redux(
+            """
+            const [data, name, sliceName, icon] = args;
+            const key = crypto.randomUUID();
+            store.dispatch({
+                type: sliceName + '/create',
+                payload: { ...data, key }
+            });
+            store.dispatch({
+                type: 'layout/place',
+                payload: {
+                    key, name,
+                    location: 'mosaic',
+                    type: data.type,
+                    icon,
+                    windowKey: 'main',
+                }
+            });
+            """,
+            [data, name, config["slice"], config["icon"]],
+        )
+
+        self.layout.get_tab(name).wait_for(state="visible", timeout=10000)
+
+    def import_workspace(self, name: str, data: dict[str, Any]) -> None:
+        """Import a workspace via command palette with JS injection fallback.
+
+        Triggers "Import a workspace" from the command palette. Since the
+        console uses Tauri's native directory dialog (unavailable in browser
+        mode), the actual import falls back to dispatching Redux actions
+        via JS injection.
+
+        # SY-3670 will address the browser-mode limitation.
+
+        Args:
+            name: Name for the imported workspace.
+            data: Export data dict with 'layout' and 'components' keys
+                  (as returned by export_workspace).
+        """
+        self.layout.command_palette("Import a workspace")
+
+        sliceMap: dict[str, str] = {
+            "lineplot": "line",
+            "schematic": "schematic",
+            "log": "log",
+            "table": "table",
+        }
+
+        self._evaluate_with_redux(
+            """
+            const [name, layoutData, components, sliceMap] = args;
+            const wsKey = crypto.randomUUID();
+            store.dispatch({
+                type: 'workspace/setActive',
+                payload: { key: wsKey, name, layout: layoutData },
+            });
+            store.dispatch({
+                type: 'layout/setWorkspace',
+                payload: { slice: layoutData, keepNav: false },
+            });
+            for (const [key, component] of Object.entries(components)) {
+                const sliceName = sliceMap[component.type];
+                if (!sliceName) continue;
+                store.dispatch({
+                    type: sliceName + '/create',
+                    payload: { ...component, key },
+                });
+            }
+            """,
+            [name, data["layout"], data["components"], sliceMap],
+        )
+
+        self.layout.page.get_by_role("button").filter(has_text=name).wait_for(
+            state="visible", timeout=10000
+        )
+
+    def export_workspace(self, name: str) -> dict[str, Any]:
+        """Export a workspace via context menu with JS injection fallback.
+
+        Opens the context menu on the workspace and clicks Export. Since the
+        console uses Tauri's native directory dialog and file system APIs
+        (unavailable in browser mode), the actual data extraction falls back
+        to reading Redux state via JS injection.
+
+        # SY-3670 will address the browser-mode limitation.
+
+        Args:
+            name: Name of the workspace to export.
+
+        Returns:
+            Dict with 'layout' (the layout state) and 'components'
+            (dict of component key -> exported state with type field).
+        """
+        self.layout.show_resource_toolbar("workspace")
+        workspace_item = self.get_item(name)
+        workspace_item.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(workspace_item, "Export")
+        self.notifications.close_all()
+
+        result: dict[str, Any] = self._evaluate_with_redux("""
+            const state = store.getState();
+            const layoutState = state.layout;
+            const sliceMap = {
+                lineplot: { slice: 'line', collection: 'plots' },
+                schematic: { slice: 'schematic', collection: 'schematics' },
+                log: { slice: 'log', collection: 'logs' },
+                table: { slice: 'table', collection: 'tables' },
+            };
+            const components = {};
+            const layouts = {};
+            for (const [key, layout] of Object.entries(layoutState.layouts)) {
+                if (layout.excludeFromWorkspace || layout.location === 'modal')
+                    continue;
+                layouts[key] = layout;
+                const mapping = sliceMap[layout.type];
+                if (!mapping) continue;
+                const cs = state[mapping.slice]?.[mapping.collection]?.[key];
+                if (cs) components[key] = { ...cs, type: layout.type };
+            }
+            return { layout: { ...layoutState, layouts }, components };
+            """)
+
+        save_path = get_results_path(f"{name}_export.json")
+        with open(save_path, "w") as f:
+            json.dump(result, f, indent=2)
+
         self.layout.close_left_toolbar()
+        return result
 
     def snapshot_pages_to_active_range(self, names: list[str], range_name: str) -> None:
         """Snapshot multiple pages to the active range via context menu.
@@ -838,6 +987,30 @@ class WorkspaceClient:
         """
         self.drag_page_to_mosaic(name)
         return Schematic.from_open_page(self.layout, self.client, name)
+
+    def open_table(self, name: str) -> Table:
+        """Open a table by double-clicking it in the workspace resources toolbar.
+
+        Args:
+            name: Name of the table to open.
+
+        Returns:
+            Table instance for the opened table.
+        """
+        self.open_page(name)
+        return Table.from_open_page(self.layout, self.client, name)
+
+    def drag_table_to_mosaic(self, name: str) -> Table:
+        """Drag a table from the workspace resources toolbar onto the mosaic.
+
+        Args:
+            name: Name of the table to drag.
+
+        Returns:
+            Table instance for the opened table.
+        """
+        self.drag_page_to_mosaic(name)
+        return Table.from_open_page(self.layout, self.client, name)
 
     @overload
     def create_task(

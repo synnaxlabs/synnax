@@ -193,7 +193,7 @@ class TestStatusClient:
 
     def test_set_with_parent(self, client: sy.Synnax):
         """Should create status with a parent ontology ID."""
-        parent_group = client.ontology.groups.create(
+        parent_group = client.groups.create(
             parent=sy.ontology.ROOT_ID, name="Status Parent Group"
         )
         parent_id = {"type": "group", "key": str(parent_group.key)}

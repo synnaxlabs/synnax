@@ -1,0 +1,13 @@
+---
+import Inline from "@/components/code/Inline.astro";
+import { fetchVersion } from "@/util/fetchVersion";
+const { os, name } = Astro.props;
+
+const version = await fetchVersion();
+---
+
+<Inline
+    lang="bash"
+    code={`sudo mv ${name}-v${version.trim()}-${os.toLowerCase()} /usr/local/bin/${name}`}
+    theme="css-variables"
+/>

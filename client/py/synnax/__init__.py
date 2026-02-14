@@ -23,6 +23,7 @@ from synnax.arc import (
     Text,
 )
 from synnax.channel import Channel
+from synnax.color import Color
 from synnax.control import Controller
 from synnax.device import Device
 from synnax.exceptions import (
@@ -92,6 +93,7 @@ __all__ = [
     "Controller",
     "Bounds",
     "Channel",
+    "Color",
     "Edge",
     "ConfigurationError",
     "ContiguityError",

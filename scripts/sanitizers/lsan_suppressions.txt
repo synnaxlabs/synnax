@@ -14,6 +14,7 @@
 # upstream: https://github.com/open62541/open62541/issues/5764
 # upstream: https://github.com/open62541/open62541/issues/348
 leak:UA_Client_*
+leak:UA_String_fromChars
 
 
 # ===== Standard Library / System =====

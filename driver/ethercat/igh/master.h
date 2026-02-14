@@ -26,6 +26,7 @@
 #include "driver/ethercat/igh/ecrt.h"
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
+#include "driver/ethercat/slave/slave.h"
 
 namespace driver::ethercat::igh {
 
@@ -115,9 +116,6 @@ public:
     std::pair<size_t, x::errors::Error> register_pdo(const pdo::Entry &entry);
 
 private:
-    /// @brief converts IgH slave state to our slave::State enum.
-    static slave::State convert_state(uint8_t igh_state);
-
     /// @brief discovers PDO entries for a slave and populates its PDO lists.
     void discover_slave_pdos(slave::DiscoveryResult &slave);
 

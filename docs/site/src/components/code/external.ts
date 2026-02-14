@@ -10,3 +10,5 @@
 export { default as Block } from "@/components/code/Block.astro";
 export * from "@/components/code/codeUtil";
 export { default as Inline } from "@/components/code/Inline.astro";
+export { default as MoveCommand } from "@/components/code/MoveCommand.astro";
+export { default as VersionOutput } from "@/components/code/VersionOutput.astro";

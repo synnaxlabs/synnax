@@ -126,37 +126,37 @@ TEST(ArcTests, testCalcDoubling) {
     auto output_idx_name = make_unique_channel_name("ox_pt_doubled_idx");
     auto output_name = make_unique_channel_name("ox_pt_doubled");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::FLOAT32_T,
-        input_idx.key,
-        false
-    );
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::FLOAT32_T,
-        output_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+        .is_index = false
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("calc_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("calc_test")};
     arc_prog.text = ::arc::text::Text(
         "func calc(val f32) f32 {\n"
         "    return val * 2\n"
@@ -169,8 +169,13 @@ TEST(ArcTests, testCalcDoubling) {
         client->racks.create(make_unique_channel_name("arc_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_calc_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_calc_test",
+        .type = "arc_runtime",
+        .config = ""
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -220,41 +225,41 @@ TEST(ArcTests, testBasicSequence) {
     // Create trigger channel (start_cmd)
     auto start_cmd_idx_name = make_unique_channel_name("start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("start_cmd");
-    auto start_cmd_idx = synnax::channel::Channel(
-        start_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto start_cmd_idx = synnax::channel::Channel{
+        .name = start_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::channel::Channel(
-        start_cmd_name,
-        x::telem::UINT8_T,
-        start_cmd_idx.key,
-        false
-    );
+    auto start_cmd_ch = synnax::channel::Channel{
+        .name = start_cmd_name,
+        .data_type = x::telem::UINT8_T,
+        .index = start_cmd_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(start_cmd_ch));
 
     // Create output channel (valve_cmd)
     auto valve_cmd_idx_name = make_unique_channel_name("valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("valve_cmd");
-    auto valve_cmd_idx = synnax::channel::Channel(
-        valve_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto valve_cmd_idx = synnax::channel::Channel{
+        .name = valve_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::channel::Channel(
-        valve_cmd_name,
-        x::telem::INT64_T,
-        valve_cmd_idx.key,
-        false
-    );
+    auto valve_cmd_ch = synnax::channel::Channel{
+        .name = valve_cmd_name,
+        .data_type = x::telem::INT64_T,
+        .index = valve_cmd_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     // Create Arc program with the sequence
-    synnax::arc::Arc arc_prog(make_unique_channel_name("sequence_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("sequence_test")};
     arc_prog.text = ::arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
@@ -273,8 +278,13 @@ TEST(ArcTests, testBasicSequence) {
         client->racks.create(make_unique_channel_name("arc_sequence_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_sequence_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_sequence_test",
+        .type = "arc_runtime",
+        .config = ""
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -336,41 +346,41 @@ TEST(ArcTests, testOneShotTruthiness) {
     // Create trigger channel (start_cmd)
     auto start_cmd_idx_name = make_unique_channel_name("truthiness_start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("truthiness_start_cmd");
-    auto start_cmd_idx = synnax::channel::Channel(
-        start_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto start_cmd_idx = synnax::channel::Channel{
+        .name = start_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::channel::Channel(
-        start_cmd_name,
-        x::telem::UINT8_T,
-        start_cmd_idx.key,
-        false
-    );
+    auto start_cmd_ch = synnax::channel::Channel{
+        .name = start_cmd_name,
+        .data_type = x::telem::UINT8_T,
+        .index = start_cmd_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(start_cmd_ch));
 
     // Create output channel (valve_cmd)
     auto valve_cmd_idx_name = make_unique_channel_name("truthiness_valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("truthiness_valve_cmd");
-    auto valve_cmd_idx = synnax::channel::Channel(
-        valve_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto valve_cmd_idx = synnax::channel::Channel{
+        .name = valve_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::channel::Channel(
-        valve_cmd_name,
-        x::telem::INT64_T,
-        valve_cmd_idx.key,
-        false
-    );
+    auto valve_cmd_ch = synnax::channel::Channel{
+        .name = valve_cmd_name,
+        .data_type = x::telem::INT64_T,
+        .index = valve_cmd_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     // Create Arc program with a sequence triggered by one-shot edge
-    synnax::arc::Arc arc_prog(make_unique_channel_name("truthiness_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("truthiness_test")};
     arc_prog.text = ::arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
@@ -389,8 +399,13 @@ TEST(ArcTests, testOneShotTruthiness) {
         client->racks.create(make_unique_channel_name("arc_truthiness_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_truthiness_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_truthiness_test",
+        .type = "arc_runtime",
+        .config = ""
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -479,61 +494,61 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Create trigger channel (start_cmd)
     auto start_cmd_idx_name = make_unique_channel_name("two_stage_start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("two_stage_start_cmd");
-    auto start_cmd_idx = synnax::channel::Channel(
-        start_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto start_cmd_idx = synnax::channel::Channel{
+        .name = start_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::channel::Channel(
-        start_cmd_name,
-        x::telem::UINT8_T,
-        start_cmd_idx.key,
-        false
-    );
+    auto start_cmd_ch = synnax::channel::Channel{
+        .name = start_cmd_name,
+        .data_type = x::telem::UINT8_T,
+        .index = start_cmd_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(start_cmd_ch));
 
     // Create pressure sensor channel
     auto pressure_idx_name = make_unique_channel_name("two_stage_pressure_idx");
     auto pressure_name = make_unique_channel_name("two_stage_pressure");
-    auto pressure_idx = synnax::channel::Channel(
-        pressure_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto pressure_idx = synnax::channel::Channel{
+        .name = pressure_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(pressure_idx));
-    auto pressure_ch = synnax::channel::Channel(
-        pressure_name,
-        x::telem::FLOAT32_T,
-        pressure_idx.key,
-        false
-    );
+    auto pressure_ch = synnax::channel::Channel{
+        .name = pressure_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = pressure_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(pressure_ch));
 
     // Create output channel (valve_cmd)
     auto valve_cmd_idx_name = make_unique_channel_name("two_stage_valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("two_stage_valve_cmd");
-    auto valve_cmd_idx = synnax::channel::Channel(
-        valve_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto valve_cmd_idx = synnax::channel::Channel{
+        .name = valve_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::channel::Channel(
-        valve_cmd_name,
-        x::telem::INT64_T,
-        valve_cmd_idx.key,
-        false
-    );
+    auto valve_cmd_ch = synnax::channel::Channel{
+        .name = valve_cmd_name,
+        .data_type = x::telem::INT64_T,
+        .index = valve_cmd_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     // Create Arc program with a two-stage sequence
     // Stage "pressurize": outputs 1, transitions to "idle" when pressure > 50
     // Stage "idle": outputs 0 (terminal stage)
-    synnax::arc::Arc arc_prog(make_unique_channel_name("two_stage_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("two_stage_test")};
     arc_prog.text = ::arc::text::Text(
         "sequence main {\n"
         "    stage pressurize {\n"
@@ -560,8 +575,13 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
         client->racks.create(make_unique_channel_name("arc_two_stage_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_two_stage_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_two_stage_test",
+        .type = "arc_runtime",
+        .config = ""
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -691,37 +711,37 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     auto output_idx_name = make_unique_channel_name("trap_output_idx");
     auto output_name = make_unique_channel_name("trap_output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::INT32_T,
-        input_idx.key,
-        false
-    );
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::INT32_T,
-        output_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::INT32_T,
+        .index = input_idx.key,
+        .is_index = false
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::INT32_T,
+        .index = output_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("trap_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("trap_test")};
     arc_prog.text = ::arc::text::Text(
         "func divide_by_zero(val i32) i32 { return val / 0 }\n" + input_name +
         " -> divide_by_zero{} -> " + output_name + "\n"
@@ -732,8 +752,13 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
         client->racks.create(make_unique_channel_name("arc_trap_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_trap_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_trap_test",
+        .type = "arc_runtime",
+        .config = ""
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -768,9 +793,12 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
 
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    auto *error_status = find_status_by_variant(ctx->statuses, x::status::variant::ERR);
+    auto *error_status = find_status_by_variant(
+        ctx->statuses,
+        x::status::VARIANT_ERROR
+    );
     ASSERT_NE(error_status, nullptr) << "Fatal WASM trap should produce error status";
-    expect_status(*error_status, x::status::variant::ERR, false);
+    expect_status(*error_status, x::status::VARIANT_ERROR, false);
 
     task->stop("test_stop", true);
 }
@@ -783,37 +811,37 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     auto output_idx_name = make_unique_channel_name("restart_trap_output_idx");
     auto output_name = make_unique_channel_name("restart_trap_output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::INT32_T,
-        input_idx.key,
-        false
-    );
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::INT32_T,
-        output_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::INT32_T,
+        .index = input_idx.key,
+        .is_index = false
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::INT32_T,
+        .index = output_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("restart_trap_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("restart_trap_test")};
     arc_prog.text = ::arc::text::Text(
         "func maybe_trap(val i32) i32 {\n"
         "    if val == 0 { return 1 / val }\n"
@@ -827,8 +855,13 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
         client->racks.create(make_unique_channel_name("arc_restart_trap_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_restart_trap_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_restart_trap_test",
+        .type = "arc_runtime",
+        .config = ""
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -862,7 +895,10 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    auto *error_status = find_status_by_variant(ctx->statuses, x::status::variant::ERR);
+    auto *error_status = find_status_by_variant(
+        ctx->statuses,
+        x::status::VARIANT_ERROR
+    );
     EXPECT_NE(error_status, nullptr) << "Should have error status after WASM trap";
 
     task->stop("test_stop_1", true);
@@ -908,37 +944,37 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
     auto output_idx_name = make_unique_channel_name("multi_cycle_output_idx");
     auto output_name = make_unique_channel_name("multi_cycle_output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::FLOAT32_T,
-        input_idx.key,
-        false
-    );
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::FLOAT32_T,
-        output_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+        .is_index = false
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("multi_cycle_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("multi_cycle_test")};
     arc_prog.text = ::arc::text::Text(
         "func double(val f32) f32 { return val * 2 }\n" + input_name +
         " -> double{} -> " + output_name + "\n"
@@ -949,8 +985,13 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
         client->racks.create(make_unique_channel_name("arc_multi_cycle_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_multi_cycle_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_multi_cycle_test",
+        .type = "arc_runtime",
+        .config = ""
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -1013,37 +1054,37 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
     auto output_idx_name = make_unique_channel_name("status_verify_output_idx");
     auto output_name = make_unique_channel_name("status_verify_output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::FLOAT32_T,
-        input_idx.key,
-        false
-    );
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::FLOAT32_T,
-        output_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+        .is_index = false
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("status_verify_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("status_verify_test")};
     arc_prog.text = ::arc::text::Text(
         "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
         output_name + "\n"
@@ -1054,8 +1095,13 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         client->racks.create(make_unique_channel_name("arc_status_verify_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_status_verify_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_status_verify_test",
+        .type = "arc_runtime",
+        .config = ""
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -1090,22 +1136,22 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
 
     auto *start_status = find_status_by_variant(
         ctx->statuses,
-        x::status::variant::SUCCESS
+        x::status::VARIANT_SUCCESS
     );
     ASSERT_NE(start_status, nullptr) << "Should have a success status after start";
-    expect_status(*start_status, x::status::variant::SUCCESS, true, "started");
+    expect_status(*start_status, x::status::VARIANT_SUCCESS, true, "started");
 
     task->stop("verify_stop", true);
 
     auto *stop_status = find_status_by_variant(
         ctx->statuses,
-        x::status::variant::SUCCESS
+        x::status::VARIANT_SUCCESS
     );
     ASSERT_NE(stop_status, nullptr);
 
     bool found_stopped = false;
     for (const auto &s: ctx->statuses) {
-        if (s.variant == x::status::variant::SUCCESS && !s.details.running) {
+        if (s.variant == x::status::VARIANT_SUCCESS && !s.details.running) {
             found_stopped = true;
             break;
         }
@@ -1122,37 +1168,37 @@ TEST(ArcEdgeCases, RapidStartStop) {
     auto output_idx_name = make_unique_channel_name("rapid_output_idx");
     auto output_name = make_unique_channel_name("rapid_output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::FLOAT32_T,
-        input_idx.key,
-        false
-    );
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::FLOAT32_T,
-        output_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+        .is_index = false
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("rapid_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("rapid_test")};
     arc_prog.text = ::arc::text::Text(
         "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
         output_name + "\n"
@@ -1163,8 +1209,13 @@ TEST(ArcEdgeCases, RapidStartStop) {
         client->racks.create(make_unique_channel_name("arc_rapid_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_rapid_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_rapid_test",
+        .type = "arc_runtime",
+        .config = ""
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -1194,7 +1245,7 @@ TEST(ArcEdgeCases, RapidStartStop) {
 
     auto *final_status = find_status_by_variant(
         ctx->statuses,
-        x::status::variant::SUCCESS
+        x::status::VARIANT_SUCCESS
     );
     ASSERT_NE(final_status, nullptr);
     EXPECT_TRUE(final_status->details.running);
@@ -1210,37 +1261,37 @@ TEST(ArcEdgeCases, StopWithoutStart) {
     auto output_idx_name = make_unique_channel_name("nostart_output_idx");
     auto output_name = make_unique_channel_name("nostart_output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::FLOAT32_T,
-        input_idx.key,
-        false
-    );
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::FLOAT32_T,
-        output_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+        .is_index = false
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("nostart_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("nostart_test")};
     arc_prog.text = ::arc::text::Text(
         "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
         output_name + "\n"
@@ -1251,8 +1302,13 @@ TEST(ArcEdgeCases, StopWithoutStart) {
         client->racks.create(make_unique_channel_name("arc_nostart_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_nostart_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_nostart_test",
+        .type = "arc_runtime",
+        .config = ""
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -1277,7 +1333,7 @@ TEST(ArcEdgeCases, StopWithoutStart) {
     task->start("start_after_cold_stop");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
-    auto *status = find_status_by_variant(ctx->statuses, x::status::variant::SUCCESS);
+    auto *status = find_status_by_variant(ctx->statuses, x::status::VARIANT_SUCCESS);
     ASSERT_NE(status, nullptr);
 
     task->stop("final_stop", true);
@@ -1289,59 +1345,59 @@ TEST(ArcTests, testChannelConfigParam) {
     // Trigger channel (u8)
     auto trigger_idx_name = make_unique_channel_name("cfg_ch_trigger_idx");
     auto trigger_name = make_unique_channel_name("cfg_ch_trigger");
-    auto trigger_idx = synnax::channel::Channel(
-        trigger_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto trigger_idx = synnax::channel::Channel{
+        .name = trigger_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(trigger_idx));
-    auto trigger_ch = synnax::channel::Channel(
-        trigger_name,
-        x::telem::UINT8_T,
-        trigger_idx.key,
-        false
-    );
+    auto trigger_ch = synnax::channel::Channel{
+        .name = trigger_name,
+        .data_type = x::telem::UINT8_T,
+        .index = trigger_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(trigger_ch));
 
     // Data channel that the config param refers to (f32)
     auto data_idx_name = make_unique_channel_name("cfg_ch_data_idx");
     auto data_name = make_unique_channel_name("cfg_ch_data");
-    auto data_idx = synnax::channel::Channel(
-        data_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto data_idx = synnax::channel::Channel{
+        .name = data_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(data_idx));
-    auto data_ch = synnax::channel::Channel(
-        data_name,
-        x::telem::FLOAT32_T,
-        data_idx.key,
-        false
-    );
+    auto data_ch = synnax::channel::Channel{
+        .name = data_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = data_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(data_ch));
 
     // Output channel (f32)
     auto output_idx_name = make_unique_channel_name("cfg_ch_output_idx");
     auto output_name = make_unique_channel_name("cfg_ch_output");
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(output_idx));
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::FLOAT32_T,
-        output_idx.key,
-        false
-    );
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(output_ch));
 
     // Arc program: function with channel-typed config param
-    synnax::arc::Arc arc_prog(make_unique_channel_name("cfg_ch_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("cfg_ch_test")};
     arc_prog.text = ::arc::text::Text(
         "func read_data{ch chan f32}(trigger u8) f32 {\n"
         "    return ch + f32(0.0)\n"
@@ -1354,8 +1410,13 @@ TEST(ArcTests, testChannelConfigParam) {
         client->racks.create(make_unique_channel_name("arc_cfg_ch_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_cfg_ch_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_cfg_ch_test",
+        .type = "arc_runtime",
+        .config = ""
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -1426,61 +1487,61 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
     // Input trigger channel (u8)
     auto input_idx_name = make_unique_channel_name("crw_input_idx");
     auto input_name = make_unique_channel_name("crw_input");
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::UINT8_T,
-        input_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::UINT8_T,
+        .index = input_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(input_ch));
 
     // Counter max channel - READ only config param (f32)
     auto max_idx_name = make_unique_channel_name("crw_max_idx");
     auto max_name = make_unique_channel_name("crw_max");
-    auto max_idx = synnax::channel::Channel(
-        max_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto max_idx = synnax::channel::Channel{
+        .name = max_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(max_idx));
-    auto max_ch = synnax::channel::Channel(
-        max_name,
-        x::telem::FLOAT32_T,
-        max_idx.key,
-        false
-    );
+    auto max_ch = synnax::channel::Channel{
+        .name = max_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = max_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(max_ch));
 
     // Counter output channel - WRITE config param (f32)
     auto counter_idx_name = make_unique_channel_name("crw_counter_idx");
     auto counter_name = make_unique_channel_name("crw_counter");
-    auto counter_idx = synnax::channel::Channel(
-        counter_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto counter_idx = synnax::channel::Channel{
+        .name = counter_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(counter_idx));
-    auto counter_ch = synnax::channel::Channel(
-        counter_name,
-        x::telem::FLOAT32_T,
-        counter_idx.key,
-        false
-    );
+    auto counter_ch = synnax::channel::Channel{
+        .name = counter_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = counter_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(counter_ch));
 
     // Arc program mimicking count_rising:
     // counter_ch is a WRITE config param (channel_write_f32)
     // max_ch is a READ config param (channel_read_f32)
-    synnax::arc::Arc arc_prog(make_unique_channel_name("crw_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("crw_test")};
     arc_prog.text = ::arc::text::Text(
         "func count_rising_test{counter_ch chan f32, max_ch chan f32}(input u8) {\n"
         "    prev u8 $= input\n"
@@ -1504,8 +1565,13 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
         client->racks.create(make_unique_channel_name("arc_crw_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_crw_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_crw_test",
+        .type = "arc_runtime",
+        .config = ""
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -1579,37 +1645,37 @@ TEST(ArcEdgeCases, DoubleStart) {
     auto output_idx_name = make_unique_channel_name("double_start_output_idx");
     auto output_name = make_unique_channel_name("double_start_output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::FLOAT32_T,
-        input_idx.key,
-        false
-    );
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::FLOAT32_T,
-        output_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+        .is_index = false
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("double_start_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("double_start_test")};
     arc_prog.text = ::arc::text::Text(
         "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
         output_name + "\n"
@@ -1620,8 +1686,13 @@ TEST(ArcEdgeCases, DoubleStart) {
         client->racks.create(make_unique_channel_name("arc_double_start_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_double_start_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_double_start_test",
+        .type = "arc_runtime",
+        .config = ""
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -1669,37 +1740,37 @@ TEST(ArcTests, testRestartResetsState) {
     auto output_idx_name = make_unique_channel_name("restart_output_idx");
     auto output_name = make_unique_channel_name("restart_output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .index = 0,
+        .is_index = true
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::INT64_T,
-        input_idx.key,
-        false
-    );
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::INT64_T,
-        output_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::INT64_T,
+        .index = input_idx.key,
+        .is_index = false
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::INT64_T,
+        .index = output_idx.key,
+        .is_index = false
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("restart_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("restart_test")};
     arc_prog.text = ::arc::text::Text(
         "func counter(trigger i64) i64 {\n"
         "    count $= 0\n"
@@ -1714,8 +1785,13 @@ TEST(ArcTests, testRestartResetsState) {
         client->racks.create(make_unique_channel_name("arc_restart_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_restart_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_restart_test",
+        .type = "arc_runtime",
+        .config = ""
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -1793,37 +1869,33 @@ TEST(ArcTests, testStaticAuthorityConfig) {
     auto output_idx_name = make_unique_channel_name("auth_output_idx");
     auto output_name = make_unique_channel_name("auth_output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::FLOAT32_T,
-        input_idx.key,
-        false
-    );
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::FLOAT32_T,
-        output_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("auth_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("auth_test")};
     arc_prog.text = ::arc::text::Text(
         "authority 200\n"
         "func calc(val f32) f32 {\n"
@@ -1837,8 +1909,12 @@ TEST(ArcTests, testStaticAuthorityConfig) {
         client->racks.create(make_unique_channel_name("arc_auth_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_auth_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_auth_test",
+        .type = "arc_runtime",
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -1893,51 +1969,45 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
     auto out_b_idx_name = make_unique_channel_name("pca_out_b_idx");
     auto out_b_name = make_unique_channel_name("pca_out_b");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto out_a_idx = synnax::channel::Channel(
-        out_a_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto out_a_idx = synnax::channel::Channel{
+        .name = out_a_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(out_a_idx));
-    auto out_b_idx = synnax::channel::Channel(
-        out_b_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto out_b_idx = synnax::channel::Channel{
+        .name = out_b_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(out_b_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::FLOAT32_T,
-        input_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+    };
     ASSERT_NIL(client->channels.create(input_ch));
-    auto out_a_ch = synnax::channel::Channel(
-        out_a_name,
-        x::telem::FLOAT32_T,
-        out_a_idx.key,
-        false
-    );
+    auto out_a_ch = synnax::channel::Channel{
+        .name = out_a_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = out_a_idx.key,
+    };
     ASSERT_NIL(client->channels.create(out_a_ch));
-    auto out_b_ch = synnax::channel::Channel(
-        out_b_name,
-        x::telem::FLOAT32_T,
-        out_b_idx.key,
-        false
-    );
+    auto out_b_ch = synnax::channel::Channel{
+        .name = out_b_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = out_b_idx.key,
+    };
     ASSERT_NIL(client->channels.create(out_b_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("pca_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("pca_test")};
     arc_prog.text = ::arc::text::Text(
         "authority (\n"
         "    100\n"
@@ -1957,8 +2027,12 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
         client->racks.create(make_unique_channel_name("arc_pca_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_pca_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_pca_test",
+        .type = "arc_runtime",
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -2020,39 +2094,35 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
 
     auto start_cmd_idx_name = make_unique_channel_name("dyn_auth_start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("dyn_auth_start_cmd");
-    auto start_cmd_idx = synnax::channel::Channel(
-        start_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto start_cmd_idx = synnax::channel::Channel{
+        .name = start_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::channel::Channel(
-        start_cmd_name,
-        x::telem::UINT8_T,
-        start_cmd_idx.key,
-        false
-    );
+    auto start_cmd_ch = synnax::channel::Channel{
+        .name = start_cmd_name,
+        .data_type = x::telem::UINT8_T,
+        .index = start_cmd_idx.key,
+    };
     ASSERT_NIL(client->channels.create(start_cmd_ch));
 
     auto valve_cmd_idx_name = make_unique_channel_name("dyn_auth_valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("dyn_auth_valve_cmd");
-    auto valve_cmd_idx = synnax::channel::Channel(
-        valve_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto valve_cmd_idx = synnax::channel::Channel{
+        .name = valve_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::channel::Channel(
-        valve_cmd_name,
-        x::telem::INT64_T,
-        valve_cmd_idx.key,
-        false
-    );
+    auto valve_cmd_ch = synnax::channel::Channel{
+        .name = valve_cmd_name,
+        .data_type = x::telem::INT64_T,
+        .index = valve_cmd_idx.key,
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("dyn_auth_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("dyn_auth_test")};
     arc_prog.text = ::arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
@@ -2071,8 +2141,12 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
         client->racks.create(make_unique_channel_name("arc_dyn_auth_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_dyn_auth_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_dyn_auth_test",
+        .type = "arc_runtime",
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -2122,39 +2196,35 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
 
     auto start_cmd_idx_name = make_unique_channel_name("dpc_auth_start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("dpc_auth_start_cmd");
-    auto start_cmd_idx = synnax::channel::Channel(
-        start_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto start_cmd_idx = synnax::channel::Channel{
+        .name = start_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::channel::Channel(
-        start_cmd_name,
-        x::telem::UINT8_T,
-        start_cmd_idx.key,
-        false
-    );
+    auto start_cmd_ch = synnax::channel::Channel{
+        .name = start_cmd_name,
+        .data_type = x::telem::UINT8_T,
+        .index = start_cmd_idx.key,
+    };
     ASSERT_NIL(client->channels.create(start_cmd_ch));
 
     auto valve_cmd_idx_name = make_unique_channel_name("dpc_auth_valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("dpc_auth_valve_cmd");
-    auto valve_cmd_idx = synnax::channel::Channel(
-        valve_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto valve_cmd_idx = synnax::channel::Channel{
+        .name = valve_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::channel::Channel(
-        valve_cmd_name,
-        x::telem::UINT8_T,
-        valve_cmd_idx.key,
-        false
-    );
+    auto valve_cmd_ch = synnax::channel::Channel{
+        .name = valve_cmd_name,
+        .data_type = x::telem::UINT8_T,
+        .index = valve_cmd_idx.key,
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("dpc_auth_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("dpc_auth_test")};
     arc_prog.text = ::arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
@@ -2175,8 +2245,12 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
         client->racks.create(make_unique_channel_name("arc_dpc_auth_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_dpc_auth_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_dpc_auth_test",
+        .type = "arc_runtime",
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -2230,37 +2304,33 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
     auto output_idx_name = make_unique_channel_name("auth_calc_output_idx");
     auto output_name = make_unique_channel_name("auth_calc_output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::UINT8_T,
-        input_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::UINT8_T,
+        .index = input_idx.key,
+    };
     ASSERT_NIL(client->channels.create(input_ch));
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::UINT8_T,
-        output_idx.key,
-        false
-    );
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::UINT8_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("auth_calc_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("auth_calc_test")};
     arc_prog.text = ::arc::text::Text(
         "func double(val u8) u8 {\n"
         "    return val * 2\n"
@@ -2274,8 +2344,12 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
         client->racks.create(make_unique_channel_name("arc_auth_calc_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_auth_calc_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_auth_calc_test",
+        .type = "arc_runtime",
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -2337,37 +2411,33 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
     auto output_idx_name = make_unique_channel_name("writer_fail_output_idx");
     auto output_name = make_unique_channel_name("writer_fail_output");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::INT32_T,
-        input_idx.key,
-        false
-    );
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::INT32_T,
-        output_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::INT32_T,
+        .index = input_idx.key,
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::INT32_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog(make_unique_channel_name("writer_fail_test"));
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("writer_fail_test")};
     arc_prog.text = ::arc::text::Text(
         "func double(val i32) i32 { return val * 2 }\n" + input_name +
         " -> double{} -> " + output_name + "\n"
@@ -2378,8 +2448,12 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
         client->racks.create(make_unique_channel_name("arc_writer_fail_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_writer_fail_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    synnax::task::Task task_meta{
+        .key = synnax::task::create_key(rack.key, 0),
+        .name = "arc_writer_fail_test",
+        .type = "arc_runtime",
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
     task_meta.config = nlohmann::to_string(cfg);
 
     auto parser = x::json::Parser(task_meta.config);
@@ -2419,7 +2493,10 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    auto *error_status = find_status_by_variant(ctx->statuses, x::status::variant::ERR);
+    auto *error_status = find_status_by_variant(
+        ctx->statuses,
+        x::status::VARIANT_ERROR
+    );
     EXPECT_NE(error_status, nullptr)
         << "Writer failure should propagate error status via stopped_with_err";
     if (error_status != nullptr) { EXPECT_FALSE(error_status->details.running); }

@@ -192,4 +192,18 @@ var _ = Describe("Freshen", func() {
 		Expect(bType.Type.Name).To(Equal("node_B"))
 		Expect(aType.Type.Name).ToNot(Equal(bType.Type.Name))
 	})
+
+	It("Should preserve ChanDirection on WriteChan types", func() {
+		writeChan := types.WriteChan(types.Variable("T", nil))
+		fresh := types.Freshen(writeChan, "node")
+		Expect(fresh.ChanDirection).To(Equal(types.ChanDirectionWrite))
+		Expect(fresh.Elem.Name).To(Equal("node_T"))
+	})
+
+	It("Should preserve ChanDirection on ReadChan types", func() {
+		readChan := types.ReadChan(types.Variable("T", nil))
+		fresh := types.Freshen(readChan, "node")
+		Expect(fresh.ChanDirection).To(Equal(types.ChanDirectionRead))
+		Expect(fresh.Elem.Name).To(Equal("node_T"))
+	})
 })

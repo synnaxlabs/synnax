@@ -9,10 +9,13 @@
 
 #include "glog/logging.h"
 
+#include "x/cpp/lib/lib.h"
+
 #include "driver/common/factory.h"
 #include "driver/common/read_task.h"
 #include "driver/common/scan_task.h"
 #include "driver/common/write_task.h"
+#include "driver/errors/errors.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/read_task.h"
 #include "driver/ethercat/scan_task.h"
@@ -27,6 +30,19 @@
 
 namespace driver::ethercat {
 
+#ifdef _WIN32
+const std::string PCAP_LIB_NAME = "wpcap.dll";
+#elif defined(__APPLE__)
+const std::string PCAP_LIB_NAME = "libpcap.dylib";
+#else
+const std::string PCAP_LIB_NAME = "libpcap.so";
+#endif
+
+static bool check_pcap_available() {
+    x::lib::SharedLib lib(PCAP_LIB_NAME);
+    return lib.load();
+}
+
 std::unique_ptr<master::Manager> default_manager() {
 #ifdef __linux__
     auto [igh_mgr, err] = igh::Manager::open();
@@ -38,6 +54,10 @@ std::unique_ptr<master::Manager> default_manager() {
 #else
     LOG(INFO) << "[ethercat] using SOEM backend";
 #endif
+    if (!check_pcap_available()) {
+        LOG(WARNING) << "[ethercat] " << driver::errors::missing_lib(PCAP_LIBRARY_INFO);
+        return nullptr;
+    }
     return std::make_unique<soem::Manager>();
 }
 

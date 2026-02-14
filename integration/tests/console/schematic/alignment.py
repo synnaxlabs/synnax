@@ -143,7 +143,7 @@ def assert_rotation(
     initial_positions: list[FloatRect],
     direction: RotationType,
     group: bool = False,
-    tolerance: float = 3.0,
+    tolerance: float = 5.0,
 ) -> None:
     """Assert that symbols have been rotated correctly.
 

@@ -21,8 +21,8 @@ from typing import Any
 # Centralized results directory for all test artifacts (screenshots, CSVs, etc.)
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "results")
 
-# Assets directory for test fixtures (SVGs, JSONs, etc.)
-ASSETS_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "assets")
+# Fixtures directory for test data (SVGs, JSONs, etc.)
+FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures")
 
 
 def get_results_path(filename: str) -> str:
@@ -31,21 +31,21 @@ def get_results_path(filename: str) -> str:
     return os.path.join(RESULTS_DIR, filename)
 
 
-def get_test_assets_path(filename: str) -> str:
-    """Get the full path for a test asset file.
+def get_fixture_path(filename: str) -> str:
+    """Get the full path for a test fixture file.
 
     Args:
-        filename: Name of the asset file (e.g., "test_valve.svg")
+        filename: Name of the fixture file (e.g., "test_valve.svg")
 
     Returns:
-        Full path to the asset file.
+        Full path to the fixture file.
 
     Raises:
-        FileNotFoundError: If the asset file doesn't exist.
+        FileNotFoundError: If the fixture file doesn't exist.
     """
-    path = os.path.join(ASSETS_DIR, filename)
+    path = os.path.join(FIXTURES_DIR, filename)
     if not os.path.exists(path):
-        raise FileNotFoundError(f"Test asset not found: {path}")
+        raise FileNotFoundError(f"Test fixture not found: {path}")
     return path
 
 

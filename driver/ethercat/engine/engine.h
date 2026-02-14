@@ -58,21 +58,31 @@ class Engine {
         std::atomic<uint64_t> epoch = 0;
     } read_epoch;
 
-    alignas(64) std::vector<uint8_t> shared_input_buffer;
+    /// @brief lock-free shared input buffer. Pointer and size are published
+    /// atomically under the seqlock so readers never observe a freed allocation.
+    /// Previous allocation is kept alive (deferred free) until the next reconfigure
+    /// to guarantee that any reader holding a stale pointer reads from valid memory.
+    alignas(64) std::atomic<uint8_t *> shared_input_ptr{nullptr};
+    std::atomic<size_t> shared_input_size{0};
+    std::unique_ptr<uint8_t[]> shared_input_current;
+    std::unique_ptr<uint8_t[]> shared_input_prev;
 
     mutable std::mutex notify_mu;
     std::condition_variable read_cv;
 
     mutable std::mutex registration_mu;
-    std::vector<Registration> read_registrations;
+    std::vector<std::shared_ptr<Registration>> read_registrations;
 
     mutable std::mutex write_mu;
     std::vector<uint8_t> write_staging;
     std::vector<uint8_t> write_active;
-    std::vector<Registration> write_registrations;
+    // Shared pointers allow writers to refresh offsets after reconfigure,
+    // mirroring the reader pattern.
+    std::vector<std::shared_ptr<Registration>> write_registrations;
 
     std::thread run_thread;
     std::atomic<bool> restarting{false};
+    alignas(64) std::atomic<uint64_t> config_gen{0};
     x::breaker::Breaker breaker;
 
     void run();
@@ -106,17 +116,20 @@ public:
         Engine &engine;
         size_t id;
         size_t total_size;
-        std::vector<ResolvedPDO> pdos;
+        std::shared_ptr<Registration> registration;
+        mutable std::vector<ResolvedPDO> pdos;
         mutable std::vector<uint8_t> private_buffer;
         mutable uint64_t last_seen_epoch = 0;
+        mutable uint64_t my_config_gen = 0;
+
+        void refresh_pdos() const;
 
     public:
         Reader(
             Engine &eng,
             size_t id,
             size_t total_size,
-            std::vector<ResolvedPDO> pdos,
-            size_t input_frame_size
+            std::shared_ptr<Registration> registration
         );
 
         Reader(const Reader &) = delete;
@@ -139,17 +152,21 @@ public:
     class Writer {
         Engine &engine;
         size_t id;
-        std::vector<ResolvedPDO> pdos;
+        std::shared_ptr<Registration> registration;
+        mutable std::vector<ResolvedPDO> pdos;
+        mutable uint64_t my_config_gen = 0;
+
+        void refresh_pdos_locked() const;
 
     public:
         /// @brief RAII batch writer that holds the write lock for multiple writes.
         class Transaction {
             Engine &engine;
-            const std::vector<ResolvedPDO> &pdos;
             std::unique_lock<std::mutex> lock;
+            const std::vector<ResolvedPDO> &pdos;
 
         public:
-            Transaction(Engine &eng, const std::vector<ResolvedPDO> &pdos);
+            explicit Transaction(const Writer &writer);
             Transaction(const Transaction &) = delete;
             Transaction &operator=(const Transaction &) = delete;
             Transaction(Transaction &&) = delete;
@@ -159,7 +176,7 @@ public:
             void write(size_t pdo_index, const x::telem::SampleValue &value) const;
         };
 
-        Writer(Engine &eng, size_t id, std::vector<ResolvedPDO> pdos);
+        Writer(Engine &eng, size_t id, std::shared_ptr<Registration> registration);
         ~Writer();
 
         Writer(const Writer &) = delete;

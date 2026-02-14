@@ -75,9 +75,9 @@ const (
 
 var tsEngines = []TSEngine{TSEngineCesium}
 
-// Config is used to configure the Synnax storage layer. See fields for details on
+// LayerConfig is used to configure the Synnax storage layer. See fields for details on
 // defining the configuration.
-type Config struct {
+type LayerConfig struct {
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -106,9 +106,9 @@ type Config struct {
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	// DefaultConfig returns the default configuration for the storage layer.
-	DefaultConfig = Config{
+	_ config.Config[LayerConfig] = LayerConfig{}
+	// DefaultLayerConfig returns the default configuration for the storage layer.
+	DefaultLayerConfig = LayerConfig{
 		Perm:     xfs.UserRWX,
 		InMemory: config.False(),
 		KVEngine: KVEnginePebble,
@@ -116,8 +116,8 @@ var (
 	}
 )
 
-// Override implements Config.
-func (cfg Config) Override(other Config) Config {
+// Override implements LayerConfig.
+func (cfg LayerConfig) Override(other LayerConfig) LayerConfig {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.Dirname = override.String(cfg.Dirname, other.Dirname)
 	cfg.Perm = override.Numeric(cfg.Perm, other.Perm)
@@ -130,8 +130,8 @@ func (cfg Config) Override(other Config) Config {
 	return cfg
 }
 
-// Validate implements Config.
-func (cfg Config) Validate() error {
+// Validate implements LayerConfig.
+func (cfg LayerConfig) Validate() error {
 	v := validate.New("storage")
 	v.Ternaryf("dirname", !*cfg.InMemory && cfg.Dirname == "", "dirname must be set")
 	v.Ternaryf("kv_engine", !lo.Contains(kvEngines, cfg.KVEngine), "invalid key-value engine %s", cfg.KVEngine)
@@ -141,7 +141,7 @@ func (cfg Config) Validate() error {
 }
 
 // Report implements the alamos.ReportProvider interface.
-func (cfg Config) Report() alamos.Report {
+func (cfg LayerConfig) Report() alamos.Report {
 	return alamos.Report{
 		"dirname":     cfg.Dirname,
 		"permissions": cfg.Perm,
@@ -170,16 +170,16 @@ type Layer struct {
 // later configurations override those in previous configurations. If the configuration
 // is invalid, Open returns a nil Layer and the configuration error.
 //
-// When Config.InMemory is false, Open acquires an exclusive lock on the directory
-// specified in Config.Dirname. If the lock cannot be acquired (commonly due to another
+// When LayerConfig.InMemory is false, Open acquires an exclusive lock on the directory
+// specified in LayerConfig.Dirname. If the lock cannot be acquired (commonly due to another
 // storage layer or unrelated process accessing it), then Open will return a nil Layer
 // and an error.
 //
 // If the returned error is nil, then the Layer must be closed after use. None of
 // the services in the Layer should be used after Close is called. It is the caller's
 // responsibility to ensure that the Layer is not accessed after it is closed.
-func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (*Layer, error) {
+	cfg, err := config.New(DefaultLayerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +247,7 @@ func (s *Layer) TSSize() telem.Size { return s.TS.Metrics().DiskSize }
 // Size returns the total disk space used by the storage layer in bytes.
 func (s *Layer) Size() telem.Size { return s.KVSize() + s.TSSize() }
 
-func openFileSystems(cfg Config) (vfs.FS, xfs.FS) {
+func openFileSystems(cfg LayerConfig) (vfs.FS, xfs.FS) {
 	if *cfg.InMemory {
 		return vfs.NewMem(), xfs.NewMem()
 	} else {
@@ -255,7 +255,7 @@ func openFileSystems(cfg Config) (vfs.FS, xfs.FS) {
 	}
 }
 
-func configureStorageDir(cfg Config, vfs vfs.FS) error {
+func configureStorageDir(cfg LayerConfig, vfs vfs.FS) error {
 	if err := vfs.MkdirAll(cfg.Dirname, cfg.Perm); err != nil {
 		return errors.Wrapf(err, "failed to create storage directory %s", cfg.Dirname)
 	}
@@ -281,7 +281,7 @@ Synnax requires the storage directory to have at least
 permissions.
 `
 
-func validateSufficientDirPermissions(cfg Config) error {
+func validateSufficientDirPermissions(cfg LayerConfig) error {
 	stat, err := os.Stat(cfg.Dirname)
 	if err != nil {
 		return err
@@ -306,7 +306,7 @@ Failed to acquire lock on storage directory
 Is there another Synnax node using the same directory?
 `
 
-func acquireLock(cfg Config, fs vfs.FS) (io.Closer, error) {
+func acquireLock(cfg LayerConfig, fs vfs.FS) (io.Closer, error) {
 	fName := filepath.Join(cfg.Dirname, "LOCK")
 	release, err := fs.Lock(fName)
 	if err == nil {
@@ -315,7 +315,7 @@ func acquireLock(cfg Config, fs vfs.FS) (io.Closer, error) {
 	return release, errors.Wrapf(err, failedToAcquireLockMsg, cfg.Dirname)
 }
 
-func openPebbleCache(cfg Config) (*pebble.Cache, io.Closer, error) {
+func openPebbleCache(cfg LayerConfig) (*pebble.Cache, io.Closer, error) {
 	// Create a shared block cache for Pebble.
 	// For read-heavy workloads, a large cache is critical for performance.
 	// Default is 8 MB, we're using 1 GB for production workloads.
@@ -335,7 +335,7 @@ func openPebbleCache(cfg Config) (*pebble.Cache, io.Closer, error) {
 	}), nil
 }
 
-func openKV(cfg Config, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
+func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 	if cfg.KVEngine != KVEnginePebble {
 		return nil, errors.Newf("[storage] - unsupported key-value engine: %s", cfg.KVEngine)
 	}
@@ -402,7 +402,7 @@ func openKV(cfg Config, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 	return pebblekv.Wrap(db, pebblekv.DisableObservation()), err
 }
 
-func openTS(ctx context.Context, cfg Config, fs xfs.FS) (*ts.DB, error) {
+func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*ts.DB, error) {
 	if cfg.TSEngine != TSEngineCesium {
 		return nil, errors.Newf("[storage] - unsupported time-series engine: %s", cfg.TSEngine)
 	}

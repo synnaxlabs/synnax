@@ -63,7 +63,7 @@ func freshen(t Type, prefix string, mapping map[string]Type) Type {
 	}
 	if t.Kind == KindChan || t.Kind == KindSeries {
 		ft := freshen(t.Unwrap(), prefix, mapping)
-		return Type{Kind: t.Kind, Elem: &ft}
+		return Type{Kind: t.Kind, Elem: &ft, ChanDirection: t.ChanDirection}
 	}
 	if t.Kind == KindFunction {
 		props := FunctionProperties{

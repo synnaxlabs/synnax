@@ -344,7 +344,7 @@ TEST_F(SetAuthorityTest, MultipleChannelsDifferentAuth) {
     ASSERT_EQ(keys.size(), 3);
 
     // Create a map of channel keys to their authorities for easier verification
-    std::map<synnax::channel::Key, x::telem::Authority> auth_map;
+    std::map<synnax::channel::Key, x::control::Authority> auth_map;
     for (size_t i = 0; i < keys.size(); i++)
         auth_map[keys[i]] = auths[i];
     EXPECT_EQ(auth_map[1], 42); // channel1

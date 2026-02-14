@@ -32,6 +32,7 @@ cc_library(
         "//x/cpp/breaker",
         "//x/cpp/errors",
         "//x/cpp/json",
+        "//x/cpp/lib",
         "//x/cpp/telem",
         "@glog",
     ] + select({

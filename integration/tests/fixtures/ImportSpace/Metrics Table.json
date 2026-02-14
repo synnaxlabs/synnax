@@ -1,0 +1,214 @@
+{
+  "key": "88b8b83e-2433-4c92-b244-de2b5f59a68d",
+  "version": "0.0.0",
+  "lastSelected": "UnSv19BHjPB",
+  "editable": true,
+  "remoteCreated": true,
+  "layout": {
+    "rows": [
+      {
+        "size": 36,
+        "cells": [
+          {
+            "key": "XGmZUGcy8BV"
+          },
+          {
+            "key": "x5kWGi0DZha"
+          }
+        ]
+      },
+      {
+        "size": 36,
+        "cells": [
+          {
+            "key": "SMm7XhRkCJM"
+          },
+          {
+            "key": "UnSv19BHjPB"
+          }
+        ]
+      }
+    ],
+    "columns": [
+      {
+        "size": 72
+      },
+      {
+        "size": 72
+      }
+    ]
+  },
+  "cells": {
+    "XGmZUGcy8BV": {
+      "key": "XGmZUGcy8BV",
+      "variant": "text",
+      "selected": false,
+      "props": {
+        "level": "h5",
+        "value": "CPU %",
+        "weight": 400,
+        "align": "center",
+        "backgroundColor": "#00000000"
+      }
+    },
+    "x5kWGi0DZha": {
+      "key": "x5kWGi0DZha",
+      "variant": "text",
+      "selected": false,
+      "props": {
+        "level": "h5",
+        "value": "Mem %",
+        "weight": 400,
+        "align": "center",
+        "backgroundColor": "#00000000"
+      }
+    },
+    "SMm7XhRkCJM": {
+      "key": "SMm7XhRkCJM",
+      "variant": "value",
+      "selected": false,
+      "props": {
+        "value": "",
+        "level": "h5",
+        "units": "",
+        "weight": 400,
+        "align": "center",
+        "backgroundColor": "#00000000",
+        "telem": {
+          "variant": "source",
+          "props": {
+            "connections": [
+              {
+                "from": "valueStream",
+                "to": "rollingAverage"
+              },
+              {
+                "from": "rollingAverage",
+                "to": "stringifier"
+              }
+            ],
+            "segments": {
+              "valueStream": {
+                "type": "stream-channel-value",
+                "props": {
+                  "channel": 1048581
+                },
+                "variant": "source",
+                "valueType": "number"
+              },
+              "stringifier": {
+                "props": {
+                  "precision": 1,
+                  "prefix": "",
+                  "suffix": "",
+                  "notation": "standard"
+                },
+                "type": "stringify-number",
+                "variant": "source",
+                "valueType": "string"
+              },
+              "rollingAverage": {
+                "props": {
+                  "windowSize": 1
+                },
+                "type": "rolling-average",
+                "variant": "source",
+                "valueType": "number"
+              }
+            },
+            "outlet": "stringifier"
+          },
+          "type": "source-pipeline",
+          "valueType": "string"
+        },
+        "redline": {
+          "bounds": {
+            "lower": 0,
+            "upper": 1
+          },
+          "gradient": []
+        },
+        "color": "#dadada",
+        "stalenessTimeout": 5,
+        "stalenessColor": [194, 157, 10, 1],
+        "": {
+          "tooltip": ["sy_node_1_metrics_cpu_percentage"]
+        }
+      }
+    },
+    "UnSv19BHjPB": {
+      "key": "UnSv19BHjPB",
+      "variant": "value",
+      "selected": true,
+      "props": {
+        "value": "",
+        "level": "h5",
+        "units": "",
+        "weight": 400,
+        "align": "center",
+        "backgroundColor": "#00000000",
+        "telem": {
+          "variant": "source",
+          "props": {
+            "connections": [
+              {
+                "from": "valueStream",
+                "to": "rollingAverage"
+              },
+              {
+                "from": "rollingAverage",
+                "to": "stringifier"
+              }
+            ],
+            "segments": {
+              "valueStream": {
+                "type": "stream-channel-value",
+                "props": {
+                  "channel": 1048580
+                },
+                "variant": "source",
+                "valueType": "number"
+              },
+              "stringifier": {
+                "props": {
+                  "precision": 1,
+                  "prefix": "",
+                  "suffix": "",
+                  "notation": "standard"
+                },
+                "type": "stringify-number",
+                "variant": "source",
+                "valueType": "string"
+              },
+              "rollingAverage": {
+                "props": {
+                  "windowSize": 1
+                },
+                "type": "rolling-average",
+                "variant": "source",
+                "valueType": "number"
+              }
+            },
+            "outlet": "stringifier"
+          },
+          "type": "source-pipeline",
+          "valueType": "string"
+        },
+        "redline": {
+          "bounds": {
+            "lower": 0,
+            "upper": 1
+          },
+          "gradient": []
+        },
+        "color": "#dadada",
+        "stalenessTimeout": 5,
+        "stalenessColor": [194, 157, 10, 1],
+        "": {
+          "tooltip": ["sy_node_1_metrics_mem_percentage"]
+        }
+      }
+    }
+  },
+  "type": "table"
+}

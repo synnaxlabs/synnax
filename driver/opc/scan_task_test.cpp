@@ -36,7 +36,12 @@ protected:
 
         rack = ASSERT_NIL_P(client->racks.create("opc_scan_task_test_rack"));
 
-        task = synnax::task::Task(rack.key, "OPC UA Scan Task Test", "opc_scan", "");
+        task = synnax::task::Task{
+            .key = synnax::task::create_key(rack.key, 0),
+            .name = "OPC UA Scan Task Test",
+            .type = "opc_scan",
+            .config = ""
+        };
 
         auto server_cfg = mock::ServerConfig::create_default();
         server = std::make_unique<mock::Server>(server_cfg);
@@ -85,7 +90,7 @@ TEST_F(TestScanTask, testBasicScan) {
     const auto &state = ctx->statuses[0];
     EXPECT_EQ(state.key, task.status_key());
     EXPECT_EQ(state.details.cmd, "scan_cmd");
-    EXPECT_EQ(state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(state.variant, x::status::VARIANT_SUCCESS);
 
     auto data = state.details.data;
     ASSERT_TRUE(data.contains("channels"));
@@ -155,14 +160,14 @@ TEST_F(TestScanTask, testConnectionPooling) {
 
     scan_task->exec(cmd1);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    EXPECT_EQ(ctx->statuses[0].variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
 
     task::Command cmd2(task.key, BROWSE_CMD_TYPE, scan_cmd);
     cmd2.key = "scan_cmd_2";
 
     scan_task->exec(cmd2);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[1].variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, x::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should successfully test connection to OPC UA server.
@@ -194,7 +199,7 @@ TEST_F(TestScanTask, testTestConnection) {
     const auto &state = ctx->statuses[0];
     EXPECT_EQ(state.key, task.status_key());
     EXPECT_EQ(state.details.cmd, "test_conn_cmd");
-    EXPECT_EQ(state.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(state.message, "Connection successful");
 }
 
@@ -227,7 +232,7 @@ TEST_F(TestScanTask, testInvalidConnection) {
     const auto &state = ctx->statuses[0];
     EXPECT_EQ(state.key, task.status_key());
     EXPECT_EQ(state.details.cmd, "invalid_scan_cmd");
-    EXPECT_EQ(state.variant, x::status::variant::ERR);
+    EXPECT_EQ(state.variant, x::status::VARIANT_ERROR);
 }
 
 /// @brief Tests that Scanner::config() returns correct values.
@@ -271,7 +276,7 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status.variant, x::status::variant::SUCCESS);
+    EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(devices[0].status.message, "Server connected");
 }
 
@@ -304,7 +309,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     {
         auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
-        EXPECT_EQ(devices[0].status.variant, x::status::variant::SUCCESS);
+        EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
         EXPECT_EQ(devices[0].status.message, "Server connected");
     }
 
@@ -319,7 +324,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
         auto devices = ASSERT_NIL_P(scanner2.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
         // When server is down, health check should return WARNING with connection error
-        EXPECT_EQ(devices[0].status.variant, x::status::variant::WARNING);
+        EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_WARNING);
         // The message should indicate a connection failure (not empty)
         EXPECT_FALSE(devices[0].status.message.empty());
         EXPECT_NE(devices[0].status.message, "Server connected");
@@ -351,7 +356,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     {
         auto devices = ASSERT_NIL_P(scanner3.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
-        EXPECT_EQ(devices[0].status.variant, x::status::variant::SUCCESS);
+        EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
         EXPECT_EQ(devices[0].status.message, "Server connected");
     }
 }

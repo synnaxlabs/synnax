@@ -26,6 +26,7 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/ethercat/errors/errors.h"
+#include "driver/ethercat/soem/api.h"
 #include "driver/ethercat/soem/master.h"
 #include "engine/engine.h"
 
@@ -50,7 +51,10 @@ protected:
 
     void SetUp() override {
         interface_name = get_interface_name();
-        master = std::make_unique<soem::Master>(interface_name);
+        master = std::make_unique<soem::Master>(
+            std::make_unique<soem::ProdAPI>(),
+            interface_name
+        );
     }
 
     void TearDown() override {
@@ -209,7 +213,10 @@ protected:
 
     void SetUp() override {
         interface_name = get_interface_name();
-        master = std::make_shared<soem::Master>(interface_name);
+        master = std::make_shared<soem::Master>(
+            std::make_unique<soem::ProdAPI>(),
+            interface_name
+        );
         std::shared_ptr<Master> master_base = master;
         engine = std::make_unique<Loop>(
             master_base,

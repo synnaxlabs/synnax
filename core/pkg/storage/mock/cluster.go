@@ -23,14 +23,14 @@ import (
 // The provisioned
 type Cluster struct {
 	// cfg is the configuration used to provision new stores.
-	cfg storage.Config
+	cfg storage.LayerConfig
 	// Stores is a slice all stores provisioned by the Cluster.
 	Stores []*storage.Layer
 }
 
 // NewCluster opens a new Cluster that provisions stores using the given configuration.
-func NewCluster(configs ...storage.Config) *Cluster {
-	cfg := lo.Must(config.New(storage.DefaultConfig, append([]storage.Config{{
+func NewCluster(configs ...storage.LayerConfig) *Cluster {
+	cfg := lo.Must(config.New(storage.DefaultLayerConfig, append([]storage.LayerConfig{{
 		InMemory: config.True(),
 	}}, configs...)...))
 	if !*cfg.InMemory {
@@ -65,7 +65,7 @@ func (b *Cluster) Close() error {
 }
 
 func (b *Cluster) newMemBacked(ctx context.Context) *storage.Layer {
-	return lo.Must(storage.Open(ctx, b.cfg))
+	return lo.Must(storage.OpenLayer(ctx, b.cfg))
 }
 
 func (b *Cluster) newFSBacked(ctx context.Context) *storage.Layer {
@@ -73,5 +73,5 @@ func (b *Cluster) newFSBacked(ctx context.Context) *storage.Layer {
 	tempDir := lo.Must(os.MkdirTemp(b.cfg.Dirname, "delta-test-"))
 	nCfg := b.cfg
 	nCfg.Dirname = tempDir
-	return lo.Must(storage.Open(ctx, nCfg))
+	return lo.Must(storage.OpenLayer(ctx, nCfg))
 }

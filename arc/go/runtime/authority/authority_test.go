@@ -215,6 +215,51 @@ var _ = Describe("Authority", func() {
 			}})
 			Expect(outputs).To(BeEmpty())
 		})
+
+		It("Should buffer changes from two nodes targeting different channels", func() {
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "set_auth_a", Type: "set_authority"},
+					{Key: "set_auth_b", Type: "set_authority"},
+				},
+				Functions: []graph.Function{{Key: "set_authority"}},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, authority.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			ms := state.New(state.Config{IR: analyzed})
+			f := authority.NewFactory(ms)
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			nA := MustSucceed(f.Create(ctx, node.Config{
+				Node: ir.Node{
+					Type: "set_authority",
+					Config: types.Params{
+						{Name: "value", Type: types.U8(), Value: uint8(200)},
+						{Name: "channel", Type: types.U8(), Value: uint32(10)},
+					},
+				},
+				State: ms.Node("set_auth_a"),
+			}))
+			nB := MustSucceed(f.Create(ctx, node.Config{
+				Node: ir.Node{
+					Type: "set_authority",
+					Config: types.Params{
+						{Name: "value", Type: types.U8(), Value: uint8(150)},
+						{Name: "channel", Type: types.U8(), Value: uint32(20)},
+					},
+				},
+				State: ms.Node("set_auth_b"),
+			}))
+
+			nA.Next(nCtx)
+			nB.Next(nCtx)
+			changes := ms.FlushAuthorityChanges()
+			Expect(changes).To(HaveLen(2))
+			Expect(*changes[0].Channel).To(Equal(uint32(10)))
+			Expect(changes[0].Authority).To(Equal(uint8(200)))
+			Expect(*changes[1].Channel).To(Equal(uint32(20)))
+			Expect(changes[1].Authority).To(Equal(uint8(150)))
+		})
 	})
 
 	Describe("Reset", func() {

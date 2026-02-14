@@ -17,14 +17,14 @@ namespace x::status {
 TEST(StatusTest, TestToJSON) {
     const Status<> stat{
         .key = "dog",
-        .variant = variant::SUCCESS,
+        .variant = VARIANT_SUCCESS,
         .message = "the dog is happy",
         .description = "a longer description of the dog's status",
         .time = telem::TimeStamp::now(),
     };
     auto j = stat.to_json();
     ASSERT_EQ(j["key"], "dog");
-    ASSERT_EQ(j["variant"], variant::SUCCESS);
+    ASSERT_EQ(j["variant"], VARIANT_SUCCESS);
     ASSERT_EQ(j["message"], "the dog is happy");
     ASSERT_EQ(j["description"], "a longer description of the dog's status");
     ASSERT_GT(j["time"], 0);
@@ -34,7 +34,7 @@ TEST(StatusTest, TestToJSON) {
 TEST(StatusTest, TestParse) {
     json::json j = {
         {"key", "cat"},
-        {"variant", variant::ERR},
+        {"variant", VARIANT_ERROR},
         {"message", "the cat is angry"},
         {"description", "a longer description of the cat's status"},
         {"time", telem::TimeStamp(telem::SECOND).nanoseconds()}
@@ -42,7 +42,7 @@ TEST(StatusTest, TestParse) {
     json::Parser p(j);
     const auto stat = Status<>::parse(p);
     ASSERT_EQ(stat.key, "cat");
-    ASSERT_EQ(stat.variant, variant::ERR);
+    ASSERT_EQ(stat.variant, VARIANT_ERROR);
     ASSERT_EQ(stat.message, "the cat is angry");
     ASSERT_EQ(stat.description, "a longer description of the cat's status");
     ASSERT_EQ(stat.time, telem::TimeStamp(telem::SECOND));
@@ -70,7 +70,7 @@ TEST(StatusTest, TestProtobufDetailsRoundTrip) {
     Status<TestDetails> original{
         .key = "test-key",
         .name = "Test Status",
-        .variant = variant::INFO,
+        .variant = VARIANT_INFO,
         .message = "test message",
         .description = "test description",
         .time = telem::TimeStamp::now(),
@@ -114,7 +114,7 @@ TEST(StatusTest, TestIsZero) {
     const Status<> with_name{.name = "Test"};
     ASSERT_FALSE(with_name.is_zero());
 
-    const Status<> with_variant{.variant = variant::SUCCESS};
+    const Status<> with_variant{.variant = VARIANT_SUCCESS};
     ASSERT_FALSE(with_variant.is_zero());
 
     const Status<> with_message{.message = "hello"};
@@ -130,7 +130,7 @@ TEST(StatusTest, TestIsZero) {
     const Status<> full_status{
         .key = "key",
         .name = "name",
-        .variant = variant::INFO,
+        .variant = VARIANT_INFO,
         .message = "msg",
         .description = "desc",
         .time = telem::TimeStamp::now(),

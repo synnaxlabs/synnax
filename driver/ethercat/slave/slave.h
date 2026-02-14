@@ -48,6 +48,26 @@ inline std::string slave_state_to_string(const State state) {
     }
 }
 
+/// @brief converts an EtherCAT AL (Application Layer) state register value to our
+/// slave::State enum. Masks with 0x0F to strip error flag bits (SOEM sets bit 4 on
+/// error). Works for both SOEM uint16 and IgH uint8 state values.
+inline State from_al_state(const uint16_t al_state) {
+    switch (al_state & 0x0F) {
+        case 0x01:
+            return State::INIT;
+        case 0x02:
+            return State::PRE_OP;
+        case 0x03:
+            return State::BOOT;
+        case 0x04:
+            return State::SAFE_OP;
+        case 0x08:
+            return State::OP;
+        default:
+            return State::UNKNOWN;
+    }
+}
+
 /// @brief static properties of an EtherCAT slave device stored in device.properties.
 struct Properties {
     /// @brief network interface the slave is connected to.

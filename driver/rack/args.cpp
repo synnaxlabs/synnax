@@ -19,6 +19,6 @@ x::errors::Error Config::load_args(x::args::Parser &args) {
         args.field("enable-integrations", std::vector<std::string>{}),
         args.field("disable-integrations", std::vector<std::string>{})
     );
-    return x::errors::NIL;
+    return args.error();
 }
 }

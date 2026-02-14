@@ -181,11 +181,11 @@ var _ = Describe("Codec", func() {
 				channel.Keys{1, 2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[uint8](1, 2, 3),
-					telem.NewSeriesStringsV("cat", "dog"),
-					telem.NewSeriesStaticJSONV(
+					telem.NewSeriesV("cat", "dog"),
+					MustSucceed(telem.NewJSONSeriesV(
 						map[string]any{"key": "value"},
 						map[string]any{"key": "value2"},
-					),
+					)),
 				},
 			),
 		),
@@ -219,7 +219,7 @@ var _ = Describe("Codec", func() {
 			s2 := telem.NewSeries(float32Data)
 			s2.TimeRange = telem.NewRangeSeconds(3, 5)
 			s2.Alignment = 10
-			s3 := telem.NewSeriesStringsV("cat", "dog", "rabbit", "frog")
+			s3 := telem.NewSeriesV("cat", "dog", "rabbit", "frog")
 			s3.TimeRange = telem.NewRangeSeconds(1, 5)
 			s3.Alignment = 5
 			s4 := telem.MakeSeries(telem.Uint8T, 5000)
@@ -567,7 +567,7 @@ var _ = Describe("Codec", func() {
 			multiFrame := frame.NewMulti(
 				channel.Keys{300, 100, 200},
 				[]telem.Series{
-					telem.NewSeriesStringsV("hello", "world"),
+					telem.NewSeriesV("hello", "world"),
 					telem.NewSeriesV[int64](1000, 2000, 3000),
 					telem.NewSeriesV(1.111, 2.222),
 				},
@@ -612,7 +612,7 @@ var _ = Describe("Codec", func() {
 			// Verify the data is correct (concatenated)
 			series := decoded.Get(1)
 			Expect(len(series.Series)).To(Equal(1))
-			mergedData := telem.UnmarshalSlice[int32](series.Series[0].Data, telem.Int32T)
+			mergedData := telem.UnmarshalSeries[int32](series.Series[0])
 			Expect(mergedData).To(Equal([]int32{1, 2, 3, 4, 5}))
 
 			// Verify alignment is from the first series
@@ -642,7 +642,7 @@ var _ = Describe("Codec", func() {
 			Expect(decoded.Count()).To(Equal(1))
 			series := decoded.Get(1)
 			Expect(len(series.Series)).To(Equal(1))
-			mergedData := telem.UnmarshalSlice[uint8](series.Series[0].Data, telem.Uint8T)
+			mergedData := telem.UnmarshalSeries[uint8](series.Series[0])
 			Expect(mergedData).To(Equal([]uint8{1, 2, 3, 4, 5, 6}))
 		})
 
@@ -702,11 +702,11 @@ var _ = Describe("Codec", func() {
 			Expect(len(series.Series)).To(Equal(2))
 
 			// First merged series should be [1, 2, 3, 4]
-			firstData := telem.UnmarshalSlice[int32](series.Series[0].Data, telem.Int32T)
+			firstData := telem.UnmarshalSeries[int32](series.Series[0])
 			Expect(firstData).To(Equal([]int32{1, 2, 3, 4}))
 
 			// Second merged series should be [5, 6]
-			secondData := telem.UnmarshalSlice[int32](series.Series[1].Data, telem.Int32T)
+			secondData := telem.UnmarshalSeries[int32](series.Series[1])
 			Expect(secondData).To(Equal([]int32{5, 6}))
 		})
 
@@ -741,13 +741,13 @@ var _ = Describe("Codec", func() {
 			// Channel 1 should have merged series
 			ch1Series := decoded.Get(1)
 			Expect(len(ch1Series.Series)).To(Equal(1))
-			ch1Data := telem.UnmarshalSlice[int32](ch1Series.Series[0].Data, telem.Int32T)
+			ch1Data := telem.UnmarshalSeries[int32](ch1Series.Series[0])
 			Expect(ch1Data).To(Equal([]int32{1, 2, 3, 4}))
 
 			// Channel 2 should have merged series
 			ch2Series := decoded.Get(2)
 			Expect(len(ch2Series.Series)).To(Equal(1))
-			ch2Data := telem.UnmarshalSlice[float32](ch2Series.Series[0].Data, telem.Float32T)
+			ch2Data := telem.UnmarshalSeries[float32](ch2Series.Series[0])
 			Expect(ch2Data).To(Equal([]float32{1.1, 2.2, 3.3, 4.4}))
 		})
 
@@ -818,10 +818,10 @@ var _ = Describe("Codec", func() {
 			dataTypes := []telem.DataType{telem.StringT}
 			codec := codec.NewStatic(keys, dataTypes)
 
-			s1 := telem.NewSeriesStringsV("hello", "world")
+			s1 := telem.NewSeriesV("hello", "world")
 			s1.Alignment = 0
 
-			s2 := telem.NewSeriesStringsV("foo")
+			s2 := telem.NewSeriesV("foo")
 			s2.Alignment = 2
 
 			frame := frame.NewMulti(
@@ -837,7 +837,7 @@ var _ = Describe("Codec", func() {
 			Expect(len(series.Series)).To(Equal(1))
 
 			// Data should be concatenated correctly
-			mergedStrings := telem.UnmarshalStrings(series.Series[0].Data)
+			mergedStrings := telem.UnmarshalSeries[string](series.Series[0])
 			Expect(mergedStrings).To(Equal([]string{"hello", "world", "foo"}))
 		})
 	})

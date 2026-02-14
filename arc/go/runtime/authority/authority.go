@@ -30,7 +30,7 @@ var (
 		Type: types.Function(types.FunctionProperties{
 			Config: types.Params{
 				{Name: "value", Type: types.U8()},
-				{Name: "channel", Type: types.WriteChan(types.U8()), Value: uint32(0)},
+				{Name: "channel", Type: types.WriteChan(types.Variable("T", nil)), Value: uint32(0)},
 			},
 			Inputs: types.Params{
 				{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},

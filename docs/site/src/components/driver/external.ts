@@ -8,4 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export { default as DownloadURL } from "@/components/driver/DownloadURL.astro";
+export { default as MoveCommand } from "@/components/driver/MoveCommand.astro";
 export * from "@/components/driver/Tabs";
+export { default as VersionOutput } from "@/components/driver/VersionOutput.astro";
