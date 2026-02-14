@@ -69,12 +69,14 @@ TEST(ParseMethodTest, ParsesCONNECT) {
 
 TEST(ParseMethodTest, UnknownMethodErrors) {
     x::json::Parser p(x::json::json{{"method", "INVALID"}});
-    parse_method(p, "method");
+    // should default to GET
+    EXPECT_EQ(parse_method(p, "method"), Method::GET);
     EXPECT_FALSE(p.ok());
 }
 
 TEST(ParseMethodTest, MissingFieldErrors) {
     x::json::Parser p(x::json::json::object());
-    parse_method(p, "method");
+    // should default to GET
+    EXPECT_EQ(parse_method(p, "method"), Method::GET);
     EXPECT_FALSE(p.ok());
 }

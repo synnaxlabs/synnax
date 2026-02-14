@@ -118,8 +118,8 @@ public:
 
     /// @brief returns the base URL of the running server.
     [[nodiscard]] std::string base_url() const {
-        const auto scheme = secure_ ? "https" : "http";
-        return std::string(scheme) + "://" + host_ + ":" + std::to_string(port_);
+        const std::string scheme = secure_ ? "https" : "http";
+        return scheme + "://" + host_ + ":" + std::to_string(port_);
     }
 
     /// @brief returns all requests received by the server.
