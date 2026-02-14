@@ -3,9 +3,9 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "base64",
+    srcs = ["base64.cpp"],
     hdrs = ["base64.h"],
     visibility = ["//visibility:public"],
-    deps = ["@openssl//:crypto"],
 )
 
 cc_test(
