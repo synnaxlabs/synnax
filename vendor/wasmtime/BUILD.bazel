@@ -75,12 +75,17 @@ genrule(
         "@platforms//os:windows": """
             # Fix PATH: Use rustup's Rust instead of Chocolatey's
             # Chocolatey installs Rust to /c/ProgramData/chocolatey/bin but rustup
-            # manages toolchains in /c/Users/Administrator/.cargo/bin. We need rustup's version.
-            # Note: $$HOME in Git Bash points to system profile, not actual user directory
-            export PATH="/c/Users/Administrator/.cargo/bin:$$PATH"
-
-            # Force rustup to use Administrator's rustup directory, not system profile's
-            export RUSTUP_HOME="/c/Users/Administrator/.rustup"
+            # manages toolchains in ~/.cargo/bin. We need rustup's version.
+            # Resolve the user home from USERPROFILE, HOME, or whoami as fallback.
+            if [ -n "$${USERPROFILE:-}" ]; then
+                _HOME="$$(cygpath -u "$$USERPROFILE")"
+            elif [ -n "$${HOME:-}" ]; then
+                _HOME="$$HOME"
+            else
+                _HOME="/c/Users/$$(whoami)"
+            fi
+            export PATH="$$_HOME/.cargo/bin:$$PATH"
+            export RUSTUP_HOME="$$_HOME/.rustup"
 
             # Ensure MSVC target is installed
             rustup target add x86_64-pc-windows-msvc

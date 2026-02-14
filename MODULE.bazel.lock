@@ -509,6 +509,34 @@
   },
   "selectedYankedVersions": {},
   "moduleExtensions": {
+    "//vendor:esi.bzl%esi": {
+      "general": {
+        "bzlTransitiveDigest": "BaBjvESjs53xwISSehed073r6IERA8zUnO2wx+PFpnw=",
+        "usagesDigest": "Rrwlqro+M2faiRxeeoz7paIoyyQhHAuwmZDVUQt1cdg=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "esi_registry_blob": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
+            "attributes": {
+              "urls": [
+                "https://github.com/synnaxlabs/esi/releases/download/latest/registry_blob.inc"
+              ],
+              "sha256": "fd1a5dae9d00efa9bfff17cc94db1752b0c736b9a5048f9496f6fe2265584d25",
+              "downloaded_file_path": "registry_blob.inc"
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "",
+            "bazel_tools",
+            "bazel_tools"
+          ]
+        ]
+      }
+    },
     "@@rules_kotlin+//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
       "general": {
         "bzlTransitiveDigest": "OlvsB0HsvxbR8ZN+J9Vf00X/+WVz/Y/5Xrq2LgcVfdo=",
