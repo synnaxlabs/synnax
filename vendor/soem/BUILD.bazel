@@ -5,6 +5,9 @@
 # and Windows. Platform-specific OSAL and OSHW layers are selected via Bazel.
 ###############################################################################
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 # Core SOEM sources (platform-independent)
 SOEM_CORE_SRCS = [
     "SOEM/src/ec_base.c",

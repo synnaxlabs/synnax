@@ -1,6 +1,4 @@
-module(
-    name = "synnax",
-)
+module(name = "synnax")
 
 bazel_dep(name = "protobuf", version = "33.1")
 bazel_dep(name = "rules_proto", version = "7.1.0")

@@ -14,9 +14,9 @@
 #include "x/cpp/lib/lib.h"
 #include "x/cpp/os/os.h"
 
-#include "driver/ni/errors/errors.h"
 #include "driver/errors/errors.h"
 #include "driver/ni/daqmx/prod.h"
+#include "driver/ni/errors/errors.h"
 
 namespace driver::ni::daqmx {
 #ifdef _WIN32

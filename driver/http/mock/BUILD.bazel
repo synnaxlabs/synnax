@@ -22,9 +22,9 @@ cc_library(
     deps = [
         "//driver/http/types",
         "//x/cpp/errors",
+        "@cpp-httplib//:cpp-httplib",
         "@openssl//:crypto",
         "@openssl//:ssl",
-        "@cpp-httplib//:cpp-httplib",
     ],
 )
 
@@ -42,7 +42,7 @@ cc_test(
     deps = [
         ":mock",
         "//x/cpp/test",
-        "@googletest//:gtest_main",
         "@cpp-httplib//:cpp-httplib",
+        "@googletest//:gtest_main",
     ],
 )

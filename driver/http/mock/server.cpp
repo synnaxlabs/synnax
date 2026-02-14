@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/http/mock/server.h"
-
 #include <atomic>
 #include <mutex>
 #include <stdexcept>
 #include <thread>
 
+#include "driver/http/mock/server.h"
 #include "httplib.h"
 
 namespace driver::http::mock {
@@ -43,10 +42,12 @@ struct Server::Impl {
     void log_request(const httplib::Request &req) {
         std::lock_guard lock(mu);
         std::multimap<std::string, std::string> headers(
-            req.headers.begin(), req.headers.end()
+            req.headers.begin(),
+            req.headers.end()
         );
         std::multimap<std::string, std::string> params(
-            req.params.begin(), req.params.end()
+            req.params.begin(),
+            req.params.end()
         );
         requests.push_back({
             .method = parse_httplib_method(req.method),
@@ -86,22 +87,16 @@ struct Server::Impl {
                 svr->Options(route.path, handler);
                 break;
             case Method::HEAD:
-                throw std::runtime_error(
-                    "httplib does not support HEAD methods"
-                );
+                throw std::runtime_error("httplib does not support HEAD methods");
             case Method::TRACE:
-                throw std::runtime_error(
-                    "httplib does not support TRACE methods"
-                );
+                throw std::runtime_error("httplib does not support TRACE methods");
             case Method::CONNECT:
-                throw std::runtime_error(
-                    "httplib does not support CONNECT methods"
-                );
+                throw std::runtime_error("httplib does not support CONNECT methods");
         }
     }
 };
 
-Server::Server(const ServerConfig &config) : impl_(std::make_unique<Impl>()) {
+Server::Server(const ServerConfig &config): impl_(std::make_unique<Impl>()) {
     impl_->host = config.host;
     impl_->secure = config.secure;
     if (config.secure) {
@@ -116,15 +111,16 @@ Server::Server(const ServerConfig &config) : impl_(std::make_unique<Impl>()) {
         impl_->register_route(route);
 }
 
-Server::~Server() { stop(); }
+Server::~Server() {
+    stop();
+}
 
 x::errors::Error Server::start() {
     if (impl_->running) return x::errors::NIL;
     if (!impl_->svr->is_valid())
         return x::errors::Error("mock server is not valid (bad TLS cert?)");
     impl_->port = impl_->svr->bind_to_any_port(impl_->host);
-    if (impl_->port < 0)
-        return x::errors::Error("failed to bind mock HTTP server");
+    if (impl_->port < 0) return x::errors::Error("failed to bind mock HTTP server");
     impl_->running = true;
     impl_->thread = std::thread([this] { impl_->svr->listen_after_bind(); });
     impl_->svr->wait_until_ready();

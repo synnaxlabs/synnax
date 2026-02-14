@@ -17,8 +17,8 @@
 /// internal.
 #include "x/cpp/os/os.h"
 
-#include "driver/ni/errors/errors.h"
 #include "driver/errors/errors.h"
+#include "driver/ni/errors/errors.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/nisyscfg_errors.h"
 #include "driver/ni/syscfg/prod.h"

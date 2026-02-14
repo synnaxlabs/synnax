@@ -12,18 +12,17 @@
 namespace x::base64 {
 
 namespace {
-constexpr char ENCODE_TABLE[] =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+constexpr char
+    ENCODE_TABLE[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 constexpr unsigned char DECODE_TABLE[] = {
-    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
-    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
-    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 62, 64, 64, 64, 63,
-    52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 64, 64, 64, 64, 64, 64,
-    64,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
-    15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 64, 64, 64, 64, 64,
-    64, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
-    41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 64, 64, 64, 64, 64,
+    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+    64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+    64, 64, 64, 64, 64, 62, 64, 64, 64, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60,
+    61, 64, 64, 64, 64, 64, 64, 64, 0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10,
+    11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 64, 64, 64, 64,
+    64, 64, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
+    43, 44, 45, 46, 47, 48, 49, 50, 51, 64, 64, 64, 64, 64,
 };
 }
 
@@ -31,26 +30,19 @@ std::string encode(const std::string &input) {
     if (input.empty()) return "";
     std::string out;
     out.reserve(4 * ((input.size() + 2) / 3));
-    const auto *data =
-        reinterpret_cast<const unsigned char *>(input.data());
+    const auto *data = reinterpret_cast<const unsigned char *>(input.data());
     const auto len = input.size();
     size_t i = 0;
     for (; i + 2 < len; i += 3) {
         out.push_back(ENCODE_TABLE[data[i] >> 2]);
-        out.push_back(ENCODE_TABLE[
-            ((data[i] & 0x03) << 4) | (data[i + 1] >> 4)
-        ]);
-        out.push_back(ENCODE_TABLE[
-            ((data[i + 1] & 0x0f) << 2) | (data[i + 2] >> 6)
-        ]);
+        out.push_back(ENCODE_TABLE[((data[i] & 0x03) << 4) | (data[i + 1] >> 4)]);
+        out.push_back(ENCODE_TABLE[((data[i + 1] & 0x0f) << 2) | (data[i + 2] >> 6)]);
         out.push_back(ENCODE_TABLE[data[i + 2] & 0x3f]);
     }
     if (i < len) {
         out.push_back(ENCODE_TABLE[data[i] >> 2]);
         if (i + 1 < len) {
-            out.push_back(ENCODE_TABLE[
-                ((data[i] & 0x03) << 4) | (data[i + 1] >> 4)
-            ]);
+            out.push_back(ENCODE_TABLE[((data[i] & 0x03) << 4) | (data[i + 1] >> 4)]);
             out.push_back(ENCODE_TABLE[(data[i + 1] & 0x0f) << 2]);
         } else {
             out.push_back(ENCODE_TABLE[(data[i] & 0x03) << 4]);
@@ -64,7 +56,8 @@ std::string encode(const std::string &input) {
 std::string decode(const std::string &input) {
     if (input.empty()) return "";
     auto len = input.size();
-    while (len > 0 && input[len - 1] == '=') --len;
+    while (len > 0 && input[len - 1] == '=')
+        --len;
     std::string out;
     out.reserve(3 * len / 4);
     unsigned int buf = 0;
