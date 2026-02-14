@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <string>
-#include <unordered_map>
 #include <utility>
 
 #include "glog/logging.h"
@@ -62,6 +61,7 @@ struct Client::Handle {
     std::string response_body;
     bool accepts_body = false;
     std::string expected_content_type;
+    CURLcode result_code = CURLE_OK;
 
     Handle() = default;
 
@@ -78,7 +78,8 @@ struct Client::Handle {
         headers(other.headers),
         response_body(std::move(other.response_body)),
         accepts_body(other.accepts_body),
-        expected_content_type(std::move(other.expected_content_type)) {
+        expected_content_type(std::move(other.expected_content_type)),
+        result_code(other.result_code) {
         other.handle = nullptr;
         other.headers = nullptr;
     }
@@ -246,11 +247,14 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
             curl_easy_setopt(h.handle, CURLOPT_HTTPHEADER, h.headers);
 
         handles_.push_back(std::move(h));
-        // Set WRITEDATA after push_back to avoid dangling pointer.
+        // Set WRITEDATA and PRIVATE after push_back so pointers target the
+        // handle's final location in the vector (reserve prevents reallocation).
+        auto &back = handles_.back();
+        curl_easy_setopt(back.handle, CURLOPT_WRITEDATA, &back.response_body);
         curl_easy_setopt(
-            handles_.back().handle,
-            CURLOPT_WRITEDATA,
-            &handles_.back().response_body
+            back.handle,
+            CURLOPT_PRIVATE,
+            reinterpret_cast<char *>(&back)
         );
     }
 }
@@ -261,29 +265,91 @@ Client::~Client() {
 
 std::vector<std::pair<Response, x::errors::Error>>
 Client::request(const std::vector<std::string> &bodies) {
-    auto *multi = static_cast<CURLM *>(multi_handle_);
+    static const std::string empty;
 
-    // Track which handles were skipped due to body validation errors.
+    // Sets the request body on a handle. CURLOPT_POSTFIELDS does not copy — it
+    // stores the pointer, so body must outlive the perform call.
+    const auto set_body = [](Handle &h, const std::string &body) -> x::errors::Error {
+        if (!h.accepts_body)
+            return body.empty()
+                ? x::errors::NIL
+                : x::errors::Error(
+                      http::errors::CLIENT_ERROR,
+                      "TRACE requests must not have a body"
+                  );
+        if (!body.empty()) {
+            curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, body.c_str());
+            curl_easy_setopt(h.handle, CURLOPT_POSTFIELDSIZE, body.size());
+        } else {
+            curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, nullptr);
+            curl_easy_setopt(h.handle, CURLOPT_POSTFIELDSIZE, 0L);
+        }
+        return x::errors::NIL;
+    };
+
+    // Builds a Response + Error pair from a completed handle whose result_code
+    // has already been set by curl_easy_perform or via CURLOPT_PRIVATE.
+    const auto build_result = [](
+                                  Handle &h,
+                                  x::telem::TimeStamp start
+                              ) -> std::pair<Response, x::errors::Error> {
+        long status_code = 0;
+        curl_easy_getinfo(h.handle, CURLINFO_RESPONSE_CODE, &status_code);
+        double total_secs = 0;
+        curl_easy_getinfo(h.handle, CURLINFO_TOTAL_TIME, &total_secs);
+        const auto elapsed = x::telem::TimeSpan(
+            static_cast<int64_t>(total_secs * 1e9)
+        );
+        x::errors::Error err = x::errors::NIL;
+        if (h.result_code != CURLE_OK) {
+            err = parse_curl_error(h.result_code);
+        } else if (!h.expected_content_type.empty()) {
+            char *ct = nullptr;
+            curl_easy_getinfo(h.handle, CURLINFO_CONTENT_TYPE, &ct);
+            if (ct != nullptr) {
+                const std::string_view actual(ct);
+                if (!actual.starts_with(h.expected_content_type))
+                    err = x::errors::Error(
+                        http::errors::PARSE_ERROR,
+                        "expected content type '" +
+                            h.expected_content_type + "', got '" +
+                            std::string(actual) + "'"
+                    );
+            }
+        }
+        return {
+            Response{
+                .status_code = static_cast<int>(status_code),
+                .body = std::move(h.response_body),
+                .time_range = {start, start + elapsed},
+            },
+            err,
+        };
+    };
+
+    // Single-handle fast path: use curl_easy_perform directly.
+    if (handles_.size() == 1) {
+        auto &h = handles_[0];
+        h.response_body.clear();
+        const auto &body = !bodies.empty() ? bodies[0] : empty;
+        if (auto err = set_body(h, body)) return {{Response{}, err}};
+        const auto start = x::telem::TimeStamp::now();
+        h.result_code = curl_easy_perform(h.handle);
+        return {build_result(h, start)};
+    }
+
+    // Multi-handle path.
+    auto *multi = static_cast<CURLM *>(multi_handle_);
     std::vector<bool> skipped(handles_.size(), false);
 
-    // Set bodies and add handles to multi.
     for (size_t i = 0; i < handles_.size(); i++) {
         auto &h = handles_[i];
         h.response_body.clear();
-        if (!h.accepts_body && i < bodies.size() && !bodies[i].empty()) {
+        h.result_code = CURLE_OK;
+        const auto &body = i < bodies.size() ? bodies[i] : empty;
+        if (auto err = set_body(h, body)) {
             skipped[i] = true;
             continue;
-        }
-        if (h.accepts_body) {
-            // CURLOPT_POSTFIELDS does not copy — it stores the pointer. This is
-            // safe because bodies is a const ref that outlives curl_multi_perform.
-            if (i < bodies.size() && !bodies[i].empty()) {
-                curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, bodies[i].c_str());
-                curl_easy_setopt(h.handle, CURLOPT_POSTFIELDSIZE, bodies[i].size());
-            } else {
-                curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, nullptr);
-                curl_easy_setopt(h.handle, CURLOPT_POSTFIELDSIZE, 0L);
-            }
         }
         curl_multi_add_handle(multi, h.handle);
     }
@@ -298,12 +364,13 @@ Client::request(const std::vector<std::string> &bodies) {
             curl_multi_poll(multi, nullptr, 0, config_.timeout_ms, nullptr);
     } while (still_running > 0);
 
-    std::unordered_map<CURL *, CURLcode> result_codes;
     CURLMsg *msg;
     int msgs_left;
     while ((msg = curl_multi_info_read(multi, &msgs_left)) != nullptr) {
         if (msg->msg != CURLMSG_DONE) continue;
-        result_codes[msg->easy_handle] = msg->data.result;
+        char *private_ptr;
+        curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, &private_ptr);
+        reinterpret_cast<Handle *>(private_ptr)->result_code = msg->data.result;
     }
 
     std::vector<std::pair<Response, x::errors::Error>> results;
@@ -321,40 +388,7 @@ Client::request(const std::vector<std::string> &bodies) {
             });
             continue;
         }
-
-        long status_code = 0;
-        curl_easy_getinfo(h.handle, CURLINFO_RESPONSE_CODE, &status_code);
-        double total_secs = 0;
-        curl_easy_getinfo(h.handle, CURLINFO_TOTAL_TIME, &total_secs);
-        const auto elapsed = x::telem::TimeSpan(static_cast<int64_t>(total_secs * 1e9));
-
-        x::errors::Error err = x::errors::NIL;
-        const auto it = result_codes.find(h.handle);
-        if (it != result_codes.end() && it->second != CURLE_OK) {
-            err = parse_curl_error(it->second);
-        } else if (!h.expected_content_type.empty()) {
-            char *ct = nullptr;
-            curl_easy_getinfo(h.handle, CURLINFO_CONTENT_TYPE, &ct);
-            if (ct != nullptr) {
-                const std::string_view actual(ct);
-                if (!actual.starts_with(h.expected_content_type)) {
-                    err = x::errors::Error(
-                        http::errors::PARSE_ERROR,
-                        "expected content type '" + h.expected_content_type +
-                            "', got '" + std::string(actual) + "'"
-                    );
-                }
-            }
-        }
-
-        results.push_back({
-            Response{
-                .status_code = static_cast<int>(status_code),
-                .body = std::move(h.response_body),
-                .time_range = {start, start + elapsed},
-            },
-            err,
-        });
+        results.push_back(build_result(h, start));
         curl_multi_remove_handle(multi, h.handle);
     }
 
