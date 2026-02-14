@@ -318,9 +318,6 @@ importers:
       '@codingame/monaco-vscode-languages-service-override':
         specifier: ^14.0.6
         version: 14.0.6
-      '@codingame/monaco-vscode-lua-default-extension':
-        specifier: ^14.0.6
-        version: 14.0.6
       '@codingame/monaco-vscode-textmate-service-override':
         specifier: ^14.0.6
         version: 14.0.6
@@ -1633,9 +1630,6 @@ packages:
 
   '@codingame/monaco-vscode-log-service-override@20.2.1':
     resolution: {integrity: sha512-CUTxmqqFeu8Sbw24ot6S3wSQDE5DOTMHrK3gC/heNjkWDPXQTu10QteWnBekfP5Czbm+huXUDljL41BVHoD5rQ==}
-
-  '@codingame/monaco-vscode-lua-default-extension@14.0.6':
-    resolution: {integrity: sha512-vHAIx/gAn6Fd160m/4CJjvVZ6dNIGXLTjzeZh5N2aIfX8f99zRm+pI+ohagkJ0qM0686Tx9O8/IN3uEwIcJizg==}
 
   '@codingame/monaco-vscode-model-service-override@20.2.1':
     resolution: {integrity: sha512-ff/hBbV1ERU6dcoCJSkBZyg1BvJ8JOmmDt8rmoaWMNoub3hdsmvA87jKw1iblhv/EtKYL0R9J25+6e9LIU2FAQ==}
@@ -8468,10 +8462,6 @@ snapshots:
       '@codingame/monaco-vscode-api': 20.2.1
       '@codingame/monaco-vscode-cea4d01f-6526-5c2f-8b09-b168fead499f-common': 20.2.1
       '@codingame/monaco-vscode-environment-service-override': 20.2.1
-
-  '@codingame/monaco-vscode-lua-default-extension@14.0.6':
-    dependencies:
-      '@codingame/monaco-vscode-api': 14.0.6
 
   '@codingame/monaco-vscode-model-service-override@20.2.1':
     dependencies:
