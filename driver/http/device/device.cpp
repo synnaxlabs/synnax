@@ -55,7 +55,7 @@ x::errors::Error parse_curl_error(CURLcode code) {
 }
 
 /// @brief internal handle that wraps a pre-configured curl easy handle.
-struct Client::Handle {
+struct Handle {
     CURL *handle = nullptr;
     struct curl_slist *headers = nullptr;
     std::string response_body;
@@ -84,6 +84,59 @@ struct Client::Handle {
         other.headers = nullptr;
     }
 };
+
+namespace {
+/// @brief sets the request body on a handle. CURLOPT_POSTFIELDS does not copy — it
+/// stores the pointer, so body must outlive the perform call. Methods that don't accept
+/// bodies (TRACE) silently skip body setting.
+void set_body(Handle &h, const std::string &body) {
+    if (!h.accepts_body) return;
+    if (!body.empty()) {
+        curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, body.c_str());
+        curl_easy_setopt(h.handle, CURLOPT_POSTFIELDSIZE, body.size());
+    } else {
+        curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, nullptr);
+        curl_easy_setopt(h.handle, CURLOPT_POSTFIELDSIZE, 0L);
+    }
+}
+
+/// @brief builds a Response + Error pair from a completed handle whose result_code has
+/// already been set by curl_easy_perform or via CURLOPT_PRIVATE.
+std::pair<Response, x::errors::Error>
+build_result(Handle &h, x::telem::TimeStamp start) {
+    long status_code = 0;
+    curl_easy_getinfo(h.handle, CURLINFO_RESPONSE_CODE, &status_code);
+    double total_secs = 0;
+    curl_easy_getinfo(h.handle, CURLINFO_TOTAL_TIME, &total_secs);
+    const auto elapsed = x::telem::TimeSpan(static_cast<int64_t>(total_secs * 1e9));
+    x::errors::Error err = x::errors::NIL;
+    if (h.result_code != CURLE_OK) {
+        err = parse_curl_error(h.result_code);
+    } else if (!h.expected_content_type.empty()) {
+        char *ct = nullptr;
+        curl_easy_getinfo(h.handle, CURLINFO_CONTENT_TYPE, &ct);
+        if (ct != nullptr) {
+            const std::string_view actual(ct);
+            const auto n = h.expected_content_type.size();
+            if (!actual.starts_with(h.expected_content_type) ||
+                (actual.size() > n && actual[n] != ';'))
+                err = x::errors::Error(
+                    http::errors::PARSE_ERROR,
+                    "expected content type '" + h.expected_content_type + "', got '" +
+                        std::string(actual) + "'"
+                );
+        }
+    }
+    return {
+        Response{
+            .status_code = static_cast<int>(status_code),
+            .body = std::move(h.response_body),
+            .time_range = {start, start + elapsed},
+        },
+        err,
+    };
+}
+}
 
 Client::Client(): config_(x::json::Parser(x::json::json{{"base_url", ""}})) {}
 
@@ -251,58 +304,6 @@ Client::~Client() {
 std::vector<std::pair<Response, x::errors::Error>>
 Client::request(const std::vector<std::string> &bodies) {
     static const std::string empty;
-
-    // Sets the request body on a handle. CURLOPT_POSTFIELDS does not copy — it stores
-    // the pointer, so body must outlive the perform call. Methods that don't accept
-    // bodies (TRACE) silently skip body setting.
-    const auto set_body = [](Handle &h, const std::string &body) {
-        if (!h.accepts_body) return;
-        if (!body.empty()) {
-            curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, body.c_str());
-            curl_easy_setopt(h.handle, CURLOPT_POSTFIELDSIZE, body.size());
-        } else {
-            curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, nullptr);
-            curl_easy_setopt(h.handle, CURLOPT_POSTFIELDSIZE, 0L);
-        }
-    };
-
-    // Builds a Response + Error pair from a completed handle whose result_code has
-    // already been set by curl_easy_perform or via CURLOPT_PRIVATE.
-    const auto build_result =
-        [](Handle &h,
-           x::telem::TimeStamp start) -> std::pair<Response, x::errors::Error> {
-        long status_code = 0;
-        curl_easy_getinfo(h.handle, CURLINFO_RESPONSE_CODE, &status_code);
-        double total_secs = 0;
-        curl_easy_getinfo(h.handle, CURLINFO_TOTAL_TIME, &total_secs);
-        const auto elapsed = x::telem::TimeSpan(static_cast<int64_t>(total_secs * 1e9));
-        x::errors::Error err = x::errors::NIL;
-        if (h.result_code != CURLE_OK) {
-            err = parse_curl_error(h.result_code);
-        } else if (!h.expected_content_type.empty()) {
-            char *ct = nullptr;
-            curl_easy_getinfo(h.handle, CURLINFO_CONTENT_TYPE, &ct);
-            if (ct != nullptr) {
-                const std::string_view actual(ct);
-                const auto n = h.expected_content_type.size();
-                if (!actual.starts_with(h.expected_content_type) ||
-                    (actual.size() > n && actual[n] != ';'))
-                    err = x::errors::Error(
-                        http::errors::PARSE_ERROR,
-                        "expected content type '" + h.expected_content_type +
-                            "', got '" + std::string(actual) + "'"
-                    );
-            }
-        }
-        return {
-            Response{
-                .status_code = static_cast<int>(status_code),
-                .body = std::move(h.response_body),
-                .time_range = {start, start + elapsed},
-            },
-            err,
-        };
-    };
 
     // Single-handle fast path: use curl_easy_perform directly.
     if (handles_.size() == 1) {

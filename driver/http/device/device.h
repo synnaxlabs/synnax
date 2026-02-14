@@ -106,7 +106,7 @@ struct ConnectionConfig {
 
 /// @brief static request configuration, set once at task setup time.
 struct RequestConfig {
-    Method method ; ///< HTTP method.
+    Method method; ///< HTTP method.
     std::string path; ///< URL path (appended to base_url).
     std::map<std::string, std::string> query_params; ///< Query parameters.
     std::map<std::string, std::string> headers; ///< Per-request headers.
@@ -123,11 +123,13 @@ struct Response {
     x::telem::TimeRange time_range; ///< Time range spanning the request.
 };
 
+/// @brief a handle to a curl request. Should not be constructed or used directly.
+struct Handle;
+
 /// @brief RAII wrapper around libcurl for making HTTP requests. Curl handles are
 /// pre-built at construction time from the connection and request configurations so the
 /// hot-path request() only needs to set the body, perform I/O, and read results.
 class Client {
-    struct Handle;
     ConnectionConfig config_;
     void *multi_handle_ = nullptr;
     std::vector<Handle> handles_;
