@@ -11,7 +11,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/string/put.h"
+#include "x/cpp/strings/put.h"
 
 TEST(Put, Width2Zero) {
     char buf[2];

@@ -16,8 +16,8 @@ cc_library(
     deps = [
         "//x/cpp/binary",
         "//x/cpp/date",
-        "//x/cpp/string",
         "//x/cpp/json",
+        "//x/cpp/strings",
         "//x/go/control:control_grpc",
         "//x/go/telem:telem_grpc",
         "@nlohmann_json//:json",

@@ -24,7 +24,7 @@
 #include <google/protobuf/struct.pb.h>
 
 #include "x/cpp/date/date.h"
-#include "x/cpp/string/put.h"
+#include "x/cpp/strings/put.h"
 
 namespace x::telem {
 // private namespace for internal constants
