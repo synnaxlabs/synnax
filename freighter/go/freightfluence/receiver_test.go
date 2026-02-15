@@ -22,6 +22,12 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+type errReceiver struct {
+	recvErr error
+}
+
+func (e *errReceiver) Receive() (int, error) { return 0, e.recvErr }
+
 var _ = Describe("Receiver", func() {
 	var (
 		server freighter.StreamServer[int, int]
@@ -79,6 +85,35 @@ var _ = Describe("Receiver", func() {
 			Expect(err).To(HaveOccurredAs(context.Canceled))
 			By("Closing the receive server on exit")
 			_, ok := <-receiverStream.Outlet()
+			Expect(ok).To(BeFalse())
+		})
+	})
+	Describe("Stream Closure", func() {
+		It("Should not treat ErrStreamClosed as a routine failure", func() {
+			sCtx, cancel := signal.WithCancel(context.TODO())
+			defer cancel()
+			mockReceiver := &errReceiver{recvErr: freighter.ErrStreamClosed}
+			receiver := &freightfluence.Receiver[int]{Receiver: mockReceiver}
+			outputStream := confluence.NewStream[int](1)
+			receiver.OutTo(outputStream)
+			receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
+			Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
+			_, ok := <-outputStream.Outlet()
+			Expect(ok).To(BeFalse())
+		})
+		It("Should not treat TransformReceiver ErrStreamClosed as a routine failure", func() {
+			sCtx, cancel := signal.WithCancel(context.TODO())
+			defer cancel()
+			mockReceiver := &errReceiver{recvErr: freighter.ErrStreamClosed}
+			receiver := &freightfluence.TransformReceiver[int, int]{
+				Receiver:  mockReceiver,
+				Transform: func(_ context.Context, v int) (int, bool, error) { return v, true, nil },
+			}
+			outputStream := confluence.NewStream[int](1)
+			receiver.OutTo(outputStream)
+			receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
+			Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
+			_, ok := <-outputStream.Outlet()
 			Expect(ok).To(BeFalse())
 		})
 	})

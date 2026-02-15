@@ -24,6 +24,13 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+type errSenderCloser struct {
+	sendErr error
+}
+
+func (e *errSenderCloser) Send(_ int) error { return e.sendErr }
+func (e *errSenderCloser) CloseSend() error { return nil }
+
 var _ = Describe("Sender", func() {
 	var net *mock.Network[int, int]
 	BeforeEach(func() {
@@ -105,6 +112,37 @@ var _ = Describe("Sender", func() {
 				sender.Flow(sCtx)
 				senderStream.Inlet() <- 1
 				Expect(sCtx.Wait()).To(MatchError("error"))
+			})
+		})
+	})
+	Context("Stream Closure", func() {
+		Describe("Sender", func() {
+			It("Should not treat ErrStreamClosed as a routine failure", func() {
+				sCtx, cancel := signal.WithCancel(context.TODO())
+				defer cancel()
+				mockSender := &errSenderCloser{sendErr: freighter.ErrStreamClosed}
+				sender := &freightfluence.Sender[int]{Sender: mockSender}
+				inputStream := confluence.NewStream[int](1)
+				sender.InFrom(inputStream)
+				sender.Flow(sCtx, confluence.CancelOnFail())
+				inputStream.Inlet() <- 1
+				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
+			})
+		})
+		Describe("TransformSender", func() {
+			It("Should not treat ErrStreamClosed as a routine failure", func() {
+				sCtx, cancel := signal.WithCancel(context.TODO())
+				defer cancel()
+				mockSender := &errSenderCloser{sendErr: freighter.ErrStreamClosed}
+				sender := &freightfluence.TransformSender[int, int]{
+					Sender:    mockSender,
+					Transform: func(_ context.Context, v int) (int, bool, error) { return v, true, nil },
+				}
+				inputStream := confluence.NewStream[int](1)
+				sender.InFrom(inputStream)
+				sender.Flow(sCtx, confluence.CancelOnFail())
+				inputStream.Inlet() <- 1
+				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
 			})
 		})
 	})

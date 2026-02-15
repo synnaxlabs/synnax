@@ -202,7 +202,11 @@ func (s *clientStream[RQ, RS]) CloseSend() error {
 
 // Send implements the freighter.ServerStream interface.
 func (s *serverStream[RQ, RS]) Send(res RS) error {
-	return s.send(WSMessage[RS]{Payload: res, Type: WSMessageTypeData})
+	err := s.send(WSMessage[RS]{Payload: res, Type: WSMessageTypeData})
+	if errors.IsAny(err, ws.ErrCloseSent, syscall.EPIPE, syscall.ECONNRESET) {
+		return freighter.ErrStreamClosed
+	}
+	return err
 }
 
 func (s *serverStream[RQ, RS]) close(err error) (closeErr error) {

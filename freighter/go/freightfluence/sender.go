@@ -45,6 +45,9 @@ func (s *Sender[M]) send(ctx context.Context) (err error) {
 				return nil
 			}
 			if err = s.Sender.Send(res); err != nil {
+				if errors.Is(err, freighter.ErrStreamClosed) {
+					return context.Canceled
+				}
 				return err
 			}
 		}
@@ -90,7 +93,11 @@ o:
 				continue o
 			}
 			if sErr := s.Sender.Send(tRes); sErr != nil {
-				err = sErr
+				if errors.Is(sErr, freighter.ErrStreamClosed) {
+					err = context.Canceled
+				} else {
+					err = sErr
+				}
 				break o
 			}
 		}
@@ -159,6 +166,9 @@ o:
 			for target, batch := range addrMap {
 				sErr := bsw.Senders.Send(ctx, target, batch)
 				if sErr != nil {
+					if errors.Is(sErr, freighter.ErrStreamClosed) {
+						return context.Canceled
+					}
 					return sErr
 				}
 			}
@@ -210,7 +220,11 @@ o:
 			// Send the transformed message to all senders
 			for _, sender := range m.Senders {
 				if sErr := sender.Send(tRes); sErr != nil {
-					err = sErr
+					if errors.Is(sErr, freighter.ErrStreamClosed) {
+						err = context.Canceled
+					} else {
+						err = sErr
+					}
 					break o
 				}
 			}
