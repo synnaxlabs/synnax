@@ -9,9 +9,10 @@
 
 package types
 
-import "strings"
-
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Dimensions represents dimension exponents as a vector for dimensional analysis.
 // Uses SI base dimensions plus pragmatic extensions for hardware telemetry.
