@@ -10,8 +10,7 @@
 
 from pydantic import BaseModel
 
-from synnax import ontology
-from synnax.status import Status
+from synnax import ontology, status
 
 ONTOLOGY_TYPE = ontology.ID(type="rack")
 
@@ -28,7 +27,7 @@ class StatusDetails(BaseModel):
     """The key of the rack."""
 
 
-Status = Status[StatusDetails]
+Status = status.Status[StatusDetails]
 """The status of a rack."""
 
 
