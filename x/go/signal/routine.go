@@ -397,7 +397,7 @@ func (r *routine) goRun(f func(context.Context) error) {
 						err = f(ctx)
 					}()
 					if !recovered || !r.useBreaker || !r.breaker.Wait() {
-						if recovered && r.ctx.Err() != nil {
+						if recovered && r.useBreaker && r.ctx.Err() != nil {
 							err = r.ctx.Err()
 						}
 						break

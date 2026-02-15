@@ -242,6 +242,15 @@ var _ = Describe("Signal", func() {
 		// panics the whole program.
 		// We can test all other cases where panics are recovered.
 
+		It("Should still propagate the panic error when there is no breaker even if the context is cancelled", func() {
+			ctx, cancel := signal.Isolated()
+			ctx.Go(func(ctx context.Context) error {
+				panic("important error")
+			}, signal.RecoverWithErrOnPanic())
+			cancel()
+			Expect(ctx.Wait()).To(MatchError(ContainSubstring("important error")))
+		})
+
 		It("Should error a panic when instructed", func() {
 			ctx, _ := signal.Isolated()
 			ctx.Go(func(ctx context.Context) error {
