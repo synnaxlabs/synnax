@@ -37,13 +37,9 @@ class TableLifecycle(ConsoleCase):
         ctx_table.close()
 
     def teardown(self) -> None:
-        names_to_cleanup = [
-            self.ctx_table_name,
-            self.main_table_name,
-        ]
-        for name in names_to_cleanup:
-            if name and self.console.workspace.page_exists(name):
-                self.console.workspace.delete_page(name)
+        for name in [self.ctx_table_name, self.main_table_name]:
+            if name:
+                self._cleanup_pages.append(name)
         super().teardown()
 
     def setup_channels(self) -> None:

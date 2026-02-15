@@ -721,14 +721,15 @@ class LayoutClient:
         """
         return self.page.get_by_text(text, exact=exact)
 
-    def click_role(self, role: AriaRole, name: str) -> None:
+    def click_role(self, role: AriaRole, name: str, *, exact: bool = False) -> None:
         """Click on an element by its ARIA role and accessible name.
 
         Args:
             role: The ARIA role (e.g., "button", "checkbox", "textbox").
             name: The accessible name of the element.
+            exact: If True, match the name exactly.
         """
-        self.page.get_by_role(role, name=name).click()
+        self.page.get_by_role(role, name=name, exact=exact).click()
 
     def locator(self, selector: str) -> Locator:
         """Create a locator for the given CSS selector.
@@ -778,14 +779,17 @@ class LayoutClient:
         """
         return str(self.page.evaluate("navigator.clipboard.readText()"))
 
-    def context_menu_action(self, item: Locator, action: str) -> None:
+    def context_menu_action(
+        self, item: Locator, action: str, *, exact: bool = True
+    ) -> None:
         """Perform a context menu action on an item.
 
         Args:
             item: The Locator for the element to right-click.
             action: The exact text of the menu action to click.
+            exact: If True, match the action text exactly.
         """
-        self.ctx_menu.action(item, action)
+        self.ctx_menu.action(item, action, exact=exact)
 
     def show_toolbar(self, shortcut_key: str, item_prefix: str) -> None:
         """Show a navigation toolbar using keyboard shortcut.

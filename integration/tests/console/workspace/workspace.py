@@ -9,6 +9,8 @@
 
 import json
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
 from console.case import ConsoleCase
 from console.log import Log
 from console.plot import Plot
@@ -22,12 +24,28 @@ EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics T
 class Workspace(ConsoleCase):
     """Test workspace operations."""
 
+    _cleanup_workspaces: list[str]
+
+    def setup(self) -> None:
+        super().setup()
+        self._cleanup_workspaces = []
+
+    def teardown(self) -> None:
+        for name in self._cleanup_workspaces:
+            try:
+                self.console.workspace.delete(name)
+            except PlaywrightTimeoutError:
+                pass
+        super().teardown()
+
     def run(self) -> None:
         self.test_version_visible_in_navbar()
 
         # Workspace Navigation
         self.console.workspace.create("WorkspaceA")
+        self._cleanup_workspaces.append("WorkspaceA")
         self.console.workspace.create("WorkspaceB")
+        self._cleanup_workspaces.append("WorkspaceB")
         self.test_switch_workspaces_in_resources()
         self.test_rename_workspace()
         self.test_clear_workspace_from_selector()
@@ -35,6 +53,7 @@ class Workspace(ConsoleCase):
 
         # Import Pages
         self.console.workspace.create("ImportSpace")
+        self._cleanup_workspaces.append("ImportSpace")
         self.test_import_line_plot()
         self.test_import_schematic()
         self.test_import_log()
@@ -228,6 +247,7 @@ class Workspace(ConsoleCase):
             assert tab.is_visible(), f"Imported workspace should have tab '{tab_name}'"
 
         self.console.workspace.delete("ImportSpace")
+        self._cleanup_workspaces.remove("ImportSpace")
 
     def test_clear_workspace_from_selector(self) -> None:
         """Test clearing workspaces from the selector (switching to no workspace)."""
@@ -255,4 +275,6 @@ class Workspace(ConsoleCase):
         self.log("Testing delete workspace")
 
         self.console.workspace.delete("WorkspaceB")
+        self._cleanup_workspaces.remove("WorkspaceB")
         self.console.workspace.delete("WorkspaceA")
+        self._cleanup_workspaces.remove("WorkspaceA")
