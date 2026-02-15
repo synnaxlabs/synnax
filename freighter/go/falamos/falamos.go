@@ -148,7 +148,6 @@ func log(ctx freighter.Context, err error, cfg Config) {
 	args := []zap.Field{
 		zap.String("protocol", ctx.Protocol),
 		zap.Stringer("variant", ctx.Variant),
-		zap.Stringer("role", ctx.Role),
 	}
 	// context.Canceled is returned when the client abruptly closes the connection,
 	// which happens when performing tasks like reloading web pages. As such,

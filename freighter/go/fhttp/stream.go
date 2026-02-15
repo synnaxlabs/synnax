@@ -15,6 +15,7 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"syscall"
 	"time"
 
 	ws "github.com/fasthttp/websocket"
@@ -204,7 +205,10 @@ func (s *serverStream[RQ, RS]) Send(res RS) error {
 	return s.send(WSMessage[RS]{Payload: res, Type: WSMessageTypeData})
 }
 
-func (s *serverStream[RQ, RS]) close(err error) error {
+func (s *serverStream[RQ, RS]) close(err error) (closeErr error) {
+	defer func() {
+		closeErr = errors.Combine(closeErr, s.streamCore.close())
+	}()
 	if err == nil {
 		err = freighter.EOF
 	}
@@ -245,7 +249,7 @@ func (s *serverStream[RQ, RS]) close(err error) error {
 			break
 		}
 	}
-	return s.streamCore.close()
+	return nil
 }
 
 // listenForContextCancellation is a goroutine that listens for the context to be
@@ -405,10 +409,14 @@ func (s *streamServer[RQ, RS]) handleSocket(
 			return oCtx, s.handler(ctx, stream)
 		}),
 	)
-	// ErrCloseSent is returned when the client abruptly closes the connection,
-	// which happens when performing tasks like reloading web pages. As such,
-	// we don't consider it anomalous and don't log it.
-	if err := errors.Skip(stream.close(handlerErr), ws.ErrCloseSent); err != nil {
+	// These errors occur when the client abruptly closes the connection (e.g.
+	// reloading web pages, closing the app). They're not anomalous.
+	if err := errors.Skip(
+		stream.close(handlerErr),
+		ws.ErrCloseSent,
+		syscall.EPIPE,
+		syscall.ECONNRESET,
+	); err != nil {
 		s.L.Error("error closing connection", zap.Error(err))
 	}
 }
