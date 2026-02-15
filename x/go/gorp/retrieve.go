@@ -116,7 +116,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		// For key-based queries, we can optimize by only retrieving the keys
 		entries := make([]E, 0, len(keys))
 		SetEntries(r.Params, &entries)
-		if err := keysRetrieve[K, E](ctx, r.Params, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		if err = keysRetrieve[K, E](ctx, r.Params, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 			return 0, err
 		}
 		return len(entries), nil
@@ -134,7 +134,8 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		match, err := f.exec(Context{
+		var match bool
+		match, err = f.exec(Context{
 			Context: ctx,
 			Tx:      tx,
 		}, iter.Value(ctx))

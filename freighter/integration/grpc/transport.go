@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/freighter/integration/http"
 )
 
-type Server = fgrpc.UnaryServer[
+type Server = grpc.UnaryServer[
 	http.Message,
 	*echov1.Message,
 	http.Message,

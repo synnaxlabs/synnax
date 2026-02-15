@@ -32,7 +32,7 @@ const rootHTMLFile = "index.html"
 // Service serves the web-based console UI.
 type Service struct{ fs fs.FS }
 
-var _ fhttp.BindableTransport = (*Service)(nil)
+var _ http.BindableTransport = (*Service)(nil)
 
 // NewService creates a new console UI service with embedded assets.
 func NewService() *Service {

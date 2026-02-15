@@ -15,8 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/freighter/freightfluence"
+	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,7 +28,7 @@ var _ = Describe("Receiver", func() {
 		client freighter.StreamClient[int, int]
 	)
 	BeforeEach(func() {
-		server, client = fmock.NewStreamPair[int, int]()
+		server, client = mock.NewStreamPair[int, int]()
 	})
 	Describe("Receiver", func() {
 		It("Should operate correctly", func() {

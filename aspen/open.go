@@ -20,7 +20,7 @@ import (
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
-	"github.com/synnaxlabs/freighter/falamos"
+	"github.com/synnaxlabs/freighter/alamos"
 	"github.com/synnaxlabs/x/address"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
@@ -73,7 +73,7 @@ func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
 	if err := o.transport.Configure(sCtx, o.addr, o.transport.external); err != nil {
 		return transportShutdown, err
 	}
-	mw, err := falamos.Middleware(falamos.Config{Instrumentation: o.Instrumentation})
+	mw, err := alamos.Middleware(alamos.Config{Instrumentation: o.Instrumentation})
 	if err != nil {
 		return transportShutdown, err
 	}

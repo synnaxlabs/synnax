@@ -13,7 +13,7 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
@@ -24,19 +24,19 @@ import (
 )
 
 type (
-	deviceCreateServer = fgrpc.UnaryServer[
+	deviceCreateServer = grpc.UnaryServer[
 		api.DeviceCreateRequest,
 		*gapi.DeviceCreateRequest,
 		api.DeviceCreateResponse,
 		*gapi.DeviceCreateResponse,
 	]
-	deviceRetrieveServer = fgrpc.UnaryServer[
+	deviceRetrieveServer = grpc.UnaryServer[
 		api.DeviceRetrieveRequest,
 		*gapi.DeviceRetrieveRequest,
 		api.DeviceRetrieveResponse,
 		*gapi.DeviceRetrieveResponse,
 	]
-	deviceDeleteServer = fgrpc.UnaryServer[
+	deviceDeleteServer = grpc.UnaryServer[
 		api.DeviceDeleteRequest,
 		*gapi.DeviceDeleteRequest,
 		types.Nil,
@@ -53,11 +53,11 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[api.DeviceCreateRequest, *gapi.DeviceCreateRequest]       = deviceCreateRequestTranslator{}
-	_ fgrpc.Translator[api.DeviceCreateResponse, *gapi.DeviceCreateResponse]     = deviceCreateResponseTranslator{}
-	_ fgrpc.Translator[api.DeviceRetrieveRequest, *gapi.DeviceRetrieveRequest]   = deviceRetrieveRequestTranslator{}
-	_ fgrpc.Translator[api.DeviceRetrieveResponse, *gapi.DeviceRetrieveResponse] = deviceRetrieveResponseTranslator{}
-	_ fgrpc.Translator[api.DeviceDeleteRequest, *gapi.DeviceDeleteRequest]       = deviceDeleteRequestTranslator{}
+	_ grpc.Translator[api.DeviceCreateRequest, *gapi.DeviceCreateRequest]       = deviceCreateRequestTranslator{}
+	_ grpc.Translator[api.DeviceCreateResponse, *gapi.DeviceCreateResponse]     = deviceCreateResponseTranslator{}
+	_ grpc.Translator[api.DeviceRetrieveRequest, *gapi.DeviceRetrieveRequest]   = deviceRetrieveRequestTranslator{}
+	_ grpc.Translator[api.DeviceRetrieveResponse, *gapi.DeviceRetrieveResponse] = deviceRetrieveResponseTranslator{}
+	_ grpc.Translator[api.DeviceDeleteRequest, *gapi.DeviceDeleteRequest]       = deviceDeleteRequestTranslator{}
 )
 
 func translateDeviceForward(d *api.Device) (*gapi.Device, error) {
@@ -215,7 +215,7 @@ func (deviceDeleteRequestTranslator) Backward(_ context.Context, req *gapi.Devic
 	return api.DeviceDeleteRequest{Keys: req.Keys}, nil
 }
 
-func newDevice(a *api.Transport) fgrpc.BindableTransport {
+func newDevice(a *api.Transport) grpc.BindableTransport {
 	createDevice := &deviceCreateServer{
 		RequestTranslator:  deviceCreateRequestTranslator{},
 		ResponseTranslator: deviceCreateResponseTranslator{},
@@ -230,12 +230,12 @@ func newDevice(a *api.Transport) fgrpc.BindableTransport {
 	a.DeviceRetrieve = retrieveDevice
 	deleteDevice := &deviceDeleteServer{
 		RequestTranslator:  deviceDeleteRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &gapi.DeviceDeleteService_ServiceDesc,
 	}
 	a.DeviceDelete = deleteDevice
 
-	return fgrpc.CompoundBindableTransport{
+	return grpc.CompoundBindableTransport{
 		createDevice,
 		retrieveDevice,
 		deleteDevice,

@@ -92,7 +92,7 @@ func Read(ctx context.Context, fs fs.FS, codec binary.Decoder) (ch channel.Chann
 // encoded by the provided encoder. The provided channel should have all fields required
 // by the DB correctly set.
 func Create(ctx context.Context, fs fs.FS, codec binary.Encoder, ch channel.Channel) (err error) {
-	if err := ch.Validate(); err != nil {
+	if err = ch.Validate(); err != nil {
 		return err
 	}
 	tempMetaF, err := fs.Open(
@@ -102,7 +102,11 @@ func Create(ctx context.Context, fs fs.FS, codec binary.Encoder, ch channel.Chan
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Combine(err, fs.Remove(metaTempFile)) }()
+	defer func() {
+		if err != nil {
+			err = errors.Combine(err, fs.Remove(metaTempFile))
+		}
+	}()
 	if err = codec.EncodeStream(ctx, tempMetaF, ch); err != nil {
 		err = errors.Combine(err, tempMetaF.Close())
 		return err
@@ -110,9 +114,5 @@ func Create(ctx context.Context, fs fs.FS, codec binary.Encoder, ch channel.Chan
 	if err = tempMetaF.Close(); err != nil {
 		return err
 	}
-	if err = fs.Rename(metaTempFile, metaFile); err != nil {
-		return err
-	}
-	err = fs.Remove(metaTempFile)
-	return err
+	return fs.Rename(metaTempFile, metaFile)
 }

@@ -24,45 +24,45 @@ import (
 )
 
 func BindTo(f *fiber.App) {
-	router := fhttp.NewRouter(fhttp.RouterConfig{
+	router := http.NewRouter(http.RouterConfig{
 		Instrumentation:     testutil.Instrumentation("freighter-integration"),
 		StreamWriteDeadline: 50 * time.Millisecond,
 	})
-	echoServer := fhttp.StreamServer[Message, Message](router, "/stream/echo")
+	echoServer := http.StreamServer[Message, Message](router, "/stream/echo")
 	echoServer.BindHandler(streamEcho)
 
-	streamSendMessageAfterClientCloseServer := fhttp.StreamServer[Message, Message](router, "/stream/sendMessageAfterClientClose")
+	streamSendMessageAfterClientCloseServer := http.StreamServer[Message, Message](router, "/stream/sendMessageAfterClientClose")
 	streamSendMessageAfterClientCloseServer.BindHandler(streamSendMessageAfterClientClose)
 
-	streamReceiveAndExitWithErrServer := fhttp.StreamServer[Message, Message](router, "/stream/receiveAndExitWithErr")
+	streamReceiveAndExitWithErrServer := http.StreamServer[Message, Message](router, "/stream/receiveAndExitWithErr")
 	streamReceiveAndExitWithErrServer.BindHandler(streamReceiveAndExitWithErr)
 
-	streamImmediatelyExitWithErrServer := fhttp.StreamServer[Message, Message](router, "/stream/immediatelyExitWithErr")
+	streamImmediatelyExitWithErrServer := http.StreamServer[Message, Message](router, "/stream/immediatelyExitWithErr")
 	streamImmediatelyExitWithErrServer.BindHandler(streamImmediatelyExitWithErr)
 
-	streamImmediatelyExitNominallyServer := fhttp.StreamServer[Message, Message](router, "/stream/immediatelyExitNominally")
+	streamImmediatelyExitNominallyServer := http.StreamServer[Message, Message](router, "/stream/immediatelyExitNominally")
 	streamImmediatelyExitNominallyServer.BindHandler(streamImmediatelyExitNominally)
 
-	streamRespondWithTenMessagesServer := fhttp.StreamServer[Message, Message](router, "/stream/respondWithTenMessages")
+	streamRespondWithTenMessagesServer := http.StreamServer[Message, Message](router, "/stream/respondWithTenMessages")
 	streamRespondWithTenMessagesServer.BindHandler(streamRespondWithTenMessages)
 
-	unaryGetEchoServer := fhttp.UnaryServer[Message, Message](router, "/unary/echo")
+	unaryGetEchoServer := http.UnaryServer[Message, Message](router, "/unary/echo")
 	unaryGetEchoServer.BindHandler(unaryEcho)
 
-	unaryMiddlewareCheckServer := fhttp.UnaryServer[Message, Message](router, "/unary/middlewareCheck")
+	unaryMiddlewareCheckServer := http.UnaryServer[Message, Message](router, "/unary/middlewareCheck")
 	unaryMiddlewareCheckServer.BindHandler(unaryEcho)
 	unaryMiddlewareCheckServer.Use(freighter.MiddlewareFunc(checkMiddleware))
 
-	streamMiddlewareCheckServer := fhttp.StreamServer[Message, Message](router, "/stream/middlewareCheck")
+	streamMiddlewareCheckServer := http.StreamServer[Message, Message](router, "/stream/middlewareCheck")
 	streamMiddlewareCheckServer.BindHandler(streamEcho)
 	streamMiddlewareCheckServer.Use(freighter.MiddlewareFunc(checkMiddleware))
 
-	streamSlamMessagesServer := fhttp.StreamServer[Message, Message](router, "/stream/slamMessages")
+	streamSlamMessagesServer := http.StreamServer[Message, Message](router, "/stream/slamMessages")
 	streamSlamMessagesServer.BindHandler(streamSlamMessages)
-	slamMessagesTimeoutCheck := fhttp.UnaryServer[Message, Message](router, "/unary/slamMessagesTimeoutCheck")
+	slamMessagesTimeoutCheck := http.UnaryServer[Message, Message](router, "/unary/slamMessagesTimeoutCheck")
 	slamMessagesTimeoutCheck.BindHandler(slamMessagesTimeoutCheckHandler)
 
-	streamEventuallyResponseWithMessageServer := fhttp.StreamServer[Message, Message](router, "/stream/eventuallyResponseWithMessage")
+	streamEventuallyResponseWithMessageServer := http.StreamServer[Message, Message](router, "/stream/eventuallyResponseWithMessage")
 	streamEventuallyResponseWithMessageServer.BindHandler(streamEventuallyResponseWithMessage)
 
 	router.BindTo(f)

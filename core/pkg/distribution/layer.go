@@ -322,7 +322,8 @@ func Open(ctx context.Context, cfgs ...Config) (l *Layer, err error) {
 		); !ok(err, channelSignalsCloser) {
 			return nil, err
 		}
-		if groupSignalsCloser, err := groupsignals.Publish(ctx, l.Signals, l.DB); !ok(err, groupSignalsCloser) {
+		var groupSignalsCloser io.Closer
+		if groupSignalsCloser, err = groupsignals.Publish(ctx, l.Signals, l.DB); !ok(err, groupSignalsCloser) {
 			return nil, err
 		}
 	}

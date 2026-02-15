@@ -21,8 +21,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
-	"github.com/synnaxlabs/freighter/fgrpc"
-	"github.com/synnaxlabs/freighter/fhttp"
+	"github.com/synnaxlabs/freighter/grpc"
+	"github.com/synnaxlabs/freighter/http"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
 	cmdauth "github.com/synnaxlabs/synnax/cmd/start/auth"
 	"github.com/synnaxlabs/synnax/pkg/api"
@@ -140,7 +140,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	}
 
 	if *cfg.autoCert {
-		if err := cmdcert.GenerateAuto(cfg.certFactoryConfig); err != nil {
+		if err = cmdcert.GenerateAuto(cfg.certFactoryConfig); err != nil {
 			return errors.Wrap(err, "failed to generate auto certs")
 		}
 	}
@@ -201,7 +201,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		aspenTransport         = aspentransport.New(grpcClientPool)
 		frameTransport         = framertransport.New(grpcClientPool)
 		channelTransport       = channeltransport.New(grpcClientPool)
-		distributionTransports = []fgrpc.BindableTransport{
+		distributionTransports = []grpc.BindableTransport{
 			aspenTransport,
 			frameTransport,
 			channelTransport,
@@ -252,7 +252,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	}
 
 	// Configure the HTTP Layer AspenTransport.
-	r := fhttp.NewRouter(fhttp.RouterConfig{
+	r := http.NewRouter(http.RouterConfig{
 		Instrumentation:     cfg.Instrumentation,
 		StreamWriteDeadline: cfg.slowConsumerTimeout,
 	})
@@ -266,7 +266,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		server.Config{
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
-					Transports: []fhttp.BindableTransport{r, console.NewService()},
+					Transports: []http.BindableTransport{r, console.NewService()},
 				},
 				&server.GRPCBranch{Transports: slices.Concat(
 					grpcAPITrans,

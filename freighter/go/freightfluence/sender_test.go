@@ -15,8 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/freighter/freightfluence"
+	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -25,9 +25,9 @@ import (
 )
 
 var _ = Describe("Sender", func() {
-	var net *fmock.Network[int, int]
+	var net *mock.Network[int, int]
 	BeforeEach(func() {
-		net = fmock.NewNetwork[int, int]()
+		net = mock.NewNetwork[int, int]()
 	})
 	Context("Single Stream", func() {
 		var (

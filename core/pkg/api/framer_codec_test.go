@@ -53,12 +53,12 @@ var _ = Describe("FramerCodec", Ordered, func() {
 				Command: writer.CommandWrite,
 				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
 			}
-			msg := fhttp.WSMessage[api.FrameWriterRequest]{Type: "data", Payload: req}
+			msg := http.WSMessage[api.FrameWriterRequest]{Type: "data", Payload: req}
 			encoded := MustSucceed(v.Encode(ctx, msg))
 			Expect(encoded[0]).To(Equal(uint8(255)))
-			var resMsg fhttp.WSMessage[api.FrameWriterRequest]
+			var resMsg http.WSMessage[api.FrameWriterRequest]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-			Expect(resMsg.Type).To(Equal(fhttp.WSMessageTypeData))
+			Expect(resMsg.Type).To(Equal(http.WSMessageTypeData))
 			Expect(resMsg.Payload.Command).To(Equal(writer.CommandWrite))
 			Expect(resMsg.Payload.Frame.KeysSlice()).To(Equal([]channel.Key{1}))
 			Expect(resMsg.Payload.Frame.Count()).To(Equal(1))
@@ -79,10 +79,10 @@ var _ = Describe("FramerCodec", Ordered, func() {
 					telem.NewSeriesV[uint64](100, 200),
 				}),
 			}
-			msg := fhttp.WSMessage[api.FrameWriterRequest]{Type: "data", Payload: req}
+			msg := http.WSMessage[api.FrameWriterRequest]{Type: "data", Payload: req}
 			encoded := MustSucceed(v.Encode(ctx, msg))
 			Expect(encoded[0]).To(Equal(uint8(255)))
-			var resMsg fhttp.WSMessage[api.FrameWriterRequest]
+			var resMsg http.WSMessage[api.FrameWriterRequest]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
 			Expect(resMsg.Payload.Frame.KeysSlice()).To(Equal([]channel.Key{1, 2, 3}))
 			Expect(resMsg.Payload.Frame.Count()).To(Equal(3))
@@ -112,9 +112,9 @@ var _ = Describe("FramerCodec", Ordered, func() {
 				LowerPerfCodec: &binary.JSONCodec{},
 			}
 			req := api.FrameWriterRequest{Command: writer.CommandOpen, Config: api.FrameWriterConfig{Keys: keys}}
-			msg := fhttp.WSMessage[api.FrameWriterRequest]{Type: "data", Payload: req}
+			msg := http.WSMessage[api.FrameWriterRequest]{Type: "data", Payload: req}
 			encoded := MustSucceed(v.Encode(ctx, msg))
-			var resMsg fhttp.WSMessage[api.FrameWriterRequest]
+			var resMsg http.WSMessage[api.FrameWriterRequest]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
 			Expect(cdec.Initialized()).To(BeTrue())
 			Expect(resMsg.Payload.Command).To(Equal(writer.CommandOpen))
@@ -126,11 +126,11 @@ var _ = Describe("FramerCodec", Ordered, func() {
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
 				LowerPerfCodec: &binary.JSONCodec{},
 			}
-			msg := fhttp.WSMessage[api.FrameWriterRequest]{Type: fhttp.WSMessageTypeOpen}
+			msg := http.WSMessage[api.FrameWriterRequest]{Type: http.WSMessageTypeOpen}
 			encoded := MustSucceed(v.Encode(ctx, msg))
-			var resMsg fhttp.WSMessage[api.FrameWriterRequest]
+			var resMsg http.WSMessage[api.FrameWriterRequest]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-			Expect(resMsg.Type).To(Equal(fhttp.WSMessageTypeOpen))
+			Expect(resMsg.Type).To(Equal(http.WSMessageTypeOpen))
 		})
 
 		It("Should encode and decode close message", func() {
@@ -138,11 +138,11 @@ var _ = Describe("FramerCodec", Ordered, func() {
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
 				LowerPerfCodec: &binary.JSONCodec{},
 			}
-			msg := fhttp.WSMessage[api.FrameWriterRequest]{Type: fhttp.WSMessageTypeClose}
+			msg := http.WSMessage[api.FrameWriterRequest]{Type: http.WSMessageTypeClose}
 			encoded := MustSucceed(v.Encode(ctx, msg))
-			var resMsg fhttp.WSMessage[api.FrameWriterRequest]
+			var resMsg http.WSMessage[api.FrameWriterRequest]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-			Expect(resMsg.Type).To(Equal(fhttp.WSMessageTypeClose))
+			Expect(resMsg.Type).To(Equal(http.WSMessageTypeClose))
 		})
 	})
 
@@ -153,11 +153,11 @@ var _ = Describe("FramerCodec", Ordered, func() {
 				LowerPerfCodec: &binary.JSONCodec{},
 			}
 			res := api.FrameWriterResponse{Command: writer.CommandWrite, Authorized: true}
-			msg := fhttp.WSMessage[api.FrameWriterResponse]{Type: fhttp.WSMessageTypeData, Payload: res}
+			msg := http.WSMessage[api.FrameWriterResponse]{Type: http.WSMessageTypeData, Payload: res}
 			encoded := MustSucceed(v.Encode(ctx, msg))
-			var resMsg fhttp.WSMessage[api.FrameWriterResponse]
+			var resMsg http.WSMessage[api.FrameWriterResponse]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-			Expect(resMsg.Type).To(Equal(fhttp.WSMessageTypeData))
+			Expect(resMsg.Type).To(Equal(http.WSMessageTypeData))
 			Expect(resMsg.Payload.Command).To(Equal(writer.CommandWrite))
 			Expect(resMsg.Payload.Authorized).To(BeTrue())
 		})
@@ -185,11 +185,11 @@ var _ = Describe("FramerCodec", Ordered, func() {
 				LowerPerfCodec: &binary.JSONCodec{},
 			}
 			req := api.FrameStreamerRequest{Keys: keys}
-			msg := fhttp.WSMessage[api.FrameStreamerRequest]{Type: "data", Payload: req}
+			msg := http.WSMessage[api.FrameStreamerRequest]{Type: "data", Payload: req}
 			encoded := MustSucceed(v.Encode(ctx, msg))
-			var resMsg fhttp.WSMessage[api.FrameStreamerRequest]
+			var resMsg http.WSMessage[api.FrameStreamerRequest]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-			Expect(resMsg.Type).To(Equal(fhttp.WSMessageTypeData))
+			Expect(resMsg.Type).To(Equal(http.WSMessageTypeData))
 			Expect(resMsg.Payload.Keys).To(Equal(keys))
 		})
 	})
@@ -204,12 +204,12 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			res := api.FrameStreamerResponse{
 				Frame: frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
 			}
-			msg := fhttp.WSMessage[api.FrameStreamerResponse]{Type: "data", Payload: res}
+			msg := http.WSMessage[api.FrameStreamerResponse]{Type: "data", Payload: res}
 			encoded := MustSucceed(v.Encode(ctx, msg))
 			Expect(encoded[0]).To(Equal(uint8(255)))
-			var resMsg fhttp.WSMessage[api.FrameStreamerResponse]
+			var resMsg http.WSMessage[api.FrameStreamerResponse]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-			Expect(resMsg.Type).To(Equal(fhttp.WSMessageTypeData))
+			Expect(resMsg.Type).To(Equal(http.WSMessageTypeData))
 			Expect(resMsg.Payload.Frame.KeysSlice()).To(Equal([]channel.Key{1}))
 			Expect(resMsg.Payload.Frame.Count()).To(Equal(1))
 			Expect(resMsg.Payload.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
@@ -227,9 +227,9 @@ var _ = Describe("FramerCodec", Ordered, func() {
 					telem.NewSeriesV[int64](1000, 2000, 3000),
 				}),
 			}
-			msg := fhttp.WSMessage[api.FrameStreamerResponse]{Type: "data", Payload: res}
+			msg := http.WSMessage[api.FrameStreamerResponse]{Type: "data", Payload: res}
 			encoded := MustSucceed(v.Encode(ctx, msg))
-			var resMsg fhttp.WSMessage[api.FrameStreamerResponse]
+			var resMsg http.WSMessage[api.FrameStreamerResponse]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
 			Expect(resMsg.Payload.Frame.KeysSlice()).To(Equal([]channel.Key{1, 2}))
 			Expect(resMsg.Payload.Frame.Count()).To(Equal(2))
@@ -242,11 +242,11 @@ var _ = Describe("FramerCodec", Ordered, func() {
 				LowerPerfCodec: &binary.JSONCodec{},
 			}
 			res := api.FrameStreamerResponse{Frame: frame.Frame{}}
-			msg := fhttp.WSMessage[api.FrameStreamerResponse]{Type: "data", Payload: res}
+			msg := http.WSMessage[api.FrameStreamerResponse]{Type: "data", Payload: res}
 			encoded := MustSucceed(v.Encode(ctx, msg))
-			var resMsg fhttp.WSMessage[api.FrameStreamerResponse]
+			var resMsg http.WSMessage[api.FrameStreamerResponse]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-			Expect(resMsg.Type).To(Equal(fhttp.WSMessageTypeData))
+			Expect(resMsg.Type).To(Equal(http.WSMessageTypeData))
 			Expect(resMsg.Payload.Frame.Empty()).To(BeTrue())
 		})
 
@@ -255,11 +255,11 @@ var _ = Describe("FramerCodec", Ordered, func() {
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
 				LowerPerfCodec: &binary.JSONCodec{},
 			}
-			msg := fhttp.WSMessage[api.FrameStreamerResponse]{Type: fhttp.WSMessageTypeOpen}
+			msg := http.WSMessage[api.FrameStreamerResponse]{Type: http.WSMessageTypeOpen}
 			encoded := MustSucceed(v.Encode(ctx, msg))
-			var resMsg fhttp.WSMessage[api.FrameStreamerResponse]
+			var resMsg http.WSMessage[api.FrameStreamerResponse]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-			Expect(resMsg.Type).To(Equal(fhttp.WSMessageTypeOpen))
+			Expect(resMsg.Type).To(Equal(http.WSMessageTypeOpen))
 		})
 
 		It("Should encode and decode close message", func() {
@@ -267,11 +267,11 @@ var _ = Describe("FramerCodec", Ordered, func() {
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
 				LowerPerfCodec: &binary.JSONCodec{},
 			}
-			msg := fhttp.WSMessage[api.FrameStreamerResponse]{Type: fhttp.WSMessageTypeClose}
+			msg := http.WSMessage[api.FrameStreamerResponse]{Type: http.WSMessageTypeClose}
 			encoded := MustSucceed(v.Encode(ctx, msg))
-			var resMsg fhttp.WSMessage[api.FrameStreamerResponse]
+			var resMsg http.WSMessage[api.FrameStreamerResponse]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-			Expect(resMsg.Type).To(Equal(fhttp.WSMessageTypeClose))
+			Expect(resMsg.Type).To(Equal(http.WSMessageTypeClose))
 		})
 	})
 })

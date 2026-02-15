@@ -24,8 +24,8 @@ import (
 type integerServer struct {
 }
 
-func (b integerServer) BindTo(router *fhttp.Router) {
-	g := fhttp.UnaryServer[int, int](router, "/basic")
+func (b integerServer) BindTo(router *http.Router) {
+	g := http.UnaryServer[int, int](router, "/basic")
 	g.BindHandler(func(ctx context.Context, req int) (int, error) {
 		req++
 		return req, nil
@@ -34,7 +34,7 @@ func (b integerServer) BindTo(router *fhttp.Router) {
 
 var _ = Describe("HTTP", func() {
 	It("Should serve http requests", func() {
-		r := fhttp.NewRouter()
+		r := http.NewRouter()
 		integerServer{}.BindTo(r)
 		b := MustSucceed(server.Serve(server.Config{
 			ListenAddress: "localhost:26260",
@@ -44,7 +44,7 @@ var _ = Describe("HTTP", func() {
 			Debug: config.True(),
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
-					Transports: []fhttp.BindableTransport{r},
+					Transports: []http.BindableTransport{r},
 				},
 			},
 		}))

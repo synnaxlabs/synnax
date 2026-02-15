@@ -18,7 +18,7 @@ import (
 
 type echoMessageTranslator struct{}
 
-var _ fgrpc.Translator[http.Message, *echov1.Message] = (*echoMessageTranslator)(nil)
+var _ grpc.Translator[http.Message, *echov1.Message] = (*echoMessageTranslator)(nil)
 
 func (e echoMessageTranslator) Forward(ctx context.Context, msg http.Message) (*echov1.Message, error) {
 	return &echov1.Message{
