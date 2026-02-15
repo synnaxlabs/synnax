@@ -168,7 +168,7 @@ var _ = Describe("PebbleKV", func() {
 		})
 
 		It("Should handle iterator bounds correctly", func() {
-			for i := byte(0); i < 5; i++ {
+			for i := range byte(5) {
 				key := []byte{i}
 				Expect(db.Set(ctx, key, []byte{i + 10})).To(Succeed())
 			}
@@ -432,14 +432,14 @@ var _ = Describe("PebbleKV", func() {
 
 			It("Should perform basic operations correctly without observers", func() {
 				// Multiple operations to ensure no observer-related panics
-				for i := 0; i < 10; i++ {
+				for i := range 10 {
 					key := []byte{byte(100 + i)}
 					value := []byte{byte(200 + i)}
 					Expect(db.Set(ctx, key, value)).To(Succeed())
 				}
 
 				// Verify all values
-				for i := 0; i < 10; i++ {
+				for i := range 10 {
 					key := []byte{byte(100 + i)}
 					expectedValue := []byte{byte(200 + i)}
 					got, closer, err := db.Get(ctx, key)
@@ -453,7 +453,7 @@ var _ = Describe("PebbleKV", func() {
 				tx := db.OpenTx()
 
 				// Batch set
-				for i := 0; i < 5; i++ {
+				for i := range 5 {
 					key := []byte{byte(50 + i)}
 					value := []byte{byte(150 + i)}
 					Expect(tx.Set(ctx, key, value)).To(Succeed())
@@ -463,7 +463,7 @@ var _ = Describe("PebbleKV", func() {
 				Expect(tx.Close()).To(Succeed())
 
 				// Verify all values
-				for i := 0; i < 5; i++ {
+				for i := range 5 {
 					key := []byte{byte(50 + i)}
 					expectedValue := []byte{byte(150 + i)}
 					got, closer, err := db.Get(ctx, key)

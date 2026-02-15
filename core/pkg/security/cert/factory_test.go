@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -50,7 +49,7 @@ var _ = Describe("Factory", func() {
 		It("Should reuse the CA and key if they already exist", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				LoaderConfig:  cert.LoaderConfig{FS: fs},
-				AllowKeyReuse: config.True(),
+				AllowKeyReuse: new(true),
 				KeySize:       mock.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())

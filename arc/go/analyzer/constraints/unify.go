@@ -60,7 +60,7 @@ const maxUnificationIterations = 100
 // Unify solves all accumulated constraints by computing type variable substitutions.
 // Returns an error if constraints conflict or cannot converge within iteration limit.
 func (s *System) Unify() error {
-	for iteration := 0; iteration < maxUnificationIterations; iteration++ {
+	for iteration := range maxUnificationIterations {
 		var (
 			changed      bool
 			previousSubs = maps.Clone(s.Substitutions)

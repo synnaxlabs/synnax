@@ -79,15 +79,15 @@ func (NoopServer) DocumentLink(context.Context, *protocol.DocumentLinkParams) ([
 	return nil, nil
 }
 
-func (NoopServer) DocumentSymbol(context.Context, *protocol.DocumentSymbolParams) ([]interface{}, error) {
-	return []interface{}{}, nil
+func (NoopServer) DocumentSymbol(context.Context, *protocol.DocumentSymbolParams) ([]any, error) {
+	return []any{}, nil
 }
 
 func (NoopServer) DocumentLinkResolve(context.Context, *protocol.DocumentLink) (*protocol.DocumentLink, error) {
 	return nil, nil
 }
 
-func (NoopServer) ExecuteCommand(context.Context, *protocol.ExecuteCommandParams) (interface{}, error) {
+func (NoopServer) ExecuteCommand(context.Context, *protocol.ExecuteCommandParams) (any, error) {
 	return nil, nil
 }
 
@@ -151,7 +151,7 @@ func (NoopServer) SelectionRange(context.Context, *protocol.SelectionRangeParams
 	return nil, nil
 }
 
-func (NoopServer) SemanticTokensFullDelta(context.Context, *protocol.SemanticTokensDeltaParams) (interface{}, error) {
+func (NoopServer) SemanticTokensFullDelta(context.Context, *protocol.SemanticTokensDeltaParams) (any, error) {
 	return nil, nil
 }
 
@@ -207,7 +207,7 @@ func (NoopServer) CodeLensRefresh(context.Context) error {
 	return nil
 }
 
-func (NoopServer) Request(context.Context, string, interface{}) (interface{}, error) {
+func (NoopServer) Request(context.Context, string, any) (any, error) {
 	return nil, nil
 }
 
