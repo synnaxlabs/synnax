@@ -247,6 +247,9 @@ var _ = Describe("Python Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`from typing import Literal`))
+			Expect(content).To(ContainSubstring(`DATATYPE_FLOAT32: Literal["float32"] = "float32"`))
+			Expect(content).To(ContainSubstring(`DATATYPE_FLOAT64: Literal["float64"] = "float64"`))
+			Expect(content).To(ContainSubstring(`DATATYPE_INT32: Literal["int32"] = "int32"`))
 			Expect(content).To(ContainSubstring(`DataType = Literal["float32", "float64", "int32"]`))
 			Expect(content).To(ContainSubstring(`data_type: DataType`))
 		})
