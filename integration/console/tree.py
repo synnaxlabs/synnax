@@ -236,22 +236,27 @@ class Tree:
         self.layout.type_text(group_name)
         self.layout.press_enter()
 
-    def delete_group(self, item: Locator | str) -> None:
+    def delete_group(self, item: Locator | str, *, only_if_empty: bool = False) -> None:
         """Delete/ungroup a group via context menu.
 
         Accepts either a Locator or a group name string. Groups are deleted
         immediately without a confirmation dialog. The context menu shows
-        "Delete" for collapsed groups and "Ungroup" for expanded groups.
+        "Delete" for empty groups and "Ungroup" for non-empty groups.
 
         :param item: The Locator for the group, or the group name as a string.
+        :param only_if_empty: If True, only delete the group when the context
+            menu shows "Delete" (empty group). Skips groups that show "Ungroup"
+            (still have children). The caller should leave the group expanded so
+            the context menu accurately reflects emptiness.
         """
         if isinstance(item, str):
             item = self.get_group(item)
-        self.collapse(item)
+        if not only_if_empty:
+            self.collapse(item)
         self.ctx_menu.open_on(item)
         if self.ctx_menu.has_option("Delete"):
             self.ctx_menu.click_option("Delete")
-        elif self.ctx_menu.has_option("Ungroup"):
+        elif not only_if_empty and self.ctx_menu.has_option("Ungroup"):
             self.ctx_menu.click_option("Ungroup")
         else:
             self.ctx_menu.close()

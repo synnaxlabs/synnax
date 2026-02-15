@@ -476,11 +476,11 @@ class WorkspaceClient:
             visited.add(group_id)
             self.tree.expand(group)
             self._walk_and_delete(remaining, visited)
-            # Post-order: delete the now-empty group by its exact DOM id.
+            # Post-order: delete the group only if it's now empty.
             locator = self.layout.page.locator(f"div[id='{group_id}']").first
             try:
                 locator.wait_for(state="visible", timeout=2000)
-                self.tree.delete_group(locator)
+                self.tree.delete_group(locator, only_if_empty=True)
             except PlaywrightTimeoutError:
                 pass
 
