@@ -55,6 +55,7 @@ from synnax.framer import (
 from synnax.options import Options
 from synnax.rack import Rack
 from synnax.ranger import Range
+from synnax.status import Status
 from synnax.synnax import Synnax
 from synnax.task import Status as TaskStatus
 from synnax.task import StatusDetails as TaskStatusDetails
@@ -164,4 +165,5 @@ __all__ = [
     "ni",
     "opcua",
     "status",
+    "Status",
 ]

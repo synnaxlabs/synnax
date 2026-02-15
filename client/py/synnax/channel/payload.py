@@ -76,6 +76,11 @@ class NormalizedNameResult:
     channels: list[str]
 
 
+Params: TypeAlias = (
+    Key | str | Payload | Sequence[Key] | Sequence[str] | Sequence[Payload]
+)
+
+
 def normalize_params(
     channels: Params,
 ) -> NormalizedKeyResult | NormalizedNameResult:
@@ -109,18 +114,6 @@ def normalize_params(
         variant="keys",
         channels=[k for k in normalized if isinstance(k, int)],
     )
-
-
-Params: TypeAlias = (
-    Key
-    | str
-    | Payload
-    | Sequence[Key]
-    | Sequence[str]
-    | Sequence[Key | str]
-    | Sequence[Key | str | Payload]
-    | Sequence[Payload]
-)
 
 
 def has_params(channels: Params | None) -> bool:

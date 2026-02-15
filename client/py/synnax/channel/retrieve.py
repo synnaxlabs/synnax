@@ -173,18 +173,28 @@ class CacheRetriever:
     @trace("debug")
     def retrieve(self, channels: Params) -> list[Payload]:
         normal = normalize_params(channels)
-        results = list()
-        to_retrieve: list[Key] | tuple[Key] | list[str] | tuple[str] = list()  # type: ignore
-        for p in normal.channels:
-            ch = self._get(p)
-            if ch is None:
-                to_retrieve.append(p)  # type: ignore
-            else:
-                results.extend(ch)
-
-        if len(to_retrieve) == 0:
-            return results
-
+        results: list[Payload] = []
+        missed: list[int] = []
+        if isinstance(normal, NormalizedNameResult):
+            for i, name in enumerate(normal.channels):
+                ch = self._get(name)
+                if ch is None:
+                    missed.append(i)
+                else:
+                    results.extend(ch)
+            if not missed:
+                return results
+            to_retrieve: Params = [normal.channels[i] for i in missed]
+        else:
+            for i, key in enumerate(normal.channels):
+                ch = self._get(key)
+                if ch is None:
+                    missed.append(i)
+                else:
+                    results.extend(ch)
+            if not missed:
+                return results
+            to_retrieve = [normal.channels[i] for i in missed]
         retrieved = self._retriever.retrieve(to_retrieve)
         self.set(retrieved)
         results.extend(retrieved)

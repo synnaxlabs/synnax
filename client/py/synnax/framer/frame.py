@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
-from typing import Any, TypeAlias, overload
+from typing import TypeAlias, overload
 
 from pandas import DataFrame
 from pydantic import BaseModel, Field
@@ -116,8 +116,8 @@ class Frame:
             or name.
         """
         if isinstance(col_or_frame, Frame):
-            self.series.extend(col_or_frame.series)  # type: ignore
-            self.channels.extend(col_or_frame.channels)  # type: ignore
+            self.series.extend(col_or_frame.series)
+            self.channels.extend(col_or_frame.channels)
         else:
             if series is None:
                 raise ValueError("series must be provided when appending a channel")
@@ -133,7 +133,7 @@ class Frame:
         """
         return zip(self.channels, self.series)  # type: ignore
 
-    def __getitem__(self, key: channel.Key | str | Any) -> MultiSeries:
+    def __getitem__(self, key: channel.Key | str) -> MultiSeries:
         if not isinstance(key, (channel.Key, str)):
             return self.to_df()[key]
         indexes = [i for i, k in enumerate(self.channels) if k == key]
@@ -170,7 +170,7 @@ class Frame:
         """Converts the frame to a pandas DataFrame. Each column in the DataFrame
         corresponds to a channel in the frame.
         """
-        base: dict[channel.Key | str, Any] = dict()
+        base: dict[channel.Key | str, object] = dict()
         for k in set(self.channels):
             v = self.get(k)
             if v is None:

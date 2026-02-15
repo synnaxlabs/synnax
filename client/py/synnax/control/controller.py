@@ -12,7 +12,7 @@ from __future__ import annotations
 from asyncio import Future
 from collections.abc import Callable
 from threading import Event, Lock
-from typing import Any, Protocol, overload
+from typing import Any, Protocol, cast, overload
 
 import numpy as np
 
@@ -139,11 +139,19 @@ class Controller:
     def set(self, channel: channel_.Key | str, value: SampleValue): ...
 
     @overload
-    def set(self, channel: dict[channel_.Key | str, SampleValue]): ...
+    def set(self, channel: dict[channel_.Key, SampleValue]): ...
+
+    @overload
+    def set(self, channel: dict[str, SampleValue]): ...
 
     def set(
         self,
-        channel: channel_.Key | str | dict[channel_.Key | str, SampleValue],
+        channel: (
+            channel_.Key
+            | str
+            | dict[channel_.Key, SampleValue]
+            | dict[str, SampleValue]
+        ),
         value: SampleValue | None = None,
     ):
         """Sets the provided channel(s) to the provided value(s).
@@ -162,10 +170,9 @@ class Controller:
         """
         if isinstance(channel, dict):
             values = list(channel.values())
-            channels = channel_.retrieve_required(
-                self._retriever,
-                list(channel.keys()),
-            )
+            # Overloads guarantee keys are homogeneous (all Key or all str)
+            ch_keys = cast(channel_.Params, list(channel.keys()))
+            channels = channel_.retrieve_required(self._retriever, ch_keys)
             now = TimeStamp.now()
             updated = {channels[i].key: values[i] for i in range(len(channels))}
             updated_idx = {
@@ -190,7 +197,19 @@ class Controller:
     @overload
     def set_authority(
         self,
-        value: dict[channel_.Key | str | channel_.Payload, CrudeAuthority],
+        value: dict[channel_.Key, CrudeAuthority],
+    ) -> None: ...
+
+    @overload
+    def set_authority(
+        self,
+        value: dict[str, CrudeAuthority],
+    ) -> None: ...
+
+    @overload
+    def set_authority(
+        self,
+        value: dict[channel_.Payload, CrudeAuthority],
     ) -> None: ...
 
     @overload
@@ -203,7 +222,9 @@ class Controller:
     def set_authority(
         self,
         value: (
-            dict[channel_.Key | str | channel_.Payload, CrudeAuthority]
+            dict[channel_.Key, CrudeAuthority]
+            | dict[str, CrudeAuthority]
+            | dict[channel_.Payload, CrudeAuthority]
             | channel_.Key
             | str
             | CrudeAuthority
@@ -211,15 +232,17 @@ class Controller:
         authority: CrudeAuthority | None = None,
     ) -> None:
         if isinstance(value, dict):
-            channels = channel_.retrieve_required(
-                self._retriever,
-                list(value.keys()),
+            # Overloads guarantee homogeneous key types; widen for uniform access
+            auth = cast(
+                dict[channel_.Key | str | channel_.Payload, CrudeAuthority], value
             )
+            auth_keys = cast(channel_.Params, list(auth.keys()))
+            channels = channel_.retrieve_required(self._retriever, auth_keys)
             for ch in channels:
-                resolved = value.get(ch.key) or value.get(ch.name)
+                resolved = auth.get(ch.key) or auth.get(ch.name)
                 if resolved is not None:
-                    value[ch.index] = resolved
-            self._writer.set_authority(value)
+                    auth[ch.index] = resolved
+            self._writer.set_authority(auth)
         elif authority is not None:
             ch = self._retriever.retrieve_one(value)
             self._writer.set_authority({ch.key: authority, ch.index: authority})

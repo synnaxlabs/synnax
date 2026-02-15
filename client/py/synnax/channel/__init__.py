@@ -51,5 +51,5 @@ __all__ = [
     "ChannelPayload",
     "ChannelRetriever",
     "normalize_channel_params",
-    "has_params"
+    "has_params",
 ]
