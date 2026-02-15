@@ -11,7 +11,8 @@ package grpc
 
 import (
 	"context"
-	"github.com/synnaxlabs/freighter/fgrpc"
+
+	"github.com/synnaxlabs/freighter/grpc"
 	echov1 "github.com/synnaxlabs/freighter/integration/grpc/gen/proto/go/v1"
 	"github.com/synnaxlabs/freighter/integration/http"
 )
@@ -20,7 +21,7 @@ type echoMessageTranslator struct{}
 
 var _ grpc.Translator[http.Message, *echov1.Message] = (*echoMessageTranslator)(nil)
 
-func (e echoMessageTranslator) Forward(ctx context.Context, msg http.Message) (*echov1.Message, error) {
+func (e echoMessageTranslator) Forward(_ context.Context, msg http.Message) (*echov1.Message, error) {
 	return &echov1.Message{
 		Id:      uint32(msg.ID),
 		Message: msg.Message,
