@@ -20,7 +20,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/fhttp"
+	fhttp "github.com/synnaxlabs/freighter/http"
 	"go.uber.org/zap"
 )
 
@@ -32,7 +32,7 @@ const rootHTMLFile = "index.html"
 // Service serves the web-based console UI.
 type Service struct{ fs fs.FS }
 
-var _ http.BindableTransport = (*Service)(nil)
+var _ fhttp.BindableTransport = (*Service)(nil)
 
 // NewService creates a new console UI service with embedded assets.
 func NewService() *Service {
