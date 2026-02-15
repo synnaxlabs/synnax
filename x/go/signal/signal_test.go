@@ -325,7 +325,8 @@ var _ = Describe("Signal", func() {
 			ctx.Go(f, signal.WithBreaker(breaker.Config{MaxRetries: breaker.InfiniteRetries, BaseInterval: 1 * time.Millisecond, Scale: 1.01}))
 
 			wg.Go(func() {
-				Expect(ctx.Wait()).To(Succeed())
+				defer GinkgoRecover()
+				Expect(ctx.Wait()).To(HaveOccurredAs(context.Canceled))
 				close(done)
 			})
 
@@ -355,6 +356,7 @@ var _ = Describe("Signal", func() {
 			)
 
 			go func() {
+				defer GinkgoRecover()
 				Expect(ctx.Wait()).ToNot(HaveOccurred())
 				close(done)
 			}()
