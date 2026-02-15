@@ -250,7 +250,6 @@ class ChannelClient:
             return None
         except PlaywrightTimeoutError:
             modal = self.layout.locator(self.layout.MODAL_SELECTOR)
-
             if modal.count() > 0:
                 modal_text = modal.inner_text()
                 if "Failed to update calculated channel" in modal_text:
@@ -262,10 +261,8 @@ class ChannelClient:
                                 : error_section.find(delimiter)
                             ]
                             break
-                    error_text = error_section.strip()
                     self.close_modal()
-                    return error_text
-
+                    return error_section.strip()
             self.close_modal()
             return "Unknown error"
         finally:

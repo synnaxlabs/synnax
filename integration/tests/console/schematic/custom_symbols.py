@@ -10,6 +10,7 @@
 """Test custom schematic symbol operations."""
 
 import synnax as sy
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.case import ConsoleCase
 from console.schematic import CustomSymbol, Schematic
@@ -58,16 +59,14 @@ class CustomSymbols(ConsoleCase):
         )
 
     def teardown(self) -> None:
-        if self.console.workspace.page_exists(self.schematic_name):
+        try:
             toolbar = SymbolToolbar(self.console.layout)
             toolbar.show()
-
             if toolbar.group_exists(self.test_group_name):
                 toolbar.delete_group(self.test_group_name)
-
-            self.console.layout.close_tab(self.schematic_name)
-            self.console.workspace.delete_page(self.schematic_name)
-
+        except PlaywrightTimeoutError:
+            pass
+        self._cleanup_pages.append(self.schematic_name)
         super().teardown()
 
     def run(self) -> None:

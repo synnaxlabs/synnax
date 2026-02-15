@@ -99,8 +99,7 @@ class ChannelLifecycle(ConsoleCase):
         ## Context Menu
         self.test_rename_channel()
         self.test_edit_calculated_channel()
-        self.test_alias_under_range()
-        self.test_clear_alias_under_range()
+        self.test_alias_operations()
         self.test_delete_channel()
         self.test_copy_link()
 
@@ -152,7 +151,6 @@ class ChannelLifecycle(ConsoleCase):
                 }
             )
 
-        # Create all channels using create_with_create_more
         created = console.channels.create_with_create_more(channels)
 
         expected_count = 1 + len(data_types)
@@ -234,10 +232,8 @@ class ChannelLifecycle(ConsoleCase):
         expected_val = uptime_val * updated_multiplier
         assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
 
-    def test_alias_under_range(self) -> None:
-        """Test setting and clearing an alias for a channel under a range."""
-        self.log("Testing set and clear alias under range")
-
+    def test_alias_operations(self) -> None:
+        """Test setting, verifying, clearing, and re-verifying a channel alias."""
         console = self.console
         client = self.client
 
@@ -257,7 +253,6 @@ class ChannelLifecycle(ConsoleCase):
             index=self.shared_index,
         )
 
-        # Set alias and verify
         console.channels.set_alias(name=data_name, alias=alias_name)
 
         console.channels.show_channels()
@@ -272,44 +267,6 @@ class ChannelLifecycle(ConsoleCase):
             scoped_ch.key == data_ch.key
         ), f"Alias should resolve to channel key {data_ch.key}, got {scoped_ch.key}"
 
-        console.channels.delete([alias_name])
-        console.ranges.open_explorer()
-        console.ranges.delete_from_explorer(range_name)
-
-    def test_clear_alias_under_range(self) -> None:
-        """Test clearing an alias for a channel via context menu."""
-        self.log("Testing clear alias under range")
-
-        console = self.console
-        client = self.client
-
-        suffix = get_random_name()
-        range_name = f"clear_alias_range_{suffix}"
-        data_name = f"clear_alias_data_{suffix}"
-        alias_name = f"ClearAlias_{suffix}"
-
-        console.ranges.create(range_name, persisted=True)
-        console.ranges.open_explorer()
-        console.ranges.show_toolbar()
-        console.ranges.set_active(range_name)
-
-        console.channels.create(
-            name=data_name,
-            data_type=sy.DataType.FLOAT32,
-            index=self.shared_index,
-        )
-
-        console.channels.set_alias(name=data_name, alias=alias_name)
-
-        console.channels.show_channels()
-        alias_visible = self.page.get_by_text(alias_name).count() > 0
-        assert alias_visible, f"Alias '{alias_name}' should be visible before clearing"
-        console.channels.hide_channels()
-
-        rng = client.ranges.retrieve(name=range_name)
-        data_ch = client.channels.retrieve(data_name)
-        scoped_ch = rng[alias_name]
-        assert scoped_ch.key == data_ch.key, "Alias should resolve before clearing"
         console.channels.clear_alias(alias_name)
 
         console.channels.show_channels()
@@ -364,6 +321,7 @@ class ChannelLifecycle(ConsoleCase):
         self.log("Testing open channel plot by name via command palette")
 
         plot = self.console.workspace.open_from_search(Plot, self.shared_data)
+        self._cleanup_pages.append(plot.page_name)
         plot.close()
 
     def test_open_create_channel_modal(self) -> None:

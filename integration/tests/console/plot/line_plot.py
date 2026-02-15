@@ -9,7 +9,6 @@
 
 import numpy as np
 import synnax as sy
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.case import ConsoleCase
 from console.plot import Plot
@@ -19,18 +18,29 @@ from framework.utils import assert_link_format, get_random_name
 class LinePlot(ConsoleCase):
     """Test line plot operations."""
 
+    suffix: str
     _shared_plot_name: str | None
+    ctx_plot_name: str | None
+    ctx_plot_link: str
 
     def setup(self) -> None:
         super().setup()
+        self.suffix = get_random_name()
         self._shared_plot_name = None
+        self.ctx_plot_name = None
+
+        ctx_plot = self.console.workspace.create_plot(
+            f"Context Menu Test {self.suffix}"
+        )
+        self.ctx_plot_name = ctx_plot.page_name
+        self.ctx_plot_link = ctx_plot.copy_link()
+        ctx_plot.close()
 
     def teardown(self) -> None:
         if self._shared_plot_name is not None:
-            try:
-                self.console.workspace.delete_page(self._shared_plot_name)
-            except PlaywrightTimeoutError:
-                pass
+            self._cleanup_pages.append(self._shared_plot_name)
+        if self.ctx_plot_name is not None:
+            self._cleanup_pages.append(self.ctx_plot_name)
         super().teardown()
 
     def run(self) -> None:
@@ -67,11 +77,9 @@ class LinePlot(ConsoleCase):
         self.test_drag_plot_onto_mosaic(plot_name, plot_link)
 
         # Resources Toolbar > Context Menu
-        self.test_ctx_rename_plot()
-        self.test_ctx_delete_plot()
+        self.test_ctx_operations()
         self.test_ctx_delete_multiple_plots()
-        self.test_ctx_export_json()
-        self.test_ctx_copy_link()
+        self.test_ctx_delete_plot()
 
         self.test_open_plot_by_name(plot_name, plot_link)
 
@@ -260,40 +268,36 @@ class LinePlot(ConsoleCase):
 
         plot.close()
 
-    def test_ctx_rename_plot(self) -> None:
-        """Test renaming a plot via context menu in the workspace resources toolbar."""
+    def test_ctx_operations(self) -> None:
+        """Test non-destructive context menu operations using shared plot."""
+        assert self.ctx_plot_name is not None
+
+        self.log("Testing copy link via context menu")
+        link = self.console.workspace.copy_page_link(self.ctx_plot_name)
+        assert (
+            link == self.ctx_plot_link
+        ), f"Context menu link should match: expected {self.ctx_plot_link}, got {link}"
+
+        self.log("Testing export plot via context menu")
+        exported = self.console.workspace.export_page(self.ctx_plot_name)
+        assert "key" in exported, "Exported JSON should contain 'key'"
+        assert len(exported["key"]) == 36, "Plot key should be a UUID"
+        assert "channels" in exported, "Exported JSON should contain 'channels'"
+
         self.log("Testing rename plot via context menu")
-
-        suffix = get_random_name()
-        plot = self.console.workspace.create_plot(f"Rename Test {suffix}")
-        original_name = plot.page_name
-        self._cleanup_pages.append(original_name)
-        plot.close()
-
-        new_name = f"Renamed Plot {suffix}"
-        self.console.workspace.rename_page(original_name, new_name)
-        self._cleanup_pages.remove(original_name)
-        self._cleanup_pages.append(new_name)
-
-        self.console.workspace.delete_page(new_name)
-        self._cleanup_pages.remove(new_name)
+        new_name = f"Renamed Plot {self.suffix}"
+        self.console.workspace.rename_page(self.ctx_plot_name, new_name)
+        assert self.console.workspace.page_exists(
+            new_name
+        ), f"Renamed plot '{new_name}' should exist"
+        self.ctx_plot_name = new_name
 
     def test_ctx_delete_plot(self) -> None:
         """Test deleting a plot via context menu in the workspace resources toolbar."""
         self.log("Testing delete plot via context menu")
-
-        suffix = get_random_name()
-        plot = self.console.workspace.create_plot(f"Delete Test {suffix}")
-        plot_name = plot.page_name
-        self._cleanup_pages.append(plot_name)
-        plot.close()
-
-        assert self.console.workspace.page_exists(
-            plot_name
-        ), f"Plot '{plot_name}' should exist before deletion"
-
-        self.console.workspace.delete_page(plot_name)
-        self._cleanup_pages.remove(plot_name)
+        assert self.ctx_plot_name is not None
+        self.console.workspace.delete_page(self.ctx_plot_name)
+        self.ctx_plot_name = None
 
     def test_ctx_delete_multiple_plots(self) -> None:
         """Test deleting multiple plots via multi-select and context menu."""
@@ -308,53 +312,9 @@ class LinePlot(ConsoleCase):
             self._cleanup_pages.append(plot.page_name)
             plot.close()
 
-        for name in plot_names:
-            assert self.console.workspace.page_exists(
-                name
-            ), f"Plot '{name}' should exist before deletion"
-
         self.console.workspace.delete_pages(plot_names)
         for name in plot_names:
             self._cleanup_pages.remove(name)
-
-    def test_ctx_export_json(self) -> None:
-        """Test exporting a plot as JSON via context menu."""
-        self.log("Testing export plot via context menu")
-
-        suffix = get_random_name()
-        plot = self.console.workspace.create_plot(f"Export Test {suffix}")
-        plot_name = plot.page_name
-        self._cleanup_pages.append(plot_name)
-        plot.close()
-
-        exported = self.console.workspace.export_page(plot_name)
-
-        assert "key" in exported, "Exported JSON should contain 'key'"
-        assert len(exported["key"]) == 36, "Plot key should be a UUID"
-        assert "channels" in exported, "Exported JSON should contain 'channels'"
-
-        self.console.workspace.delete_page(plot_name)
-        self._cleanup_pages.remove(plot_name)
-
-    def test_ctx_copy_link(self) -> None:
-        """Test copying a link to a plot via context menu."""
-        self.log("Testing copy link via context menu")
-
-        suffix = get_random_name()
-        plot = self.console.workspace.create_plot(f"Copy Link Test {suffix}")
-        plot_name = plot.page_name
-        self._cleanup_pages.append(plot_name)
-        expected_link = plot.copy_link()
-        plot.close()
-
-        link = self.console.workspace.copy_page_link(plot_name)
-
-        assert (
-            link == expected_link
-        ), f"Context menu link should match: expected {expected_link}, got {link}"
-
-        self.console.workspace.delete_page(plot_name)
-        self._cleanup_pages.remove(plot_name)
 
     def test_open_plot_by_name(self, plot_name: str, expected_link: str) -> None:
         """Test opening an existing plot by searching its name in the command palette."""

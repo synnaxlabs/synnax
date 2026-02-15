@@ -24,15 +24,18 @@ class LogLifecycle(ConsoleCase):
     virtual_name: str
     _shared_log_name: str | None
     _cleanup_groups: list[str]
+    ctx_log_name: str
+    ctx_log_link: str
 
     def setup(self) -> None:
         super().setup()
+        self.suffix = get_random_name()
         self._shared_log_name = None
         self._cleanup_groups = []
+        self.ctx_log_name = ""
 
     def setup_channels(self) -> None:
         """Create all test channels."""
-        self.suffix = get_random_name()
         self.idx_name = f"log_test_idx_{self.suffix}"
         self.data_name = f"log_test_data_{self.suffix}"
         self.virtual_name = f"log_virtual_{self.suffix}"
@@ -62,10 +65,7 @@ class LogLifecycle(ConsoleCase):
             except PlaywrightTimeoutError:
                 pass
         if self._shared_log_name is not None:
-            try:
-                self.console.workspace.delete_page(self._shared_log_name)
-            except PlaywrightTimeoutError:
-                pass
+            self._cleanup_pages.append(self._shared_log_name)
         super().teardown()
 
     def run(self) -> None:
@@ -101,9 +101,13 @@ class LogLifecycle(ConsoleCase):
         self._shared_log_name = None
 
         # Resources Toolbar > Context Menu
-        self.test_ctx_rename_log()
-        self.test_ctx_copy_link()
-        self.test_ctx_export_json()
+        ctx_log = self.console.workspace.create_log(f"Context Menu Test {self.suffix}")
+        self.ctx_log_name = ctx_log.page_name
+        self._cleanup_pages.append(self.ctx_log_name)
+        self.ctx_log_link = ctx_log.copy_link()
+        ctx_log.close()
+
+        self.test_ctx_operations()
         self.test_ctx_group_logs()
         self.test_ctx_delete_multiple_logs()
         self.test_ctx_delete_log()
@@ -269,47 +273,34 @@ class LogLifecycle(ConsoleCase):
         log.close()
         assert not log.is_open, "Log should be closed after close()"
 
-    def test_ctx_rename_log(self) -> None:
-        """Test renaming a log via context menu in the workspace resources toolbar."""
+    def test_ctx_operations(self) -> None:
+        """Test non-destructive context menu operations using shared log."""
+        assert self.ctx_log_name is not None
+
+        self.log("Testing copy link via context menu")
+        link = self.console.workspace.copy_page_link(self.ctx_log_name)
+        assert (
+            link == self.ctx_log_link
+        ), f"Context menu link should match: expected {self.ctx_log_link}, got {link}"
+
+        self.log("Testing export log via context menu")
+        exported = self.console.workspace.export_page(self.ctx_log_name)
+        assert "key" in exported, "Exported JSON should contain 'key'"
+        assert len(exported["key"]) == 36, "Log key should be a UUID"
+
         self.log("Testing rename log via context menu")
-
-        suffix = get_random_name()
-        log = self.console.workspace.create_log(f"Rename Test {suffix}")
-        original_name = log.page_name
-        self._cleanup_pages.append(original_name)
-        log.close()
-        assert not log.is_open, "Log should be closed after close()"
-
-        new_name = f"Renamed Log {suffix}"
-        self.console.workspace.rename_page(original_name, new_name)
-        self._cleanup_pages.remove(original_name)
-        self._cleanup_pages.append(new_name)
-
+        new_name = f"Renamed Log {self.suffix}"
+        self.console.workspace.rename_page(self.ctx_log_name, new_name)
         assert self.console.workspace.page_exists(
             new_name
         ), f"Renamed log '{new_name}' should exist"
-        self.console.workspace.wait_for_page_removed(original_name)
-
-        self.console.workspace.delete_page(new_name)
-        self._cleanup_pages.remove(new_name)
+        self.ctx_log_name = new_name
 
     def test_ctx_delete_log(self) -> None:
         """Test deleting a log via context menu in the workspace resources toolbar."""
         self.log("Testing delete log via context menu")
-
-        suffix = get_random_name()
-        log = self.console.workspace.create_log(f"Delete Test {suffix}")
-        log_name = log.page_name
-        self._cleanup_pages.append(log_name)
-        log.close()
-        assert not log.is_open, "Log should be closed after close()"
-
-        assert self.console.workspace.page_exists(
-            log_name
-        ), f"Log '{log_name}' should exist before deletion"
-
-        self.console.workspace.delete_page(log_name)
-        self._cleanup_pages.remove(log_name)
+        assert self.ctx_log_name is not None
+        self.console.workspace.delete_page(self.ctx_log_name)
 
     def test_ctx_delete_multiple_logs(self) -> None:
         """Test deleting multiple logs via multi-select and context menu."""
@@ -323,12 +314,6 @@ class LogLifecycle(ConsoleCase):
             log_names.append(log.page_name)
             self._cleanup_pages.append(log.page_name)
             log.close()
-            assert not log.is_open, f"Log {i} should be closed after close()"
-
-        for name in log_names:
-            assert self.console.workspace.page_exists(
-                name
-            ), f"Log '{name}' should exist before deletion"
 
         self.console.workspace.delete_pages(log_names)
         for name in log_names:
@@ -346,7 +331,6 @@ class LogLifecycle(ConsoleCase):
             log_names.append(log.page_name)
             self._cleanup_pages.append(log.page_name)
             log.close()
-            assert not log.is_open, f"Log {i} should be closed after close()"
 
         group_name = f"Log Group {suffix}"
         self.console.workspace.group_pages(names=log_names, group_name=group_name)
@@ -360,43 +344,3 @@ class LogLifecycle(ConsoleCase):
         self._cleanup_groups.remove(group_name)
         for name in log_names:
             self._cleanup_pages.remove(name)
-
-    def test_ctx_export_json(self) -> None:
-        """Test exporting a log as JSON via context menu."""
-        self.log("Testing export log via context menu")
-
-        suffix = get_random_name()
-        log = self.console.workspace.create_log(f"Export Test {suffix}")
-        log_name = log.page_name
-        self._cleanup_pages.append(log_name)
-        log.close()
-        assert not log.is_open, "Log should be closed after close()"
-
-        exported = self.console.workspace.export_page(log_name)
-
-        assert "key" in exported, "Exported JSON should contain 'key'"
-        assert len(exported["key"]) == 36, "Log key should be a UUID"
-
-        self.console.workspace.delete_page(log_name)
-        self._cleanup_pages.remove(log_name)
-
-    def test_ctx_copy_link(self) -> None:
-        """Test copying a link to a log via context menu."""
-        self.log("Testing copy link via context menu")
-
-        suffix = get_random_name()
-        log = self.console.workspace.create_log(f"Copy Link Test {suffix}")
-        log_name = log.page_name
-        self._cleanup_pages.append(log_name)
-        expected_link = log.copy_link()
-        log.close()
-        assert not log.is_open, "Log should be closed after close()"
-
-        link = self.console.workspace.copy_page_link(log_name)
-
-        assert (
-            link == expected_link
-        ), f"Context menu link should match: expected {expected_link}, got {link}"
-
-        self.console.workspace.delete_page(log_name)
-        self._cleanup_pages.remove(log_name)

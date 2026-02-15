@@ -400,6 +400,7 @@ class RangeLifecycle(ConsoleCase):
         """Test copying Python code from the range overview."""
         assert self.labeled_range_name is not None
         self.log("Testing: Copy Python code")
+        self.console.notifications.close_all()
         self.console.ranges.open_explorer()
         self.console.ranges.open_overview_from_explorer(self.labeled_range_name)
         self.console.ranges.wait_for_overview(self.labeled_range_name)

@@ -419,36 +419,70 @@ class WorkspaceClient:
         self.tree.delete_group(name)
         self.layout.close_left_toolbar()
 
-    def delete_pages(self, names: list[str]) -> None:
-        """Delete multiple pages via multi-select and context menu.
+    def delete_pages(self, page_names: list[str]) -> None:
+        """Delete pages by walking the workspace tree depth-first.
+
+        Expands groups as needed to find target pages, deletes each
+        individually, and cleans up empty groups on the way back up.
+        Tracks visited groups by DOM id to avoid infinite loops in the
+        flat-rendered tree. Falls back to scrolling for pages that may
+        be off-screen due to virtual scrolling.
 
         Args:
-            names: List of page names to delete
+            page_names: Names of pages to delete.
         """
-        if not names:
+        if not page_names:
             return
-
-        self.expand_active()
-
-        self._scroll_to_page(names[0])
-        first_item = self.get_page(names[0])
-        first_item.wait_for(state="visible", timeout=2000)
-        first_item.click()
-
-        for name in names[1:]:
-            self._scroll_to_page(name)
+        remaining = list(page_names)
+        try:
+            self.expand_active()
+        except PlaywrightTimeoutError:
+            self.layout.close_left_toolbar()
+            return
+        self._walk_and_delete(remaining, visited=set())
+        # Scroll fallback for pages missed by the walk (virtual scrolling).
+        for name in list(remaining):
+            if not self._scroll_to_page(name):
+                continue
             page_item = self.get_page(name)
-            page_item.wait_for(state="visible", timeout=2000)
-            page_item.click(modifiers=["ControlOrMeta"])
+            if not page_item.is_visible():
+                continue
+            self._delete_page_item(page_item, name, remaining)
+        self.layout.close_left_toolbar()
 
-        last_item = first_item if len(names) == 1 else self.get_page(names[-1])
-        self.ctx_menu.action(last_item, "Delete")
+    def _delete_page_item(
+        self, page_item: Locator, name: str, remaining: list[str]
+    ) -> None:
+        self.ctx_menu.action(page_item, "Delete")
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
-        for name in names:
-            self.wait_for_page_removed(name)
-        self.layout.close_left_toolbar()
+        delete_btn.wait_for(state="hidden", timeout=5000)
+        remaining.remove(name)
+
+    def _walk_and_delete(self, remaining: list[str], visited: set[str]) -> None:
+        # Delete any visible target pages at this level.
+        for name in list(remaining):
+            page_item = self.get_page(name)
+            if not page_item.is_visible():
+                continue
+            self._delete_page_item(page_item, name, remaining)
+
+        # Recurse into unvisited groups, then delete them on the way back up.
+        for group in self.tree.find_by_prefix("group:"):
+            group_id = group.get_attribute("id") or ""
+            if group_id in visited:
+                continue
+            visited.add(group_id)
+            self.tree.expand(group)
+            self._walk_and_delete(remaining, visited)
+            # Post-order: delete the now-empty group by its exact DOM id.
+            locator = self.layout.page.locator(f"div[id='{group_id}']").first
+            try:
+                locator.wait_for(state="visible", timeout=2000)
+                self.tree.delete_group(locator)
+            except PlaywrightTimeoutError:
+                pass
 
     def copy_page_link(self, name: str) -> str:
         """Copy link to a page via context menu.

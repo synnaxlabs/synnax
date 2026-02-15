@@ -105,9 +105,9 @@ class ConsoleCase(TestCase):
         self._cleanup_pages: list[str] = []
 
     def teardown(self) -> None:
-        for name in self._cleanup_pages:
+        if self._cleanup_pages:
             try:
-                self.console.workspace.delete_page(name)
+                self.console.workspace.delete_pages(self._cleanup_pages)
             except PlaywrightTimeoutError:
                 pass
         self.context.close()
