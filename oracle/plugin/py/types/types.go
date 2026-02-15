@@ -1256,7 +1256,7 @@ class {{ .Name }}(IntEnum):
 {{- $enumName := .Name }}
 {{- range .Values }}
 
-{{ upper .Name }}_{{ upper $enumName }}: Literal["{{ .Value }}"] = "{{ .Value }}"
+{{ upper $enumName }}_{{ upper .Name }}: Literal["{{ .Value }}"] = "{{ .Value }}"
 {{- end }}
 
 
