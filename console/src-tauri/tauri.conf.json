@@ -28,7 +28,6 @@
       "frameworks": [],
       "providerShortName": null
     },
-    "resources": ["../../vendor/lua-language-server/**/*"],
     "linux": { "deb": { "depends": [] } }
   },
   "identifier": "com.synnaxlabs.dev",

@@ -48,4 +48,5 @@ def ontology_id(key: UUID) -> ontology.ID:
     return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
 
 
-ACTION_CHANGE_USERNAME = "change_username"
+# Backwards compatibility
+NewUser = New

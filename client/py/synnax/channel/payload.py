@@ -129,3 +129,9 @@ def has_params(channels: Params | None) -> bool:
     if isinstance(channels, (Key, str, Payload)):
         return True
     return len(channels) > 0
+
+
+# Backwards compatibility
+ChannelKey = Key
+ChannelParams = Params
+ChannelPayload = Payload

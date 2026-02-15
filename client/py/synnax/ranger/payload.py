@@ -38,3 +38,6 @@ Key = UUID | str
 """The type for the names of a Range. A tuple or list of strings."""
 RangeParams = Key | list[Key] | tuple[Key] | str | list[str] | tuple[str]
 """Parameters that can be used to query a range"""
+
+# Backwards compatibility
+RangePayload = Payload
