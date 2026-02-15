@@ -125,7 +125,7 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
 ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
 
-class WriterClosed(BaseException): ...
+class WriterClosed(Exception): ...
 
 
 class Writer:
@@ -172,7 +172,7 @@ class Writer:
 
     _stream: Stream[WriterRequest, WriterResponse]
     _adapter: WriteFrameAdapter
-    _close_exc: BaseException | None = None
+    _close_exc: Exception | None = None
 
     start: CrudeTimeStamp
 
@@ -416,7 +416,7 @@ class Writer:
         """
         return self._close(None)
 
-    def _close(self, exc: BaseException | None) -> None:
+    def _close(self, exc: Exception | None) -> None:
         if self._close_exc is not None:
             if isinstance(self._close_exc, WriterClosed):
                 return

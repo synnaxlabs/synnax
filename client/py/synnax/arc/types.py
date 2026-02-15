@@ -55,3 +55,8 @@ class Task(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             raise ValueError("arc_key is required when creating a new ArcTask")
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = TaskConfig(arc_key=str(arc_key), auto_start=auto_start)
+
+
+# Backwards compatibility
+ArcTask = Task
+ArcTaskConfig = TaskConfig

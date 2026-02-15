@@ -46,7 +46,7 @@ packages = ["synnax", "examples"]
 profile = "black"
 
 [tool.mypy]
-plugins = ["numpy.typing.mypy_plugin", "pydantic.mypy"]
+plugins = ["pydantic.mypy"]
 strict = true
 disable_error_code = [
     "no-untyped-def",

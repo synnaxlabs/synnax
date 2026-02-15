@@ -77,3 +77,12 @@ class Status(BaseModel, Generic[D]):
             An ontology ID dictionary with type "status" and the status key.
         """
         return ontology_id(self.key)
+
+
+# Backwards compatibility
+SUCCESS_VARIANT = VARIANT_SUCCESS
+INFO_VARIANT = VARIANT_INFO
+WARNING_VARIANT = VARIANT_WARNING
+ERROR_VARIANT = VARIANT_ERROR
+DISABLED_VARIANT = VARIANT_DISABLED
+LOADING_VARIANT = VARIANT_LOADING

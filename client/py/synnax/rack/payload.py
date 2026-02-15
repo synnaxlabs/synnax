@@ -12,8 +12,7 @@ from typing import TypeAlias
 
 from pydantic import BaseModel
 
-from synnax import ontology
-from synnax.status import Status as _StatusBase
+from synnax import ontology, status
 
 ONTOLOGY_TYPE = ontology.ID(type="rack")
 
@@ -30,7 +29,7 @@ class StatusDetails(BaseModel):
     """The key of the rack."""
 
 
-RackStatus: TypeAlias = _StatusBase[StatusDetails]
+Status = status.Status[StatusDetails]
 """The status of a rack."""
 
 
@@ -39,7 +38,7 @@ class Rack(BaseModel):
     name: str = ""
     task_counter: int = 0
     embedded: bool = False
-    status: RackStatus | None = None
+    status: Status | None = None
 
     @property
     def ontology_id(self) -> ontology.ID:

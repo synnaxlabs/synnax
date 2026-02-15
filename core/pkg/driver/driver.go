@@ -120,7 +120,6 @@ var (
 		"modbus",
 		"ni",
 		"opc",
-		"sequence",
 		"ethercat",
 	}
 	DefaultConfig = Config{

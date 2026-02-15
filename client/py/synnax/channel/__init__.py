@@ -24,6 +24,14 @@ from synnax.channel.retrieve import (
 )
 from synnax.channel.writer import Writer
 
+# Backwards compatibility
+ChannelClient = Client
+ChannelKey = Key
+ChannelParams = Params
+ChannelPayload = Payload
+ChannelRetriever = Retriever
+normalize_channel_params = normalize_params
+
 __all__ = [
     "Channel",
     "Client",
@@ -37,5 +45,11 @@ __all__ = [
     "Retriever",
     "retrieve_required",
     "Writer",
+    "ChannelClient",
+    "ChannelKey",
+    "ChannelParams",
+    "ChannelPayload",
+    "ChannelRetriever",
+    "normalize_channel_params",
     "has_params",
 ]

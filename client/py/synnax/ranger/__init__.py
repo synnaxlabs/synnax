@@ -11,4 +11,8 @@ from synnax.ranger.client import Client, Range
 from synnax.ranger.retrieve import Retriever
 from synnax.ranger.writer import Writer
 
-__all__ = ["Client", "Range", "Retriever", "Writer"]
+# Backwards compatibility
+RangeRetriever = Retriever
+RangeWriter = Writer
+
+__all__ = ["Client", "Range", "Retriever", "Writer", "RangeRetriever", "RangeWriter"]

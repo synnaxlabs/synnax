@@ -17,7 +17,7 @@ on:
       - scripts/check_clang_format.sh
       - scripts/check_gofmt.sh
       - scripts/sanitizers/**
-      - vendor/**
+      - vendor/wasmtime/**
       - x/cpp/**
       - x/go/**
   push:
@@ -39,7 +39,7 @@ on:
       - scripts/check_clang_format.sh
       - scripts/check_gofmt.sh
       - scripts/sanitizers/**
-      - vendor/**
+      - vendor/wasmtime/**
       - x/cpp/**
       - x/go/**
   workflow_dispatch:

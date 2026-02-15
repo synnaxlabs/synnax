@@ -251,11 +251,6 @@ class AsyncStreamer:
         if exc is not None:
             raise exc
 
-    @property
-    def received(self) -> bool:
-        """Returns True if a frame has been received, False otherwise."""
-        return self._stream.received()  # type: ignore[attr-defined]
-
     async def read(self) -> Frame:
         """Reads the next frame of telemetry from the streamer. If an error occurs while
         reading the frame, an exception will be raised.

@@ -22,17 +22,11 @@ import { useMemo } from "react";
 import { Arc } from "@/arc";
 import { Menu } from "@/components";
 import { Group } from "@/group";
-import { Sequence } from "@/hardware/task/sequence";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
-import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
-
-const CreateSequenceIcon = Icon.createComposite(Icon.Control, {
-  topRight: Icon.Add,
-});
 
 const CreateArcIcon = Icon.createComposite(Icon.Arc, {
   topRight: Icon.Add,
@@ -94,22 +88,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const canDelete = Access.useDeleteGranted(ontologyIDs);
   const handleDelete = useDelete(props);
   const placeLayout = Layout.usePlacer();
-  const openRenameModal = Modals.useRename();
   const rename = useRename(props);
   const handleError = Status.useErrorHandler();
   const group = Group.useCreateFromSelection();
   const copyKeyToClipboard = useCopyKeyToClipboard();
   const createArcModal = Arc.Editor.useCreateModal();
-  const createSequence = () => {
-    handleError(async () => {
-      const layout = await Sequence.createLayout({
-        rename: openRenameModal,
-        rackKey: Number(ids[0].key),
-      });
-      if (layout == null) return;
-      placeLayout(layout);
-    }, "Failed to create control sequence");
-  };
   const createArc = () => {
     handleError(async () => {
       const result = await createArcModal({});
@@ -120,7 +103,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const onSelect = {
     group: () => group(props),
     rename,
-    createSequence,
     createArc,
     copy: () => copyKeyToClipboard(props),
     delete: handleDelete,
@@ -132,10 +114,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       {canEdit && isSingle && (
         <>
           <Menu.RenameItem />
-          <PMenu.Item itemKey="createSequence">
-            <CreateSequenceIcon />
-            Create control sequence
-          </PMenu.Item>
           {canEditArc && (
             <PMenu.Item itemKey="createArc">
               <CreateArcIcon />
