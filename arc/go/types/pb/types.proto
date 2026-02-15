@@ -35,6 +35,13 @@ enum Kind {
   KIND_STAGE = 23;
 }
 
+// ChanDirection indicates read/write direction for channel-typed config parameters.
+enum ChanDirection {
+  CHAN_DIRECTION_NONE = 0;
+  CHAN_DIRECTION_READ = 1;
+  CHAN_DIRECTION_WRITE = 2;
+}
+
 // FunctionProperties contains common parameter definitions for function-like types.
 message FunctionProperties {
   // inputs contains input parameter definitions.
@@ -64,6 +71,8 @@ message Type {
   optional Unit unit = 7;
   // constraint is the type constraint for type variables.
   optional Type constraint = 8;
+  // chan_direction indicates read/write direction for channel-typed config parameters.
+  ChanDirection chan_direction = 9;
 }
 
 // Param is a named, typed parameter with optional default value.

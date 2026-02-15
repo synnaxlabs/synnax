@@ -11,14 +11,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Generic, NewType, TypeAlias, TypeVar
+from typing import Any, Generic, TypeAlias, TypeVar
 
 from pydantic import BaseModel
 
 from synnax import status as status_
 from synnax.ontology.payload import ID
 
-Key = NewType("Key", int)
+Key: TypeAlias = int
 
 
 class StatusDetails(BaseModel):

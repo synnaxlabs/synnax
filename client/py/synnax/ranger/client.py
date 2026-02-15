@@ -23,6 +23,7 @@ from pydantic import PrivateAttr
 import synnax.channel.payload as channel
 import synnax.ranger.alias as alias
 import synnax.ranger.kv as kv
+from synnax.ranger.alias import Client as AliasClient
 from synnax import framer
 from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.exceptions import QueryError
@@ -60,7 +61,7 @@ class _InternalScopedChannel(channel.Payload):
     """The range that this channel belongs to."""
     __frame_client: framer.Client | None = PrivateAttr(None)
     """The frame client for executing read operations."""
-    __aliaser: alias.Client | None = PrivateAttr(None)
+    __aliaser: AliasClient | None = PrivateAttr(None)
     """An aliaser for setting the channel's alias."""
     __cache: MultiSeries | None = PrivateAttr(None)
     """An internal cache to prevent repeated reads from the same channel."""
@@ -78,7 +79,7 @@ class _InternalScopedChannel(channel.Payload):
         tasks: TaskClient,
         ontology: OntologyClient,
         payload: channel.Payload,
-        aliaser: alias.Client | None = None,
+        aliaser: AliasClient | None = None,
     ):
         super().__init__(**payload.model_dump())
         self.__range = rng
@@ -239,7 +240,7 @@ class Range(Payload):
     """For retrieving channels from the cluster."""
     _kv: kv.Client | None = PrivateAttr(None)
     """Key-value store for storing metadata about the range."""
-    __aliaser: alias.Client | None = PrivateAttr(None)
+    __aliaser: AliasClient | None = PrivateAttr(None)
     """For setting and resolving aliases."""
     _cache: dict[channel.Key, _InternalScopedChannel] = PrivateAttr(dict())
     """A writer for creating child ranges"""
@@ -257,7 +258,7 @@ class Range(Payload):
         _frame_client: framer.Client | None = None,
         _channel_retriever: ChannelRetriever | None = None,
         _kv: kv.Client | None = None,
-        _aliaser: alias.Client | None = None,
+        _aliaser: AliasClient | None = None,
         _client: Client | None = None,
         _tasks: TaskClient | None = None,
         _ontology: OntologyClient | None = None,
@@ -686,7 +687,7 @@ class Client:
                 _frame_client=self._frame_client,
                 _channel_retriever=self._channels,
                 _kv=kv.Client(r.key, self._unary_client),
-                _aliaser=alias.Client(r.key, self._unary_client),
+                _aliaser=AliasClient(r.key, self._unary_client),
                 _client=self,
                 _ontology=self._ontology,
                 _tasks=self._tasks,
@@ -709,7 +710,7 @@ class Client:
                     _frame_client=self._frame_client,
                     _channel_retriever=self._channels,
                     _kv=kv.Client(d["key"], self._unary_client),
-                    _aliaser=alias.Client(d["key"], self._unary_client),
+                    _aliaser=AliasClient(d["key"], self._unary_client),
                 )
             )
 

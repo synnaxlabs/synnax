@@ -420,6 +420,43 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`retries: int = Field(default=3)`))
 		})
 
+		It("Should wrap int defaults in distinct type constructor", func() {
+			source := `
+				@py output "out"
+
+				Duration int64
+
+				Config struct {
+					timeout Duration @validate default 0
+				}
+			`
+			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`timeout: Duration = Field(default=Duration(0))`))
+		})
+
+		It("Should wrap int defaults in cross-namespace distinct type constructor", func() {
+			loader.Add("schemas/telem", `
+				@py output "client/py/synnax/telem"
+
+				TimeSpan int64 {
+					@py omit
+				}
+			`)
+			source := `
+				import "schemas/telem"
+
+				@py output "client/py/synnax/channel"
+
+				Operation struct {
+					duration telem.TimeSpan @validate default 0
+				}
+			`
+			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`duration: telem.TimeSpan = Field(default=telem.TimeSpan(0))`))
+		})
+
 		It("Should generate class inheritance for basic struct extension", func() {
 			source := `
 				@py output "out"
@@ -454,7 +491,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`email: str`))
 		})
 
-		It("Should handle field override to make it optional", func() {
+		It("Should handle field override to make it optional with type ignore", func() {
 			source := `
 				@py output "out"
 
@@ -478,9 +515,9 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			// Child should override name to be optional
+			// Child should override name to be optional with type ignore comment
 			Expect(content).To(ContainSubstring(`class Child(Parent):`))
-			Expect(content).To(ContainSubstring(`name: str | None = None`))
+			Expect(content).To(ContainSubstring(`name: str | None = None  # type: ignore[assignment]`))
 		})
 		It("Should generate multiple inheritance for multiple extends", func() {
 			source := `
@@ -704,7 +741,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`UserID: TypeAlias = UUID`))
 			})
 
-			It("Should generate NewType for distinct type", func() {
+			It("Should generate TypeAlias for distinct type", func() {
 				source := `
 					@py output "out"
 
@@ -712,8 +749,8 @@ var _ = Describe("Python Types Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`from typing import NewType`))
-				Expect(content).To(ContainSubstring(`UserKey = NewType("UserKey", UUID)`))
+				Expect(content).To(ContainSubstring(`from typing import TypeAlias`))
+				Expect(content).To(ContainSubstring(`UserKey: TypeAlias = UUID`))
 			})
 		})
 
@@ -946,7 +983,7 @@ var _ = Describe("Python Types Plugin", func() {
 		})
 
 		Context("typedef with non-primitive base", func() {
-			It("Should generate NewType for distinct typedef referencing another typedef", func() {
+			It("Should generate TypeAlias for distinct typedef referencing another typedef", func() {
 				source := `
 					@py output "out"
 
@@ -957,12 +994,12 @@ var _ = Describe("Python Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
-						`BaseID = NewType("BaseID", UUID)`,
+						`BaseID: TypeAlias = UUID`,
 						`UserID: TypeAlias = BaseID`,
 					)
 			})
 
-			It("Should generate NewType referencing another distinct type in same namespace", func() {
+			It("Should generate TypeAlias referencing another distinct type in same namespace", func() {
 				source := `
 					@py output "out"
 
@@ -973,7 +1010,7 @@ var _ = Describe("Python Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
-						`Key = NewType("Key", UUID)`,
+						`Key: TypeAlias = UUID`,
 						`UserKey: TypeAlias = Key`,
 					)
 			})

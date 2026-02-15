@@ -80,7 +80,7 @@ describe("LinePlot", () => {
   describe("case preservation", () => {
     test("should preserve key casing in data field on create/retrieve cycle", async () => {
       const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
-      const linePlot = await client.workspaces.lineplots.create(ws.key, {
+      const linePlot = await client.lineplots.create(ws.key, {
         name: "CaseTest",
         data: {
           camelCaseKey: "value1",
@@ -93,7 +93,7 @@ describe("LinePlot", () => {
         },
       });
 
-      const retrieved = await client.workspaces.lineplots.retrieve({
+      const retrieved = await client.lineplots.retrieve({
         key: linePlot.key,
       });
 

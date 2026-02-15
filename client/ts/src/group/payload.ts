@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { type Key } from "@/range/types.gen";
+import { type Key } from "@/ranger/types.gen";
 
 export const nameZ = z.string().min(1);
 export type Name = z.infer<typeof nameZ>;

@@ -163,14 +163,6 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 	return res, nil
 }
 
-func translateArcsToService(arcs []Arc) []arc.Arc {
-	return lo.Map(arcs, func(a Arc, _ int) arc.Arc { return a.Arc })
-}
-
-func translateArcsFromService(arcs []arc.Arc) []Arc {
-	return lo.Map(arcs, func(a arc.Arc, _ int) Arc { return Arc{Arc: a} })
-}
-
 // LSPMessage represents a single JSON-RPC message for the LSP
 type LSPMessage = arctransport.JSONRPCMessage
 

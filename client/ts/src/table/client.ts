@@ -18,7 +18,8 @@ import {
   type New,
   newZ,
   type Table,
-} from "@/table/payload";
+  tableZ,
+} from "@/table/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
 
@@ -43,7 +44,7 @@ export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 const retrieveResZ = z.object({ tables: array.nullishToEmpty(tableZ) });
 
 const createReqZ = z.object({ workspace: workspace.keyZ, tables: newZ.array() });
-const createResZ = z.object({ tables: remoteZ.array() });
+const createResZ = z.object({ tables: tableZ.array() });
 
 const emptyResZ = z.object({});
 
@@ -85,7 +86,7 @@ export class Client {
     await sendRequired(
       this.client,
       "/table/set-data",
-      { key, data: JSON.stringify(data) },
+      { key, data },
       setDataReqZ,
       emptyResZ,
     );

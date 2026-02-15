@@ -14,7 +14,7 @@ package pb
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 

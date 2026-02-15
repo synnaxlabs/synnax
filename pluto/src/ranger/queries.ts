@@ -700,7 +700,7 @@ const deleteKVPairChannelValueZ = z
   .transform(([range, key]) => ({ key, range }));
 
 const SET_KV_LISTENER: Flux.ChannelListener<FluxSubStore, typeof ranger.kv.pairZ> = {
-  channel: ranger.kv.SET_CHANNEL,
+  channel: ranger.kv.SET_CHANNEL_NAME,
   schema: ranger.kv.pairZ,
   onChange: ({ store, changed }) => {
     store.rangeKV.set(ranger.kv.createPairKey(changed), changed);
@@ -711,7 +711,7 @@ const DELETE_KV_LISTENER: Flux.ChannelListener<
   FluxSubStore,
   typeof deleteKVPairChannelValueZ
 > = {
-  channel: ranger.kv.DELETE_CHANNEL,
+  channel: ranger.kv.DELETE_CHANNEL_NAME,
   schema: deleteKVPairChannelValueZ,
   onChange: ({ store, changed }) =>
     store.rangeKV.delete(ranger.kv.createPairKey(changed)),

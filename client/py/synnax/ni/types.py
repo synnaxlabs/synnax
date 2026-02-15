@@ -2817,7 +2817,7 @@ class Device(device.Device):
             key = str(uuid4())
 
         # Set properties with identifier
-        props = json.dumps({"identifier": identifier})
+        props = {"identifier": identifier}
 
         super().__init__(
             key=key,

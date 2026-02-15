@@ -60,6 +60,9 @@ inline ::arc::types::pb::Type Type::to_proto() const {
     if (this->unit.has_value()) *pb.mutable_unit() = this->unit->to_proto();
     if (this->constraint.has_value())
         *pb.mutable_constraint() = this->constraint->to_proto();
+    pb.set_chan_direction(
+        static_cast<::arc::types::pb::ChanDirection>(this->chan_direction)
+    );
     return pb;
 }
 
@@ -89,6 +92,7 @@ Type::from_proto(const ::arc::types::pb::Type &pb) {
         if (err) return {{}, err};
         cpp.constraint = v;
     }
+    cpp.chan_direction = static_cast<ChanDirection>(pb.chan_direction());
     return {cpp, x::errors::NIL};
 }
 

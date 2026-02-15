@@ -589,5 +589,5 @@ class Device(device.Device):
             make=MAKE,
             model=MODEL,
             configured=configured,
-            properties=json.dumps(props),
+            properties=props,
         )

@@ -96,7 +96,7 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil,
 }
 
 type SetLayoutRequest struct {
-	Layout string    `json:"layout" msgpack:"layout"`
+	Layout map[string]any `json:"layout" msgpack:"layout"`
 	Key    uuid.UUID `json:"key" msgpack:"key"`
 }
 

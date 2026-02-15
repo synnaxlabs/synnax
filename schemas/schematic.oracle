@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output "client/ts/src/workspace/schematic"
-@go output "core/pkg/service/workspace/schematic"
+@ts output "client/ts/src/schematic"
+@go output "core/pkg/service/schematic"
 @pb
 
 Key = uuid {

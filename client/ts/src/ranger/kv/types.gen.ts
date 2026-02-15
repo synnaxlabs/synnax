@@ -11,7 +11,7 @@
 
 import { z } from "zod";
 
-import { ranger } from "@/ranger";
+import { keyZ } from "@/ranger/types.gen";
 
 /**
  * Pair is a key-value metadata pair associated with a specific range, enabling
@@ -19,7 +19,7 @@ import { ranger } from "@/ranger";
  */
 export const pairZ = z.object({
   /** range is the unique identifier of the range owning this key-value pair. */
-  range: ranger.keyZ,
+  range: keyZ,
   /** key is the metadata key name. */
   key: z.string(),
   /** value is the metadata value stored as a string for flexibility. */

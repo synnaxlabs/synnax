@@ -18,8 +18,7 @@ import {
   linePlotZ,
   type New,
   newZ,
-  type Params,
-} from "@/lineplot/payload";
+} from "@/lineplot/types.gen";
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
@@ -87,7 +86,7 @@ export class Client {
     await sendRequired(
       this.client,
       "/lineplot/set-data",
-      { key, data: JSON.stringify(data) },
+      { key, data },
       setDataReqZ,
       emptyResZ,
     );

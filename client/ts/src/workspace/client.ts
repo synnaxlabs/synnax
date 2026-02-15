@@ -12,7 +12,7 @@ import { array, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
-import { keyZ as userKeyZ } from "@/user/payload";
+import { keyZ as userKeyZ } from "@/user/types.gen";
 import {
   type Key,
   keyZ,
@@ -20,7 +20,7 @@ import {
   newZ,
   type Workspace,
   workspaceZ,
-} from "@/workspace/payload";
+} from "@/workspace/types.gen";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),

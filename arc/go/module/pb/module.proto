@@ -24,9 +24,11 @@ message Module {
   repeated StratumWrapper strata = 4;
   // sequences contains state machine definitions.
   repeated .arc.ir.pb.Sequence sequences = 5;
+  // authorities contains the static authority declarations for this program.
+  .arc.ir.pb.Authorities authorities = 6;
   // wasm is compiled WebAssembly bytecode for sandboxed execution.
-  bytes wasm = 6;
+  bytes wasm = 7;
   // output_memory_bases contains memory base addresses for multi-output functions,
-  // mapping function keys to their base addresses.
-  map<string, uint32> output_memory_bases = 7;
+// mapping function keys to their base addresses.
+  map<string, uint32> output_memory_bases = 8;
 }

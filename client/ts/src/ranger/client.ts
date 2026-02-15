@@ -21,9 +21,10 @@ import { type channel } from "@/channel";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
-import { ontology } from "@/ontology";
-import { Client as AliasClient } from "@/ranger/alias/client";
-import { Client as KVClient } from "@/ranger/kv/client";
+import { type ontology } from "@/ontology";
+import { type Client as AliasClient } from "@/ranger/alias/client";
+import { type Client as KVClient } from "@/ranger/kv/client";
+import { type Keys, type Name, type Names, type Params } from "@/ranger/payload";
 import {
   type Key,
   keyZ,
@@ -31,8 +32,8 @@ import {
   ontologyID,
   type Payload,
   payloadZ,
-} from "@/range/types.gen";
-import { type CreateOptions, type Writer } from "@/range/writer";
+} from "@/ranger/types.gen";
+import { type CreateOptions, type Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_range_set";
@@ -53,8 +54,8 @@ export class Range {
   name: string;
   readonly kv: KVClient;
   readonly timeRange: TimeRange;
-  readonly color: color.Color | undefined;
-  readonly parent: Payload | null;
+  readonly color?: color.Color;
+  readonly parent?: Payload;
   readonly labels?: label.Label[];
   readonly channels: channel.Retriever;
   private readonly aliaser: AliasClient;
@@ -201,6 +202,8 @@ export class Client {
   private readonly channels: channel.Retriever;
   private readonly labelClient: label.Client;
   private readonly ontologyClient: ontology.Client;
+  private readonly createAliasClient: (key: Key) => AliasClient;
+  private readonly createKVClient: (key: Key) => KVClient;
 
   constructor(
     frameClient: framer.Client,
@@ -209,6 +212,8 @@ export class Client {
     channels: channel.Retriever,
     labelClient: label.Client,
     ontologyClient: ontology.Client,
+    createAliasClient: (key: Key) => AliasClient,
+    createKVClient: (key: Key) => KVClient,
   ) {
     this.frameClient = frameClient;
     this.writer = writer;
@@ -216,6 +221,8 @@ export class Client {
     this.channels = channels;
     this.labelClient = labelClient;
     this.ontologyClient = ontologyClient;
+    this.createAliasClient = createAliasClient;
+    this.createKVClient = createKVClient;
   }
 
   async create(range: New, options?: CreateOptions): Promise<Range>;
@@ -255,7 +262,7 @@ export class Client {
   }
 
   getKV(range: Key): KVClient {
-    return new KVClient(range, this.unaryClient);
+    return this.createKVClient(range);
   }
 
   async retrieveParent(range: Key): Promise<Range | null> {
@@ -271,7 +278,7 @@ export class Client {
   }
 
   async retrieveAlias(range: Key, channel: channel.Key): Promise<string> {
-    const aliaser = new AliasClient(range, this.unaryClient);
+    const aliaser = this.createAliasClient(range);
     return await aliaser.retrieve(channel);
   }
 
@@ -279,30 +286,26 @@ export class Client {
     range: Key,
     channels: channel.Key[],
   ): Promise<Record<channel.Key, string>> {
-    const aliaser = new AliasClient(range, this.unaryClient);
-    return await aliaser.retrieve(channels);
+    return await this.createAliasClient(range).retrieve(channels);
   }
 
   async listAliases(range: Key): Promise<Record<channel.Key, string>> {
-    const aliaser = new AliasClient(range, this.unaryClient);
-    return await aliaser.list();
+    return await this.createAliasClient(range).list();
   }
 
   async setAlias(range: Key, channel: channel.Key, alias: string): Promise<void> {
-    const aliaser = new AliasClient(range, this.unaryClient);
-    await aliaser.set({ [channel]: alias });
+    await this.createAliasClient(range).set({ [channel]: alias });
   }
 
   async deleteAlias(range: Key, channels: channel.Key | channel.Key[]): Promise<void> {
-    const aliaser = new AliasClient(range, this.unaryClient);
-    await aliaser.delete(channels);
+    await this.createAliasClient(range).delete(channels);
   }
 
   sugarOne(payload: Payload): Range {
     return new Range(payload, {
       frameClient: this.frameClient,
-      kv: new KVClient(payload.key, this.unaryClient),
-      aliaser: new AliasClient(payload.key, this.unaryClient),
+      kv: this.createKVClient(payload.key),
+      aliaser: this.createAliasClient(payload.key),
       channels: this.channels,
       labelClient: this.labelClient,
       ontologyClient: this.ontologyClient,
@@ -315,14 +318,7 @@ export class Client {
   }
 
   resourceToRange(resource: ontology.Resource): Range {
-    return this.sugarOne({
-      key: resource.id.key,
-      name: resource.data?.name as string,
-      timeRange: new TimeRange(resource.data?.timeRange as CrudeTimeRange),
-      color: resource.data?.color as color.Color,
-      labels: [],
-      parent: null,
-    });
+    return this.sugarOne(convertOntologyResourceToPayload(resource));
   }
 }
 
@@ -346,10 +342,4 @@ export const convertOntologyResourceToPayload = ({
     labels: [],
     parent: undefined,
   };
-};
-
-const parseColor = (c?: unknown): color.Color | undefined => {
-  const parsed = color.colorZ.safeParse(c);
-  if (parsed.success) return parsed.data;
-  return undefined;
 };

@@ -11,11 +11,11 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Pair, pairZ } from "@/ranger/kv/payload";
-import { type Key, keyZ } from "@/ranger/payload";
+import { type Pair, pairZ } from "@/ranger/kv/types.gen";
+import { type Key, keyZ } from "@/ranger/types.gen";
 
 const getReqZ = z.object({ range: keyZ, keys: z.string().array() });
-const getResZ = z.object({ pairs: array.nullableZ(pairZ) });
+const getResZ = z.object({ pairs: array.nullishToEmpty(pairZ) });
 const setReqZ = z.object({ range: keyZ, pairs: pairZ.array() });
 const deleteReqZ = z.object({ range: keyZ, keys: z.string().array() });
 
@@ -23,53 +23,30 @@ export class Client {
   private readonly rangeKey: Key;
   private readonly client: UnaryClient;
 
-  constructor(rangeKey: range.Key, client: UnaryClient) {
-    this.rangeKey = rangeKey;
+  constructor(rng: Key, client: UnaryClient) {
+    this.rangeKey = rng;
     this.client = client;
   }
 
-  /**
-   * Get a single value by key.
-   * @param key - The key to retrieve.
-   * @returns The value associated with the key.
-   */
   async get(key: string): Promise<string>;
-  /**
-   * Get multiple values by keys.
-   * @param keys - The keys to retrieve.
-   * @returns A record mapping keys to values.
-   */
   async get(keys: string[]): Promise<Record<string, string>>;
   async get(keys: string | string[]): Promise<string | Record<string, string>> {
     const res = await sendRequired(
       this.client,
       "/range/kv/get",
       { range: this.rangeKey, keys: array.toArray(keys) },
-      getRequestZ,
-      getResponseZ,
+      getReqZ,
+      getResZ,
     );
     if (typeof keys === "string") return res.pairs[0].value;
     return Object.fromEntries(res.pairs.map((pair) => [pair.key, pair.value]));
   }
 
-  /**
-   * List all key-value pairs for the range.
-   * @returns A record of all keys and values.
-   */
   async list(): Promise<Record<string, string>> {
     return this.get([]);
   }
 
-  /**
-   * Set a single key-value pair.
-   * @param key - The key to set.
-   * @param value - The value to set.
-   */
   async set(key: string, value: string): Promise<void>;
-  /**
-   * Set multiple key-value pairs.
-   * @param kv - A record of keys and values to set.
-   */
   async set(kv: Record<string, string>): Promise<void>;
   async set(key: string | Record<string, string>, value: string = ""): Promise<void> {
     let pairs: Pair[];
@@ -84,43 +61,19 @@ export class Client {
     await sendRequired(
       this.client,
       "/range/kv/set",
-      { pairs },
-      setRequestZ,
+      { range: this.rangeKey, pairs },
+      setReqZ,
       z.unknown(),
     );
   }
 
-  /**
-   * Delete one or more keys.
-   * @param key - The key or keys to delete.
-   */
   async delete(key: string | string[]): Promise<void> {
     await sendRequired(
       this.client,
       "/range/kv/delete",
       { range: this.rangeKey, keys: array.toArray(key) },
-      deleteRequestZ,
+      deleteReqZ,
       z.unknown(),
     );
-  }
-}
-
-/**
- * Client provides access to the KV API.
- */
-export class Client {
-  private readonly client: UnaryClient;
-
-  constructor(client: UnaryClient) {
-    this.client = client;
-  }
-
-  /**
-   * Get a KV instance scoped to a specific range.
-   * @param rangeKey - The range key to scope the KV operations to.
-   * @returns A KV instance for the specified range.
-   */
-  get(rangeKey: range.Key): KV {
-    return new KV(rangeKey, this.client);
   }
 }

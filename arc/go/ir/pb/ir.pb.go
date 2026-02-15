@@ -598,6 +598,61 @@ func (x *Node) GetChannels() *pb.Channels {
 	return nil
 }
 
+// Authorities holds the static authority declarations from an Arc program.
+type Authorities struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// default is the default authority for all write channels not explicitly listed.
+	Default *uint32 `protobuf:"varint,1,opt,name=default,proto3,oneof" json:"default,omitempty"`
+	// channels maps channel keys to their specific authority values.
+	Channels      map[uint32]uint32 `protobuf:"bytes,2,rep,name=channels,proto3" json:"channels,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Authorities) Reset() {
+	*x = Authorities{}
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Authorities) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Authorities) ProtoMessage() {}
+
+func (x *Authorities) ProtoReflect() protoreflect.Message {
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Authorities.ProtoReflect.Descriptor instead.
+func (*Authorities) Descriptor() ([]byte, []int) {
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *Authorities) GetDefault() uint32 {
+	if x != nil && x.Default != nil {
+		return *x.Default
+	}
+	return 0
+}
+
+func (x *Authorities) GetChannels() map[uint32]uint32 {
+	if x != nil {
+		return x.Channels
+	}
+	return nil
+}
+
 // IR is the intermediate representation of an Arc program as a dataflow graph with
 // stratified execution, bridging semantic analysis and WebAssembly compilation.
 type IR struct {
@@ -611,14 +666,16 @@ type IR struct {
 	// strata contains execution stratification layers.
 	Strata []*StratumWrapper `protobuf:"bytes,4,rep,name=strata,proto3" json:"strata,omitempty"`
 	// sequences contains state machine definitions.
-	Sequences     []*Sequence `protobuf:"bytes,5,rep,name=sequences,proto3" json:"sequences,omitempty"`
+	Sequences []*Sequence `protobuf:"bytes,5,rep,name=sequences,proto3" json:"sequences,omitempty"`
+	// authorities contains the static authority declarations for this program.
+	Authorities   *Authorities `protobuf:"bytes,6,opt,name=authorities,proto3" json:"authorities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *IR) Reset() {
 	*x = IR{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -630,7 +687,7 @@ func (x *IR) String() string {
 func (*IR) ProtoMessage() {}
 
 func (x *IR) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -643,7 +700,7 @@ func (x *IR) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IR.ProtoReflect.Descriptor instead.
 func (*IR) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{8}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *IR) GetFunctions() []*Function {
@@ -677,6 +734,13 @@ func (x *IR) GetStrata() []*StratumWrapper {
 func (x *IR) GetSequences() []*Sequence {
 	if x != nil {
 		return x.Sequences
+	}
+	return nil
+}
+
+func (x *IR) GetAuthorities() *Authorities {
+	if x != nil {
+		return x.Authorities
 	}
 	return nil
 }
@@ -717,13 +781,22 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x06config\x18\x03 \x03(\v2\x13.arc.types.pb.ParamR\x06config\x12+\n" +
 	"\x06inputs\x18\x04 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
 	"\aoutputs\x18\x05 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x122\n" +
-	"\bchannels\x18\x06 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\"\xeb\x01\n" +
+	"\bchannels\x18\x06 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\"\xb7\x01\n" +
+	"\vAuthorities\x12\x1d\n" +
+	"\adefault\x18\x01 \x01(\rH\x00R\adefault\x88\x01\x01\x12@\n" +
+	"\bchannels\x18\x02 \x03(\v2$.arc.ir.pb.Authorities.ChannelsEntryR\bchannels\x1a;\n" +
+	"\rChannelsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\rR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01B\n" +
+	"\n" +
+	"\b_default\"\xa5\x02\n" +
 	"\x02IR\x121\n" +
 	"\tfunctions\x18\x01 \x03(\v2\x13.arc.ir.pb.FunctionR\tfunctions\x12%\n" +
 	"\x05nodes\x18\x02 \x03(\v2\x0f.arc.ir.pb.NodeR\x05nodes\x12%\n" +
 	"\x05edges\x18\x03 \x03(\v2\x0f.arc.ir.pb.EdgeR\x05edges\x121\n" +
 	"\x06strata\x18\x04 \x03(\v2\x19.arc.ir.pb.StratumWrapperR\x06strata\x121\n" +
-	"\tsequences\x18\x05 \x03(\v2\x13.arc.ir.pb.SequenceR\tsequences*W\n" +
+	"\tsequences\x18\x05 \x03(\v2\x13.arc.ir.pb.SequenceR\tsequences\x128\n" +
+	"\vauthorities\x18\x06 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities*W\n" +
 	"\bEdgeKind\x12\x19\n" +
 	"\x15EDGE_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14EDGE_KIND_CONTINUOUS\x10\x01\x12\x16\n" +
@@ -743,7 +816,7 @@ func file_arc_go_ir_pb_ir_proto_rawDescGZIP() []byte {
 }
 
 var file_arc_go_ir_pb_ir_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_arc_go_ir_pb_ir_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_arc_go_ir_pb_ir_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_arc_go_ir_pb_ir_proto_goTypes = []any{
 	(EdgeKind)(0),          // 0: arc.ir.pb.EdgeKind
 	(*Handle)(nil),         // 1: arc.ir.pb.Handle
@@ -754,9 +827,11 @@ var file_arc_go_ir_pb_ir_proto_goTypes = []any{
 	(*Body)(nil),           // 6: arc.ir.pb.Body
 	(*Function)(nil),       // 7: arc.ir.pb.Function
 	(*Node)(nil),           // 8: arc.ir.pb.Node
-	(*IR)(nil),             // 9: arc.ir.pb.IR
-	(*pb.Param)(nil),       // 10: arc.types.pb.Param
-	(*pb.Channels)(nil),    // 11: arc.types.pb.Channels
+	(*Authorities)(nil),    // 9: arc.ir.pb.Authorities
+	(*IR)(nil),             // 10: arc.ir.pb.IR
+	nil,                    // 11: arc.ir.pb.Authorities.ChannelsEntry
+	(*pb.Param)(nil),       // 12: arc.types.pb.Param
+	(*pb.Channels)(nil),    // 13: arc.types.pb.Channels
 }
 var file_arc_go_ir_pb_ir_proto_depIdxs = []int32{
 	1,  // 0: arc.ir.pb.Edge.source:type_name -> arc.ir.pb.Handle
@@ -765,24 +840,26 @@ var file_arc_go_ir_pb_ir_proto_depIdxs = []int32{
 	3,  // 3: arc.ir.pb.Stage.strata:type_name -> arc.ir.pb.StratumWrapper
 	4,  // 4: arc.ir.pb.Sequence.stages:type_name -> arc.ir.pb.Stage
 	6,  // 5: arc.ir.pb.Function.body:type_name -> arc.ir.pb.Body
-	10, // 6: arc.ir.pb.Function.config:type_name -> arc.types.pb.Param
-	10, // 7: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
-	10, // 8: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
-	11, // 9: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
-	10, // 10: arc.ir.pb.Node.config:type_name -> arc.types.pb.Param
-	10, // 11: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
-	10, // 12: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
-	11, // 13: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
-	7,  // 14: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
-	8,  // 15: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
-	2,  // 16: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
-	3,  // 17: arc.ir.pb.IR.strata:type_name -> arc.ir.pb.StratumWrapper
-	5,  // 18: arc.ir.pb.IR.sequences:type_name -> arc.ir.pb.Sequence
-	19, // [19:19] is the sub-list for method output_type
-	19, // [19:19] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	12, // 6: arc.ir.pb.Function.config:type_name -> arc.types.pb.Param
+	12, // 7: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
+	12, // 8: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
+	13, // 9: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
+	12, // 10: arc.ir.pb.Node.config:type_name -> arc.types.pb.Param
+	12, // 11: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
+	12, // 12: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
+	13, // 13: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
+	11, // 14: arc.ir.pb.Authorities.channels:type_name -> arc.ir.pb.Authorities.ChannelsEntry
+	7,  // 15: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
+	8,  // 16: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
+	2,  // 17: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
+	3,  // 18: arc.ir.pb.IR.strata:type_name -> arc.ir.pb.StratumWrapper
+	5,  // 19: arc.ir.pb.IR.sequences:type_name -> arc.ir.pb.Sequence
+	9,  // 20: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
+	21, // [21:21] is the sub-list for method output_type
+	21, // [21:21] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_ir_pb_ir_proto_init() }
@@ -790,13 +867,14 @@ func file_arc_go_ir_pb_ir_proto_init() {
 	if File_arc_go_ir_pb_ir_proto != nil {
 		return
 	}
+	file_arc_go_ir_pb_ir_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_arc_go_ir_pb_ir_proto_rawDesc), len(file_arc_go_ir_pb_ir_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

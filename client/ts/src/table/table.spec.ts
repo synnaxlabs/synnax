@@ -68,7 +68,7 @@ describe("Table", () => {
   describe("case preservation", () => {
     test("should preserve key casing in data field on create/retrieve cycle", async () => {
       const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
-      const table = await client.workspaces.tables.create(ws.key, {
+      const table = await client.tables.create(ws.key, {
         name: "CaseTest",
         data: {
           camelCaseKey: "value1",
@@ -81,7 +81,7 @@ describe("Table", () => {
         },
       });
 
-      const retrieved = await client.workspaces.tables.retrieve({ key: table.key });
+      const retrieved = await client.tables.retrieve({ key: table.key });
 
       const data = retrieved.data as Record<string, unknown>;
       expect(data.camelCaseKey).toEqual("value1");

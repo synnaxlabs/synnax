@@ -52,7 +52,7 @@ class Role(Base):
             automatically assigned.
     """
 
-    key: Key | None = None
+    key: Key | None = None  # type: ignore[assignment]
 
 
 ONTOLOGY_TYPE = ID(type="role")

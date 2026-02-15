@@ -141,6 +141,56 @@ func (Kind) EnumDescriptor() ([]byte, []int) {
 	return file_arc_go_types_pb_types_proto_rawDescGZIP(), []int{0}
 }
 
+// ChanDirection indicates read/write direction for channel-typed config parameters.
+type ChanDirection int32
+
+const (
+	ChanDirection_CHAN_DIRECTION_NONE  ChanDirection = 0
+	ChanDirection_CHAN_DIRECTION_READ  ChanDirection = 1
+	ChanDirection_CHAN_DIRECTION_WRITE ChanDirection = 2
+)
+
+// Enum value maps for ChanDirection.
+var (
+	ChanDirection_name = map[int32]string{
+		0: "CHAN_DIRECTION_NONE",
+		1: "CHAN_DIRECTION_READ",
+		2: "CHAN_DIRECTION_WRITE",
+	}
+	ChanDirection_value = map[string]int32{
+		"CHAN_DIRECTION_NONE":  0,
+		"CHAN_DIRECTION_READ":  1,
+		"CHAN_DIRECTION_WRITE": 2,
+	}
+)
+
+func (x ChanDirection) Enum() *ChanDirection {
+	p := new(ChanDirection)
+	*p = x
+	return p
+}
+
+func (x ChanDirection) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ChanDirection) Descriptor() protoreflect.EnumDescriptor {
+	return file_arc_go_types_pb_types_proto_enumTypes[1].Descriptor()
+}
+
+func (ChanDirection) Type() protoreflect.EnumType {
+	return &file_arc_go_types_pb_types_proto_enumTypes[1]
+}
+
+func (x ChanDirection) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ChanDirection.Descriptor instead.
+func (ChanDirection) EnumDescriptor() ([]byte, []int) {
+	return file_arc_go_types_pb_types_proto_rawDescGZIP(), []int{1}
+}
+
 // FunctionProperties contains common parameter definitions for function-like types.
 type FunctionProperties struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -224,7 +274,9 @@ type Type struct {
 	// unit is the physical unit metadata for dimensional analysis.
 	Unit *Unit `protobuf:"bytes,7,opt,name=unit,proto3,oneof" json:"unit,omitempty"`
 	// constraint is the type constraint for type variables.
-	Constraint    *Type `protobuf:"bytes,8,opt,name=constraint,proto3,oneof" json:"constraint,omitempty"`
+	Constraint *Type `protobuf:"bytes,8,opt,name=constraint,proto3,oneof" json:"constraint,omitempty"`
+	// chan_direction indicates read/write direction for channel-typed config parameters.
+	ChanDirection ChanDirection `protobuf:"varint,9,opt,name=chan_direction,json=chanDirection,proto3,enum=arc.types.pb.ChanDirection" json:"chan_direction,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -313,6 +365,13 @@ func (x *Type) GetConstraint() *Type {
 		return x.Constraint
 	}
 	return nil
+}
+
+func (x *Type) GetChanDirection() ChanDirection {
+	if x != nil {
+		return x.ChanDirection
+	}
+	return ChanDirection_CHAN_DIRECTION_NONE
 }
 
 // Param is a named, typed parameter with optional default value.
@@ -617,7 +676,7 @@ const file_arc_go_types_pb_types_proto_rawDesc = "" +
 	"\x12FunctionProperties\x12+\n" +
 	"\x06inputs\x18\x01 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
 	"\aoutputs\x18\x02 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x12+\n" +
-	"\x06config\x18\x03 \x03(\v2\x13.arc.types.pb.ParamR\x06config\"\xff\x02\n" +
+	"\x06config\x18\x03 \x03(\v2\x13.arc.types.pb.ParamR\x06config\"\xc3\x03\n" +
 	"\x04Type\x12+\n" +
 	"\x06inputs\x18\x01 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
 	"\aoutputs\x18\x02 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x12+\n" +
@@ -628,7 +687,8 @@ const file_arc_go_types_pb_types_proto_rawDesc = "" +
 	"\x04unit\x18\a \x01(\v2\x12.arc.types.pb.UnitH\x01R\x04unit\x88\x01\x01\x127\n" +
 	"\n" +
 	"constraint\x18\b \x01(\v2\x12.arc.types.pb.TypeH\x02R\n" +
-	"constraint\x88\x01\x01B\a\n" +
+	"constraint\x88\x01\x01\x12B\n" +
+	"\x0echan_direction\x18\t \x01(\x0e2\x1b.arc.types.pb.ChanDirectionR\rchanDirectionB\a\n" +
 	"\x05_elemB\a\n" +
 	"\x05_unitB\r\n" +
 	"\v_constraint\"q\n" +
@@ -686,7 +746,11 @@ const file_arc_go_types_pb_types_proto_rawDesc = "" +
 	"\rKIND_FUNCTION\x10\x15\x12\x11\n" +
 	"\rKIND_SEQUENCE\x10\x16\x12\x0e\n" +
 	"\n" +
-	"KIND_STAGE\x10\x17B\x94\x01\n" +
+	"KIND_STAGE\x10\x17*[\n" +
+	"\rChanDirection\x12\x17\n" +
+	"\x13CHAN_DIRECTION_NONE\x10\x00\x12\x17\n" +
+	"\x13CHAN_DIRECTION_READ\x10\x01\x12\x18\n" +
+	"\x14CHAN_DIRECTION_WRITE\x10\x02B\x94\x01\n" +
 	"\x10com.arc.types.pbB\n" +
 	"TypesProtoP\x01Z\"github.com/synnaxlabs/arc/types/pb\xa2\x02\x03ATP\xaa\x02\fArc.Types.Pb\xca\x02\fArc\\Types\\Pb\xe2\x02\x18Arc\\Types\\Pb\\GPBMetadata\xea\x02\x0eArc::Types::Pbb\x06proto3"
 
@@ -702,41 +766,43 @@ func file_arc_go_types_pb_types_proto_rawDescGZIP() []byte {
 	return file_arc_go_types_pb_types_proto_rawDescData
 }
 
-var file_arc_go_types_pb_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_arc_go_types_pb_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_arc_go_types_pb_types_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_arc_go_types_pb_types_proto_goTypes = []any{
 	(Kind)(0),                  // 0: arc.types.pb.Kind
-	(*FunctionProperties)(nil), // 1: arc.types.pb.FunctionProperties
-	(*Type)(nil),               // 2: arc.types.pb.Type
-	(*Param)(nil),              // 3: arc.types.pb.Param
-	(*Channels)(nil),           // 4: arc.types.pb.Channels
-	(*Dimensions)(nil),         // 5: arc.types.pb.Dimensions
-	(*Unit)(nil),               // 6: arc.types.pb.Unit
-	nil,                        // 7: arc.types.pb.Channels.ReadEntry
-	nil,                        // 8: arc.types.pb.Channels.WriteEntry
-	(*structpb.Value)(nil),     // 9: google.protobuf.Value
+	(ChanDirection)(0),         // 1: arc.types.pb.ChanDirection
+	(*FunctionProperties)(nil), // 2: arc.types.pb.FunctionProperties
+	(*Type)(nil),               // 3: arc.types.pb.Type
+	(*Param)(nil),              // 4: arc.types.pb.Param
+	(*Channels)(nil),           // 5: arc.types.pb.Channels
+	(*Dimensions)(nil),         // 6: arc.types.pb.Dimensions
+	(*Unit)(nil),               // 7: arc.types.pb.Unit
+	nil,                        // 8: arc.types.pb.Channels.ReadEntry
+	nil,                        // 9: arc.types.pb.Channels.WriteEntry
+	(*structpb.Value)(nil),     // 10: google.protobuf.Value
 }
 var file_arc_go_types_pb_types_proto_depIdxs = []int32{
-	3,  // 0: arc.types.pb.FunctionProperties.inputs:type_name -> arc.types.pb.Param
-	3,  // 1: arc.types.pb.FunctionProperties.outputs:type_name -> arc.types.pb.Param
-	3,  // 2: arc.types.pb.FunctionProperties.config:type_name -> arc.types.pb.Param
-	3,  // 3: arc.types.pb.Type.inputs:type_name -> arc.types.pb.Param
-	3,  // 4: arc.types.pb.Type.outputs:type_name -> arc.types.pb.Param
-	3,  // 5: arc.types.pb.Type.config:type_name -> arc.types.pb.Param
+	4,  // 0: arc.types.pb.FunctionProperties.inputs:type_name -> arc.types.pb.Param
+	4,  // 1: arc.types.pb.FunctionProperties.outputs:type_name -> arc.types.pb.Param
+	4,  // 2: arc.types.pb.FunctionProperties.config:type_name -> arc.types.pb.Param
+	4,  // 3: arc.types.pb.Type.inputs:type_name -> arc.types.pb.Param
+	4,  // 4: arc.types.pb.Type.outputs:type_name -> arc.types.pb.Param
+	4,  // 5: arc.types.pb.Type.config:type_name -> arc.types.pb.Param
 	0,  // 6: arc.types.pb.Type.kind:type_name -> arc.types.pb.Kind
-	2,  // 7: arc.types.pb.Type.elem:type_name -> arc.types.pb.Type
-	6,  // 8: arc.types.pb.Type.unit:type_name -> arc.types.pb.Unit
-	2,  // 9: arc.types.pb.Type.constraint:type_name -> arc.types.pb.Type
-	2,  // 10: arc.types.pb.Param.type:type_name -> arc.types.pb.Type
-	9,  // 11: arc.types.pb.Param.value:type_name -> google.protobuf.Value
-	7,  // 12: arc.types.pb.Channels.read:type_name -> arc.types.pb.Channels.ReadEntry
-	8,  // 13: arc.types.pb.Channels.write:type_name -> arc.types.pb.Channels.WriteEntry
-	5,  // 14: arc.types.pb.Unit.dimensions:type_name -> arc.types.pb.Dimensions
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	3,  // 7: arc.types.pb.Type.elem:type_name -> arc.types.pb.Type
+	7,  // 8: arc.types.pb.Type.unit:type_name -> arc.types.pb.Unit
+	3,  // 9: arc.types.pb.Type.constraint:type_name -> arc.types.pb.Type
+	1,  // 10: arc.types.pb.Type.chan_direction:type_name -> arc.types.pb.ChanDirection
+	3,  // 11: arc.types.pb.Param.type:type_name -> arc.types.pb.Type
+	10, // 12: arc.types.pb.Param.value:type_name -> google.protobuf.Value
+	8,  // 13: arc.types.pb.Channels.read:type_name -> arc.types.pb.Channels.ReadEntry
+	9,  // 14: arc.types.pb.Channels.write:type_name -> arc.types.pb.Channels.WriteEntry
+	6,  // 15: arc.types.pb.Unit.dimensions:type_name -> arc.types.pb.Dimensions
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_types_pb_types_proto_init() }
@@ -750,7 +816,7 @@ func file_arc_go_types_pb_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_arc_go_types_pb_types_proto_rawDesc), len(file_arc_go_types_pb_types_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,

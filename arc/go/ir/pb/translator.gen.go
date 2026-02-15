@@ -446,6 +446,67 @@ func NodesFromPB(ctx context.Context, pbs []*Node) ([]ir.Node, error) {
 	return result, nil
 }
 
+// AuthoritiesToPB converts Authorities to Authorities.
+func AuthoritiesToPB(_ context.Context, r ir.Authorities) (*Authorities, error) {
+	pb := &Authorities{}
+	if r.Default != nil {
+		v := uint32(*r.Default)
+		pb.Default = &v
+	}
+	if r.Channels != nil {
+		pb.Channels = make(map[uint32]uint32, len(r.Channels))
+		for k, v := range r.Channels {
+			pb.Channels[k] = uint32(v)
+		}
+	}
+	return pb, nil
+}
+
+// AuthoritiesFromPB converts Authorities to Authorities.
+func AuthoritiesFromPB(_ context.Context, pb *Authorities) (ir.Authorities, error) {
+	var r ir.Authorities
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Default != nil {
+		v := uint8(*pb.Default)
+		r.Default = &v
+	}
+	if pb.Channels != nil {
+		r.Channels = make(map[uint32]uint8, len(pb.Channels))
+		for k, v := range pb.Channels {
+			r.Channels[k] = uint8(v)
+		}
+	}
+	return r, nil
+}
+
+// AuthoritiessToPB converts a slice of Authorities to Authorities.
+func AuthoritiessToPB(ctx context.Context, rs []ir.Authorities) ([]*Authorities, error) {
+	result := make([]*Authorities, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = AuthoritiesToPB(ctx, rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AuthoritiessFromPB converts a slice of Authorities to Authorities.
+func AuthoritiessFromPB(ctx context.Context, pbs []*Authorities) ([]ir.Authorities, error) {
+	result := make([]ir.Authorities, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = AuthoritiesFromPB(ctx, pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // IRToPB converts IR to IR.
 func IRToPB(ctx context.Context, r ir.IR) (*IR, error) {
 	functionsVal, err := FunctionsToPB(ctx, r.Functions)
@@ -464,12 +525,17 @@ func IRToPB(ctx context.Context, r ir.IR) (*IR, error) {
 	if err != nil {
 		return nil, err
 	}
+	authoritiesVal, err := AuthoritiesToPB(ctx, r.Authorities)
+	if err != nil {
+		return nil, err
+	}
 	pb := &IR{
-		Strata:    lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
-		Functions: functionsVal,
-		Nodes:     nodesVal,
-		Edges:     edgesVal,
-		Sequences: sequencesVal,
+		Strata:      lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
+		Functions:   functionsVal,
+		Nodes:       nodesVal,
+		Edges:       edgesVal,
+		Sequences:   sequencesVal,
+		Authorities: authoritiesVal,
 	}
 	return pb, nil
 }
@@ -494,6 +560,10 @@ func IRFromPB(ctx context.Context, pb *IR) (ir.IR, error) {
 		return r, err
 	}
 	r.Sequences, err = SequencesFromPB(ctx, pb.Sequences)
+	if err != nil {
+		return r, err
+	}
+	r.Authorities, err = AuthoritiesFromPB(ctx, pb.Authorities)
 	if err != nil {
 		return r, err
 	}

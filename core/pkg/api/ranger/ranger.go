@@ -17,23 +17,17 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
-
-type Range struct {
-	Parent *ranger.Range `json:"parent" msgpack:"parent"`
-	Labels []label.Label `json:"labels" msgpack:"labels"`
-	ranger.Range
-}
 
 func translateRangesToService(ranges []Range) []ranger.Range {
 	return lo.Map(ranges, func(r Range, _ int) ranger.Range { return r.Range })
@@ -60,6 +54,7 @@ type Service struct {
 	db       *gorp.DB
 	access   *rbac.Service
 	internal *ranger.Service
+	label    *label.Service
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -71,6 +66,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
 		internal: cfg.Service.Ranger,
+		label:    cfg.Service.Label,
 	}, nil
 }
 
@@ -118,9 +114,9 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		SearchTerm    string          `json:"search_term" msgpack:"search_term"`
 		Keys          []uuid.UUID     `json:"keys" msgpack:"keys"`
 		Names         []string        `json:"names" msgpack:"names"`
+		SearchTerm    string          `json:"search_term" msgpack:"search_term"`
 		HasLabels     []uuid.UUID     `json:"has_labels" msgpack:"has_labels"`
 		OverlapsWith  telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
 		Limit         int             `json:"limit" msgpack:"limit"`
@@ -174,7 +170,7 @@ func (s *Service) Retrieve(
 	var err error
 	if req.IncludeLabels {
 		for i, rng := range apiRanges {
-			if rng.Labels, err = rng.RetrieveLabels(ctx); err != nil {
+			if rng.Labels, err = s.label.RetrieveFor(ctx, rng.OntologyID(), nil); err != nil {
 				return RetrieveResponse{}, err
 			}
 			apiRanges[i] = rng
@@ -182,14 +178,18 @@ func (s *Service) Retrieve(
 	}
 	if req.IncludeParent {
 		for i, rng := range apiRanges {
-			parent, err := rng.RetrieveParent(ctx)
+			parentKey, err := s.internal.RetrieveParentKey(ctx, rng.Key, nil)
 			if errors.Is(err, query.ErrNotFound) {
 				continue
 			}
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
-			rng.Parent = &parent
+			var parent ranger.Range
+			if err = s.internal.NewRetrieve().Entry(&parent).WhereKeys(parentKey).Exec(ctx, nil); err != nil {
+				return RetrieveResponse{}, err
+			}
+			rng.Parent = &Range{Range: parent}
 			apiRanges[i] = rng
 		}
 	}

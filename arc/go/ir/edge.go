@@ -100,14 +100,6 @@ func (h Handle) String() string {
 	return h.Node + "." + h.Param
 }
 
-// String returns the string representation of the edge kind.
-func (k EdgeKind) String() string {
-	if k == EdgeKindOneShot {
-		return "OneShot"
-	}
-	return "Continuous"
-}
-
 // String returns the string representation of the edge.
 // Format: "source.param -> target.param (continuous)" or "source.param => target.param (EdgeKindOneShot)"
 func (e Edge) String() string {

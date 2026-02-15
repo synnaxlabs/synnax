@@ -20,7 +20,7 @@ import {
   newZ,
   type Symbol,
   symbolZ,
-} from "@/schematic/symbol/payload";
+} from "@/schematic/symbol/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const createReqZ = z.object({ symbols: newZ.array(), parent: ontology.idZ });

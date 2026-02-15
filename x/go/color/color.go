@@ -28,14 +28,6 @@ var Schema = zyn.Object(map[string]zyn.Schema{
 	"a": zyn.Number().Float64().Coerce(),
 })
 
-// Color represents an RGBA color with 8-bit RGB channels and a float64 alpha.
-type Color struct {
-	R uint8   `json:"r" msgpack:"r"`
-	G uint8   `json:"g" msgpack:"g"`
-	B uint8   `json:"b" msgpack:"b"`
-	A float64 `json:"a" msgpack:"a"`
-}
-
 // IsZero returns true if the color is the zero value for its type.
 func (c Color) IsZero() bool { return c.R == 0 && c.G == 0 && c.B == 0 && c.A == 0 }
 

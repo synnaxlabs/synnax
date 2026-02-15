@@ -60,6 +60,12 @@ enum class Kind : std::uint8_t {
     Stage = 23,
 };
 
+enum class ChanDirection : std::uint8_t {
+    None = 0,
+    Read = 1,
+    Write = 2,
+};
+
 /// @brief Channels contains channel declarations for reading from and writing to Synnax
 /// channels.
 struct Channels {
@@ -212,6 +218,9 @@ struct Type : public FunctionProperties {
     std::optional<Unit> unit;
     /// @brief constraint is the type constraint for type variables.
     x::mem::indirect<Type> constraint;
+    /// @brief chan_direction indicates read/write direction for channel-typed config
+    /// parameters.
+    ChanDirection chan_direction;
 
     static Type parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

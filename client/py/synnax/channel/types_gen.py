@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Literal, NewType, TypeAlias
+from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, Field
 
@@ -22,15 +22,15 @@ from synnax import telem
 from synnax.ontology.payload import ID
 from synnax.x import control
 
-Key = NewType("Key", int)
+Key: TypeAlias = int
 
-MIN_OPERATIONTYPE: Literal["min"] = "min"
+OPERATIONTYPE_MIN: Literal["min"] = "min"
 
-MAX_OPERATIONTYPE: Literal["max"] = "max"
+OPERATIONTYPE_MAX: Literal["max"] = "max"
 
-AVG_OPERATIONTYPE: Literal["avg"] = "avg"
+OPERATIONTYPE_AVG: Literal["avg"] = "avg"
 
-NONE_OPERATIONTYPE: Literal["none"] = "none"
+OPERATIONTYPE_NONE: Literal["none"] = "none"
 
 
 OperationType = Literal["min", "max", "avg", "none"]
@@ -59,8 +59,8 @@ class Operation(BaseModel):
     """
 
     type: OperationType
-    reset_channel: Key = Field(default=0)
-    duration: telem.TimeSpan = Field(default=0)
+    reset_channel: Key = Field(default=Key(0))
+    duration: telem.TimeSpan = Field(default=telem.TimeSpan(0))
 
 
 class Payload(BaseModel):
@@ -137,13 +137,13 @@ class New(Payload):
             have shared concurrency.
     """
 
-    key: Key | None = None
-    leaseholder: int | None = None
-    index: Key | None = None
-    is_index: bool | None = None
-    internal: bool | None = None
-    virtual: bool | None = None
-    expression: str | None = None
+    key: Key | None = None  # type: ignore[assignment]
+    leaseholder: int | None = None  # type: ignore[assignment]
+    index: Key | None = None  # type: ignore[assignment]
+    is_index: bool | None = None  # type: ignore[assignment]
+    internal: bool | None = None  # type: ignore[assignment]
+    virtual: bool | None = None  # type: ignore[assignment]
+    expression: str | None = None  # type: ignore[assignment]
     operations: list[Operation] | None = None
     concurrency: control.Concurrency | None = None
 

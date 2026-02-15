@@ -32,25 +32,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type Key = channel.Key
-
-// Channel is an API-friendly version of the channel.Channel type. It is
-// simplified for use purely as a data container.
-type Channel struct {
-	Name        string              `json:"name" msgpack:"name"`
-	DataType    telem.DataType      `json:"data_type" msgpack:"data_type"`
-	Alias       string              `json:"alias" msgpack:"alias"`
-	Expression  string              `json:"expression" msgpack:"expression"`
-	Operations  []channel.Operation `json:"operations" msgpack:"operations"`
-	Key         channel.Key         `json:"key" msgpack:"key"`
-	Density     telem.Density       `json:"density" msgpack:"density"`
-	Index       channel.Key         `json:"index" msgpack:"index"`
-	Leaseholder cluster.NodeKey     `json:"leaseholder" msgpack:"leaseholder"`
-	IsIndex     bool                `json:"is_index" msgpack:"is_index"`
-	Virtual     bool                `json:"virtual" msgpack:"virtual"`
-	Internal    bool                `json:"internal" msgpack:"internal"`
-}
-
 // Service is the central service for all things Channel related.
 type Service struct {
 	db       *gorp.DB

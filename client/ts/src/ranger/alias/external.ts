@@ -7,13 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export {
-  type Alias,
-  type AliasChange,
-  aliasZ,
-  createKey,
-  type DecodedDeleteAliasChange,
-  decodeDeleteChange,
-  DELETE_CHANNEL_NAME,
-  SET_CHANNEL_NAME,
-} from "@/ranger/alias/payload";
+export * from "@/ranger/alias/client";
+export * from "@/ranger/alias/payload";
+export * from "@/ranger/alias/types.gen";

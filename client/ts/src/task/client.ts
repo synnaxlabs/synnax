@@ -22,7 +22,7 @@ import { z } from "zod";
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { type Key as RackKey, keyZ as rackKeyZ } from "@/rack/types.gen";
-import { type range } from "@/range";
+import { type ranger } from "@/ranger";
 import { status } from "@/status";
 import {
   type Key,
@@ -98,7 +98,7 @@ export class Task<
   readonly schemas: Schemas<Type, Config, StatusData>;
   private readonly frameClient_?: framer.Client;
   private readonly ontologyClient_?: ontology.Client;
-  private readonly rangeClient_?: range.Client;
+  private readonly rangeClient_?: ranger.Client;
 
   get frameClient(): framer.Client {
     if (this.frameClient_ == null) throw NOT_CREATED_ERROR;
@@ -110,7 +110,7 @@ export class Task<
     return this.ontologyClient_;
   }
 
-  get rangeClient(): range.Client {
+  get rangeClient(): ranger.Client {
     if (this.rangeClient_ == null) throw NOT_CREATED_ERROR;
     return this.rangeClient_;
   }
@@ -128,7 +128,7 @@ export class Task<
     schemas?: Schemas<Type, Config, StatusData>,
     frameClient?: framer.Client,
     ontologyClient?: ontology.Client,
-    rangeClient?: range.Client,
+    rangeClient?: ranger.Client,
   ) {
     this.key = key;
     this.name = name;
@@ -293,13 +293,13 @@ export class Client {
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
   private readonly ontologyClient: ontology.Client;
-  private readonly rangeClient: range.Client;
+  private readonly rangeClient: ranger.Client;
 
   constructor(
     client: UnaryClient,
     frameClient: framer.Client,
     ontologyClient: ontology.Client,
-    rangeClient: range.Client,
+    rangeClient: ranger.Client,
   ) {
     this.client = client;
     this.frameClient = frameClient;

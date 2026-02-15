@@ -557,7 +557,7 @@ func extractConfigValues(
 				return nil, false
 			}
 			channelKey := uint32(sym.ID)
-			node.Channels.ResolveConfigChannel(fnSym, paramName, channelKey, sym.Name)
+			symbol.ResolveConfigChannel(&node.Channels, fnSym, paramName, channelKey, sym.Name)
 			return channelKey, true
 		}
 

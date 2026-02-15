@@ -16,11 +16,8 @@ from pydantic import PrivateAttr
 from synnax import framer
 from synnax.channel.payload import (
     Key,
-    Operation,
     Params,
-    Payload,
     normalize_params,
-    ontology_id,
 )
 from synnax.channel.retrieve import Retriever
 from synnax.channel.types_gen import (
@@ -296,6 +293,7 @@ class Client:
         :returns: The created channels.
         """
 
+        _channels: list[Payload]
         if channels is None:
             if is_index and data_type == DataType.UNKNOWN:
                 data_type = DataType.TIMESTAMP

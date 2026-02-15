@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -28,6 +29,7 @@ namespace arc::ir {
 struct Handle;
 struct Body;
 struct Node;
+struct Authorities;
 struct Function;
 struct Edge;
 struct Stage;
@@ -94,6 +96,23 @@ struct Node {
     using proto_type = ::arc::ir::pb::Node;
     [[nodiscard]] ::arc::ir::pb::Node to_proto() const;
     static std::pair<Node, x::errors::Error> from_proto(const ::arc::ir::pb::Node &pb);
+};
+
+/// @brief Authorities holds the static authority declarations from an Arc program.
+struct Authorities {
+    /// @brief default is the default authority for all write channels not explicitly
+    /// listed.
+    std::optional<std::uint8_t> default;
+    /// @brief channels maps channel keys to their specific authority values.
+    std::unordered_map<std::uint32_t, std::uint8_t> channels;
+
+    static Authorities parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::ir::pb::Authorities;
+    [[nodiscard]] ::arc::ir::pb::Authorities to_proto() const;
+    static std::pair<Authorities, x::errors::Error>
+    from_proto(const ::arc::ir::pb::Authorities &pb);
 };
 
 struct Strata : private std::vector<Stratum> {
@@ -493,6 +512,8 @@ struct IR {
     Strata strata;
     /// @brief sequences contains state machine definitions.
     Sequences sequences;
+    /// @brief authorities contains the static authority declarations for this program.
+    Authorities authorities;
 
     static IR parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

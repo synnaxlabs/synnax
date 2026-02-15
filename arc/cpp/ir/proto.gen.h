@@ -206,6 +206,23 @@ Node::from_proto(const ::arc::ir::pb::Node &pb) {
     return {cpp, x::errors::NIL};
 }
 
+inline ::arc::ir::pb::Authorities Authorities::to_proto() const {
+    ::arc::ir::pb::Authorities pb;
+    pb.set_default_(this->default);
+    for (const auto &[k, v]: this->channels)
+        (*pb.mutable_channels())[k] = v;
+    return pb;
+}
+
+inline std::pair<Authorities, x::errors::Error>
+Authorities::from_proto(const ::arc::ir::pb::Authorities &pb) {
+    Authorities cpp;
+    cpp.default = pb.default_();
+    for (const auto &[k, v]: pb.channels())
+        cpp.channels[k] = v;
+    return {cpp, x::errors::NIL};
+}
+
 inline ::arc::ir::pb::IR IR::to_proto() const {
     ::arc::ir::pb::IR pb;
     for (const auto &item: this->functions)
@@ -221,6 +238,7 @@ inline ::arc::ir::pb::IR IR::to_proto() const {
     }
     for (const auto &item: this->sequences)
         *pb.add_sequences() = item.to_proto();
+    *pb.mutable_authorities() = this->authorities.to_proto();
     return pb;
 }
 
@@ -236,6 +254,11 @@ inline std::pair<IR, x::errors::Error> IR::from_proto(const ::arc::ir::pb::IR &p
         cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
     if (auto err = x::pb::from_proto_repeated<Sequence>(cpp.sequences, pb.sequences()))
         return {{}, err};
+    {
+        auto [v, err] = Authorities::from_proto(pb.authorities());
+        if (err) return {{}, err};
+        cpp.authorities = v;
+    }
     return {cpp, x::errors::NIL};
 }
 

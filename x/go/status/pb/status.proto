@@ -28,7 +28,7 @@ message Status {
   // name is an optional human-readable name for the status.
   string name = 2;
   // variant is the severity or type of the status: success, info, warning, error,
-  // loading, or disabled.
+// loading, or disabled.
   Variant variant = 3;
   // message is the main message text describing the status.
   string message = 4;

@@ -21,7 +21,7 @@ import {
 } from "@/channel/payload";
 import { type Key, keyZ, type Payload, payloadZ } from "@/channel/types.gen";
 import { QueryError } from "@/errors";
-import { keyZ as rangeKeyZ } from "@/range/types.gen";
+import { keyZ as rangeKeyZ } from "@/ranger/types.gen";
 import {
   analyzeParams as analyzeParameters,
   type ParamAnalysisResult,

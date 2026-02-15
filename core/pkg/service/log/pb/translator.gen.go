@@ -14,7 +14,7 @@ package pb
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 

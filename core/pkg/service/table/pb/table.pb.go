@@ -13,7 +13,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: core/pkg/service/workspace/table/pb/table.proto
+// source: core/pkg/service/table/pb/table.proto
 
 package pb
 
@@ -51,7 +51,7 @@ type Table struct {
 
 func (x *Table) Reset() {
 	*x = Table{}
-	mi := &file_core_pkg_service_workspace_table_pb_table_proto_msgTypes[0]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -63,7 +63,7 @@ func (x *Table) String() string {
 func (*Table) ProtoMessage() {}
 
 func (x *Table) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_workspace_table_pb_table_proto_msgTypes[0]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -76,7 +76,7 @@ func (x *Table) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Table.ProtoReflect.Descriptor instead.
 func (*Table) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_workspace_table_pb_table_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Table) GetKey() string {
@@ -100,36 +100,36 @@ func (x *Table) GetData() *structpb.Struct {
 	return nil
 }
 
-var File_core_pkg_service_workspace_table_pb_table_proto protoreflect.FileDescriptor
+var File_core_pkg_service_table_pb_table_proto protoreflect.FileDescriptor
 
-const file_core_pkg_service_workspace_table_pb_table_proto_rawDesc = "" +
+const file_core_pkg_service_table_pb_table_proto_rawDesc = "" +
 	"\n" +
-	"/core/pkg/service/workspace/table/pb/table.proto\x12\x10service.table.pb\x1a\x1cgoogle/protobuf/struct.proto\"Z\n" +
+	"%core/pkg/service/table/pb/table.proto\x12\x10service.table.pb\x1a\x1cgoogle/protobuf/struct.proto\"Z\n" +
 	"\x05Table\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
-	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04dataB\xc1\x01\n" +
+	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04dataB\xb7\x01\n" +
 	"\x14com.service.table.pbB\n" +
-	"TableProtoP\x01Z;github.com/synnaxlabs/synnax/pkg/service/workspace/table/pb\xa2\x02\x03STP\xaa\x02\x10Service.Table.Pb\xca\x02\x10Service\\Table\\Pb\xe2\x02\x1cService\\Table\\Pb\\GPBMetadata\xea\x02\x12Service::Table::Pbb\x06proto3"
+	"TableProtoP\x01Z1github.com/synnaxlabs/synnax/pkg/service/table/pb\xa2\x02\x03STP\xaa\x02\x10Service.Table.Pb\xca\x02\x10Service\\Table\\Pb\xe2\x02\x1cService\\Table\\Pb\\GPBMetadata\xea\x02\x12Service::Table::Pbb\x06proto3"
 
 var (
-	file_core_pkg_service_workspace_table_pb_table_proto_rawDescOnce sync.Once
-	file_core_pkg_service_workspace_table_pb_table_proto_rawDescData []byte
+	file_core_pkg_service_table_pb_table_proto_rawDescOnce sync.Once
+	file_core_pkg_service_table_pb_table_proto_rawDescData []byte
 )
 
-func file_core_pkg_service_workspace_table_pb_table_proto_rawDescGZIP() []byte {
-	file_core_pkg_service_workspace_table_pb_table_proto_rawDescOnce.Do(func() {
-		file_core_pkg_service_workspace_table_pb_table_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_service_workspace_table_pb_table_proto_rawDesc), len(file_core_pkg_service_workspace_table_pb_table_proto_rawDesc)))
+func file_core_pkg_service_table_pb_table_proto_rawDescGZIP() []byte {
+	file_core_pkg_service_table_pb_table_proto_rawDescOnce.Do(func() {
+		file_core_pkg_service_table_pb_table_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_service_table_pb_table_proto_rawDesc), len(file_core_pkg_service_table_pb_table_proto_rawDesc)))
 	})
-	return file_core_pkg_service_workspace_table_pb_table_proto_rawDescData
+	return file_core_pkg_service_table_pb_table_proto_rawDescData
 }
 
-var file_core_pkg_service_workspace_table_pb_table_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_core_pkg_service_workspace_table_pb_table_proto_goTypes = []any{
+var file_core_pkg_service_table_pb_table_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_core_pkg_service_table_pb_table_proto_goTypes = []any{
 	(*Table)(nil),           // 0: service.table.pb.Table
 	(*structpb.Struct)(nil), // 1: google.protobuf.Struct
 }
-var file_core_pkg_service_workspace_table_pb_table_proto_depIdxs = []int32{
+var file_core_pkg_service_table_pb_table_proto_depIdxs = []int32{
 	1, // 0: service.table.pb.Table.data:type_name -> google.protobuf.Struct
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
@@ -138,26 +138,26 @@ var file_core_pkg_service_workspace_table_pb_table_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_core_pkg_service_workspace_table_pb_table_proto_init() }
-func file_core_pkg_service_workspace_table_pb_table_proto_init() {
-	if File_core_pkg_service_workspace_table_pb_table_proto != nil {
+func init() { file_core_pkg_service_table_pb_table_proto_init() }
+func file_core_pkg_service_table_pb_table_proto_init() {
+	if File_core_pkg_service_table_pb_table_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_workspace_table_pb_table_proto_rawDesc), len(file_core_pkg_service_workspace_table_pb_table_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_table_pb_table_proto_rawDesc), len(file_core_pkg_service_table_pb_table_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_core_pkg_service_workspace_table_pb_table_proto_goTypes,
-		DependencyIndexes: file_core_pkg_service_workspace_table_pb_table_proto_depIdxs,
-		MessageInfos:      file_core_pkg_service_workspace_table_pb_table_proto_msgTypes,
+		GoTypes:           file_core_pkg_service_table_pb_table_proto_goTypes,
+		DependencyIndexes: file_core_pkg_service_table_pb_table_proto_depIdxs,
+		MessageInfos:      file_core_pkg_service_table_pb_table_proto_msgTypes,
 	}.Build()
-	File_core_pkg_service_workspace_table_pb_table_proto = out.File
-	file_core_pkg_service_workspace_table_pb_table_proto_goTypes = nil
-	file_core_pkg_service_workspace_table_pb_table_proto_depIdxs = nil
+	File_core_pkg_service_table_pb_table_proto = out.File
+	file_core_pkg_service_table_pb_table_proto_goTypes = nil
+	file_core_pkg_service_table_pb_table_proto_depIdxs = nil
 }

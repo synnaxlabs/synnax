@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type errors, status } from "@synnaxlabs/x";
+import type z from "zod";
 
 export interface Adder {
   <Details extends z.ZodType = z.ZodNever>(spec: status.Crude<Details>): void;

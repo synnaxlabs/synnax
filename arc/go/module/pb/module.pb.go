@@ -91,11 +91,13 @@ type Module struct {
 	Strata []*StratumWrapper `protobuf:"bytes,4,rep,name=strata,proto3" json:"strata,omitempty"`
 	// sequences contains state machine definitions.
 	Sequences []*pb.Sequence `protobuf:"bytes,5,rep,name=sequences,proto3" json:"sequences,omitempty"`
+	// authorities contains the static authority declarations for this program.
+	Authorities *pb.Authorities `protobuf:"bytes,6,opt,name=authorities,proto3" json:"authorities,omitempty"`
 	// wasm is compiled WebAssembly bytecode for sandboxed execution.
-	Wasm []byte `protobuf:"bytes,6,opt,name=wasm,proto3" json:"wasm,omitempty"`
+	Wasm []byte `protobuf:"bytes,7,opt,name=wasm,proto3" json:"wasm,omitempty"`
 	// output_memory_bases contains memory base addresses for multi-output functions,
 	// mapping function keys to their base addresses.
-	OutputMemoryBases map[string]uint32 `protobuf:"bytes,7,rep,name=output_memory_bases,json=outputMemoryBases,proto3" json:"output_memory_bases,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	OutputMemoryBases map[string]uint32 `protobuf:"bytes,8,rep,name=output_memory_bases,json=outputMemoryBases,proto3" json:"output_memory_bases,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -165,6 +167,13 @@ func (x *Module) GetSequences() []*pb.Sequence {
 	return nil
 }
 
+func (x *Module) GetAuthorities() *pb.Authorities {
+	if x != nil {
+		return x.Authorities
+	}
+	return nil
+}
+
 func (x *Module) GetWasm() []byte {
 	if x != nil {
 		return x.Wasm
@@ -185,15 +194,16 @@ const file_arc_go_module_pb_module_proto_rawDesc = "" +
 	"\n" +
 	"\x1darc/go/module/pb/module.proto\x12\rarc.module.pb\x1a\x15arc/go/ir/pb/ir.proto\"(\n" +
 	"\x0eStratumWrapper\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\xab\x03\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\xe5\x03\n" +
 	"\x06Module\x121\n" +
 	"\tfunctions\x18\x01 \x03(\v2\x13.arc.ir.pb.FunctionR\tfunctions\x12%\n" +
 	"\x05nodes\x18\x02 \x03(\v2\x0f.arc.ir.pb.NodeR\x05nodes\x12%\n" +
 	"\x05edges\x18\x03 \x03(\v2\x0f.arc.ir.pb.EdgeR\x05edges\x125\n" +
 	"\x06strata\x18\x04 \x03(\v2\x1d.arc.module.pb.StratumWrapperR\x06strata\x121\n" +
-	"\tsequences\x18\x05 \x03(\v2\x13.arc.ir.pb.SequenceR\tsequences\x12\x12\n" +
-	"\x04wasm\x18\x06 \x01(\fR\x04wasm\x12\\\n" +
-	"\x13output_memory_bases\x18\a \x03(\v2,.arc.module.pb.Module.OutputMemoryBasesEntryR\x11outputMemoryBases\x1aD\n" +
+	"\tsequences\x18\x05 \x03(\v2\x13.arc.ir.pb.SequenceR\tsequences\x128\n" +
+	"\vauthorities\x18\x06 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities\x12\x12\n" +
+	"\x04wasm\x18\a \x01(\fR\x04wasm\x12\\\n" +
+	"\x13output_memory_bases\x18\b \x03(\v2,.arc.module.pb.Module.OutputMemoryBasesEntryR\x11outputMemoryBases\x1aD\n" +
 	"\x16OutputMemoryBasesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01B\x9b\x01\n" +
@@ -220,6 +230,7 @@ var file_arc_go_module_pb_module_proto_goTypes = []any{
 	(*pb.Node)(nil),        // 4: arc.ir.pb.Node
 	(*pb.Edge)(nil),        // 5: arc.ir.pb.Edge
 	(*pb.Sequence)(nil),    // 6: arc.ir.pb.Sequence
+	(*pb.Authorities)(nil), // 7: arc.ir.pb.Authorities
 }
 var file_arc_go_module_pb_module_proto_depIdxs = []int32{
 	3, // 0: arc.module.pb.Module.functions:type_name -> arc.ir.pb.Function
@@ -227,12 +238,13 @@ var file_arc_go_module_pb_module_proto_depIdxs = []int32{
 	5, // 2: arc.module.pb.Module.edges:type_name -> arc.ir.pb.Edge
 	0, // 3: arc.module.pb.Module.strata:type_name -> arc.module.pb.StratumWrapper
 	6, // 4: arc.module.pb.Module.sequences:type_name -> arc.ir.pb.Sequence
-	2, // 5: arc.module.pb.Module.output_memory_bases:type_name -> arc.module.pb.Module.OutputMemoryBasesEntry
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	7, // 5: arc.module.pb.Module.authorities:type_name -> arc.ir.pb.Authorities
+	2, // 6: arc.module.pb.Module.output_memory_bases:type_name -> arc.module.pb.Module.OutputMemoryBasesEntry
+	7, // [7:7] is the sub-list for method output_type
+	7, // [7:7] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_module_pb_module_proto_init() }

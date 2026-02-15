@@ -13,10 +13,13 @@ from dataclasses import dataclass
 from typing import Literal, Sequence, TypeAlias
 
 from synnax import ontology
-from synnax.channel.types_gen import Payload
+from synnax.channel.types_gen import (
+    Key as Key,
+    New as New,
+    Operation as Operation,
+    Payload as Payload,
+)
 from synnax.util.normalize import normalize
-
-Key = int
 
 ONTOLOGY_TYPE = ontology.ID(type="channel")
 

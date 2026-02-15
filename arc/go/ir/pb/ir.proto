@@ -97,6 +97,14 @@ message Node {
   .arc.types.pb.Channels channels = 6;
 }
 
+// Authorities holds the static authority declarations from an Arc program.
+message Authorities {
+  // default is the default authority for all write channels not explicitly listed.
+  optional uint32 default = 1;
+  // channels maps channel keys to their specific authority values.
+  map<uint32, uint32> channels = 2;
+}
+
 // IR is the intermediate representation of an Arc program as a dataflow graph with
 // stratified execution, bridging semantic analysis and WebAssembly compilation.
 message IR {
@@ -110,4 +118,6 @@ message IR {
   repeated StratumWrapper strata = 4;
   // sequences contains state machine definitions.
   repeated Sequence sequences = 5;
+  // authorities contains the static authority declarations for this program.
+  Authorities authorities = 6;
 }

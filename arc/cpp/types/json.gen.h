@@ -45,6 +45,7 @@ inline Type Type::parse(x::json::Parser parser) {
     result.elem = parser.field<x::mem::indirect<Type>>("elem");
     result.unit = parser.field<std::optional<Unit>>("unit");
     result.constraint = parser.field<x::mem::indirect<Type>>("constraint");
+    result.chan_direction = parser.field<ChanDirection>("chan_direction");
     return result;
 }
 
@@ -57,6 +58,7 @@ inline x::json::json Type::to_json() const {
     if (this->elem.has_value()) j["elem"] = this->elem->to_json();
     if (this->unit.has_value()) j["unit"] = this->unit->to_json();
     if (this->constraint.has_value()) j["constraint"] = this->constraint->to_json();
+    j["chan_direction"] = this->chan_direction;
     return j;
 }
 

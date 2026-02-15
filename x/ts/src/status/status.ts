@@ -10,7 +10,6 @@
 import { z } from "zod";
 
 import { id } from "@/id";
-import { label } from "@/label";
 import { narrow } from "@/narrow";
 import { type optional } from "@/optional";
 import { type Status, type Variant } from "@/status/types.gen";
@@ -97,7 +96,7 @@ const DEFAULT_TO_STRING_OPTIONS: ToStringOptions = {
   includeName: true,
 };
 
-export const toString = <Details = never>(
+export const toString = <Details extends z.ZodType = z.ZodNever>(
   stat: Status<Details>,
   options: ToStringOptions = {},
 ): string => {

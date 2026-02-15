@@ -13,7 +13,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: core/pkg/service/workspace/lineplot/pb/lineplot.proto
+// source: core/pkg/service/lineplot/pb/lineplot.proto
 
 package pb
 
@@ -51,7 +51,7 @@ type LinePlot struct {
 
 func (x *LinePlot) Reset() {
 	*x = LinePlot{}
-	mi := &file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_msgTypes[0]
+	mi := &file_core_pkg_service_lineplot_pb_lineplot_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -63,7 +63,7 @@ func (x *LinePlot) String() string {
 func (*LinePlot) ProtoMessage() {}
 
 func (x *LinePlot) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_msgTypes[0]
+	mi := &file_core_pkg_service_lineplot_pb_lineplot_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -76,7 +76,7 @@ func (x *LinePlot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinePlot.ProtoReflect.Descriptor instead.
 func (*LinePlot) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *LinePlot) GetKey() string {
@@ -100,35 +100,35 @@ func (x *LinePlot) GetData() *structpb.Struct {
 	return nil
 }
 
-var File_core_pkg_service_workspace_lineplot_pb_lineplot_proto protoreflect.FileDescriptor
+var File_core_pkg_service_lineplot_pb_lineplot_proto protoreflect.FileDescriptor
 
-const file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_rawDesc = "" +
+const file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc = "" +
 	"\n" +
-	"5core/pkg/service/workspace/lineplot/pb/lineplot.proto\x12\x13service.lineplot.pb\x1a\x1cgoogle/protobuf/struct.proto\"]\n" +
+	"+core/pkg/service/lineplot/pb/lineplot.proto\x12\x13service.lineplot.pb\x1a\x1cgoogle/protobuf/struct.proto\"]\n" +
 	"\bLinePlot\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
-	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04dataB\xd6\x01\n" +
-	"\x17com.service.lineplot.pbB\rLineplotProtoP\x01Z>github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot/pb\xa2\x02\x03SLP\xaa\x02\x13Service.Lineplot.Pb\xca\x02\x13Service\\Lineplot\\Pb\xe2\x02\x1fService\\Lineplot\\Pb\\GPBMetadata\xea\x02\x15Service::Lineplot::Pbb\x06proto3"
+	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04dataB\xcc\x01\n" +
+	"\x17com.service.lineplot.pbB\rLineplotProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/service/lineplot/pb\xa2\x02\x03SLP\xaa\x02\x13Service.Lineplot.Pb\xca\x02\x13Service\\Lineplot\\Pb\xe2\x02\x1fService\\Lineplot\\Pb\\GPBMetadata\xea\x02\x15Service::Lineplot::Pbb\x06proto3"
 
 var (
-	file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_rawDescOnce sync.Once
-	file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_rawDescData []byte
+	file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescOnce sync.Once
+	file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescData []byte
 )
 
-func file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_rawDescGZIP() []byte {
-	file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_rawDescOnce.Do(func() {
-		file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_rawDesc), len(file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_rawDesc)))
+func file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP() []byte {
+	file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescOnce.Do(func() {
+		file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc), len(file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc)))
 	})
-	return file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_rawDescData
+	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescData
 }
 
-var file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_goTypes = []any{
+var file_core_pkg_service_lineplot_pb_lineplot_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_core_pkg_service_lineplot_pb_lineplot_proto_goTypes = []any{
 	(*LinePlot)(nil),        // 0: service.lineplot.pb.LinePlot
 	(*structpb.Struct)(nil), // 1: google.protobuf.Struct
 }
-var file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_depIdxs = []int32{
+var file_core_pkg_service_lineplot_pb_lineplot_proto_depIdxs = []int32{
 	1, // 0: service.lineplot.pb.LinePlot.data:type_name -> google.protobuf.Struct
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
@@ -137,26 +137,26 @@ var file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_depIdxs = []int32
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_init() }
-func file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_init() {
-	if File_core_pkg_service_workspace_lineplot_pb_lineplot_proto != nil {
+func init() { file_core_pkg_service_lineplot_pb_lineplot_proto_init() }
+func file_core_pkg_service_lineplot_pb_lineplot_proto_init() {
+	if File_core_pkg_service_lineplot_pb_lineplot_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_rawDesc), len(file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc), len(file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_goTypes,
-		DependencyIndexes: file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_depIdxs,
-		MessageInfos:      file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_msgTypes,
+		GoTypes:           file_core_pkg_service_lineplot_pb_lineplot_proto_goTypes,
+		DependencyIndexes: file_core_pkg_service_lineplot_pb_lineplot_proto_depIdxs,
+		MessageInfos:      file_core_pkg_service_lineplot_pb_lineplot_proto_msgTypes,
 	}.Build()
-	File_core_pkg_service_workspace_lineplot_pb_lineplot_proto = out.File
-	file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_goTypes = nil
-	file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_depIdxs = nil
+	File_core_pkg_service_lineplot_pb_lineplot_proto = out.File
+	file_core_pkg_service_lineplot_pb_lineplot_proto_goTypes = nil
+	file_core_pkg_service_lineplot_pb_lineplot_proto_depIdxs = nil
 }

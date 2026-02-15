@@ -91,7 +91,7 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil,
 }
 
 type SetDataRequest struct {
-	Data string    `json:"data" msgpack:"data"`
+	Data map[string]any `json:"data" msgpack:"data"`
 	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 

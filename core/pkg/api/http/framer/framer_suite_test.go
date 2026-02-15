@@ -9,14 +9,14 @@
 
 package framer_test
 
-import { color } from "@/color";
+import (
+	"testing"
 
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
 
-export const labelZ = z.object({
-  key: keyZ,
-  name: z.string().min(1),
-  color: color.colorZ,
-});
-export interface Label extends z.infer<typeof labelZ> {}
+func TestFramer(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Framer Suite")
+}

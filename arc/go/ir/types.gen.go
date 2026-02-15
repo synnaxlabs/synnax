@@ -33,6 +33,8 @@ type Stratum = []string
 
 type EdgeKind uint8
 
+//go:generate stringer -type=EdgeKind
+
 const (
 	EdgeKindUnspecified EdgeKind = iota
 	EdgeKindContinuous
@@ -119,6 +121,14 @@ type Node struct {
 	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
 
+// Authorities holds the static authority declarations from an Arc program.
+type Authorities struct {
+	// Default is the default authority for all write channels not explicitly listed.
+	Default *uint8 `json:"default,omitempty" msgpack:"default,omitempty"`
+	// Channels maps channel keys to their specific authority values.
+	Channels map[uint32]uint8 `json:"channels" msgpack:"channels"`
+}
+
 // IR is the intermediate representation of an Arc program as a dataflow graph with
 // stratified execution, bridging semantic analysis and WebAssembly compilation.
 type IR struct {
@@ -131,7 +141,9 @@ type IR struct {
 	// Strata contains execution stratification layers.
 	Strata Strata `json:"strata" msgpack:"strata"`
 	// Sequences contains state machine definitions.
-	Sequences Sequences                              `json:"sequences" msgpack:"sequences"`
-	Symbols   *symbol.Scope                          `json:"-"`
-	TypeMap   map[antlr.ParserRuleContext]types.Type `json:"-"`
+	Sequences Sequences `json:"sequences" msgpack:"sequences"`
+	// Authorities contains the static authority declarations for this program.
+	Authorities Authorities                            `json:"authorities" msgpack:"authorities"`
+	Symbols     *symbol.Scope                          `json:"-"`
+	TypeMap     map[antlr.ParserRuleContext]types.Type `json:"-"`
 }

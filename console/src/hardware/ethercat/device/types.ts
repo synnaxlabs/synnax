@@ -10,13 +10,12 @@
 import { type device } from "@synnaxlabs/client";
 import { z } from "zod/v4";
 
-export const PREFIX = "ethercat";
+export const MAKE = "ethercat";
 
-export const MAKE = PREFIX;
-export type Make = typeof MAKE;
+export const makeZ = z.literal(MAKE);
 
 export const SLAVE_MODEL = "slave";
-export type SlaveModel = typeof SLAVE_MODEL;
+export const modelZ = z.literal(SLAVE_MODEL);
 
 /** Schema for a single PDO entry from device scan. */
 export const pdoEntryZ = z.object({
@@ -80,4 +79,18 @@ export const ZERO_SLAVE_PROPERTIES: SlaveProperties = {
   enabled: true,
 };
 
-export interface SlaveDevice extends device.Device<SlaveProperties, Make, SlaveModel> {}
+export interface SlaveDevice extends device.Device<
+  typeof slavePropertiesZ,
+  typeof makeZ,
+  typeof modelZ
+> {}
+
+export const SLAVE_SCHEMAS: device.DeviceSchemas<
+  typeof slavePropertiesZ,
+  typeof makeZ,
+  typeof modelZ
+> = {
+  make: makeZ,
+  model: modelZ,
+  properties: slavePropertiesZ,
+};

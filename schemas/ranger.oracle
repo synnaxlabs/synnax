@@ -11,7 +11,7 @@ import "schemas/telem"
 import "schemas/label"
 import "schemas/color"
 
-@ts output  "client/ts/src/range"
+@ts output  "client/ts/src/ranger"
 @py output  "client/py/synnax/ranger"
 @cpp output "client/cpp/ranger"
 

@@ -142,11 +142,12 @@ func TypeToPB(ctx context.Context, r types.Type) (*Type, error) {
 		return nil, err
 	}
 	pb := &Type{
-		Kind:    KindToPB(r.Kind),
-		Name:    r.Name,
-		Inputs:  inputsVal,
-		Outputs: outputsVal,
-		Config:  configVal,
+		Kind:          KindToPB(r.Kind),
+		Name:          r.Name,
+		ChanDirection: ChanDirectionToPB(r.ChanDirection),
+		Inputs:        inputsVal,
+		Outputs:       outputsVal,
+		Config:        configVal,
 	}
 	if r.Elem != nil {
 		var err error
@@ -193,6 +194,7 @@ func TypeFromPB(ctx context.Context, pb *Type) (types.Type, error) {
 	}
 	r.Kind = KindFromPB(pb.Kind)
 	r.Name = pb.Name
+	r.ChanDirection = ChanDirectionFromPB(pb.ChanDirection)
 	if pb.Elem != nil {
 		val, err := TypeFromPB(ctx, pb.Elem)
 		if err != nil {
@@ -564,5 +566,33 @@ func KindFromPB(v Kind) types.Kind {
 		return types.KindStage
 	default:
 		return types.KindInvalid
+	}
+}
+
+// ChanDirectionToPB converts types.ChanDirection to ChanDirection.
+func ChanDirectionToPB(v types.ChanDirection) ChanDirection {
+	switch v {
+	case types.ChanDirectionNone:
+		return ChanDirection_CHAN_DIRECTION_NONE
+	case types.ChanDirectionRead:
+		return ChanDirection_CHAN_DIRECTION_READ
+	case types.ChanDirectionWrite:
+		return ChanDirection_CHAN_DIRECTION_WRITE
+	default:
+		return ChanDirection_CHAN_DIRECTION_NONE
+	}
+}
+
+// ChanDirectionFromPB converts ChanDirection to types.ChanDirection.
+func ChanDirectionFromPB(v ChanDirection) types.ChanDirection {
+	switch v {
+	case ChanDirection_CHAN_DIRECTION_NONE:
+		return types.ChanDirectionNone
+	case ChanDirection_CHAN_DIRECTION_READ:
+		return types.ChanDirectionRead
+	case ChanDirection_CHAN_DIRECTION_WRITE:
+		return types.ChanDirectionWrite
+	default:
+		return types.ChanDirectionNone
 	}
 }

@@ -15,6 +15,8 @@ type Params []Param
 
 type Kind uint8
 
+//go:generate stringer -type=Kind
+
 const (
 	KindInvalid Kind = iota
 	KindU8
@@ -38,6 +40,16 @@ const (
 	KindFunction
 	KindSequence
 	KindStage
+)
+
+type ChanDirection uint8
+
+//go:generate stringer -type=ChanDirection
+
+const (
+	ChanDirectionNone ChanDirection = iota
+	ChanDirectionRead
+	ChanDirectionWrite
 )
 
 // FunctionProperties contains common parameter definitions for function-like types.
@@ -64,6 +76,8 @@ type Type struct {
 	Unit *Unit `json:"unit,omitempty" msgpack:"unit,omitempty"`
 	// Constraint is the type constraint for type variables.
 	Constraint *Type `json:"constraint,omitempty" msgpack:"constraint,omitempty"`
+	// ChanDirection indicates read/write direction for channel-typed config parameters.
+	ChanDirection ChanDirection `json:"chan_direction" msgpack:"chan_direction"`
 }
 
 // Param is a named, typed parameter with optional default value.

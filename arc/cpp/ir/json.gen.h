@@ -11,7 +11,9 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "x/cpp/json/json.h"
@@ -137,6 +139,22 @@ inline x::json::json Node::to_json() const {
     return j;
 }
 
+inline Authorities Authorities::parse(x::json::Parser parser) {
+    return Authorities{
+        .default = parser.field<std::optional<std::uint8_t>>("default"),
+        .channels = parser.field<std::unordered_map<std::uint32_t, std::uint8_t>>(
+            "channels"
+        ),
+    };
+}
+
+inline x::json::json Authorities::to_json() const {
+    x::json::json j;
+    j["default"] = this->default;
+    j["channels"] = this->channels;
+    return j;
+}
+
 inline IR IR::parse(x::json::Parser parser) {
     return IR{
         .functions = parser.field<Functions>("functions"),
@@ -144,6 +162,7 @@ inline IR IR::parse(x::json::Parser parser) {
         .edges = parser.field<Edges>("edges"),
         .strata = parser.field<Strata>("strata"),
         .sequences = parser.field<Sequences>("sequences"),
+        .authorities = parser.field<Authorities>("authorities"),
     };
 }
 
@@ -154,6 +173,7 @@ inline x::json::json IR::to_json() const {
     j["edges"] = this->edges.to_json();
     j["strata"] = this->strata.to_json();
     j["sequences"] = this->sequences.to_json();
+    j["authorities"] = this->authorities.to_json();
     return j;
 }
 

@@ -19,7 +19,7 @@ import {
   Text,
   Tree,
 } from "@synnaxlabs/pluto";
-import { errors, status } from "@synnaxlabs/x";
+import { errors, type record, status } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { Menu } from "@/components";

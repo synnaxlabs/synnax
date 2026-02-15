@@ -24,14 +24,9 @@ const alphaZ = z.number().min(0).max(1);
 const rgbaZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ, alphaZ]);
 /** A zod schema for an RGB color. */
 const rgbZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ]);
-/** A zod schema for an RGBA color as a struct. */
-const rgbaStructZ = z.object({ r: rgbValueZ, g: rgbValueZ, b: rgbValueZ, a: alphaZ });
-/** A zod schema for a legacy color object. */
 const legacyObjectZ = z.object({ rgba255: rgbaZ });
 /** A zod schema for an RGBA struct (r, g, b, a fields). */
 const rgbaStructZ = z.object({ r: rgbValueZ, g: rgbValueZ, b: rgbValueZ, a: alphaZ });
-/** An RGBA struct with named fields. */
-export type RGBAStruct = z.infer<typeof rgbaStructZ>;
 /** A zod schema for a hue value between 0 and 360. */
 const hueZ = z.number().min(0).max(360);
 /** A zod schema for a saturation value between 0 and 100. */

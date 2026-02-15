@@ -19,7 +19,7 @@ import {
   newZ,
   type Schematic,
   schematicZ,
-} from "@/schematic/payload";
+} from "@/schematic/types.gen";
 import { symbol } from "@/schematic/symbol";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
@@ -100,7 +100,7 @@ export class Client {
     await sendRequired(
       this.client,
       "/schematic/set-data",
-      { key, data: JSON.stringify(data) },
+      { key, data },
       setDataReqZ,
       emptyResZ,
     );

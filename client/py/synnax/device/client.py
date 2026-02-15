@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, overload
+from typing import Any, Literal, overload
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, UnaryClient, send_required

@@ -71,12 +71,14 @@ TimeRange struct {
     """
     @ts omit
     @cpp omit
+    @py omit
 }
 
 TimeRangeBounded = TimeRange {
     @doc value "is a TimeRange alias used for type-safety in contexts requiring bounded time ranges."
     @ts omit
     @cpp omit
+    @py omit
 }
 
 DataType string {
@@ -88,6 +90,7 @@ DataType string {
     """
     @ts omit
     @cpp omit
+    @py omit
 }
 
 Alignment uint64 {
@@ -128,6 +131,7 @@ Series struct {
     @go fields "cachedLength *int64"
     @ts omit
     @cpp omit
+    @py omit
     @pb omit
 }
 

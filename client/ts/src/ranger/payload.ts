@@ -7,5 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/range/alias/client";
-export * from "@/range/alias/payload";
+import { z } from "zod";
+
+import { type Key } from "@/ranger/types.gen";
+
+export const nameZ = z.string().min(1);
+export type Name = z.infer<typeof nameZ>;
+export type Keys = Key[];
+export type Names = Name[];
+export type Params = Key | Name | Keys | Names;

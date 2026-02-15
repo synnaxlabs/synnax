@@ -42,6 +42,14 @@ Kind enum {
     """
 }
 
+ChanDirection enum {
+    none  = 0
+    read  = 1
+    write = 2
+
+    @doc value "indicates read/write direction for channel-typed config parameters."
+}
+
 FunctionProperties struct {
     inputs  Params? {
         @doc value "contains input parameter definitions."
@@ -57,20 +65,23 @@ FunctionProperties struct {
 }
 
 Type struct extends FunctionProperties {
-    kind       Kind   {
+    kind           Kind           {
         @doc value "is the type category (primitive, compound, or meta-type)."
     }
-    name       string {
+    name           string         {
         @doc value "is the type name for variables and user-defined types."
     }
-    elem       Type?? {
+    elem           Type??         {
         @doc value "is the element type for compound types (chan, series)."
     }
-    unit       Unit?? {
+    unit           Unit??         {
         @doc value "is the physical unit metadata for dimensional analysis."
     }
-    constraint Type?? {
+    constraint     Type??         {
         @doc value "is the type constraint for type variables."
+    }
+    chan_direction  ChanDirection? {
+        @doc value "indicates read/write direction for channel-typed config parameters."
     }
 
     @doc value           """

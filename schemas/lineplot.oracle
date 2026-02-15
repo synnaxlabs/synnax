@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output "client/ts/src/workspace/lineplot"
-@go output "core/pkg/service/workspace/lineplot"
+@ts output "client/ts/src/lineplot"
+@go output "core/pkg/service/lineplot"
 @pb
 
 Key = uuid {

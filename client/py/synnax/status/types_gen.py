@@ -18,17 +18,17 @@ from pydantic import BaseModel, Field
 
 from synnax import label, telem
 
-SUCCESS_VARIANT: Literal["success"] = "success"
+VARIANT_SUCCESS: Literal["success"] = "success"
 
-INFO_VARIANT: Literal["info"] = "info"
+VARIANT_INFO: Literal["info"] = "info"
 
-WARNING_VARIANT: Literal["warning"] = "warning"
+VARIANT_WARNING: Literal["warning"] = "warning"
 
-ERROR_VARIANT: Literal["error"] = "error"
+VARIANT_ERROR: Literal["error"] = "error"
 
-LOADING_VARIANT: Literal["loading"] = "loading"
+VARIANT_LOADING: Literal["loading"] = "loading"
 
-DISABLED_VARIANT: Literal["disabled"] = "disabled"
+VARIANT_DISABLED: Literal["disabled"] = "disabled"
 
 
 Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]

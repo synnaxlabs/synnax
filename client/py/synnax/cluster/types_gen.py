@@ -11,6 +11,6 @@
 
 from __future__ import annotations
 
-from typing import NewType
+from typing import TypeAlias
 
-NodeKey = NewType("NodeKey", int)
+NodeKey: TypeAlias = int

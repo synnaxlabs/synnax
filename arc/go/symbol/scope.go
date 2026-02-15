@@ -35,43 +35,13 @@ func CreateRootScope(globalResolver Resolver) *Scope {
 	}
 }
 
-// Channels tracks which Synnax channels a node reads from and writes to.
-//
-// This is used for data flow analysis to understand which channels are accessed by
-// different parts of an Arc program. The maps use channel IDs as keys and channel
-// names as values.
-type Channels struct {
-	// Read contains Synnax channels that the node reads from.
-	Read set.Mapped[uint32, string] `json:"read"`
-	// Write contains Synnax channels that the node writes to.
-	Write set.Mapped[uint32, string] `json:"write"`
-}
-
-// Copy returns a deep copy of the Channels.
-func (c Channels) Copy() Channels {
-	if c.Read == nil {
-		c.Read = make(set.Mapped[uint32, string])
-	}
-	if c.Write == nil {
-		c.Write = make(set.Mapped[uint32, string])
-	}
-	return Channels{Read: c.Read.Copy(), Write: c.Write.Copy()}
-}
-
-// NewChannels creates a new Channels with empty read and write sets.
-func NewChannels() Channels {
-	return Channels{
-		Read:  make(set.Mapped[uint32, string]),
-		Write: make(set.Mapped[uint32, string]),
-	}
-}
-
 // ResolveConfigChannel replaces an internal config param ID with the actual channel ID.
 // For user-defined functions, the analyzer populates fnSym.Channels with internal param
 // IDs when processing the function body, so we replace those with actual channel IDs.
 // For built-in functions (resolved from MapResolver), fnSym has no children or channels,
 // so we fall back to adding the channel to Read.
-func (c *Channels) ResolveConfigChannel(
+func ResolveConfigChannel(
+	c *types.Channels,
 	fnSym *Scope,
 	paramName string,
 	channelKey uint32,
@@ -80,13 +50,13 @@ func (c *Channels) ResolveConfigChannel(
 	replaced := false
 	if configParamSym := fnSym.FindChildByName(paramName); configParamSym != nil {
 		configParamID := uint32(configParamSym.ID)
-		if fnSym.Channels.Write.Contains(configParamID) {
-			c.Write.Remove(configParamID)
+		if _, ok := fnSym.Channels.Write[configParamID]; ok {
+			delete(c.Write, configParamID)
 			c.Write[channelKey] = channelName
 			replaced = true
 		}
-		if fnSym.Channels.Read.Contains(configParamID) {
-			c.Read.Remove(configParamID)
+		if _, ok := fnSym.Channels.Read[configParamID]; ok {
+			delete(c.Read, configParamID)
 			c.Read[channelKey] = channelName
 			replaced = true
 		}

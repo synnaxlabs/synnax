@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/version"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -46,14 +47,18 @@ type Service struct {
 	cluster       cluster.Cluster
 }
 
-func NewService(cfg config.Config) *Service {
+func NewService(cfgs ...config.LayerConfig) (*Service, error) {
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		db:            cfg.Distribution.DB,
 		authenticator: cfg.Service.Auth,
 		token:         cfg.Service.Token,
 		user:          cfg.Service.User,
 		cluster:       cfg.Distribution.Cluster,
-	}
+	}, nil
 }
 
 type LoginResponse struct {

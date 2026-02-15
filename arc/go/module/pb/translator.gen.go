@@ -36,6 +36,10 @@ func ModuleToPB(ctx context.Context, r module.Module) (*Module, error) {
 	if err != nil {
 		return nil, err
 	}
+	authoritiesVal, err := irpb.AuthoritiesToPB(ctx, r.Authorities)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Module{
 		Strata:            lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
 		Wasm:              r.WASM,
@@ -44,6 +48,7 @@ func ModuleToPB(ctx context.Context, r module.Module) (*Module, error) {
 		Nodes:             nodesVal,
 		Edges:             edgesVal,
 		Sequences:         sequencesVal,
+		Authorities:       authoritiesVal,
 	}
 	return pb, nil
 }
@@ -68,6 +73,10 @@ func ModuleFromPB(ctx context.Context, pb *Module) (module.Module, error) {
 		return r, err
 	}
 	r.Sequences, err = irpb.SequencesFromPB(ctx, pb.Sequences)
+	if err != nil {
+		return r, err
+	}
+	r.Authorities, err = irpb.AuthoritiesFromPB(ctx, pb.Authorities)
 	if err != nil {
 		return r, err
 	}

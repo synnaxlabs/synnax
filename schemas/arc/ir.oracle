@@ -174,21 +174,35 @@ Nodes Node[] {
     @doc value "is a collection of node instantiations in an Arc module."
 }
 
+Authorities struct {
+    default  uint8??             {
+        @doc value "is the default authority for all write channels not explicitly listed."
+    }
+    channels map<uint32, uint8>? {
+        @doc value "maps channel keys to their specific authority values."
+    }
+
+    @doc value "holds the static authority declarations from an Arc program."
+}
+
 IR struct {
-    functions Functions? {
+    functions   Functions?   {
         @doc value "contains function template definitions."
     }
-    nodes     Nodes?     {
+    nodes       Nodes?       {
         @doc value "contains node instantiations."
     }
-    edges     Edges?     {
+    edges       Edges?       {
         @doc value "contains dataflow connections."
     }
-    strata    Strata?    {
+    strata      Strata?      {
         @doc value "contains execution stratification layers."
     }
-    sequences Sequences? {
+    sequences   Sequences?   {
         @doc value "contains state machine definitions."
+    }
+    authorities Authorities? {
+        @doc value "contains the static authority declarations for this program."
     }
 
     @doc value           """

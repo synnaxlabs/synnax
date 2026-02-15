@@ -40,6 +40,7 @@ inline ::arc::module::pb::Module Module::to_proto() const {
     }
     for (const auto &item: this->sequences)
         *pb.add_sequences() = item.to_proto();
+    *pb.mutable_authorities() = this->authorities.to_proto();
     pb.set_wasm(this->wasm.data(), this->wasm.size());
     for (const auto &[k, v]: this->output_memory_bases)
         (*pb.mutable_output_memory_bases())[k] = v;
@@ -65,6 +66,11 @@ Module::from_proto(const ::arc::module::pb::Module &pb) {
             pb.sequences()
         ))
         return {{}, err};
+    {
+        auto [v, err] = ::arc::ir::Authorities::from_proto(pb.authorities());
+        if (err) return {{}, err};
+        cpp.authorities = v;
+    }
     cpp.wasm.assign(pb.wasm().begin(), pb.wasm().end());
     for (const auto &[k, v]: pb.output_memory_bases())
         cpp.output_memory_bases[k] = v;

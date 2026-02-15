@@ -29,7 +29,7 @@ describe("Schematic", () => {
       expect(schematic.name).toEqual("Schematic");
       expect(schematic.key).not.toEqual(uuid.ZERO);
       expect(schematic.data.One).toEqual(1);
-      const retrieved = await client.workspaces.schematics.retrieve({
+      const retrieved = await client.schematics.retrieve({
         key: schematic.key,
       });
       expect(retrieved.data.One).toEqual(1);
@@ -94,7 +94,7 @@ describe("Schematic", () => {
         name: "CaseTest",
         layout: {},
       });
-      const schematic = await client.workspaces.schematics.create(ws.key, {
+      const schematic = await client.schematics.create(ws.key, {
         name: "CaseTest",
         data: {
           camelCaseKey: "value1",
@@ -107,7 +107,7 @@ describe("Schematic", () => {
         },
       });
 
-      const retrieved = await client.workspaces.schematics.retrieve({
+      const retrieved = await client.schematics.retrieve({
         key: schematic.key,
       });
 

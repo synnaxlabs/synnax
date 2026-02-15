@@ -12,7 +12,7 @@
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { ranger } from "@/ranger";
+import * as ranger from "@/ranger/types.gen";
 
 /**
  * Alias associates a human-readable string alias with a channel within the

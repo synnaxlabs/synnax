@@ -15,6 +15,8 @@ type Authority = uint8
 
 type Concurrency uint8
 
+//go:generate stringer -type=Concurrency
+
 const (
 	ConcurrencyExclusive Concurrency = iota
 	ConcurrencyShared

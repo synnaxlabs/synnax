@@ -9,12 +9,14 @@
 
 from __future__ import annotations
 
-import json
 import warnings
 from contextlib import contextmanager
-from typing import Annotated
-from typing import Protocol as BaseProtocol
-from typing import overload
+from typing import (
+    Annotated,
+    Protocol as BaseProtocol,
+    overload,
+    Any
+)
 from uuid import uuid4
 
 from alamos import NOOP, Instrumentation
@@ -29,7 +31,7 @@ from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.status import VARIANT_ERROR, VARIANT_SUCCESS
-from synnax.task.payload import Payload, Status, ontology_id
+from synnax.task.types_gen import Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
 
@@ -338,7 +340,7 @@ class JSONConfigMixin(Protocol):
     def to_payload(self) -> Payload:
         """Implements TaskProtocol protocol"""
         pld = self._internal.to_payload()
-        pld.config = json.dumps(self.config.model_dump())
+        pld.config = self.config.model_dump()
         return pld
 
     def set_internal(self, task: Task):
@@ -378,13 +380,16 @@ class Client:
         type: str = "",
         config: str = "",
         rack: int = 0,
-    ): ...
+    ):
+        ...
 
     @overload
-    def create(self, tasks: Task) -> Task: ...
+    def create(self, tasks: Task) -> Task:
+        ...
 
     @overload
-    def create(self, tasks: list[Task]) -> list[Task]: ...
+    def create(self, tasks: list[Task]) -> list[Task]:
+        ...
 
     def create(
         self,
@@ -393,10 +398,12 @@ class Client:
         key: int = 0,
         name: str = "",
         type: str = "",
-        config: str = "",
+        config: dict[str, Any] | None = None,
         rack: int = 0,
     ) -> Task | list[Task]:
         is_single = True
+        if config is None:
+            config = dict()
         if tasks is None:
             payloads = [Payload(key=key, name=name, type=type, config=config)]
         elif isinstance(tasks, Task):
@@ -469,7 +476,8 @@ class Client:
         key: int | None = None,
         name: str | None = None,
         type: str | None = None,
-    ) -> Task: ...
+    ) -> Task:
+        ...
 
     @overload
     def retrieve(
@@ -478,7 +486,8 @@ class Client:
         names: list[str] | None = None,
         keys: list[int] | None = None,
         types: list[str] | None = None,
-    ) -> list[Task]: ...
+    ) -> list[Task]:
+        ...
 
     def retrieve(
         self,

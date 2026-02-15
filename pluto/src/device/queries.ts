@@ -64,9 +64,9 @@ export interface RetrieveQuery extends device.RetrieveSingleParams {}
 const BASE_QUERY: Partial<RetrieveQuery> = { includeStatus: true };
 
 export const retrieveSingle = async <
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
 >({
   client,
   store,
@@ -107,16 +107,17 @@ export interface RetrieveMultipleQuery {
 }
 
 export const retrieveMultiple = async <
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
 >({
   client,
   store,
   query: { keys },
-}: Flux.RetrieveParams<RetrieveMultipleQuery, FluxSubStore>): Promise<
-  device.Device<Properties, Make, Model>[]
-> => {
+  schemas,
+}: Flux.RetrieveParams<RetrieveMultipleQuery, FluxSubStore> & {
+  schemas?: device.DeviceSchemas<Properties, Make, Model>;
+}): Promise<device.Device<Properties, Make, Model>[]> => {
   const cached = store.devices.get(keys);
   const cachedKeys = new Set(cached.map((d) => d.key));
   const missingKeys = keys.filter((key) => !cachedKeys.has(key));
@@ -135,12 +136,19 @@ export const retrieveMultiple = async <
 
   const devices = [...cachedWithStatus];
   if (missingKeys.length > 0) {
-    const fetched = await client.devices.retrieve<Properties, Make, Model>({
-      ...BASE_QUERY,
-      keys: missingKeys,
-    });
-    devices.push(...fetched);
-    store.devices.set(fetched);
+    const fetched =
+      schemas != null
+        ? await client.devices.retrieve({
+            ...BASE_QUERY,
+            keys: missingKeys,
+            schemas,
+          })
+        : await client.devices.retrieve({
+            ...BASE_QUERY,
+            keys: missingKeys,
+          });
+    devices.push(...(fetched as device.Device<Properties, Make, Model>[]));
+    store.devices.set(fetched as unknown as device.Device[]);
     fetched.forEach((d) => {
       if (d.status != null) store.statuses.set(d.status);
     });

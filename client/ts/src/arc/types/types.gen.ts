@@ -37,6 +37,12 @@ export enum Kind {
   stage = 23,
 }
 export const kindZ = z.enum(Kind);
+export enum ChanDirection {
+  none = 0,
+  read = 1,
+  write = 2,
+}
+export const chanDirectionZ = z.enum(ChanDirection);
 
 /** Channels contains channel declarations for reading from and writing to Synnax channels. */
 export const channelsZ = z.object({
@@ -106,6 +112,7 @@ export const typeZ = functionPropertiesZ.extend({
   get constraint(): z.ZodOptional<typeof typeZ> {
     return typeZ.optional();
   },
+  chanDirection: chanDirectionZ.optional(),
 });
 export interface Type extends z.infer<typeof typeZ> {}
 

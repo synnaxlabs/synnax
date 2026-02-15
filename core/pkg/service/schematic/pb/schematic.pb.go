@@ -13,7 +13,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: core/pkg/service/workspace/schematic/pb/schematic.proto
+// source: core/pkg/service/schematic/pb/schematic.proto
 
 package pb
 
@@ -53,7 +53,7 @@ type Schematic struct {
 
 func (x *Schematic) Reset() {
 	*x = Schematic{}
-	mi := &file_core_pkg_service_workspace_schematic_pb_schematic_proto_msgTypes[0]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -65,7 +65,7 @@ func (x *Schematic) String() string {
 func (*Schematic) ProtoMessage() {}
 
 func (x *Schematic) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_workspace_schematic_pb_schematic_proto_msgTypes[0]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -78,7 +78,7 @@ func (x *Schematic) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Schematic.ProtoReflect.Descriptor instead.
 func (*Schematic) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_workspace_schematic_pb_schematic_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Schematic) GetKey() string {
@@ -109,36 +109,36 @@ func (x *Schematic) GetSnapshot() bool {
 	return false
 }
 
-var File_core_pkg_service_workspace_schematic_pb_schematic_proto protoreflect.FileDescriptor
+var File_core_pkg_service_schematic_pb_schematic_proto protoreflect.FileDescriptor
 
-const file_core_pkg_service_workspace_schematic_pb_schematic_proto_rawDesc = "" +
+const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
-	"7core/pkg/service/workspace/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\"z\n" +
+	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\"z\n" +
 	"\tSchematic\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
 	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04data\x12\x1a\n" +
-	"\bsnapshot\x18\x04 \x01(\bR\bsnapshotB\xdd\x01\n" +
-	"\x18com.service.schematic.pbB\x0eSchematicProtoP\x01Z?github.com/synnaxlabs/synnax/pkg/service/workspace/schematic/pb\xa2\x02\x03SSP\xaa\x02\x14Service.Schematic.Pb\xca\x02\x14Service\\Schematic\\Pb\xe2\x02 Service\\Schematic\\Pb\\GPBMetadata\xea\x02\x16Service::Schematic::Pbb\x06proto3"
+	"\bsnapshot\x18\x04 \x01(\bR\bsnapshotB\xd3\x01\n" +
+	"\x18com.service.schematic.pbB\x0eSchematicProtoP\x01Z5github.com/synnaxlabs/synnax/pkg/service/schematic/pb\xa2\x02\x03SSP\xaa\x02\x14Service.Schematic.Pb\xca\x02\x14Service\\Schematic\\Pb\xe2\x02 Service\\Schematic\\Pb\\GPBMetadata\xea\x02\x16Service::Schematic::Pbb\x06proto3"
 
 var (
-	file_core_pkg_service_workspace_schematic_pb_schematic_proto_rawDescOnce sync.Once
-	file_core_pkg_service_workspace_schematic_pb_schematic_proto_rawDescData []byte
+	file_core_pkg_service_schematic_pb_schematic_proto_rawDescOnce sync.Once
+	file_core_pkg_service_schematic_pb_schematic_proto_rawDescData []byte
 )
 
-func file_core_pkg_service_workspace_schematic_pb_schematic_proto_rawDescGZIP() []byte {
-	file_core_pkg_service_workspace_schematic_pb_schematic_proto_rawDescOnce.Do(func() {
-		file_core_pkg_service_workspace_schematic_pb_schematic_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_service_workspace_schematic_pb_schematic_proto_rawDesc), len(file_core_pkg_service_workspace_schematic_pb_schematic_proto_rawDesc)))
+func file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP() []byte {
+	file_core_pkg_service_schematic_pb_schematic_proto_rawDescOnce.Do(func() {
+		file_core_pkg_service_schematic_pb_schematic_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc), len(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc)))
 	})
-	return file_core_pkg_service_workspace_schematic_pb_schematic_proto_rawDescData
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescData
 }
 
-var file_core_pkg_service_workspace_schematic_pb_schematic_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_core_pkg_service_workspace_schematic_pb_schematic_proto_goTypes = []any{
+var file_core_pkg_service_schematic_pb_schematic_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_core_pkg_service_schematic_pb_schematic_proto_goTypes = []any{
 	(*Schematic)(nil),       // 0: service.schematic.pb.Schematic
 	(*structpb.Struct)(nil), // 1: google.protobuf.Struct
 }
-var file_core_pkg_service_workspace_schematic_pb_schematic_proto_depIdxs = []int32{
+var file_core_pkg_service_schematic_pb_schematic_proto_depIdxs = []int32{
 	1, // 0: service.schematic.pb.Schematic.data:type_name -> google.protobuf.Struct
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
@@ -147,26 +147,26 @@ var file_core_pkg_service_workspace_schematic_pb_schematic_proto_depIdxs = []int
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_core_pkg_service_workspace_schematic_pb_schematic_proto_init() }
-func file_core_pkg_service_workspace_schematic_pb_schematic_proto_init() {
-	if File_core_pkg_service_workspace_schematic_pb_schematic_proto != nil {
+func init() { file_core_pkg_service_schematic_pb_schematic_proto_init() }
+func file_core_pkg_service_schematic_pb_schematic_proto_init() {
+	if File_core_pkg_service_schematic_pb_schematic_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_workspace_schematic_pb_schematic_proto_rawDesc), len(file_core_pkg_service_workspace_schematic_pb_schematic_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc), len(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_core_pkg_service_workspace_schematic_pb_schematic_proto_goTypes,
-		DependencyIndexes: file_core_pkg_service_workspace_schematic_pb_schematic_proto_depIdxs,
-		MessageInfos:      file_core_pkg_service_workspace_schematic_pb_schematic_proto_msgTypes,
+		GoTypes:           file_core_pkg_service_schematic_pb_schematic_proto_goTypes,
+		DependencyIndexes: file_core_pkg_service_schematic_pb_schematic_proto_depIdxs,
+		MessageInfos:      file_core_pkg_service_schematic_pb_schematic_proto_msgTypes,
 	}.Build()
-	File_core_pkg_service_workspace_schematic_pb_schematic_proto = out.File
-	file_core_pkg_service_workspace_schematic_pb_schematic_proto_goTypes = nil
-	file_core_pkg_service_workspace_schematic_pb_schematic_proto_depIdxs = nil
+	File_core_pkg_service_schematic_pb_schematic_proto = out.File
+	file_core_pkg_service_schematic_pb_schematic_proto_goTypes = nil
+	file_core_pkg_service_schematic_pb_schematic_proto_depIdxs = nil
 }

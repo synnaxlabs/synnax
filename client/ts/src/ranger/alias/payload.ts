@@ -8,20 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type change } from "@synnaxlabs/x";
-import { z } from "zod";
 
-import { channel } from "@/channel";
-import { type Key, keyZ } from "@/ranger/payload";
+import { type channel } from "@/channel";
+import { type Alias } from "@/ranger/alias/types.gen";
+import { type Key } from "@/ranger/types.gen";
 
 export const SET_CHANNEL_NAME = "sy_range_alias_set";
 export const DELETE_CHANNEL_NAME = "sy_range_alias_delete";
-
-export const aliasZ = z.object({
-  alias: z.string().optional(),
-  channel: channel.keyZ,
-  range: keyZ,
-});
-export interface Alias extends z.infer<typeof aliasZ> {}
 
 export type AliasChange = change.Change<string, Alias>;
 

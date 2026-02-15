@@ -11,16 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, caseconv, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  type Key,
-  keyZ,
-  type Log,
-  logZ,
-  type New,
-  newZ,
-  type Params,
-} from "@/log/payload";
-import { ontology } from "@/ontology";
+import { type Key, keyZ, type Log, logZ, type New, newZ } from "@/log/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
 
@@ -84,7 +75,7 @@ export class Client {
     await sendRequired(
       this.client,
       "/log/set-data",
-      { key, data: JSON.stringify(data) },
+      { key, data },
       setDataReqZ,
       emptyResZ,
     );
