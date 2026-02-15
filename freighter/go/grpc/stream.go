@@ -65,6 +65,9 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
 			attachedInitialMetaData = true
 			if err := stream.SendHeader(metadata.Pairs()); err != nil {
+				if md.Context.Err() != nil {
+					return md, s.handler(md, s.adaptStream(stream))
+				}
 				return md, err
 			}
 			return freighter.Context{
@@ -88,7 +91,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 			return err
 		}
 	}
-	if err == nil {
+	if err == nil || errors.Is(err, io.EOF) {
 		return nil
 	}
 	oCtx = attachContext(oCtx)
@@ -115,15 +118,27 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 				return oCtx, err
 			}
 			grpcClient, err := s.ClientFunc(ctx, conn.ClientConn)
-			stream = s.adaptStream(grpcClient)
-			return freighter.Context{
+			oCtx = freighter.Context{
 				Context:  ctx.Context,
 				Role:     ctx.Role,
 				Protocol: ctx.Protocol,
 				Target:   target,
 				Params:   make(freighter.Params),
 				Variant:  ctx.Variant,
-			}, err
+			}
+			if err != nil {
+				return oCtx, err
+			}
+			md, hdrErr := grpcClient.Header()
+			if hdrErr == nil {
+				if errVals := md.Get("error"); len(errVals) > 0 {
+					p := &errors.Payload{}
+					p.Unmarshal(errVals[0])
+					return oCtx, errors.Decode(ctx, *p)
+				}
+			}
+			stream = s.adaptStream(grpcClient)
+			return oCtx, nil
 		}),
 	)
 	return stream, err
@@ -186,6 +201,7 @@ type ClientStream[RQ, RQT, RS, RST freighter.Payload] struct {
 	internal           GRPCClientStream[RQT, RST]
 	requestTranslator  Translator[RQ, RQT]
 	responseTranslator Translator[RS, RST]
+	closeSent          bool
 }
 
 // Receive implements the freighter.ClientStream interface.
@@ -199,6 +215,9 @@ func (c *ClientStream[RQ, RQT, RS, RST]) Receive() (res RS, err error) {
 
 // Send implements the freighter.ClientStream interface.
 func (c *ClientStream[RQ, RQT, RS, RST]) Send(req RQ) error {
+	if c.closeSent {
+		return freighter.ErrStreamClosed
+	}
 	tReq, err := c.requestTranslator.Forward(c.internal.Context(), req)
 	if err != nil {
 		return err
@@ -208,6 +227,7 @@ func (c *ClientStream[RQ, RQT, RS, RST]) Send(req RQ) error {
 
 // CloseSend implements the freighter.ClientStream interface.
 func (c *ClientStream[RQ, RQT, RS, RST]) CloseSend() error {
+	c.closeSent = true
 	return translateGRPCError(c.internal.CloseSend())
 }
 
@@ -226,6 +246,7 @@ type GRPCClientStream[RQ, RS freighter.Payload] interface {
 	Send(msg RQ) error
 	Recv() (RS, error)
 	CloseSend() error
+	Header() (metadata.MD, error)
 }
 
 func translateGRPCError(err error) error {
@@ -237,7 +258,12 @@ func translateGRPCError(err error) error {
 	}
 	s := status.Convert(err)
 	if s.Code() == codes.Canceled {
-		err = context.Canceled
+		return context.Canceled
+	}
+	p := &errors.Payload{}
+	p.Unmarshal(s.Message())
+	if decoded := errors.Decode(context.Background(), *p); decoded != nil {
+		return decoded
 	}
 	return errors.WithStackDepth(err, 1)
 }

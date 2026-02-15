@@ -15,7 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/freighter/fhttp"
+	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
@@ -24,8 +24,8 @@ import (
 type integerServer struct {
 }
 
-func (b integerServer) BindTo(router *http.Router) {
-	g := http.UnaryServer[int, int](router, "/basic")
+func (b integerServer) BindTo(router *fhttp.Router) {
+	g := fhttp.UnaryServer[int, int](router, "/basic")
 	g.BindHandler(func(ctx context.Context, req int) (int, error) {
 		req++
 		return req, nil
@@ -34,7 +34,7 @@ func (b integerServer) BindTo(router *http.Router) {
 
 var _ = Describe("HTTP", func() {
 	It("Should serve http requests", func() {
-		r := http.NewRouter()
+		r := fhttp.NewRouter()
 		integerServer{}.BindTo(r)
 		b := MustSucceed(server.Serve(server.Config{
 			ListenAddress: "localhost:26260",
@@ -44,7 +44,7 @@ var _ = Describe("HTTP", func() {
 			Debug: config.True(),
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
-					Transports: []http.BindableTransport{r},
+					Transports: []fhttp.BindableTransport{r},
 				},
 			},
 		}))

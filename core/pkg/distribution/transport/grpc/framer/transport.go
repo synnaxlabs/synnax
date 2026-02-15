@@ -201,7 +201,7 @@ func (t Transport) Relay() relay.Transport { return t.relay }
 // Deleter implements the framer.Transport interface
 func (t Transport) Deleter() deleter.Transport { return t.deleter }
 
-// BindTo implements the ffgrpc.BindableTransport interface.
+// BindTo implements the grpc.BindableTransport interface.
 func (t Transport) BindTo(server grpc.ServiceRegistrar) {
 	framerv1.RegisterWriterServiceServer(server, t.writer.server)
 	framerv1.RegisterIteratorServiceServer(server, t.iterator.server)

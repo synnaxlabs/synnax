@@ -17,7 +17,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/fhttp"
+	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
