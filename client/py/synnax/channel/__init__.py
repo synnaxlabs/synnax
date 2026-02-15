@@ -20,8 +20,8 @@ from synnax.channel.retrieve import (
     Retriever,
     retrieve_required,
 )
-from synnax.channel.writer import Writer
 from synnax.channel.types_gen import Operation, Payload
+from synnax.channel.writer import Writer
 
 # Backwards compatibility
 ChannelClient = Client

@@ -11,12 +11,9 @@ from __future__ import annotations
 
 import warnings
 from contextlib import contextmanager
-from typing import (
-    Annotated,
-    Protocol as BaseProtocol,
-    overload,
-    Any
-)
+from typing import Annotated, Any
+from typing import Protocol as BaseProtocol
+from typing import overload
 from uuid import uuid4
 
 from alamos import NOOP, Instrumentation
@@ -140,7 +137,7 @@ class Task:
     key: int = 0
     name: str = ""
     type: str = ""
-    config: str = ""
+    config: dict[str, Any]
     snapshot: bool = False
     status: Status | None = None
     __frame_client: FrameClient | None = None
@@ -152,7 +149,8 @@ class Task:
         rack: int = 0,
         name: str = "",
         type: str = "",
-        config: str = "",
+        config: dict[str, Any] | None = None,
+        internal: bool = False,
         snapshot: bool = False,
         status: Status | None = None,
         _frame_client: FrameClient | None = None,
@@ -162,7 +160,8 @@ class Task:
         self.key = key
         self.name = name
         self.type = type
-        self.config = config
+        self.config = config if config is not None else {}
+        self.internal = internal
         self.snapshot = snapshot
         self.status = status
         self.__frame_client = _frame_client
@@ -378,18 +377,15 @@ class Client:
         key: int = 0,
         name: str = "",
         type: str = "",
-        config: str = "",
+        config: dict[str, Any] | BaseModel | None = None,
         rack: int = 0,
-    ):
-        ...
+    ): ...
 
     @overload
-    def create(self, tasks: Task) -> Task:
-        ...
+    def create(self, tasks: Task) -> Task: ...
 
     @overload
-    def create(self, tasks: list[Task]) -> list[Task]:
-        ...
+    def create(self, tasks: list[Task]) -> list[Task]: ...
 
     def create(
         self,
@@ -398,12 +394,14 @@ class Client:
         key: int = 0,
         name: str = "",
         type: str = "",
-        config: dict[str, Any] | None = None,
+        config: dict[str, Any] | BaseModel | None = None,
         rack: int = 0,
     ) -> Task | list[Task]:
         is_single = True
         if config is None:
             config = dict()
+        elif isinstance(config, BaseModel):
+            config = config.model_dump()
         if tasks is None:
             payloads = [Payload(key=key, name=name, type=type, config=config)]
         elif isinstance(tasks, Task):
@@ -476,8 +474,7 @@ class Client:
         key: int | None = None,
         name: str | None = None,
         type: str | None = None,
-    ) -> Task:
-        ...
+    ) -> Task: ...
 
     @overload
     def retrieve(
@@ -486,8 +483,7 @@ class Client:
         names: list[str] | None = None,
         keys: list[int] | None = None,
         types: list[str] | None = None,
-    ) -> list[Task]:
-        ...
+    ) -> list[Task]: ...
 
     def retrieve(
         self,

@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 from typing import Annotated, Literal, TypeAlias, get_args
 from uuid import uuid4
 
@@ -414,7 +413,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = ReadTaskConfig.model_validate_json(internal.config)
+            self.config = ReadTaskConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = ReadTaskConfig(
@@ -478,7 +477,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     ):
         if internal is not None:
             self._internal = internal
-            self.config = WriteTaskConfig.model_validate_json(internal.config)
+            self.config = WriteTaskConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = WriteTaskConfig(

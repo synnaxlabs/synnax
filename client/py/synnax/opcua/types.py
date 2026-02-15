@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 from typing import Literal
 from uuid import uuid4
 from warnings import warn
@@ -363,11 +362,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        props = (
-            json.loads(dev.properties)
-            if isinstance(dev.properties, str)
-            else dev.properties
-        )
+        props = dev.properties if dev.properties is not None else {}
 
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
@@ -442,11 +437,7 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
-        props = (
-            json.loads(dev.properties)
-            if isinstance(dev.properties, str)
-            else dev.properties
-        )
+        props = dev.properties if dev.properties is not None else {}
 
         if "write" not in props:
             props["write"] = {"channels": {}}

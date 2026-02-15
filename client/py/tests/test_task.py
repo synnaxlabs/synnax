@@ -51,11 +51,13 @@ class TestTaskClient:
                 cmd = f["sy_task_cmd"][0]
                 client.statuses.set(
                     sy.Status(
-                        key=str(sy.task.payload.ontology_id(cmd["task"])),
+                        key=str(sy.task.ontology_id(cmd["task"])),
                         variant=sy.status.VARIANT_SUCCESS,
                         message="Command executed.",
                         details=sy.task.StatusDetails(
-                            task=int(cmd["task"]), cmd=cmd["key"]
+                            task=int(cmd["task"]),
+                            running=False,
+                            cmd=cmd["key"],
                         ),
                     )
                 )
@@ -78,10 +80,10 @@ class TestTaskClient:
                 key = f["sy_task_set"][0]
                 client.statuses.set(
                     sy.Status(
-                        key=str(sy.task.payload.ontology_id(int(key))),
+                        key=str(sy.task.ontology_id(int(key))),
                         variant=sy.status.VARIANT_SUCCESS,
                         message="Task configured.",
-                        details=sy.task.StatusDetails(task=int(key)),
+                        details=sy.task.StatusDetails(task=int(key), running=False),
                     )
                 )
 
@@ -103,10 +105,10 @@ class TestTaskClient:
                 key = f["sy_task_set"][0]
                 client.statuses.set(
                     sy.Status(
-                        key=str(sy.task.payload.ontology_id(int(key))),
+                        key=str(sy.task.ontology_id(int(key))),
                         variant=sy.status.VARIANT_ERROR,
                         message="Invalid Configuration.",
-                        details=sy.task.StatusDetails(task=int(key)),
+                        details=sy.task.StatusDetails(task=int(key), running=False),
                     )
                 )
 
@@ -144,7 +146,7 @@ class TestTaskClient:
         # Create an original task
         original_name = str(uuid4())
         original = client.tasks.create(
-            name=original_name, type="test", config='{"foo": "bar"}'
+            name=original_name, type="test", config={"foo": "bar"}
         )
 
         # Copy the task

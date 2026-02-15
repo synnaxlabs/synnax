@@ -2538,7 +2538,7 @@ class AnalogReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protoc
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = AnalogReadTaskConfig.model_validate_json(internal.config)
+            self.config = AnalogReadTaskConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = AnalogReadTaskConfig(
@@ -2596,7 +2596,7 @@ class AnalogWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
     ):
         if internal is not None:
             self._internal = internal
-            self.config = AnalogWriteConfig.model_validate_json(internal.config)
+            self.config = AnalogWriteConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = AnalogWriteConfig(
@@ -2645,7 +2645,7 @@ class CounterReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = CounterReadConfig.model_validate_json(internal.config)
+            self.config = CounterReadConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = CounterReadConfig(
@@ -2706,7 +2706,7 @@ class DigitalReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Proto
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = DigitalReadConfig.model_validate_json(internal.config)
+            self.config = DigitalReadConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = DigitalReadConfig(
@@ -2752,7 +2752,7 @@ class DigitalWriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Prot
     ):
         if internal is not None:
             self._internal = internal
-            self.config = DigitalWriteConfig.model_validate_json(internal.config)
+            self.config = DigitalWriteConfig.model_validate(internal.config)
             return
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = DigitalWriteConfig(

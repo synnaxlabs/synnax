@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/ranger/alias";
+export * from "@/ranger/alias";
 export {
   /** @deprecated Use {@link alias.createKey} instead. */
   createKey as aliasKey,
@@ -19,6 +20,7 @@ export {
   SET_CHANNEL_NAME as SET_ALIAS_CHANNEL_NAME,
 } from "@/ranger/alias/payload";
 export * from "@/ranger/client";
+export * from "@/ranger/kv";
 export * from "@/ranger/kv";
 export {
   /** @deprecated Use {@link kv.DELETE_CHANNEL_NAME} instead. */

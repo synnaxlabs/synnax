@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.ni.types import (
+    MAKE,
     AIAccel4WireDCVoltageChan,
     AIAccelChan,
     AIAccelChargeChan,
@@ -29,9 +30,9 @@ from synnax.ni.types import (
     AIRTDChan,
     AIStrainGageChan,
     AITempBuiltInChan,
-    AIThermocoupleChan,
     AIThermistorChanIex,
     AIThermistorChanVex,
+    AIThermocoupleChan,
     AITorqueBridgePolynomialChan,
     AITorqueBridgeTableChan,
     AITorqueBridgeTwoPointLinChan,
@@ -72,7 +73,6 @@ from synnax.ni.types import (
     DigitalWriteTask,
     DOChan,
     LinScale,
-    MAKE,
     MapScale,
     MinMaxVal,
     NoScale,

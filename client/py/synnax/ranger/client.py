@@ -23,12 +23,12 @@ from pydantic import PrivateAttr
 import synnax.channel.payload as channel
 import synnax.ranger.alias as alias
 import synnax.ranger.kv as kv
-from synnax.ranger.alias import Client as AliasClient
 from synnax import framer
 from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.exceptions import QueryError
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.payload import ID
+from synnax.ranger.alias import Client as AliasClient
 from synnax.ranger.payload import (
     Key,
     Payload,
