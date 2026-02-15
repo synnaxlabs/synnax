@@ -54,6 +54,7 @@ cc_test(
     srcs = [
         "config_test.cpp",
     ],
+    linkstatic = True,
     deps = [
         "//client/cpp/testutil",
         "//driver/rack",

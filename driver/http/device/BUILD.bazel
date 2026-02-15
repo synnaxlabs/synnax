@@ -24,6 +24,7 @@ cc_test(
         "//driver/http/mock:test_cert.pem",
         "//driver/http/mock:test_key.pem",
     ],
+    linkstatic = True,
     visibility = ["//visibility:public"],
     deps = [
         ":device",
