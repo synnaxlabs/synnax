@@ -46,3 +46,7 @@ def ontology_id(key: UUID) -> ontology.ID:
         An ontology ID dictionary with type "user" and the given key.
     """
     return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
+
+
+# Backwards compatibility
+NewUser = New

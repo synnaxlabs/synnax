@@ -10,3 +10,7 @@
 from synnax.ranger.client import Client, Range
 from synnax.ranger.retrieve import Retriever
 from synnax.ranger.writer import Writer
+
+# Backwards compatibility
+RangeRetriever = Retriever
+RangeWriter = Writer

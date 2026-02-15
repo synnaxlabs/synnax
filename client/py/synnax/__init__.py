@@ -9,7 +9,7 @@
 
 __version__ = "0.3.0"
 
-from synnax import color, ethercat, labjack, modbus, ni, opcua, sequence, status
+from synnax import color, ethercat, labjack, modbus, ni, opcua, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role
 from synnax.arc import (
@@ -19,7 +19,9 @@ from synnax.arc import (
     GraphNode,
     Handle,
     Position,
-    Task,
+)
+from synnax.arc import Task as ArcTask
+from synnax.arc import (
     Text,
 )
 from synnax.channel import Channel
@@ -55,7 +57,9 @@ from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
 from synnax.synnax import Synnax
-from synnax.task import Status, StatusDetails, Task
+from synnax.task import Status as TaskStatus
+from synnax.task import StatusDetails as TaskStatusDetails
+from synnax.task import Task
 from synnax.telem import (
     Alignment,
     Authority,
@@ -83,10 +87,12 @@ from synnax.telem import (
 from synnax.timing import Loop, Timer, sleep
 from synnax.user.payload import User
 
+SynnaxOptions = Options
+
 __all__ = [
     "Alignment",
     "Arc",
-    "Task",
+    "ArcTask",
     "AUTO_SPAN",
     "AuthError",
     "Authority",
@@ -121,6 +127,7 @@ __all__ = [
     "Loop",
     "MultipleFoundError",
     "NotFoundError",
+    "Options",
     "Policy",
     "Position",
     "QueryError",
@@ -133,12 +140,13 @@ __all__ = [
     "MultiSeries",
     "Size",
     "sleep",
+    "Status",
     "Streamer",
     "Synnax",
-    "Options",
+    "SynnaxOptions",
     "Task",
-    "Status",
-    "StatusDetails",
+    "TaskStatus",
+    "TaskStatusDetails",
     "Text",
     "Timer",
     "TimeRange",
@@ -152,12 +160,9 @@ __all__ = [
     "Writer",
     "WriterMode",
     "ethercat",
+    "labjack",
     "modbus",
     "ni",
-    "labjack",
     "opcua",
-    "ontology",
-    "auth",
     "status",
-    "Status",
 ]

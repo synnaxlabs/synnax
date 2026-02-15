@@ -168,6 +168,11 @@ class Synnax(framer.Client):
         self.access = access.Client(self._transport.unary)
 
     @property
+    def user(self) -> user.Client:
+        """Deprecated: Use users instead."""
+        return self.users
+
+    @property
     def hardware(self) -> "Synnax":
         """Deprecated: Use client.devices, client.tasks, client.racks directly."""
         warnings.warn(

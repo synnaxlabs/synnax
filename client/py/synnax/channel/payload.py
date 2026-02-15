@@ -111,3 +111,9 @@ def normalize_params(
         variant="keys",
         channels=normalized,
     )
+
+
+# Backwards compatibility
+ChannelKey = Key
+ChannelParams = Params
+ChannelPayload = Payload

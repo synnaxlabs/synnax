@@ -110,3 +110,7 @@ class Client:
         refresh = ctx.get(TOKEN_REFRESH_HEADER, None)
         if refresh is not None:
             self.token = refresh
+
+
+# Backwards compatibility
+AuthenticationClient = Client

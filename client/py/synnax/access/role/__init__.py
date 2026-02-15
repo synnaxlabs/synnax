@@ -11,4 +11,7 @@
 from synnax.access.role.client import Client
 from synnax.access.role.payload import ONTOLOGY_TYPE, Role, ontology_id
 
-__all__ = ["Role", "Client", "ONTOLOGY_TYPE", "ontology_id"]
+# Backwards compatibility
+RoleClient = Client
+
+__all__ = ["Role", "Client", "ONTOLOGY_TYPE", "ontology_id", "RoleClient"]

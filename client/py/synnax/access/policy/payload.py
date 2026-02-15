@@ -32,3 +32,10 @@ class Policy(BaseModel):
 
 def ontology_id(key: UUID | None = None) -> ontology.ID:
     return ontology.ID(type="policy", key=key if key is None else str(key))
+
+
+# Backwards compatibility
+CREATE_ACTION = ACTION_CREATE
+DELETE_ACTION = ACTION_DELETE
+RETRIEVE_ACTION = ACTION_RETRIEVE
+UPDATE_ACTION = ACTION_UPDATE

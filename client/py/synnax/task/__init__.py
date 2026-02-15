@@ -19,6 +19,15 @@ from synnax.task.client import (
 )
 from synnax.task.payload import Payload, Status, StatusDetails
 
+# Backwards compatibility
+TaskPayload = Payload
+TaskStatus = Status
+TaskStatusDetails = StatusDetails
+BaseTaskConfig = BaseConfig
+BaseReadTaskConfig = BaseReadConfig
+BaseWriteTaskConfig = BaseWriteConfig
+TaskProtocol = Protocol
+
 __all__ = [
     "Client",
     "Task",
@@ -31,4 +40,11 @@ __all__ = [
     "JSONConfigMixin",
     "StarterStopperMixin",
     "Protocol",
+    "TaskPayload",
+    "TaskStatus",
+    "TaskStatusDetails",
+    "BaseTaskConfig",
+    "BaseReadTaskConfig",
+    "BaseWriteTaskConfig",
+    "TaskProtocol",
 ]

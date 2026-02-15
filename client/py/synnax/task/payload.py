@@ -54,3 +54,10 @@ def ontology_id(key: int) -> ontology.ID:
         An ontology ID dictionary with type "task" and the given key.
     """
     return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
+
+
+# Backwards compatibility
+TASK_ONTOLOGY_TYPE = ONTOLOGY_TYPE
+TaskPayload = Payload
+TaskStatus = Status
+TaskStatusDetails = StatusDetails
