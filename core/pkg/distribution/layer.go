@@ -116,10 +116,10 @@ var (
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
 	DefaultLayerConfig = LayerConfig{
-		EnableSearch:         config.True(),
+		EnableSearch:         new(true),
 		GorpCodec:            &binary.MsgPackCodec{},
-		EnableServiceSignals: config.True(),
-		ValidateChannelNames: config.True(),
+		EnableServiceSignals: new(true),
+		ValidateChannelNames: new(true),
 	}
 )
 

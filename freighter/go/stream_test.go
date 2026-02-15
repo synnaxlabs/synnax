@@ -49,7 +49,6 @@ var streamImplementations = []streamImplementation{
 
 var _ = Describe("Stream", Ordered, Serial, func() {
 	for _, impl := range streamImplementations {
-		impl := impl
 		var (
 			addr   address.Address
 			server streamServer

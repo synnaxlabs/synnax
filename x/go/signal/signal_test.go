@@ -324,12 +324,10 @@ var _ = Describe("Signal", func() {
 			ctx, cancel := signal.Isolated()
 			ctx.Go(f, signal.WithBreaker(breaker.Config{MaxRetries: breaker.InfiniteRetries, BaseInterval: 1 * time.Millisecond, Scale: 1.01}))
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				Expect(ctx.Wait()).To(Succeed())
 				close(done)
-			}()
+			})
 
 			cancel()
 			wg.Wait()

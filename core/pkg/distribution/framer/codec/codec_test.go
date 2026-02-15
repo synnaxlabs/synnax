@@ -979,7 +979,7 @@ func BenchmarkAlignmentCompression_ManyContiguous(b *testing.B) {
 	// Create 100 small contiguous series
 	seriesKeys := make(channel.Keys, 100)
 	seriesList := make([]telem.Series, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		seriesKeys[i] = 1
 		s := telem.NewSeriesV(int32(i*10), int32(i*10+1), int32(i*10+2))
 		s.Alignment = telem.Alignment(i * 3)
@@ -1016,7 +1016,7 @@ func BenchmarkAlignmentCompression_MixedContiguity(b *testing.B) {
 	seriesKeys := make(channel.Keys, 50)
 	seriesList := make([]telem.Series, 50)
 	alignment := telem.Alignment(0)
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		seriesKeys[i] = 1
 		s := telem.NewSeriesV(int32(i*10), int32(i*10+1))
 		s.Alignment = alignment
@@ -1060,9 +1060,9 @@ func BenchmarkAlignmentCompression_MultiChannel(b *testing.B) {
 	seriesKeys := make(channel.Keys, 60) // 20 series per channel
 	seriesList := make([]telem.Series, 60)
 
-	for ch := 0; ch < 3; ch++ {
+	for ch := range 3 {
 		alignment := telem.Alignment(ch * 100)
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			idx := ch*20 + i
 			seriesKeys[idx] = channel.Key(ch + 1)
 
@@ -1110,7 +1110,7 @@ func BenchmarkAlignmentCompression_BandwidthSavings(b *testing.B) {
 	// Create 100 small contiguous series
 	seriesKeys := make(channel.Keys, 100)
 	seriesList := make([]telem.Series, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		seriesKeys[i] = 1
 		s := telem.NewSeriesV(int32(i*10), int32(i*10+1), int32(i*10+2))
 		s.Alignment = telem.Alignment(i * 3)

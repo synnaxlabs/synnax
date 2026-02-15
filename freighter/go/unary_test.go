@@ -41,7 +41,6 @@ var unaryImplementations = []unaryImplementation{
 var _ = Describe("Unary", Ordered, Serial, func() {
 	Describe("Implementation Tests", func() {
 		for _, impl := range unaryImplementations {
-			impl := impl
 			var (
 				addr   address.Address
 				server unaryServer

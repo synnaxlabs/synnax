@@ -130,7 +130,7 @@ type errorListener struct {
 // It records the error along with its position in the source code.
 func (e *errorListener) SyntaxError(
 	_ antlr.Recognizer,
-	_ interface{},
+	_ any,
 	line,
 	column int,
 	msg string,

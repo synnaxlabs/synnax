@@ -64,7 +64,6 @@ var _ = Describe("Validate", func() {
 				Expect(validate.NotNil(v, "field", &value)).To(BeFalse())
 				Expect(v.Error()).NotTo(HaveOccurred())
 			})
-			var p *any
 			var f func()
 			var m map[any]any
 			var s []any
@@ -74,7 +73,7 @@ var _ = Describe("Validate", func() {
 				Expect(validate.NotNil(v, "field", value)).To(BeTrue())
 				Expect(v.Error()).To(MatchError(ContainSubstring("must be non-nil")))
 			},
-				Entry("pointers", p),
+				Entry("pointers", new(any)),
 				Entry("functions", f),
 				Entry("maps", m),
 				Entry("slices", s),
