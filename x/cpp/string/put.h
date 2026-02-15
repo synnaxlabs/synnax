@@ -15,7 +15,7 @@ namespace x::strings {
 /// @param p pointer to at least width writable chars.
 /// @param v non-negative integer value to write.
 /// @param width number of digits to write (zero-padded on the left).
-inline void writeNumber(char *p, int v, int width) noexcept {
+inline void write_number(char *p, int v, int width) noexcept {
     for (int i = width - 1; i >= 0; --i) {
         p[i] = char('0' + (v % 10));
         v /= 10;
