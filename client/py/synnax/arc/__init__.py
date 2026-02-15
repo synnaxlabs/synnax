@@ -21,6 +21,14 @@ from synnax.arc.payload import (
 )
 from synnax.arc.types import Task, TaskConfig
 
+# Backwards compatibility
+ArcTask = Task
+ArcTaskConfig = TaskConfig
+ArcClient = Client
+ArcKey = Key
+ArcMode = Mode
+ArcPayload = Payload
+
 __all__ = [
     "Arc",
     "Client",
@@ -35,4 +43,10 @@ __all__ = [
     "Handle",
     "Position",
     "Text",
+    "ArcTask",
+    "ArcTaskConfig",
+    "ArcClient",
+    "ArcKey",
+    "ArcMode",
+    "ArcPayload",
 ]

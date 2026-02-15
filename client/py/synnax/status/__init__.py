@@ -25,6 +25,14 @@ from synnax.status.types_gen import (
     Variant,
 )
 
+# Backwards compatibility
+SUCCESS_VARIANT = VARIANT_SUCCESS
+INFO_VARIANT = VARIANT_INFO
+WARNING_VARIANT = VARIANT_WARNING
+ERROR_VARIANT = VARIANT_ERROR
+DISABLED_VARIANT = VARIANT_DISABLED
+LOADING_VARIANT = VARIANT_LOADING
+
 __all__ = [
     "Client",
     "DELETE_CHANNEL",
@@ -32,11 +40,17 @@ __all__ = [
     "ERROR_VARIANT",
     "INFO_VARIANT",
     "LOADING_VARIANT",
+    "SUCCESS_VARIANT",
     "ontology_id",
     "SET_CHANNEL",
     "Status",
+    "VARIANT_SUCCESS",
+    "VARIANT_INFO",
+    "VARIANT_WARNING",
+    "VARIANT_ERROR",
+    "VARIANT_DISABLED",
+    "VARIANT_LOADING",
+    "ontology_id",
     "ONTOLOGY_TYPE",
-    "SUCCESS_VARIANT",
     "Variant",
-    "WARNING_VARIANT",
 ]

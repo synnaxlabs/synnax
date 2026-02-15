@@ -17,6 +17,13 @@ from synnax.access.policy.payload import (
     ontology_id,
 )
 
+# Backwards compatibility
+PolicyClient = Client
+CREATE_ACTION = ACTION_CREATE
+DELETE_ACTION = ACTION_DELETE
+RETRIEVE_ACTION = ACTION_RETRIEVE
+UPDATE_ACTION = ACTION_UPDATE
+
 __all__ = [
     "Client",
     "Policy",
@@ -25,4 +32,9 @@ __all__ = [
     "ACTION_RETRIEVE",
     "ACTION_UPDATE",
     "ontology_id",
+    "PolicyClient",
+    "CREATE_ACTION",
+    "DELETE_ACTION",
+    "RETRIEVE_ACTION",
+    "UPDATE_ACTION",
 ]

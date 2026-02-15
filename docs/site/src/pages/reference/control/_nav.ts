@@ -9,7 +9,6 @@
 
 import { type PageNavNode } from "@/components/nav/Page";
 import { ARC_NAV } from "@/pages/reference/control/arc/_nav";
-import { EMBEDDED_SEQUENCES_NAV } from "@/pages/reference/control/embedded/_nav";
 import { PYTHON_SEQUENCES_NAV } from "@/pages/reference/control/python/_nav";
 
 export const CONTROL_NAV: PageNavNode = {
@@ -29,6 +28,5 @@ export const CONTROL_NAV: PageNavNode = {
     },
     ARC_NAV,
     PYTHON_SEQUENCES_NAV,
-    EMBEDDED_SEQUENCES_NAV,
   ],
 };

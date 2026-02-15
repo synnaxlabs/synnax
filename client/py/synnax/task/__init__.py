@@ -26,6 +26,15 @@ from synnax.task.types_gen import (
     ontology_id,
 )
 
+# Backwards compatibility
+TaskPayload = Payload
+TaskStatus = Status
+TaskStatusDetails = StatusDetails
+BaseTaskConfig = BaseConfig
+BaseReadTaskConfig = BaseReadConfig
+BaseWriteTaskConfig = BaseWriteConfig
+TaskProtocol = Protocol
+
 __all__ = [
     "Client",
     "Key",
@@ -41,4 +50,11 @@ __all__ = [
     "JSONConfigMixin",
     "StarterStopperMixin",
     "Protocol",
+    "TaskPayload",
+    "TaskStatus",
+    "TaskStatusDetails",
+    "BaseTaskConfig",
+    "BaseReadTaskConfig",
+    "BaseWriteTaskConfig",
+    "TaskProtocol",
 ]

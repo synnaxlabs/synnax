@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, overload
+from typing import cast, overload
 
 import pandas as pd
 from alamos import NOOP, Instrumentation
@@ -186,13 +186,14 @@ class Client:
         *,
         strict: bool = False,
     ) -> None:
-        parsed_channels: Any = list()
+        parsed_channels: channel.Params = list()
         if isinstance(channels, (list, channel.Key, channel.Payload, str)):
             parsed_channels = channels
         elif isinstance(channels, dict):
             parsed_channels = list(channels.keys())
         elif isinstance(channels, Frame):
-            parsed_channels = channels.channels
+            # Frame channels are homogeneous (all Key or all str) at runtime
+            parsed_channels = cast(channel.Params, channels.channels)
         elif isinstance(channels, pd.DataFrame):
             parsed_channels = list(channels.columns)
         with self.open_writer(

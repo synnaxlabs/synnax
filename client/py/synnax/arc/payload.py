@@ -96,3 +96,10 @@ class Payload(BaseModel):
     """The active mode of the Arc (graph or text)."""
     graph: Graph = Graph()
     """Visual graph representation of the program."""
+
+
+# Backwards compatibility
+ARC_ONTOLOGY_TYPE = ONTOLOGY_TYPE
+ArcKey = Key
+ArcMode = Mode
+ArcPayload = Payload

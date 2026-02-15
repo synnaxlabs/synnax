@@ -38,4 +38,5 @@ jobs:
     secrets: inherit
     with:
       directory: oracle
+      ginkgo_flags: -p --randomize-all --fail-on-empty --race
       coverage_flag: oracle

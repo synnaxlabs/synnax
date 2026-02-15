@@ -54,7 +54,9 @@ class TestTaskClient:
                         key=str(sy.task.payload.ontology_id(cmd["task"])),
                         variant=sy.status.VARIANT_SUCCESS,
                         message="Command executed.",
-                        details=sy.StatusDetails(task=int(cmd["task"]), cmd=cmd["key"]),
+                        details=sy.task.StatusDetails(
+                            task=int(cmd["task"]), cmd=cmd["key"]
+                        ),
                     )
                 )
 
@@ -79,7 +81,7 @@ class TestTaskClient:
                         key=str(sy.task.payload.ontology_id(int(key))),
                         variant=sy.status.VARIANT_SUCCESS,
                         message="Task configured.",
-                        details=sy.StatusDetails(task=int(key)),
+                        details=sy.task.StatusDetails(task=int(key)),
                     )
                 )
 
@@ -104,7 +106,7 @@ class TestTaskClient:
                         key=str(sy.task.payload.ontology_id(int(key))),
                         variant=sy.status.VARIANT_ERROR,
                         message="Invalid Configuration.",
-                        details=sy.StatusDetails(task=int(key)),
+                        details=sy.task.StatusDetails(task=int(key)),
                     )
                 )
 
