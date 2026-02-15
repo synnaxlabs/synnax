@@ -12,10 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Sequence, TypeAlias
 
-from pydantic import BaseModel
-
 from synnax import ontology
-from synnax.telem import DataType, TimeSpan
+from synnax.channel.types_gen import Payload
 from synnax.util.normalize import normalize
 
 Key = int

@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import NewType, TypeAlias
+from synnax.telem import TimeStamp, Alignment
 
 from pydantic import BaseModel
 
