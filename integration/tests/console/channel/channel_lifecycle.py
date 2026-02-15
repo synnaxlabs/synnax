@@ -260,7 +260,6 @@ class ChannelLifecycle(ConsoleCase):
         console.ranges.create(range_name, persisted=True)
 
         console.ranges.open_explorer()
-        console.ranges.favorite_from_explorer(range_name)
         console.ranges.show_toolbar()
         console.ranges.set_active(range_name)
 
@@ -302,7 +301,6 @@ class ChannelLifecycle(ConsoleCase):
 
         console.ranges.create(range_name, persisted=True)
         console.ranges.open_explorer()
-        console.ranges.favorite_from_explorer(range_name)
         console.ranges.show_toolbar()
         console.ranges.set_active(range_name)
 

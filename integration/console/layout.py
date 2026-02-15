@@ -9,7 +9,7 @@
 
 import random
 import re
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from typing import Literal
 
@@ -607,32 +607,30 @@ class LayoutClient:
         self.ctx_menu.action(tab.locator("p"), "Focus", exact=False)
 
     def show_visualization_toolbar(self) -> None:
-        """Show the visualization toolbar by pressing V."""
+        """Show the visualization toolbar by clicking the visualize nav button."""
         bottom_drawer = self.page.locator(
             ".console-nav__drawer.pluto--location-bottom.pluto--visible"
         )
-        if bottom_drawer.count() == 0 or not bottom_drawer.is_visible():
-            self.page.keyboard.press("V")
+        if bottom_drawer.count() > 0 and bottom_drawer.is_visible():
+            return
+
+        self.page.locator(
+            "button.console-main-nav__item:has(svg.pluto-icon--visualize)"
+        ).click()
         bottom_drawer.wait_for(state="visible", timeout=5000)
 
     def hide_visualization_toolbar(self) -> None:
-        """Hide the visualization toolbar by pressing Escape then V."""
+        """Hide the visualization toolbar by clicking the visualize nav button."""
         bottom_drawer = self.page.locator(
             ".console-nav__drawer.pluto--location-bottom.pluto--visible"
         )
         if bottom_drawer.count() == 0 or not bottom_drawer.is_visible():
             return
 
-        self.page.keyboard.press("Escape")
-        self.page.keyboard.press("V")
-
-        try:
-            bottom_drawer.wait_for(state="hidden", timeout=2000)
-        except PlaywrightTimeoutError:
-            self.close_left_toolbar()
-            self.page.locator(".pluto-tabs-selector__btn").first.click()
-            self.page.keyboard.press("V")
-            bottom_drawer.wait_for(state="hidden", timeout=5000)
+        self.page.locator(
+            "button.console-main-nav__item:has(svg.pluto-icon--visualize)"
+        ).click()
+        bottom_drawer.wait_for(state="hidden", timeout=5000)
 
     def get_visualization_toolbar_title(self) -> str:
         """Get the title from the visualization toolbar header."""
@@ -802,12 +800,76 @@ class LayoutClient:
         self.press_key(shortcut_key)
         items.first.wait_for(state="visible", timeout=5000)
 
-    def delete_with_confirmation(self, item: Locator) -> None:
-        """Delete an item via context menu with confirmation modal."""
-        self.ctx_menu.action(item, "Delete")
+    def get_list_item(self, selector: str, name: str) -> Locator:
+        """Get a list item locator by CSS selector filtered by text content."""
+        return self.page.locator(selector).filter(has_text=name).first
+
+    def deselect_all_items(self, container: Locator | Page, item_selector: str) -> None:
+        """Deselect all checked items by dispatching click on their checkbox labels."""
+        checked = container.locator(
+            f"{item_selector}:has(input.pluto-input__checkbox-input:checked)"
+        )
+        for _ in range(10):
+            if checked.count() == 0:
+                break
+            checked.first.locator(".pluto-input__checkbox").dispatch_event("click")
+
+    def select_items(
+        self, names: list[str], get_item_fn: Callable[[str], Locator]
+    ) -> Locator:
+        """Select multiple items via their checkbox labels, return the last item."""
+        last_item = None
+        for name in names:
+            item = get_item_fn(name)
+            item.wait_for(state="visible", timeout=5000)
+            checkbox_input = item.locator("input.pluto-input__checkbox-input")
+            if not checkbox_input.is_checked():
+                item.locator(".pluto-input__checkbox").dispatch_event("click")
+            last_item = item
+        assert last_item is not None
+        return last_item
+
+    def locator_exists(self, locator: Locator) -> bool:
+        """Check if a locator is visible within 5 seconds."""
+        try:
+            locator.wait_for(state="visible", timeout=5000)
+            return True
+        except PlaywrightTimeoutError:
+            return False
+
+    def confirm_delete(self) -> None:
+        """Confirm an already-open delete confirmation modal.
+
+        Waits for the modal to appear, clicks the Delete button, and waits
+        for the modal to close. Use this when the delete action has already
+        been triggered (e.g., via context menu or icon click).
+        """
         modal = self.page.locator(self.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
         modal.get_by_role("button", name="Delete", exact=True).click()
+        modal.wait_for(state="hidden", timeout=5000)
+
+    def delete_with_confirmation(self, item: Locator) -> None:
+        """Delete an item via context menu with confirmation modal."""
+        self.ctx_menu.action(item, "Delete")
+        self.confirm_delete()
+
+    def rename_with_modal(self, item: Locator, new_name: str) -> None:
+        """Rename an item via context menu and modal dialog.
+
+        Triggers "Rename" from the context menu, fills the Name input
+        in the resulting modal, and clicks Save.
+
+        Args:
+            item: The Locator for the element to rename.
+            new_name: The new name to set.
+        """
+        item.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(item, "Rename")
+        modal = self.page.locator(self.MODAL_SELECTOR)
+        modal.wait_for(state="visible", timeout=5000)
+        modal.locator("input[placeholder='Name']").fill(new_name)
+        modal.get_by_role("button", name="Save", exact=True).click(timeout=5000)
         modal.wait_for(state="hidden", timeout=5000)
 
     def open_modal(self, command: str, selector: str) -> None:

@@ -156,7 +156,6 @@ __all__ = [
     "ni",
     "labjack",
     "opcua",
-    "sequence",
     "ontology",
     "auth",
     "status",
