@@ -133,7 +133,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 // BootupCore contains the most important Core startup logic. It does and should not
 // read any variables from viper, and instead should be called with  fully configured
 // CoreConfigs.
-func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...CoreConfig) error {
+func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...CoreConfig) (err error) {
 	cfg, err := config.New(DefaultCoreConfig, cfgs...)
 	if err != nil {
 		return err

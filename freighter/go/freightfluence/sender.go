@@ -31,8 +31,7 @@ func (s *Sender[M]) Flow(ctx signal.Context, opts ...confluence.Option) {
 	ctx.Go(s.send, confluence.NewOptions(opts).Signal...)
 }
 
-func (s *Sender[M]) send(ctx context.Context) error {
-	var err error
+func (s *Sender[M]) send(ctx context.Context) (err error) {
 	defer func() {
 		err = errors.Combine(s.Sender.CloseSend(), err)
 	}()
@@ -68,8 +67,7 @@ func (s *TransformSender[I, M]) Flow(ctx signal.Context, opts ...confluence.Opti
 	ctx.Go(s.send, confluence.NewOptions(opts).Signal...)
 }
 
-func (s *TransformSender[I, M]) send(ctx context.Context) error {
-	var err error
+func (s *TransformSender[I, M]) send(ctx context.Context) (err error) {
 	defer func() {
 		err = errors.Combine(s.Sender.CloseSend(), err)
 	}()
@@ -140,11 +138,8 @@ func (bsw *BatchSwitchSender[I, O]) Flow(
 	ctx.Go(bsw.send, confluence.NewOptions(opts).Signal...)
 }
 
-func (bsw *BatchSwitchSender[I, O]) send(ctx context.Context) error {
-	var (
-		err     error
-		addrMap = make(map[address.Address]O)
-	)
+func (bsw *BatchSwitchSender[I, O]) send(ctx context.Context) (err error) {
+	addrMap := make(map[address.Address]O)
 	defer func() {
 		err = errors.Combine(bsw.Senders.Close(), err)
 	}()
@@ -189,8 +184,7 @@ func (m *MultiTransformSender[I, M]) Flow(
 	ctx.Go(m.send, confluence.NewOptions(opts).Signal...)
 }
 
-func (m *MultiTransformSender[I, M]) send(ctx context.Context) error {
-	var err error
+func (m *MultiTransformSender[I, M]) send(ctx context.Context) (err error) {
 	defer func() {
 		err = errors.Combine(m.closeSenders(), err)
 	}()

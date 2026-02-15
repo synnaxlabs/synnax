@@ -34,11 +34,10 @@ func Open(
 	addr address.Address,
 	peers []address.Address,
 	opts ...Option,
-) (*DB, error) {
+) (_ *DB, err error) {
 	var (
 		o           = newOptions(dirname, addr, peers, opts...)
 		db          = &DB{}
-		err         error
 		cleanup, ok = service.NewOpener(ctx, &db.closer)
 	)
 	defer func() {

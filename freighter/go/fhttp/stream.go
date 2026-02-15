@@ -72,7 +72,6 @@ type WSMessage[P freighter.Payload] struct {
 
 const (
 	contextCancelledCloseCode = ws.CloseGoingAway
-	normalCloseCode           = ws.CloseNormalClosure
 )
 
 func newStreamCore[RQ, RS freighter.Payload](
@@ -134,7 +133,12 @@ func (c *streamCore[I, O]) Receive() (pld I, err error) {
 	}
 	msg, err := c.receiveRaw()
 	if err != nil {
-		if ws.IsCloseError(err, normalCloseCode) {
+		if ws.IsCloseError(
+			err,
+			ws.CloseNormalClosure,
+			ws.CloseNoStatusReceived,
+			ws.CloseAbnormalClosure,
+		) {
 			c.peerCloseErr = freighter.EOF
 		} else if ws.IsCloseError(err, contextCancelledCloseCode) {
 			c.peerCloseErr = context.Canceled
@@ -206,8 +210,8 @@ func (s *serverStream[RQ, RS]) close(err error) error {
 	}
 	closeCode := contextCancelledCloseCode
 	if !errors.Is(err, context.Canceled) {
-		closeCode = normalCloseCode
-		if err := s.send(WSMessage[RS]{
+		closeCode = ws.CloseNormalClosure
+		if err = s.send(WSMessage[RS]{
 			Type: WSMessageTypeClose,
 			Err:  errors.Encode(context.TODO(), err, false),
 		}); err != nil {
@@ -219,7 +223,7 @@ func (s *serverStream[RQ, RS]) close(err error) error {
 
 	// Tell the client we're closing the connection. Make sure to include
 	// a write deadline here in-case the client is stuck.
-	if err := s.conn.WriteControl(
+	if err = s.conn.WriteControl(
 		ws.CloseMessage,
 		ws.FormatCloseMessage(closeCode, ""),
 		time.Now().Add(closeReadWriteDeadline),
@@ -228,13 +232,13 @@ func (s *serverStream[RQ, RS]) close(err error) error {
 	}
 
 	// Again, make sure a stuck client doesn't cause problems with shutdown.
-	if err := s.conn.SetReadDeadline(time.Now().Add(closeReadWriteDeadline)); err != nil {
+	if err = s.conn.SetReadDeadline(time.Now().Add(closeReadWriteDeadline)); err != nil {
 		return err
 	}
 
 	// Wait until the client acknowledges the closure.
 	for {
-		if _, err := s.receiveRaw(); err != nil {
+		if _, err = s.receiveRaw(); err != nil {
 			if !ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
 				s.L.Error("expected normal closure, received error instead", zap.Error(err))
 			}
