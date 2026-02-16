@@ -1,6 +1,8 @@
 # DO NOT run bazel commands inside this directory. This module exists only as a
 # local_path_override target for the root workspace, redirecting all transitive
-# boringssl references to openssl.
+# boringssl references to openssl. Ideally we would not have to deal with this at all,
+# but cpp-httplib automatically pulls in boringssl, which causes name conflicts when
+# also including openssl, so we need to override the boringssl reference to openssl.
 module(name = "boringssl")
 
 bazel_dep(name = "openssl", version = "3.5.5.bcr.0")
