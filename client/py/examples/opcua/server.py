@@ -13,9 +13,9 @@ import math
 import random
 
 from asyncua import Server, ua
-from synnax import opcua
 
 from examples.simulators.device_sim import DeviceSim
+from synnax import opcua
 
 # Configuration constants
 ARRAY_COUNT = 5

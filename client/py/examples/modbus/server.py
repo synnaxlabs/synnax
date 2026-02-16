@@ -12,15 +12,15 @@ import math
 import time
 
 from pymodbus import ModbusDeviceIdentification
-from synnax import modbus
-
-from examples.simulators.device_sim import DeviceSim
 from pymodbus.datastore import (
     ModbusDeviceContext,
     ModbusSequentialDataBlock,
     ModbusServerContext,
 )
 from pymodbus.server import StartAsyncTcpServer
+
+from examples.simulators.device_sim import DeviceSim
+from synnax import modbus
 
 
 async def updating_writer(context):
@@ -121,9 +121,7 @@ async def run_server(
 
     asyncio.create_task(updating_writer(context))
 
-    await StartAsyncTcpServer(
-        context=context, identity=identity, address=(host, port)
-    )
+    await StartAsyncTcpServer(context=context, identity=identity, address=(host, port))
 
 
 if __name__ == "__main__":

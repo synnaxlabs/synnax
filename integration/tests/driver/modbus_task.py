@@ -14,7 +14,6 @@ Provides Modbus TCP task creation logic using Synnax task client directly.
 """
 
 from abc import abstractmethod
-from typing import Any
 
 import synnax as sy
 from examples.modbus import ModbusSim
@@ -33,17 +32,6 @@ class ModbusTaskCase(SimulatorTaskCase):
     """
 
     sim_class = ModbusSim
-
-    def __init__(
-        self,
-        *,
-        task_name: str,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(
-            task_name=task_name,
-            **kwargs,
-        )
 
     @abstractmethod
     def create_channels(self) -> list[BaseChan]:

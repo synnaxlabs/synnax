@@ -17,9 +17,8 @@ from abc import abstractmethod
 from multiprocessing.process import BaseProcess
 
 import synnax as sy
-from synnax.device import Device as SynnaxDevice
-
 from examples.simulators.base import Simulator
+from synnax.device import Device as SynnaxDevice
 
 
 class DeviceSim(Simulator):
@@ -73,12 +72,8 @@ class DeviceSim(Simulator):
                     f"(exit code: {self._process.exitcode})"
                 )
             try:
-                with socket.create_connection(
-                    (self.host, self.port), timeout=0.5
-                ):
-                    self._log(
-                        f"Server ready on {self.host}:{self.port}"
-                    )
+                with socket.create_connection((self.host, self.port), timeout=0.5):
+                    self._log(f"Server ready on {self.host}:{self.port}")
                     return
             except OSError:
                 sy.sleep(0.1)
