@@ -30,9 +30,8 @@ var _ = Describe("Type Unification", func() {
 
 		It("should unify constrained type variable with valid type", func() {
 			var (
-				system     = constraints.New()
-				constraint = types.NumericConstraint()
-				tv         = types.Variable("T", &constraint)
+				system = constraints.New()
+				tv     = types.Variable("T", new(types.NumericConstraint()))
 			)
 			Expect(system.AddEquality(tv, types.I64(), nil, "T = i64")).To(Succeed())
 			Expect(system.Unify()).To(Succeed())
@@ -41,9 +40,8 @@ var _ = Describe("Type Unification", func() {
 
 		It("should fail to unify constrained type variable with invalid type", func() {
 			var (
-				system     = constraints.New()
-				constraint = types.NumericConstraint()
-				tv         = types.Variable("T", &constraint)
+				system = constraints.New()
+				tv     = types.Variable("T", new(types.NumericConstraint()))
 			)
 			Expect(system.AddEquality(tv, types.String(), nil, "T = string")).To(MatchError(ContainSubstring("is not compatible with")))
 		})

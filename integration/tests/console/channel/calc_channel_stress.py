@@ -205,6 +205,7 @@ class CalcChannelStress(ConsoleCase):
         self.log("All calculated channels are now visible in console")
 
         plot = console.workspace.create_plot(f"Calc Stress {self.rate}Hz")
+        self._cleanup_pages.append(plot.page_name)
         plot.add_channels("Y1", CALC_CHANNELS)
 
         for ch in CALC_CHANNELS:
