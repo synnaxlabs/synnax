@@ -92,6 +92,7 @@ class StatusesClient:
 
     def open_explorer(self) -> None:
         """Open the Status Explorer via the command palette."""
+        self.layout.hide_visualization_toolbar()
         self.layout.command_palette("Open the Status Explorer")
         self.layout.page.get_by_text("All Statuses").wait_for(
             state="visible", timeout=5000
@@ -138,6 +139,7 @@ class StatusesClient:
         if not names:
             return
         last_item = self._select_explorer_statuses(names)
+        self.notifications.close_all()
         self.ctx_menu.action(last_item, "Delete")
         self.layout.confirm_delete()
         for name in names:
