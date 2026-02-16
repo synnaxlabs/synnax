@@ -14,23 +14,42 @@ from abc import ABC, abstractmethod
 import synnax as sy
 
 
-class SimDAQ(ABC):
-    """Base class for thread-based hardware simulators."""
+class Simulator(ABC):
+    """Base class for all simulators."""
 
-    description: str = "Run simulator standalone"
-    end_cmd_channel: str | None = None
+    description: str = "Simulator"
 
-    def __init__(self, client: sy.Synnax, verbose: bool = False):
-        self.client = client
+    def __init__(self, verbose: bool = False):
         self.verbose = verbose
         self._running = False
-        self._thread: threading.Thread | None = None
-        self._end_cmd_thread: threading.Thread | None = None
 
     def _log(self, message: str) -> None:
         """Print message only when verbose mode is enabled."""
         if self.verbose:
             print(f"[{self.__class__.__name__}] {message}")
+
+    @abstractmethod
+    def start(self) -> None:
+        """Start the simulator."""
+        ...
+
+    @abstractmethod
+    def stop(self, timeout: float = 5.0) -> None:
+        """Stop the simulator."""
+        ...
+
+
+class SimDAQ(Simulator):
+    """Base class for thread-based hardware simulators that write to Synnax."""
+
+    description: str = "Run simulator standalone"
+    end_cmd_channel: str | None = None
+
+    def __init__(self, client: sy.Synnax, verbose: bool = False):
+        super().__init__(verbose=verbose)
+        self.client = client
+        self._thread: threading.Thread | None = None
+        self._end_cmd_thread: threading.Thread | None = None
 
     def start(self) -> None:
         """Create channels and start simulation loop in background thread."""

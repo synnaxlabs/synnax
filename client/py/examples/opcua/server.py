@@ -13,6 +13,9 @@ import math
 import random
 
 from asyncua import Server, ua
+from synnax import opcua
+
+from examples.simulators.device_sim import DeviceSim
 
 # Configuration constants
 ARRAY_COUNT = 5
@@ -178,11 +181,13 @@ async def update_bools(bools, elapsed):
         await bool_var.set_value(square_wave, varianttype=ua.VariantType.Boolean)
 
 
-async def run_server() -> None:
+async def run_server(endpoint: str = "") -> None:
     # Initialize server
     server = Server()
     await server.init()
-    server.set_endpoint("opc.tcp://127.0.0.1:4841/freeopcua/server/")
+    if not endpoint:
+        endpoint = OPCUASim.endpoint
+    server.set_endpoint(endpoint)
     uri = "http://examples.freeopcua.github.io"
     idx = await server.register_namespace(uri)
 
@@ -238,6 +243,28 @@ async def run_server() -> None:
                 datetime.datetime.now(datetime.timezone.utc) - start
             ).total_seconds()
             await asyncio.sleep((1 / RATE) - duration)
+
+
+class OPCUASim(DeviceSim):
+    """OPC UA device simulator on port 4841."""
+
+    description = "OPC UA simulator on port 4841"
+    host = "127.0.0.1"
+    port = 4841
+    device_name = "OPC UA Test Server"
+    endpoint = f"opc.tcp://{host}:{port}/freeopcua/server/"
+
+    async def _run_server(self) -> None:
+        await run_server(self.endpoint)
+
+    @staticmethod
+    def create_device(rack_key: int) -> opcua.Device:
+        return opcua.Device(
+            endpoint=OPCUASim.endpoint,
+            name=OPCUASim.device_name,
+            location=OPCUASim.endpoint,
+            rack=rack_key,
+        )
 
 
 if __name__ == "__main__":

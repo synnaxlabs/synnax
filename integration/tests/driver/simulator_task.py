@@ -14,109 +14,111 @@ Extends TaskCase with simulator server lifecycle management for protocols
 that require simulated hardware (Modbus, OPC UA).
 """
 
-import atexit
 from multiprocessing.process import BaseProcess
 from typing import Any
 
 import synnax as sy
+from examples.simulators.device_sim import DeviceSim
 
-from driver.devices import SimulatorConfig, connect_device
 from tests.driver.task import TaskCase
 
 
 class SimulatorTaskCase(TaskCase):
     """
-    Base class for driver task tests that require a simulator server.
+    Base class for driver task tests that require a device simulator.
 
     Adds simulator lifecycle management (start/stop server) on top of TaskCase.
     Use this for protocols that need simulated hardware (Modbus, OPC UA).
 
     Subclasses must:
-    - Set simulator as a class attribute (SimulatorConfig instance)
+    - Set sim_class as a class attribute (a DeviceSim subclass)
     - All other requirements from TaskCase still apply
 
-    The DEVICE_NAME will be automatically set from simulator.device_name.
+    The device_name is automatically set from sim_class.device_name.
+    Device registration uses sim_class.create_device().
     """
 
-    # Set in start_simulator()
-    simulator_process: BaseProcess | None = None
+    sim_class: type[DeviceSim]
+    sim: DeviceSim | None = None
 
     def __init__(
         self,
         *,
         task_name: str,
-        simulator: SimulatorConfig,
         **params: Any,
     ) -> None:
-        """
-        Initialize SimulatorTaskCase.
-
-        The device_name is automatically set from the simulator configuration.
-        """
         super().__init__(
             task_name=task_name,
             **params,
         )
-        self.simulator: SimulatorConfig = simulator
-        self.device_name = simulator.device_name
+        if not hasattr(self, "sim_class") or self.sim_class is None:
+            raise TypeError(
+                f"{self.__class__.__name__} must define 'sim_class' class attribute"
+            )
+        self.device_name = self.sim_class.device_name
 
     def setup(self) -> None:
         """Start simulator, connect device, and configure task."""
-
-        self.start_simulator()
-
-        connect_device(
-            client=self.client,
-            rack_name=self.RACK_NAME,
-            device_factory=self.simulator.device_factory,
-        )
-
+        self.sim = self.sim_class()
+        self.sim.start()
+        self._connect_device()
         super().setup()
 
     def start_simulator(self) -> None:
-        """Start the simulator server using the configured callback."""
-        # Call the server_setup callback to start the server
-        self.simulator_process = self.simulator.server_setup()
-        atexit.register(self.cleanup_simulator)
-
-        self.log(f"Server started with PID: {self.simulator_process.pid}")
-        sy.sleep(self.simulator.startup_delay_seconds)
-
-        # Check if server crashed during startup
-        if not self.simulator_process.is_alive():
-            raise RuntimeError(
-                f"Server failed to start (exit code: {self.simulator_process.exitcode})"
-            )
+        """Start (or restart) the simulator."""
+        if self.sim is not None:
+            self.sim.stop()
+        self.sim = self.sim_class()
+        self.sim.start()
 
     def cleanup_simulator(self, log: bool = False) -> None:
-        """Terminate simulator server process."""
+        """Stop the simulator."""
+        if self.sim is not None:
+            self.sim.stop()
+            self.sim = None
 
-        if self.simulator_process is None:
-            return
-
-        if not self.simulator_process.is_alive():
-            self.simulator_process = None
-            return
-
-        try:
-            self.simulator_process.terminate()
-            self.simulator_process.join(timeout=5 if log else 3)
-
-            if self.simulator_process.is_alive():
-                self.simulator_process.kill()
-                self.simulator_process.join(timeout=2 if log else 1)
-                if log:
-                    self.log("Server killed")
-
-        except Exception as e:
-            if log:
-                self.log(f"Error terminating simulator: {e}")
-        finally:
-            self.simulator_process = None
-            # Give the OS time to release the port
-            sy.sleep(1)
+    @property
+    def simulator_process(self) -> BaseProcess | None:
+        """Access the underlying process (for DisconnectTask compatibility)."""
+        if self.sim is not None:
+            return self.sim.process
+        return None
 
     def teardown(self) -> None:
         """Cleanup after test."""
         super().teardown()
         self.cleanup_simulator(log=True)
+
+    def _connect_device(
+        self,
+        max_retries: int = 10,
+        retry_delay: float = 1.0,
+    ) -> sy.Device:
+        """Get or create the hardware device for this simulator."""
+        for attempt in range(max_retries):
+            try:
+                rack = self.client.racks.retrieve(name=self.RACK_NAME)
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    sy.sleep(retry_delay)
+                else:
+                    raise AssertionError(
+                        f"Failed to retrieve rack '{self.RACK_NAME}' "
+                        f"after {max_retries} attempts: {e}"
+                    )
+        else:
+            raise AssertionError(
+                f"Rack '{self.RACK_NAME}' not found after {max_retries} attempts"
+            )
+
+        device_instance = self.sim_class.create_device(rack.key)
+
+        try:
+            device = self.client.devices.retrieve(name=device_instance.name)
+        except sy.NotFoundError:
+            device = self.client.devices.create(device_instance)
+        except Exception as e:
+            raise AssertionError(f"Unexpected error creating device: {e}")
+
+        return device

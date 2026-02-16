@@ -7,9 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .base import SimDAQ
+from .base import Simulator, SimDAQ
+from .device_sim import DeviceSim
 from .press import PressSimDAQ
 from .thermal import ThermalSimDAQ
 from .tpc import TPCSimDAQ
 
-__all__ = ["SimDAQ", "PressSimDAQ", "ThermalSimDAQ", "TPCSimDAQ"]
+__all__ = [
+    "Simulator",
+    "SimDAQ",
+    "DeviceSim",
+    "PressSimDAQ",
+    "ThermalSimDAQ",
+    "TPCSimDAQ",
+]

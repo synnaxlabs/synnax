@@ -17,9 +17,9 @@ from abc import abstractmethod
 from typing import Any
 
 import synnax as sy
+from examples.opcua import OPCUASim
 from synnax import opcua
 
-from driver.devices import Simulator
 from tests.driver.simulator_task import SimulatorTaskCase
 
 
@@ -31,6 +31,8 @@ class OPCUATaskCase(SimulatorTaskCase):
     Subclasses should implement create_channels() to define task-specific channels.
     """
 
+    sim_class = OPCUASim
+
     def __init__(
         self,
         *,
@@ -39,17 +41,11 @@ class OPCUATaskCase(SimulatorTaskCase):
         array_size: int = 5,
         **kwargs: Any,
     ) -> None:
-        """
-        Initialize OPCUATaskCase.
-
-        The device_name is automatically set from the OPC UA simulator configuration.
-        """
         self.array_mode: bool = array_mode
         self.array_size: int = array_size
 
         super().__init__(
             task_name=task_name,
-            simulator=Simulator.OPCUA,
             **kwargs,
         )
 
@@ -70,18 +66,7 @@ class OPCUATaskCase(SimulatorTaskCase):
         sample_rate: sy.Rate,
         stream_rate: sy.Rate,
     ) -> opcua.ReadTask:
-        """
-        Create an OPC UA read task.
-
-        Args:
-            device: Synnax device to read from
-            task_name: Name for the task
-            sample_rate: Sampling rate for the task
-            stream_rate: Streaming rate for the task
-
-        Returns:
-            Configured OPC UA read task
-        """
+        """Create an OPC UA read task."""
         channels = self.create_channels()
 
         return opcua.ReadTask(

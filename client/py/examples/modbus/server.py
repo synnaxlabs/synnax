@@ -12,6 +12,9 @@ import math
 import time
 
 from pymodbus import ModbusDeviceIdentification
+from synnax import modbus
+
+from examples.simulators.device_sim import DeviceSim
 from pymodbus.datastore import (
     ModbusDeviceContext,
     ModbusSequentialDataBlock,
@@ -68,7 +71,34 @@ async def updating_writer(context):
         await asyncio.sleep(1 / RATE)
 
 
-async def run_server() -> None:
+class ModbusSim(DeviceSim):
+    """Modbus TCP device simulator on port 5020."""
+
+    description = "Modbus TCP simulator on port 5020"
+    host = "127.0.0.1"
+    port = 5020
+    device_name = "Modbus TCP Test Server"
+
+    async def _run_server(self) -> None:
+        await run_server(self.host, self.port)
+
+    @staticmethod
+    def create_device(rack_key: int) -> modbus.Device:
+        return modbus.Device(
+            host=ModbusSim.host,
+            port=ModbusSim.port,
+            name=ModbusSim.device_name,
+            location=f"{ModbusSim.host}:{ModbusSim.port}",
+            rack=rack_key,
+            swap_bytes=False,
+            swap_words=False,
+        )
+
+
+async def run_server(
+    host: str = ModbusSim.host,
+    port: int = ModbusSim.port,
+) -> None:
     """Run the Modbus TCP server."""
     # Initialize data store
     store = ModbusDeviceContext(
@@ -89,12 +119,10 @@ async def run_server() -> None:
     identity.ModelName = "Extended Simulator"
     identity.MajorMinorRevision = "1.0.0"
 
-    # Start the updating task
-    task = asyncio.create_task(updating_writer(context))
+    asyncio.create_task(updating_writer(context))
 
-    # Start Modbus TCP server on localhost:5020
     await StartAsyncTcpServer(
-        context=context, identity=identity, address=("127.0.0.1", 5020)
+        context=context, identity=identity, address=(host, port)
     )
 
 
