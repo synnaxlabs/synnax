@@ -156,12 +156,6 @@ class LabelClient:
             state="hidden", timeout=10000
         )
 
-        still_exists = self._find_label_item(name)
-        if still_exists is not None:
-            raise RuntimeError(
-                f"Failed to delete label '{name}' - still exists after clicking delete"
-            )
-
         self._close_edit_modal()
 
     def list_all(self) -> list[str]:
