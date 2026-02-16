@@ -149,7 +149,7 @@ public:
     /// @param requests the static request configurations.
     /// @returns the client paired with a validation error (nil on success).
     static std::pair<Client, x::errors::Error>
-    make(ConnectionConfig config, const std::vector<RequestConfig> &requests);
+    create(ConnectionConfig config, const std::vector<RequestConfig> &requests);
 
     ~Client();
 

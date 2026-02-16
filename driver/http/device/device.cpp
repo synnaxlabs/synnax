@@ -148,7 +148,7 @@ Client::Client(Client &&other) noexcept:
 }
 
 std::pair<Client, x::errors::Error>
-Client::make(ConnectionConfig config, const std::vector<RequestConfig> &requests) {
+Client::create(ConnectionConfig config, const std::vector<RequestConfig> &requests) {
     for (const auto &req: requests) {
         if (req.method == Method::HEAD && !req.response_content_type.empty())
             return {
