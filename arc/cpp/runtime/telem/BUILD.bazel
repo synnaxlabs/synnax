@@ -9,8 +9,6 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/mem",
         "//x/cpp/telem",
-        "//x/cpp/errors",
-        "//x/cpp/mem",
     ],
 )
 

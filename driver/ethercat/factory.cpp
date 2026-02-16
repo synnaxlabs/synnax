@@ -39,7 +39,7 @@ const std::string PCAP_LIB_NAME = "libpcap.so";
 #endif
 
 static bool check_pcap_available() {
-    x::lib::SharedLib lib(PCAP_LIB_NAME);
+    x::lib::Shared lib(PCAP_LIB_NAME);
     return lib.load();
 }
 

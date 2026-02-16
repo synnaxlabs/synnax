@@ -126,7 +126,8 @@ public:
     std::pair<std::unique_ptr<node::Node>, x::errors::Error>
     create(node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        auto channel_key = cfg.node.config["channel"].get<types::ChannelKey>();
+        auto channel_key = cfg.node.config["channel"].value
+                               .get<types::ChannelKey>();
         if (cfg.node.type == "on")
             return {
                 std::make_unique<On>(std::move(cfg.state), channel_key),

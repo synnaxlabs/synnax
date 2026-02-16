@@ -141,7 +141,8 @@ public:
 };
 
 /// @brief configuration for opening a new streamer.
-struct StreamerConfig {
+class StreamerConfig {
+public:
     /// @brief the channels to stream.
     std::vector<channel::Key> channels;
     /// @brief the downsample factor for the streamer.
@@ -149,8 +150,12 @@ struct StreamerConfig {
     /// @brief enable experimental high-performance codec for the writer.
     bool enable_experimental_codec = true;
 
+private:
     /// @brief binds the configuration fields to it's protobuf representation.
-    void to_proto(api::v1::FrameStreamerRequest &f) const;
+    void to_proto(grpc::framer::StreamerRequest &f) const;
+
+    friend class Client;
+    friend class Streamer;
 };
 
 /// @brief used to stream frames of telemetry from a set of channels in real-time.
@@ -294,8 +299,13 @@ struct WriterConfig {
     /// @brief enable experimental high-performance codec for the writer.
     bool enable_experimental_codec = true;
 
+private:
     /// @brief binds the configuration fields to it's protobuf representation.
-    void to_proto(api::v1::FrameWriterConfig *f) const;
+    void to_proto(grpc::framer::WriterConfig *f) const;
+
+    friend class Client;
+
+    friend class Writer;
 };
 
 /// @brief used to write a new domain of telemetry frames to a set of channels in
@@ -371,7 +381,7 @@ public:
     [[nodiscard]] x::errors::Error close();
 
 private:
-    [[nodiscard]] x::errors::Error close(const x::errors::Error &with_err);
+    [[nodiscard]] x::errors::Error close(const x::errors::Error &err);
 
     /// @brief the error accumulated if the writer has closed with an error.
     x::errors::Error close_err = x::errors::NIL;
@@ -391,12 +401,12 @@ private:
     /// @brief cached request for reuse during writes
     std::unique_ptr<grpc::framer::WriterRequest> cached_write_req;
     /// @brief cached frame within the request for reuse
-    ::telem::PBFrame *cached_frame = nullptr;
+    ::x::telem::pb::Frame *cached_frame = nullptr;
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.
-    std::pair<api::v1::FrameWriterResponse, x::errors::Error>
-    exec(api::v1::FrameWriterRequest &req, bool ack);
+    std::pair<grpc::framer::WriterResponse, x::errors::Error>
+    exec(grpc::framer::WriterRequest &req, bool ack);
 
     /// @brief opens a writer to the Synnax cluster.
     explicit Writer(
@@ -452,4 +462,5 @@ private:
     /// cluster.
     channel::Client channel_client;
 };
+
 }

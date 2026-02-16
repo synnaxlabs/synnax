@@ -47,8 +47,8 @@ type Series struct {
 	// Data is the raw binary buffer containing the sample data.
 	Data []byte `json:"data" msgpack:"data"`
 	// Alignment defines the location of the series relative to other series in a logical
-	// group. Typically used for defining the position of the series within a channel's
-	// data.
-	Alignment    Alignment `json:"alignment" msgpack:"alignment"`
+// group. Typically used for defining the position of the series within a channel's
+// data.
+	Alignment Alignment `json:"alignment" msgpack:"alignment"`
 	cachedLength *int64
 }

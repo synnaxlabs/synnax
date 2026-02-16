@@ -17,10 +17,12 @@
 #include <vector>
 
 #include "x/cpp/binary/binary.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
-#include "x/go/telem/telem.pb.h"
+#include "x/go/telem/pb/frame.pb.h"
+#include "x/go/telem/pb/telem.pb.h"
 
 constexpr char NEWLINE_CHAR = '\n';
 constexpr auto NEWLINE_TERMINATOR = static_cast<std::byte>(NEWLINE_CHAR);
@@ -570,20 +572,11 @@ public:
         this->data_[byte_size() - 1] = NEWLINE_TERMINATOR;
     }
 
-    /// @brief constructs the series from its protobuf representation.
-    explicit Series(const ::telem::PBSeries &s):
-        data_type_(s.data_type()),
-        cap_(this->size()),
-        cached_byte_size(s.data().size()),
-        size_(0) {
-        if (!this->data_type().is_variable())
-            this->size_ = s.data().size() / this->data_type().density();
-        else
-            for (const char &v: s.data())
-                if (v == NEWLINE_CHAR) ++this->size_;
-        this->data_ = std::make_unique<std::byte[]>(byte_size());
-        memcpy(this->data_.get(), s.data().data(), byte_size());
-    }
+    /// @brief constructs a series from its protobuf representation.
+    /// @param pb the protobuf representation to convert from.
+    /// @return a pair containing the series and any error that occurred.
+    static std::pair<Series, x::errors::Error>
+    from_proto(const ::x::telem::pb::Series &pb);
 
     /// @brief constructs the series from the given JSON value.
     explicit Series(const json::json &value): Series(value.dump(), JSON_T) {}
@@ -881,12 +874,9 @@ public:
         return capped_count;
     }
 
-    /// @brief encodes the series' fields into the given protobuf message.
-    /// @param pb the protobuf message to encode the fields into.
-    void to_proto(::telem::PBSeries *pb) const {
-        pb->set_data_type(this->data_type().name());
-        pb->set_data(this->data_.get(), byte_size());
-    }
+    /// @brief converts the series to its protobuf representation.
+    /// @return the protobuf representation of the series.
+    [[nodiscard]] ::x::telem::pb::Series to_proto() const;
 
     /// @brief returns the data as a vector of strings. This method can only be used
     /// if the data type is STRING or JSON.

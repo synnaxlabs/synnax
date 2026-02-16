@@ -12,23 +12,24 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 #include <string>
+#include <optional>
 #include <type_traits>
 #include <utility>
-
 #include "client/cpp/ontology/id.h"
-#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/errors/errors.h"
+#include "core/pkg/service/task/pb/task.pb.h"
 #include "x/cpp/status/types.gen.h"
 
-#include "core/pkg/service/task/pb/task.pb.h"
 
 namespace synnax::task {
 
 struct Command;
 
+
 using Key = std::uint64_t;
+
 
 /// @brief StatusDetails contains task-specific status details including execution
 /// state.
@@ -47,9 +48,9 @@ struct StatusDetails {
 
     using proto_type = ::service::task::pb::StatusDetails;
     [[nodiscard]] ::service::task::pb::StatusDetails to_proto() const;
-    static std::pair<StatusDetails, x::errors::Error>
-    from_proto(const ::service::task::pb::StatusDetails &pb);
+    static std::pair<StatusDetails, x::errors::Error> from_proto(const ::service::task::pb::StatusDetails& pb);
 };
+
 
 /// @brief Command is a command to execute on a task in the Driver system.
 struct Command {
@@ -67,11 +68,11 @@ struct Command {
 
     using proto_type = ::service::task::pb::Command;
     [[nodiscard]] ::service::task::pb::Command to_proto() const;
-    static std::pair<Command, x::errors::Error>
-    from_proto(const ::service::task::pb::Command &pb);
+    static std::pair<Command, x::errors::Error> from_proto(const ::service::task::pb::Command& pb);
 };
 
 using Status = ::x::status::Status<StatusDetails>;
+
 
 /// @brief Task is an executable unit of work in the Driver system. Tasks represent
 /// specific hardware operations such as reading sensor data, writing control signals,
@@ -82,10 +83,10 @@ struct Task {
     /// @brief name is a human-readable name for the task.
     std::string name;
     /// @brief type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
-    /// Determines which hardware integration handles the task.
+/// Determines which hardware integration handles the task.
     std::string type;
     /// @brief config is task-specific configuration stored as JSON. Structure varies by
-    /// task type.
+/// task type.
     x::json::json config;
     /// @brief internal is true if this is an internal system task.
     bool internal = false;
@@ -99,13 +100,12 @@ struct Task {
 
     using proto_type = ::service::task::pb::Task;
     [[nodiscard]] ::service::task::pb::Task to_proto() const;
-    static std::pair<Task, x::errors::Error>
-    from_proto(const ::service::task::pb::Task &pb);
+    static std::pair<Task, x::errors::Error> from_proto(const ::service::task::pb::Task& pb);
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("task", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
+inline synnax::ontology::ID ontology_id(const Key& key) {
     return synnax::ontology::ID("task", std::to_string(key));
 }
 }

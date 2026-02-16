@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/text"
 )
 
+
 // TextToPB converts Text to Text.
 func TextToPB(_ context.Context, r text.Text) (*Text, error) {
 	pb := &Text{

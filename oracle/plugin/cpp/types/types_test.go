@@ -478,6 +478,30 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`bool virtual`))
 		})
 
+		It("Should automatically escape C++ reserved keyword field names", func() {
+			source := `
+				@cpp output "arc/cpp/ir"
+
+				Authorities struct {
+					default uint8 { @optional }
+					channels Map<uint32, uint8>
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`default_`))
+			Expect(content).NotTo(MatchRegexp(`\bstd::optional<std::uint8_t> default[^_]`))
+		})
+
 		It("Should handle @cpp omit", func() {
 			source := `
 				@cpp output "client/cpp/rack"

@@ -82,17 +82,22 @@ TEST(TestChannel, testCreateVirtual) {
 /// @brief it should create many channels and assign them all non-zero keys.
 TEST(TestChannel, testCreateMany) {
     const auto client = new_test_client();
-    auto channels = std::vector<Channel>{
-        {.name = make_unique_channel_name("test1"),
-         .data_type = x::telem::FLOAT64_T,
-         .is_virtual = true},
-        {.name = make_unique_channel_name("test2"),
-         .data_type = x::telem::FLOAT64_T,
-         .is_virtual = true},
-        {.name = make_unique_channel_name("test3"),
-         .data_type = x::telem::FLOAT64_T,
-         .is_virtual = true},
-    };
+    std::vector<Channel> channels;
+    channels.push_back(Channel{
+        .name = make_unique_channel_name("test1"),
+        .data_type = x::telem::FLOAT64_T,
+        .is_virtual = true,
+    });
+    channels.push_back(Channel{
+        .name = make_unique_channel_name("test2"),
+        .data_type = x::telem::FLOAT64_T,
+        .is_virtual = true,
+    });
+    channels.push_back(Channel{
+        .name = make_unique_channel_name("test3"),
+        .data_type = x::telem::FLOAT64_T,
+        .is_virtual = true,
+    });
     ASSERT_TRUE(client.channels.create(channels).ok());
     ASSERT_EQ(channels.size(), 3);
     for (const auto &ch: channels)
@@ -154,17 +159,22 @@ TEST(TestChannel, testRetrieveByNameNotFound) {
 /// @brief it should retrieve many channels by their key.
 TEST(TestChannel, testRetrieveMany) {
     auto client = new_test_client();
-    auto channels = std::vector<Channel>{
-        {.name = make_unique_channel_name("retrieve_many_1"),
-         .data_type = x::telem::FLOAT64_T,
-         .is_virtual = true},
-        {.name = make_unique_channel_name("retrieve_many_2"),
-         .data_type = x::telem::FLOAT64_T,
-         .is_virtual = true},
-        {.name = make_unique_channel_name("retrieve_many_3"),
-         .data_type = x::telem::FLOAT64_T,
-         .is_virtual = true},
-    };
+    std::vector<Channel> channels;
+    channels.push_back(Channel{
+        .name = make_unique_channel_name("retrieve_many_1"),
+        .data_type = x::telem::FLOAT64_T,
+        .is_virtual = true,
+    });
+    channels.push_back(Channel{
+        .name = make_unique_channel_name("retrieve_many_2"),
+        .data_type = x::telem::FLOAT64_T,
+        .is_virtual = true,
+    });
+    channels.push_back(Channel{
+        .name = make_unique_channel_name("retrieve_many_3"),
+        .data_type = x::telem::FLOAT64_T,
+        .is_virtual = true,
+    });
     ASSERT_NIL(client.channels.create(channels));
     auto retrieved = ASSERT_NIL_P(
         client.channels.retrieve(keys_from_channels(channels))
@@ -206,23 +216,4 @@ TEST(TestChannel, testOntologyId) {
     ASSERT_EQ(id.key, "42");
 }
 
-/// @brief it should convert multiple channel keys to ontology IDs
-TEST(TestChannel, testOntologyIds) {
-    const std::vector<Key> keys = {1, 2, 3};
-    const auto ids = ontology_ids(keys);
-    ASSERT_EQ(ids.size(), 3);
-    ASSERT_EQ(ids[0].type, "channel");
-    ASSERT_EQ(ids[0].key, "1");
-    ASSERT_EQ(ids[1].type, "channel");
-    ASSERT_EQ(ids[1].key, "2");
-    ASSERT_EQ(ids[2].type, "channel");
-    ASSERT_EQ(ids[2].key, "3");
-}
-
-/// @brief it should return empty vector for empty input
-TEST(TestChannel, testOntologyIdsEmpty) {
-    const std::vector<Key> keys;
-    const auto ids = ontology_ids(keys);
-    ASSERT_TRUE(ids.empty());
-}
 }

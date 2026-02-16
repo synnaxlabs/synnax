@@ -112,6 +112,7 @@ Params Param[] {
         is a collection of named, typed parameters for function inputs, outputs,
         or configuration.
     """
+    @cpp methods "[[nodiscard]] const Param& operator[](const std::string& name) const"
 }
 
 Channels struct {

@@ -1222,13 +1222,12 @@ func read_chan{ch chan f32}(trigger u8) f32 {
     EXPECT_TRUE(func_node->channels.read.contains(data_ch.key))
         << "Node channels.read should include the config param channel (key="
         << data_ch.key << "). IR:\n"
-        << mod.to_string();
+        << mod.to_json().dump();
 
-    // Verify the config param has the correct channel ID value.
     ASSERT_EQ(func_node->config.size(), 1);
-    ASSERT_TRUE(func_node->config[0].value.has_value());
+    ASSERT_FALSE(func_node->config[0].value.is_null());
     EXPECT_EQ(
-        static_cast<int32_t>(x::telem::cast<double>(*func_node->config[0].value)),
+        static_cast<int32_t>(func_node->config[0].value.get<double>()),
         static_cast<int32_t>(data_ch.key)
     ) << "Config param value should be the channel ID";
 

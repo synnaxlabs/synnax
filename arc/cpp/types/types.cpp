@@ -7,12 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "arc/cpp/types/types.gen.h"
+#include <stdexcept>
+
+#include "arc/cpp/types/types.h"
 
 namespace arc::types {
-x::telem::DataType Type::telem() const {
-    // Check for timestamp (i64 with nanosecond time units)
-    if (is_timestamp()) return x::telem::TIMESTAMP_T;
+
+const Param &Params::operator[](const std::string &name) const {
+    for (const auto &p: *this)
+        if (p.name == name) return p;
+    throw std::runtime_error("param not found: " + name);
+}
 
 bool Dimensions::operator==(const Dimensions &other) const {
     return length == other.length && mass == other.mass && time == other.time &&
@@ -39,35 +44,22 @@ bool Unit::is_timestamp() const {
 size_t Type::density() const {
     switch (kind) {
         case Kind::U8:
-            return x::telem::UINT8_T;
-        case Kind::U16:
-            return x::telem::UINT16_T;
-        case Kind::U32:
-            return x::telem::UINT32_T;
-        case Kind::U64:
-            return x::telem::UINT64_T;
         case Kind::I8:
-            return x::telem::INT8_T;
+            return 1;
+        case Kind::U16:
         case Kind::I16:
-            return x::telem::INT16_T;
+            return 2;
+        case Kind::U32:
         case Kind::I32:
-            return x::telem::INT32_T;
-        case Kind::I64:
-            return x::telem::INT64_T;
         case Kind::F32:
-            return x::telem::FLOAT32_T;
+            return 4;
+        case Kind::U64:
+        case Kind::I64:
         case Kind::F64:
-            return x::telem::FLOAT64_T;
-        case Kind::String:
-            return x::telem::STRING_T;
-        case Kind::Series:
-        case Kind::Chan:
-            if (this->elem) return elem->telem();
-            [[fallthrough]];
-        case Kind::Invalid:
-            return x::telem::UNKNOWN_T;
+            return 8;
+        default:
+            return 0;
     }
-    return x::telem::UNKNOWN_T;
 }
 
 bool Type::is_valid() const {

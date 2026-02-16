@@ -11,24 +11,24 @@
 
 #pragma once
 
-#include <optional>
 #include <string>
-#include <type_traits>
 #include <utility>
-
+#include <optional>
+#include <type_traits>
 #include "client/cpp/ontology/id.h"
 #include "client/cpp/rack/types.gen.h"
-#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/errors/errors.h"
+#include "core/pkg/service/device/pb/device.pb.h"
 #include "x/cpp/status/types.gen.h"
 
-#include "core/pkg/service/device/pb/device.pb.h"
 
 namespace synnax::device {
 
 struct StatusDetails;
 
 using Key = std::string;
+
 
 /// @brief StatusDetails contains device-specific status details identifying the device
 /// and its associated rack.
@@ -43,11 +43,11 @@ struct StatusDetails {
 
     using proto_type = ::service::device::pb::StatusDetails;
     [[nodiscard]] ::service::device::pb::StatusDetails to_proto() const;
-    static std::pair<StatusDetails, x::errors::Error>
-    from_proto(const ::service::device::pb::StatusDetails &pb);
+    static std::pair<StatusDetails, x::errors::Error> from_proto(const ::service::device::pb::StatusDetails& pb);
 };
 
 using Status = ::x::status::Status<StatusDetails>;
+
 
 /// @brief Device is a physical piece of hardware connected to Synnax through the Driver
 /// system. Devices represent external equipment like LabJack, National Instruments, OPC
@@ -60,19 +60,17 @@ struct Device {
     /// @brief location is the physical location or address of the device.
     std::string location;
     /// @brief make is the manufacturer of the device (e.g., 'LabJack', 'National
-    /// Instruments').
+/// Instruments').
     std::string make;
     /// @brief model is the device model identifier.
     std::string model;
     /// @brief name is a human-readable name for the device.
     std::string name;
-    /// @brief configured indicates whether the device has been successfully configured
-    /// and
-    /// is ready for use.
+    /// @brief configured indicates whether the device has been successfully configured and
+/// is ready for use.
     bool configured = false;
-    /// @brief properties contains device-specific configuration properties stored as
-    /// JSON.
-    /// Structure varies by device make and model.
+    /// @brief properties contains device-specific configuration properties stored as JSON.
+/// Structure varies by device make and model.
     x::json::json properties;
     /// @brief status is the current operational status of the device.
     std::optional<Status> status;
@@ -82,13 +80,12 @@ struct Device {
 
     using proto_type = ::service::device::pb::Device;
     [[nodiscard]] ::service::device::pb::Device to_proto() const;
-    static std::pair<Device, x::errors::Error>
-    from_proto(const ::service::device::pb::Device &pb);
+    static std::pair<Device, x::errors::Error> from_proto(const ::service::device::pb::Device& pb);
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("device", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
+inline synnax::ontology::ID ontology_id(const Key& key) {
     return synnax::ontology::ID("device", key);
 }
 }

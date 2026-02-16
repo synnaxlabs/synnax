@@ -67,10 +67,11 @@ public:
     create(node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
         const auto &param = cfg.node.config["value"];
-        assert(param.value.has_value() && "constant node requires a value");
+        auto sample_value = types::to_sample_value(param.value, param.type);
+        assert(sample_value.has_value() && "constant node requires a value");
         auto data_type = cfg.node.outputs[0].type.telem();
         return {
-            std::make_unique<Constant>(std::move(cfg.state), *param.value, data_type),
+            std::make_unique<Constant>(std::move(cfg.state), *sample_value, data_type),
             x::errors::NIL
         };
     }

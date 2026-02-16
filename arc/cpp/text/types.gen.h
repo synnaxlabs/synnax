@@ -13,15 +13,15 @@
 
 #include <string>
 #include <utility>
-
-#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-
+#include "x/cpp/errors/errors.h"
 #include "arc/go/text/pb/text.pb.h"
+
 
 namespace arc::text {
 
 struct Text;
+
 
 /// @brief Text is text-based Arc source code with optional parsed AST for compilation.
 struct Text {
@@ -33,7 +33,6 @@ struct Text {
 
     using proto_type = ::arc::text::pb::Text;
     [[nodiscard]] ::arc::text::pb::Text to_proto() const;
-    static std::pair<Text, x::errors::Error>
-    from_proto(const ::arc::text::pb::Text &pb);
+    static std::pair<Text, x::errors::Error> from_proto(const ::arc::text::pb::Text& pb);
 };
 }

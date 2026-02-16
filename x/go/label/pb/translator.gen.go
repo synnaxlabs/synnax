@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/label"
 )
 
+
 // LabelToPB converts Label to Label.
 func LabelToPB(ctx context.Context, r label.Label) (*Label, error) {
 	colorVal, err := colorpb.ColorToPB(ctx, r.Color)
@@ -25,8 +26,8 @@ func LabelToPB(ctx context.Context, r label.Label) (*Label, error) {
 		return nil, err
 	}
 	pb := &Label{
-		Name:  r.Name,
-		Key:   r.Key.String(),
+		Name: r.Name,
+		Key: r.Key.String(),
 		Color: colorVal,
 	}
 	return pb, nil

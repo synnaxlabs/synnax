@@ -22,7 +22,6 @@ cc_library(
         "//vendor/wasmtime",
         "//x/cpp/errors",
         "//x/cpp/telem",
-        "//x/cpp/errors",
     ],
 )
 

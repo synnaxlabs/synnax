@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/frame.h"
+#include "x/cpp/test/test.h"
 
 namespace x::telem {
 /// @brief it should construct a frame with a pre-allocated size.
@@ -30,16 +31,15 @@ TEST(FrameTests, testConstructionFromSingleSeriesAndChannel) {
     ASSERT_EQ(f.series->at(0).values<float>()[0], 1);
 }
 
-/// @brief it should construct a frame from a proto.
+/// @brief it should roundtrip a frame through proto.
 TEST(FrameTests, toProto) {
     auto f = Frame(2);
     auto s = Series(std::vector<float>{1, 2, 3});
     f.emplace(65537, std::move(s));
-    ::telem::PBFrame p;
-    f.to_proto(&p);
+    const auto p = f.to_proto();
     ASSERT_EQ(p.keys_size(), 1);
     ASSERT_EQ(p.series_size(), 1);
-    const auto f2 = Frame(p);
+    const auto f2 = ASSERT_NIL_P(Frame::from_proto(p));
     ASSERT_EQ(f2.size(), 1);
     ASSERT_EQ(f2.channels->at(0), 65537);
     ASSERT_EQ(f2.series->at(0).values<float>()[0], 1);
@@ -341,8 +341,7 @@ TEST(FrameTests, testDefaultConstructedClear) {
 /// @brief it should produce an empty proto from a default constructed frame.
 TEST(FrameTests, testDefaultConstructedToProto) {
     const Frame f;
-    ::telem::PBFrame p;
-    f.to_proto(&p);
+    const auto p = f.to_proto();
     ASSERT_EQ(p.keys_size(), 0);
     ASSERT_EQ(p.series_size(), 0);
 }
@@ -466,8 +465,7 @@ TEST(FrameTests, testMovedFromToProto) {
     auto f1 = Frame(1);
     f1.emplace(65537, Series(std::vector<float>{1.0f}));
     auto f2 = std::move(f1);
-    ::telem::PBFrame p;
-    f1.to_proto(&p);
+    const auto p = f1.to_proto();
     ASSERT_EQ(p.keys_size(), 0);
     ASSERT_EQ(p.series_size(), 0);
 }

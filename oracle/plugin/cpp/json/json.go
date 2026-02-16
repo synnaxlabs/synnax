@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/framework"
@@ -328,6 +329,7 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 	if cppFieldName == field.Name {
 		cppFieldName = toSnakeCase(field.Name)
 	}
+	cppFieldName = keywords.Escape(cppFieldName)
 
 	isGenericField := field.Type.IsTypeParam() && field.Type.TypeParam != nil && !field.Type.TypeParam.HasDefault()
 	typeParamName := ""
@@ -609,6 +611,7 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 	if fieldName == field.Name {
 		fieldName = toSnakeCase(field.Name)
 	}
+	fieldName = keywords.Escape(fieldName)
 
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
 		typeName := typeRef.TypeParam.Name

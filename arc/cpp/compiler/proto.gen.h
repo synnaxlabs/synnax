@@ -13,11 +13,10 @@
 
 #include <utility>
 
+#include "arc/cpp/compiler/types.gen.h"
+#include "arc/cpp/compiler/json.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
-
-#include "arc/cpp/compiler/json.gen.h"
-#include "arc/cpp/compiler/types.gen.h"
 #include "arc/go/compiler/pb/compiler.pb.h"
 
 namespace arc::compiler {
@@ -25,17 +24,16 @@ namespace arc::compiler {
 inline ::arc::compiler::pb::Output Output::to_proto() const {
     ::arc::compiler::pb::Output pb;
     pb.set_wasm(this->wasm.data(), this->wasm.size());
-    for (const auto &[k, v]: this->output_memory_bases)
-        (*pb.mutable_output_memory_bases())[k] = v;
+    for (const auto& [k, v] : this->output_memory_bases) (*pb.mutable_output_memory_bases())[k] = v;
     return pb;
 }
 
-inline std::pair<Output, x::errors::Error>
-Output::from_proto(const ::arc::compiler::pb::Output &pb) {
+inline std::pair<Output, x::errors::Error> Output::from_proto(
+    const ::arc::compiler::pb::Output& pb
+) {
     Output cpp;
     cpp.wasm.assign(pb.wasm().begin(), pb.wasm().end());
-    for (const auto &[k, v]: pb.output_memory_bases())
-        cpp.output_memory_bases[k] = v;
+    for (const auto& [k, v] : pb.output_memory_bases()) cpp.output_memory_bases[k] = v;
     return {cpp, x::errors::NIL};
 }
 

@@ -58,7 +58,6 @@ cc_test(
     deps = [
         ":loop",
         "//x/cpp/breaker",
-        "//x/cpp/test",
         "//x/cpp/notify",
         "//x/cpp/test",
         "@googletest//:gtest_main",

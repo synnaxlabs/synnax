@@ -31,12 +31,12 @@ std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
     const auto os = x::os::get();
     if (os == x::os::MACOS_NAME || os == x::os::UNKNOWN_NAME)
         return {nullptr, x::errors::NIL};
-    auto lib = std::make_unique<x::lib::SharedLib>(LIB_NAME);
+    auto lib = std::make_unique<x::lib::Shared>(LIB_NAME);
     if (!lib->load()) return {nullptr, LOAD_ERROR};
     return {std::make_shared<ProdAPI>(lib), x::errors::Error()};
 }
 
-ProdAPI::ProdAPI(std::unique_ptr<x::lib::SharedLib> &lib_): lib(std::move(lib_)) {
+ProdAPI::ProdAPI(std::unique_ptr<x::lib::Shared> &lib_): lib(std::move(lib_)) {
     memset(&function_pointers_, 0, sizeof(function_pointers_));
     function_pointers_
         .AddCDAQSyncConnection = reinterpret_cast<AddCDAQSyncConnectionPtr>(

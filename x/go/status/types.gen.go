@@ -19,11 +19,11 @@ import (
 type Variant string
 
 const (
-	VariantSuccess  Variant = "success"
-	VariantInfo     Variant = "info"
-	VariantWarning  Variant = "warning"
-	VariantError    Variant = "error"
-	VariantLoading  Variant = "loading"
+	VariantSuccess Variant = "success"
+	VariantInfo Variant = "info"
+	VariantWarning Variant = "warning"
+	VariantError Variant = "error"
+	VariantLoading Variant = "loading"
 	VariantDisabled Variant = "disabled"
 )
 
@@ -36,7 +36,7 @@ type Status[Details any] struct {
 	// Name is an optional human-readable name for the status.
 	Name string `json:"name" msgpack:"name"`
 	// Variant is the severity or type of the status: success, info, warning, error,
-	// loading, or disabled.
+// loading, or disabled.
 	Variant Variant `json:"variant" msgpack:"variant"`
 	// Message is the main message text describing the status.
 	Message string `json:"message" msgpack:"message"`

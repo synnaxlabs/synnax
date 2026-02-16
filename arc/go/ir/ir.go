@@ -76,7 +76,6 @@ import (
 	"github.com/samber/lo"
 )
 
-
 func (i *IR) IsZero() bool {
 	return len(i.Functions) == 0 &&
 		len(i.Sequences) == 0 &&

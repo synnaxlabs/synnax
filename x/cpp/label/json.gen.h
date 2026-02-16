@@ -13,9 +13,9 @@
 
 #include <string>
 
-#include "x/cpp/color/json.gen.h"
-#include "x/cpp/json/json.h"
 #include "x/cpp/label/types.gen.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/color/json.gen.h"
 
 namespace x::label {
 
@@ -37,15 +37,14 @@ inline x::json::json Label::to_json() const {
 
 inline New New::parse(x::json::Parser parser) {
     New result;
-    static_cast<Label &>(result) = Label::parse(parser);
+    static_cast<Label&>(result) = Label::parse(parser);
     result.key = parser.field<Key>("key");
     return result;
 }
 
 inline x::json::json New::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: Label::to_json().items())
-        j[k] = v;
+    for (auto& [k, v] : Label::to_json().items()) j[k] = v;
     j["key"] = this->key.to_json();
     return j;
 }

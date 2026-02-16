@@ -9,48 +9,46 @@
 
 #pragma once
 
-#include <memory>
 #include <string>
 
 #include "google/protobuf/empty.pb.h"
 
 #include "freighter/cpp/freighter.h"
-#include "x/cpp/errors/errors.h"
+#include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
-#include "core/pkg/api/grpc/v1/ranger.pb.h"
+#include "core/pkg/api/grpc/ranger/kv/kv.pb.h"
 
-namespace synnax::ranger::kv {
+namespace synnax::kv {
 /// @brief type alias for the transport used to get range-scoped key-values.
-using GetClient = freighter::
-    UnaryClient<api::v1::RangeKVGetRequest, api::v1::RangeKVGetResponse>;
+using GetClient = freighter::UnaryClient<grpc::kv::GetRequest, grpc::kv::GetResponse>;
 
 /// @brief type alias for the transport used to set range-scoped key-values.
-using SetClient = freighter::
-    UnaryClient<api::v1::RangeKVSetRequest, google::protobuf::Empty>;
+using SetClient = freighter::UnaryClient<grpc::kv::SetRequest, google::protobuf::Empty>;
 
 /// @brief type alias for the transport used to delete range-scoped key-values.
 using DeleteClient = freighter::
-    UnaryClient<api::v1::RangeKVDeleteRequest, google::protobuf::Empty>;
+    UnaryClient<grpc::kv::DeleteRequest, google::protobuf::Empty>;
 
 /// @brief a range-scoped key-value store for storing metadata and configuration
 /// about a range.
 class Client {
-    std::string range_key;
-    std::shared_ptr<GetClient> get_client;
-    std::shared_ptr<SetClient> set_client;
-    std::shared_ptr<DeleteClient> delete_client;
+    x::uuid::UUID range_key;
+    std::shared_ptr<GetClient> kv_get_client;
+    std::shared_ptr<SetClient> kv_set_client;
+    std::shared_ptr<DeleteClient> kv_delete_client;
 
 public:
     Client() = default;
 
     Client(
-        std::shared_ptr<GetClient> get_client,
-        std::shared_ptr<SetClient> set_client,
-        std::shared_ptr<DeleteClient> delete_client
+        std::shared_ptr<GetClient> kv_get_client,
+        std::shared_ptr<SetClient> kv_set_client,
+        std::shared_ptr<DeleteClient> kv_delete_client
     ):
-        get_client(std::move(get_client)),
-        set_client(std::move(set_client)),
-        delete_client(std::move(delete_client)) {}
+        kv_get_client(std::move(kv_get_client)),
+        kv_set_client(std::move(kv_set_client)),
+        kv_delete_client(std::move(kv_delete_client)) {}
 
     /// @brief gets the value of the given key.
     /// @param key - the key to get the value of.
@@ -79,8 +77,7 @@ public:
     /// exist.
     [[nodiscard]] x::errors::Error del(const std::string &key) const;
 
-    /// @brief returns a copy of this client scoped to the given range key.
-    Client scope_to_range(const std::string &range_key_) const {
+    Client scope_to_range(const x::uuid::UUID range_key_) const {
         auto c = *this;
         c.range_key = range_key_;
         return c;

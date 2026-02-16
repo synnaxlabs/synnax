@@ -13,6 +13,7 @@
 
 #include <cstdint>
 
+
 namespace synnax::cluster {
 
 using NodeKey = std::uint16_t;

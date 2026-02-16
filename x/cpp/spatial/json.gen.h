@@ -11,8 +11,8 @@
 
 #pragma once
 
-#include "x/cpp/json/json.h"
 #include "x/cpp/spatial/types.gen.h"
+#include "x/cpp/json/json.h"
 
 namespace x::spatial {
 

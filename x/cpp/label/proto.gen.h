@@ -13,14 +13,13 @@
 
 #include <utility>
 
-#include "x/cpp/color/json.gen.h"
-#include "x/cpp/color/proto.gen.h"
-#include "x/cpp/errors/errors.h"
-#include "x/cpp/label/json.gen.h"
 #include "x/cpp/label/types.gen.h"
+#include "x/cpp/label/json.gen.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
-
 #include "x/go/label/pb/label.pb.h"
+#include "x/cpp/color/proto.gen.h"
+#include "x/cpp/color/json.gen.h"
 
 namespace x::label {
 
@@ -32,8 +31,9 @@ inline ::x::label::pb::Label Label::to_proto() const {
     return pb;
 }
 
-inline std::pair<Label, x::errors::Error>
-Label::from_proto(const ::x::label::pb::Label &pb) {
+inline std::pair<Label, x::errors::Error> Label::from_proto(
+    const ::x::label::pb::Label& pb
+) {
     Label cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.key());

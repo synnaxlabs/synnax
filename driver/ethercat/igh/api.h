@@ -55,7 +55,7 @@ class API {
     };
 
     /// @brief shared library handle.
-    std::unique_ptr<x::lib::SharedLib> lib;
+    std::unique_ptr<x::lib::Shared> lib;
     /// @brief function pointers loaded from the library.
     FunctionPointers func_ptrs;
 
@@ -69,7 +69,7 @@ protected:
     }
 
 public:
-    explicit API(std::unique_ptr<x::lib::SharedLib> lib): lib(std::move(lib)) {
+    explicit API(std::unique_ptr<x::lib::Shared> lib): lib(std::move(lib)) {
         memset(&this->func_ptrs, 0, sizeof(this->func_ptrs));
         this->func_ptrs
             .request_master = reinterpret_cast<decltype(&ecrt_request_master)>(
@@ -156,7 +156,7 @@ public:
     /// @brief loads the IgH EtherCAT library and returns an API instance.
     /// @return pair of API instance and error (nil on success).
     static std::pair<std::shared_ptr<API>, x::errors::Error> load() {
-        auto lib = std::make_unique<x::lib::SharedLib>(IGH_LIBRARY_NAME);
+        auto lib = std::make_unique<x::lib::Shared>(IGH_LIBRARY_NAME);
         if (!lib->load()) return {nullptr, LOAD_ERROR};
         return {std::make_shared<API>(std::move(lib)), x::errors::NIL};
     }

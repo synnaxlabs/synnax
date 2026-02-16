@@ -14,6 +14,7 @@
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/test/test.h"
 
 #include "x/go/telem/pb/telem.pb.h"
 
@@ -194,9 +195,8 @@ TEST(TestSeries, testInlineVectorConstruction) {
 TEST(TestSeries, testProto) {
     const std::vector<uint16_t> vals = {1, 2, 3, 4, 5};
     const Series s{vals};
-    ::telem::PBSeries s2;
-    s.to_proto(&s2);
-    const Series s3{s2};
+    const auto s2 = s.to_proto();
+    const auto s3 = ASSERT_NIL_P(Series::from_proto(s2));
     const auto v = s3.values<std::uint16_t>();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);
@@ -219,9 +219,8 @@ TEST(TestSeries, testConstructionSingleValue) {
 TEST(TestSeries, testConstrucitonFromVariableProtoSeries) {
     const std::vector<std::string> vals = {"hello", "world22"};
     const Series s{vals};
-    ::telem::PBSeries s2;
-    s.to_proto(&s2);
-    const Series s3{s2};
+    const auto s2 = s.to_proto();
+    const auto s3 = ASSERT_NIL_P(Series::from_proto(s2));
     const auto v = s3.strings();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);

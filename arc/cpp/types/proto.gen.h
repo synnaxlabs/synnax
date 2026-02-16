@@ -13,68 +13,54 @@
 
 #include <utility>
 
-#include "x/cpp/errors/errors.h"
-#include "x/cpp/json/value.h"
-#include "x/cpp/pb/pb.h"
-
-#include "arc/cpp/types/json.gen.h"
 #include "arc/cpp/types/types.gen.h"
+#include "arc/cpp/types/json.gen.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/pb/pb.h"
 #include "arc/go/types/pb/types.pb.h"
+#include "x/cpp/json/value.h"
 
 namespace arc::types {
 
 inline ::arc::types::pb::FunctionProperties FunctionProperties::to_proto() const {
     ::arc::types::pb::FunctionProperties pb;
-    for (const auto &item: this->inputs)
-        *pb.add_inputs() = item.to_proto();
-    for (const auto &item: this->outputs)
-        *pb.add_outputs() = item.to_proto();
-    for (const auto &item: this->config)
-        *pb.add_config() = item.to_proto();
+    for (const auto& item : this->inputs) *pb.add_inputs() = item.to_proto();
+    for (const auto& item : this->outputs) *pb.add_outputs() = item.to_proto();
+    for (const auto& item : this->config) *pb.add_config() = item.to_proto();
     return pb;
 }
 
-inline std::pair<FunctionProperties, x::errors::Error>
-FunctionProperties::from_proto(const ::arc::types::pb::FunctionProperties &pb) {
+inline std::pair<FunctionProperties, x::errors::Error> FunctionProperties::from_proto(
+    const ::arc::types::pb::FunctionProperties& pb
+) {
     FunctionProperties cpp;
-    if (auto err = x::pb::from_proto_repeated<Param>(cpp.inputs, pb.inputs()))
-        return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<Param>(cpp.outputs, pb.outputs()))
-        return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<Param>(cpp.config, pb.config()))
-        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Param>(cpp.inputs, pb.inputs())) return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Param>(cpp.outputs, pb.outputs())) return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Param>(cpp.config, pb.config())) return {{}, err};
     return {cpp, x::errors::NIL};
 }
 
 inline ::arc::types::pb::Type Type::to_proto() const {
     ::arc::types::pb::Type pb;
-    for (const auto &item: this->inputs)
-        *pb.add_inputs() = item.to_proto();
-    for (const auto &item: this->outputs)
-        *pb.add_outputs() = item.to_proto();
-    for (const auto &item: this->config)
-        *pb.add_config() = item.to_proto();
+    for (const auto& item : this->inputs) *pb.add_inputs() = item.to_proto();
+    for (const auto& item : this->outputs) *pb.add_outputs() = item.to_proto();
+    for (const auto& item : this->config) *pb.add_config() = item.to_proto();
     pb.set_kind(static_cast<::arc::types::pb::Kind>(this->kind));
     pb.set_name(this->name);
     if (this->elem.has_value()) *pb.mutable_elem() = this->elem->to_proto();
     if (this->unit.has_value()) *pb.mutable_unit() = this->unit->to_proto();
-    if (this->constraint.has_value())
-        *pb.mutable_constraint() = this->constraint->to_proto();
-    pb.set_chan_direction(
-        static_cast<::arc::types::pb::ChanDirection>(this->chan_direction)
-    );
+    if (this->constraint.has_value()) *pb.mutable_constraint() = this->constraint->to_proto();
+    pb.set_chan_direction(static_cast<::arc::types::pb::ChanDirection>(this->chan_direction));
     return pb;
 }
 
-inline std::pair<Type, x::errors::Error>
-Type::from_proto(const ::arc::types::pb::Type &pb) {
+inline std::pair<Type, x::errors::Error> Type::from_proto(
+    const ::arc::types::pb::Type& pb
+) {
     Type cpp;
-    if (auto err = x::pb::from_proto_repeated<Param>(cpp.inputs, pb.inputs()))
-        return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<Param>(cpp.outputs, pb.outputs()))
-        return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<Param>(cpp.config, pb.config()))
-        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Param>(cpp.inputs, pb.inputs())) return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Param>(cpp.outputs, pb.outputs())) return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Param>(cpp.config, pb.config())) return {{}, err};
     cpp.kind = static_cast<Kind>(pb.kind());
     cpp.name = pb.name();
     if (pb.has_elem()) {
@@ -104,8 +90,9 @@ inline ::arc::types::pb::Param Param::to_proto() const {
     return pb;
 }
 
-inline std::pair<Param, x::errors::Error>
-Param::from_proto(const ::arc::types::pb::Param &pb) {
+inline std::pair<Param, x::errors::Error> Param::from_proto(
+    const ::arc::types::pb::Param& pb
+) {
     Param cpp;
     cpp.name = pb.name();
     {
@@ -123,20 +110,17 @@ Param::from_proto(const ::arc::types::pb::Param &pb) {
 
 inline ::arc::types::pb::Channels Channels::to_proto() const {
     ::arc::types::pb::Channels pb;
-    for (const auto &[k, v]: this->read)
-        (*pb.mutable_read())[k] = v;
-    for (const auto &[k, v]: this->write)
-        (*pb.mutable_write())[k] = v;
+    for (const auto& [k, v] : this->read) (*pb.mutable_read())[k] = v;
+    for (const auto& [k, v] : this->write) (*pb.mutable_write())[k] = v;
     return pb;
 }
 
-inline std::pair<Channels, x::errors::Error>
-Channels::from_proto(const ::arc::types::pb::Channels &pb) {
+inline std::pair<Channels, x::errors::Error> Channels::from_proto(
+    const ::arc::types::pb::Channels& pb
+) {
     Channels cpp;
-    for (const auto &[k, v]: pb.read())
-        cpp.read[k] = v;
-    for (const auto &[k, v]: pb.write())
-        cpp.write[k] = v;
+    for (const auto& [k, v] : pb.read()) cpp.read[k] = v;
+    for (const auto& [k, v] : pb.write()) cpp.write[k] = v;
     return {cpp, x::errors::NIL};
 }
 
@@ -153,8 +137,9 @@ inline ::arc::types::pb::Dimensions Dimensions::to_proto() const {
     return pb;
 }
 
-inline std::pair<Dimensions, x::errors::Error>
-Dimensions::from_proto(const ::arc::types::pb::Dimensions &pb) {
+inline std::pair<Dimensions, x::errors::Error> Dimensions::from_proto(
+    const ::arc::types::pb::Dimensions& pb
+) {
     Dimensions cpp;
     cpp.length = pb.length();
     cpp.mass = pb.mass();
@@ -175,8 +160,9 @@ inline ::arc::types::pb::Unit Unit::to_proto() const {
     return pb;
 }
 
-inline std::pair<Unit, x::errors::Error>
-Unit::from_proto(const ::arc::types::pb::Unit &pb) {
+inline std::pair<Unit, x::errors::Error> Unit::from_proto(
+    const ::arc::types::pb::Unit& pb
+) {
     Unit cpp;
     {
         auto [v, err] = Dimensions::from_proto(pb.dimensions());

@@ -11,20 +11,20 @@
 
 #pragma once
 
-#include <cstdint>
-#include <string>
-#include <unordered_map>
-#include <utility>
 #include <vector>
-
-#include "x/cpp/errors/errors.h"
+#include <cstdint>
+#include <unordered_map>
+#include <string>
+#include <utility>
 #include "x/cpp/json/json.h"
-
+#include "x/cpp/errors/errors.h"
 #include "arc/go/compiler/pb/compiler.pb.h"
+
 
 namespace arc::compiler {
 
 struct Output;
+
 
 /// @brief Output is compiled output from the Arc compiler including WebAssembly
 /// bytecode and memory layout.
@@ -32,7 +32,7 @@ struct Output {
     /// @brief wasm is compiled WebAssembly bytecode for sandboxed execution.
     std::vector<std::uint8_t> wasm;
     /// @brief output_memory_bases contains memory base addresses for multi-output
-    /// functions, mapping function keys to their base addresses.
+/// functions, mapping function keys to their base addresses.
     std::unordered_map<std::string, std::uint32_t> output_memory_bases;
 
     static Output parse(x::json::Parser parser);
@@ -40,7 +40,6 @@ struct Output {
 
     using proto_type = ::arc::compiler::pb::Output;
     [[nodiscard]] ::arc::compiler::pb::Output to_proto() const;
-    static std::pair<Output, x::errors::Error>
-    from_proto(const ::arc::compiler::pb::Output &pb);
+    static std::pair<Output, x::errors::Error> from_proto(const ::arc::compiler::pb::Output& pb);
 };
 }

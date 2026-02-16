@@ -33,7 +33,7 @@ inline x::json::json Subject::to_json() const {
     return j;
 }
 
-template<typename R>
+template <typename R>
 State<R> State<R>::parse(x::json::Parser parser) {
     return State<R>{
         .subject = parser.field<Subject>("subject"),
@@ -42,7 +42,7 @@ State<R> State<R>::parse(x::json::Parser parser) {
     };
 }
 
-template<typename R>
+template <typename R>
 x::json::json State<R>::to_json() const {
     x::json::json j;
     j["subject"] = this->subject.to_json();

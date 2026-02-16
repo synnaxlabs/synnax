@@ -83,7 +83,7 @@ type Sequence struct {
 // Body is raw function body source code with optional parsed AST.
 type Body struct {
 	// Raw is the raw source code text.
-	Raw string                  `json:"raw" msgpack:"raw"`
+	Raw string `json:"raw" msgpack:"raw"`
 	AST antlr.ParserRuleContext `json:"-"`
 }
 
@@ -143,7 +143,7 @@ type IR struct {
 	// Sequences contains state machine definitions.
 	Sequences Sequences `json:"sequences" msgpack:"sequences"`
 	// Authorities contains the static authority declarations for this program.
-	Authorities Authorities                            `json:"authorities" msgpack:"authorities"`
-	Symbols     *symbol.Scope                          `json:"-"`
-	TypeMap     map[antlr.ParserRuleContext]types.Type `json:"-"`
+	Authorities Authorities `json:"authorities" msgpack:"authorities"`
+	Symbols *symbol.Scope `json:"-"`
+	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
 }

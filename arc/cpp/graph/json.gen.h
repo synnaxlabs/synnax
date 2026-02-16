@@ -13,10 +13,9 @@
 
 #include <string>
 
+#include "arc/cpp/graph/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/spatial/json.gen.h"
-
-#include "arc/cpp/graph/types.gen.h"
 #include "arc/cpp/ir/json.gen.h"
 
 namespace arc::graph {
@@ -73,14 +72,14 @@ inline x::json::json Graph::to_json() const {
 
 inline Nodes Nodes::parse(x::json::Parser parser) {
     Nodes result;
-    for (auto &item: parser.field<std::vector<Node>>())
+    for (auto& item : parser.field<std::vector<Node>>())
         result.push_back(std::move(item));
     return result;
 }
 
 inline x::json::json Nodes::to_json() const {
     x::json::json j = x::json::json::array();
-    for (const auto &item: *this) {
+    for (const auto& item : *this) {
         j.push_back(item.to_json());
     }
     return j;

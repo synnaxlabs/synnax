@@ -33,21 +33,21 @@ struct TestSetup {
     ir::IR ir;
     state::State state;
 
-    TestSetup(const types::Kind kind, const x::telem::SampleValue &value):
+    TestSetup(const types::Kind kind, const x::json::json &value):
         ir(build_ir(kind, value)),
         state(state::Config{.ir = ir, .channels = {}}, runtime::errors::noop_handler) {}
 
     state::Node make_node() { return ASSERT_NIL_P(state.node("const")); }
 
 private:
-    static ir::IR build_ir(const types::Kind kind, const x::telem::SampleValue &value) {
-        ir::Param output_param;
+    static ir::IR build_ir(const types::Kind kind, const x::json::json &value) {
+        types::Param output_param;
         output_param.name = "output";
-        output_param.type = types::Type(kind);
+        output_param.type.kind = kind;
 
-        ir::Param value_param;
+        types::Param value_param;
         value_param.name = "value";
-        value_param.type = types::Type(kind);
+        value_param.type.kind = kind;
         value_param.value = value;
 
         ir::Node ir_node;

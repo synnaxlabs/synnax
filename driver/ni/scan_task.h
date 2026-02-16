@@ -79,8 +79,8 @@ struct Device : synnax::device::Device {
                 },
             .status = this->status,
         };
-        return dev;
-    }
+    return dev;
+}
 };
 
 /// @brief the default pattern for ignoring certain models.

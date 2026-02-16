@@ -21,11 +21,11 @@ const std::string ERR_TYPE_NIL = "nil";
 const std::string ERR_TYPE_UNKNOWN = "unknown";
 
 const x::errors::Error STREAM_CLOSED = {
-    TYPE_UNREACHABLE + ".stream_closed",
+    ERR_TYPE_UNREACHABLE + ".stream_closed",
     "Stream closed"
 };
-const x::errors::Error EOF_ERR = {"freighter.eof", "EOF"};
-const x::errors::Error UNREACHABLE = {TYPE_UNREACHABLE, "Unreachable"};
+const x::errors::Error ERR_EOF = {"freighter.eof", "EOF"};
+const x::errors::Error UNREACHABLE = {ERR_TYPE_UNREACHABLE, "Unreachable"};
 
 enum TransportVariant { UNARY, STREAM };
 

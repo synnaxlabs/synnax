@@ -190,11 +190,11 @@ inline std::vector<x::control::Authority> build_authorities(
     const ir::Authorities &auth,
     const std::vector<types::ChannelKey> &write_keys
 ) {
-    if (!auth.default_authority.has_value() && auth.channels.empty()) return {};
+    if (!auth.default_.has_value() && auth.channels.empty()) return {};
     std::vector<x::control::Authority> authorities(write_keys.size());
     for (size_t i = 0; i < write_keys.size(); i++)
-        authorities[i] = auth.default_authority.has_value() ? *auth.default_authority
-                                                            : DEFAULT_AUTHORITY;
+        authorities[i] = auth.default_.has_value() ? *auth.default_
+                                                   : DEFAULT_AUTHORITY;
     for (const auto &[key, value]: auth.channels) {
         for (size_t i = 0; i < write_keys.size(); i++) {
             if (write_keys[i] == key) {

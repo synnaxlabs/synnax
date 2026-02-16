@@ -12,31 +12,33 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "client/cpp/cluster/types.gen.h"
+#include <optional>
 #include "client/cpp/ontology/id.h"
-#include "x/cpp/control/types.gen.h"
-#include "x/cpp/errors/errors.h"
-#include "x/cpp/json/json.h"
 #include "x/cpp/status/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
-
-#include "core/pkg/api/channel/pb/channel.pb.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/errors/errors.h"
 #include "core/pkg/distribution/channel/pb/channel.pb.h"
+#include "client/cpp/cluster/types.gen.h"
+#include "x/cpp/control/types.gen.h"
+#include "core/pkg/api/channel/pb/channel.pb.h"
+
 
 namespace synnax::channel {
 
 struct Operation;
 struct Channel;
 
-constexpr const char *OPERATION_TYPE_MIN = "min";
-constexpr const char *OPERATION_TYPE_MAX = "max";
-constexpr const char *OPERATION_TYPE_AVG = "avg";
-constexpr const char *OPERATION_TYPE_NONE = "none";
+
+
+constexpr const char* OPERATION_TYPE_MIN = "min";
+constexpr const char* OPERATION_TYPE_MAX = "max";
+constexpr const char* OPERATION_TYPE_AVG = "avg";
+constexpr const char* OPERATION_TYPE_NONE = "none";
+
 
 using Key = std::uint32_t;
 
@@ -44,15 +46,15 @@ using Name = std::string;
 
 using Status = ::x::status::Status<>;
 
+
 /// @brief Operation defines an aggregation operation applied to channel data.
 /// Operations calculate min, max, or average values over a time duration or triggered
 /// by a reset channel.
 struct Operation {
     /// @brief type is the aggregation operation type: min, max, avg, or none.
     std::string type;
-    /// @brief reset_channel is the channel key that triggers reset of the aggregation.
-    /// If
-    /// 0, duration-based reset is used.
+    /// @brief reset_channel is the channel key that triggers reset of the aggregation. If
+/// 0, duration-based reset is used.
     Key reset_channel = 0;
     /// @brief duration is the time window for aggregation when reset_channel is 0.
     ::x::telem::TimeSpan duration = x::telem::TimeSpan(0);
@@ -62,58 +64,48 @@ struct Operation {
 
     using proto_type = ::distribution::channel::pb::Operation;
     [[nodiscard]] ::distribution::channel::pb::Operation to_proto() const;
-    static std::pair<Operation, x::errors::Error>
-    from_proto(const ::distribution::channel::pb::Operation &pb);
+    static std::pair<Operation, x::errors::Error> from_proto(const ::distribution::channel::pb::Operation& pb);
 };
+
 
 /// @brief Channel is a logical collection of samples emitted by or representing values
 /// from a single source. Channels are the fundamental unit of telemetry storage and
 /// streaming in Synnax.
 struct Channel {
     /// @brief key is the unique identifier for this channel, automatically assigned by
-    /// Synnax.
+/// Synnax.
     Key key = 0;
     /// @brief name is the human-readable channel name.
     Name name;
-    /// @brief leaseholder is the cluster node that holds the lease for this channel.
-    /// Mostly
-    /// for internal use.
+    /// @brief leaseholder is the cluster node that holds the lease for this channel. Mostly
+/// for internal use.
     ::synnax::cluster::NodeKey leaseholder = 0;
-    /// @brief data_type is the data type of samples stored in this channel (e.g.,
-    /// Float64,
-    /// Int32, TimeStamp).
+    /// @brief data_type is the data type of samples stored in this channel (e.g., Float64,
+/// Int32, TimeStamp).
     ::x::telem::DataType data_type;
-    /// @brief is_index is true if this is an index channel. Index channels must have
-    /// int64
-    /// values (TIMESTAMP data type) written in ascending order, and are most commonly
-    /// unix nanosecond timestamps.
+    /// @brief is_index is true if this is an index channel. Index channels must have int64
+/// values (TIMESTAMP data type) written in ascending order, and are most commonly unix
+/// nanosecond timestamps.
     bool is_index = false;
-    /// @brief index is the channel used to index this channel's values, associating
-    /// each
-    /// value with a timestamp. If zero, the channel's data will be indexed using its
-    /// rate.
+    /// @brief index is the channel used to index this channel's values, associating each
+/// value with a timestamp. If zero, the channel's data will be indexed using its rate.
     Key index = 0;
     /// @brief alias is an optional alternate name for the channel within a specific
-    /// context.
+/// context.
     std::string alias;
-    /// @brief is_virtual is true if this channel does not store data in the database
-    /// but
-    /// can still be used for streaming purposes.
+    /// @brief is_virtual is true if this channel does not store data in the database but
+/// can still be used for streaming purposes.
     bool is_virtual = false;
-    /// @brief internal is true if this is a system channel hidden from normal user
-    /// queries.
+    /// @brief internal is true if this is a system channel hidden from normal user queries.
     bool internal = false;
-    /// @brief expression is an Arc expression for calculated channels. If set, the
-    /// channel
-    /// is automatically configured as virtual.
+    /// @brief expression is an Arc expression for calculated channels. If set, the channel
+/// is automatically configured as virtual.
     std::string expression;
-    /// @brief operations contains optional aggregation operations (min, max, avg)
-    /// applied
-    /// to channel data over time or triggered by a reset channel.
+    /// @brief operations contains optional aggregation operations (min, max, avg) applied
+/// to channel data over time or triggered by a reset channel.
     std::vector<Operation> operations;
-    /// @brief concurrency sets the policy for concurrent writes to the channel's data.
-    /// Only
-    /// virtual channels can have a policy of shared concurrency.
+    /// @brief concurrency sets the policy for concurrent writes to the channel's data. Only
+/// virtual channels can have a policy of shared concurrency.
     ::x::control::Concurrency concurrency;
     /// @brief status is the current operational status of the channel.
     std::optional<Status> status;
@@ -123,13 +115,12 @@ struct Channel {
 
     using proto_type = ::api::channel::pb::Channel;
     [[nodiscard]] ::api::channel::pb::Channel to_proto() const;
-    static std::pair<Channel, x::errors::Error>
-    from_proto(const ::api::channel::pb::Channel &pb);
+    static std::pair<Channel, x::errors::Error> from_proto(const ::api::channel::pb::Channel& pb);
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("channel", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
+inline synnax::ontology::ID ontology_id(const Key& key) {
     return synnax::ontology::ID("channel", std::to_string(key));
 }
 }

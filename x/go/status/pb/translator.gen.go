@@ -13,11 +13,12 @@ package pb
 
 import (
 	"context"
+	"google.golang.org/protobuf/types/known/anypb"
 	labelpb "github.com/synnaxlabs/x/label/pb"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
-	"google.golang.org/protobuf/types/known/anypb"
 )
+
 
 // VariantToPB converts status.Variant to Variant.
 func VariantToPB(v status.Variant) Variant {
@@ -74,14 +75,14 @@ func StatusToPB[Details any](
 		return nil, err
 	}
 	pb := &Status{
-		Key:         r.Key,
-		Name:        r.Name,
-		Variant:     VariantToPB(r.Variant),
-		Message:     r.Message,
+		Key: r.Key,
+		Name: r.Name,
+		Variant: VariantToPB(r.Variant),
+		Message: r.Message,
 		Description: r.Description,
-		Time:        int64(r.Time),
-		Details:     detailsAny,
-		Labels:      labelsVal,
+		Time: int64(r.Time),
+		Details: detailsAny,
+		Labels: labelsVal,
 	}
 	return pb, nil
 }

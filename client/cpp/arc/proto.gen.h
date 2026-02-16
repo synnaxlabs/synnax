@@ -11,28 +11,28 @@
 
 #pragma once
 
+#include <utility>
 #include <string>
 #include <unordered_map>
-#include <utility>
 
-#include "client/cpp/arc/json.gen.h"
 #include "client/cpp/arc/types.gen.h"
+#include "client/cpp/arc/json.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
-#include "x/cpp/status/json.gen.h"
-#include "x/cpp/status/proto.gen.h"
-
-#include "arc/cpp/graph/json.gen.h"
-#include "arc/cpp/graph/proto.gen.h"
-#include "arc/cpp/module/json.gen.h"
-#include "arc/cpp/module/proto.gen.h"
-#include "arc/cpp/text/json.gen.h"
-#include "arc/cpp/text/proto.gen.h"
 #include "core/pkg/service/arc/pb/arc.pb.h"
+#include "arc/cpp/graph/proto.gen.h"
+#include "arc/cpp/graph/json.gen.h"
+#include "arc/cpp/text/proto.gen.h"
+#include "arc/cpp/text/json.gen.h"
+#include "arc/cpp/module/proto.gen.h"
+#include "arc/cpp/module/json.gen.h"
+#include "x/cpp/status/proto.gen.h"
+#include "x/cpp/status/json.gen.h"
 
 namespace synnax::arc {
 
-inline ::service::arc::pb::Mode ModeToPB(const std::string &cpp) {
+
+inline ::service::arc::pb::Mode ModeToPB(const std::string& cpp) {
     static const std::unordered_map<std::string, ::service::arc::pb::Mode> kMap = {
         {MODE_TEXT, ::service::arc::pb::MODE_TEXT},
         {MODE_GRAPH, ::service::arc::pb::MODE_GRAPH},
@@ -43,12 +43,9 @@ inline ::service::arc::pb::Mode ModeToPB(const std::string &cpp) {
 
 inline std::string ModeFromPB(::service::arc::pb::Mode pb) {
     switch (pb) {
-        case ::service::arc::pb::MODE_TEXT:
-            return MODE_TEXT;
-        case ::service::arc::pb::MODE_GRAPH:
-            return MODE_GRAPH;
-        default:
-            return MODE_TEXT;
+    case ::service::arc::pb::MODE_TEXT: return MODE_TEXT;
+    case ::service::arc::pb::MODE_GRAPH: return MODE_GRAPH;
+    default: return MODE_TEXT;
     }
 }
 
@@ -58,8 +55,9 @@ inline ::service::arc::pb::StatusDetails StatusDetails::to_proto() const {
     return pb;
 }
 
-inline std::pair<StatusDetails, x::errors::Error>
-StatusDetails::from_proto(const ::service::arc::pb::StatusDetails &pb) {
+inline std::pair<StatusDetails, x::errors::Error> StatusDetails::from_proto(
+    const ::service::arc::pb::StatusDetails& pb
+) {
     StatusDetails cpp;
     cpp.running = pb.running();
     return {cpp, x::errors::NIL};
@@ -77,8 +75,9 @@ inline ::service::arc::pb::Arc Arc::to_proto() const {
     return pb;
 }
 
-inline std::pair<Arc, x::errors::Error>
-Arc::from_proto(const ::service::arc::pb::Arc &pb) {
+inline std::pair<Arc, x::errors::Error> Arc::from_proto(
+    const ::service::arc::pb::Arc& pb
+) {
     Arc cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.key());

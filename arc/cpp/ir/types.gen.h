@@ -100,9 +100,9 @@ struct Node {
 
 /// @brief Authorities holds the static authority declarations from an Arc program.
 struct Authorities {
-    /// @brief default is the default authority for all write channels not explicitly
+    /// @brief default_ is the default authority for all write channels not explicitly
     /// listed.
-    std::optional<std::uint8_t> default;
+    std::optional<std::uint8_t> default_;
     /// @brief channels maps channel keys to their specific authority values.
     std::unordered_map<std::uint32_t, std::uint8_t> channels;
 
@@ -276,6 +276,7 @@ struct Stage {
     [[nodiscard]] ::arc::ir::pb::Stage to_proto() const;
     static std::pair<Stage, x::errors::Error>
     from_proto(const ::arc::ir::pb::Stage &pb);
+    [[nodiscard]] std::string to_string() const;
 };
 
 struct Functions : private std::vector<Function> {
@@ -446,6 +447,9 @@ struct Sequence {
     [[nodiscard]] ::arc::ir::pb::Sequence to_proto() const;
     static std::pair<Sequence, x::errors::Error>
     from_proto(const ::arc::ir::pb::Sequence &pb);
+    [[nodiscard]] const Stage &operator[](size_t idx) const;
+    [[nodiscard]] const Stage &next(const std::string &stage_key) const;
+    [[nodiscard]] std::string to_string() const;
 };
 
 struct Sequences : private std::vector<Sequence> {
@@ -527,5 +531,6 @@ struct IR {
     [[nodiscard]] std::unordered_map<std::string, std::vector<Edge>>
     edges_from(const std::string &node_key) const;
     [[nodiscard]] std::vector<Edge> edges_to(const std::string &node_key) const;
+    [[nodiscard]] const Sequence &sequence(const std::string &key) const;
 };
 }

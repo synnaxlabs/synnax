@@ -83,7 +83,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 						{
 							Key:  "write_node",
 							Type: "write",
-							Channels: arcsymbol.Channels{
+							Channels: types.Channels{
 								Write: set.Mapped[uint32, string]{uint32(ch.Key()): "actuator_1"},
 							},
 						},
@@ -183,7 +183,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 						{
 							Key:  "write_node",
 							Type: "write",
-							Channels: arcsymbol.Channels{
+							Channels: types.Channels{
 								Write: set.Mapped[uint32, string]{uint32(dataCh.Key()): "write_data_with_index"},
 							},
 						},
@@ -483,7 +483,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 						{
 							Key:  "write_node",
 							Type: "write",
-							Channels: arcsymbol.Channels{
+							Channels: types.Channels{
 								Write: set.Mapped[uint32, string]{
 									uint32(readCh1.Key()): "complex_read_1",
 									uint32(writeCh.Key()): "complex_write",

@@ -131,7 +131,7 @@ TEST(testGRPC, testBasicStream) {
     streamer->close_send();
     auto res = ASSERT_NIL_P(streamer->receive());
     ASSERT_EQ(res.payload(), "Read request: Sending to Streaming Server");
-    ASSERT_OCCURRED_AS_P(streamer->receive(), EOF_ERR);
+    ASSERT_OCCURRED_AS_P(streamer->receive(), ERR_EOF);
     mock::stop_servers();
     s.join();
 }
@@ -167,8 +167,8 @@ TEST(testGRPC, testMultipleStreamObjects) {
         res_two.payload(),
         "Read request: Sending to Streaming Server from Streamer Two"
     );
-    ASSERT_OCCURRED_AS_P(streamer_one->receive(), EOF_ERR);
-    ASSERT_OCCURRED_AS_P(streamer_two->receive(), EOF_ERR);
+    ASSERT_OCCURRED_AS_P(streamer_one->receive(), ERR_EOF);
+    ASSERT_OCCURRED_AS_P(streamer_two->receive(), ERR_EOF);
 
     mock::stop_servers();
     s1.join();
@@ -198,7 +198,7 @@ TEST(testGRPC, testSendMultipleMessages) {
     auto res_two = ASSERT_NIL_P(streamer->receive());
     ASSERT_EQ(res_two.payload(), "Read request: Sending New Message");
 
-    ASSERT_OCCURRED_AS_P(streamer->receive(), EOF_ERR);
+    ASSERT_OCCURRED_AS_P(streamer->receive(), ERR_EOF);
 
     mock::stop_servers();
     s.join();

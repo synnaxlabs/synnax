@@ -48,28 +48,36 @@ public:
     /// @param size the number of series to allocate space for.
     explicit Frame(size_t size);
 
-    /// @brief constructs the frame from its protobuf representation.
-    /// @param f the protobuf representation of the frame.
-    explicit Frame(const ::telem::PBFrame &f);
-
     /// @brief constructs a frame with a single channel and series.
     /// @param chan the channel key corresponding to the given series.
     /// @param ser the series to add to the frame.
-    Frame(const std::uint32_t &chan, Series &&ser);
+    Frame(const std::uint32_t &chan, x::telem::Series &&ser);
 
     explicit Frame(
-        std::unordered_map<std::uint32_t, SampleValue> &data,
+        std::unordered_map<std::uint32_t, x::telem::SampleValue> &data,
         size_t cap = 0
     );
 
-    /// @brief binds the frame to the given protobuf representation.
-    /// @param f the protobuf representation to bind to. This pb must be non-null.
-    void to_proto(::telem::PBFrame *f) const;
+    /// @brief converts the frame to its protobuf representation.
+    /// @return the protobuf representation of the frame.
+    [[nodiscard]] ::x::telem::pb::Frame to_proto() const;
 
-    /// @brief adds the given channel and series to the frame, moving the series.
+    /// @brief constructs a frame from its protobuf representation.
+    /// @param pb the protobuf representation to convert from.
+    /// @return a pair containing the frame and any error that occurred.
+    static std::pair<Frame, x::errors::Error>
+    from_proto(const ::x::telem::pb::Frame &pb);
+
+    /// @brief adds a channel and series to the frame.
     /// @param chan the channel key to add.
     /// @param ser the series to add for the channel key.
-    void emplace(const std::uint32_t &chan, Series &&ser);
+    void add(const std::uint32_t &chan, x::telem::Series &ser);
+
+    /// @brief adds the given series to the frame for the given channel key. Unlike
+    /// add, this method moves the series into the frame, rather than copying it.
+    /// @param chan the channel key to add.
+    /// @param ser the series to add for the channel key.
+    void emplace(const std::uint32_t &chan, x::telem::Series &&ser);
 
     /// @brief returns true if the frame has no series.
     [[nodiscard]] bool empty() const;
@@ -86,7 +94,8 @@ public:
         throw std::runtime_error("channel not found");
     }
 
-    [[nodiscard]] SampleValue at(const std::uint32_t &key, const int &index) const;
+    [[nodiscard]] telem::SampleValue
+    at(const std::uint32_t &key, const int &index) const;
 
     /// @brief returns the number of series in the frame.
     [[nodiscard]] size_t size() const { return series != nullptr ? series->size() : 0; }
@@ -124,14 +133,14 @@ public:
     /// traverse the channel keys and series in the frame.
     struct Iterator {
         using iterator_category = std::forward_iterator_tag;
-        using value_type = std::pair<std::uint32_t, Series &>;
+        using value_type = std::pair<std::uint32_t, x::telem::Series &>;
         using difference_type = std::ptrdiff_t;
         using pointer = value_type *;
         using reference = value_type &;
 
         Iterator(
             std::vector<std::uint32_t> &channels_ref,
-            std::vector<Series> &series_ref,
+            std::vector<telem::Series> &series_ref,
             const size_t pos
         ):
             channels(&channels_ref), series(&series_ref), pos(pos) {}
@@ -154,7 +163,7 @@ public:
         // lifecycle concerns because the Iterator is only valid while the parent Frame
         // exists - the same contract as STL container iterators.
         std::vector<std::uint32_t> *channels;
-        std::vector<Series> *series;
+        std::vector<telem::Series> *series;
         size_t pos;
     };
 
@@ -179,6 +188,7 @@ private:
 
 inline ::x::telem::pb::Frame Frame::to_proto() const {
     ::x::telem::pb::Frame pb;
+    if (this->channels == nullptr || this->series == nullptr) return pb;
     pb.mutable_keys()->Add(this->channels->begin(), this->channels->end());
     pb.mutable_series()->Reserve(static_cast<int>(this->series->size()));
     for (const auto &ser: *this->series)

@@ -184,6 +184,7 @@ struct Params : private std::vector<Param> {
 
     static Params parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+    [[nodiscard]] const Param &operator[](const std::string &name) const;
 };
 
 /// @brief FunctionProperties contains common parameter definitions for function-like

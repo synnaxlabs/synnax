@@ -178,21 +178,21 @@ TEST_F(XTestTest, TestAssertNilSingleEvaluation) {
         inc_counter();
         return errors::NIL;
     };
-    ASSERT_NIL(returns_nil());
-    EXPECT_EQ(eval_count, 1) << "ASSERT_NIL evaluated expression " << eval_count
+    ASSERT_NIL(nil_with_side_effect());
+    EXPECT_EQ(this->counter, 1) << "ASSERT_NIL evaluated expression " << this->counter
                              << " times instead of 1";
 }
 
 /// @brief ASSERT_OCCURRED_AS should only evaluate its expression once.
 /// Regression test for double-evaluation bug.
 TEST_F(XTestTest, TestAssertOccurredAsSingleEvaluation) {
-    const auto expected = errors::Error("test error");
+    const auto expected = errors::Error("test.error", "");
     auto error_with_side_effect = [this, &expected]() -> errors::Error {
         inc_counter();
         return expected;
     };
-    ASSERT_OCCURRED_AS(returns_error(), errors::Error("test.error", ""));
-    EXPECT_EQ(eval_count, 1) << "ASSERT_OCCURRED_AS evaluated expression " << eval_count
+    ASSERT_OCCURRED_AS(error_with_side_effect(), errors::Error("test.error", ""));
+    EXPECT_EQ(this->counter, 1) << "ASSERT_OCCURRED_AS evaluated expression " << this->counter
                              << " times instead of 1";
 }
 }

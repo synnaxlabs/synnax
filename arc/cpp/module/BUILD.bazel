@@ -20,6 +20,7 @@ cc_test(
     srcs = ["module_test.cpp"],
     deps = [
         "//x/cpp/pb",
+        "//x/cpp/test",
         ":module",
         "//arc/go/module:module_grpc",
         "@googletest//:gtest_main",

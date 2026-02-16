@@ -24,7 +24,6 @@
 
 #include "core/pkg/api/grpc/auth/auth.pb.h"
 
-namespace synnax::auth {
 /// @brief auth metadata key. NOTE: This must be lowercase, GRPC will panic on
 /// capitalized or uppercase keys.
 const std::string HEADER_KEY = "authorization";
@@ -32,14 +31,14 @@ const std::string HEADER_KEY = "authorization";
 const std::string HEADER_VALUE_PREFIX = "Bearer ";
 
 /// @brief type alias for the auth login transport.
-using LoginClient = freighter::
-    UnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>;
+using AuthLoginClient = freighter::
+    UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>;
 
-const x::errors::Error AUTH_ERROR = x::errors::SY.sub("auth");
-const x::errors::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid_token");
-const x::errors::Error EXPIRED_TOKEN = AUTH_ERROR.sub("expired_token");
-const x::errors::Error INVALID_CREDENTIALS = AUTH_ERROR.sub("invalid-credentials");
-const std::vector RETRY_ON_ERRORS = {INVALID_TOKEN, EXPIRED_TOKEN};
+const x::errors::Error ERR = x::errors::SY.sub("auth");
+const x::errors::Error ERR_INVALID_TOKEN = ERR.sub("invalid_token");
+const x::errors::Error ERR_EXPIRED_TOKEN = ERR.sub("expired_token");
+const x::errors::Error ERR_INVALID_CREDENTIALS = ERR.sub("invalid-credentials");
+const std::vector RETRY_ON_ERRORS = {ERR_INVALID_TOKEN, ERR_EXPIRED_TOKEN};
 
 /// @brief diagnostic information about the Synnax cluster.
 struct ClusterInfo {
@@ -53,33 +52,26 @@ struct ClusterInfo {
     /// request.
     x::telem::TimeStamp node_time = x::telem::TimeStamp(0);
 
-    static std::pair<ClusterInfo, x::errors::Error>
-    from_proto(const api::v1::ClusterInfo &info) {
-        auto [cluster_key, err] = x::uuid::UUID::parse(info.cluster_key());
-        if (err) return {{}, err};
-        return {
-            ClusterInfo{
-                .cluster_key = cluster_key,
-                .node_version = info.node_version(),
-                .node_key = info.node_key(),
-                .node_time = x::telem::TimeStamp(info.node_time()),
-            },
-            x::errors::NIL,
-        };
-    }
+    ClusterInfo() = default;
+
+    explicit ClusterInfo(const grpc::auth::ClusterInfo &info):
+        cluster_key(x::uuid::UUID::parse(info.cluster_key()).first),
+        node_version(info.node_version()),
+        node_key(info.node_key()),
+        node_time(info.node_time()) {}
 };
 
 /// @brief AuthMiddleware for authenticating requests using a bearer token.
 /// AuthMiddleware has no preference on order when provided to use. Middleware is safe
 /// to use concurrently.
-class Middleware final : public freighter::PassthroughMiddleware {
+class AuthMiddleware final : public freighter::PassthroughMiddleware {
     /// Token to be used for authentication. Empty when auth_attempted is false or error
     /// is not nil.
     std::string token;
     /// Whether the middleware has successfully authenticated with the server.
     std::atomic<bool> authenticated = false;
     /// Transport for authentication requests.
-    std::unique_ptr<LoginClient> login_client;
+    std::unique_ptr<AuthLoginClient> login_client;
     /// Username to be used for authentication.
     std::string username;
     /// Password to be used for authentication.
@@ -92,10 +84,10 @@ class Middleware final : public freighter::PassthroughMiddleware {
 
 public:
     /// Cluster information.
-    ClusterInfo cluster_info;
+    ClusterInfo cluster_info = ClusterInfo();
 
-    Middleware(
-        std::unique_ptr<LoginClient> login_client,
+    AuthMiddleware(
+        std::unique_ptr<AuthLoginClient> login_client,
         std::string username,
         std::string password,
         const x::telem::TimeSpan clock_skew_threshold
@@ -117,9 +109,7 @@ public:
         auto [res, err] = login_client->send("/auth/login", req);
         if (err) return err;
         this->token = res.token();
-        auto [cluster_info, ci_err] = ClusterInfo::from_proto(res.cluster_info());
-        if (ci_err) return ci_err;
-        this->cluster_info = cluster_info;
+        this->cluster_info = ClusterInfo(res.cluster_info());
         skew_calc.end(this->cluster_info.node_time);
 
         if (skew_calc.exceeds(this->clock_skew_threshold)) {
@@ -155,4 +145,3 @@ public:
         return {res_ctx, err};
     }
 };
-}

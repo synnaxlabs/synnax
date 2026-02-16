@@ -11,17 +11,16 @@
 
 #pragma once
 
-#include <type_traits>
 #include <utility>
+#include <type_traits>
 
-#include "x/cpp/control/json.gen.h"
 #include "x/cpp/control/types.gen.h"
+#include "x/cpp/control/json.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/pb/pb.h"
+#include "x/go/control/pb/control.pb.h"
 #include "x/cpp/json/any.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/pb/pb.h"
-
-#include "x/go/control/pb/control.pb.h"
 
 namespace x::control {
 
@@ -32,15 +31,16 @@ inline ::x::control::pb::Subject Subject::to_proto() const {
     return pb;
 }
 
-inline std::pair<Subject, x::errors::Error>
-Subject::from_proto(const ::x::control::pb::Subject &pb) {
+inline std::pair<Subject, x::errors::Error> Subject::from_proto(
+    const ::x::control::pb::Subject& pb
+) {
     Subject cpp;
     cpp.key = pb.key();
     cpp.name = pb.name();
     return {cpp, x::errors::NIL};
 }
 
-template<typename R>
+template <typename R>
 inline ::x::control::pb::State State<R>::to_proto() const {
     ::x::control::pb::State pb;
     *pb.mutable_subject() = this->subject.to_proto();
@@ -48,19 +48,20 @@ inline ::x::control::pb::State State<R>::to_proto() const {
         *pb.mutable_resource() = x::json::to_any(this->resource);
     } else {
         if constexpr (std::is_same_v<R, std::monostate>)
-            *pb.mutable_resource() = x::json::to_any(x::json::json(nullptr));
-        else if constexpr (std::is_same_v<R, x::json::json>)
-            *pb.mutable_resource() = x::json::to_any(this->resource);
-        else
-            *pb.mutable_resource() = x::json::to_any(this->resource.to_json());
+        *pb.mutable_resource() = x::json::to_any(x::json::json(nullptr));
+    else if constexpr (std::is_same_v<R, x::json::json>)
+        *pb.mutable_resource() = x::json::to_any(this->resource);
+    else
+        *pb.mutable_resource() = x::json::to_any(this->resource.to_json());
     }
     pb.set_authority(this->authority);
     return pb;
 }
 
-template<typename R>
-inline std::pair<State<R>, x::errors::Error>
-State<R>::from_proto(const ::x::control::pb::State &pb) {
+template <typename R>
+inline std::pair<State<R>, x::errors::Error> State<R>::from_proto(
+    const ::x::control::pb::State& pb
+) {
     State<R> cpp;
     {
         auto [v, err] = Subject::from_proto(pb.subject());
@@ -69,21 +70,21 @@ State<R>::from_proto(const ::x::control::pb::State &pb) {
     }
     if constexpr (std::is_same_v<R, x::json::json>) {
         {
-            auto [v, err] = x::json::from_any(pb.resource());
-            if (err) return {{}, err};
-            cpp.resource = v;
-        }
+        auto [v, err] = x::json::from_any(pb.resource());
+        if (err) return {{}, err};
+        cpp.resource = v;
+    }
     } else {
         {
-            auto [val, err] = x::json::from_any(pb.resource());
-            if (err) return {{}, err};
-            if constexpr (std::is_same_v<R, std::monostate>)
-                cpp.resource = std::monostate{};
-            else if constexpr (std::is_same_v<R, x::json::json>)
-                cpp.resource = val;
-            else
-                cpp.resource = R::parse(x::json::Parser(val));
-        }
+        auto [val, err] = x::json::from_any(pb.resource());
+        if (err) return {{}, err};
+        if constexpr (std::is_same_v<R, std::monostate>)
+            cpp.resource = std::monostate{};
+        else if constexpr (std::is_same_v<R, x::json::json>)
+            cpp.resource = val;
+        else
+            cpp.resource = R::parse(x::json::Parser(val));
+    }
     }
     cpp.authority = pb.authority();
     return {cpp, x::errors::NIL};

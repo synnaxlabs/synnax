@@ -13,17 +13,16 @@
 
 #include <utility>
 
-#include "x/cpp/errors/errors.h"
-#include "x/cpp/json/struct.h"
-#include "x/cpp/pb/pb.h"
-#include "x/cpp/spatial/json.gen.h"
-#include "x/cpp/spatial/proto.gen.h"
-
-#include "arc/cpp/graph/json.gen.h"
 #include "arc/cpp/graph/types.gen.h"
-#include "arc/cpp/ir/json.gen.h"
-#include "arc/cpp/ir/proto.gen.h"
+#include "arc/cpp/graph/json.gen.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/pb/pb.h"
 #include "arc/go/graph/pb/graph.pb.h"
+#include "x/cpp/json/struct.h"
+#include "x/cpp/spatial/proto.gen.h"
+#include "x/cpp/spatial/json.gen.h"
+#include "arc/cpp/ir/proto.gen.h"
+#include "arc/cpp/ir/json.gen.h"
 
 namespace arc::graph {
 
@@ -36,8 +35,9 @@ inline ::arc::graph::pb::Node Node::to_proto() const {
     return pb;
 }
 
-inline std::pair<Node, x::errors::Error>
-Node::from_proto(const ::arc::graph::pb::Node &pb) {
+inline std::pair<Node, x::errors::Error> Node::from_proto(
+    const ::arc::graph::pb::Node& pb
+) {
     Node cpp;
     cpp.key = pb.key();
     cpp.type = pb.type();
@@ -61,8 +61,9 @@ inline ::arc::graph::pb::Viewport Viewport::to_proto() const {
     return pb;
 }
 
-inline std::pair<Viewport, x::errors::Error>
-Viewport::from_proto(const ::arc::graph::pb::Viewport &pb) {
+inline std::pair<Viewport, x::errors::Error> Viewport::from_proto(
+    const ::arc::graph::pb::Viewport& pb
+) {
     Viewport cpp;
     {
         auto [v, err] = ::x::spatial::XY::from_proto(pb.position());
@@ -76,32 +77,24 @@ Viewport::from_proto(const ::arc::graph::pb::Viewport &pb) {
 inline ::arc::graph::pb::Graph Graph::to_proto() const {
     ::arc::graph::pb::Graph pb;
     *pb.mutable_viewport() = this->viewport.to_proto();
-    for (const auto &item: this->functions)
-        *pb.add_functions() = item.to_proto();
-    for (const auto &item: this->edges)
-        *pb.add_edges() = item.to_proto();
-    for (const auto &item: this->nodes)
-        *pb.add_nodes() = item.to_proto();
+    for (const auto& item : this->functions) *pb.add_functions() = item.to_proto();
+    for (const auto& item : this->edges) *pb.add_edges() = item.to_proto();
+    for (const auto& item : this->nodes) *pb.add_nodes() = item.to_proto();
     return pb;
 }
 
-inline std::pair<Graph, x::errors::Error>
-Graph::from_proto(const ::arc::graph::pb::Graph &pb) {
+inline std::pair<Graph, x::errors::Error> Graph::from_proto(
+    const ::arc::graph::pb::Graph& pb
+) {
     Graph cpp;
     {
         auto [v, err] = Viewport::from_proto(pb.viewport());
         if (err) return {{}, err};
         cpp.viewport = v;
     }
-    if (auto err = x::pb::from_proto_repeated<::arc::ir::Function>(
-            cpp.functions,
-            pb.functions()
-        ))
-        return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<::arc::ir::Edge>(cpp.edges, pb.edges()))
-        return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<Node>(cpp.nodes, pb.nodes()))
-        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::arc::ir::Function>(cpp.functions, pb.functions())) return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::arc::ir::Edge>(cpp.edges, pb.edges())) return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Node>(cpp.nodes, pb.nodes())) return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

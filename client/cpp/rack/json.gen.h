@@ -11,8 +11,8 @@
 
 #pragma once
 
-#include <cstdint>
 #include <string>
+#include <cstdint>
 
 #include "client/cpp/rack/types.gen.h"
 #include "x/cpp/json/json.h"

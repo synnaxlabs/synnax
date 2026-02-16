@@ -12,17 +12,17 @@
 #pragma once
 
 #include <utility>
-
-#include "x/cpp/errors/errors.h"
-#include "x/cpp/json/json.h"
-
-#include "arc/cpp/compiler/types.gen.h"
 #include "arc/cpp/ir/types.gen.h"
+#include "arc/cpp/compiler/types.gen.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/errors/errors.h"
 #include "arc/go/module/pb/module.pb.h"
+
 
 namespace arc::module {
 
 struct Module;
+
 
 /// @brief Module is a compiled Arc module combining the intermediate representation
 /// with WebAssembly bytecode, ready for execution.
@@ -33,7 +33,6 @@ struct Module : public ::arc::ir::IR, public ::arc::compiler::Output {
 
     using proto_type = ::arc::module::pb::Module;
     [[nodiscard]] ::arc::module::pb::Module to_proto() const;
-    static std::pair<Module, x::errors::Error>
-    from_proto(const ::arc::module::pb::Module &pb);
+    static std::pair<Module, x::errors::Error> from_proto(const ::arc::module::pb::Module& pb);
 };
 }

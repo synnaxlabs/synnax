@@ -13,11 +13,10 @@
 
 #include <utility>
 
-#include "x/cpp/color/json.gen.h"
 #include "x/cpp/color/types.gen.h"
+#include "x/cpp/color/json.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
-
 #include "x/go/color/pb/color.pb.h"
 
 namespace x::color {
@@ -31,8 +30,9 @@ inline ::x::color::pb::Color Color::to_proto() const {
     return pb;
 }
 
-inline std::pair<Color, x::errors::Error>
-Color::from_proto(const ::x::color::pb::Color &pb) {
+inline std::pair<Color, x::errors::Error> Color::from_proto(
+    const ::x::color::pb::Color& pb
+) {
     Color cpp;
     cpp.r = pb.r();
     cpp.g = pb.g();
