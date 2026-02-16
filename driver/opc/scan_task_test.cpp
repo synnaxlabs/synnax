@@ -160,15 +160,23 @@ TEST_F(TestScanTask, testConnectionPooling) {
         {"connection", conn_cfg.to_json()},
     };
 
-    synnax::task::Command cmd1(task.key, BROWSE_CMD_TYPE, scan_cmd);
-    cmd1.key = "scan_cmd_1";
+    synnax::task::Command cmd1{
+        .task = task.key,
+        .type = BROWSE_CMD_TYPE,
+        .key = "scan_cmd_1",
+        .args = scan_cmd
+    };
 
     scan_task->exec(cmd1);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
 
-    synnax::task::Command cmd2(task.key, BROWSE_CMD_TYPE, scan_cmd);
-    cmd2.key = "scan_cmd_2";
+    synnax::task::Command cmd2{
+        .task = task.key,
+        .type = BROWSE_CMD_TYPE,
+        .key = "scan_cmd_2",
+        .args = scan_cmd
+    };
 
     scan_task->exec(cmd2);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
@@ -279,7 +287,7 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
           {"security_mode", "None"},
           {"security_policy", "None"}}},
         {"channels", x::json::json::array()}
-    }.dump();
+    };
 
     // Pass devices via ScannerContext
     std::unordered_map<std::string, synnax::device::Device> devices_map;
@@ -307,7 +315,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
           {"security_mode", "None"},
           {"security_policy", "None"}}},
         {"channels", x::json::json::array()}
-    }.dump();
+    };
 
     std::unordered_map<std::string, synnax::device::Device> devices_map;
     devices_map[dev.key] = dev;

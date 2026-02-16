@@ -17,6 +17,7 @@
 
 #include "core/pkg/api/grpc/auth/auth.pb.h"
 
+namespace synnax::auth {
 /// @brief it should correctly authenticate with a Synnax cluster.
 TEST(TestAuth, testLoginHappyPath) {
     auto res = grpc::auth::LoginResponse();
@@ -130,4 +131,5 @@ TEST_F(TestAuthRetry, RetryOnExpiredToken) {
     auto v = 1;
     const auto r = ASSERT_NIL_P(mock_client.send("", v));
     ASSERT_EQ(r, 1);
+}
 }

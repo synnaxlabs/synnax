@@ -32,14 +32,14 @@ protected:
     synnax::channel::Channel state_idx_ch = synnax::channel::Channel{
         .name = make_unique_channel_name("state_idx_ch"),
         .data_type = x::telem::TIMESTAMP_T,
-        .index = 0,
-        .is_index = true
+        .is_index = true,
+        .index = 0
     };
     synnax::channel::Channel state_ch_1 = synnax::channel::Channel{
         .name = make_unique_channel_name("state_ch_1"),
         .data_type = x::telem::FLOAT64_T,
-        .index = state_idx_ch.key,
-        .is_index = false
+        .is_index = false,
+        .index = state_idx_ch.key
     };
     synnax::channel::Channel cmd_ch_1 = synnax::channel::Channel{
         .name = make_unique_channel_name("cmd_ch_1"),
@@ -49,8 +49,8 @@ protected:
     synnax::channel::Channel state_ch_2 = synnax::channel::Channel{
         .name = make_unique_channel_name("state_ch_2"),
         .data_type = x::telem::FLOAT64_T,
-        .index = state_idx_ch.key,
-        .is_index = false
+        .is_index = false,
+        .index = state_idx_ch.key
     };
     synnax::channel::Channel cmd_ch_2 = synnax::channel::Channel{
         .name = make_unique_channel_name("cmd_ch_2"),

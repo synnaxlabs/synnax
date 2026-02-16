@@ -127,9 +127,10 @@ x::errors::Error Writer::close(const x::errors::Error &err) {
     stream->close_send();
     while (true) {
         if (this->close_err) return this->close_err.skip(WRITER_CLOSED);
-        auto [res, err] = stream->receive();
-        if (err)
-            this->close_err = err.matches(freighter::ERR_EOF) ? WRITER_CLOSED : err;
+        auto [res, recv_err] = stream->receive();
+        if (recv_err)
+            this->close_err = recv_err.matches(freighter::ERR_EOF) ? WRITER_CLOSED
+                                                                   : recv_err;
         else
             this->close_err = x::errors::Error(res.error());
     }

@@ -38,8 +38,8 @@ protected:
         index_channel = synnax::channel::Channel{
             .name = make_unique_channel_name("time_channel"),
             .data_type = x::telem::TIMESTAMP_T,
-            .index = 0,
-            .is_index = true
+            .is_index = true,
+            .index = 0
         };
         ASSERT_NIL(client->channels.create(index_channel));
 
@@ -200,15 +200,15 @@ TEST(ReadTask, testBasicReadTask) {
     auto index_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("time_channel"),
         .data_type = x::telem::TIMESTAMP_T,
-        .index = 0,
-        .is_index = true
+        .is_index = true,
+        .index = 0
     };
 
     auto data_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("data_channel"),
         .data_type = x::telem::UINT8_T,
-        .index = index_channel.key,
-        .is_index = false
+        .is_index = false,
+        .index = index_channel.key
     };
 
     auto client = std::make_shared<synnax::Synnax>(new_test_client());

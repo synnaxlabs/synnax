@@ -189,8 +189,8 @@ public:
                 .authorities = std::move(initial_authorities),
                 .subject =
                     x::control::Subject{
-                        .name = task_meta.name,
                         .key = std::to_string(task_meta.key),
+                        .name = task_meta.name,
                     },
                 .mode = common::data_saving_writer_mode(cfg.data_saving),
             },

@@ -24,7 +24,7 @@ TEST(TaskTests, testCreateTask) {
     auto m = Task{
         .name = "test_module",
         .type = "mock",
-        .config = "config",
+        .config = x::json::json{{"key", "config"}},
         .internal = false,
         .snapshot = true
     };
@@ -272,8 +272,8 @@ TEST(StatusDetailsTests, testParseFromJSON) {
 TEST(StatusDetailsTests, testToJSON) {
     StatusDetails details{
         .task = 987654321,
-        .cmd = "stop",
         .running = false,
+        .cmd = "stop",
         .data = x::json::json{{"status", "completed"}},
     };
     const auto j = details.to_json();
@@ -287,8 +287,8 @@ TEST(StatusDetailsTests, testToJSON) {
 TEST(StatusDetailsTests, testRoundTrip) {
     StatusDetails original{
         .task = 555555,
-        .cmd = "configure",
         .running = true,
+        .cmd = "configure",
         .data = x::json::json{{"config", "test"}, {"version", 2}},
     };
     const auto j = original.to_json();
