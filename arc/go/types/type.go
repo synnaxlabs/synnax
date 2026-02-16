@@ -595,10 +595,14 @@ func (t Type) Density() int {
 }
 
 var (
+	// UnsignedIntegers contains all unsigned integer types.
 	UnsignedIntegers = []Type{U8(), U16(), U32(), U64()}
-	SignedIntegers   = []Type{I8(), I16(), I32(), I64()}
-	Floats           = []Type{F32(), F64()}
-	Numerics         = slices.Concat(UnsignedIntegers, SignedIntegers, Floats)
+	// SignedIntegers contains all signed integer types.
+	SignedIntegers = []Type{I8(), I16(), I32(), I64()}
+	// Floats contains all floating-point types.
+	Floats = []Type{F32(), F64()}
+	// Numerics contains all numeric types (unsigned, signed, and floating-point).
+	Numerics = slices.Concat(UnsignedIntegers, SignedIntegers, Floats)
 )
 
 // FromTelem converts a telemetry data type to an Arc type.

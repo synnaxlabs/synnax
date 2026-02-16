@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { caseconv } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const MAKE = "Modbus";

@@ -11,7 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, caseconv, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { symbol } from "@/schematic/symbol";
 import {
   type Key,
   keyZ,
@@ -20,7 +20,6 @@ import {
   type Schematic,
   schematicZ,
 } from "@/schematic/types.gen";
-import { symbol } from "@/schematic/symbol";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
 

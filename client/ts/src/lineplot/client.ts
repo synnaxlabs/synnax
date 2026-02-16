@@ -19,7 +19,6 @@ import {
   type New,
   newZ,
 } from "@/lineplot/types.gen";
-import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
 
