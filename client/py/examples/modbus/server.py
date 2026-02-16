@@ -23,12 +23,11 @@ from examples.simulators.device_sim import DeviceSim
 from synnax import modbus
 
 
-async def updating_writer(context):
+async def updating_writer(context, rate: float = 50):
     """Update Modbus registers continuously with simulated sensor data."""
     slave_id = 0x00
     start_ref = time.time()
     i = 0
-    RATE = 50  # Hz
     SENSOR_COUNT = 5
 
     while True:
@@ -68,7 +67,7 @@ async def updating_writer(context):
         coil_values = [True, False, True, False, True]
         context[slave_id].setValues(1, 0, coil_values)
 
-        await asyncio.sleep(1 / RATE)
+        await asyncio.sleep(1 / rate)
 
 
 class ModbusSim(DeviceSim):
@@ -80,7 +79,7 @@ class ModbusSim(DeviceSim):
     device_name = "Modbus TCP Test Server"
 
     async def _run_server(self) -> None:
-        await run_server(self.host, self.port)
+        await run_server(self.host, self.port, self.rate)
 
     @staticmethod
     def create_device(rack_key: int) -> modbus.Device:
@@ -98,6 +97,7 @@ class ModbusSim(DeviceSim):
 async def run_server(
     host: str = ModbusSim.host,
     port: int = ModbusSim.port,
+    rate: float = 50,
 ) -> None:
     """Run the Modbus TCP server."""
     # Initialize data store
@@ -119,7 +119,7 @@ async def run_server(
     identity.ModelName = "Extended Simulator"
     identity.MajorMinorRevision = "1.0.0"
 
-    asyncio.create_task(updating_writer(context))
+    asyncio.create_task(updating_writer(context, rate))
 
     await StartAsyncTcpServer(context=context, identity=identity, address=(host, port))
 

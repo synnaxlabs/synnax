@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 
+from typing import Any
+
 import synnax as sy
 from synnax import modbus
 from synnax.modbus.types import BaseChan
@@ -22,7 +24,7 @@ class ModbusReadInputRegister(ModbusTaskCase):
     Tests input register channels (function code 4, read-only, addresses 0-1).
     """
 
-    def __init__(self, **kwargs: object) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(task_name="Modbus Read Input Register", **kwargs)
 
     def create_channels(self) -> list[BaseChan]:
@@ -64,7 +66,7 @@ class ModbusReadHoldingRegister(ModbusTaskCase):
     Tests holding register input channels (function code 3, read/write, addresses 0-1).
     """
 
-    def __init__(self, **kwargs: object) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(task_name="Modbus Read Holding Register", **kwargs)
 
     def create_channels(self) -> list[BaseChan]:
@@ -106,7 +108,7 @@ class ModbusReadDiscreteInput(ModbusTaskCase):
     Tests discrete input channels (function code 2, 1-bit read-only, addresses 0-1).
     """
 
-    def __init__(self, **kwargs: object) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(task_name="Modbus Read Discrete Input", **kwargs)
 
     def create_channels(self) -> list[BaseChan]:
@@ -146,7 +148,7 @@ class ModbusReadCoil(ModbusTaskCase):
     Tests coil input channels (function code 1, 1-bit read/write, addresses 0-1).
     """
 
-    def __init__(self, **kwargs: object) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(task_name="Modbus Read Coil", **kwargs)
 
     def create_channels(self) -> list[BaseChan]:
@@ -186,7 +188,7 @@ class ModbusReadMixed(ModbusTaskCase):
     Tests mixed channel types (input registers + discrete inputs).
     """
 
-    def __init__(self, **kwargs: object) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(task_name="Modbus Read Mixed", **kwargs)
 
     def create_channels(self) -> list[BaseChan]:

@@ -43,8 +43,9 @@ class DeviceSim(Simulator):
     startup_timeout: float = 10.0
     device_name: str
 
-    def __init__(self, verbose: bool = False):
+    def __init__(self, rate: sy.Rate = 50 * sy.Rate.HZ, verbose: bool = False):
         super().__init__(verbose=verbose)
+        self.rate = rate
         self._process: BaseProcess | None = None
 
     def start(self) -> None:

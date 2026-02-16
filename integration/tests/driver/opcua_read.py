@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Any
+
 import synnax as sy
 from synnax import opcua
 
@@ -20,15 +22,8 @@ class OPCUAReadFloat(OPCUATaskCase):
     Tests scalar float32 channels (NodeIds NS=2;I=8, NS=2;I=9).
     """
 
-    def __init__(
-        self, *, array_mode: bool = False, array_size: int = 5, **kwargs: object
-    ) -> None:
-        super().__init__(
-            task_name="OPCUA Read Float",
-            array_mode=array_mode,
-            array_size=array_size,
-            **kwargs,
-        )
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(task_name="OPCUA Read Float", **kwargs)
 
     def create_channels(self) -> list[opcua.ReadChannel]:
         """Create float32 channels."""
@@ -69,15 +64,8 @@ class OPCUAReadBool(OPCUATaskCase):
     Tests scalar boolean channels (UINT8, NodeIds NS=2;I=13, NS=2;I=14).
     """
 
-    def __init__(
-        self, *, array_mode: bool = False, array_size: int = 5, **kwargs: object
-    ) -> None:
-        super().__init__(
-            task_name="OPCUA Read Bool",
-            array_mode=array_mode,
-            array_size=array_size,
-            **kwargs,
-        )
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(task_name="OPCUA Read Bool", **kwargs)
 
     def create_channels(self) -> list[opcua.ReadChannel]:
         """Create boolean channels."""
@@ -118,16 +106,8 @@ class OPCUAReadArray(OPCUATaskCase):
     Tests array mode float32 channels (NodeIds NS=2;I=2, NS=2;I=3).
     """
 
-    def __init__(
-        self, *, array_mode: bool = True, array_size: int = 5, **kwargs: object
-    ) -> None:
-
-        super().__init__(
-            task_name="OPCUA Read Array",
-            array_mode=array_mode,
-            array_size=array_size,
-            **kwargs,
-        )
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(task_name="OPCUA Read Array", array_mode=True, **kwargs)
 
     def create_channels(self) -> list[opcua.ReadChannel]:
         """Create array channels."""
@@ -169,15 +149,8 @@ class OPCUAReadMixed(OPCUATaskCase):
     Tests scalar mode with both float32 and boolean channels.
     """
 
-    def __init__(
-        self, *, array_mode: bool = False, array_size: int = 5, **kwargs: object
-    ) -> None:
-        super().__init__(
-            task_name="OPCUA Read Mixed",
-            array_mode=array_mode,
-            array_size=array_size,
-            **kwargs,
-        )
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(task_name="OPCUA Read Mixed", **kwargs)
 
     def create_channels(self) -> list[opcua.ReadChannel]:
         """Create mixed channel types."""

@@ -37,8 +37,9 @@ class OPCUATaskCase(SimulatorTaskCase):
         self,
         *,
         task_name: str,
+        sample_rate: sy.Rate = 100 * sy.Rate.HZ,
         array_mode: bool = False,
-        array_size: int = 5,
+        array_size: int = 100,
         **kwargs: Any,
     ) -> None:
         self.array_mode: bool = array_mode
@@ -46,8 +47,13 @@ class OPCUATaskCase(SimulatorTaskCase):
 
         super().__init__(
             task_name=task_name,
+            sample_rate=sample_rate,
             **kwargs,
         )
+
+    def setup(self) -> None:
+        self.sim = OPCUASim(rate=self.SAMPLE_RATE, array_size=self.array_size)
+        super().setup()
 
     @abstractmethod
     def create_channels(self) -> list[opcua.ReadChannel]:

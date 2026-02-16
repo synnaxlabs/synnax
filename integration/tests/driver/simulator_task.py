@@ -59,7 +59,8 @@ class SimulatorTaskCase(TaskCase):
 
     def setup(self) -> None:
         """Start simulator, connect device, and configure task."""
-        self.sim = self.sim_class()
+        if self.sim is None:
+            self.sim = self.sim_class(rate=self.SAMPLE_RATE)
         self.sim.start()
         self._connect_device()
         super().setup()
@@ -68,7 +69,7 @@ class SimulatorTaskCase(TaskCase):
         """Start (or restart) the simulator."""
         if self.sim is not None:
             self.sim.stop()
-        self.sim = self.sim_class()
+        self.sim = self.sim_class(rate=self.SAMPLE_RATE)
         self.sim.start()
 
     def cleanup_simulator(self, log: bool = False) -> None:
