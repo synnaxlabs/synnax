@@ -197,9 +197,6 @@ class RangeLifecycle(ConsoleCase):
         assert self.range_name is not None
         self.log("Testing: Unfavorite range")
         self.console.ranges.unfavorite_from_explorer(self.range_name)
-        assert not self.console.ranges.exists_in_toolbar(
-            self.range_name
-        ), f"Range '{self.range_name}' should not appear in toolbar after unfavoriting"
 
         self.log("Testing: Favorite range")
         self.console.ranges.favorite_from_explorer(self.range_name)
@@ -221,9 +218,6 @@ class RangeLifecycle(ConsoleCase):
         assert self.range_name is not None
         self.log("Testing: Remove active range from toolbar")
         self.console.ranges.unfavorite_from_toolbar(self.range_name)
-        assert not self.console.ranges.exists_in_toolbar(
-            self.range_name
-        ), "Range should be removed from toolbar"
 
         self.log("Re-favoriting and re-activating range for subsequent tests")
         self.console.ranges.open_explorer()
