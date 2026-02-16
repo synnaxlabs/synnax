@@ -11,7 +11,6 @@ package token_test
 
 import (
 	"crypto"
-	"crypto/rand"
 	"crypto/rsa"
 	"time"
 
@@ -37,7 +36,7 @@ var _ = Describe("token", func() {
 		cfg token.ServiceConfig
 	)
 	JustBeforeEach(func() {
-		k, err := rsa.GenerateKey(rand.Reader, 1024)
+		k, err := rsa.GenerateKey(nil, 1024)
 		Expect(err).ToNot(HaveOccurred())
 		cfg.KeyProvider = &mockKeyService{key: k}
 		svc = MustSucceed(token.NewService(cfg))

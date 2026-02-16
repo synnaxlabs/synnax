@@ -61,14 +61,8 @@ func TranslateDiagnostics(
 			end.Col = diag.Start.Col + 1
 		}
 
-		startLine := diag.Start.Line - 1
-		if startLine < 0 {
-			startLine = 0
-		}
-		endLine := end.Line - 1
-		if endLine < 0 {
-			endLine = 0
-		}
+		startLine := max(diag.Start.Line-1, 0)
+		endLine := max(end.Line-1, 0)
 
 		pDiag := protocol.Diagnostic{
 			Range: protocol.Range{

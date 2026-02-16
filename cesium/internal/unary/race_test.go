@@ -79,7 +79,6 @@ var _ = Describe("Unary racing", func() {
 					wg.Add(4)
 
 					for i := range 4 {
-						i := i
 						go func() {
 							defer GinkgoRecover()
 							defer wg.Done()

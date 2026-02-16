@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/server"
-	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -39,9 +38,9 @@ var _ = Describe("HTTP", func() {
 		b := MustSucceed(server.Serve(server.Config{
 			ListenAddress: "localhost:26260",
 			Security: server.SecurityConfig{
-				Insecure: config.True(),
+				Insecure: new(true),
 			},
-			Debug: config.True(),
+			Debug: new(true),
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
 					Transports: []fhttp.BindableTransport{r},

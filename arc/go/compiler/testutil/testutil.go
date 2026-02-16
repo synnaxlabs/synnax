@@ -191,15 +191,12 @@ func (m *opcodeMatcher) FailureMessage(actual any) string {
 	b.WriteString("Opcodes did not match:\n")
 
 	// Show side-by-side comparison
-	maxLen := len(m.expected)
-	if len(actualOpcodes) > maxLen {
-		maxLen = len(actualOpcodes)
-	}
+	maxLen := max(len(actualOpcodes), len(m.expected))
 
-	b.WriteString(fmt.Sprintf("\n%-4s  %-30s  %-30s\n", "Idx", "Expected", "Actual"))
+	fmt.Fprintf(&b, "\n%-4s  %-30s  %-30s\n", "Idx", "Expected", "Actual")
 	b.WriteString(strings.Repeat("-", 70) + "\n")
 
-	for i := 0; i < maxLen; i++ {
+	for i := range maxLen {
 		var expectedStr, actualStr string
 		var marker string
 

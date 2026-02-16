@@ -90,7 +90,7 @@ type Config struct {
 
 var (
 	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{EnableSearch: config.True()}
+	DefaultConfig                       = Config{EnableSearch: new(true)}
 )
 
 // Validate implements config.Config.

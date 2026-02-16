@@ -29,7 +29,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	xstatus "github.com/synnaxlabs/x/status"
@@ -85,7 +84,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		streamer := MustSucceed(
 			dist.Framer.NewStreamer(
 				ctx,
-				framer.StreamerConfig{Keys: streamKeys(filtered), SendOpenAck: config.True()},
+				framer.StreamerConfig{Keys: streamKeys(filtered), SendOpenAck: new(true)},
 			),
 		)
 		_, sOutlet := confluence.Attach(streamer, 1, 1)

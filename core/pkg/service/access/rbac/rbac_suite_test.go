@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -44,7 +43,7 @@ var _ = BeforeEach(func() {
 	ctx = context.Background()
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 		DB:           db,
-		EnableSearch: config.False(),
+		EnableSearch: new(false),
 	}))
 	groupSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,

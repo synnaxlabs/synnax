@@ -55,7 +55,7 @@ func (s Severity) String() string {
 // Note provides supplementary context for a diagnostic, such as where a type was inferred.
 type Note struct {
 	Message string   `json:"message"`
-	Start   Position `json:"start,omitempty"`
+	Start   Position `json:"start"`
 }
 
 // HintProvider is implemented by errors that include a hint for fixing the issue.

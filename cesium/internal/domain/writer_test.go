@@ -20,7 +20,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/resource"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -409,7 +408,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							}))
 						}
 						for i, w := range writers {
-							i, w := i, w
 							go func(i int, w *domain.Writer) {
 								defer wg.Done()
 								MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
@@ -544,7 +542,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
 						Start:                    10 * telem.SecondTS,
 						AutoIndexPersistInterval: 1 * telem.Hour,
-						EnableAutoCommit:         config.False(),
+						EnableAutoCommit:         new(false),
 					}))
 
 					By("Writing some data and committing it")

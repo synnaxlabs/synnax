@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -48,7 +47,7 @@ var _ = Describe("Writer", func() {
 				writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
-					Sync:  config.True(),
+					Sync:  new(true),
 				}))
 				MustSucceed(writer.Write(frame.NewMulti(
 					s.keys,
@@ -81,7 +80,7 @@ var _ = Describe("Writer", func() {
 			_, err := s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  []channel.Key{},
 				Start: 10 * telem.SecondTS,
-				Sync:  config.True(),
+				Sync:  new(true),
 			})
 			Expect(err).To(MatchError(ContainSubstring("keys: must be non-empty")))
 		})
@@ -92,7 +91,7 @@ var _ = Describe("Writer", func() {
 					s.keys[0],
 				},
 				Start: 10 * telem.SecondTS,
-				Sync:  config.True(),
+				Sync:  new(true),
 			})
 			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 			Expect(err.Error()).To(ContainSubstring("Channel"))
@@ -109,7 +108,7 @@ var _ = Describe("Writer", func() {
 			writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
-				Sync:  config.True(),
+				Sync:  new(true),
 			}))
 			_, err := writer.Write(frame.NewMulti(
 				append(s.keys, channel.NewKey(12, 22)),
@@ -150,7 +149,7 @@ var _ = Describe("Writer", func() {
 			keys := []channel.Key{idxCh.Key(), dataCh.Key()}
 			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys:        keys,
-				SendOpenAck: config.True(),
+				SendOpenAck: new(true),
 			}))
 			_, out := confluence.Attach(streamer, 10)
 			sCtx, cancel := signal.WithCancel(ctx)
@@ -161,7 +160,7 @@ var _ = Describe("Writer", func() {
 			writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
-				Sync:  config.True(),
+				Sync:  new(true),
 			}))
 			data := telem.NewSeriesV[int64](1, 2)
 			idx := telem.NewSeriesSecondsTSV(10*telem.SecondTS, 11*telem.SecondTS)

@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -87,7 +86,7 @@ var _ = BeforeEach(func() {
 	ctx = context.Background()
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 		DB:           db,
-		EnableSearch: config.False(),
+		EnableSearch: new(false),
 	}))
 	// Register test services for relationship constraint tests
 	otg.RegisterService(&testService{resourceType: "test"})

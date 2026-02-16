@@ -21,7 +21,7 @@ func PositionToOffset(content string, pos protocol.Position) int {
 	line := int(pos.Line)
 	char := int(pos.Character)
 	offset := 0
-	for i := 0; i < line; i++ {
+	for range line {
 		idx := strings.IndexByte(content[offset:], '\n')
 		if idx < 0 {
 			return len(content)
