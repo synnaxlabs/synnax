@@ -30,13 +30,13 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     if (err) return {std::move(result), err};
     auto [dev, d_err] = devs->acquire(cfg.device_key);
     if (d_err) return {std::move(result), d_err};
-    std::unique_ptr<driver::task::common::Source> source;
+    std::unique_ptr<common::Source> source;
     if (cfg.has_thermocouples())
         source = std::make_unique<UnarySource>(dev, std::move(cfg));
     else
         source = std::make_unique<StreamSource>(dev, std::move(cfg));
     result.auto_start = cfg.auto_start;
-    result.task = std::make_unique<driver::task::common::ReadTask>(
+    result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -56,7 +56,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     auto [dev, d_err] = devs->acquire(cfg.device_key);
     if (d_err) return {std::move(result), d_err};
     result.auto_start = cfg.auto_start;
-    result.task = std::make_unique<driver::task::common::WriteTask>(
+    result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -91,7 +91,7 @@ bool Factory::check_health(
 ) const {
     if (this->dev_manager != nullptr) return true;
     synnax::task::Status status{
-        .key = task.status_key(),
+        .key = synnax::task::status_key(task),
         .name = task.name,
         .variant = x::status::VARIANT_ERROR,
         .message = NO_LIBS_MSG,
@@ -113,7 +113,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         res = configure_read(this->dev_manager, ctx, task, this->timing_cfg);
     if (task.type == WRITE_TASK_TYPE)
         res = configure_write(this->dev_manager, ctx, task);
-    return driver::task::common::handle_config_err(ctx, task, std::move(res));
+    return common::handle_config_err(ctx, task, std::move(res));
 }
 
 std::unique_ptr<Factory> Factory::create(common::TimingConfig timing_cfg) {
@@ -130,7 +130,7 @@ Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::rack::Rack &rack
 ) {
-    return driver::task::common::configure_initial_factory_tasks(
+    return common::configure_initial_factory_tasks(
         this,
         ctx,
         rack,

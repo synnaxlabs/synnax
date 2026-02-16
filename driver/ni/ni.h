@@ -60,7 +60,7 @@ class Factory final : public task::Factory {
     /// @brief the system configuration library used to get information
     /// about devices.
     std::shared_ptr<syscfg::SugaredAPI> syscfg;
-    task::common::TimingConfig timing_cfg;
+    common::TimingConfig timing_cfg;
 
     /// @brief checks whether the factory is healthy and capable of creating tasks.
     bool check_health() const;
@@ -77,13 +77,13 @@ public:
     Factory(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
-        task::common::TimingConfig timing_cfg
+        common::TimingConfig timing_cfg
     );
 
     /// @brief creates a new NI factory, loading the DAQmx and system configuration
     /// libraries.
     static std::unique_ptr<Factory>
-    create(task::common::TimingConfig timing_cfg = task::common::TimingConfig{});
+    create(common::TimingConfig timing_cfg = common::TimingConfig{});
 
     /// @brief implements task::Factory to process task configuration requests.
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(

@@ -13,13 +13,14 @@
 
 #include <utility>
 
-#include "client/cpp/rack/types.gen.h"
 #include "client/cpp/rack/json.gen.h"
+#include "client/cpp/rack/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
-#include "core/pkg/service/rack/pb/rack.pb.h"
-#include "x/cpp/status/proto.gen.h"
 #include "x/cpp/status/json.gen.h"
+#include "x/cpp/status/proto.gen.h"
+
+#include "core/pkg/service/rack/pb/rack.pb.h"
 
 namespace synnax::rack {
 
@@ -29,9 +30,8 @@ inline ::service::rack::pb::StatusDetails StatusDetails::to_proto() const {
     return pb;
 }
 
-inline std::pair<StatusDetails, x::errors::Error> StatusDetails::from_proto(
-    const ::service::rack::pb::StatusDetails& pb
-) {
+inline std::pair<StatusDetails, x::errors::Error>
+StatusDetails::from_proto(const ::service::rack::pb::StatusDetails &pb) {
     StatusDetails cpp;
     cpp.rack = Key(pb.rack());
     return {cpp, x::errors::NIL};
@@ -47,9 +47,8 @@ inline ::service::rack::pb::Rack Rack::to_proto() const {
     return pb;
 }
 
-inline std::pair<Rack, x::errors::Error> Rack::from_proto(
-    const ::service::rack::pb::Rack& pb
-) {
+inline std::pair<Rack, x::errors::Error>
+Rack::from_proto(const ::service::rack::pb::Rack &pb) {
     Rack cpp;
     cpp.key = Key(pb.key());
     cpp.name = pb.name();

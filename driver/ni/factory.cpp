@@ -31,7 +31,7 @@ const std::string
 Factory::Factory(
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
     const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
-    const driver::task::common::TimingConfig timing_cfg
+    const common::TimingConfig timing_cfg
 ):
     dmx(dmx), syscfg(syscfg), timing_cfg(timing_cfg) {}
 
@@ -45,7 +45,7 @@ bool Factory::check_health(
 ) const {
     if (this->check_health()) return true;
     synnax::task::Status status{
-        .key = task.status_key(),
+        .key = synnax::task::status_key(task),
         .name = task.name,
         .variant = x::status::VARIANT_ERROR,
         .message = NO_LIBS_MSG,
@@ -116,7 +116,7 @@ Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::rack::Rack &rack
 ) {
-    return driver::task::common::configure_initial_factory_tasks(
+    return common::configure_initial_factory_tasks(
         this,
         ctx,
         rack,
@@ -132,7 +132,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
 ) {
     auto parser = x::json::Parser(task.config);
     auto cfg = ScanTaskConfig(parser);
-    driver::task::common::ConfigureResult res;
+    common::ConfigureResult res;
     if (parser.error()) return {std::move(res), parser.error()};
     res.task = std::make_unique<common::ScanTask>(
         std::make_unique<Scanner>(this->syscfg, cfg, task),

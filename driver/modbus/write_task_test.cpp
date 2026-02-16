@@ -55,22 +55,22 @@ protected:
               {"swap_words", false}}}
         };
 
-        synnax::device::Device dev(
-            "modbus_test_dev",
-            "modbus_test_dev",
-            rack.key,
-            "dev1",
-            "modbus",
-            "Modbus Device",
-            nlohmann::to_string(properties)
-        );
+        synnax::device::Device dev{
+            .key = "modbus_test_dev",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "modbus",
+            .model = "Modbus Device",
+            .name = "modbus_test_dev",
+            .properties = properties,
+        };
         ASSERT_NIL(client->devices.create(dev));
 
         task = synnax::task::Task{
             .key = synnax::task::create_key(rack.key, 0),
             .name = "modbus_write_test",
             .type = "modbus_write",
-            .config = ""
+            .config = x::json::json{}
         };
     }
 };
@@ -118,7 +118,7 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
 
     auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
 
-    auto wt = std::make_unique<driver::task::common::WriteTask>(
+    auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -226,7 +226,7 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
 
     auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
 
-    auto wt = std::make_unique<driver::task::common::WriteTask>(
+    auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -362,7 +362,7 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
 
     auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
 
-    auto wt = std::make_unique<driver::task::common::WriteTask>(
+    auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -430,7 +430,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
 
     auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
 
-    auto wt = std::make_unique<driver::task::common::WriteTask>(
+    auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -540,7 +540,7 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
 
     auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
 
-    auto wt = std::make_unique<driver::task::common::WriteTask>(
+    auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),

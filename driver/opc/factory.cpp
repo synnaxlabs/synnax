@@ -28,13 +28,13 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     common::ConfigureResult result;
     auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task);
     if (err) return {std::move(result), err};
-    std::unique_ptr<driver::task::common::Source> s;
+    std::unique_ptr<common::Source> s;
     if (cfg.array_size > 1)
         s = std::make_unique<ArrayReadTaskSource>(pool, std::move(cfg));
     else
         s = std::make_unique<UnaryReadTaskSource>(pool, std::move(cfg));
     result.auto_start = cfg.auto_start;
-    result.task = std::make_unique<driver::task::common::ReadTask>(
+    result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -52,7 +52,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     auto [cfg, err] = WriteTaskConfig::parse(ctx->client, task);
     if (err) return {std::move(result), err};
     result.auto_start = cfg.auto_start;
-    result.task = std::make_unique<driver::task::common::WriteTask>(
+    result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -93,7 +93,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         res = configure_read(ctx, task, conn_pool_);
     else if (task.type == WRITE_TASK_TYPE)
         res = configure_write(ctx, task, conn_pool_);
-    return driver::task::common::handle_config_err(ctx, task, std::move(res));
+    return common::handle_config_err(ctx, task, std::move(res));
 }
 
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
@@ -101,12 +101,8 @@ Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::rack::Rack &rack
 ) {
-    driver::task::common::delete_legacy_task_by_type(
-        rack,
-        "opcScanner",
-        INTEGRATION_NAME
-    );
-    return driver::task::common::configure_initial_factory_tasks(
+    common::delete_legacy_task_by_type(rack, "opcScanner", INTEGRATION_NAME);
+    return common::configure_initial_factory_tasks(
         this,
         ctx,
         rack,

@@ -77,10 +77,8 @@ std::pair<Arc, x::errors::Error> Client::retrieve_by_name(
 
     auto [res, err] = retrieve_client->send(ARC_RETRIEVE_ENDPOINT, req);
     if (err) return {Arc{}, err};
-    if (res.arcs_size() == 0)
-        return {Arc{}, errors::unexpected_missing_error("arc")};
-    if (res.arcs_size() > 1)
-        return {Arc{}, errors::multiple_found_error("arc", name)};
+    if (res.arcs_size() == 0) return {Arc{}, errors::unexpected_missing_error("arc")};
+    if (res.arcs_size() > 1) return {Arc{}, errors::multiple_found_error("arc", name)};
 
     return Arc::from_proto(res.arcs(0));
 }
@@ -95,8 +93,7 @@ std::pair<Arc, x::errors::Error> Client::retrieve_by_key(
 
     auto [res, err] = retrieve_client->send(ARC_RETRIEVE_ENDPOINT, req);
     if (err) return {Arc{}, err};
-    if (res.arcs_size() == 0)
-        return {Arc{}, errors::unexpected_missing_error("arc")};
+    if (res.arcs_size() == 0) return {Arc{}, errors::unexpected_missing_error("arc")};
 
     return Arc::from_proto(res.arcs(0));
 }

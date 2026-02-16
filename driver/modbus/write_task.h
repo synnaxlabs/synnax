@@ -208,8 +208,8 @@ struct WriteTaskConfig {
     }
 };
 
-/// @brief implements driver::task::common::Sink to write to a Modbus server.
-class WriteTaskSink final : public driver::task::common::Sink {
+/// @brief implements common::Sink to write to a Modbus server.
+class WriteTaskSink final : public common::Sink {
     /// @brief the configuration for the task.
     const WriteTaskConfig config;
     /// @brief the device to write to.

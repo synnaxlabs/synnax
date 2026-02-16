@@ -11,25 +11,25 @@
 
 #pragma once
 
-#include <utility>
-#include <type_traits>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
+#include <utility>
 
-#include "x/cpp/status/types.gen.h"
-#include "x/cpp/status/json.gen.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/pb/pb.h"
-#include "x/go/status/pb/status.pb.h"
 #include "x/cpp/json/any.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/label/proto.gen.h"
 #include "x/cpp/label/json.gen.h"
+#include "x/cpp/label/proto.gen.h"
+#include "x/cpp/pb/pb.h"
+#include "x/cpp/status/json.gen.h"
+#include "x/cpp/status/types.gen.h"
+
+#include "x/go/status/pb/status.pb.h"
 
 namespace x::status {
 
-
-inline ::x::status::pb::Variant VariantToPB(const std::string& cpp) {
+inline ::x::status::pb::Variant VariantToPB(const std::string &cpp) {
     static const std::unordered_map<std::string, ::x::status::pb::Variant> kMap = {
         {VARIANT_SUCCESS, ::x::status::pb::VARIANT_SUCCESS},
         {VARIANT_INFO, ::x::status::pb::VARIANT_INFO},
@@ -44,17 +44,24 @@ inline ::x::status::pb::Variant VariantToPB(const std::string& cpp) {
 
 inline std::string VariantFromPB(::x::status::pb::Variant pb) {
     switch (pb) {
-    case ::x::status::pb::VARIANT_SUCCESS: return VARIANT_SUCCESS;
-    case ::x::status::pb::VARIANT_INFO: return VARIANT_INFO;
-    case ::x::status::pb::VARIANT_WARNING: return VARIANT_WARNING;
-    case ::x::status::pb::VARIANT_ERROR: return VARIANT_ERROR;
-    case ::x::status::pb::VARIANT_LOADING: return VARIANT_LOADING;
-    case ::x::status::pb::VARIANT_DISABLED: return VARIANT_DISABLED;
-    default: return VARIANT_SUCCESS;
+        case ::x::status::pb::VARIANT_SUCCESS:
+            return VARIANT_SUCCESS;
+        case ::x::status::pb::VARIANT_INFO:
+            return VARIANT_INFO;
+        case ::x::status::pb::VARIANT_WARNING:
+            return VARIANT_WARNING;
+        case ::x::status::pb::VARIANT_ERROR:
+            return VARIANT_ERROR;
+        case ::x::status::pb::VARIANT_LOADING:
+            return VARIANT_LOADING;
+        case ::x::status::pb::VARIANT_DISABLED:
+            return VARIANT_DISABLED;
+        default:
+            return VARIANT_SUCCESS;
     }
 }
 
-template <typename Details>
+template<typename Details>
 inline ::x::status::pb::Status Status<Details>::to_proto() const {
     ::x::status::pb::Status pb;
     pb.set_key(this->key);
@@ -67,20 +74,20 @@ inline ::x::status::pb::Status Status<Details>::to_proto() const {
         *pb.mutable_details() = x::json::to_any(this->details);
     } else {
         if constexpr (std::is_same_v<Details, std::monostate>)
-        *pb.mutable_details() = x::json::to_any(x::json::json(nullptr));
-    else if constexpr (std::is_same_v<Details, x::json::json>)
-        *pb.mutable_details() = x::json::to_any(this->details);
-    else
-        *pb.mutable_details() = x::json::to_any(this->details.to_json());
+            *pb.mutable_details() = x::json::to_any(x::json::json(nullptr));
+        else if constexpr (std::is_same_v<Details, x::json::json>)
+            *pb.mutable_details() = x::json::to_any(this->details);
+        else
+            *pb.mutable_details() = x::json::to_any(this->details.to_json());
     }
-    for (const auto& item : this->labels) *pb.add_labels() = item.to_proto();
+    for (const auto &item: this->labels)
+        *pb.add_labels() = item.to_proto();
     return pb;
 }
 
-template <typename Details>
-inline std::pair<Status<Details>, x::errors::Error> Status<Details>::from_proto(
-    const ::x::status::pb::Status& pb
-) {
+template<typename Details>
+inline std::pair<Status<Details>, x::errors::Error>
+Status<Details>::from_proto(const ::x::status::pb::Status &pb) {
     Status<Details> cpp;
     cpp.key = pb.key();
     cpp.name = pb.name();
@@ -90,23 +97,27 @@ inline std::pair<Status<Details>, x::errors::Error> Status<Details>::from_proto(
     cpp.time = ::x::telem::TimeStamp::from_proto(pb.time());
     if constexpr (std::is_same_v<Details, x::json::json>) {
         {
-        auto [v, err] = x::json::from_any(pb.details());
-        if (err) return {{}, err};
-        cpp.details = v;
-    }
+            auto [v, err] = x::json::from_any(pb.details());
+            if (err) return {{}, err};
+            cpp.details = v;
+        }
     } else {
         {
-        auto [val, err] = x::json::from_any(pb.details());
-        if (err) return {{}, err};
-        if constexpr (std::is_same_v<Details, std::monostate>)
-            cpp.details = std::monostate{};
-        else if constexpr (std::is_same_v<Details, x::json::json>)
-            cpp.details = val;
-        else
-            cpp.details = Details::parse(x::json::Parser(val));
+            auto [val, err] = x::json::from_any(pb.details());
+            if (err) return {{}, err};
+            if constexpr (std::is_same_v<Details, std::monostate>)
+                cpp.details = std::monostate{};
+            else if constexpr (std::is_same_v<Details, x::json::json>)
+                cpp.details = val;
+            else
+                cpp.details = Details::parse(x::json::Parser(val));
+        }
     }
-    }
-    if (auto err = x::pb::from_proto_repeated<::x::label::Label>(cpp.labels, pb.labels())) return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::x::label::Label>(
+            cpp.labels,
+            pb.labels()
+        ))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

@@ -12,22 +12,20 @@
 #pragma once
 
 #include <utility>
-#include "x/cpp/json/json.h"
-#include "x/cpp/errors/errors.h"
-#include "x/go/spatial/pb/spatial.pb.h"
 
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
+
+#include "x/go/spatial/pb/spatial.pb.h"
 
 namespace x::spatial {
 
 struct XY;
 
-
-
-constexpr const char* OUTER_LOCATION_TOP = "top";
-constexpr const char* OUTER_LOCATION_RIGHT = "right";
-constexpr const char* OUTER_LOCATION_BOTTOM = "bottom";
-constexpr const char* OUTER_LOCATION_LEFT = "left";
-
+constexpr const char *OUTER_LOCATION_TOP = "top";
+constexpr const char *OUTER_LOCATION_RIGHT = "right";
+constexpr const char *OUTER_LOCATION_BOTTOM = "bottom";
+constexpr const char *OUTER_LOCATION_LEFT = "left";
 
 /// @brief XY is a 2D coordinate point with x and y values. Used for positioning
 /// elements in two-dimensional space.
@@ -42,6 +40,6 @@ struct XY {
 
     using proto_type = ::x::spatial::pb::XY;
     [[nodiscard]] ::x::spatial::pb::XY to_proto() const;
-    static std::pair<XY, x::errors::Error> from_proto(const ::x::spatial::pb::XY& pb);
+    static std::pair<XY, x::errors::Error> from_proto(const ::x::spatial::pb::XY &pb);
 };
 }

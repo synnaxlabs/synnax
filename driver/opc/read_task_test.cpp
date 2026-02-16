@@ -115,17 +115,15 @@ protected:
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
 
-        synnax::device::Device dev(
-            "opc_read_task_test_server_key",
-            "OPC UA Read Task Test Server",
-            rack.key,
-            "opc.tcp://localhost:4840",
-            "opc",
-            "OPC UA Server",
-            nlohmann::to_string(
-                x::json::json::object({{"connection", conn_cfg.to_json()}})
-            )
-        );
+        synnax::device::Device dev{
+            .key = "opc_read_task_test_server_key",
+            .rack = rack.key,
+            .location = "opc.tcp://localhost:4840",
+            .make = "opc",
+            .model = "OPC UA Server",
+            .name = "OPC UA Read Task Test Server",
+            .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+        };
         ASSERT_NIL(client->devices.create(dev));
 
         // Use the comprehensive default server configuration
@@ -226,7 +224,7 @@ protected:
             .key = synnax::task::create_key(rack.key, 0),
             .name = "OPC UA Read Task Test",
             .type = "opc_read",
-            .config = ""
+            .config = x::json::json{}
         };
 
         task_cfg_json = task_cfg;
@@ -255,7 +253,7 @@ protected:
         auto p = x::json::Parser(task_cfg_json);
         auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
-        return std::make_unique<driver::task::common::ReadTask>(
+        return std::make_unique<common::ReadTask>(
             task,
             ctx,
             x::breaker::default_config(task.name),
@@ -341,7 +339,7 @@ TEST_F(TestReadTask, testInvalidNodeId) {
     auto p = x::json::Parser(bad_task_cfg);
     auto bad_cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
-    auto rt = std::make_unique<driver::task::common::ReadTask>(
+    auto rt = std::make_unique<common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -524,7 +522,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
     auto p = x::json::Parser(array_task_cfg);
     auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
-    auto rt = std::make_unique<driver::task::common::ReadTask>(
+    auto rt = std::make_unique<common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -721,7 +719,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
     auto p = x::json::Parser(multi_channel_array_cfg);
     auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
-    auto rt = std::make_unique<driver::task::common::ReadTask>(
+    auto rt = std::make_unique<common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -800,7 +798,7 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
     auto p = x::json::Parser(array_cfg);
     auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
-    auto rt = std::make_unique<driver::task::common::ReadTask>(
+    auto rt = std::make_unique<common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -854,17 +852,17 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
-    synnax::device::Device invalid_dev(
-        "opc_invalid_test_server",
-        "OPC UA Invalid Data Test Server",
-        invalid_rack.key,
-        "opc.tcp://localhost:4841",
-        "opc",
-        "OPC UA Server",
-        nlohmann::to_string(
-            x::json::json::object({{"connection", invalid_conn_cfg.to_json()}})
-        )
-    );
+    synnax::device::Device invalid_dev{
+        .key = "opc_invalid_test_server",
+        .rack = invalid_rack.key,
+        .location = "opc.tcp://localhost:4841",
+        .make = "opc",
+        .model = "OPC UA Server",
+        .name = "OPC UA Invalid Data Test Server",
+        .properties = x::json::json::object(
+            {{"connection", invalid_conn_cfg.to_json()}}
+        ),
+    };
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     // Create a task that reads from the invalid boolean node
@@ -890,7 +888,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     auto p = x::json::Parser(invalid_bool_cfg);
     auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
-    auto rt = std::make_unique<driver::task::common::ReadTask>(
+    auto rt = std::make_unique<common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -936,17 +934,17 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
-    synnax::device::Device invalid_dev(
-        "opc_invalid_float_server",
-        "OPC UA Invalid Float Server",
-        invalid_rack.key,
-        "opc.tcp://localhost:4842",
-        "opc",
-        "OPC UA Server",
-        nlohmann::to_string(
-            x::json::json::object({{"connection", invalid_conn_cfg.to_json()}})
-        )
-    );
+    synnax::device::Device invalid_dev{
+        .key = "opc_invalid_float_server",
+        .rack = invalid_rack.key,
+        .location = "opc.tcp://localhost:4842",
+        .make = "opc",
+        .model = "OPC UA Server",
+        .name = "OPC UA Invalid Float Server",
+        .properties = x::json::json::object(
+            {{"connection", invalid_conn_cfg.to_json()}}
+        ),
+    };
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     x::json::json invalid_float_cfg{
@@ -971,7 +969,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     auto p = x::json::Parser(invalid_float_cfg);
     auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
-    auto rt = std::make_unique<driver::task::common::ReadTask>(
+    auto rt = std::make_unique<common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -1017,17 +1015,17 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
-    synnax::device::Device invalid_dev(
-        "opc_invalid_double_server",
-        "OPC UA Invalid Double Server",
-        invalid_rack.key,
-        "opc.tcp://localhost:4843",
-        "opc",
-        "OPC UA Server",
-        nlohmann::to_string(
-            x::json::json::object({{"connection", invalid_conn_cfg.to_json()}})
-        )
-    );
+    synnax::device::Device invalid_dev{
+        .key = "opc_invalid_double_server",
+        .rack = invalid_rack.key,
+        .location = "opc.tcp://localhost:4843",
+        .make = "opc",
+        .model = "OPC UA Server",
+        .name = "OPC UA Invalid Double Server",
+        .properties = x::json::json::object(
+            {{"connection", invalid_conn_cfg.to_json()}}
+        ),
+    };
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     x::json::json invalid_double_cfg{
@@ -1053,7 +1051,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     auto p = x::json::Parser(invalid_double_cfg);
     auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
 
-    auto rt = std::make_unique<driver::task::common::ReadTask>(
+    auto rt = std::make_unique<common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -1094,15 +1092,15 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
 
-    synnax::device::Device dev(
-        "opc_test_device_key",
-        "OPC UA Test Device",
-        rack.key,
-        "opc.tcp://localhost:4840",
-        "opc",
-        "OPC UA Server",
-        nlohmann::to_string(x::json::json::object({{"connection", conn_cfg.to_json()}}))
-    );
+    synnax::device::Device dev{
+        .key = "opc_test_device_key",
+        .rack = rack.key,
+        .location = "opc.tcp://localhost:4840",
+        .make = "opc",
+        .model = "OPC UA Server",
+        .name = "OPC UA Test Device",
+        .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+    };
     ASSERT_NIL(client->devices.create(dev));
 
     // Create index and data channels

@@ -40,7 +40,7 @@ protected:
             .key = synnax::task::create_key(rack.key, 0),
             .name = "OPC UA Scan Task Test",
             .type = "opc_scan",
-            .config = ""
+            .config = x::json::json{}
         };
 
         auto server_cfg = mock::ServerConfig::create_default();
@@ -81,8 +81,12 @@ TEST_F(TestScanTask, testBasicScan) {
         {"connection", conn_cfg.to_json()},
     };
 
-    task::Command cmd(task.key, BROWSE_CMD_TYPE, scan_cmd);
-    cmd.key = "scan_cmd";
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = BROWSE_CMD_TYPE,
+        .key = "scan_cmd",
+        .args = scan_cmd
+    };
 
     scan_task->exec(cmd);
 
@@ -156,14 +160,14 @@ TEST_F(TestScanTask, testConnectionPooling) {
         {"connection", conn_cfg.to_json()},
     };
 
-    task::Command cmd1(task.key, BROWSE_CMD_TYPE, scan_cmd);
+    synnax::task::Command cmd1(task.key, BROWSE_CMD_TYPE, scan_cmd);
     cmd1.key = "scan_cmd_1";
 
     scan_task->exec(cmd1);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
 
-    task::Command cmd2(task.key, BROWSE_CMD_TYPE, scan_cmd);
+    synnax::task::Command cmd2(task.key, BROWSE_CMD_TYPE, scan_cmd);
     cmd2.key = "scan_cmd_2";
 
     scan_task->exec(cmd2);
@@ -191,8 +195,12 @@ TEST_F(TestScanTask, testTestConnection) {
         {"connection", conn_cfg.to_json()},
     };
 
-    task::Command cmd(task.key, TEST_CONNECTION_CMD_TYPE, test_conn_cmd);
-    cmd.key = "test_conn_cmd";
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "test_conn_cmd",
+        .args = test_conn_cmd
+    };
 
     scan_task->exec(cmd);
 
@@ -224,8 +232,12 @@ TEST_F(TestScanTask, testInvalidConnection) {
         {"connection", conn_cfg.to_json()},
     };
 
-    task::Command cmd(task.key, BROWSE_CMD_TYPE, scan_cmd);
-    cmd.key = "invalid_scan_cmd";
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = BROWSE_CMD_TYPE,
+        .key = "invalid_scan_cmd",
+        .args = scan_cmd
+    };
 
     scan_task->exec(cmd);
 
@@ -246,7 +258,7 @@ TEST_F(TestScanTask, testConfigReturnsCorrectValues) {
 /// @brief Tests that exec() returns false for unknown commands.
 TEST_F(TestScanTask, testExecReturnsFalseForUnknownCommand) {
     Scanner scanner(ctx, task, conn_pool);
-    task::Command cmd(task.key, "unknown_command", x::json::json{});
+    synnax::task::Command cmd{.task = task.key, .type = "unknown_command"};
     bool handled = scanner.exec(cmd, task, ctx);
     EXPECT_FALSE(handled);
 }
@@ -272,13 +284,13 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
     // Pass devices via ScannerContext
     std::unordered_map<std::string, synnax::device::Device> devices_map;
     devices_map[dev.key] = dev;
-    driver::task::common::ScannerContext scan_ctx;
+    common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices_map;
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(devices[0].status.message, "Server connected");
+    EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devices[0].status->message, "Server connected");
 }
 
 /// @brief Tests that health check detects connection state changes (server up/down/up).
@@ -299,7 +311,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
 
     std::unordered_map<std::string, synnax::device::Device> devices_map;
     devices_map[dev.key] = dev;
-    driver::task::common::ScannerContext scan_ctx;
+    common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices_map;
 
     // Use a fresh connection pool to avoid cached connections
@@ -310,8 +322,8 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     {
         auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
-        EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
-        EXPECT_EQ(devices[0].status.message, "Server connected");
+        EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(devices[0].status->message, "Server connected");
     }
 
     // Step 2: Stop the server - health should be bad
@@ -325,7 +337,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
         auto devices = ASSERT_NIL_P(scanner2.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
         // When server is down, health check should return WARNING with connection error
-        EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_WARNING);
+        EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_WARNING);
         // The message should indicate a connection failure (not empty)
         EXPECT_FALSE(devices[0].status->message.empty());
         EXPECT_NE(devices[0].status->message, "Server connected");
@@ -357,8 +369,8 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     {
         auto devices = ASSERT_NIL_P(scanner3.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
-        EXPECT_EQ(devices[0].status.variant, x::status::VARIANT_SUCCESS);
-        EXPECT_EQ(devices[0].status.message, "Server connected");
+        EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(devices[0].status->message, "Server connected");
     }
 }
 }

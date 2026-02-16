@@ -41,7 +41,8 @@ Client::retrieve(grpc::rack::RetrieveRequest &req, const std::string &query) con
     auto [res, err] = rack_retrieve_client->send("/rack/retrieve", req);
     if (err) return {Rack{}, err};
     if (res.racks_size() == 0) return {Rack{}, errors::not_found_error("Rack", query)};
-    if (res.racks_size() > 1) return {Rack{}, errors::multiple_found_error("racks", query)};
+    if (res.racks_size() > 1)
+        return {Rack{}, errors::multiple_found_error("racks", query)};
     auto [rack, proto_err] = Rack::from_proto(res.racks(0));
     if (proto_err) return {Rack{}, proto_err};
     rack.tasks = this->tasks.scope_to_rack(rack.key);

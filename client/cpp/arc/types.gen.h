@@ -11,32 +11,30 @@
 
 #pragma once
 
-#include <utility>
-#include <string>
 #include <optional>
-#include "client/cpp/ontology/id.h"
-#include "x/cpp/uuid/uuid.h"
-#include "x/cpp/json/json.h"
-#include "x/cpp/errors/errors.h"
-#include "core/pkg/service/arc/pb/arc.pb.h"
-#include "x/cpp/status/types.gen.h"
-#include "arc/cpp/graph/types.gen.h"
-#include "arc/cpp/text/types.gen.h"
-#include "arc/cpp/module/types.gen.h"
+#include <string>
+#include <utility>
 
+#include "client/cpp/ontology/id.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/status/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
+
+#include "arc/cpp/graph/types.gen.h"
+#include "arc/cpp/module/types.gen.h"
+#include "arc/cpp/text/types.gen.h"
+#include "core/pkg/service/arc/pb/arc.pb.h"
 
 namespace synnax::arc {
 
 struct StatusDetails;
 struct Arc;
 
-
-
-constexpr const char* MODE_TEXT = "text";
-constexpr const char* MODE_GRAPH = "graph";
+constexpr const char *MODE_TEXT = "text";
+constexpr const char *MODE_GRAPH = "graph";
 
 using Key = x::uuid::UUID;
-
 
 /// @brief StatusDetails contains Arc-specific status details for execution state.
 struct StatusDetails {
@@ -48,11 +46,11 @@ struct StatusDetails {
 
     using proto_type = ::service::arc::pb::StatusDetails;
     [[nodiscard]] ::service::arc::pb::StatusDetails to_proto() const;
-    static std::pair<StatusDetails, x::errors::Error> from_proto(const ::service::arc::pb::StatusDetails& pb);
+    static std::pair<StatusDetails, x::errors::Error>
+    from_proto(const ::service::arc::pb::StatusDetails &pb);
 };
 
 using Status = ::x::status::Status<StatusDetails>;
-
 
 /// @brief Arc is an Arc module combining visual graph representation and text-based
 /// source code for reactive control systems. Compiles to WebAssembly for sandboxed
@@ -63,13 +61,14 @@ struct Arc {
     /// @brief name is a human-readable name for the module.
     std::string name;
     /// @brief mode specifies the representation mode for this module. Either "text" for
-/// text-based Arc code or "graph" for visual dataflow.
+    /// text-based Arc code or "graph" for visual dataflow.
     std::string mode;
     /// @brief graph is the visual dataflow graph representation of the module.
     ::arc::graph::Graph graph;
     /// @brief text is the text-based Arc source code.
     ::arc::text::Text text;
-    /// @brief module is the compiled module output including IR and WebAssembly bytecode.
+    /// @brief module is the compiled module output including IR and WebAssembly
+    /// bytecode.
     std::optional<::arc::module::Module> module;
     /// @brief status is the current execution status of the module.
     std::optional<Status> status;
@@ -79,12 +78,13 @@ struct Arc {
 
     using proto_type = ::service::arc::pb::Arc;
     [[nodiscard]] ::service::arc::pb::Arc to_proto() const;
-    static std::pair<Arc, x::errors::Error> from_proto(const ::service::arc::pb::Arc& pb);
+    static std::pair<Arc, x::errors::Error>
+    from_proto(const ::service::arc::pb::Arc &pb);
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("arc", "");
 
-inline synnax::ontology::ID ontology_id(const Key& key) {
+inline synnax::ontology::ID ontology_id(const Key &key) {
     return synnax::ontology::ID("arc", key.to_string());
 }
 }

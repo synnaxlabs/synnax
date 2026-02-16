@@ -13,18 +13,19 @@
 
 #include <utility>
 
-#include "client/cpp/ranger/types.gen.h"
 #include "client/cpp/ranger/json.gen.h"
-#include "x/cpp/errors/errors.h"
-#include "x/cpp/pb/pb.h"
-#include "core/pkg/service/ranger/pb/ranger.pb.h"
-#include "core/pkg/api/ranger/pb/ranger.pb.h"
-#include "x/cpp/telem/proto.gen.h"
-#include "x/cpp/telem/json.gen.h"
-#include "x/cpp/color/proto.gen.h"
+#include "client/cpp/ranger/types.gen.h"
 #include "x/cpp/color/json.gen.h"
-#include "x/cpp/label/proto.gen.h"
+#include "x/cpp/color/proto.gen.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/label/json.gen.h"
+#include "x/cpp/label/proto.gen.h"
+#include "x/cpp/pb/pb.h"
+#include "x/cpp/telem/json.gen.h"
+#include "x/cpp/telem/proto.gen.h"
+
+#include "core/pkg/api/ranger/pb/ranger.pb.h"
+#include "core/pkg/service/ranger/pb/ranger.pb.h"
 
 namespace synnax::ranger {
 
@@ -37,9 +38,8 @@ inline ::service::ranger::pb::Range Base::to_proto() const {
     return pb;
 }
 
-inline std::pair<Base, x::errors::Error> Base::from_proto(
-    const ::service::ranger::pb::Range& pb
-) {
+inline std::pair<Base, x::errors::Error>
+Base::from_proto(const ::service::ranger::pb::Range &pb) {
     Base cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.key());
@@ -66,14 +66,14 @@ inline ::api::ranger::pb::Range Range::to_proto() const {
     pb.set_name(this->name);
     *pb.mutable_time_range() = this->time_range.to_proto();
     *pb.mutable_color() = this->color.to_proto();
-    for (const auto& item : this->labels) *pb.add_labels() = item.to_proto();
+    for (const auto &item: this->labels)
+        *pb.add_labels() = item.to_proto();
     if (this->parent.has_value()) *pb.mutable_parent() = this->parent->to_proto();
     return pb;
 }
 
-inline std::pair<Range, x::errors::Error> Range::from_proto(
-    const ::api::ranger::pb::Range& pb
-) {
+inline std::pair<Range, x::errors::Error>
+Range::from_proto(const ::api::ranger::pb::Range &pb) {
     Range cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.key());
@@ -91,7 +91,11 @@ inline std::pair<Range, x::errors::Error> Range::from_proto(
         if (err) return {{}, err};
         cpp.color = v;
     }
-    if (auto err = x::pb::from_proto_repeated<::x::label::Label>(cpp.labels, pb.labels())) return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::x::label::Label>(
+            cpp.labels,
+            pb.labels()
+        ))
+        return {{}, err};
     if (pb.has_parent()) {
         auto [v, err] = Range::from_proto(pb.parent());
         if (err) return {{}, err};

@@ -12,25 +12,24 @@
 #pragma once
 
 #include <cstdint>
-#include <utility>
-#include <string>
 #include <optional>
-#include "client/cpp/ontology/id.h"
-#include "x/cpp/json/json.h"
-#include "x/cpp/errors/errors.h"
-#include "core/pkg/service/rack/pb/rack.pb.h"
-#include "x/cpp/status/types.gen.h"
-#include "client/cpp/task/task.h"
+#include <string>
+#include <utility>
 
+#include "client/cpp/ontology/id.h"
+#include "client/cpp/task/task.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/status/types.gen.h"
+
+#include "core/pkg/service/rack/pb/rack.pb.h"
 
 namespace synnax::rack {
 
 struct StatusDetails;
 struct Rack;
 
-
 using Key = std::uint32_t;
-
 
 /// @brief StatusDetails contains rack-specific status details.
 struct StatusDetails {
@@ -42,11 +41,11 @@ struct StatusDetails {
 
     using proto_type = ::service::rack::pb::StatusDetails;
     [[nodiscard]] ::service::rack::pb::StatusDetails to_proto() const;
-    static std::pair<StatusDetails, x::errors::Error> from_proto(const ::service::rack::pb::StatusDetails& pb);
+    static std::pair<StatusDetails, x::errors::Error>
+    from_proto(const ::service::rack::pb::StatusDetails &pb);
 };
 
 using Status = ::x::status::Status<StatusDetails>;
-
 
 /// @brief Rack is a collection container for hardware devices and tasks running on a
 /// specific cluster node. Racks serve as the integration point between the Synnax
@@ -57,9 +56,10 @@ struct Rack {
     /// @brief name is a human-readable name for the rack.
     std::string name;
     /// @brief task_counter is an internal counter used for generating unique local task
-/// keys.
+    /// keys.
     std::uint32_t task_counter = 0;
-    /// @brief embedded is true if this rack is embedded within the Synnax server process.
+    /// @brief embedded is true if this rack is embedded within the Synnax server
+    /// process.
     bool embedded = false;
     /// @brief status is the current operational status of the rack.
     std::optional<Status> status;
@@ -69,13 +69,14 @@ struct Rack {
 
     using proto_type = ::service::rack::pb::Rack;
     [[nodiscard]] ::service::rack::pb::Rack to_proto() const;
-    static std::pair<Rack, x::errors::Error> from_proto(const ::service::rack::pb::Rack& pb);
+    static std::pair<Rack, x::errors::Error>
+    from_proto(const ::service::rack::pb::Rack &pb);
     task::Client tasks;
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("rack", "");
 
-inline synnax::ontology::ID ontology_id(const Key& key) {
+inline synnax::ontology::ID ontology_id(const Key &key) {
     return synnax::ontology::ID("rack", std::to_string(key));
 }
 }

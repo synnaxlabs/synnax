@@ -28,13 +28,13 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
-    driver::task::common::ConfigureResult result;
+    common::ConfigureResult result;
     auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task);
     if (err) return {std::move(result), err};
     auto [dev, d_err] = devs->acquire(cfg.conn);
     if (d_err) return {std::move(result), d_err};
     result.auto_start = cfg.auto_start;
-    result.task = std::make_unique<driver::task::common::ReadTask>(
+    result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -52,7 +52,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
     x::json::Parser parser(task.config);
     ScanTaskConfig cfg(parser);
     if (parser.error()) return {std::move(result), parser.error()};
-    result.task = std::make_unique<driver::task::common::ScanTask>(
+    result.task = std::make_unique<common::ScanTask>(
         std::make_unique<Scanner>(ctx, task, devs),
         ctx,
         task,
@@ -68,13 +68,13 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
-    driver::task::common::ConfigureResult result;
+    common::ConfigureResult result;
     auto [cfg, err] = WriteTaskConfig::parse(ctx->client, task);
     if (err) return {std::move(result), err};
     auto [dev, d_err] = devs->acquire(cfg.conn);
     if (d_err) return {std::move(result), d_err};
     result.auto_start = cfg.auto_start;
-    result.task = std::make_unique<driver::task::common::WriteTask>(
+    result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
@@ -95,7 +95,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         res = configure_write(this->devices, ctx, task);
     else if (task.type == SCAN_TASK_TYPE)
         res = configure_scan(this->devices, ctx, task);
-    return driver::task::common::handle_config_err(ctx, task, std::move(res));
+    return common::handle_config_err(ctx, task, std::move(res));
 }
 
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
@@ -103,7 +103,7 @@ Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::rack::Rack &rack
 ) {
-    return driver::task::common::configure_initial_factory_tasks(
+    return common::configure_initial_factory_tasks(
         this,
         ctx,
         rack,

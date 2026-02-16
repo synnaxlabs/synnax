@@ -17,7 +17,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const synnax::task::Task &task
 ) {
     if (task.type != TASK_TYPE) return {nullptr, false};
-    return task::common::handle_config_err(ctx, task, configure(ctx, task));
+    return common::handle_config_err(ctx, task, configure(ctx, task));
 }
 
 std::pair<common::ConfigureResult, x::errors::Error> Factory::configure(

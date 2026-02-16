@@ -51,7 +51,7 @@ struct OutputChan {
 };
 
 /// @brief the configuration for opening a write task.
-struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
+struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the rate at which to propagate state updates back to Synnax.
     const x::telem::Rate state_rate;
     /// @brief the connection method to the device.
@@ -65,7 +65,7 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
     std::set<synnax::channel::Key> state_index_keys;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
-        driver::task::common::BaseWriteTaskConfig(std::move(other)),
+        common::BaseWriteTaskConfig(std::move(other)),
         state_rate(other.state_rate),
         conn_method(other.conn_method),
         dev_model(std::move(other.dev_model)),
@@ -151,7 +151,7 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
 
 /// @brief an implementation of the common task sink that writes data to a LabJack
 /// device.
-class WriteSink final : public driver::task::common::Sink {
+class WriteSink final : public common::Sink {
     /// @brief the configuration for the sink.
     const WriteTaskConfig cfg;
     /// @brief the API of the device we're writing to.

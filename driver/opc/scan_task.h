@@ -30,7 +30,7 @@
 namespace driver::opc {
 inline const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
 /// @brief Configuration for the OPC UA scanner.
-struct ScanTaskConfig : driver::task::common::ScanTaskConfig {
+struct ScanTaskConfig : common::ScanTaskConfig {
     ScanTaskConfig() = default;
     explicit ScanTaskConfig(x::json::Parser &cfg): common::ScanTaskConfig(cfg) {}
 };
@@ -55,9 +55,9 @@ struct ScanCommandArgs {
 const std::string BROWSE_CMD_TYPE = "browse";
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
-/// @brief OPC UA scanner implementing the driver::task::common::Scanner interface.
+/// @brief OPC UA scanner implementing the common::Scanner interface.
 /// Handles device health monitoring and node browsing for OPC UA servers.
-class Scanner final : public driver::task::common::Scanner {
+class Scanner final : public common::Scanner {
 public:
     Scanner(
         std::shared_ptr<task::Context> ctx,
@@ -65,8 +65,8 @@ public:
         std::shared_ptr<connection::Pool> conn_pool
     );
 
-    /// @brief Returns scanner configuration for driver::task::common::ScanTask.
-    [[nodiscard]] driver::task::common::ScannerConfig config() const override;
+    /// @brief Returns scanner configuration for common::ScanTask.
+    [[nodiscard]] common::ScannerConfig config() const override;
 
     /// @brief Periodic scan method - checks health of all tracked devices.
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
@@ -74,7 +74,7 @@ public:
 
     /// @brief Handle OPC-specific commands (scan nodes, test connection).
     bool exec(
-        task::Command &cmd,
+        synnax::task::Command &cmd,
         const synnax::task::Task &task,
         const std::shared_ptr<task::Context> &ctx
     ) override;

@@ -61,7 +61,7 @@ struct InputChan {
     // No manual destructor needed - types::NodeId handles cleanup automatically
 };
 
-struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
+struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the device representing the OPC UA server to read from.
     const std::string device_key;
     /// @brief array_size;
@@ -79,7 +79,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
 
     /// @brief Move constructor to allow transfer of ownership
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
-        driver::task::common::BaseReadTaskConfig(std::move(other)),
+        common::BaseReadTaskConfig(std::move(other)),
         device_key(other.device_key),
         array_size(other.array_size),
         connection(std::move(other.connection)),
@@ -97,9 +97,9 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &parser
     ):
-        driver::task::common::BaseReadTaskConfig(
+        common::BaseReadTaskConfig(
             parser,
-            driver::task::common::TimingConfig(),
+            common::TimingConfig(),
             parser.field<std::size_t>("array_size", 1) <= 1
         ),
         device_key(parser.field<std::string>("device")),
@@ -166,7 +166,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
             channel_keys.push_back(idx);
         return {
             .channels = channel_keys,
-            .mode = driver::task::common::data_saving_writer_mode(this->data_saving),
+            .mode = common::data_saving_writer_mode(this->data_saving),
         };
     }
 
@@ -190,7 +190,7 @@ static types::ReadRequestBuilder create_read_request(const ReadTaskConfig &cfg) 
     return builder;
 }
 
-class BaseReadTaskSource : public driver::task::common::Source {
+class BaseReadTaskSource : public common::Source {
 protected:
     const ReadTaskConfig cfg;
     std::shared_ptr<connection::Pool> pool;
@@ -250,7 +250,7 @@ public:
         if (res.error = errors::parse(ua_res.get().responseHeader.serviceResult);
             res.error)
             return res;
-        driver::task::common::initialize_frame(
+        common::initialize_frame(
             fr,
             this->cfg.channels,
             this->cfg.index_keys,
@@ -297,7 +297,7 @@ public:
         }
 
         auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
-        driver::task::common::generate_index_data(
+        common::generate_index_data(
             fr,
             this->cfg.index_keys,
             start,

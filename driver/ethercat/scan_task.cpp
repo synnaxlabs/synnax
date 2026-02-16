@@ -104,7 +104,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
 }
 
 bool Scanner::exec(
-    task::Command &cmd,
+    synnax::task::Command &cmd,
     const synnax::task::Task &,
     const std::shared_ptr<task::Context> &
 ) {
@@ -163,7 +163,7 @@ synnax::device::Device Scanner::create_slave_device(
     dev.rack = rack_key;
     dev.properties = json_props.dump();
     dev.status = synnax::device::Status{
-        .key = dev.status_key(),
+        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .variant = status_variant,
         .message = status_msg,
@@ -183,7 +183,7 @@ nlohmann::json Scanner::get_existing_properties(
     if (it == scan_ctx.devices->end()) return nlohmann::json::object();
     if (it->second.properties.empty()) return nlohmann::json::object();
     try {
-        return nlohmann::json::parse(it->second.properties);
+        return it->second.properties;
     } catch (const nlohmann::json::parse_error &) { return nlohmann::json::object(); }
 }
 
@@ -213,7 +213,7 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
     engine->set_slave_enabled(props.position, props.enabled);
 
     synnax::device::Status status{
-        .key = dev.status_key(),
+        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .variant = props.enabled ? x::status::VARIANT_SUCCESS
                                  : x::status::VARIANT_DISABLED,
@@ -226,18 +226,18 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
                      << "failed to update device status: " << status_err;
 }
 
-void Scanner::test_interface(const task::Command &cmd) const {
+void Scanner::test_interface(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     TestInterfaceArgs args(parser);
 
     synnax::task::Status task_status{
-        .key = this->task.status_key(),
+        .key = synnax::task::status_key(this->task),
         .name = this->task.name,
         .variant = x::status::VARIANT_ERROR,
         .details = synnax::task::StatusDetails{
             .task = this->task.key,
-            .cmd = cmd.key,
             .running = true,
+            .cmd = cmd.key,
         }
     };
 

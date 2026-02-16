@@ -286,7 +286,7 @@ inline std::unique_ptr<InputChan> parse_input_chan(x::json::Parser &cfg) {
 }
 
 /// @brief configuration for a LabJack read task.
-struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
+struct ReadTaskConfig : common::BaseReadTaskConfig {
     const std::string device_key;
     /// @brief the connection method used to communicate with the device.
     /// Dynamically populated by querying the core.
@@ -310,7 +310,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     size_t ljm_scan_backlog_warn_on_count;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
-        driver::task::common::BaseReadTaskConfig(std::move(other)),
+        common::BaseReadTaskConfig(std::move(other)),
         device_key(other.device_key),
         conn_method(other.conn_method),
         indexes(std::move(other.indexes)),
@@ -330,7 +330,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
         x::json::Parser &parser,
         const common::TimingConfig timing_cfg = common::TimingConfig()
     ):
-        driver::task::common::BaseReadTaskConfig(parser, timing_cfg),
+        common::BaseReadTaskConfig(parser, timing_cfg),
         device_key(parser.field<std::string>("device", "cross-device")),
         conn_method(parser.field<std::string>("conn_method", "")),
         samples_per_chan(sample_rate / stream_rate),
@@ -401,7 +401,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
             keys.push_back(idx);
         return synnax::framer::WriterConfig{
             .channels = keys,
-            .mode = driver::task::common::data_saving_writer_mode(this->data_saving),
+            .mode = common::data_saving_writer_mode(this->data_saving),
         };
     }
 
@@ -438,7 +438,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
 /// @brief a source implementation that reads from LabJack devices via a unary
 /// request-response cycle on each acquisition. This source is only used when the
 /// task has thermocouples, as LJM does not support streaming of thermocouple data.
-class UnarySource final : public driver::task::common::Source {
+class UnarySource final : public common::Source {
     /// @brief the configuration for the read task.
     ReadTaskConfig cfg;
     /// @brief the API of the device we're reading from.
@@ -499,7 +499,7 @@ public:
         }
         const auto start = x::telem::TimeStamp::now();
         const auto end = start;
-        driver::task::common::generate_index_data(
+        common::generate_index_data(
             data,
             this->cfg.indexes,
             start,
@@ -520,13 +520,13 @@ public:
 /// streaming protocol. This is much higher performance than unary request/response
 /// cycles, and is preferred in cases where we don't acquire data from
 /// thermocouples.
-class StreamSource final : public driver::task::common::Source {
+class StreamSource final : public common::Source {
     /// @brief the configuration for the read task.
     ReadTaskConfig cfg;
     /// @brief the API to the device we're reading from.
     const std::shared_ptr<device::Device> dev;
     /// @brief sample clock used to get timestamp information for the task.
-    driver::task::common::HardwareTimedSampleClock sample_clock;
+    common::HardwareTimedSampleClock sample_clock;
     /// @brief buffer containing interleaved data directly from device
     std::vector<double> interleaved_buf;
     /// @brief buffer containing channel-grouped data after deinterleaving
@@ -550,7 +550,7 @@ public:
         cfg(std::move(cfg)),
         dev(dev),
         sample_clock(
-            driver::task::common::HardwareTimedSampleClockConfig::create_simple(
+            common::HardwareTimedSampleClockConfig::create_simple(
                 this->cfg.sample_rate,
                 this->cfg.stream_rate,
                 this->cfg.timing.correct_skew
@@ -605,12 +605,7 @@ public:
         common::ReadResult res;
         const auto n_channels = this->cfg.channels.size();
         const auto n_samples = this->cfg.samples_per_chan;
-        driver::task::common::initialize_frame(
-            fr,
-            this->cfg.channels,
-            this->cfg.indexes,
-            n_samples
-        );
+        common::initialize_frame(fr, this->cfg.channels, this->cfg.indexes, n_samples);
 
         const auto start = this->sample_clock.wait(breaker);
         int device_scan_backlog;
@@ -626,18 +621,13 @@ public:
         }
         if (static_cast<size_t>(device_scan_backlog) >
             this->cfg.device_scan_backlog_warn_on_count)
-            res.warning = driver::task::common::skew_warning(device_scan_backlog);
+            res.warning = common::skew_warning(device_scan_backlog);
         if (static_cast<size_t>(ljm_scan_backlog) >
             this->cfg.ljm_scan_backlog_warn_on_count)
-            res.warning = driver::task::common::skew_warning(ljm_scan_backlog);
+            res.warning = common::skew_warning(ljm_scan_backlog);
         const auto end = this->sample_clock.end();
-        driver::task::common::transfer_buf(
-            this->deinterleave(),
-            fr,
-            n_channels,
-            n_samples
-        );
-        driver::task::common::generate_index_data(
+        common::transfer_buf(this->deinterleave(), fr, n_channels, n_samples);
+        common::generate_index_data(
             fr,
             this->cfg.indexes,
             start,

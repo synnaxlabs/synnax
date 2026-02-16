@@ -26,7 +26,7 @@
 
 namespace driver::ni {
 /// @brief the configuration for a read task.
-struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
+struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the device key that will be used for the channels in the task. Analog
     /// read tasks can specify multiple devices. In this case, the device key field
     /// is empty and automatically set to "cross-device".
@@ -49,7 +49,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
 
     /// @brief Move constructor to allow transfer of ownership
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
-        driver::task::common::BaseReadTaskConfig(std::move(other)),
+        common::BaseReadTaskConfig(std::move(other)),
         device_key(other.device_key),
         timing_source(other.timing_source),
         samples_per_chan(other.samples_per_chan),
@@ -68,8 +68,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
         std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &cfg,
         const std::string &task_type,
-        driver::task::common::TimingConfig timing_cfg =
-            driver::task::common::TimingConfig()
+        common::TimingConfig timing_cfg = common::TimingConfig()
     ):
         BaseReadTaskConfig(cfg, timing_cfg),
         device_key(cfg.field<std::string>("device", "cross-device")),
@@ -228,18 +227,17 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
             keys.push_back(idx);
         return synnax::framer::WriterConfig{
             .channels = keys,
-            .mode = driver::task::common::data_saving_writer_mode(this->data_saving),
+            .mode = common::data_saving_writer_mode(this->data_saving),
         };
     }
 
-    [[nodiscard]] std::unique_ptr<driver::task::common::SampleClock>
-    sample_clock() const {
+    [[nodiscard]] std::unique_ptr<common::SampleClock> sample_clock() const {
         if (this->software_timed)
-            return std::make_unique<driver::task::common::SoftwareTimedSampleClock>(
+            return std::make_unique<common::SoftwareTimedSampleClock>(
                 this->stream_rate
             );
-        return std::make_unique<driver::task::common::HardwareTimedSampleClock>(
-            driver::task::common::HardwareTimedSampleClockConfig::create_simple(
+        return std::make_unique<common::HardwareTimedSampleClock>(
+            common::HardwareTimedSampleClockConfig::create_simple(
                 sample_rate,
                 stream_rate,
                 this->timing.correct_skew
@@ -251,7 +249,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
 /// @brief an internal source that we pass to the acquisition pipeline that manages
 /// the lifecycle of this task.
 template<typename T>
-class ReadTaskSource final : public driver::task::common::Source {
+class ReadTaskSource final : public common::Source {
 public:
     /// @brief constructs a source bound to the provided parent read task.
     explicit ReadTaskSource(
@@ -274,7 +272,7 @@ private:
     std::unique_ptr<hardware::Reader<T>> hw_reader;
     /// @brief the timestamp at which the hardware task was started. We use this to
     /// interpolate the correct timestamps of recorded samples.
-    std::unique_ptr<driver::task::common::SampleClock> sample_clock;
+    std::unique_ptr<common::SampleClock> sample_clock;
     /// @brief the error accumulated from the latest read. Primarily used to
     /// determine whether we've just recovered from an error state.
     x::errors::Error curr_read_err = x::errors::NIL;
@@ -307,19 +305,14 @@ private:
         common::ReadResult res;
         const auto n_channels = this->cfg.channels.size();
         const auto n_samples = this->cfg.samples_per_chan;
-        driver::task::common::initialize_frame(
-            fr,
-            this->cfg.channels,
-            this->cfg.indexes,
-            n_samples
-        );
+        common::initialize_frame(fr, this->cfg.channels, this->cfg.indexes, n_samples);
 
         auto start = this->sample_clock->wait(breaker);
         const auto hw_res = this->hw_reader->read(n_samples, this->buf);
         // A non-zero skew means that our application cannot keep up with the
         // hardware acquisition rate.
         if (static_cast<size_t>(std::abs(hw_res.skew)) > this->cfg.skew_warn_on_count)
-            res.warning = driver::task::common::skew_warning(hw_res.skew);
+            res.warning = common::skew_warning(hw_res.skew);
 
         auto prev_read_err = this->curr_read_err;
         this->curr_read_err = translate_error(hw_res.error);
@@ -338,8 +331,8 @@ private:
         }
 
         const auto end = this->sample_clock->end();
-        driver::task::common::transfer_buf(this->buf, fr, n_channels, n_samples);
-        driver::task::common::generate_index_data(
+        common::transfer_buf(this->buf, fr, n_channels, n_samples);
+        common::generate_index_data(
             fr,
             this->cfg.indexes,
             start,

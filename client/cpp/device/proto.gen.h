@@ -13,14 +13,15 @@
 
 #include <utility>
 
-#include "client/cpp/device/types.gen.h"
 #include "client/cpp/device/json.gen.h"
+#include "client/cpp/device/types.gen.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/pb/pb.h"
-#include "core/pkg/service/device/pb/device.pb.h"
 #include "x/cpp/json/struct.h"
-#include "x/cpp/status/proto.gen.h"
+#include "x/cpp/pb/pb.h"
 #include "x/cpp/status/json.gen.h"
+#include "x/cpp/status/proto.gen.h"
+
+#include "core/pkg/service/device/pb/device.pb.h"
 
 namespace synnax::device {
 
@@ -31,9 +32,8 @@ inline ::service::device::pb::StatusDetails StatusDetails::to_proto() const {
     return pb;
 }
 
-inline std::pair<StatusDetails, x::errors::Error> StatusDetails::from_proto(
-    const ::service::device::pb::StatusDetails& pb
-) {
+inline std::pair<StatusDetails, x::errors::Error>
+StatusDetails::from_proto(const ::service::device::pb::StatusDetails &pb) {
     StatusDetails cpp;
     cpp.rack = ::synnax::rack::Key(pb.rack());
     cpp.device = pb.device();
@@ -54,9 +54,8 @@ inline ::service::device::pb::Device Device::to_proto() const {
     return pb;
 }
 
-inline std::pair<Device, x::errors::Error> Device::from_proto(
-    const ::service::device::pb::Device& pb
-) {
+inline std::pair<Device, x::errors::Error>
+Device::from_proto(const ::service::device::pb::Device &pb) {
     Device cpp;
     cpp.key = pb.key();
     cpp.rack = ::synnax::rack::Key(pb.rack());

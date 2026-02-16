@@ -188,7 +188,7 @@ void Acquisition::run() {
         this->breaker.reset();
     }
     if (writer_opened) writer_err = writer->close();
-    if (writer_err.matches(freighter::ERR_UNREACHABLE) &&
+    if (writer_err.matches(freighter::UNREACHABLE) &&
         this->breaker.wait(writer_err.message()))
         return this->run();
     if (source_err && !source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))

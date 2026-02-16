@@ -53,15 +53,14 @@ x::json::json base_analog_config() {
 TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::device::Device(
-        "abc123",
-        "my_device",
-        rack.key,
-        "dev1",
-        "ni",
-        "PXI-6255",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "abc123",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "my_device",
+    };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("virtual"),
@@ -101,15 +100,14 @@ TEST(ReadTaskConfigTest, testNonExistingAnalogReadDevice) {
 TEST(ReadTaskConfigTest, testNonExistentAnalogReadChannel) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::device::Device(
-        "abc123",
-        "my_device",
-        rack.key,
-        "dev1",
-        "ni",
-        "PXI-6255",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "abc123",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "my_device",
+    };
     ASSERT_NIL(client->devices.create(dev));
 
     auto j = base_analog_config();
@@ -126,15 +124,14 @@ TEST(ReadTaskConfigTest, testNonExistentAnalogReadChannel) {
 TEST(ReadTaskConfigTest, testSampleRateLessThanStreamRate) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::device::Device(
-        "abc123",
-        "my_device",
-        rack.key,
-        "dev1",
-        "ni",
-        "PXI-6255",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "abc123",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "my_device",
+    };
     ASSERT_NIL(client->devices.create(dev));
 
     auto ch = ASSERT_NIL_P(client->channels.create(
@@ -157,15 +154,14 @@ TEST(ReadTaskConfigTest, testSampleRateLessThanStreamRate) {
 TEST(ReadTaskConfigTest, testNoEnabledChannels) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::device::Device(
-        "abc123",
-        "my_device",
-        rack.key,
-        "dev1",
-        "ni",
-        "PXI-6255",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "abc123",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "my_device",
+    };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("virtual"),
@@ -187,15 +183,14 @@ TEST(ReadTaskConfigTest, testNoEnabledChannels) {
 TEST(ReadTaskConfigTest, testUnknownChannelType) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::device::Device(
-        "abc123",
-        "my_device",
-        rack.key,
-        "dev1",
-        "ni",
-        "PXI-6255",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "abc123",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "my_device",
+    };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("virtual"),
@@ -243,8 +238,14 @@ protected:
 
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
-        synnax::device::Device
-            dev("opcua123", "my_device", rack.key, "dev1", "ni", "PXI-6255", "");
+        synnax::device::Device dev{
+            .key = "opcua123",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "ni",
+            .model = "PXI-6255",
+            .name = "my_device",
+        };
 
         ASSERT_NIL(client->devices.create(dev));
 
@@ -252,7 +253,7 @@ protected:
             .key = synnax::task::create_key(rack.key, 0),
             .name = "my_task",
             .type = "ni_analog_read",
-            .config = ""
+            .config = x::json::json{}
         };
 
         x::json::json j{
@@ -288,9 +289,9 @@ protected:
         mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
     }
 
-    std::unique_ptr<driver::task::common::ReadTask>
+    std::unique_ptr<common::ReadTask>
     create_task(std::unique_ptr<hardware::mock::Reader<double>> mock_hw) {
-        return std::make_unique<driver::task::common::ReadTask>(
+        return std::make_unique<common::ReadTask>(
             task,
             ctx,
             x::breaker::default_config(task.name),
@@ -542,22 +543,21 @@ protected:
 
         auto rack = ASSERT_NIL_P(client->racks.create("digital_rack"));
 
-        synnax::device::Device dev(
-            "130227d9-02aa-47e4-b370-0d590add1bc1",
-            "digital_device",
-            rack.key,
-            "dev1",
-            "ni",
-            "PXI-6255",
-            ""
-        );
+        synnax::device::Device dev{
+            .key = "130227d9-02aa-47e4-b370-0d590add1bc1",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "ni",
+            .model = "PXI-6255",
+            .name = "digital_device",
+        };
         ASSERT_NIL(client->devices.create(dev));
 
         task = synnax::task::Task{
             .key = synnax::task::create_key(rack.key, 0),
             .name = "digital_task",
             .type = "ni_digital_read",
-            .config = ""
+            .config = x::json::json{}
         };
 
         x::json::json j{
@@ -584,9 +584,9 @@ protected:
         mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
     }
 
-    std::unique_ptr<driver::task::common::ReadTask>
+    std::unique_ptr<common::ReadTask>
     create_task(std::unique_ptr<hardware::mock::Reader<uint8_t>> mock_hw) {
-        return std::make_unique<driver::task::common::ReadTask>(
+        return std::make_unique<common::ReadTask>(
             task,
             ctx,
             x::breaker::default_config(task.name),
@@ -646,15 +646,14 @@ TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
-    auto dev = synnax::device::Device(
-        "device123",
-        "test_device",
-        rack.key,
-        "cDAQ1Mod1",
-        "ni",
-        "NI 9229",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "device123",
+        .rack = rack.key,
+        .location = "cDAQ1Mod1",
+        .make = "ni",
+        .model = "NI 9229",
+        .name = "test_device",
+    };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("test_ch"),
@@ -705,22 +704,21 @@ protected:
 
         auto rack = ASSERT_NIL_P(client->racks.create("counter_rack"));
 
-        synnax::device::Device dev(
-            "f8a9c7e6-1234-4567-890a-bcdef0123456",
-            "counter_device",
-            rack.key,
-            "Dev1",
-            "ni",
-            "PCIe-6343",
-            ""
-        );
+        synnax::device::Device dev{
+            .key = "f8a9c7e6-1234-4567-890a-bcdef0123456",
+            .rack = rack.key,
+            .location = "Dev1",
+            .make = "ni",
+            .model = "PCIe-6343",
+            .name = "counter_device",
+        };
         ASSERT_NIL(client->devices.create(dev));
 
         task = synnax::task::Task{
             .key = synnax::task::create_key(rack.key, 0),
             .name = "counter_task",
             .type = "ni_counter_read",
-            .config = ""
+            .config = x::json::json{}
         };
 
         x::json::json j{
@@ -755,9 +753,9 @@ protected:
         mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
     }
 
-    std::unique_ptr<driver::task::common::ReadTask>
+    std::unique_ptr<common::ReadTask>
     create_task(std::unique_ptr<hardware::mock::Reader<double>> mock_hw) {
-        return std::make_unique<driver::task::common::ReadTask>(
+        return std::make_unique<common::ReadTask>(
             task,
             ctx,
             x::breaker::default_config(task.name),
@@ -887,7 +885,7 @@ TEST_F(CounterReadTest, testCounterErrorOnRead) {
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto read_err_state = ctx->statuses[1];
-    EXPECT_EQ(read_err_state.key, task.status_key());
+    EXPECT_EQ(read_err_state.key, synnax::task::status_key(task));
     EXPECT_EQ(read_err_state.variant, x::status::VARIANT_ERROR);
     EXPECT_EQ(read_err_state.message, "Counter read failed");
     rt->stop("stop_cmd", true);
@@ -959,15 +957,14 @@ TEST(ReadTaskConfigTest, testCounterEdgeCountConfig) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
-    auto dev = synnax::device::Device(
-        "counter_dev_123",
-        "test_counter_device",
-        rack.key,
-        "Dev1",
-        "ni",
-        "USB-6343",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "counter_dev_123",
+        .rack = rack.key,
+        .location = "Dev1",
+        .make = "ni",
+        .model = "USB-6343",
+        .name = "test_counter_device",
+    };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("edge_count"),
@@ -1008,15 +1005,14 @@ TEST(ReadTaskConfigTest, testCounterPeriodConfig) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
-    auto dev = synnax::device::Device(
-        "counter_dev_456",
-        "test_period_device",
-        rack.key,
-        "Dev2",
-        "ni",
-        "PCIe-6343",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "counter_dev_456",
+        .rack = rack.key,
+        .location = "Dev2",
+        .make = "ni",
+        .model = "PCIe-6343",
+        .name = "test_period_device",
+    };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(
         client->channels.create("period", x::telem::FLOAT64_T, true)
@@ -1060,26 +1056,24 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
-    auto dev1 = synnax::device::Device(
-        "d1",
-        "dev1",
-        rack.key,
-        "cDAQ1Mod1",
-        "ni",
-        "NI 9229",
-        ""
-    );
+    auto dev1 = synnax::device::Device{
+        .key = "d1",
+        .rack = rack.key,
+        .location = "cDAQ1Mod1",
+        .make = "ni",
+        .model = "NI 9229",
+        .name = "dev1",
+    };
     ASSERT_NIL(client->devices.create(dev1));
 
-    auto dev2 = synnax::device::Device(
-        "d2",
-        "dev2",
-        rack.key,
-        "cDAQ1Mod2",
-        "ni",
-        "NI 9205",
-        ""
-    );
+    auto dev2 = synnax::device::Device{
+        .key = "d2",
+        .rack = rack.key,
+        .location = "cDAQ1Mod2",
+        .make = "ni",
+        .model = "NI 9205",
+        .name = "dev2",
+    };
     ASSERT_NIL(client->devices.create(dev2));
 
     auto ch1 = ASSERT_NIL_P(client->channels.create(
@@ -1175,15 +1169,14 @@ TEST(ReadTaskConfigTest, testMinimumSampleRateErrorMessageFormat) {
 TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    auto dev = synnax::device::Device(
-        "test_device_key",
-        "test_device",
-        rack.key,
-        "dev1",
-        "ni",
-        "PXI-6255",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "test_device_key",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "test_device",
+    };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(
         client->channels.create("test_channel", x::telem::FLOAT64_T, true)

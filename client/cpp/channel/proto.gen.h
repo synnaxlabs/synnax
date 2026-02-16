@@ -11,40 +11,49 @@
 
 #pragma once
 
-#include <utility>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
-#include "client/cpp/channel/types.gen.h"
 #include "client/cpp/channel/json.gen.h"
+#include "client/cpp/channel/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
-#include "core/pkg/distribution/channel/pb/channel.pb.h"
-#include "core/pkg/api/channel/pb/channel.pb.h"
-#include "x/cpp/status/proto.gen.h"
 #include "x/cpp/status/json.gen.h"
+#include "x/cpp/status/proto.gen.h"
+
+#include "core/pkg/api/channel/pb/channel.pb.h"
+#include "core/pkg/distribution/channel/pb/channel.pb.h"
 
 namespace synnax::channel {
 
-
-inline ::distribution::channel::pb::OperationType OperationTypeToPB(const std::string& cpp) {
-    static const std::unordered_map<std::string, ::distribution::channel::pb::OperationType> kMap = {
-        {OPERATION_TYPE_MIN, ::distribution::channel::pb::OPERATION_TYPE_MIN},
-        {OPERATION_TYPE_MAX, ::distribution::channel::pb::OPERATION_TYPE_MAX},
-        {OPERATION_TYPE_AVG, ::distribution::channel::pb::OPERATION_TYPE_AVG},
-        {OPERATION_TYPE_NONE, ::distribution::channel::pb::OPERATION_TYPE_NONE},
-    };
+inline ::distribution::channel::pb::OperationType
+OperationTypeToPB(const std::string &cpp) {
+    static const std::
+        unordered_map<std::string, ::distribution::channel::pb::OperationType>
+            kMap = {
+                {OPERATION_TYPE_MIN, ::distribution::channel::pb::OPERATION_TYPE_MIN},
+                {OPERATION_TYPE_MAX, ::distribution::channel::pb::OPERATION_TYPE_MAX},
+                {OPERATION_TYPE_AVG, ::distribution::channel::pb::OPERATION_TYPE_AVG},
+                {OPERATION_TYPE_NONE, ::distribution::channel::pb::OPERATION_TYPE_NONE},
+            };
     auto it = kMap.find(cpp);
-    return it != kMap.end() ? it->second : ::distribution::channel::pb::OPERATION_TYPE_MIN;
+    return it != kMap.end() ? it->second
+                            : ::distribution::channel::pb::OPERATION_TYPE_MIN;
 }
 
 inline std::string OperationTypeFromPB(::distribution::channel::pb::OperationType pb) {
     switch (pb) {
-    case ::distribution::channel::pb::OPERATION_TYPE_MIN: return OPERATION_TYPE_MIN;
-    case ::distribution::channel::pb::OPERATION_TYPE_MAX: return OPERATION_TYPE_MAX;
-    case ::distribution::channel::pb::OPERATION_TYPE_AVG: return OPERATION_TYPE_AVG;
-    case ::distribution::channel::pb::OPERATION_TYPE_NONE: return OPERATION_TYPE_NONE;
-    default: return OPERATION_TYPE_MIN;
+        case ::distribution::channel::pb::OPERATION_TYPE_MIN:
+            return OPERATION_TYPE_MIN;
+        case ::distribution::channel::pb::OPERATION_TYPE_MAX:
+            return OPERATION_TYPE_MAX;
+        case ::distribution::channel::pb::OPERATION_TYPE_AVG:
+            return OPERATION_TYPE_AVG;
+        case ::distribution::channel::pb::OPERATION_TYPE_NONE:
+            return OPERATION_TYPE_NONE;
+        default:
+            return OPERATION_TYPE_MIN;
     }
 }
 
@@ -56,9 +65,8 @@ inline ::distribution::channel::pb::Operation Operation::to_proto() const {
     return pb;
 }
 
-inline std::pair<Operation, x::errors::Error> Operation::from_proto(
-    const ::distribution::channel::pb::Operation& pb
-) {
+inline std::pair<Operation, x::errors::Error>
+Operation::from_proto(const ::distribution::channel::pb::Operation &pb) {
     Operation cpp;
     cpp.type = OperationTypeFromPB(pb.type());
     cpp.reset_channel = Key(pb.reset_channel());
@@ -78,15 +86,15 @@ inline ::api::channel::pb::Channel Channel::to_proto() const {
     pb.set_virtual_(this->is_virtual);
     pb.set_internal(this->internal);
     pb.set_expression(this->expression);
-    for (const auto& item : this->operations) *pb.add_operations() = item.to_proto();
+    for (const auto &item: this->operations)
+        *pb.add_operations() = item.to_proto();
     pb.set_concurrency(static_cast<::x::control::pb::Concurrency>(this->concurrency));
     if (this->status.has_value()) *pb.mutable_status() = this->status->to_proto();
     return pb;
 }
 
-inline std::pair<Channel, x::errors::Error> Channel::from_proto(
-    const ::api::channel::pb::Channel& pb
-) {
+inline std::pair<Channel, x::errors::Error>
+Channel::from_proto(const ::api::channel::pb::Channel &pb) {
     Channel cpp;
     cpp.key = Key(pb.key());
     cpp.name = pb.name();
@@ -98,7 +106,11 @@ inline std::pair<Channel, x::errors::Error> Channel::from_proto(
     cpp.is_virtual = pb.virtual_();
     cpp.internal = pb.internal();
     cpp.expression = pb.expression();
-    if (auto err = x::pb::from_proto_repeated<Operation>(cpp.operations, pb.operations())) return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Operation>(
+            cpp.operations,
+            pb.operations()
+        ))
+        return {{}, err};
     cpp.concurrency = static_cast<::x::control::Concurrency>(pb.concurrency());
     if (pb.has_status()) {
         auto [v, err] = Status::from_proto(pb.status());

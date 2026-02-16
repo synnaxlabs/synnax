@@ -104,15 +104,15 @@ protected:
             {"enabled", true},
             {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
         };
-        synnax::device::Device dev(
-            "ecat_slave_" + std::to_string(serial),
-            "Test Slave SN:" + std::to_string(serial),
-            rack.key,
-            NETWORK_INTERFACE + ".Slot 0",
-            "DEWESoft",
-            "TestModule",
-            props.dump()
-        );
+        synnax::device::Device dev{
+            .key = "ecat_slave_" + std::to_string(serial),
+            .rack = rack.key,
+            .location = NETWORK_INTERFACE + ".Slot 0",
+            .make = "DEWESoft",
+            .model = "TestModule",
+            .name = "Test Slave SN:" + std::to_string(serial),
+            .properties = props,
+        };
         auto err = client->devices.create(dev);
         EXPECT_TRUE(!err) << err.message();
         return dev;

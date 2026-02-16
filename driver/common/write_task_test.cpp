@@ -26,7 +26,7 @@ public:
         const std::shared_ptr<std::vector<x::telem::Frame>> &writes,
         const std::shared_ptr<std::vector<x::errors::Error>> &errors
     ):
-        driver::task::common::Sink(
+        common::Sink(
             state_rate,
             state_indexes,
             state_channels,

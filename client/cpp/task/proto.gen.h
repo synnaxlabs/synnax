@@ -13,14 +13,15 @@
 
 #include <utility>
 
-#include "client/cpp/task/types.gen.h"
 #include "client/cpp/task/json.gen.h"
+#include "client/cpp/task/types.gen.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/pb/pb.h"
-#include "core/pkg/service/task/pb/task.pb.h"
 #include "x/cpp/json/struct.h"
-#include "x/cpp/status/proto.gen.h"
+#include "x/cpp/pb/pb.h"
 #include "x/cpp/status/json.gen.h"
+#include "x/cpp/status/proto.gen.h"
+
+#include "core/pkg/service/task/pb/task.pb.h"
 
 namespace synnax::task {
 
@@ -29,13 +30,13 @@ inline ::service::task::pb::StatusDetails StatusDetails::to_proto() const {
     pb.set_task(static_cast<uint64_t>(this->task));
     pb.set_running(this->running);
     pb.set_cmd(this->cmd);
-    if (this->data.has_value()) *pb.mutable_data() = x::json::to_struct(*this->data).first;
+    if (this->data.has_value())
+        *pb.mutable_data() = x::json::to_struct(*this->data).first;
     return pb;
 }
 
-inline std::pair<StatusDetails, x::errors::Error> StatusDetails::from_proto(
-    const ::service::task::pb::StatusDetails& pb
-) {
+inline std::pair<StatusDetails, x::errors::Error>
+StatusDetails::from_proto(const ::service::task::pb::StatusDetails &pb) {
     StatusDetails cpp;
     cpp.task = Key(pb.task());
     cpp.running = pb.running();
@@ -60,9 +61,8 @@ inline ::service::task::pb::Task Task::to_proto() const {
     return pb;
 }
 
-inline std::pair<Task, x::errors::Error> Task::from_proto(
-    const ::service::task::pb::Task& pb
-) {
+inline std::pair<Task, x::errors::Error>
+Task::from_proto(const ::service::task::pb::Task &pb) {
     Task cpp;
     cpp.key = Key(pb.key());
     cpp.name = pb.name();
@@ -91,9 +91,8 @@ inline ::service::task::pb::Command Command::to_proto() const {
     return pb;
 }
 
-inline std::pair<Command, x::errors::Error> Command::from_proto(
-    const ::service::task::pb::Command& pb
-) {
+inline std::pair<Command, x::errors::Error>
+Command::from_proto(const ::service::task::pb::Command &pb) {
     Command cpp;
     cpp.task = Key(pb.task());
     cpp.type = pb.type();

@@ -83,21 +83,27 @@ TEST(TestChannel, testCreateVirtual) {
 TEST(TestChannel, testCreateMany) {
     const auto client = new_test_client();
     std::vector<Channel> channels;
-    channels.push_back(Channel{
-        .name = make_unique_channel_name("test1"),
-        .data_type = x::telem::FLOAT64_T,
-        .is_virtual = true,
-    });
-    channels.push_back(Channel{
-        .name = make_unique_channel_name("test2"),
-        .data_type = x::telem::FLOAT64_T,
-        .is_virtual = true,
-    });
-    channels.push_back(Channel{
-        .name = make_unique_channel_name("test3"),
-        .data_type = x::telem::FLOAT64_T,
-        .is_virtual = true,
-    });
+    channels.push_back(
+        Channel{
+            .name = make_unique_channel_name("test1"),
+            .data_type = x::telem::FLOAT64_T,
+            .is_virtual = true,
+        }
+    );
+    channels.push_back(
+        Channel{
+            .name = make_unique_channel_name("test2"),
+            .data_type = x::telem::FLOAT64_T,
+            .is_virtual = true,
+        }
+    );
+    channels.push_back(
+        Channel{
+            .name = make_unique_channel_name("test3"),
+            .data_type = x::telem::FLOAT64_T,
+            .is_virtual = true,
+        }
+    );
     ASSERT_TRUE(client.channels.create(channels).ok());
     ASSERT_EQ(channels.size(), 3);
     for (const auto &ch: channels)
@@ -160,21 +166,27 @@ TEST(TestChannel, testRetrieveByNameNotFound) {
 TEST(TestChannel, testRetrieveMany) {
     auto client = new_test_client();
     std::vector<Channel> channels;
-    channels.push_back(Channel{
-        .name = make_unique_channel_name("retrieve_many_1"),
-        .data_type = x::telem::FLOAT64_T,
-        .is_virtual = true,
-    });
-    channels.push_back(Channel{
-        .name = make_unique_channel_name("retrieve_many_2"),
-        .data_type = x::telem::FLOAT64_T,
-        .is_virtual = true,
-    });
-    channels.push_back(Channel{
-        .name = make_unique_channel_name("retrieve_many_3"),
-        .data_type = x::telem::FLOAT64_T,
-        .is_virtual = true,
-    });
+    channels.push_back(
+        Channel{
+            .name = make_unique_channel_name("retrieve_many_1"),
+            .data_type = x::telem::FLOAT64_T,
+            .is_virtual = true,
+        }
+    );
+    channels.push_back(
+        Channel{
+            .name = make_unique_channel_name("retrieve_many_2"),
+            .data_type = x::telem::FLOAT64_T,
+            .is_virtual = true,
+        }
+    );
+    channels.push_back(
+        Channel{
+            .name = make_unique_channel_name("retrieve_many_3"),
+            .data_type = x::telem::FLOAT64_T,
+            .is_virtual = true,
+        }
+    );
     ASSERT_NIL(client.channels.create(channels));
     auto retrieved = ASSERT_NIL_P(
         client.channels.retrieve(keys_from_channels(channels))

@@ -43,7 +43,8 @@ Client::retrieve(const std::string &name, const RetrieveOptions &options) const 
     req.set_include_status(options.include_status);
     auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {Task(), err};
-    if (res.tasks_size() == 0) return {Task(), errors::not_found_error("task", "name " + name)};
+    if (res.tasks_size() == 0)
+        return {Task(), errors::not_found_error("task", "name " + name)};
     auto [payload, proto_err] = Task::from_proto(res.tasks(0));
     if (proto_err) return {Task(), proto_err};
     return {Task(std::move(payload)), x::errors::NIL};
@@ -89,7 +90,8 @@ std::pair<Task, x::errors::Error> Client::retrieve_by_type(
     req.set_include_status(options.include_status);
     auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {Task(), err};
-    if (res.tasks_size() == 0) return {Task(), errors::not_found_error("task", "type " + type)};
+    if (res.tasks_size() == 0)
+        return {Task(), errors::not_found_error("task", "type " + type)};
     auto [payload, proto_err] = Task::from_proto(res.tasks(0));
     if (proto_err) return {Task(), proto_err};
     return {Task(std::move(payload)), x::errors::NIL};
@@ -121,7 +123,7 @@ std::pair<std::vector<Task>, x::errors::Error> Client::retrieve_by_type(
 }
 
 x::errors::Error Client::create(Task &task) const {
-    if (task.key == 0 && this->rack != 0) task.key = create_task_key(this->rack, 0);
+    if (task.key == 0 && this->rack != 0) task.key = create_key(this->rack, 0);
     auto req = grpc::task::CreateRequest();
     *req.add_tasks() = task.to_proto();
     auto [res, err] = task_create_client->send("/task/create", req);

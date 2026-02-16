@@ -72,15 +72,21 @@ protected:
 
         const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
-        synnax::device::Device
-            dev("abc123", "my_device", rack.key, "dev1", "ni", "PXI-6255", "");
+        synnax::device::Device dev{
+            .key = "abc123",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "ni",
+            .model = "PXI-6255",
+            .name = "my_device",
+        };
         ASSERT_NIL(client->devices.create(dev));
 
         task = synnax::task::Task{
             .key = synnax::task::create_key(rack.key, 0),
             .name = "my_task",
             .type = "ni_analog_write",
-            .config = ""
+            .config = x::json::json{}
         };
 
         const x::json::json j{
@@ -123,9 +129,9 @@ protected:
         mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
     }
 
-    std::unique_ptr<driver::task::common::WriteTask>
+    std::unique_ptr<common::WriteTask>
     create_task(std::unique_ptr<hardware::mock::Writer<double>> mock_hw) {
-        return std::make_unique<driver::task::common::WriteTask>(
+        return std::make_unique<common::WriteTask>(
             task,
             ctx,
             x::breaker::default_config(task.name),
@@ -205,15 +211,14 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
     // Create a device
-    auto dev = synnax::device::Device(
-        "abc123",
-        "test_device",
-        rack.key,
-        "dev1",
-        "ni",
-        "PXI-6255",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "abc123",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "test_device",
+    };
     ASSERT_NIL(client->devices.create(dev));
 
     // Create state and command channels

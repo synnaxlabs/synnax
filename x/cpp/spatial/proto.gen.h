@@ -13,10 +13,11 @@
 
 #include <utility>
 
-#include "x/cpp/spatial/types.gen.h"
-#include "x/cpp/spatial/json.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
+#include "x/cpp/spatial/json.gen.h"
+#include "x/cpp/spatial/types.gen.h"
+
 #include "x/go/spatial/pb/spatial.pb.h"
 
 namespace x::spatial {
@@ -28,9 +29,7 @@ inline ::x::spatial::pb::XY XY::to_proto() const {
     return pb;
 }
 
-inline std::pair<XY, x::errors::Error> XY::from_proto(
-    const ::x::spatial::pb::XY& pb
-) {
+inline std::pair<XY, x::errors::Error> XY::from_proto(const ::x::spatial::pb::XY &pb) {
     XY cpp;
     cpp.x = pb.x();
     cpp.y = pb.y();

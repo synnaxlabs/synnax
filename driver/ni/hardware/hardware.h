@@ -25,7 +25,7 @@ struct Hardware {
     [[nodiscard]] virtual x::errors::Error stop() = 0;
 };
 
-struct ReadResult : driver::task::common::ReadResult {
+struct ReadResult : common::ReadResult {
     int64 skew = 0;
 };
 

@@ -26,7 +26,7 @@ const std::vector SCAN_SKIP_ERRORS = {
 };
 
 /// @brief configuration for the scan task
-struct ScanTaskConfig : driver::task::common::ScanTaskConfig {
+struct ScanTaskConfig : common::ScanTaskConfig {
     /// @brief how often to scan TCP devices relative to USB devices
     const int tcp_scan_multiplier;
 
@@ -35,7 +35,7 @@ struct ScanTaskConfig : driver::task::common::ScanTaskConfig {
         tcp_scan_multiplier(cfg.field<int>("tcp_scan_multiplier", 10)) {}
 };
 
-class Scanner final : public driver::task::common::Scanner {
+class Scanner final : public common::Scanner {
     /// @brief the raw synnax task configuration
     const synnax::task::Task task;
     /// @brief configuration for the scan task
@@ -43,11 +43,8 @@ class Scanner final : public driver::task::common::Scanner {
     /// @brief the device manager for handling LabJack connections
     std::shared_ptr<device::Manager> device_manager;
 
-    driver::task::common::ScannerConfig config() const override {
-        return driver::task::common::ScannerConfig{
-            .make = MAKE,
-            .log_prefix = SCAN_LOG_PREFIX
-        };
+    common::ScannerConfig config() const override {
+        return common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
     }
 
     /// @brief scans for devices with the given type and connection
@@ -85,17 +82,16 @@ class Scanner final : public driver::task::common::Scanner {
             auto name = device_type_str + "-" + last_four;
 
             auto rack = synnax::task::rack_key_from_task_key(this->task.key);
-            auto sy_dev = synnax::device::Device(
-                serial_str,
-                name,
-                rack,
-                conn_type_str,
-                MAKE,
-                device_type_str,
-                "" // Properties will be set in Device constructor
-            );
+            auto sy_dev = synnax::device::Device{
+                .key = serial_str,
+                .rack = rack,
+                .location = conn_type_str,
+                .make = MAKE,
+                .model = device_type_str,
+                .name = name,
+            };
             sy_dev.status = synnax::device::Status{
-                .key = sy_dev.status_key(),
+                .key = synnax::device::status_key(sy_dev),
                 .name = name,
                 .variant = x::status::VARIANT_SUCCESS,
                 .message = "Device present",

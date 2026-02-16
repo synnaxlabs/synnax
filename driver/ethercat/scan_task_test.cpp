@@ -98,7 +98,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
     ScanTaskConfig cfg;
     Scanner scanner(ctx, task, cfg, nullptr);
 
-    task::Command cmd;
+    synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = "{}";
     cmd.key = 1;
@@ -118,7 +118,7 @@ TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
     ScanTaskConfig cfg;
     Scanner scanner(ctx, task, cfg, nullptr);
 
-    task::Command cmd;
+    synnax::task::Command cmd;
     cmd.type = "unknown_command";
     cmd.args = "{}";
 
@@ -147,7 +147,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
     ScanTaskConfig cfg;
     Scanner scanner(this->ctx, task, cfg, pool);
 
-    task::Command cmd;
+    synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "eth0"}};
     cmd.key = 1;
@@ -198,7 +198,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     ScanTaskConfig cfg;
     Scanner scanner(this->ctx, task, cfg, pool);
 
-    task::Command cmd;
+    synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "enp3s0"}};
     cmd.key = 2;
@@ -225,7 +225,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     ScanTaskConfig cfg;
     Scanner scanner(this->ctx, task, cfg, pool);
 
-    task::Command cmd;
+    synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
     cmd.args = {{"interface", "eth0"}};
     cmd.key = 3;

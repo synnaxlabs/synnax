@@ -28,8 +28,13 @@
 #include "core/pkg/service/task/pb/task.pb.h"
 
 namespace synnax::task {
-// Forward declaration for RackKey (needed for task key utilities)
-using RackKey = std::uint32_t;
+namespace rack {
+using Key = std::uint32_t;
+}
+
+const std::string SET_CHANNEL = "sy_task_set";
+const std::string DELETE_CHANNEL = "sy_task_delete";
+const std::string CMD_CHANNEL = "sy_task_cmd";
 
 /// @brief Type alias for the transport used to create a task.
 using CreateClient = freighter::
@@ -47,28 +52,28 @@ using DeleteClient = freighter::
 /// @param rack The rack key.
 /// @param task The local task key.
 /// @returns A combined task key.
-inline Key create_task_key(const RackKey rack, const Key task) {
+inline Key create_key(const rack::Key rack, const Key task) {
     return static_cast<task::Key>(rack) << 32 | task;
 }
 
 /// @brief Extracts the rack key from a task key.
 /// @param key The task key.
 /// @returns The rack key portion of the task key.
-inline RackKey rack_key_from_task_key(const Key key) {
+inline rack::Key rack_key_from_task_key(const Key key) {
     return key >> 32;
 }
 
 /// @brief Extracts the local task key from a task key.
 /// @param key The task key.
 /// @returns The local task key portion of the task key.
-inline std::uint32_t local_task_key(const Key key) {
+inline std::uint32_t local_key(const Key key) {
     return key & 0xFFFFFFFF;
 }
 
 /// @brief Returns the rack key for a task.
 /// @param task The task.
 /// @returns The rack key portion of the task's key.
-inline RackKey rack(const Task &task) {
+inline rack::Key rack_key(const Task &task) {
     return rack_key_from_task_key(task.key);
 }
 
@@ -219,7 +224,7 @@ public:
     std::pair<std::vector<Task>, x::errors::Error>
     list(const RetrieveOptions &options) const;
 
-    Client scope_to_rack(const RackKey &rack_key) const {
+    Client scope_to_rack(const rack::Key &rack_key) const {
         auto c = *this;
         c.rack = rack_key;
         return c;
@@ -227,7 +232,7 @@ public:
 
 private:
     /// @brief Key of rack that this client belongs to.
-    RackKey rack;
+    rack::Key rack;
     /// @brief Task creation transport.
     std::shared_ptr<CreateClient> task_create_client;
     /// @brief Task retrieval transport.

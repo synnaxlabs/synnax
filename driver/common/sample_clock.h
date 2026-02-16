@@ -120,7 +120,7 @@ struct HardwareTimedSampleClockConfig {
         const x::telem::Rate &stream_rate,
         const bool enable_skew_correction = true
     ) {
-        driver::task::common::HardwareTimedSampleClockConfig cfg{
+        common::HardwareTimedSampleClockConfig cfg{
             .sample_rate = sample_rate,
             .stream_rate = stream_rate,
         };

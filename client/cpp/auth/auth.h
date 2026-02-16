@@ -24,6 +24,7 @@
 
 #include "core/pkg/api/grpc/auth/auth.pb.h"
 
+namespace synnax::auth {
 /// @brief auth metadata key. NOTE: This must be lowercase, GRPC will panic on
 /// capitalized or uppercase keys.
 const std::string HEADER_KEY = "authorization";
@@ -31,7 +32,7 @@ const std::string HEADER_KEY = "authorization";
 const std::string HEADER_VALUE_PREFIX = "Bearer ";
 
 /// @brief type alias for the auth login transport.
-using AuthLoginClient = freighter::
+using LoginClient = freighter::
     UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>;
 
 const x::errors::Error ERR = x::errors::SY.sub("auth");
@@ -61,17 +62,17 @@ struct ClusterInfo {
         node_time(info.node_time()) {}
 };
 
-/// @brief AuthMiddleware for authenticating requests using a bearer token.
-/// AuthMiddleware has no preference on order when provided to use. Middleware is safe
+/// @brief auth::Middleware for authenticating requests using a bearer token.
+/// auth::Middleware has no preference on order when provided to use. Middleware is safe
 /// to use concurrently.
-class AuthMiddleware final : public freighter::PassthroughMiddleware {
+class Middleware final : public freighter::PassthroughMiddleware {
     /// Token to be used for authentication. Empty when auth_attempted is false or error
     /// is not nil.
     std::string token;
     /// Whether the middleware has successfully authenticated with the server.
     std::atomic<bool> authenticated = false;
     /// Transport for authentication requests.
-    std::unique_ptr<AuthLoginClient> login_client;
+    std::unique_ptr<LoginClient> login_client;
     /// Username to be used for authentication.
     std::string username;
     /// Password to be used for authentication.
@@ -86,8 +87,8 @@ public:
     /// Cluster information.
     ClusterInfo cluster_info = ClusterInfo();
 
-    AuthMiddleware(
-        std::unique_ptr<AuthLoginClient> login_client,
+    Middleware(
+        std::unique_ptr<LoginClient> login_client,
         std::string username,
         std::string password,
         const x::telem::TimeSpan clock_skew_threshold
@@ -145,3 +146,4 @@ public:
         return {res_ctx, err};
     }
 };
+}

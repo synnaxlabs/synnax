@@ -11,49 +11,52 @@
 
 #pragma once
 
-#include <variant>
 #include <string>
-#include <vector>
 #include <type_traits>
 #include <utility>
-#include "x/cpp/telem/types.gen.h"
-#include "x/cpp/label/types.gen.h"
-#include "x/cpp/json/json.h"
-#include "x/cpp/errors/errors.h"
-#include "x/go/status/pb/status.pb.h"
+#include <variant>
+#include <vector>
 
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/label/types.gen.h"
+#include "x/cpp/telem/types.gen.h"
+
+#include "x/go/status/pb/status.pb.h"
 
 namespace x::status {
 
-
-constexpr const char* VARIANT_SUCCESS = "success";
-constexpr const char* VARIANT_INFO = "info";
-constexpr const char* VARIANT_WARNING = "warning";
-constexpr const char* VARIANT_ERROR = "error";
-constexpr const char* VARIANT_LOADING = "loading";
-constexpr const char* VARIANT_DISABLED = "disabled";
-
+constexpr const char *VARIANT_SUCCESS = "success";
+constexpr const char *VARIANT_INFO = "info";
+constexpr const char *VARIANT_WARNING = "warning";
+constexpr const char *VARIANT_ERROR = "error";
+constexpr const char *VARIANT_LOADING = "loading";
+constexpr const char *VARIANT_DISABLED = "disabled";
 
 /// @brief Status is a standardized message used to communicate state across the Synnax
 /// platform. Statuses support different severity variants and can carry
 /// component-specific details.
-template <typename Details = std::monostate>
+template<typename Details = std::monostate>
 struct Status {
-    /// @brief key is a unique identifier for this status, automatically generated if not
-/// provided.
+    /// @brief key is a unique identifier for this status, automatically generated if
+    /// not
+    /// provided.
     std::string key;
     /// @brief name is an optional human-readable name for the status.
     std::string name;
-    /// @brief variant is the severity or type of the status: success, info, warning, error,
-/// loading, or disabled.
+    /// @brief variant is the severity or type of the status: success, info, warning,
+    /// error,
+    /// loading, or disabled.
     std::string variant;
     /// @brief message is the main message text describing the status.
     std::string message;
-    /// @brief description is an optional detailed description providing additional context.
+    /// @brief description is an optional detailed description providing additional
+    /// context.
     std::string description;
     /// @brief time is the timestamp when the status was created.
     ::x::telem::TimeStamp time = x::telem::TimeStamp(0);
-    /// @brief details contains optional component-specific custom details for the status.
+    /// @brief details contains optional component-specific custom details for the
+    /// status.
     Details details;
     /// @brief labels contains optional labels for categorization and filtering.
     std::vector<::x::label::Label> labels;
@@ -63,6 +66,7 @@ struct Status {
 
     using proto_type = ::x::status::pb::Status;
     [[nodiscard]] ::x::status::pb::Status to_proto() const;
-    static std::pair<Status, x::errors::Error> from_proto(const ::x::status::pb::Status& pb);
+    static std::pair<Status, x::errors::Error>
+    from_proto(const ::x::status::pb::Status &pb);
 };
 }

@@ -179,8 +179,8 @@ TEST_F(XTestTest, TestAssertNilSingleEvaluation) {
         return errors::NIL;
     };
     ASSERT_NIL(nil_with_side_effect());
-    EXPECT_EQ(this->counter, 1) << "ASSERT_NIL evaluated expression " << this->counter
-                             << " times instead of 1";
+    EXPECT_EQ(this->counter, 1)
+        << "ASSERT_NIL evaluated expression " << this->counter << " times instead of 1";
 }
 
 /// @brief ASSERT_OCCURRED_AS should only evaluate its expression once.
@@ -192,7 +192,7 @@ TEST_F(XTestTest, TestAssertOccurredAsSingleEvaluation) {
         return expected;
     };
     ASSERT_OCCURRED_AS(error_with_side_effect(), errors::Error("test.error", ""));
-    EXPECT_EQ(this->counter, 1) << "ASSERT_OCCURRED_AS evaluated expression " << this->counter
-                             << " times instead of 1";
+    EXPECT_EQ(this->counter, 1) << "ASSERT_OCCURRED_AS evaluated expression "
+                                << this->counter << " times instead of 1";
 }
 }

@@ -34,7 +34,7 @@
 namespace driver::arc {
 /// @brief configuration for an arc runtime task.
 struct TaskConfig : common::BaseTaskConfig {
-    std::string arc_key;
+    x::uuid::UUID arc_key;
     ::arc::module::Module module;
     ::arc::runtime::loop::Config loop;
 
@@ -56,14 +56,14 @@ struct TaskConfig : common::BaseTaskConfig {
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
-        auto [arc_key, key_err] = x::uuid::UUID::parse(cfg.arc_key);
-        if (key_err) return {std::move(cfg), key_err};
         auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
-            arc_key,
+            cfg.arc_key,
             synnax::arc::RetrieveOptions{.compile = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};
-        cfg.module = ::arc::module::Module(arc_data.module);
+        if (!arc_data.module.has_value())
+            return {std::move(cfg), x::errors::Error("arc module not compiled")};
+        cfg.module = *arc_data.module;
         return {std::move(cfg), x::errors::NIL};
     }
 };
@@ -73,7 +73,7 @@ class Task final : public task::Task {
     std::shared_ptr<::arc::runtime::Runtime> runtime;
     std::unique_ptr<pipeline::Acquisition> acquisition;
     std::unique_ptr<pipeline::Control> control;
-    task::common::StatusHandler state;
+    common::StatusHandler state;
 
     /// @brief source that reads output data from the arc runtime.
     class Source final : public pipeline::Source {
@@ -192,7 +192,7 @@ public:
                         .name = task_meta.name,
                         .key = std::to_string(task_meta.key),
                     },
-                .mode = task::common::data_saving_writer_mode(cfg.data_saving),
+                .mode = common::data_saving_writer_mode(cfg.data_saving),
             },
             std::move(source),
             x::breaker::default_config("arc_acquisition"),

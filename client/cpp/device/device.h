@@ -21,6 +21,7 @@
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/device/proto.gen.h"
 #include "client/cpp/device/types.gen.h"
+#include "client/cpp/rack/rack.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
@@ -29,11 +30,8 @@
 #include "core/pkg/api/grpc/device/device.pb.h"
 
 namespace synnax::device {
-const std::string DEVICE_SET_CHANNEL = "sy_device_set";
-const std::string DEVICE_DELETE_CHANNEL = "sy_device_delete";
-
-/// @brief Type alias for rack keys used in device context.
-using RackKey = ::synnax::rack::Key;
+const std::string SET_CHANNEL = "sy_device_set";
+const std::string DELETE_CHANNEL = "sy_device_delete";
 
 /// @brief Type alias for the transport used to create a device.
 using CreateClient = freighter::
@@ -79,7 +77,7 @@ struct RetrieveRequest {
     std::vector<std::string> makes;
     std::vector<std::string> models;
     std::vector<std::string> locations;
-    std::vector<RackKey> racks;
+    std::vector<rack::Key> racks;
     std::string search;
     std::uint32_t limit = 0;
     std::uint32_t offset = 0;

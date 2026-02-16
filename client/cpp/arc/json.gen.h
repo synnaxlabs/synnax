@@ -15,10 +15,11 @@
 
 #include "client/cpp/arc/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "arc/cpp/graph/json.gen.h"
-#include "arc/cpp/text/json.gen.h"
-#include "arc/cpp/module/json.gen.h"
 #include "x/cpp/status/json.gen.h"
+
+#include "arc/cpp/graph/json.gen.h"
+#include "arc/cpp/module/json.gen.h"
+#include "arc/cpp/text/json.gen.h"
 
 namespace synnax::arc {
 

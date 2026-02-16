@@ -61,7 +61,7 @@ struct StatusHandler {
     /// method sends the error status to the task context right away.
     void send_error(const x::errors::Error &err) {
         if (!err) return;
-        this->status.key = this->task.status_key();
+        this->status.key = synnax::task::status_key(this->task);
         this->status.variant = x::status::VARIANT_ERROR;
         this->status.details.running = false;
         this->status.message = err.data;
@@ -134,7 +134,7 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     std::pair<common::ConfigureResult, x::errors::Error> res
 ) {
     synnax::task::Status status;
-    status.key = task.status_key();
+    status.key = synnax::task::status_key(task);
     status.name = task.name;
     status.details.task = task.key;
     status.details.running = false;

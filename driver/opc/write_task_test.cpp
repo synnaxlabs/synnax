@@ -106,17 +106,15 @@ protected:
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
 
-        synnax::device::Device dev(
-            "abc123",
-            "my_device",
-            rack.key,
-            "dev1",
-            "ni",
-            "PXI-6255",
-            nlohmann::to_string(
-                x::json::json::object({{"connection", conn_cfg.to_json()}})
-            )
-        );
+        synnax::device::Device dev{
+            .key = "abc123",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "ni",
+            .model = "PXI-6255",
+            .name = "my_device",
+            .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+        };
         ASSERT_NIL(client->devices.create(dev));
 
         x::json::json task_cfg = {
@@ -201,7 +199,7 @@ protected:
             .key = synnax::task::create_key(rack.key, 0),
             .name = "opc_ua_write_task_test",
             .type = "opc_write",
-            .config = ""
+            .config = x::json::json{}
         };
 
         auto p = x::json::Parser(task_cfg);
@@ -287,8 +285,8 @@ protected:
         UA_Client_disconnect(test_client.get());
     }
 
-    std::unique_ptr<driver::task::common::WriteTask> create_task() {
-        return std::make_unique<driver::task::common::WriteTask>(
+    std::unique_ptr<common::WriteTask> create_task() {
+        return std::make_unique<common::WriteTask>(
             task,
             ctx,
             x::breaker::default_config(task.name),
@@ -461,15 +459,15 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
 
-    synnax::device::Device dev(
-        "invalid_node_dev",
-        "invalid_node_device",
-        rack.key,
-        "dev_invalid",
-        "ni",
-        "PXI-6255",
-        nlohmann::to_string(x::json::json::object({{"connection", conn_cfg.to_json()}}))
-    );
+    synnax::device::Device dev{
+        .key = "invalid_node_dev",
+        .rack = rack.key,
+        .location = "dev_invalid",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "invalid_node_device",
+        .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+    };
     ASSERT_NIL(client->devices.create(dev));
 
     // Create config with an invalid node ID that doesn't exist on the server

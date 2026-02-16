@@ -140,9 +140,9 @@ class WriteTask final : public driver::task::Task {
         WriteTask &p;
         /// @brief the underlying wrapped sink that actually executes commands on
         /// the hardware.
-        std::unique_ptr<driver::task::common::Sink> internal;
+        std::unique_ptr<common::Sink> internal;
 
-        WrappedSink(WriteTask &p, std::unique_ptr<driver::task::common::Sink> sink):
+        WrappedSink(WriteTask &p, std::unique_ptr<common::Sink> sink):
             p(p), internal(std::move(sink)) {}
 
         /// @brief implements pipeline::Sink, and pipeline:Source

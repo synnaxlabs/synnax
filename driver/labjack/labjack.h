@@ -47,7 +47,7 @@ inline x::errors::Error translate_error(const x::errors::Error &err) {
 /// @brief factory for creating and operating LabJack tasks.
 class Factory final : public task::Factory {
     std::shared_ptr<device::Manager> dev_manager;
-    task::common::TimingConfig timing_cfg;
+    common::TimingConfig timing_cfg;
 
     /// @brief checks whether the factory is healthy and capable of creating tasks.
     /// If not, the factory will automatically send an error back through the
@@ -60,13 +60,13 @@ class Factory final : public task::Factory {
 public:
     explicit Factory(
         const std::shared_ptr<device::Manager> &dev_manager,
-        const task::common::TimingConfig timing_cfg
+        const common::TimingConfig timing_cfg
     ):
         dev_manager(dev_manager), timing_cfg(timing_cfg) {}
 
     /// @brief creates a new LabJack factory, loading the LJM library.
     static std::unique_ptr<Factory>
-    create(task::common::TimingConfig timing_cfg = task::common::TimingConfig());
+    create(common::TimingConfig timing_cfg = common::TimingConfig());
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,

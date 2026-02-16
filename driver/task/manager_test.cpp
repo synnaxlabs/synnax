@@ -26,7 +26,7 @@ public:
     MockEchoTask(const std::shared_ptr<Context> &ctx, const synnax::task::Task &task):
         ctx(ctx), sy_task(task) {
         synnax::task::Status status{
-            .key = task.status_key(),
+            .key = synnax::task::status_key(task),
             .variant = x::status::VARIANT_SUCCESS,
             .message = "configured",
             .details = {.task = task.key}
@@ -36,9 +36,9 @@ public:
 
     std::string name() const override { return "echo"; }
 
-    void exec(Command &cmd) override {
+    void exec(synnax::task::Command &cmd) override {
         synnax::task::Status status{
-            .key = sy_task.status_key(),
+            .key = synnax::task::status_key(sy_task),
             .variant = x::status::VARIANT_SUCCESS,
             .details =
                 {.task = sy_task.key, .running = true, .cmd = cmd.key, .data = cmd.args}
@@ -48,7 +48,7 @@ public:
 
     void stop(bool) override {
         synnax::task::Status status{
-            .key = sy_task.status_key(),
+            .key = synnax::task::status_key(sy_task),
             .variant = x::status::VARIANT_SUCCESS,
             .message = "stopped",
             .details = {.task = sy_task.key, .running = false}
@@ -83,7 +83,7 @@ public:
         std::unique_lock lock(mu);
         cv.wait(lock, [&] { return done.load(); });
         synnax::task::Status status{
-            .key = task.status_key(),
+            .key = synnax::task::status_key(task),
             .variant = x::status::VARIANT_SUCCESS,
             .message = "configured",
             .details = {.task = task.key}
@@ -92,7 +92,7 @@ public:
     }
 
     std::string name() const override { return "blocking"; }
-    void exec(Command &) override {}
+    void exec(synnax::task::Command &) override {}
     void stop(bool) override {}
 };
 
@@ -143,7 +143,7 @@ public:
     ):
         sy_task(task), state(std::move(state)) {
         synnax::task::Status status{
-            .key = task.status_key(),
+            .key = synnax::task::status_key(task),
             .variant = x::status::VARIANT_SUCCESS,
             .message = "configured",
             .details = {.task = task.key}
@@ -153,7 +153,7 @@ public:
 
     std::string name() const override { return "tracking"; }
 
-    void exec(Command &cmd) override {
+    void exec(synnax::task::Command &cmd) override {
         state->exec_count++;
         std::lock_guard lock(state->cmd_order_mu);
         state->cmd_order.push_back(cmd.key);
@@ -209,7 +209,7 @@ public:
     }
 
     std::string name() const override { return "timeout"; }
-    void exec(Command &) override {}
+    void exec(synnax::task::Command &) override {}
     void stop(bool) override {}
 };
 
@@ -328,7 +328,7 @@ TEST_F(TaskManagerTest, Configure) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "echo",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
@@ -343,7 +343,7 @@ TEST_F(TaskManagerTest, Delete) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "echo",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
@@ -366,15 +366,19 @@ TEST_F(TaskManagerTest, Command) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "echo",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.message == "configured";
     });
 
-    auto cmd = Command(task.key, "test", x::json::json{{"msg", "hi"}});
-    cmd.key = "cmd1";
+    auto cmd = synnax::task::Command{
+        .task = task.key,
+        .type = "test",
+        .key = "cmd1",
+        .args = x::json::json{{"msg", "hi"}}
+    };
     ASSERT_NIL(
         writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
     );
@@ -393,7 +397,7 @@ TEST_F(TaskManagerTest, IgnoresForeignRack) {
         .key = synnax::task::create_key(other.key, 0),
         .name = "t",
         .type = "echo",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(other.tasks.create(task));
 
@@ -417,7 +421,7 @@ TEST_F(TaskManagerTest, StopOnShutdown) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "echo",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
@@ -437,7 +441,7 @@ TEST_F(TaskManagerTest, IgnoresSnapshot) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "echo",
-        .config = ""
+        .config = x::json::json{}
     };
     task.snapshot = true;
     ASSERT_NIL(rack.tasks.create(task));
@@ -468,7 +472,7 @@ TEST_F(TaskManagerTest, ParallelConfig) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "b",
         .type = "blocking",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(blocking));
     EVENTUALLY([&] { return f->started.load(); }, [] { return "not started"; });
@@ -477,7 +481,7 @@ TEST_F(TaskManagerTest, ParallelConfig) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "e",
         .type = "echo",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(echo));
     auto s = WAIT_FOR_TASK_STATUS(streamer, echo, [](const synnax::task::Status &s) {
@@ -499,7 +503,7 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
     ));
 
     auto fake_key = synnax::task::create_key(rack.key, 99999);
-    auto cmd = Command(fake_key, "test", x::json::json{});
+    auto cmd = synnax::task::Command{.task = fake_key, .type = "test"};
     ASSERT_NIL(
         writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
     );
@@ -510,7 +514,7 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "echo",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
@@ -524,7 +528,7 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "echo",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
@@ -532,7 +536,7 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
     });
 
     for (int i = 0; i < 5; i++) {
-        task.config = json{{"v", i}};
+        task.config = x::json::json{{"v", i}};
         ASSERT_NIL(rack.tasks.create(task));
     }
     std::this_thread::sleep_for((500 * x::telem::MILLISECOND).chrono());
@@ -541,8 +545,7 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
     auto writer = ASSERT_NIL_P(client->telem.open_writer(
         {.channels = {cmd_ch.key}, .start = x::telem::TimeStamp::now()}
     ));
-    auto cmd = Command(task.key, "test", x::json::json{});
-    cmd.key = "final";
+    auto cmd = synnax::task::Command{.task = task.key, .type = "test", .key = "final"};
     ASSERT_NIL(
         writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
     );
@@ -566,7 +569,7 @@ TEST_F(TaskManagerTest, Timeout) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "timeout",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
 
@@ -598,7 +601,7 @@ TEST_F(TaskManagerTest, CommandFIFO) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "tracking",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     EVENTUALLY(
@@ -611,8 +614,7 @@ TEST_F(TaskManagerTest, CommandFIFO) {
 
     std::vector<std::string> expected = {"c1", "c2", "c3", "c4", "c5"};
     for (const auto &k: expected) {
-        auto cmd = Command(task.key, "test", x::json::json{});
-        cmd.key = k;
+        auto cmd = synnax::task::Command{.task = task.key, .type = "test", .key = k};
         ASSERT_NIL(
             writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
         );
@@ -634,7 +636,7 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "tracking",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
 
@@ -649,7 +651,7 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
         [] { return "first not created"; },
     );
 
-    task.config = json{{"v", 2}};
+    task.config = x::json::json{{"v", 2}};
     ASSERT_NIL(rack.tasks.create(task));
 
     ASSERT_EVENTUALLY_TRUE(first_state->stopped.load());
@@ -677,7 +679,7 @@ public:
     ):
         sy_task(task), destroyed(destroyed) {
         synnax::task::Status status{
-            .key = task.status_key(),
+            .key = synnax::task::status_key(task),
             .variant = x::status::VARIANT_SUCCESS,
             .message = "configured",
             .details = {.task = task.key}
@@ -691,7 +693,7 @@ public:
 
     std::string name() const override { return "destructor_tracking"; }
 
-    void exec(Command &) override {}
+    void exec(synnax::task::Command &) override {}
 
     void stop(bool) override { stopped = true; }
 };
@@ -723,7 +725,7 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "destructor_tracking",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
 
@@ -768,7 +770,7 @@ TEST_F(ShutdownTest, DuringConfiguration) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "blocking",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     EVENTUALLY([&] { return f->started.load(); }, [] { return "not started"; });
@@ -797,7 +799,7 @@ TEST_F(ShutdownTest, WithPendingOps) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "t" + std::to_string(i),
             .type = "blocking",
-            .config = ""
+            .config = x::json::json{}
         };
         ASSERT_NIL(rack.tasks.create(task));
     }
@@ -830,7 +832,7 @@ public:
         stop_called(stop_called), release(release), cv(cv), mu(mu) {}
 
     std::string name() const override { return "blocking_stop"; }
-    void exec(Command &) override {}
+    void exec(synnax::task::Command &) override {}
 
     void stop(bool) override {
         stop_called = true;
@@ -887,7 +889,7 @@ TEST_F(ShutdownTest, TimeoutDetachesStuckWorkers) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "blocking_stop",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
     std::this_thread::sleep_for((100 * x::telem::MILLISECOND).chrono());
@@ -916,7 +918,7 @@ public:
         stop_duration(duration), stopped(stopped) {}
 
     std::string name() const override { return "slow_stop"; }
-    void exec(Command &) override {}
+    void exec(synnax::task::Command &) override {}
 
     void stop(bool) override {
         std::this_thread::sleep_for(stop_duration.chrono());
@@ -966,7 +968,7 @@ TEST_F(ShutdownTest, ParallelTaskStop) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "t" + std::to_string(i),
             .type = "slow_stop",
-            .config = ""
+            .config = x::json::json{}
         };
         ASSERT_NIL(rack.tasks.create(task));
     }
@@ -1039,7 +1041,7 @@ TEST_F(ShutdownTest, StuckWorkerDetach) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
         .type = "stuck_worker",
-        .config = ""
+        .config = x::json::json{}
     };
     ASSERT_NIL(rack.tasks.create(task));
 

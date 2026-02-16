@@ -65,8 +65,7 @@ public:
         *req.add_statuses() = status.to_proto();
         auto [res, err] = this->set_client->send("/status/set", req);
         if (err) return err;
-        if (res.statuses_size() == 0)
-            return errors::unexpected_missing_error("status");
+        if (res.statuses_size() == 0) return errors::unexpected_missing_error("status");
         auto [decoded, decode_err] = x::status::Status<Details>::from_proto(
             res.statuses(0)
         );

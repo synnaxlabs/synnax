@@ -31,7 +31,7 @@ TEST(TaskTests, testCreateTask) {
     ASSERT_NIL(r.tasks.create(m));
     ASSERT_EQ(m.name, "test_module");
     ASSERT_EQ(rack_key_from_task_key(m.key), r.key);
-    ASSERT_NE(local_task_key(m.key), 0);
+    ASSERT_NE(local_key(m.key), 0);
 }
 
 /// @brief it should correctly retrieve a module from the rack.
@@ -50,7 +50,7 @@ TEST(TaskTests, testRetrieveTask) {
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key));
     ASSERT_EQ(t2.name, "test_module");
     ASSERT_EQ(rack_key_from_task_key(t.key), r.key);
-    ASSERT_EQ(local_task_key(t2.key), local_task_key(t.key));
+    ASSERT_EQ(local_key(t2.key), local_key(t.key));
     ASSERT_TRUE(t2.snapshot);
 }
 
@@ -95,7 +95,7 @@ TEST(TaskTests, testListTasks) {
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_EQ(tasks[0].name, "test_module");
     ASSERT_EQ(rack_key_from_task_key(tasks[0].key), r.key);
-    ASSERT_NE(local_task_key(tasks[0].key), 0);
+    ASSERT_NE(local_key(tasks[0].key), 0);
 }
 
 /// @brief it should correctly delete a task from the rack.

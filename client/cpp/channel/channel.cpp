@@ -80,7 +80,10 @@ std::pair<Channel, x::errors::Error> Client::retrieve(const Key key) const {
     auto [res, err] = retrieve_client->send("/channel/retrieve", req);
     if (err) return {Channel{}, err};
     if (res.channels_size() == 0)
-        return {Channel{}, errors::not_found_error("channel", "key " + std::to_string(key))};
+        return {
+            Channel{},
+            errors::not_found_error("channel", "key " + std::to_string(key))
+        };
     return Channel::from_proto(res.channels(0));
 }
 

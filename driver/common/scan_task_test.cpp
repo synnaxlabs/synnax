@@ -19,55 +19,56 @@
 
 namespace driver::common {
 TEST(MergeDeviceProperties, ScannedOverridesRemote) {
-    const std::string remote = R"({"key1":"remote_value","key2":"only_remote"})";
-    const std::string scanned = R"({"key1":"scanned_value","key3":"only_scanned"})";
+    const x::json::json remote = {{"key1", "remote_value"}, {"key2", "only_remote"}};
+    const x::json::json scanned = {{"key1", "scanned_value"}, {"key3", "only_scanned"}};
     const auto result = merge_device_properties(remote, scanned);
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["key1"], "scanned_value");
-    EXPECT_EQ(parsed["key2"], "only_remote");
-    EXPECT_EQ(parsed["key3"], "only_scanned");
+    EXPECT_EQ(result["key1"], "scanned_value");
+    EXPECT_EQ(result["key2"], "only_remote");
+    EXPECT_EQ(result["key3"], "only_scanned");
 }
 
 TEST(MergeDeviceProperties, EmptyRemote) {
-    const std::string scanned = R"({"key1":"value1"})";
-    const auto result = merge_device_properties("", scanned);
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["key1"], "value1");
+    const x::json::json scanned = {{"key1", "value1"}};
+    const auto result = merge_device_properties(x::json::json{}, scanned);
+    EXPECT_EQ(result["key1"], "value1");
 }
 
 TEST(MergeDeviceProperties, EmptyScanned) {
-    const std::string remote = R"({"key1":"value1"})";
-    const auto result = merge_device_properties(remote, "");
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["key1"], "value1");
+    const x::json::json remote = {{"key1", "value1"}};
+    const auto result = merge_device_properties(remote, x::json::json{});
+    EXPECT_EQ(result["key1"], "value1");
 }
 
 TEST(MergeDeviceProperties, BothEmpty) {
-    const auto result = merge_device_properties("", "");
-    EXPECT_EQ(result, "");
+    const auto result = merge_device_properties(x::json::json{}, x::json::json{});
+    EXPECT_TRUE(result.is_object());
+    EXPECT_TRUE(result.empty());
 }
 
 TEST(MergeDeviceProperties, InvalidRemoteJsonContinues) {
-    const std::string scanned = R"({"key1":"value1"})";
-    const auto result = merge_device_properties("not valid json", scanned);
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["key1"], "value1");
+    const x::json::json scanned = {{"key1", "value1"}};
+    const auto result = merge_device_properties(
+        x::json::json("not valid json"),
+        scanned
+    );
+    EXPECT_EQ(result["key1"], "value1");
 }
 
 TEST(MergeDeviceProperties, InvalidScannedJsonPreservesRemote) {
-    const std::string remote = R"({"key1":"value1"})";
-    const auto result = merge_device_properties(remote, "not valid json");
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["key1"], "value1");
+    const x::json::json remote = {{"key1", "value1"}};
+    const auto result = merge_device_properties(
+        remote,
+        x::json::json("not valid json")
+    );
+    EXPECT_EQ(result["key1"], "value1");
 }
 
 TEST(MergeDeviceProperties, NestedObjectsReplacedNotMerged) {
-    const std::string remote = R"({"nested":{"a":"1","b":"2"}})";
-    const std::string scanned = R"({"nested":{"a":"new"}})";
+    const x::json::json remote = {{"nested", {{"a", "1"}, {"b", "2"}}}};
+    const x::json::json scanned = {{"nested", {{"a", "new"}}}};
     const auto result = merge_device_properties(remote, scanned);
-    const auto parsed = nlohmann::json::parse(result);
-    EXPECT_EQ(parsed["nested"]["a"], "new");
-    EXPECT_FALSE(parsed["nested"].contains("b"));
+    EXPECT_EQ(result["nested"]["a"], "new");
+    EXPECT_FALSE(result["nested"].contains("b"));
 }
 
 class MockScanner final : public Scanner {
@@ -178,7 +179,7 @@ public:
 class MockScannerWithSignals final : public Scanner {
 public:
     ScannerConfig scanner_config;
-    std::vector<task::Command> exec_commands;
+    std::vector<synnax::task::Command> exec_commands;
     bool exec_return_value = false;
     std::mutex mu;
 
@@ -212,7 +213,7 @@ public:
     }
 
     bool exec(
-        task::Command &cmd,
+        synnax::task::Command &cmd,
         const synnax::task::Task &,
         const std::shared_ptr<task::Context> &
     ) override {
@@ -247,7 +248,7 @@ TEST(TestScanTask, testSingleScan) {
         created_devices
     );
 
-    auto ctx = std::make_shared<MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = 12345;
@@ -301,7 +302,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
         created_devices
     );
 
-    auto ctx = std::make_shared<MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = 12345;
@@ -327,7 +328,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
 }
 
 TEST(TestScanTask, TestRecreateWhenRackChanges) {
-    const std::string user_props = R"({"user_key":"user_value"})";
+    const x::json::json user_props = {{"user_key", "user_value"}};
 
     synnax::device::Device dev1;
     dev1.key = "device1";
@@ -339,13 +340,13 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     synnax::device::Device dev1_moved = dev1;
     dev1_moved.rack = 2;
     dev1_moved.name = "cat";
-    dev1_moved.properties = json{};
+    dev1_moved.properties = x::json::json{};
     dev1_moved.configured = false;
 
     synnax::device::Device dev1_moved_2 = dev1;
     dev1_moved_2.rack = 3;
     dev1_moved_2.name = "dog";
-    dev1_moved_2.properties = "";
+    dev1_moved_2.properties = x::json::json{};
     dev1_moved_2.configured = false;
 
     std::vector<std::vector<synnax::device::Device>> devices = {
@@ -368,7 +369,7 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
         created_devices
     );
 
-    auto ctx = std::make_shared<MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = 12345;
@@ -403,7 +404,7 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
 }
 
 TEST(TestScanTask, TestUpdateWhenLocationChanges) {
-    const std::string user_props = R"({"user_key":"user_value"})";
+    const x::json::json user_props = {{"user_key", "user_value"}};
 
     synnax::device::Device dev1;
     dev1.key = "device1";
@@ -416,7 +417,7 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     synnax::device::Device dev1_renamed = dev1;
     dev1_renamed.location = "new_location";
     dev1_renamed.name = "scanner_name";
-    dev1_renamed.properties = "";
+    dev1_renamed.properties = x::json::json::object();
     dev1_renamed.configured = false;
 
     std::vector<std::vector<synnax::device::Device>> devices = {{dev1_renamed}};
@@ -436,7 +437,7 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
         created_devices
     );
 
-    auto ctx = std::make_shared<MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = 12345;
@@ -466,7 +467,7 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
 }
 
 TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
-    const std::string user_props = R"({"user_key":"user_value"})";
+    const x::json::json user_props = {{"user_key", "user_value"}};
 
     synnax::device::Device dev1;
     dev1.key = "device1";
@@ -478,7 +479,7 @@ TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
 
     synnax::device::Device dev1_scanned = dev1;
     dev1_scanned.name = "scanner_name";
-    dev1_scanned.properties = "";
+    dev1_scanned.properties = x::json::json::object();
     dev1_scanned.configured = false;
 
     std::vector<std::vector<synnax::device::Device>> devices = {{dev1_scanned}};
@@ -498,7 +499,7 @@ TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
         created_devices
     );
 
-    auto ctx = std::make_shared<MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = 12345;
@@ -629,7 +630,7 @@ TEST(TestScanTask, TestDeduplicateKeepsLastOldSlot) {
 }
 
 TEST(TestScanTask, TestDeduplicateOnUpdate) {
-    const std::string user_props = R"({"user_key":"user_value"})";
+    const x::json::json user_props = {{"user_key", "user_value"}};
 
     synnax::device::Device existing_dev;
     existing_dev.key = "device1";
@@ -700,17 +701,19 @@ TEST(TestScanTask, TestStatePropagation) {
     dev1.key = "device1";
     dev1.name = "Device 1";
     dev1.rack = 1;
-    dev1.status.key = dev1.status_key();
-    dev1.status.variant = x::status::VARIANT_SUCCESS;
-    dev1.status.details.rack = 1;
+    dev1.status = synnax::device::Status{};
+    dev1.status->key = synnax::device::status_key(dev1);
+    dev1.status->variant = x::status::VARIANT_SUCCESS;
+    dev1.status->details.rack = 1;
 
     synnax::device::Device dev2;
     dev2.key = "device2";
     dev2.name = "Device 2";
     dev2.rack = 2;
-    dev2.status.key = dev2.status_key();
-    dev2.status.variant = x::status::VARIANT_WARNING;
-    dev2.status.details.rack = 2;
+    dev2.status = synnax::device::Status{};
+    dev2.status->key = synnax::device::status_key(dev2);
+    dev2.status->variant = x::status::VARIANT_WARNING;
+    dev2.status->details.rack = 2;
 
     // First scan will find both devices, second scan only dev1
     std::vector<std::vector<synnax::device::Device>> devices = {{dev1, dev2}, {dev1}};
@@ -729,7 +732,7 @@ TEST(TestScanTask, TestStatePropagation) {
     );
     auto cluster_api_ptr = cluster_api.get();
 
-    auto ctx = std::make_shared<MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = 12345;
@@ -799,7 +802,7 @@ TEST(TestScanTask, testCustomCommandDelegation) {
         created_devices
     );
 
-    auto ctx = std::make_shared<MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = 12345;
@@ -928,7 +931,7 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto scanner_ptr = scanner.get();
 
-    auto ctx = std::make_shared<MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = synnax::task::create_key(1, 12345);
@@ -1000,7 +1003,7 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto scanner_ptr = scanner.get();
 
-    auto ctx = std::make_shared<MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = synnax::task::create_key(1, 12345);
@@ -1069,7 +1072,7 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto scanner_ptr = scanner.get();
 
-    auto ctx = std::make_shared<MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = synnax::task::create_key(1, 12345);

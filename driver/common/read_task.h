@@ -118,12 +118,9 @@ class ReadTask final : public driver::task::Task {
 
     public:
         /// @brief the wrapped, hardware-specific source.
-        std::unique_ptr<driver::task::common::Source> internal;
+        std::unique_ptr<common::Source> internal;
 
-        InternalSource(
-            ReadTask &p,
-            std::unique_ptr<driver::task::common::Source> internal
-        ):
+        InternalSource(ReadTask &p, std::unique_ptr<common::Source> internal):
             p(p), internal(std::move(internal)) {}
 
         void stopped_with_err(const x::errors::Error &err) override {

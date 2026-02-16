@@ -13,15 +13,15 @@
 
 #include <cstdint>
 #include <utility>
-#include "x/cpp/json/json.h"
-#include "x/cpp/errors/errors.h"
-#include "x/go/color/pb/color.pb.h"
 
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
+
+#include "x/go/color/pb/color.pb.h"
 
 namespace x::color {
 
 struct Color;
-
 
 /// @brief Color is an RGBA color with RGB as 0-255 and alpha as 0-1.
 struct Color {
@@ -39,6 +39,7 @@ struct Color {
 
     using proto_type = ::x::color::pb::Color;
     [[nodiscard]] ::x::color::pb::Color to_proto() const;
-    static std::pair<Color, x::errors::Error> from_proto(const ::x::color::pb::Color& pb);
+    static std::pair<Color, x::errors::Error>
+    from_proto(const ::x::color::pb::Color &pb);
 };
 }

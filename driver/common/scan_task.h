@@ -15,7 +15,6 @@
 #include <unordered_set>
 
 #include "glog/logging.h"
-#include "nlohmann/json.hpp"
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
@@ -34,31 +33,20 @@ const auto DEFAULT_SCAN_RATE = x::telem::Rate(x::telem::SECOND * 5);
 /// @brief Merges scanner-discovered properties with existing remote properties.
 /// Scanner properties take precedence on conflicts, but remote properties are preserved
 /// if the scanner doesn't specify them.
-/// @param remote_props JSON string of properties from the remote/cluster.
-/// @param scanned_props JSON string of properties from the scanner.
-/// @return Merged JSON string with scanner properties overriding remote on conflicts.
-inline std::string merge_device_properties(
-    const std::string &remote_props,
-    const std::string &scanned_props
+/// @param remote_props JSON properties from the remote/cluster.
+/// @param scanned_props JSON properties from the scanner.
+/// @return Merged JSON with scanner properties overriding remote on conflicts.
+inline x::json::json merge_device_properties(
+    const x::json::json &remote_props,
+    const x::json::json &scanned_props
 ) {
-    nlohmann::json merged = nlohmann::json::object();
-    if (!remote_props.empty()) {
-        try {
-            merged = nlohmann::json::parse(remote_props);
-        } catch (const nlohmann::json::parse_error &e) {
-            LOG(WARNING) << "failed to parse remote device properties: " << e.what();
-        }
+    x::json::json merged = remote_props.is_object() ? remote_props
+                                                    : x::json::json::object();
+    if (scanned_props.is_object()) {
+        for (auto &[k, v]: scanned_props.items())
+            merged[k] = v;
     }
-    if (!scanned_props.empty()) {
-        try {
-            auto scanned = nlohmann::json::parse(scanned_props);
-            for (auto &[k, v]: scanned.items())
-                merged[k] = v;
-        } catch (const nlohmann::json::parse_error &e) {
-            LOG(WARNING) << "failed to parse scanned device properties: " << e.what();
-        }
-    }
-    return merged.empty() ? "" : merged.dump();
+    return merged;
 }
 
 /// @brief Base configuration for scan tasks with rate and enabled settings.
@@ -114,7 +102,7 @@ struct Scanner {
 
     /// @brief Optional: Handle custom commands. Return true if handled.
     virtual bool exec(
-        task::Command &cmd,
+        synnax::task::Command &cmd,
         const synnax::task::Task &task,
         const std::shared_ptr<task::Context> &ctx
     ) {
@@ -361,7 +349,7 @@ public:
     /// This is called automatically by run(), but can be called separately for testing.
     x::errors::Error init() {
         auto [remote_devs_vec, ret_err] = this->client->retrieve_devices(
-            synnax::task::rack(this->task),
+            synnax::task::rack_key(this->task),
             this->scanner->config().make
         );
         if (ret_err) return ret_err;
@@ -421,7 +409,7 @@ public:
             this->start();
             return;
         }
-        if (cmd.type == driver::task::common::SCAN_CMD_TYPE) {
+        if (cmd.type == common::SCAN_CMD_TYPE) {
             const auto err = this->scan();
             this->status.variant = err ? x::status::VARIANT_ERROR
                                        : x::status::VARIANT_SUCCESS;
@@ -493,30 +481,34 @@ public:
                     remote_dev.properties,
                     scanned_dev.properties
                 );
-                if (merged_props != remote_dev.properties) {
-                    VLOG(1) << this->log_prefix << "device properties changed for "
-                            << scanned_dev.key;
-                    needs_update = true;
-                }
+                //                if (merged_props != remote_dev.properties) {
+                //                    VLOG(1) << this->log_prefix << "device properties
+                //                    changed for "
+                //                            << scanned_dev.key;
+                //                    needs_update = true;
+                //                }
                 scanned_dev.properties = merged_props;
                 scanned_dev.name = remote_dev.name;
                 scanned_dev.configured = remote_dev.configured;
 
                 if (needs_update) to_create.push_back(scanned_dev);
 
-                scanned_dev.status.time = last_available;
+                if (!scanned_dev.status.has_value())
+                    scanned_dev.status = synnax::device::Status{};
+                scanned_dev.status->time = last_available;
                 this->dev_states[scanned_dev.key] = scanned_dev;
             }
 
             for (auto &[key, dev]: this->dev_states) {
                 if (present.find(key) != present.end()) continue;
-                dev.status.variant = x::status::VARIANT_WARNING;
-                dev.status.message = "Device disconnected";
+                if (!dev.status.has_value()) dev.status = synnax::device::Status{};
+                dev.status->variant = x::status::VARIANT_WARNING;
+                dev.status->message = "Device disconnected";
             }
 
             statuses.reserve(this->dev_states.size());
             for (auto &info: this->dev_states | std::views::values)
-                statuses.push_back(info.status);
+                if (info.status.has_value()) statuses.push_back(*info.status);
         }
 
         if (const auto state_err = this->client->update_statuses(statuses))

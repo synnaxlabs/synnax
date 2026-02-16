@@ -25,7 +25,7 @@
 
 namespace driver::ni {
 /// @brief WriteTaskConfig is the configuration for creating an NI Write Task.
-struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
+struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the rate at which the task will publish the states of the outputs
     /// back to the Synnax cluster.
     const x::telem::Rate state_rate;
@@ -42,7 +42,7 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
 
     /// @brief move constructor to deal with output channel unique pointers.
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
-        driver::task::common::BaseWriteTaskConfig(std::move(other)),
+        common::BaseWriteTaskConfig(std::move(other)),
         state_rate(other.state_rate),
         channels(std::move(other.channels)),
         state_index_keys(std::move(other.state_index_keys)),
@@ -138,7 +138,7 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
         /// We include this ignored parameter to make the parse method have the
         /// same signature as the read task, so we can save code duplication in
         /// the factory.
-        driver::task::common::TimingConfig
+        common::TimingConfig
     ) {
         auto parser = x::json::Parser(task.config);
         return {WriteTaskConfig(client, parser), parser.error()};
@@ -156,7 +156,7 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
 /// @brief sink is passed to the command pipeline in order to receive incoming
 /// data from Synnax, write it to the device, and update the state.
 template<typename T>
-class WriteTaskSink final : public driver::task::common::Sink {
+class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
 
 public:

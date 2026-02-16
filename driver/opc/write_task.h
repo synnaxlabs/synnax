@@ -50,7 +50,7 @@ struct OutputChan {
         }()) {}
 };
 
-struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
+struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the list of channels to read from the server.
     std::unordered_map<synnax::channel::Key, std::unique_ptr<OutputChan>> channels;
     /// @brief the config for connecting to the OPC UA server.
@@ -115,7 +115,7 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
     }
 };
 
-class WriteTaskSink final : public driver::task::common::Sink {
+class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
     std::shared_ptr<connection::Pool> pool;
     connection::Pool::Connection connection;

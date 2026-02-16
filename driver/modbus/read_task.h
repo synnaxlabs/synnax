@@ -148,7 +148,7 @@ public:
 };
 
 /// @brief configuration for a modbus read task.
-struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
+struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the total number of data channels in the task.
     size_t data_channel_count;
     /// @brief the key of the device to read from.
@@ -317,19 +317,19 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
             keys.push_back(idx);
         return synnax::framer::WriterConfig{
             .channels = keys,
-            .mode = driver::task::common::data_saving_writer_mode(this->data_saving),
+            .mode = common::data_saving_writer_mode(this->data_saving),
         };
     }
 };
 
-/// @brief implements driver::task::common::Source to read from a Modbus server.
-class ReadTaskSource final : public driver::task::common::Source {
+/// @brief implements common::Source to read from a Modbus server.
+class ReadTaskSource final : public common::Source {
     /// @brief the configuration for the task.
     const ReadTaskConfig config;
     /// @brief the device to read from.
     std::shared_ptr<device::Device> dev;
     /// @brief the sample clock to regulate the read rate.
-    driver::task::common::SoftwareTimedSampleClock sample_clock;
+    common::SoftwareTimedSampleClock sample_clock;
 
 public:
     explicit ReadTaskSource(

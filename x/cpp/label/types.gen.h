@@ -13,12 +13,13 @@
 
 #include <string>
 #include <utility>
-#include "x/cpp/uuid/uuid.h"
-#include "x/cpp/color/types.gen.h"
-#include "x/cpp/json/json.h"
-#include "x/cpp/errors/errors.h"
-#include "x/go/label/pb/label.pb.h"
 
+#include "x/cpp/color/types.gen.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/uuid/uuid.h"
+
+#include "x/go/label/pb/label.pb.h"
 
 namespace x::label {
 
@@ -26,7 +27,6 @@ struct Label;
 struct New;
 
 using Key = x::uuid::UUID;
-
 
 /// @brief Label is a tagging and categorization entity with a name and associated
 /// color. Labels can be attached to resources like ranges for organization and
@@ -44,16 +44,16 @@ struct Label {
 
     using proto_type = ::x::label::pb::Label;
     [[nodiscard]] ::x::label::pb::Label to_proto() const;
-    static std::pair<Label, x::errors::Error> from_proto(const ::x::label::pb::Label& pb);
+    static std::pair<Label, x::errors::Error>
+    from_proto(const ::x::label::pb::Label &pb);
 };
 
 using GoSVCLabel = Label;
 
-
 /// @brief New contains parameters for creating a new label.
 struct New : public Label {
     /// @brief key is an optional key for the label. If not provided, one will be
-/// automatically assigned.
+    /// automatically assigned.
     Key key;
 
     static New parse(x::json::Parser parser);

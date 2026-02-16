@@ -95,7 +95,7 @@ struct Config {
     /// and contrast.
     RemoteInfo remote_info;
     /// @brief timing options for tasks in the driver.
-    driver::task::common::TimingConfig timing;
+    common::TimingConfig timing;
     /// @brief configuration for the task manager.
     task::ManagerConfig manager;
     /// @brief connection parameters to the Synnax cluster.

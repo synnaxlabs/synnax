@@ -30,7 +30,7 @@ struct Transport {
 
     void use(const std::shared_ptr<freighter::Middleware> &) const;
 
-    std::unique_ptr<AuthLoginClient> auth_login;
+    std::unique_ptr<auth::LoginClient> auth_login;
     std::unique_ptr<framer::StreamerClient> frame_stream;
     std::unique_ptr<framer::WriterClient> frame_write;
     std::shared_ptr<channel::CreateClient> chan_create;

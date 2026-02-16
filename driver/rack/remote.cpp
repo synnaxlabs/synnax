@@ -48,7 +48,7 @@ x::errors::Error Config::load_remote(x::breaker::Breaker &breaker) {
     }
     const x::errors::Error err = res.second;
     // If we can't reach the cluster, keep trying according to the breaker retry logic.
-    if (err.matches(freighter::ERR_UNREACHABLE) && breaker.wait(err.message()))
+    if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
         return this->load_remote(breaker);
 
     this->rack = res.first;

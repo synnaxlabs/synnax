@@ -136,7 +136,7 @@ class Synnax {
 public:
     /// @brief Client for creating and retrieving channels in a cluster.
     channel::Client channels;
-    std::shared_ptr<AuthMiddleware> auth;
+    std::shared_ptr<auth::Middleware> auth;
     /// @brief Client for creating, retrieving, and performing operations on ranges
     /// in a cluster.
     ranger::Client ranges;
@@ -160,8 +160,8 @@ public:
           cfg.client_cert_file,
           cfg.client_key_file),
         channels(this->t.chan_retrieve, this->t.chan_create),
-        auth([&]() -> std::shared_ptr<AuthMiddleware> {
-            auto mw = std::make_shared<AuthMiddleware>(
+        auth([&]() -> std::shared_ptr<auth::Middleware> {
+            auto mw = std::make_shared<auth::Middleware>(
                 std::move(this->t.auth_login),
                 cfg.username,
                 cfg.password,

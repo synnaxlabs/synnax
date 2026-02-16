@@ -76,15 +76,15 @@ protected:
 
     synnax::device::Device create_network_device(const std::string &interface) {
         x::json::json props = {{"interface", interface}, {"rate", 100.0}};
-        synnax::device::Device dev(
-            "ecat_network_" + interface,
-            "Test Network",
-            rack.key,
-            interface,
-            "EtherCAT",
-            "Network",
-            props.dump()
-        );
+        synnax::device::Device dev{
+            .key = "ecat_network_" + interface,
+            .rack = rack.key,
+            .location = interface,
+            .make = "EtherCAT",
+            .model = "Network",
+            .name = "Test Network",
+            .properties = props,
+        };
         const auto err = client->devices.create(dev);
         EXPECT_TRUE(!err) << err.message();
         return dev;
@@ -106,15 +106,15 @@ protected:
             {"enabled", true},
             {"pdos", {{"inputs", input_pdos}, {"outputs", output_pdos}}}
         };
-        synnax::device::Device dev(
-            "ecat_slave_" + std::to_string(serial),
-            "Test Slave SN:" + std::to_string(serial),
-            rack.key,
-            std::to_string(serial),
-            "DEWESoft",
-            "TestModule",
-            props.dump()
-        );
+        synnax::device::Device dev{
+            .key = "ecat_slave_" + std::to_string(serial),
+            .rack = rack.key,
+            .location = std::to_string(serial),
+            .make = "DEWESoft",
+            .model = "TestModule",
+            .name = "Test Slave SN:" + std::to_string(serial),
+            .properties = props,
+        };
         const auto err = client->devices.create(dev);
         EXPECT_TRUE(!err) << err.message();
         return dev;

@@ -20,7 +20,7 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
-        .config = ""
+        .config = x::json::json{}
     };
     auto handler = StatusHandler(ctx, task);
 
@@ -54,7 +54,7 @@ TEST(TestTaskStateHandler, testSendWarning) {
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
-        .config = ""
+        .config = x::json::json{}
     };
     auto handler = StatusHandler(ctx, task);
 
@@ -81,7 +81,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
-        .config = ""
+        .config = x::json::json{}
     };
     auto handler = StatusHandler(ctx, task);
 
@@ -120,14 +120,14 @@ TEST(TestTaskStateHandler, testSendError) {
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
-        .config = ""
+        .config = x::json::json{}
     };
     auto handler = StatusHandler(ctx, task);
 
     handler.send_error(x::errors::Error(x::errors::VALIDATION, "fatal runtime error"));
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
-    EXPECT_EQ(first.key, task.status_key());
+    EXPECT_EQ(first.key, synnax::task::status_key(task));
     EXPECT_EQ(first.name, "task1");
     EXPECT_EQ(first.details.task, task.key);
     EXPECT_EQ(first.variant, x::status::VARIANT_ERROR);
@@ -146,7 +146,7 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
-        .config = ""
+        .config = x::json::json{}
     };
     auto handler = StatusHandler(ctx, task);
 

@@ -56,7 +56,7 @@ public:
 
     void run() override {
         synnax::task::Status stat{
-            .key = this->task.status_key(),
+            .key = synnax::task::status_key(this->task),
             .name = this->task.name,
             .variant = ::x::status::VARIANT_SUCCESS,
             .message = "Started",
@@ -117,7 +117,7 @@ public:
         auto [rack, rack_err] = ctx->client->racks.retrieve(rack_key);
         if (rack_err) {
             synnax::task::Status stat{
-                .key = task.status_key(),
+                .key = synnax::task::status_key(task),
                 .name = TASK_NAME,
                 .variant = ::x::status::VARIANT_ERROR,
                 .message = "Failed to retrieve rack for status task",
@@ -147,12 +147,12 @@ struct Factory final : task::Factory {
         const std::shared_ptr<task::Context> &ctx,
         const synnax::rack::Rack &rack
     ) override {
-        driver::task::common::delete_legacy_task_by_type(
+        common::delete_legacy_task_by_type(
             rack,
             LEGACY_HEARTBEAT_TYPE,
             INTEGRATION_NAME
         );
-        return driver::task::common::configure_initial_factory_tasks(
+        return common::configure_initial_factory_tasks(
             this,
             ctx,
             rack,

@@ -49,15 +49,15 @@ protected:
         auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1502};
         x::json::json properties{{"connection", conn_cfg.to_json()}};
 
-        device = synnax::device::Device(
-            "modbus_test_device",
-            "modbus_test_device",
-            rack.key,
-            "dev1",
-            "modbus",
-            "Modbus Device",
-            nlohmann::to_string(properties)
-        );
+        device = synnax::device::Device{
+            .key = "modbus_test_device",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "modbus",
+            .model = "Modbus Device",
+            .name = "modbus_test_device",
+            .properties = properties,
+        };
         ASSERT_NIL(client->devices.create(device));
 
         ctx = std::make_shared<driver::task::MockContext>(client);
@@ -221,15 +221,15 @@ TEST(ReadTask, testBasicReadTask) {
 
     auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1502};
     x::json::json properties{{"connection", conn_cfg.to_json()}};
-    synnax::device::Device dev(
-        "my_modbus_lover",
-        "my_mobdus_lover",
-        rack.key,
-        "dev1",
-        "modbus",
-        "Modbus Device",
-        nlohmann::to_string(properties)
-    );
+    synnax::device::Device dev{
+        .key = "my_modbus_lover",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "modbus",
+        .model = "Modbus Device",
+        .name = "my_mobdus_lover",
+        .properties = properties,
+    };
 
     ASSERT_NIL(client->devices.create(dev));
 
@@ -237,7 +237,7 @@ TEST(ReadTask, testBasicReadTask) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "my_task",
         .type = "modbus_read",
-        .config = ""
+        .config = x::json::json{}
     };
 
     x::json::json j{
@@ -266,7 +266,7 @@ TEST(ReadTask, testBasicReadTask) {
         devs->acquire(device::ConnectionConfig{"127.0.0.1", 1502})
     );
 
-    auto task = driver::task::common::ReadTask(
+    auto task = common::ReadTask(
         tsk,
         ctx,
         x::breaker::default_config(tsk.name),
@@ -341,7 +341,7 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "discrete_test",
             .type = "modbus_read",
-            .config = ""
+            .config = x::json::json{}
         },
         ctx,
         x::breaker::default_config("discrete_test"),
@@ -400,7 +400,7 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "holding_test",
             .type = "modbus_read",
-            .config = ""
+            .config = x::json::json{}
         },
         ctx,
         x::breaker::default_config("holding_test"),
@@ -478,7 +478,7 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "multi_test",
             .type = "modbus_read",
-            .config = ""
+            .config = x::json::json{}
         },
         ctx,
         x::breaker::default_config("multi_test"),
@@ -576,7 +576,7 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "uint8_test",
             .type = "modbus_read",
-            .config = ""
+            .config = x::json::json{}
         },
         ctx,
         x::breaker::default_config("uint8_test"),
@@ -655,7 +655,7 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
             .key = synnax::task::create_key(rack.key, 0),
             .name = "uint8_holding_test",
             .type = "modbus_read",
-            .config = ""
+            .config = x::json::json{}
         },
         ctx,
         x::breaker::default_config("uint8_holding_test"),
@@ -720,7 +720,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "test_task",
         .type = "modbus_read",
-        .config = config.dump()
+        .config = config
     };
 
     // Configure task through factory
@@ -742,7 +742,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
     ASSERT_TRUE(found_start);
 
     // Stop the task to clean up
-    synnax::task::Command stop_cmd(task.key, "stop", {});
+    synnax::task::Command stop_cmd{.task = task.key, .type = "stop"};
     configured_task->exec(stop_cmd);
 }
 
@@ -787,7 +787,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
         .key = synnax::task::create_key(rack.key, 0),
         .name = "test_task_no_auto",
         .type = "modbus_read",
-        .config = config.dump()
+        .config = config
     };
 
     // Configure task through factory
@@ -806,7 +806,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     ASSERT_EQ(initial_state.message, "Task configured successfully");
 
     // Manually start the task
-    synnax::task::Command start_cmd(task.key, "start", {});
+    synnax::task::Command start_cmd{.task = task.key, .type = "start"};
     configured_task->exec(start_cmd);
 
     // Now task should be running
@@ -821,7 +821,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     ASSERT_TRUE(found_start);
 
     // Stop the task to clean up
-    synnax::task::Command stop_cmd(task.key, "stop", {});
+    synnax::task::Command stop_cmd{.task = task.key, .type = "stop"};
     configured_task->exec(stop_cmd);
 }
 }
