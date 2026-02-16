@@ -245,6 +245,7 @@ class RangeDetails(ConsoleCase):
     def test_open_metadata_link(self) -> None:
         """Test opening a URL metadata value in a new tab."""
         self.log("Testing: Open metadata link")
+        self.console.notifications.close_all()
         self.console.ranges.update_metadata_value("test_key", "https://synnaxlabs.com")
 
         with self.page.expect_popup() as popup_info:

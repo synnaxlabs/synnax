@@ -61,7 +61,7 @@ func FormatRange(content string, startLine, endLine int) string {
 	formatted := Format(rangeContent)
 	formatted = strings.TrimSuffix(formatted, "\n")
 	var result strings.Builder
-	for i := 0; i < startLine; i++ {
+	for i := range startLine {
 		if i > 0 {
 			result.WriteString("\n")
 		}

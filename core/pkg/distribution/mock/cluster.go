@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -105,7 +104,7 @@ func (c *Cluster) Provision(
 				aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 			},
 			GorpCodec:            &binary.JSONCodec{},
-			EnableServiceSignals: config.False(),
+			EnableServiceSignals: new(false),
 		}, c.cfg}, cfgs...)...))
 	)
 	node := Node{Layer: distributionLayer, Storage: storageLayer}

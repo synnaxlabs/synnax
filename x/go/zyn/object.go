@@ -225,7 +225,7 @@ func (o ObjectZ) Parse(data any, dest any) error {
 // validation schemas.
 func Object(fields map[string]Schema) ObjectZ {
 	o := ObjectZ{
-		baseZ:  baseZ{dataType: ObjectT, expectedType: reflect.TypeOf(struct{}{})},
+		baseZ:  baseZ{dataType: ObjectT, expectedType: reflect.TypeFor[struct{}]()},
 		fields: fields,
 	}
 	o.wrapper = o
