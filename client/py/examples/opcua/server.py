@@ -11,7 +11,6 @@ import asyncio
 import datetime
 import math
 import random
-
 from typing import Any
 
 from asyncua import Server, ua
