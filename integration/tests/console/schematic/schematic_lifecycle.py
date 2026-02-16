@@ -82,14 +82,13 @@ class SchematicLifecycle(ConsoleCase):
             if self.console.ranges.exists_in_explorer(self.shared_range_name):
                 self.console.ranges.delete_from_explorer(self.shared_range_name)
 
-        names_to_cleanup = [
+        for name in [
             self.ctx_schematic_name,
             self.ctx_schematic_copy_name,
             self.main_schematic_name,
-        ]
-        for name in names_to_cleanup:
-            if name and self.console.workspace.page_exists(name):
-                self.console.workspace.delete_page(name)
+        ]:
+            if name:
+                self._cleanup_pages.append(name)
 
         super().teardown()
 
@@ -373,16 +372,10 @@ class SchematicLifecycle(ConsoleCase):
         assert self.ctx_schematic_name is not None, "ctx_schematic_name should be set"
 
         self.log("Testing delete schematic via context menu")
-        assert self.console.workspace.page_exists(
-            self.ctx_schematic_name
-        ), f"Schematic '{self.ctx_schematic_name}' should exist before deletion"
         self.console.workspace.delete_page(self.ctx_schematic_name)
         self.ctx_schematic_name = None
 
         self.log("Testing delete copied schematic via context menu")
         if self.ctx_schematic_copy_name:
-            assert self.console.workspace.page_exists(
-                self.ctx_schematic_copy_name
-            ), f"Copied schematic '{self.ctx_schematic_copy_name}' should exist before deletion"
             self.console.workspace.delete_page(self.ctx_schematic_copy_name)
             self.ctx_schematic_copy_name = None

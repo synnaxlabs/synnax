@@ -68,6 +68,7 @@ class SetOutput(ConsoleCase):
 
         self.log("Creating schematic symbols")
         schematic = console.workspace.create_schematic("set_output_schematic")
+        self._cleanup_pages.append(schematic.page_name)
 
         setpoint_symbol = schematic.create_symbol(
             Setpoint(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
