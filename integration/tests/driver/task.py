@@ -140,7 +140,7 @@ class TaskCase(TestCase):
         sy.sleep(0.5)
 
         self.log("Test 2 - Reconfigure Task")
-        new_rate = int(self.SAMPLE_RATE * 2)
+        new_rate = int(self.SAMPLE_RATE / 2)
         tsk.config.sample_rate = new_rate
         client.tasks.configure(tsk)
         self.assert_sample_count(task=tsk, duration=self.TASK_DURATION)
