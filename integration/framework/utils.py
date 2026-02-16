@@ -153,8 +153,8 @@ def assert_link_format(
 
 
 def get_random_name() -> str:
-    """Get a random name, which is a random 12-character string"""
-    return "".join(random.choices(string.ascii_letters + string.digits, k=12))
+    """Get a random name, which is a random 6-character string"""
+    return "".join(random.choices(string.ascii_letters + string.digits, k=6))
 
 
 def get_machine_info() -> str:

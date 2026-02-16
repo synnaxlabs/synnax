@@ -132,7 +132,7 @@ var _ = Describe("Retrieve", func() {
 				"states":  []string{},
 				"regions": []map[string]any{},
 			}
-			for i := 0; i < 100; i++ {
+			for i := range 100 {
 				largeData["states"] = append(largeData["states"].([]string), "state"+string(rune(i)))
 				largeData["regions"] = append(largeData["regions"].([]map[string]any), map[string]any{
 					"id":   "region" + string(rune(i)),
