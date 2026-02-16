@@ -257,10 +257,8 @@ class Task:
                         and status.details.cmd == key
                     ):
                         return status
-                except ValidationError as e:
-                    raise UnexpectedError(f"""
-                    Received invalid task state from driver.
-                    """) from e
+                except ValidationError:
+                    continue
 
 
 class Protocol(BaseProtocol):
@@ -454,7 +452,10 @@ class Client:
                 ):
                     warnings.warn("task - unexpected missing state in frame")
                     continue
-                status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
+                try:
+                    status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
+                except ValidationError:
+                    continue
                 if status.details is None or status.details.task != task.key:
                     continue
                 if status.variant == VARIANT_SUCCESS:

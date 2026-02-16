@@ -13,13 +13,14 @@
 
 #include <utility>
 
-#include "arc/cpp/ir/types.gen.h"
-#include "arc/cpp/ir/json.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
-#include "arc/go/ir/pb/ir.pb.h"
-#include "arc/cpp/types/proto.gen.h"
+
+#include "arc/cpp/ir/json.gen.h"
+#include "arc/cpp/ir/types.gen.h"
 #include "arc/cpp/types/json.gen.h"
+#include "arc/cpp/types/proto.gen.h"
+#include "arc/go/ir/pb/ir.pb.h"
 
 namespace arc::ir {
 
@@ -30,9 +31,8 @@ inline ::arc::ir::pb::Handle Handle::to_proto() const {
     return pb;
 }
 
-inline std::pair<Handle, x::errors::Error> Handle::from_proto(
-    const ::arc::ir::pb::Handle& pb
-) {
+inline std::pair<Handle, x::errors::Error>
+Handle::from_proto(const ::arc::ir::pb::Handle &pb) {
     Handle cpp;
     cpp.node = pb.node();
     cpp.param = pb.param();
@@ -47,9 +47,8 @@ inline ::arc::ir::pb::Edge Edge::to_proto() const {
     return pb;
 }
 
-inline std::pair<Edge, x::errors::Error> Edge::from_proto(
-    const ::arc::ir::pb::Edge& pb
-) {
+inline std::pair<Edge, x::errors::Error>
+Edge::from_proto(const ::arc::ir::pb::Edge &pb) {
     Edge cpp;
     {
         auto [v, err] = Handle::from_proto(pb.source());
@@ -68,21 +67,23 @@ inline std::pair<Edge, x::errors::Error> Edge::from_proto(
 inline ::arc::ir::pb::Stage Stage::to_proto() const {
     ::arc::ir::pb::Stage pb;
     pb.set_key(this->key);
-    for (const auto& item : this->nodes) pb.add_nodes(item);
-    for (const auto& item : this->strata) {
-        auto* wrapper = pb.add_strata();
-        for (const auto& v : item) wrapper->add_values(v);
+    for (const auto &item: this->nodes)
+        pb.add_nodes(item);
+    for (const auto &item: this->strata) {
+        auto *wrapper = pb.add_strata();
+        for (const auto &v: item)
+            wrapper->add_values(v);
     }
     return pb;
 }
 
-inline std::pair<Stage, x::errors::Error> Stage::from_proto(
-    const ::arc::ir::pb::Stage& pb
-) {
+inline std::pair<Stage, x::errors::Error>
+Stage::from_proto(const ::arc::ir::pb::Stage &pb) {
     Stage cpp;
     cpp.key = pb.key();
-    for (const auto& item : pb.nodes()) cpp.nodes.push_back(item);
-    for (const auto& wrapper : pb.strata())
+    for (const auto &item: pb.nodes())
+        cpp.nodes.push_back(item);
+    for (const auto &wrapper: pb.strata())
         cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
     return {cpp, x::errors::NIL};
 }
@@ -90,16 +91,17 @@ inline std::pair<Stage, x::errors::Error> Stage::from_proto(
 inline ::arc::ir::pb::Sequence Sequence::to_proto() const {
     ::arc::ir::pb::Sequence pb;
     pb.set_key(this->key);
-    for (const auto& item : this->stages) *pb.add_stages() = item.to_proto();
+    for (const auto &item: this->stages)
+        *pb.add_stages() = item.to_proto();
     return pb;
 }
 
-inline std::pair<Sequence, x::errors::Error> Sequence::from_proto(
-    const ::arc::ir::pb::Sequence& pb
-) {
+inline std::pair<Sequence, x::errors::Error>
+Sequence::from_proto(const ::arc::ir::pb::Sequence &pb) {
     Sequence cpp;
     cpp.key = pb.key();
-    if (auto err = x::pb::from_proto_repeated<Stage>(cpp.stages, pb.stages())) return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Stage>(cpp.stages, pb.stages()))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 
@@ -109,9 +111,8 @@ inline ::arc::ir::pb::Body Body::to_proto() const {
     return pb;
 }
 
-inline std::pair<Body, x::errors::Error> Body::from_proto(
-    const ::arc::ir::pb::Body& pb
-) {
+inline std::pair<Body, x::errors::Error>
+Body::from_proto(const ::arc::ir::pb::Body &pb) {
     Body cpp;
     cpp.raw = pb.raw();
     return {cpp, x::errors::NIL};
@@ -121,16 +122,18 @@ inline ::arc::ir::pb::Function Function::to_proto() const {
     ::arc::ir::pb::Function pb;
     pb.set_key(this->key);
     *pb.mutable_body() = this->body.to_proto();
-    for (const auto& item : this->config) *pb.add_config() = item.to_proto();
-    for (const auto& item : this->inputs) *pb.add_inputs() = item.to_proto();
-    for (const auto& item : this->outputs) *pb.add_outputs() = item.to_proto();
+    for (const auto &item: this->config)
+        *pb.add_config() = item.to_proto();
+    for (const auto &item: this->inputs)
+        *pb.add_inputs() = item.to_proto();
+    for (const auto &item: this->outputs)
+        *pb.add_outputs() = item.to_proto();
     *pb.mutable_channels() = this->channels.to_proto();
     return pb;
 }
 
-inline std::pair<Function, x::errors::Error> Function::from_proto(
-    const ::arc::ir::pb::Function& pb
-) {
+inline std::pair<Function, x::errors::Error>
+Function::from_proto(const ::arc::ir::pb::Function &pb) {
     Function cpp;
     cpp.key = pb.key();
     {
@@ -138,9 +141,21 @@ inline std::pair<Function, x::errors::Error> Function::from_proto(
         if (err) return {{}, err};
         cpp.body = v;
     }
-    if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(cpp.config, pb.config())) return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(cpp.inputs, pb.inputs())) return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(cpp.outputs, pb.outputs())) return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(
+            cpp.config,
+            pb.config()
+        ))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(
+            cpp.inputs,
+            pb.inputs()
+        ))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(
+            cpp.outputs,
+            pb.outputs()
+        ))
+        return {{}, err};
     {
         auto [v, err] = ::arc::types::Channels::from_proto(pb.channels());
         if (err) return {{}, err};
@@ -153,22 +168,36 @@ inline ::arc::ir::pb::Node Node::to_proto() const {
     ::arc::ir::pb::Node pb;
     pb.set_key(this->key);
     pb.set_type(this->type);
-    for (const auto& item : this->config) *pb.add_config() = item.to_proto();
-    for (const auto& item : this->inputs) *pb.add_inputs() = item.to_proto();
-    for (const auto& item : this->outputs) *pb.add_outputs() = item.to_proto();
+    for (const auto &item: this->config)
+        *pb.add_config() = item.to_proto();
+    for (const auto &item: this->inputs)
+        *pb.add_inputs() = item.to_proto();
+    for (const auto &item: this->outputs)
+        *pb.add_outputs() = item.to_proto();
     *pb.mutable_channels() = this->channels.to_proto();
     return pb;
 }
 
-inline std::pair<Node, x::errors::Error> Node::from_proto(
-    const ::arc::ir::pb::Node& pb
-) {
+inline std::pair<Node, x::errors::Error>
+Node::from_proto(const ::arc::ir::pb::Node &pb) {
     Node cpp;
     cpp.key = pb.key();
     cpp.type = pb.type();
-    if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(cpp.config, pb.config())) return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(cpp.inputs, pb.inputs())) return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(cpp.outputs, pb.outputs())) return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(
+            cpp.config,
+            pb.config()
+        ))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(
+            cpp.inputs,
+            pb.inputs()
+        ))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::arc::types::Param>(
+            cpp.outputs,
+            pb.outputs()
+        ))
+        return {{}, err};
     {
         auto [v, err] = ::arc::types::Channels::from_proto(pb.channels());
         if (err) return {{}, err};
@@ -180,43 +209,51 @@ inline std::pair<Node, x::errors::Error> Node::from_proto(
 inline ::arc::ir::pb::Authorities Authorities::to_proto() const {
     ::arc::ir::pb::Authorities pb;
     if (this->default_.has_value()) pb.set_default_(*this->default_);
-    for (const auto& [k, v] : this->channels) (*pb.mutable_channels())[k] = v;
+    for (const auto &[k, v]: this->channels)
+        (*pb.mutable_channels())[k] = v;
     return pb;
 }
 
-inline std::pair<Authorities, x::errors::Error> Authorities::from_proto(
-    const ::arc::ir::pb::Authorities& pb
-) {
+inline std::pair<Authorities, x::errors::Error>
+Authorities::from_proto(const ::arc::ir::pb::Authorities &pb) {
     Authorities cpp;
     if (pb.has_default_()) cpp.default_ = pb.default_();
-    for (const auto& [k, v] : pb.channels()) cpp.channels[k] = v;
+    for (const auto &[k, v]: pb.channels())
+        cpp.channels[k] = v;
     return {cpp, x::errors::NIL};
 }
 
 inline ::arc::ir::pb::IR IR::to_proto() const {
     ::arc::ir::pb::IR pb;
-    for (const auto& item : this->functions) *pb.add_functions() = item.to_proto();
-    for (const auto& item : this->nodes) *pb.add_nodes() = item.to_proto();
-    for (const auto& item : this->edges) *pb.add_edges() = item.to_proto();
-    for (const auto& item : this->strata) {
-        auto* wrapper = pb.add_strata();
-        for (const auto& v : item) wrapper->add_values(v);
+    for (const auto &item: this->functions)
+        *pb.add_functions() = item.to_proto();
+    for (const auto &item: this->nodes)
+        *pb.add_nodes() = item.to_proto();
+    for (const auto &item: this->edges)
+        *pb.add_edges() = item.to_proto();
+    for (const auto &item: this->strata) {
+        auto *wrapper = pb.add_strata();
+        for (const auto &v: item)
+            wrapper->add_values(v);
     }
-    for (const auto& item : this->sequences) *pb.add_sequences() = item.to_proto();
+    for (const auto &item: this->sequences)
+        *pb.add_sequences() = item.to_proto();
     *pb.mutable_authorities() = this->authorities.to_proto();
     return pb;
 }
 
-inline std::pair<IR, x::errors::Error> IR::from_proto(
-    const ::arc::ir::pb::IR& pb
-) {
+inline std::pair<IR, x::errors::Error> IR::from_proto(const ::arc::ir::pb::IR &pb) {
     IR cpp;
-    if (auto err = x::pb::from_proto_repeated<Function>(cpp.functions, pb.functions())) return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<Node>(cpp.nodes, pb.nodes())) return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<Edge>(cpp.edges, pb.edges())) return {{}, err};
-    for (const auto& wrapper : pb.strata())
+    if (auto err = x::pb::from_proto_repeated<Function>(cpp.functions, pb.functions()))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Node>(cpp.nodes, pb.nodes()))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Edge>(cpp.edges, pb.edges()))
+        return {{}, err};
+    for (const auto &wrapper: pb.strata())
         cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
-    if (auto err = x::pb::from_proto_repeated<Sequence>(cpp.sequences, pb.sequences())) return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Sequence>(cpp.sequences, pb.sequences()))
+        return {{}, err};
     {
         auto [v, err] = Authorities::from_proto(pb.authorities());
         if (err) return {{}, err};

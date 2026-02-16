@@ -11,13 +11,14 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
 #include <cstdint>
+#include <string>
 #include <unordered_map>
+#include <vector>
+
+#include "x/cpp/json/json.h"
 
 #include "arc/cpp/ir/types.gen.h"
-#include "x/cpp/json/json.h"
 #include "arc/cpp/types/json.gen.h"
 
 namespace arc::ir {
@@ -141,7 +142,9 @@ inline x::json::json Node::to_json() const {
 inline Authorities Authorities::parse(x::json::Parser parser) {
     return Authorities{
         .default_ = parser.field<std::optional<std::uint8_t>>("default"),
-        .channels = parser.field<std::unordered_map<std::uint32_t, std::uint8_t>>("channels"),
+        .channels = parser.field<std::unordered_map<std::uint32_t, std::uint8_t>>(
+            "channels"
+        ),
     };
 }
 
@@ -176,14 +179,14 @@ inline x::json::json IR::to_json() const {
 
 inline Edges Edges::parse(x::json::Parser parser) {
     Edges result;
-    for (auto& item : parser.field<std::vector<Edge>>())
+    for (auto &item: parser.field<std::vector<Edge>>())
         result.push_back(std::move(item));
     return result;
 }
 
 inline x::json::json Edges::to_json() const {
     x::json::json j = x::json::json::array();
-    for (const auto& item : *this) {
+    for (const auto &item: *this) {
         j.push_back(item.to_json());
     }
     return j;
@@ -191,14 +194,14 @@ inline x::json::json Edges::to_json() const {
 
 inline Stages Stages::parse(x::json::Parser parser) {
     Stages result;
-    for (auto& item : parser.field<std::vector<Stage>>())
+    for (auto &item: parser.field<std::vector<Stage>>())
         result.push_back(std::move(item));
     return result;
 }
 
 inline x::json::json Stages::to_json() const {
     x::json::json j = x::json::json::array();
-    for (const auto& item : *this) {
+    for (const auto &item: *this) {
         j.push_back(item.to_json());
     }
     return j;
@@ -206,14 +209,14 @@ inline x::json::json Stages::to_json() const {
 
 inline Sequences Sequences::parse(x::json::Parser parser) {
     Sequences result;
-    for (auto& item : parser.field<std::vector<Sequence>>())
+    for (auto &item: parser.field<std::vector<Sequence>>())
         result.push_back(std::move(item));
     return result;
 }
 
 inline x::json::json Sequences::to_json() const {
     x::json::json j = x::json::json::array();
-    for (const auto& item : *this) {
+    for (const auto &item: *this) {
         j.push_back(item.to_json());
     }
     return j;
@@ -221,14 +224,14 @@ inline x::json::json Sequences::to_json() const {
 
 inline Functions Functions::parse(x::json::Parser parser) {
     Functions result;
-    for (auto& item : parser.field<std::vector<Function>>())
+    for (auto &item: parser.field<std::vector<Function>>())
         result.push_back(std::move(item));
     return result;
 }
 
 inline x::json::json Functions::to_json() const {
     x::json::json j = x::json::json::array();
-    for (const auto& item : *this) {
+    for (const auto &item: *this) {
         j.push_back(item.to_json());
     }
     return j;
@@ -236,14 +239,14 @@ inline x::json::json Functions::to_json() const {
 
 inline Strata Strata::parse(x::json::Parser parser) {
     Strata result;
-    for (auto& item : parser.field<std::vector<Stratum>>())
+    for (auto &item: parser.field<std::vector<Stratum>>())
         result.push_back(std::move(item));
     return result;
 }
 
 inline x::json::json Strata::to_json() const {
     x::json::json j = x::json::json::array();
-    for (const auto& item : *this) {
+    for (const auto &item: *this) {
         j.push_back(item);
     }
     return j;
@@ -251,14 +254,14 @@ inline x::json::json Strata::to_json() const {
 
 inline Nodes Nodes::parse(x::json::Parser parser) {
     Nodes result;
-    for (auto& item : parser.field<std::vector<Node>>())
+    for (auto &item: parser.field<std::vector<Node>>())
         result.push_back(std::move(item));
     return result;
 }
 
 inline x::json::json Nodes::to_json() const {
     x::json::json j = x::json::json::array();
-    for (const auto& item : *this) {
+    for (const auto &item: *this) {
         j.push_back(item.to_json());
     }
     return j;

@@ -225,8 +225,8 @@ TEST(IRTest, testSequenceNext) {
     seq.stages.push_back(s2);
     ASSERT_EQ(seq.next("init").key, "run");
     ASSERT_EQ(seq.next("run").key, "stop");
-    ASSERT_THROW((void)seq.next("stop"), std::runtime_error);
-    ASSERT_THROW((void)seq.next("nonexistent"), std::runtime_error);
+    ASSERT_THROW((void) seq.next("stop"), std::runtime_error);
+    ASSERT_THROW((void) seq.next("nonexistent"), std::runtime_error);
 }
 
 /// @brief it should format a Sequence as a string
@@ -256,6 +256,6 @@ TEST(IRTest, testIRSequenceAccess) {
     ir.sequences.push_back(s2);
     ASSERT_EQ(ir.sequence("main").key, "main");
     ASSERT_EQ(ir.sequence("cleanup").key, "cleanup");
-    ASSERT_THROW((void)ir.sequence("nonexistent"), std::runtime_error);
+    ASSERT_THROW((void) ir.sequence("nonexistent"), std::runtime_error);
 }
 }

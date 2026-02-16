@@ -14,19 +14,19 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/spatial/types.gen.h"
-#include "x/cpp/errors/errors.h"
-#include "arc/go/graph/pb/graph.pb.h"
-#include "arc/cpp/ir/types.gen.h"
 
+#include "arc/cpp/ir/types.gen.h"
+#include "arc/go/graph/pb/graph.pb.h"
 
 namespace arc::graph {
 
 struct Node;
 struct Viewport;
 struct Graph;
-
 
 /// @brief Node is a visual node in the Arc graph editor representing a function
 /// instantiation with position data.
@@ -45,9 +45,9 @@ struct Node {
 
     using proto_type = ::arc::graph::pb::Node;
     [[nodiscard]] ::arc::graph::pb::Node to_proto() const;
-    static std::pair<Node, x::errors::Error> from_proto(const ::arc::graph::pb::Node& pb);
+    static std::pair<Node, x::errors::Error>
+    from_proto(const ::arc::graph::pb::Node &pb);
 };
-
 
 /// @brief Viewport is the camera state for viewing the Arc graph editor canvas.
 struct Viewport {
@@ -61,9 +61,9 @@ struct Viewport {
 
     using proto_type = ::arc::graph::pb::Viewport;
     [[nodiscard]] ::arc::graph::pb::Viewport to_proto() const;
-    static std::pair<Viewport, x::errors::Error> from_proto(const ::arc::graph::pb::Viewport& pb);
+    static std::pair<Viewport, x::errors::Error>
+    from_proto(const ::arc::graph::pb::Viewport &pb);
 };
-
 
 struct Nodes : private std::vector<Node> {
     using Base = std::vector<Node>;
@@ -73,49 +73,48 @@ struct Nodes : private std::vector<Node> {
     Nodes() = default;
 
     // Container interface
-    using Base::value_type;
-    using Base::iterator;
-    using Base::const_iterator;
-    using Base::reverse_iterator;
-    using Base::const_reverse_iterator;
-    using Base::size_type;
-    using Base::difference_type;
-    using Base::reference;
-    using Base::const_reference;
     using Base::begin;
-    using Base::end;
+    using Base::capacity;
     using Base::cbegin;
     using Base::cend;
-    using Base::rbegin;
-    using Base::rend;
+    using Base::const_iterator;
+    using Base::const_reference;
+    using Base::const_reverse_iterator;
     using Base::crbegin;
     using Base::crend;
-    using Base::size;
+    using Base::difference_type;
     using Base::empty;
+    using Base::end;
+    using Base::iterator;
     using Base::max_size;
-    using Base::capacity;
+    using Base::rbegin;
+    using Base::reference;
+    using Base::rend;
     using Base::reserve;
+    using Base::reverse_iterator;
     using Base::shrink_to_fit;
+    using Base::size;
+    using Base::size_type;
+    using Base::value_type;
     using Base::operator[];
+    using Base::assign;
     using Base::at;
-    using Base::front;
     using Base::back;
-    using Base::data;
-    using Base::push_back;
-    using Base::emplace_back;
-    using Base::pop_back;
-    using Base::insert;
-    using Base::emplace;
-    using Base::erase;
     using Base::clear;
+    using Base::data;
+    using Base::emplace;
+    using Base::emplace_back;
+    using Base::erase;
+    using Base::front;
+    using Base::insert;
+    using Base::pop_back;
+    using Base::push_back;
     using Base::resize;
     using Base::swap;
-    using Base::assign;
 
     static Nodes parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
-
 
 /// @brief Graph is a visual dataflow graph representation combining IR elements with
 /// canvas layout for the Arc graph editor.
@@ -134,6 +133,7 @@ struct Graph {
 
     using proto_type = ::arc::graph::pb::Graph;
     [[nodiscard]] ::arc::graph::pb::Graph to_proto() const;
-    static std::pair<Graph, x::errors::Error> from_proto(const ::arc::graph::pb::Graph& pb);
+    static std::pair<Graph, x::errors::Error>
+    from_proto(const ::arc::graph::pb::Graph &pb);
 };
 }

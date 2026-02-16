@@ -13,10 +13,11 @@
 
 #include <utility>
 
-#include "arc/cpp/text/types.gen.h"
-#include "arc/cpp/text/json.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
+
+#include "arc/cpp/text/json.gen.h"
+#include "arc/cpp/text/types.gen.h"
 #include "arc/go/text/pb/text.pb.h"
 
 namespace arc::text {
@@ -27,9 +28,8 @@ inline ::arc::text::pb::Text Text::to_proto() const {
     return pb;
 }
 
-inline std::pair<Text, x::errors::Error> Text::from_proto(
-    const ::arc::text::pb::Text& pb
-) {
+inline std::pair<Text, x::errors::Error>
+Text::from_proto(const ::arc::text::pb::Text &pb) {
     Text cpp;
     cpp.raw = pb.raw();
     return {cpp, x::errors::NIL};

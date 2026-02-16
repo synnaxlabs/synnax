@@ -36,9 +36,7 @@ const Stage &Sequence::next(const std::string &stage_key) const {
     for (size_t i = 0; i < this->stages.size(); ++i)
         if (this->stages[i].key == stage_key) {
             if (i + 1 >= this->stages.size())
-                throw std::runtime_error(
-                    "no next stage after: " + stage_key
-                );
+                throw std::runtime_error("no next stage after: " + stage_key);
             return this->stages[i + 1];
         }
     throw std::runtime_error("stage not found: " + stage_key);

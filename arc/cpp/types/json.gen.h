@@ -11,12 +11,13 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <unordered_map>
-#include <cstdint>
+
+#include "x/cpp/json/json.h"
 
 #include "arc/cpp/types/types.gen.h"
-#include "x/cpp/json/json.h"
 
 namespace arc::types {
 
@@ -38,7 +39,7 @@ inline x::json::json FunctionProperties::to_json() const {
 
 inline Type Type::parse(x::json::Parser parser) {
     Type result;
-    static_cast<FunctionProperties&>(result) = FunctionProperties::parse(parser);
+    static_cast<FunctionProperties &>(result) = FunctionProperties::parse(parser);
     result.kind = parser.field<Kind>("kind");
     result.name = parser.field<std::string>("name");
     result.elem = parser.field<x::mem::indirect<Type>>("elem");
@@ -50,7 +51,8 @@ inline Type Type::parse(x::json::Parser parser) {
 
 inline x::json::json Type::to_json() const {
     x::json::json j;
-    for (auto& [k, v] : FunctionProperties::to_json().items()) j[k] = v;
+    for (auto &[k, v]: FunctionProperties::to_json().items())
+        j[k] = v;
     j["kind"] = this->kind;
     j["name"] = this->name;
     if (this->elem.has_value()) j["elem"] = this->elem->to_json();
@@ -134,14 +136,14 @@ inline x::json::json Unit::to_json() const {
 
 inline Params Params::parse(x::json::Parser parser) {
     Params result;
-    for (auto& item : parser.field<std::vector<Param>>())
+    for (auto &item: parser.field<std::vector<Param>>())
         result.push_back(std::move(item));
     return result;
 }
 
 inline x::json::json Params::to_json() const {
     x::json::json j = x::json::json::array();
-    for (const auto& item : *this) {
+    for (const auto &item: *this) {
         j.push_back(item.to_json());
     }
     return j;

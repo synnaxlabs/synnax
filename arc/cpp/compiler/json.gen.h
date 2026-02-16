@@ -11,20 +11,22 @@
 
 #pragma once
 
-#include <vector>
 #include <cstdint>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
+#include <vector>
+
+#include "x/cpp/json/json.h"
 
 #include "arc/cpp/compiler/types.gen.h"
-#include "x/cpp/json/json.h"
 
 namespace arc::compiler {
 
 inline Output Output::parse(x::json::Parser parser) {
     return Output{
         .wasm = parser.field<std::vector<std::uint8_t>>("wasm"),
-        .output_memory_bases = parser.field<std::unordered_map<std::string, std::uint32_t>>("output_memory_bases"),
+        .output_memory_bases = parser.field<
+            std::unordered_map<std::string, std::uint32_t>>("output_memory_bases"),
     };
 }
 

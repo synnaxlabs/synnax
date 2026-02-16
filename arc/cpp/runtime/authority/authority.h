@@ -64,8 +64,7 @@ public:
     create(node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
         const auto auth = cfg.node.config["value"].value.get<uint8_t>();
-        const auto channel = cfg.node.config["channel"].value
-                                 .get<types::ChannelKey>();
+        const auto channel = cfg.node.config["channel"].value.get<types::ChannelKey>();
         std::optional<types::ChannelKey> channel_key;
         if (channel != 0) channel_key = channel;
         return {

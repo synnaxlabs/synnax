@@ -13,8 +13,9 @@
 
 #include <string>
 
-#include "arc/cpp/text/types.gen.h"
 #include "x/cpp/json/json.h"
+
+#include "arc/cpp/text/types.gen.h"
 
 namespace arc::text {
 
