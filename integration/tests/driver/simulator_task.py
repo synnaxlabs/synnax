@@ -93,7 +93,7 @@ class SimulatorTaskCase(TaskCase):
         self,
         max_retries: int = 10,
         retry_delay: float = 1.0,
-    ) -> sy.Device:
+    ) -> None:
         """Get or create the hardware device for this simulator."""
         for attempt in range(max_retries):
             try:
@@ -121,4 +121,4 @@ class SimulatorTaskCase(TaskCase):
         except Exception as e:
             raise AssertionError(f"Unexpected error creating device: {e}")
 
-        return device
+        return

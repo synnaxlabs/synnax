@@ -108,8 +108,10 @@ class DeviceSim(Simulator):
 
     def _subprocess_entry(self) -> None:
         """Entry point for the subprocess."""
-        sys.stdout = open(os.devnull, "w")
-        sys.stderr = open(os.devnull, "w")
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull_fd, 1)
+        os.dup2(devnull_fd, 2)
+        os.close(devnull_fd)
         signal.signal(signal.SIGINT, signal.SIG_DFL)
         if sys.platform != "win32":
             signal.signal(signal.SIGTERM, signal.SIG_DFL)
