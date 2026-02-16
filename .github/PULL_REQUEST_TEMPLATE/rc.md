@@ -294,33 +294,6 @@ I can successfully:
 - **Arc Editor**
   - [ ] Create an alarm automation that changes statuses and includes the following blocks: channel source, constant, comparison, stable for, select, and status change.
 
-### Statuses
-
-I can successfully:
-
-- **Search and Command Palette**
-  - [ ] Open the status explorer.
-  - [ ] Open the status create modal.
-
-- **Status Create Modal**
-  - [ ] Create a new status.
-  - [ ] Create a new status with labels.
-
-- **Status Explorer**
-  - [ ] Filter statuses by labels.
-  - [ ] Delete a single status.
-  - [ ] Delete multiple statuses.
-  - [ ] Favorite a status.
-  - [ ] Unfavorite a status.
-
-- **Status Notifications**
-  - [ ] See status notifications in the bottom right corner when creating a new status.
-
-- **Status Toolbar**
-  - [ ] Unfavorite a status
-  - [ ] Delete a status
-  - [ ] Rename a status
-
 ### Version
 
 I can successfully:
