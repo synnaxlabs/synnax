@@ -45,6 +45,7 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
 
         self.log("Creating schematic symbols")
         schematic = self.console.workspace.create_schematic("simple_press_valves")
+        self._cleanup_pages.append(schematic.page_name)
         schematic.move("left")
 
         end_test_cmd = schematic.create_symbol(

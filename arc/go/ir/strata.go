@@ -11,6 +11,7 @@ package ir
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -23,10 +24,8 @@ type Strata [][]string
 // Get returns the stratum level of the node with the given key, or -1 if not found.
 func (s Strata) Get(key string) int {
 	for i, nodes := range s {
-		for _, node := range nodes {
-			if node == key {
-				return i
-			}
+		if slices.Contains(nodes, key) {
+			return i
 		}
 	}
 	return -1

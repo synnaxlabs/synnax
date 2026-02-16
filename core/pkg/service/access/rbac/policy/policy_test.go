@@ -490,7 +490,7 @@ var _ = Describe("Ontology Integration", func() {
 	Describe("OpenNexter", func() {
 		It("Should iterate over all policies", func() {
 			w := svc.NewWriter(tx, false)
-			for i := 0; i < 3; i++ {
+			for range 3 {
 				p := &policy.Policy{
 					Name:    "nexter-test",
 					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},

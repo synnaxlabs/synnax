@@ -341,7 +341,7 @@ func (s *Server) getOperatorAtPosition(content string, pos protocol.Position) st
 	}
 	for _, op := range operators {
 		opLen := len(op)
-		for startOffset := 0; startOffset < opLen; startOffset++ {
+		for startOffset := range opLen {
 			start := col - startOffset
 			if start < 0 || start+opLen > len(line) {
 				continue
@@ -442,15 +442,15 @@ func hasCodeBetween(tokens []antlr.Token, fromIndex int, targetLine int) bool {
 func cleanDocComment(comments []string) string {
 	var lines []string
 	for _, comment := range comments {
-		if strings.HasPrefix(comment, "//") {
-			line := strings.TrimPrefix(comment, "//")
+		if after, ok := strings.CutPrefix(comment, "//"); ok {
+			line := after
 			line = strings.TrimPrefix(line, " ")
 			lines = append(lines, line)
-		} else if strings.HasPrefix(comment, "/*") {
-			text := strings.TrimPrefix(comment, "/*")
+		} else if after, ok := strings.CutPrefix(comment, "/*"); ok {
+			text := after
 			text = strings.TrimSuffix(text, "*/")
 			text = strings.TrimSpace(text)
-			for _, line := range strings.Split(text, "\n") {
+			for line := range strings.SplitSeq(text, "\n") {
 				line = strings.TrimSpace(line)
 				line = strings.TrimPrefix(line, "*")
 				line = strings.TrimPrefix(line, " ")

@@ -12,6 +12,7 @@ package arc
 import (
 	"context"
 	"go/types"
+	"maps"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -655,13 +656,9 @@ func translateDimensionsFromPB(pb *arctypes.PBDimensions) arctypes.Dimensions {
 // translateChannelsToPB converts symbol.Channels to *arcsymbol.PBChannels
 func translateChannelsToPB(c arcsymbol.Channels) *arcsymbol.PBChannels {
 	readMap := make(map[uint32]string)
-	for k, v := range c.Read {
-		readMap[k] = v
-	}
+	maps.Copy(readMap, c.Read)
 	writeMap := make(map[uint32]string)
-	for k, v := range c.Write {
-		writeMap[k] = v
-	}
+	maps.Copy(writeMap, c.Write)
 	return &arcsymbol.PBChannels{
 		Read:  readMap,
 		Write: writeMap,
@@ -674,12 +671,8 @@ func translateChannelsFromPB(pb *arcsymbol.PBChannels) arcsymbol.Channels {
 		return arcsymbol.NewChannels()
 	}
 	c := arcsymbol.NewChannels()
-	for k, v := range pb.Read {
-		c.Read[k] = v
-	}
-	for k, v := range pb.Write {
-		c.Write[k] = v
-	}
+	maps.Copy(c.Read, pb.Read)
+	maps.Copy(c.Write, pb.Write)
 	return c
 }
 
