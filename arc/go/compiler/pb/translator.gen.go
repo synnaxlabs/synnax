@@ -16,11 +16,10 @@ import (
 	"github.com/synnaxlabs/arc/compiler"
 )
 
-
 // OutputToPB converts Output to Output.
 func OutputToPB(_ context.Context, r compiler.Output) (*Output, error) {
 	pb := &Output{
-		Wasm: r.WASM,
+		Wasm:              r.WASM,
 		OutputMemoryBases: r.OutputMemoryBases,
 	}
 	return pb, nil

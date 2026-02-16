@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
-
 // XYToPB converts XY to XY.
 func XYToPB(_ context.Context, r spatial.XY) (*XY, error) {
 	pb := &XY{

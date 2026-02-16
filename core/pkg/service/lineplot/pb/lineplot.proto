@@ -17,6 +17,6 @@ message LinePlot {
   // name is a human-readable name for the line plot.
   string name = 2;
   // data is the line plot configuration including channel references, axis settings, and
-// display options.
+  // display options.
   google.protobuf.Struct data = 3;
 }

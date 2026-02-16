@@ -13,12 +13,11 @@ package pb
 
 import (
 	"context"
-	"google.golang.org/protobuf/types/known/structpb"
 	"github.com/synnaxlabs/arc/graph"
 	irpb "github.com/synnaxlabs/arc/ir/pb"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
-
 
 // NodeToPB converts Node to Node.
 func NodeToPB(ctx context.Context, r graph.Node) (*Node, error) {
@@ -31,9 +30,9 @@ func NodeToPB(ctx context.Context, r graph.Node) (*Node, error) {
 		return nil, err
 	}
 	pb := &Node{
-		Key: r.Key,
-		Type: r.Type,
-		Config: configVal,
+		Key:      r.Key,
+		Type:     r.Type,
+		Config:   configVal,
 		Position: positionVal,
 	}
 	return pb, nil
@@ -89,7 +88,7 @@ func ViewportToPB(ctx context.Context, r graph.Viewport) (*Viewport, error) {
 		return nil, err
 	}
 	pb := &Viewport{
-		Zoom: r.Zoom,
+		Zoom:     r.Zoom,
 		Position: positionVal,
 	}
 	return pb, nil
@@ -155,10 +154,10 @@ func GraphToPB(ctx context.Context, r graph.Graph) (*Graph, error) {
 		return nil, err
 	}
 	pb := &Graph{
-		Viewport: viewportVal,
+		Viewport:  viewportVal,
 		Functions: functionsVal,
-		Edges: edgesVal,
-		Nodes: nodesVal,
+		Edges:     edgesVal,
+		Nodes:     nodesVal,
 	}
 	return pb, nil
 }

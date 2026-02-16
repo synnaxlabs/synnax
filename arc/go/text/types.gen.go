@@ -18,6 +18,6 @@ import (
 // Text is text-based Arc source code with optional parsed AST for compilation.
 type Text struct {
 	// Raw is the raw Arc source code in text form.
-	Raw string `json:"raw" msgpack:"raw"`
+	Raw string                 `json:"raw" msgpack:"raw"`
 	AST parser.IProgramContext `json:"-"`
 }

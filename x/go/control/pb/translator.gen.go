@@ -13,15 +13,14 @@ package pb
 
 import (
 	"context"
-	"google.golang.org/protobuf/types/known/anypb"
 	"github.com/synnaxlabs/x/control"
+	"google.golang.org/protobuf/types/known/anypb"
 )
-
 
 // SubjectToPB converts Subject to Subject.
 func SubjectToPB(_ context.Context, r control.Subject) (*Subject, error) {
 	pb := &Subject{
-		Key: r.Key,
+		Key:  r.Key,
 		Name: r.Name,
 	}
 	return pb, nil
@@ -104,8 +103,8 @@ func StateToPB[R any](
 	}
 	pb := &State{
 		Authority: uint32(r.Authority),
-		Resource: resourceAny,
-		Subject: subjectVal,
+		Resource:  resourceAny,
+		Subject:   subjectVal,
 	}
 	return pb, nil
 }

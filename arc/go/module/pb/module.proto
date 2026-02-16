@@ -29,6 +29,6 @@ message Module {
   // wasm is compiled WebAssembly bytecode for sandboxed execution.
   bytes wasm = 7;
   // output_memory_bases contains memory base addresses for multi-output functions,
-// mapping function keys to their base addresses.
+  // mapping function keys to their base addresses.
   map<string, uint32> output_memory_bases = 8;
 }

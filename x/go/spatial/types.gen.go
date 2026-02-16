@@ -14,10 +14,10 @@ package spatial
 type OuterLocation string
 
 const (
-	OuterLocationTop OuterLocation = "top"
-	OuterLocationRight OuterLocation = "right"
+	OuterLocationTop    OuterLocation = "top"
+	OuterLocationRight  OuterLocation = "right"
 	OuterLocationBottom OuterLocation = "bottom"
-	OuterLocationLeft OuterLocation = "left"
+	OuterLocationLeft   OuterLocation = "left"
 )
 
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in

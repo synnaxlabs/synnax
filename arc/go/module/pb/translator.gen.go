@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/arc/module"
 )
 
-
 // ModuleToPB converts Module to Module.
 func ModuleToPB(ctx context.Context, r module.Module) (*Module, error) {
 	functionsVal, err := irpb.FunctionsToPB(ctx, r.Functions)
@@ -42,14 +41,14 @@ func ModuleToPB(ctx context.Context, r module.Module) (*Module, error) {
 		return nil, err
 	}
 	pb := &Module{
-		Strata: lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
-		Wasm: r.WASM,
+		Strata:            lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
+		Wasm:              r.WASM,
 		OutputMemoryBases: r.OutputMemoryBases,
-		Functions: functionsVal,
-		Nodes: nodesVal,
-		Edges: edgesVal,
-		Sequences: sequencesVal,
-		Authorities: authoritiesVal,
+		Functions:         functionsVal,
+		Nodes:             nodesVal,
+		Edges:             edgesVal,
+		Sequences:         sequencesVal,
+		Authorities:       authoritiesVal,
 	}
 	return pb, nil
 }

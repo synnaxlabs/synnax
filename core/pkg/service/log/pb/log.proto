@@ -17,6 +17,6 @@ message Log {
   // name is a human-readable name for the log.
   string name = 2;
   // data is the log configuration including message formatting, filtering rules, and
-// display options.
+  // display options.
   google.protobuf.Struct data = 3;
 }

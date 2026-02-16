@@ -12,8 +12,8 @@
 package graph
 
 import (
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/spatial"
 )
 

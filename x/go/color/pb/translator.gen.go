@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/x/color"
 )
 
-
 // ColorToPB converts Color to Color.
 func ColorToPB(_ context.Context, r color.Color) (*Color, error) {
 	pb := &Color{

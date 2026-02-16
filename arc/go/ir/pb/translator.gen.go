@@ -18,11 +18,10 @@ import (
 	typespb "github.com/synnaxlabs/arc/types/pb"
 )
 
-
 // HandleToPB converts Handle to Handle.
 func HandleToPB(_ context.Context, r ir.Handle) (*Handle, error) {
 	pb := &Handle{
-		Node: r.Node,
+		Node:  r.Node,
 		Param: r.Param,
 	}
 	return pb, nil
@@ -76,7 +75,7 @@ func EdgeToPB(ctx context.Context, r ir.Edge) (*Edge, error) {
 		return nil, err
 	}
 	pb := &Edge{
-		Kind: EdgeKindToPB(r.Kind),
+		Kind:   EdgeKindToPB(r.Kind),
 		Source: sourceVal,
 		Target: targetVal,
 	}
@@ -131,8 +130,8 @@ func EdgesFromPB(ctx context.Context, pbs []*Edge) ([]ir.Edge, error) {
 // StageToPB converts Stage to Stage.
 func StageToPB(_ context.Context, r ir.Stage) (*Stage, error) {
 	pb := &Stage{
-		Key: r.Key,
-		Nodes: r.Nodes,
+		Key:    r.Key,
+		Nodes:  r.Nodes,
 		Strata: lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
 	}
 	return pb, nil
@@ -183,7 +182,7 @@ func SequenceToPB(ctx context.Context, r ir.Sequence) (*Sequence, error) {
 		return nil, err
 	}
 	pb := &Sequence{
-		Key: r.Key,
+		Key:    r.Key,
 		Stages: stagesVal,
 	}
 	return pb, nil
@@ -297,11 +296,11 @@ func FunctionToPB(ctx context.Context, r ir.Function) (*Function, error) {
 		return nil, err
 	}
 	pb := &Function{
-		Key: r.Key,
-		Body: bodyVal,
-		Config: configVal,
-		Inputs: inputsVal,
-		Outputs: outputsVal,
+		Key:      r.Key,
+		Body:     bodyVal,
+		Config:   configVal,
+		Inputs:   inputsVal,
+		Outputs:  outputsVal,
 		Channels: channelsVal,
 	}
 	return pb, nil
@@ -383,11 +382,11 @@ func NodeToPB(ctx context.Context, r ir.Node) (*Node, error) {
 		return nil, err
 	}
 	pb := &Node{
-		Key: r.Key,
-		Type: r.Type,
-		Config: configVal,
-		Inputs: inputsVal,
-		Outputs: outputsVal,
+		Key:      r.Key,
+		Type:     r.Type,
+		Config:   configVal,
+		Inputs:   inputsVal,
+		Outputs:  outputsVal,
 		Channels: channelsVal,
 	}
 	return pb, nil
@@ -449,8 +448,7 @@ func NodesFromPB(ctx context.Context, pbs []*Node) ([]ir.Node, error) {
 
 // AuthoritiesToPB converts Authorities to Authorities.
 func AuthoritiesToPB(_ context.Context, r ir.Authorities) (*Authorities, error) {
-	pb := &Authorities{
-	}
+	pb := &Authorities{}
 	if r.Default != nil {
 		v := uint32(*r.Default)
 		pb.Default = &v
@@ -532,11 +530,11 @@ func IRToPB(ctx context.Context, r ir.IR) (*IR, error) {
 		return nil, err
 	}
 	pb := &IR{
-		Strata: lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
-		Functions: functionsVal,
-		Nodes: nodesVal,
-		Edges: edgesVal,
-		Sequences: sequencesVal,
+		Strata:      lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
+		Functions:   functionsVal,
+		Nodes:       nodesVal,
+		Edges:       edgesVal,
+		Sequences:   sequencesVal,
 		Authorities: authoritiesVal,
 	}
 	return pb, nil

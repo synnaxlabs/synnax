@@ -1266,7 +1266,6 @@ func toSnakeCase(s string) string {
 	return lo.SnakeCase(s)
 }
 
-
 type includeManager struct {
 	system   []string
 	internal []string

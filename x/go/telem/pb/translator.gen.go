@@ -16,12 +16,11 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-
 // TimeRangeToPB converts TimeRange to TimeRange.
 func TimeRangeToPB(_ context.Context, r telem.TimeRange) (*TimeRange, error) {
 	pb := &TimeRange{
 		Start: int64(r.Start),
-		End: int64(r.End),
+		End:   int64(r.End),
 	}
 	return pb, nil
 }
