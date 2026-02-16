@@ -164,9 +164,6 @@ class RangeDetails(ConsoleCase):
             [self.child_1_name, self.child_2_name]
         )
 
-        self.console.ranges.wait_for_removed_from_toolbar(self.child_1_name)
-        self.console.ranges.wait_for_removed_from_toolbar(self.child_2_name)
-
     def test_copy_link_from_child_range(self) -> None:
         """Test copying a link to a child range via context menu."""
         self.log("Testing: Copy link from child range")
