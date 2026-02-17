@@ -20,7 +20,6 @@ import synnax as sy
 from examples.simulators.simulator import Simulator
 
 
-
 class DeviceSim(Simulator):
     """Base class for protocol device simulators.
 

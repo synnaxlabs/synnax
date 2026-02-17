@@ -12,7 +12,6 @@ import threading
 from abc import abstractmethod
 
 import synnax as sy
-
 from examples.simulators.simulator import Simulator
 
 
