@@ -1464,4 +1464,165 @@ TEST(ClientTest, OPTIONSRequest) {
     server.stop();
 }
 
+TEST(ClientTest, SerialGETRequestsReuseHandles) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::GET,
+        .path = "/api/data",
+        .status_code = 200,
+        .response_body = R"({"value": 1})",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    auto client = ASSERT_NIL_P(
+        Client::create(config, {{.method = Method::GET, .path = "/api/data"}})
+    );
+
+    for (int i = 0; i < 3; i++) {
+        auto results = ASSERT_NIL_P(client.execute_requests({""}));
+        ASSERT_EQ(results.size(), 1);
+        const auto resp = ASSERT_NIL_P(results[0]);
+        EXPECT_EQ(resp.status_code, 200);
+        EXPECT_EQ(resp.body, R"({"value": 1})");
+    }
+
+    auto reqs = server.received_requests();
+    EXPECT_EQ(reqs.size(), 3);
+
+    server.stop();
+}
+
+TEST(ClientTest, SerialPOSTRequestsWithDifferentBodies) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::POST,
+        .path = "/api/submit",
+        .status_code = 201,
+        .response_body = R"({"ok": true})",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    auto client = ASSERT_NIL_P(
+        Client::create(config, {{.method = Method::POST, .path = "/api/submit"}})
+    );
+
+    const std::vector<std::string> bodies = {
+        R"({"name": "first"})",
+        R"({"name": "second"})",
+        R"({"name": "third"})",
+    };
+
+    for (const auto &body: bodies) {
+        auto results = ASSERT_NIL_P(client.execute_requests({body}));
+        ASSERT_EQ(results.size(), 1);
+        const auto resp = ASSERT_NIL_P(results[0]);
+        EXPECT_EQ(resp.status_code, 201);
+    }
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 3);
+    EXPECT_EQ(reqs[0].body, R"({"name": "first"})");
+    EXPECT_EQ(reqs[1].body, R"({"name": "second"})");
+    EXPECT_EQ(reqs[2].body, R"({"name": "third"})");
+
+    server.stop();
+}
+
+TEST(ClientTest, SerialRequestsRecoverFromServerError) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {
+        {
+            .method = Method::GET,
+            .path = "/api/ok",
+            .status_code = 200,
+            .response_body = R"({"status": "ok"})",
+        },
+        {
+            .method = Method::GET,
+            .path = "/api/fail",
+            .status_code = 500,
+            .response_body = R"({"error": "internal"})",
+        },
+    };
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    auto client = ASSERT_NIL_P(
+        Client::create(
+            config,
+            {
+                {.method = Method::GET, .path = "/api/ok"},
+                {.method = Method::GET, .path = "/api/fail"},
+            }
+        )
+    );
+
+    // Call 1: one handle succeeds, the other returns 500.
+    auto r1 = ASSERT_NIL_P(client.execute_requests({"", ""}));
+    ASSERT_EQ(r1.size(), 2);
+    EXPECT_EQ(ASSERT_NIL_P(r1[0]).status_code, 200);
+    EXPECT_EQ(ASSERT_NIL_P(r1[1]).status_code, 500);
+
+    // Call 2: same pattern — the 500 from call 1 didn't poison the client.
+    auto r2 = ASSERT_NIL_P(client.execute_requests({"", ""}));
+    ASSERT_EQ(r2.size(), 2);
+    EXPECT_EQ(ASSERT_NIL_P(r2[0]).status_code, 200);
+    EXPECT_EQ(ASSERT_NIL_P(r2[1]).status_code, 500);
+
+    // Call 3: still works — verify full response content.
+    auto r3 = ASSERT_NIL_P(client.execute_requests({"", ""}));
+    ASSERT_EQ(r3.size(), 2);
+    const auto ok_resp = ASSERT_NIL_P(r3[0]);
+    EXPECT_EQ(ok_resp.status_code, 200);
+    EXPECT_EQ(ok_resp.body, R"({"status": "ok"})");
+    EXPECT_EQ(ASSERT_NIL_P(r3[1]).status_code, 500);
+
+    auto reqs = server.received_requests();
+    EXPECT_EQ(reqs.size(), 6);
+
+    server.stop();
+}
+
+TEST(ClientTest, SerialSingleHandleRecoveryFromServerError) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {{
+        .method = Method::POST,
+        .path = "/api/action",
+        .status_code = 500,
+        .response_body = R"({"error": "broken"})",
+    }};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto config = make_config({{"base_url", server.base_url()}});
+    auto client = ASSERT_NIL_P(
+        Client::create(config, {{.method = Method::POST, .path = "/api/action"}})
+    );
+
+    // Repeated calls to a 500 endpoint should all return valid responses without the
+    // client becoming unusable.
+    for (int i = 0; i < 3; i++) {
+        auto results = ASSERT_NIL_P(
+            client.execute_requests({R"({"attempt": )" + std::to_string(i) + "}"})
+        );
+        ASSERT_EQ(results.size(), 1);
+        const auto resp = ASSERT_NIL_P(results[0]);
+        EXPECT_EQ(resp.status_code, 500);
+        EXPECT_EQ(resp.body, R"({"error": "broken"})");
+    }
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 3);
+    EXPECT_EQ(reqs[0].body, R"({"attempt": 0})");
+    EXPECT_EQ(reqs[1].body, R"({"attempt": 1})");
+    EXPECT_EQ(reqs[2].body, R"({"attempt": 2})");
+
+    server.stop();
+}
+
 }
