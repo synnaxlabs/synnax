@@ -176,7 +176,13 @@ const Content = () => {
         onDisableDataSaving={handleDisableDataSaving}
       />
     ),
-    [handleDelete, handleStart, handleStop, handleEnableDataSaving, handleDisableDataSaving],
+    [
+      handleDelete,
+      handleStart,
+      handleStop,
+      handleEnableDataSaving,
+      handleDisableDataSaving,
+    ],
   );
   const handleListItemStopStart = useCallback(
     (command: Common.Task.Command, key: task.Key) => handleCommand([key], command),
@@ -421,8 +427,9 @@ const ContextMenu = ({
               Disable data saving
             </PMenu.Item>
           )}
-          {hasDataSavingTasks &&
-            (canEnableDataSaving || canDisableDataSaving) && <PMenu.Divider />}
+          {hasDataSavingTasks && (canEnableDataSaving || canDisableDataSaving) && (
+            <PMenu.Divider />
+          )}
           {isSingle && (
             <>
               <PMenu.Item itemKey="edit">

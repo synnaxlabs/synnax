@@ -494,8 +494,7 @@ export const { useUpdate: useSetDataSaving } = Flux.createUpdate<
         if (!("dataSaving" in config) || config.dataSaving === dataSaving) continue;
         const wasRunning = t.status?.details.running === true;
         await client.tasks.create({ ...t.payload, config: { ...config, dataSaving } });
-        if (wasRunning)
-          await client.tasks.executeCommand({ task: key, type: "start" });
+        if (wasRunning) await client.tasks.executeCommand({ task: key, type: "start" });
       } catch {
         failedNames.push(name);
       }
