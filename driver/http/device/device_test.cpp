@@ -1477,7 +1477,12 @@ TEST(ClientTest, SerialGETRequestsReuseHandles) {
 
     auto config = make_config({{"base_url", server.base_url()}});
     auto client = ASSERT_NIL_P(
-        Client::create(config, {{.method = Method::GET, .path = "/api/data"}})
+        Client::create(
+            config,
+            {{.method = Method::GET,
+              .path = "/api/data",
+              .headers = {{"X-Header", "test-value"}}}}
+        )
     );
 
     for (int i = 0; i < 3; i++) {
@@ -1490,6 +1495,9 @@ TEST(ClientTest, SerialGETRequestsReuseHandles) {
 
     auto reqs = server.received_requests();
     EXPECT_EQ(reqs.size(), 3);
+    EXPECT_EQ(reqs[0].headers.find("X-Header")->second, "test-value");
+    EXPECT_EQ(reqs[1].headers.find("X-Header")->second, "test-value");
+    EXPECT_EQ(reqs[2].headers.find("X-Header")->second, "test-value");
 
     server.stop();
 }
