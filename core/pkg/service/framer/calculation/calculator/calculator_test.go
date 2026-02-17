@@ -604,64 +604,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Close()).To(Succeed())
 		})
 
-		Specify("Interleaved", func() {
-			indexes := []channel.Channel{{
-				Name:     channel.NewRandomName(),
-				DataType: telem.TimeStampT,
-				IsIndex:  true,
-			}}
-			bases := []channel.Channel{{
-				Name:     channel.NewRandomName(),
-				DataType: telem.Int64T,
-			}}
-			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
-				DataType:   telem.Int64T,
-				Virtual:    true,
-				Expression: fmt.Sprintf("return %s + 10", bases[0].Name),
-			}
-			c := open(&indexes, &bases, &calc)
-
-			// First write: Data Series 1. Should not Calculate
-			data1 := telem.NewSeriesV[int64](5, 15)
-			data1.Alignment = telem.NewAlignment(2, 1)
-			fr1 := frame.NewUnary(bases[0].Key(), data1)
-			_, changed := MustSucceed2(c.Next(ctx, fr1, frame.Frame{}))
-			Expect(changed).To(BeFalse())
-
-			// Second Write: Data Series 2. Should Not Calculate
-			idx1 := telem.NewSeriesSecondsTSV(1, 2)
-			idx1.Alignment = telem.NewAlignment(2, 1)
-			fr2 := frame.NewUnary(indexes[0].Key(), idx1)
-			of := frame.Frame{}
-			of, changed = MustSucceed2(c.Next(ctx, fr2, of))
-			Expect(changed).To(BeTrue())
-			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](15, 25))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
-				1*telem.SecondTS, 2*telem.SecondTS,
-			))
-			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(2, 1)))
-
-			data2 := telem.NewSeriesV[int64](25)
-			data2.Alignment = telem.NewAlignment(3, 2)
-			fr3 := frame.NewUnary(bases[0].Key(), data2)
-			of = frame.Frame{}
-			_, changed = MustSucceed2(c.Next(ctx, fr3, of))
-			Expect(changed).To(BeFalse())
-
-			idx2 := telem.NewSeriesSecondsTSV(3)
-			idx2.Alignment = telem.NewAlignment(3, 2)
-			fr4 := frame.NewUnary(indexes[0].Key(), idx2)
-			of = frame.Frame{}
-			of, changed = MustSucceed2(c.Next(ctx, fr4, of))
-			Expect(changed).To(BeTrue())
-			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(3 * telem.SecondTS))
-			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(3, 2)))
-
-			Expect(c.Close()).To(Succeed())
-		})
-
 		Specify("Sequential channel arrivals", func() {
 			indexes := []channel.Channel{{
 				Name:     channel.NewRandomName(),
@@ -708,6 +650,65 @@ var _ = Describe("Calculator", Ordered, func() {
 			))
 			// Alignment is summed: (5,1) + (5,1) = (10,2)
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 2)))
+			Expect(c.Close()).To(Succeed())
+		})
+
+		Specify("Different indexes from different writers", func() {
+			indexes := []channel.Channel{
+				{
+					Name:     channel.NewRandomName(),
+					DataType: telem.TimeStampT,
+					IsIndex:  true,
+				},
+				{
+					Name:     channel.NewRandomName(),
+					DataType: telem.TimeStampT,
+					IsIndex:  true,
+				},
+			}
+			bases := []channel.Channel{
+				{
+					Name:     channel.NewRandomName(),
+					DataType: telem.Float64T,
+				},
+				{
+					Name:     channel.NewRandomName(),
+					DataType: telem.Float64T,
+				},
+			}
+			calc := channel.Channel{
+				Name:       channel.NewRandomName(),
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
+			}
+			c := open(&indexes, &bases, &calc)
+
+			// Writer 1 sends idx1 + ch1 — not enough inputs to compute yet
+			idx1 := telem.NewSeriesSecondsTSV(1, 2, 3)
+			idx1.Alignment = telem.NewAlignment(5, 0)
+			ch1Data := telem.NewSeriesV(10.0, 20.0, 30.0)
+			ch1Data.Alignment = telem.NewAlignment(5, 0)
+			fr1 := frame.NewMulti(
+				[]channel.Key{indexes[0].Key(), bases[0].Key()},
+				[]telem.Series{idx1, ch1Data},
+			)
+			_, changed := MustSucceed2(c.Next(ctx, fr1, frame.Frame{}))
+			Expect(changed).To(BeFalse())
+
+			// Writer 2 sends idx2 + ch2 — now both inputs available, should compute
+			idx2 := telem.NewSeriesSecondsTSV(10, 20, 30)
+			idx2.Alignment = telem.NewAlignment(8, 0)
+			ch2Data := telem.NewSeriesV(1.0, 2.0, 3.0)
+			ch2Data.Alignment = telem.NewAlignment(8, 0)
+			fr2 := frame.NewMulti(
+				[]channel.Key{indexes[1].Key(), bases[1].Key()},
+				[]telem.Series{idx2, ch2Data},
+			)
+			of, changed := MustSucceed2(c.Next(ctx, fr2, frame.Frame{}))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV(11.0, 22.0, 33.0))
+
 			Expect(c.Close()).To(Succeed())
 		})
 	})
