@@ -302,7 +302,7 @@ Client::~Client() {
 }
 
 std::pair<std::vector<std::pair<Response, x::errors::Error>>, x::errors::Error>
-Client::request(const std::vector<std::string> &bodies) {
+Client::execute_requests(const std::vector<std::string> &bodies) {
     static const std::string empty;
 
     // Single-handle fast path: use curl_easy_perform directly.

@@ -177,6 +177,6 @@ public:
     /// @returns the per-request responses paired with a transfer-level error
     /// (non-nil when the entire batch fails, e.g. curl_multi_perform error).
     std::pair<std::vector<std::pair<Response, x::errors::Error>>, x::errors::Error>
-    request(const std::vector<std::string> &bodies);
+    execute_requests(const std::vector<std::string> &bodies);
 };
 }

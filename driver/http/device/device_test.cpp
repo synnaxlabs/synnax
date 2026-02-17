@@ -198,7 +198,7 @@ TEST(ClientTest, GETRequest) {
         Client::create(config, {{.method = Method::GET, .path = "/api/data"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 200);
@@ -224,7 +224,7 @@ TEST(ClientTest, POSTRequestWithBody) {
         Client::create(config, {{.method = Method::POST, .path = "/api/submit"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({R"({"name": "test"})"}));
+    auto results = ASSERT_NIL_P(client.execute_requests({R"({"name": "test"})"}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 201);
@@ -263,7 +263,7 @@ TEST(ClientTest, CustomHeaders) {
         )
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 200);
@@ -303,7 +303,7 @@ TEST(ClientTest, BasicAuth) {
         Client::create(config, {{.method = Method::GET, .path = "/api/secure"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     ASSERT_NIL_P(results[0]);
 
@@ -339,7 +339,7 @@ TEST(ClientTest, BearerAuth) {
         Client::create(config, {{.method = Method::GET, .path = "/api/secure"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     ASSERT_NIL_P(results[0]);
 
@@ -374,7 +374,7 @@ TEST(ClientTest, APIKeyAuth) {
         Client::create(config, {{.method = Method::GET, .path = "/api/keyed"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     ASSERT_NIL_P(results[0]);
 
@@ -413,7 +413,7 @@ TEST(ClientTest, QueryParams) {
         )
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 200);
@@ -445,7 +445,7 @@ TEST(ClientTest, QueryParamsPercentEncoded) {
         )
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 200);
@@ -479,7 +479,7 @@ TEST(ClientTest, TimeoutError) {
         Client::create(config, {{.method = Method::GET, .path = "/api/slow"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
 
@@ -492,7 +492,7 @@ TEST(ClientTest, UnreachableError) {
         Client::create(config, {{.method = Method::GET, .path = "/"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
 }
@@ -521,7 +521,7 @@ TEST(ClientTest, ErrorStatusCodesReturnResponse) {
         auto client = ASSERT_NIL_P(
             Client::create(config, {{.method = Method::GET, .path = "/api/notfound"}})
         );
-        auto results = ASSERT_NIL_P(client.request({""}));
+        auto results = ASSERT_NIL_P(client.execute_requests({""}));
         ASSERT_EQ(results.size(), 1);
         const auto resp = ASSERT_NIL_P(results[0]);
         EXPECT_EQ(resp.status_code, 404);
@@ -532,7 +532,7 @@ TEST(ClientTest, ErrorStatusCodesReturnResponse) {
         auto client = ASSERT_NIL_P(
             Client::create(config, {{.method = Method::GET, .path = "/api/error"}})
         );
-        auto results = ASSERT_NIL_P(client.request({""}));
+        auto results = ASSERT_NIL_P(client.execute_requests({""}));
         ASSERT_EQ(results.size(), 1);
         const auto resp = ASSERT_NIL_P(results[0]);
         EXPECT_EQ(resp.status_code, 500);
@@ -572,7 +572,7 @@ TEST(ClientTest, ParallelRequests) {
         )
     );
 
-    auto results = ASSERT_NIL_P(client.request({"", "", ""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({"", "", ""}));
     ASSERT_EQ(results.size(), 3);
     for (auto &r: results) {
         const auto resp = ASSERT_NIL_P(r);
@@ -613,7 +613,7 @@ TEST(ClientTest, ParallelRequestsWithMixedStatusCodes) {
         )
     );
 
-    auto results = ASSERT_NIL_P(client.request({"", "", ""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({"", "", ""}));
     ASSERT_EQ(results.size(), 3);
     for (auto &r: results)
         ASSERT_NIL(r.second);
@@ -657,7 +657,7 @@ TEST(ClientTest, ParallelOneTimesOut) {
         )
     );
 
-    auto results = ASSERT_NIL_P(client.request({"", ""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({"", ""}));
     ASSERT_EQ(results.size(), 2);
     const auto fast = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(fast.status_code, 200);
@@ -698,7 +698,7 @@ TEST(ClientTest, ParallelFirstTimesOutSecondSucceeds) {
         )
     );
 
-    auto results = ASSERT_NIL_P(client.request({"", ""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({"", ""}));
     ASSERT_EQ(results.size(), 2);
     ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
     EXPECT_EQ(results[0].first.status_code, 0);
@@ -738,7 +738,7 @@ TEST(ClientTest, ParallelPerResponseTimeRanges) {
         )
     );
 
-    auto results = ASSERT_NIL_P(client.request({"", ""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({"", ""}));
     ASSERT_EQ(results.size(), 2);
     const auto fast = ASSERT_NIL_P(results[0]);
     const auto slow = ASSERT_NIL_P(results[1]);
@@ -770,7 +770,7 @@ TEST(ClientTest, RepeatedGETRequests) {
     );
 
     for (int i = 0; i < 5; i++) {
-        auto results = ASSERT_NIL_P(client.request({""}));
+        auto results = ASSERT_NIL_P(client.execute_requests({""}));
         ASSERT_EQ(results.size(), 1);
         const auto resp = ASSERT_NIL_P(results[0]);
         EXPECT_EQ(resp.status_code, 200);
@@ -801,7 +801,7 @@ TEST(ClientTest, RepeatedPOSTRequests) {
 
     for (int i = 0; i < 3; i++) {
         const auto body = R"({"i": )" + std::to_string(i) + "}";
-        auto results = ASSERT_NIL_P(client.request({body}));
+        auto results = ASSERT_NIL_P(client.execute_requests({body}));
         ASSERT_EQ(results.size(), 1);
         const auto resp = ASSERT_NIL_P(results[0]);
         EXPECT_EQ(resp.status_code, 201);
@@ -844,7 +844,7 @@ TEST(ClientTest, MixedGETAndPOST) {
         )
     );
 
-    auto results = ASSERT_NIL_P(client.request({"", R"({"val": 1})"}));
+    auto results = ASSERT_NIL_P(client.execute_requests({"", R"({"val": 1})"}));
     ASSERT_EQ(results.size(), 2);
     const auto read_resp = ASSERT_NIL_P(results[0]);
     const auto write_resp = ASSERT_NIL_P(results[1]);
@@ -876,7 +876,7 @@ TEST(ClientTest, POSTWithEmptyBody) {
         Client::create(config, {{.method = Method::POST, .path = "/api/ping"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 200);
@@ -899,7 +899,7 @@ TEST(ClientTest, DeleteRequest) {
         Client::create(config, {{.method = Method::DEL, .path = "/api/item/42"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 204);
@@ -923,7 +923,7 @@ TEST(ClientTest, PutRequest) {
         Client::create(config, {{.method = Method::PUT, .path = "/api/item/1"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({R"({"name": "new"})"}));
+    auto results = ASSERT_NIL_P(client.execute_requests({R"({"name": "new"})"}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 200);
@@ -952,7 +952,7 @@ TEST(ClientTest, PathWithoutLeadingSlash) {
         Client::create(config, {{.method = Method::GET, .path = "api/data"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 200);
@@ -977,7 +977,7 @@ TEST(ClientTest, BaseURLWithTrailingSlash) {
         Client::create(config, {{.method = Method::GET, .path = "/api/data"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 200);
@@ -1000,7 +1000,7 @@ TEST(ClientTest, EmptyPath) {
     auto config = make_config({{"base_url", server.base_url()}});
     auto client = ASSERT_NIL_P(Client::create(config, {{.method = Method::GET}}));
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 200);
@@ -1028,7 +1028,7 @@ TEST(ClientTest, HTTPSGETRequest) {
         Client::create(config, {{.method = Method::GET, .path = "/api/secure"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 200);
@@ -1056,7 +1056,7 @@ TEST(ClientTest, HTTPSPOSTRequestWithBody) {
         Client::create(config, {{.method = Method::POST, .path = "/api/submit"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({R"({"name": "test"})"}));
+    auto results = ASSERT_NIL_P(client.execute_requests({R"({"name": "test"})"}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 201);
@@ -1092,7 +1092,7 @@ TEST(ClientTest, ContentTypeValidation) {
         )
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 200);
@@ -1124,7 +1124,7 @@ TEST(ClientTest, ContentTypeMismatch) {
         )
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     ASSERT_OCCURRED_AS_P(results[0], errors::PARSE_ERROR);
 
@@ -1148,7 +1148,7 @@ TEST(ClientTest, ContentTypeNotCheckedWhenEmpty) {
         Client::create(config, {{.method = Method::GET, .path = "/api/any"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     ASSERT_NIL_P(results[0]);
 
@@ -1179,7 +1179,7 @@ TEST(ClientTest, ContentTypeCharsetSuffix) {
         )
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 200);
@@ -1211,7 +1211,7 @@ TEST(ClientTest, ContentTypePrefixMismatch) {
         )
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     ASSERT_OCCURRED_AS_P(results[0], errors::PARSE_ERROR);
 
@@ -1242,7 +1242,7 @@ TEST(ClientTest, RequestContentTypeHeaderSent) {
         )
     );
 
-    auto results = ASSERT_NIL_P(client.request({"<req/>"}));
+    auto results = ASSERT_NIL_P(client.execute_requests({"<req/>"}));
     ASSERT_EQ(results.size(), 1);
     ASSERT_NIL_P(results[0]);
 
@@ -1274,7 +1274,7 @@ TEST(ClientTest, RequestContentTypeOmittedWhenEmpty) {
         Client::create(config, {{.method = Method::POST, .path = "/api/raw"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({"data"}));
+    auto results = ASSERT_NIL_P(client.execute_requests({"data"}));
     ASSERT_EQ(results.size(), 1);
     ASSERT_NIL_P(results[0]);
 
@@ -1313,7 +1313,7 @@ TEST(ClientTest, AcceptHeaderSent) {
         )
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     ASSERT_NIL_P(results[0]);
 
@@ -1344,7 +1344,7 @@ TEST(ClientTest, GETRequestWithBody) {
         Client::create(config, {{.method = Method::GET, .path = "/api/data"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({R"({"filter": true})"}));
+    auto results = ASSERT_NIL_P(client.execute_requests({R"({"filter": true})"}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 200);
@@ -1372,7 +1372,7 @@ TEST(ClientTest, DELETERequestWithBody) {
         Client::create(config, {{.method = Method::DEL, .path = "/api/items"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({R"({"ids": [1, 2, 3]})"}));
+    auto results = ASSERT_NIL_P(client.execute_requests({R"({"ids": [1, 2, 3]})"}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 200);
@@ -1401,7 +1401,7 @@ TEST(ClientTest, HEADRequest) {
         Client::create(config, {{.method = Method::HEAD, .path = "/api/head"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 200);
@@ -1440,7 +1440,7 @@ TEST(ClientTest, OPTIONSRequest) {
         Client::create(config, {{.method = Method::OPTIONS, .path = "/api/opts"}})
     );
 
-    auto results = ASSERT_NIL_P(client.request({""}));
+    auto results = ASSERT_NIL_P(client.execute_requests({""}));
     ASSERT_EQ(results.size(), 1);
     const auto resp = ASSERT_NIL_P(results[0]);
     EXPECT_EQ(resp.status_code, 204);
