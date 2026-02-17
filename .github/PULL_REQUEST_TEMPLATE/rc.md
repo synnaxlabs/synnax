@@ -250,7 +250,7 @@ I can successfully:
   - [ ] Pause and play a task.
   - [ ] Open task configuration by double-clicking.
   - **Context Menu**
-    - [ ] Pause a tasks. (individual and group)
+    - [ ] Pause a task. (individual and group)
     - [ ] Start a task. (individual and group)
     - [ ] Open task configuration.
     - [ ] Copy a link to a task.
