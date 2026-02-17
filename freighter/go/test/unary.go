@@ -26,13 +26,17 @@ func UnarySuite(
 		address.Address,
 	),
 ) {
+	var ctx context.Context
+	ginkgo.BeforeEach(func() {
+		ctx = context.Background()
+	})
 	ginkgo.Describe("Normal Operation", func() {
 		ginkgo.It("should send a request", func() {
 			server, client, addr := deps()
 			server.BindHandler(func(ctx context.Context, req Request) (Response, error) {
 				return Response(req), nil
 			})
-			res := testutil.MustSucceed(client.Send(context.TODO(), addr, Request{ID: 1, Message: "hello"}))
+			res := testutil.MustSucceed(client.Send(ctx, addr, Request{ID: 1, Message: "hello"}))
 			gomega.Expect(res).To(gomega.Equal(Response{ID: 1, Message: "hello"}))
 		})
 	})
@@ -43,7 +47,7 @@ func UnarySuite(
 			server.BindHandler(func(ctx context.Context, req Request) (Response, error) {
 				return Response{}, ErrCustom
 			})
-			gomega.Expect(client.Send(context.TODO(), addr, Request{ID: 1, Message: "hello"})).Error().To(gomega.MatchError(ErrCustom))
+			gomega.Expect(client.Send(ctx, addr, Request{ID: 1, Message: "hello"})).Error().To(gomega.MatchError(ErrCustom))
 		})
 	})
 
@@ -63,7 +67,7 @@ func UnarySuite(
 			server.BindHandler(func(ctx context.Context, req Request) (Response, error) {
 				return Response{}, nil
 			})
-			gomega.Expect(client.Send(context.TODO(), addr, Request{ID: 1, Message: "hello"})).Error().ToNot(gomega.HaveOccurred())
+			gomega.Expect(client.Send(ctx, addr, Request{ID: 1, Message: "hello"})).Error().ToNot(gomega.HaveOccurred())
 			gomega.Expect(c).To(gomega.Equal(2))
 		})
 	})

@@ -28,6 +28,10 @@ func StreamSuite(
 		address.Address,
 	),
 ) {
+	var ctx context.Context
+	ginkgo.BeforeEach(func() {
+		ctx = context.Background()
+	})
 	ginkgo.Describe("Normal Operation", func() {
 		ginkgo.It("Should exchange messages between a client and a server", func() {
 			server, client, addr := deps()
@@ -49,7 +53,7 @@ func StreamSuite(
 				}
 			})
 
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithCancel(ctx)
 			defer cancel()
 
 			ginkgo.By("Opening the stream to the target without error")
@@ -81,7 +85,7 @@ func StreamSuite(
 				gomega.Expect(server.Send(Response{ID: 1, Message: "Hello"})).To(gomega.Succeed())
 				return nil
 			})
-			stream := testutil.MustSucceed(client.Stream(context.TODO(), addr))
+			stream := testutil.MustSucceed(client.Stream(ctx, addr))
 			gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
 			msg := testutil.MustSucceed(stream.Receive())
 			gomega.Expect(msg.ID).To(gomega.Equal(1))
@@ -108,7 +112,7 @@ func StreamSuite(
 				}
 			})
 
-			stream := testutil.MustSucceed(client.Stream(context.TODO(), addr))
+			stream := testutil.MustSucceed(client.Stream(ctx, addr))
 			gomega.Expect(stream.Send(Request{ID: 1, Message: "Hello"})).To(gomega.Succeed())
 			msg := testutil.MustSucceed(stream.Receive())
 			gomega.Expect(msg.ID).To(gomega.Equal(2))
@@ -134,7 +138,7 @@ func StreamSuite(
 					gomega.Expect(server.Receive()).Error().ToNot(gomega.HaveOccurred())
 					return errors.New("zero is not allowed!")
 				})
-				stream := testutil.MustSucceed(client.Stream(context.TODO(), addr))
+				stream := testutil.MustSucceed(client.Stream(ctx, addr))
 				gomega.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).To(gomega.Succeed())
 				gomega.Expect(stream.Receive()).Error().To(gomega.MatchError(gomega.ContainSubstring("zero is not allowed!")))
 				gomega.Eventually(serverClosed).Should(gomega.BeClosed())
@@ -149,7 +153,7 @@ func StreamSuite(
 					gomega.Expect(server.Receive()).Error().ToNot(gomega.HaveOccurred())
 					return errors.New("zero is not allowed!")
 				})
-				stream := testutil.MustSucceed(client.Stream(context.TODO(), addr))
+				stream := testutil.MustSucceed(client.Stream(ctx, addr))
 				gomega.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).To(gomega.Succeed())
 				gomega.Expect(stream.Receive()).Error().To(gomega.MatchError(gomega.ContainSubstring("zero is not allowed!")))
 				gomega.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).To(gomega.MatchError(freighter.EOF))
@@ -167,7 +171,7 @@ func StreamSuite(
 					gomega.Expect(server.Receive()).Error().To(gomega.MatchError(context.Canceled))
 					return nil
 				})
-				ctx, cancel := context.WithCancel(context.TODO())
+				ctx, cancel := context.WithCancel(ctx)
 				stream := testutil.MustSucceed(client.Stream(ctx, addr))
 				cancel()
 				gomega.Expect(stream.Receive()).Error().To(gomega.MatchError(context.Canceled))
@@ -186,7 +190,7 @@ func StreamSuite(
 					return nil
 				})
 
-				ctx, cancel := context.WithCancel(context.TODO())
+				ctx, cancel := context.WithCancel(ctx)
 				defer cancel()
 
 				stream := testutil.MustSucceed(client.Stream(ctx, addr))
@@ -212,7 +216,7 @@ func StreamSuite(
 					}
 					return nil
 				})
-				ctx, cancel := context.WithCancel(context.TODO())
+				ctx, cancel := context.WithCancel(ctx)
 				defer cancel()
 				stream := testutil.MustSucceed(client.Stream(ctx, addr))
 				gomega.Eventually(func(g gomega.Gomega) {
@@ -243,7 +247,7 @@ func StreamSuite(
 				c++
 				return oMd, err
 			}))
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithCancel(ctx)
 			defer cancel()
 			stream := testutil.MustSucceed(client.Stream(ctx, addr))
 			gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
@@ -267,7 +271,7 @@ func StreamSuite(
 			) (freighter.Context, error) {
 				return ctx, errors.New("middleware error")
 			}))
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithCancel(ctx)
 			defer cancel()
 			gomega.Expect(client.Stream(ctx, addr)).Error().To(gomega.MatchError(gomega.ContainSubstring("middleware error")))
 		})
