@@ -18,28 +18,28 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 )
 
 type Network struct {
-	pledge     *fmock.Network[pledge.Request, pledge.Response]
-	cluster    *fmock.Network[gossip.Message, gossip.Message]
-	operations *fmock.Network[kv.TxRequest, kv.TxRequest]
-	lease      *fmock.Network[kv.TxRequest, types.Nil]
-	feedback   *fmock.Network[kv.FeedbackMessage, types.Nil]
-	recovery   *fmock.Network[kv.RecoveryRequest, kv.RecoveryResponse]
+	pledge     *mock.Network[pledge.Request, pledge.Response]
+	cluster    *mock.Network[gossip.Message, gossip.Message]
+	operations *mock.Network[kv.TxRequest, kv.TxRequest]
+	lease      *mock.Network[kv.TxRequest, types.Nil]
+	feedback   *mock.Network[kv.FeedbackMessage, types.Nil]
+	recovery   *mock.Network[kv.RecoveryRequest, kv.RecoveryResponse]
 }
 
 func NewNetwork() *Network {
 	return &Network{
-		pledge:     fmock.NewNetwork[pledge.Request, pledge.Response](),
-		cluster:    fmock.NewNetwork[gossip.Message, gossip.Message](),
-		operations: fmock.NewNetwork[kv.TxRequest, kv.TxRequest](),
-		lease:      fmock.NewNetwork[kv.TxRequest, types.Nil](),
-		feedback:   fmock.NewNetwork[kv.FeedbackMessage, types.Nil](),
-		recovery:   fmock.NewNetwork[kv.RecoveryRequest, kv.RecoveryResponse](),
+		pledge:     mock.NewNetwork[pledge.Request, pledge.Response](),
+		cluster:    mock.NewNetwork[gossip.Message, gossip.Message](),
+		operations: mock.NewNetwork[kv.TxRequest, kv.TxRequest](),
+		lease:      mock.NewNetwork[kv.TxRequest, types.Nil](),
+		feedback:   mock.NewNetwork[kv.FeedbackMessage, types.Nil](),
+		recovery:   mock.NewNetwork[kv.RecoveryRequest, kv.RecoveryResponse](),
 	}
 }
 
@@ -48,18 +48,18 @@ func (n *Network) NewTransport() aspen.Transport { return &transport{net: n} }
 // transport is an in-memory, synchronous implementation of aspen.transport.
 type transport struct {
 	net            *Network
-	pledgeServer   *fmock.UnaryServer[pledge.Request, pledge.Response]
-	pledgeClient   *fmock.UnaryClient[pledge.Request, pledge.Response]
-	clusterServer  *fmock.UnaryServer[gossip.Message, gossip.Message]
-	clusterClient  *fmock.UnaryClient[gossip.Message, gossip.Message]
-	batchServer    *fmock.UnaryServer[kv.TxRequest, kv.TxRequest]
-	batchClient    *fmock.UnaryClient[kv.TxRequest, kv.TxRequest]
-	leaseServer    *fmock.UnaryServer[kv.TxRequest, types.Nil]
-	leaseClient    *fmock.UnaryClient[kv.TxRequest, types.Nil]
-	feedbackServer *fmock.UnaryServer[kv.FeedbackMessage, types.Nil]
-	feedbackClient *fmock.UnaryClient[kv.FeedbackMessage, types.Nil]
-	recoveryServer *fmock.StreamServer[kv.RecoveryRequest, kv.RecoveryResponse]
-	recoveryClient *fmock.StreamClient[kv.RecoveryRequest, kv.RecoveryResponse]
+	pledgeServer   *mock.UnaryServer[pledge.Request, pledge.Response]
+	pledgeClient   *mock.UnaryClient[pledge.Request, pledge.Response]
+	clusterServer  *mock.UnaryServer[gossip.Message, gossip.Message]
+	clusterClient  *mock.UnaryClient[gossip.Message, gossip.Message]
+	batchServer    *mock.UnaryServer[kv.TxRequest, kv.TxRequest]
+	batchClient    *mock.UnaryClient[kv.TxRequest, kv.TxRequest]
+	leaseServer    *mock.UnaryServer[kv.TxRequest, types.Nil]
+	leaseClient    *mock.UnaryClient[kv.TxRequest, types.Nil]
+	feedbackServer *mock.UnaryServer[kv.FeedbackMessage, types.Nil]
+	feedbackClient *mock.UnaryClient[kv.FeedbackMessage, types.Nil]
+	recoveryServer *mock.StreamServer[kv.RecoveryRequest, kv.RecoveryResponse]
+	recoveryClient *mock.StreamClient[kv.RecoveryRequest, kv.RecoveryResponse]
 }
 
 // Configure implements aspen.transport.

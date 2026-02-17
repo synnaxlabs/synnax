@@ -49,7 +49,7 @@ func newRecoveryServer(cfg Config) *recoveryServer {
 func (r *recoveryServer) recoverPeer(
 	ctx context.Context,
 	stream RecoveryTransportServerStream,
-) error {
+) (err error) {
 	req, err := stream.Receive()
 	if err != nil {
 		return err

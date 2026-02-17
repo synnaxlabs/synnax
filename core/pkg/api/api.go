@@ -19,7 +19,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/falamos"
+	falamos "github.com/synnaxlabs/freighter/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/x/config"

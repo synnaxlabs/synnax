@@ -82,7 +82,7 @@ func WriteConfig() error {
 // Is returns true if the current process is running as a Windows Service.
 func Is() (bool, error) { return svc.IsWindowsService() }
 
-func install() error {
+func install() (err error) {
 	exePath, err := os.Executable()
 	if err != nil {
 		return errors.Wrap(err, "failed to get executable path")
@@ -164,7 +164,7 @@ func install() error {
 	}, 86400), "failed to set recovery actions")
 }
 
-func uninstall() error {
+func uninstall() (err error) {
 	m, err := mgr.Connect()
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
@@ -184,7 +184,7 @@ func uninstall() error {
 
 }
 
-func start() error {
+func start() (err error) {
 	m, err := mgr.Connect()
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
@@ -203,7 +203,7 @@ func start() error {
 	return errors.Wrapf(s.Start(), "failed to start %s", name)
 }
 
-func stop() error {
+func stop() (err error) {
 	m, err := mgr.Connect()
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
