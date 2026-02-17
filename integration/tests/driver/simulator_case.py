@@ -8,53 +8,45 @@
 #  included in the file licenses/APL.txt.
 
 """
-Simulator-based task test case.
+Simulator lifecycle mixin.
 
-Extends TaskCase with simulator server lifecycle management for protocols
-that require simulated hardware (Modbus, OPC UA).
+Provides DeviceSim server management (start/stop) and device registration
+in Synnax. Designed for multiple inheritance with TestCase subclasses.
+
+Usage standalone (e.g., with ConsoleCase):
+
+    class TaskToolbar(SimulatorCase, ConsoleCase):
+        sim_class = OPCUASim`
+
+Usage with TaskCase:
+
+    class ModbusTaskCase(SimulatorCase, TaskCase):
+        sim_class = ModbusSim
 """
 
+import os
 from multiprocessing.process import BaseProcess
-from typing import Any
 
 import synnax as sy
 from examples.simulators.device_sim import DeviceSim
 
-from tests.driver.task import TaskCase
+from framework.test_case import TestCase
 
 
-class SimulatorTaskCase(TaskCase):
-    """
-    Base class for driver task tests that require a device simulator.
+class SimulatorCase(TestCase):
+    """DeviceSim lifecycle management.
 
-    Adds simulator lifecycle management (start/stop server) on top of TaskCase.
-    Use this for protocols that need simulated hardware (Modbus, OPC UA).
-
-    Subclasses must:
-    - Set sim_class as a class attribute (a DeviceSim subclass)
-    - All other requirements from TaskCase still apply
-
-    The device_name is automatically set from sim_class.device_name.
-    Device registration uses sim_class.create_device().
+    Subclasses must set sim_class as a class attribute.
     """
 
     sim_class: type[DeviceSim]
     sim: DeviceSim | None = None
-
-    def __init__(
-        self,
-        *,
-        task_name: str,
-        **params: Any,
-    ) -> None:
-        super().__init__(
-            task_name=task_name,
-            **params,
-        )
-        self.device_name = self.sim_class.device_name
+    SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
+    RACK_NAME: str = os.environ.get("SYNNAX_DRIVER_RACK", "Node 1 Embedded Driver")
 
     def setup(self) -> None:
-        """Start simulator, connect device, and configure task."""
+        """Start simulator, connect device, then delegate to next in MRO."""
+        self.device_name = self.sim_class.device_name
         if self.sim is None:
             self.sim = self.sim_class(rate=self.SAMPLE_RATE)
         self.sim.start()

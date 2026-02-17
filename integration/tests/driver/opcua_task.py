@@ -7,62 +7,32 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""
-OPC UA-specific task test case.
-
-Provides OPC UA task creation logic using Synnax task client directly.
-"""
+"""OPC UA-specific task test case."""
 
 from abc import abstractmethod
-from typing import Any
 
 import synnax as sy
 from examples.opcua import OPCUASim
 from synnax import opcua
 
-from tests.driver.simulator_task import SimulatorTaskCase
+from tests.driver.simulator_case import SimulatorCase
+from tests.driver.task import TaskCase
 
 
-class OPCUATaskCase(SimulatorTaskCase):
-    """
-    Base class for OPC UA task tests.
-
-    Provides OPC UA-specific task creation using Synnax task channels directly.
-    Subclasses should implement create_channels() to define task-specific channels.
-    """
+class OPCUATaskCase(SimulatorCase, TaskCase):
+    """Base class for OPC UA task tests."""
 
     sim_class = OPCUASim
-
-    def __init__(
-        self,
-        *,
-        task_name: str,
-        sample_rate: sy.Rate = 100 * sy.Rate.HZ,
-        array_mode: bool = False,
-        array_size: int = 100,
-        **kwargs: Any,
-    ) -> None:
-        self.array_mode: bool = array_mode
-        self.array_size: int = array_size
-
-        super().__init__(
-            task_name=task_name,
-            sample_rate=sample_rate,
-            **kwargs,
-        )
+    SAMPLE_RATE = 100 * sy.Rate.HZ
+    array_mode: bool = False
+    array_size: int = 100
 
     def setup(self) -> None:
         self.sim = OPCUASim(rate=self.SAMPLE_RATE, array_size=self.array_size)
         super().setup()
 
     @abstractmethod
-    def create_channels(self) -> list[opcua.ReadChannel]:
-        """Create OPC UA-specific task channels.
-
-        Returns:
-            List of OPC UA ReadChannel objects
-        """
-        pass
+    def create_channels(self) -> list[opcua.ReadChannel]: ...
 
     def create(
         self,

@@ -17,7 +17,6 @@ pattern for testing driver tasks.
 import os
 import sys
 from abc import abstractmethod
-from typing import Any
 
 import synnax as sy
 
@@ -25,53 +24,19 @@ from framework.test_case import TestCase
 
 
 class TaskCase(TestCase):
-    """
-    Base class for driver task lifecycle tests.
+    """Base class for driver task lifecycle tests.
 
-    This base class does NOT include simulator logic - that's in SimulatorTaskCase.
-    Use this class directly for hardware tests that don't need simulators (e.g., NI, LabJack).
-
-    Subclasses should:
-    - Implement create() method to return a configured task
-    - Optionally override run() for custom test logic
-    - Optionally pass task_name, task_key, and device_name to __init__ to override defaults
-
-    Environment Variables:
-    - SYNNAX_DRIVER_RACK: Override the driver rack name (default: "Node 1 Embedded Driver")
-      Can be set via command line: --driver "My Custom Rack Name" or -d "My Custom Rack Name"
+    This base class does NOT include simulator logic - that's in SimulatorCase.
+    Subclasses must set task_name and device_name as class attributes.
     """
 
-    # SY-3254: Handle multi-device tasks
+    task_name: str
     device_name: str
-
-    # Task instance
     tsk: sy.Task | None = None
-
-    def __init__(
-        self,
-        *,
-        task_name: str,
-        sample_rate: sy.Rate = 50 * sy.Rate.HZ,
-        stream_rate: sy.Rate = 10 * sy.Rate.HZ,
-        task_duration: sy.TimeSpan = 1 * sy.TimeSpan.SECOND,
-        rack_name: str = os.environ.get("SYNNAX_DRIVER_RACK", "Node 1 Embedded Driver"),
-        **params: Any,
-    ) -> None:
-        """
-        Initialize TaskCase.
-
-        Args:
-            task_name: Human-readable task name (required)
-            **params: Additional test parameters (name, expect, synnax_connection, etc.)
-        """
-
-        self.task_name = task_name
-        self.SAMPLE_RATE = sample_rate
-        self.STREAM_RATE = stream_rate
-        self.TASK_DURATION = task_duration
-        self.RACK_NAME = rack_name
-
-        super().__init__(**params)
+    SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
+    STREAM_RATE: sy.Rate = 10 * sy.Rate.HZ
+    TASK_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
+    RACK_NAME: str = os.environ.get("SYNNAX_DRIVER_RACK", "Node 1 Embedded Driver")
 
     @abstractmethod
     def create(

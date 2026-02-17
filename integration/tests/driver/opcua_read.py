@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
-
 import synnax as sy
 from synnax import opcua
 
@@ -16,17 +14,9 @@ from tests.driver.opcua_task import OPCUATaskCase
 
 
 class OPCUAReadFloat(OPCUATaskCase):
-    """
-    OPC UA read task test for float32 channels.
-
-    Tests scalar float32 channels (NodeIds NS=2;I=8, NS=2;I=9).
-    """
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(task_name="OPCUA Read Float", **kwargs)
+    task_name = "OPCUA Read Float"
 
     def create_channels(self) -> list[opcua.ReadChannel]:
-        """Create float32 channels."""
         index_c = self.client.channels.create(
             name="opcua_float_index",
             data_type=sy.DataType.TIMESTAMP,
@@ -58,17 +48,9 @@ class OPCUAReadFloat(OPCUATaskCase):
 
 
 class OPCUAReadBool(OPCUATaskCase):
-    """
-    OPC UA read task test for boolean channels.
-
-    Tests scalar boolean channels (UINT8, NodeIds NS=2;I=13, NS=2;I=14).
-    """
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(task_name="OPCUA Read Bool", **kwargs)
+    task_name = "OPCUA Read Bool"
 
     def create_channels(self) -> list[opcua.ReadChannel]:
-        """Create boolean channels."""
         index_c = self.client.channels.create(
             name="opcua_bool_index",
             data_type=sy.DataType.TIMESTAMP,
@@ -100,18 +82,10 @@ class OPCUAReadBool(OPCUATaskCase):
 
 
 class OPCUAReadArray(OPCUATaskCase):
-    """
-    OPC UA read task test for array mode.
-
-    Tests array mode float32 channels (NodeIds NS=2;I=2, NS=2;I=3).
-    """
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(task_name="OPCUA Read Array", array_mode=True, **kwargs)
+    task_name = "OPCUA Read Array"
+    array_mode = True
 
     def create_channels(self) -> list[opcua.ReadChannel]:
-        """Create array channels."""
-
         index_c = self.client.channels.create(
             name="opcua_array_index",
             data_type=sy.DataType.TIMESTAMP,
@@ -143,17 +117,9 @@ class OPCUAReadArray(OPCUATaskCase):
 
 
 class OPCUAReadMixed(OPCUATaskCase):
-    """
-    OPC UA read task test with mixed channel types.
-
-    Tests scalar mode with both float32 and boolean channels.
-    """
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(task_name="OPCUA Read Mixed", **kwargs)
+    task_name = "OPCUA Read Mixed"
 
     def create_channels(self) -> list[opcua.ReadChannel]:
-        """Create mixed channel types."""
         index_c = self.client.channels.create(
             name="opcua_mixed_index",
             data_type=sy.DataType.TIMESTAMP,
