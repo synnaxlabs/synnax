@@ -247,7 +247,7 @@ async def run_server(
             duration = (
                 datetime.datetime.now(datetime.timezone.utc) - start
             ).total_seconds()
-            await asyncio.sleep((1 / rate) - duration)
+            await asyncio.sleep(max(0, (1 / rate) - duration))
 
 
 class OPCUASim(DeviceSim):
