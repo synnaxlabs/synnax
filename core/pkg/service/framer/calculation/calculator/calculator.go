@@ -180,10 +180,10 @@ func (c *Calculator) Next(
 		}
 		changed = true
 	}
+	c.state.ClearReads()
 	if !changed {
 		return output, false, nil
 	}
-	c.state.ClearReads()
 	return frame.NewFromStorage(ofr), true, nil
 }
 
