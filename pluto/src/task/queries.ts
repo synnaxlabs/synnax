@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type rack, task } from "@synnaxlabs/client";
-import { array, type optional, TimeStamp } from "@synnaxlabs/x";
+import { array, type optional, strings, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -468,3 +468,42 @@ export const { useUpdate: useCommand } = Flux.createUpdate<CommandParams, FluxSu
     },
   },
 );
+
+export interface SetDataSavingParams {
+  keys: task.Key[];
+  dataSaving: boolean;
+}
+
+export const { useUpdate: useSetDataSaving } = Flux.createUpdate<
+  SetDataSavingParams,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  verbs: Flux.UPDATE_VERBS,
+  update: async ({ client, data, store }) => {
+    const { keys, dataSaving } = data;
+    const failedNames: string[] = [];
+    for (const key of keys) {
+      let name: string = key;
+      try {
+        const t = await retrieveSingle({ client, store, query: { key } });
+        name = t.name;
+        const config = t.payload.config as Record<string, unknown>;
+        // Only tasks with a dataSaving field in their config (primarily read tasks)
+        // are eligible. Write tasks without this field are skipped.
+        if (!("dataSaving" in config) || config.dataSaving === dataSaving) continue;
+        const wasRunning = t.status?.details.running === true;
+        await client.tasks.create({ ...t.payload, config: { ...config, dataSaving } });
+        if (wasRunning)
+          await client.tasks.executeCommand({ task: key, type: "start" });
+      } catch {
+        failedNames.push(name);
+      }
+    }
+    if (failedNames.length > 0)
+      throw new Error(
+        `Failed to update data saving for ${strings.naturalLanguageJoin(failedNames)}`,
+      );
+    return data;
+  },
+});
