@@ -9,13 +9,13 @@
 
 #pragma once
 
-#include <chrono>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/http/types/types.h"
 
@@ -33,7 +33,7 @@ struct Route {
     /// @brief Content-Type header.
     std::string content_type = "application/json";
     /// @brief delay before responding.
-    std::chrono::milliseconds delay{0};
+    x::telem::TimeSpan delay;
 };
 
 /// @brief a received request logged by the mock server.

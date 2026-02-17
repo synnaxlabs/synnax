@@ -185,7 +185,7 @@ TEST(MockServerTest, ResponseDelay) {
         .path = "/slow",
         .response_body = "delayed",
         .content_type = "text/plain",
-        .delay = std::chrono::milliseconds(200),
+        .delay = 200 * x::telem::MILLISECOND,
     }};
     mock::Server server(cfg);
     ASSERT_NIL(server.start());

@@ -70,7 +70,8 @@ struct Server::Impl {
         auto handler = [this,
                         route](const httplib::Request &req, httplib::Response &res) {
             log_request(req);
-            if (route.delay.count() > 0) std::this_thread::sleep_for(route.delay);
+            if (route.delay > x::telem::TimeSpan::ZERO())
+                std::this_thread::sleep_for(route.delay.chrono());
             res.status = route.status_code;
             res.set_content(route.response_body, route.content_type);
         };

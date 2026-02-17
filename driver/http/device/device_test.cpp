@@ -466,7 +466,7 @@ TEST(ClientTest, TimeoutError) {
         .status_code = 200,
         .response_body = "delayed",
         .content_type = "text/plain",
-        .delay = std::chrono::milliseconds(2000),
+        .delay = 2 * x::telem::SECOND,
     }};
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
@@ -638,7 +638,7 @@ TEST(ClientTest, ParallelOneTimesOut) {
          .path = "/slow",
          .status_code = 200,
          .response_body = "slow",
-         .delay = std::chrono::milliseconds(2000)},
+         .delay = 2 * x::telem::SECOND},
     };
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());
@@ -675,7 +675,7 @@ TEST(ClientTest, ParallelFirstTimesOutSecondSucceeds) {
          .path = "/slow",
          .status_code = 200,
          .response_body = "slow",
-         .delay = std::chrono::milliseconds(2000)},
+         .delay = 2 * x::telem::SECOND},
         {.method = Method::GET,
          .path = "/fast",
          .status_code = 200,
@@ -722,7 +722,7 @@ TEST(ClientTest, ParallelPerResponseTimeRanges) {
          .status_code = 200,
          .response_body = "slow",
          .content_type = "text/plain",
-         .delay = std::chrono::milliseconds(300)},
+         .delay = 300 * x::telem::MILLISECOND},
     };
     mock::Server server(server_cfg);
     ASSERT_NIL(server.start());

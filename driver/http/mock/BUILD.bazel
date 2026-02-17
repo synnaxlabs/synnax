@@ -22,6 +22,7 @@ cc_library(
     deps = [
         "//driver/http/types",
         "//x/cpp/errors",
+        "//x/cpp/telem",
         "@cpp-httplib//:cpp-httplib",
         "@openssl//:crypto",
         "@openssl//:ssl",
