@@ -41,6 +41,7 @@ constexpr const char *to_string(const Method m) {
         case Method::CONNECT:
             return "CONNECT";
     }
+    throw std::invalid_argument("unknown HTTP method");
 }
 
 /// @brief parses an HTTP method from a JSON string field.

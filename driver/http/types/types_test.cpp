@@ -117,6 +117,10 @@ TEST(ToStringTest, CONNECT) {
     EXPECT_STREQ(to_string(Method::CONNECT), "CONNECT");
 }
 
+TEST(ToStringTest, InvalidMethodThrows) {
+    EXPECT_THROW(to_string(static_cast<Method>(999)), std::invalid_argument);
+}
+
 TEST(HasRequestBodyTest, POST) {
     EXPECT_TRUE(has_request_body(Method::POST));
 }
