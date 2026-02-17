@@ -1190,19 +1190,85 @@ interface StateMappingFormProps {
   showColor?: boolean;
 }
 
+interface StateMappingListItemProps {
+  itemKey: string;
+  index: number;
+  path: string;
+  showColor: boolean;
+  duplicateValue: boolean;
+  onRemove: (key: string) => void;
+}
+
+const StateMappingListItem = ({
+  itemKey,
+  index,
+  path,
+  showColor,
+  duplicateValue,
+  onRemove,
+}: StateMappingListItemProps): ReactElement => {
+  const basePath = `${path}.${itemKey}`;
+  return (
+    <List.Item
+      key={itemKey}
+      itemKey={itemKey}
+      index={index}
+      x
+      align="center"
+      gap="small"
+    >
+      <Form.TextField
+        showLabel={false}
+        showHelpText={false}
+        path={`${basePath}.name`}
+        grow
+      />
+      <Form.NumericField
+        path={`${basePath}.value`}
+        showHelpText={false}
+        showLabel={false}
+        inputProps={{
+          status: duplicateValue ? "error" : undefined,
+          className: CSS.BE("state-mapping-list", "value"),
+          showDragHandle: false,
+          tooltip: duplicateValue ? "Duplicate value" : undefined,
+        }}
+      />
+      {showColor && (
+        <Form.Field<color.Crude>
+          path={`${basePath}.color`}
+          showLabel={false}
+          showHelpText={false}
+        >
+          {({ value, onChange }) => (
+            <Color.Swatch value={value ?? color.ZERO} onChange={onChange} bordered />
+          )}
+        </Form.Field>
+      )}
+      <Button.Button
+        onClick={() => onRemove(itemKey)}
+        size="small"
+        variant="text"
+        ghost
+      >
+        <Icon.Close />
+      </Button.Button>
+    </List.Item>
+  );
+};
+
 const StateMappingForm = ({
   path,
   showColor = false,
 }: StateMappingFormProps): ReactElement => {
-  const { data, push, remove, set } = Form.useFieldList<string, StateMapping>(path);
+  const { data, push, remove } = Form.useFieldList<string, StateMapping>(path);
   const options = Form.useFieldValue<StateMapping[]>(path);
 
-  const handleChange = (key: string, field: string, v: unknown): void => {
-    set(options.map((o) => (o.key === key ? { ...o, [field]: v } : o)));
+  const handleAddOption = (): void => {
+    const nextValue =
+      options.length === 0 ? 0 : Math.max(...options.map((o) => o.value)) + 1;
+    push({ key: id.create(), name: "", value: nextValue });
   };
-
-  const nextValue =
-    options.length === 0 ? 0 : Math.max(...options.map((o) => o.value)) + 1;
 
   const duplicateValues = new Set(
     options.map((o) => o.value).filter((v, i, arr) => arr.indexOf(v) !== i),
@@ -1217,16 +1283,13 @@ const StateMappingForm = ({
       className={CSS.B("state-mapping-list")}
     >
       <List.Frame data={data}>
-        <List.Items
+        <List.Items<string>
           grow
           emptyContent={
             <Flex.Box center grow>
               <Text.Text center status="disabled" gap="tiny">
                 No options added.
-                <Text.Text
-                  variant="link"
-                  onClick={() => push({ key: id.create(), name: "", value: nextValue })}
-                >
+                <Text.Text variant="link" onClick={handleAddOption}>
                   Add an option
                 </Text.Text>
               </Text.Text>
@@ -1234,57 +1297,23 @@ const StateMappingForm = ({
           }
         >
           {({ itemKey, index }) => {
-            const option = options[index];
-            if (option == null) return null;
+            if (index >= options.length) return null;
             return (
-              <List.Item
-                key={itemKey}
+              <StateMappingListItem
                 itemKey={itemKey}
                 index={index}
-                x
-                align="center"
-                gap="small"
-              >
-                <Input.Text
-                  value={option.name}
-                  onChange={(v) => handleChange(option.key, "name", v)}
-                  placeholder="Name"
-                  grow
-                />
-                <Input.Numeric
-                  value={option.value}
-                  onChange={(v) => handleChange(option.key, "value", v)}
-                  className={CSS.BE("state-mapping-list", "value")}
-                  status={duplicateValues.has(option.value) ? "error" : undefined}
-                  showDragHandle={false}
-                  tooltip={
-                    duplicateValues.has(option.value) ? "Duplicate value" : undefined
-                  }
-                />
-                {showColor && (
-                  <Color.Swatch
-                    value={option.color ?? color.ZERO}
-                    onChange={(v) => handleChange(option.key, "color", v)}
-                    bordered
-                  />
-                )}
-                <Button.Button
-                  onClick={() => remove(option.key)}
-                  size="small"
-                  variant="text"
-                  ghost
-                  contrast={0}
-                >
-                  <Icon.Close />
-                </Button.Button>
-              </List.Item>
+                path={path}
+                showColor={showColor}
+                duplicateValue={duplicateValues.has(options[index].value)}
+                onRemove={remove}
+              />
             );
           }}
         </List.Items>
       </List.Frame>
       {options.length > 0 && (
         <Button.Button
-          onClick={() => push({ key: id.create(), name: "", value: nextValue })}
+          onClick={handleAddOption}
           variant="text"
           size="small"
           textColor={10}
