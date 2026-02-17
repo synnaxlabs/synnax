@@ -20,6 +20,7 @@ import (
 	v1 "github.com/synnaxlabs/freighter/grpc/v1"
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
+	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -33,8 +34,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 	)
 
 	BeforeAll(func() {
-		lis, err := net.Listen("tcp", "localhost:0")
-		Expect(err).ToNot(HaveOccurred())
+		lis := MustSucceed(net.Listen("tcp", "localhost:0"))
 		addr = address.Address(lis.Addr().String())
 
 		grpcServer = grpc.NewServer()

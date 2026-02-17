@@ -130,12 +130,13 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 				return oCtx, err
 			}
 			md, hdrErr := grpcClient.Header()
-			if hdrErr == nil {
-				if errVals := md.Get("error"); len(errVals) > 0 {
-					p := &errors.Payload{}
-					p.Unmarshal(errVals[0])
-					return oCtx, errors.Decode(ctx, *p)
-				}
+			if hdrErr != nil {
+				return oCtx, hdrErr
+			}
+			if errVals := md.Get("error"); len(errVals) > 0 {
+				p := &errors.Payload{}
+				p.Unmarshal(errVals[0])
+				return oCtx, errors.Decode(ctx, *p)
 			}
 			stream = s.adaptStream(grpcClient)
 			return oCtx, nil

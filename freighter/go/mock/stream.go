@@ -141,7 +141,10 @@ func (s *StreamClient[RQ, RS]) Stream(
 			return server.exec(ctx, serverStream)
 		}),
 	)
-	return stream, err
+	if err != nil {
+		return nil, err
+	}
+	return stream, nil
 }
 
 const defaultBuffer = 10

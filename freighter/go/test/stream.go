@@ -146,10 +146,7 @@ func StreamSuite(
 				server.BindHandler(func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
 					defer ginkgo.GinkgoRecover()
 					defer close(serverClosed)
-					_, err := server.Receive()
-					if err != nil {
-						ginkgo.Fail(err.Error())
-					}
+					gomega.Expect(server.Receive()).Error().ToNot(gomega.HaveOccurred())
 					return errors.New("zero is not allowed!")
 				})
 				stream := testutil.MustSucceed(client.Stream(context.TODO(), addr))
@@ -207,8 +204,7 @@ func StreamSuite(
 				server.BindHandler(func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
 					defer close(serverClosed)
 					for i := range 10 {
-						req, err := server.Receive()
-						gomega.Expect(err).ToNot(gomega.HaveOccurred())
+						req := testutil.MustSucceed(server.Receive())
 						gomega.Expect(server.Send(Response{
 							ID:      req.ID + i,
 							Message: req.Message,
@@ -273,8 +269,7 @@ func StreamSuite(
 			}))
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			_, err := client.Stream(ctx, addr)
-			gomega.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("middleware error")))
+			gomega.Expect(client.Stream(ctx, addr)).Error().To(gomega.MatchError(gomega.ContainSubstring("middleware error")))
 		})
 	})
 }

@@ -61,9 +61,8 @@ var _ = Describe("Sender", func() {
 		Describe("Sender", func() {
 			It("Should operate correctly", func() {
 				sCtx, cancel := signal.WithCancel(context.TODO())
-				client, err := client.Stream(sCtx, "localhost:0")
-				Expect(err).ToNot(HaveOccurred())
-				sender := &freightfluence.Sender[int]{Sender: client}
+				stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
+				sender := &freightfluence.Sender[int]{Sender: stream}
 				sender.InFrom(senderStream)
 				sender.Flow(sCtx)
 				senderStream.Inlet() <- 1
@@ -81,10 +80,9 @@ var _ = Describe("Sender", func() {
 		Describe("TransformSender", func() {
 			It("Should transform values before sending them", func() {
 				sCtx, cancel := signal.WithCancel(context.TODO())
-				client, err := client.Stream(sCtx, "localhost:0")
-				Expect(err).ToNot(HaveOccurred())
+				stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
 				sender := &freightfluence.TransformSender[int, int]{}
-				sender.Sender = client
+				sender.Sender = stream
 				sender.Transform = func(ctx context.Context, v int) (int, bool, error) {
 					return v * 2, true, nil
 				}
@@ -101,10 +99,9 @@ var _ = Describe("Sender", func() {
 			It("Should exit when the transform returns an error", func() {
 				sCtx, cancel := signal.WithCancel(context.TODO())
 				defer cancel()
-				client, err := client.Stream(sCtx, "localhost:0")
-				Expect(err).ToNot(HaveOccurred())
+				stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
 				sender := &freightfluence.TransformSender[int, int]{}
-				sender.Sender = client
+				sender.Sender = stream
 				sender.Transform = func(ctx context.Context, v int) (int, bool, error) {
 					return v * 2, true, errors.New("error")
 				}
@@ -172,9 +169,7 @@ var _ = Describe("Sender", func() {
 					receiver.Flow(serverCtx, confluence.CloseOutputInletsOnExit())
 					return serverCtx.Wait()
 				})
-				clientStream, err := clientTransport.Stream(sCtx, stream.Address)
-				Expect(err).ToNot(HaveOccurred())
-				clientSender[stream.Address] = clientStream
+				clientSender[stream.Address] = MustSucceed(clientTransport.Stream(sCtx, stream.Address))
 				receiverStreams[stream.Address] = receiverStream
 			}
 		})
