@@ -38,6 +38,7 @@ import { createLayout } from "@/hardware/task/layouts";
 import { SELECTOR_LAYOUT } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
 import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
+import { useSetDataSaving } from "@/hardware/task/useSetDataSaving";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
@@ -140,13 +141,15 @@ const Content = () => {
     (keys: string[]) => handleCommand(keys, "stop"),
     [handleCommand],
   );
-  const { update: setDataSaving } = Task.useSetDataSaving();
+  const { update: setDataSaving } = useSetDataSaving();
   const handleEnableDataSaving = useCallback(
-    (keys: task.Key[]) => setDataSaving({ keys, dataSaving: true }),
+    (keys: task.Key[]) =>
+      keys.forEach((key) => setDataSaving({ key, dataSaving: true })),
     [setDataSaving],
   );
   const handleDisableDataSaving = useCallback(
-    (keys: task.Key[]) => setDataSaving({ keys, dataSaving: false }),
+    (keys: task.Key[]) =>
+      keys.forEach((key) => setDataSaving({ key, dataSaving: false })),
     [setDataSaving],
   );
   const handleEdit = useCallback(
@@ -342,12 +345,19 @@ const ContextMenu = ({
     ({ config }) =>
       config != null && typeof config === "object" && "dataSaving" in config,
   );
-  const hasDataSavingTasks = dataSavingTasks.length > 0;
   const canEnableDataSaving = dataSavingTasks.some(
-    ({ config }) => (config as Record<string, unknown>).dataSaving === false,
+    ({ config }) =>
+      config != null &&
+      typeof config === "object" &&
+      "dataSaving" in config &&
+      config.dataSaving === false,
   );
   const canDisableDataSaving = dataSavingTasks.some(
-    ({ config }) => (config as Record<string, unknown>).dataSaving === true,
+    ({ config }) =>
+      config != null &&
+      typeof config === "object" &&
+      "dataSaving" in config &&
+      config.dataSaving === true,
   );
 
   const addStatus = Status.useAdder();
@@ -415,21 +425,19 @@ const ContextMenu = ({
             </PMenu.Item>
           )}
           {(canStart || canStop) && <PMenu.Divider />}
-          {hasDataSavingTasks && canEnableDataSaving && (
+          {canEnableDataSaving && (
             <PMenu.Item itemKey="enableDataSaving">
               <Icon.Save />
               Enable data saving
             </PMenu.Item>
           )}
-          {hasDataSavingTasks && canDisableDataSaving && (
+          {canDisableDataSaving && (
             <PMenu.Item itemKey="disableDataSaving">
               <Icon.Disable />
               Disable data saving
             </PMenu.Item>
           )}
-          {hasDataSavingTasks && (canEnableDataSaving || canDisableDataSaving) && (
-            <PMenu.Divider />
-          )}
+          {(canEnableDataSaving || canDisableDataSaving) && <PMenu.Divider />}
           {isSingle && (
             <>
               <PMenu.Item itemKey="edit">

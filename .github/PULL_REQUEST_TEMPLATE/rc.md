@@ -256,7 +256,7 @@ I can successfully:
     - [ ] Copy a link to a task.
     - [ ] Enable/Disable Data saving (individual and group)
       - [ ] Different run states and verify state persistence
-      - [ ] Different tak types (read/write)
+      - [ ] Different task types (read/write)
       - [ ] Different pre-configuration states
 - **Search and Command Palette**
   - [ ] Open an existing task configuration.
