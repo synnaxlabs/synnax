@@ -1284,8 +1284,8 @@ export const SelectPreview = ({
 
 export interface StateIndicatorProps
   extends
-    Omit<Primitives.StateIndicatorProps, "value">,
-    Omit<BaseStateIndicator.UseProps, "aetherKey"> {
+    Omit<Primitives.StateIndicatorProps, "matchedOptionKey">,
+    Omit<BaseStateIndicator.UseProps, "aetherKey" | "options"> {
   label?: LabelExtensionProps;
   options: Primitives.StateMapping[];
 }
@@ -1301,7 +1301,11 @@ export const StateIndicator = ({
   color: colorVal,
   inlineSize,
 }: SymbolProps<StateIndicatorProps>): ReactElement => {
-  const { value } = BaseStateIndicator.use({ aetherKey: symbolKey, source });
+  const { key: matchedOptionKey } = BaseStateIndicator.use({
+    aetherKey: symbolKey,
+    source,
+    options,
+  });
 
   const gridItems: GridItem[] = [];
   const labelItem = labelGridItem(label, onChange);
@@ -1319,7 +1323,7 @@ export const StateIndicator = ({
       }}
     >
       <Primitives.StateIndicator
-        value={value}
+        matchedOptionKey={matchedOptionKey}
         options={options}
         color={colorVal}
         inlineSize={inlineSize}
@@ -1332,7 +1336,7 @@ export const StateIndicatorPreview = ({
   color: colorVal,
 }: StateIndicatorProps): ReactElement => (
   <Primitives.StateIndicator
-    value={1}
+    matchedOptionKey="1"
     options={[{ key: "1", name: "Active", value: 1 }]}
     color={colorVal}
   />

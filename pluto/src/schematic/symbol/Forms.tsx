@@ -1325,7 +1325,7 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
         showIndicator: true,
         indicator: { statusSource: authSource },
       },
-      disabled: v == 0,
+      disabled: v === 0,
     });
   };
 

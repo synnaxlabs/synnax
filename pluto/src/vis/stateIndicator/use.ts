@@ -16,27 +16,24 @@ import { stateIndicator } from "@/vis/stateIndicator/aether";
 
 export interface UseProps extends Pick<
   z.input<typeof stateIndicator.stateZ>,
-  "source"
+  "source" | "options"
 > {
   aetherKey: string;
 }
 
-export interface UseReturn extends Pick<
-  z.infer<typeof stateIndicator.stateZ>,
-  "value"
-> {}
+export interface UseReturn extends Pick<z.infer<typeof stateIndicator.stateZ>, "key"> {}
 
-export const use = ({ aetherKey, source }: UseProps): UseReturn => {
-  const memoProps = useMemoDeepEqual({ source });
-  const [, { value }, setState] = Aether.use({
+export const use = ({ aetherKey, source, options }: UseProps): UseReturn => {
+  const memoProps = useMemoDeepEqual({ source, options });
+  const [, { key }, setState] = Aether.use({
     aetherKey,
     type: stateIndicator.StateIndicator.TYPE,
     schema: stateIndicator.stateZ,
-    initialState: { value: 0, ...memoProps },
+    initialState: { key: null, ...memoProps },
   });
   useEffect(
     () => setState((state) => ({ ...state, ...memoProps })),
     [memoProps, setState],
   );
-  return { value };
+  return { key };
 };

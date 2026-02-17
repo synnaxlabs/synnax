@@ -14,8 +14,14 @@ import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { type diagram } from "@/vis/diagram/aether";
 
-export const stateZ = z.object({
+const stateMappingZ = z.object({
+  key: z.string(),
   value: z.number(),
+});
+
+export const stateZ = z.object({
+  key: z.string().nullable().default(null),
+  options: z.array(stateMappingZ).default([]),
   source: telem.numberSourceSpecZ.default(telem.noopNumericSourceSpec),
 });
 
@@ -37,15 +43,18 @@ export class StateIndicator
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     this.internal.source = telem.useSource(ctx, this.state.source, i.source);
-    this.updateValue();
+    this.updateMatchedOption();
     i.stopListening?.();
-    i.stopListening = i.source.onChange(() => this.updateValue());
+    i.stopListening = i.source.onChange(() => this.updateMatchedOption());
   }
 
-  private updateValue(): void {
+  private updateMatchedOption(): void {
     const nextValue = this.internal.source.value();
-    if (nextValue === this.state.value || isNaN(nextValue)) return;
-    this.setState((p) => ({ ...p, value: nextValue }));
+    if (isNaN(nextValue)) return;
+    const matched = this.state.options.find((o) => o.value === nextValue);
+    const nextKey = matched?.key ?? null;
+    if (nextKey === this.state.key) return;
+    this.setState((p) => ({ ...p, key: nextKey }));
   }
 
   afterDelete(): void {

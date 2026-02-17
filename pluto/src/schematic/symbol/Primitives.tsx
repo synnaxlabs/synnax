@@ -2145,6 +2145,8 @@ export interface SetpointProps
   disabled?: boolean;
 }
 
+const SETPOINT_STYLE: CSSProperties = { zIndex: 5 };
+
 export const Setpoint = ({
   orientation = "left",
   className,
@@ -2174,7 +2176,7 @@ export const Setpoint = ({
           top={50}
           id="2"
           // Filled button has a z-index of 4 so we need to set this higher to show handle above
-          style={{ zIndex: 5 }}
+          style={SETPOINT_STYLE}
         />
         <Handle location="top" orientation={orientation} left={50} top={-2} id="3" />
         <Handle
@@ -4741,7 +4743,7 @@ export const Select = ({
 };
 
 export interface StateIndicatorProps extends DivProps {
-  value: number;
+  matchedOptionKey: string | null;
   options: StateMapping[];
   color?: color.Crude;
   inlineSize?: number;
@@ -4750,13 +4752,13 @@ export interface StateIndicatorProps extends DivProps {
 export const StateIndicator = ({
   className,
   orientation = "left",
-  value,
+  matchedOptionKey,
   options,
   color: colorVal,
   inlineSize,
   ...rest
 }: StateIndicatorProps): ReactElement => {
-  const matched = options.find((o) => o.value === value);
+  const matched = options.find((o) => o.key === matchedOptionKey);
   const stateColor = matched?.color;
   const borderColor = colorVal != null ? color.cssString(colorVal) : undefined;
   const backgroundColor = stateColor != null ? color.cssString(stateColor) : undefined;
@@ -4767,8 +4769,7 @@ export const StateIndicator = ({
           color.pickByContrast(stateColor, theme.colors.gray.l0, theme.colors.gray.l11),
         )
       : undefined;
-  const label =
-    matched != null ? matched.name || `Option ${matched.value}` : `Unknown (${value})`;
+  const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
   return (
     <Div
       className={CSS(CSS.B("state-indicator"), className)}
