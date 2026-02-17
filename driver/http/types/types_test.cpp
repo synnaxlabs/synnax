@@ -80,3 +80,75 @@ TEST(ParseMethodTest, MissingFieldErrors) {
     EXPECT_EQ(parse_method(p, "method"), Method::GET);
     EXPECT_FALSE(p.ok());
 }
+
+TEST(HasRequestBodyTest, POST) {
+    EXPECT_TRUE(has_request_body(Method::POST));
+}
+
+TEST(HasRequestBodyTest, PUT) {
+    EXPECT_TRUE(has_request_body(Method::PUT));
+}
+
+TEST(HasRequestBodyTest, PATCH) {
+    EXPECT_TRUE(has_request_body(Method::PATCH));
+}
+
+TEST(HasRequestBodyTest, OPTIONS) {
+    EXPECT_TRUE(has_request_body(Method::OPTIONS));
+}
+
+TEST(HasRequestBodyTest, GET) {
+    EXPECT_FALSE(has_request_body(Method::GET));
+}
+
+TEST(HasRequestBodyTest, HEAD) {
+    EXPECT_FALSE(has_request_body(Method::HEAD));
+}
+
+TEST(HasRequestBodyTest, DEL) {
+    EXPECT_FALSE(has_request_body(Method::DEL));
+}
+
+TEST(HasRequestBodyTest, CONNECT) {
+    EXPECT_FALSE(has_request_body(Method::CONNECT));
+}
+
+TEST(HasRequestBodyTest, TRACE) {
+    EXPECT_FALSE(has_request_body(Method::TRACE));
+}
+
+TEST(HasResponseBodyTest, GET) {
+    EXPECT_TRUE(has_response_body(Method::GET));
+}
+
+TEST(HasResponseBodyTest, POST) {
+    EXPECT_TRUE(has_response_body(Method::POST));
+}
+
+TEST(HasResponseBodyTest, PUT) {
+    EXPECT_TRUE(has_response_body(Method::PUT));
+}
+
+TEST(HasResponseBodyTest, DEL) {
+    EXPECT_TRUE(has_response_body(Method::DEL));
+}
+
+TEST(HasResponseBodyTest, PATCH) {
+    EXPECT_TRUE(has_response_body(Method::PATCH));
+}
+
+TEST(HasResponseBodyTest, OPTIONS) {
+    EXPECT_TRUE(has_response_body(Method::OPTIONS));
+}
+
+TEST(HasResponseBodyTest, TRACE) {
+    EXPECT_TRUE(has_response_body(Method::TRACE));
+}
+
+TEST(HasResponseBodyTest, HEAD) {
+    EXPECT_FALSE(has_response_body(Method::HEAD));
+}
+
+TEST(HasResponseBodyTest, CONNECT) {
+    EXPECT_FALSE(has_response_body(Method::CONNECT));
+}

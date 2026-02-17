@@ -36,4 +36,29 @@ inline Method parse_method(x::json::Parser &parser, const std::string &path) {
     return Method::GET;
 }
 
+/// @brief returns true if the method allows a request body.
+constexpr bool has_request_body(const Method m) {
+    switch (m) {
+        case Method::GET:
+        case Method::HEAD:
+        case Method::DEL:
+        case Method::CONNECT:
+        case Method::TRACE:
+            return false;
+        default:
+            return true;
+    }
+}
+
+/// @brief returns true if the method produces a response body.
+constexpr bool has_response_body(const Method m) {
+    switch (m) {
+        case Method::HEAD:
+        case Method::CONNECT:
+            return false;
+        default:
+            return true;
+    }
+}
+
 }
