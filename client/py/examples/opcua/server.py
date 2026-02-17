@@ -11,10 +11,10 @@ import asyncio
 import datetime
 import math
 import random
-from typing import Any
 
 from asyncua import Server, ua
 
+import synnax as sy
 from examples.simulators.device_sim import DeviceSim
 from synnax import opcua
 
@@ -184,7 +184,7 @@ async def update_bools(bools, elapsed):
 
 async def run_server(
     endpoint: str = "",
-    rate: float = DEFAULT_RATE,
+    rate: sy.Rate = DEFAULT_RATE * sy.Rate.HZ,
     array_size: int = DEFAULT_ARRAY_SIZE,
 ) -> None:
     # Initialize server
@@ -262,9 +262,10 @@ class OPCUASim(DeviceSim):
     def __init__(
         self,
         array_size: int = DEFAULT_ARRAY_SIZE,
-        **kwargs: Any,
+        rate: sy.Rate = 50 * sy.Rate.HZ,
+        verbose: bool = False,
     ):
-        super().__init__(**kwargs)
+        super().__init__(rate=rate, verbose=verbose)
         self.array_size = array_size
 
     async def _run_server(self) -> None:

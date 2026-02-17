@@ -51,10 +51,6 @@ class SimulatorTaskCase(TaskCase):
             task_name=task_name,
             **params,
         )
-        if not hasattr(self, "sim_class") or self.sim_class is None:
-            raise TypeError(
-                f"{self.__class__.__name__} must define 'sim_class' class attribute"
-            )
         self.device_name = self.sim_class.device_name
 
     def setup(self) -> None:
@@ -90,36 +86,11 @@ class SimulatorTaskCase(TaskCase):
         super().teardown()
         self.cleanup_simulator(log=True)
 
-    def _connect_device(
-        self,
-        max_retries: int = 10,
-        retry_delay: float = 1.0,
-    ) -> None:
+    def _connect_device(self) -> None:
         """Get or create the hardware device for this simulator."""
-        for attempt in range(max_retries):
-            try:
-                rack = self.client.racks.retrieve(name=self.RACK_NAME)
-                break
-            except Exception as e:
-                if attempt < max_retries - 1:
-                    sy.sleep(retry_delay)
-                else:
-                    raise AssertionError(
-                        f"Failed to retrieve rack '{self.RACK_NAME}' "
-                        f"after {max_retries} attempts: {e}"
-                    )
-        else:
-            raise AssertionError(
-                f"Rack '{self.RACK_NAME}' not found after {max_retries} attempts"
-            )
-
+        rack = self.client.racks.retrieve(name=self.RACK_NAME)
         device_instance = self.sim_class.create_device(rack.key)
-
         try:
-            device = self.client.devices.retrieve(name=device_instance.name)
+            self.client.devices.retrieve(name=device_instance.name)
         except sy.NotFoundError:
-            device = self.client.devices.create(device_instance)
-        except Exception as e:
-            raise AssertionError(f"Unexpected error creating device: {e}")
-
-        return
+            self.client.devices.create(device_instance)

@@ -7,7 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .base import SimDAQ, Simulator
+from .simdaq import SimDAQ
+from .simulator import Simulator
 from .device_sim import DeviceSim
 from .press import PressSimDAQ
 from .thermal import ThermalSimDAQ

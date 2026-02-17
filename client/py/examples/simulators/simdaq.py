@@ -9,34 +9,11 @@
 
 import argparse
 import threading
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 import synnax as sy
 
-
-class Simulator(ABC):
-    """Base class for all simulators."""
-
-    description: str = "Simulator"
-
-    def __init__(self, verbose: bool = False):
-        self.verbose = verbose
-        self._running = False
-
-    def _log(self, message: str) -> None:
-        """Print message only when verbose mode is enabled."""
-        if self.verbose:
-            print(f"[{self.__class__.__name__}] {message}")
-
-    @abstractmethod
-    def start(self) -> None:
-        """Start the simulator."""
-        ...
-
-    @abstractmethod
-    def stop(self, timeout: float = 5.0) -> None:
-        """Stop the simulator."""
-        ...
+from examples.simulators.simulator import Simulator
 
 
 class SimDAQ(Simulator):
@@ -77,17 +54,18 @@ class SimDAQ(Simulator):
                         if hasattr(val, "item"):
                             val = val.item()
                         if val != 0:
-                            self._log(f"Received end command on {self.end_cmd_channel}")
+                            self.log(f"Received end command on {self.end_cmd_channel}")
                             self._running = False
                             return
 
-    def stop(self, timeout: float = 5.0) -> None:
+    def stop(self, timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND) -> None:
         """Stop simulation and wait for threads to finish."""
         self._running = False
+        timeout_secs = float(timeout / sy.TimeSpan.SECOND)
         if self._end_cmd_thread:
-            self._end_cmd_thread.join(timeout=timeout)
+            self._end_cmd_thread.join(timeout=timeout_secs)
         if self._thread:
-            self._thread.join(timeout=timeout)
+            self._thread.join(timeout=timeout_secs)
 
     @abstractmethod
     def _create_channels(self) -> None:

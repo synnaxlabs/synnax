@@ -19,11 +19,12 @@ from pymodbus.datastore import (
 )
 from pymodbus.server import StartAsyncTcpServer
 
+import synnax as sy
 from examples.simulators.device_sim import DeviceSim
 from synnax import modbus
 
 
-async def updating_writer(context, rate: float = 50):
+async def updating_writer(context, rate: sy.Rate = 50 * sy.Rate.HZ):
     """Update Modbus registers continuously with simulated sensor data."""
     slave_id = 0x00
     start_ref = time.time()
@@ -97,7 +98,7 @@ class ModbusSim(DeviceSim):
 async def run_server(
     host: str = ModbusSim.host,
     port: int = ModbusSim.port,
-    rate: float = 50,
+    rate: sy.Rate = 50 * sy.Rate.HZ,
 ) -> None:
     """Run the Modbus TCP server."""
     # Initialize data store
