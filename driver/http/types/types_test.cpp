@@ -81,6 +81,42 @@ TEST(ParseMethodTest, MissingFieldErrors) {
     EXPECT_FALSE(p.ok());
 }
 
+TEST(ToStringTest, GET) {
+    EXPECT_STREQ(to_string(Method::GET), "GET");
+}
+
+TEST(ToStringTest, HEAD) {
+    EXPECT_STREQ(to_string(Method::HEAD), "HEAD");
+}
+
+TEST(ToStringTest, POST) {
+    EXPECT_STREQ(to_string(Method::POST), "POST");
+}
+
+TEST(ToStringTest, PUT) {
+    EXPECT_STREQ(to_string(Method::PUT), "PUT");
+}
+
+TEST(ToStringTest, DEL) {
+    EXPECT_STREQ(to_string(Method::DEL), "DELETE");
+}
+
+TEST(ToStringTest, PATCH) {
+    EXPECT_STREQ(to_string(Method::PATCH), "PATCH");
+}
+
+TEST(ToStringTest, OPTIONS) {
+    EXPECT_STREQ(to_string(Method::OPTIONS), "OPTIONS");
+}
+
+TEST(ToStringTest, TRACE) {
+    EXPECT_STREQ(to_string(Method::TRACE), "TRACE");
+}
+
+TEST(ToStringTest, CONNECT) {
+    EXPECT_STREQ(to_string(Method::CONNECT), "CONNECT");
+}
+
 TEST(HasRequestBodyTest, POST) {
     EXPECT_TRUE(has_request_body(Method::POST));
 }

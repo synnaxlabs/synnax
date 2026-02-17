@@ -59,9 +59,9 @@ struct Handle {
     CURL *handle = nullptr;
     struct curl_slist *headers = nullptr;
     std::string response_body;
-    bool accepts_body = false;
+    Method method;
     std::string expected_content_type;
-    CURLcode result_code = CURLE_OK;
+    CURLcode result_code;
 
     Handle() = default;
 
@@ -77,7 +77,7 @@ struct Handle {
         handle(other.handle),
         headers(other.headers),
         response_body(std::move(other.response_body)),
-        accepts_body(other.accepts_body),
+        method(other.method),
         expected_content_type(std::move(other.expected_content_type)),
         result_code(other.result_code) {
         other.handle = nullptr;
@@ -88,9 +88,9 @@ struct Handle {
 namespace {
 /// @brief sets the request body on a handle. CURLOPT_POSTFIELDS does not copy — it
 /// stores the pointer, so body must outlive the perform call. Methods that don't accept
-/// bodies (TRACE) silently skip body setting.
+/// bodies silently skip body setting.
 void set_body(Handle &h, const std::string &body) {
-    if (!h.accepts_body) return;
+    if (!has_request_body(h.method)) return;
     if (!body.empty()) {
         curl_easy_setopt(h.handle, CURLOPT_POSTFIELDS, body.c_str());
         curl_easy_setopt(h.handle, CURLOPT_POSTFIELDSIZE, body.size());
@@ -109,6 +109,7 @@ build_result(Handle &h, x::telem::TimeStamp start) {
     double total_secs = 0;
     curl_easy_getinfo(h.handle, CURLINFO_TOTAL_TIME, &total_secs);
     const auto elapsed = x::telem::TimeSpan(static_cast<int64_t>(total_secs * 1e9));
+    if (!has_response_body(h.method)) h.response_body.clear();
     x::errors::Error err = x::errors::NIL;
     if (h.result_code != CURLE_OK) {
         err = parse_curl_error(h.result_code);
@@ -150,12 +151,13 @@ Client::Client(Client &&other) noexcept:
 std::pair<Client, x::errors::Error>
 Client::create(ConnectionConfig config, const std::vector<RequestConfig> &requests) {
     for (const auto &req: requests) {
-        if (req.method == Method::HEAD && !req.response_content_type.empty())
+        if (!has_response_body(req.method) && !req.response_content_type.empty())
             return {
                 Client(),
                 x::errors::Error(
                     http::errors::CLIENT_ERROR,
-                    "HEAD requests must not set response_content_type"
+                    std::string(to_string(req.method)) +
+                        " requests must not set response_content_type"
                 ),
             };
     }
@@ -213,36 +215,13 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
         }
 
         // HTTP method (static per handle).
-        h.accepts_body = req.method != Method::TRACE;
-        switch (req.method) {
-            case Method::GET:
-                curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "GET");
-                break;
-            case Method::HEAD:
-                curl_easy_setopt(h.handle, CURLOPT_NOBODY, 1L);
-                break;
-            case Method::POST:
-                curl_easy_setopt(h.handle, CURLOPT_POST, 1L);
-                break;
-            case Method::PUT:
-                curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "PUT");
-                break;
-            case Method::DEL:
-                curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "DELETE");
-                break;
-            case Method::PATCH:
-                curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "PATCH");
-                break;
-            case Method::OPTIONS:
-                curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "OPTIONS");
-                break;
-            case Method::TRACE:
-                curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "TRACE");
-                break;
-            case Method::CONNECT:
-                curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, "CONNECT");
-                break;
-        }
+        h.method = req.method;
+        if (h.method == Method::HEAD)
+            curl_easy_setopt(h.handle, CURLOPT_NOBODY, 1L);
+        else if (h.method == Method::POST)
+            curl_easy_setopt(h.handle, CURLOPT_POST, 1L);
+        else if (h.method != Method::GET)
+            curl_easy_setopt(h.handle, CURLOPT_CUSTOMREQUEST, to_string(h.method));
 
         // Auth headers (static).
         if (config_.auth.type == "bearer") {
@@ -274,7 +253,7 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
         if (!req.request_content_type.empty()) {
             const std::string ct_hdr = "Content-Type: " + req.request_content_type;
             h.headers = curl_slist_append(h.headers, ct_hdr.c_str());
-        } else if (h.accepts_body) {
+        } else if (has_request_body(req.method)) {
             h.headers = curl_slist_append(h.headers, "Content-Type:");
         }
 

@@ -17,6 +17,32 @@ namespace driver::http {
 /// @brief supported HTTP methods.
 enum class Method { GET, HEAD, POST, PUT, DEL, PATCH, OPTIONS, TRACE, CONNECT };
 
+/// @brief returns the HTTP method string (e.g., Method::DEL returns "DELETE").
+/// @param m the method.
+/// @returns the method string.
+constexpr const char *to_string(const Method m) {
+    switch (m) {
+        case Method::GET:
+            return "GET";
+        case Method::HEAD:
+            return "HEAD";
+        case Method::POST:
+            return "POST";
+        case Method::PUT:
+            return "PUT";
+        case Method::DEL:
+            return "DELETE";
+        case Method::PATCH:
+            return "PATCH";
+        case Method::OPTIONS:
+            return "OPTIONS";
+        case Method::TRACE:
+            return "TRACE";
+        case Method::CONNECT:
+            return "CONNECT";
+    }
+}
+
 /// @brief parses an HTTP method from a JSON string field.
 /// @param parser the JSON parser to read from.
 /// @param path the field path.

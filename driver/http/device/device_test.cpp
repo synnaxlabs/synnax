@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <chrono>
 #include <string>
 #include <vector>
 
@@ -1328,7 +1327,7 @@ TEST(ClientTest, AcceptHeaderSent) {
     server.stop();
 }
 
-TEST(ClientTest, GETRequestWithBody) {
+TEST(ClientTest, GETIgnoresRequestBody) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
@@ -1351,12 +1350,12 @@ TEST(ClientTest, GETRequestWithBody) {
 
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
-    EXPECT_EQ(reqs[0].body, R"({"filter": true})");
+    EXPECT_TRUE(reqs[0].body.empty());
 
     server.stop();
 }
 
-TEST(ClientTest, DELETERequestWithBody) {
+TEST(ClientTest, DELETEIgnoresRequestBody) {
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::DEL,
@@ -1379,7 +1378,7 @@ TEST(ClientTest, DELETERequestWithBody) {
 
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
-    EXPECT_EQ(reqs[0].body, R"({"ids": [1, 2, 3]})");
+    EXPECT_TRUE(reqs[0].body.empty());
 
     server.stop();
 }
@@ -1412,15 +1411,32 @@ TEST(ClientTest, HEADRequest) {
 
 TEST(ClientTest, HEADWithResponseContentTypeErrors) {
     auto config = make_config({{"base_url", "http://localhost"}});
-    auto [client, err] = Client::create(
-        config,
-        {{
-            .method = Method::HEAD,
-            .path = "/api/head",
-            .response_content_type = "application/json",
-        }}
+    ASSERT_OCCURRED_AS_P(
+        Client::create(
+            config,
+            {{
+                .method = Method::HEAD,
+                .path = "/api/head",
+                .response_content_type = "application/json",
+            }}
+        ),
+        errors::CLIENT_ERROR
     );
-    ASSERT_OCCURRED_AS(err, errors::CLIENT_ERROR);
+}
+
+TEST(ClientTest, CONNECTWithResponseContentTypeErrors) {
+    auto config = make_config({{"base_url", "http://localhost"}});
+    ASSERT_OCCURRED_AS_P(
+        Client::create(
+            config,
+            {{
+                .method = Method::CONNECT,
+                .path = "/tunnel",
+                .response_content_type = "application/json",
+            }}
+        ),
+        errors::CLIENT_ERROR
+    );
 }
 
 TEST(ClientTest, OPTIONSRequest) {
