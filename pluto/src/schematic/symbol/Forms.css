@@ -20,12 +20,12 @@
         & > .pluto-btn {
             margin-left: 1rem;
         }
-    }
-    .pluto-list__item {
-        min-height: unset;
-        padding: 1rem 2rem;
-    }
-    .pluto-state-mapping-list__value {
-        width: 80px;
+        .pluto-list__item {
+            min-height: unset;
+            padding: 1rem 2rem;
+        }
+        .pluto-state-mapping-list__value {
+            width: 80px;
+        }
     }
 }

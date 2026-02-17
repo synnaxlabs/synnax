@@ -53,41 +53,39 @@ class SelectStateIndicator(ConsoleCase):
         self._cleanup_pages.append(schematic.page_name)
 
         self.log("Creating Select symbol")
-        select_symbol = schematic.create_symbol(
-            Select(
-                label="State Control",
-                channel_name=CHANNEL_NAME,
-                options=options,
-            )
+        select = Select(
+            label="State Control",
+            channel_name=CHANNEL_NAME,
+            options=options,
         )
-        select_symbol.move(delta_x=-200, delta_y=0)
+        schematic.create_symbol(select)
+        select.move(delta_x=-200, delta_y=0)
 
         self.log("Creating State Indicator symbol")
-        indicator_symbol = schematic.create_symbol(
-            StateIndicator(
-                label="State Display",
-                channel_name=CHANNEL_NAME,
-                options=options,
-            )
+        indicator = StateIndicator(
+            label="State Display",
+            channel_name=CHANNEL_NAME,
+            options=options,
         )
-        indicator_symbol.move(delta_x=200, delta_y=0)
+        schematic.create_symbol(indicator)
+        indicator.move(delta_x=200, delta_y=0)
 
-        schematic.connect_symbols(select_symbol, "right", indicator_symbol, "left")
+        schematic.connect_symbols(select, "right", indicator, "left")
 
         self.log("Sending 'Open' via Select")
-        select_symbol.send("Open")
+        select.send("Open")
         self.wait_for_eq(CHANNEL_NAME, 1)
-        self._assert_indicator_label(indicator_symbol, "Open")
+        self._assert_indicator_label(indicator, "Open")
 
         self.log("Sending 'Closed' via Select")
-        select_symbol.send("Closed")
+        select.send("Closed")
         self.wait_for_eq(CHANNEL_NAME, 2)
-        self._assert_indicator_label(indicator_symbol, "Closed")
+        self._assert_indicator_label(indicator, "Closed")
 
         self.log("Sending 'Standby' via Select")
-        select_symbol.send("Standby")
+        select.send("Standby")
         self.wait_for_eq(CHANNEL_NAME, 3)
-        self._assert_indicator_label(indicator_symbol, "Standby")
+        self._assert_indicator_label(indicator, "Standby")
 
         schematic.screenshot()
 

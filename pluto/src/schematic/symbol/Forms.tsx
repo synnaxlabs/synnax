@@ -1307,8 +1307,7 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
   const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
 
-  const handleSinkChange = (v: channel.Key | null): void => {
-    v ??= 0;
+  const handleSinkChange = (v: channel.Key): void => {
     const t = telem.sinkPipeline("number", {
       connections: [],
       segments: { setter: control.setChannelValue({ channel: v }) },
