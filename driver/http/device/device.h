@@ -10,6 +10,7 @@
 #pragma once
 
 #include <map>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -143,13 +144,15 @@ struct Response {
 
 /// @brief a handle to a curl request. Should not be constructed or used directly.
 struct Handle;
+/// @brief RAII wrapper around a curl multi handle.
+struct MultiHandle;
 
 /// @brief RAII wrapper around libcurl for making HTTP requests. Curl handles are
 /// pre-built at construction time from the connection and request configurations so the
 /// hot-path request() only needs to set the body, perform I/O, and read results.
 class Client {
     ConnectionConfig config_;
-    void *multi_handle_ = nullptr;
+    std::unique_ptr<MultiHandle> multi_handle_;
     std::vector<Handle> handles_;
 
     Client(const Client &) = delete;

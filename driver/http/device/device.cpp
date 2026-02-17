@@ -54,6 +54,32 @@ x::errors::Error parse_curl_error(CURLcode code) {
 }
 }
 
+struct MultiHandle {
+    CURLM *handle = nullptr;
+
+    MultiHandle(): handle(curl_multi_init()) {}
+
+    ~MultiHandle() {
+        if (handle != nullptr) curl_multi_cleanup(handle);
+    }
+
+    MultiHandle(const MultiHandle &) = delete;
+    MultiHandle &operator=(const MultiHandle &) = delete;
+
+    MultiHandle(MultiHandle &&other) noexcept: handle(other.handle) {
+        other.handle = nullptr;
+    }
+
+    MultiHandle &operator=(MultiHandle &&other) noexcept {
+        if (this != &other) {
+            if (handle != nullptr) curl_multi_cleanup(handle);
+            handle = other.handle;
+            other.handle = nullptr;
+        }
+        return *this;
+    }
+};
+
 /// @brief internal handle that wraps a pre-configured curl easy handle.
 struct Handle {
     CURL *handle = nullptr;
@@ -143,10 +169,8 @@ Client::Client(): config_(x::json::Parser(x::json::json{{"base_url", ""}})) {}
 
 Client::Client(Client &&other) noexcept:
     config_(std::move(other.config_)),
-    multi_handle_(other.multi_handle_),
-    handles_(std::move(other.handles_)) {
-    other.multi_handle_ = nullptr;
-}
+    multi_handle_(std::move(other.multi_handle_)),
+    handles_(std::move(other.handles_)) {}
 
 std::pair<Client, x::errors::Error>
 Client::create(ConnectionConfig config, const std::vector<RequestConfig> &requests) {
@@ -167,7 +191,7 @@ Client::create(ConnectionConfig config, const std::vector<RequestConfig> &reques
 Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &requests):
     config_(std::move(config)) {
     ensure_curl_initialized();
-    multi_handle_ = curl_multi_init();
+    multi_handle_ = std::make_unique<MultiHandle>();
     handles_.reserve(requests.size());
 
     for (const auto &req: requests) {
@@ -276,9 +300,7 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
     }
 }
 
-Client::~Client() {
-    if (multi_handle_ != nullptr) curl_multi_cleanup(multi_handle_);
-}
+Client::~Client() = default;
 
 std::pair<std::vector<std::pair<Response, x::errors::Error>>, x::errors::Error>
 Client::execute_requests(const std::vector<std::string> &bodies) {
@@ -295,7 +317,7 @@ Client::execute_requests(const std::vector<std::string> &bodies) {
     }
 
     // Multi-handle path.
-    auto *multi = static_cast<CURLM *>(multi_handle_);
+    auto *multi = multi_handle_->handle;
 
     for (size_t i = 0; i < handles_.size(); i++) {
         auto &h = handles_[i];
