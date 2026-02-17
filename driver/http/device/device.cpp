@@ -34,20 +34,20 @@ size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {
 }
 
 x::errors::Error parse_curl_error(CURLcode code) {
+    if (code == CURLE_OK) return x::errors::NIL;
+    const auto code_str = std::to_string(static_cast<int>(code));
     switch (code) {
-        case CURLE_OK:
-            return x::errors::NIL;
         case CURLE_COULDNT_CONNECT:
         case CURLE_COULDNT_RESOLVE_HOST:
         case CURLE_COULDNT_RESOLVE_PROXY:
         case CURLE_OPERATION_TIMEDOUT:
             return x::errors::Error(
-                http::errors::UNREACHABLE_ERROR,
+                http::errors::UNREACHABLE_ERROR.sub(code_str),
                 curl_easy_strerror(code)
             );
         default:
             return x::errors::Error(
-                http::errors::CLIENT_ERROR,
+                http::errors::CLIENT_ERROR.sub(code_str),
                 curl_easy_strerror(code)
             );
     }

@@ -14,20 +14,20 @@
 #include "driver/errors/errors.h"
 
 namespace driver::http::errors {
-/// @brief HTTP client error (4xx responses or configuration issues).
-const x::errors::Error CLIENT_ERROR = driver::errors::CRITICAL_HARDWARE_ERROR.sub(
-    "http.client"
+/// @brief base critical error for the HTTP integration.
+const x::errors::Error CRITICAL_ERROR = driver::errors::CRITICAL_HARDWARE_ERROR.sub(
+    "http"
 );
-/// @brief HTTP server error (5xx responses).
-const x::errors::Error SERVER_ERROR = driver::errors::TEMPORARY_HARDWARE_ERROR.sub(
-    "http.server"
+/// @brief base temporary error for the HTTP integration.
+const x::errors::Error TEMPORARY_ERROR = driver::errors::TEMPORARY_HARDWARE_ERROR.sub(
+    "http"
 );
-/// @brief HTTP server unreachable (connection refused, DNS failure, or timeout).
-const x::errors::Error UNREACHABLE_ERROR = driver::errors::TEMPORARY_HARDWARE_ERROR.sub(
-    "http.unreachable"
-);
+/// @brief HTTP client error (configuration issues or unrecognized curl errors).
+const x::errors::Error CLIENT_ERROR = CRITICAL_ERROR.sub("client");
 /// @brief HTTP response parse error.
-const x::errors::Error PARSE_ERROR = driver::errors::CRITICAL_HARDWARE_ERROR.sub(
-    "http.parse"
-);
+const x::errors::Error PARSE_ERROR = CRITICAL_ERROR.sub("parse");
+/// @brief HTTP server unreachable (connection refused, DNS failure, or timeout).
+const x::errors::Error UNREACHABLE_ERROR = TEMPORARY_ERROR.sub("unreachable");
+/// @brief HTTP server error (5xx responses).
+const x::errors::Error SERVER_ERROR = TEMPORARY_ERROR.sub("server");
 }
