@@ -200,7 +200,7 @@ Client::Client(ConnectionConfig config, const std::vector<RequestConfig> &reques
         curl_easy_setopt(
             h.handle,
             CURLOPT_TIMEOUT_MS,
-            static_cast<long>(config_.timeout_ms)
+            static_cast<long>(config_.timeout.milliseconds())
         );
 
         // Write callback (static).
@@ -340,7 +340,10 @@ Client::request(const std::vector<std::string> &bodies) {
             };
         }
         if (still_running > 0)
-            curl_multi_poll(multi, nullptr, 0, config_.timeout_ms, nullptr);
+            curl_multi_poll(
+                multi, nullptr, 0,
+                static_cast<int>(config_.timeout.milliseconds()), nullptr
+            );
     } while (still_running > 0);
 
     CURLMsg *msg;

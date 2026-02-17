@@ -14,6 +14,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/base64/base64.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/http/device/device.h"
@@ -114,7 +115,7 @@ TEST(ConnectionConfigTest, FromJSON) {
     x::json::Parser parser(j);
     ConnectionConfig config(parser);
     EXPECT_EQ(config.base_url, "http://192.168.1.100:8080");
-    EXPECT_EQ(config.timeout_ms, 5000);
+    EXPECT_EQ(config.timeout, 5 * x::telem::SECOND);
     EXPECT_EQ(config.auth.type, "bearer");
     EXPECT_EQ(config.auth.token, "abc123");
     EXPECT_EQ(config.headers["X-Custom"], "value");
@@ -125,7 +126,7 @@ TEST(ConnectionConfigTest, DefaultsApplied) {
     x::json::Parser parser(j);
     ConnectionConfig config(parser);
     EXPECT_EQ(config.base_url, "http://localhost");
-    EXPECT_EQ(config.timeout_ms, 1000);
+    EXPECT_EQ(config.timeout, x::telem::SECOND);
     EXPECT_EQ(config.auth.type, "none");
     EXPECT_TRUE(config.headers.empty());
 }
@@ -143,7 +144,7 @@ TEST(ConnectionConfigTest, ToJSONRoundtrip) {
     ConnectionConfig parsed(parser);
 
     EXPECT_EQ(parsed.base_url, config.base_url);
-    EXPECT_EQ(parsed.timeout_ms, config.timeout_ms);
+    EXPECT_EQ(parsed.timeout, config.timeout);
     EXPECT_EQ(parsed.auth.type, config.auth.type);
     EXPECT_EQ(parsed.auth.username, config.auth.username);
     EXPECT_EQ(parsed.auth.password, config.auth.password);

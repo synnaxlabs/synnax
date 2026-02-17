@@ -68,7 +68,7 @@ struct AuthConfig {
 /// @brief connection configuration for an HTTP device.
 struct ConnectionConfig {
     std::string base_url; ///< Base URL (e.g., "http://192.168.1.100:8080").
-    uint32_t timeout_ms; ///< Request timeout in milliseconds.
+    x::telem::TimeSpan timeout; ///< Request timeout.
     AuthConfig auth; ///< Authentication configuration.
     std::map<std::string, std::string> headers; ///< Custom headers.
     bool verify_ssl; ///< Whether to verify SSL certificates.
@@ -77,21 +77,22 @@ struct ConnectionConfig {
     /// @param verify_ssl whether to verify SSL certificates (false only in tests).
     explicit ConnectionConfig(x::json::Parser parser, const bool verify_ssl = true):
         base_url(parser.field<std::string>("base_url")),
-        timeout_ms(parser.field<uint32_t>("timeout_ms", 1000)),
+        timeout(parser.field<uint32_t>("timeout_ms", 1000) *
+                    x::telem::MILLISECOND),
         auth(AuthConfig(parser.optional_child("auth"))),
         headers(parser.field<std::map<std::string, std::string>>(
             "headers",
             std::map<std::string, std::string>{}
         )),
         verify_ssl(verify_ssl) {
-        if (timeout_ms == 0)
-            parser.field_err("timeout_ms", "must be greater than zero");
+        if (timeout <= x::telem::TimeSpan::ZERO())
+            parser.field_err("timeout_ms", "must be positive");
     }
 
     [[nodiscard]] x::json::json to_json() const {
         x::json::json j = {
             {"base_url", base_url},
-            {"timeout_ms", timeout_ms},
+            {"timeout_ms", timeout.milliseconds()},
             {"auth", auth.to_json()},
         };
         if (!headers.empty()) {
