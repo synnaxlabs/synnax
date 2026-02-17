@@ -250,10 +250,14 @@ I can successfully:
   - [ ] Pause and play a task.
   - [ ] Open task configuration by double-clicking.
   - **Context Menu**
-    - [ ] Pause a task.
-    - [ ] Start a task.
+    - [ ] Pause a task. (individual and group)
+    - [ ] Start a task. (individual and group)
     - [ ] Open task configuration.
     - [ ] Copy a link to a task.
+    - [ ] Enable/Disable Data saving (individual and group)
+      - [ ] Different run states and verify state persistence
+      - [ ] Different task types (read/write)
+      - [ ] Different pre-configuration states
 - **Search and Command Palette**
   - [ ] Open an existing task configuration.
 - [ ] Open a task configuration from a link.
