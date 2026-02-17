@@ -104,6 +104,7 @@ import {
   MdHardware,
   MdHive,
   MdHorizontalDistribute,
+  MdHttp,
   MdInsights,
   MdKeyboardAlt,
   MdKeyboardArrowDown,
@@ -304,6 +305,7 @@ export const Logo = {
   OPC,
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
   EtherCAT,
+  HTTP: wrapSVGIcon(MdHttp, "logo-http"),
 };
 export const Arrow = {
   Right: wrapSVGIcon(TbArrowRight, "arrow-right"),
